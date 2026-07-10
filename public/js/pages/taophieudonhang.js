@@ -666,6 +666,7 @@ function _tpdRenderTechCardContent(data, steps) {
     // Setup Dates
     const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
     const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
+    const creatorName = (window.currentUser && window.currentUser.username) || o.cskh_name || '—';
 
     // Build unique URL for QR code scan
     const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}`;
@@ -744,6 +745,10 @@ function _tpdRenderTechCardContent(data, steps) {
                                 <tr>
                                     <td class="info-label">Ngày lên đơn:</td>
                                     <td class="info-value">${orderDate}</td>
+                                </tr>
+                                <tr>
+                                    <td class="info-label">Người lên đơn:</td>
+                                    <td class="info-value">${escapeHTML(creatorName)}</td>
                                 </tr>
                                 <tr>
                                     <td class="info-label">Ngày giao hàng:</td>
@@ -3580,6 +3585,7 @@ function _tpdUpdateLivePreview() {
     // Dates
     const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
     const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
+    const creatorName = (window.currentUser && window.currentUser.username) || o.cskh_name || '—';
 
     // Build department deep link QR url
     const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${state.activeItemIndex}`;
@@ -3603,12 +3609,13 @@ function _tpdUpdateLivePreview() {
 
             <!-- Metadata info grid -->
             <div class="tpd-a4-meta-grid">
-                <div class="tpd-a4-meta-item" style="grid-column: span 2;"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${creatorName}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</span></div>
 
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Sản phẩm:</span> <span id="prev_product_name" class="tpd-a4-meta-val" style="color: #16a34a;">${it.product_name || '—'}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế / Mẫu rập:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'} / ${it.pattern_name || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Chất liệu vải:</span> <span id="prev_material_name" class="tpd-a4-meta-val">${it.material_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Màu sắc phối:</span> <span id="prev_color_name" class="tpd-a4-meta-val">${it.color_name || '—'}</span></div>
             </div>
@@ -4644,6 +4651,7 @@ async function _tpdPrintAllSheets() {
         // Dates
         const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
         const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
+        const creatorName = (window.currentUser && window.currentUser.username) || o.cskh_name || '—';
 
         // QR
         const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${idx}`;
@@ -4668,12 +4676,13 @@ async function _tpdPrintAllSheets() {
 
                     <!-- Metadata info grid -->
                     <div class="tpd-a4-meta-grid">
-                        <div class="tpd-a4-meta-item" style="grid-column: span 2;"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${creatorName}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</span></div>
 
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Sản phẩm:</span> <span class="tpd-a4-meta-val" style="color: #16a34a;">${it.product_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế / Mẫu rập:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'} / ${it.pattern_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Chất liệu vải:</span> <span class="tpd-a4-meta-val">${it.material_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Màu sắc phối:</span> <span class="tpd-a4-meta-val">${it.color_name || '—'}</span></div>
                     </div>
