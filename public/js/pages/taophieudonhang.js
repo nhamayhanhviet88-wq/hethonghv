@@ -4552,52 +4552,47 @@ function _tpdRenderFormInputs() {
 
 
 
-    // 7. Layout Customize Panel
-    html += `
-        <div class="tpd-ws-form-group" style="margin-top: 24px; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #f8fafc;">
-            <div style="font-size: 12px; font-weight: 900; color: #122546; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                📐 TÙY CHỈNH BỐ CỤC PHIẾU (A4 LAYOUT)
-            </div>
-            
-            <!-- Mockup Height slider -->
-            <div style="margin-bottom: 12px;">
-                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">
-                    <span>Chiều cao khung ảnh:</span>
-                    <span id="tpd_lbl_height">${layout.height ? layout.height + 'mm' : 'Tự động'}</span>
+    // 7. Layout Customize Panel (Only show and edit for giam_doc)
+    if (state.role === 'giam_doc') {
+        html += `
+            <div class="tpd-ws-form-group" style="margin-top: 24px; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #f8fafc;">
+                <div style="font-size: 12px; font-weight: 900; color: #122546; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    📐 TÙY CHỈNH BỐ CỤC PHIẾU (A4 LAYOUT)
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="range" min="30" max="200" value="${layout.height || 84}" class="slider" style="flex: 1; cursor: pointer;" oninput="_tpdChangeLayoutHeight(this.value)">
-                    <button type="button" class="tpd-btn" style="padding: 2px 6px; font-size: 10px; height: auto;" onclick="_tpdResetLayoutHeight()">Tự động</button>
+                
+                <!-- Mockup Height slider -->
+                <div style="margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">
+                        <span>Chiều cao khung ảnh:</span>
+                        <span id="tpd_lbl_height">${layout.height ? layout.height + 'mm' : 'Tự động'}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="range" min="30" max="200" value="${layout.height || 84}" class="slider" style="flex: 1; cursor: pointer;" oninput="_tpdChangeLayoutHeight(this.value)">
+                        <button type="button" class="tpd-btn" style="padding: 2px 6px; font-size: 10px; height: auto;" onclick="_tpdResetLayoutHeight()">Tự động</button>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Spacing top slider -->
-            <div style="margin-bottom: 12px;">
-                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">
-                    <span>Khoảng cách từ viền trên:</span>
-                    <span id="tpd_lbl_spacing">${layout.topSpacing !== undefined ? layout.topSpacing : 5}px</span>
+                <!-- Spacing top slider -->
+                <div style="margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">
+                        <span>Khoảng cách từ viền trên:</span>
+                        <span id="tpd_lbl_spacing">${layout.topSpacing !== undefined ? layout.topSpacing : 5}px</span>
+                    </div>
+                    <input type="range" min="0" max="50" value="${layout.topSpacing !== undefined ? layout.topSpacing : 5}" class="slider" style="width: 100%; cursor: pointer;" oninput="_tpdChangeLayoutSpacing(this.value)">
                 </div>
-                <input type="range" min="0" max="50" value="${layout.topSpacing !== undefined ? layout.topSpacing : 5}" class="slider" style="width: 100%; cursor: pointer;" oninput="_tpdChangeLayoutSpacing(this.value)">
-            </div>
 
-            <!-- Alignment buttons -->
-            <div style="margin-bottom: 12px;">
-                <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 6px;">Căn lề khung ảnh:</div>
-                <div style="display: flex; gap: 6px;">
-                    <button type="button" class="tpd-btn ${layout.alignment === 'flex-start' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('flex-start')">Trái</button>
-                    <button type="button" class="tpd-btn ${layout.alignment === 'center' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('center')">Giữa</button>
-                    <button type="button" class="tpd-btn ${layout.alignment === 'flex-end' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('flex-end')">Phải</button>
+                <!-- Alignment buttons -->
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 6px;">Căn lề khung ảnh:</div>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="tpd-btn ${layout.alignment === 'flex-start' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('flex-start')">Trái</button>
+                        <button type="button" class="tpd-btn ${layout.alignment === 'center' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('center')">Giữa</button>
+                        <button type="button" class="tpd-btn ${layout.alignment === 'flex-end' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('flex-end')">Phải</button>
+                    </div>
                 </div>
             </div>
-
-            <!-- Editable checkbox -->
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="checkbox" id="tpd_chk_editable" ${layout.contentEditable ? 'checked' : ''} onchange="_tpdChangeLayoutEditable(this.checked)" style="cursor: pointer; margin: 0;">
-                <label for="tpd_chk_editable" style="font-size: 11px; font-weight: 700; color: #dc2626; cursor: pointer; margin: 0; display: flex; align-items: center; gap: 4px;">
-                    ✏️ Cho phép chỉnh sửa chữ trực tiếp trên phiếu
-                </label>
-            </div>
-        </div>
+        `;
+    }
     `;
 
     container.innerHTML = html;
