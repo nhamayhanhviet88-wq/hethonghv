@@ -5672,8 +5672,16 @@ function _tpdGenerateConfirmationText(o, items) {
     text += ` 1. Nội dung in / thêu và kích thước trên MAKET :\n`;
     items.forEach((item, idx) => {
         text += `• Phiếu ${idx + 1} (${item.product_name || 'Đồng phục'}):\n`;
-        if (item.print_details && item.print_details.length > 0) {
-            item.print_details.forEach(d => {
+        
+        let printDetails = [];
+        if (typeof item.print_details === 'string') {
+            try { printDetails = JSON.parse(item.print_details); } catch(e) {}
+        } else if (Array.isArray(item.print_details)) {
+            printDetails = item.print_details;
+        }
+
+        if (printDetails && printDetails.length > 0) {
+            printDetails.forEach(d => {
                 const parts = [];
                 if (d.print_type) parts.push(d.print_type.trim());
                 if (d.width && d.width.trim()) parts.push(`Ngang ${d.width.trim()}`);
@@ -5695,8 +5703,15 @@ function _tpdGenerateConfirmationText(o, items) {
     // 2. Báo size
     text += ` 2. Báo size đã chốt ở phiếu đơn hàng :\n`;
     items.forEach((item, idx) => {
-        const sorted = (item.quantities && item.quantities.length > 0)
-            ? _tpdSortSizes(item.quantities.map(q => q.size)).map(sz => item.quantities.find(q => q.size === sz)).filter(Boolean)
+        let qtyArr = [];
+        if (typeof item.quantities === 'string') {
+            try { qtyArr = JSON.parse(item.quantities); } catch(e) {}
+        } else if (Array.isArray(item.quantities)) {
+            qtyArr = item.quantities;
+        }
+
+        const sorted = (qtyArr && qtyArr.length > 0)
+            ? _tpdSortSizes(qtyArr.map(q => q.size)).map(sz => qtyArr.find(q => q.size === sz)).filter(Boolean)
             : [];
             
         const qtyList = sorted
