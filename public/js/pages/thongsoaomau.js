@@ -86,7 +86,7 @@ async function _tsamLoad() {
         }
         var prodNames = s.product_names ? s.product_names.split(', ') : [];
         var prodBadges = prodNames.length ? prodNames.map(function(name) {
-            return '<span class="tsam-badge" style="background:#ede9fe;color:#6d28d9 !important;border:1px solid #ddd6fe;margin:2px;display:inline-block;white-space:normal;padding:2px 6px;text-align:center">' + name + '</span>';
+            return '<span class="tsam-badge" style="background:#ede9fe;color:#6d28d9 !important;border:1px solid #ddd6fe;margin:4px auto;display:block;width:fit-content;white-space:nowrap;padding:2px 6px;text-align:center">' + name + '</span>';
         }).join('') : '—';
         return '<tr style="cursor:pointer" onclick="_tsamDetail(' + s.id + ')">'
             + '<td style="text-align:center;color:var(--gray-400)">' + (i + 1) + '</td>'
@@ -355,7 +355,7 @@ async function _tsamDetail(id) {
     var updatedStr = '—'; try { if (s.updated_at) { var _d2 = new Date(s.updated_at); updatedStr = _d2.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); } } catch(e) {}
     var prodNames = s.product_names ? s.product_names.split(', ') : [];
     var prodBadges = prodNames.length ? prodNames.map(function(name) {
-        return '<span class="tsam-badge" style="background:#ede9fe;color:#6d28d9 !important;border:1px solid #ddd6fe;margin:2px;display:inline-block;white-space:normal;padding:2px 6px;text-align:center">' + name + '</span>';
+        return '<span class="tsam-badge" style="background:#ede9fe;color:#6d28d9 !important;border:1px solid #ddd6fe;margin:4px auto;display:block;width:fit-content;white-space:nowrap;padding:2px 6px;text-align:center">' + name + '</span>';
     }).join('') : '—';
     var body = '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:12px">'
         + '<table style="width:100%;font-size:13px;border-collapse:collapse">';
