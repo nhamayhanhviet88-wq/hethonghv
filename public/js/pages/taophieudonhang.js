@@ -3728,6 +3728,11 @@ function _tpdGetCustomLayout(index) {
         return item.detail && item.detail.trim().length > 0;
     });
 
+    // Sort sewing items by group priority
+    if (Array.isArray(layout.sewing_items)) {
+        _tpdSortBySewingGroup(layout.sewing_items, x => x.tech);
+    }
+
     // Sync back to custom_sewing string representation
     _tpdSyncCustomSewingText(layout);
 
@@ -6212,17 +6217,49 @@ function _tpdParseSewingTechs(customSewingStr) {
     return items;
 }
 
+function _tpdSortBySewingGroup(arr, getTechFn) {
+    if (!arr || arr.length <= 1) return arr;
+    const priority = ['NHÓM NẸP', 'Nhóm Cổ', 'Nhóm Bo / Tay', 'Khác'];
+    const normPriority = priority.map(p => _tpdNormalizeText(p));
+    
+    return arr.sort((a, b) => {
+        const techA = getTechFn ? getTechFn(a) : a;
+        const techB = getTechFn ? getTechFn(b) : b;
+        
+        const groupA = _tpdGetSewingTechGroup(techA);
+        const groupB = _tpdGetSewingTechGroup(techB);
+        
+        const normA = _tpdNormalizeText(groupA);
+        const normB = _tpdNormalizeText(groupB);
+        
+        let idxA = normPriority.indexOf(normA);
+        let idxB = normPriority.indexOf(normB);
+        
+        if (idxA === -1 && (normA === 'NHÓM KHÁC' || normA === 'KHÁC')) idxA = normPriority.indexOf('KHÁC');
+        if (idxB === -1 && (normB === 'NHÓM KHÁC' || normB === 'KHÁC')) idxB = normPriority.indexOf('KHÁC');
+        
+        if (idxA !== -1 && idxB !== -1) {
+            return idxA - idxB;
+        }
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        
+        return normA.localeCompare(normB);
+    });
+}
+
 function _tpdGetSewingTechniqueNames(sewingTechField) {
     if (!sewingTechField) return [];
     try {
         const arr = typeof sewingTechField === 'string' ? JSON.parse(sewingTechField) : sewingTechField;
         if (Array.isArray(arr)) {
-            return arr.map(x => {
+            const names = arr.map(x => {
                 if (x && typeof x === 'object') {
                     return x.name || x.tech || '';
                 }
                 return String(x);
             }).filter(Boolean);
+            return _tpdSortBySewingGroup(names);
         }
     } catch(e) {}
     return [];
@@ -6427,6 +6464,7 @@ function _tpdSyncCustomSewingText(layout) {
         layout.custom_sewing = '';
         return;
     }
+    _tpdSortBySewingGroup(layout.sewing_items, x => x.tech);
     layout.custom_sewing = layout.sewing_items
         .map(item => {
             const techName = item.tech === 'Khác' ? '' : item.tech;
