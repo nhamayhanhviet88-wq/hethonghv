@@ -3310,9 +3310,9 @@ function _tpdRenderA4SizeTable(it) {
             let values = '';
             namShortSizes.forEach(short => {
                 const qObj = namSizes.find(q => getShortSize(q.size) === short);
-                headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">	ext{${short}}</th>`;
+                headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
                 if (qObj) {
-                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 8px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
+                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 11px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
                     values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px;">
                         <div>${qObj.qty || 0}</div>
                         ${noteHtml}
@@ -3360,7 +3360,7 @@ function _tpdRenderA4SizeTable(it) {
                 const qObj = nuSizes.find(q => getShortSize(q.size) === short);
                 headers += `<th style="background:#fce7f3; color:#be185d; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
                 if (qObj) {
-                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 8px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
+                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 11px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
                     values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px;">
                         <div>${qObj.qty || 0}</div>
                         ${noteHtml}
@@ -3408,7 +3408,7 @@ function _tpdRenderA4SizeTable(it) {
                 const qObj = otherSizes.find(q => getShortSize(q.size) === short);
                 headers += `<th style="background:#f1f5f9; color:#475569; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
                 if (qObj) {
-                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 8px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
+                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 11px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
                     values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px;">
                         <div>${qObj.qty || 0}</div>
                         ${noteHtml}
@@ -3458,7 +3458,7 @@ function _tpdRenderA4SizeTable(it) {
 
         sortedQuantities.forEach(q => {
             sizeHeaders += `<th>${q.size}</th>`;
-            const noteHtml = q.note && q.note.trim() ? `<div style="font-size: 8px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(q.note)}</div>` : '';
+            const noteHtml = q.note && q.note.trim() ? `<div style="font-size: 11px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(q.note)}</div>` : '';
             sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px;">
                 <div>${q.qty || 0}</div>
                 ${noteHtml}
