@@ -3509,6 +3509,28 @@ function _tpdRenderA4SizeTable(it) {
     }
 }
 
+// Calculate table count to adjust images row height dynamically and avoid A4 overflow
+function _tpdGetImagesRowHeight(it) {
+    let tableCount = 1;
+    if (_tpdIsNamNuSize(it.size_type)) {
+        const activeQuantities = (it.quantities || []).filter(q => Number(q.qty) > 0 || (q.note && q.note.trim()));
+        if (activeQuantities.length > 0) {
+            const hasNam = activeQuantities.some(q => q.size.toLowerCase().includes('nam'));
+            const hasNu = activeQuantities.some(q => q.size.toLowerCase().includes('nữ') || q.size.toLowerCase().includes('nu'));
+            const hasOther = activeQuantities.some(q => !q.size.toLowerCase().includes('nam') && !q.size.toLowerCase().includes('nữ') && !q.size.toLowerCase().includes('nu'));
+            tableCount = [hasNam, hasNu, hasOther].filter(Boolean).length;
+            if (tableCount === 0) tableCount = 1;
+        }
+    }
+    
+    if (tableCount === 2) {
+        return '62mm';
+    } else if (tableCount >= 3) {
+        return '46mm';
+    }
+    return '84mm';
+}
+
 // Generate the Left landscape A4 Card Preview HTML
 function _tpdUpdateLivePreview() {
     const container = document.getElementById('tpdWorkspacePreviewContainer');
@@ -3557,7 +3579,7 @@ function _tpdUpdateLivePreview() {
             </div>
 
             <!-- Images Row -->
-            <div class="tpd-a4-images-row">
+            <div class="tpd-a4-images-row" style="height: ${_tpdGetImagesRowHeight(it)};">
                 <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup">
                     <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn (Click/Ctrl+V)</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
@@ -4474,7 +4496,7 @@ async function _tpdPrintAllSheets() {
                     </div>
 
                     <!-- Images Row -->
-                    <div class="tpd-a4-images-row">
+                    <div class="tpd-a4-images-row" style="height: ${_tpdGetImagesRowHeight(it)};">
                         <div class="tpd-a4-mockup-wrapper">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
