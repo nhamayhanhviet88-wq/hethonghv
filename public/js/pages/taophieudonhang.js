@@ -5229,6 +5229,13 @@ function _tpdUpdateDetailField(idx, field, value) {
 
     it.print_details[idx][field] = cleanVal;
 
+    // Mutually exclusive Ngang (width) and Cao (height)
+    if (field === 'width' && cleanVal) {
+        it.print_details[idx]['height'] = '';
+    } else if (field === 'height' && cleanVal) {
+        it.print_details[idx]['width'] = '';
+    }
+
     // Backward compatibility sync
     if (field === 'offset_value') {
         const d = it.print_details[idx];
@@ -5490,6 +5497,11 @@ function _tpdValidateAllSheets() {
                     _tpdSwitchItemTab(idx);
                     return false;
                 }
+                if (hasWidth && hasHeight) {
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Chỉ được điền kích thước Ngang HOẶC Cao cho vị trí "${d.position}" (không điền cả hai)!`, 'error');
+                    _tpdSwitchItemTab(idx);
+                    return false;
+                }
                 const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
                 if (posConfig && posConfig.require_offset) {
                     const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
@@ -5518,6 +5530,13 @@ function _tpdValidateAllSheets() {
                     return false;
                 }
             }
+        }
+
+        // 4. Validate mockup image is uploaded
+        if (!it.mockup_image || !it.mockup_image.trim()) {
+            showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng tải lên Hình ảnh thiết kế Mockup lớn!`, 'error');
+            _tpdSwitchItemTab(idx);
+            return false;
         }
     }
     return true;
