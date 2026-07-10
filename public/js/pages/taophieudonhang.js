@@ -3824,7 +3824,21 @@ function _tpdRenderFormInputs() {
 
     const disabledAttr = state.hasEditPermission ? '' : 'disabled';
 
-    // 1. Text Fields
+    // Compute defaults for overrides placeholders
+    let defaultSewing = '—';
+    if (it.tsam_sewing_tech) {
+        try {
+            const arr = typeof it.tsam_sewing_tech === 'string' ? JSON.parse(it.tsam_sewing_tech) : it.tsam_sewing_tech;
+            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
+        } catch(e){}
+    } else if (it.sewing_techniques) {
+        try {
+            const arr = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : it.sewing_techniques;
+            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
+        } catch(e){}
+    }
+
+    // 1. Text Fields (Sản phẩm, Chất liệu vải, Màu sắc phối)
     let html = `
         <div class="tpd-ws-form-group">
             <label class="tpd-ws-form-label">Sản phẩm</label>
@@ -3843,7 +3857,159 @@ function _tpdRenderFormInputs() {
         </div>
     `;
 
-    // 2. Size Breakdown Grid
+    // 2. Kỹ Thuật May
+    html += `
+        <div class="tpd-ws-form-group" style="margin-top: 10px; margin-bottom: 20px;">
+            <label class="tpd-ws-form-label">Kỹ Thuật May</label>
+            <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(defaultSewing)}" value="${escapeHTML(layout.custom_sewing || '')}" oninput="_tpdChangeCustomInfo('custom_sewing', this.value)" ${disabledAttr}>
+        </div>
+    `;
+
+    // 3. Vị trí in / thêu chi tiết
+    const details = (it.print_details || [])
+        .map((d, idx) => ({ ...d, originalIndex: idx }));
+
+    const posWeights = {
+        'ngực': 1,
+        'lưng': 2,
+        'bụng': 3,
+        'tay trái': 4,
+        'tay phải': 5,
+        'gáy': 6
+    };
+    details.sort((a, b) => {
+        const aPos = (a.position || '').trim().toLowerCase();
+        const bPos = (b.position || '').trim().toLowerCase();
+        let aW = 999;
+        let bW = 999;
+        for (const [k, w] of Object.entries(posWeights)) {
+            if (aPos === k || aPos.startsWith(k)) { aW = w; break; }
+        }
+        for (const [k, w] of Object.entries(posWeights)) {
+            if (bPos === k || bPos.startsWith(k)) { bW = w; break; }
+        }
+        if (aW !== bW) return aW - bW;
+        return aPos.localeCompare(bPos, 'vi');
+    });
+
+    let detailBoxesHtml = '';
+    details.forEach((d) => {
+        const idx = d.originalIndex;
+        const isCustomType = d.print_type && !['Thêu', 'In PET', 'In 3D', 'In lưới', 'In Decal'].includes(d.print_type);
+        
+        let valWidth = d.width || '';
+        let valHeight = d.height || '';
+        if (!valWidth && !valHeight && d.dimension && d.dimension.trim()) {
+            const dim = d.dimension.trim();
+            const lowerDim = dim.toLowerCase();
+            if (lowerDim.includes('cao') || lowerDim.includes('h')) {
+                valHeight = dim.replace(/cao/i, '').trim();
+            } else if (lowerDim.includes('ngang') || lowerDim.includes('w')) {
+                valWidth = dim.replace(/ngang/i, '').trim();
+            } else {
+                valWidth = dim;
+            }
+        }
+
+        const isTypeMissing = !d.print_type || !d.print_type.trim();
+        const isDimMissing = !valWidth && !valHeight;
+        
+        const typeStyle = isTypeMissing 
+            ? 'flex: 1; padding: 2px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
+            : 'flex: 1; padding: 2px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; background: #fff;';
+            
+        const widthStyle = isDimMissing 
+            ? 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
+            : 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;';
+            
+        const heightStyle = isDimMissing 
+            ? 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
+            : 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;';
+
+        detailBoxesHtml += `
+            <div class="tpd-ws-detail-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #ffffff; display: flex; flex-direction: column; gap: 6px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <!-- Clear / Delete button -->
+                <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdRemoveDetailZone(${idx})" style="background:#ef4444; position: absolute; top: 4px; right: 4px; border: none; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; line-height: 1; z-index: 10;" title="Xóa vị trí này" ${disabledAttr}>✕</button>
+                
+                <!-- Position title -->
+                <div style="font-size: 12px; font-weight: 800; color: #1e293b; text-align: center; margin-bottom: 2px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">
+                    📍 ${d.position}
+                </div>
+
+                <!-- Input Controls -->
+                <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f1f5f9; padding-top: 4px;">
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kiểu:</span>
+                        <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr}>
+                            <option value="">-- Kiểu in/thêu --</option>
+                            <option value="Thêu" ${d.print_type === 'Thêu' ? 'selected' : ''}>Thêu</option>
+                            <option value="In PET" ${d.print_type === 'In PET' ? 'selected' : ''}>In PET</option>
+                            <option value="In 3D" ${d.print_type === 'In 3D' ? 'selected' : ''}>In 3D</option>
+                            <option value="In lưới" ${d.print_type === 'In lưới' ? 'selected' : ''}>In lưới</option>
+                            <option value="In Decal" ${d.print_type === 'In Decal' ? 'selected' : ''}>In Decal</option>
+                            <option value="Khác" ${isCustomType || d.print_type === 'Khác' ? 'selected' : ''}>Khác...</option>
+                        </select>
+                    </div>
+
+                    ${(isCustomType || d.print_type === 'Khác') ? `
+                        <input type="text" placeholder="Nhập kiểu in/thêu..." value="${d.print_type === 'Khác' ? '' : d.print_type}" onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
+                    ` : ''}
+
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
+                        <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="document.getElementById('tpd_height_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="${widthStyle}" ${disabledAttr || (valHeight ? 'disabled' : '')}>
+                        <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
+                        <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '')}>
+                    </div>
+
+                    ${(() => {
+                        const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+                        if (posConfig && posConfig.require_offset) {
+                            const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                            const isFilled = offsetVal && offsetVal.trim();
+                            const borderBgStyle = !isFilled 
+                                ? 'border: 1.5px solid #ef4444; background: #fef2f2;' 
+                                : 'border: 1px solid #cbd5e1;';
+                            return `
+                                <div style="display: flex; gap: 4px; align-items: center;">
+                                    <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">${posConfig.offset_label || 'Khoảng cách'}:</span>
+                                    <input type="text" placeholder="${posConfig.offset_placeholder || 'Ví dụ: 10cm'}" value="${offsetVal}" onchange="_tpdUpdateDetailField(${idx}, 'offset_value', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} required>
+                                </div>
+                            `;
+                        }
+                        return '';
+                    })()}
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+        <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <label class="tpd-ws-form-label" style="margin-bottom:0;">Vị trí in / thêu chi tiết</label>
+                ${state.hasEditPermission ? `
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <select id="tpdNewPositionSelect" class="tpd-ws-input" style="padding:2px 6px; font-size:11px; height:24px; width:110px; border-radius:4px;">
+                            ${(_tpd.printPositionsConfig || []).map(p => `
+                                <option value="${p.name}">${p.name}</option>
+                            `).join('')}
+                            <option value="Vị Trí Khác">Vị Trí Khác...</option>
+                        </select>
+                        <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546; color: white;">Thêm</button>
+                        ${state.role === 'giam_doc' ? `
+                            <button type="button" class="btn btn-secondary" onclick="_tpdOpenPrintPositionsConfigModal()" style="padding:2px 6px; font-size:12px; height:24px; border-radius:4px; font-weight:700; background:#64748b; border:1px solid #64748b; color: white;" title="Cấu hình vị trí in/thêu">⚙️</button>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            </div>
+            <div class="tpd-ws-upload-row" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
+                ${detailBoxesHtml || `<div style="grid-column:1/-1; padding:20px; text-align:center; color:#94a3b8; font-size:11px; font-weight:600; border:2px dashed #cbd5e1; border-radius:10px;">Chưa thêm vị trí in/thêu nào.</div>`}
+            </div>
+        </div>
+    `;
+
+    // 4. Size Selection & Quantities Grid
     const currentSizeType = it.size_type || 'Size TT';
     const config = _tpd.sizeTypesConfig || {
         "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
@@ -4089,135 +4255,16 @@ function _tpdRenderFormInputs() {
                     <button type="button" class="btn btn-secondary" onclick="_tpdAddCustomSize()" style="padding: 2px 8px; font-size: 10px; border-radius:4px; font-weight:700;">+ Thêm size khác</button>
                 ` : ''}
             </div>
-            <div class="${_tpdIsNamNuSize(currentSizeType) ? '' : 'tpd-ws-size-grid'}" style="margin-top:8px;">
+            <div class="${_tpdIsNamNuSize(currentSizeType) ? '' : 'tpd-ws-size-grid'}" style="margin-top:8px; margin-bottom: 20px;">
                 ${sizeGridHtml}
             </div>
         </div>
     `;
 
-    // 3. Paste Zones (Mockup & Dynamic Print Details)
+    // 5. Mockup Image upload box
     const mockupSrc = it.mockup_image || '';
-    const details = (it.print_details || [])
-        .map((d, idx) => ({ ...d, originalIndex: idx }));
-
-    const posWeights = {
-        'ngực': 1,
-        'lưng': 2,
-        'bụng': 3,
-        'tay trái': 4,
-        'tay phải': 5,
-        'gáy': 6
-    };
-    details.sort((a, b) => {
-        const aPos = (a.position || '').trim().toLowerCase();
-        const bPos = (b.position || '').trim().toLowerCase();
-        let aW = 999;
-        let bW = 999;
-        for (const [k, w] of Object.entries(posWeights)) {
-            if (aPos === k || aPos.startsWith(k)) { aW = w; break; }
-        }
-        for (const [k, w] of Object.entries(posWeights)) {
-            if (bPos === k || bPos.startsWith(k)) { bW = w; break; }
-        }
-        if (aW !== bW) return aW - bW;
-        return aPos.localeCompare(bPos, 'vi');
-    });
-
-    // Build upload boxes for dynamic details
-    let detailBoxesHtml = '';
-    details.forEach((d) => {
-        const idx = d.originalIndex;
-        const isCustomType = d.print_type && !['Thêu', 'In PET', 'In 3D', 'In lưới', 'In Decal'].includes(d.print_type);
-        
-        let valWidth = d.width || '';
-        let valHeight = d.height || '';
-        if (!valWidth && !valHeight && d.dimension && d.dimension.trim()) {
-            const dim = d.dimension.trim();
-            const lowerDim = dim.toLowerCase();
-            if (lowerDim.includes('cao') || lowerDim.includes('h')) {
-                valHeight = dim.replace(/cao/i, '').trim();
-            } else if (lowerDim.includes('ngang') || lowerDim.includes('w')) {
-                valWidth = dim.replace(/ngang/i, '').trim();
-            } else {
-                valWidth = dim;
-            }
-        }
-
-        const isTypeMissing = !d.print_type || !d.print_type.trim();
-        const isDimMissing = !valWidth && !valHeight;
-        
-        const typeStyle = isTypeMissing 
-            ? 'flex: 1; padding: 2px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
-            : 'flex: 1; padding: 2px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; background: #fff;';
-            
-        const widthStyle = isDimMissing 
-            ? 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
-            : 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;';
-            
-        const heightStyle = isDimMissing 
-            ? 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
-            : 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;';
-
-        detailBoxesHtml += `
-            <div class="tpd-ws-detail-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #ffffff; display: flex; flex-direction: column; gap: 6px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                <!-- Clear / Delete button -->
-                <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdRemoveDetailZone(${idx})" style="background:#ef4444; position: absolute; top: 4px; right: 4px; border: none; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; line-height: 1; z-index: 10;" title="Xóa vị trí này" ${disabledAttr}>✕</button>
-                
-                <!-- Position title -->
-                <div style="font-size: 12px; font-weight: 800; color: #1e293b; text-align: center; margin-bottom: 2px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">
-                    📍 ${d.position}
-                </div>
-
-                <!-- Input Controls -->
-                <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f1f5f9; padding-top: 4px;">
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                        <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kiểu:</span>
-                        <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr}>
-                            <option value="">-- Kiểu in/thêu --</option>
-                            <option value="Thêu" ${d.print_type === 'Thêu' ? 'selected' : ''}>Thêu</option>
-                            <option value="In PET" ${d.print_type === 'In PET' ? 'selected' : ''}>In PET</option>
-                            <option value="In 3D" ${d.print_type === 'In 3D' ? 'selected' : ''}>In 3D</option>
-                            <option value="In lưới" ${d.print_type === 'In lưới' ? 'selected' : ''}>In lưới</option>
-                            <option value="In Decal" ${d.print_type === 'In Decal' ? 'selected' : ''}>In Decal</option>
-                            <option value="Khác" ${isCustomType || d.print_type === 'Khác' ? 'selected' : ''}>Khác...</option>
-                        </select>
-                    </div>
-
-                    ${(isCustomType || d.print_type === 'Khác') ? `
-                        <input type="text" placeholder="Nhập kiểu in/thêu..." value="${d.print_type === 'Khác' ? '' : d.print_type}" onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
-                    ` : ''}
-
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                        <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
-                        <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="document.getElementById('tpd_height_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="${widthStyle}" ${disabledAttr || (valHeight ? 'disabled' : '')}>
-                        <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
-                        <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '')}>
-                    </div>
-
-                    ${(() => {
-                        const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
-                        if (posConfig && posConfig.require_offset) {
-                            const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-                            const isFilled = offsetVal && offsetVal.trim();
-                            const borderBgStyle = !isFilled 
-                                ? 'border: 1.5px solid #ef4444; background: #fef2f2;' 
-                                : 'border: 1px solid #cbd5e1;';
-                            return `
-                                <div style="display: flex; gap: 4px; align-items: center;">
-                                    <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">${posConfig.offset_label || 'Khoảng cách'}:</span>
-                                    <input type="text" placeholder="${posConfig.offset_placeholder || 'Ví dụ: 10cm'}" value="${offsetVal}" onchange="_tpdUpdateDetailField(${idx}, 'offset_value', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} required>
-                                </div>
-                            `;
-                        }
-                        return '';
-                    })()}
-                </div>
-            </div>
-        `;
-    });
-
     html += `
-        <div class="tpd-ws-form-group">
+        <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
             <label class="tpd-ws-form-label">Hình ảnh thiết kế Mockup lớn (Chọn file từ máy tính)</label>
             <input type="file" id="tpdMockupFileInput" accept="image/*" style="display:none;" onchange="_tpdOnMockupFileSelect(event)" ${disabledAttr}>
             <div class="tpd-ws-upload-box" id="zone_mockup" style="min-height: 140px; cursor: pointer;" onclick="if(document.getElementById('tpdMockupFileInput')) document.getElementById('tpdMockupFileInput').click()">
@@ -4231,40 +4278,17 @@ function _tpdRenderFormInputs() {
                 `}
             </div>
         </div>
-
-        <div class="tpd-ws-form-group">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <label class="tpd-ws-form-label" style="margin-bottom:0;">Vị trí in / thêu chi tiết</label>
-                ${state.hasEditPermission ? `
-                    <div style="display:flex; gap:6px; align-items:center;">
-                        <select id="tpdNewPositionSelect" class="tpd-ws-input" style="padding:2px 6px; font-size:11px; height:24px; width:110px; border-radius:4px;">
-                            ${(_tpd.printPositionsConfig || []).map(p => `
-                                <option value="${p.name}">${p.name}</option>
-                            `).join('')}
-                            <option value="Vị Trí Khác">Vị Trí Khác...</option>
-                        </select>
-                        <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546; color: white;">Thêm</button>
-                        ${state.role === 'giam_doc' ? `
-                            <button type="button" class="btn btn-secondary" onclick="_tpdOpenPrintPositionsConfigModal()" style="padding:2px 6px; font-size:12px; height:24px; border-radius:4px; font-weight:700; background:#64748b; border:1px solid #64748b; color: white;" title="Cấu hình vị trí in/thêu">⚙️</button>
-                        ` : ''}
-                    </div>
-                ` : ''}
-            </div>
-            <div class="tpd-ws-upload-row" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
-                ${detailBoxesHtml || `<div style="grid-column:1/-1; padding:20px; text-align:center; color:#94a3b8; font-size:11px; font-weight:600; border:2px dashed #cbd5e1; border-radius:10px;">Chưa thêm vị trí in/thêu nào.</div>`}
-            </div>
-        </div>
     `;
 
-    // 4. Workshop Note Textarea
+    // 6. Ghi chú kỹ thuật của xưởng
     html += `
-        <div class="tpd-ws-form-group">
+        <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
             <label class="tpd-ws-form-label">Ghi chú kỹ thuật của xưởng</label>
             <textarea class="tpd-ws-input" rows="4" style="resize:vertical; font-family:inherit;" placeholder="Nhập ghi chú yêu cầu kỹ thuật chi tiết như: Cắt gấu bo len, phối chỉ vàng..." onkeyup="_tpdUpdateField('workshop_note', this.value)" ${disabledAttr}>${it.workshop_note || ''}</textarea>
         </div>
     `;
 
-    // 5. Layout Customize Panel
+    // 7. Layout Customize Panel
     html += `
         <div class="tpd-ws-form-group" style="margin-top: 24px; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #f8fafc;">
             <div style="font-size: 12px; font-weight: 900; color: #122546; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
@@ -4312,37 +4336,9 @@ function _tpdRenderFormInputs() {
         </div>
     `;
 
-    // Compute defaults for overrides placeholders
-    let defaultSewing = '—';
-    if (it.tsam_sewing_tech) {
-        try {
-            const arr = typeof it.tsam_sewing_tech === 'string' ? JSON.parse(it.tsam_sewing_tech) : it.tsam_sewing_tech;
-            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
-        } catch(e){}
-    } else if (it.sewing_techniques) {
-        try {
-            const arr = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : it.sewing_techniques;
-            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
-        } catch(e){}
-    }
-
-    html += `
-        <!-- Custom parameters override -->
-        <div class="tpd-ws-form-group" style="margin-top: 16px; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #ffffff;">
-            <div style="font-size: 12px; font-weight: 900; color: #122546; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-                ✏️ TUỲ CHỈNH THÔNG TIN PHIẾU IN
-            </div>
-            <div>
-                <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Kỹ Thuật May</label>
-                <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(defaultSewing)}" value="${escapeHTML(layout.custom_sewing || '')}" oninput="_tpdChangeCustomInfo('custom_sewing', this.value)" ${disabledAttr}>
-            </div>
-        </div>
-    `;
-
     container.innerHTML = html;
 }
 
-// Update single field in editing item state
 function _tpdUpdateField(field, val) {
     const state = window._tpdWorkspaceState;
     if (!state.editingItem) return;
