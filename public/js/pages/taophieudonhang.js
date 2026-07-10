@@ -4102,8 +4102,8 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
                     <div class="tpd-a4-img-header">${headerText}</div>
                     <div class="tpd-a4-img-body" style="background: #ffffff; display: flex; align-items: center; justify-content: center; flex: 1; box-sizing: border-box; overflow: visible; ${paddingStyle} min-height: 0;">
                         ${d.image ? `
-                            <div style="position: relative; display: inline-flex; align-items: center; justify-content: center; max-width: 100%; max-height: 100%;">
-                                <img src="${d.image}" style="max-width: 100%; max-height: 100%; object-fit: contain; display: block;">
+                            <div style="position: relative; display: inline-block; max-width: 100%; max-height: 100%;">
+                                <img src="${d.image}" style="max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; margin: 0 auto;">
                                 
                                 <!-- Width indicator (Horizontal line) -->
                                 ${widthText ? `
