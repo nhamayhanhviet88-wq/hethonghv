@@ -1279,13 +1279,14 @@ var _dhtItemCount = 0;
 if (!_dhtCreate.phieuItems) _dhtCreate.phieuItems = [];
 
 // Searchable dropdown helper: input + filtered list, no free text
-function _ppSearchField(id, label, items, curVal) {
+function _ppSearchField(id, label, items, curVal, hiddenVal) {
+    if (hiddenVal === undefined) hiddenVal = curVal;
     var isReadOnly = (id === '_pp_sale');
     var roAttr = isReadOnly ? ' readonly' : '';
     var placeholder = isReadOnly ? 'Chọn...' : 'Gõ để tìm...';
     var h = '<div style="position:relative"><label style="font-size:11px;font-weight:700">'+label+'</label>'
         +'<input id="'+id+'" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="'+placeholder+'" value="'+(curVal||'')+'" onfocus="_ppShowList(\''+id+'\')" oninput="_ppFilterList(\''+id+'\')"' + roAttr + '>'
-        +'<input type="hidden" id="'+id+'_val" value="'+(curVal||'')+'">'
+        +'<input type="hidden" id="'+id+'_val" value="'+(hiddenVal||'')+'">'
         +'<div id="'+id+'_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">';
     items.forEach(function(it) {
         var txt = it.text||it.name||it, val = it.value!==undefined?it.value:txt;
@@ -1534,8 +1535,11 @@ async function _dhtAddItem(editIdx) {
     var qps=existing.quantities||[{qty:'',price:''}], qpHTML='';
     for(var qi=0;qi<qps.length;qi++){var n=qi+1;var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';qpHTML+='<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';}
     var vatSel='<option value="0"'+(existing.vat_percent===8?'':' selected')+'>0%</option><option value="8"'+(existing.vat_percent===8?' selected':'')+'>8%</option>';
-    var orderCode=_dhtCreate.orderCode||'???';
-    var sfSale=_ppSearchField('_pp_sale','Bán/Quà *',saleItems,existing.sale_type||'');
+    var activeSaleType = (po.sale_types || []).find(function(s) {
+        return s.name === existing.sale_type;
+    });
+    var activeSaleTypeId = activeSaleType ? activeSaleType.id : '';
+    var sfSale=_ppSearchField('_pp_sale','Bán/Quà *',saleItems,existing.sale_type||'', activeSaleTypeId);
     var sfProd=_ppSearchField('_pp_product','Sản Phẩm *',prodItems,existing.product_name||'');
     // Cascade: disable product until Bán/Quà is selected
     setTimeout(function(){
@@ -1568,6 +1572,25 @@ async function _dhtAddItem(editIdx) {
     
     // Restore existing values / cascade product change
     setTimeout(function() {
+        if (existing.sale_type) {
+            // Populate product list based on current sale type ID
+            var saleId = document.getElementById('_pp_sale_val')?.value;
+            var pInp = document.getElementById('_pp_product');
+            var pList = document.getElementById('_pp_product_list');
+            if (saleId && pInp && pList) {
+                pInp.disabled = false;
+                pInp.placeholder = 'Chọn sản phẩm...';
+                pInp.style.background = '';
+                pInp.style.cursor = 'pointer';
+                var allProducts = (po.products || []);
+                var filtered = allProducts.filter(function(p) {
+                    return String(p.sale_type_id) === String(saleId);
+                });
+                pList.innerHTML = filtered.map(function(p) {
+                    return '<div class="_ppOpt" data-val="' + p.name + '" data-txt="' + p.name + '" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'_pp_product\',this)">' + p.name + '</div>';
+                }).join('');
+            }
+        }
         if (existing.product_name) {
             _dhtProductChange(true);
         } else {
