@@ -3261,7 +3261,10 @@ function _tpdRenderA4SizeTable(it) {
                 </thead>
                 <tbody>
                     <tr>
-                        <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
+                        <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">
+                            <div>Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</div>
+                            ${it.pattern_name ? `<div style="font-weight:900; color:#dc2626; font-size:11px; margin-top:4px;">${escapeHTML(it.pattern_name)}</div>` : ''}
+                        </td>
                         <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">0</td>
                     </tr>
                 </tbody>
@@ -3335,7 +3338,10 @@ function _tpdRenderA4SizeTable(it) {
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="font-weight:700; color:#1e3a8a; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Nam (${(it.product_name || 'Áo').toUpperCase()})</td>
+                            <td style="font-weight:700; color:#1e3a8a; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1; line-height:1.2;">
+                                <div>Số lượng Nam (${(it.product_name || 'Áo').toUpperCase()})</div>
+                                ${it.pattern_name ? `<div style="font-weight:900; color:#dc2626; font-size:11px; margin-top:4px;">${escapeHTML(it.pattern_name)}</div>` : ''}
+                            </td>
                             ${values}
                             <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
                         </tr>
@@ -3383,7 +3389,10 @@ function _tpdRenderA4SizeTable(it) {
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="font-weight:700; color:#db2777; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Nữ (${(it.product_name || 'Áo').toUpperCase()})</td>
+                            <td style="font-weight:700; color:#db2777; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1; line-height:1.2;">
+                                <div>Số lượng Nữ (${(it.product_name || 'Áo').toUpperCase()})</div>
+                                ${it.pattern_name ? `<div style="font-weight:900; color:#dc2626; font-size:11px; margin-top:4px;">${escapeHTML(it.pattern_name)}</div>` : ''}
+                            </td>
                             ${values}
                             <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
                         </tr>
@@ -3433,7 +3442,10 @@ function _tpdRenderA4SizeTable(it) {
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="font-weight:700; color:${theme.bg}; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1;">Số lượng Khác (${(it.product_name || 'Áo').toUpperCase()})</td>
+                            <td style="font-weight:700; color:${theme.bg}; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1; line-height:1.2;">
+                                <div>Số lượng Khác (${(it.product_name || 'Áo').toUpperCase()})</div>
+                                ${it.pattern_name ? `<div style="font-weight:900; color:#dc2626; font-size:11px; margin-top:4px;">${escapeHTML(it.pattern_name)}</div>` : ''}
+                            </td>
                             ${values}
                             <td style="background:#fef08a; font-weight:900; color:#122546; text-align:center; border: 1px solid #cbd5e1; font-size:13px;">${rowTotal}</td>
                         </tr>
@@ -3479,7 +3491,10 @@ function _tpdRenderA4SizeTable(it) {
                 </thead>
                 <tbody>
                     <tr>
-                        <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</td>
+                        <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">
+                            <div>Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</div>
+                            ${it.pattern_name ? `<div style="font-weight:900; color:#dc2626; font-size:11px; margin-top:4px;">${escapeHTML(it.pattern_name)}</div>` : ''}
+                        </td>
                         ${sizeValues}
                         <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">${totalQty}</td>
                     </tr>
