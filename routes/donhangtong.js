@@ -4110,16 +4110,18 @@ module.exports = async function(fastify) {
             for (const item of b.items) {
                 const itemId = Number(item.id);
                 if (itemId && oldItemIds.includes(itemId)) {
-                    // Update existing item
+                    // Update existing item — NOTE: `quantities` is intentionally excluded
+                    // to preserve TPD-format size breakdown (size + qty + price + note).
+                    // DHT only manages totals (quantity, unit_price, item_total).
                     await db.run(`
                         UPDATE dht_order_items
                         SET description = $1, quantity = $2, unit_price = $3, total = $4,
                             sale_type = $5, product_name = $6, material_id = $7, material_name = $8,
                             color_id = $9, color_name = $10, pattern_name = $11, sewing_techniques = $12,
-                            accounting_notes = $13, extra_materials = $14, quantities = $15,
-                            extra_product = $16, extra_price = $17, item_total = $18, material_pairs = $19,
-                            size_type = $20
-                        WHERE id = $21 AND dht_order_id = $22
+                            accounting_notes = $13, extra_materials = $14,
+                            extra_product = $15, extra_price = $16, item_total = $17, material_pairs = $18,
+                            size_type = $19
+                        WHERE id = $20 AND dht_order_id = $21
                     `, [
                         item.product_name || '',
                         Number(item.quantity) || 0,
@@ -4135,7 +4137,6 @@ module.exports = async function(fastify) {
                         JSON.stringify(item.sewing_techniques || []),
                         item.accounting_notes || null,
                         JSON.stringify(item.extra_materials || []),
-                        JSON.stringify(item.quantities || []),
                         item.extra_product || null,
                         Number(item.extra_price) || 0,
                         Number(item.item_total) || 0,
@@ -4144,6 +4145,61 @@ module.exports = async function(fastify) {
                         itemId,
                         orderId
                     ]);
+
+                    // ★ Two-way sync: DHT sewing_techniques → TPD custom_layout.sewing_items
+                    try {
+                        const dhtSewTechs = (item.sewing_techniques || []).map(s =>
+                            typeof s === 'string' ? s : (s.name || '')
+                        ).filter(Boolean);
+
+                        const existingItem = await db.get('SELECT custom_layout FROM dht_order_items WHERE id = $1', [itemId]);
+                        let layout = {};
+                        if (existingItem && existingItem.custom_layout) {
+                            try { layout = typeof existingItem.custom_layout === 'string' ? JSON.parse(existingItem.custom_layout) : existingItem.custom_layout; } catch(e) {}
+                        }
+
+                        let sewingItems = Array.isArray(layout.sewing_items) ? layout.sewing_items : [];
+                        // If sewing_items is empty but custom_sewing string exists, parse it
+                        if (sewingItems.length === 0 && layout.custom_sewing) {
+                            sewingItems = layout.custom_sewing.split(',').map(p => {
+                                p = p.trim();
+                                if (!p) return null;
+                                const colonIdx = p.indexOf(':');
+                                if (colonIdx !== -1) return { tech: p.substring(0, colonIdx).trim(), detail: p.substring(colonIdx + 1).trim() };
+                                return { tech: p, detail: '' };
+                            }).filter(Boolean);
+                        }
+
+                        // 1. Remove items NOT in DHT sewing_techniques (two-way removal sync)
+                        sewingItems = sewingItems.filter(si =>
+                            dhtSewTechs.some(dt => dt.toLowerCase() === (si.tech || '').toLowerCase())
+                        );
+
+                        // 2. Add items from DHT that are NOT already in sewing_items (preserve existing detail)
+                        for (const techName of dhtSewTechs) {
+                            const alreadyExists = sewingItems.some(si => (si.tech || '').toLowerCase() === techName.toLowerCase());
+                            if (!alreadyExists) {
+                                sewingItems.push({ tech: techName, detail: '' });
+                            }
+                        }
+
+                        // 3. Rebuild custom_sewing text string
+                        const customSewingStr = sewingItems
+                            .map(si => {
+                                const t = si.tech === 'Khác' ? '' : (si.tech || '');
+                                if (!t && !si.detail) return '';
+                                return t + (si.detail ? (t ? ': ' : '') + si.detail : '');
+                            })
+                            .filter(Boolean)
+                            .join(', ');
+
+                        layout.sewing_items = sewingItems;
+                        layout.custom_sewing = customSewingStr;
+
+                        await db.run('UPDATE dht_order_items SET custom_layout = $1 WHERE id = $2', [JSON.stringify(layout), itemId]);
+                    } catch (syncErr) {
+                        console.error('Sewing sync error (non-fatal):', syncErr.message);
+                    }
 
                     // Sync updated product name, material name, and color display to related cutting/sewing records
                     const ordRow = await db.get('SELECT order_code FROM dht_orders WHERE id = $1', [orderId]);
