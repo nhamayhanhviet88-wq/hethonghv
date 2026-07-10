@@ -3785,9 +3785,20 @@ function _tpdUpdateLivePreview() {
                 <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
                     <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
-                        ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Tải lên ảnh từ bảng bên phải</span></div>`}
+                        ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Tải lên ảnh từ bảng bên phải</span></div>`}
                     </div>
                 </div>
+                ${_tpdSortPrintDetails(it.print_details || [])
+                    .filter(d => d.image && d.image.trim())
+                    .map(d => `
+                        <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
+                            <div class="tpd-a4-img-header">Ảnh ${escapeHTML(d.position)}</div>
+                            <div class="tpd-a4-img-body">
+                                <img src="${d.image}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${d.image}')" style="cursor: pointer;">
+                            </div>
+                        </div>
+                    `).join('')
+                }
                 ${_tpdGetInfoBoxHtml(it, layout, o)}
             </div>
 
@@ -5267,9 +5278,20 @@ async function _tpdPrintAllSheets() {
                         <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
-                                ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
+                                ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
+                        ${_tpdSortPrintDetails(it.print_details || [])
+                            .filter(d => d.image && d.image.trim())
+                            .map(d => `
+                                <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
+                                    <div class="tpd-a4-img-header">Ảnh ${escapeHTML(d.position)}</div>
+                                    <div class="tpd-a4-img-body">
+                                        <img src="${d.image}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${d.image}')" style="cursor: pointer;">
+                                    </div>
+                                </div>
+                            `).join('')
+                        }
                         ${_tpdGetInfoBoxHtml(it, layout, o)}
                     </div>
 
