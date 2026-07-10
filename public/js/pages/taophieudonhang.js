@@ -332,7 +332,7 @@ function _tpdCloneItemState(item) {
         dimension: d.dimension || ''
     }));
 
-    let customLayout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+    let customLayout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
     if (item.custom_layout) {
         try {
             customLayout = typeof item.custom_layout === 'string' ? JSON.parse(item.custom_layout) : item.custom_layout;
@@ -3647,6 +3647,8 @@ function _tpdAdjustMockupWidth(img) {
             if (retries < 30) {
                 retries++;
                 setTimeout(adjust, 50);
+            } else {
+                img.dataset.widthAdjusted = "true";
             }
             return;
         }
@@ -3655,9 +3657,12 @@ function _tpdAdjustMockupWidth(img) {
             const ratio = img.naturalWidth / img.naturalHeight;
             const targetWidth = Math.ceil(bodyHeight * ratio) + 8; // 8px for body padding (4px on each side)
             wrapper.style.width = targetWidth + 'px';
+            img.dataset.widthAdjusted = "true";
         } else if (retries < 30) {
             retries++;
             setTimeout(adjust, 50);
+        } else {
+            img.dataset.widthAdjusted = "true";
         }
     };
     adjust();
@@ -3666,7 +3671,7 @@ function _tpdAdjustMockupWidth(img) {
 // Helper to retrieve or initialize custom layout options for an item index
 function _tpdGetCustomLayout(index) {
     const state = window._tpdWorkspaceState;
-    if (!state) return { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+    if (!state) return { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
 
     let it = null;
     if (index === state.activeItemIndex && state.editingItem) {
@@ -3690,22 +3695,22 @@ function _tpdGetCustomLayout(index) {
         it = mergedItem || item;
     }
 
-    if (!it) return { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+    if (!it) return { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
 
     let layout;
     if (!it.custom_layout) {
-        layout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+        layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
     } else if (typeof it.custom_layout === 'string') {
         try {
             layout = JSON.parse(it.custom_layout);
         } catch(e) {
-            layout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+            layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
         }
     } else {
         layout = it.custom_layout;
     }
 
-    if (layout.height === undefined) layout.height = 150;
+    if (layout.height === undefined) layout.height = '';
     if (layout.topSpacing === undefined) layout.topSpacing = 7;
     if (layout.alignment === undefined) layout.alignment = 'flex-start';
 
@@ -5189,10 +5194,10 @@ function _tpdChangeCustomInfo(field, value) {
     if (!it) return;
 
     if (!it.custom_layout) {
-        it.custom_layout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+        it.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
     } else if (typeof it.custom_layout === 'string') {
         try { it.custom_layout = JSON.parse(it.custom_layout); } catch(e) {
-            it.custom_layout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+            it.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
         }
     }
 
@@ -5403,6 +5408,12 @@ async function _tpdSaveProductionSheet() {
         return false;
     }
 
+    // ★ Validation: Mockup image is mandatory
+    if (!it.mockup_image || !it.mockup_image.trim()) {
+        showToast('⚠️ Vui lòng tải lên ảnh Mockup trước khi lưu phiếu sản xuất!', 'error');
+        return false;
+    }
+
     // ★ Validation: total size qty must match DHT quantity
     const dhtQty = Number(it.quantity) || 0;
     const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
@@ -5428,6 +5439,10 @@ async function _tpdSaveProductionSheet() {
             const hasDim = d.dimension && d.dimension.trim();
             if (!hasWidth && !hasHeight && !hasDim) {
                 showToast(`⚠️ Vui lòng điền kích thước Ngang hoặc Cao cho vị trí "${d.position}"!`, 'error');
+                return false;
+            }
+            if (hasWidth && hasHeight) {
+                showToast(`⚠️ Vui lòng chỉ điền một chiều kích thước (Ngang HOẶC Cao) cho vị trí "${d.position}"!`, 'error');
                 return false;
             }
             
@@ -5616,11 +5631,35 @@ async function _tpdExportSheetAndOrder() {
 async function _tpdWaitForImages(container) {
     const imgs = container.querySelectorAll('img');
     const promises = Array.from(imgs).map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise(resolve => {
-            img.onload = resolve;
-            img.onerror = resolve; // Continue even if load fails
+        const loadPromise = new Promise(resolve => {
+            if (img.complete) {
+                resolve();
+            } else {
+                img.onload = resolve;
+                img.onerror = resolve; // Continue even if load fails
+            }
         });
+
+        // If it's a mockup image inside .tpd-a4-img-body, also wait for layout width adjustment
+        const isMockup = img.closest('.tpd-a4-img-body');
+        if (isMockup) {
+            return loadPromise.then(() => {
+                return new Promise(resolve => {
+                    let retries = 0;
+                    const check = () => {
+                        if (img.dataset.widthAdjusted === "true" || retries > 40) {
+                            resolve();
+                        } else {
+                            retries++;
+                            setTimeout(check, 25);
+                        }
+                    };
+                    check();
+                });
+            });
+        }
+
+        return loadPromise;
     });
     await Promise.all(promises);
 }
@@ -5788,11 +5827,11 @@ async function _tpdShowExportSheetsModal() {
                     })()}
 
                     <!-- Images Row -->
-                    <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle} margin-bottom: 0;">
-                        <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
+                    <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
+                        <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
-                                ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" style="max-height:100%; object-fit:contain;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
+                                ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
                         ${_tpdGetInfoBoxHtml(it, layout, o)}
@@ -6038,6 +6077,7 @@ async function _tpdPrintAllSheets() {
     });
 
     printContainer.innerHTML = printHtml;
+    await _tpdWaitForImages(printContainer);
     setTimeout(() => {
         window.print();
     }, 100);
