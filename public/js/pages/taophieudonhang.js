@@ -3837,17 +3837,63 @@ function _tpdRenderFormInputs() {
             <!-- Active size selector (Checkboxes) -->
             <div class="tpd-ws-size-selector-panel" style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:6px; padding:8px; margin-bottom:12px;">
                 <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px;">Chọn các size hiển thị:</div>
-                <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                    ${_tpdSortSizes(configuredSizes).map(sz => {
+                ${_tpdIsNamNuSize(currentSizeType) ? (() => {
+                    const sorted = _tpdSortSizes(configuredSizes);
+                    const namSizes = sorted.filter(sz => sz.toLowerCase().startsWith('nam'));
+                    const nuSizes = sorted.filter(sz => sz.toLowerCase().startsWith('nữ'));
+                    const otherSizes = sorted.filter(sz => !sz.toLowerCase().startsWith('nam') && !sz.toLowerCase().startsWith('nữ'));
+                    
+                    const renderSizeCheck = (sz) => {
                         const isActive = it.quantities.some(q => q.size === sz);
                         return `
-                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; cursor:pointer; font-weight:500; margin:0;">
+                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; cursor:pointer; font-weight:500; margin:0; padding: 2px 4px;">
                                 <input type="checkbox" style="cursor:pointer; margin:0;" ${isActive ? 'checked' : ''} onchange="_tpdToggleSizeActive('${sz}', this.checked)" ${disabledAttr}>
                                 <span>${sz}</span>
                             </label>
                         `;
-                    }).join('')}
-                </div>
+                    };
+                    
+                    return `
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            ${namSizes.length > 0 ? `
+                                <div style="display:flex; align-items:center; gap:8px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px;">
+                                    <span style="font-size:10px; font-weight:800; color:#1e3a8a; min-width:40px;">NAM:</span>
+                                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                        ${namSizes.map(renderSizeCheck).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            ${nuSizes.length > 0 ? `
+                                <div style="display:flex; align-items:center; gap:8px; padding-top: 2px;">
+                                    <span style="font-size:10px; font-weight:800; color:#db2777; min-width:40px;">NỮ:</span>
+                                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                        ${nuSizes.map(renderSizeCheck).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            ${otherSizes.length > 0 ? `
+                                <div style="display:flex; align-items:center; gap:8px; border-top: 1px dashed #e2e8f0; padding-top: 4px;">
+                                    <span style="font-size:10px; font-weight:800; color:#ea580c; min-width:40px;">KHÁC:</span>
+                                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                        ${otherSizes.map(renderSizeCheck).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                })() : `
+                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                        ${_tpdSortSizes(configuredSizes).map(sz => {
+                            const isActive = it.quantities.some(q => q.size === sz);
+                            return `
+                                <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; cursor:pointer; font-weight:500; margin:0;">
+                                    <input type="checkbox" style="cursor:pointer; margin:0;" ${isActive ? 'checked' : ''} onchange="_tpdToggleSizeActive('${sz}', this.checked)" ${disabledAttr}>
+                                    <span>${sz}</span>
+                                </label>
+                            `;
+                        }).join('')}
+                    </div>
+                `}
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
