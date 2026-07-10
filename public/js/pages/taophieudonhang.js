@@ -3903,7 +3903,17 @@ function _tpdRenderFormInputs() {
                     selectOptions += `<optgroup label="${escapeHTML(groupName)}">`;
                     techs.forEach(t => {
                         const selected = t === sewItem.tech ? 'selected' : '';
-                        selectOptions += `<option value="${escapeHTML(t)}" ${selected}>${escapeHTML(t)}</option>`;
+                        let disabled = '';
+                        if (groupName !== 'Khác' && t !== sewItem.tech) {
+                            const isGroupAlreadyChosen = layout.sewing_items.some((otherItem, otherIdx) => {
+                                if (otherIdx === sIdx) return false;
+                                return _tpdGetSewingTechGroup(otherItem.tech) === groupName;
+                            });
+                            if (isGroupAlreadyChosen) {
+                                disabled = 'disabled';
+                            }
+                        }
+                        selectOptions += `<option value="${escapeHTML(t)}" ${selected} ${disabled}>${escapeHTML(t)}</option>`;
                     });
                     selectOptions += `</optgroup>`;
                 }
@@ -5910,6 +5920,14 @@ function _tpdParseSewingTechs(customSewingStr) {
     return items;
 }
 
+function _tpdGetSewingTechGroup(tech) {
+    if (!tech || tech === 'Khác') return 'Khác';
+    const lower = tech.toLowerCase();
+    if (lower.includes('cổ')) return 'Nhóm Cổ';
+    if (lower.includes('bo') || lower.includes('tay')) return 'Nhóm Bo / Tay';
+    return 'Khác';
+}
+
 // Add sewing technique item row
 function _tpdAddSewingItem() {
     const state = window._tpdWorkspaceState;
@@ -5927,7 +5945,22 @@ function _tpdAddSewingItem() {
     }
 
     const configSewingTechs = _tpd.sewingTechsConfig || ["Bo cổ dệt", "Bo tay dệt", "Móc xích", "Trần đè", "Xẻ tà", "May lé", "Đắp túi", "May gấu", "Nẹp gấp", "Đính dây cổ"];
-    const defaultTech = configSewingTechs[0] || 'Khác';
+    
+    let defaultTech = 'Khác';
+    for (const t of configSewingTechs) {
+        const group = _tpdGetSewingTechGroup(t);
+        if (group === 'Khác') {
+            defaultTech = t;
+            break;
+        } else {
+            const alreadyChosen = layout.sewing_items.some(item => _tpdGetSewingTechGroup(item.tech) === group);
+            if (!alreadyChosen) {
+                defaultTech = t;
+                break;
+            }
+        }
+    }
+    
     layout.sewing_items.push({ tech: defaultTech, detail: '' });
 
     _tpdSyncCustomSewingText(layout);
@@ -5945,6 +5978,21 @@ function _tpdUpdateSewingItem(sIdx, field, value) {
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
 
     if (!layout.sewing_items || !layout.sewing_items[sIdx]) return;
+
+    if (field === 'tech') {
+        const newGroup = _tpdGetSewingTechGroup(value);
+        if (newGroup !== 'Khác') {
+            const hasDuplicate = layout.sewing_items.some((item, idx) => {
+                if (idx === sIdx) return false;
+                return _tpdGetSewingTechGroup(item.tech) === newGroup;
+            });
+            if (hasDuplicate) {
+                showToast(`Mỗi nhóm kỹ thuật may chỉ được chọn duy nhất 1 loại (Nhóm "${newGroup}" đã được chọn)!`, 'warning');
+                _tpdRenderFormInputs();
+                return;
+            }
+        }
+    }
 
     layout.sewing_items[sIdx][field] = value ? value.trim() : '';
 
@@ -6061,17 +6109,51 @@ function _tpdRenderSewingTechsModalList() {
         return;
     }
 
-    container.innerHTML = list.map((tech, idx) => {
-        return `
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between;">
-                <input type="text" value="${escapeHTML(tech)}" onchange="_tpdUpdateModalSewingTech(${idx}, this.value)" style="font-weight: 700; font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; flex: 1; background: white;" placeholder="Ví dụ: Bo cổ dệt, Móc xích, Xẻ tà...">
-                <button type="button" onclick="_tpdDeleteModalSewingTech(${idx})" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Xóa">
-                    <span>Xóa</span>
-                </button>
-            </div>
-        `;
-    }).join('');
+    const groups = {
+        'Nhóm Cổ': [],
+        'Nhóm Bo / Tay': [],
+        'Khác': []
+    };
+
+    list.forEach((tech, idx) => {
+        const lower = tech.toLowerCase();
+        const item = { tech, idx };
+        if (lower.includes('cổ')) {
+            groups['Nhóm Cổ'].push(item);
+        } else if (lower.includes('bo') || lower.includes('tay')) {
+            groups['Nhóm Bo / Tay'].push(item);
+        } else {
+            groups['Khác'].push(item);
+        }
+    });
+
+    let html = '';
+    for (const [groupName, items] of Object.entries(groups)) {
+        if (items.length > 0) {
+            html += `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-weight: 800; font-size: 13px; color: #1e3a8a; margin-bottom: 8px; padding-left: 2px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px;">${escapeHTML(groupName)} (${items.length})</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+            `;
+            items.forEach(item => {
+                html += `
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between;">
+                        <input type="text" value="${escapeHTML(item.tech)}" onchange="_tpdUpdateModalSewingTech(${item.idx}, this.value)" style="font-weight: 700; font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; flex: 1; background: white;" placeholder="Ví dụ: Bo cổ dệt, Móc xích, Xẻ tà...">
+                        <button type="button" onclick="_tpdDeleteModalSewingTech(${item.idx})" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Xóa">
+                            <span>Xóa</span>
+                        </button>
+                    </div>
+                `;
+            });
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+    }
+    container.innerHTML = html;
 }
+
 
 function _tpdAddNewSewingTechOption() {
     const list = window._tpdModalSewingTechs || [];
