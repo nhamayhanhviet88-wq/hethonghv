@@ -668,8 +668,8 @@ async function _dhtGoStep2() {
             footer += '<button class="btn" onclick="_dhtSubmitEditV2(false)" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">💾 Cập Nhật Đơn</button>';
         }
     } else {
-        footer += '<button class="btn" onclick="_dhtSubmitCreateV2(true)" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">📝 Lưu Nháp</button>'
-               + '<button class="btn" onclick="_dhtSubmitCreateV2(false)" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">💾 Lưu Đơn Hàng</button>';
+        footer += '<button class="btn" onclick="_dhtSubmitCreateV2(true)" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">📝 Lưu Nháp</button>';
+               // + '<button class="btn" onclick="_dhtSubmitCreateV2(false)" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">💾 Lưu Đơn Hàng</button>';
     }
 
     openModal(isEdit ? '✏️ Sửa Đơn ' + _dhtCreate.orderCode : '➕ Tạo Đơn Hàng', body, footer, isEdit);
