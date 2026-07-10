@@ -4990,45 +4990,56 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
             <div style="background: #122546; color: white; padding: 5px 8px; font-weight: 700; font-size: 11px; text-transform: uppercase; text-align: center; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Thông Tin Chi Tiết Sản Xuất
             </div>
-            <div style="flex: 1; padding: 6px 10px; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; line-height: 1.35; color: #1e293b; background: #ffffff; box-sizing: border-box;">
-                <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <div>
-                        <strong style="color: #0f172a; font-weight: 800;">Sản Phẩm ${normalizedSaleType}:</strong> 
-                        <span style="font-weight: 700; color: #1e293b;">${escapeHTML(it.product_name || '—')}</span>
+            <div style="flex: 1; padding: 10px 12px; display: flex; flex-direction: column; justify-content: space-between; font-size: 13px; line-height: 1.45; color: #1e293b; background: #ffffff; box-sizing: border-box; height: 100%;">
+                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; gap: 10px;">
+                    <!-- Phần 1: Sản phẩm bán -->
+                    <div style="display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
+                        <div>
+                            <strong style="color: #0f172a; font-weight: 800;">Sản Phẩm ${normalizedSaleType}:</strong> 
+                            <span style="font-weight: 700; color: #1e293b;">${escapeHTML(it.product_name || '—')}</span>
+                        </div>
+                        <div>
+                            <strong style="color: #0f172a; font-weight: 800;">Chất liệu vải:</strong> 
+                            <span style="font-weight: 700; color: #1e3a8a;">${escapeHTML(fabricVal)}</span>
+                        </div>
+                        <div>
+                            <strong style="color: #0f172a; font-weight: 800;">Màu sắc phối:</strong> 
+                            <span style="font-weight: 700; color: #475569;">${escapeHTML(colorVal)}</span>
+                        </div>
                     </div>
-                    <div>
-                        <strong style="color: #0f172a; font-weight: 800;">Chất liệu vải:</strong> 
-                        <span style="font-weight: 700; color: #1e3a8a;">${escapeHTML(fabricVal)}</span>
-                    </div>
-                    <div>
-                        <strong style="color: #0f172a; font-weight: 800;">Màu sắc phối:</strong> 
-                        <span style="font-weight: 700; color: #475569;">${escapeHTML(colorVal)}</span>
-                    </div>
-                    <div style="border-top: 1px dashed #e2e8f0; padding-top: 3px; margin-top: 1px;">
+
+                    <!-- Phần 2: Kỹ thuật may -->
+                    <div style="display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
                         <strong style="color: #0f172a; font-weight: 800;">Kỹ Thuật May:</strong> 
                         <span style="font-weight: 700; color: #b45309; display: block; margin-top: 2px;">${sewingHtml}</span>
                     </div>
-                    <div>
+
+                    <!-- Phần 3: Kỹ thuật in -->
+                    <div style="display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
                         <strong style="color: #0f172a; font-weight: 800;">Kỹ Thuật In:</strong> 
                         <span style="font-weight: 700; color: #047857; display: block; margin-top: 2px;">${printingVal}</span>
                     </div>
-                    <div style="border-top: 1px dashed #e2e8f0; padding-top: 3px; margin-top: 1px;">
-                        <strong style="color: #0f172a; font-weight: 800;">Báo Size:</strong> 
-                        <span style="font-weight: 800; color: #1e293b; text-transform: uppercase;">${escapeHTML(baoSizeVal)}</span>
-                    </div>
-                    <div>
-                        <strong style="color: #0f172a; font-weight: 800;">${escapeHTML(it.size_type || 'Size TT')}:</strong> 
-                        <span style="font-weight: 700; color: #0f172a; display: block; margin-top: 2px;">${sizeTTVal}</span>
+
+                    <!-- Phần 4: Báo size -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div>
+                            <strong style="color: #0f172a; font-weight: 800;">Báo Size:</strong> 
+                            <span style="font-weight: 800; color: #1e293b; text-transform: uppercase;">${escapeHTML(baoSizeVal)}</span>
+                        </div>
+                        <div>
+                            <strong style="color: #0f172a; font-weight: 800;">${escapeHTML(it.size_type || 'Size TT')}:</strong> 
+                            <span style="font-weight: 700; color: #0f172a; display: block; margin-top: 2px;">${sizeTTVal}</span>
+                        </div>
                     </div>
                 </div>
-                <div style="border-top: 2px solid #122546; padding: 4px 6px; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 4px; box-sizing: border-box;">
+                <div style="border-top: 2px solid #122546; padding: 4px 6px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 4px; box-sizing: border-box;">
                     <div>
-                        <strong style="color: #0f172a; font-weight: 800; font-size: 10px;">Tổng SL:</strong> 
-                        <span style="font-size: 13px; font-weight: 900; color: #dc2626;">${tongSlVal}</span>
+                        <strong style="color: #0f172a; font-weight: 800; font-size: 11px;">Tổng SL:</strong> 
+                        <span style="font-size: 15px; font-weight: 900; color: #dc2626;">${tongSlVal}</span>
                     </div>
                     <div>
-                        <strong style="color: #0f172a; font-weight: 800; font-size: 10px;">Người gửi:</strong> 
-                        <span style="font-weight: 800; color: #122546;">${escapeHTML(senderVal)}</span>
+                        <strong style="color: #0f172a; font-weight: 800; font-size: 11px;">Người gửi:</strong> 
+                        <span style="font-size: 12px; font-weight: 800; color: #122546;">${escapeHTML(senderVal)}</span>
                     </div>
                 </div>
                 ${(() => {
