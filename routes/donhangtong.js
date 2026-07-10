@@ -1322,6 +1322,9 @@ module.exports = async function(fastify) {
 
         const orders = await db.all(`
             SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count, COALESCE(o.is_edited, FALSE) AS is_edited,
+                COALESCE(o.customer_name, cust.customer_name) AS customer_name,
+                COALESCE(o.customer_phone, cust.phone) AS customer_phone,
+                COALESCE(o.source, src.name) AS source,
                 CASE 
                     WHEN o.tracking_code IS NOT NULL AND o.tracking_code != '' AND EXISTS (
                         SELECT 1 FROM payment_records pr 
@@ -1378,6 +1381,8 @@ module.exports = async function(fastify) {
                     )
                 ) AS has_any_printing
             FROM dht_orders o
+            LEFT JOIN customers cust ON o.customer_id = cust.id
+            LEFT JOIN settings_sources src ON cust.source_id = src.id
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
@@ -2520,6 +2525,9 @@ module.exports = async function(fastify) {
         // 1. Full order + joined fields
         const order = await db.get(`
             SELECT o.*,
+                COALESCE(o.customer_name, cust.customer_name) AS customer_name,
+                COALESCE(o.customer_phone, cust.phone) AS customer_phone,
+                COALESCE(o.source, src.name) AS source,
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
                 u_created.full_name AS created_by_name,
@@ -2541,6 +2549,8 @@ module.exports = async function(fastify) {
                      THEN COALESCE(err_check.error_count, 0) = COALESCE(err_handover.handed_count, 0)
                      ELSE FALSE END AS all_errors_handed_over
             FROM dht_orders o
+            LEFT JOIN customers cust ON o.customer_id = cust.id
+            LEFT JOIN settings_sources src ON cust.source_id = src.id
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
