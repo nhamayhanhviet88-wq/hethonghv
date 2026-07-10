@@ -3136,16 +3136,27 @@ function _tpdInjectWorkspaceStyles() {
                 width: 297mm !important;
                 height: 210mm !important;
                 box-sizing: border-box !important;
-                padding: 8mm !important;
+                padding: 0 !important;
                 page-break-after: always !important;
                 border: none !important;
                 box-shadow: none !important;
                 background: white !important;
                 margin: 0 !important;
             }
+            .tpd-print-page .tpd-a4-preview-card {
+                border: none !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                width: 297mm !important;
+                height: 210mm !important;
+                box-sizing: border-box !important;
+            }
             @page {
                 size: A4 landscape;
                 margin: 0;
+            }
+            .tpd-print-page {
+                page-break-after: always;
             }
         }
     `;
@@ -5393,7 +5404,7 @@ async function _tpdPrintAllSheets() {
         const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 5}px;`;
 
         printHtml += `
-            <div class="tpd-a4-page">
+            <div class="tpd-print-page">
                 <div class="tpd-a4-preview-card" style="border:none; box-shadow:none; width:100%; height:100%;">
                     <!-- Header Block -->
                     <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 6px;">
