@@ -3116,11 +3116,11 @@ function _tpdInjectWorkspaceStyles() {
         }
 
         @media print {
-            body * {
-                visibility: hidden !important;
+            body > *:not(#tpdPrintAllSheetsContainer) {
+                display: none !important;
             }
-            #tpdPrintAllSheetsContainer, #tpdPrintAllSheetsContainer * {
-                visibility: visible !important;
+            #tpdPrintAllSheetsContainer {
+                display: block !important;
             }
             #tpdPrintAllSheetsContainer {
                 display: block !important;
@@ -3128,6 +3128,7 @@ function _tpdInjectWorkspaceStyles() {
                 left: 0;
                 top: 0;
                 width: 297mm !important;
+                height: 210mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 background: white !important;
@@ -3245,9 +3246,14 @@ function _tpdRenderWorkspace(container) {
             </div>
         </div>
 
-        <!-- Hidden Container for Printing all sheets at once -->
-        <div id="tpdPrintAllSheetsContainer"></div>
     `;
+
+    // Ensure printing container is a direct child of document.body
+    if (!document.getElementById('tpdPrintAllSheetsContainer')) {
+        const printContainer = document.createElement('div');
+        printContainer.id = 'tpdPrintAllSheetsContainer';
+        document.body.appendChild(printContainer);
+    }
 
     // Initialize layout scaling and trigger preview/form rendering
     _tpdUpdateLivePreview();
