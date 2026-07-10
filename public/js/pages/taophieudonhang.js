@@ -3605,11 +3605,11 @@ function _tpdRenderFormInputs() {
         <div class="tpd-ws-grid-2">
             <div class="tpd-ws-form-group">
                 <label class="tpd-ws-form-label">Chất liệu vải</label>
-                <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="Cá sấu, thun cotton..." onkeyup="_tpdUpdateField('material_name', this.value)" ${disabledAttr}>
+                <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="Cá sấu, thun cotton..." disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;">
             </div>
             <div class="tpd-ws-form-group">
                 <label class="tpd-ws-form-label">Màu sắc phối</label>
-                <input type="text" class="tpd-ws-input" value="${it.color_name || ''}" placeholder="Navy phối vàng, đen..." onkeyup="_tpdUpdateField('color_name', this.value)" ${disabledAttr}>
+                <input type="text" class="tpd-ws-input" value="${it.color_name || ''}" placeholder="Navy phối vàng, đen..." disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;">
             </div>
         </div>
     `;
