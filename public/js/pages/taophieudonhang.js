@@ -2856,13 +2856,15 @@ function _tpdInjectWorkspaceStyles() {
         /* Images Layout row */
         .tpd-a4-images-row {
             display: flex;
+            justify-content: center;
             gap: 10px;
             height: 84mm; /* Adjusted to fit neatly on A4 */
             margin-bottom: 10px;
         }
 
         .tpd-a4-mockup-wrapper {
-            flex: 1.65;
+            width: fit-content;
+            max-width: 100%;
             border: 1.5px solid #122546;
             border-radius: 8px;
             overflow: hidden;
@@ -2906,12 +2908,16 @@ function _tpdInjectWorkspaceStyles() {
             justify-content: center;
             overflow: hidden;
             padding: 4px;
+            width: fit-content;
+            max-width: 100%;
         }
 
         .tpd-a4-img-body img {
             max-width: 100%;
-            max-height: 100%;
+            height: 100%;
+            width: auto;
             object-fit: contain;
+            display: block;
         }
 
         .tpd-a4-img-placeholder {
@@ -3646,7 +3652,7 @@ function _tpdUpdateLivePreview() {
 
             <!-- Images Row -->
             <div class="tpd-a4-images-row" style="height: ${_tpdGetImagesRowHeight(it)};">
-                <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup" style="flex: 1; width: 100%;">
+                <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup" style="width: fit-content; max-width: 100%; height: 100%;">
                     <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn (Click/Ctrl+V)</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
                         ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Bấm vào đây hoặc vùng bên phải rồi Ctrl+V để dán</span></div>`}
@@ -4639,7 +4645,7 @@ async function _tpdPrintAllSheets() {
 
                     <!-- Images Row -->
                     <div class="tpd-a4-images-row" style="height: ${_tpdGetImagesRowHeight(it)};">
-                        <div class="tpd-a4-mockup-wrapper" style="flex: 1; width: 100%;">
+                        <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%;">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
                                 ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
