@@ -6240,7 +6240,9 @@ function _tpdGetNormalizedSewingTechs() {
             const tech = String(item || '');
             let group = 'Khác';
             const lower = tech.toLowerCase();
-            if (lower.includes('cổ')) {
+            if (lower.normalize('NFC').includes('nẹp')) {
+                group = 'NHÓM NẸP';
+            } else if (lower.includes('cổ')) {
                 group = 'Nhóm Cổ';
             } else if (lower.includes('bo') || lower.includes('tay')) {
                 group = 'Nhóm Bo / Tay';
@@ -6304,6 +6306,7 @@ function _tpdGetSewingTechGroup(tech) {
     
     // Heuristic fallback for custom/new entries
     const lower = techName.toLowerCase();
+    if (lower.normalize('NFC').includes('nẹp')) return 'NHÓM NẸP';
     if (lower.includes('cổ')) return 'Nhóm Cổ';
     if (lower.includes('bo') || lower.includes('tay')) return 'Nhóm Bo / Tay';
     return 'Khác';
@@ -6514,12 +6517,7 @@ function _tpdRenderSewingTechsModalList() {
             group = item.group || 'Khác';
         } else {
             tech = String(item || '');
-            const lower = tech.toLowerCase();
-            if (lower.includes('cổ')) {
-                group = 'Nhóm Cổ';
-            } else if (lower.includes('bo') || lower.includes('tay')) {
-                group = 'Nhóm Bo / Tay';
-            }
+            group = _tpdGetSewingTechGroup(tech);
         }
         if (!groups[group]) {
             groups[group] = [];
@@ -6574,18 +6572,11 @@ function _tpdAddNewSewingTechOption() {
         if (item && typeof item === 'object') {
             return item.group || 'Khác';
         } else {
-            const tech = String(item || '');
-            let group = 'Khác';
-            const lower = tech.toLowerCase();
-            if (lower.includes('cổ')) {
-                group = 'Nhóm Cổ';
-            } else if (lower.includes('bo') || lower.includes('tay')) {
-                group = 'Nhóm Bo / Tay';
-            }
-            return group;
+            return _tpdGetSewingTechGroup(item);
         }
     });
     const uniqueGroups = [...new Set(normalized)];
+    if (!uniqueGroups.includes('NHÓM NẸP')) uniqueGroups.push('NHÓM NẸP');
     if (!uniqueGroups.includes('Nhóm Cổ')) uniqueGroups.push('Nhóm Cổ');
     if (!uniqueGroups.includes('Nhóm Bo / Tay')) uniqueGroups.push('Nhóm Bo / Tay');
     if (!uniqueGroups.includes('Khác')) uniqueGroups.push('Khác');
@@ -6696,13 +6687,7 @@ function _tpdUpdateModalSewingTech(idx, field, val) {
             list[idx][field] = val ? val.trim() : '';
         } else {
             const tech = field === 'tech' ? (val ? val.trim() : '') : String(list[idx]);
-            let group = 'Khác';
-            const lower = tech.toLowerCase();
-            if (lower.includes('cổ')) {
-                group = 'Nhóm Cổ';
-            } else if (lower.includes('bo') || lower.includes('tay')) {
-                group = 'Nhóm Bo / Tay';
-            }
+            let group = _tpdGetSewingTechGroup(tech);
             if (field === 'group') {
                 group = val ? val.trim() : '';
             }
@@ -6729,13 +6714,7 @@ async function _tpdSaveSewingTechsConfig() {
             };
         } else {
             const tech = String(item || '').trim();
-            let group = 'Khác';
-            const lower = tech.toLowerCase();
-            if (lower.includes('cổ')) {
-                group = 'Nhóm Cổ';
-            } else if (lower.includes('bo') || lower.includes('tay')) {
-                group = 'Nhóm Bo / Tay';
-            }
+            const group = _tpdGetSewingTechGroup(tech);
             return { tech, group };
         }
     }).filter(item => item.tech);
