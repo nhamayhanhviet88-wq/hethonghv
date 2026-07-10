@@ -3744,7 +3744,7 @@ function _tpdUpdateLivePreview() {
 
     // Build department deep link QR url
     const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${state.activeItemIndex}`;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(deepLink)}`;
 
     const mockupSrc = it.mockup_image || '';
 
@@ -3766,9 +3766,9 @@ function _tpdUpdateLivePreview() {
                     <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
                     <div class="tpd-a4-order-code" style="font-size: 14px; font-weight: 800; color: #475569; margin-top: 2px;">MÃ ĐƠN: ${o.order_code} | PHIẾU ${state.activeItemIndex + 1}/${state.items.length}</div>
                 </div>
-                <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 8px; background: #ffffff;">
-                    <img src="${qrUrl}" style="width: 50px; height: 50px; object-fit: contain;">
-                    <span style="font-size: 8px; font-weight: 800; color: #122546; text-transform: uppercase; white-space: nowrap;">Quét mã tiến độ</span>
+                <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
+                    <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
+                    <span style="font-size: 7px; font-weight: 800; color: #122546; text-transform: uppercase; white-space: nowrap;">Quét mã tiến độ</span>
                 </div>
             </div>
 
@@ -5334,7 +5334,7 @@ async function _tpdPrintAllSheets() {
 
         // QR
         const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${idx}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink)}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(deepLink)}`;
 
         const mockupSrc = it.mockup_image || '';
 
@@ -5357,9 +5357,9 @@ async function _tpdPrintAllSheets() {
                             <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
                             <div class="tpd-a4-order-code" style="font-size: 14px; font-weight: 800; color: #475569; margin-top: 2px;">MÃ ĐƠN: ${o.order_code} | PHIẾU ${idx + 1}/${items.length}</div>
                         </div>
-                        <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 8px; background: #ffffff;">
-                            <img src="${qrUrl}" style="width: 50px; height: 50px; object-fit: contain;">
-                            <span style="font-size: 8px; font-weight: 800; color: #122546; text-transform: uppercase; white-space: nowrap;">Quét mã tiến độ</span>
+                        <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
+                            <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
+                            <span style="font-size: 7px; font-weight: 800; color: #122546; text-transform: uppercase; white-space: nowrap;">Quét mã tiến độ</span>
                         </div>
                     </div>
 
