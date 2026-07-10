@@ -4038,7 +4038,7 @@ function _tpdRenderFormInputs() {
                             <option value="Gáy">Gáy</option>
                             <option value="Vị Trí Khác">Vị Trí Khác...</option>
                         </select>
-                        <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546;">Thêm</button>
+                        <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546; color: white;">Thêm</button>
                     </div>
                 ` : ''}
             </div>
