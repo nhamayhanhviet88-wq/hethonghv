@@ -3526,11 +3526,11 @@ function _tpdUpdateLivePreview() {
             <!-- Metadata info grid -->
             <div class="tpd-a4-meta-grid">
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Số điện thoại:</span> <span class="tpd-a4-meta-val">${o.customer_phone || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Tiêu chuẩn gửi:</span> <span class="tpd-a4-meta-val" style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority || 'CHUẨN'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày xuất hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}</span></div>
 
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Kiểu dáng:</span> <span id="prev_style_name" class="tpd-a4-meta-val" style="color: #16a34a;">${it.style_name || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Sản phẩm:</span> <span id="prev_product_name" class="tpd-a4-meta-val" style="color: #16a34a;">${it.product_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Chất liệu vải:</span> <span id="prev_material_name" class="tpd-a4-meta-val">${it.material_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Màu sắc phối:</span> <span id="prev_color_name" class="tpd-a4-meta-val">${it.color_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế / Mẫu rập:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'} / ${it.pattern_name || '—'}</span></div>
@@ -3598,8 +3598,8 @@ function _tpdRenderFormInputs() {
     // 1. Text Fields
     let html = `
         <div class="tpd-ws-form-group">
-            <label class="tpd-ws-form-label">Tên Kiểu Dáng May</label>
-            <input type="text" class="tpd-ws-input" value="${it.style_name || ''}" placeholder="Ví dụ: Áo phông cổ tròn, Quần âu..." onkeyup="_tpdUpdateField('style_name', this.value)" ${disabledAttr}>
+            <label class="tpd-ws-form-label">Sản phẩm</label>
+            <input type="text" class="tpd-ws-input" value="${it.product_name || ''}" placeholder="Tên sản phẩm..." disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;">
         </div>
 
         <div class="tpd-ws-grid-2">
@@ -4272,11 +4272,11 @@ async function _tpdPrintAllSheets() {
                     <!-- Metadata info grid -->
                     <div class="tpd-a4-meta-grid">
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Số điện thoại:</span> <span class="tpd-a4-meta-val">${o.customer_phone || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Tiêu chuẩn gửi:</span> <span class="tpd-a4-meta-val" style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority || 'CHUẨN'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày xuất hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}</span></div>
 
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Kiểu dáng:</span> <span class="tpd-a4-meta-val" style="color: #16a34a;">${it.style_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Sản phẩm:</span> <span class="tpd-a4-meta-val" style="color: #16a34a;">${it.product_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Chất liệu vải:</span> <span class="tpd-a4-meta-val">${it.material_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Màu sắc phối:</span> <span class="tpd-a4-meta-val">${it.color_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế / Mẫu rập:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'} / ${it.pattern_name || '—'}</span></div>
