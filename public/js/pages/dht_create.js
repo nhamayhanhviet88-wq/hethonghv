@@ -3134,13 +3134,29 @@ async function _dhtSubmitEditV2(isDraft) {
     var prov = document.getElementById('_co_prov')?.value || null;
     var shipDate = document.getElementById('_co_shipDate')?.value || null;
     var carrier = document.getElementById('_co_carrier')?.value || null;
-    if (!isDraft && !cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
+    var orderCodeVal = document.getElementById('_co_code')?.value?.trim();
+
     if (!isDraft) {
+        if (!cat) { showToast('Vui lòng chọn Lĩnh Vực', 'error'); return; }
+        if (!orderCodeVal || orderCodeVal.startsWith('📝') || orderCodeVal.startsWith('NHAP-')) {
+            showToast('Vui lòng nhập/chọn mã đơn chính thức từ CRM để Lưu Chính Thức', 'error');
+            return;
+        }
         if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
+        if (!prov) { showToast('Chọn Tỉnh/Thành Phố', 'error'); return; }
+        if (_dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
+        
         var desVal = document.getElementById('_co_designer')?.value;
         if (!desVal) { showToast('Chọn Thiết Kế', 'error'); return; }
+        
+        if (!shipDate) { showToast('Chọn Ngày Gửi Hàng', 'error'); return; }
+        if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
+        
+        var saleNote = document.getElementById('_co_saleNote')?.value?.trim();
+        if (!saleNote) { showToast('📝 Nhập Nội Dung Sale Dặn Kế Toán Gửi Hàng', 'error'); return; }
+    } else {
+        if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
     }
-    if (prov && _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ', 'error'); return; }
 
     var items = _dhtCreate.phieuItems || [];
     if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
@@ -3152,16 +3168,6 @@ async function _dhtSubmitEditV2(isDraft) {
         });
         if (hasTo) {
             showToast('⛔ Đơn hàng PET không được phép chứa sản phẩm dạng "Tờ". Vui lòng kiểm tra lại!', 'error');
-            return;
-        }
-    }
-    
-    // Check promote logic: if draft is promoted to official, we require a valid order code
-    var isDraftOrder = _dhtCreate.editData && _dhtCreate.editData.order && (_dhtCreate.editData.order.is_draft === true || _dhtCreate.editData.order.is_draft === 'true');
-    var orderCodeVal = document.getElementById('_co_code')?.value?.trim();
-    if (isDraftOrder && !isDraft) {
-        if (!orderCodeVal || orderCodeVal.startsWith('📝') || orderCodeVal.startsWith('NHAP-')) {
-            showToast('Vui lòng nhập/chọn mã đơn chính thức từ CRM để Lưu Chính Thức', 'error');
             return;
         }
     }
