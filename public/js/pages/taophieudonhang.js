@@ -3781,9 +3781,8 @@ function _tpdUpdateLivePreview() {
 
             <!-- Metadata info grid -->
             ${(() => {
-                const isRedSheet = (layout && typeof layout.is_red_sheet === 'boolean') 
-                    ? layout.is_red_sheet 
-                    : (o && ['VT', 'HVVT'].includes(o.source));
+                const isSourceVip = !!(o && ['VT', 'HVVT'].includes(o.source));
+                const isRedSheet = isSourceVip ? true : ((layout && typeof layout.is_red_sheet === 'boolean') ? layout.is_red_sheet : false);
                 const gridStyle = isRedSheet ? 'background: #dc2626 !important; border-color: #dc2626 !important;' : '';
                 const itemStyle = isRedSheet ? 'color: #ffffff !important;' : '';
                 return `
@@ -3877,14 +3876,13 @@ function _tpdRenderFormInputs() {
         } catch(e){}
     }
 
-    const isRedSheet = (layout && typeof layout.is_red_sheet === 'boolean') 
-        ? layout.is_red_sheet 
-        : (state.order && ['VT', 'HVVT'].includes(state.order.source));
+    const isSourceVip = !!(state.order && ['VT', 'HVVT'].includes(state.order.source));
+    const isRedSheet = isSourceVip ? true : ((layout && typeof layout.is_red_sheet === 'boolean') ? layout.is_red_sheet : false);
 
     // 1. Text Fields (Sản phẩm, Chất liệu vải, Màu sắc phối)
     let html = `
         <div class="tpd-ws-form-group" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" id="tpdRedSheetCheckbox" ${isRedSheet ? 'checked' : ''} onchange="_tpdChangeLayoutRedSheet(this.checked)" style="width: 18px; height: 18px; cursor: pointer;" ${disabledAttr}>
+            <input type="checkbox" id="tpdRedSheetCheckbox" ${isRedSheet ? 'checked' : ''} onchange="_tpdChangeLayoutRedSheet(this.checked)" style="width: 18px; height: 18px; cursor: pointer;" ${disabledAttr || isSourceVip ? 'disabled' : ''}>
             <label for="tpdRedSheetCheckbox" style="font-weight: 800; color: #dc2626; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 4px; margin: 0;">
                 🔴 PHIẾU ĐỎ (Khách hàng VIP)
             </label>
@@ -5392,9 +5390,8 @@ async function _tpdPrintAllSheets() {
 
                     <!-- Metadata info grid -->
                     ${(() => {
-                        const isRedSheet = (layout && typeof layout.is_red_sheet === 'boolean') 
-                            ? layout.is_red_sheet 
-                            : (o && ['VT', 'HVVT'].includes(o.source));
+                        const isSourceVip = !!(o && ['VT', 'HVVT'].includes(o.source));
+                        const isRedSheet = isSourceVip ? true : ((layout && typeof layout.is_red_sheet === 'boolean') ? layout.is_red_sheet : false);
                         const gridStyle = isRedSheet ? 'background: #dc2626 !important; border-color: #dc2626 !important;' : '';
                         const itemStyle = isRedSheet ? 'color: #ffffff !important;' : '';
                         return `
