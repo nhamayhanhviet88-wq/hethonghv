@@ -327,6 +327,13 @@ function _tpdCloneItemState(item) {
         dimension: d.dimension || ''
     }));
 
+    let customLayout = { height: '', topSpacing: 4, alignment: 'flex-start', contentEditable: false };
+    if (item.custom_layout) {
+        try {
+            customLayout = typeof item.custom_layout === 'string' ? JSON.parse(item.custom_layout) : item.custom_layout;
+        } catch(e) {}
+    }
+
     return {
         id: item.id,
         style_name: item.style_name || '',
@@ -341,7 +348,8 @@ function _tpdCloneItemState(item) {
         unit_price: Number(item.unit_price) || 0,
         product_name: item.product_name || '',
         pattern_name: item.pattern_name || '',
-        size_type: item.size_type || 'Size TT'
+        size_type: item.size_type || 'Size TT',
+        custom_layout: customLayout
     };
 }
 
@@ -3594,19 +3602,28 @@ function _tpdAdjustMockupWidth(img) {
 
 // Helper to retrieve or initialize custom layout options for an item index
 function _tpdGetCustomLayout(index) {
-    if (!window._tpdWorkspaceState) return { height: '', topSpacing: 4, alignment: 'flex-start', contentEditable: false };
-    if (!window._tpdWorkspaceState.customLayouts) {
-        window._tpdWorkspaceState.customLayouts = {};
+    const state = window._tpdWorkspaceState;
+    if (!state) return { height: '', topSpacing: 4, alignment: 'flex-start', contentEditable: false };
+
+    let it = null;
+    if (index === state.activeItemIndex && state.editingItem) {
+        it = state.editingItem;
+    } else {
+        it = state.items[index];
     }
-    if (!window._tpdWorkspaceState.customLayouts[index]) {
-        window._tpdWorkspaceState.customLayouts[index] = {
-            height: '',
-            topSpacing: 4,
-            alignment: 'flex-start',
-            contentEditable: false
-        };
+
+    if (!it) return { height: '', topSpacing: 4, alignment: 'flex-start', contentEditable: false };
+
+    if (!it.custom_layout) {
+        it.custom_layout = { height: '', topSpacing: 4, alignment: 'flex-start', contentEditable: false };
+    } else if (typeof it.custom_layout === 'string') {
+        try {
+            it.custom_layout = JSON.parse(it.custom_layout);
+        } catch(e) {
+            it.custom_layout = { height: '', topSpacing: 4, alignment: 'flex-start', contentEditable: false };
+        }
     }
-    return window._tpdWorkspaceState.customLayouts[index];
+    return it.custom_layout;
 }
 
 function _tpdChangeLayoutHeight(val) {
@@ -3617,6 +3634,7 @@ function _tpdChangeLayoutHeight(val) {
     _tpdUpdateLivePreview();
     const lbl = document.getElementById('tpd_lbl_height');
     if (lbl) lbl.innerText = val + 'mm';
+    _tpdSaveDraft(state.editingItem);
 }
 
 // Reset wrapper height to auto/dynamic behavior
@@ -3627,6 +3645,7 @@ function _tpdResetLayoutHeight() {
     layout.height = '';
     _tpdUpdateLivePreview();
     _tpdRenderFormInputs();
+    _tpdSaveDraft(state.editingItem);
 }
 
 function _tpdChangeLayoutSpacing(val) {
@@ -3637,6 +3656,7 @@ function _tpdChangeLayoutSpacing(val) {
     _tpdUpdateLivePreview();
     const lbl = document.getElementById('tpd_lbl_spacing');
     if (lbl) lbl.innerText = val + 'px';
+    _tpdSaveDraft(state.editingItem);
 }
 
 function _tpdChangeLayoutAlignment(val) {
@@ -3646,6 +3666,7 @@ function _tpdChangeLayoutAlignment(val) {
     layout.alignment = val;
     _tpdUpdateLivePreview();
     _tpdRenderFormInputs();
+    _tpdSaveDraft(state.editingItem);
 }
 
 function _tpdChangeLayoutEditable(checked) {
@@ -3654,6 +3675,7 @@ function _tpdChangeLayoutEditable(checked) {
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
     layout.contentEditable = checked;
     _tpdUpdateLivePreview();
+    _tpdSaveDraft(state.editingItem);
 }
 
 // Calculate table count to adjust images row height dynamically and avoid A4 overflow
@@ -4678,7 +4700,8 @@ async function _tpdSaveProductionSheet() {
             front_technique_image: it.print_details && it.print_details[0] ? it.print_details[0].image : null,
             back_technique_image: it.print_details && it.print_details[1] ? it.print_details[1].image : null,
             quantities: it.quantities,
-            size_type: it.size_type || 'Size TT'
+            size_type: it.size_type || 'Size TT',
+            custom_layout: it.custom_layout || {}
         };
 
         const res = await apiCall(`/api/dht/orders/${state.orderId}/items/${it.id}/sheet`, 'PUT', payload);

@@ -2822,6 +2822,10 @@ module.exports = async function(fastify) {
         if (b.style_name !== undefined) { sets.push(`style_name = $${idx++}`); vals.push(b.style_name || null); }
         if (b.workshop_note !== undefined) { sets.push(`workshop_note = $${idx++}`); vals.push(b.workshop_note || null); }
         if (b.size_type !== undefined) { sets.push(`size_type = $${idx++}`); vals.push(b.size_type || 'Size TT'); }
+        if (b.custom_layout !== undefined) {
+            sets.push(`custom_layout = $${idx++}`);
+            vals.push(b.custom_layout ? JSON.stringify(b.custom_layout) : '{}');
+        }
         // Update quantities (size breakdown) — overwrite existing
         if (b.quantities !== undefined) {
             sets.push(`quantities = $${idx++}`);
