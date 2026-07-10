@@ -3777,12 +3777,13 @@ function _tpdUpdateLivePreview() {
 
             <!-- Images Row -->
             <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
-                <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%;">
+                <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
                     <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
                         ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Tải lên ảnh từ bảng bên phải</span></div>`}
                     </div>
                 </div>
+                ${_tpdGetInfoBoxHtml(it, layout, o)}
             </div>
 
             <!-- Size breakdown table -->
@@ -4296,6 +4297,121 @@ function _tpdRenderFormInputs() {
         </div>
     `;
 
+    // Compute defaults for overrides placeholders
+    let defaultSewing = '—';
+    if (it.tsam_sewing_tech) {
+        try {
+            const arr = typeof it.tsam_sewing_tech === 'string' ? JSON.parse(it.tsam_sewing_tech) : it.tsam_sewing_tech;
+            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
+        } catch(e){}
+    } else if (it.sewing_techniques) {
+        try {
+            const arr = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : it.sewing_techniques;
+            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
+        } catch(e){}
+    }
+
+    let defaultPrinting = '—';
+    if (it.print_details && it.print_details.length > 0) {
+        try {
+            const details = typeof it.print_details === 'string' ? JSON.parse(it.print_details) : it.print_details;
+            if (Array.isArray(details) && details.length > 0) {
+                defaultPrinting = details.map(d => {
+                    let dimStr = '';
+                    if (d.width && d.width.trim()) dimStr += `Ngang ${d.width.trim()}`;
+                    if (d.height && d.height.trim()) {
+                        if (dimStr) dimStr += ' x ';
+                        dimStr += `Cao ${d.height.trim()}`;
+                    }
+                    const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
+                    let offsetStr = '';
+                    if (posConfig && posConfig.require_offset) {
+                        const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                        if (offsetVal && offsetVal.trim()) {
+                            offsetStr = ` (Gáy: ${offsetVal.trim()})`;
+                        }
+                    }
+                    return `${d.position}: ${d.print_type || '—'}${dimStr ? ` (${dimStr})` : ''}${offsetStr}`;
+                }).join('; ');
+            }
+        } catch(e){}
+    }
+
+    let defaultSizeTT = '—';
+    if (it.quantities && it.quantities.length > 0) {
+        try {
+            const filledQuantities = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : it.quantities;
+            if (Array.isArray(filledQuantities)) {
+                const sorted = _tpdSortSizes(filledQuantities.map(q => q.size))
+                    .map(sz => filledQuantities.find(q => q.size === sz))
+                    .filter(Boolean)
+                    .filter(q => Number(q.qty) > 0 || (q.note && q.note.trim()));
+                if (sorted.length > 0) {
+                    defaultSizeTT = sorted.map(q => {
+                        const parts = [];
+                        if (Number(q.qty) > 0) parts.push(q.qty);
+                        if (q.note && q.note.trim()) parts.push(q.note.trim());
+                        return `${q.size}: ${parts.join(' - ')}`;
+                    }).join(' | ');
+                }
+            }
+        } catch(e){}
+    }
+
+    let defaultTotalQty = 0;
+    if (it.quantities && it.quantities.length > 0) {
+        try {
+            const filledQuantities = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : it.quantities;
+            if (Array.isArray(filledQuantities)) {
+                defaultTotalQty = filledQuantities.reduce((sum, q) => sum + (Number(q.qty) || 0), 0);
+            }
+        } catch(e){}
+    }
+
+    html += `
+        <!-- Custom parameters override -->
+        <div class="tpd-ws-form-group" style="margin-top: 16px; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #ffffff;">
+            <div style="font-size: 12px; font-weight: 900; color: #122546; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                ✏️ TUỲ CHỈNH THÔNG TIN PHIẾU IN
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div>
+                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Chất liệu vải</label>
+                    <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(it.material_name || '—')}" value="${escapeHTML(layout.custom_material || '')}" oninput="_tpdChangeCustomInfo('custom_material', this.value)" ${disabledAttr}>
+                </div>
+                <div>
+                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Màu sắc phối</label>
+                    <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(it.color_name || '—')}" value="${escapeHTML(layout.custom_color || '')}" oninput="_tpdChangeCustomInfo('custom_color', this.value)" ${disabledAttr}>
+                </div>
+                <div>
+                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Kỹ Thuật May</label>
+                    <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(defaultSewing)}" value="${escapeHTML(layout.custom_sewing || '')}" oninput="_tpdChangeCustomInfo('custom_sewing', this.value)" ${disabledAttr}>
+                </div>
+                <div>
+                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Kỹ Thuật In</label>
+                    <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(defaultPrinting)}" value="${escapeHTML(layout.custom_printing || '')}" oninput="_tpdChangeCustomInfo('custom_printing', this.value)" ${disabledAttr}>
+                </div>
+                <div>
+                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Báo Size</label>
+                    <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: (${escapeHTML(it.product_name || '—')})" value="${escapeHTML(layout.custom_bao_size || '')}" oninput="_tpdChangeCustomInfo('custom_bao_size', this.value)" ${disabledAttr}>
+                </div>
+                <div>
+                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Size TT (Thông số size)</label>
+                    <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(defaultSizeTT)}" value="${escapeHTML(layout.custom_size_tt || '')}" oninput="_tpdChangeCustomInfo('custom_size_tt', this.value)" ${disabledAttr}>
+                </div>
+                <div>
+                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Tổng SL</label>
+                    <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${defaultTotalQty}" value="${escapeHTML(layout.custom_tong_sl !== undefined ? String(layout.custom_tong_sl) : '')}" oninput="_tpdChangeCustomInfo('custom_tong_sl', this.value)" ${disabledAttr}>
+                </div>
+                <div>
+                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Người gửi dự kiến</label>
+                    <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Ví dụ: Nguyễn Văn A" value="${escapeHTML(layout.custom_sender || '')}" oninput="_tpdChangeCustomInfo('custom_sender', this.value)" ${disabledAttr}>
+                </div>
+            </div>
+        </div>
+    `;
+
     container.innerHTML = html;
 }
 
@@ -4477,6 +4593,162 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
             </div>
         </div>
     `;
+}
+
+function _tpdGetInfoBoxHtml(it, layout, o) {
+    if (!layout) layout = {};
+
+    // 1. Fabric (Chất liệu vải)
+    const fabricVal = layout.custom_material !== undefined && layout.custom_material !== '' ? layout.custom_material : (it.material_name || '—');
+
+    // 2. Color (Màu sắc phối)
+    const colorVal = layout.custom_color !== undefined && layout.custom_color !== '' ? layout.custom_color : (it.color_name || '—');
+
+    // 3. Sewing tech (Kỹ thuật may)
+    let defaultSewing = '—';
+    if (it.tsam_sewing_tech) {
+        try {
+            const arr = typeof it.tsam_sewing_tech === 'string' ? JSON.parse(it.tsam_sewing_tech) : it.tsam_sewing_tech;
+            if (Array.isArray(arr) && arr.length > 0) {
+                defaultSewing = arr.join(', ');
+            }
+        } catch(e){}
+    } else if (it.sewing_techniques) {
+        try {
+            const arr = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : it.sewing_techniques;
+            if (Array.isArray(arr) && arr.length > 0) {
+                defaultSewing = arr.join(', ');
+            }
+        } catch(e){}
+    }
+    const sewingVal = layout.custom_sewing !== undefined && layout.custom_sewing !== '' ? layout.custom_sewing : defaultSewing;
+
+    // 4. Print Tech (Kỹ thuật in)
+    let defaultPrinting = '—';
+    if (it.print_details && it.print_details.length > 0) {
+        const details = typeof it.print_details === 'string' ? JSON.parse(it.print_details) : it.print_details;
+        if (Array.isArray(details) && details.length > 0) {
+            defaultPrinting = details.map(d => {
+                let dimStr = '';
+                if (d.width && d.width.trim()) dimStr += `Ngang ${d.width.trim()}`;
+                if (d.height && d.height.trim()) {
+                    if (dimStr) dimStr += ' x ';
+                    dimStr += `Cao ${d.height.trim()}`;
+                }
+                const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
+                let offsetStr = '';
+                if (posConfig && posConfig.require_offset) {
+                    const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                    if (offsetVal && offsetVal.trim()) {
+                        offsetStr = ` (Gáy: ${offsetVal.trim()})`;
+                    }
+                }
+                return `${d.position}: ${d.print_type || '—'}${dimStr ? ` (${dimStr})` : ''}${offsetStr}`;
+            }).join('; ');
+        }
+    }
+    const printingVal = layout.custom_printing !== undefined && layout.custom_printing !== '' ? layout.custom_printing : defaultPrinting;
+
+    // 5. Size Header (Báo size)
+    const baoSizeVal = layout.custom_bao_size !== undefined && layout.custom_bao_size !== '' ? layout.custom_bao_size : (it.product_name ? `(${it.product_name})` : '—');
+
+    // 6. Size breakdown (Size TT)
+    let defaultSizeTT = '—';
+    if (it.quantities && it.quantities.length > 0) {
+        const filledQuantities = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : it.quantities;
+        if (Array.isArray(filledQuantities)) {
+            const sorted = _tpdSortSizes(filledQuantities.map(q => q.size))
+                .map(sz => filledQuantities.find(q => q.size === sz))
+                .filter(Boolean)
+                .filter(q => Number(q.qty) > 0 || (q.note && q.note.trim()));
+            if (sorted.length > 0) {
+                defaultSizeTT = sorted.map(q => {
+                    const parts = [];
+                    if (Number(q.qty) > 0) parts.push(q.qty);
+                    if (q.note && q.note.trim()) parts.push(q.note.trim());
+                    return `${q.size}: ${parts.join(' - ')}`;
+                }).join(' | ');
+            }
+        }
+    }
+    const sizeTTVal = layout.custom_size_tt !== undefined && layout.custom_size_tt !== '' ? layout.custom_size_tt : defaultSizeTT;
+
+    // 7. Total Qty (Tổng SL)
+    let defaultTotalQty = 0;
+    if (it.quantities && it.quantities.length > 0) {
+        const filledQuantities = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : it.quantities;
+        if (Array.isArray(filledQuantities)) {
+            defaultTotalQty = filledQuantities.reduce((sum, q) => sum + (Number(q.qty) || 0), 0);
+        }
+    }
+    const tongSlVal = layout.custom_tong_sl !== undefined && layout.custom_tong_sl !== '' ? layout.custom_tong_sl : defaultTotalQty;
+
+    // 8. Expected Sender (Người gửi dự kiến)
+    const senderVal = layout.custom_sender !== undefined && layout.custom_sender !== '' ? layout.custom_sender : '—';
+
+    return `
+        <div class="tpd-a4-info-box" style="flex: 1; border: 1.5px solid #122546; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; background: #ffffff; height: 100%; box-sizing: border-box; min-width: 200px;">
+            <div style="background: #122546; color: white; padding: 5px 8px; font-weight: 700; font-size: 11px; text-transform: uppercase; text-align: center; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                Thông Tin Chi Tiết Sản Xuất
+            </div>
+            <div style="flex: 1; padding: 6px 10px; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; line-height: 1.35; color: #1e293b; background: #ffffff; box-sizing: border-box;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div>
+                        <strong style="color: #0f172a; font-weight: 800;">Chất liệu vải:</strong> 
+                        <span style="font-weight: 700; color: #1e3a8a;">${escapeHTML(fabricVal)}</span>
+                    </div>
+                    <div>
+                        <strong style="color: #0f172a; font-weight: 800;">Màu sắc phối:</strong> 
+                        <span style="font-weight: 700; color: #475569;">${escapeHTML(colorVal)}</span>
+                    </div>
+                    <div style="border-top: 1px dashed #e2e8f0; padding-top: 3px; margin-top: 1px;">
+                        <strong style="color: #0f172a; font-weight: 800;">Kỹ Thuật May:</strong> 
+                        <span style="font-weight: 700; color: #b45309;">${escapeHTML(sewingVal)}</span>
+                    </div>
+                    <div>
+                        <strong style="color: #0f172a; font-weight: 800;">Kỹ Thuật In:</strong> 
+                        <span style="font-weight: 700; color: #047857;">${escapeHTML(printingVal)}</span>
+                    </div>
+                    <div style="border-top: 1px dashed #e2e8f0; padding-top: 3px; margin-top: 1px;">
+                        <strong style="color: #0f172a; font-weight: 800;">Báo Size:</strong> 
+                        <span style="font-weight: 800; color: #1e293b; text-transform: uppercase;">${escapeHTML(baoSizeVal)}</span>
+                    </div>
+                    <div>
+                        <strong style="color: #0f172a; font-weight: 800;">Size TT:</strong> 
+                        <span style="font-weight: 700; color: #0f172a;">${escapeHTML(sizeTTVal)}</span>
+                    </div>
+                </div>
+                <div style="border-top: 2px solid #122546; padding: 4px 6px; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 4px; box-sizing: border-box;">
+                    <div>
+                        <strong style="color: #0f172a; font-weight: 800; font-size: 10px;">Tổng SL:</strong> 
+                        <span style="font-size: 13px; font-weight: 900; color: #dc2626;">${tongSlVal}</span>
+                    </div>
+                    <div>
+                        <strong style="color: #0f172a; font-weight: 800; font-size: 10px;">Người gửi:</strong> 
+                        <span style="font-weight: 800; color: #122546;">${escapeHTML(senderVal)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function _tpdChangeCustomInfo(field, value) {
+    const state = window._tpdWorkspaceState;
+    const it = state.editingItem;
+    if (!it) return;
+
+    if (!it.custom_layout) {
+        it.custom_layout = { height: '', topSpacing: 4, alignment: 'flex-start', contentEditable: false };
+    } else if (typeof it.custom_layout === 'string') {
+        try { it.custom_layout = JSON.parse(it.custom_layout); } catch(e) {
+            it.custom_layout = { height: '', topSpacing: 4, alignment: 'flex-start', contentEditable: false };
+        }
+    }
+
+    it.custom_layout[field] = value;
+    _tpdSaveDraft(it);
+    _tpdUpdateLivePreview();
 }
 
 // Add a print position
@@ -4824,12 +5096,13 @@ async function _tpdPrintAllSheets() {
 
                     <!-- Images Row -->
                     <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
-                        <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%;">
+                        <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
                                 ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
+                        ${_tpdGetInfoBoxHtml(it, layout, o)}
                     </div>
 
                     <!-- Size breakdown table -->

@@ -2578,6 +2578,7 @@ module.exports = async function(fastify) {
             SELECT i.*, 
                    ts.factory_price AS tsam_factory_price, 
                    ts.processing_price AS tsam_processing_price,
+                   ts.sewing_tech AS tsam_sewing_tech,
                    cr.name AS actual_carrier_name,
                    cr.tracking_url_template AS actual_carrier_tracking_url,
                    u.full_name AS shipped_by_name,
@@ -2892,7 +2893,10 @@ module.exports = async function(fastify) {
         if (!order) return reply.code(404).type('text/html').send('<h1>Không tìm thấy đơn hàng</h1>');
 
         const items = await db.all(`
-            SELECT i.*, ts.factory_price AS tsam_factory_price, ts.processing_price AS tsam_processing_price
+            SELECT i.*, 
+                   ts.factory_price AS tsam_factory_price, 
+                   ts.processing_price AS tsam_processing_price,
+                   ts.sewing_tech AS tsam_sewing_tech
             FROM dht_order_items i
             LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
             WHERE i.dht_order_id = $1 ORDER BY i.id ASC
