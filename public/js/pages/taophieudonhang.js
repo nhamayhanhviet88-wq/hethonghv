@@ -3975,10 +3975,6 @@ function _tpdRenderFormInputs() {
             </div>
             <div style="background: #ffffff; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
                 ${sewingListHtml}
-                <div style="margin-top: 8px; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
-                    <label style="font-size: 10px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Ghi chú Kỹ Thuật May:</label>
-                    <input type="text" placeholder="Nhập ghi chú riêng cho kỹ thuật may..." value="${escapeHTML(layout.custom_sewing_note || '')}" onchange="_tpdUpdateSewingNote(this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; width: 100%; box-sizing: border-box;" ${disabledAttr}>
-                </div>
             </div>
         </div>
     `;
