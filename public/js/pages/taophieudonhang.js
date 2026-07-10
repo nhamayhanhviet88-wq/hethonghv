@@ -3642,18 +3642,22 @@ function _tpdUpdateLivePreview() {
 
             <!-- Images Row -->
             <div class="tpd-a4-images-row" style="height: ${_tpdGetImagesRowHeight(it)};">
-                <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup">
+                <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup" style="flex: 1; width: 100%;">
                     <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn (Click/Ctrl+V)</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
                         ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Bấm vào đây hoặc vùng bên phải rồi Ctrl+V để dán</span></div>`}
                     </div>
                 </div>
-                ${_tpdGetTechWrapperHtml(it, false)}
             </div>
 
-            <!-- Size breakdown table -->
-            <div class="tpd-a4-table-row">
-                ${_tpdRenderA4SizeTable(it)}
+            <!-- Size breakdown table & Print Details Table -->
+            <div class="tpd-a4-table-row" style="display: flex; gap: 10px; align-items: stretch; margin-bottom: 10px;">
+                <div style="flex: 1.8; min-width: 0;">
+                    ${_tpdRenderA4SizeTable(it)}
+                </div>
+                <div style="flex: 1.2; display: flex; min-width: 0;">
+                    ${_tpdGetTechWrapperHtml(it, false)}
+                </div>
             </div>
 
             <!-- Bottom Row (Note, QR and Signatures) -->
@@ -4248,7 +4252,7 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
 
     if (details.length === 0) {
         return `
-            <div class="tpd-a4-tech-wrapper" style="flex: 1.65; display: flex;">
+            <div class="tpd-a4-tech-wrapper" style="flex: 1; display: flex; width: 100%;">
                 <div class="tpd-a4-tech-box" style="border: 1.5px solid #122546; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; background: #ffffff; flex: 1; min-height: 100%;">
                     <div class="tpd-a4-img-header" style="background: #122546; color: white; padding: 6px 10px; font-weight: 700; font-size: 13px; text-transform: uppercase; text-align: center;">Thông số in / thêu chi tiết</div>
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 12px; font-weight: 600; padding: 20px; text-align: center;">
@@ -4297,7 +4301,7 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
     }).join('');
 
     return `
-        <div class="tpd-a4-tech-wrapper" style="flex: 1.65; display: flex;">
+        <div class="tpd-a4-tech-wrapper" style="flex: 1; display: flex; width: 100%;">
             <div class="tpd-a4-tech-box" style="border: 1.5px solid #122546; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; background: #ffffff; flex: 1; min-height: 100%;">
                 <div class="tpd-a4-img-header" style="background: #122546; color: white; padding: 6px 10px; font-weight: 700; font-size: 13px; text-transform: uppercase; text-align: center;">Thông số in / thêu chi tiết</div>
                 <div style="flex: 1; padding: 6px 8px; overflow-y: auto; background: #ffffff;">
@@ -4660,18 +4664,22 @@ async function _tpdPrintAllSheets() {
 
                     <!-- Images Row -->
                     <div class="tpd-a4-images-row" style="height: ${_tpdGetImagesRowHeight(it)};">
-                        <div class="tpd-a4-mockup-wrapper">
+                        <div class="tpd-a4-mockup-wrapper" style="flex: 1; width: 100%;">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
                                 ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
-                        ${_tpdGetTechWrapperHtml(it, true)}
                     </div>
 
-                    <!-- Size breakdown table -->
-                    <div class="tpd-a4-table-row">
-                        ${_tpdRenderA4SizeTable(it)}
+                    <!-- Size breakdown table & Print Details Table -->
+                    <div class="tpd-a4-table-row" style="display: flex; gap: 10px; align-items: stretch; margin-bottom: 10px;">
+                        <div style="flex: 1.8; min-width: 0;">
+                            ${_tpdRenderA4SizeTable(it)}
+                        </div>
+                        <div style="flex: 1.2; display: flex; min-width: 0;">
+                            ${_tpdGetTechWrapperHtml(it, true)}
+                        </div>
                     </div>
 
                     <!-- Bottom Row -->
