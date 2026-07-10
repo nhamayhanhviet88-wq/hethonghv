@@ -2780,7 +2780,7 @@ function _tpdInjectWorkspaceStyles() {
             align-items: center;
             border-bottom: 3px solid #122546;
             padding-bottom: 6px;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
 
         .tpd-a4-header-left {
@@ -2831,7 +2831,7 @@ function _tpdInjectWorkspaceStyles() {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 6px;
-            margin-bottom: 10px;
+            margin-bottom: 4px;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
@@ -3637,7 +3637,7 @@ function _tpdUpdateLivePreview() {
     container.innerHTML = `
         <div class="tpd-a4-preview-card" id="tpdPrintSheet">
             <!-- Header Block -->
-            <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 10px;">
+            <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 6px;">
                 <div class="tpd-a4-header-left" style="display: flex; align-items: center; gap: 12px;">
                     <img src="/images/logo.png" class="tpd-a4-logo" style="height: 48px; object-fit: contain;" onerror="this.style.display='none'">
                     <span class="tpd-a4-brand" style="font-size: 20px; font-weight: 900; color: #122546; text-transform: uppercase;">Đồng Phục <span class="tpd-a4-brand-gold" style="color: #fad24c;">HV</span></span>
@@ -4630,7 +4630,7 @@ async function _tpdPrintAllSheets() {
             <div class="tpd-a4-page">
                 <div class="tpd-a4-preview-card" style="border:none; box-shadow:none; width:100%; height:100%;">
                     <!-- Header Block -->
-                    <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 10px;">
+                    <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 6px;">
                         <div class="tpd-a4-header-left" style="display: flex; align-items: center; gap: 12px;">
                             <img src="/images/logo.png" class="tpd-a4-logo" style="height: 48px; object-fit: contain;" onerror="this.style.display='none'">
                             <span class="tpd-a4-brand" style="font-size: 20px; font-weight: 900; color: #122546; text-transform: uppercase;">Đồng Phục <span class="tpd-a4-brand-gold" style="color: #fad24c;">HV</span></span>
