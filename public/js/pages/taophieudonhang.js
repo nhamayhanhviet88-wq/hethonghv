@@ -2886,8 +2886,8 @@ function _tpdInjectWorkspaceStyles() {
             grid-template-columns: repeat(4, 1fr);
             gap: 6px;
             margin-bottom: 4px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
+            background: #122546;
+            border: 1px solid #122546;
             border-radius: 8px;
             padding: 8px 12px;
         }
@@ -2895,16 +2895,17 @@ function _tpdInjectWorkspaceStyles() {
         .tpd-a4-meta-item {
             font-size: 12.5px;
             line-height: 1.4;
+            color: #fad24c;
         }
 
         .tpd-a4-meta-label {
             font-weight: 700;
-            color: #334155;
+            color: #fad24c;
         }
 
         .tpd-a4-meta-val {
             font-weight: 800;
-            color: #0f172a;
+            color: #fad24c;
         }
 
         /* Images Layout row */
