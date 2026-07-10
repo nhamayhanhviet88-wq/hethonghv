@@ -822,9 +822,9 @@ function _tpdRenderTechCardContent(data, steps) {
                                             <span class="detail-label">Vải & Màu sắc:</span>
                                             <div class="detail-tags">
                                                 ${matPairs.length > 0 ? matPairs.map(mp => `
-                                                    <span class="tag-mat">${escapeHTML(mp.material_name)} - ${escapeHTML(mp.color_name)}</span>
+                                                    <span class="tag-mat">${escapeHTML(mp.material_name)} - ${escapeHTML(_tpdFormatColorName(mp.color_name))}</span>
                                                 `).join('') : `
-                                                    <span class="tag-mat">${escapeHTML(it.material_name || '—')} ${it.color_name ? '- ' + escapeHTML(it.color_name) : ''}</span>
+                                                    <span class="tag-mat">${escapeHTML(it.material_name || '—')} ${it.color_name ? '- ' + escapeHTML(_tpdFormatColorName(it.color_name)) : ''}</span>
                                                 `}
                                             </div>
                                         </div>
@@ -3986,7 +3986,7 @@ function _tpdRenderFormInputs() {
             </div>
             <div class="tpd-ws-form-group">
                 <label class="tpd-ws-form-label">Màu sắc phối</label>
-                <input type="text" class="tpd-ws-input" value="${it.color_name || ''}" placeholder="Navy phối vàng, đen..." disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;">
+                <input type="text" class="tpd-ws-input" value="${escapeHTML(_tpdFormatColorName(it.color_name))}" placeholder="Navy phối vàng, đen..." disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;">
             </div>
         </div>
     `;
@@ -4858,7 +4858,8 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
     const fabricVal = layout.custom_material !== undefined && layout.custom_material !== '' ? layout.custom_material : (it.material_name || '—');
 
     // 2. Color (Màu sắc phối)
-    const colorVal = layout.custom_color !== undefined && layout.custom_color !== '' ? layout.custom_color : (it.color_name || '—');
+    const rawColor = layout.custom_color !== undefined && layout.custom_color !== '' ? layout.custom_color : (it.color_name || '—');
+    const colorVal = rawColor !== '—' ? _tpdFormatColorName(rawColor) : '—';
 
     // 3. Sewing tech (Kỹ thuật may)
     let defaultSewing = '—';
@@ -6215,6 +6216,11 @@ function _tpdParseSewingTechs(customSewingStr) {
         }
     }
     return items;
+}
+
+function _tpdFormatColorName(color) {
+    if (!color) return '';
+    return String(color).replace(/\s*\+\s*/g, ' + ');
 }
 
 function _tpdSortBySewingGroup(arr, getTechFn) {
