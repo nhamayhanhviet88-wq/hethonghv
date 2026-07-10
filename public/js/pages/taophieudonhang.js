@@ -4044,6 +4044,24 @@ function _tpdRenderFormInputs() {
             ? 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
             : 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;';
 
+        const imgSrc = d.image || '';
+        const imageZoneHtml = `
+            <div style="margin-top: 4px; border-top: 1px dashed #f1f5f9; padding-top: 4px;">
+                <span style="font-size: 9px; color: #64748b; font-weight: 700; display: block; margin-bottom: 2px;">Ảnh vị trí:</span>
+                <div class="tpd-ws-upload-box paste-target" data-zone="detail_${idx}" style="min-height: 60px; cursor: pointer; padding: 4px; border-radius: 6px; position: relative; display: flex; align-items: center; justify-content: center; border: 1.5px dashed #cbd5e1; background: #f8fafc; transition: all 0.2s;">
+                    ${imgSrc ? `
+                        <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('detail_${idx}')" style="background:#ef4444; border: none; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 8px; cursor: pointer; position: absolute; top: 2px; right: 2px; z-index: 10;" ${disabledAttr}>✕</button>
+                        <img src="${imgSrc}" class="tpd-ws-upload-preview" style="max-height:50px; max-width: 100%; object-fit: contain;">
+                    ` : `
+                        <div style="text-align: center; line-height: 1;">
+                            <span class="tpd-ws-upload-icon" style="font-size: 11px; display: block; margin-bottom: 1px;">📋</span>
+                            <span class="tpd-ws-upload-text" style="font-size: 8px; color: #64748b;">Dán ảnh (Ctrl+V)</span>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+
         detailBoxesHtml += `
             <div class="tpd-ws-detail-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #ffffff; display: flex; flex-direction: column; gap: 6px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                 <!-- Clear / Delete button -->
@@ -4097,6 +4115,8 @@ function _tpdRenderFormInputs() {
                         }
                         return '';
                     })()}
+
+                    ${imageZoneHtml}
                 </div>
             </div>
         `;
@@ -4385,7 +4405,7 @@ function _tpdRenderFormInputs() {
         <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
             <label class="tpd-ws-form-label">Hình ảnh thiết kế Mockup lớn (Chọn file từ máy tính)</label>
             <input type="file" id="tpdMockupFileInput" accept="image/*" style="display:none;" onchange="_tpdOnMockupFileSelect(event)" ${disabledAttr}>
-            <div class="tpd-ws-upload-box" id="zone_mockup" style="min-height: 140px; cursor: pointer;" onclick="if(document.getElementById('tpdMockupFileInput')) document.getElementById('tpdMockupFileInput').click()">
+            <div class="tpd-ws-upload-box paste-target" id="zone_mockup" data-zone="mockup" style="min-height: 140px; cursor: pointer;" onclick="if(document.getElementById('tpdMockupFileInput')) document.getElementById('tpdMockupFileInput').click()">
                 ${mockupSrc ? `
                     <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('mockup')" ${disabledAttr}>✕</button>
                     <img src="${mockupSrc}" class="tpd-ws-upload-preview" style="max-height:120px;">
@@ -5127,6 +5147,8 @@ async function _tpdSaveProductionSheet() {
     showToast('⏳ Đang lưu thông tin phiếu sản xuất...', 'info');
 
     try {
+        const ngucDetail = (it.print_details || []).find(d => d.position === 'Ngực');
+        const lungDetail = (it.print_details || []).find(d => d.position === 'Lưng');
         const payload = {
             style_name: it.style_name,
             material_name: it.material_name,
@@ -5134,8 +5156,8 @@ async function _tpdSaveProductionSheet() {
             workshop_note: it.workshop_note,
             mockup_image: it.mockup_image,
             print_details: it.print_details || [],
-            front_technique_image: it.print_details && it.print_details[0] ? it.print_details[0].image : null,
-            back_technique_image: it.print_details && it.print_details[1] ? it.print_details[1].image : null,
+            front_technique_image: ngucDetail ? ngucDetail.image : null,
+            back_technique_image: lungDetail ? lungDetail.image : null,
             quantities: it.quantities,
             size_type: it.size_type || 'Size TT',
             custom_layout: it.custom_layout || {}

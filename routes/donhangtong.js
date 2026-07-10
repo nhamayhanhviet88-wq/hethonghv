@@ -2809,7 +2809,7 @@ module.exports = async function(fastify) {
                 if (itemDetail && itemDetail.position) {
                     const imgPath = saveImage(itemDetail.image, `pos_${i}`);
                     processedDetails.push({
-                        position: itemDetail.position,
+                        ...itemDetail,
                         image: imgPath || itemDetail.image || null
                     });
                 }
