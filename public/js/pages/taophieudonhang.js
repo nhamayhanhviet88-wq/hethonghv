@@ -4038,20 +4038,9 @@ function _tpdRenderFormInputs() {
                 <!-- Clear / Delete button -->
                 <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdRemoveDetailZone(${idx})" style="background:#ef4444; position: absolute; top: 4px; right: 4px; border: none; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; line-height: 1; z-index: 10;" title="Xóa vị trí này" ${disabledAttr}>✕</button>
                 
-                <!-- Paste Image Target -->
-                <div class="tpd-ws-upload-box paste-target" data-zone="detail_${idx}" id="zone_detail_${idx}" style="height: 75px; margin: 0; min-height: unset; width: 100%; border: 1.5px dashed #cbd5e1; border-radius: 6px; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative;">
-                    ${d.image ? `
-                        <img src="${d.image}" class="tpd-ws-upload-preview" style="max-height: 70px; object-fit: contain;">
-                        <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('detail_${idx}')" style="background:#ef4444; position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; font-size: 8px; line-height: 1; border-radius: 50%; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Xóa ảnh" ${disabledAttr}>✕</button>
-                    ` : `
-                        <span class="tpd-ws-upload-icon" style="font-size: 14px; margin-bottom: 2px;">📍</span>
-                        <span style="font-size: 8.5px; color: #64748b; font-weight: 600;">Dán ảnh (Ctrl+V)</span>
-                    `}
-                </div>
-                
                 <!-- Position title -->
-                <div style="font-size: 11px; font-weight: 700; color: #1e293b; text-align: center; margin-top: 1px;">
-                    ${d.position}
+                <div style="font-size: 12px; font-weight: 800; color: #1e293b; text-align: center; margin-bottom: 2px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">
+                    📍 ${d.position}
                 </div>
 
                 <!-- Input Controls -->
@@ -4232,9 +4221,7 @@ function _tpdAddCustomSize() {
 // Dynamic print details helper
 function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
     const allDetails = it.print_details || [];
-    const details = allDetails
-        .map((d, idx) => ({ ...d, originalIndex: idx }))
-        .filter(d => d.image && d.image.trim().length > 0);
+    const details = allDetails.map((d, idx) => ({ ...d, originalIndex: idx }));
         
     const posWeights = {
         'ngực': 1,
@@ -4258,161 +4245,77 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
         if (aW !== bW) return aW - bW;
         return aPos.localeCompare(bPos, 'vi');
     });
-        
-    let techBoxesHtml = '';
 
     if (details.length === 0) {
-        techBoxesHtml = `
-            <div class="tpd-a4-tech-box">
-                <div class="tpd-a4-img-header">Chi tiết in / thêu</div>
-                <div class="tpd-a4-img-body">
-                    <div class="tpd-a4-img-placeholder">Chưa thêm vị trí in/thêu nào.<br><span style="font-size: 8px; color: #94a3b8;">Chọn vị trí ở cột phải rồi bấm Thêm</span></div>
+        return `
+            <div class="tpd-a4-tech-wrapper" style="flex: 1.65; display: flex;">
+                <div class="tpd-a4-tech-box" style="border: 1.5px solid #122546; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; background: #ffffff; flex: 1; min-height: 100%;">
+                    <div class="tpd-a4-img-header" style="background: #122546; color: white; padding: 6px 10px; font-weight: 700; font-size: 13px; text-transform: uppercase; text-align: center;">Thông số in / thêu chi tiết</div>
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 12px; font-weight: 600; padding: 20px; text-align: center;">
+                        Chưa cấu hình thông số in / thêu.
+                    </div>
                 </div>
             </div>
         `;
-    } else {
-        details.forEach((d, index) => {
-            const idx = d.originalIndex;
-            const pasteClass = isPrintMode ? '' : 'paste-target';
-            
-            // Format header text: e.g. "Ngực - Thêu" or "Lưng - In PET"
-            let headerText = d.print_type && d.print_type.trim() && d.print_type !== 'Khác'
-                ? `${d.position} - ${d.print_type.trim()}`
-                : d.position;
-
-            const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
-            if (posConfig && posConfig.require_offset) {
-                const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-                const isFilled = offsetVal && offsetVal.trim();
-                const valStr = isFilled ? offsetVal.trim().toUpperCase() : 'CHƯA ĐIỀN';
-                const color = isFilled ? '#facc15' : '#f87171';
-                const labelUpper = (posConfig.offset_label || 'Offset').trim().toUpperCase();
-                headerText += ` <span style="color: ${color}; font-weight: 800;">(${labelUpper}: ${valStr})</span>`;
-            }
-
-            // Backward compatibility logic
-            let widthText = '';
-            let heightText = '';
-            
-            if (d.width && d.width.trim()) {
-                widthText = d.width.trim();
-                if (!widthText.toLowerCase().includes('ngang') && !widthText.toLowerCase().includes('w')) {
-                    widthText = `Ngang ${widthText}`;
-                }
-            }
-            
-            if (d.height && d.height.trim()) {
-                heightText = d.height.trim();
-                if (!heightText.toLowerCase().includes('cao') && !heightText.toLowerCase().includes('h')) {
-                    heightText = `Cao ${heightText}`;
-                }
-            }
-
-            // Fallback to old 'dimension' field if width/height are empty
-            if (!widthText && !heightText && d.dimension && d.dimension.trim()) {
-                const dim = d.dimension.trim();
-                const lowerDim = dim.toLowerCase();
-                if (lowerDim.includes('cao') || lowerDim.includes('h')) {
-                    heightText = dim;
-                } else if (lowerDim.includes('ngang') || lowerDim.includes('w')) {
-                    widthText = dim;
-                } else {
-                    // Default to width if no orientation specified
-                    widthText = `Ngang ${dim}`;
-                }
-            }
-
-            const paddingStyle = (widthText || heightText)
-                ? 'padding: 10px 25px 26px 10px;'
-                : 'padding: 4px;';
-
-            techBoxesHtml += `
-                <div class="tpd-a4-tech-box ${pasteClass}" data-zone="detail_${idx}" style="cursor: pointer; display: flex; flex-direction: column; height: 100%;">
-                    <div class="tpd-a4-img-header">${headerText}</div>
-                    <div class="tpd-a4-img-body" style="background: #ffffff; display: flex; align-items: center; justify-content: center; flex: 1; box-sizing: border-box; overflow: visible; ${paddingStyle} min-height: 0;">
-                        ${d.image ? `
-                            <div style="position: relative; display: inline-flex; align-items: center; justify-content: center; max-width: 100%; height: 100%;">
-                                <img src="${d.image}" style="max-width: 100%; max-height: 100%; object-fit: contain; display: block;">
-                                
-                                <!-- Width indicator (Horizontal line) -->
-                                ${widthText ? `
-                                    <div style="position: absolute; bottom: -23px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 5;">
-                                        <svg width="100%" height="8" style="overflow: visible; display: block;">
-                                            <defs>
-                                                <marker id="arrow-start-${idx}" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-                                                    <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="#ef4444" />
-                                                </marker>
-                                                <marker id="arrow-end-${idx}" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-                                                    <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#ef4444" />
-                                                </marker>
-                                            </defs>
-                                            <line x1="0" y1="4" x2="100%" y2="4" stroke="#ef4444" stroke-width="2" marker-start="url(#arrow-start-${idx})" marker-end="url(#arrow-end-${idx})" />
-                                        </svg>
-                                        <div style="color: #ef4444; font-size: 10.5px; font-weight: 800; text-align: center; line-height: 1.1; margin-top: 1px; white-space: nowrap;">
-                                            ${widthText}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                
-                                <!-- Height indicator (Vertical line) -->
-                                ${heightText ? `
-                                    <div style="position: absolute; right: -22px; top: 0; bottom: 0; width: 18px; display: flex; align-items: center; justify-content: center; z-index: 5;">
-                                        <div style="position: relative; height: 100%; width: 100%; display: flex; align-items: center;">
-                                            <svg width="8" height="100%" style="overflow: visible; display: block; height: 100%;">
-                                                <defs>
-                                                    <marker id="arrow-top-${idx}" viewBox="0 0 10 10" refX="5" refY="0" markerWidth="5" markerHeight="5" orient="auto">
-                                                        <path d="M 1.5 10 L 5 0 L 8.5 10 z" fill="#ef4444" />
-                                                    </marker>
-                                                    <marker id="arrow-bottom-${idx}" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="5" markerHeight="5" orient="auto">
-                                                        <path d="M 1.5 0 L 5 10 L 8.5 0 z" fill="#ef4444" />
-                                                    </marker>
-                                                </defs>
-                                                <line x1="4" y1="0" x2="4" y2="100%" stroke="#ef4444" stroke-width="2" marker-start="url(#arrow-top-${idx})" marker-end="url(#arrow-bottom-${idx})" />
-                                            </svg>
-                                            <div style="position: absolute; left: 15px; top: 50%; transform: translate(-50%, -50%) rotate(90deg); color: #ef4444; font-size: 10.5px; font-weight: 800; white-space: nowrap; line-height: 1;">
-                                                ${heightText}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                
-                                <!-- Missing Dimension Warning -->
-                                ${(!widthText && !heightText) ? `
-                                    <div style="position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); text-align: center; color: #ef4444; font-size: 8.5px; font-weight: 900; background: rgba(254, 242, 242, 0.95); padding: 2px 6px; border: 1.5px solid #fca5a5; border-radius: 4px; z-index: 10; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
-                                        ⚠️ CHƯA NHẬP KÍCH THƯỚC
-                                    </div>
-                                ` : ''}
-                            </div>
-                        ` : `
-                            <div class="tpd-a4-img-placeholder" style="font-size: 9px; padding: 10px; text-align: center; width: 100%;">Chưa có ảnh vị trí ${d.position}<br><span style="font-size: 8px; color: #94a3b8;">Click & Ctrl+V để dán</span></div>
-                        `}
-                    </div>
-                </div>
-            `;
-        });
     }
 
-    let gridCols = '1fr';
-    let gridRows = '1fr';
-    const count = details.length;
-    if (count === 2) {
-        gridCols = '1fr 1fr';
-    } else if (count === 3) {
-        gridCols = 'repeat(3, 1fr)';
-    } else if (count === 4) {
-        gridCols = 'repeat(2, 1fr)';
-        gridRows = 'repeat(2, 1fr)';
-    } else if (count >= 5 && count <= 6) {
-        gridCols = 'repeat(3, 1fr)';
-        gridRows = 'repeat(2, 1fr)';
-    } else if (count >= 7) {
-        gridCols = 'repeat(4, 1fr)';
-        gridRows = 'repeat(2, 1fr)';
-    }
+    const rowsHtml = details.map((d, index) => {
+        let dimStr = '';
+        if (d.width && d.width.trim()) {
+            dimStr += `Ngang: ${d.width.trim()}`;
+        }
+        if (d.height && d.height.trim()) {
+            if (dimStr) dimStr += ' x ';
+            dimStr += `Cao: ${d.height.trim()}`;
+        }
+        if (!dimStr && d.dimension && d.dimension.trim()) {
+            dimStr = d.dimension.trim();
+        }
+        if (!dimStr) {
+            dimStr = '<span style="color: #ef4444; font-weight: 700;">CHƯA NHẬP</span>';
+        }
+
+        const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+        let offsetStr = '—';
+        if (posConfig && posConfig.require_offset) {
+            const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+            if (offsetVal && offsetVal.trim()) {
+                offsetStr = `<span style="font-weight: 700; color: #dc2626;">${posConfig.offset_label || 'Khoảng cách'}: ${offsetVal.trim()}</span>`;
+            } else {
+                offsetStr = '<span style="color: #ef4444; font-weight: 700;">CHƯA ĐIỀN</span>';
+            }
+        }
+
+        return `
+            <tr style="border-bottom: 1px solid #e2e8f0; font-size: 12px;">
+                <td style="padding: 8px 6px; font-weight: 800; color: #0f172a;">${d.position}</td>
+                <td style="padding: 8px 6px; font-weight: 700; color: #1e3a8a;">${d.print_type || '—'}</td>
+                <td style="padding: 8px 6px; font-weight: 700; color: #1e293b;">${dimStr}</td>
+                <td style="padding: 8px 6px;">${offsetStr}</td>
+            </tr>
+        `;
+    }).join('');
 
     return `
-        <div class="tpd-a4-tech-wrapper" style="flex: 1.65; display: grid; grid-template-columns: ${gridCols}; grid-template-rows: ${gridRows}; gap: 8px; height: 100%;">
-            ${techBoxesHtml}
+        <div class="tpd-a4-tech-wrapper" style="flex: 1.65; display: flex;">
+            <div class="tpd-a4-tech-box" style="border: 1.5px solid #122546; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; background: #ffffff; flex: 1; min-height: 100%;">
+                <div class="tpd-a4-img-header" style="background: #122546; color: white; padding: 6px 10px; font-weight: 700; font-size: 13px; text-transform: uppercase; text-align: center;">Thông số in / thêu chi tiết</div>
+                <div style="flex: 1; padding: 6px 8px; overflow-y: auto; background: #ffffff;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #cbd5e1; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 800;">
+                                <th style="padding: 4px 6px;">Vị trí</th>
+                                <th style="padding: 4px 6px;">Kiểu</th>
+                                <th style="padding: 4px 6px;">Kích thước</th>
+                                <th style="padding: 4px 6px;">Khoảng cách</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     `;
 }
