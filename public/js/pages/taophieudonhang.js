@@ -3318,6 +3318,8 @@ function _tpdRenderA4SizeTable(it) {
         `;
     }
 
+    const notesToRender = [];
+
     if (_tpdIsNamNuSize(it.size_type)) {
         const namSizes = sortedQuantities.filter(q => q.size.toLowerCase().includes('nam'));
         const nuSizes = sortedQuantities.filter(q => q.size.toLowerCase().includes('nữ') || q.size.toLowerCase().includes('nu'));
@@ -3325,21 +3327,6 @@ function _tpdRenderA4SizeTable(it) {
 
         const getShortSize = (fullSize) => {
             return fullSize.replace(/^Nam\s+/i, '').replace(/^Nữ\s+/i, '').replace(/^Nu\s+/i, '');
-        };
-
-        const getNamQty = (shortSize) => {
-            const match = namSizes.find(q => getShortSize(q.size) === shortSize);
-            return match ? Number(match.qty || 0) : null;
-        };
-
-        const getNuQty = (shortSize) => {
-            const match = nuSizes.find(q => getShortSize(q.size) === shortSize);
-            return match ? Number(match.qty || 0) : null;
-        };
-
-        const getOtherQty = (shortSize) => {
-            const match = otherSizes.find(q => getShortSize(q.size) === shortSize);
-            return match ? Number(match.qty || 0) : null;
         };
 
         let html = '<div class="tpd-a4-tables-container" style="display: flex; flex-direction: column; gap: 8px;">';
@@ -3361,10 +3348,11 @@ function _tpdRenderA4SizeTable(it) {
                 const qObj = namSizes.find(q => getShortSize(q.size) === short);
                 headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
                 if (qObj) {
-                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 11px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
+                    if (qObj.note && qObj.note.trim()) {
+                        notesToRender.push({ size: qObj.size, qty: qObj.qty || 0, note: qObj.note.trim() });
+                    }
                     values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px;">
                         <div>${qObj.qty || 0}</div>
-                        ${noteHtml}
                     </td>`;
                     rowTotal += Number(qObj.qty || 0);
                 } else {
@@ -3412,10 +3400,11 @@ function _tpdRenderA4SizeTable(it) {
                 const qObj = nuSizes.find(q => getShortSize(q.size) === short);
                 headers += `<th style="background:#fce7f3; color:#be185d; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
                 if (qObj) {
-                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 11px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
+                    if (qObj.note && qObj.note.trim()) {
+                        notesToRender.push({ size: qObj.size, qty: qObj.qty || 0, note: qObj.note.trim() });
+                    }
                     values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px;">
                         <div>${qObj.qty || 0}</div>
-                        ${noteHtml}
                     </td>`;
                     rowTotal += Number(qObj.qty || 0);
                 } else {
@@ -3463,10 +3452,11 @@ function _tpdRenderA4SizeTable(it) {
                 const qObj = otherSizes.find(q => getShortSize(q.size) === short);
                 headers += `<th style="background:#f1f5f9; color:#475569; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
                 if (qObj) {
-                    const noteHtml = qObj.note && qObj.note.trim() ? `<div style="font-size: 11px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(qObj.note)}</div>` : '';
+                    if (qObj.note && qObj.note.trim()) {
+                        notesToRender.push({ size: qObj.size, qty: qObj.qty || 0, note: qObj.note.trim() });
+                    }
                     values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px;">
                         <div>${qObj.qty || 0}</div>
-                        ${noteHtml}
                     </td>`;
                     rowTotal += Number(qObj.qty || 0);
                 } else {
@@ -3507,6 +3497,23 @@ function _tpdRenderA4SizeTable(it) {
             </div>
         `;
 
+        if (notesToRender.length > 0) {
+            html += `
+                <div style="margin-top: 6px; padding: 6px 12px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; text-align: left;">
+                    <div style="font-weight: 800; color: #b45309; font-size: 10.5px; margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
+                        ⚠️ CHI TIẾT THÔNG SỐ SIZE NGOẠI CỠ:
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        ${notesToRender.map(n => `
+                            <div style="font-size: 10.5px; color: #dc2626; font-weight: 700; line-height: 1.2;">
+                                • <span style="color: #1e293b;">${escapeHTML(n.size)}</span> (SL: ${n.qty}): <span style="font-weight: 800; color: #dc2626; background: #fee2e2; padding: 1px 4px; border-radius: 3px; border: 1px solid #fca5a5;">${escapeHTML(n.note)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
         html += '</div>';
         return html;
     } else {
@@ -3516,17 +3523,18 @@ function _tpdRenderA4SizeTable(it) {
 
         sortedQuantities.forEach(q => {
             sizeHeaders += `<th>${q.size}</th>`;
-            const noteHtml = q.note && q.note.trim() ? `<div style="font-size: 11px; font-weight: 800; color: #dc2626; margin-top: 2px; text-transform: none; line-height: 1.1;">${escapeHTML(q.note)}</div>` : '';
+            if (q.note && q.note.trim()) {
+                notesToRender.push({ size: q.size, qty: q.qty || 0, note: q.note.trim() });
+            }
             sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px;">
-                <div>${q.qty || 0}</div>
-                ${noteHtml}
+                <div style="font-weight:700;">${q.qty || 0}</div>
             </td>`;
             totalQty += Number(q.qty || 0);
         });
 
         const theme = _tpdGetSizeTheme(it.size_type);
 
-        return `
+        let tableHtml = `
             <table class="tpd-a4-table">
                 <thead>
                     <tr>
@@ -3547,6 +3555,25 @@ function _tpdRenderA4SizeTable(it) {
                 </tbody>
             </table>
         `;
+
+        if (notesToRender.length > 0) {
+            tableHtml += `
+                <div style="margin-top: 6px; padding: 6px 12px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; text-align: left;">
+                    <div style="font-weight: 800; color: #b45309; font-size: 10.5px; margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
+                        ⚠️ CHI TIẾT THÔNG SỐ SIZE NGOẠI CỠ:
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        ${notesToRender.map(n => `
+                            <div style="font-size: 10.5px; color: #dc2626; font-weight: 700; line-height: 1.2;">
+                                • <span style="color: #1e293b;">${escapeHTML(n.size)}</span> (SL: ${n.qty}): <span style="font-weight: 800; color: #dc2626; background: #fee2e2; padding: 1px 4px; border-radius: 3px; border: 1px solid #fca5a5;">${escapeHTML(n.note)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        return tableHtml;
     }
 }
 
