@@ -4610,6 +4610,16 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
         } catch(e){}
     }
     const sewingVal = layout.custom_sewing !== undefined && layout.custom_sewing !== '' ? layout.custom_sewing : defaultSewing;
+    let sewingHtml = '—';
+    if (sewingVal && sewingVal !== '—') {
+        const parts = sewingVal.split(/,\s*/).map(p => p.trim()).filter(Boolean);
+        if (parts.length > 0) {
+            sewingHtml = parts.map(part => {
+                return `<div style="margin-top: 1px;">• ${escapeHTML(part)}</div>`;
+            }).join('');
+        }
+    }
+
 
     // 4. Print Tech (Kỹ thuật in)
     let defaultPrinting = '—';
@@ -4790,7 +4800,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                     </div>
                     <div style="border-top: 1px dashed #e2e8f0; padding-top: 3px; margin-top: 1px;">
                         <strong style="color: #0f172a; font-weight: 800;">Kỹ Thuật May:</strong> 
-                        <span style="font-weight: 700; color: #b45309;">${escapeHTML(sewingVal)}</span>
+                        <span style="font-weight: 700; color: #b45309; display: block; margin-top: 2px;">${sewingHtml}</span>
                     </div>
                     <div>
                         <strong style="color: #0f172a; font-weight: 800;">Kỹ Thuật In:</strong> 
