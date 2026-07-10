@@ -3900,9 +3900,9 @@ function _tpdRenderFormInputs() {
 
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
-                        <input type="text" placeholder="8cm" value="${valWidth}" oninput="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
+                        <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr || (valHeight ? 'disabled' : '')}>
                         <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
-                        <input type="text" placeholder="10cm" value="${valHeight}" oninput="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
+                        <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr || (valWidth ? 'disabled' : '')}>
                     </div>
                 </div>
             </div>
@@ -4224,6 +4224,16 @@ function _tpdUpdateDetailField(idx, field, value) {
     if (field === 'print_type') {
         _tpdRenderFormInputs();
         _tpdSetupPasteZones();
+    } else if (field === 'width') {
+        const heightEl = document.getElementById(`tpd_height_${idx}`);
+        if (heightEl) {
+            heightEl.disabled = !!(value && value.trim());
+        }
+    } else if (field === 'height') {
+        const widthEl = document.getElementById(`tpd_width_${idx}`);
+        if (widthEl) {
+            widthEl.disabled = !!(value && value.trim());
+        }
     }
     _tpdUpdateLivePreview();
 }
