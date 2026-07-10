@@ -4312,6 +4312,33 @@ function _tpdRenderFormInputs() {
         </div>
     `;
 
+    // Compute defaults for overrides placeholders
+    let defaultSewing = '—';
+    if (it.tsam_sewing_tech) {
+        try {
+            const arr = typeof it.tsam_sewing_tech === 'string' ? JSON.parse(it.tsam_sewing_tech) : it.tsam_sewing_tech;
+            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
+        } catch(e){}
+    } else if (it.sewing_techniques) {
+        try {
+            const arr = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : it.sewing_techniques;
+            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
+        } catch(e){}
+    }
+
+    html += `
+        <!-- Custom parameters override -->
+        <div class="tpd-ws-form-group" style="margin-top: 16px; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #ffffff;">
+            <div style="font-size: 12px; font-weight: 900; color: #122546; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                ✏️ TUỲ CHỈNH THÔNG TIN PHIẾU IN
+            </div>
+            <div>
+                <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Kỹ Thuật May</label>
+                <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(defaultSewing)}" value="${escapeHTML(layout.custom_sewing || '')}" oninput="_tpdChangeCustomInfo('custom_sewing', this.value)" ${disabledAttr}>
+            </div>
+        </div>
+    `;
+
     container.innerHTML = html;
 }
 
