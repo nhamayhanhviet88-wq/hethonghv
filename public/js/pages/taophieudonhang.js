@@ -5374,6 +5374,23 @@ async function _tpdSaveProductionSheet() {
         }
     }
 
+    // Validation for sewing items details
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    if (layout.sewing_items && layout.sewing_items.length > 0) {
+        for (let i = 0; i < layout.sewing_items.length; i++) {
+            const s = layout.sewing_items[i];
+            const techName = (s.tech || '').trim();
+            if (!techName || techName === 'Khác') {
+                showToast(`⚠️ Vui lòng chọn hoặc nhập tên kỹ thuật may ở dòng thứ ${i + 1}!`, 'error');
+                return;
+            }
+            if (!s.detail || !s.detail.trim()) {
+                showToast(`⚠️ Vui lòng nhập thông tin chi tiết cho kỹ thuật may "${techName}"!`, 'error');
+                return;
+            }
+        }
+    }
+
     showToast('⏳ Đang lưu thông tin phiếu sản xuất...', 'info');
 
     try {
