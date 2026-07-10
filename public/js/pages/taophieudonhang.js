@@ -3336,26 +3336,7 @@ function _tpdRenderA4SizeTable(it) {
 
     const hasSizes = sortedQuantities.length > 0;
     if (!hasSizes) {
-        const theme = _tpdGetSizeTheme(it.size_type);
-        return `
-            <table class="tpd-a4-table">
-                <thead>
-                    <tr>
-                        <th style="background:${theme.bg}; color:${theme.text}; border-color:${theme.bg}; text-transform:uppercase;">${(it.size_type || 'Size Số áo').toUpperCase()}</th>
-                        <th style="background:${theme.bg}; color:${theme.text}; border-color:${theme.bg}; width: 80px; text-align:center;">TỔNG SL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="font-weight:800; color:#122546; text-align:left; padding-left:12px; font-size:10px; line-height:1.2;">
-                            <div>Số lượng ( ${(it.product_name || 'Áo').toUpperCase()} )</div>
-                            ${it.pattern_name ? `<div style="font-weight:900; color:#dc2626; font-size:11px; margin-top:4px;">${escapeHTML(it.pattern_name)}</div>` : ''}
-                        </td>
-                        <td style="background:#fef08a; font-weight:900; font-size:13px; color:#122546;">0</td>
-                    </tr>
-                </tbody>
-            </table>
-        `;
+        return '';
     }
 
     if (_tpdIsNamNuSize(it.size_type)) {
@@ -4626,28 +4607,34 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
     // 4. Print Tech (Kỹ thuật in)
     let defaultPrinting = '—';
     if (it.print_details && it.print_details.length > 0) {
-        const details = typeof it.print_details === 'string' ? JSON.parse(it.print_details) : it.print_details;
-        if (Array.isArray(details) && details.length > 0) {
-            defaultPrinting = details.map(d => {
-                let dimStr = '';
-                if (d.width && d.width.trim()) dimStr += `Ngang ${d.width.trim()}`;
-                if (d.height && d.height.trim()) {
-                    if (dimStr) dimStr += ' x ';
-                    dimStr += `Cao ${d.height.trim()}`;
-                }
-                const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
-                let offsetStr = '';
-                if (posConfig && posConfig.require_offset) {
-                    const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-                    if (offsetVal && offsetVal.trim()) {
-                        offsetStr = ` (Gáy: ${offsetVal.trim()})`;
+        try {
+            const details = typeof it.print_details === 'string' ? JSON.parse(it.print_details) : it.print_details;
+            if (Array.isArray(details) && details.length > 0) {
+                defaultPrinting = details.map(d => {
+                    let dimStr = '';
+                    if (d.width && d.width.trim()) dimStr += `Ngang ${d.width.trim()}`;
+                    if (d.height && d.height.trim()) {
+                        if (dimStr) dimStr += ' x ';
+                        dimStr += `Cao ${d.height.trim()}`;
                     }
-                }
-                return `${d.position}: ${d.print_type || '—'}${dimStr ? ` (${dimStr})` : ''}${offsetStr}`;
-            }).join('; ');
-        }
+                    const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
+                    let offsetStr = '';
+                    if (posConfig && posConfig.require_offset) {
+                        const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                        if (offsetVal && offsetVal.trim()) {
+                            offsetStr = ` (Gáy: ${offsetVal.trim()})`;
+                        }
+                    }
+                    const safePosition = escapeHTML(d.position || '—');
+                    const safePrintType = escapeHTML(d.print_type || '—');
+                    const safeDimStr = escapeHTML(dimStr);
+                    const safeOffsetStr = escapeHTML(offsetStr);
+                    return `<div style="margin-top: 1px;"><span style="color: #047857; font-weight: 800;">${safePosition}:</span> ${safePrintType}${safeDimStr ? ` (${safeDimStr})` : ''}${safeOffsetStr}</div>`;
+                }).join('');
+            }
+        } catch(e){}
     }
-    const printingVal = layout.custom_printing !== undefined && layout.custom_printing !== '' ? layout.custom_printing : defaultPrinting;
+    const printingVal = layout.custom_printing !== undefined && layout.custom_printing !== '' ? escapeHTML(layout.custom_printing) : defaultPrinting;
 
     // 5. Size Header (Báo size)
     const baoSizeVal = layout.custom_bao_size !== undefined && layout.custom_bao_size !== '' ? layout.custom_bao_size : (it.product_name ? `(${it.product_name})` : '—');
@@ -4655,23 +4642,91 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
     // 6. Size breakdown (Size TT)
     let defaultSizeTT = '—';
     if (it.quantities && it.quantities.length > 0) {
-        const filledQuantities = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : it.quantities;
-        if (Array.isArray(filledQuantities)) {
-            const sorted = _tpdSortSizes(filledQuantities.map(q => q.size))
-                .map(sz => filledQuantities.find(q => q.size === sz))
-                .filter(Boolean)
-                .filter(q => Number(q.qty) > 0 || (q.note && q.note.trim()));
-            if (sorted.length > 0) {
-                defaultSizeTT = sorted.map(q => {
-                    const parts = [];
-                    if (Number(q.qty) > 0) parts.push(q.qty);
-                    if (q.note && q.note.trim()) parts.push(q.note.trim());
-                    return `${q.size}: ${parts.join(' - ')}`;
-                }).join(' | ');
+        try {
+            const filledQuantities = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : it.quantities;
+            if (Array.isArray(filledQuantities)) {
+                const activeQuantities = filledQuantities.filter(q => Number(q.qty) > 0 || (q.note && q.note.trim()));
+                if (activeQuantities.length > 0) {
+                    if (it.size_type === 'Size Nam / Nữ') {
+                        const namList = activeQuantities.filter(q => q.size.startsWith('Nam'));
+                        const nuList = activeQuantities.filter(q => q.size.startsWith('Nữ'));
+                        const otherList = activeQuantities.filter(q => !q.size.startsWith('Nam') && !q.size.startsWith('Nữ'));
+
+                        const lines = [];
+
+                        // Nam line
+                        let namStr = '—';
+                        if (namList.length > 0) {
+                            const sortedNam = _tpdSortSizes(namList.map(q => q.size));
+                            namStr = sortedNam.map(sz => {
+                                const q = namList.find(x => x.size === sz);
+                                const cleanSz = sz.replace(/^Nam\s+/, '');
+                                const parts = [];
+                                if (Number(q.qty) > 0) parts.push(q.qty);
+                                if (q.note && q.note.trim()) parts.push(q.note.trim());
+                                return `${cleanSz}: ${parts.join(' - ')}`;
+                            }).join(' | ');
+                        }
+                        lines.push(`<div style="margin-top: 1px;"><span style="color: #1e3a8a; font-weight: 800;">Nam:</span> ${escapeHTML(namStr)}</div>`);
+
+                        // Nữ line
+                        let nuStr = '—';
+                        if (nuList.length > 0) {
+                            const sortedNu = _tpdSortSizes(nuList.map(q => q.size));
+                            nuStr = sortedNu.map(sz => {
+                                const q = nuList.find(x => x.size === sz);
+                                const cleanSz = sz.replace(/^Nữ\s+/, '');
+                                const parts = [];
+                                if (Number(q.qty) > 0) parts.push(q.qty);
+                                if (q.note && q.note.trim()) parts.push(q.note.trim());
+                                return `${cleanSz}: ${parts.join(' - ')}`;
+                            }).join(' | ');
+                        }
+                        lines.push(`<div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> ${escapeHTML(nuStr)}</div>`);
+
+                        if (otherList.length > 0) {
+                            const sortedOther = _tpdSortSizes(otherList.map(q => q.size));
+                            const otherStr = sortedOther.map(sz => {
+                                const q = otherList.find(x => x.size === sz);
+                                const parts = [];
+                                if (Number(q.qty) > 0) parts.push(q.qty);
+                                if (q.note && q.note.trim()) parts.push(q.note.trim());
+                                return `${sz}: ${parts.join(' - ')}`;
+                            }).join(' | ');
+                            lines.push(`<div style="margin-top: 1px;"><span style="color: #ea580c; font-weight: 800;">Khác:</span> ${escapeHTML(otherStr)}</div>`);
+                        }
+
+                        defaultSizeTT = lines.join('');
+                    } else {
+                        const sorted = _tpdSortSizes(activeQuantities.map(q => q.size))
+                            .map(sz => activeQuantities.find(q => q.size === sz))
+                            .filter(Boolean);
+                        defaultSizeTT = escapeHTML(sorted.map(q => {
+                            const parts = [];
+                            if (Number(q.qty) > 0) parts.push(q.qty);
+                            if (q.note && q.note.trim()) parts.push(q.note.trim());
+                            return `${q.size}: ${parts.join(' - ')}`;
+                        }).join(' | '));
+                    }
+                } else {
+                    if (it.size_type === 'Size Nam / Nữ') {
+                        defaultSizeTT = `
+                            <div style="margin-top: 1px;"><span style="color: #1e3a8a; font-weight: 800;">Nam:</span> —</div>
+                            <div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> —</div>
+                        `;
+                    }
+                }
             }
+        } catch(e){}
+    } else {
+        if (it.size_type === 'Size Nam / Nữ') {
+            defaultSizeTT = `
+                <div style="margin-top: 1px;"><span style="color: #1e3a8a; font-weight: 800;">Nam:</span> —</div>
+                <div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> —</div>
+            `;
         }
     }
-    const sizeTTVal = layout.custom_size_tt !== undefined && layout.custom_size_tt !== '' ? layout.custom_size_tt : defaultSizeTT;
+    const sizeTTVal = layout.custom_size_tt !== undefined && layout.custom_size_tt !== '' ? escapeHTML(layout.custom_size_tt) : defaultSizeTT;
 
     // 7. Total Qty (Tổng SL)
     let defaultTotalQty = 0;
@@ -4707,7 +4762,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                     </div>
                     <div>
                         <strong style="color: #0f172a; font-weight: 800;">Kỹ Thuật In:</strong> 
-                        <span style="font-weight: 700; color: #047857;">${escapeHTML(printingVal)}</span>
+                        <span style="font-weight: 700; color: #047857; display: block; margin-top: 2px;">${printingVal}</span>
                     </div>
                     <div style="border-top: 1px dashed #e2e8f0; padding-top: 3px; margin-top: 1px;">
                         <strong style="color: #0f172a; font-weight: 800;">Báo Size:</strong> 
@@ -4715,7 +4770,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                     </div>
                     <div>
                         <strong style="color: #0f172a; font-weight: 800;">Size TT:</strong> 
-                        <span style="font-weight: 700; color: #0f172a;">${escapeHTML(sizeTTVal)}</span>
+                        <span style="font-weight: 700; color: #0f172a; display: block; margin-top: 2px;">${sizeTTVal}</span>
                     </div>
                 </div>
                 <div style="border-top: 2px solid #122546; padding: 4px 6px; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 4px; box-sizing: border-box;">
