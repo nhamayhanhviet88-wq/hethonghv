@@ -3865,15 +3865,11 @@ function _tpdRenderFormInputs() {
     // Compute defaults for overrides placeholders
     let defaultSewing = '—';
     if (it.tsam_sewing_tech) {
-        try {
-            const arr = typeof it.tsam_sewing_tech === 'string' ? JSON.parse(it.tsam_sewing_tech) : it.tsam_sewing_tech;
-            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
-        } catch(e){}
+        const arr = _tpdGetSewingTechniqueNames(it.tsam_sewing_tech);
+        if (arr.length > 0) defaultSewing = arr.join(', ');
     } else if (it.sewing_techniques) {
-        try {
-            const arr = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : it.sewing_techniques;
-            if (Array.isArray(arr) && arr.length > 0) defaultSewing = arr.join(', ');
-        } catch(e){}
+        const arr = _tpdGetSewingTechniqueNames(it.sewing_techniques);
+        if (arr.length > 0) defaultSewing = arr.join(', ');
     }
 
     const isSourceVip = !!(state.order && ['VT', 'HVVT'].includes(state.order.source));
@@ -3906,11 +3902,23 @@ function _tpdRenderFormInputs() {
     `;
 
     // 2. Kỹ Thuật May
-    if (!layout.sewing_items) {
+    if (!layout.sewing_items || (layout.sewing_items.length === 0 && layout.custom_sewing === undefined)) {
         if (layout.custom_sewing) {
             layout.sewing_items = _tpdParseSewingTechs(layout.custom_sewing);
         } else {
-            layout.sewing_items = [];
+            // Pre-populate from it.sewing_techniques or it.tsam_sewing_tech
+            const techNames = [
+                ..._tpdGetSewingTechniqueNames(it.tsam_sewing_tech),
+                ..._tpdGetSewingTechniqueNames(it.sewing_techniques)
+            ];
+            // Remove duplicates
+            const uniqueTechNames = [...new Set(techNames)];
+            if (uniqueTechNames.length > 0) {
+                layout.sewing_items = uniqueTechNames.map(name => ({ tech: name, detail: '' }));
+                _tpdSyncCustomSewingText(layout);
+            } else {
+                layout.sewing_items = [];
+            }
         }
     }
 
@@ -4759,19 +4767,11 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
     // 3. Sewing tech (Kỹ thuật may)
     let defaultSewing = '—';
     if (it.tsam_sewing_tech) {
-        try {
-            const arr = typeof it.tsam_sewing_tech === 'string' ? JSON.parse(it.tsam_sewing_tech) : it.tsam_sewing_tech;
-            if (Array.isArray(arr) && arr.length > 0) {
-                defaultSewing = arr.join(', ');
-            }
-        } catch(e){}
+        const arr = _tpdGetSewingTechniqueNames(it.tsam_sewing_tech);
+        if (arr.length > 0) defaultSewing = arr.join(', ');
     } else if (it.sewing_techniques) {
-        try {
-            const arr = typeof it.sewing_techniques === 'string' ? JSON.parse(it.sewing_techniques) : it.sewing_techniques;
-            if (Array.isArray(arr) && arr.length > 0) {
-                defaultSewing = arr.join(', ');
-            }
-        } catch(e){}
+        const arr = _tpdGetSewingTechniqueNames(it.sewing_techniques);
+        if (arr.length > 0) defaultSewing = arr.join(', ');
     }
     const sewingVal = layout.custom_sewing !== undefined && layout.custom_sewing !== '' ? layout.custom_sewing : defaultSewing;
     let sewingHtml = '—';
@@ -6091,6 +6091,22 @@ function _tpdParseSewingTechs(customSewingStr) {
         }
     }
     return items;
+}
+
+function _tpdGetSewingTechniqueNames(sewingTechField) {
+    if (!sewingTechField) return [];
+    try {
+        const arr = typeof sewingTechField === 'string' ? JSON.parse(sewingTechField) : sewingTechField;
+        if (Array.isArray(arr)) {
+            return arr.map(x => {
+                if (x && typeof x === 'object') {
+                    return x.name || x.tech || '';
+                }
+                return String(x);
+            }).filter(Boolean);
+        }
+    } catch(e) {}
+    return [];
 }
 
 function _tpdGetNormalizedSewingTechs() {
