@@ -6410,7 +6410,25 @@ function _tpdSaveDraft(it) {
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
     if (!orderId) return;
-    localStorage.setItem(`tpd_draft_${orderId}_${it.id}`, JSON.stringify(it));
+    const key = `tpd_draft_${orderId}_${it.id}`;
+    try {
+        localStorage.setItem(key, JSON.stringify(it));
+    } catch(e) {
+        console.warn('LocalStorage quota exceeded or draft save failed:', e);
+        try {
+            // Clean up other old drafts to free up space
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('tpd_draft_') && !k.startsWith(`tpd_draft_${orderId}_`)) {
+                    localStorage.removeItem(k);
+                }
+            }
+            // Retry saving
+            localStorage.setItem(key, JSON.stringify(it));
+        } catch(retryErr) {
+            console.error('Failed to save draft even after cleanup:', retryErr);
+        }
+    }
 }
 
 function _tpdClearDraft(it) {
