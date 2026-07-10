@@ -3616,14 +3616,18 @@ function _tpdUpdateLivePreview() {
     container.innerHTML = `
         <div class="tpd-a4-preview-card" id="tpdPrintSheet">
             <!-- Header Block -->
-            <div class="tpd-a4-header">
-                <div class="tpd-a4-header-left">
-                    <img src="/images/logo.png" class="tpd-a4-logo" onerror="this.style.display='none'">
-                    <span class="tpd-a4-brand">Đồng Phục <span class="tpd-a4-brand-gold">HV</span></span>
+            <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 10px;">
+                <div class="tpd-a4-header-left" style="display: flex; align-items: center; gap: 12px;">
+                    <img src="/images/logo.png" class="tpd-a4-logo" style="height: 48px; object-fit: contain;" onerror="this.style.display='none'">
+                    <span class="tpd-a4-brand" style="font-size: 20px; font-weight: 900; color: #122546; text-transform: uppercase;">Đồng Phục <span class="tpd-a4-brand-gold" style="color: #fad24c;">HV</span></span>
                 </div>
-                <div class="tpd-a4-header-right">
-                    <h1 class="tpd-a4-title">PHIẾU SẢN XUẤT</h1>
-                    <div class="tpd-a4-order-code">MÃ ĐƠN: ${o.order_code} | PHIẾU ${state.activeItemIndex + 1}/${state.items.length}</div>
+                <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
+                    <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
+                    <div class="tpd-a4-order-code" style="font-size: 14px; font-weight: 800; color: #475569; margin-top: 2px;">MÃ ĐƠN: ${o.order_code} | PHIẾU ${state.activeItemIndex + 1}/${state.items.length}</div>
+                </div>
+                <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 8px; background: #ffffff;">
+                    <img src="${qrUrl}" style="width: 50px; height: 50px; object-fit: contain;">
+                    <span style="font-size: 8px; font-weight: 800; color: #122546; text-transform: uppercase; white-space: nowrap;">Quét mã tiến độ</span>
                 </div>
             </div>
 
@@ -3650,32 +3654,21 @@ function _tpdUpdateLivePreview() {
                 </div>
             </div>
 
-            <!-- Size breakdown table & Print Details Table -->
-            <div class="tpd-a4-table-row" style="display: flex; gap: 10px; align-items: stretch; margin-bottom: 10px;">
-                <div style="flex: 1.8; min-width: 0;">
-                    ${_tpdRenderA4SizeTable(it)}
-                </div>
-                <div style="flex: 1.2; display: flex; min-width: 0;">
-                    ${_tpdGetTechWrapperHtml(it, false)}
-                </div>
+            <!-- Size breakdown table -->
+            <div class="tpd-a4-table-row">
+                ${_tpdRenderA4SizeTable(it)}
             </div>
 
-            <!-- Bottom Row (Note, QR and Signatures) -->
+            <!-- Bottom Row (Note and Signatures) -->
             <div class="tpd-a4-bottom-row">
                 <!-- Notes -->
-                <div class="tpd-a4-note-section">
+                <div class="tpd-a4-note-section" style="flex: 3.2;">
                     <span class="tpd-a4-note-title">📝 Ghi chú Kỹ thuật may của Xưởng:</span>
                     <div id="prev_workshop_note" class="tpd-a4-note-content">${it.workshop_note || 'Chưa có ghi chú kỹ thuật xưởng.'}</div>
                 </div>
 
-                <!-- QR Link -->
-                <div class="tpd-a4-qr-section">
-                    <img src="${qrUrl}" class="tpd-a4-qr-img">
-                    <span class="tpd-a4-qr-text">Quét mã tiến độ</span>
-                </div>
-
                 <!-- Signatures -->
-                <div class="tpd-a4-sigs-section">
+                <div class="tpd-a4-sigs-section" style="flex: 1.8;">
                     <div class="tpd-a4-sig-box">
                         <span class="tpd-a4-sig-title">Người Lập Phiếu</span>
                         <div class="tpd-a4-sig-space"></div>
@@ -4626,7 +4619,6 @@ async function _tpdPrintAllSheets() {
         // Dates
         const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
         const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
-        const creatorName = (window.currentUser && window.currentUser.username) || o.cskh_name || '—';
 
         // QR
         const deepLink = `${window.location.origin}/taophieudonhang?id=${o.id}&activeTab=${idx}`;
@@ -4635,24 +4627,28 @@ async function _tpdPrintAllSheets() {
         const mockupSrc = it.mockup_image || '';
 
         printHtml += `
-            <div class="tpd-print-page">
+            <div class="tpd-a4-page">
                 <div class="tpd-a4-preview-card" style="border:none; box-shadow:none; width:100%; height:100%;">
                     <!-- Header Block -->
-                    <div class="tpd-a4-header">
-                        <div class="tpd-a4-header-left">
-                            <img src="/images/logo.png" class="tpd-a4-logo" onerror="this.style.display='none'">
-                            <span class="tpd-a4-brand">Đồng Phục <span class="tpd-a4-brand-gold">HV</span></span>
+                    <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 10px;">
+                        <div class="tpd-a4-header-left" style="display: flex; align-items: center; gap: 12px;">
+                            <img src="/images/logo.png" class="tpd-a4-logo" style="height: 48px; object-fit: contain;" onerror="this.style.display='none'">
+                            <span class="tpd-a4-brand" style="font-size: 20px; font-weight: 900; color: #122546; text-transform: uppercase;">Đồng Phục <span class="tpd-a4-brand-gold" style="color: #fad24c;">HV</span></span>
                         </div>
-                        <div class="tpd-a4-header-right">
-                            <h1 class="tpd-a4-title">PHIẾU SẢN XUẤT</h1>
-                            <div class="tpd-a4-order-code">MÃ ĐƠN: ${o.order_code} | PHIẾU ${idx + 1}/${items.length}</div>
+                        <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
+                            <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
+                            <div class="tpd-a4-order-code" style="font-size: 14px; font-weight: 800; color: #475569; margin-top: 2px;">MÃ ĐƠN: ${o.order_code} | PHIẾU ${idx + 1}/${items.length}</div>
+                        </div>
+                        <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 8px; background: #ffffff;">
+                            <img src="${qrUrl}" style="width: 50px; height: 50px; object-fit: contain;">
+                            <span style="font-size: 8px; font-weight: 800; color: #122546; text-transform: uppercase; white-space: nowrap;">Quét mã tiến độ</span>
                         </div>
                     </div>
 
                     <!-- Metadata info grid -->
                     <div class="tpd-a4-meta-grid">
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${creatorName}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${o.cskh_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</span></div>
 
@@ -4672,29 +4668,19 @@ async function _tpdPrintAllSheets() {
                         </div>
                     </div>
 
-                    <!-- Size breakdown table & Print Details Table -->
-                    <div class="tpd-a4-table-row" style="display: flex; gap: 10px; align-items: stretch; margin-bottom: 10px;">
-                        <div style="flex: 1.8; min-width: 0;">
-                            ${_tpdRenderA4SizeTable(it)}
-                        </div>
-                        <div style="flex: 1.2; display: flex; min-width: 0;">
-                            ${_tpdGetTechWrapperHtml(it, true)}
-                        </div>
+                    <!-- Size breakdown table -->
+                    <div class="tpd-a4-table-row">
+                        ${_tpdRenderA4SizeTable(it)}
                     </div>
 
                     <!-- Bottom Row -->
                     <div class="tpd-a4-bottom-row">
-                        <div class="tpd-a4-note-section">
+                        <div class="tpd-a4-note-section" style="flex: 3.2;">
                             <span class="tpd-a4-note-title"> Ghi chú Kỹ thuật may của Xưởng:</span>
                             <div class="tpd-a4-note-content">${it.workshop_note || 'Chưa có ghi chú kỹ thuật xưởng.'}</div>
                         </div>
 
-                        <div class="tpd-a4-qr-section">
-                            <img src="${qrUrl}" class="tpd-a4-qr-img">
-                            <span class="tpd-a4-qr-text">Quét mã tiến độ</span>
-                        </div>
-
-                        <div class="tpd-a4-sigs-section">
+                        <div class="tpd-a4-sigs-section" style="flex: 1.8;">
                             <div class="tpd-a4-sig-box">
                                 <span class="tpd-a4-sig-title">Người Lập Phiếu</span>
                                 <div class="tpd-a4-sig-space"></div>
