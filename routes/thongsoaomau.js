@@ -177,6 +177,7 @@ module.exports = async function(fastify) {
     fastify.put('/api/tsam/samples/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
         const b = request.body || {};
+        console.log('[PUT /api/tsam/samples/:id] body:', JSON.stringify(b));
         const urlRegex = /^https:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\/.+/i;
 
         const old = await db.get('SELECT * FROM tsam_samples WHERE id = $1', [id]);

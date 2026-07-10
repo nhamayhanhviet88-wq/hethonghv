@@ -1340,6 +1340,11 @@ async function start() {
         } else if (url.match(/\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot)(\?|$)/)) {
             // Static assets: cache for 30 days
             reply.header('Cache-Control', 'public, max-age=2592000');
+        } else if (url.startsWith('/api/')) {
+            // API endpoints: never cache, always get fresh data
+            reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            reply.header('Pragma', 'no-cache');
+            reply.header('Expires', '0');
         } else if (!url.startsWith('/api/')) {
             // HTML pages: always fresh (ensures dashboard picks up new scripts)
             reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');

@@ -73,9 +73,9 @@ async function renderThongsoaomauPage(content) {
         document.head.appendChild(st);
     }
     var [treeRes, catRes, phieuOpts] = await Promise.all([
-        apiCall('/api/tsam/tree'),
-        apiCall('/api/dht/categories'),
-        apiCall('/api/dht/phieu-options')
+        apiCall('/api/tsam/tree?_t=' + Date.now()),
+        apiCall('/api/dht/categories?_t=' + Date.now()),
+        apiCall('/api/dht/phieu-options?_t=' + Date.now())
     ]);
     _tsam.tree = treeRes.categories || [];
     _tsam.categories = catRes.categories || [];
@@ -104,7 +104,7 @@ function _tsamRenderSB() {
 function _tsamFilter(f) { _tsam.filter = f; _tsamRenderSB(); _tsamLoad(); }
 
 async function _tsamLoad() {
-    var f = _tsam.filter, url = '/api/tsam/samples?';
+    var f = _tsam.filter, url = '/api/tsam/samples?_t=' + Date.now() + '&';
     if (f.category_id) url += 'category_id=' + f.category_id + '&';
     var status = document.getElementById('tsamStatusFilter')?.value;
     if (status) url += 'status=' + status + '&';
@@ -489,7 +489,7 @@ async function _tsamDetail(id) {
     if (isGD && (!isApproved || isDirector)) footer += '<button class="btn" onclick="_tsamDelete(' + s.id + ')" style="background:#dc2626;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700">🗑️ Xóa</button>';
     openModal('📐 ' + s.sample_code, body, footer);
     // Load history async
-    var histRes = await apiCall('/api/tsam/samples/' + id + '/history');
+    var histRes = await apiCall('/api/tsam/samples/' + id + '/history?_t=' + Date.now());
     var area = document.getElementById('_tsamHistArea');
     if (!area) return;
     var hist = histRes.history || [];
@@ -510,7 +510,7 @@ async function _tsamDetail(id) {
 // ========== LINKED ORDERS MODAL ==========
 async function _tsamShowOrders(id) {
     var s = _tsam.samples.find(function(x) { return x.id === id; });
-    var res = await apiCall('/api/tsam/samples/' + id + '/orders');
+    var res = await apiCall('/api/tsam/samples/' + id + '/orders?_t=' + Date.now());
     var orders = res.orders || [];
     var body = '';
     if (!orders.length) { body = '<div style="text-align:center;padding:30px;color:var(--gray-400)"><div style="font-size:32px">📭</div>Chưa có đơn sản xuất nào link với mẫu này</div>'; }
@@ -543,7 +543,7 @@ async function _tsamDelete(id) {
 }
 
 async function _tsamRefresh() {
-    var treeRes = await apiCall('/api/tsam/tree');
+    var treeRes = await apiCall('/api/tsam/tree?_t=' + Date.now());
     _tsam.tree = treeRes.categories || [];
     _tsam.totalInfo = treeRes.total || {};
     _tsamRenderSB();
@@ -579,7 +579,7 @@ function _tsamCalcPrices() {
 }
 
 async function _tsamOpenBgmPicker() {
-    var res = await apiCall('/api/bgm/dropdown');
+    var res = await apiCall('/api/bgm/dropdown?_t=' + Date.now());
     var allItems = res.items || [];
     // Save parent modal state for restoration
     window._bgmPickerItems = allItems;
