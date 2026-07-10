@@ -4014,7 +4014,7 @@ function _tpdRenderFormInputs() {
             });
 
             let selectOptions = '';
-            for (const [groupName, techs] of Object.entries(groups)) {
+            for (const [groupName, techs] of _tpdSortGroups(groups)) {
                 if (techs.length > 0) {
                     selectOptions += `<optgroup label="${escapeHTML(groupName)}">`;
                     techs.forEach(t => {
@@ -6243,6 +6243,25 @@ function _tpdExtractString(val) {
     return String(val);
 }
 
+function _tpdSortGroups(groups) {
+    const priority = ['NHÓM NẸP', 'Nhóm Cổ', 'Nhóm Bo / Tay', 'Khác'];
+    return Object.entries(groups).sort((a, b) => {
+        const keyA = String(a[0] || '').toUpperCase();
+        const keyB = String(b[0] || '').toUpperCase();
+        
+        const indexA = priority.findIndex(p => p.toUpperCase() === keyA);
+        const indexB = priority.findIndex(p => p.toUpperCase() === keyB);
+        
+        if (indexA !== -1 && indexB !== -1) {
+            return indexA - indexB;
+        }
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        
+        return keyA.localeCompare(keyB);
+    });
+}
+
 function _tpdGetSewingTechGroup(tech) {
     if (!tech) return 'Khác';
     const techName = _tpdExtractString(tech);
@@ -6478,7 +6497,7 @@ function _tpdRenderSewingTechsModalList() {
     });
 
     let html = '';
-    for (const [groupName, items] of Object.entries(groups)) {
+    for (const [groupName, items] of _tpdSortGroups(groups)) {
         if (items.length > 0) {
             html += `
                 <div style="margin-bottom: 16px;">
