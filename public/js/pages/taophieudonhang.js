@@ -3576,6 +3576,21 @@ function _tpdRenderA4SizeTable(it) {
     }
 }
 
+// Adjust mockup wrapper width to match the image's actual rendered width
+function _tpdAdjustMockupWidth(img) {
+    if (!img || !img.naturalHeight) return;
+    const wrapper = img.closest('.tpd-a4-mockup-wrapper');
+    if (!wrapper) return;
+    const body = img.closest('.tpd-a4-img-body');
+    if (!body) return;
+    const bodyHeight = body.clientHeight;
+    if (bodyHeight > 0) {
+        const ratio = img.naturalWidth / img.naturalHeight;
+        const targetWidth = Math.ceil(bodyHeight * ratio) + 8; // 8px for body padding (4px on each side)
+        wrapper.style.width = targetWidth + 'px';
+    }
+}
+
 // Calculate table count to adjust images row height dynamically and avoid A4 overflow
 function _tpdGetImagesRowHeight(it) {
     let tableCount = 1;
@@ -3655,7 +3670,7 @@ function _tpdUpdateLivePreview() {
                 <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup" style="width: fit-content; max-width: 100%; height: 100%;">
                     <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn (Click/Ctrl+V)</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
-                        ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Bấm vào đây hoặc vùng bên phải rồi Ctrl+V để dán</span></div>`}
+                        ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Bấm vào đây hoặc vùng bên phải rồi Ctrl+V để dán</span></div>`}
                     </div>
                 </div>
             </div>
@@ -4648,7 +4663,7 @@ async function _tpdPrintAllSheets() {
                         <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%;">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
-                                ${mockupSrc ? `<img src="${mockupSrc}">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
+                                ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
                     </div>
