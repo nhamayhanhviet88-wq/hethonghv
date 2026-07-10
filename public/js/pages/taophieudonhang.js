@@ -332,7 +332,7 @@ function _tpdCloneItemState(item) {
         dimension: d.dimension || ''
     }));
 
-    let customLayout = { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+    let customLayout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
     if (item.custom_layout) {
         try {
             customLayout = typeof item.custom_layout === 'string' ? JSON.parse(item.custom_layout) : item.custom_layout;
@@ -3651,7 +3651,7 @@ function _tpdAdjustMockupWidth(img) {
 // Helper to retrieve or initialize custom layout options for an item index
 function _tpdGetCustomLayout(index) {
     const state = window._tpdWorkspaceState;
-    if (!state) return { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+    if (!state) return { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
 
     let it = null;
     if (index === state.activeItemIndex && state.editingItem) {
@@ -3675,16 +3675,16 @@ function _tpdGetCustomLayout(index) {
         it = mergedItem || item;
     }
 
-    if (!it) return { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+    if (!it) return { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
 
     let layout;
     if (!it.custom_layout) {
-        layout = { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+        layout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
     } else if (typeof it.custom_layout === 'string') {
         try {
             layout = JSON.parse(it.custom_layout);
         } catch(e) {
-            layout = { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+            layout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
         }
     } else {
         layout = it.custom_layout;
@@ -3864,7 +3864,7 @@ function _tpdUpdateLivePreview() {
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
     const customHeight = layout.height ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
     const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
-    const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 5}px;`;
+    const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
 
     container.innerHTML = `
         <div class="tpd-a4-preview-card" id="tpdPrintSheet" ${layout.contentEditable ? 'contenteditable="true"' : ''}>
@@ -4591,9 +4591,9 @@ function _tpdRenderFormInputs() {
                 <div style="margin-bottom: 12px;">
                     <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">
                         <span>Khoảng cách từ viền trên:</span>
-                        <span id="tpd_lbl_spacing">${layout.topSpacing !== undefined ? layout.topSpacing : 5}px</span>
+                        <span id="tpd_lbl_spacing">${layout.topSpacing !== undefined ? layout.topSpacing : 7}px</span>
                     </div>
-                    <input type="range" min="0" max="50" value="${layout.topSpacing !== undefined ? layout.topSpacing : 5}" class="slider" style="width: 100%; cursor: pointer;" oninput="_tpdChangeLayoutSpacing(this.value)">
+                    <input type="range" min="0" max="50" value="${layout.topSpacing !== undefined ? layout.topSpacing : 7}" class="slider" style="width: 100%; cursor: pointer;" oninput="_tpdChangeLayoutSpacing(this.value)">
                 </div>
 
                 <!-- Alignment buttons -->
@@ -5142,10 +5142,10 @@ function _tpdChangeCustomInfo(field, value) {
     if (!it) return;
 
     if (!it.custom_layout) {
-        it.custom_layout = { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+        it.custom_layout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
     } else if (typeof it.custom_layout === 'string') {
         try { it.custom_layout = JSON.parse(it.custom_layout); } catch(e) {
-            it.custom_layout = { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+            it.custom_layout = { height: 150, topSpacing: 7, alignment: 'flex-start', contentEditable: false };
         }
     }
 
@@ -5703,7 +5703,7 @@ async function _tpdShowExportSheetsModal() {
         const layout = _tpdGetCustomLayout(idx);
         const customHeight = layout.height ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
         const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
-        const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 5}px;`;
+        const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
 
         printHtml += `
             <div class="tpd-print-page" id="tempExportPage_${idx}" style="width: 297mm; height: 210mm; box-sizing: border-box; padding: 8mm; background: white; border: none; margin: 0; overflow: hidden;">
@@ -5931,7 +5931,7 @@ async function _tpdPrintAllSheets() {
         const layout = _tpdGetCustomLayout(idx);
         const customHeight = layout.height ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
         const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
-        const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 5}px;`;
+        const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
 
         printHtml += `
             <div class="tpd-print-page">
