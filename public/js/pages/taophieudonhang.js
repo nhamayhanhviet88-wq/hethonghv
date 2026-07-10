@@ -3684,6 +3684,15 @@ function _tpdGetCustomLayout(index) {
         }
     }
 
+    // Sanitize layout.sewing_items to make sure tech properties are always strings (healing)
+    if (Array.isArray(layout.sewing_items)) {
+        layout.sewing_items.forEach(item => {
+            if (item) {
+                item.tech = _tpdExtractString(item.tech);
+            }
+        });
+    }
+
     const masterTechNames = [
         ..._tpdGetSewingTechniqueNames(it.tsam_sewing_tech),
         ..._tpdGetSewingTechniqueNames(it.sewing_techniques)
@@ -6211,13 +6220,23 @@ function _tpdGetNormalizedSewingTechs() {
     });
 }
 
+function _tpdExtractString(val) {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'object') {
+        const possibleString = val.tech || val.name || val.techName || '';
+        return _tpdExtractString(possibleString);
+    }
+    return String(val);
+}
+
 function _tpdGetSewingTechGroup(tech) {
     if (!tech) return 'Khác';
-    const techName = typeof tech === 'object' ? (tech.tech || '') : String(tech);
+    const techName = _tpdExtractString(tech);
     if (!techName || techName === 'Khác') return 'Khác';
     
     const normalized = _tpdGetNormalizedSewingTechs();
-    const match = normalized.find(n => n.tech === techName);
+    const match = normalized.find(n => _tpdExtractString(n.tech) === techName);
     if (match) return match.group;
     
     // Heuristic fallback for custom/new entries
