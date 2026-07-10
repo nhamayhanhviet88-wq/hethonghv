@@ -4094,7 +4094,7 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
             }
 
             const paddingStyle = (widthText || heightText)
-                ? 'padding: 10px 25px 20px 10px;'
+                ? 'padding: 10px 25px 26px 10px;'
                 : 'padding: 4px;';
 
             techBoxesHtml += `
@@ -4107,7 +4107,7 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
                                 
                                 <!-- Width indicator (Horizontal line) -->
                                 ${widthText ? `
-                                    <div style="position: absolute; bottom: -18px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 5;">
+                                    <div style="position: absolute; bottom: -23px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 5;">
                                         <svg width="100%" height="8" style="overflow: visible; display: block;">
                                             <defs>
                                                 <marker id="arrow-start-${idx}" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="5" markerHeight="5" orient="auto">
