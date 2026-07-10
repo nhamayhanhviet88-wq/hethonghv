@@ -3354,7 +3354,7 @@ function _tpdRenderA4SizeTable(it) {
                         const cleanNote = qObj.note.trim().replace(/\s*,\s*/g, ', ');
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px; background: #fee2e2; min-width: 120px;">
                             <div style="color: #dc2626; font-size: 12px; font-weight: 800;">${qObj.qty || 0}</div>
-                            <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 115px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
+                            <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; white-space: nowrap; overflow: visible; text-align: center; display: block;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                         </td>`;
                     } else {
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px;">
@@ -3413,7 +3413,7 @@ function _tpdRenderA4SizeTable(it) {
                         const cleanNote = qObj.note.trim().replace(/\s*,\s*/g, ', ');
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px; background: #fee2e2; min-width: 120px;">
                             <div style="color: #dc2626; font-size: 12px; font-weight: 800;">${qObj.qty || 0}</div>
-                            <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 115px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
+                            <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; white-space: nowrap; overflow: visible; text-align: center; display: block;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                         </td>`;
                     } else {
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px;">
@@ -3472,7 +3472,7 @@ function _tpdRenderA4SizeTable(it) {
                         const cleanNote = qObj.note.trim().replace(/\s*,\s*/g, ', ');
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px; background: #fee2e2; min-width: 120px;">
                             <div style="color: #dc2626; font-size: 12px; font-weight: 800;">${qObj.qty || 0}</div>
-                            <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 115px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
+                            <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; white-space: nowrap; overflow: visible; text-align: center; display: block;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                         </td>`;
                     } else {
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px;">
@@ -3532,7 +3532,7 @@ function _tpdRenderA4SizeTable(it) {
                 const cleanNote = q.note.trim().replace(/\s*,\s*/g, ', ');
                 sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px; background: #fee2e2; min-width: 120px;">
                     <div style="font-weight:700; color: #dc2626; font-size: 12px;">${q.qty || 0}</div>
-                    <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 115px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
+                    <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; white-space: nowrap; overflow: visible; text-align: center; display: block;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                 </td>`;
             } else {
                 sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px;">
