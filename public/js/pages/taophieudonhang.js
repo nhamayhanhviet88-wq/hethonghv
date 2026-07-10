@@ -1006,6 +1006,28 @@ async function _tpdOnImageFileSelect(e, orderId) {
     }
 }
 
+// Handle select file for mockup image
+function _tpdOnMockupFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    showToast('⏳ Đang đọc file ảnh mockup...', 'info');
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        const base64 = evt.target.result;
+        const state = window._tpdWorkspaceState;
+        if (state && state.editingItem) {
+            state.editingItem.mockup_image = base64;
+            _tpdSaveDraft(state.editingItem);
+            _tpdRenderFormInputs();
+            _tpdUpdateLivePreview();
+            _tpdSetupPasteZones();
+            showToast('✅ Đã tải file ảnh mockup thành công!', 'success');
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
 // Perform image upload as base64 to put API
 async function _tpdUploadImageFile(file, orderId) {
     const container = document.getElementById('tpdMarketContainer');
@@ -3760,10 +3782,10 @@ function _tpdUpdateLivePreview() {
 
             <!-- Images Row -->
             <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
-                <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%;">
-                    <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn (Click/Ctrl+V)</div>
+                <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%;">
+                    <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
-                        ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Bấm vào đây hoặc vùng bên phải rồi Ctrl+V để dán</span></div>`}
+                        ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Tải lên ảnh từ bảng bên phải</span></div>`}
                     </div>
                 </div>
             </div>
@@ -4185,14 +4207,16 @@ function _tpdRenderFormInputs() {
 
     html += `
         <div class="tpd-ws-form-group">
-            <label class="tpd-ws-form-label">Hình ảnh thiết kế Mockup lớn (Ctrl+V để dán)</label>
-            <div class="tpd-ws-upload-box paste-target" data-zone="mockup" id="zone_mockup" style="min-height: 140px;">
+            <label class="tpd-ws-form-label">Hình ảnh thiết kế Mockup lớn (Chọn file từ máy tính)</label>
+            <input type="file" id="tpdMockupFileInput" accept="image/*" style="display:none;" onchange="_tpdOnMockupFileSelect(event)" ${disabledAttr}>
+            <div class="tpd-ws-upload-box" id="zone_mockup" style="min-height: 140px; cursor: pointer;" onclick="if(document.getElementById('tpdMockupFileInput')) document.getElementById('tpdMockupFileInput').click()">
                 ${mockupSrc ? `
                     <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('mockup')" ${disabledAttr}>✕</button>
                     <img src="${mockupSrc}" class="tpd-ws-upload-preview" style="max-height:120px;">
                 ` : `
-                    <span class="tpd-ws-upload-icon">🎨</span>
-                    <span class="tpd-ws-upload-text">Ảnh Mockup lớn (Click dán)</span>
+                    <span class="tpd-ws-upload-icon">📁</span>
+                    <span class="tpd-ws-upload-text">Bấm vào đây để tải file ảnh từ máy tính</span>
+                    <span style="font-size: 9px; color: #94a3b8; margin-top: 4px;">(Hỗ trợ PNG, JPG, JPEG)</span>
                 `}
             </div>
         </div>
