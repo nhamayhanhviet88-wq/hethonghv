@@ -3659,28 +3659,7 @@ function _tpdUpdateLivePreview() {
                 ${_tpdRenderA4SizeTable(it)}
             </div>
 
-            <!-- Bottom Row (Note and Signatures) -->
-            <div class="tpd-a4-bottom-row">
-                <!-- Notes -->
-                <div class="tpd-a4-note-section" style="flex: 3.2;">
-                    <span class="tpd-a4-note-title">📝 Ghi chú Kỹ thuật may của Xưởng:</span>
-                    <div id="prev_workshop_note" class="tpd-a4-note-content">${it.workshop_note || 'Chưa có ghi chú kỹ thuật xưởng.'}</div>
-                </div>
 
-                <!-- Signatures -->
-                <div class="tpd-a4-sigs-section" style="flex: 1.8;">
-                    <div class="tpd-a4-sig-box">
-                        <span class="tpd-a4-sig-title">Người Lập Phiếu</span>
-                        <div class="tpd-a4-sig-space"></div>
-                        <span class="tpd-a4-sig-desc">${o.cskh_name || 'Kinh Doanh'}</span>
-                    </div>
-                    <div class="tpd-a4-sig-box">
-                        <span class="tpd-a4-sig-title">Quản Lý Xưởng</span>
-                        <div class="tpd-a4-sig-space"></div>
-                        <span class="tpd-a4-sig-desc">Ký xác nhận</span>
-                    </div>
-                </div>
-            </div>
         </div>
     `;
 }
@@ -4673,26 +4652,7 @@ async function _tpdPrintAllSheets() {
                         ${_tpdRenderA4SizeTable(it)}
                     </div>
 
-                    <!-- Bottom Row -->
-                    <div class="tpd-a4-bottom-row">
-                        <div class="tpd-a4-note-section" style="flex: 3.2;">
-                            <span class="tpd-a4-note-title"> Ghi chú Kỹ thuật may của Xưởng:</span>
-                            <div class="tpd-a4-note-content">${it.workshop_note || 'Chưa có ghi chú kỹ thuật xưởng.'}</div>
-                        </div>
 
-                        <div class="tpd-a4-sigs-section" style="flex: 1.8;">
-                            <div class="tpd-a4-sig-box">
-                                <span class="tpd-a4-sig-title">Người Lập Phiếu</span>
-                                <div class="tpd-a4-sig-space"></div>
-                                <span class="tpd-a4-sig-desc">${o.cskh_name || 'Kinh Doanh'}</span>
-                            </div>
-                            <div class="tpd-a4-sig-box">
-                                <span class="tpd-a4-sig-title">Quản Lý Xưởng</span>
-                                <div class="tpd-a4-sig-space"></div>
-                                <span class="tpd-a4-sig-desc">Ký xác nhận</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         `;
