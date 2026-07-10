@@ -5550,6 +5550,9 @@ module.exports = async function(fastify) {
 
     // GET /api/dht/size-config
     fastify.get('/api/dht/size-config', { preHandler: [authenticate] }, async (request, reply) => {
+        reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         const row = await db.get("SELECT value FROM app_config WHERE key = 'dht_size_types_config'");
         if (!row) {
             return {
@@ -5583,6 +5586,9 @@ module.exports = async function(fastify) {
 
     // GET /api/dht/print-positions
     fastify.get('/api/dht/print-positions', { preHandler: [authenticate] }, async (request, reply) => {
+        reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         const row = await db.get("SELECT value FROM app_config WHERE key = 'dht_print_positions_config'");
         const defaults = [
             { name: "Ngực", require_offset: false, offset_label: "", offset_placeholder: "" },
@@ -5618,6 +5624,9 @@ module.exports = async function(fastify) {
 
     // GET /api/dht/sewing-techniques
     fastify.get('/api/dht/sewing-techniques', { preHandler: [authenticate] }, async (request, reply) => {
+        reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         const row = await db.get("SELECT value FROM app_config WHERE key = 'dht_sewing_techniques_config'");
         const defaults = ["Bo cổ dệt", "Bo tay dệt", "Móc xích", "Trần đè", "Xẻ tà", "May lé", "Đắp túi", "May gấu", "Nẹp gấp", "Đính dây cổ"];
         if (!row) {

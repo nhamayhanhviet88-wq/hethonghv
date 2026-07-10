@@ -5531,7 +5531,7 @@ async function _tpdPrintAllSheets() {
 // Load size configuration from backend
 async function _tpdLoadSizeConfig() {
     try {
-        const res = await apiCall('/api/dht/size-config', 'GET');
+        const res = await apiCall(`/api/dht/size-config?_=${Date.now()}`, 'GET');
         if (res && !res.error) {
             _tpd.sizeTypesConfig = res;
         }
@@ -5550,7 +5550,7 @@ async function _tpdLoadSizeConfig() {
 // Load print positions configuration from backend
 async function _tpdLoadPrintPositionsConfig() {
     try {
-        const res = await apiCall('/api/dht/print-positions', 'GET');
+        const res = await apiCall(`/api/dht/print-positions?_=${Date.now()}`, 'GET');
         if (res && !res.error) {
             _tpd.printPositionsConfig = res;
         }
@@ -6152,7 +6152,7 @@ async function _tpdSavePrintPositionsConfig() {
 // Load sewing techniques configuration from backend
 async function _tpdLoadSewingTechsConfig() {
     try {
-        const res = await apiCall('/api/dht/sewing-techniques', 'GET');
+        const res = await apiCall(`/api/dht/sewing-techniques?_=${Date.now()}`, 'GET');
         if (res && !res.error) {
             _tpd.sewingTechsConfig = res;
         }
@@ -6243,14 +6243,24 @@ function _tpdExtractString(val) {
     return String(val);
 }
 
+function _tpdNormalizeText(str) {
+    if (!str) return '';
+    return String(str)
+        .normalize('NFC')
+        .trim()
+        .toUpperCase();
+}
+
 function _tpdSortGroups(groups) {
     const priority = ['NHÓM NẸP', 'Nhóm Cổ', 'Nhóm Bo / Tay', 'Khác'];
+    const normPriority = priority.map(p => _tpdNormalizeText(p));
+    
     return Object.entries(groups).sort((a, b) => {
-        const keyA = String(a[0] || '').toUpperCase();
-        const keyB = String(b[0] || '').toUpperCase();
+        const keyA = _tpdNormalizeText(a[0]);
+        const keyB = _tpdNormalizeText(b[0]);
         
-        const indexA = priority.findIndex(p => p.toUpperCase() === keyA);
-        const indexB = priority.findIndex(p => p.toUpperCase() === keyB);
+        const indexA = normPriority.indexOf(keyA);
+        const indexB = normPriority.indexOf(keyB);
         
         if (indexA !== -1 && indexB !== -1) {
             return indexA - indexB;
@@ -6268,7 +6278,11 @@ function _tpdGetSewingTechGroup(tech) {
     if (!techName || techName === 'Khác') return 'Khác';
     
     const normalized = _tpdGetNormalizedSewingTechs();
-    const match = normalized.find(n => _tpdExtractString(n.tech) === techName);
+    const match = normalized.find(n => {
+        const t1 = _tpdNormalizeText(_tpdExtractString(n.tech));
+        const t2 = _tpdNormalizeText(techName);
+        return t1 === t2;
+    });
     if (match) return match.group;
     
     // Heuristic fallback for custom/new entries
