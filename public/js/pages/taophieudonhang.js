@@ -3880,10 +3880,35 @@ function _tpdRenderFormInputs() {
     } else {
         sewingListHtml = layout.sewing_items.map((sewItem, sIdx) => {
             const isCustom = !configSewingTechs.includes(sewItem.tech) && sewItem.tech !== 'Khác';
-            const selectOptions = configSewingTechs.map(t => {
-                const selected = t === sewItem.tech ? 'selected' : '';
-                return `<option value="${escapeHTML(t)}" ${selected}>${escapeHTML(t)}</option>`;
-            }).join('');
+            const groups = {
+                'Nhóm Cổ': [],
+                'Nhóm Bo / Tay': [],
+                'Khác': []
+            };
+
+            configSewingTechs.forEach(t => {
+                const lower = t.toLowerCase();
+                if (lower.includes('cổ')) {
+                    groups['Nhóm Cổ'].push(t);
+                } else if (lower.includes('bo') || lower.includes('tay')) {
+                    groups['Nhóm Bo / Tay'].push(t);
+                } else {
+                    groups['Khác'].push(t);
+                }
+            });
+
+            let selectOptions = '';
+            for (const [groupName, techs] of Object.entries(groups)) {
+                if (techs.length > 0) {
+                    selectOptions += `<optgroup label="${escapeHTML(groupName)}">`;
+                    techs.forEach(t => {
+                        const selected = t === sewItem.tech ? 'selected' : '';
+                        selectOptions += `<option value="${escapeHTML(t)}" ${selected}>${escapeHTML(t)}</option>`;
+                    });
+                    selectOptions += `</optgroup>`;
+                }
+            }
+
 
             const otherSelected = sewItem.tech === 'Khác' || isCustom ? 'selected' : '';
             const techSelectId = `tpd_sew_tech_${sIdx}`;
