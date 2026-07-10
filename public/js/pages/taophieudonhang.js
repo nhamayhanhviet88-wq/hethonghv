@@ -4990,8 +4990,8 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
             <div style="background: #122546; color: white; padding: 5px 8px; font-weight: 700; font-size: 11px; text-transform: uppercase; text-align: center; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Thông Tin Chi Tiết Sản Xuất
             </div>
-            <div style="flex: 1; padding: 10px 12px; display: flex; flex-direction: column; justify-content: space-between; font-size: 13px; line-height: 1.45; color: #1e293b; background: #ffffff; box-sizing: border-box; height: 100%;">
-                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; gap: 10px;">
+            <div style="flex: 1; padding: 8px 12px; display: flex; flex-direction: column; justify-content: flex-start; font-size: 13px; line-height: 1.45; color: #1e293b; background: #ffffff; box-sizing: border-box; height: 100%;">
+                <div style="display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; flex: 1;">
                     <!-- Phần 1: Sản phẩm bán -->
                     <div style="display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
                         <div>
