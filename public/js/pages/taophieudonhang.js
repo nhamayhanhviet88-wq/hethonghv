@@ -260,6 +260,13 @@ function _tpdCloneItemState(item) {
             try {
                 const draft = JSON.parse(draftStr);
                 if (draft && draft.id === item.id) {
+                    // Sync latest DB values into loaded draft to prevent stale data
+                    draft.quantity = item.quantity;
+                    draft.product_name = item.product_name;
+                    draft.material_name = item.material_name;
+                    draft.color_name = item.color_name;
+                    draft.size_type = item.size_type;
+                    draft.unit_price = item.unit_price;
                     return draft;
                 }
             } catch(e) {}
@@ -4444,7 +4451,7 @@ function _tpdRenderFormInputs() {
                     return '';
                 })()}
             </div>
-            <div style="font-size:11px; color:#64748b; font-weight:600; margin-bottom:12px; padding:6px 10px; background:#f1f5f9; border-radius:4px; display:flex; justify-content:space-between;">
+            <div id="tpd-size-summary-box" style="font-size:11px; color:#64748b; font-weight:600; margin-bottom:12px; padding:6px 10px; background:#f1f5f9; border-radius:4px; display:flex; justify-content:space-between;">
                 <span>📋 SL phiếu DHT: <b style="color:#1e40af">${Number(it.quantity) || 0}</b></span>
                 <span>📊 Tổng size đã điền: <b style="color:${(() => {
                     const dhtQ = Number(it.quantity) || 0;
@@ -4607,7 +4614,29 @@ function _tpdUpdateQty(size, val) {
     }
 
     _tpdSaveDraft(it);
+    _tpdUpdateSizeSummary();
     _tpdUpdateLivePreview();
+}
+
+function _tpdUpdateSizeSummary() {
+    const state = window._tpdWorkspaceState;
+    const it = state.editingItem;
+    if (!it) return;
+
+    const summaryBox = document.getElementById('tpd-size-summary-box');
+    if (!summaryBox) return;
+
+    const dhtQ = Number(it.quantity) || 0;
+    const totalQ = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
+
+    let color = '#d97706'; // orange
+    if (dhtQ > 0 && totalQ === dhtQ) color = '#059669'; // green
+    else if (totalQ > dhtQ) color = '#dc2626'; // red
+
+    summaryBox.innerHTML = `
+        <span>📋 SL phiếu DHT: <b style="color:#1e40af">${dhtQ}</b></span>
+        <span>📊 Tổng size đã điền: <b style="color:${color}">${totalQ}</b> / <b>${dhtQ}</b></span>
+    `;
 }
 
 // Update size note in editing item state
