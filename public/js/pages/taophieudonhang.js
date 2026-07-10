@@ -303,13 +303,9 @@ function _tpdCloneItemState(item) {
 
     // Backwards-compatibility self-healing & default pre-population
     if (printDetails.length === 0) {
-        const defaultPositions = _tpd.printPositionsConfig || [
+        const defaultPositions = [
             { name: "Ngực", require_offset: false, offset_label: "", offset_placeholder: "" },
-            { name: "Lưng", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 10cm" },
-            { name: "Bụng", require_offset: true, offset_label: "Cổ xuống", offset_placeholder: "Ví dụ: 12cm" },
-            { name: "Tay Trái", require_offset: false, offset_label: "", offset_placeholder: "" },
-            { name: "Tay Phải", require_offset: false, offset_label: "", offset_placeholder: "" },
-            { name: "Gáy", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 4cm" }
+            { name: "Lưng", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 10cm" }
         ];
         defaultPositions.forEach(pos => {
             let img = '';
