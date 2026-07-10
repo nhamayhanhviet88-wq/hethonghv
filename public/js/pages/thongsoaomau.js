@@ -170,7 +170,7 @@ function _tsamShowCreate(editId) {
         + '<div class="form-group"><label>SL Màu Phối ' + rq + ' <span id="_tsamMixHint" style="font-size:10px;color:' + (isLocked ? '#059669' : '#f59e0b') + '">' + (isLocked ? '🔒 Auto = 1' : '✏️ Nhập ≥ 2') + '</span></label><input type="number" id="_tsamMixCount" class="form-control" value="' + mixVal + '" min="' + (isLocked ? '1' : '2') + '"' + (isLocked ? ' disabled style="background:#f1f5f9;cursor:not-allowed"' : '') + '></div>'
         + '</div>'
         // === SAMPLE DETAILS (Chi Tiết Mẫu Áo) ===
-        + '<div class="form-group" style="margin-top:8px">'
+        + '<div class="form-group" style="margin-top:8px' + (isEdit ? '' : ';display:none') + '">'
         + '<label>🏷️ Kỹ Thuật May (Tự động tách từ Mã Mẫu bằng dấu "-")</label>'
         + '<div id="_tsamDetailsWrap" style="display:flex; flex-direction:column; gap:6px; padding:8px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc">'
         + '<div id="_tsamDetailsList" style="display:flex; flex-direction:column; gap:4px;"></div>'
