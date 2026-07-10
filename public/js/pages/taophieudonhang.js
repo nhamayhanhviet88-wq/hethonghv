@@ -2867,11 +2867,12 @@ function _tpdInjectWorkspaceStyles() {
             max-width: 100%;
             border: 1.5px solid #122546;
             border-radius: 8px;
-            overflow: hidden;
+            overflow: auto;
             display: flex;
             flex-direction: column;
             background: #f8fafc;
             position: relative;
+            resize: both;
         }
 
         .tpd-a4-tech-wrapper {
@@ -3591,6 +3592,70 @@ function _tpdAdjustMockupWidth(img) {
     }
 }
 
+// Helper to retrieve or initialize custom layout options for an item index
+function _tpdGetCustomLayout(index) {
+    if (!window._tpdWorkspaceState) return { height: '', topSpacing: 4, alignment: 'flex-start', contentEditable: false };
+    if (!window._tpdWorkspaceState.customLayouts) {
+        window._tpdWorkspaceState.customLayouts = {};
+    }
+    if (!window._tpdWorkspaceState.customLayouts[index]) {
+        window._tpdWorkspaceState.customLayouts[index] = {
+            height: '',
+            topSpacing: 4,
+            alignment: 'flex-start',
+            contentEditable: false
+        };
+    }
+    return window._tpdWorkspaceState.customLayouts[index];
+}
+
+function _tpdChangeLayoutHeight(val) {
+    const state = window._tpdWorkspaceState;
+    if (!state) return;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    layout.height = Number(val);
+    _tpdUpdateLivePreview();
+    const lbl = document.getElementById('tpd_lbl_height');
+    if (lbl) lbl.innerText = val + 'mm';
+}
+
+// Reset wrapper height to auto/dynamic behavior
+function _tpdResetLayoutHeight() {
+    const state = window._tpdWorkspaceState;
+    if (!state) return;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    layout.height = '';
+    _tpdUpdateLivePreview();
+    _tpdRenderFormInputs();
+}
+
+function _tpdChangeLayoutSpacing(val) {
+    const state = window._tpdWorkspaceState;
+    if (!state) return;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    layout.topSpacing = Number(val);
+    _tpdUpdateLivePreview();
+    const lbl = document.getElementById('tpd_lbl_spacing');
+    if (lbl) lbl.innerText = val + 'px';
+}
+
+function _tpdChangeLayoutAlignment(val) {
+    const state = window._tpdWorkspaceState;
+    if (!state) return;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    layout.alignment = val;
+    _tpdUpdateLivePreview();
+    _tpdRenderFormInputs();
+}
+
+function _tpdChangeLayoutEditable(checked) {
+    const state = window._tpdWorkspaceState;
+    if (!state) return;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    layout.contentEditable = checked;
+    _tpdUpdateLivePreview();
+}
+
 // Calculate table count to adjust images row height dynamically and avoid A4 overflow
 function _tpdGetImagesRowHeight(it) {
     let tableCount = 1;
@@ -3634,10 +3699,16 @@ function _tpdUpdateLivePreview() {
 
     const mockupSrc = it.mockup_image || '';
 
+    // Layout options
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    const customHeight = layout.height ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
+    const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
+    const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 4}px;`;
+
     container.innerHTML = `
-        <div class="tpd-a4-preview-card" id="tpdPrintSheet">
+        <div class="tpd-a4-preview-card" id="tpdPrintSheet" ${layout.contentEditable ? 'contenteditable="true"' : ''}>
             <!-- Header Block -->
-            <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 6px;">
+            <div class="tpd-a4-header" contenteditable="false" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 6px;">
                 <div class="tpd-a4-header-left" style="display: flex; align-items: center; gap: 12px;">
                     <img src="/images/logo.png" class="tpd-a4-logo" style="height: 48px; object-fit: contain;" onerror="this.style.display='none'">
                     <span class="tpd-a4-brand" style="font-size: 20px; font-weight: 900; color: #122546; text-transform: uppercase;">Đồng Phục <span class="tpd-a4-brand-gold" style="color: #fad24c;">HV</span></span>
@@ -3653,7 +3724,7 @@ function _tpdUpdateLivePreview() {
             </div>
 
             <!-- Metadata info grid -->
-            <div class="tpd-a4-meta-grid">
+            <div class="tpd-a4-meta-grid" style="${metaMarginStyle}">
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${creatorName}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
@@ -3666,8 +3737,8 @@ function _tpdUpdateLivePreview() {
             </div>
 
             <!-- Images Row -->
-            <div class="tpd-a4-images-row" style="height: ${_tpdGetImagesRowHeight(it)};">
-                <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup" style="width: fit-content; max-width: 100%; height: 100%;">
+            <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
+                <div class="tpd-a4-mockup-wrapper paste-target" data-zone="mockup" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%;">
                     <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn (Click/Ctrl+V)</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
                         ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Bấm vào đây hoặc vùng bên phải rồi Ctrl+V để dán</span></div>`}
@@ -3693,6 +3764,8 @@ function _tpdRenderFormInputs() {
     const state = window._tpdWorkspaceState;
     const it = state.editingItem;
     if (!it) return;
+
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
 
     const disabledAttr = state.hasEditPermission ? '' : 'disabled';
 
@@ -4131,6 +4204,54 @@ function _tpdRenderFormInputs() {
         <div class="tpd-ws-form-group">
             <label class="tpd-ws-form-label">Ghi chú kỹ thuật của xưởng</label>
             <textarea class="tpd-ws-input" rows="4" style="resize:vertical; font-family:inherit;" placeholder="Nhập ghi chú yêu cầu kỹ thuật chi tiết như: Cắt gấu bo len, phối chỉ vàng..." onkeyup="_tpdUpdateField('workshop_note', this.value)" ${disabledAttr}>${it.workshop_note || ''}</textarea>
+        </div>
+    `;
+
+    // 5. Layout Customize Panel
+    html += `
+        <div class="tpd-ws-form-group" style="margin-top: 24px; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #f8fafc;">
+            <div style="font-size: 12px; font-weight: 900; color: #122546; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                📐 TÙY CHỈNH BỐ CỤC PHIẾU (A4 LAYOUT)
+            </div>
+            
+            <!-- Mockup Height slider -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">
+                    <span>Chiều cao khung ảnh:</span>
+                    <span id="tpd_lbl_height">${layout.height ? layout.height + 'mm' : 'Tự động'}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="range" min="30" max="120" value="${layout.height || 84}" class="slider" style="flex: 1; cursor: pointer;" oninput="_tpdChangeLayoutHeight(this.value)">
+                    <button type="button" class="tpd-btn" style="padding: 2px 6px; font-size: 10px; height: auto;" onclick="_tpdResetLayoutHeight()">Tự động</button>
+                </div>
+            </div>
+
+            <!-- Spacing top slider -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">
+                    <span>Khoảng cách từ viền trên:</span>
+                    <span id="tpd_lbl_spacing">${layout.topSpacing !== undefined ? layout.topSpacing : 4}px</span>
+                </div>
+                <input type="range" min="0" max="50" value="${layout.topSpacing !== undefined ? layout.topSpacing : 4}" class="slider" style="width: 100%; cursor: pointer;" oninput="_tpdChangeLayoutSpacing(this.value)">
+            </div>
+
+            <!-- Alignment buttons -->
+            <div style="margin-bottom: 12px;">
+                <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 6px;">Căn lề khung ảnh:</div>
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" class="tpd-btn ${layout.alignment === 'flex-start' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('flex-start')">Trái</button>
+                    <button type="button" class="tpd-btn ${layout.alignment === 'center' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('center')">Giữa</button>
+                    <button type="button" class="tpd-btn ${layout.alignment === 'flex-end' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('flex-end')">Phải</button>
+                </div>
+            </div>
+
+            <!-- Editable checkbox -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="tpd_chk_editable" ${layout.contentEditable ? 'checked' : ''} onchange="_tpdChangeLayoutEditable(this.checked)" style="cursor: pointer; margin: 0;">
+                <label for="tpd_chk_editable" style="font-size: 11px; font-weight: 700; color: #dc2626; cursor: pointer; margin: 0; display: flex; align-items: center; gap: 4px;">
+                    ✏️ Cho phép chỉnh sửa chữ trực tiếp trên phiếu
+                </label>
+            </div>
         </div>
     `;
 
@@ -4626,6 +4747,12 @@ async function _tpdPrintAllSheets() {
 
         const mockupSrc = it.mockup_image || '';
 
+        // Layout options for this specific sheet
+        const layout = _tpdGetCustomLayout(idx);
+        const customHeight = layout.height ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
+        const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
+        const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 4}px;`;
+
         printHtml += `
             <div class="tpd-a4-page">
                 <div class="tpd-a4-preview-card" style="border:none; box-shadow:none; width:100%; height:100%;">
@@ -4646,7 +4773,7 @@ async function _tpdPrintAllSheets() {
                     </div>
 
                     <!-- Metadata info grid -->
-                    <div class="tpd-a4-meta-grid">
+                    <div class="tpd-a4-meta-grid" style="${metaMarginStyle}">
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${o.cskh_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
@@ -4659,7 +4786,7 @@ async function _tpdPrintAllSheets() {
                     </div>
 
                     <!-- Images Row -->
-                    <div class="tpd-a4-images-row" style="height: ${_tpdGetImagesRowHeight(it)};">
+                    <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
                         <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%;">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
