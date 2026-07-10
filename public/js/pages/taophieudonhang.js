@@ -3137,7 +3137,6 @@ function _tpdInjectWorkspaceStyles() {
                 height: 210mm !important;
                 box-sizing: border-box !important;
                 padding: 0 !important;
-                page-break-after: always !important;
                 border: none !important;
                 box-shadow: none !important;
                 background: white !important;
@@ -3151,12 +3150,12 @@ function _tpdInjectWorkspaceStyles() {
                 height: 210mm !important;
                 box-sizing: border-box !important;
             }
+            .tpd-print-page:not(:last-child) {
+                page-break-after: always !important;
+            }
             @page {
                 size: A4 landscape;
                 margin: 0;
-            }
-            .tpd-print-page {
-                page-break-after: always;
             }
         }
     `;
