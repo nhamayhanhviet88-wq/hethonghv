@@ -2847,12 +2847,12 @@ function _tpdInjectWorkspaceStyles() {
         }
 
         .tpd-a4-logo {
-            height: 48px;
+            height: 64px;
             object-fit: contain;
         }
 
         .tpd-a4-brand {
-            font-size: 20px;
+            font-size: 24px;
             font-weight: 900;
             color: #122546;
             letter-spacing: 0.5px;
@@ -2877,10 +2877,11 @@ function _tpdInjectWorkspaceStyles() {
         }
 
         .tpd-a4-order-code {
-            font-size: 14px;
-            font-weight: 800;
-            color: #475569;
+            font-size: 15px;
+            font-weight: 900;
+            color: #dc2626;
             margin-top: 2px;
+            letter-spacing: 0.5px;
         }
 
         /* Metadata info grid */
@@ -3789,12 +3790,12 @@ function _tpdUpdateLivePreview() {
             <!-- Header Block -->
             <div class="tpd-a4-header" contenteditable="false" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 6px;">
                 <div class="tpd-a4-header-left" style="display: flex; align-items: center; gap: 12px;">
-                    <img src="/images/logo.png" class="tpd-a4-logo" style="height: 48px; object-fit: contain;" onerror="this.style.display='none'">
-                    <span class="tpd-a4-brand" style="font-size: 20px; font-weight: 900; color: #122546; text-transform: uppercase;">Đồng Phục <span class="tpd-a4-brand-gold" style="color: #fad24c;">HV</span></span>
+                    <img src="/images/logo.png" class="tpd-a4-logo" style="height: 64px; object-fit: contain;" onerror="this.style.display='none'">
+                    <span class="tpd-a4-brand" style="font-size: 24px; font-weight: 900; color: #122546; text-transform: uppercase; letter-spacing: 0.5px;">ĐỒNG PHỤC <span class="tpd-a4-brand-gold" style="color: #fad24c; font-weight: 900;">HV</span></span>
                 </div>
                 <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
                     <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
-                    <div class="tpd-a4-order-code" style="font-size: 14px; font-weight: 800; color: #475569; margin-top: 2px;">MÃ ĐƠN: ${o.order_code} | PHIẾU ${state.activeItemIndex + 1}/${state.items.length}</div>
+                    <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">MÃ ĐƠN: ${o.order_code} | PHIẾU ${state.activeItemIndex + 1}/${state.items.length}</div>
                 </div>
                 <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
                     <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
@@ -5414,12 +5415,12 @@ async function _tpdPrintAllSheets() {
                     <!-- Header Block -->
                     <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 6px;">
                         <div class="tpd-a4-header-left" style="display: flex; align-items: center; gap: 12px;">
-                            <img src="/images/logo.png" class="tpd-a4-logo" style="height: 48px; object-fit: contain;" onerror="this.style.display='none'">
-                            <span class="tpd-a4-brand" style="font-size: 20px; font-weight: 900; color: #122546; text-transform: uppercase;">Đồng Phục <span class="tpd-a4-brand-gold" style="color: #fad24c;">HV</span></span>
+                            <img src="/images/logo.png" class="tpd-a4-logo" style="height: 64px; object-fit: contain;" onerror="this.style.display='none'">
+                            <span class="tpd-a4-brand" style="font-size: 24px; font-weight: 900; color: #122546; text-transform: uppercase; letter-spacing: 0.5px;">ĐỒNG PHỤC <span class="tpd-a4-brand-gold" style="color: #fad24c; font-weight: 900;">HV</span></span>
                         </div>
                         <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
                             <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
-                            <div class="tpd-a4-order-code" style="font-size: 14px; font-weight: 800; color: #475569; margin-top: 2px;">MÃ ĐƠN: ${o.order_code} | PHIẾU ${idx + 1}/${items.length}</div>
+                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">MÃ ĐƠN: ${o.order_code} | PHIẾU ${idx + 1}/${items.length}</div>
                         </div>
                         <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
                             <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
