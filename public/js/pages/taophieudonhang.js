@@ -3842,17 +3842,53 @@ function _tpdRenderFormInputs() {
     // Build upload boxes for dynamic details
     let detailBoxesHtml = '';
     details.forEach((d, idx) => {
+        const isCustomType = d.print_type && !['Thêu', 'In PET', 'In 3D', 'In lưới', 'In Decal'].includes(d.print_type);
+        
         detailBoxesHtml += `
-            <div class="tpd-ws-upload-box paste-target" data-zone="detail_${idx}" id="zone_detail_${idx}">
-                <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdRemoveDetailZone(${idx})" style="background:#ef4444;" title="Xóa vị trí này" ${disabledAttr}>✕</button>
-                ${d.image ? `
-                    <img src="${d.image}" class="tpd-ws-upload-preview">
-                    <span style="font-size: 10px; font-weight: 700; color: #122546; margin-top: 4px;">${d.position}</span>
-                ` : `
-                    <span class="tpd-ws-upload-icon">📍</span>
-                    <span class="tpd-ws-upload-text" style="font-weight:700; color:#122546;">${d.position}</span>
-                    <span style="font-size: 8px; color: #94a3b8;">Ctrl+V để dán</span>
-                `}
+            <div class="tpd-ws-detail-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #ffffff; display: flex; flex-direction: column; gap: 6px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <!-- Clear / Delete button -->
+                <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdRemoveDetailZone(${idx})" style="background:#ef4444; position: absolute; top: 4px; right: 4px; border: none; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; line-height: 1; z-index: 10;" title="Xóa vị trí này" ${disabledAttr}>✕</button>
+                
+                <!-- Paste Image Target -->
+                <div class="tpd-ws-upload-box paste-target" data-zone="detail_${idx}" id="zone_detail_${idx}" style="height: 75px; margin: 0; min-height: unset; width: 100%; border: 1.5px dashed #cbd5e1; border-radius: 6px; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative;">
+                    ${d.image ? `
+                        <img src="${d.image}" class="tpd-ws-upload-preview" style="max-height: 70px; object-fit: contain;">
+                        <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('detail_${idx}')" style="background:#ef4444; position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; font-size: 8px; line-height: 1; border-radius: 50%; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Xóa ảnh" ${disabledAttr}>✕</button>
+                    ` : `
+                        <span class="tpd-ws-upload-icon" style="font-size: 14px; margin-bottom: 2px;">📍</span>
+                        <span style="font-size: 8.5px; color: #64748b; font-weight: 600;">Dán ảnh (Ctrl+V)</span>
+                    `}
+                </div>
+                
+                <!-- Position title -->
+                <div style="font-size: 11px; font-weight: 700; color: #1e293b; text-align: center; margin-top: 1px;">
+                    ${d.position}
+                </div>
+
+                <!-- Input Controls -->
+                <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f1f5f9; padding-top: 4px;">
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kiểu:</span>
+                        <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="flex: 1; padding: 2px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; background: #fff;" ${disabledAttr}>
+                            <option value="">-- Kiểu in/thêu --</option>
+                            <option value="Thêu" ${d.print_type === 'Thêu' ? 'selected' : ''}>Thêu</option>
+                            <option value="In PET" ${d.print_type === 'In PET' ? 'selected' : ''}>In PET</option>
+                            <option value="In 3D" ${d.print_type === 'In 3D' ? 'selected' : ''}>In 3D</option>
+                            <option value="In lưới" ${d.print_type === 'In lưới' ? 'selected' : ''}>In lưới</option>
+                            <option value="In Decal" ${d.print_type === 'In Decal' ? 'selected' : ''}>In Decal</option>
+                            <option value="Khác" ${isCustomType || d.print_type === 'Khác' ? 'selected' : ''}>Khác...</option>
+                        </select>
+                    </div>
+
+                    ${(isCustomType || d.print_type === 'Khác') ? `
+                        <input type="text" placeholder="Nhập kiểu in/thêu..." value="${d.print_type === 'Khác' ? '' : d.print_type}" onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
+                    ` : ''}
+
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kích thước:</span>
+                        <input type="text" placeholder="Ngang 8cm..." value="${d.dimension || ''}" oninput="_tpdUpdateDetailField(${idx}, 'dimension', this.value)" class="tpd-ws-input" style="flex: 1; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
+                    </div>
+                </div>
             </div>
         `;
     });
@@ -3889,7 +3925,7 @@ function _tpdRenderFormInputs() {
                     </div>
                 ` : ''}
             </div>
-            <div class="tpd-ws-upload-row" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px;">
+            <div class="tpd-ws-upload-row" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
                 ${detailBoxesHtml || `<div style="grid-column:1/-1; padding:20px; text-align:center; color:#94a3b8; font-size:11px; font-weight:600; border:2px dashed #cbd5e1; border-radius:10px;">Chưa thêm vị trí in/thêu nào.</div>`}
             </div>
         </div>
@@ -3998,11 +4034,31 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
     } else {
         details.forEach((d, idx) => {
             const pasteClass = isPrintMode ? '' : 'paste-target';
+            
+            // Format header text: e.g. "Ngực - Thêu" or "Lưng - In PET"
+            const headerText = d.print_type && d.print_type.trim() && d.print_type !== 'Khác'
+                ? `${d.position} - ${d.print_type.trim()}`
+                : d.position;
+
+            const hasDimension = d.dimension && d.dimension.trim();
+
             techBoxesHtml += `
-                <div class="tpd-a4-tech-box ${pasteClass}" data-zone="detail_${idx}" style="cursor: pointer;">
-                    <div class="tpd-a4-img-header">${d.position}</div>
-                    <div class="tpd-a4-img-body" style="background: #ffffff;">
-                        ${d.image ? `<img src="${d.image}">` : `<div class="tpd-a4-img-placeholder" style="font-size: 9px; padding: 10px;">Chưa có ảnh vị trí ${d.position}<br><span style="font-size: 8px; color: #94a3b8;">Click & Ctrl+V để dán</span></div>`}
+                <div class="tpd-a4-tech-box ${pasteClass}" data-zone="detail_${idx}" style="cursor: pointer; display: flex; flex-direction: column; height: 100%;">
+                    <div class="tpd-a4-img-header">${headerText}</div>
+                    <div class="tpd-a4-img-body" style="background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; padding: 4px; flex: 1; box-sizing: border-box; overflow: hidden;">
+                        <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden; min-height: 0;">
+                            ${d.image ? `
+                                <img src="${d.image}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                            ` : `
+                                <div class="tpd-a4-img-placeholder" style="font-size: 9px; padding: 10px; text-align: center;">Chưa có ảnh vị trí ${d.position}<br><span style="font-size: 8px; color: #94a3b8;">Click & Ctrl+V để dán</span></div>
+                            `}
+                        </div>
+                        ${hasDimension ? `
+                            <div style="width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 4px; padding-bottom: 2px;">
+                                <div style="width: 90%; border-top: 2px solid #ef4444; margin-bottom: 2px;"></div>
+                                <div style="color: #ef4444; font-size: 11px; font-weight: 800; text-align: center; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">${d.dimension.trim()}</div>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -4087,6 +4143,25 @@ function _tpdRemoveDetailZone(idx) {
     if (removed) {
         showToast(`❌ Đã xóa vị trí: ${removed.position}`, 'info');
     }
+}
+
+// Update detail print/embroidery type or dimension
+function _tpdUpdateDetailField(idx, field, value) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem) return;
+
+    const it = state.editingItem;
+    if (!it.print_details || !it.print_details[idx]) return;
+
+    it.print_details[idx][field] = value;
+
+    _tpdSaveDraft(it);
+    // If the field is print_type, we might toggle showing the custom input box
+    if (field === 'print_type') {
+        _tpdRenderFormInputs();
+        _tpdSetupPasteZones();
+    }
+    _tpdUpdateLivePreview();
 }
 
 // Clear image inside upload zone
