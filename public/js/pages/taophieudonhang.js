@@ -4670,6 +4670,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
             sewingHtml = parts.map(part => {
                 return `<div style="margin-top: 1px;">• ${escapeHTML(part)}</div>`;
             }).join('');
+        }
     }
     if (layout.custom_sewing_note && layout.custom_sewing_note.trim()) {
         const noteHtml = `<div style="margin-top: 2px; color: #dc2626; font-weight: 800;">* Ghi chú: ${escapeHTML(layout.custom_sewing_note.trim())}</div>`;
