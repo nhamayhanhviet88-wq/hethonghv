@@ -3792,7 +3792,7 @@ function _tpdUpdateLivePreview() {
             </div>
 
             <!-- Size breakdown table -->
-            <div class="tpd-a4-table-row">
+            <div class="tpd-a4-table-row" style="display: none;">
                 ${_tpdRenderA4SizeTable(it)}
             </div>
 
@@ -5240,7 +5240,7 @@ async function _tpdPrintAllSheets() {
                     </div>
 
                     <!-- Size breakdown table -->
-                    <div class="tpd-a4-table-row">
+                    <div class="tpd-a4-table-row" style="display: none;">
                         ${_tpdRenderA4SizeTable(it)}
                     </div>
 
