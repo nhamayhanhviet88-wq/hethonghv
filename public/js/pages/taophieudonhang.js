@@ -3771,13 +3771,8 @@ function _tpdUpdateLivePreview() {
             <div class="tpd-a4-meta-grid" style="${metaMarginStyle}">
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${creatorName}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</span></div>
-
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Sản phẩm:</span> <span id="prev_product_name" class="tpd-a4-meta-val" style="color: #16a34a;">${it.product_name || '—'}</span></div>
                 <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Chất liệu vải:</span> <span id="prev_material_name" class="tpd-a4-meta-val">${it.material_name || '—'}</span></div>
-                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Màu sắc phối:</span> <span id="prev_color_name" class="tpd-a4-meta-val">${it.color_name || '—'}</span></div>
+                <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
             </div>
 
             <!-- Images Row -->
@@ -4823,13 +4818,8 @@ async function _tpdPrintAllSheets() {
                     <div class="tpd-a4-meta-grid" style="${metaMarginStyle}">
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Khách hàng:</span> <span class="tpd-a4-meta-val">${o.customer_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Người lên đơn:</span> <span class="tpd-a4-meta-val">${o.cskh_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày gửi hàng:</span> <span class="tpd-a4-meta-val" style="color: #ea580c;">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</span></div>
-
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Sản phẩm:</span> <span class="tpd-a4-meta-val" style="color: #16a34a;">${it.product_name || '—'}</span></div>
                         <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Thiết kế:</span> <span class="tpd-a4-meta-val">${o.designer_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Chất liệu vải:</span> <span class="tpd-a4-meta-val">${it.material_name || '—'}</span></div>
-                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Màu sắc phối:</span> <span class="tpd-a4-meta-val">${it.color_name || '—'}</span></div>
+                        <div class="tpd-a4-meta-item"><span class="tpd-a4-meta-label">Ngày lên đơn:</span> <span class="tpd-a4-meta-val">${orderDate}</span></div>
                     </div>
 
                     <!-- Images Row -->
