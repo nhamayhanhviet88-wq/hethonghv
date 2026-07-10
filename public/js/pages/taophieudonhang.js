@@ -131,7 +131,8 @@ async function renderTaophieudonhangPage(content) {
     // Load initial data
     await Promise.all([
         _tpdLoadOrders(),
-        _tpdLoadPrintPositionsConfig()
+        _tpdLoadPrintPositionsConfig(),
+        _tpdLoadSewingTechsConfig()
     ]);
 
     // Check URL parameters for scanned ID
@@ -200,7 +201,8 @@ async function renderDesignDraftPage(content) {
             apiCall(`/api/dht/orders/${orderId}/detail`),
             apiCall('/api/dht/my-info'),
             _tpdLoadSizeConfig(),
-            _tpdLoadPrintPositionsConfig()
+            _tpdLoadPrintPositionsConfig(),
+            _tpdLoadSewingTechsConfig()
         ]);
 
         if (!details || !details.order) throw new Error('Không lấy được chi tiết đơn hàng');
@@ -3858,10 +3860,73 @@ function _tpdRenderFormInputs() {
     `;
 
     // 2. Kỹ Thuật May
+    if (!layout.sewing_items) {
+        if (layout.custom_sewing) {
+            layout.sewing_items = _tpdParseSewingTechs(layout.custom_sewing);
+        } else {
+            layout.sewing_items = [];
+        }
+    }
+
+    let sewingListHtml = '';
+    const configSewingTechs = _tpd.sewingTechsConfig || ["Bo cổ dệt", "Bo tay dệt", "Móc xích", "Trần đè", "Xẻ tà", "May lé", "Đắp túi", "May gấu", "Nẹp gấp", "Đính dây cổ"];
+
+    if (layout.sewing_items.length === 0) {
+        sewingListHtml = `
+            <div style="padding: 10px; text-align: center; color: #94a3b8; font-size: 11px; border: 1.5px dashed #cbd5e1; border-radius: 8px; margin-bottom: 10px; background: #f8fafc;">
+                Chưa chọn kỹ thuật may nào. Mặc định sẽ dùng: ${escapeHTML(defaultSewing)}
+            </div>
+        `;
+    } else {
+        sewingListHtml = layout.sewing_items.map((sewItem, sIdx) => {
+            const isCustom = !configSewingTechs.includes(sewItem.tech) && sewItem.tech !== 'Khác';
+            const selectOptions = configSewingTechs.map(t => {
+                const selected = t === sewItem.tech ? 'selected' : '';
+                return `<option value="${escapeHTML(t)}" ${selected}>${escapeHTML(t)}</option>`;
+            }).join('');
+
+            const otherSelected = sewItem.tech === 'Khác' || isCustom ? 'selected' : '';
+            const techSelectId = `tpd_sew_tech_${sIdx}`;
+            const customInputHtml = (sewItem.tech === 'Khác' || isCustom) ? `
+                <input type="text" placeholder="Nhập kỹ thuật khác..." value="${escapeHTML(isCustom ? sewItem.tech : '')}" onchange="_tpdUpdateSewingItem(${sIdx}, 'tech', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; flex: 1; min-width: 100px; padding: 2px 6px;" ${disabledAttr}>
+            ` : '';
+
+            return `
+                <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px;">
+                    <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <select id="${techSelectId}" onchange="_tpdUpdateSewingItem(${sIdx}, 'tech', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; width: 110px; padding: 2px 4px;" ${disabledAttr}>
+                                ${selectOptions}
+                                <option value="Khác" ${otherSelected}>Kỹ thuật khác...</option>
+                            </select>
+                            ${customInputHtml}
+                        </div>
+                        <input type="text" placeholder="Nhập thông tin chi tiết (Ví dụ: Navy phối 2 sọc trắng, chỉ vàng...)" value="${escapeHTML(sewItem.detail || '')}" onchange="_tpdUpdateSewingItem(${sIdx}, 'detail', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; flex: 1;" ${disabledAttr}>
+                    </div>
+                    ${state.hasEditPermission ? `
+                        <button type="button" class="btn-remove-detail" onclick="_tpdRemoveSewingItem(${sIdx})" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; font-size: 14px;" title="Xóa">✕</button>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
     html += `
         <div class="tpd-ws-form-group" style="margin-top: 10px; margin-bottom: 20px;">
-            <label class="tpd-ws-form-label">Kỹ Thuật May</label>
-            <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(defaultSewing)}" value="${escapeHTML(layout.custom_sewing || '')}" oninput="_tpdChangeCustomInfo('custom_sewing', this.value)" ${disabledAttr}>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label class="tpd-ws-form-label" style="margin-bottom: 0;">Kỹ Thuật May</label>
+                ${state.hasEditPermission ? `
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <button type="button" class="btn btn-primary" onclick="_tpdAddSewingItem()" style="padding: 2px 8px; font-size: 11px; height: 24px; border-radius: 4px; font-weight: 700; background: #122546; border: 1px solid #122546; color: white;">+ Thêm</button>
+                        ${state.role === 'giam_doc' ? `
+                            <button type="button" class="btn btn-secondary" onclick="_tpdOpenSewingTechsConfigModal()" style="padding: 2px 6px; font-size: 12px; height: 24px; border-radius: 4px; font-weight: 700; background: #64748b; border: 1px solid #64748b; color: white;" title="Cấu hình danh sách kỹ thuật may">⚙️</button>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            </div>
+            <div style="background: #ffffff; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                ${sewingListHtml}
+            </div>
         </div>
     `;
 
@@ -5764,3 +5829,263 @@ async function _tpdSavePrintPositionsConfig() {
         showToast('Không thể kết nối đến máy chủ', 'danger');
     }
 }
+
+// Load sewing techniques configuration from backend
+async function _tpdLoadSewingTechsConfig() {
+    try {
+        const res = await apiCall('/api/dht/sewing-techniques', 'GET');
+        if (res && !res.error) {
+            _tpd.sewingTechsConfig = res;
+        }
+    } catch (e) {
+        console.error('Failed to load sewing techs config:', e);
+    }
+    // Fallback if not loaded
+    if (!_tpd.sewingTechsConfig) {
+        _tpd.sewingTechsConfig = ["Bo cổ dệt", "Bo tay dệt", "Móc xích", "Trần đè", "Xẻ tà", "May lé", "Đắp túi", "May gấu", "Nẹp gấp", "Đính dây cổ"];
+    }
+}
+
+// Helper to parse existing comma-separated sewing techniques string into structured object array
+function _tpdParseSewingTechs(customSewingStr) {
+    if (!customSewingStr || !customSewingStr.trim()) return [];
+    
+    const parts = customSewingStr.split(',');
+    const items = [];
+    
+    for (let part of parts) {
+        part = part.trim();
+        if (!part) continue;
+        
+        const colonIdx = part.indexOf(':');
+        if (colonIdx !== -1) {
+            const tech = part.substring(0, colonIdx).trim();
+            const detail = part.substring(colonIdx + 1).trim();
+            items.push({ tech, detail });
+        } else {
+            const match = (_tpd.sewingTechsConfig || []).find(t => part.toLowerCase().startsWith(t.toLowerCase()));
+            if (match) {
+                const detail = part.substring(match.length).replace(/^[:\s-]+/, '').trim();
+                items.push({ tech: match, detail: detail });
+            } else {
+                items.push({ tech: part, detail: '' });
+            }
+        }
+    }
+    return items;
+}
+
+// Add sewing technique item row
+function _tpdAddSewingItem() {
+    const state = window._tpdWorkspaceState;
+    if (!state.hasEditPermission || !state.editingItem) return;
+
+    const it = state.editingItem;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+
+    if (!layout.sewing_items) {
+        if (layout.custom_sewing) {
+            layout.sewing_items = _tpdParseSewingTechs(layout.custom_sewing);
+        } else {
+            layout.sewing_items = [];
+        }
+    }
+
+    const configSewingTechs = _tpd.sewingTechsConfig || ["Bo cổ dệt", "Bo tay dệt", "Móc xích", "Trần đè", "Xẻ tà", "May lé", "Đắp túi", "May gấu", "Nẹp gấp", "Đính dây cổ"];
+    const defaultTech = configSewingTechs[0] || 'Khác';
+    layout.sewing_items.push({ tech: defaultTech, detail: '' });
+
+    _tpdSyncCustomSewingText(layout);
+    _tpdSaveDraft(it);
+    _tpdRenderFormInputs();
+    _tpdUpdateLivePreview();
+}
+
+// Update sewing item field (tech name or detail info)
+function _tpdUpdateSewingItem(sIdx, field, value) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem) return;
+
+    const it = state.editingItem;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+
+    if (!layout.sewing_items || !layout.sewing_items[sIdx]) return;
+
+    layout.sewing_items[sIdx][field] = value ? value.trim() : '';
+
+    _tpdSyncCustomSewingText(layout);
+    _tpdSaveDraft(it);
+    _tpdUpdateLivePreview();
+    
+    if (field === 'tech') {
+        _tpdRenderFormInputs();
+    }
+}
+
+// Remove sewing item row
+function _tpdRemoveSewingItem(sIdx) {
+    const state = window._tpdWorkspaceState;
+    if (!state.hasEditPermission || !state.editingItem) return;
+
+    const it = state.editingItem;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+
+    if (!layout.sewing_items || !layout.sewing_items[sIdx]) return;
+
+    layout.sewing_items.splice(sIdx, 1);
+
+    _tpdSyncCustomSewingText(layout);
+    _tpdSaveDraft(it);
+    _tpdRenderFormInputs();
+    _tpdUpdateLivePreview();
+}
+
+// Format and sync sewing items array back into layout.custom_sewing string for layout preview
+function _tpdSyncCustomSewingText(layout) {
+    if (!layout.sewing_items || layout.sewing_items.length === 0) {
+        layout.custom_sewing = '';
+        return;
+    }
+    layout.custom_sewing = layout.sewing_items
+        .map(item => {
+            const techName = item.tech === 'Khác' ? '' : item.tech;
+            if (!techName && !item.detail) return '';
+            return techName + (item.detail ? (techName ? ': ' : '') + item.detail : '');
+        })
+        .filter(Boolean)
+        .join(', ');
+}
+
+// Sewing Techniques Configuration Modal and Management
+function _tpdOpenSewingTechsConfigModal() {
+    const state = window._tpdWorkspaceState;
+    if (state.role !== 'giam_doc') {
+        showToast('Chỉ Giám Đốc mới có quyền thay đổi cấu hình này!', 'danger');
+        return;
+    }
+
+    let config = _tpd.sewingTechsConfig || ["Bo cổ dệt", "Bo tay dệt", "Móc xích", "Trần đè", "Xẻ tà", "May lé", "Đắp túi", "May gấu", "Nẹp gấp", "Đính dây cổ"];
+    window._tpdModalSewingTechs = JSON.parse(JSON.stringify(config));
+
+    const modal = document.createElement('div');
+    modal.id = 'tpdSewingTechsConfigModal';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(15, 23, 42, 0.6)';
+    modal.style.backdropFilter = 'blur(4px)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '99999';
+
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; width: 500px; max-width: 95%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden; display: flex; flex-direction: column; max-height: 85vh;">
+            <div style="background: #1e293b; color: white; padding: 16px; font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <span>⚙️ Cài đặt danh sách kỹ thuật may sản xuất</span>
+                <span style="cursor: pointer; font-size: 18px;" onclick="document.getElementById('tpdSewingTechsConfigModal').remove()">✕</span>
+            </div>
+            
+            <div style="padding: 16px 20px 0; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; color: #64748b; font-style: italic;">Quản lý danh sách các kỹ thuật may mặc định cho nhân viên chọn.</span>
+                <button type="button" onclick="_tpdAddNewSewingTechOption()" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(16,185,129,0.15);">
+                    <span>+ Thêm kỹ thuật</span>
+                </button>
+            </div>
+
+            <div id="tpdSewingTechsContainer" style="padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-grow: 1; box-sizing: border-box;">
+                <!-- Tech list will be rendered dynamically here -->
+            </div>
+
+            <div style="background: #f8fafc; padding: 12px 16px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; flex-shrink: 0;">
+                <button type="button" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: white; color: #334155; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;" onclick="document.getElementById('tpdSewingTechsConfigModal').remove()">Hủy</button>
+                <button type="button" style="padding: 8px 16px; border: none; background: #2563eb; color: white; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;" onclick="_tpdSaveSewingTechsConfig()">Lưu cấu hình</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    _tpdRenderSewingTechsModalList();
+}
+
+function _tpdRenderSewingTechsModalList() {
+    const container = document.getElementById('tpdSewingTechsContainer');
+    if (!container) return;
+
+    const list = window._tpdModalSewingTechs || [];
+
+    if (list.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                <span style="font-size: 32px;">🧵</span>
+                <p style="margin-top: 8px; font-size: 13px;">Chưa có kỹ thuật may nào. Nhấn "+ Thêm kỹ thuật" để bắt đầu.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = list.map((tech, idx) => {
+        return `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between;">
+                <input type="text" value="${escapeHTML(tech)}" onchange="_tpdUpdateModalSewingTech(${idx}, this.value)" style="font-weight: 700; font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; flex: 1; background: white;" placeholder="Ví dụ: Bo cổ dệt, Móc xích, Xẻ tà...">
+                <button type="button" onclick="_tpdDeleteModalSewingTech(${idx})" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Xóa">
+                    <span>Xóa</span>
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function _tpdAddNewSewingTechOption() {
+    const list = window._tpdModalSewingTechs || [];
+    list.push('');
+    _tpdRenderSewingTechsModalList();
+    
+    const container = document.getElementById('tpdSewingTechsContainer');
+    if (container) {
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 50);
+    }
+}
+
+function _tpdUpdateModalSewingTech(idx, val) {
+    const list = window._tpdModalSewingTechs || [];
+    if (list[idx] !== undefined) {
+        list[idx] = val ? val.trim() : '';
+    }
+}
+
+function _tpdDeleteModalSewingTech(idx) {
+    const list = window._tpdModalSewingTechs || [];
+    if (confirm('Bạn có chắc chắn muốn xóa kỹ thuật may này khỏi danh sách?')) {
+        list.splice(idx, 1);
+        _tpdRenderSewingTechsModalList();
+    }
+}
+
+async function _tpdSaveSewingTechsConfig() {
+    const list = window._tpdModalSewingTechs || [];
+    const cleaned = list.map(t => t.trim()).filter(Boolean);
+
+    try {
+        const res = await apiCall('/api/dht/sewing-techniques', 'PUT', cleaned);
+        if (res && res.success) {
+            showToast('Lưu cấu hình kỹ thuật may thành công!', 'success');
+            const modal = document.getElementById('tpdSewingTechsConfigModal');
+            if (modal) modal.remove();
+            
+            // Reload and redraw
+            await _tpdLoadSewingTechsConfig();
+            _tpdRenderFormInputs();
+        } else {
+            showToast(res && res.error ? res.error : 'Có lỗi xảy ra khi lưu cấu hình', 'danger');
+        }
+    } catch(e) {
+        console.error(e);
+        showToast('Không thể kết nối đến máy chủ', 'danger');
+    }
+}
+

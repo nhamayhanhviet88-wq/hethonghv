@@ -5546,5 +5546,33 @@ module.exports = async function(fastify) {
         );
         return { success: true };
     });
+
+    // GET /api/dht/sewing-techniques
+    fastify.get('/api/dht/sewing-techniques', { preHandler: [authenticate] }, async (request, reply) => {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'dht_sewing_techniques_config'");
+        const defaults = ["Bo cổ dệt", "Bo tay dệt", "Móc xích", "Trần đè", "Xẻ tà", "May lé", "Đắp túi", "May gấu", "Nẹp gấp", "Đính dây cổ"];
+        if (!row) {
+            return defaults;
+        }
+        try {
+            return typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+        } catch (e) {
+            return defaults;
+        }
+    });
+
+    // PUT /api/dht/sewing-techniques
+    fastify.put('/api/dht/sewing-techniques', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const configVal = request.body;
+        if (!Array.isArray(configVal)) {
+            return reply.code(400).send({ error: 'Dữ liệu phải là một mảng kỹ thuật may' });
+        }
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_sewing_techniques_config', $1, NOW()) 
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify(configVal)]
+        );
+        return { success: true };
+    });
 };
 
