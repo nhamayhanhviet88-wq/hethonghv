@@ -4527,7 +4527,29 @@ function _tpdUpdateQty(size, val) {
     const it = state.editingItem;
     if (!it) return;
 
-    const qty = Number(val) || 0;
+    let qty = Math.max(0, Number(val) || 0);
+
+    // ★ Hard cap: total sizes must not exceed DHT quantity
+    const dhtQty = Number(it.quantity) || 0;
+    if (dhtQty > 0) {
+        // Sum of all OTHER sizes (excluding the one being edited)
+        const otherTotal = (it.quantities || []).reduce((s, q) => {
+            if (q.size === size) return s;
+            return s + (Number(q.qty) || 0);
+        }, 0);
+        const maxAllowed = Math.max(0, dhtQty - otherTotal);
+        if (qty > maxAllowed) {
+            qty = maxAllowed;
+            showToast(`⚠️ Giới hạn ${maxAllowed} cho size ${size} (tổng không được vượt ${dhtQty})`, 'warning');
+            // Update the input DOM value to reflect capped number
+            document.querySelectorAll('.tpd-ws-size-qty').forEach(inp => {
+                if (inp.getAttribute('onchange')?.includes("'" + size + "'") || inp.getAttribute('onkeyup')?.includes("'" + size + "'")) {
+                    inp.value = qty;
+                }
+            });
+        }
+    }
+
     const qObj = it.quantities.find(q => q.size === size);
     if (qObj) {
         qObj.qty = qty;
@@ -4535,20 +4557,17 @@ function _tpdUpdateQty(size, val) {
         it.quantities.push({ size: size, qty: qty, price: it.unit_price || 0, note: '' });
     }
 
-    // ★ Validate: total sizes must not exceed DHT quantity
-    const dhtQty = Number(it.quantity) || 0;
+    // Update warning banner
     const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
     const qtyWarning = document.getElementById('tpd-qty-warning');
-    if (dhtQty > 0 && totalSizeQty > dhtQty) {
+    if (dhtQty > 0 && totalSizeQty < dhtQty) {
         if (qtyWarning) {
             qtyWarning.style.display = 'block';
-            qtyWarning.innerHTML = `⚠️ Tổng size (<b>${totalSizeQty}</b>) vượt quá SL phiếu (<b>${dhtQty}</b>). Vui lòng điều chỉnh!`;
+            qtyWarning.innerHTML = `⚠️ Tổng size (<b>${totalSizeQty}</b>) chưa đủ SL phiếu (<b>${dhtQty}</b>). Còn thiếu <b>${dhtQty - totalSizeQty}</b> áo.`;
+            qtyWarning.style.color = '#d97706';
+            qtyWarning.style.background = '#fffbeb';
+            qtyWarning.style.borderColor = '#fde68a';
         }
-        // Highlight the input that just changed
-        document.querySelectorAll('.tpd-ws-size-qty').forEach(inp => {
-            const parentBox = inp.closest('.tpd-ws-size-input-box');
-            if (parentBox) parentBox.style.borderColor = '';
-        });
     } else if (dhtQty > 0 && totalSizeQty === dhtQty) {
         if (qtyWarning) {
             qtyWarning.style.display = 'block';
@@ -4557,7 +4576,7 @@ function _tpdUpdateQty(size, val) {
             qtyWarning.style.background = '#ecfdf5';
             qtyWarning.style.borderColor = '#a7f3d0';
             setTimeout(() => {
-                if (qtyWarning) { qtyWarning.style.display = 'none'; qtyWarning.style.color = ''; qtyWarning.style.background = ''; qtyWarning.style.borderColor = ''; }
+                if (qtyWarning) { qtyWarning.style.display = 'none'; }
             }, 3000);
         }
     } else {
@@ -4565,7 +4584,6 @@ function _tpdUpdateQty(size, val) {
     }
 
     _tpdSaveDraft(it);
-    // Refresh preview size table dynamically (without full rerender)
     _tpdUpdateLivePreview();
 }
 
