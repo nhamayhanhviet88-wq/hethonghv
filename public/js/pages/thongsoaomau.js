@@ -171,7 +171,7 @@ function _tsamShowCreate(editId) {
         + '</div>'
         // === SAMPLE DETAILS (Chi Tiết Mẫu Áo) ===
         + '<div class="form-group" style="margin-top:8px">'
-        + '<label>🏷️ Chi Tiết Mẫu Áo (Tự động tách từ Mã Mẫu bằng dấu "-")</label>'
+        + '<label>🏷️ Kỹ Thuật May (Tự động tách từ Mã Mẫu bằng dấu "-")</label>'
         + '<div id="_tsamDetailsWrap" style="display:flex; flex-direction:column; gap:6px; padding:8px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc">'
         + '<div id="_tsamDetailsList" style="display:flex; flex-direction:column; gap:4px;"></div>'
         + '<button type="button" class="btn" onclick="_tsamAddDetailRow(\'\')" style="align-self:flex-start; font-size:10px; padding:3px 8px; background:#ede9fe; color:#7c3aed; border:1px solid #c084fc; border-radius:4px; font-weight:700; cursor:pointer; margin-top:4px;">➕ Thêm chi tiết</button>'
@@ -449,7 +449,7 @@ async function _tsamDetail(id) {
         + '<table style="width:100%;font-size:13px;border-collapse:collapse">';
     var rows = [
         ['MÃ MẪU', '<b style="color:#7c3aed;font-size:15px">' + s.sample_code + '</b>'],
-        ['CHI TIẾT MẪU', detailsHtml],
+        ['KỸ THUẬT MAY', detailsHtml],
         ['LĨNH VỰC', s.category_name || '—'],
         ['SẢN PHẨM BÁN', prodBadges],
         ['LOẠI', '<span class="tsam-badge" style="background:' + (_tsamTypeColors[s.sample_type]||'#64748b') + '">' + (_tsamTypes[s.sample_type]||s.sample_type) + '</span>'],
