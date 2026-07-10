@@ -4890,15 +4890,22 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
     const colorVal = rawColor !== '—' ? _tpdFormatColorName(rawColor) : '—';
 
     // Pair fabric parts and color parts if they match in length when split by '+' or '/' or ','
-    let displayFabric = fabricVal;
+    let usePairedLayout = false;
+    let pairsHtml = '';
     const splitRegex = /\s*[\+\/,]\s*/;
     const fabricParts = typeof fabricVal === 'string' ? fabricVal.split(splitRegex).map(s => s.trim()).filter(Boolean) : [];
     const colorParts = typeof colorVal === 'string' ? colorVal.split(splitRegex).map(s => s.trim()).filter(Boolean) : [];
 
-    if (fabricParts.length > 1 && fabricParts.length === colorParts.length) {
-        displayFabric = fabricParts.map((f, i) => {
-            return `${f} (màu ${colorParts[i]})`;
-        }).join(' + ');
+    if (fabricParts.length > 0 && fabricParts.length === colorParts.length) {
+        usePairedLayout = true;
+        pairsHtml = fabricParts.map((f, i) => {
+            const rawCol = colorParts[i];
+            let colLabel = rawCol;
+            if (rawCol && rawCol !== '—') {
+                colLabel = rawCol.toLowerCase().startsWith('màu') ? rawCol : `Màu ${rawCol}`;
+            }
+            return `<div style="margin-top: 2px; font-weight: 700; color: #1e3a8a;">${escapeHTML(f)} : <span style="color: #b91c1c; font-weight: 800;">${escapeHTML(colLabel)}</span></div>`;
+        }).join('');
     }
 
     // 3. Sewing tech (Kỹ thuật may)
@@ -5089,14 +5096,23 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                             <strong style="color: #0f172a; font-weight: 800;">Sản Phẩm ${normalizedSaleType}:</strong> 
                             <span style="font-weight: 700; color: #1e293b;">${escapeHTML(it.product_name || '—')}</span>
                         </div>
+                        ${usePairedLayout ? `
                         <div>
                             <strong style="color: #0f172a; font-weight: 800;">Chất liệu vải:</strong> 
-                            <span style="font-weight: 700; color: #1e3a8a;">${escapeHTML(displayFabric)}</span>
+                            <div style="padding-left: 0px; display: flex; flex-direction: column; margin-top: 2px;">
+                                ${pairsHtml}
+                            </div>
+                        </div>
+                        ` : `
+                        <div>
+                            <strong style="color: #0f172a; font-weight: 800;">Chất liệu vải:</strong> 
+                            <span style="font-weight: 700; color: #1e3a8a;">${escapeHTML(fabricVal)}</span>
                         </div>
                         <div>
                             <strong style="color: #0f172a; font-weight: 800;">Màu sắc phối:</strong> 
                             <span style="font-weight: 800; color: #dc2626;">${escapeHTML(colorVal)}</span>
                         </div>
+                        `}
                     </div>
 
                     <!-- Phần 2: Kỹ thuật may -->
