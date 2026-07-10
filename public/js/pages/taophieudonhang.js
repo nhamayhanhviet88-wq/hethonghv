@@ -4654,12 +4654,12 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                     const h = (d.height || '').trim();
                     if (w) {
                         const wSuffix = w.toLowerCase().endsWith('cm') ? '' : 'cm';
-                        dimStr += `Ngang ${w}${wSuffix}`;
+                        dimStr += `<span style="color: #ea580c; font-weight: 800;">Ngang ${escapeHTML(w)}${wSuffix}</span>`;
                     }
                     if (h) {
                         const hSuffix = h.toLowerCase().endsWith('cm') ? '' : 'cm';
                         if (dimStr) dimStr += ' x ';
-                        dimStr += `Cao ${h}${hSuffix}`;
+                        dimStr += `<span style="color: #ea580c; font-weight: 800;">Cao ${escapeHTML(h)}${hSuffix}</span>`;
                     }
                     const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
                     let offsetStr = '';
@@ -4676,7 +4676,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                     }
                     const safePosition = escapeHTML(d.position || '—');
                     const safePrintType = escapeHTML(d.print_type || '—');
-                    const safeDimStr = dimStr ? ` - ${escapeHTML(dimStr)}` : '';
+                    const safeDimStr = dimStr ? ` - ${dimStr}` : '';
                     const safeOffsetStr = escapeHTML(offsetStr);
                     return `<div style="margin-top: 1px;"><span style="color: #047857; font-weight: 800;">${safePosition}:</span> ${safePrintType}${safeDimStr}${safeOffsetStr}</div>`;
                 }).join('');
