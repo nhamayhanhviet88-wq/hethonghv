@@ -3852,7 +3852,7 @@ function _tpdRenderFormInputs() {
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
                 <label class="tpd-ws-form-label" style="margin-bottom:0;">Phân bổ Số lượng Size số</label>
-                ${state.hasEditPermission ? `
+                ${(state.hasEditPermission && state.role === 'giam_doc') ? `
                     <button type="button" class="btn btn-secondary" onclick="_tpdAddCustomSize()" style="padding: 2px 8px; font-size: 10px; border-radius:4px; font-weight:700;">+ Thêm size khác</button>
                 ` : ''}
             </div>
@@ -4068,7 +4068,10 @@ function _tpdUpdateSizeNote(size, noteVal) {
 // Add a custom size name input popup
 function _tpdAddCustomSize() {
     const state = window._tpdWorkspaceState;
-    if (!state.hasEditPermission) return;
+    if (!state.hasEditPermission || state.role !== 'giam_doc') {
+        showToast('Bạn không có quyền thêm size mới. Chỉ Giám đốc mới có quyền này!', 'error');
+        return;
+    }
 
     const name = prompt('Nhập tên size muốn thêm (Ví dụ: 6XL, Child 4, 30, 31...):');
     if (!name) return;
