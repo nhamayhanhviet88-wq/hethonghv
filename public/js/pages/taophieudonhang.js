@@ -3885,6 +3885,21 @@ function _tpdRenderFormInputs() {
             }
         }
 
+        const isTypeMissing = !d.print_type || !d.print_type.trim();
+        const isDimMissing = !valWidth && !valHeight;
+        
+        const typeStyle = isTypeMissing 
+            ? 'flex: 1; padding: 2px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
+            : 'flex: 1; padding: 2px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; background: #fff;';
+            
+        const widthStyle = isDimMissing 
+            ? 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
+            : 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;';
+            
+        const heightStyle = isDimMissing 
+            ? 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
+            : 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;';
+
         detailBoxesHtml += `
             <div class="tpd-ws-detail-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #ffffff; display: flex; flex-direction: column; gap: 6px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                 <!-- Clear / Delete button -->
@@ -3910,7 +3925,7 @@ function _tpdRenderFormInputs() {
                 <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f1f5f9; padding-top: 4px;">
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kiểu:</span>
-                        <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="flex: 1; padding: 2px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; background: #fff;" ${disabledAttr}>
+                        <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr}>
                             <option value="">-- Kiểu in/thêu --</option>
                             <option value="Thêu" ${d.print_type === 'Thêu' ? 'selected' : ''}>Thêu</option>
                             <option value="In PET" ${d.print_type === 'In PET' ? 'selected' : ''}>In PET</option>
@@ -3927,21 +3942,21 @@ function _tpdRenderFormInputs() {
 
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
-                        <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr || (valHeight ? 'disabled' : '')}>
+                        <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="document.getElementById('tpd_height_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="${widthStyle}" ${disabledAttr || (valHeight ? 'disabled' : '')}>
                         <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
-                        <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr || (valWidth ? 'disabled' : '')}>
+                        <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '')}>
                     </div>
 
                     ${(d.position === 'Lưng' || d.position === 'Gáy') ? `
                         <div style="display: flex; gap: 4px; align-items: center;">
                             <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">Gáy xuống:</span>
-                            <input type="text" placeholder="Ví dụ: 10cm" value="${d.gay_xuong || ''}" oninput="_tpdUpdateDetailField(${idx}, 'gay_xuong', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${!(d.gay_xuong && d.gay_xuong.trim()) ? 'border: 1.5px solid #ef4444; background: #fef2f2;' : 'border: 1px solid #cbd5e1;'}" ${disabledAttr} required>
+                            <input type="text" placeholder="Ví dụ: 10cm" value="${d.gay_xuong || ''}" onchange="_tpdUpdateDetailField(${idx}, 'gay_xuong', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${!(d.gay_xuong && d.gay_xuong.trim()) ? 'border: 1.5px solid #ef4444; background: #fef2f2;' : 'border: 1px solid #cbd5e1;'}" ${disabledAttr} required>
                         </div>
                     ` : ''}
                     ${d.position === 'Bụng' ? `
                         <div style="display: flex; gap: 4px; align-items: center;">
                             <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">Cổ xuống:</span>
-                            <input type="text" placeholder="Ví dụ: 12cm" value="${d.co_xuong || ''}" oninput="_tpdUpdateDetailField(${idx}, 'co_xuong', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${!(d.co_xuong && d.co_xuong.trim()) ? 'border: 1.5px solid #ef4444; background: #fef2f2;' : 'border: 1px solid #cbd5e1;'}" ${disabledAttr} required>
+                            <input type="text" placeholder="Ví dụ: 12cm" value="${d.co_xuong || ''}" onchange="_tpdUpdateDetailField(${idx}, 'co_xuong', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${!(d.co_xuong && d.co_xuong.trim()) ? 'border: 1.5px solid #ef4444; background: #fef2f2;' : 'border: 1px solid #cbd5e1;'}" ${disabledAttr} required>
                         </div>
                     ` : ''}
                 </div>
@@ -4194,6 +4209,13 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
                                         </div>
                                     </div>
                                 ` : ''}
+                                
+                                <!-- Missing Dimension Warning -->
+                                ${(!widthText && !heightText) ? `
+                                    <div style="position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); text-align: center; color: #ef4444; font-size: 8.5px; font-weight: 900; background: rgba(254, 242, 242, 0.95); padding: 2px 6px; border: 1.5px solid #fca5a5; border-radius: 4px; z-index: 10; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                                        ⚠️ CHƯA NHẬP KÍCH THƯỚC
+                                    </div>
+                                ` : ''}
                             </div>
                         ` : `
                             <div class="tpd-a4-img-placeholder" style="font-size: 9px; padding: 10px; text-align: center; width: 100%;">Chưa có ảnh vị trí ${d.position}<br><span style="font-size: 8px; color: #94a3b8;">Click & Ctrl+V để dán</span></div>
@@ -4292,24 +4314,23 @@ function _tpdUpdateDetailField(idx, field, value) {
     const it = state.editingItem;
     if (!it.print_details || !it.print_details[idx]) return;
 
-    it.print_details[idx][field] = value;
-
-    _tpdSaveDraft(it);
-    // If the field is print_type, we might toggle showing the custom input box
-    if (field === 'print_type') {
-        _tpdRenderFormInputs();
-        _tpdSetupPasteZones();
-    } else if (field === 'width') {
-        const heightEl = document.getElementById(`tpd_height_${idx}`);
-        if (heightEl) {
-            heightEl.disabled = !!(value && value.trim());
-        }
-    } else if (field === 'height') {
-        const widthEl = document.getElementById(`tpd_width_${idx}`);
-        if (widthEl) {
-            widthEl.disabled = !!(value && value.trim());
+    let cleanVal = value ? value.trim() : '';
+    if (['width', 'height', 'gay_xuong', 'co_xuong'].includes(field)) {
+        if (cleanVal) {
+            // If it is a number (integer or float), automatically append 'cm'
+            if (/^\d+(\.\d+)?$/.test(cleanVal)) {
+                cleanVal = cleanVal + 'cm';
+            }
         }
     }
+
+    it.print_details[idx][field] = cleanVal;
+
+    _tpdSaveDraft(it);
+    
+    // Re-render inputs to reflect format (e.g. 10 -> 10cm) and toggle disabled states
+    _tpdRenderFormInputs();
+    _tpdSetupPasteZones();
     _tpdUpdateLivePreview();
 }
 
