@@ -5664,12 +5664,99 @@ async function _tpdWaitForImages(container) {
     await Promise.all(promises);
 }
 
+// Generate confirmation text to send to customers based on current setup
+function _tpdGenerateConfirmationText(o, items) {
+    let text = `Để đơn hàng hoàn thiện như mong muốn, bên em xin gửi lại các thông tin như sau, mong anh/chị xác nhận giúp em ạ :\n`;
+    
+    // 1. Nội dung in / thêu
+    text += ` 1. Nội dung in / thêu và kích thước trên MAKET :\n`;
+    items.forEach((item, idx) => {
+        text += `• Phiếu ${idx + 1} (${item.product_name || 'Đồng phục'}):\n`;
+        if (item.print_details && item.print_details.length > 0) {
+            item.print_details.forEach(d => {
+                const parts = [];
+                if (d.print_type) parts.push(d.print_type.trim());
+                if (d.width && d.width.trim()) parts.push(`Ngang ${d.width.trim()}`);
+                if (d.height && d.height.trim()) parts.push(`Cao ${d.height.trim()}`);
+                if (d.dimension && d.dimension.trim()) parts.push(d.dimension.trim());
+                const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                if (offsetVal && offsetVal.trim()) {
+                    parts.push(offsetVal.trim());
+                }
+                text += `  + Vị trí ${d.position}: ${parts.join(' - ') || '—'}\n`;
+            });
+        } else {
+            text += `  + Không có thông tin in/thêu\n`;
+        }
+    });
+    text += `• Mong anh/chị kiểm tra kỹ nội dung, phông chữ, kích thước logo ,bố cục và vị trí logo xem đã chính xác chưa ?\n`;
+    text += `• Tuy nhiên, bên em rất mong anh/chị đo thử chiều ngang logo thực tế trên áo mẫu để cảm nhận trực tiếp kích thước có phù hợp không ?\n\n`;
+
+    // 2. Báo size
+    text += ` 2. Báo size đã chốt ở phiếu đơn hàng :\n`;
+    items.forEach((item, idx) => {
+        const sorted = (item.quantities && item.quantities.length > 0)
+            ? _tpdSortSizes(item.quantities.map(q => q.size)).map(sz => item.quantities.find(q => q.size === sz)).filter(Boolean)
+            : [];
+            
+        const qtyList = sorted
+            .map(q => {
+                let sVal = `${q.size}: ${q.qty}`;
+                if (q.note && q.note.trim()) {
+                    sVal += ` (${q.note.trim()})`;
+                }
+                return sVal;
+            })
+            .join(' | ');
+        text += `• Phiếu ${idx + 1} (${item.product_name || 'Đồng phục'}): ${qtyList || '—'} (Tổng: ${item.quantity || 0} áo)\n`;
+    });
+    text += `\n`;
+
+    // 3. Màu áo & chất liệu
+    text += `3. Màu áo & chất liệu:\n`;
+    items.forEach((item, idx) => {
+        const fabricVal = item.material_name || '';
+        const colorVal = item.color_name || '';
+        const splitRegex = /\s*[\+\/,]\s*/;
+        const fabricParts = fabricVal.split(splitRegex).map(s => s.trim()).filter(Boolean);
+        const colorParts = colorVal.split(splitRegex).map(s => s.trim()).filter(Boolean);
+        
+        text += `• Phiếu ${idx + 1} (${item.product_name || 'Đồng phục'}):\n`;
+        if (fabricParts.length > 0 && fabricParts.length === colorParts.length) {
+            fabricParts.forEach((f, i) => {
+                const rawCol = colorParts[i];
+                let colLabel = rawCol;
+                if (rawCol && rawCol !== '—') {
+                    colLabel = rawCol.toLowerCase().startsWith('màu') ? rawCol : `Màu ${rawCol}`;
+                }
+                text += `  + ${f} : ${colLabel}\n`;
+            });
+        } else {
+            const colLabel = colorVal ? (colorVal.toLowerCase().startsWith('màu') ? colorVal : `Màu ${colorVal}`) : '—';
+            text += `  + ${fabricVal || '—'} : ${colLabel}\n`;
+        }
+    });
+    text += `• Màu logo in/thêu chỉ giống tương đối so với màu cổ và nẹp áo.\n`;
+    text += `• Màu áo và cổ/nẹp có thể có độ lệch nhẹ do chất liệu vải khác nhau.\n`;
+    text += `• Tất cả màu áo và chất liệu đều có độ phai màu nhất định , khi giặt a/c lưu ý ạ\n`;
+    text += `⸻\n`;
+    text += `*LƯU Ý QUAN TRỌNG : Mọi điều chỉnh xin được báo lại sớm trước khi in hàng loạt ạ\n\n`;
+    text += `Để tránh những vấn đề sau khi sản xuất, bên em xin phép không chịu trách nhiệm trong các trường hợp sau:\n`;
+    text += ` • Nội dung in, size áo, chất liệu và màu áo có sai sót sau khi đã được chốt.\n`;
+    text += ` • Kích thước logo quá to hoặc quá nhỏ, vì đã làm đúng theo thông tin được xác nhận trước đó.\n`;
+    text += ` • Trong trường hợp anh/chị không ưng cây vải và bên em phải đổi sang cây vải mới, bên em xin phép được lùi thời gian sản xuất đơn hàng ạ`;
+
+    return text;
+}
+
 // Render and show the export modal with image generation and mandatory download flow
 async function _tpdShowExportSheetsModal() {
     const state = window._tpdWorkspaceState;
     if (!state) return;
     const o = state.order;
     const items = state.items;
+
+    window._tpdCopiedConfirmationText = false;
 
     // Create the overlay container if not exists
     let overlay = document.getElementById('tpdExportOverlay');
@@ -5739,6 +5826,15 @@ async function _tpdShowExportSheetsModal() {
                             </button>
                         </div>
                     `).join('')}
+                </div>
+
+                <!-- Confirmation Text copy block -->
+                <div style="margin-top: 24px; padding: 18px; border: 1.5px solid #10b981; background: #f0fdf4; border-radius: 12px; display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                        <span style="font-size: 13px; font-weight: 800; color: #065f46; display: flex; align-items: center; gap: 6px;">📋 MẪU NỘI DUNG XÁC NHẬN CHO KHÁCH HÀNG</span>
+                        <span id="tpdCopyStatus" style="font-size: 11px; font-weight: 800; color: #ef4444; background: #fee2e2; padding: 4px 10px; border-radius: 6px;">⚠️ YÊU CẦU BẮT BUỘC: CLICK VÀO KHUNG DƯỚI ĐỂ SAO CHÉP</span>
+                    </div>
+                    <div id="tpdCopyableTextContainer" onclick="_tpdCopyToClipboard()" data-text-to-copy="${escapeHTML(_tpdGenerateConfirmationText(o, items))}" style="cursor: pointer; background: #ffffff; border: 1.5px solid #d1fae5; border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.6; color: #1f2937; white-space: pre-wrap; max-height: 250px; overflow-y: auto; user-select: none; transition: all 0.2s;" onmouseover="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 10px rgba(16,185,129,0.1)';" onmouseout="this.style.borderColor='#d1fae5'; this.style.boxShadow='none';">${escapeHTML(_tpdGenerateConfirmationText(o, items))}</div>
                 </div>
             </div>
 
@@ -5912,38 +6008,9 @@ async function _tpdShowExportSheetsModal() {
                         statusBadge.style.color = '#15803d';
                     }
 
-                    // Check if all sheets are downloaded
-                    if (downloaded.every(d => d === true)) {
-                        const confirmBtn = document.getElementById('exportConfirmBtn');
-                        if (confirmBtn) {
-                            confirmBtn.disabled = false;
-                            confirmBtn.style.background = 'linear-gradient(135deg, #059669, #10b981)';
-                            confirmBtn.style.color = '#ffffff';
-                            confirmBtn.style.cursor = 'pointer';
-                            confirmBtn.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.3)';
-                            confirmBtn.onclick = async function() {
-                                try {
-                                    confirmBtn.disabled = true;
-                                    confirmBtn.innerHTML = 'Đang xử lý...';
-                                    const res = await apiCall(`/api/dht/orders/${o.id}/confirm-export`, 'POST');
-                                    if (res.success) {
-                                        showToast('🎉 Xác nhận lên đơn và xuất phiếu thành công!', 'success');
-                                        overlay.remove();
-                                        if (tempContainer) tempContainer.remove();
-                                        navigate('taophieudonhang'); // Redirect back to list
-                                    } else {
-                                        confirmBtn.disabled = false;
-                                        confirmBtn.innerHTML = 'Xác Nhận Lên Đơn';
-                                        showToast('⚠️ Lên đơn thất bại: ' + (res.error || 'Lỗi hệ thống'), 'error');
-                                    }
-                                } catch (err) {
-                                    confirmBtn.disabled = false;
-                                    confirmBtn.innerHTML = 'Xác Nhận Lên Đơn';
-                                    console.error(err);
-                                    showToast('⚠️ Lên đơn thất bại: ' + err.message, 'error');
-                                }
-                            };
-                        }
+                    // Re-evaluate unlock status
+                    if (typeof window._tpdCheckConfirmUnlock === 'function') {
+                        window._tpdCheckConfirmUnlock();
                     }
                 };
             }
@@ -5969,6 +6036,82 @@ async function _tpdShowExportSheetsModal() {
         mainStatus.style.background = '#f0fdf4';
         mainStatus.style.borderColor = '#bbf7d0';
     }
+
+    // Setup verification functions
+    window._tpdCopyToClipboard = function() {
+        const textContainer = document.getElementById('tpdCopyableTextContainer');
+        if (!textContainer) return;
+        
+        const text = textContainer.getAttribute('data-text-to-copy') || textContainer.innerText || textContainer.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            window._tpdCopiedConfirmationText = true;
+            
+            // Update Copy Status indicator
+            const copyStatus = document.getElementById('tpdCopyStatus');
+            if (copyStatus) {
+                copyStatus.innerHTML = '✓ ĐÃ SAO CHÉP THÀNH CÔNG VÀO CLIPBOARD!';
+                copyStatus.style.backgroundColor = '#d1fae5';
+                copyStatus.style.color = '#065f46';
+            }
+            
+            // Show toast
+            showToast('📋 Đã sao chép nội dung xác nhận vào bộ nhớ tạm!', 'success');
+            
+            // Re-evaluate unlock status
+            if (typeof window._tpdCheckConfirmUnlock === 'function') {
+                window._tpdCheckConfirmUnlock();
+            }
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            showToast('⚠️ Lỗi sao chép nội dung.', 'error');
+        });
+    };
+
+    window._tpdCheckConfirmUnlock = function() {
+        const confirmBtn = document.getElementById('exportConfirmBtn');
+        if (!confirmBtn) return;
+        
+        const allDownloaded = downloaded.every(d => d === true);
+        if (allDownloaded && window._tpdCopiedConfirmationText) {
+            confirmBtn.disabled = false;
+            confirmBtn.style.background = 'linear-gradient(135deg, #059669, #10b981)';
+            confirmBtn.style.color = '#ffffff';
+            confirmBtn.style.cursor = 'pointer';
+            confirmBtn.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.3)';
+            confirmBtn.onclick = async function() {
+                try {
+                    confirmBtn.disabled = true;
+                    confirmBtn.innerHTML = 'Đang xử lý...';
+                    const res = await apiCall(`/api/dht/orders/${o.id}/confirm-export`, 'POST');
+                    if (res.success) {
+                        showToast('🎉 Xác nhận lên đơn và xuất phiếu thành công!', 'success');
+                        overlay.remove();
+                        if (tempContainer) tempContainer.remove();
+                        navigate('taophieudonhang'); // Redirect back to list
+                    } else {
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerHTML = '✓ Xác Nhận Lên Đơn & Hoàn Tất';
+                        showToast('⚠️ Lên đơn thất bại: ' + (res.error || 'Lỗi hệ thống'), 'error');
+                    }
+                } catch (err) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = '✓ Xác Nhận Lên Đơn & Hoàn Tất';
+                    console.error(err);
+                    showToast('⚠️ Lên đơn thất bại: ' + err.message, 'error');
+                }
+            };
+        } else {
+            confirmBtn.disabled = true;
+            confirmBtn.style.background = '#cbd5e1';
+            confirmBtn.style.color = '#64748b';
+            confirmBtn.style.cursor = 'not-allowed';
+            confirmBtn.style.boxShadow = 'none';
+            confirmBtn.onclick = null;
+        }
+    };
+
+    // Run initial unlock evaluation
+    window._tpdCheckConfirmUnlock();
 }
 
 // Print single active production sheet layout
