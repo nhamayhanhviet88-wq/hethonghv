@@ -2821,7 +2821,7 @@ function _tpdInjectWorkspaceStyles() {
         }
 
         .tpd-a4-mockup-wrapper {
-            flex: 1.3;
+            flex: 1.65;
             border: 1.5px solid #122546;
             border-radius: 8px;
             overflow: hidden;
@@ -2832,7 +2832,7 @@ function _tpdInjectWorkspaceStyles() {
         }
 
         .tpd-a4-tech-wrapper {
-            flex: 2;
+            flex: 1.65;
             display: flex;
             gap: 10px;
         }
@@ -4197,7 +4197,7 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
     }
 
     return `
-        <div class="tpd-a4-tech-wrapper" style="flex: 2; display: grid; grid-template-columns: ${gridCols}; grid-template-rows: ${gridRows}; gap: 8px; height: 100%;">
+        <div class="tpd-a4-tech-wrapper" style="flex: 1.65; display: grid; grid-template-columns: ${gridCols}; grid-template-rows: ${gridRows}; gap: 8px; height: 100%;">
             ${techBoxesHtml}
         </div>
     `;
