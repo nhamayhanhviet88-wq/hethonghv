@@ -3952,11 +3952,36 @@ function _tpdRenderFormInputs() {
 
     // 3. Paste Zones (Mockup & Dynamic Print Details)
     const mockupSrc = it.mockup_image || '';
-    const details = it.print_details || [];
+    const details = (it.print_details || [])
+        .map((d, idx) => ({ ...d, originalIndex: idx }));
+
+    const posWeights = {
+        'ngực': 1,
+        'lưng': 2,
+        'bụng': 3,
+        'tay trái': 4,
+        'tay phải': 5,
+        'gáy': 6
+    };
+    details.sort((a, b) => {
+        const aPos = (a.position || '').trim().toLowerCase();
+        const bPos = (b.position || '').trim().toLowerCase();
+        let aW = 999;
+        let bW = 999;
+        for (const [k, w] of Object.entries(posWeights)) {
+            if (aPos === k || aPos.startsWith(k)) { aW = w; break; }
+        }
+        for (const [k, w] of Object.entries(posWeights)) {
+            if (bPos === k || bPos.startsWith(k)) { bW = w; break; }
+        }
+        if (aW !== bW) return aW - bW;
+        return aPos.localeCompare(bPos, 'vi');
+    });
 
     // Build upload boxes for dynamic details
     let detailBoxesHtml = '';
-    details.forEach((d, idx) => {
+    details.forEach((d) => {
+        const idx = d.originalIndex;
         const isCustomType = d.print_type && !['Thêu', 'In PET', 'In 3D', 'In lưới', 'In Decal'].includes(d.print_type);
         
         let valWidth = d.width || '';
@@ -4191,6 +4216,29 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
         .map((d, idx) => ({ ...d, originalIndex: idx }))
         .filter(d => d.image && d.image.trim().length > 0);
         
+    const posWeights = {
+        'ngực': 1,
+        'lưng': 2,
+        'bụng': 3,
+        'tay trái': 4,
+        'tay phải': 5,
+        'gáy': 6
+    };
+    details.sort((a, b) => {
+        const aPos = (a.position || '').trim().toLowerCase();
+        const bPos = (b.position || '').trim().toLowerCase();
+        let aW = 999;
+        let bW = 999;
+        for (const [k, w] of Object.entries(posWeights)) {
+            if (aPos === k || aPos.startsWith(k)) { aW = w; break; }
+        }
+        for (const [k, w] of Object.entries(posWeights)) {
+            if (bPos === k || bPos.startsWith(k)) { bW = w; break; }
+        }
+        if (aW !== bW) return aW - bW;
+        return aPos.localeCompare(bPos, 'vi');
+    });
+        
     let techBoxesHtml = '';
 
     if (details.length === 0) {
@@ -4301,7 +4349,7 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
                                                 </defs>
                                                 <line x1="4" y1="0" x2="4" y2="100%" stroke="#ef4444" stroke-width="2" marker-start="url(#arrow-top-${idx})" marker-end="url(#arrow-bottom-${idx})" />
                                             </svg>
-                                            <div style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: left center; color: #ef4444; font-size: 10.5px; font-weight: 800; white-space: nowrap; line-height: 1;">
+                                            <div style="position: absolute; left: 15px; top: 50%; transform: translate(-50%, -50%) rotate(90deg); color: #ef4444; font-size: 10.5px; font-weight: 800; white-space: nowrap; line-height: 1;">
                                                 ${heightText}
                                             </div>
                                         </div>
