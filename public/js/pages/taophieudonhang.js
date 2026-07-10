@@ -3336,7 +3336,7 @@ function _tpdRenderA4SizeTable(it) {
                 <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
                     <thead>
                         <tr>
-                            <th style="background:#1e3a8a; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NAM</th>
+                            <th style="background:#1e3a8a; color:#ffffff; width: 250px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NAM</th>
                             ${headers}
                             <th style="background:#1e3a8a; color:#ffffff; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NAM</th>
                         </tr>
@@ -3387,7 +3387,7 @@ function _tpdRenderA4SizeTable(it) {
                 <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
                     <thead>
                         <tr>
-                            <th style="background:#db2777; color:#ffffff; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NỮ</th>
+                            <th style="background:#db2777; color:#ffffff; width: 250px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NỮ</th>
                             ${headers}
                             <th style="background:#db2777; color:#ffffff; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NỮ</th>
                         </tr>
@@ -3440,7 +3440,7 @@ function _tpdRenderA4SizeTable(it) {
                 <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
                     <thead>
                         <tr>
-                            <th style="background:${theme.bg}; color:${theme.text}; width: 120px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
+                            <th style="background:${theme.bg}; color:${theme.text}; width: 250px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
                             ${headers}
                             <th style="background:${theme.bg}; color:${theme.text}; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG KHÁC</th>
                         </tr>
