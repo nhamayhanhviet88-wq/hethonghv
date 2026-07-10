@@ -3347,23 +3347,23 @@ function _tpdRenderA4SizeTable(it) {
             let values = '';
             namShortSizes.forEach(short => {
                 const qObj = namSizes.find(q => getShortSize(q.size) === short);
-                headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
+                const isNC = qObj ? ncList.includes(qObj.size) : false;
+                headers += `<th style="background:#e0f2fe; color:#0369a1; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;${isNC ? ' min-width: 120px;' : ''}">${short}</th>`;
                 if (qObj) {
-                    const isNC = ncList.includes(qObj.size);
                     if (isNC && qObj.note && qObj.note.trim()) {
                         const cleanNote = qObj.note.trim().replace(/\s*,\s*/g, ', ');
-                        values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px; background: #fee2e2;">
-                            <div style="color: #dc2626;">${qObj.qty || 0}</div>
-                            <div style="font-size: 7px; color: #dc2626; font-weight: 800; line-height: 1.0; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 90px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
+                        values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px; background: #fee2e2; min-width: 120px;">
+                            <div style="color: #dc2626; font-size: 12px; font-weight: 800;">${qObj.qty || 0}</div>
+                            <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 115px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                         </td>`;
                     } else {
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#0369a1; text-align:center; padding: 4px 6px;">
-                            <div>${qObj.qty || 0}</div>
+                            <div style="font-size: 12px;">${qObj.qty || 0}</div>
                         </td>`;
                     }
                     rowTotal += Number(qObj.qty || 0);
                 } else {
-                    values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;">-</td>`;
+                    values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;${isNC ? ' min-width: 120px;' : ''}">-</td>`;
                 }
             });
             grandTotal += rowTotal;
@@ -3372,14 +3372,14 @@ function _tpdRenderA4SizeTable(it) {
                 <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
                     <thead>
                         <tr>
-                            <th style="background:#1e3a8a; color:#ffffff; width: 250px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NAM</th>
+                            <th style="background:#1e3a8a; color:#ffffff; width: 140px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NAM</th>
                             ${headers}
                             <th style="background:#1e3a8a; color:#ffffff; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NAM</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="font-weight:700; color:#1e3a8a; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1; line-height:1.2;">
+                            <td style="font-weight:700; color:#1e3a8a; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1; line-height:1.2; width: 140px;">
                                 <div>Số lượng Nam (${(it.product_name || 'Áo').toUpperCase()})</div>
                                 ${it.pattern_name ? `<div style="font-weight:900; color:#dc2626; font-size:11px; margin-top:4px;">${escapeHTML(it.pattern_name)}</div>` : ''}
                             </td>
@@ -3405,23 +3405,24 @@ function _tpdRenderA4SizeTable(it) {
             let values = '';
             nuShortSizes.forEach(short => {
                 const qObj = nuSizes.find(q => getShortSize(q.size) === short);
-                headers += `<th style="background:#fce7f3; color:#be185d; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
+                const isNC = qObj ? ncList.includes(qObj.size) : false;
+                headers += `<th style="background:#fce7f3; color:#be185d; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;${isNC ? ' min-width: 120px;' : ''}">${short}</th>`;
                 if (qObj) {
                     const isNC = ncList.includes(qObj.size);
                     if (isNC && qObj.note && qObj.note.trim()) {
                         const cleanNote = qObj.note.trim().replace(/\s*,\s*/g, ', ');
-                        values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px; background: #fee2e2;">
-                            <div style="color: #dc2626;">${qObj.qty || 0}</div>
-                            <div style="font-size: 7px; color: #dc2626; font-weight: 800; line-height: 1.0; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 90px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
+                        values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px; background: #fee2e2; min-width: 120px;">
+                            <div style="color: #dc2626; font-size: 12px; font-weight: 800;">${qObj.qty || 0}</div>
+                            <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 115px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                         </td>`;
                     } else {
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#be185d; text-align:center; padding: 4px 6px;">
-                            <div>${qObj.qty || 0}</div>
+                            <div style="font-size: 12px;">${qObj.qty || 0}</div>
                         </td>`;
                     }
                     rowTotal += Number(qObj.qty || 0);
                 } else {
-                    values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;">-</td>`;
+                    values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;${isNC ? ' min-width: 120px;' : ''}">-</td>`;
                 }
             });
             grandTotal += rowTotal;
@@ -3430,14 +3431,14 @@ function _tpdRenderA4SizeTable(it) {
                 <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
                     <thead>
                         <tr>
-                            <th style="background:#db2777; color:#ffffff; width: 250px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NỮ</th>
+                            <th style="background:#db2777; color:#ffffff; width: 140px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">NỮ</th>
                             ${headers}
                             <th style="background:#db2777; color:#ffffff; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG NỮ</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="font-weight:700; color:#db2777; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1; line-height:1.2;">
+                            <td style="font-weight:700; color:#db2777; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1; line-height:1.2; width: 140px;">
                                 <div>Số lượng Nữ (${(it.product_name || 'Áo').toUpperCase()})</div>
                                 ${it.pattern_name ? `<div style="font-weight:900; color:#dc2626; font-size:11px; margin-top:4px;">${escapeHTML(it.pattern_name)}</div>` : ''}
                             </td>
@@ -3463,23 +3464,24 @@ function _tpdRenderA4SizeTable(it) {
             let values = '';
             otherShortSizes.forEach(short => {
                 const qObj = otherSizes.find(q => getShortSize(q.size) === short);
-                headers += `<th style="background:#f1f5f9; color:#475569; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;">${short}</th>`;
+                const isNC = qObj ? ncList.includes(qObj.size) : false;
+                headers += `<th style="background:#f1f5f9; color:#475569; border: 1px solid #cbd5e1; font-weight:700; text-align:center; padding: 4px;${isNC ? ' min-width: 120px;' : ''}">${short}</th>`;
                 if (qObj) {
                     const isNC = ncList.includes(qObj.size);
                     if (isNC && qObj.note && qObj.note.trim()) {
                         const cleanNote = qObj.note.trim().replace(/\s*,\s*/g, ', ');
-                        values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px; background: #fee2e2;">
-                            <div style="color: #dc2626;">${qObj.qty || 0}</div>
-                            <div style="font-size: 7px; color: #dc2626; font-weight: 800; line-height: 1.0; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 90px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
+                        values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px; background: #fee2e2; min-width: 120px;">
+                            <div style="color: #dc2626; font-size: 12px; font-weight: 800;">${qObj.qty || 0}</div>
+                            <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 115px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                         </td>`;
                     } else {
                         values += `<td style="border: 1px solid #cbd5e1; font-weight:700; color:#475569; text-align:center; padding: 4px 6px;">
-                            <div>${qObj.qty || 0}</div>
+                            <div style="font-size: 12px;">${qObj.qty || 0}</div>
                         </td>`;
                     }
                     rowTotal += Number(qObj.qty || 0);
                 } else {
-                    values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;">-</td>`;
+                    values += `<td style="border: 1px solid #cbd5e1; background:#f8fafc; color:#cbd5e1; text-align:center; padding: 6px;${isNC ? ' min-width: 120px;' : ''}">-</td>`;
                 }
             });
             grandTotal += rowTotal;
@@ -3490,14 +3492,14 @@ function _tpdRenderA4SizeTable(it) {
                 <table class="tpd-a4-table" style="border-collapse: collapse; width:100%; border: 1px solid #cbd5e1;">
                     <thead>
                         <tr>
-                            <th style="background:${theme.bg}; color:${theme.text}; width: 250px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
+                            <th style="background:${theme.bg}; color:${theme.text}; width: 140px; font-weight:bold; border: 1px solid #cbd5e1; text-align:center;">KHÁC</th>
                             ${headers}
                             <th style="background:${theme.bg}; color:${theme.text}; width: 80px; border: 1px solid #cbd5e1; text-align:center;">TỔNG KHÁC</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="font-weight:700; color:${theme.bg}; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1; line-height:1.2;">
+                            <td style="font-weight:700; color:${theme.bg}; text-align:left; padding-left:12px; font-size:10px; border: 1px solid #cbd5e1; line-height:1.2; width: 140px;">
                                 <div>Số lượng Khác (${(it.product_name || 'Áo').toUpperCase()})</div>
                                 ${it.pattern_name ? `<div style="font-weight:900; color:#dc2626; font-size:11px; margin-top:4px;">${escapeHTML(it.pattern_name)}</div>` : ''}
                             </td>
@@ -3524,17 +3526,17 @@ function _tpdRenderA4SizeTable(it) {
         let totalQty = 0;
 
         sortedQuantities.forEach(q => {
-            sizeHeaders += `<th>${q.size}</th>`;
             const isNC = ncList.includes(q.size);
+            sizeHeaders += `<th style="${isNC ? 'min-width: 120px;' : ''}">${q.size}</th>`;
             if (isNC && q.note && q.note.trim()) {
                 const cleanNote = q.note.trim().replace(/\s*,\s*/g, ', ');
-                sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px; background: #fee2e2;">
-                    <div style="font-weight:700; color: #dc2626;">${q.qty || 0}</div>
-                    <div style="font-size: 7px; color: #dc2626; font-weight: 800; line-height: 1.0; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 90px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
+                sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px; background: #fee2e2; min-width: 120px;">
+                    <div style="font-weight:700; color: #dc2626; font-size: 12px;">${q.qty || 0}</div>
+                    <div style="font-size: 10px; color: #dc2626; font-weight: 800; line-height: 1.1; margin-top: 2px; word-break: break-word; white-space: normal; max-width: 115px; margin-left: auto; margin-right: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(cleanNote)}">${escapeHTML(cleanNote)}</div>
                 </td>`;
             } else {
                 sizeValues += `<td class="tpd-a4-table-qty-val" style="padding: 4px 5px;">
-                    <div style="font-weight:700;">${q.qty || 0}</div>
+                    <div style="font-weight:700; font-size: 12px;">${q.qty || 0}</div>
                 </td>`;
             }
             totalQty += Number(q.qty || 0);
