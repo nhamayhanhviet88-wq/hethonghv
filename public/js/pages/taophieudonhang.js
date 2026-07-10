@@ -3662,16 +3662,55 @@ function _tpdGetCustomLayout(index) {
 
     if (!it) return { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
 
+    let layout;
     if (!it.custom_layout) {
-        it.custom_layout = { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+        layout = { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
     } else if (typeof it.custom_layout === 'string') {
         try {
-            it.custom_layout = JSON.parse(it.custom_layout);
+            layout = JSON.parse(it.custom_layout);
         } catch(e) {
-            it.custom_layout = { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+            layout = { height: 150, topSpacing: 5, alignment: 'flex-start', contentEditable: false };
+        }
+    } else {
+        layout = it.custom_layout;
+    }
+
+    // Smart sync sewing techniques from master order item & TSAM pattern
+    if (!layout.sewing_items) {
+        if (layout.custom_sewing && layout.custom_sewing !== '—') {
+            layout.sewing_items = _tpdParseSewingTechs(layout.custom_sewing);
+        } else {
+            layout.sewing_items = [];
         }
     }
-    return it.custom_layout;
+
+    const masterTechNames = [
+        ..._tpdGetSewingTechniqueNames(it.tsam_sewing_tech),
+        ..._tpdGetSewingTechniqueNames(it.sewing_techniques)
+    ];
+    const uniqueMasterTechs = [...new Set(masterTechNames)];
+
+    // 1. Add missing techs from master order / TSAM pattern
+    uniqueMasterTechs.forEach(techName => {
+        const exists = layout.sewing_items.some(x => x.tech === techName);
+        if (!exists) {
+            layout.sewing_items.push({ tech: techName, detail: '' });
+        }
+    });
+
+    // 2. Remove techs not in master order (under Option A: only if details are empty)
+    layout.sewing_items = layout.sewing_items.filter(item => {
+        const inMaster = uniqueMasterTechs.includes(item.tech);
+        if (inMaster) return true;
+        // If not in master, keep it ONLY if it has custom details
+        return item.detail && item.detail.trim().length > 0;
+    });
+
+    // Sync back to custom_sewing string representation
+    _tpdSyncCustomSewingText(layout);
+
+    it.custom_layout = layout;
+    return layout;
 }
 
 function _tpdChangeLayoutHeight(val) {
@@ -3925,25 +3964,9 @@ function _tpdRenderFormInputs() {
         </div>
     `;
 
-    // 2. Kỹ Thuật May
-    if (!layout.sewing_items || (layout.sewing_items.length === 0 && layout.custom_sewing === undefined)) {
-        if (layout.custom_sewing) {
-            layout.sewing_items = _tpdParseSewingTechs(layout.custom_sewing);
-        } else {
-            // Pre-populate from it.sewing_techniques or it.tsam_sewing_tech
-            const techNames = [
-                ..._tpdGetSewingTechniqueNames(it.tsam_sewing_tech),
-                ..._tpdGetSewingTechniqueNames(it.sewing_techniques)
-            ];
-            // Remove duplicates
-            const uniqueTechNames = [...new Set(techNames)];
-            if (uniqueTechNames.length > 0) {
-                layout.sewing_items = uniqueTechNames.map(name => ({ tech: name, detail: '' }));
-                _tpdSyncCustomSewingText(layout);
-            } else {
-                layout.sewing_items = [];
-            }
-        }
+    // 2. Kỹ Thuật May (Smart Sync is already handled in _tpdGetCustomLayout)
+    if (!layout.sewing_items) {
+        layout.sewing_items = [];
     }
 
     let sewingListHtml = '';
