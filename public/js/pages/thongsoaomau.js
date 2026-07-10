@@ -449,7 +449,6 @@ async function _tsamDetail(id) {
         + '<table style="width:100%;font-size:13px;border-collapse:collapse">';
     var rows = [
         ['MÃ MẪU', '<b style="color:#7c3aed;font-size:15px">' + s.sample_code + '</b>'],
-        ['KỸ THUẬT MAY', detailsHtml],
         ['LĨNH VỰC', s.category_name || '—'],
         ['SẢN PHẨM BÁN', prodBadges],
         ['LOẠI', '<span class="tsam-badge" style="background:' + (_tsamTypeColors[s.sample_type]||'#64748b') + '">' + (_tsamTypes[s.sample_type]||s.sample_type) + '</span>'],
