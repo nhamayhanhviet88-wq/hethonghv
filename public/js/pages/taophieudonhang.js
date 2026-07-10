@@ -4593,7 +4593,6 @@ function _tpdRenderFormInputs() {
             </div>
         `;
     }
-    `;
 
     container.innerHTML = html;
 }
