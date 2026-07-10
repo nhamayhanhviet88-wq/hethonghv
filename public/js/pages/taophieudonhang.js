@@ -3869,7 +3869,8 @@ function _tpdRenderFormInputs() {
     }
 
     let sewingListHtml = '';
-    const configSewingTechs = _tpd.sewingTechsConfig || ["Bo cổ dệt", "Bo tay dệt", "Móc xích", "Trần đè", "Xẻ tà", "May lé", "Đắp túi", "May gấu", "Nẹp gấp", "Đính dây cổ"];
+    const normalizedConfig = _tpdGetNormalizedSewingTechs();
+    const configSewingTechs = normalizedConfig.map(c => c.tech);
 
     if (layout.sewing_items.length === 0) {
         sewingListHtml = `
@@ -3880,21 +3881,13 @@ function _tpdRenderFormInputs() {
     } else {
         sewingListHtml = layout.sewing_items.map((sewItem, sIdx) => {
             const isCustom = !configSewingTechs.includes(sewItem.tech) && sewItem.tech !== 'Khác';
-            const groups = {
-                'Nhóm Cổ': [],
-                'Nhóm Bo / Tay': [],
-                'Khác': []
-            };
-
-            configSewingTechs.forEach(t => {
-                const lower = t.toLowerCase();
-                if (lower.includes('cổ')) {
-                    groups['Nhóm Cổ'].push(t);
-                } else if (lower.includes('bo') || lower.includes('tay')) {
-                    groups['Nhóm Bo / Tay'].push(t);
-                } else {
-                    groups['Khác'].push(t);
+            const groups = {};
+            normalizedConfig.forEach(c => {
+                const groupName = c.group || 'Khác';
+                if (!groups[groupName]) {
+                    groups[groupName] = [];
                 }
+                groups[groupName].push(c.tech);
             });
 
             let selectOptions = '';
@@ -5908,7 +5901,8 @@ function _tpdParseSewingTechs(customSewingStr) {
             const detail = part.substring(colonIdx + 1).trim();
             items.push({ tech, detail });
         } else {
-            const match = (_tpd.sewingTechsConfig || []).find(t => part.toLowerCase().startsWith(t.toLowerCase()));
+            const configSewingTechs = _tpdGetNormalizedSewingTechs().map(c => c.tech);
+            const match = configSewingTechs.find(t => part.toLowerCase().startsWith(t.toLowerCase()));
             if (match) {
                 const detail = part.substring(match.length).replace(/^[:\s-]+/, '').trim();
                 items.push({ tech: match, detail: detail });
@@ -5920,8 +5914,35 @@ function _tpdParseSewingTechs(customSewingStr) {
     return items;
 }
 
+function _tpdGetNormalizedSewingTechs() {
+    const raw = _tpd.sewingTechsConfig || ["Bo cổ dệt", "Bo tay dệt", "Móc xích", "Trần đè", "Xẻ tà", "May lé", "Đắp túi", "May gấu", "Nẹp gấp", "Đính dây cổ"];
+    return raw.map(item => {
+        if (item && typeof item === 'object') {
+            return {
+                tech: item.tech || '',
+                group: item.group || 'Khác'
+            };
+        } else {
+            const tech = String(item || '');
+            let group = 'Khác';
+            const lower = tech.toLowerCase();
+            if (lower.includes('cổ')) {
+                group = 'Nhóm Cổ';
+            } else if (lower.includes('bo') || lower.includes('tay')) {
+                group = 'Nhóm Bo / Tay';
+            }
+            return { tech, group };
+        }
+    });
+}
+
 function _tpdGetSewingTechGroup(tech) {
     if (!tech || tech === 'Khác') return 'Khác';
+    const normalized = _tpdGetNormalizedSewingTechs();
+    const match = normalized.find(n => n.tech === tech);
+    if (match) return match.group;
+    
+    // Heuristic fallback for custom/new entries
     const lower = tech.toLowerCase();
     if (lower.includes('cổ')) return 'Nhóm Cổ';
     if (lower.includes('bo') || lower.includes('tay')) return 'Nhóm Bo / Tay';
@@ -6109,39 +6130,56 @@ function _tpdRenderSewingTechsModalList() {
         return;
     }
 
-    const groups = {
-        'Nhóm Cổ': [],
-        'Nhóm Bo / Tay': [],
-        'Khác': []
-    };
+    const groups = {};
 
-    list.forEach((tech, idx) => {
-        const lower = tech.toLowerCase();
-        const item = { tech, idx };
-        if (lower.includes('cổ')) {
-            groups['Nhóm Cổ'].push(item);
-        } else if (lower.includes('bo') || lower.includes('tay')) {
-            groups['Nhóm Bo / Tay'].push(item);
+    list.forEach((item, idx) => {
+        let tech = '';
+        let group = 'Khác';
+        if (item && typeof item === 'object') {
+            tech = item.tech || '';
+            group = item.group || 'Khác';
         } else {
-            groups['Khác'].push(item);
+            tech = String(item || '');
+            const lower = tech.toLowerCase();
+            if (lower.includes('cổ')) {
+                group = 'Nhóm Cổ';
+            } else if (lower.includes('bo') || lower.includes('tay')) {
+                group = 'Nhóm Bo / Tay';
+            }
         }
+        if (!groups[group]) {
+            groups[group] = [];
+        }
+        groups[group].push({ tech, idx, group });
     });
 
     let html = '';
     for (const [groupName, items] of Object.entries(groups)) {
         if (items.length > 0) {
             html += `
-                <div style="margin-bottom: 12px;">
-                    <div style="font-weight: 800; font-size: 13px; color: #1e3a8a; margin-bottom: 8px; padding-left: 2px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px;">${escapeHTML(groupName)} (${items.length})</div>
+                <div style="margin-bottom: 16px;">
+                    <div style="font-weight: 800; font-size: 12px; color: #1e3a8a; margin-bottom: 8px; padding-left: 2px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>${escapeHTML(groupName)}</span>
+                        <span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 9999px; font-size: 10px;">${items.length} kỹ thuật</span>
+                    </div>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
             `;
             items.forEach(item => {
                 html += `
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between;">
-                        <input type="text" value="${escapeHTML(item.tech)}" onchange="_tpdUpdateModalSewingTech(${item.idx}, this.value)" style="font-weight: 700; font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; flex: 1; background: white;" placeholder="Ví dụ: Bo cổ dệt, Móc xích, Xẻ tà...">
-                        <button type="button" onclick="_tpdDeleteModalSewingTech(${item.idx})" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Xóa">
-                            <span>Xóa</span>
-                        </button>
+                        <div style="flex: 2; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 9px; font-weight: 800; color: #94a3b8; letter-spacing: 0.05em;">TÊN KỸ THUẬT</label>
+                            <input type="text" value="${escapeHTML(item.tech)}" onchange="_tpdUpdateModalSewingTech(${item.idx}, 'tech', this.value)" style="font-weight: 700; font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; background: white;" placeholder="Tên kỹ thuật...">
+                        </div>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 9px; font-weight: 800; color: #94a3b8; letter-spacing: 0.05em;">NHÓM</label>
+                            <input type="text" value="${escapeHTML(item.group)}" onchange="_tpdUpdateModalSewingTech(${item.idx}, 'group', this.value)" style="font-size: 12px; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; background: white;" placeholder="Nhóm...">
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; margin-top: 14px;">
+                            <button type="button" onclick="_tpdDeleteModalSewingTech(${item.idx})" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Xóa">
+                                <span>Xóa</span>
+                            </button>
+                        </div>
                     </div>
                 `;
             });
@@ -6154,12 +6192,121 @@ function _tpdRenderSewingTechsModalList() {
     container.innerHTML = html;
 }
 
-
 function _tpdAddNewSewingTechOption() {
     const list = window._tpdModalSewingTechs || [];
-    list.push('');
-    _tpdRenderSewingTechsModalList();
     
+    // Get unique existing groups
+    const normalized = list.map(item => {
+        if (item && typeof item === 'object') {
+            return item.group || 'Khác';
+        } else {
+            const tech = String(item || '');
+            let group = 'Khác';
+            const lower = tech.toLowerCase();
+            if (lower.includes('cổ')) {
+                group = 'Nhóm Cổ';
+            } else if (lower.includes('bo') || lower.includes('tay')) {
+                group = 'Nhóm Bo / Tay';
+            }
+            return group;
+        }
+    });
+    const uniqueGroups = [...new Set(normalized)];
+    if (!uniqueGroups.includes('Nhóm Cổ')) uniqueGroups.push('Nhóm Cổ');
+    if (!uniqueGroups.includes('Nhóm Bo / Tay')) uniqueGroups.push('Nhóm Bo / Tay');
+    if (!uniqueGroups.includes('Khác')) uniqueGroups.push('Khác');
+
+    // Create prompt overlay modal
+    const promptModal = document.createElement('div');
+    promptModal.id = 'tpdAddSewingTechPromptModal';
+    promptModal.style.position = 'fixed';
+    promptModal.style.top = '0';
+    promptModal.style.left = '0';
+    promptModal.style.width = '100%';
+    promptModal.style.height = '100%';
+    promptModal.style.backgroundColor = 'rgba(15, 23, 42, 0.4)';
+    promptModal.style.display = 'flex';
+    promptModal.style.alignItems = 'center';
+    promptModal.style.justifyContent = 'center';
+    promptModal.style.zIndex = '999999';
+
+    const groupOptionsHtml = uniqueGroups.map(g => `<option value="${escapeHTML(g)}">${escapeHTML(g)}</option>`).join('');
+
+    promptModal.innerHTML = `
+        <div style="background: white; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="font-weight: 700; font-size: 15px; color: #1e293b; margin-bottom: 4px;">Thêm Kỹ Thuật May Mới</div>
+            
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; font-weight: 700; color: #64748b;">TÊN KỸ THUẬT</label>
+                <input type="text" id="tpdNewTechName" class="tpd-ws-input" style="font-size: 12px; padding: 6px 10px; height: 28px;" placeholder="Ví dụ: Cổ Tròn, Trần đè, Bo tay dệt...">
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; font-weight: 700; color: #64748b;">CHỌN NHÓM</label>
+                <select id="tpdNewTechGroupSelect" class="tpd-ws-input" style="font-size: 12px; padding: 4px 6px; height: 28px;" onchange="document.getElementById('tpdNewTechCustomGroupContainer').style.display = this.value === '__NEW__' ? 'flex' : 'none'">
+                    ${groupOptionsHtml}
+                    <option value="__NEW__" style="font-weight: bold; color: #2563eb;">+ Tạo nhóm mới...</option>
+                </select>
+            </div>
+
+            <div id="tpdNewTechCustomGroupContainer" style="display: none; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; font-weight: 700; color: #2563eb;">TÊN NHÓM MỚI</label>
+                <input type="text" id="tpdNewTechCustomGroup" class="tpd-ws-input" style="font-size: 12px; padding: 6px 10px; height: 28px;" placeholder="Ví dụ: Nhóm Gấu, Nhóm Túi...">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+                <button type="button" style="padding: 6px 12px; border: 1px solid #cbd5e1; background: white; color: #334155; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer;" onclick="document.getElementById('tpdAddSewingTechPromptModal').remove()">Hủy</button>
+                <button type="button" style="padding: 6px 12px; border: none; background: #2563eb; color: white; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer;" onclick="_tpdSubmitNewSewingTechOption()">Xác nhận</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(promptModal);
+    document.getElementById('tpdNewTechName').focus();
+}
+
+function _tpdSubmitNewSewingTechOption() {
+    const nameInput = document.getElementById('tpdNewTechName');
+    const groupSelect = document.getElementById('tpdNewTechGroupSelect');
+    const customGroupInput = document.getElementById('tpdNewTechCustomGroup');
+
+    const techName = nameInput ? nameInput.value.trim() : '';
+    if (!techName) {
+        showToast('Vui lòng nhập tên kỹ thuật!', 'warning');
+        return;
+    }
+
+    let groupName = groupSelect ? groupSelect.value : 'Khác';
+    if (groupName === '__NEW__') {
+        groupName = customGroupInput ? customGroupInput.value.trim() : '';
+        if (!groupName) {
+            showToast('Vui lòng nhập tên nhóm mới!', 'warning');
+            return;
+        }
+    }
+
+    const list = window._tpdModalSewingTechs || [];
+    
+    const exists = list.some(item => {
+        if (item && typeof item === 'object') {
+            return item.tech.toLowerCase() === techName.toLowerCase();
+        } else {
+            return String(item).toLowerCase() === techName.toLowerCase();
+        }
+    });
+
+    if (exists) {
+        showToast('Kỹ thuật may này đã tồn tại!', 'warning');
+        return;
+    }
+
+    list.push({ tech: techName, group: groupName });
+
+    const promptModal = document.getElementById('tpdAddSewingTechPromptModal');
+    if (promptModal) promptModal.remove();
+
+    _tpdRenderSewingTechsModalList();
+
     const container = document.getElementById('tpdSewingTechsContainer');
     if (container) {
         setTimeout(() => {
@@ -6168,10 +6315,25 @@ function _tpdAddNewSewingTechOption() {
     }
 }
 
-function _tpdUpdateModalSewingTech(idx, val) {
+function _tpdUpdateModalSewingTech(idx, field, val) {
     const list = window._tpdModalSewingTechs || [];
     if (list[idx] !== undefined) {
-        list[idx] = val ? val.trim() : '';
+        if (list[idx] && typeof list[idx] === 'object') {
+            list[idx][field] = val ? val.trim() : '';
+        } else {
+            const tech = field === 'tech' ? (val ? val.trim() : '') : String(list[idx]);
+            let group = 'Khác';
+            const lower = tech.toLowerCase();
+            if (lower.includes('cổ')) {
+                group = 'Nhóm Cổ';
+            } else if (lower.includes('bo') || lower.includes('tay')) {
+                group = 'Nhóm Bo / Tay';
+            }
+            if (field === 'group') {
+                group = val ? val.trim() : '';
+            }
+            list[idx] = { tech, group };
+        }
     }
 }
 
@@ -6185,7 +6347,24 @@ function _tpdDeleteModalSewingTech(idx) {
 
 async function _tpdSaveSewingTechsConfig() {
     const list = window._tpdModalSewingTechs || [];
-    const cleaned = list.map(t => t.trim()).filter(Boolean);
+    const cleaned = list.map(item => {
+        if (item && typeof item === 'object') {
+            return {
+                tech: (item.tech || '').trim(),
+                group: (item.group || 'Khác').trim()
+            };
+        } else {
+            const tech = String(item || '').trim();
+            let group = 'Khác';
+            const lower = tech.toLowerCase();
+            if (lower.includes('cổ')) {
+                group = 'Nhóm Cổ';
+            } else if (lower.includes('bo') || lower.includes('tay')) {
+                group = 'Nhóm Bo / Tay';
+            }
+            return { tech, group };
+        }
+    }).filter(item => item.tech);
 
     try {
         const res = await apiCall('/api/dht/sewing-techniques', 'PUT', cleaned);
@@ -6194,7 +6373,6 @@ async function _tpdSaveSewingTechsConfig() {
             const modal = document.getElementById('tpdSewingTechsConfigModal');
             if (modal) modal.remove();
             
-            // Reload and redraw
             await _tpdLoadSewingTechsConfig();
             _tpdRenderFormInputs();
         } else {
@@ -6205,4 +6383,5 @@ async function _tpdSaveSewingTechsConfig() {
         showToast('Không thể kết nối đến máy chủ', 'danger');
     }
 }
+
 
