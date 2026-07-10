@@ -3788,17 +3788,6 @@ function _tpdUpdateLivePreview() {
                         ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Tải lên ảnh từ bảng bên phải</span></div>`}
                     </div>
                 </div>
-                ${_tpdSortPrintDetails(it.print_details || [])
-                    .filter(d => d.image && d.image.trim())
-                    .map(d => `
-                        <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
-                            <div class="tpd-a4-img-header">Ảnh ${escapeHTML(d.position)}</div>
-                            <div class="tpd-a4-img-body">
-                                <img src="${d.image}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${d.image}')" style="cursor: pointer;">
-                            </div>
-                        </div>
-                    `).join('')
-                }
                 ${_tpdGetInfoBoxHtml(it, layout, o)}
             </div>
 
@@ -4057,7 +4046,7 @@ function _tpdRenderFormInputs() {
 
         const imgSrc = d.image || '';
         const imageZoneHtml = `
-            <div style="margin-top: 4px; border-top: 1px dashed #f1f5f9; padding-top: 4px;">
+            <div style="display: none; margin-top: 4px; border-top: 1px dashed #f1f5f9; padding-top: 4px;">
                 <span style="font-size: 9px; color: #64748b; font-weight: 700; display: block; margin-bottom: 2px;">Ảnh vị trí:</span>
                 <div class="tpd-ws-upload-box paste-target" data-zone="detail_${idx}" style="min-height: 60px; cursor: pointer; padding: 4px; border-radius: 6px; position: relative; display: flex; align-items: center; justify-content: center; border: 1.5px dashed #cbd5e1; background: #f8fafc; transition: all 0.2s;">
                     ${imgSrc ? `
@@ -5281,17 +5270,6 @@ async function _tpdPrintAllSheets() {
                                 ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
-                        ${_tpdSortPrintDetails(it.print_details || [])
-                            .filter(d => d.image && d.image.trim())
-                            .map(d => `
-                                <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
-                                    <div class="tpd-a4-img-header">Ảnh ${escapeHTML(d.position)}</div>
-                                    <div class="tpd-a4-img-body">
-                                        <img src="${d.image}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${d.image}')" style="cursor: pointer;">
-                                    </div>
-                                </div>
-                            `).join('')
-                        }
                         ${_tpdGetInfoBoxHtml(it, layout, o)}
                     </div>
 
