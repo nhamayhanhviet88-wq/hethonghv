@@ -403,20 +403,22 @@ function _tpdSortSizes(sizes) {
 }
 
 function _tpdFormatSizeItem(sz, qty, note) {
-    const cleanSz = sz.trim();
+    const cleanSz = escapeHTML(sz.trim());
     const qtyNum = Number(qty) || 0;
     let sizeText = '';
+    
+    // Highlight the size name in a professional blue/indigo color
+    const sizeNameHtml = `<span style="color: #2563eb; font-weight: 800;">${cleanSz}</span>`;
+    
     if (qtyNum > 0) {
-        if (/^\d/.test(cleanSz)) {
-            sizeText = `${qtyNum} ${cleanSz}`;
-        } else {
-            sizeText = `${qtyNum}${cleanSz}`;
-        }
+        // Always separated by a clear space
+        sizeText = `<span style="color: #0f172a; font-weight: 900;">${qtyNum}</span> ${sizeNameHtml}`;
     } else {
-        sizeText = cleanSz;
+        sizeText = sizeNameHtml;
     }
+    
     if (note && note.trim()) {
-        sizeText += ` (${note.trim()})`;
+        sizeText += ` <span style="color: #dc2626; font-weight: 700;">(${escapeHTML(note.trim())})</span>`;
     }
     return sizeText;
 }
@@ -4743,7 +4745,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                                 return _tpdFormatSizeItem(cleanSz, q.qty, q.note);
                             }).join(' | ');
                         }
-                        lines.push(`<div style="margin-top: 1px;"><span style="color: #1e3a8a; font-weight: 800;">Nam:</span> ${escapeHTML(namStr)}</div>`);
+                        lines.push(`<div style="margin-top: 1px;"><span style="color: #1e3a8a; font-weight: 800;">Nam:</span> ${namStr}</div>`);
 
                         // Nữ line
                         let nuStr = '—';
@@ -4755,7 +4757,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                                 return _tpdFormatSizeItem(cleanSz, q.qty, q.note);
                             }).join(' | ');
                         }
-                        lines.push(`<div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> ${escapeHTML(nuStr)}</div>`);
+                        lines.push(`<div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> ${nuStr}</div>`);
 
                         if (otherList.length > 0) {
                             const sortedOther = _tpdSortSizes(otherList.map(q => q.size));
@@ -4763,7 +4765,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                                 const q = otherList.find(x => x.size === sz);
                                 return _tpdFormatSizeItem(sz, q.qty, q.note);
                             }).join(' | ');
-                            lines.push(`<div style="margin-top: 1px;"><span style="color: #ea580c; font-weight: 800;">Khác:</span> ${escapeHTML(otherStr)}</div>`);
+                            lines.push(`<div style="margin-top: 1px;"><span style="color: #ea580c; font-weight: 800;">Khác:</span> ${otherStr}</div>`);
                         }
 
                         defaultSizeTT = lines.join('');
@@ -4771,9 +4773,9 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                         const sorted = _tpdSortSizes(activeQuantities.map(q => q.size))
                             .map(sz => activeQuantities.find(q => q.size === sz))
                             .filter(Boolean);
-                        defaultSizeTT = escapeHTML(sorted.map(q => {
+                        defaultSizeTT = sorted.map(q => {
                             return _tpdFormatSizeItem(q.size, q.qty, q.note);
-                        }).join(' | '));
+                        }).join(' | ');
                     }
                 } else {
                     if (it.size_type === 'Size Nam / Nữ') {
