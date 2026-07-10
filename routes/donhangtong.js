@@ -4110,18 +4110,17 @@ module.exports = async function(fastify) {
             for (const item of b.items) {
                 const itemId = Number(item.id);
                 if (itemId && oldItemIds.includes(itemId)) {
-                    // Update existing item — NOTE: `quantities` is intentionally excluded
-                    // to preserve TPD-format size breakdown (size + qty + price + note).
-                    // DHT only manages totals (quantity, unit_price, item_total).
+                    // Update existing item — quantities is included for DHT to persist SL/price changes.
+                    // TPD-format size breakdown is protected via frontend smart merge (localStorage draft).
                     await db.run(`
                         UPDATE dht_order_items
                         SET description = $1, quantity = $2, unit_price = $3, total = $4,
                             sale_type = $5, product_name = $6, material_id = $7, material_name = $8,
                             color_id = $9, color_name = $10, pattern_name = $11, sewing_techniques = $12,
-                            accounting_notes = $13, extra_materials = $14,
-                            extra_product = $15, extra_price = $16, item_total = $17, material_pairs = $18,
-                            size_type = $19
-                        WHERE id = $20 AND dht_order_id = $21
+                            accounting_notes = $13, extra_materials = $14, quantities = $15,
+                            extra_product = $16, extra_price = $17, item_total = $18, material_pairs = $19,
+                            size_type = $20
+                        WHERE id = $21 AND dht_order_id = $22
                     `, [
                         item.product_name || '',
                         Number(item.quantity) || 0,
@@ -4137,6 +4136,7 @@ module.exports = async function(fastify) {
                         JSON.stringify(item.sewing_techniques || []),
                         item.accounting_notes || null,
                         JSON.stringify(item.extra_materials || []),
+                        JSON.stringify(item.quantities || []),
                         item.extra_product || null,
                         Number(item.extra_price) || 0,
                         Number(item.item_total) || 0,
