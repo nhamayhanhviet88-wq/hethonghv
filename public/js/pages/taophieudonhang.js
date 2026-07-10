@@ -3705,6 +3705,10 @@ function _tpdGetCustomLayout(index) {
         layout = it.custom_layout;
     }
 
+    if (layout.height === undefined) layout.height = 150;
+    if (layout.topSpacing === undefined) layout.topSpacing = 7;
+    if (layout.alignment === undefined) layout.alignment = 'flex-start';
+
     // Smart sync sewing techniques from master order item & TSAM pattern
     if (!layout.sewing_items) {
         if (layout.custom_sewing && layout.custom_sewing !== '—') {
