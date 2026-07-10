@@ -3844,6 +3844,20 @@ function _tpdRenderFormInputs() {
     details.forEach((d, idx) => {
         const isCustomType = d.print_type && !['Thêu', 'In PET', 'In 3D', 'In lưới', 'In Decal'].includes(d.print_type);
         
+        let valWidth = d.width || '';
+        let valHeight = d.height || '';
+        if (!valWidth && !valHeight && d.dimension && d.dimension.trim()) {
+            const dim = d.dimension.trim();
+            const lowerDim = dim.toLowerCase();
+            if (lowerDim.includes('cao') || lowerDim.includes('h')) {
+                valHeight = dim.replace(/cao/i, '').trim();
+            } else if (lowerDim.includes('ngang') || lowerDim.includes('w')) {
+                valWidth = dim.replace(/ngang/i, '').trim();
+            } else {
+                valWidth = dim;
+            }
+        }
+
         detailBoxesHtml += `
             <div class="tpd-ws-detail-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #ffffff; display: flex; flex-direction: column; gap: 6px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                 <!-- Clear / Delete button -->
@@ -3885,8 +3899,10 @@ function _tpdRenderFormInputs() {
                     ` : ''}
 
                     <div style="display: flex; gap: 4px; align-items: center;">
-                        <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kích thước:</span>
-                        <input type="text" placeholder="Ngang 8cm..." value="${d.dimension || ''}" oninput="_tpdUpdateDetailField(${idx}, 'dimension', this.value)" class="tpd-ws-input" style="flex: 1; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
+                        <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
+                        <input type="text" placeholder="8cm" value="${valWidth}" oninput="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
+                        <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
+                        <input type="text" placeholder="10cm" value="${valHeight}" oninput="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
                     </div>
                 </div>
             </div>
@@ -4040,23 +4056,71 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
                 ? `${d.position} - ${d.print_type.trim()}`
                 : d.position;
 
-            const hasDimension = d.dimension && d.dimension.trim();
+            // Backward compatibility logic
+            let widthText = '';
+            let heightText = '';
+            
+            if (d.width && d.width.trim()) {
+                widthText = d.width.trim();
+                if (!widthText.toLowerCase().includes('ngang') && !widthText.toLowerCase().includes('w')) {
+                    widthText = `Ngang ${widthText}`;
+                }
+            }
+            
+            if (d.height && d.height.trim()) {
+                heightText = d.height.trim();
+                if (!heightText.toLowerCase().includes('cao') && !heightText.toLowerCase().includes('h')) {
+                    heightText = `Cao ${heightText}`;
+                }
+            }
+
+            // Fallback to old 'dimension' field if width/height are empty
+            if (!widthText && !heightText && d.dimension && d.dimension.trim()) {
+                const dim = d.dimension.trim();
+                const lowerDim = dim.toLowerCase();
+                if (lowerDim.includes('cao') || lowerDim.includes('h')) {
+                    heightText = dim;
+                } else if (lowerDim.includes('ngang') || lowerDim.includes('w')) {
+                    widthText = dim;
+                } else {
+                    // Default to width if no orientation specified
+                    widthText = `Ngang ${dim}`;
+                }
+            }
 
             techBoxesHtml += `
                 <div class="tpd-a4-tech-box ${pasteClass}" data-zone="detail_${idx}" style="cursor: pointer; display: flex; flex-direction: column; height: 100%;">
                     <div class="tpd-a4-img-header">${headerText}</div>
-                    <div class="tpd-a4-img-body" style="background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; padding: 4px; flex: 1; box-sizing: border-box; overflow: hidden;">
-                        <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden; min-height: 0;">
-                            ${d.image ? `
-                                <img src="${d.image}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
-                            ` : `
-                                <div class="tpd-a4-img-placeholder" style="font-size: 9px; padding: 10px; text-align: center;">Chưa có ảnh vị trí ${d.position}<br><span style="font-size: 8px; color: #94a3b8;">Click & Ctrl+V để dán</span></div>
-                            `}
+                    <div class="tpd-a4-img-body" style="background: #ffffff; display: flex; flex-direction: row; align-items: stretch; padding: 4px; flex: 1; box-sizing: border-box; overflow: hidden; position: relative;">
+                        <!-- Main Content Area: Image + Horizontal line (Width) -->
+                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; min-height: 0; min-width: 0;">
+                            <!-- Image wrapper -->
+                            <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden; min-height: 0;">
+                                ${d.image ? `
+                                    <img src="${d.image}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                ` : `
+                                    <div class="tpd-a4-img-placeholder" style="font-size: 9px; padding: 10px; text-align: center;">Chưa có ảnh vị trí ${d.position}<br><span style="font-size: 8px; color: #94a3b8;">Click & Ctrl+V để dán</span></div>
+                                `}
+                            </div>
+                            
+                            <!-- Width (Ngang) indicator -->
+                            ${widthText ? `
+                                <div style="width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 4px; padding-bottom: 2px;">
+                                    <div style="width: 80%; border-top: 2px solid #ef4444; margin-bottom: 2px;"></div>
+                                    <div style="color: #ef4444; font-size: 11px; font-weight: 800; text-align: center; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">${widthText}</div>
+                                </div>
+                            ` : ''}
                         </div>
-                        ${hasDimension ? `
-                            <div style="width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 4px; padding-bottom: 2px;">
-                                <div style="width: 90%; border-top: 2px solid #ef4444; margin-bottom: 2px;"></div>
-                                <div style="color: #ef4444; font-size: 11px; font-weight: 800; text-align: center; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">${d.dimension.trim()}</div>
+
+                        <!-- Height (Cao) indicator on the right side -->
+                        ${heightText ? `
+                            <div style="width: 28px; display: flex; flex-direction: row; align-items: stretch; margin-left: 4px; flex-shrink: 0; min-width: 0;">
+                                <!-- Vertical red line -->
+                                <div style="width: 2px; border-left: 2.5px solid #ef4444; margin: 8px 2px 8px 0; height: auto;"></div>
+                                <!-- Text label rotated vertically -->
+                                <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #ef4444; font-size: 10.5px; font-weight: 800; text-align: center; line-height: 1.1; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;">
+                                    ${heightText}
+                                </div>
                             </div>
                         ` : ''}
                     </div>
