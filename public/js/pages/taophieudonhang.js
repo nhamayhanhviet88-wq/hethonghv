@@ -4243,7 +4243,7 @@ function _tpdRenderFormInputs() {
                     <span id="tpd_lbl_height">${layout.height ? layout.height + 'mm' : 'Tự động'}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="range" min="30" max="120" value="${layout.height || 84}" class="slider" style="flex: 1; cursor: pointer;" oninput="_tpdChangeLayoutHeight(this.value)">
+                    <input type="range" min="30" max="200" value="${layout.height || 84}" class="slider" style="flex: 1; cursor: pointer;" oninput="_tpdChangeLayoutHeight(this.value)">
                     <button type="button" class="tpd-btn" style="padding: 2px 6px; font-size: 10px; height: auto;" onclick="_tpdResetLayoutHeight()">Tự động</button>
                 </div>
             </div>
