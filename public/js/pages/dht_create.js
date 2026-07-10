@@ -2739,6 +2739,18 @@ async function _dhtEditOrderFull(id) {
 
 async function _dhtInitializeEditState(id, data) {
     try {
+        if (!window._dht) {
+            window._dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, activeFilters: {}, sortCol: null, sortDir: null, page: 1, pageSize: 100 };
+        }
+        if (!_dht.categories || _dht.categories.length === 0) {
+            try {
+                var catRes = await apiCall('/api/dht/categories');
+                _dht.categories = catRes.categories || [];
+            } catch(catErr) {
+                console.error('Error fetching categories in edit state:', catErr);
+            }
+        }
+
         if (!data) {
             showToast('⏳ Đang tải dữ liệu...');
             data = await apiCall('/api/dht/orders/' + id + '/detail');
