@@ -4299,20 +4299,29 @@ function _tpdRenderFormInputs() {
             if (Array.isArray(details) && details.length > 0) {
                 defaultPrinting = details.map(d => {
                     let dimStr = '';
-                    if (d.width && d.width.trim()) dimStr += `Ngang ${d.width.trim()}`;
-                    if (d.height && d.height.trim()) {
+                    const w = (d.width || '').trim();
+                    const h = (d.height || '').trim();
+                    if (w) {
+                        const wSuffix = w.toLowerCase().endsWith('cm') ? '' : 'cm';
+                        dimStr += `Ngang ${w}${wSuffix}`;
+                    }
+                    if (h) {
+                        const hSuffix = h.toLowerCase().endsWith('cm') ? '' : 'cm';
                         if (dimStr) dimStr += ' x ';
-                        dimStr += `Cao ${d.height.trim()}`;
+                        dimStr += `Cao ${h}${hSuffix}`;
                     }
                     const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
                     let offsetStr = '';
                     if (posConfig && posConfig.require_offset) {
-                        const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-                        if (offsetVal && offsetVal.trim()) {
-                            offsetStr = ` (Gáy: ${offsetVal.trim()})`;
+                        const offsetVal = (d.offset_value || d.gay_xuong || d.co_xuong || '').trim();
+                        if (offsetVal) {
+                            const offsetSuffix = offsetVal.toLowerCase().endsWith('cm') ? '' : 'cm';
+                            const label = posConfig.offset_label || 'Gáy';
+                            const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
+                            offsetStr = ` - ${displayLabel}: ${offsetVal}${offsetSuffix}`;
                         }
                     }
-                    return `${d.position}: ${d.print_type || '—'}${dimStr ? ` (${dimStr})` : ''}${offsetStr}`;
+                    return `${d.position}: ${d.print_type || '—'}${dimStr ? ` - ${dimStr}` : ''}${offsetStr}`;
                 }).join('; ');
             }
         } catch(e){}
@@ -4323,17 +4332,44 @@ function _tpdRenderFormInputs() {
         try {
             const filledQuantities = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : it.quantities;
             if (Array.isArray(filledQuantities)) {
-                const sorted = _tpdSortSizes(filledQuantities.map(q => q.size))
-                    .map(sz => filledQuantities.find(q => q.size === sz))
-                    .filter(Boolean)
-                    .filter(q => Number(q.qty) > 0 || (q.note && q.note.trim()));
-                if (sorted.length > 0) {
-                    defaultSizeTT = sorted.map(q => {
+                const activeQuantities = filledQuantities.filter(q => Number(q.qty) > 0 || (q.note && q.note.trim()));
+                if (activeQuantities.length > 0) {
+                    if (it.size_type === 'Size Nam / Nữ') {
+                        const namList = activeQuantities.filter(q => q.size.startsWith('Nam'));
+                        const nuList = activeQuantities.filter(q => q.size.startsWith('Nữ'));
                         const parts = [];
-                        if (Number(q.qty) > 0) parts.push(q.qty);
-                        if (q.note && q.note.trim()) parts.push(q.note.trim());
-                        return `${q.size}: ${parts.join(' - ')}`;
-                    }).join(' | ');
+                        if (namList.length > 0) {
+                            parts.push('Nam: ' + _tpdSortSizes(namList.map(q => q.size)).map(sz => {
+                                const q = namList.find(x => x.size === sz);
+                                const cleanSz = sz.replace(/^Nam\s+/, '');
+                                const subParts = [];
+                                if (Number(q.qty) > 0) subParts.push(q.qty);
+                                if (q.note && q.note.trim()) subParts.push(q.note.trim());
+                                return `${cleanSz}: ${subParts.join('-')}`;
+                            }).join(' | '));
+                        }
+                        if (nuList.length > 0) {
+                            parts.push('Nữ: ' + _tpdSortSizes(nuList.map(q => q.size)).map(sz => {
+                                const q = nuList.find(x => x.size === sz);
+                                const cleanSz = sz.replace(/^Nữ\s+/, '');
+                                const subParts = [];
+                                if (Number(q.qty) > 0) subParts.push(q.qty);
+                                if (q.note && q.note.trim()) subParts.push(q.note.trim());
+                                return `${cleanSz}: ${subParts.join('-')}`;
+                            }).join(' | '));
+                        }
+                        defaultSizeTT = parts.join('; ');
+                    } else {
+                        const sorted = _tpdSortSizes(activeQuantities.map(q => q.size))
+                            .map(sz => activeQuantities.find(q => q.size === sz))
+                            .filter(Boolean);
+                        defaultSizeTT = sorted.map(q => {
+                            const parts = [];
+                            if (Number(q.qty) > 0) parts.push(q.qty);
+                            if (q.note && q.note.trim()) parts.push(q.note.trim());
+                            return `${q.size}: ${parts.join(' - ')}`;
+                        }).join(' | ');
+                    }
                 }
             }
         } catch(e){}
@@ -4378,7 +4414,7 @@ function _tpdRenderFormInputs() {
                     <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: (${escapeHTML(it.product_name || '—')})" value="${escapeHTML(layout.custom_bao_size || '')}" oninput="_tpdChangeCustomInfo('custom_bao_size', this.value)" ${disabledAttr}>
                 </div>
                 <div>
-                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">Size TT (Thông số size)</label>
+                    <label class="tpd-ws-form-label" style="font-size: 11px; margin-bottom: 2px;">${escapeHTML(it.size_type || 'Size TT')}</label>
                     <input type="text" class="tpd-ws-input" style="font-size: 11px; height: 28px;" placeholder="Mặc định: ${escapeHTML(defaultSizeTT)}" value="${escapeHTML(layout.custom_size_tt || '')}" oninput="_tpdChangeCustomInfo('custom_size_tt', this.value)" ${disabledAttr}>
                 </div>
                 <div>
@@ -4612,24 +4648,33 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
             if (Array.isArray(details) && details.length > 0) {
                 defaultPrinting = details.map(d => {
                     let dimStr = '';
-                    if (d.width && d.width.trim()) dimStr += `Ngang ${d.width.trim()}`;
-                    if (d.height && d.height.trim()) {
+                    const w = (d.width || '').trim();
+                    const h = (d.height || '').trim();
+                    if (w) {
+                        const wSuffix = w.toLowerCase().endsWith('cm') ? '' : 'cm';
+                        dimStr += `Ngang ${w}${wSuffix}`;
+                    }
+                    if (h) {
+                        const hSuffix = h.toLowerCase().endsWith('cm') ? '' : 'cm';
                         if (dimStr) dimStr += ' x ';
-                        dimStr += `Cao ${d.height.trim()}`;
+                        dimStr += `Cao ${h}${hSuffix}`;
                     }
                     const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
                     let offsetStr = '';
                     if (posConfig && posConfig.require_offset) {
-                        const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-                        if (offsetVal && offsetVal.trim()) {
-                            offsetStr = ` (Gáy: ${offsetVal.trim()})`;
+                        const offsetVal = (d.offset_value || d.gay_xuong || d.co_xuong || '').trim();
+                        if (offsetVal) {
+                            const offsetSuffix = offsetVal.toLowerCase().endsWith('cm') ? '' : 'cm';
+                            const label = posConfig.offset_label || 'Gáy';
+                            const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
+                            offsetStr = ` - ${displayLabel}: ${offsetVal}${offsetSuffix}`;
                         }
                     }
                     const safePosition = escapeHTML(d.position || '—');
                     const safePrintType = escapeHTML(d.print_type || '—');
-                    const safeDimStr = escapeHTML(dimStr);
+                    const safeDimStr = dimStr ? ` - ${escapeHTML(dimStr)}` : '';
                     const safeOffsetStr = escapeHTML(offsetStr);
-                    return `<div style="margin-top: 1px;"><span style="color: #047857; font-weight: 800;">${safePosition}:</span> ${safePrintType}${safeDimStr ? ` (${safeDimStr})` : ''}${safeOffsetStr}</div>`;
+                    return `<div style="margin-top: 1px;"><span style="color: #047857; font-weight: 800;">${safePosition}:</span> ${safePrintType}${safeDimStr}${safeOffsetStr}</div>`;
                 }).join('');
             }
         } catch(e){}
@@ -4769,7 +4814,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                         <span style="font-weight: 800; color: #1e293b; text-transform: uppercase;">${escapeHTML(baoSizeVal)}</span>
                     </div>
                     <div>
-                        <strong style="color: #0f172a; font-weight: 800;">Size TT:</strong> 
+                        <strong style="color: #0f172a; font-weight: 800;">${escapeHTML(it.size_type || 'Size TT')}:</strong> 
                         <span style="font-weight: 700; color: #0f172a; display: block; margin-top: 2px;">${sizeTTVal}</span>
                     </div>
                 </div>
