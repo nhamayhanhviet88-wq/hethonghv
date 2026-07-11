@@ -6350,36 +6350,19 @@ function _tpdGenerateFinancialSummaryText(o, items) {
         text += `Phiếu ${idx + 1}: ${qty} áo, giá tiền ${fmt(price)}đ tổng ${fmt(subtotal)}đ\n`;
     });
     
-    text += `\n🖼️ Ảnh 2:\n`;
-    let hasMockup = false;
-    items.forEach((item, idx) => {
-        const mockupSrc = item.mockup_image || '';
-        if (mockupSrc && mockupSrc.trim()) {
-            hasMockup = true;
-            let fullUrl = mockupSrc;
-            if (mockupSrc.startsWith('/')) {
-                fullUrl = window.location.origin + mockupSrc;
-            }
-            text += `- Phiếu ${idx + 1}: ${fullUrl}\n`;
-        }
-    });
-    if (!hasMockup) {
-        text += `Không có\n`;
-    }
-    
     text += `\n`;
     
     const creatorName = o.cskh_name || (window.currentUser && (window.currentUser.full_name || window.currentUser.username)) || '—';
     const customerName = o.customer_name || '—';
     const customerPhone = o.customer_phone || '—';
     const fullAddress = [o.address, o.province].filter(Boolean).join(', ') || '—';
-    const shipPriority = o.shipping_priority || '—';
+    const shipCarrier = o.carrier_name || '—';
     
     text += `Nhân Viên Lên Đơn : ${creatorName}\n`;
     text += `Tên Khách Hàng : ${customerName}\n`;
     text += `SĐT : ${customerPhone}\n`;
     text += `Địa Chỉ : ${fullAddress}\n`;
-    text += `Hình Thức Gửi : ${shipPriority}\n`;
+    text += `Hình Thức Gửi : ${shipCarrier}\n`;
     
     return text;
 }
