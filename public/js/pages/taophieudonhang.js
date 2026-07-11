@@ -3726,7 +3726,7 @@ function _tpdGetCustomLayout(index) {
         layout = it.custom_layout;
     }
 
-    if (layout.height === undefined) layout.height = defLayout.height;
+    if (layout.height === undefined || layout.height === '') layout.height = defLayout.height;
     if (layout.topSpacing === undefined) layout.topSpacing = defLayout.topSpacing;
     if (layout.alignment === undefined) layout.alignment = defLayout.alignment;
 
@@ -3814,7 +3814,7 @@ function _tpdResetLayoutHeight() {
     const state = window._tpdWorkspaceState;
     if (!state) return;
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
-    layout.height = '';
+    layout.height = 'auto';
     _tpdUpdateLivePreview();
     _tpdRenderFormInputs();
     _tpdSaveDraft(state.editingItem);
@@ -3991,7 +3991,7 @@ function _tpdUpdateLivePreview() {
 
     // Layout options
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
-    const customHeight = layout.height ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
+    const customHeight = (layout.height && layout.height !== 'auto') ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
     const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
     const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
 
@@ -4710,10 +4710,10 @@ function _tpdRenderFormInputs() {
                 <div style="margin-bottom: 12px;">
                     <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">
                         <span>Chiều cao khung ảnh:</span>
-                        <span id="tpd_lbl_height">${layout.height ? layout.height + 'mm' : 'Tự động'}</span>
+                        <span id="tpd_lbl_height">${(layout.height && layout.height !== 'auto') ? layout.height + 'mm' : 'Tự động'}</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <input type="range" min="30" max="200" value="${layout.height || 84}" class="slider" style="flex: 1; cursor: pointer;" oninput="_tpdChangeLayoutHeight(this.value)">
+                        <input type="range" min="30" max="200" value="${(layout.height && layout.height !== 'auto') ? layout.height : 84}" class="slider" style="flex: 1; cursor: pointer;" oninput="_tpdChangeLayoutHeight(this.value)">
                         <button type="button" class="tpd-btn" style="padding: 2px 6px; font-size: 10px; height: auto;" onclick="_tpdResetLayoutHeight()">Tự động</button>
                     </div>
                 </div>
@@ -6075,7 +6075,7 @@ async function _tpdShowExportSheetsModal() {
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(deepLink)}`;
         const mockupSrc = it.mockup_image || '';
         const layout = _tpdGetCustomLayout(idx);
-        const customHeight = layout.height ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
+        const customHeight = (layout.height && layout.height !== 'auto') ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
         const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
         const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
 
@@ -6350,7 +6350,7 @@ async function _tpdPrintAllSheets() {
 
         // Layout options for this specific sheet
         const layout = _tpdGetCustomLayout(idx);
-        const customHeight = layout.height ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
+        const customHeight = (layout.height && layout.height !== 'auto') ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
         const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
         const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
 
