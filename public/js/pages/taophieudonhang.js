@@ -553,7 +553,8 @@ function _tpdRenderList() {
         filtered = filtered.filter(o => 
             (o.order_code && o.order_code.toLowerCase().includes(query)) ||
             (o.customer_name && o.customer_name.toLowerCase().includes(query)) ||
-            (o.customer_phone && o.customer_phone.includes(query))
+            (o.customer_phone && o.customer_phone.includes(query)) ||
+            (o.draft_name && o.draft_name.toLowerCase().includes(query))
         );
     }
 
