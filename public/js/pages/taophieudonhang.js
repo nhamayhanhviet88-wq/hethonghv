@@ -4381,12 +4381,17 @@ function _tpdRenderFormInputs() {
     details.forEach((d) => {
         const idx = d.originalIndex;
         const configPrintTypes = _tpd.printTypesConfig || ["Thêu", "In PET", "In 3D", "In lưới", "In Decal"];
-        const localTypes = [...configPrintTypes];
+        const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
+        
+        let localTypes = [...configPrintTypes];
+        if (!isPrint3DPosition) {
+            localTypes = localTypes.filter(t => t.toLowerCase() !== 'in 3d');
+        }
+
         if (d.print_type && d.print_type.trim() && !localTypes.includes(d.print_type)) {
             localTypes.push(d.print_type);
         }
         
-        const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
         if (isPrint3DPosition) {
             d.print_type = 'In 3D';
             d.width = '';
