@@ -4381,7 +4381,10 @@ function _tpdRenderFormInputs() {
     details.forEach((d) => {
         const idx = d.originalIndex;
         const configPrintTypes = _tpd.printTypesConfig || ["Thêu", "In PET", "In 3D", "In lưới", "In Decal"];
-        const isCustomType = d.print_type && !configPrintTypes.includes(d.print_type);
+        const localTypes = [...configPrintTypes];
+        if (d.print_type && d.print_type.trim() && !localTypes.includes(d.print_type)) {
+            localTypes.push(d.print_type);
+        }
         
         let valWidth = d.width || '';
         let valHeight = d.height || '';
@@ -4446,14 +4449,9 @@ function _tpdRenderFormInputs() {
                         <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kiểu:</span>
                         <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr}>
                             <option value="">-- Kiểu in/thêu --</option>
-                            ${configPrintTypes.map(t => `<option value="${t}" ${d.print_type === t ? 'selected' : ''}>${t}</option>`).join('')}
-                            <option value="Khác" ${isCustomType || d.print_type === 'Khác' ? 'selected' : ''}>Khác...</option>
+                            ${localTypes.map(t => `<option value="${t}" ${d.print_type === t ? 'selected' : ''}>${t}</option>`).join('')}
                         </select>
                     </div>
-
-                    ${(isCustomType || d.print_type === 'Khác') ? `
-                        <input type="text" placeholder="Nhập kiểu in/thêu..." value="${d.print_type === 'Khác' ? '' : d.print_type}" onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;" ${disabledAttr}>
-                    ` : ''}
 
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
