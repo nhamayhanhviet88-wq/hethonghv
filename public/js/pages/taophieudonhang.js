@@ -6002,26 +6002,54 @@ function _tpdValidateAllSheets() {
     const state = window._tpdWorkspaceState;
     if (!state) return false;
 
+    // First, gather and validate quantity checks for all sheets at once
+    const missingSheets = [];
+    const exceedSheets = [];
     for (let idx = 0; idx < state.items.length; idx++) {
-        // Active tab has current edits in editingItem, other tabs load from cloned state (which pulls from localStorage draft if exists)
+        const it = (idx === state.activeItemIndex) ? state.editingItem : _tpdCloneItemState(state.items[idx]);
+        if (!it) continue;
+        const dhtQty = Number(it.quantity) || 0;
+        const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
+        if (dhtQty > 0 && totalSizeQty < dhtQty) {
+            missingSheets.push({
+                idx: idx,
+                name: it.product_name || 'Không tên',
+                totalSizeQty: totalSizeQty,
+                dhtQty: dhtQty,
+                missing: dhtQty - totalSizeQty
+            });
+        }
+        if (dhtQty > 0 && totalSizeQty > dhtQty) {
+            exceedSheets.push({
+                idx: idx,
+                name: it.product_name || 'Không tên',
+                totalSizeQty: totalSizeQty,
+                dhtQty: dhtQty,
+                exceed: totalSizeQty - dhtQty
+            });
+        }
+    }
+
+    if (missingSheets.length > 0) {
+        const messages = missingSheets.map(s => `• Phiếu ${s.idx + 1} ("${s.name}"): Đã nhập ${s.totalSizeQty}/${s.dhtQty} áo (thiếu ${s.missing} áo)`).join('\n');
+        alert(`⚠️ CẢNH BÁO: Số lượng nhập chưa đủ!\n\nCó ${missingSheets.length} phiếu chưa nhập đủ số lượng:\n${messages}\n\nVui lòng nhập đủ số lượng cho các phiếu này trước khi Xuất Phiếu & Lên Đơn.`);
+        _tpdSwitchItemTab(missingSheets[0].idx); // Switch to the first problematic sheet
+        return false;
+    }
+
+    if (exceedSheets.length > 0) {
+        const messages = exceedSheets.map(s => `• Phiếu ${s.idx + 1} ("${s.name}"): Đã nhập ${s.totalSizeQty}/${s.dhtQty} áo (vượt quá ${s.exceed} áo)`).join('\n');
+        alert(`⚠️ CẢNH BÁO: Số lượng nhập vượt quá!\n\nCó ${exceedSheets.length} phiếu nhập vượt quá số lượng của đơn hàng:\n${messages}\n\nVui lòng điều chỉnh chính xác bằng số lượng của đơn hàng.`);
+        _tpdSwitchItemTab(exceedSheets[0].idx); // Switch to the first problematic sheet
+        return false;
+    }
+
+    // Now, run print details validation
+    for (let idx = 0; idx < state.items.length; idx++) {
         const it = (idx === state.activeItemIndex) ? state.editingItem : _tpdCloneItemState(state.items[idx]);
         if (!it) continue;
 
         const layout = _tpdGetCustomLayout(idx);
-
-        // 1. Validate quantities match
-        const dhtQty = Number(it.quantity) || 0;
-        const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
-        if (dhtQty > 0 && totalSizeQty < dhtQty) {
-            showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Số lượng đã nhập (${totalSizeQty}) chưa đủ so với số lượng phiếu (${dhtQty}). Còn thiếu ${dhtQty - totalSizeQty} áo! Vui lòng nhập đủ số lượng mới có thể xuất phiếu.`, 'error');
-            _tpdSwitchItemTab(idx); // Auto switch tab to error sheet
-            return false;
-        }
-        if (dhtQty > 0 && totalSizeQty > dhtQty) {
-            showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Số lượng đã nhập (${totalSizeQty}) vượt quá số lượng phiếu (${dhtQty})! Vui lòng điều chỉnh chính xác bằng số lượng phiếu mới có thể xuất phiếu.`, 'error');
-            _tpdSwitchItemTab(idx); // Auto switch tab to error sheet
-            return false;
-        }
 
         // 2. Validate print details
         if (it.print_details && it.print_details.length > 0) {
@@ -6309,6 +6337,54 @@ function _tpdGenerateConfirmationText(o, items, templateText) {
     return finalStr;
 }
 
+// Generate financial summary text for copy block
+function _tpdGenerateFinancialSummaryText(o, items) {
+    const fmt = n => Number(n || 0).toLocaleString('vi-VN');
+    
+    let text = `💰 TỔNG KẾT TIỀN ĐƠN HÀNG\n\n`;
+    
+    items.forEach((item, idx) => {
+        const qty = Number(item.quantity) || 0;
+        const price = Number(item.unit_price) || 0;
+        const subtotal = qty * price;
+        text += `Phiếu ${idx + 1}: ${qty} áo, giá tiền ${fmt(price)}đ tổng ${fmt(subtotal)}đ\n`;
+    });
+    
+    text += `\n🖼️ Ảnh 2:\n`;
+    let hasMockup = false;
+    items.forEach((item, idx) => {
+        const mockupSrc = item.mockup_image || '';
+        if (mockupSrc && mockupSrc.trim()) {
+            hasMockup = true;
+            let fullUrl = mockupSrc;
+            if (mockupSrc.startsWith('/')) {
+                fullUrl = window.location.origin + mockupSrc;
+            }
+            text += `- Phiếu ${idx + 1}: ${fullUrl}\n`;
+        }
+    });
+    if (!hasMockup) {
+        text += `Không có\n`;
+    }
+    
+    text += `\n`;
+    
+    const creatorName = o.cskh_name || (window.currentUser && (window.currentUser.full_name || window.currentUser.username)) || '—';
+    const customerName = o.customer_name || '—';
+    const customerPhone = o.customer_phone || '—';
+    const fullAddress = [o.address, o.province].filter(Boolean).join(', ') || '—';
+    const shipPriority = o.shipping_priority || '—';
+    
+    text += `Nhân Viên Lên Đơn : ${creatorName}\n`;
+    text += `Tên Khách Hàng : ${customerName}\n`;
+    text += `SĐT : ${customerPhone}\n`;
+    text += `Địa Chỉ : ${fullAddress}\n`;
+    text += `Hình Thức Gửi : ${shipPriority}\n`;
+    
+    return text;
+}
+
+
 // Render and show the export modal with image generation and mandatory download flow
 async function _tpdShowExportSheetsModal() {
     const state = window._tpdWorkspaceState;
@@ -6328,6 +6404,7 @@ async function _tpdShowExportSheetsModal() {
     }
 
     window._tpdCopiedConfirmationText = false;
+    window._tpdCopiedFinancialSummaryText = false;
 
     // Create the overlay container if not exists
     let overlay = document.getElementById('tpdExportOverlay');
@@ -6397,6 +6474,15 @@ async function _tpdShowExportSheetsModal() {
                             </button>
                         </div>
                     `).join('')}
+                </div>
+
+                <!-- Financial Summary copy block -->
+                <div style="margin-top: 24px; padding: 18px; border: 1.5px solid #d97706; background: #fffbeb; border-radius: 12px; display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                        <span style="font-size: 13px; font-weight: 800; color: #78350f; display: flex; align-items: center; gap: 6px;">💰 TỔNG KẾT TIỀN ĐƠN HÀNG</span>
+                        <span id="tpdFinancialSummaryCopyStatus" style="font-size: 11px; font-weight: 800; color: #ef4444; background: #fee2e2; padding: 4px 10px; border-radius: 6px;">⚠️ YÊU CẦU BẮT BUỘC: CLICK VÀO KHUNG DƯỚI ĐỂ SAO CHÉP</span>
+                    </div>
+                    <div id="tpdCopyableFinancialSummaryContainer" onclick="_tpdCopyFinancialSummaryToClipboard()" data-text-to-copy="${escapeHTML(_tpdGenerateFinancialSummaryText(o, items))}" style="cursor: pointer; background: #ffffff; border: 1.5px solid #fef3c7; border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.6; color: #1f2937; white-space: pre-wrap; max-height: 250px; overflow-y: auto; user-select: none; transition: all 0.2s;" onmouseover="this.style.borderColor='#d97706'; this.style.boxShadow='0 0 10px rgba(217,119,6,0.1)';" onmouseout="this.style.borderColor='#fef3c7'; this.style.boxShadow='none';">${escapeHTML(_tpdGenerateFinancialSummaryText(o, items))}</div>
                 </div>
 
                 <!-- Confirmation Text copy block -->
@@ -6638,12 +6724,41 @@ async function _tpdShowExportSheetsModal() {
         });
     };
 
+    window._tpdCopyFinancialSummaryToClipboard = function() {
+        const textContainer = document.getElementById('tpdCopyableFinancialSummaryContainer');
+        if (!textContainer) return;
+        
+        const text = textContainer.getAttribute('data-text-to-copy') || textContainer.innerText || textContainer.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            window._tpdCopiedFinancialSummaryText = true;
+            
+            // Update Copy Status indicator
+            const copyStatus = document.getElementById('tpdFinancialSummaryCopyStatus');
+            if (copyStatus) {
+                copyStatus.innerHTML = '✓ ĐÃ SAO CHÉP THÀNH CÔNG VÀO CLIPBOARD!';
+                copyStatus.style.backgroundColor = '#d1fae5';
+                copyStatus.style.color = '#065f46';
+            }
+            
+            // Show toast
+            showToast('📋 Đã sao chép tổng kết tiền vào bộ nhớ tạm!', 'success');
+            
+            // Re-evaluate unlock status
+            if (typeof window._tpdCheckConfirmUnlock === 'function') {
+                window._tpdCheckConfirmUnlock();
+            }
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            showToast('⚠️ Lỗi sao chép nội dung.', 'error');
+        });
+    };
+
     window._tpdCheckConfirmUnlock = function() {
         const confirmBtn = document.getElementById('exportConfirmBtn');
         if (!confirmBtn) return;
         
         const allDownloaded = downloaded.every(d => d === true);
-        if (allDownloaded && window._tpdCopiedConfirmationText) {
+        if (allDownloaded && window._tpdCopiedConfirmationText && window._tpdCopiedFinancialSummaryText) {
             confirmBtn.disabled = false;
             confirmBtn.style.background = 'linear-gradient(135deg, #059669, #10b981)';
             confirmBtn.style.color = '#ffffff';
