@@ -5858,8 +5858,12 @@ async function _tpdSaveProductionSheet() {
     // ★ Validation: total size qty must match DHT quantity
     const dhtQty = Number(it.quantity) || 0;
     const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
-    if (dhtQty > 0 && totalSizeQty !== dhtQty) {
-        showToast(`⚠️ Tổng SL bảng size (${totalSizeQty}) không khớp với SL phiếu DHT (${dhtQty}). Vui lòng điều chỉnh bảng size!`, 'error');
+    if (dhtQty > 0 && totalSizeQty < dhtQty) {
+        showToast(`⚠️ Số lượng đã nhập (${totalSizeQty}) chưa đủ so với số lượng phiếu (${dhtQty}). Còn thiếu ${dhtQty - totalSizeQty} áo! Vui lòng nhập đủ số lượng mới có thể lưu.`, 'error');
+        return false;
+    }
+    if (dhtQty > 0 && totalSizeQty > dhtQty) {
+        showToast(`⚠️ Số lượng đã nhập (${totalSizeQty}) vượt quá số lượng phiếu (${dhtQty})! Vui lòng điều chỉnh chính xác bằng số lượng phiếu mới có thể lưu.`, 'error');
         return false;
     }
 
@@ -6007,8 +6011,13 @@ function _tpdValidateAllSheets() {
         // 1. Validate quantities match
         const dhtQty = Number(it.quantity) || 0;
         const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
-        if (dhtQty > 0 && totalSizeQty !== dhtQty) {
-            showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Tổng SL bảng size (${totalSizeQty}) không khớp với SL phiếu DHT (${dhtQty})!`, 'error');
+        if (dhtQty > 0 && totalSizeQty < dhtQty) {
+            showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Số lượng đã nhập (${totalSizeQty}) chưa đủ so với số lượng phiếu (${dhtQty}). Còn thiếu ${dhtQty - totalSizeQty} áo! Vui lòng nhập đủ số lượng mới có thể xuất phiếu.`, 'error');
+            _tpdSwitchItemTab(idx); // Auto switch tab to error sheet
+            return false;
+        }
+        if (dhtQty > 0 && totalSizeQty > dhtQty) {
+            showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Số lượng đã nhập (${totalSizeQty}) vượt quá số lượng phiếu (${dhtQty})! Vui lòng điều chỉnh chính xác bằng số lượng phiếu mới có thể xuất phiếu.`, 'error');
             _tpdSwitchItemTab(idx); // Auto switch tab to error sheet
             return false;
         }
@@ -6022,18 +6031,21 @@ function _tpdValidateAllSheets() {
                     _tpdSwitchItemTab(idx);
                     return false;
                 }
-                const hasWidth = d.width && d.width.trim();
-                const hasHeight = d.height && d.height.trim();
-                const hasDim = d.dimension && d.dimension.trim();
-                if (!hasWidth && !hasHeight && !hasDim) {
-                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng điền kích thước Ngang hoặc Cao cho vị trí "${d.position}"!`, 'error');
-                    _tpdSwitchItemTab(idx);
-                    return false;
-                }
-                if (hasWidth && hasHeight) {
-                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Chỉ được điền kích thước Ngang HOẶC Cao cho vị trí "${d.position}" (không điền cả hai)!`, 'error');
-                    _tpdSwitchItemTab(idx);
-                    return false;
+                const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
+                if (!isPrint3DPosition) {
+                    const hasWidth = d.width && d.width.trim();
+                    const hasHeight = d.height && d.height.trim();
+                    const hasDim = d.dimension && d.dimension.trim();
+                    if (!hasWidth && !hasHeight && !hasDim) {
+                        showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng điền kích thước Ngang hoặc Cao cho vị trí "${d.position}"!`, 'error');
+                        _tpdSwitchItemTab(idx);
+                        return false;
+                    }
+                    if (hasWidth && hasHeight) {
+                        showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Chỉ được điền kích thước Ngang HOẶC Cao cho vị trí "${d.position}" (không điền cả hai)!`, 'error');
+                        _tpdSwitchItemTab(idx);
+                        return false;
+                    }
                 }
                 const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
                 if (posConfig) {
