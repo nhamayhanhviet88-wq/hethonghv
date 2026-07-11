@@ -3850,11 +3850,43 @@ function _tpdChangeLayoutEditable(checked) {
 function _tpdChangeLayoutRedSheet(checked) {
     const state = window._tpdWorkspaceState;
     if (!state) return;
+
+    // 1. Update the active item
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
     layout.is_red_sheet = checked;
+    _tpdSaveDraft(state.editingItem);
+
+    // 2. Automatically propagate to all other sheets in this order
+    state.items.forEach((item, idx) => {
+        if (idx === state.activeItemIndex) return;
+
+        // Load the cloned item state (reads from localStorage if exists, otherwise original item)
+        let it = _tpdCloneItemState(item);
+        if (it) {
+            if (!it.custom_layout) {
+                it.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+            } else if (typeof it.custom_layout === 'string') {
+                try { it.custom_layout = JSON.parse(it.custom_layout); } catch(e) {
+                    it.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+                }
+            }
+            it.custom_layout.is_red_sheet = checked;
+            _tpdSaveDraft(it);
+        }
+
+        // Also update in-memory state.items so that it's up to date
+        if (!item.custom_layout) {
+            item.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+        } else if (typeof item.custom_layout === 'string') {
+            try { item.custom_layout = JSON.parse(item.custom_layout); } catch(e) {
+                item.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+            }
+        }
+        item.custom_layout.is_red_sheet = checked;
+    });
+
     _tpdUpdateLivePreview();
     _tpdRenderFormInputs();
-    _tpdSaveDraft(state.editingItem);
 }
 
 // Calculate table count to adjust images row height dynamically and avoid A4 overflow

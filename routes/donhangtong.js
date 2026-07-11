@@ -2833,7 +2833,15 @@ module.exports = async function(fastify) {
         if (b.style_name !== undefined) { sets.push(`style_name = $${idx++}`); vals.push(b.style_name || null); }
         if (b.workshop_note !== undefined) { sets.push(`workshop_note = $${idx++}`); vals.push(b.workshop_note || null); }
         if (b.size_type !== undefined) { sets.push(`size_type = $${idx++}`); vals.push(b.size_type || 'Size TT'); }
+        let isRedSheetVal = null;
         if (b.custom_layout !== undefined) {
+            let layoutObj = b.custom_layout;
+            if (typeof layoutObj === 'string') {
+                try { layoutObj = JSON.parse(layoutObj); } catch(e) {}
+            }
+            if (layoutObj && typeof layoutObj === 'object' && layoutObj.is_red_sheet !== undefined) {
+                isRedSheetVal = layoutObj.is_red_sheet;
+            }
             sets.push(`custom_layout = $${idx++}`);
             vals.push(b.custom_layout ? JSON.stringify(b.custom_layout) : '{}');
         }
@@ -2860,6 +2868,15 @@ module.exports = async function(fastify) {
 
         vals.push(itemId);
         await db.run(`UPDATE dht_order_items SET ${sets.join(', ')} WHERE id = $${idx}`, vals);
+
+        if (isRedSheetVal !== null) {
+            // Synchronize is_red_sheet value to all other items of the same order
+            await db.run(`
+                UPDATE dht_order_items 
+                SET custom_layout = jsonb_set(COALESCE(custom_layout, '{}'::jsonb), '{is_red_sheet}'::text[], $1::jsonb)
+                WHERE dht_order_id = $2 AND id <> $3
+            `, [JSON.stringify(isRedSheetVal), orderId, itemId]);
+        }
 
         // Recalculate order total_quantity and total_amount from all items
         if (b.quantities !== undefined) {
