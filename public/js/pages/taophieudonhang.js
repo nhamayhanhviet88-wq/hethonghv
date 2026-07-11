@@ -4115,6 +4115,8 @@ function _tpdRenderFormInputs() {
                         if (groupName !== 'Khác' && t !== sewItem.tech) {
                             const isGroupAlreadyChosen = layout.sewing_items.some((otherItem, otherIdx) => {
                                 if (otherIdx === sIdx) return false;
+                                const isPredefined = configSewingTechs.includes(otherItem.tech);
+                                if (!isPredefined) return false;
                                 return _tpdGetSewingTechGroup(otherItem.tech) === groupName;
                             });
                             if (isGroupAlreadyChosen) {
@@ -7217,7 +7219,11 @@ function _tpdAddSewingItem() {
             defaultTech = tName;
             break;
         } else {
-            const alreadyChosen = layout.sewing_items.some(item => _tpdGetSewingTechGroup(item.tech) === group);
+            const configTechNames = configSewingTechs.map(t => typeof t === 'object' ? (t.tech || '') : String(t));
+            const alreadyChosen = layout.sewing_items.some(item => {
+                if (!configTechNames.includes(item.tech)) return false;
+                return _tpdGetSewingTechGroup(item.tech) === group;
+            });
             if (!alreadyChosen) {
                 defaultTech = tName;
                 break;
