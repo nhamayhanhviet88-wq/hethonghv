@@ -6351,6 +6351,22 @@ function _tpdGenerateFinancialSummaryText(o, items) {
     });
     
     text += `\n`;
+
+    const totalItemsAmt = items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0), 0);
+    const hasVat = !!o.has_vat || (Number(o.vat_amount) > 0);
+    const vatAmount = Number(o.vat_amount) || 0;
+    const totalAmount = Number(o.total_amount) || 0;
+    const depositAmount = Number(o.deposit_amount) || 0;
+    const remainingAmount = Number(o.remaining_amount) || 0;
+
+    text += `Tổng Tiền Hàng : ${fmt(totalItemsAmt)}đ\n`;
+    if (hasVat) {
+        text += `Tổng VAT : ${fmt(vatAmount)}đ\n`;
+        text += `Tổng Sau VAT : ${fmt(totalAmount)}đ\n`;
+    }
+    text += `Đã Cọc : ${fmt(depositAmount)}đ\n`;
+    text += `Còn Lại : ${fmt(remainingAmount)}đ\n`;
+    text += `\n`;
     
     const creatorName = o.cskh_name || (window.currentUser && (window.currentUser.full_name || window.currentUser.username)) || '—';
     const customerName = o.customer_name || '—';
