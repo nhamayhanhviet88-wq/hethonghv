@@ -6346,8 +6346,7 @@ function _tpdGenerateFinancialSummaryText(o, items) {
     items.forEach((item, idx) => {
         const qty = Number(item.quantity) || 0;
         const price = Number(item.unit_price) || 0;
-        const subtotal = qty * price;
-        text += `Phiếu ${idx + 1}: ${qty} áo, giá tiền ${fmt(price)}đ tổng ${fmt(subtotal)}đ\n`;
+        text += `Phiếu ${idx + 1}: ${qty} áo . Giá tiền ${fmt(price)}đ\n`;
     });
     
     text += `\n`;
