@@ -132,6 +132,7 @@ async function renderTaophieudonhangPage(content) {
     await Promise.all([
         _tpdLoadOrders(),
         _tpdLoadPrintPositionsConfig(),
+        _tpdLoadPrintTypesConfig(),
         _tpdLoadSewingTechsConfig(),
         _tpdLoadLayoutConfig()
     ]);
@@ -203,6 +204,7 @@ async function renderDesignDraftPage(content) {
             apiCall('/api/dht/my-info'),
             _tpdLoadSizeConfig(),
             _tpdLoadPrintPositionsConfig(),
+            _tpdLoadPrintTypesConfig(),
             _tpdLoadSewingTechsConfig(),
             _tpdLoadLayoutConfig()
         ]);
@@ -4378,7 +4380,8 @@ function _tpdRenderFormInputs() {
     let detailBoxesHtml = '';
     details.forEach((d) => {
         const idx = d.originalIndex;
-        const isCustomType = d.print_type && !['Thêu', 'In PET', 'In 3D', 'In lưới', 'In Decal'].includes(d.print_type);
+        const configPrintTypes = _tpd.printTypesConfig || ["Thêu", "In PET", "In 3D", "In lưới", "In Decal"];
+        const isCustomType = d.print_type && !configPrintTypes.includes(d.print_type);
         
         let valWidth = d.width || '';
         let valHeight = d.height || '';
@@ -4443,11 +4446,7 @@ function _tpdRenderFormInputs() {
                         <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kiểu:</span>
                         <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr}>
                             <option value="">-- Kiểu in/thêu --</option>
-                            <option value="Thêu" ${d.print_type === 'Thêu' ? 'selected' : ''}>Thêu</option>
-                            <option value="In PET" ${d.print_type === 'In PET' ? 'selected' : ''}>In PET</option>
-                            <option value="In 3D" ${d.print_type === 'In 3D' ? 'selected' : ''}>In 3D</option>
-                            <option value="In lưới" ${d.print_type === 'In lưới' ? 'selected' : ''}>In lưới</option>
-                            <option value="In Decal" ${d.print_type === 'In Decal' ? 'selected' : ''}>In Decal</option>
+                            ${configPrintTypes.map(t => `<option value="${t}" ${d.print_type === t ? 'selected' : ''}>${t}</option>`).join('')}
                             <option value="Khác" ${isCustomType || d.print_type === 'Khác' ? 'selected' : ''}>Khác...</option>
                         </select>
                     </div>
@@ -6808,6 +6807,22 @@ async function _tpdLoadPrintPositionsConfig() {
     }
 }
 
+// Load print types configuration from backend
+async function _tpdLoadPrintTypesConfig() {
+    try {
+        const res = await apiCall(`/api/dht/print-types?_=${Date.now()}`, 'GET');
+        if (res && !res.error) {
+            _tpd.printTypesConfig = res;
+        }
+    } catch (e) {
+        console.error('Failed to load print types config:', e);
+    }
+    // Fallback if not loaded
+    if (!_tpd.printTypesConfig) {
+        _tpd.printTypesConfig = ["Thêu", "In PET", "In 3D", "In lưới", "In Decal"];
+    }
+}
+
 // Change size type for the current editing item
 function _tpdChangeSizeType(val) {
     const state = window._tpdWorkspaceState;
@@ -7231,6 +7246,7 @@ function _tpdOpenPrintPositionsConfigModal() {
     });
 
     window._tpdModalPrintPositions = JSON.parse(JSON.stringify(config));
+    window._tpdModalPrintTypes = JSON.parse(JSON.stringify(_tpd.printTypesConfig || ["Thêu", "In PET", "In 3D", "In lưới", "In Decal"]));
 
     // Create Modal Element
     const modal = document.createElement('div');
@@ -7250,19 +7266,41 @@ function _tpdOpenPrintPositionsConfigModal() {
     modal.innerHTML = `
         <div style="background: white; border-radius: 12px; width: 680px; max-width: 95%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden; display: flex; flex-direction: column; max-height: 85vh;">
             <div style="background: #1e293b; color: white; padding: 16px; font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                <span>⚙️ Cài đặt vị trí in / thêu sản xuất</span>
+                <span>⚙️ Cài đặt vị trí & kiểu in / thêu sản xuất</span>
                 <span style="cursor: pointer; font-size: 18px;" onclick="document.getElementById('tpdPrintPositionsConfigModal').remove()">✕</span>
             </div>
             
-            <div style="padding: 16px 20px 0; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 12px; color: #64748b; font-style: italic;">Cấu hình vị trí in/thêu và các nhãn khoảng cách bắt buộc điền cho Sales.</span>
-                <button type="button" onclick="_tpdAddNewPrintPosition()" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(16,185,129,0.15);">
-                    <span>+ Thêm vị trí mới</span>
-                </button>
+            <div style="display: flex; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;">
+                <button type="button" id="tpdModalTabPositions" onclick="_tpdSwitchModalTab('positions')" style="flex: 1; padding: 12px; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #1e293b; border-bottom: 3px solid #2563eb; cursor: pointer; outline: none; transition: all 0.2s;">📍 Vị trí & Khoảng cách</button>
+                <button type="button" id="tpdModalTabTypes" onclick="_tpdSwitchModalTab('types')" style="flex: 1; padding: 12px; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; outline: none; transition: all 0.2s;">🎨 Kiểu in/thêu mặc định</button>
             </div>
 
-            <div id="tpdPrintPositionsContainer" style="padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex-grow: 1; box-sizing: border-box;">
-                <!-- Positions list will be rendered dynamically here -->
+            <!-- Tab Content: Positions -->
+            <div id="tpdModalTabContentPositions" style="display: flex; flex-direction: column; flex-grow: 1; overflow: hidden;">
+                <div style="padding: 16px 20px 0; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 11px; color: #64748b; font-style: italic;">Cấu hình vị trí in/thêu và các nhãn khoảng cách bắt buộc điền cho Sales.</span>
+                    <button type="button" onclick="_tpdAddNewPrintPosition()" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(16,185,129,0.15);">
+                        <span>+ Thêm vị trí mới</span>
+                    </button>
+                </div>
+
+                <div id="tpdPrintPositionsContainer" style="padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex-grow: 1; box-sizing: border-box;">
+                    <!-- Positions list will be rendered dynamically here -->
+                </div>
+            </div>
+
+            <!-- Tab Content: Types -->
+            <div id="tpdModalTabContentTypes" style="display: none; flex-direction: column; flex-grow: 1; overflow: hidden;">
+                <div style="padding: 16px 20px 0; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 11px; color: #64748b; font-style: italic;">Danh sách kiểu in/thêu mặc định hiển thị trong dropdown cho Sales chọn.</span>
+                    <button type="button" onclick="_tpdAddNewPrintType()" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(16,185,129,0.15);">
+                        <span>+ Thêm kiểu mới</span>
+                    </button>
+                </div>
+
+                <div id="tpdPrintTypesContainer" style="padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-grow: 1; box-sizing: border-box;">
+                    <!-- Print types list will be rendered dynamically here -->
+                </div>
             </div>
 
             <div style="background: #f8fafc; padding: 12px 16px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; flex-shrink: 0;">
@@ -7275,6 +7313,77 @@ function _tpdOpenPrintPositionsConfigModal() {
 
     // Initial render
     _tpdRenderPrintPositionsModalList();
+}
+
+function _tpdSwitchModalTab(tab) {
+    const tabPos = document.getElementById('tpdModalTabPositions');
+    const tabType = document.getElementById('tpdModalTabTypes');
+    const contentPos = document.getElementById('tpdModalTabContentPositions');
+    const contentType = document.getElementById('tpdModalTabContentTypes');
+    
+    if (tab === 'positions') {
+        tabPos.style.color = '#1e293b';
+        tabPos.style.borderBottomColor = '#2563eb';
+        tabType.style.color = '#64748b';
+        tabType.style.borderBottomColor = 'transparent';
+        contentPos.style.display = 'flex';
+        contentType.style.display = 'none';
+    } else {
+        tabPos.style.color = '#64748b';
+        tabPos.style.borderBottomColor = 'transparent';
+        tabType.style.color = '#1e293b';
+        tabType.style.borderBottomColor = '#2563eb';
+        contentPos.style.display = 'none';
+        contentType.style.display = 'flex';
+        _tpdRenderPrintTypesModalList();
+    }
+}
+
+function _tpdRenderPrintTypesModalList() {
+    const container = document.getElementById('tpdPrintTypesContainer');
+    if (!container) return;
+    
+    const list = window._tpdModalPrintTypes || [];
+    if (list.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                <span style="font-size: 32px;">🎨</span>
+                <p style="margin-top: 8px; font-size: 13px;">Chưa có kiểu in/thêu nào. Hãy nhấn "+ Thêm kiểu mới" để bắt đầu.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = list.map((item, idx) => `
+        <div style="display: flex; gap: 8px; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+            <span style="font-size: 13px; font-weight: 700; color: #64748b; width: 30px;">#${idx + 1}</span>
+            <input type="text" value="${item}" onchange="_tpdUpdateModalPrintTypeVal(${idx}, this.value)" style="font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; flex: 1; outline: none; height: 32px; background: white;" placeholder="Nhập tên kiểu (ví dụ: In PET, Thêu, In decal...)">
+            <button type="button" onclick="_tpdDeleteModalPrintType(${idx})" style="background: #fef2f2; border: 1px solid #fee2e2; color: #ef4444; border-radius: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s;" title="Xóa kiểu này">✕</button>
+        </div>
+    `).join('');
+}
+
+function _tpdAddNewPrintType() {
+    window._tpdModalPrintTypes = window._tpdModalPrintTypes || [];
+    window._tpdModalPrintTypes.push("");
+    _tpdRenderPrintTypesModalList();
+    
+    const container = document.getElementById('tpdPrintTypesContainer');
+    if (container) {
+        setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+    }
+}
+
+function _tpdUpdateModalPrintTypeVal(idx, val) {
+    window._tpdModalPrintTypes = window._tpdModalPrintTypes || [];
+    window._tpdModalPrintTypes[idx] = val ? val.trim() : '';
+}
+
+// Delete print type from modal state list
+function _tpdDeleteModalPrintType(idx) {
+    window._tpdModalPrintTypes = window._tpdModalPrintTypes || [];
+    window._tpdModalPrintTypes.splice(idx, 1);
+    _tpdRenderPrintTypesModalList();
 }
 
 function _tpdRenderPrintPositionsModalList() {
@@ -7417,7 +7526,7 @@ function _tpdDeleteModalPrintPosition(idx) {
 
 async function _tpdSavePrintPositionsConfig() {
     const list = window._tpdModalPrintPositions || [];
-    // Validate
+    // Validate positions
     const cleaned = [];
     for (const item of list) {
         const name = item.name ? item.name.trim() : '';
@@ -7443,18 +7552,31 @@ async function _tpdSavePrintPositionsConfig() {
         });
     }
 
+    // Validate print types
+    const printTypes = window._tpdModalPrintTypes || [];
+    const cleanedPrintTypes = printTypes.map(t => t.trim()).filter(t => t.length > 0);
+
     try {
-        const res = await apiCall('/api/dht/print-positions', 'PUT', cleaned);
-        if (res && res.success) {
-            showToast('Lưu cài đặt vị trí in thành công!', 'success');
+        const [resPositions, resTypes] = await Promise.all([
+            apiCall('/api/dht/print-positions', 'PUT', cleaned),
+            apiCall('/api/dht/print-types', 'PUT', cleanedPrintTypes)
+        ]);
+
+        if (resPositions && resPositions.success && resTypes && resTypes.success) {
+            showToast('Lưu toàn bộ cài đặt thành công!', 'success');
             const modal = document.getElementById('tpdPrintPositionsConfigModal');
             if (modal) modal.remove();
             
             // Reload and redraw
-            await _tpdLoadPrintPositionsConfig();
+            await Promise.all([
+                _tpdLoadPrintPositionsConfig(),
+                _tpdLoadPrintTypesConfig()
+            ]);
             _tpdRenderFormInputs();
         } else {
-            showToast(res && res.error ? res.error : 'Có lỗi xảy ra khi lưu cấu hình', 'danger');
+            const errPos = resPositions && resPositions.error ? resPositions.error : '';
+            const errType = resTypes && resTypes.error ? resTypes.error : '';
+            showToast(`⚠️ Lỗi lưu cấu hình: ${errPos || errType || 'Có lỗi xảy ra'}`, 'danger');
         }
     } catch(e) {
         console.error(e);

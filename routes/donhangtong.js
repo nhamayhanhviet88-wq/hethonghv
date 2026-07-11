@@ -5795,5 +5795,37 @@ module.exports = async function(fastify) {
         );
         return { success: true };
     });
+
+    // GET /api/dht/print-types
+    fastify.get('/api/dht/print-types', { preHandler: [authenticate] }, async (request, reply) => {
+        reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'dht_print_types_config'");
+        const defaults = ["Thêu", "In PET", "In 3D", "In lưới", "In Decal"];
+        if (!row) {
+            return defaults;
+        }
+        try {
+            return typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+        } catch (e) {
+            return defaults;
+        }
+    });
+
+    // PUT /api/dht/print-types
+    fastify.put('/api/dht/print-types', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const configVal = request.body;
+        if (!Array.isArray(configVal)) {
+            return reply.code(400).send({ error: 'Dữ liệu phải là một mảng kiểu in' });
+        }
+        const cleaned = configVal.map(s => s.trim()).filter(s => s.length > 0);
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_print_types_config', $1, NOW()) 
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify(cleaned)]
+        );
+        return { success: true };
+    });
 };
 
