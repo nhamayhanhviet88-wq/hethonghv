@@ -4066,6 +4066,39 @@ function _tpdSortPrintDetails(details) {
     });
 }
 
+function _tpdNormalizePrintDetailOffsets(d, posConfig) {
+    if (d && typeof d.selected_offsets === 'string') {
+        try {
+            d.selected_offsets = JSON.parse(d.selected_offsets);
+        } catch(e) {
+            d.selected_offsets = null;
+        }
+    }
+    if (d && (!d.selected_offsets || typeof d.selected_offsets !== 'object')) {
+        d.selected_offsets = {};
+        // Migration from legacy single offset
+        const legacyVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+        let posOffsets = posConfig ? (posConfig.offsets || []) : [];
+        if (posOffsets.length === 0 && posConfig && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+            posOffsets = [{
+                label: posConfig.offset_label || 'Khoảng cách',
+                placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
+                require: !!posConfig.require_offset
+            }];
+        }
+        if (legacyVal && posOffsets.length > 0) {
+            d.selected_offsets[posOffsets[0].label] = legacyVal;
+        } else {
+            posOffsets.forEach(off => {
+                if (off.require) {
+                    d.selected_offsets[off.label] = '';
+                }
+            });
+        }
+    }
+    return d ? d.selected_offsets : {};
+}
+
 function _tpdIsPrintDetailComplete(d) {
     if (!d || !d.position) return false;
     if (!d.print_type || !d.print_type.trim() || d.print_type === '-- Kiểu in/thêu --') return false;
@@ -4076,9 +4109,22 @@ function _tpdIsPrintDetailComplete(d) {
     if (!hasWidth && !hasHeight && !hasDim) return false;
     
     const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
-    if (posConfig && posConfig.require_offset) {
-        const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-        if (!offsetVal || !offsetVal.trim()) return false;
+    if (posConfig) {
+        let posOffsets = posConfig.offsets || [];
+        if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+            posOffsets = [{
+                label: posConfig.offset_label || 'Khoảng cách',
+                placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
+                require: !!posConfig.require_offset
+            }];
+        }
+        const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+        for (const off of posOffsets) {
+            if (off.require) {
+                const val = selectedOffsets[off.label] || '';
+                if (!val || !val.trim()) return false;
+            }
+        }
     }
     return true;
 }
@@ -4349,20 +4395,39 @@ function _tpdRenderFormInputs() {
 
                     ${(() => {
                         const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
-                        if (posConfig && posConfig.require_offset) {
-                            const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-                            const isFilled = offsetVal && offsetVal.trim();
-                            const borderBgStyle = !isFilled 
+                        if (!posConfig) return '';
+                        
+                        let posOffsets = posConfig.offsets || [];
+                        if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+                            posOffsets = [{
+                                label: posConfig.offset_label || 'Khoảng cách',
+                                placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
+                                require: !!posConfig.require_offset
+                            }];
+                        }
+                        
+                        if (posOffsets.length === 0) return '';
+                        
+                        const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+                        
+                        return posOffsets.map(off => {
+                            const isChecked = selectedOffsets[off.label] !== undefined;
+                            const offValue = isChecked ? selectedOffsets[off.label] : '';
+                            const inputPlaceholder = off.placeholder || 'Ví dụ: 10cm';
+                            const borderBgStyle = (off.require && isChecked && !offValue.trim()) 
                                 ? 'border: 1.5px solid #ef4444; background: #fef2f2;' 
                                 : 'border: 1px solid #cbd5e1;';
+                            
                             return `
-                                <div style="display: flex; gap: 4px; align-items: center;">
-                                    <span style="font-size: 9px; color: #64748b; font-weight: 700; min-width: 58px;">${posConfig.offset_label || 'Khoảng cách'}:</span>
-                                    <input type="text" placeholder="${posConfig.offset_placeholder || 'Ví dụ: 10cm'}" value="${offsetVal}" onchange="_tpdUpdateDetailField(${idx}, 'offset_value', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} required>
+                                <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; color: #475569; margin: 0; cursor: pointer; min-width: 75px;">
+                                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="_tpdToggleDetailOffset(${idx}, '${off.label}', this.checked)" style="width: 12px; height: 12px; margin: 0; cursor: pointer;" ${disabledAttr}>
+                                        <span>${off.label}:</span>
+                                    </label>
+                                    <input type="text" placeholder="${inputPlaceholder}" value="${offValue}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '${off.label}', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} ${isChecked ? '' : 'disabled'}>
                                 </div>
                             `;
-                        }
-                        return '';
+                        }).join('');
                     })()}
 
                     ${imageZoneHtml}
@@ -4955,12 +5020,34 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
 
         const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
         let offsetStr = '—';
-        if (posConfig && posConfig.require_offset) {
-            const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-            if (offsetVal && offsetVal.trim()) {
-                offsetStr = `<span style="font-weight: 700; color: #dc2626;">${posConfig.offset_label || 'Khoảng cách'}: ${offsetVal.trim()}</span>`;
-            } else {
-                offsetStr = '<span style="color: #ef4444; font-weight: 700;">CHƯA ĐIỀN</span>';
+        if (posConfig) {
+            let posOffsets = posConfig.offsets || [];
+            if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+                posOffsets = [{
+                    label: posConfig.offset_label || 'Khoảng cách',
+                    placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
+                    require: !!posConfig.require_offset
+                }];
+            }
+            const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+            const displayParts = [];
+            
+            posOffsets.forEach(off => {
+                const isSelected = selectedOffsets[off.label] !== undefined;
+                if (isSelected) {
+                    const val = selectedOffsets[off.label].trim();
+                    if (val) {
+                        displayParts.push(`<span style="font-weight: 700; color: #dc2626;">${off.label}: ${val}</span>`);
+                    } else if (off.require) {
+                        displayParts.push(`<span style="color: #ef4444; font-weight: 700;">${off.label}: CHƯA ĐIỀN</span>`);
+                    }
+                } else if (off.require) {
+                    displayParts.push(`<span style="color: #ef4444; font-weight: 700;">${off.label}: CHƯA ĐIỀN</span>`);
+                }
+            });
+            
+            if (displayParts.length > 0) {
+                offsetStr = displayParts.join('<br>');
             }
         }
 
@@ -5080,15 +5167,32 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
                         }
                         const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
                         let offsetStr = '';
-                        if (posConfig && posConfig.require_offset) {
-                            const offsetVal = (d.offset_value || d.gay_xuong || d.co_xuong || '').trim();
-                            if (offsetVal) {
-                                const offsetSuffix = offsetVal.toLowerCase().endsWith('cm') ? '' : 'cm';
-                                let label = posConfig.offset_label || 'Gáy';
-                                if (label === 'Gáy xuống') label = 'Gáy';
-                                if (label === 'Cổ xuống') label = 'Cổ';
-                                const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
-                                offsetStr = ` - ${displayLabel} : ${offsetVal}${offsetSuffix}`;
+                        if (posConfig) {
+                            let posOffsets = posConfig.offsets || [];
+                            if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+                                posOffsets = [{
+                                    label: posConfig.offset_label || 'Khoảng cách',
+                                    placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
+                                    require: !!posConfig.require_offset
+                                }];
+                            }
+                            const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+                            const parts = [];
+                            posOffsets.forEach(off => {
+                                if (selectedOffsets[off.label] !== undefined) {
+                                    const val = selectedOffsets[off.label].trim();
+                                    if (val) {
+                                        const suffix = val.toLowerCase().endsWith('cm') ? '' : 'cm';
+                                        let label = off.label || 'Gáy';
+                                        if (label === 'Gáy xuống') label = 'Gáy';
+                                        if (label === 'Cổ xuống') label = 'Cổ';
+                                        const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
+                                        parts.push(`${displayLabel} : ${val}${suffix}`);
+                                    }
+                                }
+                            });
+                            if (parts.length > 0) {
+                                offsetStr = ` - ${parts.join(', ')}`;
                             }
                         }
                         const safePosition = escapeHTML(d.position || '—');
@@ -5408,8 +5512,13 @@ function _tpdUpdateDetailField(idx, field, value) {
     if (field === 'offset_value') {
         const d = it.print_details[idx];
         const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
-        if (posConfig && posConfig.require_offset) {
-            const lbl = (posConfig.offset_label || '').toLowerCase();
+        if (posConfig) {
+            const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+            const firstKey = Object.keys(selectedOffsets)[0];
+            if (firstKey) {
+                selectedOffsets[firstKey] = cleanVal;
+            }
+            const lbl = (firstKey || '').toLowerCase();
             if (lbl.includes('gáy')) {
                 d.gay_xuong = cleanVal;
             } else if (lbl.includes('cổ')) {
@@ -5421,6 +5530,101 @@ function _tpdUpdateDetailField(idx, field, value) {
     _tpdSaveDraft(it);
     
     // Re-render inputs to reflect format (e.g. 10 -> 10cm) and toggle disabled states
+    _tpdRenderFormInputs();
+    _tpdSetupPasteZones();
+    _tpdUpdateLivePreview();
+}
+
+function _tpdToggleDetailOffset(idx, label, isChecked) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem) return;
+    const it = state.editingItem;
+    if (!it.print_details || !it.print_details[idx]) return;
+    const d = it.print_details[idx];
+    const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+    const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+    
+    if (isChecked) {
+        let defaultVal = '';
+        const posOffsets = posConfig ? (posConfig.offsets || []) : [];
+        const off = posOffsets.find(o => o.label === label);
+        if (off && off.placeholder) {
+            defaultVal = off.placeholder.replace(/^ví dụ:\s*/i, '').trim();
+        }
+        selectedOffsets[label] = defaultVal;
+    } else {
+        delete selectedOffsets[label];
+    }
+    
+    // Legacy single value fallback
+    const checkedKeys = Object.keys(selectedOffsets);
+    if (checkedKeys.length > 0) {
+        const firstVal = selectedOffsets[checkedKeys[0]];
+        d.offset_value = firstVal;
+        const lbl = checkedKeys[0].toLowerCase();
+        if (lbl.includes('gáy')) {
+            d.gay_xuong = firstVal;
+            d.co_xuong = '';
+        } else if (lbl.includes('cổ')) {
+            d.co_xuong = firstVal;
+            d.gay_xuong = '';
+        } else {
+            d.gay_xuong = '';
+            d.co_xuong = '';
+        }
+    } else {
+        d.offset_value = '';
+        d.gay_xuong = '';
+        d.co_xuong = '';
+    }
+    
+    _tpdSaveDraft(it);
+    _tpdRenderFormInputs();
+    _tpdSetupPasteZones();
+    _tpdUpdateLivePreview();
+}
+
+function _tpdUpdateDetailOffsetVal(idx, label, value) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem) return;
+    const it = state.editingItem;
+    if (!it.print_details || !it.print_details[idx]) return;
+    const d = it.print_details[idx];
+    const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+    const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+    
+    let cleanVal = value ? value.trim() : '';
+    if (cleanVal) {
+        if (/^\d+(\.\d+)?$/.test(cleanVal)) {
+            cleanVal = cleanVal + 'cm';
+        }
+    }
+    
+    selectedOffsets[label] = cleanVal;
+    
+    // Legacy single value fallback
+    const checkedKeys = Object.keys(selectedOffsets);
+    if (checkedKeys.length > 0) {
+        const firstVal = selectedOffsets[checkedKeys[0]];
+        d.offset_value = firstVal;
+        const lbl = checkedKeys[0].toLowerCase();
+        if (lbl.includes('gáy')) {
+            d.gay_xuong = firstVal;
+            d.co_xuong = '';
+        } else if (lbl.includes('cổ')) {
+            d.co_xuong = firstVal;
+            d.gay_xuong = '';
+        } else {
+            d.gay_xuong = '';
+            d.co_xuong = '';
+        }
+    } else {
+        d.offset_value = '';
+        d.gay_xuong = '';
+        d.co_xuong = '';
+    }
+    
+    _tpdSaveDraft(it);
     _tpdRenderFormInputs();
     _tpdSetupPasteZones();
     _tpdUpdateLivePreview();
@@ -5564,11 +5768,24 @@ async function _tpdSaveProductionSheet() {
             
             // 3. Offset if required
             const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
-            if (posConfig && posConfig.require_offset) {
-                const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-                if (!offsetVal || !offsetVal.trim()) {
-                    showToast(`⚠️ Vui lòng điền thông tin "${posConfig.offset_label || 'khoảng cách'}" cho vị trí "${d.position}"!`, 'error');
-                    return false;
+            if (posConfig) {
+                let posOffsets = posConfig.offsets || [];
+                if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+                    posOffsets = [{
+                        label: posConfig.offset_label || 'Khoảng cách',
+                        placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
+                        require: !!posConfig.require_offset
+                    }];
+                }
+                for (const off of posOffsets) {
+                    if (off.require) {
+                        const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+                        const val = selectedOffsets[off.label] || '';
+                        if (!val || !val.trim()) {
+                            showToast(`⚠️ Vui lòng điền thông tin "${off.label || 'khoảng cách'}" cho vị trí "${d.position}"!`, 'error');
+                            return false;
+                        }
+                    }
                 }
             }
         }
@@ -5697,10 +5914,28 @@ function _tpdValidateAllSheets() {
                     return false;
                 }
                 const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
-                if (posConfig && posConfig.require_offset) {
-                    const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-                    if (!offsetVal || !offsetVal.trim()) {
-                        showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng điền thông tin "${posConfig.offset_label || 'khoảng cách'}" cho vị trí "${d.position}"!`, 'error');
+                if (posConfig) {
+                    let posOffsets = posConfig.offsets || [];
+                    if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+                        posOffsets = [{
+                            label: posConfig.offset_label || 'Khoảng cách',
+                            placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
+                            require: !!posConfig.require_offset
+                        }];
+                    }
+                    let missingOffset = false;
+                    for (const off of posOffsets) {
+                        if (off.require) {
+                            const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+                            const val = selectedOffsets[off.label] || '';
+                            if (!val || !val.trim()) {
+                                showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng điền thông tin "${off.label || 'khoảng cách'}" cho vị trí "${d.position}"!`, 'error');
+                                missingOffset = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (missingOffset) {
                         _tpdSwitchItemTab(idx);
                         return false;
                     }
@@ -5834,9 +6069,17 @@ function _tpdGenerateConfirmationText(o, items, templateText) {
                 if (d.width && d.width.trim()) parts.push(`Ngang ${d.width.trim()}`);
                 if (d.height && d.height.trim()) parts.push(`Cao ${d.height.trim()}`);
                 if (d.dimension && d.dimension.trim()) parts.push(d.dimension.trim());
-                const offsetVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
-                if (offsetVal && offsetVal.trim()) {
-                    parts.push(offsetVal.trim());
+                const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+                const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+                const offsetParts = [];
+                Object.keys(selectedOffsets).forEach(lbl => {
+                    const val = selectedOffsets[lbl];
+                    if (val && val.trim()) {
+                        offsetParts.push(`${lbl}: ${val.trim()}`);
+                    }
+                });
+                if (offsetParts.length > 0) {
+                    parts.push(offsetParts.join(', '));
                 }
                 printDetailsStr += `  + Vị trí ${d.position}: ${parts.join(' - ') || '—'}\n`;
             });
@@ -6843,6 +7086,7 @@ function _tpdClearDraft(it) {
 }
 
 // Print Positions Configuration Modal and Management
+// Print Positions Configuration Modal and Management
 function _tpdOpenPrintPositionsConfigModal() {
     const state = window._tpdWorkspaceState;
     if (state.role !== 'giam_doc') {
@@ -6861,13 +7105,25 @@ function _tpdOpenPrintPositionsConfigModal() {
             { name: "Gáy", has_offset: true, require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 4cm" }
         ];
     }
-    const config = rawConfig.map(p => ({
-        name: p.name || '',
-        has_offset: p.has_offset !== undefined ? !!p.has_offset : !!p.require_offset,
-        require_offset: !!p.require_offset,
-        offset_label: p.offset_label || '',
-        offset_placeholder: p.offset_placeholder || ''
-    }));
+    
+    const config = rawConfig.map(p => {
+        const offsets = p.offsets || [];
+        if (offsets.length === 0 && (p.has_offset || p.require_offset || p.offset_label)) {
+            offsets.push({
+                label: p.offset_label || 'Khoảng cách',
+                placeholder: p.offset_placeholder || 'Ví dụ: 10cm',
+                require: !!p.require_offset
+            });
+        }
+        return {
+            name: p.name || '',
+            offsets: offsets.map(o => ({
+                label: o.label || '',
+                placeholder: o.placeholder || '',
+                require: !!o.require
+            }))
+        };
+    });
 
     window._tpdModalPrintPositions = JSON.parse(JSON.stringify(config));
 
@@ -6894,7 +7150,7 @@ function _tpdOpenPrintPositionsConfigModal() {
             </div>
             
             <div style="padding: 16px 20px 0; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 12px; color: #64748b; font-style: italic;">Cấu hình vị trí in/thêu, nhãn khoảng cách bắt buộc và ví dụ tương ứng.</span>
+                <span style="font-size: 12px; color: #64748b; font-style: italic;">Cấu hình vị trí in/thêu và các nhãn khoảng cách bắt buộc điền cho Sales.</span>
                 <button type="button" onclick="_tpdAddNewPrintPosition()" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(16,185,129,0.15);">
                     <span>+ Thêm vị trí mới</span>
                 </button>
@@ -6933,8 +7189,33 @@ function _tpdRenderPrintPositionsModalList() {
     }
 
     container.innerHTML = list.map((item, idx) => {
+        const offsetsHtml = (item.offsets || []).map((off, oIdx) => `
+            <div style="display: flex; gap: 8px; align-items: center; background: white; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 6px 8px; margin-top: 4px; flex-wrap: wrap;">
+                <!-- Checkbox for required -->
+                <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #334155; cursor: pointer; margin: 0; min-width: 100px;">
+                    <input type="checkbox" ${off.require ? 'checked' : ''} onchange="_tpdUpdateModalOffsetVal(${idx}, ${oIdx}, 'require', this.checked)" style="cursor: pointer; width: 13px; height: 13px; margin: 0;">
+                    <span>Bắt buộc điền</span>
+                </label>
+                
+                <!-- Label Input -->
+                <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 140px;">
+                    <span style="font-size: 11px; font-weight: 600; color: #64748b; min-width: 80px;">Tên k.cách:</span>
+                    <input type="text" value="${off.label || ''}" onchange="_tpdUpdateModalOffsetVal(${idx}, ${oIdx}, 'label', this.value)" style="font-size: 11px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 4px; flex: 1; height: 22px;" placeholder="Ví dụ: Gáy xuống, Cổ xuống...">
+                </div>
+                
+                <!-- Placeholder Input -->
+                <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 140px;">
+                    <span style="font-size: 11px; font-weight: 600; color: #64748b; min-width: 70px;">Gợi ý/Ví dụ:</span>
+                    <input type="text" value="${off.placeholder || ''}" onchange="_tpdUpdateModalOffsetVal(${idx}, ${oIdx}, 'placeholder', this.value)" style="font-size: 11px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 4px; flex: 1; height: 22px;" placeholder="Ví dụ: 10cm, 12cm...">
+                </div>
+                
+                <!-- Delete Offset Button -->
+                <button type="button" onclick="_tpdDeleteModalOffset(${idx}, ${oIdx})" style="background: none; border: none; color: #ef4444; font-size: 14px; font-weight: 700; cursor: pointer; padding: 2px 6px; display: flex; align-items: center;" title="Xóa khoảng cách này">✕</button>
+            </div>
+        `).join('');
+
         return `
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
                     <!-- Position Name -->
                     <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px;">
@@ -6942,37 +7223,30 @@ function _tpdRenderPrintPositionsModalList() {
                         <input type="text" value="${item.name || ''}" onchange="_tpdUpdateModalPosVal(${idx}, 'name', this.value)" style="font-weight: 700; font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; flex: 1; background: white;" placeholder="Ví dụ: Ngực, Lưng, Bụng...">
                     </div>
                     
-                    <!-- Checkbox for has offset -->
-                    <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; margin: 0;">
-                        <input type="checkbox" ${item.has_offset ? 'checked' : ''} onchange="_tpdUpdateModalPosVal(${idx}, 'has_offset', this.checked)" style="cursor: pointer; width: 14px; height: 14px; margin: 0;">
-                        <span>Có khoảng cách</span>
-                    </label>
-
-                    <!-- Checkbox for required offset -->
-                    <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; margin: 0; ${item.has_offset ? '' : 'opacity: 0.5; pointer-events: none;'}">
-                        <input type="checkbox" ${item.require_offset ? 'checked' : ''} onchange="_tpdUpdateModalPosVal(${idx}, 'require_offset', this.checked)" ${item.has_offset ? '' : 'disabled'} style="cursor: pointer; width: 14px; height: 14px; margin: 0;">
-                        <span>Bắt buộc điền</span>
-                    </label>
-
-                    <!-- Delete button -->
-                    <button type="button" onclick="_tpdDeleteModalPrintPosition(${idx})" style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Xóa vị trí này">
-                        <span>Xóa</span>
-                    </button>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <!-- Add offset button -->
+                        <button type="button" onclick="_tpdAddNewModalOffset(${idx})" style="background: #2563eb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Thêm khoảng cách cho vị trí này">
+                            <span>+ Thêm khoảng cách</span>
+                        </button>
+                        
+                        <!-- Delete position button -->
+                        <button type="button" onclick="_tpdDeleteModalPrintPosition(${idx})" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Xóa vị trí này">
+                            <span>Xóa vị trí</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Offset Settings Panel (shown only if has_offset is checked) -->
-                ${item.has_offset ? `
-                    <div style="display: flex; gap: 10px; background: white; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 8px; margin-top: 4px;">
-                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
-                            <span style="font-size: 11px; font-weight: 600; color: #64748b; min-width: 90px;">Tên khoảng cách:</span>
-                            <input type="text" value="${item.offset_label || ''}" onchange="_tpdUpdateModalPosVal(${idx}, 'offset_label', this.value)" style="font-size: 12px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px; flex: 1;" placeholder="Ví dụ: Gáy xuống, Cổ xuống...">
+                <!-- Offsets list -->
+                <div style="margin-top: 4px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 2px;">Các khoảng cách cấu hình:</div>
+                    ${item.offsets && item.offsets.length > 0 ? `
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            ${offsetsHtml}
                         </div>
-                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
-                            <span style="font-size: 11px; font-weight: 600; color: #64748b; min-width: 80px;">Gợi ý/Ví dụ:</span>
-                            <input type="text" value="${item.offset_placeholder || ''}" onchange="_tpdUpdateModalPosVal(${idx}, 'offset_placeholder', this.value)" style="font-size: 12px; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px; flex: 1;" placeholder="Ví dụ: 10cm, 12cm...">
-                        </div>
-                    </div>
-                ` : ''}
+                    ` : `
+                        <div style="font-size: 11px; color: #94a3b8; font-style: italic; padding: 8px; border: 1px dashed #cbd5e1; border-radius: 6px; text-align: center; background: white;">Không có khoảng cách nào cho vị trí này. Nhấn "+ Thêm khoảng cách" để tạo mới.</div>
+                    `}
+                </div>
             </div>
         `;
     }).join('');
@@ -6980,7 +7254,7 @@ function _tpdRenderPrintPositionsModalList() {
 
 function _tpdAddNewPrintPosition() {
     const list = window._tpdModalPrintPositions || [];
-    list.push({ name: '', has_offset: false, require_offset: false, offset_label: '', offset_placeholder: '' });
+    list.push({ name: '', offsets: [] });
     _tpdRenderPrintPositionsModalList();
     
     const container = document.getElementById('tpdPrintPositionsContainer');
@@ -6994,19 +7268,36 @@ function _tpdAddNewPrintPosition() {
 function _tpdUpdateModalPosVal(idx, field, val) {
     const list = window._tpdModalPrintPositions || [];
     if (list[idx]) {
-        if (field === 'has_offset') {
-            list[idx][field] = !!val;
-            if (val) {
-                if (!list[idx].offset_label) list[idx].offset_label = 'Gáy xuống';
-                if (!list[idx].offset_placeholder) list[idx].offset_placeholder = 'Ví dụ: 10cm';
-            } else {
-                list[idx].require_offset = false;
-            }
-        } else if (field === 'require_offset') {
-            list[idx][field] = !!val;
+        list[idx][field] = val;
+        _tpdRenderPrintPositionsModalList();
+    }
+}
+
+function _tpdAddNewModalOffset(idx) {
+    const list = window._tpdModalPrintPositions || [];
+    if (list[idx]) {
+        if (!list[idx].offsets) list[idx].offsets = [];
+        list[idx].offsets.push({ label: 'Gáy xuống', placeholder: 'Ví dụ: 10cm', require: false });
+        _tpdRenderPrintPositionsModalList();
+    }
+}
+
+function _tpdUpdateModalOffsetVal(idx, oIdx, field, val) {
+    const list = window._tpdModalPrintPositions || [];
+    if (list[idx] && list[idx].offsets && list[idx].offsets[oIdx]) {
+        if (field === 'require') {
+            list[idx].offsets[oIdx][field] = !!val;
         } else {
-            list[idx][field] = val;
+            list[idx].offsets[oIdx][field] = val;
         }
+        _tpdRenderPrintPositionsModalList();
+    }
+}
+
+function _tpdDeleteModalOffset(idx, oIdx) {
+    const list = window._tpdModalPrintPositions || [];
+    if (list[idx] && list[idx].offsets && list[idx].offsets[oIdx]) {
+        list[idx].offsets.splice(oIdx, 1);
         _tpdRenderPrintPositionsModalList();
     }
 }
@@ -7029,12 +7320,24 @@ async function _tpdSavePrintPositionsConfig() {
             showToast('Tên vị trí in không được để trống!', 'warning');
             return;
         }
+        const offsets = [];
+        if (item.offsets) {
+            for (const off of item.offsets) {
+                const label = off.label ? off.label.trim() : '';
+                if (!label) {
+                    showToast('Tên khoảng cách không được để trống!', 'warning');
+                    return;
+                }
+                offsets.push({
+                    label,
+                    placeholder: off.placeholder ? off.placeholder.trim() : 'Ví dụ: 10cm',
+                    require: !!off.require
+                });
+            }
+        }
         cleaned.push({
             name,
-            has_offset: !!item.has_offset,
-            require_offset: item.has_offset ? !!item.require_offset : false,
-            offset_label: item.has_offset ? (item.offset_label ? item.offset_label.trim() : 'Khoảng cách') : '',
-            offset_placeholder: item.has_offset ? (item.offset_placeholder ? item.offset_placeholder.trim() : 'Ví dụ: 10cm') : ''
+            offsets
         });
     }
 
