@@ -4900,7 +4900,7 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
     `;
 }
 
-function _tpdGetInfoBoxHtml(it, layout, o) {
+function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
     if (!layout) layout = {};
 
     // 1. Fabric (Chất liệu vải)
@@ -5172,6 +5172,7 @@ function _tpdGetInfoBoxHtml(it, layout, o) {
                 </div>
                 ${(() => {
                     // ★ Shipping info banner — below Tổng SL
+                    if (hideShippingBanner) return '';
                     if (!o || !o.expected_ship_date) return '';
                     const sDate = new Date(o.expected_ship_date);
                     if (isNaN(sDate.getTime())) return '';
@@ -5989,7 +5990,7 @@ async function _tpdShowExportSheetsModal() {
                                 ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
-                        ${_tpdGetInfoBoxHtml(it, layout, o)}
+                        ${_tpdGetInfoBoxHtml(it, layout, o, true)}
                     </div>
                 </div>
             </div>
