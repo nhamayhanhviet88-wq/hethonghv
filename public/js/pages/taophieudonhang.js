@@ -216,17 +216,32 @@ async function renderDesignDraftPage(content) {
         const hasEditPermission = isOwner || isAdmin;
 
         // 3. Initialize workspace state
+        let activeIdx = 0;
+        const sheetParam = params.get('sheet');
+        if (sheetParam) {
+            const parsed = parseInt(sheetParam) - 1;
+            if (!isNaN(parsed) && parsed >= 0 && parsed < items.length) {
+                activeIdx = parsed;
+            }
+        } else {
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('sheet', '1');
+                window.history.replaceState({}, '', url.toString());
+            } catch(e) {}
+        }
+
         window._tpdWorkspaceState = {
             orderId: orderId,
             order: order,
             items: items,
             payments: details.payments || [],
             surcharges: details.surcharges || [],
-            activeItemIndex: 0,
+            activeItemIndex: activeIdx,
             hasEditPermission: hasEditPermission,
             role: myInfo.role || '',
             // Deep copy of active item editing state
-            editingItem: items.length > 0 ? _tpdCloneItemState(items[0]) : null
+            editingItem: items.length > 0 ? _tpdCloneItemState(items[activeIdx]) : null
         };
 
         // Render main workspace wrapper
@@ -3297,6 +3312,13 @@ function _tpdSwitchItemTab(idx) {
     // Check if there are unsaved changes (optional prompt, or auto-save)
     state.activeItemIndex = idx;
     state.editingItem = _tpdCloneItemState(state.items[idx]);
+
+    // Update URL query parameter without reload
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('sheet', idx + 1);
+        window.history.replaceState({}, '', url.toString());
+    } catch(e) {}
 
     // Redraw workspace inside full page container
     const content = window._dhtFullPageContainer || document.getElementById('main-content');
