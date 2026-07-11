@@ -4066,6 +4066,67 @@ function _tpdSortPrintDetails(details) {
     });
 }
 
+function _tpdGetMappedOffsets(d, posConfig) {
+    const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+    const posOffsets = posConfig ? (posConfig.offsets || []) : [];
+    
+    // Fallback if legacy config style
+    let normalizedConfigOffsets = [...posOffsets];
+    if (normalizedConfigOffsets.length === 0 && posConfig && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+        normalizedConfigOffsets = [{
+            label: posConfig.offset_label || 'Khoảng cách',
+            placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
+            require: !!posConfig.require_offset
+        }];
+    }
+    
+    // Predefined labels in the config
+    const predefinedLabels = normalizedConfigOffsets.map(o => o.label).filter(l => l !== '');
+    
+    // Keys in selectedOffsets that are not predefined
+    const selectedKeys = Object.keys(selectedOffsets);
+    const customKeys = selectedKeys.filter(k => !predefinedLabels.includes(k));
+    
+    let customKeyIdx = 0;
+    
+    // Map each config offset to a label and value
+    return normalizedConfigOffsets.map(off => {
+        if (off.label !== '') {
+            const isChecked = selectedOffsets[off.label] !== undefined;
+            return {
+                configLabel: off.label,
+                isPredefined: true,
+                label: off.label,
+                value: isChecked ? selectedOffsets[off.label] : '',
+                isChecked,
+                placeholder: off.placeholder,
+                require: off.require
+            };
+        } else {
+            // This is a custom/dynamic offset config
+            // See if there is an available custom key
+            let label = '';
+            let value = '';
+            let isChecked = false;
+            if (customKeyIdx < customKeys.length) {
+                label = customKeys[customKeyIdx];
+                value = selectedOffsets[label] || '';
+                isChecked = true;
+                customKeyIdx++;
+            }
+            return {
+                configLabel: '',
+                isPredefined: false,
+                label: label,
+                value: value,
+                isChecked,
+                placeholder: off.placeholder,
+                require: off.require
+            };
+        }
+    });
+}
+
 function _tpdNormalizePrintDetailOffsets(d, posConfig) {
     if (d && typeof d.selected_offsets === 'string') {
         try {
@@ -4110,19 +4171,10 @@ function _tpdIsPrintDetailComplete(d) {
     
     const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
     if (posConfig) {
-        let posOffsets = posConfig.offsets || [];
-        if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
-            posOffsets = [{
-                label: posConfig.offset_label || 'Khoảng cách',
-                placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
-                require: !!posConfig.require_offset
-            }];
-        }
-        const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
-        for (const off of posOffsets) {
-            if (off.require) {
-                const val = selectedOffsets[off.label] || '';
-                if (!val || !val.trim()) return false;
+        const mapped = _tpdGetMappedOffsets(d, posConfig);
+        for (const item of mapped) {
+            if (item.require) {
+                if (!item.isChecked || !item.value || !item.value.trim()) return false;
             }
         }
     }
@@ -4397,36 +4449,34 @@ function _tpdRenderFormInputs() {
                         const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
                         if (!posConfig) return '';
                         
-                        let posOffsets = posConfig.offsets || [];
-                        if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
-                            posOffsets = [{
-                                label: posConfig.offset_label || 'Khoảng cách',
-                                placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
-                                require: !!posConfig.require_offset
-                            }];
-                        }
+                        const mapped = _tpdGetMappedOffsets(d, posConfig);
+                        if (mapped.length === 0) return '';
                         
-                        if (posOffsets.length === 0) return '';
-                        
-                        const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
-                        
-                        return posOffsets.map(off => {
-                            const isChecked = selectedOffsets[off.label] !== undefined;
-                            const offValue = isChecked ? selectedOffsets[off.label] : '';
-                            const inputPlaceholder = off.placeholder || 'Ví dụ: 10cm';
-                            const borderBgStyle = (off.require && isChecked && !offValue.trim()) 
+                        return mapped.map((item, oIdx) => {
+                            const inputPlaceholder = item.placeholder || 'Ví dụ: 10cm';
+                            const borderBgStyle = (item.require && item.isChecked && !item.value.trim()) 
                                 ? 'border: 1.5px solid #ef4444; background: #fef2f2;' 
                                 : 'border: 1px solid #cbd5e1;';
                             
-                            return `
-                                <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; color: #475569; margin: 0; cursor: pointer; min-width: 75px;">
-                                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="_tpdToggleDetailOffset(${idx}, '${off.label}', this.checked)" style="width: 12px; height: 12px; margin: 0; cursor: pointer;" ${disabledAttr}>
-                                        <span>${off.label}:</span>
-                                    </label>
-                                    <input type="text" placeholder="${inputPlaceholder}" value="${offValue}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '${off.label}', this.value)" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} ${isChecked ? '' : 'disabled'}>
-                                </div>
-                            `;
+                            if (item.isPredefined) {
+                                return `
+                                    <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
+                                        <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; color: #475569; margin: 0; cursor: pointer; min-width: 75px;">
+                                            <input type="checkbox" ${item.isChecked ? 'checked' : ''} onchange="_tpdToggleDetailOffset(${idx}, '${item.configLabel}', this.checked, ${oIdx})" style="width: 12px; height: 12px; margin: 0; cursor: pointer;" ${disabledAttr}>
+                                            <span>${item.label}:</span>
+                                        </label>
+                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '${item.configLabel}', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} ${item.isChecked ? '' : 'disabled'}>
+                                    </div>
+                                `;
+                            } else {
+                                return `
+                                    <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
+                                        <input type="checkbox" ${item.isChecked ? 'checked' : ''} onchange="_tpdToggleDetailOffset(${idx}, '', this.checked, ${oIdx})" style="width: 12px; height: 12px; margin: 0; cursor: pointer;" ${disabledAttr}>
+                                        <input type="text" placeholder="Tên khoảng cách..." value="${item.label}" onchange="_tpdUpdateDetailOffsetLabel(${idx}, '${item.label}', this.value, ${oIdx})" style="width: 75px; font-size: 9px; font-weight: 700; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 4px; height: 18px; outline: none;" ${disabledAttr} ${item.isChecked ? '' : 'disabled'}>
+                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} ${item.isChecked ? '' : 'disabled'}>
+                                    </div>
+                                `;
+                            }
                         }).join('');
                     })()}
 
@@ -5021,28 +5071,20 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
         const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
         let offsetStr = '—';
         if (posConfig) {
-            let posOffsets = posConfig.offsets || [];
-            if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
-                posOffsets = [{
-                    label: posConfig.offset_label || 'Khoảng cách',
-                    placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
-                    require: !!posConfig.require_offset
-                }];
-            }
-            const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+            const mapped = _tpdGetMappedOffsets(d, posConfig);
             const displayParts = [];
             
-            posOffsets.forEach(off => {
-                const isSelected = selectedOffsets[off.label] !== undefined;
-                if (isSelected) {
-                    const val = selectedOffsets[off.label].trim();
+            mapped.forEach(item => {
+                const displayName = item.label || 'K.cách';
+                if (item.isChecked) {
+                    const val = item.value.trim();
                     if (val) {
-                        displayParts.push(`<span style="font-weight: 700; color: #dc2626;">${off.label}: ${val}</span>`);
-                    } else if (off.require) {
-                        displayParts.push(`<span style="color: #ef4444; font-weight: 700;">${off.label}: CHƯA ĐIỀN</span>`);
+                        displayParts.push(`<span style="font-weight: 700; color: #dc2626;">${displayName}: ${val}</span>`);
+                    } else if (item.require) {
+                        displayParts.push(`<span style="color: #ef4444; font-weight: 700;">${displayName}: CHƯA ĐIỀN</span>`);
                     }
-                } else if (off.require) {
-                    displayParts.push(`<span style="color: #ef4444; font-weight: 700;">${off.label}: CHƯA ĐIỀN</span>`);
+                } else if (item.require) {
+                    displayParts.push(`<span style="color: #ef4444; font-weight: 700;">${displayName}: CHƯA ĐIỀN</span>`);
                 }
             });
             
@@ -5168,22 +5210,14 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
                         const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
                         let offsetStr = '';
                         if (posConfig) {
-                            let posOffsets = posConfig.offsets || [];
-                            if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
-                                posOffsets = [{
-                                    label: posConfig.offset_label || 'Khoảng cách',
-                                    placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
-                                    require: !!posConfig.require_offset
-                                }];
-                            }
-                            const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+                            const mapped = _tpdGetMappedOffsets(d, posConfig);
                             const parts = [];
-                            posOffsets.forEach(off => {
-                                if (selectedOffsets[off.label] !== undefined) {
-                                    const val = selectedOffsets[off.label].trim();
+                            mapped.forEach(item => {
+                                if (item.isChecked) {
+                                    const val = item.value.trim();
                                     if (val) {
                                         const suffix = val.toLowerCase().endsWith('cm') ? '' : 'cm';
-                                        let label = off.label || 'Gáy';
+                                        let label = item.label || 'Gáy';
                                         if (label === 'Gáy xuống') label = 'Gáy';
                                         if (label === 'Cổ xuống') label = 'Cổ';
                                         const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
@@ -5535,7 +5569,7 @@ function _tpdUpdateDetailField(idx, field, value) {
     _tpdUpdateLivePreview();
 }
 
-function _tpdToggleDetailOffset(idx, label, isChecked) {
+function _tpdToggleDetailOffset(idx, label, isChecked, offsetIndex) {
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
     const it = state.editingItem;
@@ -5544,39 +5578,41 @@ function _tpdToggleDetailOffset(idx, label, isChecked) {
     const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
     const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
     
-    if (isChecked) {
-        let defaultVal = '';
-        const posOffsets = posConfig ? (posConfig.offsets || []) : [];
-        const off = posOffsets.find(o => o.label === label);
-        if (off && off.placeholder) {
-            defaultVal = off.placeholder.replace(/^ví dụ:\s*/i, '').trim();
+    if (label !== '') {
+        // Predefined offset
+        if (isChecked) {
+            let defaultVal = '';
+            const posOffsets = posConfig ? (posConfig.offsets || []) : [];
+            const off = posOffsets.find(o => o.label === label);
+            if (off && off.placeholder) {
+                defaultVal = off.placeholder.replace(/^ví dụ:\s*/i, '').trim();
+            }
+            selectedOffsets[label] = defaultVal;
+        } else {
+            delete selectedOffsets[label];
         }
-        selectedOffsets[label] = defaultVal;
     } else {
-        delete selectedOffsets[label];
+        // Dynamic offset
+        const mapped = _tpdGetMappedOffsets(d, posConfig);
+        const currentItem = mapped[offsetIndex];
+        if (isChecked) {
+            // Generate a unique default name that doesn't conflict
+            let defaultName = 'Khoảng cách';
+            let counter = 1;
+            while (selectedOffsets[defaultName] !== undefined) {
+                defaultName = `Khoảng cách ${counter}`;
+                counter++;
+            }
+            selectedOffsets[defaultName] = '';
+        } else {
+            // Remove the currently mapped custom label
+            if (currentItem && currentItem.label) {
+                delete selectedOffsets[currentItem.label];
+            }
+        }
     }
     
-    // Legacy single value fallback
-    const checkedKeys = Object.keys(selectedOffsets);
-    if (checkedKeys.length > 0) {
-        const firstVal = selectedOffsets[checkedKeys[0]];
-        d.offset_value = firstVal;
-        const lbl = checkedKeys[0].toLowerCase();
-        if (lbl.includes('gáy')) {
-            d.gay_xuong = firstVal;
-            d.co_xuong = '';
-        } else if (lbl.includes('cổ')) {
-            d.co_xuong = firstVal;
-            d.gay_xuong = '';
-        } else {
-            d.gay_xuong = '';
-            d.co_xuong = '';
-        }
-    } else {
-        d.offset_value = '';
-        d.gay_xuong = '';
-        d.co_xuong = '';
-    }
+    _tpdSyncLegacyOffsets(d, selectedOffsets);
     
     _tpdSaveDraft(it);
     _tpdRenderFormInputs();
@@ -5584,7 +5620,36 @@ function _tpdToggleDetailOffset(idx, label, isChecked) {
     _tpdUpdateLivePreview();
 }
 
-function _tpdUpdateDetailOffsetVal(idx, label, value) {
+function _tpdUpdateDetailOffsetLabel(idx, oldLabel, newLabel, offsetIndex) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem) return;
+    const it = state.editingItem;
+    if (!it.print_details || !it.print_details[idx]) return;
+    const d = it.print_details[idx];
+    const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
+    const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
+    
+    let cleanNewLabel = newLabel ? newLabel.trim() : '';
+    if (!cleanNewLabel) {
+        cleanNewLabel = 'Khoảng cách';
+    }
+    
+    // Avoid overwriting a predefined key or existing key unless it's the old one
+    if (cleanNewLabel !== oldLabel) {
+        const val = selectedOffsets[oldLabel] || '';
+        delete selectedOffsets[oldLabel];
+        selectedOffsets[cleanNewLabel] = val;
+    }
+    
+    _tpdSyncLegacyOffsets(d, selectedOffsets);
+    
+    _tpdSaveDraft(it);
+    _tpdRenderFormInputs();
+    _tpdSetupPasteZones();
+    _tpdUpdateLivePreview();
+}
+
+function _tpdUpdateDetailOffsetVal(idx, label, value, offsetIndex) {
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
     const it = state.editingItem;
@@ -5600,9 +5665,27 @@ function _tpdUpdateDetailOffsetVal(idx, label, value) {
         }
     }
     
-    selectedOffsets[label] = cleanVal;
+    if (label !== '') {
+        // Predefined
+        selectedOffsets[label] = cleanVal;
+    } else {
+        // Dynamic
+        const mapped = _tpdGetMappedOffsets(d, posConfig);
+        const currentItem = mapped[offsetIndex];
+        if (currentItem && currentItem.label) {
+            selectedOffsets[currentItem.label] = cleanVal;
+        }
+    }
     
-    // Legacy single value fallback
+    _tpdSyncLegacyOffsets(d, selectedOffsets);
+    
+    _tpdSaveDraft(it);
+    _tpdRenderFormInputs();
+    _tpdSetupPasteZones();
+    _tpdUpdateLivePreview();
+}
+
+function _tpdSyncLegacyOffsets(d, selectedOffsets) {
     const checkedKeys = Object.keys(selectedOffsets);
     if (checkedKeys.length > 0) {
         const firstVal = selectedOffsets[checkedKeys[0]];
@@ -5623,11 +5706,6 @@ function _tpdUpdateDetailOffsetVal(idx, label, value) {
         d.gay_xuong = '';
         d.co_xuong = '';
     }
-    
-    _tpdSaveDraft(it);
-    _tpdRenderFormInputs();
-    _tpdSetupPasteZones();
-    _tpdUpdateLivePreview();
 }
 
 // Clear image inside upload zone
