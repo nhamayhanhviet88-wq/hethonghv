@@ -4090,7 +4090,7 @@ function _tpdGetMappedOffsets(d, posConfig) {
     let customKeyIdx = 0;
     
     // Map each config offset to a label and value
-    return normalizedConfigOffsets.map(off => {
+    return normalizedConfigOffsets.map((off, offIdx) => {
         if (off.label !== '') {
             const isChecked = selectedOffsets[off.label] !== undefined;
             return {
@@ -4115,10 +4115,10 @@ function _tpdGetMappedOffsets(d, posConfig) {
                 customKeyIdx++;
             } else {
                 // Tên khoảng cách để trống thì mặc định BẮT BUỘC ĐIỀN
-                let defaultName = 'Khoảng cách';
+                let defaultName = `_custom_offset_${offIdx + 1}`;
                 let counter = 1;
                 while (selectedOffsets[defaultName] !== undefined) {
-                    defaultName = `Khoảng cách ${counter}`;
+                    defaultName = `_custom_offset_${offIdx + 1}_${counter}`;
                     counter++;
                 }
                 selectedOffsets[defaultName] = '';
@@ -4164,9 +4164,9 @@ function _tpdNormalizePrintDetailOffsets(d, posConfig) {
         if (legacyVal && posOffsets.length > 0) {
             d.selected_offsets[posOffsets[0].label] = legacyVal;
         } else {
-            posOffsets.forEach(off => {
+            posOffsets.forEach((off, offIdx) => {
                 if (off.require || off.label === '') { // Label rỗng thì mặc định require
-                    const defaultName = off.label || 'Khoảng cách';
+                    const defaultName = off.label || `_custom_offset_${offIdx + 1}`;
                     d.selected_offsets[defaultName] = '';
                 }
             });
@@ -4191,7 +4191,7 @@ function _tpdIsPrintDetailComplete(d) {
             if (item.require) {
                 if (!item.isChecked || !item.value || !item.value.trim()) return false;
                 if (!item.isPredefined) {
-                    if (!item.label || !item.label.trim() || item.label === 'Khoảng cách') return false;
+                    if (!item.label || !item.label.trim() || item.label.startsWith('_custom_offset_')) return false;
                 }
             }
         }
@@ -4487,11 +4487,18 @@ function _tpdRenderFormInputs() {
                                     </div>
                                 `;
                             } else {
+                                const isTempLabel = item.label.startsWith('_custom_offset_');
+                                const displayLabel = isTempLabel ? '' : item.label;
+                                const isLabelInvalid = !displayLabel || !displayLabel.trim();
+                                const labelBorderStyle = isLabelInvalid
+                                    ? 'border: 1.5px solid #ef4444; background: #fef2f2;' 
+                                    : 'border: 1px solid #cbd5e1;';
+                                
                                 return `
                                     <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
-                                        <input type="checkbox" ${item.isChecked ? 'checked' : ''} onchange="_tpdToggleDetailOffset(${idx}, '', this.checked, ${oIdx})" style="width: 12px; height: 12px; margin: 0; cursor: pointer;" ${disabledAttr}>
-                                        <input type="text" placeholder="Tên khoảng cách..." value="${item.label}" onchange="_tpdUpdateDetailOffsetLabel(${idx}, '${item.label}', this.value, ${oIdx})" style="width: 75px; font-size: 9px; font-weight: 700; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 4px; height: 18px; outline: none;" ${disabledAttr} ${item.isChecked ? '' : 'disabled'}>
-                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} ${item.isChecked ? '' : 'disabled'}>
+                                        <input type="checkbox" checked disabled style="width: 12px; height: 12px; margin: 0; cursor: not-allowed;">
+                                        <input type="text" placeholder="Tên khoảng cách..." value="${displayLabel}" onchange="_tpdUpdateDetailOffsetLabel(${idx}, '${item.label}', this.value, ${oIdx})" style="width: 75px; font-size: 9px; font-weight: 700; color: #475569; padding: 2px 4px; height: 18px; outline: none; border-radius: 4px; ${labelBorderStyle}" ${disabledAttr}>
+                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr}>
                                     </div>
                                 `;
                             }
@@ -5093,7 +5100,7 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
             const displayParts = [];
             
             mapped.forEach(item => {
-                const displayName = item.label || 'K.cách';
+                const displayName = (item.label && !item.label.startsWith('_custom_offset_')) ? item.label : 'Khoảng cách';
                 if (item.isChecked) {
                     const val = item.value.trim();
                     if (val) {
@@ -5235,7 +5242,10 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
                                     const val = item.value.trim();
                                     if (val) {
                                         const suffix = val.toLowerCase().endsWith('cm') ? '' : 'cm';
-                                        let label = item.label || 'Gáy';
+                                        let label = item.label || 'Khoảng cách';
+                                        if (label.startsWith('_custom_offset_')) {
+                                            label = 'Khoảng cách';
+                                        }
                                         if (label === 'Gáy xuống') label = 'Gáy';
                                         if (label === 'Cổ xuống') label = 'Cổ';
                                         const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
@@ -5615,10 +5625,10 @@ function _tpdToggleDetailOffset(idx, label, isChecked, offsetIndex) {
         const currentItem = mapped[offsetIndex];
         if (isChecked) {
             // Generate a unique default name that doesn't conflict
-            let defaultName = 'Khoảng cách';
+            let defaultName = `_custom_offset_${offsetIndex + 1}`;
             let counter = 1;
             while (selectedOffsets[defaultName] !== undefined) {
-                defaultName = `Khoảng cách ${counter}`;
+                defaultName = `_custom_offset_${offsetIndex + 1}_${counter}`;
                 counter++;
             }
             selectedOffsets[defaultName] = '';
@@ -5649,7 +5659,7 @@ function _tpdUpdateDetailOffsetLabel(idx, oldLabel, newLabel, offsetIndex) {
     
     let cleanNewLabel = newLabel ? newLabel.trim() : '';
     if (!cleanNewLabel) {
-        cleanNewLabel = 'Khoảng cách';
+        cleanNewLabel = oldLabel.startsWith('_custom_offset_') ? oldLabel : `_custom_offset_${offsetIndex + 1}`;
     }
     
     // Avoid overwriting a predefined key or existing key unless it's the old one
@@ -6169,7 +6179,8 @@ function _tpdGenerateConfirmationText(o, items, templateText) {
                 Object.keys(selectedOffsets).forEach(lbl => {
                     const val = selectedOffsets[lbl];
                     if (val && val.trim()) {
-                        offsetParts.push(`${lbl}: ${val.trim()}`);
+                        const displayName = lbl.startsWith('_custom_offset_') ? 'Khoảng cách' : lbl;
+                        offsetParts.push(`${displayName}: ${val.trim()}`);
                     }
                 });
                 if (offsetParts.length > 0) {
