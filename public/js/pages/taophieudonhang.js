@@ -5530,7 +5530,7 @@ async function _tpdSaveProductionSheet() {
                 hasCoBe = true;
             }
             // Check if Bo tay is selected
-            if ((_tpdGetSewingTechGroup(techName) === 'Nhóm Bo / Tay' && !normalizedTech.includes('co') && !normalizedTech.includes('nep')) || normalizedTech.includes('bo tay')) {
+            if (_tpdIsBoTay(techName)) {
                 hasBoTay = true;
             }
         }
@@ -5665,7 +5665,7 @@ function _tpdValidateAllSheets() {
                     hasCoBe = true;
                 }
                 // Check if Bo tay is selected
-                if ((_tpdGetSewingTechGroup(techName) === 'Nhóm Bo / Tay' && !normalizedTech.includes('co') && !normalizedTech.includes('nep')) || normalizedTech.includes('bo tay')) {
+                if (_tpdIsBoTay(techName)) {
                     hasBoTay = true;
                 }
             }
@@ -7171,6 +7171,24 @@ function _tpdGetSewingTechGroup(tech) {
     if (lower.includes('cổ')) return 'Nhóm Cổ';
     if (lower.includes('bo') || lower.includes('tay')) return 'Nhóm Bo / Tay';
     return 'Khác';
+}
+
+function _tpdIsBoTay(techName) {
+    if (!techName) return false;
+    const trimmed = techName.trim();
+    if (!trimmed || trimmed === 'Khác') return false;
+
+    const normalizedConfig = _tpdGetNormalizedSewingTechs();
+    const normTech = _tpdNormalizeText(trimmed);
+    const match = normalizedConfig.find(n => {
+        return _tpdNormalizeText(n.tech) === normTech;
+    });
+    if (match) {
+        return match.group === 'Nhóm Bo / Tay';
+    }
+
+    const accentRemoved = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/đ/g, 'd');
+    return accentRemoved.startsWith('bo tay') || accentRemoved.startsWith('bo o tay');
 }
 
 // Add sewing technique item row
