@@ -5509,6 +5509,8 @@ async function _tpdSaveProductionSheet() {
 
     // Validation for sewing items details
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    let hasCoBe = false;
+    let hasBoTay = false;
     if (layout.sewing_items && layout.sewing_items.length > 0) {
         for (let i = 0; i < layout.sewing_items.length; i++) {
             const s = layout.sewing_items[i];
@@ -5521,7 +5523,21 @@ async function _tpdSaveProductionSheet() {
                 showToast(`⚠️ Vui lòng nhập thông tin chi tiết cho kỹ thuật may "${techName}"!`, 'error');
                 return false;
             }
+
+            // Check if Cổ bẻ is selected
+            const normalizedTech = techName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/đ/g, 'd');
+            if (normalizedTech.includes('co be')) {
+                hasCoBe = true;
+            }
+            // Check if Bo tay is selected
+            if (_tpdGetSewingTechGroup(techName) === 'Nhóm Bo / Tay' || normalizedTech.includes('bo tay') || normalizedTech.includes('bo') || normalizedTech.includes('tay')) {
+                hasBoTay = true;
+            }
         }
+    }
+    if (hasCoBe && !hasBoTay) {
+        showToast('⚠️ Bạn đã chọn Cổ Bẻ, bắt buộc phải thêm Bo Tay ở Kỹ Thuật May!', 'error');
+        return false;
     }
 
     showToast('⏳ Đang lưu thông tin phiếu sản xuất...', 'info');
@@ -5626,6 +5642,8 @@ function _tpdValidateAllSheets() {
         }
 
         // 3. Validate sewing items
+        let hasCoBe = false;
+        let hasBoTay = false;
         if (layout.sewing_items && layout.sewing_items.length > 0) {
             for (let k = 0; k < layout.sewing_items.length; k++) {
                 const s = layout.sewing_items[k];
@@ -5640,7 +5658,22 @@ function _tpdValidateAllSheets() {
                     _tpdSwitchItemTab(idx);
                     return false;
                 }
+
+                // Check if Cổ bẻ is selected
+                const normalizedTech = techName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/đ/g, 'd');
+                if (normalizedTech.includes('co be')) {
+                    hasCoBe = true;
+                }
+                // Check if Bo tay is selected
+                if (_tpdGetSewingTechGroup(techName) === 'Nhóm Bo / Tay' || normalizedTech.includes('bo tay') || normalizedTech.includes('bo') || normalizedTech.includes('tay')) {
+                    hasBoTay = true;
+                }
             }
+        }
+        if (hasCoBe && !hasBoTay) {
+            showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Bạn đã chọn Cổ Bẻ, bắt buộc phải thêm Bo Tay ở Kỹ Thuật May!`, 'error');
+            _tpdSwitchItemTab(idx);
+            return false;
         }
 
         // 4. Validate mockup image is uploaded
