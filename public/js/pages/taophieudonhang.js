@@ -4386,9 +4386,16 @@ function _tpdRenderFormInputs() {
             localTypes.push(d.print_type);
         }
         
-        let valWidth = d.width || '';
-        let valHeight = d.height || '';
-        if (!valWidth && !valHeight && d.dimension && d.dimension.trim()) {
+        const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
+        if (isPrint3DPosition) {
+            d.print_type = 'In 3D';
+            d.width = '';
+            d.height = '';
+        }
+
+        let valWidth = isPrint3DPosition ? '' : (d.width || '');
+        let valHeight = isPrint3DPosition ? '' : (d.height || '');
+        if (!isPrint3DPosition && !valWidth && !valHeight && d.dimension && d.dimension.trim()) {
             const dim = d.dimension.trim();
             const lowerDim = dim.toLowerCase();
             if (lowerDim.includes('cao') || lowerDim.includes('h')) {
@@ -4401,7 +4408,7 @@ function _tpdRenderFormInputs() {
         }
 
         const isTypeMissing = !d.print_type || !d.print_type.trim();
-        const isDimMissing = !valWidth && !valHeight;
+        const isDimMissing = !isPrint3DPosition && !valWidth && !valHeight;
         
         const typeStyle = isTypeMissing 
             ? 'flex: 1; padding: 2px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
@@ -4447,18 +4454,24 @@ function _tpdRenderFormInputs() {
                 <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f1f5f9; padding-top: 4px;">
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kiểu:</span>
-                        <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr}>
+                        <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr || isPrint3DPosition ? 'disabled' : ''}>
                             <option value="">-- Kiểu in/thêu --</option>
                             ${localTypes.map(t => `<option value="${t}" ${d.print_type === t ? 'selected' : ''}>${t}</option>`).join('')}
                         </select>
                     </div>
 
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                        <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
-                        <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="document.getElementById('tpd_height_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="${widthStyle}" ${disabledAttr || (valHeight ? 'disabled' : '')}>
-                        <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
-                        <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '')}>
-                    </div>
+                    ${isPrint3DPosition ? `
+                        <div style="display: flex; align-items: center; justify-content: center; height: 18px; background: #f8fafc; border-radius: 4px; border: 1px dashed #cbd5e1; padding: 2px 4px; box-sizing: border-box;">
+                            <span style="font-size: 8px; color: #64748b; font-weight: 700;">✨ In 3D tràn thân (Không kích thước)</span>
+                        </div>
+                    ` : `
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
+                            <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="document.getElementById('tpd_height_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="${widthStyle}" ${disabledAttr || (valHeight ? 'disabled' : '')}>
+                            <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
+                            <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '')}>
+                        </div>
+                    `}
 
                     ${(() => {
                         const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
@@ -5856,17 +5869,20 @@ async function _tpdSaveProductionSheet() {
                 return false;
             }
             
-            // 2. Kích thước (ngang hoặc cao)
-            const hasWidth = d.width && d.width.trim();
-            const hasHeight = d.height && d.height.trim();
-            const hasDim = d.dimension && d.dimension.trim();
-            if (!hasWidth && !hasHeight && !hasDim) {
-                showToast(`⚠️ Vui lòng điền kích thước Ngang hoặc Cao cho vị trí "${d.position}"!`, 'error');
-                return false;
-            }
-            if (hasWidth && hasHeight) {
-                showToast(`⚠️ Vui lòng chỉ điền một chiều kích thước (Ngang HOẶC Cao) cho vị trí "${d.position}"!`, 'error');
-                return false;
+            // 2. Kích thước (ngang hoặc cao) - Bỏ qua đối với In 3D
+            const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
+            if (!isPrint3DPosition) {
+                const hasWidth = d.width && d.width.trim();
+                const hasHeight = d.height && d.height.trim();
+                const hasDim = d.dimension && d.dimension.trim();
+                if (!hasWidth && !hasHeight && !hasDim) {
+                    showToast(`⚠️ Vui lòng điền kích thước Ngang hoặc Cao cho vị trí "${d.position}"!`, 'error');
+                    return false;
+                }
+                if (hasWidth && hasHeight) {
+                    showToast(`⚠️ Vui lòng chỉ điền một chiều kích thước (Ngang HOẶC Cao) cho vị trí "${d.position}"!`, 'error');
+                    return false;
+                }
             }
             
             // 3. Offset if required
