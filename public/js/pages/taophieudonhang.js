@@ -132,7 +132,8 @@ async function renderTaophieudonhangPage(content) {
     await Promise.all([
         _tpdLoadOrders(),
         _tpdLoadPrintPositionsConfig(),
-        _tpdLoadSewingTechsConfig()
+        _tpdLoadSewingTechsConfig(),
+        _tpdLoadLayoutConfig()
     ]);
 
     // Check URL parameters for scanned ID
@@ -202,7 +203,8 @@ async function renderDesignDraftPage(content) {
             apiCall('/api/dht/my-info'),
             _tpdLoadSizeConfig(),
             _tpdLoadPrintPositionsConfig(),
-            _tpdLoadSewingTechsConfig()
+            _tpdLoadSewingTechsConfig(),
+            _tpdLoadLayoutConfig()
         ]);
 
         if (!details || !details.order) throw new Error('Không lấy được chi tiết đơn hàng');
@@ -3711,21 +3713,22 @@ function _tpdGetCustomLayout(index) {
     if (!it) return { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
 
     let layout;
+    const defLayout = _tpdGetDefaultLayoutConfig();
     if (!it.custom_layout) {
-        layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+        layout = { ...defLayout };
     } else if (typeof it.custom_layout === 'string') {
         try {
             layout = JSON.parse(it.custom_layout);
         } catch(e) {
-            layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+            layout = { ...defLayout };
         }
     } else {
         layout = it.custom_layout;
     }
 
-    if (layout.height === undefined) layout.height = '';
-    if (layout.topSpacing === undefined) layout.topSpacing = 7;
-    if (layout.alignment === undefined) layout.alignment = 'flex-start';
+    if (layout.height === undefined) layout.height = defLayout.height;
+    if (layout.topSpacing === undefined) layout.topSpacing = defLayout.topSpacing;
+    if (layout.alignment === undefined) layout.alignment = defLayout.alignment;
 
     // Smart sync sewing techniques from master order item & TSAM pattern
     if (!layout.sewing_items) {
@@ -3847,6 +3850,58 @@ function _tpdChangeLayoutEditable(checked) {
     _tpdSaveDraft(state.editingItem);
 }
 
+// Load global default layout settings from server
+async function _tpdLoadLayoutConfig() {
+    try {
+        const res = await apiCall(`/api/dht/layout-config?_=${Date.now()}`, 'GET');
+        if (res && !res.error) {
+            _tpd.defaultLayoutConfig = res;
+        }
+    } catch (e) {
+        console.error('Failed to load layout config:', e);
+    }
+    if (!_tpd.defaultLayoutConfig) {
+        _tpd.defaultLayoutConfig = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+    }
+}
+
+// Get the default layout configuration object fallback
+function _tpdGetDefaultLayoutConfig() {
+    const def = _tpd.defaultLayoutConfig || { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+    return {
+        height: def.height !== undefined ? def.height : '',
+        topSpacing: def.topSpacing !== undefined ? def.topSpacing : 7,
+        alignment: def.alignment !== undefined ? def.alignment : 'flex-start',
+        contentEditable: def.contentEditable !== undefined ? def.contentEditable : false
+    };
+}
+
+// Save the active sheet layout configuration as the global system default
+async function _tpdSaveAsGlobalDefaultLayout() {
+    const state = window._tpdWorkspaceState;
+    if (!state) return;
+    const layout = _tpdGetCustomLayout(state.activeItemIndex);
+    
+    const defaultData = {
+        height: layout.height !== undefined ? layout.height : '',
+        topSpacing: layout.topSpacing !== undefined ? layout.topSpacing : 7,
+        alignment: layout.alignment !== undefined ? layout.alignment : 'flex-start'
+    };
+
+    try {
+        const res = await apiCall('/api/dht/layout-config', 'PUT', defaultData);
+        if (res && res.success) {
+            _tpd.defaultLayoutConfig = { ..._tpd.defaultLayoutConfig, ...defaultData };
+            showToast('Đã lưu bố cục làm mặc định cho toàn bộ hệ thống thành công!', 'success');
+        } else {
+            showToast(res && res.error ? res.error : 'Lỗi khi lưu cấu hình mặc định', 'danger');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Không thể lưu cấu hình mặc định hệ thống', 'danger');
+    }
+}
+
 function _tpdChangeLayoutRedSheet(checked) {
     const state = window._tpdWorkspaceState;
     if (!state) return;
@@ -3863,11 +3918,12 @@ function _tpdChangeLayoutRedSheet(checked) {
         // Load the cloned item state (reads from localStorage if exists, otherwise original item)
         let it = _tpdCloneItemState(item);
         if (it) {
+            const defLayout = _tpdGetDefaultLayoutConfig();
             if (!it.custom_layout) {
-                it.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+                it.custom_layout = { ...defLayout };
             } else if (typeof it.custom_layout === 'string') {
                 try { it.custom_layout = JSON.parse(it.custom_layout); } catch(e) {
-                    it.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+                    it.custom_layout = { ...defLayout };
                 }
             }
             it.custom_layout.is_red_sheet = checked;
@@ -3875,11 +3931,12 @@ function _tpdChangeLayoutRedSheet(checked) {
         }
 
         // Also update in-memory state.items so that it's up to date
+        const defLayout = _tpdGetDefaultLayoutConfig();
         if (!item.custom_layout) {
-            item.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+            item.custom_layout = { ...defLayout };
         } else if (typeof item.custom_layout === 'string') {
             try { item.custom_layout = JSON.parse(item.custom_layout); } catch(e) {
-                item.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+                item.custom_layout = { ...defLayout };
             }
         }
         item.custom_layout.is_red_sheet = checked;
@@ -4679,6 +4736,13 @@ function _tpdRenderFormInputs() {
                         <button type="button" class="tpd-btn ${layout.alignment === 'flex-end' ? 'tpd-btn-primary' : 'tpd-btn-secondary'}" style="flex:1; padding: 4px; font-size:11px; font-weight:700; height: auto;" onclick="_tpdChangeLayoutAlignment('flex-end')">Phải</button>
                     </div>
                 </div>
+
+                <!-- Global Default Layout Settings (Director only) -->
+                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: flex-end;">
+                    <button type="button" class="btn btn-primary" style="width: 100%; padding: 6px; font-size: 11px; font-weight: 700; height: auto; background: #0f766e; border: 1px solid #0f766e; color: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 4px;" onclick="_tpdSaveAsGlobalDefaultLayout()">
+                        💾 Lưu làm mặc định cho mọi phiếu mới
+                    </button>
+                </div>
             </div>
         `;
     }
@@ -5244,11 +5308,12 @@ function _tpdChangeCustomInfo(field, value) {
     const it = state.editingItem;
     if (!it) return;
 
+    const defLayout = _tpdGetDefaultLayoutConfig();
     if (!it.custom_layout) {
-        it.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+        it.custom_layout = { ...defLayout };
     } else if (typeof it.custom_layout === 'string') {
         try { it.custom_layout = JSON.parse(it.custom_layout); } catch(e) {
-            it.custom_layout = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+            it.custom_layout = { ...defLayout };
         }
     }
 

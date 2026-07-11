@@ -5763,5 +5763,37 @@ module.exports = async function(fastify) {
         );
         return { success: true };
     });
+
+    // GET /api/dht/layout-config
+    fastify.get('/api/dht/layout-config', { preHandler: [authenticate] }, async (request, reply) => {
+        reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'tpd_default_layout'");
+        const defaults = { height: '', topSpacing: 7, alignment: 'flex-start', contentEditable: false };
+        if (!row) {
+            return defaults;
+        }
+        try {
+            const data = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+            return { ...defaults, ...data };
+        } catch (e) {
+            return defaults;
+        }
+    });
+
+    // PUT /api/dht/layout-config
+    fastify.put('/api/dht/layout-config', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const configVal = request.body;
+        if (!configVal || typeof configVal !== 'object') {
+            return reply.code(400).send({ error: 'Dữ liệu không hợp lệ' });
+        }
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('tpd_default_layout', $1, NOW()) 
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify(configVal)]
+        );
+        return { success: true };
+    });
 };
 
