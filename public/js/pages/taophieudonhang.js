@@ -5530,7 +5530,7 @@ async function _tpdSaveProductionSheet() {
                 hasCoBe = true;
             }
             // Check if Bo tay is selected
-            if (_tpdGetSewingTechGroup(techName) === 'Nhóm Bo / Tay' || normalizedTech.includes('bo tay') || normalizedTech.includes('bo') || normalizedTech.includes('tay')) {
+            if ((_tpdGetSewingTechGroup(techName) === 'Nhóm Bo / Tay' && !normalizedTech.includes('co') && !normalizedTech.includes('nep')) || normalizedTech.includes('bo tay')) {
                 hasBoTay = true;
             }
         }
@@ -5665,7 +5665,7 @@ function _tpdValidateAllSheets() {
                     hasCoBe = true;
                 }
                 // Check if Bo tay is selected
-                if (_tpdGetSewingTechGroup(techName) === 'Nhóm Bo / Tay' || normalizedTech.includes('bo tay') || normalizedTech.includes('bo') || normalizedTech.includes('tay')) {
+                if ((_tpdGetSewingTechGroup(techName) === 'Nhóm Bo / Tay' && !normalizedTech.includes('co') && !normalizedTech.includes('nep')) || normalizedTech.includes('bo tay')) {
                     hasBoTay = true;
                 }
             }
