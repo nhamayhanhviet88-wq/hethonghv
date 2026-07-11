@@ -7065,7 +7065,12 @@ function _tpdSortBySewingGroup(arr, getTechFn) {
         if (idxB === -1 && (normB === 'NHÓM KHÁC' || normB === 'KHÁC')) idxB = normPriority.indexOf('KHÁC');
         
         if (idxA !== -1 && idxB !== -1) {
-            return idxA - idxB;
+            if (idxA !== idxB) {
+                return idxA - idxB;
+            }
+            const tA = _tpdNormalizeText(techA);
+            const tB = _tpdNormalizeText(techB);
+            return tA.localeCompare(tB);
         }
         if (idxA !== -1) return -1;
         if (idxB !== -1) return 1;
@@ -7171,7 +7176,8 @@ function _tpdGetSewingTechGroup(tech) {
     const lower = techName.toLowerCase();
     if (lower.normalize('NFC').includes('nẹp')) return 'NHÓM NẸP';
     if (lower.includes('cổ')) return 'Nhóm Cổ';
-    if (lower.includes('bo') || lower.includes('tay')) return 'Nhóm Bo / Tay';
+    const accentRemoved = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/đ/g, 'd');
+    if (accentRemoved.startsWith('bo tay') || accentRemoved.startsWith('bo o tay')) return 'Nhóm Bo / Tay';
     return 'Khác';
 }
 
