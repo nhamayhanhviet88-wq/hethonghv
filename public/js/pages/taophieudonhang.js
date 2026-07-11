@@ -4113,15 +4113,29 @@ function _tpdGetMappedOffsets(d, posConfig) {
                 value = selectedOffsets[label] || '';
                 isChecked = true;
                 customKeyIdx++;
+            } else {
+                // Tên khoảng cách để trống thì mặc định BẮT BUỘC ĐIỀN
+                let defaultName = 'Khoảng cách';
+                let counter = 1;
+                while (selectedOffsets[defaultName] !== undefined) {
+                    defaultName = `Khoảng cách ${counter}`;
+                    counter++;
+                }
+                selectedOffsets[defaultName] = '';
+                label = defaultName;
+                value = '';
+                isChecked = true;
+                customKeys.push(defaultName);
+                customKeyIdx++;
             }
             return {
                 configLabel: '',
                 isPredefined: false,
                 label: label,
                 value: value,
-                isChecked,
+                isChecked: true, // Luôn tích chọn vì bắt buộc
                 placeholder: off.placeholder,
-                require: off.require
+                require: true // Không điền tên thì mặc định bắt buộc điền
             };
         }
     });
@@ -4151,8 +4165,9 @@ function _tpdNormalizePrintDetailOffsets(d, posConfig) {
             d.selected_offsets[posOffsets[0].label] = legacyVal;
         } else {
             posOffsets.forEach(off => {
-                if (off.require) {
-                    d.selected_offsets[off.label] = '';
+                if (off.require || off.label === '') { // Label rỗng thì mặc định require
+                    const defaultName = off.label || 'Khoảng cách';
+                    d.selected_offsets[defaultName] = '';
                 }
             });
         }
@@ -4175,6 +4190,9 @@ function _tpdIsPrintDetailComplete(d) {
         for (const item of mapped) {
             if (item.require) {
                 if (!item.isChecked || !item.value || !item.value.trim()) return false;
+                if (!item.isPredefined) {
+                    if (!item.label || !item.label.trim() || item.label === 'Khoảng cách') return false;
+                }
             }
         }
     }
@@ -5847,21 +5865,19 @@ async function _tpdSaveProductionSheet() {
             // 3. Offset if required
             const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
             if (posConfig) {
-                let posOffsets = posConfig.offsets || [];
-                if (posOffsets.length === 0 && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
-                    posOffsets = [{
-                        label: posConfig.offset_label || 'Khoảng cách',
-                        placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
-                        require: !!posConfig.require_offset
-                    }];
-                }
-                for (const off of posOffsets) {
-                    if (off.require) {
-                        const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
-                        const val = selectedOffsets[off.label] || '';
-                        if (!val || !val.trim()) {
-                            showToast(`⚠️ Vui lòng điền thông tin "${off.label || 'khoảng cách'}" cho vị trí "${d.position}"!`, 'error');
+                const mapped = _tpdGetMappedOffsets(d, posConfig);
+                for (const item of mapped) {
+                    if (item.require) {
+                        if (!item.isChecked || !item.value || !item.value.trim()) {
+                            const displayName = item.label || 'khoảng cách';
+                            showToast(`⚠️ Vui lòng điền thông tin "${displayName}" cho vị trí "${d.position}"!`, 'error');
                             return false;
+                        }
+                        if (!item.isPredefined) {
+                            if (!item.label || !item.label.trim() || item.label === 'Khoảng cách') {
+                                showToast(`⚠️ Vui lòng điền tên khoảng cách hợp lệ cho vị trí "${d.position}"!`, 'error');
+                                return false;
+                            }
                         }
                     }
                 }
@@ -7270,8 +7286,8 @@ function _tpdRenderPrintPositionsModalList() {
         const offsetsHtml = (item.offsets || []).map((off, oIdx) => `
             <div style="display: flex; gap: 8px; align-items: center; background: white; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 6px 8px; margin-top: 4px; flex-wrap: wrap;">
                 <!-- Checkbox for required -->
-                <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #334155; cursor: pointer; margin: 0; min-width: 100px;">
-                    <input type="checkbox" ${off.require ? 'checked' : ''} onchange="_tpdUpdateModalOffsetVal(${idx}, ${oIdx}, 'require', this.checked)" style="cursor: pointer; width: 13px; height: 13px; margin: 0;">
+                <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #334155; cursor: ${!off.label ? 'not-allowed' : 'pointer'}; margin: 0; min-width: 100px;">
+                    <input type="checkbox" ${off.require || !off.label ? 'checked' : ''} ${!off.label ? 'disabled' : ''} onchange="_tpdUpdateModalOffsetVal(${idx}, ${oIdx}, 'require', this.checked)" style="cursor: ${!off.label ? 'not-allowed' : 'pointer'}; width: 13px; height: 13px; margin: 0;">
                     <span>Bắt buộc điền</span>
                 </label>
                 
@@ -7402,14 +7418,11 @@ async function _tpdSavePrintPositionsConfig() {
         if (item.offsets) {
             for (const off of item.offsets) {
                 const label = off.label ? off.label.trim() : '';
-                if (!label) {
-                    showToast('Tên khoảng cách không được để trống!', 'warning');
-                    return;
-                }
+                // Cho phép để trống nhãn để Sales tự điền và bắt buộc điền
                 offsets.push({
                     label,
                     placeholder: off.placeholder ? off.placeholder.trim() : 'Ví dụ: 10cm',
-                    require: !!off.require
+                    require: label === '' ? true : !!off.require
                 });
             }
         }
