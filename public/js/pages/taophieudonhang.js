@@ -4179,9 +4179,11 @@ function _tpdNormalizePrintDetailOffsets(d, posConfig) {
 
 function _tpdIsPrintDetailComplete(d) {
     if (!d || !d.position) return false;
-    if (!d.print_type || !d.print_type.trim() || d.print_type === '-- Kiểu in/thêu --') return false;
     
     const isPrint3D = d.print_type === 'In 3D' || (d.position && d.position.toLowerCase().includes('in 3d'));
+    const printType = isPrint3D ? 'In 3D' : (d.print_type || '').trim();
+    if (!printType || printType === '-- Kiểu in/thêu --') return false;
+    
     if (!isPrint3D) {
         const hasWidth = d.width && d.width.trim();
         const hasHeight = d.height && d.height.trim();
@@ -5533,7 +5535,12 @@ function _tpdAddPosition() {
         return;
     }
 
-    it.print_details.push({ position: val, image: '' });
+    const isPrint3D = val.toLowerCase().includes('in 3d');
+    it.print_details.push({ 
+        position: val, 
+        image: '',
+        print_type: isPrint3D ? 'In 3D' : ''
+    });
 
     _tpdSaveDraft(it);
     _tpdRenderFormInputs();
@@ -5877,6 +5884,10 @@ async function _tpdSaveProductionSheet() {
             const d = it.print_details[i];
             
             // 1. Kiểu
+            const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
+            if (isPrint3DPosition) {
+                d.print_type = 'In 3D';
+            }
             if (!d.print_type || !d.print_type.trim()) {
                 showToast(`⚠️ Vui lòng chọn Kiểu in/thêu cho vị trí "${d.position}"!`, 'error');
                 return false;
