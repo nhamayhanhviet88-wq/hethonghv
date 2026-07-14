@@ -392,14 +392,16 @@
             </select>
         </div>
         
-        <div class="form-group" id="discountGroup">
-            <label>Phần trăm giảm giá (%)</label>
-            <input type="number" id="newDiscountPct" class="form-control" min="1" max="100" placeholder="Ví dụ: 10">
-        </div>
+        <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+            <div class="form-group" id="discountGroup" style="flex: 1; margin-bottom: 0;">
+                <label>Giảm giá (%)</label>
+                <input type="number" id="newDiscountPct" class="form-control" min="1" max="100" placeholder="Ví dụ: 10">
+            </div>
 
-        <div class="form-group" id="giftGroup" style="display:none;">
-            <label>Số lượng áo tặng</label>
-            <input type="number" id="newGiftQty" class="form-control" min="1" placeholder="Ví dụ: 2">
+            <div class="form-group" id="giftGroup" style="flex: 1; margin-bottom: 0;">
+                <label>Số áo tặng</label>
+                <input type="number" id="newGiftQty" class="form-control" min="1" placeholder="Ví dụ: 2">
+            </div>
         </div>
 
         <div class="form-group">
@@ -526,6 +528,15 @@
                     ? `<span style="color: #dc2626; font-weight: 700; background: #fee2e2; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${usedText} (Hết lượt)</span>`
                     : `<span style="color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${usedText}</span>`;
 
+                let ordersHtml = '';
+                if (item.applied_orders && item.applied_orders.length > 0) {
+                    ordersHtml = `<div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">` +
+                        item.applied_orders.map(o => 
+                            `<span onclick="sessionStorage.setItem('dhtSearchOnLoad', '${o.order_code}'); window.location.href = '/donhangtong';" style="cursor: pointer; font-size: 11px; background: #eff6ff; color: #1e40af; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe; font-weight: 700; display: inline-block;" title="Nhấp để xem đơn hàng trên DHT">#${o.order_code}</span>`
+                        ).join('') + 
+                        `</div>`;
+                }
+
                 // 2. Expiration date display
                 let expireDisplay = '';
                 let isExpired = false;
@@ -553,8 +564,9 @@
                         </div>
                         <div class="promo-details" style="display: flex; flex-direction: column; gap: 6px;">
                             <div>${detail}</div>
-                            <div style="font-size: 13px; font-weight: 500; color: #475569; display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                            <div style="font-size: 13px; font-weight: 500; color: #475569; display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
                                 <span>Lượt dùng: ${usedBadge}</span>
+                                ${ordersHtml}
                             </div>
                             <div style="font-size: 13px; font-weight: 500; color: #475569;">
                                 Hạn dùng: ${expireDisplay}
@@ -604,6 +616,10 @@
             const expireAtInp = document.getElementById('newExpireAt');
             if (expireAtInp) expireAtInp.value = "";
 
+            const typeSelect = document.getElementById('newPromoType');
+            if (typeSelect) typeSelect.value = "discount";
+            toggleFormFields("discount");
+
             document.getElementById('drawerBackdrop').classList.add('active');
             document.getElementById('createDrawer').classList.add('active');
         }
@@ -614,8 +630,33 @@
         }
 
         function toggleFormFields(val) {
-            document.getElementById('discountGroup').style.display = val === 'discount' ? 'block' : 'none';
-            document.getElementById('giftGroup').style.display = val === 'gift' ? 'block' : 'none';
+            const discInput = document.getElementById('newDiscountPct');
+            const giftInput = document.getElementById('newGiftQty');
+            if (!discInput || !giftInput) return;
+
+            if (val === 'discount') {
+                discInput.disabled = false;
+                discInput.style.backgroundColor = '';
+                discInput.style.color = '';
+                discInput.style.cursor = '';
+                
+                giftInput.disabled = true;
+                giftInput.style.backgroundColor = '#f3f4f6';
+                giftInput.style.color = '#9ca3af';
+                giftInput.style.cursor = 'not-allowed';
+                giftInput.value = '';
+            } else {
+                discInput.disabled = true;
+                discInput.style.backgroundColor = '#f3f4f6';
+                discInput.style.color = '#9ca3af';
+                discInput.style.cursor = 'not-allowed';
+                discInput.value = '';
+                
+                giftInput.disabled = false;
+                giftInput.style.backgroundColor = '';
+                giftInput.style.color = '';
+                giftInput.style.cursor = '';
+            }
         }
 
         async function submitCreatePromo() {

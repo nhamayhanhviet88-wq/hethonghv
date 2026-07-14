@@ -105,15 +105,18 @@ async function khuyenMaiRoutes(fastify, options) {
             ORDER BY pc.created_at DESC
         `);
         
-        // Dynamically compute exact uses count for each code in the list
+        // Dynamically compute exact uses count and applied orders list for each code in the list
         for (let row of rows) {
-            const discountUses = await db.get(`
-                SELECT COUNT(*) as count FROM dht_orders WHERE UPPER(applied_coupon) = UPPER($1)
+            const appliedOrders = await db.all(`
+                SELECT id, order_code FROM dht_orders WHERE UPPER(applied_coupon) = UPPER($1) AND is_draft = FALSE
+                UNION
+                SELECT DISTINCT o.id, o.order_code FROM dht_orders o
+                JOIN dht_order_items oi ON o.id = oi.dht_order_id
+                WHERE UPPER(oi.promo_gift_code) = UPPER($1) AND o.is_draft = FALSE
             `, [row.code]);
-            const giftUses = await db.get(`
-                SELECT COUNT(DISTINCT dht_order_id) as count FROM dht_order_items WHERE UPPER(promo_gift_code) = UPPER($1)
-            `, [row.code]);
-            row.used_count = (discountUses?.count || 0) + (giftUses?.count || 0);
+            
+            row.applied_orders = appliedOrders || [];
+            row.used_count = (appliedOrders || []).length;
         }
         
         return { items: rows, can_edit_max_uses: canEditMaxUses(request.user) };
@@ -214,17 +217,17 @@ async function khuyenMaiRoutes(fastify, options) {
             }
         }
 
-        // 2. Check maximum uses limit
         const discountUses = await db.get(`
             SELECT COUNT(*) as count FROM dht_orders 
             WHERE UPPER(applied_coupon) = UPPER($1)
-              AND id != $2
+              AND id != $2 AND is_draft = FALSE
         `, [row.code, excludeOrderId]);
 
         const giftUses = await db.get(`
-            SELECT COUNT(DISTINCT dht_order_id) as count FROM dht_order_items 
-            WHERE UPPER(promo_gift_code) = UPPER($1)
-              AND dht_order_id != $2
+            SELECT COUNT(DISTINCT oi.dht_order_id) as count FROM dht_order_items oi
+            JOIN dht_orders o ON oi.dht_order_id = o.id
+            WHERE UPPER(oi.promo_gift_code) = UPPER($1)
+              AND oi.dht_order_id != $2 AND o.is_draft = FALSE
         `, [row.code, excludeOrderId]);
 
         const totalUses = (discountUses?.count || 0) + (giftUses?.count || 0);

@@ -50,9 +50,9 @@ async function renderKhuyenMaiPage(container) {
                         <thead>
                             <tr style="background: #f8fafc; border-bottom: 1.5px solid #e5e7eb; color: #475569; font-weight: 700; font-size: 13px;">
                                 <th style="padding: 16px 24px;">MÃ KHUYẾN MÃI</th>
-                                <th style="padding: 16px 24px;">LOẠI ƯU ĐÃI</th>
+                                <th style="padding: 16px 24px; white-space: nowrap;">LOẠI ƯU ĐÃI</th>
                                 <th style="padding: 16px 24px;">CHI TIẾT</th>
-                                <th style="padding: 16px 24px;">LƯỢT DÙNG</th>
+                                <th style="padding: 16px 24px; white-space: nowrap;">LƯỢT DÙNG</th>
                                 <th style="padding: 16px 24px;">HẠN DÙNG</th>
                                 <th style="padding: 16px 24px;">NGƯỜI TẠO</th>
                                 <th style="padding: 16px 24px;">NGÀY TẠO</th>
@@ -128,8 +128,8 @@ function filterPromoCodes() {
     body.innerHTML = filtered.map(item => {
         const isDiscount = item.promo_type === 'discount';
         const typeBadge = isDiscount 
-            ? `<span style="background-color: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">🏷️ Giảm Giá %</span>`
-            : `<span style="background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">👕 Tặng Áo</span>`;
+            ? `<span style="background-color: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">🏷️ Giảm Giá %</span>`
+            : `<span style="background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">👕 Tặng Áo</span>`;
 
         const detailsText = isDiscount
             ? `<strong style="color: #2563eb; font-size: 16px;">Giảm ${item.discount_pct}%</strong>`
@@ -143,6 +143,15 @@ function filterPromoCodes() {
         const usedBadge = isFullyUsed
             ? `<span style="color: #dc2626; font-weight: 700; background: #fee2e2; padding: 4px 8px; border-radius: 6px; font-size: 13px;">${usedText} (Hết lượt)</span>`
             : `<span style="color: #16a34a; font-weight: 700; background: #dcfce7; padding: 4px 8px; border-radius: 6px; font-size: 13px;">${usedText}</span>`;
+
+        let ordersHtml = '';
+        if (item.applied_orders && item.applied_orders.length > 0) {
+            ordersHtml = `<div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; max-width: 200px;">` +
+                item.applied_orders.map(o => 
+                    `<span onclick="sessionStorage.setItem('dhtSearchOnLoad', '${o.order_code}'); navigate('don-hang-tong');" style="cursor: pointer; font-size: 11px; background: #eff6ff; color: #1e40af; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe; font-weight: 700; transition: all 0.15s;" onmouseover="this.style.background='#dbeafe';" onmouseout="this.style.background='#eff6ff';" title="Nhấp để xem đơn hàng trên DHT">#${o.order_code}</span>`
+                ).join('') + 
+                `</div>`;
+        }
 
         // 2. Expiration date display
         let expireDisplay = '';
@@ -174,9 +183,12 @@ function filterPromoCodes() {
         return `
             <tr style="border-bottom: 1px solid #f1f5f9; transition: background-color 0.15s;" onmouseover="this.style.backgroundColor='#f8fafc';" onmouseout="this.style.backgroundColor='transparent';">
                 <td style="padding: 16px 24px; font-weight: 700; font-family: monospace; font-size: 16px; color: #1e3a8a; letter-spacing: 0.5px;">${item.code}</td>
-                <td style="padding: 16px 24px;">${typeBadge}</td>
+                <td style="padding: 16px 24px; white-space: nowrap;">${typeBadge}</td>
                 <td style="padding: 16px 24px;">${detailsText}</td>
-                <td style="padding: 16px 24px;">${usedBadge}</td>
+                <td style="padding: 16px 24px;">
+                    <div>${usedBadge}</div>
+                    ${ordersHtml}
+                </td>
                 <td style="padding: 16px 24px;">${expireDisplay}</td>
                 <td style="padding: 16px 24px; color: #475569; font-weight: 500;">${creator}</td>
                 <td style="padding: 16px 24px; color: #64748b;">${createdDate}</td>
@@ -210,16 +222,18 @@ function openCreatePromoModal() {
                 </select>
             </div>
             
-            <div class="form-group" id="promoDiscountGroup" style="margin-bottom: 16px;">
-                <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">Phần Trăm Giảm Giá (%)</label>
-                <input type="number" id="newPromoDiscountPct" min="1" max="100" placeholder="Nhập số từ 1 - 100" class="form-control"
-                    style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;">
-            </div>
+            <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group" id="promoDiscountGroup" style="flex: 1; margin-bottom: 0;">
+                    <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">Phần Trăm Giảm Giá (%)</label>
+                    <input type="number" id="newPromoDiscountPct" min="1" max="100" placeholder="Nhập số từ 1 - 100" class="form-control"
+                        style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;">
+                </div>
 
-            <div class="form-group" id="promoGiftGroup" style="margin-bottom: 16px; display: none;">
-                <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">Số Lượng Áo Tặng</label>
-                <input type="number" id="newPromoGiftQty" min="1" placeholder="Nhập số lượng áo tặng" class="form-control"
-                    style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;">
+                <div class="form-group" id="promoGiftGroup" style="flex: 1; margin-bottom: 0;">
+                    <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">Số Lượng Áo Tặng</label>
+                    <input type="number" id="newPromoGiftQty" min="1" placeholder="Nhập số lượng áo tặng" class="form-control"
+                        style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;">
+                </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 16px;">
@@ -243,17 +257,38 @@ function openCreatePromoModal() {
         <button class="btn btn-secondary" onclick="closeModal()" style="border-radius: 8px; padding: 8px 16px;">Hủy</button>
         <button class="btn btn-success" onclick="submitCreatePromoCode()" style="border-radius: 8px; padding: 8px 16px; background-color: #10b981; border: none; color: white;">Tạo mã tự động</button>
     `);
+
+    // Set initial active/disabled state
+    toggleModalFields('discount');
 }
 
 function toggleModalFields(type) {
-    const discGroup = document.getElementById('promoDiscountGroup');
-    const giftGroup = document.getElementById('promoGiftGroup');
+    const discInput = document.getElementById('newPromoDiscountPct');
+    const giftInput = document.getElementById('newPromoGiftQty');
+    if (!discInput || !giftInput) return;
+
     if (type === 'discount') {
-        discGroup.style.display = 'block';
-        giftGroup.style.display = 'none';
+        discInput.disabled = false;
+        discInput.style.backgroundColor = '';
+        discInput.style.color = '';
+        discInput.style.cursor = '';
+        
+        giftInput.disabled = true;
+        giftInput.style.backgroundColor = '#f3f4f6';
+        giftInput.style.color = '#9ca3af';
+        giftInput.style.cursor = 'not-allowed';
+        giftInput.value = '';
     } else {
-        discGroup.style.display = 'none';
-        giftGroup.style.display = 'block';
+        discInput.disabled = true;
+        discInput.style.backgroundColor = '#f3f4f6';
+        discInput.style.color = '#9ca3af';
+        discInput.style.cursor = 'not-allowed';
+        discInput.value = '';
+        
+        giftInput.disabled = false;
+        giftInput.style.backgroundColor = '';
+        giftInput.style.color = '';
+        giftInput.style.cursor = '';
     }
 }
 

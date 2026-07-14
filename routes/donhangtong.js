@@ -67,6 +67,39 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
     return parts.join(' , ');
 }
 
+async function validatePromoCodeForOrder(code, excludeOrderId = null) {
+    if (!code) return { valid: true };
+    const row = await db.get('SELECT * FROM promotion_codes WHERE UPPER(code) = UPPER($1)', [code.trim()]);
+    if (!row) {
+        return { valid: false, error: 'Mã khuyến mãi không tồn tại.' };
+    }
+    if (row.status !== 'active') {
+        return { valid: false, error: 'Mã khuyến mãi đã hết hạn hoặc bị vô hiệu hóa.' };
+    }
+    if (row.expire_at) {
+        const expireTime = new Date(row.expire_at).getTime();
+        const nowTime = Date.now();
+        if (nowTime > expireTime) {
+            return { valid: false, error: 'Mã khuyến mãi đã hết hạn sử dụng.' };
+        }
+    }
+    // Check maximum uses limit
+    const discountUses = await db.get(`
+        SELECT COUNT(*) as count FROM dht_orders 
+        WHERE UPPER(applied_coupon) = UPPER($1) AND id != $2 AND is_draft = FALSE
+    `, [row.code, excludeOrderId || 0]);
+    const giftUses = await db.get(`
+        SELECT COUNT(DISTINCT oi.dht_order_id) as count FROM dht_order_items oi
+        JOIN dht_orders o ON oi.dht_order_id = o.id
+        WHERE UPPER(oi.promo_gift_code) = UPPER($1) AND oi.dht_order_id != $2 AND o.is_draft = FALSE
+    `, [row.code, excludeOrderId || 0]);
+    const totalUses = (discountUses?.count || 0) + (giftUses?.count || 0);
+    if (row.max_uses !== null && totalUses >= row.max_uses) {
+        return { valid: false, error: `Mã khuyến mãi đã đạt giới hạn số lần sử dụng (${row.max_uses} lần).` };
+    }
+    return { valid: true };
+}
+
 async function validateFabricStockLimits(items, excludeOrderId = null) {
     if (!items || !Array.isArray(items)) return;
     
@@ -1807,6 +1840,26 @@ module.exports = async function(fastify) {
         const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [orderCode]);
         if (existing) return reply.code(409).send({ error: `Mã đơn "${orderCode}" đã tồn tại!` });
 
+        // Validate promo code maximum uses limit on POST
+        if (!isDraftOrder) {
+            if (b.applied_coupon) {
+                const promoCheck = await validatePromoCodeForOrder(b.applied_coupon, 0);
+                if (!promoCheck.valid) {
+                    return reply.code(400).send({ error: `Ưu đãi [${b.applied_coupon}]: ${promoCheck.error}` });
+                }
+            }
+            if (Array.isArray(b.items)) {
+                for (const item of b.items) {
+                    if (item.promo_gift_code) {
+                        const promoCheck = await validatePromoCodeForOrder(item.promo_gift_code, 0);
+                        if (!promoCheck.valid) {
+                            return reply.code(400).send({ error: `Tặng áo [${item.promo_gift_code}]: ${promoCheck.error}` });
+                        }
+                    }
+                }
+            }
+        }
+
         // Validate fabric stock limits
         try {
             await validateFabricStockLimits(b.items);
@@ -3213,6 +3266,23 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: `Mã đơn "${order.order_code}" đã được sử dụng!` });
         }
 
+        // Validate promo code maximum uses limit on promote
+        if (order.applied_coupon) {
+            const promoCheck = await validatePromoCodeForOrder(order.applied_coupon, orderId);
+            if (!promoCheck.valid) {
+                return reply.code(400).send({ error: `Ưu đãi [${order.applied_coupon}]: ${promoCheck.error}` });
+            }
+        }
+        const promoItems = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        for (const item of promoItems) {
+            if (item.promo_gift_code) {
+                const promoCheck = await validatePromoCodeForOrder(item.promo_gift_code, orderId);
+                if (!promoCheck.valid) {
+                    return reply.code(400).send({ error: `Tặng áo [${item.promo_gift_code}]: ${promoCheck.error}` });
+                }
+            }
+        }
+
         // Start transaction or sequential db operations
         await db.run(
             `UPDATE dht_orders SET is_draft = FALSE, official_save_clicked = TRUE, last_updated_at = NOW(), last_updated_by = $1 WHERE id = $2`,
@@ -3865,6 +3935,26 @@ module.exports = async function(fastify) {
             const draftNameVal = b.draft_name !== undefined ? b.draft_name : oldOrder.draft_name;
             if (!draftNameVal || !draftNameVal.trim()) {
                 return reply.code(400).send({ error: 'Tên bản nháp là bắt buộc khi lưu nháp' });
+            }
+        }
+
+        // Validate promo code maximum uses limit on PUT
+        if (!isDraftNewVal) {
+            if (b.applied_coupon) {
+                const promoCheck = await validatePromoCodeForOrder(b.applied_coupon, orderId);
+                if (!promoCheck.valid) {
+                    return reply.code(400).send({ error: `Ưu đãi [${b.applied_coupon}]: ${promoCheck.error}` });
+                }
+            }
+            if (Array.isArray(b.items)) {
+                for (const item of b.items) {
+                    if (item.promo_gift_code) {
+                        const promoCheck = await validatePromoCodeForOrder(item.promo_gift_code, orderId);
+                        if (!promoCheck.valid) {
+                            return reply.code(400).send({ error: `Tặng áo [${item.promo_gift_code}]: ${promoCheck.error}` });
+                        }
+                    }
+                }
             }
         }
 

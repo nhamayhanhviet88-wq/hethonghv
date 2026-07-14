@@ -1662,7 +1662,7 @@ async function _dhtAddItem(editIdx) {
         +'  <div style="display:flex;flex-direction:column;gap:4px;background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #cbd5e1">'
         +'    <div style="display:flex;justify-content:space-between;align-items:center">'
         +'      <label style="font-size:11px;font-weight:700;color:var(--navy);margin:0">🎁 Khuyến Mãi Tặng Áo</label>'
-        +'      <span id="_pp_giftPromoMsg" style="font-size:10px;font-weight:bold;color:#16a34a">' + (existing.promo_gift_code ? '✅ Tặng ' + existing.promo_gift_quantity + ' áo (' + existing.promo_gift_code + ')' : '') + '</span>'
+        +'      <span id="_pp_giftPromoMsg" style="font-size:10px;font-weight:bold;color:#16a34a">' + (existing.promo_gift_code ? '✅ Tặng ' + existing.promo_gift_quantity + ' áo' : '') + '</span>'
         +'    </div>'
         +'    <div style="display:flex;gap:6px">'
         +'      <input type="text" id="_pp_promoGiftInput" class="form-control" style="font-size:12px;text-transform:uppercase;flex:1" placeholder="Nhập mã khuyến mãi tặng áo..." value="'+(existing.promo_gift_code || '')+'" oninput="var val=this.value.trim(); if(val===\'\'){document.getElementById(\'_pp_promoGiftQty\').value=0;document.getElementById(\'_pp_promoGiftCode\').value=\'\';document.getElementById(\'_pp_giftPromoMsg\').innerText=\'\';_ppCalc();}">'
@@ -1931,7 +1931,7 @@ async function _ppApplyGiftCode() {
             qtyHidden.value = res.gift_quantity;
             codeHidden.value = res.code;
             if (msgEl) {
-                msgEl.innerText = '✅ Tặng ' + res.gift_quantity + ' áo (' + res.code + ')';
+                msgEl.innerText = '✅ Tặng ' + res.gift_quantity + ' áo';
                 msgEl.style.color = '#16a34a';
             }
             _ppCalc();

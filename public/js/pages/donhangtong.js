@@ -578,6 +578,20 @@ async function renderDonhangtongPage(content) {
     var dpEl = document.getElementById('dhtDraftPick');
     if (dpEl) dpEl.value = 'official';
     await _dhtLoadTree();
+    const autoSearch = sessionStorage.getItem('dhtSearchOnLoad');
+    if (autoSearch) {
+        sessionStorage.removeItem('dhtSearchOnLoad');
+        const searchInput = document.getElementById('dhtSearch');
+        if (searchInput) {
+            searchInput.value = autoSearch;
+            _dht._preSearchFilter = _dht._preSearchFilter || Object.assign({}, _dht.filter);
+            _dht._isSearching = true;
+            const badge = document.getElementById('dhtSearchBadge');
+            const clearBtn = document.getElementById('dhtSearchClear');
+            if (badge) { badge.style.display = ''; badge.textContent = '🔍 Đang tìm: "' + autoSearch + '" — Tất cả đơn hàng'; }
+            if (clearBtn) clearBtn.style.display = '';
+        }
+    }
     await _dhtLoadOrders();
     _dhtShowNextCode();
 }
