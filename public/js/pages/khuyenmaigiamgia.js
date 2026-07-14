@@ -53,6 +53,7 @@ async function renderKhuyenMaiPage(container) {
                                 <th style="padding: 16px 24px; white-space: nowrap;">LOẠI ƯU ĐÃI</th>
                                 <th style="padding: 16px 24px;">CHI TIẾT</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">LƯỢT DÙNG</th>
+                                <th style="padding: 16px 24px; white-space: nowrap;">ĐƠN ÁP DỤNG</th>
                                 <th style="padding: 16px 24px;">HẠN DÙNG</th>
                                 <th style="padding: 16px 24px;">NGƯỜI TẠO</th>
                                 <th style="padding: 16px 24px;">NGÀY TẠO</th>
@@ -62,7 +63,7 @@ async function renderKhuyenMaiPage(container) {
                         </thead>
                         <tbody id="promoCodesTableBody" style="font-size: 14px; color: #1e293b;">
                             <tr>
-                                <td colspan="9" style="text-align: center; padding: 40px; color: #64748b;">
+                                <td colspan="10" style="text-align: center; padding: 40px; color: #64748b;">
                                     <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
                                     Đang tải danh sách mã khuyến mãi...
                                 </td>
@@ -117,7 +118,7 @@ function filterPromoCodes() {
     if (filtered.length === 0) {
         body.innerHTML = `
             <tr>
-                <td colspan="9" style="text-align: center; padding: 40px; color: #64748b;">
+                <td colspan="10" style="text-align: center; padding: 40px; color: #64748b;">
                     Không tìm thấy mã khuyến mãi nào phù hợp.
                 </td>
             </tr>
@@ -187,7 +188,9 @@ function filterPromoCodes() {
                 <td style="padding: 16px 24px;">${detailsText}</td>
                 <td style="padding: 16px 24px;">
                     <div>${usedBadge}</div>
-                    ${ordersHtml}
+                </td>
+                <td style="padding: 16px 24px;">
+                    ${ordersHtml || '<span style="color: #94a3b8; font-style: italic; font-size: 13px;">Chưa dùng</span>'}
                 </td>
                 <td style="padding: 16px 24px;">${expireDisplay}</td>
                 <td style="padding: 16px 24px; color: #475569; font-weight: 500;">${creator}</td>
