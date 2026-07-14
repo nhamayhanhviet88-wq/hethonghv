@@ -65,17 +65,18 @@ async function renderKhuyenMaiPage(container) {
                                 <th style="padding: 16px 24px; white-space: nowrap;">CHI TIẾT</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">LƯỢT DÙNG</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">ĐƠN ÁP DỤNG</th>
+                                <th style="padding: 16px 24px; white-space: nowrap;">NHÂN VIÊN</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">MINH CHỨNG</th>
-                                <th style="padding: 16px 24px;">HẠN DÙNG</th>
                                 <th style="padding: 16px 24px;">NGƯỜI TẠO</th>
                                 <th style="padding: 16px 24px;">NGÀY TẠO</th>
+                                <th style="padding: 16px 24px;">HẠN DÙNG</th>
                                 <th style="padding: 16px 24px; text-align: center;">TRẠNG THÁI</th>
                                 <th style="padding: 16px 24px; text-align: right;">HÀNH ĐỘNG</th>
                             </tr>
                         </thead>
                         <tbody id="promoCodesTableBody" style="font-size: 14px; color: #1e293b;">
                             <tr>
-                                <td colspan="11" style="text-align: center; padding: 40px; color: #64748b;">
+                                <td colspan="12" style="text-align: center; padding: 40px; color: #64748b;">
                                     <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
                                     Đang tải danh sách mã khuyến mãi...
                                 </td>
@@ -105,7 +106,7 @@ async function fetchAndRenderPromoCodes() {
         if (body) {
             body.innerHTML = `
                 <tr>
-                    <td colspan="11" style="text-align: center; padding: 40px; color: #ef4444; font-weight: 600;">
+                    <td colspan="12" style="text-align: center; padding: 40px; color: #ef4444; font-weight: 600;">
                         ⚠️ Lỗi tải dữ liệu. Vui lòng thử lại sau.
                     </td>
                 </tr>
@@ -130,7 +131,7 @@ function filterPromoCodes() {
     if (filtered.length === 0) {
         body.innerHTML = `
             <tr>
-                <td colspan="11" style="text-align: center; padding: 40px; color: #64748b;">
+                <td colspan="12" style="text-align: center; padding: 40px; color: #64748b;">
                     Không tìm thấy mã khuyến mãi nào phù hợp.
                 </td>
             </tr>
