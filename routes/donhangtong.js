@@ -2912,20 +2912,54 @@ module.exports = async function(fastify) {
         // Update quantities (size breakdown) — overwrite existing
         if (b.quantities !== undefined) {
             sets.push(`quantities = $${idx++}`);
-            vals.push(JSON.stringify(b.quantities || []));
+            const newQuantities = b.quantities || [];
+            vals.push(JSON.stringify(newQuantities));
+
             // Recalculate total quantity
-            const totalQty = (b.quantities || []).reduce((s, x) => s + (Number(x.qty) || 0), 0);
+            const totalQty = newQuantities.reduce((s, x) => s + (Number(x.qty) || 0), 0);
             sets.push(`quantity = $${idx++}`);
             vals.push(totalQty);
 
-            // Fetch unit_price to update item total/item_total
-            const itemData = await db.get('SELECT unit_price FROM dht_order_items WHERE id = $1', [itemId]);
-            const unitPrice = Number(itemData?.unit_price) || 0;
-            const itemTotal = totalQty * unitPrice;
+            // Fetch old item to compute VAT percentage and gift deductions
+            const oldItem = await db.get('SELECT * FROM dht_order_items WHERE id = $1', [itemId]);
+            const unitPrice = Number(oldItem?.unit_price) || 0;
+
+            // Calculate old base (raw total after gift deduction)
+            let oldQtyArr = [];
+            try { oldQtyArr = typeof oldItem.quantities === 'string' ? JSON.parse(oldItem.quantities) : (oldItem.quantities || []); } catch(e) {}
+            if (oldQtyArr.length === 0) oldQtyArr = [{ qty: oldItem.quantity || 0, price: unitPrice }];
+
+            let oldBase = oldQtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+            const giftQty = Number(oldItem.promo_gift_quantity) || 0;
+            const giftApplyIdx = oldItem.promo_gift_apply_row_index !== null ? Number(oldItem.promo_gift_apply_row_index) : 0;
+
+            if (giftQty > 0 && oldQtyArr.length > 0) {
+                const giftPrice = Number(oldQtyArr[giftApplyIdx]?.price) || unitPrice;
+                oldBase -= Math.round(giftPrice * giftQty);
+                if (oldBase < 0) oldBase = 0;
+            }
+
+            const oldItemTotal = Number(oldItem.item_total || oldItem.total) || 0;
+            let vatPct = 0;
+            if (oldBase > 0 && oldItemTotal > oldBase) {
+                vatPct = Math.round((oldItemTotal - oldBase) / oldBase * 100);
+            }
+
+            // Calculate new base (raw total after gift deduction)
+            let newBase = newQuantities.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+            if (giftQty > 0 && newQuantities.length > 0) {
+                const giftPrice = Number(newQuantities[giftApplyIdx]?.price) || unitPrice;
+                newBase -= Math.round(giftPrice * giftQty);
+                if (newBase < 0) newBase = 0;
+            }
+
+            const newVatAmt = Math.round(newBase * vatPct / 100);
+            const newItemTotal = newBase + newVatAmt;
+
             sets.push(`total = $${idx++}`);
-            vals.push(itemTotal);
+            vals.push(newItemTotal);
             sets.push(`item_total = $${idx++}`);
-            vals.push(itemTotal);
+            vals.push(newItemTotal);
         }
 
         if (sets.length === 0) return reply.code(400).send({ error: 'Không có dữ liệu cần cập nhật' });
@@ -2944,13 +2978,55 @@ module.exports = async function(fastify) {
 
         // Recalculate order total_quantity and total_amount from all items
         if (b.quantities !== undefined) {
-            // Get sum of all item_totals for this order
-            const sumRes = await db.get('SELECT COALESCE(SUM(item_total), 0) AS total_items, COALESCE(SUM(quantity), 0) AS total_qty FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
-            const totalItemsVal = Number(sumRes.total_items) || 0;
-            const totalQtyVal = Number(sumRes.total_qty) || 0;
+            const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            const orderData = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
 
-            // Fetch order surcharges and discount to compute new total_amount
-            const orderData = await db.get('SELECT surcharges, discount_amount FROM dht_orders WHERE id = $1', [orderId]);
+            let totalQtyVal = 0;
+            let totalItemsRaw = 0;
+            let totalItemsVat = 0;
+
+            for (const it of items) {
+                let qtyArr = [];
+                try { qtyArr = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities || []); } catch(e) {}
+                const unitPrice = Number(it.unit_price) || 0;
+                if (qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
+
+                totalQtyVal += qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+
+                let itBase = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                const giftQty = Number(it.promo_gift_quantity) || 0;
+                const giftApplyIdx = it.promo_gift_apply_row_index !== null ? Number(it.promo_gift_apply_row_index) : 0;
+
+                if (giftQty > 0 && qtyArr.length > 0) {
+                    const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+                    itBase -= Math.round(giftPrice * giftQty);
+                    if (itBase < 0) itBase = 0;
+                }
+
+                const itTotal = Number(it.item_total || it.total) || 0;
+                const itVat = Math.max(0, itTotal - itBase);
+
+                totalItemsRaw += itBase;
+                totalItemsVat += itVat;
+            }
+
+            let promoDiscount = 0;
+            if (orderData.applied_coupon) {
+                const promoRow = await db.get('SELECT * FROM promotion_codes WHERE UPPER(code) = UPPER($1)', [orderData.applied_coupon]);
+                if (promoRow) {
+                    if (promoRow.promo_type === 'discount') {
+                        const pct = Number(promoRow.discount_pct || 0);
+                        promoDiscount = Math.round(totalItemsRaw * (pct / 100));
+                    } else if (promoRow.promo_type === 'gift') {
+                        if (totalQtyVal > 0) {
+                            const avgPrice = totalItemsRaw / totalQtyVal;
+                            promoDiscount = Math.round(avgPrice * Number(promoRow.gift_quantity || 0));
+                            if (promoDiscount > totalItemsRaw) promoDiscount = totalItemsRaw;
+                        }
+                    }
+                }
+            }
+
             let surTotal = 0;
             if (orderData?.surcharges) {
                 try {
@@ -2960,14 +3036,16 @@ module.exports = async function(fastify) {
                     }
                 } catch(e) {}
             }
-            const discountAmt = Number(orderData?.discount_amount) || 0;
-            const newTotalAmount = totalItemsVal + surTotal - discountAmt;
+
+            const finalVat = totalItemsVat + (Number(orderData.additional_vat_amount) || 0);
+            const discountAmt = Number(orderData.discount_amount) || 0;
+            const newTotalAmount = totalItemsRaw - promoDiscount + finalVat + surTotal - discountAmt;
 
             await db.run(`
                 UPDATE dht_orders 
-                SET total_quantity = $1, total_amount = $2, last_updated_at = NOW(), last_updated_by = $3 
-                WHERE id = $4
-            `, [totalQtyVal, newTotalAmount, user.id, orderId]);
+                SET total_quantity = $1, total_amount = $2, vat_amount = $3, promo_discount_amount = $4, last_updated_at = NOW(), last_updated_by = $5 
+                WHERE id = $6
+            `, [totalQtyVal, newTotalAmount, finalVat, promoDiscount, user.id, orderId]);
         } else {
             await db.run(`UPDATE dht_orders SET last_updated_at = NOW(), last_updated_by = $1 WHERE id = $2`, [user.id, orderId]);
         }

@@ -6343,25 +6343,91 @@ function _tpdGenerateFinancialSummaryText(o, items) {
     
     let text = `💰 TỔNG KẾT TIỀN ĐƠN HÀNG\n\n`;
     
+    let totalQtyVal = 0;
+    let totalItemsRaw = 0;
+    let totalItemsVat = 0;
+    let totalGiftQty = 0;
+    let totalGiftDeduction = 0;
+    
     items.forEach((item, idx) => {
-        const qty = Number(item.quantity) || 0;
-        const price = Number(item.unit_price) || 0;
-        text += `Phiếu ${idx + 1}: ${qty} áo . Giá tiền ${fmt(price)}đ\n`;
+        let qtyArr = [];
+        if (typeof item.quantities === 'string') {
+            try { qtyArr = JSON.parse(item.quantities); } catch(e) {}
+        } else if (Array.isArray(item.quantities)) {
+            qtyArr = item.quantities;
+        }
+        const unitPrice = Number(item.unit_price) || 0;
+        if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: item.quantity || 0, price: unitPrice }];
+        
+        const itemQty = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+        totalQtyVal += itemQty;
+        
+        let undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+        const giftQty = Number(item.promo_gift_quantity) || 0;
+        const giftApplyIdx = item.promo_gift_apply_row_index !== null && item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : 0;
+        
+        let itemRaw = undiscRaw;
+        if (giftQty > 0 && qtyArr.length > 0) {
+            const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+            itemRaw -= Math.round(giftPrice * giftQty);
+            if (itemRaw < 0) itemRaw = 0;
+            
+            totalGiftQty += giftQty;
+            totalGiftDeduction += (undiscRaw - itemRaw);
+        }
+        
+        const rawTotal = Number(item.item_total || item.total) || 0;
+        let vatPct = 0;
+        if (itemRaw > 0 && rawTotal > itemRaw) {
+            vatPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+        }
+        
+        const itemVat = Math.round(itemRaw * vatPct / 100);
+        
+        totalItemsRaw += itemRaw;
+        totalItemsVat += itemVat;
+        
+        text += `Phiếu ${idx + 1}: ${itemQty} áo . Giá tiền ${fmt(unitPrice)}đ\n`;
     });
     
     text += `\n`;
-
-    const totalItemsAmt = items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0), 0);
-    const hasVat = !!o.has_vat || (Number(o.vat_amount) > 0);
-    const vatAmount = Number(o.vat_amount) || 0;
-    const totalAmount = Number(o.total_amount) || 0;
+    
+    const promoDiscount = Number(o.promo_discount_amount) || 0;
     const depositAmount = Number(o.deposit_amount) || 0;
-    const remainingAmount = Number(o.remaining_amount) || 0;
+    
+    let oSurcharges = [];
+    try { oSurcharges = typeof o.surcharges === 'string' ? JSON.parse(o.surcharges) : (o.surcharges || []); } catch(e) {}
+    const stateSurcharges = (window._tpdWorkspaceState && window._tpdWorkspaceState.surcharges) || [];
+    const surTotal = Math.max(
+        oSurcharges.reduce((s, x) => s + (Number(x.amount) || 0), 0),
+        stateSurcharges.reduce((s, x) => s + (Number(x.amount) || 0), 0)
+    );
+    
+    const finalVat = totalItemsVat + (Number(o.additional_vat_amount) || 0);
+    const hasVat = !!o.has_vat || (finalVat > 0);
+    
+    const manualDiscount = Number(o.discount_amount) || 0;
+    const totalAmount = totalItemsRaw - promoDiscount + finalVat + surTotal - manualDiscount;
+    const remainingAmount = totalAmount - depositAmount;
 
-    text += `Tổng Tiền Hàng : ${fmt(totalItemsAmt)}đ\n`;
+    text += `Tổng Tiền Hàng : ${fmt(totalItemsRaw)}đ\n`;
+    if (promoDiscount > 0) {
+        text += `Khuyến Mãi Giảm Giá : -${fmt(promoDiscount)}đ\n`;
+    }
+    if (totalGiftDeduction > 0) {
+        text += `Khuyến Mãi Tặng Áo : -${fmt(totalGiftDeduction)}đ\n`;
+    }
+    if (surTotal > 0) {
+        text += `Phụ Phí : ${fmt(surTotal)}đ\n`;
+    }
+    if (manualDiscount > 0) {
+        text += `Giảm Giá Khác : -${fmt(manualDiscount)}đ\n`;
+    }
     if (hasVat) {
-        text += `Tổng VAT : ${fmt(vatAmount)}đ\n`;
+        text += `Tổng VAT : ${fmt(finalVat)}đ\n`;
         text += `Tổng Sau VAT : ${fmt(totalAmount)}đ\n`;
+    } else if (promoDiscount > 0 || totalGiftDeduction > 0 || surTotal > 0 || manualDiscount > 0) {
+        text += `Tổng Tiền Sau Khấu Trừ : ${fmt(totalAmount)}đ\n`;
     }
     text += `Đã Cọc : ${fmt(depositAmount)}đ\n`;
     text += `Còn Lại : ${fmt(remainingAmount)}đ\n`;
