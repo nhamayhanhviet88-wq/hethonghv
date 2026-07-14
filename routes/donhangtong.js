@@ -335,6 +335,7 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS repair_source_code TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS logo_approved_image TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS chat_confirmed_image TEXT DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS design_pdf_url TEXT DEFAULT NULL`); } catch(e) {}
     // Auto-seed "ĐƠN SỬA" category if not exists
     try { await db.run(`INSERT INTO dht_categories (name, display_order) SELECT 'ĐƠN SỬA', COALESCE(MAX(display_order),0)+1 FROM dht_categories WHERE NOT EXISTS (SELECT 1 FROM dht_categories WHERE name = 'ĐƠN SỬA')`); } catch(e) {}
     // Auto-seed J&T tracking URL if not set
@@ -3343,6 +3344,32 @@ module.exports = async function(fastify) {
         return { success: true, url };
     });
 
+    // ========== ORDERS: Upload Design PDF ==========
+    fastify.post('/api/dht/orders/upload-design-pdf', { preHandler: [authenticate] }, async (request, reply) => {
+        const data = await request.file();
+        if (!data) return reply.code(400).send({ error: 'Không có file' });
+        
+        const path = require('path');
+        const fs = require('fs');
+        const dir = path.join(__dirname, '..', 'uploads', 'dht_designs');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+        const ext = path.extname(data.filename).toLowerCase();
+        if (ext !== '.pdf') {
+            return reply.code(400).send({ error: 'Chỉ chấp nhận file thiết kế định dạng PDF!' });
+        }
+
+        const buf = await data.toBuffer();
+        const fileName = `design_${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+        const filePath = path.join(dir, fileName);
+        fs.writeFileSync(filePath, buf);
+
+        const url = `/uploads/dht_designs/${fileName}`;
+        const originalName = data.filename;
+
+        return { success: true, url, originalName };
+    });
+
     // ========== ORDERS: Confirm Export (Promote draft to official) ==========
     fastify.post('/api/dht/orders/:id/confirm-export', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.id);
@@ -3353,12 +3380,23 @@ module.exports = async function(fastify) {
             return { success: true, message: 'Đơn hàng đã được lên đơn chính thức' };
         }
 
-        const { logo_approved_image, chat_confirmed_image } = request.body || {};
+        const { logo_approved_image, chat_confirmed_image, item_designs } = request.body || {};
         if (!logo_approved_image || !logo_approved_image.trim()) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh xác nhận duyệt logo của khách!' });
         }
         if (!chat_confirmed_image || !chat_confirmed_image.trim()) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh khách nhắn chốt đơn!' });
+        }
+
+        const orderItems = await db.all('SELECT id, product_name FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        if (!item_designs || typeof item_designs !== 'object') {
+            return reply.code(400).send({ error: 'Thiếu file PDF thiết kế bắt buộc cho từng phiếu!' });
+        }
+        for (const item of orderItems) {
+            const pdfUrl = item_designs[item.id];
+            if (!pdfUrl || !pdfUrl.trim()) {
+                return reply.code(400).send({ error: `Vui lòng tải lên file PDF thiết kế cho [${item.product_name || 'Phiếu'}]!` });
+            }
         }
 
         // Validate order code before promoting
@@ -3400,6 +3438,11 @@ module.exports = async function(fastify) {
              WHERE id = $4`,
             [logo_approved_image.trim(), chat_confirmed_image.trim(), request.user.id, orderId]
         );
+
+        for (const item of orderItems) {
+            const pdfUrl = item_designs[item.id];
+            await db.run('UPDATE dht_order_items SET design_pdf_url = $1 WHERE id = $2', [pdfUrl.trim(), item.id]);
+        }
 
         // Link deposit child record if deposit_payment_id exists and not already linked
         if (order.deposit_payment_id) {

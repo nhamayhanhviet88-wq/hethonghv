@@ -2553,6 +2553,9 @@ function _dhtShowItemDetail(idx) {
     html += row('Tiền hàng (trước VAT)', `${fmt(baseTotal)}đ`);
     html += row('VAT', vatPercent > 0 ? `<span style="color:#6366f1;font-weight:800">${vatPercent}% → ${fmt(vatAmount)}đ</span>` : '<span style="color:#94a3b8">0%</span>');
     html += row('Thành tiền (sau VAT)', `<span style="color:#dc2626;font-size:15px">${fmt(it.item_total)}đ</span>`);
+    if (it.design_pdf_url) {
+        html += row('File thiết kế PDF', `<a href="${it.design_pdf_url}" target="_blank" style="color:#0284c7;font-weight:800;text-decoration:underline">Mở File PDF</a>`);
+    }
     if (it.extra_product) html += row('SP phụ', it.extra_product + (it.extra_price ? ' (+' + fmt(it.extra_price) + 'đ)' : ''));
     if (it.accounting_notes) html += row('Nhắc nhở KT', `<span style="color:#f59e0b">${it.accounting_notes}</span>`);
     html += `</table></div>`;
@@ -2674,6 +2677,13 @@ async function _dhtShowPhieuSX(orderId) {
                     <div>📐 Mẫu: <b>${it.pattern_name || '—'}</b></div>
                     <div>🧵 Chất liệu: <b>${matStr}</b></div>
                     <div>✂️ CT May Thêm: <b>${sewStr}</b></div>
+                    <div style="grid-column: span 2; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+                        📄 Thiết kế: 
+                        ${it.design_pdf_url 
+                            ? `<a href="${it.design_pdf_url}" target="_blank" style="color: #0284c7; font-weight: 800; text-decoration: underline;">Mở File PDF</a>`
+                            : `<span style="color: #ef4444; font-weight: 800;">Chưa tải lên</span>`
+                        }
+                    </div>
                 </div>
                 ${qs.length > 0 ? `<div style="margin-top:6px;border-top:1px solid #e2e8f0;padding-top:6px;font-size:10px;color:#64748b">
                     ${qs.map((q, qi) => `<span style="background:#f1f5f9;padding:2px 6px;border-radius:3px;margin-right:4px">SL${qi+1}: <b>${q.qty}</b> × ${fmt(q.price)}đ</span>`).join('')}

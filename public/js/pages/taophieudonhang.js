@@ -6488,6 +6488,13 @@ async function _tpdShowExportSheetsModal() {
     window._tpdLogoApprovedUrl = localStorage.getItem(`tpd_logo_proof_${o.id}`) || '';
     window._tpdChatConfirmedUrl = localStorage.getItem(`tpd_chat_proof_${o.id}`) || '';
     window._tpdActivePasteZone = '';
+    window._tpdSheetDesigns = {};
+    for (const item of items) {
+        window._tpdSheetDesigns[item.id] = {
+            url: localStorage.getItem(`tpd_pdf_url_${item.id}`) || '',
+            filename: localStorage.getItem(`tpd_pdf_filename_${item.id}`) || ''
+        };
+    }
 
     // Create the overlay container if not exists
     let overlay = document.getElementById('tpdExportOverlay');
@@ -6532,7 +6539,9 @@ async function _tpdShowExportSheetsModal() {
 
                 <!-- Grid of sheets -->
                 <div id="tpdExportGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                    ${items.map((item, idx) => `
+                    ${items.map((item, idx) => {
+                        const design = window._tpdSheetDesigns[item.id] || { url: '', filename: '' };
+                        return `
                         <div class="tpd-export-card" id="exportCard_${idx}" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: all 0.2s;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                 <div style="flex: 1; min-width: 0;">
@@ -6555,8 +6564,30 @@ async function _tpdShowExportSheetsModal() {
                             <button id="exportDlBtn_${idx}" disabled style="width: 100%; border: none; border-radius: 8px; background: #cbd5e1; color: #64748b; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: not-allowed; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
                                 📥 Tải xuống hình ảnh
                             </button>
+
+                            <!-- PDF Design File Upload Section -->
+                            <div style="margin-top: 4px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                                <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 6px; text-align: left; display: flex; align-items: center; gap: 4px;">
+                                    📄 FILE THIẾT KẾ (PDF BẮT BUỘC)
+                                </div>
+                                <div id="pdfUploadContainer_${item.id}" onclick="_tpdTriggerPdfUpload(${item.id})" style="border: 1.5px dashed ${design.url ? '#10b981' : '#cbd5e1'}; border-radius: 6px; padding: 10px; background: ${design.url ? '#f0fdf4' : '#ffffff'}; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60px; transition: all 0.2s;" onmouseover="if(!window._tpdSheetDesigns[${item.id}]?.url) this.style.borderColor='#3b82f6';" onmouseout="if(!window._tpdSheetDesigns[${item.id}]?.url) this.style.borderColor='#cbd5e1';">
+                                    <div id="pdfUploadPrompt_${item.id}" style="font-size: 11px; color: #64748b; font-weight: 700; text-align: center; ${design.url ? 'display: none;' : ''}">
+                                        <div style="font-size: 16px; margin-bottom: 2px;">📤</div>
+                                        Chọn file thiết kế PDF
+                                    </div>
+                                    <div id="pdfPreviewContainer_${item.id}" style="${design.url ? 'display: flex;' : 'display: none;'} width: 100%; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 24px);">
+                                            <span style="font-size: 16px;">📄</span>
+                                            <span id="pdfFileName_${item.id}" style="font-size: 11px; font-weight: 700; color: #065f46; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(design.filename)}">${escapeHTML(design.filename)}</span>
+                                        </div>
+                                        <button onclick="_tpdRemovePdfFile(${item.id}, event)" style="background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">&times;</button>
+                                    </div>
+                                </div>
+                                <input type="file" id="pdfFileInput_${item.id}" accept="application/pdf" style="display: none;" onchange="_tpdHandlePdfInput(event, ${item.id})">
+                            </div>
                         </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
 
                 <!-- Financial Summary copy block -->
@@ -6909,7 +6940,12 @@ async function _tpdShowExportSheetsModal() {
         
         const allDownloaded = downloaded.every(d => d === true);
         const hasProofs = !!(window._tpdLogoApprovedUrl && window._tpdChatConfirmedUrl);
-        if (allDownloaded && window._tpdCopiedConfirmationText && window._tpdCopiedFinancialSummaryText && hasProofs) {
+        const allPdfsUploaded = items.every(item => {
+            const design = window._tpdSheetDesigns[item.id];
+            return !!(design && design.url);
+        });
+
+        if (allDownloaded && window._tpdCopiedConfirmationText && window._tpdCopiedFinancialSummaryText && hasProofs && allPdfsUploaded) {
             confirmBtn.disabled = false;
             confirmBtn.style.background = 'linear-gradient(135deg, #059669, #10b981)';
             confirmBtn.style.color = '#ffffff';
@@ -6919,9 +6955,16 @@ async function _tpdShowExportSheetsModal() {
                 try {
                     confirmBtn.disabled = true;
                     confirmBtn.innerHTML = 'Đang xử lý...';
+                    
+                    const itemDesigns = {};
+                    for (const item of items) {
+                        itemDesigns[item.id] = window._tpdSheetDesigns[item.id]?.url || '';
+                    }
+
                     const res = await apiCall(`/api/dht/orders/${o.id}/confirm-export`, 'POST', {
                         logo_approved_image: window._tpdLogoApprovedUrl,
-                        chat_confirmed_image: window._tpdChatConfirmedUrl
+                        chat_confirmed_image: window._tpdChatConfirmedUrl,
+                        item_designs: itemDesigns
                     });
                     if (res.success) {
                         showToast('🎉 Xác nhận lên đơn và xuất phiếu thành công!', 'success');
@@ -6929,6 +6972,10 @@ async function _tpdShowExportSheetsModal() {
                         localStorage.removeItem(`tpd_chat_proof_${o.id}`);
                         localStorage.removeItem(`tpd_copied_conf_${o.id}`);
                         localStorage.removeItem(`tpd_copied_fin_${o.id}`);
+                        for (const item of items) {
+                            localStorage.removeItem(`tpd_pdf_url_${item.id}`);
+                            localStorage.removeItem(`tpd_pdf_filename_${item.id}`);
+                        }
                         overlay.remove();
                         if (tempContainer) tempContainer.remove();
                         navigate('taophieudonhang'); // Redirect back to list
@@ -7070,6 +7117,114 @@ async function _tpdShowExportSheetsModal() {
         if (file) {
             window._tpdUploadProofFile(file, zone);
         }
+    };
+
+    window._tpdTriggerPdfUpload = function(itemId) {
+        const input = document.getElementById(`pdfFileInput_${itemId}`);
+        if (input) input.click();
+    };
+
+    window._tpdHandlePdfInput = async function(event, itemId) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+            showToast('⚠️ Chỉ chấp nhận file định dạng PDF!', 'error');
+            return;
+        }
+
+        const promptEl = document.getElementById(`pdfUploadPrompt_${itemId}`);
+        const previewContainer = document.getElementById(`pdfPreviewContainer_${itemId}`);
+        const container = document.getElementById(`pdfUploadContainer_${itemId}`);
+        const fileNameEl = document.getElementById(`pdfFileName_${itemId}`);
+
+        if (!promptEl || !previewContainer || !container || !fileNameEl) return;
+
+        // Show loading state
+        promptEl.style.display = 'none';
+        previewContainer.style.display = 'none';
+        container.style.borderColor = '#3b82f6';
+        container.style.background = '#f0f7ff';
+        
+        const originalContent = container.innerHTML;
+        container.innerHTML = `<div class="tpd-spinner" style="width: 20px; height: 20px; border-width: 2.5px;"></div><span style="font-size: 10px; color: #3b82f6; margin-top: 4px; font-weight: 700;">Đang tải lên...</span>`;
+
+        const fd = new FormData();
+        fd.append('file', file);
+
+        try {
+            const res = await fetch('/api/dht/orders/upload-design-pdf', {
+                method: 'POST',
+                body: fd,
+                credentials: 'include'
+            });
+            const data = await res.json();
+            if (data.success && data.url) {
+                // Restore container HTML and setup events
+                container.innerHTML = originalContent;
+                
+                // Re-fetch references as DOM changed
+                const newPrompt = document.getElementById(`pdfUploadPrompt_${itemId}`);
+                const newPreview = document.getElementById(`pdfPreviewContainer_${itemId}`);
+                const newFileName = document.getElementById(`pdfFileName_${itemId}`);
+                
+                if (newPrompt) newPrompt.style.display = 'none';
+                if (newPreview) newPreview.style.display = 'flex';
+                if (newFileName) {
+                    newFileName.textContent = data.originalName;
+                    newFileName.title = data.originalName;
+                }
+                
+                container.style.borderColor = '#10b981';
+                container.style.background = '#f0fdf4';
+
+                // Save state
+                window._tpdSheetDesigns[itemId] = {
+                    url: data.url,
+                    filename: data.originalName
+                };
+                localStorage.setItem(`tpd_pdf_url_${itemId}`, data.url);
+                localStorage.setItem(`tpd_pdf_filename_${itemId}`, data.originalName);
+
+                showToast('Tải file PDF thiết kế thành công!', 'success');
+            } else {
+                throw new Error(data.error || 'Lỗi tải lên');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('⚠️ Lỗi tải file thiết kế: ' + err.message, 'error');
+            // Revert state
+            container.innerHTML = originalContent;
+            const newPrompt = document.getElementById(`pdfUploadPrompt_${itemId}`);
+            if (newPrompt) newPrompt.style.display = 'block';
+            container.style.borderColor = '#cbd5e1';
+            container.style.background = '#ffffff';
+        }
+        
+        window._tpdCheckConfirmUnlock();
+    };
+
+    window._tpdRemovePdfFile = function(itemId, event) {
+        if (event) event.stopPropagation();
+        
+        const promptEl = document.getElementById(`pdfUploadPrompt_${itemId}`);
+        const previewContainer = document.getElementById(`pdfPreviewContainer_${itemId}`);
+        const container = document.getElementById(`pdfUploadContainer_${itemId}`);
+        const input = document.getElementById(`pdfFileInput_${itemId}`);
+
+        if (input) input.value = '';
+        if (promptEl) promptEl.style.display = 'block';
+        if (previewContainer) previewContainer.style.display = 'none';
+        if (container) {
+            container.style.borderColor = '#cbd5e1';
+            container.style.background = '#ffffff';
+        }
+
+        delete window._tpdSheetDesigns[itemId];
+        localStorage.removeItem(`tpd_pdf_url_${itemId}`);
+        localStorage.removeItem(`tpd_pdf_filename_${itemId}`);
+
+        window._tpdCheckConfirmUnlock();
     };
 
     // Paste listener for the export modal
