@@ -1507,6 +1507,35 @@ function _dhtSavePhieuFree(idx) {
     showToast('✅ Đã lưu Phiếu ' + catName + ' #' + (idx + 1));
 }
 
+function _ppAddQtyRow() {
+    var rows = document.getElementById('_pp_qtyRows'); if (!rows) return;
+    var currentRows = rows.querySelectorAll('._ppQR');
+    if (currentRows.length >= 2) return;
+    var count = currentRows.length + 1;
+    var row = document.createElement('div');
+    row.className = '_ppQR';
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px';
+    row.innerHTML = '<div><label style="font-size:10px;font-weight:700">SL' + count + ' *</label><input type="number" class="_pp_qty" value="" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'
+        + '<div><label style="font-size:10px;font-weight:700">Giá ' + count + ' *</label><input type="number" class="_pp_price" value="" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'
+        + '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc();_ppUpdateAddBtnVisibility()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>';
+    rows.appendChild(row);
+    _ppUpdateAddBtnVisibility();
+}
+
+function _ppUpdateAddBtnVisibility() {
+    var btn = document.getElementById('_pp_btn_addQtyRow');
+    if (!btn) return;
+    var rows = document.getElementById('_pp_qtyRows');
+    if (!rows) return;
+    var currentRowsCount = rows.querySelectorAll('._ppQR').length;
+    if (currentRowsCount >= 2) {
+        btn.style.display = 'none';
+    } else {
+        btn.style.display = 'inline-block';
+    }
+}
+
+
 async function _dhtAddItem(editIdx) {
     window._ppStockLimits = {};
     var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
@@ -1533,7 +1562,7 @@ async function _dhtAddItem(editIdx) {
     var extOpts=(po.extra_materials||[]).map(function(o){var s=(existing.extra_materials||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
     var noOpt='<option value="" disabled selected>-- Chờ setup --</option>';
     var qps=existing.quantities||[{qty:'',price:''}], qpHTML='';
-    for(var qi=0;qi<qps.length;qi++){var n=qi+1;var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';qpHTML+='<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';}
+    for(var qi=0;qi<qps.length;qi++){var n=qi+1;var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc();_ppUpdateAddBtnVisibility()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';qpHTML+='<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';}
     var vatSel='<option value="0"'+(existing.vat_percent===8?'':' selected')+'>0%</option><option value="8"'+(existing.vat_percent===8?' selected':'')+'>8%</option>';
     var orderCode=_dhtCreate.orderCode||'???';
     var activeSaleType = (po.sale_types || []).find(function(s) {
@@ -1566,7 +1595,7 @@ async function _dhtAddItem(editIdx) {
         +'<div id="_pp_matColorPairs" style="margin-bottom:8px"></div>'
         +'<div id="_pp_stockLimitWarnings" style="display:none;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:11.5px;color:#b45309;line-height:1.5"></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Chi Tiết May Thêm</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div>'+(isRestricted ? '' : '<button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button>')+'</div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple'+(isRestricted?' disabled':'')+'>'+( extOpts||noOpt)+'</select></div></div>'
-        +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div>'+(isRestricted ? '' : '<button type="button" id="_pp_btn_addQtyRow" style="display:none;background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button>')+'</div>'
+        +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div>'+(isRestricted ? '' : '<button type="button" id="_pp_btn_addQtyRow" onclick="_ppAddQtyRow()" style="display:'+(qps.length>=2?'none':'inline-block')+';background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button>')+'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
         +saveBtn+'</div>';
     document.body.appendChild(ov);
@@ -2133,8 +2162,12 @@ function _dhtSavePhieu(idx) {
     if(pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
     var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
     var qtyPairs=[], raw=0;
-    for(var i=0;i<qs.length;i++){var qv=Number(qs[i].value)||0,pv=Number(ps[i].value)||0;qtyPairs.push({qty:qv,price:pv,subtotal:qv*pv});raw+=qv*pv;}
-    if(!qtyPairs.length||qtyPairs[0].qty===0){showToast('SL1 phải > 0','error');return;}
+    for(var i=0;i<qs.length;i++){
+        var qv=Number(qs[i].value)||0,pv=Number(ps[i].value)||0;
+        if(qv===0){showToast('SL'+(i+1)+' phải > 0','error');return;}
+        qtyPairs.push({qty:qv,price:pv,subtotal:qv*pv});
+        raw+=qv*pv;
+    }
     
     // Check stopped fabric quantity limits
     var totalQty = qtyPairs.reduce(function(s, x) { return s + (Number(x.qty) || 0); }, 0);
