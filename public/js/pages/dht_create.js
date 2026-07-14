@@ -1476,8 +1476,10 @@ function _dhtAddItemFree(editIdx) {
     var qpHTML = '';
     for (var qi = 0; qi < qps.length; qi++) {
         var n = qi + 1;
+        var sizeAttr = qps[qi].size ? ' data-size="' + qps[qi].size + '"' : '';
+        var noteAttr = qps[qi].note ? ' data-note="' + qps[qi].note + '"' : '';
         var rm = qi > 0 ? '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalcFree()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>' : '<div></div>';
-        qpHTML += '<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">'
+        qpHTML += '<div class="_ppQR"' + sizeAttr + noteAttr + ' style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">'
             + '<div><label style="font-size:10px;font-weight:700">SL' + n + ' *</label><input type="number" class="_pp_qty" value="' + (qps[qi].qty || '') + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
             + '<div><label style="font-size:10px;font-weight:700">Giá ' + n + ' *</label><input type="number" class="_pp_price" value="' + (qps[qi].price || '') + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
             + rm + '</div>';
@@ -1553,12 +1555,19 @@ function _dhtSavePhieuFree(idx) {
     var vp = Number(document.getElementById('_ppf_vat')?.value) || 0;
     if (!prod) { showToast('Chọn Sản Phẩm', 'error'); return; }
 
-    var qs = document.querySelectorAll('#_ppf_qtyRows ._pp_qty');
-    var ps = document.querySelectorAll('#_ppf_qtyRows ._pp_price');
+    var qrRows = document.querySelectorAll('#_ppf_qtyRows ._ppQR');
     var qtyPairs = [], raw = 0;
-    for (var i = 0; i < qs.length; i++) {
-        var qv = Number(qs[i].value) || 0, pv = Number(ps[i].value) || 0;
-        qtyPairs.push({qty: qv, price: pv, subtotal: qv * pv});
+    for (var i = 0; i < qrRows.length; i++) {
+        var row = qrRows[i];
+        var qInp = row.querySelector('._pp_qty');
+        var pInp = row.querySelector('._pp_price');
+        var qv = Number(qInp.value) || 0, pv = Number(pInp.value) || 0;
+        var pair = {qty: qv, price: pv, subtotal: qv * pv};
+        var sz = row.getAttribute('data-size');
+        var nt = row.getAttribute('data-note');
+        if (sz) pair.size = sz;
+        if (nt) pair.note = nt;
+        qtyPairs.push(pair);
         raw += qv * pv;
     }
     if (!qtyPairs.length || qtyPairs[0].qty === 0) { showToast('SL1 phải > 0', 'error'); return; }
@@ -1645,7 +1654,13 @@ async function _dhtAddItem(editIdx) {
     var extOpts=(po.extra_materials||[]).map(function(o){var s=(existing.extra_materials||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
     var noOpt='<option value="" disabled selected>-- Chờ setup --</option>';
     var qps=existing.quantities||[{qty:'',price:''}], qpHTML='';
-    for(var qi=0;qi<qps.length;qi++){var n=qi+1;var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc();_ppUpdateAddBtnVisibility()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';qpHTML+='<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';}
+    for(var qi=0;qi<qps.length;qi++){
+        var n=qi+1;
+        var sizeAttr = qps[qi].size ? ' data-size="' + qps[qi].size + '"' : '';
+        var noteAttr = qps[qi].note ? ' data-note="' + qps[qi].note + '"' : '';
+        var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc();_ppUpdateAddBtnVisibility()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';
+        qpHTML+='<div class="_ppQR"' + sizeAttr + noteAttr + ' style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';
+    }
     var vatPct = existing.vat_percent || 0;
     var vatSel = '<option value="0"' + (vatPct === 0 ? ' selected' : '') + '>0%</option>';
     if (vatPct === 8) {
@@ -2446,12 +2461,21 @@ function _dhtSavePhieu(idx) {
         pairs.push({material_id:Number(mVal),material_name:mName,color_id:Number(cVal),color_name:cName});
     }
     if(pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
-    var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
+    var qrRows = document.querySelectorAll('#_pp_qtyRows ._ppQR');
     var qtyPairs=[], raw=0, totalQty=0;
-    for(var i=0;i<qs.length;i++){
-        var qv=Number(qs[i].value)||0,pv=Number(ps[i].value)||0;
+    for(var i=0;i<qrRows.length;i++){
+        var row = qrRows[i];
+        var qInp = row.querySelector('._pp_qty');
+        var pInp = row.querySelector('._pp_price');
+        var qv = Number(qInp.value) || 0;
+        var pv = Number(pInp.value) || 0;
         if(qv===0){showToast('SL'+(i+1)+' phải > 0','error');return;}
-        qtyPairs.push({qty:qv,price:pv,subtotal:qv*pv});
+        var pair = {qty:qv,price:pv,subtotal:qv*pv};
+        var sz = row.getAttribute('data-size');
+        var nt = row.getAttribute('data-note');
+        if(sz) pair.size = sz;
+        if(nt) pair.note = nt;
+        qtyPairs.push(pair);
         raw+=qv*pv;
         totalQty+=qv;
     }
@@ -2459,6 +2483,7 @@ function _dhtSavePhieu(idx) {
     var giftCode = document.getElementById('_pp_promoGiftCode')?.value || '';
     var selectedRowIdx = null;
     if (giftQty > 0 && totalQty > 0) {
+        var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
         var unitPrice = 0;
         if (qs.length === 1) {
             unitPrice = Number(ps[0].value) || 0;
