@@ -29,8 +29,10 @@ const MOBILE_MENU_CONFIG = [
     { id: 'nhapxuathoanvai', label: 'Nhập Xuất Hoàn Vải', icon: '🔄', href: '/m/nhapxuathoanvai', permKey: 'nhap_xuat_hoan_vai' },
     { id: 'kiemkho', label: 'Kiểm Kho Vải', icon: '📝', href: '/m/kiemkhohv', permKey: 'kiem_kho' },
     { id: 'vatlieutempet', label: 'Vật Liệu PET/TEM', icon: '🏷️', href: '/m/vatlieutempet', permKey: 'vat_lieu_tem_pet' },
-    { id: 'xinnghi', label: 'Xin Nghỉ Nhân Viên', icon: '📋', href: '/m/xinnghinhanvien', permKey: 'xin_nghi_nv' }
+    { id: 'xinnghi', label: 'Xin Nghỉ Nhân Viên', icon: '📋', href: '/m/xinnghinhanvien', permKey: 'xin_nghi_nv' },
+    { id: 'khuyenmaigiamgia', label: 'Khuyến Mãi Giảm Giá', icon: '🎁', href: '/m/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' }
 ];
+
 
 const ROLE_MAP = { 
     giam_doc: 'Giám Đốc', 

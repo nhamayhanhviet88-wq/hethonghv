@@ -161,6 +161,8 @@ const MENU_CONFIG = [
     { id: 'chinh-sach-kh', label: 'Chính Sách Khách Hàng', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chinhsachkhhv', permKey: 'chinh_sach_kh' },
     { id: 'xu-ly-don-loi', label: 'Cách Xử Lý Đơn Lỗi', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/xulydonloihv', permKey: 'xu_ly_don_loi' },
     { id: 'chuong-trinh-kh', label: 'Chương Trình Khách Hàng', icon: '🎁', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chuongtrinhkhhv', permKey: 'chuong_trinh_kh' },
+    { id: 'khuyenmaigiamgia', label: 'Khuyến Mãi Giảm Giá', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' },
+
 
     // ========== BỘ PHẬN VĂN PHÒNG ==========
     { id: 'don-hang-tong', label: 'Đơn Hàng Tổng', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donhangtong', permKey: 'don_hang_tong' },
@@ -2323,6 +2325,7 @@ var _PAGE_INIT_REGISTRY = {
     'chuanbiqlx': 'renderQuanlyxuongqlxPage',
     'taophieudonhang': 'renderTaophieudonhangPage',
     'design-draft': 'renderDesignDraftPage',
+    'khuyenmaigiamgia': 'renderKhuyenMaiPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {

@@ -782,8 +782,7 @@ function _tpdRenderTechCardContent(data, steps) {
                 <div class="sheet-title-banner">
                     <h2 class="sheet-title-text">PHIẾU SẢN XUẤT ĐƠN HÀNG</h2>
                     <span class="sheet-order-code">
-                        Mã đơn: ${escapeHTML((o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? 'ĐƠN NHÁP' : (o.order_code || 'DRAFT'))}
-                        ${(o.is_draft === true || o.is_draft === 1 || o.is_draft === 'true') && o.draft_name ? ` (Bản nháp: ${escapeHTML(o.draft_name)})` : ''}
+                        ${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? `Tên đơn nháp: <strong>${escapeHTML(o.draft_name || 'ĐƠN NHÁP')}</strong>` : `Mã đơn: <strong>${escapeHTML(o.order_code || 'DRAFT')}</strong>${(o.is_draft && o.draft_name) ? ' (' + escapeHTML(o.draft_name) + ')' : ''}`}
                     </span>
                 </div>
 
@@ -3215,7 +3214,7 @@ function _tpdRenderWorkspace(container) {
                     <img src="/images/logo.png" class="tpd-ws-logo" onerror="this.style.display='none'">
                     <div>
                         <h1 class="tpd-ws-title">THIẾT KẾ PHIẾU SẢN XUẤT</h1>
-                        <p class="tpd-ws-subtitle">Mã đơn: <strong>${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? '📝 ĐƠN NHÁP' : o.order_code}</strong> | KH: <strong>${o.customer_name}</strong> | Sale: <strong>${o.cskh_name || 'Chưa nhận'}</strong></p>
+                        <p class="tpd-ws-subtitle">${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? `Tên đơn nháp: <strong>${escapeHTML(o.draft_name || 'ĐƠN NHÁP')}</strong>` : `Mã đơn: <strong>${escapeHTML(o.order_code)}</strong>`}${o.is_draft && !(o.order_code || '').startsWith('NHAP-') && o.draft_name ? ` (${escapeHTML(o.draft_name)})` : ''} | KH: <strong>${escapeHTML(o.customer_name)}</strong> | Sale: <strong>${escapeHTML(o.cskh_name || 'Chưa nhận')}</strong></p>
                     </div>
                 </div>
                 <div class="tpd-ws-topbar-right">
@@ -4008,7 +4007,7 @@ function _tpdUpdateLivePreview() {
                 </div>
                 <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
                     <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
-                    <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">MÃ ĐƠN: ${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? 'ĐƠN NHÁP' : o.order_code} | PHIẾU ${state.activeItemIndex + 1}/${state.items.length}</div>
+                    <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? `TÊN ĐƠN NHÁP: ${escapeHTML((o.draft_name || 'ĐƠN NHÁP').toUpperCase())}` : `MÃ ĐƠN: ${escapeHTML(o.order_code.toUpperCase())}`} | PHIẾU ${state.activeItemIndex + 1}/${state.items.length}</div>
                 </div>
                 <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
                     <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
@@ -6430,7 +6429,7 @@ async function _tpdShowExportSheetsModal() {
             <div style="padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #122546; color: white;">
                 <div>
                     <h3 style="margin: 0; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">📥 Tải về phiếu sản xuất để lên đơn</h3>
-                    <p style="margin: 4px 0 0 0; font-size: 12px; color: #cbd5e1;">Mã đơn: <strong style="color: #fad24c;">${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? 'Đơn nháp' : o.order_code}</strong> | Bạn cần tải xuống toàn bộ phiếu dưới đây để gửi cho xưởng trước khi hoàn tất.</p>
+                    <p style="margin: 4px 0 0 0; font-size: 12px; color: #cbd5e1;">${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? `Tên đơn nháp: <strong style="color: #fad24c;">${escapeHTML(o.draft_name || 'Đơn nháp')}</strong>` : `Mã đơn: <strong style="color: #fad24c;">${escapeHTML(o.order_code)}</strong>`} | Bạn cần tải xuống toàn bộ phiếu dưới đây để gửi cho xưởng trước khi hoàn tất.</p>
                 </div>
                 <button onclick="document.getElementById('tpdExportOverlay').remove()" style="background: none; border: none; color: #ffffff; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
             </div>
@@ -6553,7 +6552,7 @@ async function _tpdShowExportSheetsModal() {
                         </div>
                         <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
                             <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
-                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">MÃ ĐƠN: ${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? 'ĐƠN NHÁP' : o.order_code} | PHIẾU ${idx + 1}/${items.length}</div>
+                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? `TÊN ĐƠN NHÁP: ${escapeHTML((o.draft_name || 'ĐƠN NHÁP').toUpperCase())}` : `MÃ ĐƠN: ${escapeHTML(o.order_code.toUpperCase())}`} | PHIẾU ${idx + 1}/${items.length}</div>
                         </div>
                         <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
                             <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
@@ -6857,7 +6856,7 @@ async function _tpdPrintAllSheets() {
                         </div>
                         <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
                             <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
-                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">MÃ ĐƠN: ${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? 'ĐƠN NHÁP' : o.order_code} | PHIẾU ${idx + 1}/${items.length}</div>
+                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? `TÊN ĐƠN NHÁP: ${escapeHTML((o.draft_name || 'ĐƠN NHÁP').toUpperCase())}` : `MÃ ĐƠN: ${escapeHTML(o.order_code.toUpperCase())}`} | PHIẾU ${idx + 1}/${items.length}</div>
                         </div>
                         <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
                             <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">

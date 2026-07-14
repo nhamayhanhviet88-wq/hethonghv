@@ -1533,6 +1533,8 @@ async function start() {
     fastify.register(require('./routes/donhanghomnayqlx'));
     fastify.register(require('./routes/ctv-quotations'));
     fastify.register(require('./routes/pancake'));
+    fastify.register(require('./routes/khuyenmaigiamgia'));
+
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
@@ -1565,6 +1567,12 @@ async function start() {
     fastify.get('/m/xinnghinhanvien', async (request, reply) => {
         return reply.sendFile('mobile-xinnghi.html');
     });
+
+    // Mobile Khuyến Mãi Giảm Giá
+    fastify.get('/m/khuyenmaigiamgia', async (request, reply) => {
+        return reply.sendFile('mobile-khuyenmaigiamgia.html');
+    });
+
 
     // Mobile Chuyển Số — standalone touch-optimized page
     fastify.get('/m/chuyen-so', async (request, reply) => {

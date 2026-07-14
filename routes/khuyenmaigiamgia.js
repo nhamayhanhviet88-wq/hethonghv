@@ -1,0 +1,165 @@
+const db = require('../db/pool');
+const { authenticate } = require('../middleware/auth');
+
+async function khuyenMaiRoutes(fastify, options) {
+    // Migration: Create promotion_codes table
+    try {
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS promotion_codes (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(8) UNIQUE NOT NULL,
+                promo_type VARCHAR(20) NOT NULL, -- 'discount' or 'gift'
+                discount_pct DOUBLE PRECISION DEFAULT 0,
+                gift_quantity INTEGER DEFAULT 0,
+                status VARCHAR(20) DEFAULT 'active', -- 'active' or 'inactive'
+                created_by INTEGER,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        // Add applied_coupon column to dht_orders table if not exists
+        await db.run(`
+            ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS applied_coupon VARCHAR(8)
+        `);
+        await db.run(`
+            ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS promo_discount_amount DOUBLE PRECISION DEFAULT 0
+        `);
+        await db.run(`
+            ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS promo_gift_info TEXT DEFAULT ''
+        `);
+    } catch(e) {
+        console.error('Migration error for promotion_codes:', e);
+    }
+
+    // Role verification helper
+    function isAllowedUser(user) {
+        if (!user) return false;
+        return user.role === 'giam_doc' || 
+               user.role === 'quan_ly_cap_cao' || 
+               user.username === 'leviettrinh' || 
+               user.username === 'trinh';
+    }
+
+    const checkPromoManager = (request, reply, done) => {
+        if (!isAllowedUser(request.user)) {
+            return reply.code(403).send({ error: 'Bạn không có quyền thực hiện thao tác này.' });
+        }
+        done();
+    };
+
+    // Helper to generate a unique 8-character code
+    async function generateUniquePromoCode() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code = '';
+        let exists = true;
+        let attempts = 0;
+        
+        while (exists && attempts < 100) {
+            attempts++;
+            code = '';
+            for (let i = 0; i < 8; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            // Check if code exists in DB
+            const row = await db.get('SELECT id FROM promotion_codes WHERE code = $1', [code]);
+            if (!row) {
+                exists = false;
+            }
+        }
+        return code;
+    }
+
+    // GET /api/promotion-codes - Fetch all promo codes
+    fastify.get('/api/promotion-codes', { preHandler: [authenticate, checkPromoManager] }, async (request, reply) => {
+        const rows = await db.all(`
+            SELECT pc.*, u.full_name as creator_name, u.username as creator_username
+            FROM promotion_codes pc
+            LEFT JOIN users u ON pc.created_by = u.id
+            ORDER BY pc.created_at DESC
+        `);
+        return { items: rows };
+    });
+
+    // POST /api/promotion-codes - Create a promo code
+    fastify.post('/api/promotion-codes', { preHandler: [authenticate, checkPromoManager] }, async (request, reply) => {
+        const { promo_type, discount_pct, gift_quantity } = request.body || {};
+        
+        if (!promo_type || (promo_type !== 'discount' && promo_type !== 'gift')) {
+            return reply.code(400).send({ error: 'Loại khuyến mãi không hợp lệ.' });
+        }
+
+        const pct = promo_type === 'discount' ? Number(discount_pct) : 0;
+        const qty = promo_type === 'gift' ? Number(gift_quantity) : 0;
+
+        if (promo_type === 'discount' && (isNaN(pct) || pct <= 0 || pct > 100)) {
+            return reply.code(400).send({ error: 'Phần trăm giảm giá phải lớn hơn 0 và nhỏ hơn hoặc bằng 100.' });
+        }
+        if (promo_type === 'gift' && (isNaN(qty) || qty <= 0)) {
+            return reply.code(400).send({ error: 'Số lượng quà tặng phải lớn hơn 0.' });
+        }
+
+        const code = await generateUniquePromoCode();
+        
+        const result = await db.run(`
+            INSERT INTO promotion_codes (code, promo_type, discount_pct, gift_quantity, created_by)
+            VALUES ($1, $2, $3, $4, $5)
+        `, [code, promo_type, pct, qty, request.user.id]);
+
+        const item = await db.get('SELECT * FROM promotion_codes WHERE code = $1', [code]);
+        return { success: true, item, message: 'Tạo mã khuyến mãi thành công!' };
+    });
+
+    // PUT /api/promotion-codes/:id - Update promo code status
+    fastify.put('/api/promotion-codes/:id', { preHandler: [authenticate, checkPromoManager] }, async (request, reply) => {
+        const { id } = request.params;
+        const { status } = request.body || {};
+
+        if (!status || (status !== 'active' && status !== 'inactive')) {
+            return reply.code(400).send({ error: 'Trạng thái không hợp lệ.' });
+        }
+
+        await db.run(`
+            UPDATE promotion_codes
+            SET status = $1, updated_at = NOW()
+            WHERE id = $2
+        `, [status, Number(id)]);
+
+        return { success: true, message: 'Cập nhật trạng thái thành công!' };
+    });
+
+    // DELETE /api/promotion-codes/:id - Delete promo code
+    fastify.delete('/api/promotion-codes/:id', { preHandler: [authenticate, checkPromoManager] }, async (request, reply) => {
+        const { id } = request.params;
+        await db.run('DELETE FROM promotion_codes WHERE id = $1', [Number(id)]);
+        return { success: true, message: 'Xóa mã khuyến mãi thành công!' };
+    });
+
+    // GET /api/promotion-codes/check - Check/validate promo code
+    fastify.get('/api/promotion-codes/check', { preHandler: [authenticate] }, async (request, reply) => {
+        const { code } = request.query || {};
+        if (!code) {
+            return reply.code(400).send({ error: 'Thiếu mã khuyến mãi.' });
+        }
+
+        const row = await db.get(`
+            SELECT * FROM promotion_codes WHERE UPPER(code) = UPPER($1)
+        `, [code.trim()]);
+
+        if (!row) {
+            return { valid: false, error: 'Mã khuyến mãi không tồn tại.' };
+        }
+        if (row.status !== 'active') {
+            return { valid: false, error: 'Mã khuyến mãi đã hết hạn hoặc bị vô hiệu hóa.' };
+        }
+
+        return {
+            valid: true,
+            code: row.code,
+            promo_type: row.promo_type,
+            discount_pct: row.discount_pct,
+            gift_quantity: row.gift_quantity
+        };
+    });
+}
+
+module.exports = khuyenMaiRoutes;

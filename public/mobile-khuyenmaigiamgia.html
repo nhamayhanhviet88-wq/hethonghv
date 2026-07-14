@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Khuyến Mãi Giảm Giá — Đồng Phục HV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    
+    <!-- Unified Mobile Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
+    
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            color: #1e293b;
+            padding-bottom: 60px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+        
+        /* Toast style */
+        .mt-c {
+            position: fixed;
+            top: 70px;
+            left: 12px;
+            right: 12px;
+            z-index: 9999;
+        }
+        .mt {
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            animation: mSI 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .mt-s { background: linear-gradient(135deg, #10b981, #059669); }
+        .mt-e { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        @keyframes mSI {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Header Card */
+        .header-card {
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+            border-radius: 16px;
+            padding: 24px;
+            color: white;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .header-card::after {
+            content: "🎁";
+            position: absolute;
+            right: -20px;
+            bottom: -20px;
+            font-size: 100px;
+            opacity: 0.15;
+            transform: rotate(-15deg);
+        }
+        .header-card h2 {
+            font-size: 20px;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+        .header-card p {
+            font-size: 13px;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        /* Search & Filter bar */
+        .filter-bar {
+            background: white;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+        }
+        .search-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .search-input {
+            width: 100%;
+            padding: 10px 12px 10px 36px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+        }
+        .select-filter {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            background: white;
+            color: #475569;
+        }
+
+        .btn-create {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        }
+
+        /* Cards List */
+        .cards-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .promo-card {
+            background: white;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+            transition: transform 0.2s;
+        }
+        .promo-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .promo-code {
+            font-family: monospace;
+            font-size: 18px;
+            font-weight: 800;
+            color: #1e3a8a;
+            letter-spacing: 0.5px;
+        }
+        .promo-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 9999px;
+        }
+        .badge-discount { background: #dbeafe; color: #1e40af; }
+        .badge-gift { background: #fef3c7; color: #92400e; }
+
+        .promo-details {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .promo-meta {
+            font-size: 12px;
+            color: #64748b;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 10px;
+        }
+
+        .promo-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 10px;
+        }
+
+        /* Toggle Switch */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .switch-label {
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #10b981;
+        }
+        input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+
+        .btn-delete {
+            background: #fef2f2;
+            color: #ef4444;
+            border: 1px solid #fee2e2;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* Bottom Drawer Modal for Creation */
+        .drawer-modal {
+            position: fixed;
+            bottom: -100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+            z-index: 10000;
+            transition: bottom 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            padding: 20px;
+        }
+        .drawer-modal.active {
+            bottom: 0;
+        }
+        .drawer-modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            display: none;
+        }
+        .drawer-modal-backdrop.active {
+            display: block;
+        }
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .drawer-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: #1e3a5f;
+        }
+        .drawer-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #64748b;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            font-family: inherit;
+        }
+        .form-control:focus {
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="mt-c" id="toastContainer"></div>
+
+    <div class="container" style="margin-top: 60px;">
+        <!-- Header Card -->
+        <div class="header-card">
+            <h2>Khuyến Mãi Giảm Giá</h2>
+            <p>Tạo và quản lý các mã ưu đãi tự động 8 ký tự phục vụ đơn hàng tổng.</p>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+            <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="promoSearch" placeholder="Tìm kiếm mã..." class="search-input" oninput="renderList()">
+            </div>
+            <select id="promoType" class="select-filter" onchange="renderList()">
+                <option value="all">Tất cả loại ưu đãi</option>
+                <option value="discount">Giảm giá %</option>
+                <option value="gift">Tặng áo</option>
+            </select>
+            <button class="btn-create" onclick="openCreateDrawer()">
+                <span>➕</span> Tạo Mã Ưu Đãi Mới
+            </button>
+        </div>
+
+        <!-- Cards List -->
+        <div class="cards-list" id="cardsContainer">
+            <div style="text-align:center; padding:30px; color:#64748b;">
+                Đang tải danh sách...
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Drawer for Creation -->
+    <div class="drawer-modal-backdrop" id="drawerBackdrop" onclick="closeCreateDrawer()"></div>
+    <div class="drawer-modal" id="createDrawer">
+        <div class="drawer-header">
+            <div class="drawer-title">Tạo Mã Ưu Đãi Mới</div>
+            <button class="drawer-close" onclick="closeCreateDrawer()">✕</button>
+        </div>
+        <div class="form-group">
+            <label>Loại khuyến mãi</label>
+            <select id="newPromoType" class="form-control" onchange="toggleFormFields(this.value)">
+                <option value="discount">Giảm giá theo %</option>
+                <option value="gift">Tặng sản phẩm (áo)</option>
+            </select>
+        </div>
+        
+        <div class="form-group" id="discountGroup">
+            <label>Phần trăm giảm giá (%)</label>
+            <input type="number" id="newDiscountPct" class="form-control" min="1" max="100" placeholder="Ví dụ: 10">
+        </div>
+
+        <div class="form-group" id="giftGroup" style="display:none;">
+            <label>Số lượng áo tặng</label>
+            <input type="number" id="newGiftQty" class="form-control" min="1" placeholder="Ví dụ: 2">
+        </div>
+
+        <button class="btn-create" onclick="submitCreatePromo()" style="margin-top:10px;">
+            💾 Tạo Mã Tự Động
+        </button>
+    </div>
+
+    <!-- Mobile Nav JS -->
+    <script src="/js/mobile-nav.js?v=20260621"></script>
+    <script>
+        let promoCodes = [];
+        let currentUser = null;
+
+        // API Helper
+        async function apiCall(url, method = 'GET', body = null) {
+            const options = {
+                method,
+                credentials: 'include',
+                headers: {}
+            };
+            if (body) {
+                options.headers['Content-Type'] = 'application/json';
+                options.body = JSON.stringify(body);
+            }
+            const res = await fetch(url, options);
+            if (res.status === 401 || res.status === 403) {
+                window.location.href = '/index.html';
+                return;
+            }
+            return res.json();
+        }
+
+        function showToast(msg, type = 's') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `mt mt-${type}`;
+            toast.innerHTML = `<span>${msg}</span><span style="cursor:pointer;margin-left:12px;opacity:0.7" onclick="this.parentElement.remove()">✕</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4500);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await apiCall('/api/auth/me');
+                if (!res.user) return;
+                currentUser = res.user;
+
+                // Restrict page view on client-side to GĐ & QLCC
+                const isAllowed = currentUser.role === 'giam_doc' || 
+                                  currentUser.role === 'quan_ly_cap_cao' || 
+                                  currentUser.username === 'leviettrinh' || 
+                                  currentUser.username === 'trinh';
+                if (!isAllowed) {
+                    showToast('🔒 Bạn không có quyền truy cập trang này!', 'e');
+                    setTimeout(() => window.location.href = '/m', 1500);
+                    return;
+                }
+
+                await fetchList();
+            } catch(e) {
+                showToast('Lỗi tải thông tin tài khoản.', 'e');
+            }
+        });
+
+        async function fetchList() {
+            try {
+                const res = await apiCall('/api/promotion-codes');
+                promoCodes = res.items || [];
+                renderList();
+            } catch(e) {
+                showToast('Lỗi tải danh sách mã khuyến mãi.', 'e');
+            }
+        }
+
+        function renderList() {
+            const container = document.getElementById('cardsContainer');
+            const search = document.getElementById('promoSearch').value.trim().toUpperCase();
+            const filterType = document.getElementById('promoType').value;
+
+            const filtered = promoCodes.filter(item => {
+                const matchesSearch = item.code.toUpperCase().includes(search);
+                const matchesType = filterType === 'all' || item.promo_type === filterType;
+                return matchesSearch && matchesType;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:30px; color:#64748b;">
+                        Không có mã khuyến mãi nào phù hợp.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => {
+                const isDiscount = item.promo_type === 'discount';
+                const badge = isDiscount 
+                    ? `<span class="promo-badge badge-discount">🏷️ Giảm Giá %</span>`
+                    : `<span class="promo-badge badge-gift">👕 Tặng Áo</span>`;
+                
+                const detail = isDiscount 
+                    ? `Giảm ${item.discount_pct}%` 
+                    : `Tặng ${item.gift_quantity} áo`;
+
+                const creator = item.creator_name || item.creator_username || 'Hệ thống';
+                const createdDate = item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+                const isActive = item.status === 'active';
+
+                return `
+                    <div class="promo-card">
+                        <div class="promo-card-header">
+                            <span class="promo-code">${item.code}</span>
+                            ${badge}
+                        </div>
+                        <div class="promo-details">
+                            ${detail}
+                        </div>
+                        <div class="promo-meta">
+                            <span>Người tạo: <b>${creator}</b></span>
+                            <span>Ngày: ${createdDate}</span>
+                        </div>
+                        <div class="promo-actions">
+                            <div class="switch-container">
+                                <span class="switch-label" style="color: ${isActive ? '#059669' : '#64748b'};">${isActive ? 'KÍCH HOẠT' : 'KHÓA'}</span>
+                                <label class="switch">
+                                    <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleStatus(${item.id}, this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <button class="btn-delete" onclick="deleteCode(${item.id}, '${item.code}')">🗑️ Xóa</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openCreateDrawer() {
+            document.getElementById('drawerBackdrop').classList.add('active');
+            document.getElementById('createDrawer').classList.add('active');
+        }
+
+        function closeCreateDrawer() {
+            document.getElementById('drawerBackdrop').classList.remove('active');
+            document.getElementById('createDrawer').classList.remove('active');
+        }
+
+        function toggleFormFields(val) {
+            document.getElementById('discountGroup').style.display = val === 'discount' ? 'block' : 'none';
+            document.getElementById('giftGroup').style.display = val === 'gift' ? 'block' : 'none';
+        }
+
+        async function submitCreatePromo() {
+            const type = document.getElementById('newPromoType').value;
+            const body = { promo_type: type };
+
+            if (type === 'discount') {
+                const val = parseFloat(document.getElementById('newDiscountPct').value);
+                if (isNaN(val) || val <= 0 || val > 100) {
+                    showToast('Phần trăm giảm giá phải từ 1 đến 100.', 'e');
+                    return;
+                }
+                body.discount_pct = val;
+            } else {
+                const val = parseInt(document.getElementById('newGiftQty').value);
+                if (isNaN(val) || val <= 0) {
+                    showToast('Số lượng áo tặng phải lớn hơn 0.', 'e');
+                    return;
+                }
+                body.gift_quantity = val;
+            }
+
+            try {
+                const res = await apiCall('/api/promotion-codes', 'POST', body);
+                if (res.success) {
+                    showToast(res.message, 's');
+                    closeCreateDrawer();
+                    await fetchList();
+                } else {
+                    showToast(res.error || 'Lỗi tạo mã.', 'e');
+                }
+            } catch(e) {
+                showToast('Lỗi kết nối máy chủ.', 'e');
+            }
+        }
+
+        async function toggleStatus(id, checked) {
+            const status = checked ? 'active' : 'inactive';
+            try {
+                const res = await apiCall(`/api/promotion-codes/${id}`, 'PUT', { status });
+                if (res.success) {
+                    showToast(res.message, 's');
+                    const idx = promoCodes.findIndex(x => x.id === id);
+                    if (idx !== -1) {
+                        promoCodes[idx].status = status;
+                    }
+                    renderList();
+                } else {
+                    showToast(res.error || 'Lỗi cập nhật trạng thái.', 'e');
+                    renderList();
+                }
+            } catch(e) {
+                showToast('Lỗi kết nối.', 'e');
+                renderList();
+            }
+        }
+
+        async function deleteCode(id, code) {
+            if (!confirm(`Xóa mã ưu đãi ${code}?`)) return;
+            try {
+                const res = await apiCall(`/api/promotion-codes/${id}`, 'DELETE');
+                if (res.success) {
+                    showToast(res.message, 's');
+                    promoCodes = promoCodes.filter(x => x.id !== id);
+                    renderList();
+                } else {
+                    showToast(res.error || 'Lỗi xóa mã.', 'e');
+                }
+            } catch(e) {
+                showToast('Lỗi kết nối.', 'e');
+            }
+        }
+    </script>
+</body>
+</html>

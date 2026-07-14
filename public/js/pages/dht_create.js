@@ -1,11 +1,11 @@
 // ========== DHT CREATE ORDER — 2-STEP FLOW ==========
-var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], editMode: false, editOrderId: null, editData: null, reminders: [] };
+var _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], editMode: false, editOrderId: null, editData: null, reminders: [], appliedPromo: null };
 
 var _dhtProvinces = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hồ Chí Minh','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
 
 // === V4: Skip Step 1 — deposits are now selected in CRM ===
 async function _dhtShowCreate(preselectedOrderCode) {
-    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [] };
+    _dhtCreate = { step: 1, depositId: null, depositAmount: 0, depositCode: '', myInfo: null, surcharges: [], reminders: [], appliedPromo: null };
     await _dhtGoStep2();
     if (preselectedOrderCode) {
         var codeObj = (_dhtCreate.availableCodes || []).find(function(x) { return x.order_code === preselectedOrderCode; });
@@ -130,6 +130,16 @@ async function _dhtShowCreateFree() {
         +'<div id="_co_depSearchList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
         +'<div id="_co_depSelected" style="display:none;margin-top:6px;background:#fff;border:1px solid #86efac;border-radius:6px;padding:8px 10px;font-size:12px;color:#166534;font-weight:600"></div>'
         +'</div>'
+        // 🎫 Mã Khuyến Mãi (tùy chọn)
+        +'<div style="margin:10px 0;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:12px">'
+        +'<label style="font-weight:800;font-size:12px;color:#1e40af;margin-bottom:6px;display:block">🎫 Nhập Mã Khuyến Mãi (tùy chọn)</label>'
+        +'<div style="display:flex;gap:8px">'
+        +'<input id="_co_promoCode" class="form-control" placeholder="Nhập mã 8 ký tự..." style="font-size:12px;border:2px solid #3b82f6;text-transform:uppercase;flex:1">'
+        +'<button type="button" onclick="_dhtApplyPromo()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">Áp Dụng</button>'
+        +'<button type="button" id="_co_promoRemoveBtn" onclick="_dhtRemovePromo()" style="display:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">Hủy</button>'
+        +'</div>'
+        +'<div id="_co_promoMsg" style="font-size:11px;margin-top:6px;font-weight:700;display:none"></div>'
+        +'</div>'
         // Phụ Phí
         +'<div style="margin:10px 0;border:1px dashed #e2e8f0;border-radius:8px;padding:10px 12px;background:#fffbeb">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
@@ -144,6 +154,10 @@ async function _dhtShowCreateFree() {
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
         +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="" placeholder="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
         +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Khuyến Mãi Giảm Giá</label><input id="_co_promoDiscount" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#ef4444"></div>'
+        +'<div class="form-group"><label>Quà Tặng Kèm</label><input id="_co_promoGift" class="form-control" value="Không có" disabled style="'+_dis+';font-weight:700;color:#3b82f6"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
         +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
@@ -608,6 +622,16 @@ async function _dhtGoStep2() {
         +'<span style="font-weight:800;font-size:12px;color:#92400e">Thêm Phụ Phí</span>'
         +'<button type="button" onclick="_dhtAddSurcharge()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:3px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">➕ Thêm Phụ Phí</button></div>'
         +'<div id="_co_surcharges"></div></div>'
+        // 🎫 Mã Khuyến Mãi (tùy chọn)
+        +'<div style="margin:10px 0;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:12px">'
+        +'<label style="font-weight:800;font-size:12px;color:#1e40af;margin-bottom:6px;display:block">🎫 Nhập Mã Khuyến Mãi (tùy chọn)</label>'
+        +'<div style="display:flex;gap:8px">'
+        +'<input id="_co_promoCode" class="form-control" placeholder="Nhập mã 8 ký tự..." style="font-size:12px;border:2px solid #3b82f6;text-transform:uppercase;flex:1">'
+        +'<button type="button" onclick="_dhtApplyPromo()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">Áp Dụng</button>'
+        +'<button type="button" id="_co_promoRemoveBtn" onclick="_dhtRemovePromo()" style="display:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">Hủy</button>'
+        +'</div>'
+        +'<div id="_co_promoMsg" style="font-size:11px;margin-top:6px;font-weight:700;display:none"></div>'
+        +'</div>'
         // === Tổng kết: 4 hàng ===
         +'<div style="background:#f8fafc;border-radius:8px;padding:12px;border:1px solid #e2e8f0">'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
@@ -617,6 +641,10 @@ async function _dhtGoStep2() {
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
         +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="" placeholder="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
         +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Khuyến Mãi Giảm Giá</label><input id="_co_promoDiscount" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#ef4444"></div>'
+        +'<div class="form-group"><label>Quà Tặng Kèm</label><input id="_co_promoGift" class="form-control" value="Không có" disabled style="'+_dis+';font-weight:700;color:#3b82f6"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
         +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
@@ -810,6 +838,7 @@ async function _dhtGoStep2() {
             var val = Number(o.additional_vat_amount) || 0;
             document.getElementById('_co_additionalVat').value = val > 0 ? val : '';
         }
+        _dhtPrefillPromoUI();
         _dhtCalcTotal();
 
         // ★ EDIT RESTRICTIONS: Non-GĐ users cannot modify critical fields (skip for drafts)
@@ -2273,21 +2302,44 @@ function _dhtRenderPhieuRows() {
 function _dhtCalcTotal() {
     var gRaw=0,gVat=0;
     _dhtCreate.phieuItems.forEach(function(p){if(!p)return;gRaw+=p.raw_total||0;gVat+=p.vat_amount||0;});
+    
+    // Calculate Promo Discount
+    var promoDiscount = 0;
+    var promoGiftStr = 'Không có';
+    if (_dhtCreate.appliedPromo) {
+        if (_dhtCreate.appliedPromo.promo_type === 'discount') {
+            var pct = Number(_dhtCreate.appliedPromo.discount_pct || 0);
+            promoDiscount = Math.round(gRaw * (pct / 100));
+        } else if (_dhtCreate.appliedPromo.promo_type === 'gift') {
+            promoGiftStr = _dhtCreate.appliedPromo.gift_quantity + ' áo';
+        }
+    }
+    
     // Add surcharges to total
     var surTotal=0;
     (_dhtCreate.surcharges||[]).forEach(function(s){surTotal+=Number(s.amount)||0;});
     gRaw+=surTotal;
+    
     var addVat = Number(document.getElementById('_co_additionalVat')?.value) || 0;
     var finalVat = gVat + addVat;
     var depAmt = _dhtCreate.depositAmount || 0;
-    var gTotal=gRaw+finalVat, remain=gTotal-depAmt;
+    var gTotal = gRaw - promoDiscount + finalVat;
+    var remain = gTotal - depAmt;
+    
     var depEl = document.getElementById('_co_deposit');
     if (depEl) depEl.value = depAmt.toLocaleString('vi-VN') + 'đ';
-    document.getElementById('_co_total').value=(gRaw-surTotal).toLocaleString('vi-VN')+'đ';
-    var surEl=document.getElementById('_co_surTotal');
-    if(surEl) surEl.value=surTotal.toLocaleString('vi-VN')+'đ';
-    document.getElementById('_co_totalVatAmt').value=finalVat.toLocaleString('vi-VN')+'đ';
-    document.getElementById('_co_totalVat').value=gTotal.toLocaleString('vi-VN')+'đ';
+    document.getElementById('_co_total').value = (gRaw-surTotal).toLocaleString('vi-VN')+'đ';
+    var surEl = document.getElementById('_co_surTotal');
+    if (surEl) surEl.value = surTotal.toLocaleString('vi-VN')+'đ';
+    
+    // Set promotion summary inputs if they exist in DOM
+    var promoDiscountEl = document.getElementById('_co_promoDiscount');
+    if (promoDiscountEl) promoDiscountEl.value = promoDiscount.toLocaleString('vi-VN') + 'đ';
+    var promoGiftEl = document.getElementById('_co_promoGift');
+    if (promoGiftEl) promoGiftEl.value = promoGiftStr;
+
+    document.getElementById('_co_totalVatAmt').value = finalVat.toLocaleString('vi-VN')+'đ';
+    document.getElementById('_co_totalVat').value = gTotal.toLocaleString('vi-VN')+'đ';
     var remainEl = document.getElementById('_co_remain');
     if (remainEl) {
         remainEl.value = remain.toLocaleString('vi-VN') + 'đ';
@@ -2301,6 +2353,111 @@ function _dhtCalcTotal() {
             remainEl.style.fontWeight = '800';
             remainEl.style.background = '#f1f5f9';
             remainEl.style.border = '';
+        }
+    }
+}
+
+async function _dhtApplyPromo() {
+    var codeInp = document.getElementById('_co_promoCode');
+    if (!codeInp) return;
+    var code = codeInp.value.trim().toUpperCase();
+    if (!code) {
+        showToast('Vui lòng nhập mã khuyến mãi!', 'warning');
+        return;
+    }
+    
+    var msgEl = document.getElementById('_co_promoMsg');
+    var removeBtn = document.getElementById('_co_promoRemoveBtn');
+    
+    try {
+        var res = await apiCall('/api/promotion-codes/check?code=' + encodeURIComponent(code));
+        if (res && res.valid) {
+            _dhtCreate.appliedPromo = {
+                code: res.code,
+                promo_type: res.promo_type,
+                discount_pct: res.discount_pct,
+                gift_quantity: res.gift_quantity
+            };
+            codeInp.disabled = true;
+            if (removeBtn) removeBtn.style.display = 'inline-block';
+            if (msgEl) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = '#166534';
+                msgEl.innerText = res.promo_type === 'discount'
+                    ? '✅ Áp dụng thành công: giảm ' + res.discount_pct + '% tiền hàng.'
+                    : '✅ Áp dụng thành công: tặng ' + res.gift_quantity + ' áo.';
+            }
+            showToast('✅ Đã áp dụng mã khuyến mãi!');
+            _dhtCalcTotal();
+            _dhtSyncPromoToNote();
+        } else {
+            _dhtCreate.appliedPromo = null;
+            if (removeBtn) removeBtn.style.display = 'none';
+            if (msgEl) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = '#dc2626';
+                msgEl.innerText = '❌ ' + (res.message || 'Mã không hợp lệ hoặc đã hết hạn.');
+            }
+            showToast('❌ Mã khuyến mãi không hợp lệ!', 'error');
+            _dhtCalcTotal();
+        }
+    } catch(e) {
+        console.error('Check promo error:', e);
+        showToast('Lỗi kiểm tra mã khuyến mãi!', 'error');
+    }
+}
+
+function _dhtRemovePromo() {
+    _dhtCreate.appliedPromo = null;
+    var codeInp = document.getElementById('_co_promoCode');
+    if (codeInp) {
+        codeInp.value = '';
+        codeInp.disabled = false;
+    }
+    var removeBtn = document.getElementById('_co_promoRemoveBtn');
+    if (removeBtn) removeBtn.style.display = 'none';
+    var msgEl = document.getElementById('_co_promoMsg');
+    if (msgEl) {
+        msgEl.style.display = 'none';
+        msgEl.innerText = '';
+    }
+    showToast('Đã hủy mã khuyến mãi.');
+    _dhtCalcTotal();
+    _dhtSyncPromoToNote();
+}
+
+function _dhtSyncPromoToNote() {
+    var noteEl = document.getElementById('_co_saleNote');
+    if (!noteEl) return;
+    var curVal = noteEl.value || '';
+    
+    // Remove existing promo note marker if present
+    curVal = curVal.replace(/\[MÃ KHUYẾN MÃI:.*?\]\s*/g, '');
+    
+    if (_dhtCreate.appliedPromo) {
+        var promoText = '[MÃ KHUYẾN MÃI: ' + _dhtCreate.appliedPromo.code + '] ';
+        noteEl.value = promoText + curVal;
+    } else {
+        noteEl.value = curVal;
+    }
+}
+
+function _dhtPrefillPromoUI() {
+    if (_dhtCreate.appliedPromo) {
+        var codeInp = document.getElementById('_co_promoCode');
+        if (codeInp) {
+            codeInp.value = _dhtCreate.appliedPromo.code;
+            codeInp.disabled = true;
+        }
+        var removeBtn = document.getElementById('_co_promoRemoveBtn');
+        if (removeBtn) removeBtn.style.display = 'inline-block';
+        var msgEl = document.getElementById('_co_promoMsg');
+        if (msgEl) {
+            msgEl.style.display = 'block';
+            msgEl.style.color = '#166534';
+            msgEl.innerText = _dhtCreate.appliedPromo.promo_type === 'discount'
+                ? '✅ Áp dụng thành công: giảm ' + _dhtCreate.appliedPromo.discount_pct + '% tiền hàng.'
+                : '✅ Áp dụng thành công: tặng ' + _dhtCreate.appliedPromo.gift_quantity + ' áo.';
         }
     }
 }
@@ -2468,6 +2625,17 @@ async function _dhtSubmitCreateV2(isDraft) {
         }
     }
 
+    var promoDiscountAmt = 0;
+    var promoGiftInfo = null;
+    if (_dhtCreate.appliedPromo) {
+        if (_dhtCreate.appliedPromo.promo_type === 'discount') {
+            var pct = Number(_dhtCreate.appliedPromo.discount_pct || 0);
+            promoDiscountAmt = Math.round(totalAmt * (pct / 100));
+        } else if (_dhtCreate.appliedPromo.promo_type === 'gift') {
+            promoGiftInfo = _dhtCreate.appliedPromo.gift_quantity + ' áo';
+        }
+    }
+
     var payload = {
         order_date: vnDateStr(),
         category_id: cat || null,
@@ -2478,8 +2646,11 @@ async function _dhtSubmitCreateV2(isDraft) {
         address: addr,
         cskh_user_id: _dhtCreate.myInfo?.id,
         total_quantity: items.reduce(function(s,x){ return s + x.quantity; }, 0),
-        total_amount: totalAmt + vatAmt + (_dhtCreate.surcharges||[]).reduce(function(s,x){return s+(Number(x.amount)||0);},0),
+        total_amount: totalAmt - promoDiscountAmt + vatAmt + (_dhtCreate.surcharges||[]).reduce(function(s,x){return s+(Number(x.amount)||0);},0),
         discount_amount: 0,
+        applied_coupon: _dhtCreate.appliedPromo?.code || null,
+        promo_discount_amount: promoDiscountAmt,
+        promo_gift_info: promoGiftInfo,
         surcharges: _dhtCreate.surcharges || [],
         has_vat: hasVat,
         vat_amount: vatAmt,
@@ -2889,6 +3060,21 @@ async function _dhtInitializeEditState(id, data) {
             orderReminders = phieuItems[0].reminders.slice();
         }
 
+        var appliedPromo = null;
+        if (o.applied_coupon) {
+            try {
+                var res = await apiCall('/api/promotion-codes/check?code=' + encodeURIComponent(o.applied_coupon));
+                if (res && res.valid) {
+                    appliedPromo = {
+                        code: res.code,
+                        promo_type: res.promo_type,
+                        discount_pct: res.discount_pct,
+                        gift_quantity: res.gift_quantity
+                    };
+                }
+            } catch(e) { console.error('Error fetching promo:', e); }
+        }
+
         // Set up _dhtCreate for edit mode
         _dhtCreate = {
             step: 2,
@@ -2904,7 +3090,8 @@ async function _dhtInitializeEditState(id, data) {
             phieuItems: phieuItems,
             reminders: orderReminders,
             originalPhieuCount: phieuItems.length,
-            originalSurchargeCount: surchargeItems.length
+            originalSurchargeCount: surchargeItems.length,
+            appliedPromo: appliedPromo
         };
 
         // ★ Detect PET/TEM orders → use free form instead of Đồng Phục form
@@ -3008,6 +3195,16 @@ async function _dhtEditOrderFree(o) {
         +'<div id="_co_depSearchList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #86efac;border-radius:8px;max-height:220px;overflow-y:auto;width:100%;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
         +'<div id="_co_depSelected" style="display:none;margin-top:6px;background:#fff;border:1px solid #86efac;border-radius:6px;padding:8px 10px;font-size:12px;color:#166534;font-weight:600"></div>'
         +'</div>'
+        // 🎫 Mã Khuyến Mãi (tùy chọn)
+        +'<div style="margin:10px 0;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:12px">'
+        +'<label style="font-weight:800;font-size:12px;color:#1e40af;margin-bottom:6px;display:block">🎫 Nhập Mã Khuyến Mãi (tùy chọn)</label>'
+        +'<div style="display:flex;gap:8px">'
+        +'<input id="_co_promoCode" class="form-control" placeholder="Nhập mã 8 ký tự..." style="font-size:12px;border:2px solid #3b82f6;text-transform:uppercase;flex:1">'
+        +'<button type="button" onclick="_dhtApplyPromo()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">Áp Dụng</button>'
+        +'<button type="button" id="_co_promoRemoveBtn" onclick="_dhtRemovePromo()" style="display:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">Hủy</button>'
+        +'</div>'
+        +'<div id="_co_promoMsg" style="font-size:11px;margin-top:6px;font-weight:700;display:none"></div>'
+        +'</div>'
         +'<div style="margin:10px 0;border:1px dashed #e2e8f0;border-radius:8px;padding:10px 12px;background:#fffbeb">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
         +'<span style="font-weight:800;font-size:12px;color:#92400e">Thêm Phụ Phí</span>'
@@ -3020,6 +3217,10 @@ async function _dhtEditOrderFree(o) {
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
         +'<div class="form-group"><label style="font-weight:700;color:#6366f1">Số Tiền VAT thêm ✏️</label><input type="number" id="_co_additionalVat" class="form-control" value="" placeholder="0" min="0" oninput="_dhtCalcTotal()" style="font-weight:700;border:2px solid #6366f1"></div>'
         +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Khuyến Mãi Giảm Giá</label><input id="_co_promoDiscount" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#ef4444"></div>'
+        +'<div class="form-group"><label>Quà Tặng Kèm</label><input id="_co_promoGift" class="form-control" value="Không có" disabled style="'+_dis+';font-weight:700;color:#3b82f6"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
         +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
@@ -3165,6 +3366,7 @@ async function _dhtEditOrderFree(o) {
         var val = Number(o.additional_vat_amount) || 0;
         document.getElementById('_co_additionalVat').value = val > 0 ? val : '';
     }
+    _dhtPrefillPromoUI();
     _dhtCalcTotal();
 
     // ★ EDIT RESTRICTIONS for non-GĐ users (skip for drafts)
@@ -3315,6 +3517,17 @@ async function _dhtSubmitEditV2(isDraft) {
     var carrierExtra = _dhtGetCarrierExtra(isDraft);
     if (carrierExtra === false) return;
 
+    var promoDiscountAmt = 0;
+    var promoGiftInfo = null;
+    if (_dhtCreate.appliedPromo) {
+        if (_dhtCreate.appliedPromo.promo_type === 'discount') {
+            var pct = Number(_dhtCreate.appliedPromo.discount_pct || 0);
+            promoDiscountAmt = Math.round(totalAmt * (pct / 100));
+        } else if (_dhtCreate.appliedPromo.promo_type === 'gift') {
+            promoGiftInfo = _dhtCreate.appliedPromo.gift_quantity + ' áo';
+        }
+    }
+
     var finalIsDraft = isDraftOrder ? true : false;
     var officialSaveClicked = isDraftOrder ? (!isDraft) : true;
     var payload = {
@@ -3326,7 +3539,10 @@ async function _dhtSubmitEditV2(isDraft) {
         address: addr,
         province: prov || null,
         total_quantity: items.reduce(function(s, x) { return s + (x ? x.quantity : 0); }, 0),
-        total_amount: totalAmt + vatAmt + surTotal,
+        total_amount: totalAmt - promoDiscountAmt + vatAmt + surTotal,
+        applied_coupon: _dhtCreate.appliedPromo?.code || null,
+        promo_discount_amount: promoDiscountAmt,
+        promo_gift_info: promoGiftInfo,
         surcharges: (_dhtCreate.surcharges || []).map(function(s) { return { name: s.description, amount: Number(s.amount) || 0 }; }),
         has_vat: hasVat,
         vat_amount: vatAmt,

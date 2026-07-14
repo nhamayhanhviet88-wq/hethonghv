@@ -1843,8 +1843,9 @@ module.exports = async function(fastify) {
                 expected_ship_date, shipping_priority, standard_proof_image, standard_delivery_time, zalo_oa_sent,
                 sale_note_for_accountant, department_id, notes, surcharges, free_customer_id,
                 parent_order_id, repair_source_code,
-                created_by, last_updated_by, is_draft, customer_id, draft_name
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34,$35,$36,$37)
+                created_by, last_updated_by, is_draft, customer_id, draft_name,
+                applied_coupon, promo_discount_amount, promo_gift_info
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34,$35,$36,$37,$38,$39,$40)
             RETURNING *
         `, [
             orderCode,
@@ -1883,7 +1884,10 @@ module.exports = async function(fastify) {
             request.user.id,
             isDraftOrder,
             b.customer_id ? Number(b.customer_id) : null,
-            b.draft_name || null
+            b.draft_name || null,
+            b.applied_coupon || null,
+            Number(b.promo_discount_amount) || 0,
+            b.promo_gift_info || null
         ]);
 
         // Record consumed slips for this order
@@ -4009,7 +4013,8 @@ module.exports = async function(fastify) {
             'deposit_amount_cache', 'standard_delivery_time', 'sale_note_for_accountant',
             'discount_reason',
             'sx_print_confirmed', 'sx_print_confirmed_at', 'sx_print_confirmed_by',
-            'draft_name', 'official_save_clicked', 'is_draft'
+            'draft_name', 'official_save_clicked', 'is_draft',
+            'applied_coupon', 'promo_discount_amount', 'promo_gift_info'
         ];
 
         const sets = [];
@@ -4109,7 +4114,8 @@ module.exports = async function(fastify) {
                 const numericFields = [
                     'cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount', 
                     'category_id', 'vat_amount', 'additional_vat_amount', 'designer_user_id', 
-                    'carrier_id', 'actual_carrier_id', 'deposit_amount_cache', 'customer_id'
+                    'carrier_id', 'actual_carrier_id', 'deposit_amount_cache', 'customer_id',
+                    'promo_discount_amount'
                 ];
                 const boolFields = ['has_vat', 'zalo_oa_sent', 'sx_print_confirmed', 'official_save_clicked', 'is_draft'];
                 if (numericFields.includes(key)) {
