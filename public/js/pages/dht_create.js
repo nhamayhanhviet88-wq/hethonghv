@@ -1483,7 +1483,16 @@ function _dhtAddItemFree(editIdx) {
             + rm + '</div>';
     }
 
-    var vatSel = '<option value="0"' + (existing.vat_percent === 8 ? '' : ' selected') + '>0%</option><option value="8"' + (existing.vat_percent === 8 ? ' selected' : '') + '>8%</option>';
+    var vatPct = existing.vat_percent || 0;
+    var vatSel = '<option value="0"' + (vatPct === 0 ? ' selected' : '') + '>0%</option>';
+    if (vatPct === 8) {
+        vatSel += '<option value="8" selected>8%</option>';
+    } else {
+        vatSel += '<option value="8">8%</option>';
+    }
+    if (vatPct !== 0 && vatPct !== 8) {
+        vatSel += '<option value="' + vatPct + '" selected>' + vatPct + '%</option>';
+    }
     
     // Hide 'Tờ' option if in PET mode
     var prodSel = '<option value="">-- Chọn --</option>';
@@ -1637,7 +1646,16 @@ async function _dhtAddItem(editIdx) {
     var noOpt='<option value="" disabled selected>-- Chờ setup --</option>';
     var qps=existing.quantities||[{qty:'',price:''}], qpHTML='';
     for(var qi=0;qi<qps.length;qi++){var n=qi+1;var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc();_ppUpdateAddBtnVisibility()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';qpHTML+='<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';}
-    var vatSel='<option value="0"'+(existing.vat_percent===8?'':' selected')+'>0%</option><option value="8"'+(existing.vat_percent===8?' selected':'')+'>8%</option>';
+    var vatPct = existing.vat_percent || 0;
+    var vatSel = '<option value="0"' + (vatPct === 0 ? ' selected' : '') + '>0%</option>';
+    if (vatPct === 8) {
+        vatSel += '<option value="8" selected>8%</option>';
+    } else {
+        vatSel += '<option value="8">8%</option>';
+    }
+    if (vatPct !== 0 && vatPct !== 8) {
+        vatSel += '<option value="' + vatPct + '" selected>' + vatPct + '%</option>';
+    }
     var orderCode=_dhtCreate.orderCode||'???';
     var activeSaleType = (po.sale_types || []).find(function(s) {
         return s.name === existing.sale_type;
@@ -3294,13 +3312,19 @@ async function _dhtInitializeEditState(id, data) {
             if (it.unit_price && it.quantity) {
                 var base = qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0)*(Number(x.price)||0); }, 0);
                 var giftQty = Number(it.promo_gift_quantity) || 0;
+                var giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : null;
                 if (giftQty > 0 && qtyArr.length > 0) {
-                    var totalQty = qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0); }, 0);
-                    if (totalQty > 0) {
-                        var avgPrice = base / totalQty;
-                        base -= Math.round(avgPrice * giftQty);
-                        if (base < 0) base = 0;
+                    var giftPrice = it.unit_price;
+                    if (giftApplyIdx !== null && giftApplyIdx >= 0 && giftApplyIdx < qtyArr.length) {
+                        giftPrice = Number(qtyArr[giftApplyIdx]?.price) || it.unit_price;
+                    } else {
+                        var totalQty = qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0); }, 0);
+                        if (totalQty > 0) {
+                            giftPrice = base / totalQty;
+                        }
                     }
+                    base -= Math.round(giftPrice * giftQty);
+                    if (base < 0) base = 0;
                 }
                 if (base > 0 && rawTotal > base) vatPct = Math.round((rawTotal - base) / base * 100);
             }
@@ -3328,7 +3352,8 @@ async function _dhtInitializeEditState(id, data) {
                 quantity: Number(it.quantity) || 0,
                 unit_price: Number(it.unit_price) || 0,
                 promo_gift_quantity: Number(it.promo_gift_quantity) || 0,
-                promo_gift_code: it.promo_gift_code || ''
+                promo_gift_code: it.promo_gift_code || '',
+                promo_gift_apply_row_index: it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : null
             };
         });
 
