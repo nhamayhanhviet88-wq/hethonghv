@@ -3771,7 +3771,7 @@ function _tpdGetCustomLayout(index) {
         }
     });
 
-    // 2. Remove techs not in master order (under Option A: only if details are empty AND it was a BGM tag)
+    // 2. Remove techs not in master order/pattern (if it was synced but is no longer in the new master list, remove it completely)
     layout.sewing_items = layout.sewing_items.filter(item => {
         const inMaster = uniqueMasterTechs.includes(item.tech);
         if (inMaster) return true;
@@ -3779,8 +3779,8 @@ function _tpdGetCustomLayout(index) {
         // If it was NOT a synced BGM tag, it was manually added by user -> KEEP IT!
         if (!item.is_bgm) return true;
 
-        // If it was a BGM tag but is no longer in the master list -> keep ONLY if it has custom details
-        return item.detail && item.detail.trim().length > 0;
+        // If it was a synced BGM tag but is no longer in the master list -> remove it
+        return false;
     });
 
     // Sort sewing items by group priority

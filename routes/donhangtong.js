@@ -4454,11 +4454,25 @@ module.exports = async function(fastify) {
                         orderId
                     ]);
 
-                    // ★ Two-way sync: DHT sewing_techniques → TPD custom_layout.sewing_items
+                    // ★ Two-way sync: DHT sewing_techniques + TSAM pattern techs → TPD custom_layout.sewing_items
                     try {
                         const dhtSewTechs = (item.sewing_techniques || []).map(s =>
                             typeof s === 'string' ? s : (s.name || '')
                         ).filter(Boolean);
+
+                        // Fetch the pattern's sewing techniques from tsam_samples
+                        let patternTechs = [];
+                        if (item.pattern_name) {
+                            const patRow = await db.get('SELECT sewing_tech FROM tsam_samples WHERE sample_code = $1', [item.pattern_name]);
+                            if (patRow && patRow.sewing_tech) {
+                                try {
+                                    const parsed = typeof patRow.sewing_tech === 'string' ? JSON.parse(patRow.sewing_tech) : patRow.sewing_tech;
+                                    patternTechs = (parsed || []).map(t => typeof t === 'object' ? (t.name || '') : String(t || '')).filter(Boolean);
+                                } catch (e) {}
+                            }
+                        }
+
+                        const uniqueMasterTechs = [...new Set([...patternTechs, ...dhtSewTechs])];
 
                         const existingItem = await db.get('SELECT custom_layout FROM dht_order_items WHERE id = $1', [itemId]);
                         let layout = {};
@@ -4478,16 +4492,21 @@ module.exports = async function(fastify) {
                             }).filter(Boolean);
                         }
 
-                        // 1. Remove items NOT in DHT sewing_techniques (two-way removal sync)
-                        sewingItems = sewingItems.filter(si =>
-                            dhtSewTechs.some(dt => dt.toLowerCase() === (si.tech || '').toLowerCase())
-                        );
+                        // 1. Remove synced items that are no longer in uniqueMasterTechs (keep manual ones)
+                        sewingItems = sewingItems.filter(si => {
+                            const inMaster = uniqueMasterTechs.some(dt => dt.toLowerCase() === (si.tech || '').toLowerCase());
+                            if (inMaster) return true;
+                            if (!si.is_bgm) return true;
+                            return false;
+                        });
 
-                        // 2. Add items from DHT that are NOT already in sewing_items (preserve existing detail)
-                        for (const techName of dhtSewTechs) {
-                            const alreadyExists = sewingItems.some(si => (si.tech || '').toLowerCase() === techName.toLowerCase());
-                            if (!alreadyExists) {
-                                sewingItems.push({ tech: techName, detail: '' });
+                        // 2. Add new items from uniqueMasterTechs and tag them as is_bgm
+                        for (const techName of uniqueMasterTechs) {
+                            const matchItem = sewingItems.find(si => (si.tech || '').toLowerCase() === techName.toLowerCase());
+                            if (matchItem) {
+                                matchItem.is_bgm = true;
+                            } else {
+                                sewingItems.push({ tech: techName, detail: '', is_bgm: true });
                             }
                         }
 
