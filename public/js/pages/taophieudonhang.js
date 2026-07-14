@@ -5882,9 +5882,9 @@ async function _tpdSaveProductionSheet() {
     if (it.print_details && it.print_details.length > 0) {
         for (let i = 0; i < it.print_details.length; i++) {
             const d = it.print_details[i];
+            const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
             
             // 1. Kiểu
-            const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
             if (isPrint3DPosition) {
                 d.print_type = 'In 3D';
             }
@@ -5894,7 +5894,6 @@ async function _tpdSaveProductionSheet() {
             }
             
             // 2. Kích thước (ngang hoặc cao) - Bỏ qua đối với In 3D
-            const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
             if (!isPrint3DPosition) {
                 const hasWidth = d.width && d.width.trim();
                 const hasHeight = d.height && d.height.trim();
