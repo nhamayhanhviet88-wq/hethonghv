@@ -2227,7 +2227,9 @@ function _dhtEditOrder(id) {
     const footer = `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
         <button class="btn btn-primary" onclick="_dhtSubmitEdit(${id})" style="width:auto;">💾 Lưu</button>`;
 
-    openModal('✏️ Sửa Đơn ' + o.order_code, body, footer);
+    const isDraftOrder = o.is_draft === true || o.is_draft === 'true' || o.is_draft === 1;
+    const title = isDraftOrder ? '✏️ Sửa Đơn Nháp ' + (o.draft_name || o.order_code) : '✏️ Sửa Đơn ' + o.order_code;
+    openModal(title, body, footer);
 }
 
 async function _dhtSubmitEdit(id) {

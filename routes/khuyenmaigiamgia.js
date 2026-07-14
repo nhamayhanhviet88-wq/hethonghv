@@ -111,9 +111,9 @@ async function khuyenMaiRoutes(fastify, options) {
         // Dynamically compute exact uses count and applied orders list for each code in the list (including draft orders)
         for (let row of rows) {
             const appliedOrders = await db.all(`
-                SELECT id, order_code, is_draft FROM dht_orders WHERE UPPER(applied_coupon) = UPPER($1)
+                SELECT id, order_code, is_draft, draft_name FROM dht_orders WHERE UPPER(applied_coupon) = UPPER($1)
                 UNION
-                SELECT DISTINCT o.id, o.order_code, o.is_draft FROM dht_orders o
+                SELECT DISTINCT o.id, o.order_code, o.is_draft, o.draft_name FROM dht_orders o
                 JOIN dht_order_items oi ON o.id = oi.dht_order_id
                 WHERE UPPER(oi.promo_gift_code) = UPPER($1)
             `, [row.code]);

@@ -700,7 +700,15 @@ async function _dhtGoStep2() {
                // + '<button class="btn" onclick="_dhtSubmitCreateV2(false)" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;margin-left:8px">💾 Lưu Đơn Hàng</button>';
     }
 
-    openModal(isEdit ? '✏️ Sửa Đơn ' + _dhtCreate.orderCode : '➕ Tạo Đơn Hàng', body, footer, isEdit);
+    var title = '➕ Tạo Đơn Hàng';
+    if (isEdit) {
+        if (isDraftOrder) {
+            title = '✏️ Sửa Đơn Nháp ' + (_dhtCreate.editData.order.draft_name || _dhtCreate.orderCode);
+        } else {
+            title = '✏️ Sửa Đơn ' + _dhtCreate.orderCode;
+        }
+    }
+    openModal(title, body, footer, isEdit);
 
     if (!isEdit) {
         _dhtCreate.phieuItems = [];
@@ -3487,7 +3495,12 @@ async function _dhtEditOrderFree(o) {
     var footer = '<button class="btn btn-secondary" onclick="_dhtCancelCreate()">← Hủy</button>'
         +'<button class="btn" onclick="_dhtSubmitEditV2()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Cập Nhật Đơn</button>';
 
-    openModal('✏️ Sửa Đơn ' + _dhtCreate.orderCode, body, footer, true);
+    var isDraftOrder = o.is_draft === true || o.is_draft === 'true';
+    var title = '✏️ Sửa Đơn ' + _dhtCreate.orderCode;
+    if (isDraftOrder) {
+        title = '✏️ Sửa Đơn Nháp ' + (o.draft_name || _dhtCreate.orderCode);
+    }
+    openModal(title, body, footer, true);
 
     _dhtCreate._allDeposits = depRes.deposits || depRes || [];
 

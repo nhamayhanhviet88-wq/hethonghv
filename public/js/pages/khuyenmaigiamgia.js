@@ -169,7 +169,7 @@ function filterPromoCodes() {
                     const color = isDraft ? '#b45309' : '#1e40af';
                     const border = isDraft ? '1px solid #fde68a' : '1px solid #bfdbfe';
                     const hoverBg = isDraft ? '#fde68a' : '#dbeafe';
-                    const text = isDraft ? `#${o.order_code} (Nháp)` : `#${o.order_code}`;
+                    const text = isDraft ? `Đơn Nháp ${o.draft_name || o.order_code}` : `#${o.order_code}`;
                     const title = isDraft ? 'Bản nháp đang áp dụng mã này. Nhấp để xem.' : 'Đơn hàng chính thức đã dùng mã này. Nhấp để xem.';
                     return `<span onclick="sessionStorage.setItem('dhtSearchOnLoad', '${o.order_code}'); navigate('don-hang-tong');" style="cursor: pointer; font-size: 11px; background: ${bg}; color: ${color}; padding: 2px 6px; border-radius: 4px; border: ${border}; font-weight: 700; transition: all 0.15s;" onmouseover="this.style.background='${hoverBg}';" onmouseout="this.style.background='${bg}';" title="${title}">${text}</span>`;
                 }).join('') + 
