@@ -2623,7 +2623,14 @@ function _dhtCalcTotal() {
     
     // Set promotion summary inputs if they exist in DOM
     var promoDiscountEl = document.getElementById('_co_promoDiscount');
-    if (promoDiscountEl) promoDiscountEl.value = promoDiscount.toLocaleString('vi-VN') + 'đ';
+    if (promoDiscountEl) {
+        if (_dhtCreate.appliedPromo && _dhtCreate.appliedPromo.promo_type === 'discount') {
+            var pct = Number(_dhtCreate.appliedPromo.discount_pct || 0);
+            promoDiscountEl.value = 'Giảm ' + pct + '% : ' + promoDiscount.toLocaleString('vi-VN') + 'đ';
+        } else {
+            promoDiscountEl.value = promoDiscount.toLocaleString('vi-VN') + 'đ';
+        }
+    }
     var promoGiftEl = document.getElementById('_co_promoGift');
     if (promoGiftEl) promoGiftEl.value = promoGiftStr;
 
