@@ -1665,7 +1665,7 @@ async function _dhtAddItem(editIdx) {
         +'      <span id="_pp_giftPromoMsg" style="font-size:10px;font-weight:bold;color:#16a34a">' + (existing.promo_gift_code ? '✅ Tặng ' + existing.promo_gift_quantity + ' áo (' + existing.promo_gift_code + ')' : '') + '</span>'
         +'    </div>'
         +'    <div style="display:flex;gap:6px">'
-        +'      <input type="text" id="_pp_promoGiftInput" class="form-control" style="font-size:12px;text-transform:uppercase;flex:1" placeholder="Nhập mã KM hoặc số áo..." value="'+(existing.promo_gift_code || existing.promo_gift_quantity || 0)+'" oninput="var val=this.value.trim(); if(val===\'\'){document.getElementById(\'_pp_promoGiftQty\').value=0;document.getElementById(\'_pp_promoGiftCode\').value=\'\';document.getElementById(\'_pp_giftPromoMsg\').innerText=\'\';_ppCalc();}else if(!isNaN(val)){document.getElementById(\'_pp_promoGiftQty\').value=Number(val);document.getElementById(\'_pp_promoGiftCode\').value=\'\';document.getElementById(\'_pp_giftPromoMsg\').innerText=\'\';_ppCalc();}">'
+        +'      <input type="text" id="_pp_promoGiftInput" class="form-control" style="font-size:12px;text-transform:uppercase;flex:1" placeholder="Nhập mã khuyến mãi tặng áo..." value="'+(existing.promo_gift_code || '')+'" oninput="var val=this.value.trim(); if(val===\'\'){document.getElementById(\'_pp_promoGiftQty\').value=0;document.getElementById(\'_pp_promoGiftCode\').value=\'\';document.getElementById(\'_pp_giftPromoMsg\').innerText=\'\';_ppCalc();}">'
         +'      <input type="hidden" id="_pp_promoGiftQty" value="'+(existing.promo_gift_quantity || 0)+'">'
         +'      <input type="hidden" id="_pp_promoGiftCode" value="'+(existing.promo_gift_code || '')+'">'
         +'      <button type="button" onclick="_ppApplyGiftCode()" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s">Áp Dụng</button>'
@@ -1841,11 +1841,14 @@ async function _ppApplyGiftCode() {
     
     // Check if it's a direct number
     if (!isNaN(val)) {
-        qtyHidden.value = Number(val);
+        showToast('❌ Vui lòng nhập mã khuyến mãi tặng áo, không nhập trực tiếp số lượng!', 'error');
+        if (msgEl) {
+            msgEl.innerText = '❌ Không nhận số lượng trực tiếp';
+            msgEl.style.color = '#dc2626';
+        }
+        qtyHidden.value = 0;
         codeHidden.value = '';
-        if (msgEl) msgEl.innerText = '';
         _ppCalc();
-        showToast('✅ Đã nhập số lượng áo tặng.');
         return;
     }
     
