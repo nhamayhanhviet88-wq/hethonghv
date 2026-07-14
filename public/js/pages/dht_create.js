@@ -2312,6 +2312,13 @@ function _dhtCalcTotal() {
             promoDiscount = Math.round(gRaw * (pct / 100));
         } else if (_dhtCreate.appliedPromo.promo_type === 'gift') {
             promoGiftStr = _dhtCreate.appliedPromo.gift_quantity + ' áo';
+            var totalQty = 0;
+            _dhtCreate.phieuItems.forEach(function(p){if(p) totalQty += Number(p.quantity || 0);});
+            if (totalQty > 0) {
+                var unitPrice = gRaw / totalQty;
+                promoDiscount = Math.round(unitPrice * Number(_dhtCreate.appliedPromo.gift_quantity || 0));
+                if (promoDiscount > gRaw) promoDiscount = gRaw;
+            }
         }
     }
     
@@ -2633,6 +2640,13 @@ async function _dhtSubmitCreateV2(isDraft) {
             promoDiscountAmt = Math.round(totalAmt * (pct / 100));
         } else if (_dhtCreate.appliedPromo.promo_type === 'gift') {
             promoGiftInfo = _dhtCreate.appliedPromo.gift_quantity + ' áo';
+            var totalQty = 0;
+            items.forEach(function(p){if(p) totalQty += Number(p.quantity || 0);});
+            if (totalQty > 0) {
+                var unitPrice = totalAmt / totalQty;
+                promoDiscountAmt = Math.round(unitPrice * Number(_dhtCreate.appliedPromo.gift_quantity || 0));
+                if (promoDiscountAmt > totalAmt) promoDiscountAmt = totalAmt;
+            }
         }
     }
 
@@ -3525,6 +3539,13 @@ async function _dhtSubmitEditV2(isDraft) {
             promoDiscountAmt = Math.round(totalAmt * (pct / 100));
         } else if (_dhtCreate.appliedPromo.promo_type === 'gift') {
             promoGiftInfo = _dhtCreate.appliedPromo.gift_quantity + ' áo';
+            var totalQty = 0;
+            items.forEach(function(p){if(p) totalQty += Number(p.quantity || 0);});
+            if (totalQty > 0) {
+                var unitPrice = totalAmt / totalQty;
+                promoDiscountAmt = Math.round(unitPrice * Number(_dhtCreate.appliedPromo.gift_quantity || 0));
+                if (promoDiscountAmt > totalAmt) promoDiscountAmt = totalAmt;
+            }
         }
     }
 
