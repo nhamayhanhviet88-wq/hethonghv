@@ -382,7 +382,7 @@ module.exports = async function(fastify) {
     // ========== DROPDOWN for DHT Phiếu form ==========
     fastify.get('/api/tsam/dropdown', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(`
-            SELECT s.id, s.sample_code AS name, s.sample_type, s.category_id, s.approval_status, s.mix_color_count, s.spec_image,
+            SELECT s.id, s.sample_code AS name, s.sample_type, s.category_id, s.approval_status, s.mix_color_count, s.spec_image, s.sewing_tech,
                    COALESCE((SELECT array_to_json(array_agg(product_id)) FROM tsam_sample_products WHERE sample_id = s.id), '[]'::json) AS product_ids
             FROM tsam_samples s
             WHERE s.is_active = true AND s.approval_status = 'APPROVED'

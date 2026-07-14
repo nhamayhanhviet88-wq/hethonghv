@@ -2121,6 +2121,28 @@ function _dhtPatternChange(existing) {
     if (!patName) { pairsEl.innerHTML=''; if(mixInfo)mixInfo.style.display='none'; var imgEl=document.getElementById('_pp_specImage');if(imgEl)imgEl.style.display='none'; return; }
     var pats = window._ppTsamPatterns || [];
     var pat = pats.find(function(p){ return p.name === patName; });
+
+    // Auto-populate sewing techniques if not already restoring existing ones
+    if (pat) {
+        var hasExistingSew = existing && existing.sewing_techniques && existing.sewing_techniques.length > 0;
+        if (!hasExistingSew) {
+            var sewing = [];
+            try {
+                sewing = typeof pat.sewing_tech === 'string' ? JSON.parse(pat.sewing_tech) : (pat.sewing_tech || []);
+            } catch(e) {}
+            window._ppSewItems = sewing.map(function(t) {
+                return {
+                    id: t.id,
+                    name: t.name,
+                    qty: t.qty || 1,
+                    fp: Number(t.fp) || 0,
+                    pp: Number(t.pp) || 0
+                };
+            });
+            _ppRenderSewTags();
+        }
+    }
+
     // Show spec_image preview
     var imgEl = document.getElementById('_pp_specImage');
     if (imgEl) {
