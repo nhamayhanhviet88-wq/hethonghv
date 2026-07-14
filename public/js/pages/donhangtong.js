@@ -932,13 +932,24 @@ function _dhtRenderOrderRows(filtered) {
         }
 
 
+        let emailBadge = '';
+        if (o.design_email_recipient) {
+            if (o.design_email_status === 'sent') {
+                emailBadge = `<span class="badge badge-success" style="background:#22c55e;color:#fff;font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;margin-left:6px;display:inline-block;" title="Gửi mail thành công đến ${escapeHTML(o.design_email_recipient)}">📧 Đã gửi</span>`;
+            } else if (o.design_email_status === 'sending') {
+                emailBadge = `<span class="badge badge-warning" style="background:#f59e0b;color:#fff;font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;margin-left:6px;display:inline-block;" title="Đang gửi mail...">📧 Đang gửi</span>`;
+            } else if (o.design_email_status === 'failed') {
+                emailBadge = `<span class="badge badge-danger" style="background:#ef4444;color:#fff;font-size:9px;font-weight:900;padding:2px 6px;border-radius:4px;margin-left:6px;display:inline-block;" title="Lỗi: ${escapeHTML(o.design_email_error || 'Lỗi không rõ')}">📧 Lỗi</span>`;
+            }
+        }
+
         return `<tr data-id="${o.id}" onclick="_dhtShowDetail('${o.id}')" style="cursor:pointer;${(o.is_draft === true || o.is_draft === 'true') ? 'background-color:#fffbeb;' : ''}" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
             <td>${_dhtFmtOrderDate(o.order_date, o.created_at)}</td>
             <td style="font-weight:600;">${shipDateFmt}</td>
             <td ${tienDoClick}>${tienDo}</td>
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
-            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${badgeRow}</td>
+            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${emailBadge}${badgeRow}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.province || '—'}</td>
@@ -1597,6 +1608,30 @@ async function _dhtShowDetail(id) {
             infoHTML += row('Lĩnh vực', o.category_name || '—');
         }
         infoHTML += row('Ngày lên đơn', _dhtFmtOrderDate(o.order_date, o.created_at));
+
+        if (o.design_email_recipient) {
+            let statusText = '';
+            let btnStyle = 'padding:2px 8px;font-size:11px;font-weight:700;border-radius:4px;border:none;background:#2563eb;color:#fff;cursor:pointer;margin-left:8px;';
+            const resendBtn = `<button style="${btnStyle}" onclick="event.stopPropagation(); _dhtResendDesignEmail('${o.id}')">🔄 Gửi lại</button>`;
+            
+            if (o.design_email_status === 'sent') {
+                statusText = `<span style="color:#15803d;font-weight:700;">✅ Đã gửi thành công</span> ${resendBtn}`;
+            } else if (o.design_email_status === 'sending') {
+                statusText = `<span style="color:#d97706;font-weight:700;">⏳ Đang gửi...</span>`;
+            } else if (o.design_email_status === 'failed') {
+                statusText = `<span style="color:#dc2626;font-weight:700;">❌ Thất bại</span> <div style="color:#dc2626;font-size:11px;margin-top:4px;font-weight:600;word-break:break-all;">Lỗi: ${escapeHTML(o.design_email_error || 'Không rõ nguyên nhân')}</div> ${resendBtn}`;
+            } else {
+                statusText = `<span style="color:#64748b;font-style:italic;">Chưa gửi</span> ${resendBtn}`;
+            }
+
+            infoHTML += row('Email thiết kế', `
+                <div style="font-size:12px;font-weight:500;">
+                    <div style="margin-bottom:4px;">Gửi tới: <strong>${escapeHTML(o.design_email_recipient)}</strong></div>
+                    <div>Trạng thái: ${statusText}</div>
+                </div>
+            `);
+        }
+
         if (o.logo_approved_image || o.chat_confirmed_image) {
             infoHTML += `<tr><td colspan="2" style="padding:12px 12px 4px 12px"><div style="border-top:1.5px dashed #e2e8f0;padding-top:12px">`;
             infoHTML += `<div style="font-weight:800;font-size:12px;color:var(--navy);margin-bottom:8px">🖼️ Hình ảnh bằng chứng xác nhận:</div>`;
@@ -3928,4 +3963,32 @@ async function _dhtConfirmAddVat(orderId) {
         showToast(e.message || 'Lỗi khi cập nhật VAT', 'error');
     }
 }
+
+window._dhtResendDesignEmail = async function(orderId) {
+    if (!confirm('Bạn có chắc chắn muốn gửi lại email thiết kế này cho xưởng?')) return;
+    try {
+        const btn = event.target;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Đang gửi...';
+        }
+        const res = await apiCall(`/api/dht/orders/${orderId}/resend-design-email`, 'POST');
+        if (res.success) {
+            showToast('🚀 Đang gửi lại email thiết kế thành công!', 'success');
+            // Reload details and table list
+            setTimeout(async () => {
+                await _dhtShowDetail(orderId);
+                if (typeof _dhtLoadOrders === 'function') await _dhtLoadOrders();
+            }, 1000);
+        } else {
+            showToast('⚠️ Gửi lại thất bại: ' + (res.error || 'Lỗi không xác định'), 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '🔄 Gửi lại';
+            }
+        }
+    } catch (err) {
+        showToast('⚠️ Gửi lại thất bại: ' + err.message, 'error');
+    }
+};
 

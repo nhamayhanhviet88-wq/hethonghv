@@ -6658,6 +6658,16 @@ async function _tpdShowExportSheetsModal() {
                         </div>
                     </div>
                 </div>
+
+                <!-- Email Recipient Field -->
+                <div style="margin: 0 24px 20px 24px; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 16px;">📧</span>
+                        <strong style="font-size: 13px; color: #1e293b;">Gmail nhận hình ảnh phiếu & file thiết kế:</strong>
+                    </div>
+                    <input type="email" id="tpdRecipientEmail" placeholder="Nhập địa chỉ email nhận (VD: xuongmay@gmail.com)" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;" oninput="this.style.borderColor = this.value ? '#3b82f6' : '#cbd5e1';">
+                    <div style="font-size: 11px; color: #64748b; margin-top: 6px; font-weight: 600;">* Hệ thống tự động lưu email này làm mặc định cho lần lên đơn tiếp theo. Để trống nếu không muốn gửi email.</div>
+                </div>
             </div>
 
             <!-- Modal Footer -->
@@ -6679,6 +6689,18 @@ async function _tpdShowExportSheetsModal() {
     `;
 
     document.body.appendChild(overlay);
+
+    // Fetch default design recipient email
+    fetch('/api/dht/config/design-email-recipient')
+        .then(r => r.json())
+        .then(data => {
+            const input = document.getElementById('tpdRecipientEmail');
+            if (input && data && data.email) {
+                input.value = data.email;
+                input.style.borderColor = '#3b82f6';
+            }
+        })
+        .catch(err => console.error('Failed to fetch default design email:', err));
 
     // Setup A4 hidden container and render all pages
     let tempContainer = document.getElementById('tpdTempExportContainer');
@@ -6787,7 +6809,7 @@ async function _tpdShowExportSheetsModal() {
                 backgroundColor: '#ffffff'
             });
 
-            const imgUrl = canvas.toDataURL('image/png');
+            const imgUrl = canvas.toDataURL('image/jpeg', 0.8);
             generatedImages[idx] = imgUrl;
 
             // Update Thumbnail Preview
@@ -6823,7 +6845,7 @@ async function _tpdShowExportSheetsModal() {
                         .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove tone accents
                         .replace(/đ/g, "d").replace(/Đ/g, "D")
                         .replace(/[^a-zA-Z0-9]/g, "_"); // replace special chars with underscore
-                    const filename = `${o.order_code || 'HV'}_Phieu_${idx + 1}_${cleanProductName}.png`;
+                    const filename = `${o.order_code || 'HV'}_Phieu_${idx + 1}_${cleanProductName}.jpg`;
                     
                     const link = document.createElement('a');
                     link.href = imgUrl;
@@ -6961,10 +6983,14 @@ async function _tpdShowExportSheetsModal() {
                         itemDesigns[item.id] = window._tpdSheetDesigns[item.id]?.url || '';
                     }
 
+                    const recipientEmail = document.getElementById('tpdRecipientEmail')?.value || '';
+
                     const res = await apiCall(`/api/dht/orders/${o.id}/confirm-export`, 'POST', {
                         logo_approved_image: window._tpdLogoApprovedUrl,
                         chat_confirmed_image: window._tpdChatConfirmedUrl,
-                        item_designs: itemDesigns
+                        item_designs: itemDesigns,
+                        sheet_images: generatedImages,
+                        recipient_email: recipientEmail
                     });
                     if (res.success) {
                         showToast('🎉 Xác nhận lên đơn và xuất phiếu thành công!', 'success');

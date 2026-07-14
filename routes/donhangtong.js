@@ -6116,5 +6116,221 @@ module.exports = async function(fastify) {
         );
         return { success: true };
     });
+
+    async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths) {
+        const nodemailer = require('nodemailer');
+        
+        // 1. Fetch email sender config from email_import_config
+        const config = await db.get('SELECT * FROM email_import_config WHERE id = 1');
+        if (!config || !config.is_active || !config.gmail_user || !config.gmail_pass) {
+            const errMsg = 'Chưa cấu hình hoặc kích hoạt tài khoản Gmail gửi đi trong Cấu hình check bank.';
+            await db.run(
+                `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
+                [errMsg, orderId]
+            );
+            return;
+        }
+
+        const { decrypt } = require('../services/emailChecker');
+        const decryptedPassword = decrypt(config.gmail_pass);
+        if (!decryptedPassword) {
+            const errMsg = 'Không thể giải mã App Password của tài khoản gửi đi.';
+            await db.run(
+                `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
+                [errMsg, orderId]
+            );
+            return;
+        }
+
+        // 2. Fetch full order details
+        const order = await db.get(`
+            SELECT o.*,
+                   u_cskh.full_name AS cskh_name,
+                   u_designer.full_name AS designer_name
+            FROM dht_orders o
+            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+            LEFT JOIN users u_designer ON o.designer_user_id = u_designer.id
+            WHERE o.id = $1
+        `, [orderId]);
+        if (!order) return;
+
+        // 3. Fetch items with PDF URLs
+        const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+
+        // 4. Calculate total quantity
+        const totalQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+
+        // 5. Construct Email Subject
+        const orderCode = (order.order_code || '').trim();
+        const customerName = (order.customer_name || '').trim();
+        const cskhName = (order.cskh_name || '').trim();
+        const designerName = (order.designer_name || '').trim();
+        const priority = (order.shipping_priority || 'CHUẨN').trim();
+        
+        let shipDateFormatted = '—';
+        if (order.expected_ship_date) {
+            try {
+                const dt = new Date(order.expected_ship_date);
+                const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+                const dayName = days[dt.getDay()];
+                shipDateFormatted = `${dayName} - Ngày ${dt.getDate()}/${dt.getMonth() + 1}`;
+            } catch(e) {}
+        }
+
+        const subject = `${orderCode} - ${customerName} - ${totalQty} áo - Sale: ${cskhName} - Thiết kế: ${designerName} - 🏷️ TC Gửi: ${priority} - 📅 Ngày gửi: ${shipDateFormatted}`;
+
+        // 6. Gather attachments & URLs
+        const attachments = [];
+        const inlinePdfLinks = [];
+        let totalAttachmentSize = 0;
+
+        // Add sheet images as attachments
+        savedSheetPaths.forEach(sheet => {
+            if (fs.existsSync(sheet.path)) {
+                const stats = fs.statSync(sheet.path);
+                totalAttachmentSize += stats.size;
+                attachments.push({
+                    filename: sheet.filename,
+                    path: sheet.path
+                });
+            }
+        });
+
+        // Check PDFs
+        items.forEach((item, idx) => {
+            if (item.design_pdf_url) {
+                const pdfRelativePath = item.design_pdf_url.startsWith('/') ? item.design_pdf_url.substring(1) : item.design_pdf_url;
+                const pdfFullPath = path.join(__dirname, '..', pdfRelativePath);
+                
+                if (fs.existsSync(pdfFullPath)) {
+                    const stats = fs.statSync(pdfFullPath);
+                    const size = stats.size;
+                    const cleanName = `${orderCode} - Phieu ${idx + 1}.pdf`;
+                    
+                    if (totalAttachmentSize + size < 20 * 1024 * 1024) {
+                        totalAttachmentSize += size;
+                        attachments.push({
+                            filename: cleanName,
+                            path: pdfFullPath
+                        });
+                    } else {
+                        const domain = process.env.BASE_URL || 'https://hethonghv.top';
+                        inlinePdfLinks.push({
+                            name: cleanName,
+                            url: `${domain}${item.design_pdf_url}`,
+                            size: (size / (1024 * 1024)).toFixed(2) + ' MB'
+                        });
+                    }
+                } else {
+                    const domain = process.env.BASE_URL || 'https://hethonghv.top';
+                    inlinePdfLinks.push({
+                        name: `${orderCode} - Phieu ${idx + 1}.pdf (Link dự phòng)`,
+                        url: `${domain}${item.design_pdf_url}`,
+                        size: 'N/A'
+                    });
+                }
+            }
+        });
+
+        // 7. Construct HTML body
+        let emailHtml = `
+            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 24px; color: #ffffff; text-align: center;">
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">XÁC NHẬN LÊN ĐƠN SẢN XUẤT</h2>
+                    <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Mã đơn: <strong>${orderCode}</strong></p>
+                </div>
+                <div style="padding: 24px; background-color: #ffffff; color: #334155;">
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 8px 0; font-weight: 600; color: #64748b; width: 150px;">Khách hàng:</td>
+                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${customerName}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Tổng số lượng:</td>
+                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${totalQty} áo</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Nhân viên CSKH/Sale:</td>
+                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${cskhName}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Người thiết kế:</td>
+                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${designerName}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Mức độ ưu tiên:</td>
+                            <td style="padding: 8px 0; font-weight: 700; color: ${priority === 'GẤP' ? '#dc2626' : '#2563eb'};">${priority}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Ngày gửi dự kiến:</td>
+                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${shipDateFormatted}</td>
+                        </tr>
+                    </table>
+        `;
+
+        if (inlinePdfLinks.length > 0) {
+            emailHtml += `
+                <div style="background-color: #fee2e2; border: 1px solid #fca5a5; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                    <h3 style="margin-top: 0; color: #991b1b; font-size: 14px;">
+                        ⚠️ FILE THIẾT KẾ QUÁ NẶNG (&ge; 20MB)
+                    </h3>
+                    <p style="margin: 4px 0 12px 0; font-size: 13px; color: #7f1d1d;">Do dung lượng vượt quá giới hạn đính kèm của Gmail, vui lòng click vào link dưới đây để tải về trực tiếp:</p>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
+            `;
+            inlinePdfLinks.forEach(link => {
+                emailHtml += `
+                    <li style="margin-bottom: 6px;">
+                        <a href="${link.url}" target="_blank" style="color: #b91c1c; font-weight: 700; text-decoration: underline;">${link.name}</a> 
+                        <span style="color: #991b1b; font-size: 11px;">(${link.size})</span>
+                    </li>
+                `;
+            });
+            emailHtml += `
+                    </ul>
+                </div>
+            `;
+        }
+
+        emailHtml += `
+                    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center;">
+                        Đây là email tự động từ hệ thống quản lý đơn hàng Đồng Phục HV. Vui lòng không trả lời trực tiếp email này.
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+                user: config.gmail_user,
+                pass: decryptedPassword
+            }
+        });
+
+        try {
+            await transporter.sendMail({
+                from: `"${config.gmail_user.split('@')[0].toUpperCase()} - DHT" <${config.gmail_user}>`,
+                to: recipientEmail,
+                subject: subject,
+                html: emailHtml,
+                attachments: attachments
+            });
+
+            await db.run(
+                `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL WHERE id = $1`,
+                [orderId]
+            );
+            console.log(`[DesignEmail] Email sent successfully for order ${orderCode} to ${recipientEmail}`);
+
+        } catch (err) {
+            console.error('[DesignEmail] SMTP Send failed:', err);
+            await db.run(
+                `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
+                [err.message, orderId]
+            );
+        }
+    }
 };
 
