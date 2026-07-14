@@ -13,7 +13,7 @@ async function renderKhuyenMaiPage(container) {
         document.head.appendChild(style);
     }
     container.innerHTML = `
-        <div style="padding: 24px; max-width: 1300px; margin: 0 auto; font-family: 'Inter', sans-serif;">
+        <div style="padding: 24px; max-width: 1500px; margin: 0 auto; font-family: 'Inter', sans-serif;">
             <!-- Header Block -->
             <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-radius: 16px; padding: 32px; color: white; margin-bottom: 28px; box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3); position: relative; overflow: hidden;">
                 <div style="position: absolute; right: -50px; bottom: -50px; font-size: 180px; opacity: 0.1; transform: rotate(-15deg); user-select: none;">🎁</div>
