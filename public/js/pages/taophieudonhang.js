@@ -6590,10 +6590,10 @@ async function _tpdShowExportSheetsModal() {
                     <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                         <!-- Logo Approval Paste Box -->
                         <div id="tpdLogoPasteArea" tabindex="0" onclick="_tpdActivatePasteZone('logo'); if(event.target.id === 'tpdLogoPasteArea' || event.target.closest('#tpdLogoPastePrompt')) { _tpdTriggerFileInput('logo', event); }" style="flex: 1; min-width: 250px; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; text-align: center; outline: none;">
-                            <div id="tpdLogoPastePrompt" style="color: #64748b; font-size: 12px; font-weight: 600; pointer-events: none;">
+                            <div id="tpdLogoPastePrompt" style="font-size: 12px; font-weight: 600; pointer-events: none;">
                                 <div style="font-size: 24px; margin-bottom: 6px;">🎨</div>
-                                <strong>HÌNH ẢNH XÁC NHẬN KHÁCH DUYỆT LOGO</strong>
-                                <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Click chọn và nhấn Ctrl + V để dán ảnh (hoặc click để chọn file)</div>
+                                <strong style="color: #2563eb; font-size: 14px; font-weight: 900; display: block; margin-bottom: 4px; text-transform: uppercase;">HÌNH ẢNH KHÁCH DUYỆT LOGO</strong>
+                                <div style="font-size: 11px; color: #475569; margin-top: 4px; font-weight: 700;">Ctrl + V để dán ảnh</div>
                             </div>
                             <div id="tpdLogoPreviewContainer" style="display: none; width: 100%; height: 100%; position: relative;"></div>
                             <div style="color: #dc2626; font-size: 11px; font-weight: 900; margin-top: 8px; text-transform: uppercase; line-height: 1.4;">⚠️ Chụp hình ảnh sai chịu trách nhiệm đơn hàng</div>
@@ -6602,10 +6602,10 @@ async function _tpdShowExportSheetsModal() {
 
                         <!-- Order Confirmation Paste Box -->
                         <div id="tpdChatPasteArea" tabindex="0" onclick="_tpdActivatePasteZone('chat'); if(event.target.id === 'tpdChatPasteArea' || event.target.closest('#tpdChatPastePrompt')) { _tpdTriggerFileInput('chat', event); }" style="flex: 1; min-width: 250px; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; text-align: center; outline: none;">
-                            <div id="tpdChatPastePrompt" style="color: #64748b; font-size: 12px; font-weight: 600; pointer-events: none;">
+                            <div id="tpdChatPastePrompt" style="font-size: 12px; font-weight: 600; pointer-events: none;">
                                 <div style="font-size: 24px; margin-bottom: 6px;">💬</div>
-                                <strong>HÌNH ẢNH KHÁCH NHẮN CHỐT ĐƠN</strong>
-                                <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Click chọn và nhấn Ctrl + V để dán ảnh (hoặc click để chọn file)</div>
+                                <strong style="color: #2563eb; font-size: 14px; font-weight: 900; display: block; margin-bottom: 4px; text-transform: uppercase;">HÌNH ẢNH KHÁCH NHẮN CHỐT ĐƠN</strong>
+                                <div style="font-size: 11px; color: #475569; margin-top: 4px; font-weight: 700;">Ctrl + V để dán ảnh</div>
                             </div>
                             <div id="tpdChatPreviewContainer" style="display: none; width: 100%; height: 100%; position: relative;"></div>
                             <div style="color: #dc2626; font-size: 11px; font-weight: 900; margin-top: 8px; text-transform: uppercase; line-height: 1.4;">⚠️ Chụp hình ảnh sai chịu trách nhiệm đơn hàng</div>
