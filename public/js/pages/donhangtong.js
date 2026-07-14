@@ -2554,7 +2554,8 @@ function _dhtShowItemDetail(idx) {
     html += row('VAT', vatPercent > 0 ? `<span style="color:#6366f1;font-weight:800">${vatPercent}% → ${fmt(vatAmount)}đ</span>` : '<span style="color:#94a3b8">0%</span>');
     html += row('Thành tiền (sau VAT)', `<span style="color:#dc2626;font-size:15px">${fmt(it.item_total)}đ</span>`);
     if (it.design_pdf_url) {
-        html += row('File thiết kế PDF', `<a href="${it.design_pdf_url}" target="_blank" style="color:#0284c7;font-weight:800;text-decoration:underline">Mở File PDF</a>`);
+        const o = window._dhtCurrentOrder || {};
+        html += row('File thiết kế PDF', `<a href="${it.design_pdf_url}" download="${o.order_code || 'DONHANG'} - Phieu ${idx + 1}.pdf" target="_blank" style="color:#0284c7;font-weight:800;text-decoration:underline">Mở File PDF</a>`);
     }
     if (it.extra_product) html += row('SP phụ', it.extra_product + (it.extra_price ? ' (+' + fmt(it.extra_price) + 'đ)' : ''));
     if (it.accounting_notes) html += row('Nhắc nhở KT', `<span style="color:#f59e0b">${it.accounting_notes}</span>`);
@@ -2680,7 +2681,7 @@ async function _dhtShowPhieuSX(orderId) {
                     <div style="grid-column: span 2; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
                         📄 Thiết kế: 
                         ${it.design_pdf_url 
-                            ? `<a href="${it.design_pdf_url}" target="_blank" style="color: #0284c7; font-weight: 800; text-decoration: underline;">Mở File PDF</a>`
+                            ? `<a href="${it.design_pdf_url}" download="${o.order_code || 'DONHANG'} - Phieu ${idx + 1}.pdf" target="_blank" style="color: #0284c7; font-weight: 800; text-decoration: underline;">Mở File PDF</a>`
                             : `<span style="color: #ef4444; font-weight: 800;">Chưa tải lên</span>`
                         }
                     </div>

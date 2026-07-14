@@ -3365,7 +3365,13 @@ module.exports = async function(fastify) {
         fs.writeFileSync(filePath, buf);
 
         const url = `/uploads/dht_designs/${fileName}`;
-        const originalName = data.filename;
+        
+        const orderCode = (request.query.order_code || '').trim();
+        const sheetIndex = (request.query.sheet_index || '').trim();
+        let originalName = data.filename;
+        if (orderCode && sheetIndex) {
+            originalName = `${orderCode} - Phieu ${sheetIndex}.pdf`;
+        }
 
         return { success: true, url, originalName };
     });

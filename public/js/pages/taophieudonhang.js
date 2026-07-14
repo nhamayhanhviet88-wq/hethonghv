@@ -6583,7 +6583,7 @@ async function _tpdShowExportSheetsModal() {
                                         <button onclick="_tpdRemovePdfFile(${item.id}, event)" style="background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">&times;</button>
                                     </div>
                                 </div>
-                                <input type="file" id="pdfFileInput_${item.id}" accept="application/pdf" style="display: none;" onchange="_tpdHandlePdfInput(event, ${item.id})">
+                                <input type="file" id="pdfFileInput_${item.id}" accept="application/pdf" style="display: none;" onchange="_tpdHandlePdfInput(event, ${item.id}, '${o.order_code || o.draft_name || 'DONHANG'}', ${idx + 1})">
                             </div>
                         </div>
                         `;
@@ -7124,7 +7124,7 @@ async function _tpdShowExportSheetsModal() {
         if (input) input.click();
     };
 
-    window._tpdHandlePdfInput = async function(event, itemId) {
+    window._tpdHandlePdfInput = async function(event, itemId, orderCode, sheetIndex) {
         const file = event.target.files[0];
         if (!file) return;
 
@@ -7153,7 +7153,8 @@ async function _tpdShowExportSheetsModal() {
         fd.append('file', file);
 
         try {
-            const res = await fetch('/api/dht/orders/upload-design-pdf', {
+            const url = `/api/dht/orders/upload-design-pdf?order_code=${encodeURIComponent(orderCode || '')}&sheet_index=${sheetIndex || ''}`;
+            const res = await fetch(url, {
                 method: 'POST',
                 body: fd,
                 credentials: 'include'
