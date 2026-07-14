@@ -3752,12 +3752,7 @@ function _tpdGetCustomLayout(index) {
 
     const orderTechNames = _tpdGetSewingTechniqueNames(it.sewing_techniques);
     const patternTechNames = _tpdGetSewingTechniqueNames(it.tsam_sewing_tech);
-    let uniqueMasterTechs;
-    if (orderTechNames.length > 0) {
-        uniqueMasterTechs = [...new Set(orderTechNames)];
-    } else {
-        uniqueMasterTechs = [...new Set(patternTechNames)];
-    }
+    const uniqueMasterTechs = [...new Set([...patternTechNames, ...orderTechNames])];
 
     // 1. Add missing techs from master order / TSAM pattern (and mark them as is_bgm)
     uniqueMasterTechs.forEach(techName => {
@@ -4220,14 +4215,10 @@ function _tpdRenderFormInputs() {
     const disabledAttr = state.hasEditPermission ? '' : 'disabled';
 
     // Compute defaults for overrides placeholders
-    let defaultSewing = '—';
     const orderTechNames = _tpdGetSewingTechniqueNames(it.sewing_techniques);
     const patternTechNames = _tpdGetSewingTechniqueNames(it.tsam_sewing_tech);
-    if (orderTechNames.length > 0) {
-        defaultSewing = orderTechNames.join(', ');
-    } else if (patternTechNames.length > 0) {
-        defaultSewing = patternTechNames.join(', ');
-    }
+    const combinedTechNames = [...new Set([...patternTechNames, ...orderTechNames])];
+    let defaultSewing = combinedTechNames.length > 0 ? combinedTechNames.join(', ') : '—';
 
     const isSourceVip = !!(state.order && ['VT', 'HVVT'].includes(state.order.source));
     const isRedSheet = isSourceVip ? true : ((layout && typeof layout.is_red_sheet === 'boolean') ? layout.is_red_sheet : false);
@@ -5202,14 +5193,10 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
     }
 
     // 3. Sewing tech (Kỹ thuật may)
-    let defaultSewing = '—';
     const orderTechNames = _tpdGetSewingTechniqueNames(it.sewing_techniques);
     const patternTechNames = _tpdGetSewingTechniqueNames(it.tsam_sewing_tech);
-    if (orderTechNames.length > 0) {
-        defaultSewing = orderTechNames.join(', ');
-    } else if (patternTechNames.length > 0) {
-        defaultSewing = patternTechNames.join(', ');
-    }
+    const combinedTechNames = [...new Set([...patternTechNames, ...orderTechNames])];
+    let defaultSewing = combinedTechNames.length > 0 ? combinedTechNames.join(', ') : '—';
     const sewingVal = layout.custom_sewing !== undefined && layout.custom_sewing !== '' ? layout.custom_sewing : defaultSewing;
     let sewingHtml = '—';
     if (sewingVal && sewingVal !== '—') {

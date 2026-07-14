@@ -1660,6 +1660,7 @@ async function _dhtAddItem(editIdx) {
         +'<input id="_pp_sizeType" class="form-control" style="font-size:12px;background:#f1f5f9;color:#64748b;cursor:not-allowed;font-weight:700;border:1px solid #cbd5e1" readonly disabled value="">'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px">'+sfPat+'</div>'
+        +'<div id="_pp_patternSewingTech" style="display:none;margin-bottom:8px;font-size:11.5px;font-weight:700;color:#334155;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:8px 12px;line-height:1.5"></div>'
         +'<div id="_pp_specImage" style="display:none;margin-bottom:8px"></div>'
         +'<div id="_pp_mixInfo" style="display:none;background:linear-gradient(135deg,#faf5ff,#ede9fe);border:1px solid #c4b5fd;border-radius:8px;padding:6px 12px;margin-bottom:8px;font-size:11px;font-weight:700;color:#7c3aed"></div>'
         +'<div id="_pp_matColorPairs" style="margin-bottom:8px"></div>'
@@ -2118,28 +2119,36 @@ function _dhtPatternChange(existing) {
     var pairsEl = document.getElementById('_pp_matColorPairs');
     var mixInfo = document.getElementById('_pp_mixInfo');
     if (!pairsEl) return;
-    if (!patName) { pairsEl.innerHTML=''; if(mixInfo)mixInfo.style.display='none'; var imgEl=document.getElementById('_pp_specImage');if(imgEl)imgEl.style.display='none'; return; }
+    if (!patName) {
+        pairsEl.innerHTML='';
+        if(mixInfo)mixInfo.style.display='none';
+        var imgEl=document.getElementById('_pp_specImage');if(imgEl)imgEl.style.display='none';
+        var techEl=document.getElementById('_pp_patternSewingTech');if(techEl)techEl.style.display='none';
+        return;
+    }
     var pats = window._ppTsamPatterns || [];
     var pat = pats.find(function(p){ return p.name === patName; });
 
-    // Auto-populate sewing techniques if not already restoring existing ones
-    if (pat) {
-        var hasExistingSew = existing && existing.sewing_techniques && existing.sewing_techniques.length > 0;
-        if (!hasExistingSew) {
+    // Show pattern's technical sewing specifications (read-only)
+    var techEl = document.getElementById('_pp_patternSewingTech');
+    if (techEl) {
+        if (pat) {
             var sewing = [];
             try {
                 sewing = typeof pat.sewing_tech === 'string' ? JSON.parse(pat.sewing_tech) : (pat.sewing_tech || []);
             } catch(e) {}
-            window._ppSewItems = sewing.map(function(t) {
-                return {
-                    id: t.id,
-                    name: t.name,
-                    qty: t.qty || 1,
-                    fp: Number(t.fp) || 0,
-                    pp: Number(t.pp) || 0
-                };
-            });
-            _ppRenderSewTags();
+            var names = sewing.map(function(t) {
+                if (t && typeof t === 'object') return t.name || '';
+                return String(t || '');
+            }).filter(Boolean);
+            if (names.length > 0) {
+                techEl.innerHTML = '<span style="color:#4f46e5;font-weight:800">✂️ Kỹ Thuật May:</span> ' + names.join(', ');
+                techEl.style.display = 'block';
+            } else {
+                techEl.style.display = 'none';
+            }
+        } else {
+            techEl.style.display = 'none';
         }
     }
 
