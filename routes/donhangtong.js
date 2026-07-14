@@ -83,15 +83,15 @@ async function validatePromoCodeForOrder(code, excludeOrderId = null) {
             return { valid: false, error: 'Mã khuyến mãi đã hết hạn sử dụng.' };
         }
     }
-    // Check maximum uses limit
+    // Check maximum uses limit (counting both official and draft orders to lock promo code on drafts)
     const discountUses = await db.get(`
         SELECT COUNT(*) as count FROM dht_orders 
-        WHERE UPPER(applied_coupon) = UPPER($1) AND id != $2 AND is_draft = FALSE
+        WHERE UPPER(applied_coupon) = UPPER($1) AND id != $2
     `, [row.code, excludeOrderId || 0]);
     const giftUses = await db.get(`
         SELECT COUNT(DISTINCT oi.dht_order_id) as count FROM dht_order_items oi
         JOIN dht_orders o ON oi.dht_order_id = o.id
-        WHERE UPPER(oi.promo_gift_code) = UPPER($1) AND oi.dht_order_id != $2 AND o.is_draft = FALSE
+        WHERE UPPER(oi.promo_gift_code) = UPPER($1) AND oi.dht_order_id != $2
     `, [row.code, excludeOrderId || 0]);
     const totalUses = (discountUses?.count || 0) + (giftUses?.count || 0);
     if (row.max_uses !== null && totalUses >= row.max_uses) {

@@ -160,9 +160,16 @@ function filterPromoCodes() {
         let ordersHtml = '';
         if (item.applied_orders && item.applied_orders.length > 0) {
             ordersHtml = `<div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; max-width: 200px;">` +
-                item.applied_orders.map(o => 
-                    `<span onclick="sessionStorage.setItem('dhtSearchOnLoad', '${o.order_code}'); navigate('don-hang-tong');" style="cursor: pointer; font-size: 11px; background: #eff6ff; color: #1e40af; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe; font-weight: 700; transition: all 0.15s;" onmouseover="this.style.background='#dbeafe';" onmouseout="this.style.background='#eff6ff';" title="Nhấp để xem đơn hàng trên DHT">#${o.order_code}</span>`
-                ).join('') + 
+                item.applied_orders.map(o => {
+                    const isDraft = o.is_draft === true || o.is_draft === 'true' || o.is_draft === 1;
+                    const bg = isDraft ? '#fef3c7' : '#eff6ff';
+                    const color = isDraft ? '#b45309' : '#1e40af';
+                    const border = isDraft ? '1px solid #fde68a' : '1px solid #bfdbfe';
+                    const hoverBg = isDraft ? '#fde68a' : '#dbeafe';
+                    const text = isDraft ? `#${o.order_code} (Nháp)` : `#${o.order_code}`;
+                    const title = isDraft ? 'Bản nháp đang áp dụng mã này. Nhấp để xem.' : 'Đơn hàng chính thức đã dùng mã này. Nhấp để xem.';
+                    return `<span onclick="sessionStorage.setItem('dhtSearchOnLoad', '${o.order_code}'); navigate('don-hang-tong');" style="cursor: pointer; font-size: 11px; background: ${bg}; color: ${color}; padding: 2px 6px; border-radius: 4px; border: ${border}; font-weight: 700; transition: all 0.15s;" onmouseover="this.style.background='${hoverBg}';" onmouseout="this.style.background='${bg}';" title="${title}">${text}</span>`;
+                }).join('') + 
                 `</div>`;
         }
 

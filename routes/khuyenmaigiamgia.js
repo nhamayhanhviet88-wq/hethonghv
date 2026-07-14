@@ -108,14 +108,14 @@ async function khuyenMaiRoutes(fastify, options) {
             ORDER BY pc.created_at DESC
         `);
         
-        // Dynamically compute exact uses count and applied orders list for each code in the list
+        // Dynamically compute exact uses count and applied orders list for each code in the list (including draft orders)
         for (let row of rows) {
             const appliedOrders = await db.all(`
-                SELECT id, order_code FROM dht_orders WHERE UPPER(applied_coupon) = UPPER($1) AND is_draft = FALSE
+                SELECT id, order_code, is_draft FROM dht_orders WHERE UPPER(applied_coupon) = UPPER($1)
                 UNION
-                SELECT DISTINCT o.id, o.order_code FROM dht_orders o
+                SELECT DISTINCT o.id, o.order_code, o.is_draft FROM dht_orders o
                 JOIN dht_order_items oi ON o.id = oi.dht_order_id
-                WHERE UPPER(oi.promo_gift_code) = UPPER($1) AND o.is_draft = FALSE
+                WHERE UPPER(oi.promo_gift_code) = UPPER($1)
             `, [row.code]);
             
             row.applied_orders = appliedOrders || [];
@@ -244,14 +244,14 @@ async function khuyenMaiRoutes(fastify, options) {
         const discountUses = await db.get(`
             SELECT COUNT(*) as count FROM dht_orders 
             WHERE UPPER(applied_coupon) = UPPER($1)
-              AND id != $2 AND is_draft = FALSE
+              AND id != $2
         `, [row.code, excludeOrderId]);
 
         const giftUses = await db.get(`
             SELECT COUNT(DISTINCT oi.dht_order_id) as count FROM dht_order_items oi
             JOIN dht_orders o ON oi.dht_order_id = o.id
             WHERE UPPER(oi.promo_gift_code) = UPPER($1)
-              AND oi.dht_order_id != $2 AND o.is_draft = FALSE
+              AND oi.dht_order_id != $2
         `, [row.code, excludeOrderId]);
 
         const totalUses = (discountUses?.count || 0) + (giftUses?.count || 0);
