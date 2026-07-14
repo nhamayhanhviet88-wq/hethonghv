@@ -1582,6 +1582,10 @@ function _ppAddQtyRow() {
     var currentRows = rows.querySelectorAll('._ppQR');
     if (currentRows.length >= 2) return;
     var count = currentRows.length + 1;
+    var indexInput = document.getElementById('_pp_promoGiftApplyRowIndex');
+    if (indexInput) {
+        indexInput.value = '';
+    }
     var row = document.createElement('div');
     row.className = '_ppQR';
     row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px';
@@ -1939,6 +1943,11 @@ async function _ppApplyGiftCode() {
             
             qtyHidden.value = res.gift_quantity;
             codeHidden.value = res.code;
+            var indexInput = document.getElementById('_pp_promoGiftApplyRowIndex');
+            var qs = document.querySelectorAll('#_pp_qtyRows ._pp_qty');
+            if (indexInput && qs.length >= 2) {
+                indexInput.value = '';
+            }
             if (msgEl) {
                 msgEl.innerText = '✅ Tặng ' + res.gift_quantity + ' áo';
                 msgEl.style.color = '#16a34a';
