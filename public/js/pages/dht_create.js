@@ -2626,9 +2626,9 @@ function _dhtCalcTotal() {
     if (promoDiscountEl) {
         if (_dhtCreate.appliedPromo && _dhtCreate.appliedPromo.promo_type === 'discount') {
             var pct = Number(_dhtCreate.appliedPromo.discount_pct || 0);
-            promoDiscountEl.value = 'Giảm ' + pct + '% : ' + promoDiscount.toLocaleString('vi-VN') + 'đ';
+            promoDiscountEl.value = 'Giảm ' + pct + '% : -' + promoDiscount.toLocaleString('vi-VN') + 'đ';
         } else {
-            promoDiscountEl.value = promoDiscount.toLocaleString('vi-VN') + 'đ';
+            promoDiscountEl.value = (promoDiscount > 0 ? '-' : '') + promoDiscount.toLocaleString('vi-VN') + 'đ';
         }
     }
     var promoGiftEl = document.getElementById('_co_promoGift');
