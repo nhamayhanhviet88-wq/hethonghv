@@ -154,8 +154,11 @@ function filterPromoCodes() {
         const isFullyUsed = usedCount >= maxUses;
         const usedText = `${usedCount}/${maxUses}`;
         const usedBadge = isFullyUsed
-            ? `<span style="color: #dc2626; font-weight: 700; background: #fee2e2; padding: 4px 8px; border-radius: 6px; font-size: 13px;">${usedText} (Hết lượt)</span>`
-            : `<span style="color: #16a34a; font-weight: 700; background: #dcfce7; padding: 4px 8px; border-radius: 6px; font-size: 13px;">${usedText}</span>`;
+            ? `<div style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; color: #dc2626; background: #fee2e2; padding: 4px 8px; border-radius: 6px; font-size: 13px; font-weight: 700; line-height: 1.2; text-align: center;">
+                <span>${usedText}</span>
+                <span style="font-size: 10px; font-weight: 600; opacity: 0.85; margin-top: 1px;">Hết lượt</span>
+               </div>`
+            : `<span style="color: #16a34a; font-weight: 700; background: #dcfce7; padding: 4px 8px; border-radius: 6px; font-size: 13px; display: inline-block; text-align: center;">${usedText}</span>`;
 
         let ordersHtml = '';
         if (item.applied_orders && item.applied_orders.length > 0) {
