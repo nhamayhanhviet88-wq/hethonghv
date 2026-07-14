@@ -1658,7 +1658,11 @@ async function _dhtAddItem(editIdx) {
         +'<div id="_pp_stockLimitWarnings" style="display:none;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:11.5px;color:#b45309;line-height:1.5"></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Chi Tiết May Thêm</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div>'+(isRestricted ? '' : '<button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button>')+'</div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple'+(isRestricted?' disabled':'')+'>'+( extOpts||noOpt)+'</select></div></div>'
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div>'+(isRestricted ? '' : '<button type="button" id="_pp_btn_addQtyRow" onclick="_ppAddQtyRow()" style="display:'+(qps.length>=2?'none':'inline-block')+';background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button>')+'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end">'
+        +'<div><label style="font-size:11px;font-weight:700">Khuyến Mãi Tặng Áo</label><input type="number" id="_pp_promoGiftQty" class="form-control" style="font-size:12px" min="0" value="'+(existing.promo_gift_quantity||0)+'" oninput="_ppCalc()"></div>'
+        +'<div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px" onchange="_ppCalc()">'+vatSel+'</select></div>'
+        +'</div>'
+        +'<div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b;margin-bottom:8px">Tổng: <span id="_pp_totalDisplay">0</span>đ</div>'
         +saveBtn+'</div>';
     document.body.appendChild(ov);
     
@@ -1789,8 +1793,19 @@ function _ppCalc() {
         }
     }
 
-    var raw=0;
-    for(var i=0;i<qs.length;i++) raw+=(Number(qs[i].value)||0)*(Number(ps[i].value)||0);
+    var raw=0, totalQty=0;
+    for(var i=0;i<qs.length;i++) {
+        var qv = Number(qs[i].value)||0;
+        var pv = Number(ps[i].value)||0;
+        raw += qv * pv;
+        totalQty += qv;
+    }
+    var giftQty = Number(document.getElementById('_pp_promoGiftQty')?.value)||0;
+    if (giftQty > 0 && totalQty > 0) {
+        var avgPrice = raw / totalQty;
+        raw -= Math.round(avgPrice * giftQty);
+        if (raw < 0) raw = 0;
+    }
     var vp=Number(document.getElementById('_pp_vat')?.value)||0;
     var total=raw+Math.round(raw*vp/100);
     var el=document.getElementById('_pp_totalDisplay');
@@ -2223,12 +2238,19 @@ function _dhtSavePhieu(idx) {
     }
     if(pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
     var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
-    var qtyPairs=[], raw=0;
+    var qtyPairs=[], raw=0, totalQty=0;
     for(var i=0;i<qs.length;i++){
         var qv=Number(qs[i].value)||0,pv=Number(ps[i].value)||0;
         if(qv===0){showToast('SL'+(i+1)+' phải > 0','error');return;}
         qtyPairs.push({qty:qv,price:pv,subtotal:qv*pv});
         raw+=qv*pv;
+        totalQty+=qv;
+    }
+    var giftQty = Number(document.getElementById('_pp_promoGiftQty')?.value)||0;
+    if (giftQty > 0 && totalQty > 0) {
+        var avgPrice = raw / totalQty;
+        raw -= Math.round(avgPrice * giftQty);
+        if (raw < 0) raw = 0;
     }
     
     // Check stopped fabric quantity limits
@@ -2259,7 +2281,7 @@ function _dhtSavePhieu(idx) {
     // Build display name for color (all pairs)
     var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
     var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
-    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
+    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
@@ -2286,9 +2308,10 @@ function _dhtRenderPhieuRows() {
             catName = 'PET/TEM';
         }
 
+        var giftBadge = p.promo_gift_quantity ? ' <span style="font-size:10px;color:#2563eb;font-weight:bold">(Tặng '+p.promo_gift_quantity+' áo)</span>' : '';
         var label = isFree
-            ? '🐾 Phiếu ' + catName + ' #'+(i+1)+' — '+p.product_name
-            : '📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span>';
+            ? '🐾 Phiếu ' + catName + ' #'+(i+1)+' — '+p.product_name + giftBadge
+            : '📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span>' + giftBadge;
         d.innerHTML='<div style="font-weight:700;color:var(--navy)">'+label+'</div>'
             +'<div style="text-align:center;font-weight:700">SL:'+p.quantity+'</div>'
             +'<div style="text-align:right">'+p.raw_total.toLocaleString('vi-VN')+'đ</div>'
@@ -2305,13 +2328,11 @@ function _dhtCalcTotal() {
     
     // Calculate Promo Discount
     var promoDiscount = 0;
-    var promoGiftStr = 'Không có';
     if (_dhtCreate.appliedPromo) {
         if (_dhtCreate.appliedPromo.promo_type === 'discount') {
             var pct = Number(_dhtCreate.appliedPromo.discount_pct || 0);
             promoDiscount = Math.round(gRaw * (pct / 100));
         } else if (_dhtCreate.appliedPromo.promo_type === 'gift') {
-            promoGiftStr = _dhtCreate.appliedPromo.gift_quantity + ' áo';
             var totalQty = 0;
             _dhtCreate.phieuItems.forEach(function(p){if(p) totalQty += Number(p.quantity || 0);});
             if (totalQty > 0) {
@@ -2320,6 +2341,18 @@ function _dhtCalcTotal() {
                 if (promoDiscount > gRaw) promoDiscount = gRaw;
             }
         }
+    }
+    
+    // Sum of sheet-level gift shirts
+    var totalGiftQty = 0;
+    _dhtCreate.phieuItems.forEach(function(p){
+        if (p && p.promo_gift_quantity) {
+            totalGiftQty += Number(p.promo_gift_quantity);
+        }
+    });
+    var promoGiftStr = totalGiftQty > 0 ? totalGiftQty + ' áo' : 'Không có';
+    if (_dhtCreate.appliedPromo && _dhtCreate.appliedPromo.promo_type === 'gift') {
+        promoGiftStr = _dhtCreate.appliedPromo.gift_quantity + ' áo (Mã)';
     }
     
     // Add surcharges to total
@@ -3025,9 +3058,18 @@ async function _dhtInitializeEditState(id, data) {
             var reminders = (it.accounting_notes || '').split(' | ').filter(function(x){ return x.trim(); });
             var rawTotal = Number(it.item_total || it.total) || 0;
             var vatPct = 0;
-            // Detect VAT from raw vs total
+            // Detect VAT from raw vs total, taking promo_gift_quantity into account
             if (it.unit_price && it.quantity) {
                 var base = qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0)*(Number(x.price)||0); }, 0);
+                var giftQty = Number(it.promo_gift_quantity) || 0;
+                if (giftQty > 0 && qtyArr.length > 0) {
+                    var totalQty = qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0); }, 0);
+                    if (totalQty > 0) {
+                        var avgPrice = base / totalQty;
+                        base -= Math.round(avgPrice * giftQty);
+                        if (base < 0) base = 0;
+                    }
+                }
                 if (base > 0 && rawTotal > base) vatPct = Math.round((rawTotal - base) / base * 100);
             }
             var vatAmt = vatPct > 0 ? Math.round((rawTotal * vatPct) / (100 + vatPct)) : 0;
@@ -3052,7 +3094,8 @@ async function _dhtInitializeEditState(id, data) {
                 raw_total: baseTotal,
                 item_total: rawTotal,
                 quantity: Number(it.quantity) || 0,
-                unit_price: Number(it.unit_price) || 0
+                unit_price: Number(it.unit_price) || 0,
+                promo_gift_quantity: Number(it.promo_gift_quantity) || 0
             };
         });
 

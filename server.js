@@ -962,6 +962,7 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS print_details JSONB DEFAULT '[]'`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS size_type VARCHAR(50) DEFAULT 'Size TT'`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS custom_layout JSONB DEFAULT '{}'`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS promo_gift_quantity INTEGER DEFAULT 0`); } catch(e) {}
 
     // v10: Audit Log — Chi tiết lịch sử thay đổi đơn hàng
     try {

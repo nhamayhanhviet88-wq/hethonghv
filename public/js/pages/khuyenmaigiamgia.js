@@ -176,7 +176,6 @@ function openCreatePromoModal() {
                 <select id="newPromoType" class="form-control" onchange="toggleModalFields(this.value)"
                     style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none; background: white;">
                     <option value="discount">Giảm giá theo %</option>
-                    <option value="gift">Tặng sản phẩm (áo)</option>
                 </select>
             </div>
             
