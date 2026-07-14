@@ -62,7 +62,7 @@ async function renderKhuyenMaiPage(container) {
                             <tr style="background: #f8fafc; border-bottom: 1.5px solid #e5e7eb; color: #475569; font-weight: 700; font-size: 13px;">
                                 <th style="padding: 16px 24px;">MÃ KHUYẾN MÃI</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">LOẠI ƯU ĐÃI</th>
-                                <th style="padding: 16px 24px;">CHI TIẾT</th>
+                                <th style="padding: 16px 24px; white-space: nowrap;">CHI TIẾT</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">LƯỢT DÙNG</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">ĐƠN ÁP DỤNG</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">MINH CHỨNG</th>
@@ -145,8 +145,8 @@ function filterPromoCodes() {
             : `<span style="background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">👕 Tặng Áo</span>`;
 
         const detailsText = isDiscount
-            ? `<strong style="color: #2563eb; font-size: 16px;">Giảm ${item.discount_pct}%</strong>`
-            : `<strong style="color: #d97706; font-size: 16px;">Tặng ${item.gift_quantity} áo</strong>`;
+            ? `<strong style="color: #2563eb; font-size: 13px; white-space: nowrap;">Giảm ${item.discount_pct}%</strong>`
+            : `<strong style="color: #d97706; font-size: 13px; white-space: nowrap;">Tặng ${item.gift_quantity} áo</strong>`;
 
         // 1. Used count display
         const usedCount = item.used_count || 0;
@@ -218,7 +218,7 @@ function filterPromoCodes() {
                     </div>
                 </td>
                 <td style="padding: 16px 24px; white-space: nowrap;">${typeBadge}</td>
-                <td style="padding: 16px 24px;">${detailsText}</td>
+                <td style="padding: 16px 24px; white-space: nowrap;">${detailsText}</td>
                 <td style="padding: 16px 24px;">
                     <div>${usedBadge}</div>
                 </td>
