@@ -16,13 +16,16 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-        }
-        body {
+        }        body {
             font-family: 'Outfit', sans-serif;
             background: #f8fafc;
             min-height: 100vh;
             color: #1e293b;
             padding-bottom: 60px;
+        }
+        @keyframes promoSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         .container {
             max-width: 600px;
@@ -403,7 +406,6 @@
                 <input type="number" id="newGiftQty" class="form-control" min="1" placeholder="Ví dụ: 2">
             </div>
         </div>
-
         <div class="form-group">
             <label>Số lần được áp dụng</label>
             <input type="number" id="newMaxUses" class="form-control" min="1" value="1">
@@ -416,11 +418,25 @@
             <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">(Để trống nếu muốn sử dụng vô thời hạn)</span>
         </div>
 
+        <!-- IMAGE PASTE ZONE -->
+        <div class="form-group" style="margin-bottom: 14px;">
+            <label style="display: flex; justify-content: space-between;">
+                <span>📷 Hình ảnh minh chứng *</span>
+                <span style="font-size: 11px; color: #3b82f6; font-weight: normal;">(Chạm để chọn hoặc dán)</span>
+            </label>
+            <div id="_promoPasteZone" tabindex="0" style="border: 2px dashed #cbd5e1; border-radius: 10px; min-height: 100px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #f8fafc; transition: all .2s; outline: none; position: relative; padding: 10px;">
+                <div style="text-align: center; color: #94a3b8;">
+                    <div style="font-size: 24px; margin-bottom: 4px;">📋</div>
+                    <div style="font-size: 11px; font-weight: 600;">Chạm để chọn ảnh / Ctrl+V</div>
+                </div>
+            </div>
+            <input type="file" id="_promoFileInput" accept="image/*" style="display: none;">
+        </div>
+
         <button class="btn-create" onclick="submitCreatePromo()" style="margin-top:10px;">
             💾 Tạo Mã Tự Động
         </button>
     </div>
-
     <!-- Mobile Nav JS -->
     <script src="/js/mobile-nav.js?v=20260621"></script>
     <script>
@@ -473,6 +489,23 @@
                 }
 
                 await fetchList();
+
+                // Attach paste/click listeners to paste zone
+                const zone = document.getElementById('_promoPasteZone');
+                const fileInput = document.getElementById('_promoFileInput');
+                if (zone) {
+                    zone.addEventListener('paste', _promoHandlePaste);
+                    zone.addEventListener('click', function(e) {
+                        if (fileInput) fileInput.click();
+                    });
+                }
+                if (fileInput) {
+                    fileInput.addEventListener('change', async function(e) {
+                        if (e.target.files && e.target.files[0]) {
+                            await uploadPromoFile(e.target.files[0]);
+                        }
+                    });
+                }
             } catch(e) {
                 showToast('Lỗi tải thông tin tài khoản.', 'e');
             }
@@ -571,6 +604,12 @@
                             <div style="font-size: 13px; font-weight: 500; color: #475569;">
                                 Hạn dùng: ${expireDisplay}
                             </div>
+                            <div style="margin-top: 6px;">
+                                ${item.proof_image 
+                                    ? `<button onclick="viewPromoProof('${item.proof_image}', '${item.code}')" style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; width: 100%; justify-content: center;">🖼️ Xem ảnh minh chứng</button>`
+                                    : `<span style="color: #94a3b8; font-style: italic; font-size: 12px;">Không có ảnh minh chứng</span>`
+                                }
+                            </div>
                         </div>
                         <div class="promo-meta">
                             <span>Người tạo: <b>${creator}</b></span>
@@ -619,6 +658,9 @@
             const typeSelect = document.getElementById('newPromoType');
             if (typeSelect) typeSelect.value = "discount";
             toggleFormFields("discount");
+
+            window._promoProofImgUrl = '';
+            resetPromoPasteZone();
 
             document.getElementById('drawerBackdrop').classList.add('active');
             document.getElementById('createDrawer').classList.add('active');
@@ -692,6 +734,12 @@
                 body.expire_at = expireAtInp.value;
             }
 
+            if (!window._promoProofImgUrl || !window._promoProofImgUrl.trim()) {
+                showToast('Vui lòng dán hoặc chọn hình ảnh minh chứng.', 'e');
+                return;
+            }
+            body.proof_image = window._promoProofImgUrl;
+
             try {
                 const res = await apiCall('/api/promotion-codes', 'POST', body);
                 if (res.success) {
@@ -740,6 +788,122 @@
                 }
             } catch(e) {
                 showToast('Lỗi kết nối.', 'e');
+            }
+        }
+
+        // ========== PROMO PROOF HELPERS FOR MOBILE ==========
+        async function uploadPromoFile(file) {
+            const zone = document.getElementById('_promoPasteZone');
+            if (zone) {
+                zone.style.borderColor = '#f59e0b';
+                zone.innerHTML = `<div style="text-align:center;color:#f59e0b">
+                    <div style="font-size:24px;animation:promoSpin 1s linear infinite">⚙️</div>
+                    <div style="font-size:11px;font-weight:600;margin-top:4px">Đang upload...</div>
+                </div>`;
+            }
+            const fd = new FormData();
+            fd.append('file', file, file.name || ('promo_' + Date.now() + '.png'));
+            try {
+                const resp = await fetch('/api/promotion-codes/upload', { method: 'POST', body: fd, credentials: 'include' });
+                const data = await resp.json();
+                if (data.success && data.url) {
+                    window._promoProofImgUrl = data.url;
+                    if (zone) {
+                        zone.style.borderColor = '#059669';
+                        zone.style.background = '#f0fdf4';
+                        zone.innerHTML = `<img src="${data.url}" style="max-height:160px;max-width:100%;border-radius:8px" onclick="event.stopPropagation()">`;
+                    }
+                    showToast('✅ Đã upload hình ảnh minh chứng');
+                } else {
+                    showToast(data.error || 'Lỗi upload', 'e');
+                    resetPromoPasteZone();
+                }
+            } catch(err) {
+                showToast('Lỗi upload ảnh', 'e');
+                resetPromoPasteZone();
+            }
+        }
+
+        async function _promoHandlePaste(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    e.preventDefault();
+                    const file = items[i].getAsFile();
+                    await uploadPromoFile(file);
+                    return;
+                }
+            }
+        }
+
+        function resetPromoPasteZone() {
+            const zone = document.getElementById('_promoPasteZone');
+            if (zone) {
+                zone.style.borderColor = '#cbd5e1';
+                zone.style.background = '#f8fafc';
+                zone.innerHTML = `<div style="text-align: center; color: #94a3b8;">
+                    <div style="font-size: 24px; margin-bottom: 4px;">📋</div>
+                    <div style="font-size: 11px; font-weight: 600;">Chạm để chọn ảnh / Ctrl+V</div>
+                </div>`;
+            }
+        }
+
+        function viewPromoProof(url, code) {
+            let overlay = document.getElementById('promoProofOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'promoProofOverlay';
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+                overlay.style.width = '100vw';
+                overlay.style.height = '100vh';
+                overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.85)';
+                overlay.style.backdropFilter = 'blur(4px)';
+                overlay.style.display = 'flex';
+                overlay.style.justifyContent = 'center';
+                overlay.style.alignItems = 'center';
+                overlay.style.zIndex = '99999';
+                overlay.style.opacity = '0';
+                overlay.style.transition = 'opacity 0.25s ease';
+                
+                overlay.innerHTML = `
+                    <div style="position: relative; background: white; padding: 16px; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); max-width: 95%; max-height: 95%; display: flex; flex-direction: column; align-items: center; gap: 12px; transform: scale(0.95); transition: transform 0.25s ease;">
+                        <button onclick="closePromoProof()" style="position: absolute; top: -12px; right: -12px; width: 32px; height: 32px; border-radius: 50%; background: #ef4444; color: white; border: none; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); z-index: 10;">✕</button>
+                        <div style="font-weight: 700; color: #1e293b; font-size: 14px;" id="promoProofTitle"></div>
+                        <div style="overflow: auto; display: flex; justify-content: center; align-items: center; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; max-height: 80vh;">
+                            <img id="promoProofImg" src="" style="max-width: 100%; max-height: 75vh; object-fit: contain; border-radius: 6px;">
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+                
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === overlay) {
+                        closePromoProof();
+                    }
+                });
+            }
+            
+            document.getElementById('promoProofTitle').textContent = `Minh chứng cho mã: ${code}`;
+            const img = document.getElementById('promoProofImg');
+            img.src = url;
+            
+            overlay.style.display = 'flex';
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+                overlay.querySelector('div').style.transform = 'scale(1)';
+            }, 10);
+        }
+
+        function closePromoProof() {
+            const overlay = document.getElementById('promoProofOverlay');
+            if (overlay) {
+                overlay.style.opacity = '0';
+                overlay.querySelector('div').style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 250);
             }
         }
     </script>

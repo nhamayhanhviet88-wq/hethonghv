@@ -38,6 +38,9 @@ async function khuyenMaiRoutes(fastify, options) {
         await db.run(`
             ALTER TABLE promotion_codes ADD COLUMN IF NOT EXISTS expire_at TIMESTAMP DEFAULT NULL
         `);
+        await db.run(`
+            ALTER TABLE promotion_codes ADD COLUMN IF NOT EXISTS proof_image TEXT DEFAULT NULL
+        `);
     } catch(e) {
         console.error('Migration error for promotion_codes:', e);
     }
@@ -124,7 +127,7 @@ async function khuyenMaiRoutes(fastify, options) {
 
     // POST /api/promotion-codes - Create a promo code
     fastify.post('/api/promotion-codes', { preHandler: [authenticate, checkPromoManager] }, async (request, reply) => {
-        const { promo_type, discount_pct, gift_quantity, max_uses, expire_at } = request.body || {};
+        const { promo_type, discount_pct, gift_quantity, max_uses, expire_at, proof_image } = request.body || {};
         
         if (!promo_type || (promo_type !== 'discount' && promo_type !== 'gift')) {
             return reply.code(400).send({ error: 'Loại khuyến mãi không hợp lệ.' });
@@ -138,6 +141,9 @@ async function khuyenMaiRoutes(fastify, options) {
         }
         if (promo_type === 'gift' && (isNaN(qty) || qty <= 0)) {
             return reply.code(400).send({ error: 'Số lượng quà tặng phải lớn hơn 0.' });
+        }
+        if (!proof_image || !proof_image.trim()) {
+            return reply.code(400).send({ error: 'Hình ảnh minh chứng lý do tạo mã khuyến mãi là bắt buộc.' });
         }
 
         // Determine max_uses based on user permission
@@ -156,12 +162,30 @@ async function khuyenMaiRoutes(fastify, options) {
         const code = await generateUniquePromoCode();
         
         const result = await db.run(`
-            INSERT INTO promotion_codes (code, promo_type, discount_pct, gift_quantity, max_uses, expire_at, created_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `, [code, promo_type, pct, qty, finalMaxUses, finalExpireAt, request.user.id]);
+            INSERT INTO promotion_codes (code, promo_type, discount_pct, gift_quantity, max_uses, expire_at, created_by, proof_image)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [code, promo_type, pct, qty, finalMaxUses, finalExpireAt, request.user.id, proof_image.trim()]);
 
         const item = await db.get('SELECT * FROM promotion_codes WHERE code = $1', [code]);
         return { success: true, item, message: 'Tạo mã khuyến mãi thành công!' };
+    });
+
+    // POST /api/promotion-codes/upload - Upload proof image
+    fastify.post('/api/promotion-codes/upload', { preHandler: [authenticate, checkPromoManager] }, async (request, reply) => {
+        const data = await request.file();
+        if (!data) return reply.code(400).send({ error: 'Không có file' });
+        const path = require('path');
+        const fs = require('fs');
+        const { compressAndSave } = require('../utils/imageCompressor');
+        const dir = path.join(__dirname, '..', 'uploads', 'promotions');
+        
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        const buf = await data.toBuffer();
+        const result = await compressAndSave(buf, dir, 'promo_');
+        return { success: true, url: `/uploads/promotions/${result.fileName}` };
     });
 
     // PUT /api/promotion-codes/:id - Update promo code status

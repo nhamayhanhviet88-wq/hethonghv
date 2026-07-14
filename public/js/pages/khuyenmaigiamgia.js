@@ -1,6 +1,17 @@
 // ========== KHUYẾN MÃI GIẢM GIÁ PAGE ==========
 
 async function renderKhuyenMaiPage(container) {
+    if (!document.getElementById('promoPageCSS')) {
+        const style = document.createElement('style');
+        style.id = 'promoPageCSS';
+        style.textContent = `
+            @keyframes promoSpin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
     container.innerHTML = `
         <div style="padding: 24px; max-width: 1200px; margin: 0 auto; font-family: 'Inter', sans-serif;">
             <!-- Header Block -->
@@ -54,6 +65,7 @@ async function renderKhuyenMaiPage(container) {
                                 <th style="padding: 16px 24px;">CHI TIẾT</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">LƯỢT DÙNG</th>
                                 <th style="padding: 16px 24px; white-space: nowrap;">ĐƠN ÁP DỤNG</th>
+                                <th style="padding: 16px 24px; white-space: nowrap;">MINH CHỨNG</th>
                                 <th style="padding: 16px 24px;">HẠN DÙNG</th>
                                 <th style="padding: 16px 24px;">NGƯỜI TẠO</th>
                                 <th style="padding: 16px 24px;">NGÀY TẠO</th>
@@ -63,7 +75,7 @@ async function renderKhuyenMaiPage(container) {
                         </thead>
                         <tbody id="promoCodesTableBody" style="font-size: 14px; color: #1e293b;">
                             <tr>
-                                <td colspan="10" style="text-align: center; padding: 40px; color: #64748b;">
+                                <td colspan="11" style="text-align: center; padding: 40px; color: #64748b;">
                                     <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
                                     Đang tải danh sách mã khuyến mãi...
                                 </td>
@@ -93,7 +105,7 @@ async function fetchAndRenderPromoCodes() {
         if (body) {
             body.innerHTML = `
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 40px; color: #ef4444; font-weight: 600;">
+                    <td colspan="11" style="text-align: center; padding: 40px; color: #ef4444; font-weight: 600;">
                         ⚠️ Lỗi tải dữ liệu. Vui lòng thử lại sau.
                     </td>
                 </tr>
@@ -118,7 +130,7 @@ function filterPromoCodes() {
     if (filtered.length === 0) {
         body.innerHTML = `
             <tr>
-                <td colspan="10" style="text-align: center; padding: 40px; color: #64748b;">
+                <td colspan="11" style="text-align: center; padding: 40px; color: #64748b;">
                     Không tìm thấy mã khuyến mãi nào phù hợp.
                 </td>
             </tr>
@@ -192,6 +204,12 @@ function filterPromoCodes() {
                 <td style="padding: 16px 24px;">
                     ${ordersHtml || '<span style="color: #94a3b8; font-style: italic; font-size: 13px;">Chưa dùng</span>'}
                 </td>
+                <td style="padding: 16px 24px; white-space: nowrap;">
+                    ${item.proof_image 
+                        ? `<button onclick="viewPromoProof('${item.proof_image}', '${item.code}')" style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;" onmouseover="this.style.background='#dcfce7';" onmouseout="this.style.background='#f0fdf4';">🖼️ Xem ảnh</button>`
+                        : `<span style="color: #94a3b8; font-style: italic; font-size: 13px;">Không có</span>`
+                    }
+                </td>
                 <td style="padding: 16px 24px;">${expireDisplay}</td>
                 <td style="padding: 16px 24px; color: #475569; font-weight: 500;">${creator}</td>
                 <td style="padding: 16px 24px; color: #64748b;">${createdDate}</td>
@@ -213,6 +231,7 @@ function filterPromoCodes() {
 }
 
 function openCreatePromoModal() {
+    window._promoProofImgUrl = '';
     const isAllowedEditMax = !!window._promoCanEditMaxUses;
     const bodyHTML = `
         <div style="font-family: 'Inter', sans-serif;">
@@ -253,6 +272,18 @@ function openCreatePromoModal() {
                     style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;">
                 <span style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">(Để trống nếu muốn sử dụng vô thời hạn cho tới khi hết lượt áp dụng)</span>
             </div>
+
+            <!-- IMAGE PASTE ZONE -->
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">📷 Hình Ảnh Minh Chứng <span style="color: red;">*</span> <span style="font-size: 11px; color: #3b82f6; font-weight: normal;">(Chạm để chọn hoặc Ctrl+V để dán ảnh)</span></label>
+                <div id="_promoPasteZone" tabindex="0" style="border: 2px dashed #cbd5e1; border-radius: 10px; min-height: 120px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #f8fafc; transition: all .2s; outline: none; position: relative;">
+                    <div style="text-align: center; color: #94a3b8;">
+                        <div style="font-size: 32px; margin-bottom: 4px;">📋</div>
+                        <div style="font-size: 11px; font-weight: 600;">Click để chọn ảnh từ thiết bị hoặc dán (Ctrl+V)</div>
+                    </div>
+                </div>
+                <input type="file" id="_promoFileInput" accept="image/*" style="display: none;">
+            </div>
         </div>
     `;
 
@@ -263,6 +294,24 @@ function openCreatePromoModal() {
 
     // Set initial active/disabled state
     toggleModalFields('discount');
+
+    setTimeout(() => {
+        const zone = document.getElementById('_promoPasteZone');
+        const fileInput = document.getElementById('_promoFileInput');
+        if (zone) {
+            zone.addEventListener('paste', _promoHandlePaste);
+            zone.addEventListener('click', function(e) {
+                if (fileInput) fileInput.click();
+            });
+        }
+        if (fileInput) {
+            fileInput.addEventListener('change', async function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    await uploadPromoFile(e.target.files[0]);
+                }
+            });
+        }
+    }, 100);
 }
 
 function toggleModalFields(type) {
@@ -328,6 +377,12 @@ async function submitCreatePromoCode() {
         body.expire_at = expireAtInp.value;
     }
 
+    if (!window._promoProofImgUrl || !window._promoProofImgUrl.trim()) {
+        showToast('Vui lòng dán hoặc chọn hình ảnh minh chứng lý do tạo mã khuyến mãi.', 'error');
+        return;
+    }
+    body.proof_image = window._promoProofImgUrl;
+
     try {
         const res = await apiCall('/api/promotion-codes', 'POST', body);
         if (res.success) {
@@ -379,5 +434,121 @@ async function deletePromoCode(id, code) {
         }
     } catch(e) {
         showToast('Lỗi kết nối.', 'error');
+    }
+}
+
+// ========== PROMO PROOF HELPERS ==========
+async function uploadPromoFile(file) {
+    const zone = document.getElementById('_promoPasteZone');
+    if (zone) {
+        zone.style.borderColor = '#f59e0b';
+        zone.innerHTML = `<div style="text-align:center;color:#f59e0b">
+            <div style="font-size:24px;animation:promoSpin 1s linear infinite">⚙️</div>
+            <div style="font-size:11px;font-weight:600;margin-top:4px">Đang upload...</div>
+        </div>`;
+    }
+    const fd = new FormData();
+    fd.append('file', file, file.name || ('promo_' + Date.now() + '.png'));
+    try {
+        const resp = await fetch('/api/promotion-codes/upload', { method: 'POST', body: fd, credentials: 'include' });
+        const data = await resp.json();
+        if (data.success && data.url) {
+            window._promoProofImgUrl = data.url;
+            if (zone) {
+                zone.style.borderColor = '#059669';
+                zone.style.background = '#f0fdf4';
+                zone.innerHTML = `<img src="${data.url}" style="max-height:200px;max-width:100%;border-radius:8px" onclick="event.stopPropagation()">`;
+            }
+            showToast('✅ Đã upload hình ảnh minh chứng');
+        } else {
+            showToast(data.error || 'Lỗi upload', 'error');
+            resetPromoPasteZone();
+        }
+    } catch(err) {
+        showToast('Lỗi upload ảnh', 'error');
+        resetPromoPasteZone();
+    }
+}
+
+async function _promoHandlePaste(e) {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            const file = items[i].getAsFile();
+            await uploadPromoFile(file);
+            return;
+        }
+    }
+}
+
+function resetPromoPasteZone() {
+    const zone = document.getElementById('_promoPasteZone');
+    if (zone) {
+        zone.style.borderColor = '#cbd5e1';
+        zone.style.background = '#f8fafc';
+        zone.innerHTML = `<div style="text-align: center; color: #94a3b8;">
+            <div style="font-size: 32px; margin-bottom: 4px;">📋</div>
+            <div style="font-size: 11px; font-weight: 600;">Click để chọn ảnh từ thiết bị hoặc dán (Ctrl+V)</div>
+        </div>`;
+    }
+}
+
+function viewPromoProof(url, code) {
+    let overlay = document.getElementById('promoProofOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'promoProofOverlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.75)';
+        overlay.style.backdropFilter = 'blur(4px)';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '99999';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.25s ease';
+        
+        overlay.innerHTML = `
+            <div style="position: relative; background: white; padding: 24px; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); max-width: 90%; max-height: 90%; display: flex; flex-direction: column; align-items: center; gap: 16px; transform: scale(0.95); transition: transform 0.25s ease;">
+                <button onclick="closePromoProof()" style="position: absolute; top: -16px; right: -16px; width: 36px; height: 36px; border-radius: 50%; background: #ef4444; color: white; border: none; cursor: pointer; font-size: 18px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); z-index: 10;">✕</button>
+                <div style="font-weight: 700; color: #1e293b; font-size: 16px;" id="promoProofTitle"></div>
+                <div style="overflow: auto; display: flex; justify-content: center; align-items: center; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; max-height: 70vh;">
+                    <img id="promoProofImg" src="" style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px;">
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                closePromoProof();
+            }
+        });
+    }
+    
+    document.getElementById('promoProofTitle').textContent = `Minh chứng cho mã: ${code}`;
+    const img = document.getElementById('promoProofImg');
+    img.src = url;
+    
+    overlay.style.display = 'flex';
+    setTimeout(() => {
+        overlay.style.opacity = '1';
+        overlay.querySelector('div').style.transform = 'scale(1)';
+    }, 10);
+}
+
+function closePromoProof() {
+    const overlay = document.getElementById('promoProofOverlay');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.querySelector('div').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 250);
     }
 }
