@@ -27,6 +27,17 @@ async function khuyenMaiRoutes(fastify, options) {
         await db.run(`
             ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS promo_gift_info TEXT DEFAULT ''
         `);
+        
+        // Add max_uses, used_count, expire_at columns to promotion_codes table if not exist
+        await db.run(`
+            ALTER TABLE promotion_codes ADD COLUMN IF NOT EXISTS max_uses INTEGER DEFAULT 1
+        `);
+        await db.run(`
+            ALTER TABLE promotion_codes ADD COLUMN IF NOT EXISTS used_count INTEGER DEFAULT 0
+        `);
+        await db.run(`
+            ALTER TABLE promotion_codes ADD COLUMN IF NOT EXISTS expire_at TIMESTAMP DEFAULT NULL
+        `);
     } catch(e) {
         console.error('Migration error for promotion_codes:', e);
     }
@@ -38,6 +49,22 @@ async function khuyenMaiRoutes(fastify, options) {
                user.role === 'quan_ly_cap_cao' || 
                user.username === 'leviettrinh' || 
                user.username === 'trinh';
+    }
+
+    // Helper to determine who is allowed to enter/edit max_uses
+    function canEditMaxUses(user) {
+        if (!user) return false;
+        
+        // ----------------------------------------------------
+        // CẤU HÌNH PHÂN QUYỀN SỐ LẦN ÁP DỤNG:
+        // - Tài khoản Giám đốc (role === 'giam_doc') hoặc admin được quyền điền số lần áp dụng.
+        // - Tài khoản quản lý Lê Việt Trinh (leviettrinh, trinh, hoặc role quan_ly_cap_cao) không được quyền điền (mặc định là 1).
+        // ----------------------------------------------------
+        if (user.role === 'giam_doc' || user.username === 'admin') {
+            return true;
+        }
+        
+        return false;
     }
 
     const checkPromoManager = (request, reply, done) => {
@@ -77,12 +104,24 @@ async function khuyenMaiRoutes(fastify, options) {
             LEFT JOIN users u ON pc.created_by = u.id
             ORDER BY pc.created_at DESC
         `);
-        return { items: rows };
+        
+        // Dynamically compute exact uses count for each code in the list
+        for (let row of rows) {
+            const discountUses = await db.get(`
+                SELECT COUNT(*) as count FROM dht_orders WHERE UPPER(applied_coupon) = UPPER($1)
+            `, [row.code]);
+            const giftUses = await db.get(`
+                SELECT COUNT(DISTINCT dht_order_id) as count FROM dht_order_items WHERE UPPER(promo_gift_code) = UPPER($1)
+            `, [row.code]);
+            row.used_count = (discountUses?.count || 0) + (giftUses?.count || 0);
+        }
+        
+        return { items: rows, can_edit_max_uses: canEditMaxUses(request.user) };
     });
 
     // POST /api/promotion-codes - Create a promo code
     fastify.post('/api/promotion-codes', { preHandler: [authenticate, checkPromoManager] }, async (request, reply) => {
-        const { promo_type, discount_pct, gift_quantity } = request.body || {};
+        const { promo_type, discount_pct, gift_quantity, max_uses, expire_at } = request.body || {};
         
         if (!promo_type || (promo_type !== 'discount' && promo_type !== 'gift')) {
             return reply.code(400).send({ error: 'Loại khuyến mãi không hợp lệ.' });
@@ -98,12 +137,25 @@ async function khuyenMaiRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Số lượng quà tặng phải lớn hơn 0.' });
         }
 
+        // Determine max_uses based on user permission
+        let finalMaxUses = 1;
+        if (canEditMaxUses(request.user)) {
+            if (max_uses !== undefined && max_uses !== null) {
+                const parsed = parseInt(max_uses);
+                if (!isNaN(parsed) && parsed > 0) {
+                    finalMaxUses = parsed;
+                }
+            }
+        }
+
+        const finalExpireAt = expire_at && expire_at.trim() !== '' ? expire_at.trim() : null;
+
         const code = await generateUniquePromoCode();
         
         const result = await db.run(`
-            INSERT INTO promotion_codes (code, promo_type, discount_pct, gift_quantity, created_by)
-            VALUES ($1, $2, $3, $4, $5)
-        `, [code, promo_type, pct, qty, request.user.id]);
+            INSERT INTO promotion_codes (code, promo_type, discount_pct, gift_quantity, max_uses, expire_at, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [code, promo_type, pct, qty, finalMaxUses, finalExpireAt, request.user.id]);
 
         const item = await db.get('SELECT * FROM promotion_codes WHERE code = $1', [code]);
         return { success: true, item, message: 'Tạo mã khuyến mãi thành công!' };
@@ -137,6 +189,7 @@ async function khuyenMaiRoutes(fastify, options) {
     // GET /api/promotion-codes/check - Check/validate promo code
     fastify.get('/api/promotion-codes/check', { preHandler: [authenticate] }, async (request, reply) => {
         const { code } = request.query || {};
+        const excludeOrderId = Number(request.query.exclude_order_id || request.query.excludeOrderId || 0);
         if (!code) {
             return reply.code(400).send({ error: 'Thiếu mã khuyến mãi.' });
         }
@@ -150,6 +203,34 @@ async function khuyenMaiRoutes(fastify, options) {
         }
         if (row.status !== 'active') {
             return { valid: false, error: 'Mã khuyến mãi đã hết hạn hoặc bị vô hiệu hóa.' };
+        }
+
+        // 1. Check expiration date/time
+        if (row.expire_at) {
+            const expireTime = new Date(row.expire_at).getTime();
+            const nowTime = Date.now();
+            if (nowTime > expireTime) {
+                return { valid: false, error: 'Mã khuyến mãi đã hết hạn sử dụng.' };
+            }
+        }
+
+        // 2. Check maximum uses limit
+        const discountUses = await db.get(`
+            SELECT COUNT(*) as count FROM dht_orders 
+            WHERE UPPER(applied_coupon) = UPPER($1)
+              AND id != $2
+        `, [row.code, excludeOrderId]);
+
+        const giftUses = await db.get(`
+            SELECT COUNT(DISTINCT dht_order_id) as count FROM dht_order_items 
+            WHERE UPPER(promo_gift_code) = UPPER($1)
+              AND dht_order_id != $2
+        `, [row.code, excludeOrderId]);
+
+        const totalUses = (discountUses?.count || 0) + (giftUses?.count || 0);
+
+        if (row.max_uses !== null && totalUses >= row.max_uses) {
+            return { valid: false, error: `Mã khuyến mãi đã đạt giới hạn số lần sử dụng (${row.max_uses} lần).` };
         }
 
         return {

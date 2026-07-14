@@ -379,7 +379,7 @@
 
     <!-- Bottom Drawer for Creation -->
     <div class="drawer-modal-backdrop" id="drawerBackdrop" onclick="closeCreateDrawer()"></div>
-    <div class="drawer-modal" id="createDrawer">
+    <div class="drawer-modal" id="createDrawer" style="max-height: 90vh; overflow-y: auto;">
         <div class="drawer-header">
             <div class="drawer-title">Tạo Mã Ưu Đãi Mới</div>
             <button class="drawer-close" onclick="closeCreateDrawer()">✕</button>
@@ -400,6 +400,18 @@
         <div class="form-group" id="giftGroup" style="display:none;">
             <label>Số lượng áo tặng</label>
             <input type="number" id="newGiftQty" class="form-control" min="1" placeholder="Ví dụ: 2">
+        </div>
+
+        <div class="form-group">
+            <label>Số lần được áp dụng</label>
+            <input type="number" id="newMaxUses" class="form-control" min="1" value="1">
+            <span id="maxUsesWarning" style="font-size: 11px; color: #dc2626; font-weight: 500; margin-top: 4px; display: none;">⚠️ Không được sửa số lần áp dụng.</span>
+        </div>
+
+        <div class="form-group">
+            <label>Thời gian áp dụng (Tùy chọn)</label>
+            <input type="datetime-local" id="newExpireAt" class="form-control">
+            <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">(Để trống nếu muốn sử dụng vô thời hạn)</span>
         </div>
 
         <button class="btn-create" onclick="submitCreatePromo()" style="margin-top:10px;">
@@ -468,6 +480,7 @@
             try {
                 const res = await apiCall('/api/promotion-codes');
                 promoCodes = res.items || [];
+                window._promoCanEditMaxUses = res.can_edit_max_uses; // Save permission to window
                 renderList();
             } catch(e) {
                 showToast('Lỗi tải danh sách mã khuyến mãi.', 'e');
@@ -504,9 +517,33 @@
                     ? `Giảm ${item.discount_pct}%` 
                     : `Tặng ${item.gift_quantity} áo`;
 
+                // 1. Used count display
+                const usedCount = item.used_count || 0;
+                const maxUses = item.max_uses || 1;
+                const isFullyUsed = usedCount >= maxUses;
+                const usedText = `${usedCount}/${maxUses}`;
+                const usedBadge = isFullyUsed
+                    ? `<span style="color: #dc2626; font-weight: 700; background: #fee2e2; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${usedText} (Hết lượt)</span>`
+                    : `<span style="color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${usedText}</span>`;
+
+                // 2. Expiration date display
+                let expireDisplay = '';
+                let isExpired = false;
+                if (item.expire_at) {
+                    const expireDate = new Date(item.expire_at);
+                    const now = new Date();
+                    isExpired = now > expireDate;
+                    const formattedExpire = expireDate.toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+                    expireDisplay = isExpired
+                        ? `<span style="color: #dc2626; font-weight: 600;">${formattedExpire} (Hết hạn)</span>`
+                        : `<span style="color: #475569;">${formattedExpire}</span>`;
+                } else {
+                    expireDisplay = `<span style="color: #64748b; font-style: italic;">Vô thời hạn</span>`;
+                }
+
                 const creator = item.creator_name || item.creator_username || 'Hệ thống';
                 const createdDate = item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
-                const isActive = item.status === 'active';
+                const isActive = item.status === 'active' && !isFullyUsed && !isExpired;
 
                 return `
                     <div class="promo-card">
@@ -514,8 +551,14 @@
                             <span class="promo-code">${item.code}</span>
                             ${badge}
                         </div>
-                        <div class="promo-details">
-                            ${detail}
+                        <div class="promo-details" style="display: flex; flex-direction: column; gap: 6px;">
+                            <div>${detail}</div>
+                            <div style="font-size: 13px; font-weight: 500; color: #475569; display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                <span>Lượt dùng: ${usedBadge}</span>
+                            </div>
+                            <div style="font-size: 13px; font-weight: 500; color: #475569;">
+                                Hạn dùng: ${expireDisplay}
+                            </div>
                         </div>
                         <div class="promo-meta">
                             <span>Người tạo: <b>${creator}</b></span>
@@ -523,9 +566,9 @@
                         </div>
                         <div class="promo-actions">
                             <div class="switch-container">
-                                <span class="switch-label" style="color: ${isActive ? '#059669' : '#64748b'};">${isActive ? 'KÍCH HOẠT' : 'KHÓA'}</span>
+                                <span class="switch-label" style="color: ${item.status === 'active' ? '#059669' : '#64748b'};">${item.status === 'active' ? 'KÍCH HOẠT' : 'KHÓA'}</span>
                                 <label class="switch">
-                                    <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleStatus(${item.id}, this.checked)">
+                                    <input type="checkbox" ${item.status === 'active' ? 'checked' : ''} onchange="toggleStatus(${item.id}, this.checked)">
                                     <span class="slider"></span>
                                 </label>
                             </div>
@@ -537,6 +580,30 @@
         }
 
         function openCreateDrawer() {
+            const isAllowedEditMax = !!window._promoCanEditMaxUses;
+            const maxUsesInp = document.getElementById('newMaxUses');
+            const warningSpan = document.getElementById('maxUsesWarning');
+            
+            if (maxUsesInp) {
+                maxUsesInp.value = "1";
+                if (isAllowedEditMax) {
+                    maxUsesInp.disabled = false;
+                    maxUsesInp.style.backgroundColor = "";
+                    maxUsesInp.style.color = "";
+                    maxUsesInp.style.cursor = "";
+                    if (warningSpan) warningSpan.style.display = "none";
+                } else {
+                    maxUsesInp.disabled = true;
+                    maxUsesInp.style.backgroundColor = "#f3f4f6";
+                    maxUsesInp.style.color = "#9ca3af";
+                    maxUsesInp.style.cursor = "not-allowed";
+                    if (warningSpan) warningSpan.style.display = "block";
+                }
+            }
+            
+            const expireAtInp = document.getElementById('newExpireAt');
+            if (expireAtInp) expireAtInp.value = "";
+
             document.getElementById('drawerBackdrop').classList.add('active');
             document.getElementById('createDrawer').classList.add('active');
         }
@@ -569,6 +636,19 @@
                     return;
                 }
                 body.gift_quantity = val;
+            }
+
+            const maxUsesInp = document.getElementById('newMaxUses');
+            if (maxUsesInp) {
+                const maxUses = parseInt(maxUsesInp.value);
+                if (!isNaN(maxUses) && maxUses > 0) {
+                    body.max_uses = maxUses;
+                }
+            }
+
+            const expireAtInp = document.getElementById('newExpireAt');
+            if (expireAtInp && expireAtInp.value) {
+                body.expire_at = expireAtInp.value;
             }
 
             try {

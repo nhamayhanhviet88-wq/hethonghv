@@ -52,6 +52,8 @@ async function renderKhuyenMaiPage(container) {
                                 <th style="padding: 16px 24px;">MÃ KHUYẾN MÃI</th>
                                 <th style="padding: 16px 24px;">LOẠI ƯU ĐÃI</th>
                                 <th style="padding: 16px 24px;">CHI TIẾT</th>
+                                <th style="padding: 16px 24px;">LƯỢT DÙNG</th>
+                                <th style="padding: 16px 24px;">HẠN DÙNG</th>
                                 <th style="padding: 16px 24px;">NGƯỜI TẠO</th>
                                 <th style="padding: 16px 24px;">NGÀY TẠO</th>
                                 <th style="padding: 16px 24px; text-align: center;">TRẠNG THÁI</th>
@@ -60,7 +62,7 @@ async function renderKhuyenMaiPage(container) {
                         </thead>
                         <tbody id="promoCodesTableBody" style="font-size: 14px; color: #1e293b;">
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
+                                <td colspan="9" style="text-align: center; padding: 40px; color: #64748b;">
                                     <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
                                     Đang tải danh sách mã khuyến mãi...
                                 </td>
@@ -82,6 +84,7 @@ async function fetchAndRenderPromoCodes() {
     try {
         const res = await apiCall('/api/promotion-codes');
         _cachedPromoCodes = res.items || [];
+        window._promoCanEditMaxUses = res.can_edit_max_uses; // Save permission to window
         filterPromoCodes();
     } catch(e) {
         console.error('Error fetching promo codes:', e);
@@ -89,7 +92,7 @@ async function fetchAndRenderPromoCodes() {
         if (body) {
             body.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 40px; color: #ef4444; font-weight: 600;">
+                    <td colspan="9" style="text-align: center; padding: 40px; color: #ef4444; font-weight: 600;">
                         ⚠️ Lỗi tải dữ liệu. Vui lòng thử lại sau.
                     </td>
                 </tr>
@@ -114,7 +117,7 @@ function filterPromoCodes() {
     if (filtered.length === 0) {
         body.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
+                <td colspan="9" style="text-align: center; padding: 40px; color: #64748b;">
                     Không tìm thấy mã khuyến mãi nào phù hợp.
                 </td>
             </tr>
@@ -132,12 +135,36 @@ function filterPromoCodes() {
             ? `<strong style="color: #2563eb; font-size: 16px;">Giảm ${item.discount_pct}%</strong>`
             : `<strong style="color: #d97706; font-size: 16px;">Tặng ${item.gift_quantity} áo</strong>`;
 
-        const isActive = item.status === 'active';
+        // 1. Used count display
+        const usedCount = item.used_count || 0;
+        const maxUses = item.max_uses || 1;
+        const isFullyUsed = usedCount >= maxUses;
+        const usedText = `${usedCount}/${maxUses}`;
+        const usedBadge = isFullyUsed
+            ? `<span style="color: #dc2626; font-weight: 700; background: #fee2e2; padding: 4px 8px; border-radius: 6px; font-size: 13px;">${usedText} (Hết lượt)</span>`
+            : `<span style="color: #16a34a; font-weight: 700; background: #dcfce7; padding: 4px 8px; border-radius: 6px; font-size: 13px;">${usedText}</span>`;
+
+        // 2. Expiration date display
+        let expireDisplay = '';
+        let isExpired = false;
+        if (item.expire_at) {
+            const expireDate = new Date(item.expire_at);
+            const now = new Date();
+            isExpired = now > expireDate;
+            const formattedExpire = expireDate.toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+            expireDisplay = isExpired
+                ? `<span style="color: #dc2626; font-weight: 600; background: #fee2e2; padding: 4px 8px; border-radius: 6px; font-size: 13px;">${formattedExpire} (Hết hạn)</span>`
+                : `<span style="color: #475569; font-weight: 500;">${formattedExpire}</span>`;
+        } else {
+            expireDisplay = `<span style="color: #64748b; font-style: italic;">Vô thời hạn</span>`;
+        }
+
+        const isActive = item.status === 'active' && !isFullyUsed && !isExpired;
         const statusSwitch = `
             <label style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;">
-                <input type="checkbox" ${isActive ? 'checked' : ''} onchange="togglePromoStatus(${item.id}, this.checked)" style="opacity: 0; width: 0; height: 0;">
-                <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: ${isActive ? '#10b981' : '#cbd5e1'}; transition: .3s; border-radius: 24px;"></span>
-                <span style="position: absolute; content: ''; height: 18px; width: 18px; left: ${isActive ? '22px' : '4px'}; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;"></span>
+                <input type="checkbox" ${item.status === 'active' ? 'checked' : ''} onchange="togglePromoStatus(${item.id}, this.checked)" style="opacity: 0; width: 0; height: 0;">
+                <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: ${item.status === 'active' ? '#10b981' : '#cbd5e1'}; transition: .3s; border-radius: 24px;"></span>
+                <span style="position: absolute; content: ''; height: 18px; width: 18px; left: ${item.status === 'active' ? '22px' : '4px'}; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;"></span>
             </label>
         `;
 
@@ -149,12 +176,14 @@ function filterPromoCodes() {
                 <td style="padding: 16px 24px; font-weight: 700; font-family: monospace; font-size: 16px; color: #1e3a8a; letter-spacing: 0.5px;">${item.code}</td>
                 <td style="padding: 16px 24px;">${typeBadge}</td>
                 <td style="padding: 16px 24px;">${detailsText}</td>
+                <td style="padding: 16px 24px;">${usedBadge}</td>
+                <td style="padding: 16px 24px;">${expireDisplay}</td>
                 <td style="padding: 16px 24px; color: #475569; font-weight: 500;">${creator}</td>
                 <td style="padding: 16px 24px; color: #64748b;">${createdDate}</td>
                 <td style="padding: 16px 24px; text-align: center;">
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                         ${statusSwitch}
-                        <span style="font-size: 11px; font-weight: 700; color: ${isActive ? '#059669' : '#64748b'};">${isActive ? 'KÍCH HOẠT' : 'TẠM KHÓA'}</span>
+                        <span style="font-size: 11px; font-weight: 700; color: ${item.status === 'active' ? '#059669' : '#64748b'};">${item.status === 'active' ? 'KÍCH HOẠT' : 'TẠM KHÓA'}</span>
                     </div>
                 </td>
                 <td style="padding: 16px 24px; text-align: right;">
@@ -169,6 +198,7 @@ function filterPromoCodes() {
 }
 
 function openCreatePromoModal() {
+    const isAllowedEditMax = !!window._promoCanEditMaxUses;
     const bodyHTML = `
         <div style="font-family: 'Inter', sans-serif;">
             <div class="form-group" style="margin-bottom: 16px;">
@@ -176,6 +206,7 @@ function openCreatePromoModal() {
                 <select id="newPromoType" class="form-control" onchange="toggleModalFields(this.value)"
                     style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none; background: white;">
                     <option value="discount">Giảm giá theo %</option>
+                    <option value="gift">Tặng áo</option>
                 </select>
             </div>
             
@@ -189,6 +220,21 @@ function openCreatePromoModal() {
                 <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">Số Lượng Áo Tặng</label>
                 <input type="number" id="newPromoGiftQty" min="1" placeholder="Nhập số lượng áo tặng" class="form-control"
                     style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">Số Lần Được Áp Dụng</label>
+                <input type="number" id="newPromoMaxUses" min="1" value="1" class="form-control"
+                    ${isAllowedEditMax ? '' : 'disabled style="background-color: #f3f4f6; color: #9ca3af; cursor: not-allowed;"'}
+                    style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;">
+                ${isAllowedEditMax ? '' : '<span style="font-size: 11px; color: #dc2626; font-weight: 500; margin-top: 4px; display: block;">⚠️ Bạn không được phân quyền thay đổi số lượt áp dụng (mặc định là 1 lần).</span>'}
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">Thời Gian Áp Dụng (Hạn Dùng)</label>
+                <input type="datetime-local" id="newPromoExpireAt" class="form-control"
+                    style="width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;">
+                <span style="font-size: 11px; color: #6b7280; margin-top: 4px; display: block;">(Để trống nếu muốn sử dụng vô thời hạn cho tới khi hết lượt áp dụng)</span>
             </div>
         </div>
     `;
@@ -229,6 +275,19 @@ async function submitCreatePromoCode() {
             return;
         }
         body.gift_quantity = val;
+    }
+
+    const maxUsesInp = document.getElementById('newPromoMaxUses');
+    if (maxUsesInp) {
+        const maxUses = parseInt(maxUsesInp.value);
+        if (!isNaN(maxUses) && maxUses > 0) {
+            body.max_uses = maxUses;
+        }
+    }
+
+    const expireAtInp = document.getElementById('newPromoExpireAt');
+    if (expireAtInp && expireAtInp.value) {
+        body.expire_at = expireAtInp.value;
     }
 
     try {

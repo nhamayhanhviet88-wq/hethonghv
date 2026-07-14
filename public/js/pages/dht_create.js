@@ -1910,7 +1910,11 @@ async function _ppApplyGiftCode() {
     
     // Check code from server
     try {
-        var res = await apiCall('/api/promotion-codes/check?code=' + encodeURIComponent(val));
+        var url = '/api/promotion-codes/check?code=' + encodeURIComponent(val);
+        if (_dhtCreate.editMode && _dhtCreate.editOrderId) {
+            url += '&exclude_order_id=' + _dhtCreate.editOrderId;
+        }
+        var res = await apiCall(url);
         if (res && res.valid) {
             if (res.promo_type !== 'gift') {
                 showToast('❌ Mã khuyến mãi này là giảm giá %, không phải mã tặng áo!', 'error');
@@ -2586,7 +2590,11 @@ async function _dhtApplyPromo() {
     var removeBtn = document.getElementById('_co_promoRemoveBtn');
     
     try {
-        var res = await apiCall('/api/promotion-codes/check?code=' + encodeURIComponent(code));
+        var url = '/api/promotion-codes/check?code=' + encodeURIComponent(code);
+        if (_dhtCreate.editMode && _dhtCreate.editOrderId) {
+            url += '&exclude_order_id=' + _dhtCreate.editOrderId;
+        }
+        var res = await apiCall(url);
         if (res && res.valid) {
             if (res.promo_type === 'gift') {
                 showToast('⚠️ Mã tặng áo bắt buộc phải nhập bên trong từng Phiếu để chọn dòng số lượng được áp dụng!', 'error');
@@ -3294,7 +3302,11 @@ async function _dhtInitializeEditState(id, data) {
         var appliedPromo = null;
         if (o.applied_coupon) {
             try {
-                var res = await apiCall('/api/promotion-codes/check?code=' + encodeURIComponent(o.applied_coupon));
+                var url = '/api/promotion-codes/check?code=' + encodeURIComponent(o.applied_coupon);
+                if (o.id) {
+                    url += '&exclude_order_id=' + o.id;
+                }
+                var res = await apiCall(url);
                 if (res && res.valid) {
                     appliedPromo = {
                         code: res.code,
