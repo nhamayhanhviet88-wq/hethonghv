@@ -604,12 +604,10 @@
                             <div style="font-size: 13px; font-weight: 500; color: #475569;">
                                 Hạn dùng: ${expireDisplay}
                             </div>
-                            <div style="margin-top: 6px;">
                                 ${item.proof_image 
-                                    ? `<button onclick="viewPromoProof('${item.proof_image}', '${item.code}')" style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; width: 100%; justify-content: center;">🖼️ Xem ảnh minh chứng</button>`
+                                    ? `<img src="${item.proof_image}" onclick="viewPromoProof('${item.proof_image}', '${item.code}')" style="width: 120px; max-height: 80px; object-fit: cover; border-radius: 8px; border: 1.5px solid #e2e8f0; cursor: pointer; display: block; margin-top: 4px;" title="Nhấn để xem ảnh">`
                                     : `<span style="color: #94a3b8; font-style: italic; font-size: 12px;">Không có ảnh minh chứng</span>`
                                 }
-                            </div>
                         </div>
                         <div class="promo-meta">
                             <span>Người tạo: <b>${creator}</b></span>

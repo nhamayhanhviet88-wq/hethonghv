@@ -206,7 +206,11 @@ function filterPromoCodes() {
                 </td>
                 <td style="padding: 16px 24px; white-space: nowrap;">
                     ${item.proof_image 
-                        ? `<button onclick="viewPromoProof('${item.proof_image}', '${item.code}')" style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;" onmouseover="this.style.background='#dcfce7';" onmouseout="this.style.background='#f0fdf4';">🖼️ Xem ảnh</button>`
+                        ? `<img src="${item.proof_image}" onclick="viewPromoProof('${item.proof_image}', '${item.code}')" 
+                            style="width: 70px; height: 44px; object-fit: cover; border-radius: 6px; border: 1.5px solid #e2e8f0; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: block;"
+                            onmouseover="this.style.transform='scale(1.08)'; this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.12)';" 
+                            onmouseout="this.style.transform='none'; this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)';"
+                            title="Nhấp để phóng to ảnh minh chứng">`
                         : `<span style="color: #94a3b8; font-style: italic; font-size: 13px;">Không có</span>`
                     }
                 </td>
