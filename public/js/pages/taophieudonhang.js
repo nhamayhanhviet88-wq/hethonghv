@@ -4181,10 +4181,13 @@ function _tpdIsPrintDetailComplete(d) {
     if (!d || !d.position) return false;
     if (!d.print_type || !d.print_type.trim() || d.print_type === '-- Kiểu in/thêu --') return false;
     
-    const hasWidth = d.width && d.width.trim();
-    const hasHeight = d.height && d.height.trim();
-    const hasDim = d.dimension && d.dimension.trim();
-    if (!hasWidth && !hasHeight && !hasDim) return false;
+    const isPrint3D = d.print_type === 'In 3D' || (d.position && d.position.toLowerCase().includes('in 3d'));
+    if (!isPrint3D) {
+        const hasWidth = d.width && d.width.trim();
+        const hasHeight = d.height && d.height.trim();
+        const hasDim = d.dimension && d.dimension.trim();
+        if (!hasWidth && !hasHeight && !hasDim) return false;
+    }
     
     const posConfig = (window._tpd?.printPositionsConfig || []).find(p => p.name === d.position);
     if (posConfig) {
@@ -5274,7 +5277,8 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
                         }
                         const safePosition = escapeHTML(d.position || '—');
                         const safePrintType = escapeHTML(d.print_type || '—');
-                        const safeDimStr = dimStr ? ` - ${dimStr}` : '';
+                        const isPrint3D = d.print_type === 'In 3D' || (d.position && d.position.toLowerCase().includes('in 3d'));
+                        const safeDimStr = isPrint3D ? ' - In 3D tràn thân (Không kích thước)' : (dimStr ? ` - ${dimStr}` : '');
                         const safeOffsetStr = escapeHTML(offsetStr);
                         return `<div style="margin-top: 1px;">• <span style="color: #047857; font-weight: 800;">${safePosition}:</span> <span style="color: #1e40af; font-weight: 800;">${safePrintType}</span>${safeDimStr}${safeOffsetStr}</div>`;
                     }).join('');
