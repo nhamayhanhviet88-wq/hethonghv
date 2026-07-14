@@ -6467,13 +6467,8 @@ async function _tpdShowExportSheetsModal() {
         console.error('Failed to load export confirmation template:', e);
     }
 
-    const copyStateKey = 'copied_' + o.id;
-    if (!window._tpdCopiedState) window._tpdCopiedState = {};
-    if (!window._tpdCopiedState[copyStateKey]) {
-        window._tpdCopiedState[copyStateKey] = { conf: false, fin: false };
-    }
-    window._tpdCopiedConfirmationText = window._tpdCopiedState[copyStateKey].conf;
-    window._tpdCopiedFinancialSummaryText = window._tpdCopiedState[copyStateKey].fin;
+    window._tpdCopiedConfirmationText = localStorage.getItem(`tpd_copied_conf_${o.id}`) === 'true';
+    window._tpdCopiedFinancialSummaryText = localStorage.getItem(`tpd_copied_fin_${o.id}`) === 'true';
 
     // Create the overlay container if not exists
     let overlay = document.getElementById('tpdExportOverlay');
@@ -6675,13 +6670,10 @@ async function _tpdShowExportSheetsModal() {
     await _tpdWaitForImages(tempContainer);
 
     // Track download state with persistent cache
-    if (!window._tpdDownloadedState) {
-        window._tpdDownloadedState = {};
-    }
     const downloaded = new Array(items.length).fill(false);
     items.forEach((item, idx) => {
-        const key = o.id + '_' + (item.id || idx);
-        if (window._tpdDownloadedState[key]) {
+        const key = `tpd_download_state_${o.id}_${item.id || idx}`;
+        if (localStorage.getItem(key) === 'true') {
             downloaded[idx] = true;
         }
     });
@@ -6747,8 +6739,8 @@ async function _tpdShowExportSheetsModal() {
 
                     // Mark as downloaded
                     downloaded[idx] = true;
-                    const key = o.id + '_' + (items[idx].id || idx);
-                    window._tpdDownloadedState[key] = true;
+                    const key = `tpd_download_state_${o.id}_${items[idx].id || idx}`;
+                    localStorage.setItem(key, 'true');
                     
                     // Update Badge to success
                     if (statusBadge) {
@@ -6794,9 +6786,7 @@ async function _tpdShowExportSheetsModal() {
         const text = textContainer.getAttribute('data-text-to-copy') || textContainer.innerText || textContainer.textContent;
         navigator.clipboard.writeText(text).then(() => {
             window._tpdCopiedConfirmationText = true;
-            if (window._tpdCopiedState && window._tpdCopiedState[copyStateKey]) {
-                window._tpdCopiedState[copyStateKey].conf = true;
-            }
+            localStorage.setItem(`tpd_copied_conf_${o.id}`, 'true');
             
             // Update Copy Status indicator
             const copyStatus = document.getElementById('tpdCopyStatus');
@@ -6826,9 +6816,7 @@ async function _tpdShowExportSheetsModal() {
         const text = textContainer.getAttribute('data-text-to-copy') || textContainer.innerText || textContainer.textContent;
         navigator.clipboard.writeText(text).then(() => {
             window._tpdCopiedFinancialSummaryText = true;
-            if (window._tpdCopiedState && window._tpdCopiedState[copyStateKey]) {
-                window._tpdCopiedState[copyStateKey].fin = true;
-            }
+            localStorage.setItem(`tpd_copied_fin_${o.id}`, 'true');
             
             // Update Copy Status indicator
             const copyStatus = document.getElementById('tpdFinancialSummaryCopyStatus');
