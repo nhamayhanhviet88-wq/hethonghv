@@ -2617,7 +2617,7 @@ function _dhtCalcTotal() {
     
     var depEl = document.getElementById('_co_deposit');
     if (depEl) depEl.value = depAmt.toLocaleString('vi-VN') + 'đ';
-    document.getElementById('_co_total').value = (gRaw-surTotal).toLocaleString('vi-VN')+'đ';
+    document.getElementById('_co_total').value = (gRaw - surTotal + totalGiftDeduction).toLocaleString('vi-VN')+'đ';
     var surEl = document.getElementById('_co_surTotal');
     if (surEl) surEl.value = surTotal.toLocaleString('vi-VN')+'đ';
     
