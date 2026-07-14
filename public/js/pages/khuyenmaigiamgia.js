@@ -195,7 +195,18 @@ function filterPromoCodes() {
 
         return `
             <tr style="border-bottom: 1px solid #f1f5f9; transition: background-color 0.15s;" onmouseover="this.style.backgroundColor='#f8fafc';" onmouseout="this.style.backgroundColor='transparent';">
-                <td style="padding: 16px 24px; font-weight: 700; font-family: monospace; font-size: 16px; color: #1e3a8a; letter-spacing: 0.5px;">${item.code}</td>
+                <td style="padding: 16px 24px; font-weight: 700; font-family: monospace; font-size: 16px; color: #1e3a8a; letter-spacing: 0.5px; white-space: nowrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span>${item.code}</span>
+                        <button onclick="navigator.clipboard.writeText('${item.code}'); showToast('📋 Đã copy mã: ${item.code}');" 
+                            style="background: #f1f5f9; border: 1px solid #cbd5e1; cursor: pointer; padding: 4px 6px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: #475569; font-family: sans-serif; font-weight: 600; gap: 3px; transition: all 0.15s;" 
+                            onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b';" 
+                            onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569';" 
+                            title="Sao chép mã">
+                            📋 Copy
+                        </button>
+                    </div>
+                </td>
                 <td style="padding: 16px 24px; white-space: nowrap;">${typeBadge}</td>
                 <td style="padding: 16px 24px;">${detailsText}</td>
                 <td style="padding: 16px 24px;">
