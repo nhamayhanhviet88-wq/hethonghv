@@ -176,6 +176,19 @@ function filterPromoCodes() {
                 `</div>`;
         }
 
+        // Staff display
+        let staffHtml = '';
+        if (item.applied_orders && item.applied_orders.length > 0) {
+            const staffNames = [...new Set(item.applied_orders.map(o => o.staff_name || '---'))];
+            staffHtml = `<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 200px;">` +
+                staffNames.map(name => {
+                    return `<span style="font-size: 11px; background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 700; display: inline-block;">${name}</span>`;
+                }).join('') + 
+                `</div>`;
+        } else {
+            staffHtml = `<span style="color: #94a3b8; font-style: italic; font-size: 13px;">---</span>`;
+        }
+
         // 2. Expiration date display
         let expireDisplay = '';
         let isExpired = false;
@@ -225,6 +238,9 @@ function filterPromoCodes() {
                 <td style="padding: 16px 24px;">
                     ${ordersHtml || '<span style="color: #94a3b8; font-style: italic; font-size: 13px;">Chưa dùng</span>'}
                 </td>
+                <td style="padding: 16px 24px;">
+                    ${staffHtml}
+                </td>
                 <td style="padding: 16px 24px; white-space: nowrap;">
                     ${item.proof_image 
                         ? `<img src="${item.proof_image}" onclick="viewPromoProof('${item.proof_image}', '${item.code}')" 
@@ -235,9 +251,9 @@ function filterPromoCodes() {
                         : `<span style="color: #94a3b8; font-style: italic; font-size: 13px;">Không có</span>`
                     }
                 </td>
-                <td style="padding: 16px 24px;">${expireDisplay}</td>
                 <td style="padding: 16px 24px; color: #475569; font-weight: 500;">${creator}</td>
                 <td style="padding: 16px 24px; color: #64748b;">${createdDate}</td>
+                <td style="padding: 16px 24px;">${expireDisplay}</td>
                 <td style="padding: 16px 24px; text-align: center;">
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                         ${statusSwitch}
