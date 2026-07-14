@@ -2464,9 +2464,6 @@ function _dhtRenderPhieuRows() {
         }
 
         var giftBadgeText = 'Tặng ' + p.promo_gift_quantity + ' áo';
-        if (p.promo_gift_code) {
-            giftBadgeText += ' - ' + p.promo_gift_code;
-        }
         var giftBadge = p.promo_gift_quantity ? ' <span style="font-size:10px;color:#2563eb;font-weight:bold">(' + giftBadgeText + ')</span>' : '';
         var label = isFree
             ? '🐾 Phiếu ' + catName + ' #'+(i+1)+' — '+p.product_name + giftBadge
@@ -2528,14 +2525,10 @@ function _dhtCalcTotal() {
     });
     var promoGiftStr = 'Không có';
     if (totalGiftQty > 0) {
-        promoGiftStr = totalGiftQty + ' áo';
-        if (giftCodes.length > 0) {
-            promoGiftStr += ' [' + giftCodes.join(', ') + ']';
-        }
-        promoGiftStr += ' : -' + totalGiftDeduction.toLocaleString('vi-VN') + 'đ';
+        promoGiftStr = totalGiftQty + ' áo : -' + totalGiftDeduction.toLocaleString('vi-VN') + 'đ';
     }
     if (_dhtCreate.appliedPromo && _dhtCreate.appliedPromo.promo_type === 'gift') {
-        promoGiftStr = _dhtCreate.appliedPromo.gift_quantity + ' áo [' + _dhtCreate.appliedPromo.code + '] : -' + promoDiscount.toLocaleString('vi-VN') + 'đ';
+        promoGiftStr = _dhtCreate.appliedPromo.gift_quantity + ' áo : -' + promoDiscount.toLocaleString('vi-VN') + 'đ';
     }
     
     // Add surcharges to total
