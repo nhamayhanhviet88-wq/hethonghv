@@ -6389,7 +6389,12 @@ function _tpdGenerateFinancialSummaryText(o, items) {
         totalItemsRaw += itemRaw;
         totalItemsVat += itemVat;
         
-        text += `Phiếu ${idx + 1}: ${itemQty} áo . Giá tiền ${fmt(unitPrice)}đ\n`;
+        if (qtyArr.length === 1) {
+            text += `Phiếu ${idx + 1}: ${itemQty} áo . Giá tiền ${fmt(qtyArr[0].price || unitPrice)}đ\n`;
+        } else {
+            const priceDesc = qtyArr.map(q => `${q.qty || 0} áo giá ${fmt(q.price || unitPrice)}đ`).join(', ');
+            text += `Phiếu ${idx + 1}: ${itemQty} áo (${priceDesc})\n`;
+        }
     });
     
     text += `\n`;
