@@ -275,14 +275,13 @@ function openCreatePromoModal() {
 
             <!-- IMAGE PASTE ZONE -->
             <div class="form-group" style="margin-bottom: 16px;">
-                <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">📷 Hình Ảnh Minh Chứng <span style="color: red;">*</span> <span style="font-size: 11px; color: #3b82f6; font-weight: normal;">(Chạm để chọn hoặc Ctrl+V để dán ảnh)</span></label>
-                <div id="_promoPasteZone" tabindex="0" style="border: 2px dashed #cbd5e1; border-radius: 10px; min-height: 120px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #f8fafc; transition: all .2s; outline: none; position: relative;">
+                <label style="font-weight: 600; color: #374151; display: block; margin-bottom: 6px;">📷 Hình Ảnh Minh Chứng <span style="color: red;">*</span> <span style="font-size: 11px; color: #3b82f6; font-weight: normal;">(Nhấn Ctrl+V để dán ảnh)</span></label>
+                <div id="_promoPasteZone" tabindex="0" style="border: 2px dashed #cbd5e1; border-radius: 10px; min-height: 120px; display: flex; align-items: center; justify-content: center; cursor: default; background: #f8fafc; transition: all .2s; outline: none; position: relative;">
                     <div style="text-align: center; color: #94a3b8;">
                         <div style="font-size: 32px; margin-bottom: 4px;">📋</div>
-                        <div style="font-size: 11px; font-weight: 600;">Click để chọn ảnh từ thiết bị hoặc dán (Ctrl+V)</div>
+                        <div style="font-size: 11px; font-weight: 600;">Nhấp vào vùng này rồi nhấn Ctrl+V để dán ảnh</div>
                     </div>
                 </div>
-                <input type="file" id="_promoFileInput" accept="image/*" style="display: none;">
             </div>
         </div>
     `;
@@ -297,19 +296,8 @@ function openCreatePromoModal() {
 
     setTimeout(() => {
         const zone = document.getElementById('_promoPasteZone');
-        const fileInput = document.getElementById('_promoFileInput');
         if (zone) {
             zone.addEventListener('paste', _promoHandlePaste);
-            zone.addEventListener('click', function(e) {
-                if (fileInput) fileInput.click();
-            });
-        }
-        if (fileInput) {
-            fileInput.addEventListener('change', async function(e) {
-                if (e.target.files && e.target.files[0]) {
-                    await uploadPromoFile(e.target.files[0]);
-                }
-            });
         }
     }, 100);
 }
@@ -489,7 +477,7 @@ function resetPromoPasteZone() {
         zone.style.background = '#f8fafc';
         zone.innerHTML = `<div style="text-align: center; color: #94a3b8;">
             <div style="font-size: 32px; margin-bottom: 4px;">📋</div>
-            <div style="font-size: 11px; font-weight: 600;">Click để chọn ảnh từ thiết bị hoặc dán (Ctrl+V)</div>
+            <div style="font-size: 11px; font-weight: 600;">Nhấp vào vùng này rồi nhấn Ctrl+V để dán ảnh</div>
         </div>`;
     }
 }
