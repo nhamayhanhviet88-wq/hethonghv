@@ -6485,6 +6485,9 @@ async function _tpdShowExportSheetsModal() {
 
     window._tpdCopiedConfirmationText = localStorage.getItem(`tpd_copied_conf_${o.id}`) === 'true';
     window._tpdCopiedFinancialSummaryText = localStorage.getItem(`tpd_copied_fin_${o.id}`) === 'true';
+    window._tpdLogoApprovedUrl = '';
+    window._tpdChatConfirmedUrl = '';
+    window._tpdActivePasteZone = '';
 
     // Create the overlay container if not exists
     let overlay = document.getElementById('tpdExportOverlay');
@@ -6578,6 +6581,37 @@ async function _tpdShowExportSheetsModal() {
                         }
                     </div>
                     <div id="tpdCopyableTextContainer" onclick="_tpdCopyToClipboard()" data-text-to-copy="${escapeHTML(_tpdGenerateConfirmationText(o, items, templateText))}" style="cursor: pointer; background: #ffffff; border: 1.5px solid #d1fae5; border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.6; color: #1f2937; white-space: pre-wrap; max-height: 250px; overflow-y: auto; user-select: none; transition: all 0.2s;" onmouseover="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 10px rgba(16,185,129,0.1)';" onmouseout="this.style.borderColor='#d1fae5'; this.style.boxShadow='none';">${escapeHTML(_tpdGenerateConfirmationText(o, items, templateText))}</div>
+                </div>
+
+                <!-- Image Proof Verification Block -->
+                <div style="margin-top: 24px; padding: 18px; border: 1.5px dashed #3b82f6; background: #eff6ff; border-radius: 12px; display: flex; flex-direction: column; gap: 14px;">
+                    <div style="font-size: 13px; font-weight: 850; color: #1e3a8a; display: flex; align-items: center; gap: 6px;">🖼️ BẰNG CHỨNG XÁC NHẬN BẮT BUỘC</div>
+                    
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <!-- Logo Approval Paste Box -->
+                        <div id="tpdLogoPasteArea" tabindex="0" onclick="_tpdActivatePasteZone('logo'); if(event.target.id === 'tpdLogoPasteArea' || event.target.closest('#tpdLogoPastePrompt')) { _tpdTriggerFileInput('logo', event); }" style="flex: 1; min-width: 250px; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; text-align: center; outline: none;">
+                            <div id="tpdLogoPastePrompt" style="color: #64748b; font-size: 12px; font-weight: 600; pointer-events: none;">
+                                <div style="font-size: 24px; margin-bottom: 6px;">🎨</div>
+                                <strong>HÌNH ẢNH XÁC NHẬN KHÁCH DUYỆT LOGO</strong>
+                                <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Click chọn và nhấn Ctrl + V để dán ảnh (hoặc click để chọn file)</div>
+                            </div>
+                            <div id="tpdLogoPreviewContainer" style="display: none; width: 100%; height: 100%; position: relative;"></div>
+                            <div style="color: #dc2626; font-size: 11px; font-weight: 900; margin-top: 8px; text-transform: uppercase; line-height: 1.4;">⚠️ Chụp hình ảnh sai chịu trách nhiệm đơn hàng</div>
+                            <input type="file" id="tpdLogoFileInput" accept="image/*" style="display: none;" onchange="_tpdHandleFileInput(event, 'logo')">
+                        </div>
+
+                        <!-- Order Confirmation Paste Box -->
+                        <div id="tpdChatPasteArea" tabindex="0" onclick="_tpdActivatePasteZone('chat'); if(event.target.id === 'tpdChatPasteArea' || event.target.closest('#tpdChatPastePrompt')) { _tpdTriggerFileInput('chat', event); }" style="flex: 1; min-width: 250px; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; text-align: center; outline: none;">
+                            <div id="tpdChatPastePrompt" style="color: #64748b; font-size: 12px; font-weight: 600; pointer-events: none;">
+                                <div style="font-size: 24px; margin-bottom: 6px;">💬</div>
+                                <strong>HÌNH ẢNH KHÁCH NHẮN CHỐT ĐƠN</strong>
+                                <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Click chọn và nhấn Ctrl + V để dán ảnh (hoặc click để chọn file)</div>
+                            </div>
+                            <div id="tpdChatPreviewContainer" style="display: none; width: 100%; height: 100%; position: relative;"></div>
+                            <div style="color: #dc2626; font-size: 11px; font-weight: 900; margin-top: 8px; text-transform: uppercase; line-height: 1.4;">⚠️ Chụp hình ảnh sai chịu trách nhiệm đơn hàng</div>
+                            <input type="file" id="tpdChatFileInput" accept="image/*" style="display: none;" onchange="_tpdHandleFileInput(event, 'chat')">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -6860,7 +6894,8 @@ async function _tpdShowExportSheetsModal() {
         if (!confirmBtn) return;
         
         const allDownloaded = downloaded.every(d => d === true);
-        if (allDownloaded && window._tpdCopiedConfirmationText && window._tpdCopiedFinancialSummaryText) {
+        const hasProofs = !!(window._tpdLogoApprovedUrl && window._tpdChatConfirmedUrl);
+        if (allDownloaded && window._tpdCopiedConfirmationText && window._tpdCopiedFinancialSummaryText && hasProofs) {
             confirmBtn.disabled = false;
             confirmBtn.style.background = 'linear-gradient(135deg, #059669, #10b981)';
             confirmBtn.style.color = '#ffffff';
@@ -6870,7 +6905,10 @@ async function _tpdShowExportSheetsModal() {
                 try {
                     confirmBtn.disabled = true;
                     confirmBtn.innerHTML = 'Đang xử lý...';
-                    const res = await apiCall(`/api/dht/orders/${o.id}/confirm-export`, 'POST');
+                    const res = await apiCall(`/api/dht/orders/${o.id}/confirm-export`, 'POST', {
+                        logo_approved_image: window._tpdLogoApprovedUrl,
+                        chat_confirmed_image: window._tpdChatConfirmedUrl
+                    });
                     if (res.success) {
                         showToast('🎉 Xác nhận lên đơn và xuất phiếu thành công!', 'success');
                         overlay.remove();
@@ -6897,6 +6935,135 @@ async function _tpdShowExportSheetsModal() {
             confirmBtn.onclick = null;
         }
     };
+
+    // Setup verification functions
+    window._tpdActivatePasteZone = function(zone) {
+        window._tpdActivePasteZone = zone;
+        const logoArea = document.getElementById('tpdLogoPasteArea');
+        const chatArea = document.getElementById('tpdChatPasteArea');
+        if (!logoArea || !chatArea) return;
+        
+        if (zone === 'logo') {
+            logoArea.style.borderColor = '#3b82f6';
+            logoArea.style.background = '#f0f7ff';
+            logoArea.focus();
+            chatArea.style.borderColor = '#cbd5e1';
+            chatArea.style.background = '#ffffff';
+        } else {
+            chatArea.style.borderColor = '#3b82f6';
+            chatArea.style.background = '#f0f7ff';
+            chatArea.focus();
+            logoArea.style.borderColor = '#cbd5e1';
+            logoArea.style.background = '#ffffff';
+        }
+    };
+
+    window._tpdTriggerFileInput = function(zone, event) {
+        if (event) event.stopPropagation();
+        const input = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}FileInput`);
+        if (input) input.click();
+    };
+
+    window._tpdUploadProofFile = async function(file, zone) {
+        const promptEl = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PastePrompt`);
+        const previewContainer = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PreviewContainer`);
+        const area = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PasteArea`);
+        if (!previewContainer || !promptEl || !area) return;
+
+        // Show loading
+        promptEl.style.display = 'none';
+        previewContainer.style.display = 'flex';
+        previewContainer.style.flexDirection = 'column';
+        previewContainer.style.alignItems = 'center';
+        previewContainer.style.justifyContent = 'center';
+        previewContainer.innerHTML = `<div class="tpd-spinner" style="width: 24px; height: 24px; border-width: 3px;"></div><span style="font-size: 11px; color: #4b5563; margin-top: 6px;">Đang tải lên...</span>`;
+
+        const fd = new FormData();
+        fd.append('file', file, `proof_${zone}.png`);
+
+        try {
+            const res = await fetch('/api/dht/orders/upload-proof', {
+                method: 'POST',
+                body: fd,
+                credentials: 'include'
+            });
+            const data = await res.json();
+            if (data.success && data.url) {
+                if (zone === 'logo') {
+                    window._tpdLogoApprovedUrl = data.url;
+                } else {
+                    window._tpdChatConfirmedUrl = data.url;
+                }
+                
+                previewContainer.innerHTML = `
+                    <div style="position: relative; max-width: 100%; max-height: 120px; display: inline-block;">
+                        <img src="${data.url}" style="max-height: 100px; max-width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain;">
+                        <button onclick="_tpdRemoveProofImage('${zone}', event)" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">&times;</button>
+                    </div>
+                `;
+                showToast('Tải ảnh bằng chứng thành công!', 'success');
+            } else {
+                throw new Error(data.error || 'Lỗi tải lên');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('⚠️ Lỗi tải ảnh lên: ' + err.message, 'error');
+            previewContainer.style.display = 'none';
+            promptEl.style.display = 'block';
+            if (zone === 'logo') {
+                window._tpdLogoApprovedUrl = '';
+            } else {
+                window._tpdChatConfirmedUrl = '';
+            }
+        }
+        window._tpdCheckConfirmUnlock();
+    };
+
+    window._tpdRemoveProofImage = function(zone, event) {
+        if (event) event.stopPropagation();
+        const promptEl = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PastePrompt`);
+        const previewContainer = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PreviewContainer`);
+        
+        if (zone === 'logo') {
+            window._tpdLogoApprovedUrl = '';
+            const input = document.getElementById('tpdLogoFileInput');
+            if (input) input.value = '';
+        } else {
+            window._tpdChatConfirmedUrl = '';
+            const input = document.getElementById('tpdChatFileInput');
+            if (input) input.value = '';
+        }
+        if (previewContainer) previewContainer.style.display = 'none';
+        if (promptEl) promptEl.style.display = 'block';
+        window._tpdCheckConfirmUnlock();
+    };
+
+    window._tpdHandleFileInput = function(event, zone) {
+        const file = event.target.files[0];
+        if (file) {
+            window._tpdUploadProofFile(file, zone);
+        }
+    };
+
+    // Paste listener for the export modal
+    const pasteHandler = function(e) {
+        const overlay = document.getElementById('tpdExportOverlay');
+        if (!overlay) {
+            document.removeEventListener('paste', pasteHandler);
+            return;
+        }
+        if (!window._tpdActivePasteZone) return;
+        const items = (e.clipboardData || {}).items || [];
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault();
+                const blob = items[i].getAsFile();
+                window._tpdUploadProofFile(blob, window._tpdActivePasteZone);
+                break;
+            }
+        }
+    };
+    document.addEventListener('paste', pasteHandler);
 
     // Run initial unlock evaluation
     window._tpdCheckConfirmUnlock();
