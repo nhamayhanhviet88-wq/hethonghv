@@ -6341,7 +6341,16 @@ function _tpdGenerateConfirmationText(o, items, templateText) {
 function _tpdGenerateFinancialSummaryText(o, items) {
     const fmt = n => Number(n || 0).toLocaleString('vi-VN');
     
-    let text = `💰 TỔNG KẾT TIỀN ĐƠN HÀNG\n\n`;
+    let codeSuffix = '';
+    if (o) {
+        const c = o.order_code || '';
+        if (c) {
+            codeSuffix = ' ' + c;
+        } else if (o.draft_name) {
+            codeSuffix = ' ' + o.draft_name;
+        }
+    }
+    let text = `💰 TỔNG KẾT TIỀN ĐƠN HÀNG${codeSuffix}\n\n`;
     
     let totalQtyVal = 0;
     let totalItemsRaw = 0;
@@ -6550,7 +6559,7 @@ async function _tpdShowExportSheetsModal() {
                 <!-- Financial Summary copy block -->
                 <div style="margin-top: 24px; padding: 18px; border: 1.5px solid #d97706; background: #fffbeb; border-radius: 12px; display: flex; flex-direction: column; gap: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
-                        <span style="font-size: 13px; font-weight: 800; color: #78350f; display: flex; align-items: center; gap: 6px;">💰 TỔNG KẾT TIỀN ĐƠN HÀNG</span>
+                        <span style="font-size: 13px; font-weight: 800; color: #78350f; display: flex; align-items: center; gap: 6px;">💰 TỔNG KẾT TIỀN ĐƠN HÀNG ${escapeHTML(o.order_code || o.draft_name || '')}</span>
                         ${window._tpdCopiedFinancialSummaryText
                             ? `<span id="tpdFinancialSummaryCopyStatus" style="font-size: 11px; font-weight: 800; color: #065f46; background: #d1fae5; padding: 4px 10px; border-radius: 6px;">✓ ĐÃ SAO CHÉP THÀNH CÔNG VÀO CLIPBOARD!</span>`
                             : `<span id="tpdFinancialSummaryCopyStatus" style="font-size: 11px; font-weight: 800; color: #ef4444; background: #fee2e2; padding: 4px 10px; border-radius: 6px;">⚠️ YÊU CẦU BẮT BUỘC: CLICK VÀO KHUNG DƯỚI ĐỂ SAO CHÉP</span>`
