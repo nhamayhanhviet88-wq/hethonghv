@@ -6348,6 +6348,7 @@ function _tpdGenerateFinancialSummaryText(o, items) {
     let totalItemsVat = 0;
     let totalGiftQty = 0;
     let totalGiftDeduction = 0;
+    let totalItemsGross = 0;
     
     items.forEach((item, idx) => {
         let qtyArr = [];
@@ -6384,6 +6385,7 @@ function _tpdGenerateFinancialSummaryText(o, items) {
         
         const itemVat = Math.round(itemRaw * vatPct / 100);
         
+        totalItemsGross += undiscRaw;
         totalItemsRaw += itemRaw;
         totalItemsVat += itemVat;
         
@@ -6407,15 +6409,15 @@ function _tpdGenerateFinancialSummaryText(o, items) {
     const hasVat = !!o.has_vat || (finalVat > 0);
     
     const manualDiscount = Number(o.discount_amount) || 0;
-    const totalAmount = totalItemsRaw - promoDiscount + finalVat + surTotal - manualDiscount;
+    const totalAmount = totalItemsGross - totalGiftDeduction - promoDiscount + finalVat + surTotal - manualDiscount;
     const remainingAmount = totalAmount - depositAmount;
 
-    text += `Tổng Tiền Hàng : ${fmt(totalItemsRaw)}đ\n`;
-    if (promoDiscount > 0) {
-        text += `Khuyến Mãi Giảm Giá : -${fmt(promoDiscount)}đ\n`;
-    }
+    text += `Tổng Tiền Hàng : ${fmt(totalItemsGross)}đ\n`;
     if (totalGiftDeduction > 0) {
         text += `Khuyến Mãi Tặng Áo : -${fmt(totalGiftDeduction)}đ\n`;
+    }
+    if (promoDiscount > 0) {
+        text += `Khuyến Mãi Giảm Giá : -${fmt(promoDiscount)}đ\n`;
     }
     if (surTotal > 0) {
         text += `Phụ Phí : ${fmt(surTotal)}đ\n`;
