@@ -6467,8 +6467,13 @@ async function _tpdShowExportSheetsModal() {
         console.error('Failed to load export confirmation template:', e);
     }
 
-    window._tpdCopiedConfirmationText = false;
-    window._tpdCopiedFinancialSummaryText = false;
+    const copyStateKey = 'copied_' + o.id;
+    if (!window._tpdCopiedState) window._tpdCopiedState = {};
+    if (!window._tpdCopiedState[copyStateKey]) {
+        window._tpdCopiedState[copyStateKey] = { conf: false, fin: false };
+    }
+    window._tpdCopiedConfirmationText = window._tpdCopiedState[copyStateKey].conf;
+    window._tpdCopiedFinancialSummaryText = window._tpdCopiedState[copyStateKey].fin;
 
     // Create the overlay container if not exists
     let overlay = document.getElementById('tpdExportOverlay');
@@ -6544,7 +6549,10 @@ async function _tpdShowExportSheetsModal() {
                 <div style="margin-top: 24px; padding: 18px; border: 1.5px solid #d97706; background: #fffbeb; border-radius: 12px; display: flex; flex-direction: column; gap: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
                         <span style="font-size: 13px; font-weight: 800; color: #78350f; display: flex; align-items: center; gap: 6px;">💰 TỔNG KẾT TIỀN ĐƠN HÀNG</span>
-                        <span id="tpdFinancialSummaryCopyStatus" style="font-size: 11px; font-weight: 800; color: #ef4444; background: #fee2e2; padding: 4px 10px; border-radius: 6px;">⚠️ YÊU CẦU BẮT BUỘC: CLICK VÀO KHUNG DƯỚI ĐỂ SAO CHÉP</span>
+                        ${window._tpdCopiedFinancialSummaryText
+                            ? `<span id="tpdFinancialSummaryCopyStatus" style="font-size: 11px; font-weight: 800; color: #065f46; background: #d1fae5; padding: 4px 10px; border-radius: 6px;">✓ ĐÃ SAO CHÉP THÀNH CÔNG VÀO CLIPBOARD!</span>`
+                            : `<span id="tpdFinancialSummaryCopyStatus" style="font-size: 11px; font-weight: 800; color: #ef4444; background: #fee2e2; padding: 4px 10px; border-radius: 6px;">⚠️ YÊU CẦU BẮT BUỘC: CLICK VÀO KHUNG DƯỚI ĐỂ SAO CHÉP</span>`
+                        }
                     </div>
                     <div id="tpdCopyableFinancialSummaryContainer" onclick="_tpdCopyFinancialSummaryToClipboard()" data-text-to-copy="${escapeHTML(_tpdGenerateFinancialSummaryText(o, items))}" style="cursor: pointer; background: #ffffff; border: 1.5px solid #fef3c7; border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.6; color: #1f2937; white-space: pre-wrap; max-height: 250px; overflow-y: auto; user-select: none; transition: all 0.2s;" onmouseover="this.style.borderColor='#d97706'; this.style.boxShadow='0 0 10px rgba(217,119,6,0.1)';" onmouseout="this.style.borderColor='#fef3c7'; this.style.boxShadow='none';">${escapeHTML(_tpdGenerateFinancialSummaryText(o, items))}</div>
                 </div>
@@ -6553,7 +6561,10 @@ async function _tpdShowExportSheetsModal() {
                 <div style="margin-top: 24px; padding: 18px; border: 1.5px solid #10b981; background: #f0fdf4; border-radius: 12px; display: flex; flex-direction: column; gap: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
                         <span style="font-size: 13px; font-weight: 800; color: #065f46; display: flex; align-items: center; gap: 6px;">📋 MẪU NỘI DUNG XÁC NHẬN CHO KHÁCH HÀNG</span>
-                        <span id="tpdCopyStatus" style="font-size: 11px; font-weight: 800; color: #ef4444; background: #fee2e2; padding: 4px 10px; border-radius: 6px;">⚠️ YÊU CẦU BẮT BUỘC: CLICK VÀO KHUNG DƯỚI ĐỂ SAO CHÉP</span>
+                        ${window._tpdCopiedConfirmationText
+                            ? `<span id="tpdCopyStatus" style="font-size: 11px; font-weight: 800; color: #065f46; background: #d1fae5; padding: 4px 10px; border-radius: 6px;">✓ ĐÃ SAO CHÉP THÀNH CÔNG VÀO CLIPBOARD!</span>`
+                            : `<span id="tpdCopyStatus" style="font-size: 11px; font-weight: 800; color: #ef4444; background: #fee2e2; padding: 4px 10px; border-radius: 6px;">⚠️ YÊU CẦU BẮT BUỘC: CLICK VÀO KHUNG DƯỚI ĐỂ SAO CHÉP</span>`
+                        }
                     </div>
                     <div id="tpdCopyableTextContainer" onclick="_tpdCopyToClipboard()" data-text-to-copy="${escapeHTML(_tpdGenerateConfirmationText(o, items, templateText))}" style="cursor: pointer; background: #ffffff; border: 1.5px solid #d1fae5; border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.6; color: #1f2937; white-space: pre-wrap; max-height: 250px; overflow-y: auto; user-select: none; transition: all 0.2s;" onmouseover="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 10px rgba(16,185,129,0.1)';" onmouseout="this.style.borderColor='#d1fae5'; this.style.boxShadow='none';">${escapeHTML(_tpdGenerateConfirmationText(o, items, templateText))}</div>
                 </div>
@@ -6663,8 +6674,17 @@ async function _tpdShowExportSheetsModal() {
     // Wait for all images inside tempContainer to load
     await _tpdWaitForImages(tempContainer);
 
-    // Track download state
+    // Track download state with persistent cache
+    if (!window._tpdDownloadedState) {
+        window._tpdDownloadedState = {};
+    }
     const downloaded = new Array(items.length).fill(false);
+    items.forEach((item, idx) => {
+        const key = o.id + '_' + (item.id || idx);
+        if (window._tpdDownloadedState[key]) {
+            downloaded[idx] = true;
+        }
+    });
     const generatedImages = new Array(items.length).fill(null);
 
     // Generate canvas for each page sequentially
@@ -6692,9 +6712,15 @@ async function _tpdShowExportSheetsModal() {
             // Update Badge Status
             const statusBadge = document.getElementById(`exportStatusBadge_${idx}`);
             if (statusBadge) {
-                statusBadge.innerHTML = 'Chưa tải';
-                statusBadge.style.backgroundColor = '#fef3c7';
-                statusBadge.style.color = '#d97706';
+                if (downloaded[idx]) {
+                    statusBadge.innerHTML = '✓ Đã tải';
+                    statusBadge.style.backgroundColor = '#dcfce7';
+                    statusBadge.style.color = '#15803d';
+                } else {
+                    statusBadge.innerHTML = 'Chưa tải';
+                    statusBadge.style.backgroundColor = '#fef3c7';
+                    statusBadge.style.color = '#d97706';
+                }
             }
 
             // Enable Download Button
@@ -6721,6 +6747,8 @@ async function _tpdShowExportSheetsModal() {
 
                     // Mark as downloaded
                     downloaded[idx] = true;
+                    const key = o.id + '_' + (items[idx].id || idx);
+                    window._tpdDownloadedState[key] = true;
                     
                     // Update Badge to success
                     if (statusBadge) {
@@ -6766,6 +6794,9 @@ async function _tpdShowExportSheetsModal() {
         const text = textContainer.getAttribute('data-text-to-copy') || textContainer.innerText || textContainer.textContent;
         navigator.clipboard.writeText(text).then(() => {
             window._tpdCopiedConfirmationText = true;
+            if (window._tpdCopiedState && window._tpdCopiedState[copyStateKey]) {
+                window._tpdCopiedState[copyStateKey].conf = true;
+            }
             
             // Update Copy Status indicator
             const copyStatus = document.getElementById('tpdCopyStatus');
@@ -6795,6 +6826,9 @@ async function _tpdShowExportSheetsModal() {
         const text = textContainer.getAttribute('data-text-to-copy') || textContainer.innerText || textContainer.textContent;
         navigator.clipboard.writeText(text).then(() => {
             window._tpdCopiedFinancialSummaryText = true;
+            if (window._tpdCopiedState && window._tpdCopiedState[copyStateKey]) {
+                window._tpdCopiedState[copyStateKey].fin = true;
+            }
             
             // Update Copy Status indicator
             const copyStatus = document.getElementById('tpdFinancialSummaryCopyStatus');
