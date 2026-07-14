@@ -2142,7 +2142,10 @@ function _dhtPatternChange(existing) {
                 return String(t || '');
             }).filter(Boolean);
             if (names.length > 0) {
-                techEl.innerHTML = '<span style="color:#4f46e5;font-weight:800">✂️ Kỹ Thuật May:</span> ' + names.join(', ');
+                var tagsHtml = names.map(function(name) {
+                    return '<span style="display:inline-block;background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;margin-right:4px;margin-bottom:2px">' + name + '</span>';
+                }).join('');
+                techEl.innerHTML = '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span style="color:#4f46e5;font-weight:800;margin-right:6px">✂️ Kỹ Thuật May:</span>' + tagsHtml + '</div>';
                 techEl.style.display = 'block';
             } else {
                 techEl.style.display = 'none';
