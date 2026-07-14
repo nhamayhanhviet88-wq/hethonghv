@@ -2505,20 +2505,37 @@ function _dhtCalcTotal() {
     // Sum of sheet-level gift shirts
     var totalGiftQty = 0;
     var giftCodes = [];
+    var totalGiftDeduction = 0;
     _dhtCreate.phieuItems.forEach(function(p){
-        if (p && p.promo_gift_quantity) {
-            totalGiftQty += Number(p.promo_gift_quantity);
-            if (p.promo_gift_code) {
-                giftCodes.push(p.promo_gift_code);
+        if (p) {
+            if (p.promo_gift_quantity) {
+                totalGiftQty += Number(p.promo_gift_quantity);
+                if (p.promo_gift_code) {
+                    giftCodes.push(p.promo_gift_code);
+                }
+            }
+            if (p.quantities) {
+                var undiscRaw = 0;
+                p.quantities.forEach(function(q){
+                    undiscRaw += (Number(q.qty) || 0) * (Number(q.price) || 0);
+                });
+                var diff = undiscRaw - (p.raw_total || 0);
+                if (diff > 0) {
+                    totalGiftDeduction += diff;
+                }
             }
         }
     });
-    var promoGiftStr = totalGiftQty > 0 ? totalGiftQty + ' áo' : 'Không có';
-    if (giftCodes.length > 0) {
-        promoGiftStr += ' [' + giftCodes.join(', ') + ']';
+    var promoGiftStr = 'Không có';
+    if (totalGiftQty > 0) {
+        promoGiftStr = totalGiftQty + ' áo';
+        if (giftCodes.length > 0) {
+            promoGiftStr += ' [' + giftCodes.join(', ') + ']';
+        }
+        promoGiftStr += ' : -' + totalGiftDeduction.toLocaleString('vi-VN') + 'đ';
     }
     if (_dhtCreate.appliedPromo && _dhtCreate.appliedPromo.promo_type === 'gift') {
-        promoGiftStr = _dhtCreate.appliedPromo.gift_quantity + ' áo (Mã)';
+        promoGiftStr = _dhtCreate.appliedPromo.gift_quantity + ' áo [' + _dhtCreate.appliedPromo.code + '] : -' + promoDiscount.toLocaleString('vi-VN') + 'đ';
     }
     
     // Add surcharges to total
