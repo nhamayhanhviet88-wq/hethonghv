@@ -1668,8 +1668,10 @@ async function _dhtAddItem(editIdx) {
         +'      <input type="text" id="_pp_promoGiftInput" class="form-control" style="font-size:12px;text-transform:uppercase;flex:1" placeholder="Nhập mã khuyến mãi tặng áo..." value="'+(existing.promo_gift_code || '')+'" oninput="var val=this.value.trim(); if(val===\'\'){document.getElementById(\'_pp_promoGiftQty\').value=0;document.getElementById(\'_pp_promoGiftCode\').value=\'\';document.getElementById(\'_pp_giftPromoMsg\').innerText=\'\';_ppCalc();}">'
         +'      <input type="hidden" id="_pp_promoGiftQty" value="'+(existing.promo_gift_quantity || 0)+'">'
         +'      <input type="hidden" id="_pp_promoGiftCode" value="'+(existing.promo_gift_code || '')+'">'
+        +'      <input type="hidden" id="_pp_promoGiftApplyRowIndex" value="'+(existing.promo_gift_apply_row_index !== undefined && existing.promo_gift_apply_row_index !== null ? existing.promo_gift_apply_row_index : '')+'">'
         +'      <button type="button" onclick="_ppApplyGiftCode()" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s">Áp Dụng</button>'
         +'    </div>'
+        +'    <div id="_pp_giftApplyRowContainer" style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;color:#334155;flex-direction:column;gap:4px"></div>'
         +'  </div>'
         +'  <div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px" onchange="_ppCalc()">'+vatSel+'</select></div>'
         +'</div>'
@@ -1811,16 +1813,70 @@ function _ppCalc() {
         raw += qv * pv;
         totalQty += qv;
     }
+    
+    // Dynamically update the selection list of rows for gift deduction
+    _ppUpdateGiftRowSelectionUI();
+    
     var giftQty = Number(document.getElementById('_pp_promoGiftQty')?.value)||0;
     if (giftQty > 0 && totalQty > 0) {
-        var avgPrice = raw / totalQty;
-        raw -= Math.round(avgPrice * giftQty);
+        var unitPrice = 0;
+        if (qs.length === 1) {
+            unitPrice = Number(ps[0].value) || 0;
+        } else if (qs.length >= 2) {
+            var selectedRowVal = document.getElementById('_pp_promoGiftApplyRowIndex')?.value;
+            if (selectedRowVal !== '' && selectedRowVal !== null && selectedRowVal !== undefined) {
+                var idx = Number(selectedRowVal);
+                if (idx >= 0 && idx < ps.length) {
+                    unitPrice = Number(ps[idx].value) || 0;
+                }
+            }
+        }
+        raw -= Math.round(unitPrice * giftQty);
         if (raw < 0) raw = 0;
     }
     var vp=Number(document.getElementById('_pp_vat')?.value)||0;
     var total=raw+Math.round(raw*vp/100);
     var el=document.getElementById('_pp_totalDisplay');
     if(el) el.textContent=total.toLocaleString('vi-VN');
+}
+
+function _ppUpdateGiftRowSelectionUI() {
+    var giftQty = Number(document.getElementById('_pp_promoGiftQty')?.value)||0;
+    var container = document.getElementById('_pp_giftApplyRowContainer');
+    var indexInput = document.getElementById('_pp_promoGiftApplyRowIndex');
+    if (!container || !indexInput) return;
+    
+    var qs = document.querySelectorAll('#_pp_qtyRows ._pp_qty');
+    var ps = document.querySelectorAll('#_pp_qtyRows ._pp_price');
+    
+    if (giftQty <= 0 || qs.length < 2) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        if (qs.length === 1) {
+            indexInput.value = '0';
+        } else {
+            indexInput.value = '';
+        }
+        return;
+    }
+    
+    container.style.display = 'flex';
+    var currentValue = indexInput.value;
+    var html = '<div style="font-weight:700;margin-bottom:4px;color:#475569">👉 Chọn dòng số lượng được áp dụng tặng áo:</div>';
+    
+    for (var i = 0; i < qs.length; i++) {
+        var qv = Number(qs[i].value) || 0;
+        var pv = Number(ps[i].value) || 0;
+        var labelText = 'Dòng ' + (i + 1) + ': ' + qv + ' sản phẩm - ' + pv.toLocaleString('vi-VN') + 'đ';
+        var checked = (currentValue !== '' && Number(currentValue) === i) ? 'checked' : '';
+        
+        html += '<label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;font-weight:normal">'
+             + '  <input type="radio" name="_pp_gift_row_select" value="' + i + '" ' + checked 
+             + '    onchange="document.getElementById(\'_pp_promoGiftApplyRowIndex\').value = this.value; _ppCalc();">'
+             + '  <span>' + labelText + '</span>'
+             + '</label>';
+    }
+    container.innerHTML = html;
 }
 
 async function _ppApplyGiftCode() {
@@ -2328,9 +2384,27 @@ function _dhtSavePhieu(idx) {
     }
     var giftQty = Number(document.getElementById('_pp_promoGiftQty')?.value)||0;
     var giftCode = document.getElementById('_pp_promoGiftCode')?.value || '';
+    var selectedRowIdx = null;
     if (giftQty > 0 && totalQty > 0) {
-        var avgPrice = raw / totalQty;
-        raw -= Math.round(avgPrice * giftQty);
+        var unitPrice = 0;
+        if (qs.length === 1) {
+            unitPrice = Number(ps[0].value) || 0;
+            selectedRowIdx = 0;
+        } else if (qs.length >= 2) {
+            var inputVal = document.getElementById('_pp_promoGiftApplyRowIndex')?.value;
+            if (inputVal === '' || inputVal === null || inputVal === undefined) {
+                showToast('⚠️ Vui lòng chọn dòng Số lượng/Giá được áp dụng tặng áo!', 'error');
+                return;
+            }
+            selectedRowIdx = Number(inputVal);
+            if (selectedRowIdx >= 0 && selectedRowIdx < ps.length) {
+                unitPrice = Number(ps[selectedRowIdx].value) || 0;
+            } else {
+                showToast('⚠️ Vui lòng chọn dòng Số lượng/Giá được áp dụng tặng áo!', 'error');
+                return;
+            }
+        }
+        raw -= Math.round(unitPrice * giftQty);
         if (raw < 0) raw = 0;
     }
     
@@ -2362,7 +2436,7 @@ function _dhtSavePhieu(idx) {
     // Build display name for color (all pairs)
     var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
     var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
-    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode};
+    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));

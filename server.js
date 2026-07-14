@@ -964,6 +964,7 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS custom_layout JSONB DEFAULT '{}'`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS promo_gift_quantity INTEGER DEFAULT 0`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS promo_gift_code TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS promo_gift_apply_row_index INTEGER`); } catch(e) {}
 
     // v10: Audit Log — Chi tiết lịch sử thay đổi đơn hàng
     try {
