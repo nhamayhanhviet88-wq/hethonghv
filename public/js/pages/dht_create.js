@@ -574,7 +574,7 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Ngày Lên Đơn</label><input class="form-control" value="'+vnDateStr()+'" disabled style="'+_dis+'"></div>'
         +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control" onchange="_dhtOnCatChange()"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
         // Row 3: Mã Đơn — Normal (CRM) + Free (auto-generate)
-        +'<div id="_co_codeNormal" class="form-group" style="position:relative;grid-column:span 2"><label>Mã Đơn <span style="color:red">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(Chọn mã đã tạo ở CRM)</span></label>'
+        +'<div id="_co_codeNormal" class="form-group" style="position:relative;grid-column:span 2"><label style="display:flex;justify-content:space-between;align-items:center;width:100%"><span>Mã Đơn <span style="color:red">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(Chọn mã đã tạo ở CRM)</span></span><span id="_co_codeClearBtn" style="display:none;color:#dc2626;cursor:pointer;font-size:11px;font-weight:bold" onclick="_dhtClearPickedOrderCode()">✕ Bỏ chọn</span></label>'
         +'<input id="_co_code" class="form-control" placeholder="🔍 Gõ mã đơn hoặc tên KH để tìm..." autocomplete="off" oninput="_dhtSearchOrderCode()" onfocus="if(this.value.startsWith(\'📝\') || this.value.startsWith(\'NHAP-\')){this.value=\'\'; _dhtCreate.orderCode=\'\';}; _dhtSearchOrderCode()" style="font-size:14px;font-weight:700;border:2px solid #daa520">'
         +'<input type="hidden" id="_co_custId">'
         +'<div id="_co_codeList" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:250px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
@@ -692,10 +692,21 @@ async function _dhtGoStep2() {
         if (codeInp) {
             codeInp.value = o.order_code;
             if (o.is_draft) {
-                codeInp.disabled = false;
-                codeInp.style.background = '';
-                codeInp.style.fontWeight = '';
-                codeInp.style.color = '';
+                if (o.order_code && !o.order_code.startsWith('NHAP-') && !o.order_code.startsWith('📝')) {
+                    codeInp.readOnly = true;
+                    codeInp.style.background = '#f0fdf4';
+                    codeInp.style.fontWeight = '900';
+                    codeInp.style.color = '#b8860b';
+                    var clearBtn = document.getElementById('_co_codeClearBtn');
+                    if (clearBtn) clearBtn.style.display = 'inline';
+                } else {
+                    codeInp.readOnly = false;
+                    codeInp.style.background = '';
+                    codeInp.style.fontWeight = '';
+                    codeInp.style.color = '';
+                    var clearBtn = document.getElementById('_co_codeClearBtn');
+                    if (clearBtn) clearBtn.style.display = 'none';
+                }
             } else {
                 codeInp.disabled = true;
                 codeInp.style.background = '#f0fdf4';
@@ -1027,10 +1038,13 @@ async function _dhtPickOrderCode(codeId) {
     _dhtCreate.orderCode = c.order_code;
     var codeInput = document.getElementById('_co_code');
     codeInput.value = c.order_code;
+    codeInput.readOnly = true;
     codeInput.style.background = '#f0fdf4';
     codeInput.style.fontWeight = '900';
     codeInput.style.fontSize = '16px';
     codeInput.style.color = '#b8860b';
+    var clearBtn = document.getElementById('_co_codeClearBtn');
+    if (clearBtn) clearBtn.style.display = 'inline';
     // Set customer ID (hidden)
     document.getElementById('_co_custId').value = c.customer_id;
     // Phone (readonly)
@@ -1067,6 +1081,25 @@ async function _dhtPickOrderCode(codeId) {
         }
     }
     _dhtCalcTotal();
+}
+
+function _dhtClearPickedOrderCode() {
+    _dhtCreate.orderCode = '';
+    var codeInput = document.getElementById('_co_code');
+    if (codeInput) {
+        codeInput.value = '';
+        codeInput.readOnly = false;
+        codeInput.style.background = '';
+        codeInput.style.fontWeight = '';
+        codeInput.style.fontSize = '';
+        codeInput.style.color = '';
+    }
+    document.getElementById('_co_custId').value = '';
+    document.getElementById('_co_phone').value = '';
+    document.getElementById('_co_name').value = '';
+    document.getElementById('_co_src').value = '';
+    var clearBtn = document.getElementById('_co_codeClearBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
 }
 
 function _dhtPickCustomerForDraft(cStr) {
@@ -2472,7 +2505,7 @@ async function _dhtSubmitCreateV2(isDraft) {
     };
     // ★ Normal: send order_code + customer_id
     if (!isFree) {
-        if (!isDraft) {
+        if (_dhtCreate.orderCode) {
             payload.order_code = _dhtCreate.orderCode;
         }
         payload.customer_id = custId;

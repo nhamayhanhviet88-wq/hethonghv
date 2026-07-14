@@ -1772,7 +1772,11 @@ module.exports = async function(fastify) {
             if (!b.draft_name || !b.draft_name.trim()) {
                 return reply.code(400).send({ error: 'Tên bản nháp là bắt buộc khi lưu nháp' });
             }
-            orderCode = 'NHAP-' + request.user.username + '-' + Date.now();
+            if (b.order_code && b.order_code.trim() && !b.order_code.startsWith('NHAP-') && !b.order_code.startsWith('📝')) {
+                orderCode = b.order_code.trim();
+            } else {
+                orderCode = 'NHAP-' + request.user.username + '-' + Date.now();
+            }
         } else {
             orderCode = b.order_code.trim();
         }
