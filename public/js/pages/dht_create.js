@@ -2652,19 +2652,7 @@ function _dhtRemovePromo() {
 }
 
 function _dhtSyncPromoToNote() {
-    var noteEl = document.getElementById('_co_saleNote');
-    if (!noteEl) return;
-    var curVal = noteEl.value || '';
-    
-    // Remove existing promo note marker if present
-    curVal = curVal.replace(/\[MÃ KHUYẾN MÃI:.*?\]\s*/g, '');
-    
-    if (_dhtCreate.appliedPromo) {
-        var promoText = '[MÃ KHUYẾN MÃI: ' + _dhtCreate.appliedPromo.code + '] ';
-        noteEl.value = promoText + curVal;
-    } else {
-        noteEl.value = curVal;
-    }
+    // No-op: Disabled auto-filling promo code to sale note as per user request
 }
 
 function _dhtPrefillPromoUI() {
