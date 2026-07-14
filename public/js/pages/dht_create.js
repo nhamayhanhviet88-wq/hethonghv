@@ -2578,6 +2578,15 @@ async function _dhtApplyPromo() {
     try {
         var res = await apiCall('/api/promotion-codes/check?code=' + encodeURIComponent(code));
         if (res && res.valid) {
+            if (res.promo_type === 'gift') {
+                showToast('⚠️ Mã tặng áo bắt buộc phải nhập bên trong từng Phiếu để chọn dòng số lượng được áp dụng!', 'error');
+                if (msgEl) {
+                    msgEl.style.display = 'block';
+                    msgEl.style.color = '#dc2626';
+                    msgEl.innerText = '❌ Mã tặng áo bắt buộc phải nhập bên trong từng Phiếu.';
+                }
+                return;
+            }
             _dhtCreate.appliedPromo = {
                 code: res.code,
                 promo_type: res.promo_type,
