@@ -1340,6 +1340,96 @@ function _ktclRenderTable() {
     }
     
     body.innerHTML = paginatedRecords.map((r, idx) => {
+        if (r.is_draft) {
+            const priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
+            let priBadge = '';
+            if (priority === 'GẤP') {
+                priBadge = '<span class="ktcl-badge ktcl-badge-urgent">Gấp</span>';
+            } else if (priority === 'GỬI') {
+                priBadge = '<span class="ktcl-badge ktcl-badge-ship">Gửi</span>';
+            } else {
+                priBadge = '<span class="ktcl-badge ktcl-badge-normal">Chuẩn</span>';
+            }
+            let prodName = _ktclCleanProdName(r);
+            const orderInfoHtml = `
+                <div style="font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    ${priBadge}
+                    <span>${r.order_code || '—'}</span>
+                    ${r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]') ? 
+                        `<span class="ktcl-badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">⚠️ Thiếu kỹ thuật</span>` : ''
+                    }
+                </div>
+                <div style="font-weight: 600; color: #334155; margin-top: 4px; font-size:11.5px;">${prodName}</div>
+                <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">CSKH: <strong>${r.cskh_name || '—'}</strong></div>
+                ${r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]') ? 
+                    `<div style="font-size:11px; color:#b91c1c; font-weight:700; margin-top:4px; font-style:italic;">⚠️ Thiếu: ${r.notes.replace('[THIẾU GIÁ CHI TIẾT] ', '')}</div>` : ''
+                }
+            `;
+            const fabricInfoHtml = `
+                <div style="color: #475569;">Vải: <strong>${r.material_name || '—'}</strong></div>
+                <div style="color: #475569; margin-top: 2px;">Màu: <strong>${r.color_name || '—'}</strong></div>
+            `;
+            const qtyHtml = `
+                <div style="font-size: 13px; font-weight: 800; color: #2563eb; text-align: center;">${r.order_qty || r.quantity}</div>
+                <div style="font-size: 11px; color: #64748b; text-align: center; border-top: 1px dashed #e2e8f0; margin-top: 4px; padding-top: 4px;">
+                    May: <strong style="color: #059669;">${r.quantity}</strong>
+                </div>
+            `;
+            let assignedHtml = '';
+            if (r.contractor_id) {
+                assignedHtml = `<span style="background: #f5f5f4; color: #44403c; border: 1px solid #e7e5e4; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; white-space: nowrap; display: inline-block;">🏭 ${r.contractor_name || 'Gia công'}</span>`;
+            } else if (r.sewing_team_id) {
+                assignedHtml = `<span style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; white-space: nowrap; display: inline-block;">👥 ${r.sewer_name || 'Tổ may'}</span>`;
+            } else {
+                assignedHtml = `<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; white-space: nowrap; display: inline-block;">❌ Chưa phân tổ</span>`;
+            }
+            const datesHtml = `
+                <div style="font-size: 11px; color: #475569; text-align: center;">
+                    Hẹn trả: <strong>${_ktclFormatVnDate(r.expected_ship_date || r.shipping_date)}</strong>
+                </div>
+                <div style="font-size: 11px; color: #4f46e5; text-align: center; font-weight: 700; margin-top: 4px;">
+                    QLX Hẹn: <strong>${_ktclFormatVnDate(r.expected_date)}</strong>
+                </div>
+                ${r.done_date ? 
+                    `<div style="font-size: 10px; color: #059669; text-align: center; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 4px; margin-top: 6px; padding: 2px 4px; font-weight: 700;">
+                        Xong: ${_ktclFormatVnDate(r.done_date)}
+                    </div>` : ''
+                }
+            `;
+            const qcHtml = `
+                <div style="font-weight: 700; color: #b91c1c;">${r.checked_price ? r.checked_price.toLocaleString('vi-VN') + ' đ' : '—'}</div>
+                <div style="font-size: 10px; color: #64748b; margin-top: 4px;">
+                    Lương: <strong style="color: #0d9488;">${r.salary ? r.salary.toLocaleString('vi-VN') + ' đ' : '0 đ'}</strong>
+                </div>
+                ${r.salary_approved ? 
+                    `<div style="font-size: 9px; color: #2563eb; font-weight: 700; margin-top: 2px;">✓ Đã tính lương</div>` : ''
+                }
+            `;
+            const qlxNotes = (r.notes && !r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? r.notes : '';
+            const notesHtml = `
+                <div style="font-size: 11px; max-width: 250px; word-break: break-word;">
+                    ${qlxNotes ? `<div style="color: #334155; margin-bottom: 4px;">📝 <strong>QLX Lưu Ý May:</strong> <span style="color:#ef4444; font-style:italic; font-weight:700;">${qlxNotes}</span></div>` : ''}
+                    ${r.sew_notes ? `<div style="color: #0d9488; margin-bottom: 4px;">📝 <strong>QL May Ghi Chú:</strong> <span style="font-style:italic; font-weight:700;">${r.sew_notes}</span></div>` : ''}
+                    ${r.sewing_details ? `<div style="color: #0f766e; font-style: italic;">🧵 <strong>Chi tiết:</strong> ${r.sewing_details}</div>` : ''}
+                    ${!qlxNotes && !r.sew_notes && !r.sewing_details ? '<span style="color:#94a3b8; font-style:italic;">Không có lưu ý</span>' : ''}
+                </div>
+            `;
+            var warnBanner = '<td style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
+            return `
+                <tr style="opacity:0.5; pointer-events:none;">
+                    <td style="text-align: center; font-weight: 700; color: #94a3b8; vertical-align: middle;">${startIdx + idx + 1}</td>
+                    ${warnBanner}
+                    <td>${orderInfoHtml}</td>
+                    <td>${fabricInfoHtml}</td>
+                    <td style="vertical-align: middle;">${qtyHtml}</td>
+                    <td style="vertical-align: middle;">${assignedHtml}</td>
+                    <td style="vertical-align: middle;">${datesHtml}</td>
+                    <td style="vertical-align: middle;">${qcHtml}</td>
+                    <td>${notesHtml}</td>
+                </tr>
+            `;
+        }
+
         // Actions cell
         let actionsHtml = '';
         if (r.done_date) {

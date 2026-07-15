@@ -995,6 +995,32 @@ function _bpcMapRecordRow(r, i) {
     var qtyColor = isPhoi ? '#60a5fa' : '#0369a1';
     var cutColor = isPhoi ? '#c084fc' : '#7c3aed';
 
+    if (r.is_draft) {
+        var warnBanner = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
+        return '<tr style="opacity:0.5; pointer-events:none;">'
+            +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
+            +warnBanner
+            +'<td style="font-size:10px">—</td>'
+            +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
+            +nameHtml
+            +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
+            +'<td style="font-size:10px">'
+            +_bpcFormatMaterialName(r.material_name)
+            +'<br>' + (r.fabric_color||'—')
+            +(r.warehouse_location ? '<br>' + _bpcFormatLocation(r.warehouse_location) : '')
+            +'</td>'
+            +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:'+cutColor+'">'+_bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category)+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:#dc2626">'+_bpcFmtKg(r.kg_cut)+'</td>'
+            +'<td style="text-align:center;font-weight:800;color:'+ratioColor+'">'+(r.cut_ratio ? r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') : '—')+'</td>'
+            +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.ratio_reason||'—')+'</td>'
+            +'<td style="text-align:center;font-weight:600">'+_bpcFmtKg(r.kg_start)+'</td>'
+            +'<td style="text-align:center;font-weight:600">'+_bpcFmtKg(r.kg_end)+'</td>'
+            +'<td style="font-size:10px;text-align:center">'+sharedCol+'</td>'
+            +'<td style="font-size:9px;color:#6b7280">'+updateStr+'</td>'
+            +'</tr>';
+    }
+
     if (r.is_uncut) {
         return '<tr>'
             +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
@@ -1595,27 +1621,52 @@ function _bpcBuildUnassignedTableHtml(all) {
             var qtyVal = _bpcFormatOrderQty(r.item_qty || r.total_quantity || '', spName, r.cutting_category_name);
             var finalSpName = spName;
 
-            th += '<tr style="'+bg+'">'
-                +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
-                +claimTd
-                +'<td style="font-size:10px">—</td>'
-                +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
-                +'<td style="font-weight:600;color:#1e293b;font-size:11px">' + finalSpName + '</td>'
-                +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
-                +'<td style="font-size:10px">'
-                +_bpcFormatMaterialName(r.material_name)
-                +'<br>' + (r.color_name||'—')
-                +'</td>'
-                +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
-                +'<td style="text-align:center;font-weight:700;color:#7c3aed">—</td>'
-                +'<td style="text-align:center;font-weight:700;color:#dc2626">—</td>'
-                +'<td style="text-align:center;font-weight:800;color:#3b82f6">—</td>'
-                +'<td style="font-size:9px;color:#6b7280">—</td>'
-                +'<td style="text-align:center;font-weight:600">—</td>'
-                +'<td style="text-align:center;font-weight:600">—</td>'
-                +'<td style="font-size:10px;text-align:center">—</td>'
-                +'<td style="font-size:9px;color:#6b7280">—</td>'
-                +'</tr>';
+            if (r.is_draft) {
+                var actionColHtml = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
+                th += '<tr style="opacity:0.5; pointer-events:none; '+bg+'">'
+                    +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
+                    +actionColHtml
+                    +'<td style="font-size:10px">—</td>'
+                    +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
+                    +'<td style="font-weight:600;color:#1e293b;font-size:11px">' + finalSpName + '</td>'
+                    +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
+                    +'<td style="font-size:10px">'
+                    +_bpcFormatMaterialName(r.material_name)
+                    +'<br>' + (r.color_name||'—')
+                    +'</td>'
+                    +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
+                    +'<td style="text-align:center;font-weight:700;color:#7c3aed">—</td>'
+                    +'<td style="text-align:center;font-weight:700;color:#dc2626">—</td>'
+                    +'<td style="text-align:center;font-weight:800;color:#3b82f6">—</td>'
+                    +'<td style="font-size:9px;color:#6b7280">—</td>'
+                    +'<td style="text-align:center;font-weight:600">—</td>'
+                    +'<td style="text-align:center;font-weight:600">—</td>'
+                    +'<td style="font-size:10px;text-align:center">—</td>'
+                    +'<td style="font-size:9px;color:#6b7280">—</td>'
+                    +'</tr>';
+            } else {
+                th += '<tr style="'+bg+'">'
+                    +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
+                    +claimTd
+                    +'<td style="font-size:10px">—</td>'
+                    +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
+                    +'<td style="font-weight:600;color:#1e293b;font-size:11px">' + finalSpName + '</td>'
+                    +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
+                    +'<td style="font-size:10px">'
+                    +_bpcFormatMaterialName(r.material_name)
+                    +'<br>' + (r.color_name||'—')
+                    +'</td>'
+                    +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
+                    +'<td style="text-align:center;font-weight:700;color:#7c3aed">—</td>'
+                    +'<td style="text-align:center;font-weight:700;color:#dc2626">—</td>'
+                    +'<td style="text-align:center;font-weight:800;color:#3b82f6">—</td>'
+                    +'<td style="font-size:9px;color:#6b7280">—</td>'
+                    +'<td style="text-align:center;font-weight:600">—</td>'
+                    +'<td style="text-align:center;font-weight:600">—</td>'
+                    +'<td style="font-size:10px;text-align:center">—</td>'
+                    +'<td style="font-size:9px;color:#6b7280">—</td>'
+                    +'</tr>';
+            }
         });
     }
     th += '</tbody></table>';

@@ -1505,7 +1505,8 @@ select.form-control {
 @keyframes bdayPulse {
     0%, 100% { background: rgba(212,168,67,0.15); }
     50% { background: rgba(212,168,67,0.3); }
+}/* ========== DRAFT LOCK PULSE ========== */
+@keyframes draftLockPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
 }
-
-
-

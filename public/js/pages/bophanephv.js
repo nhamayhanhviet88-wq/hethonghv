@@ -577,6 +577,26 @@ function _bpeRenderRows(paged) {
             }
         }).join('');
 
+        if (r.is_draft) {
+            var warnBanner = '<td colspan="2" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
+            return '<tr style="opacity:0.5; pointer-events:none;">'
+                +'<td class="bpe-col-stt" style="font-weight:700;color:#94a3b8">'+(globalIndex+1)+'</td>'
+                +warnBanner
+                +'<td style="font-size:10px">—</td>'
+                +'<td style="font-size:10px;color:#ea580c;font-weight:600">—</td>'
+                +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(null,' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+_bpeDisplayProdName(r)+'</a>' + _bpeGetPrintStatusHtml(r) + '</td>'
+                +'<td style="text-align:center;font-size:10px">—</td>'
+                +'<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">'+(r.material_name||'—')+'</td>'
+                +'<td class="bpe-hide-desktop" style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
+                +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
+                +'<td style="text-align:center;font-weight:600;color:#0369a1">'+_bpeFormatOrderQty(r.order_quantity, r.category_name, r.product_name)+'</td>'
+                +'<td style="text-align:center;font-weight:700;color:#ea580c">—</td>'
+                + posColsHtml
+                +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">—</td>'
+                +'<td style="font-size:9px;color:#6b7280">—</td>'
+                +'</tr>';
+        }
+
         if (r.is_unpressed) {
             var claimHtml = '';
             if (r.ready) {

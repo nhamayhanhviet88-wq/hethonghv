@@ -389,6 +389,22 @@ function _bphtRender(){
             imgs = `<div style="display:flex; gap:4px; justify-content:center; align-items:center;">${thumbnails}</div>`;
         }}catch(e){}
         var upd='';if(r.last_update_at){upd=_bphtFD(r.last_update_at);if(r.last_update_by)upd+='<br><span style="color:#059669;font-size:9px">'+r.last_update_by+'</span>';}
+        if (r.is_draft) {
+            var warnBanner = '<td colspan="2" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
+            return '<tr style="opacity:0.5; pointer-events:none;"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(startIdx+i+1)+'</td>'
+            + warnBanner
+            +'<td style="font-size:10px">'+_bphtGetRaDukien(r)+'</td>'
+            +'<td style="font-size:10px;color:'+(r.is_completed?'#059669':(!isQcOk?'#ef4444':'#94a3b8'))+'">'+completedTimeHtml+'</td>'
+            +'<td>'+_bphtProgress(r.expected_ship_date||r.expected_date, r.done_date)+'</td>'
+            +'<td style="font-weight:600;white-space:normal;max-width:250px;word-break:break-word;"><a href="javascript:void(0)" onclick="'+nameClickAction+'" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+_bphtCleanProdName(r)+'</a></td>'
+            +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:#059669">'+(r.quantity||'—')+'</td>'
+            +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.finisher_name||'—')+'</td>'
+            +'<td style="font-size:10px;color:#6b7280">' + (r.contractor_id ? '<span style="color:#f59e0b;font-weight:700;">[GIA CÔNG]</span> ' : '') + (r.sewer_name || '<span style="color:#ef4444;font-weight:700;">Chưa Phân Công</span>') + '</td>'
+            +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
+            +'<td>'+_bphtShip(r.shipping_standard)+'</td>'
+            +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
+        }
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(startIdx+i+1)+'</td>'
         +'<td style="text-align:center">'+clickHtml+'</td>'
         +'<td style="text-align:center">'+errHtml+'</td>'

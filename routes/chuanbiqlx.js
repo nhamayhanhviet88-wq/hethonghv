@@ -1124,6 +1124,7 @@ module.exports = async function(fastify) {
                 o.total_quantity, o.expected_ship_date, o.shipping_priority,
                 o.category_id, c.name AS category_name,
                 COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
+                COALESCE(o.is_draft, false) AS is_draft,
                 COALESCE(p.qlx_reviewed, false) AS qlx_reviewed,
                 COALESCE(p.qlx_received_phieu, false) AS qlx_received_phieu,
                 u_cskh.full_name AS cskh_name,
