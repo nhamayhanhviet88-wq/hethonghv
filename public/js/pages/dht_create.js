@@ -1402,7 +1402,21 @@ function _ppRevertSF(inputId, hiddenId, listId) {
                 var pairIdx = Number(inputId.replace('_ppMat', ''));
                 var cInp = document.getElementById('_ppColor'+pairIdx);
                 var cVal = document.getElementById('_ppColorVal'+pairIdx);
-                if(cInp){cInp.value='';cInp.disabled=false;cInp.style.background='';cInp.placeholder='Chọn màu...';}
+                if(cInp){
+                    if (window._dhtIsFabricEditRestricted) {
+                        cInp.value='';
+                        cInp.disabled=true;
+                        cInp.style.background='#f1f5f9';
+                        cInp.style.color='#64748b';
+                        cInp.style.cursor='not-allowed';
+                        cInp.placeholder='Chỉ sửa được ở Ảnh 3';
+                    } else {
+                        cInp.value='';
+                        cInp.disabled=false;
+                        cInp.style.background='';
+                        cInp.placeholder='Chọn màu...';
+                    }
+                }
                 if(cVal)cVal.value='';
                 _ppPairMatLoad(pairIdx);
             }
@@ -1651,6 +1665,7 @@ async function _dhtAddItem(editIdx) {
     var existing = _dhtCreate.phieuItems[idx] || {};
     window._ppCurrentExistingPhieu = existing;
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
+    window._dhtIsFabricEditRestricted = isOldItem;
     var isRestricted = isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called;
     var po = _dhtCreate.phieuOpts || {};
     var ov = document.createElement('div');
@@ -1823,6 +1838,23 @@ async function _dhtAddItem(editIdx) {
         setTimeout(_lockPopup, 1000);
     } else {
         window._dhtPhieuRestricted = false;
+    }
+    
+    if (isOldItem) {
+        var _lockMaterialColorOnly = function() {
+            var popup = document.getElementById('_phieuPopup');
+            if (!popup) return;
+            popup.querySelectorAll('input[id^="_ppMat"], input[id^="_ppColor"]').forEach(function(el) {
+                el.disabled = true;
+                el.style.background = '#f1f5f9';
+                el.style.color = '#64748b';
+                el.style.cursor = 'not-allowed';
+                el.title = 'Chất liệu/màu chỉ sửa được ở Thiết Kế Market (Ảnh 3)';
+            });
+        };
+        setTimeout(_lockMaterialColorOnly, 150);
+        setTimeout(_lockMaterialColorOnly, 500);
+        setTimeout(_lockMaterialColorOnly, 1000);
     }
 }
 
@@ -2292,14 +2324,23 @@ function _dhtPatternChange(existing) {
         var matListHtml = assignedMats.map(function(m){
             return '<div class="_ppPairOpt" data-val="'+m.material_id+'" data-txt="'+m.material_name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickPairMat('+i+',this)">'+m.material_name+'</div>';
         }).join('');
+        
+        var matDisAttr = window._dhtIsFabricEditRestricted ? 'disabled' : '';
+        var matStyle = window._dhtIsFabricEditRestricted ? 'style="width:100%;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#f1f5f9;color:#64748b;cursor:not-allowed"' : 'style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer"';
+        var matTitle = window._dhtIsFabricEditRestricted ? ' title="Chất liệu vải chỉ sửa được ở Thiết Kế Market (Ảnh 3)"' : '';
+        
+        var colorDisAttr = (window._dhtIsFabricEditRestricted || !ep.material_id) ? 'disabled' : '';
+        var colorStyle = (window._dhtIsFabricEditRestricted || !ep.material_id) ? 'style="width:100%;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#f1f5f9;color:#64748b;cursor:not-allowed"' : 'style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer"';
+        var colorTitle = window._dhtIsFabricEditRestricted ? ' title="Màu sắc chỉ sửa được ở Thiết Kế Market (Ảnh 3)"' : '';
+
         h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Chất Liệu '+(i+1)+' *</label>'
-            + '<input id="_ppMat'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer" placeholder="Chọn chất liệu..." value="'+(ep.material_name||'')+'" onfocus="_ppShowPairList(\'_ppMatList'+i+'\')" oninput="_ppFilterPairList(\'_ppMat'+i+'\',\'_ppMatList'+i+'\')">'
+            + '<input id="_ppMat'+i+'" class="_ppSF" autocomplete="off" ' + matStyle + ' placeholder="Chọn chất liệu..." value="'+(ep.material_name||'')+'" ' + matDisAttr + matTitle + ' onfocus="_ppShowPairList(\'_ppMatList'+i+'\')" oninput="_ppFilterPairList(\'_ppMat'+i+'\',\'_ppMatList'+i+'\')">'
             + '<input type="hidden" id="_ppMatVal'+i+'" value="'+(ep.material_id||'')+'">'
             + '<div id="_ppMatList'+i+'" style="display:none;position:absolute;top:100%;left:0;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">'
             + matListHtml + '</div></div>';
         // Color searchable input (populated after material selection)
         h += '<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu '+(i+1)+' *</label>'
-            + '<input id="_ppColor'+i+'" class="_ppSF" autocomplete="off" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;background:#f1f5f9" placeholder="← Chọn Chất Liệu" value="'+(ep.color_name||'')+'" disabled onfocus="_ppShowPairList(\'_ppColorList'+i+'\')" oninput="_ppFilterPairList(\'_ppColor'+i+'\',\'_ppColorList'+i+'\')">'
+            + '<input id="_ppColor'+i+'" class="_ppSF" autocomplete="off" ' + colorStyle + ' placeholder="← Chọn Chất Liệu" value="'+(ep.color_name||'')+'" ' + colorDisAttr + colorTitle + ' onfocus="_ppShowPairList(\'_ppColorList'+i+'\')" oninput="_ppFilterPairList(\'_ppColor'+i+'\',\'_ppColorList'+i+'\')">'
             + '<input type="hidden" id="_ppColorVal'+i+'" value="'+(ep.color_id||'')+'">'
             + '<div id="_ppColorList'+i+'" style="display:none;position:absolute;top:100%;left:0;z-index:300;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div>';
         h += '</div></div>';
@@ -2335,7 +2376,21 @@ function _ppPickPairMat(pairIdx, el) {
     // Reset color
     var cInp = document.getElementById('_ppColor'+pairIdx);
     var cVal = document.getElementById('_ppColorVal'+pairIdx);
-    if(cInp){cInp.value='';cInp.disabled=false;cInp.style.background='';cInp.placeholder='Chọn màu...';}
+    if(cInp){
+        if (window._dhtIsFabricEditRestricted) {
+            cInp.value='';
+            cInp.disabled=true;
+            cInp.style.background='#f1f5f9';
+            cInp.style.color='#64748b';
+            cInp.style.cursor='not-allowed';
+            cInp.placeholder='Chỉ sửa được ở Ảnh 3';
+        } else {
+            cInp.value='';
+            cInp.disabled=false;
+            cInp.style.background='';
+            cInp.placeholder='Chọn màu...';
+        }
+    }
     if(cVal)cVal.value='';
     _ppPairMatLoad(pairIdx);
 }
@@ -2358,7 +2413,19 @@ async function _ppPairMatLoad(pairIdx, preselectColorId) {
     cList.innerHTML = colors.map(function(c){
         return '<div class="_ppPairOpt" data-val="'+c.id+'" data-txt="'+c.name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickPairColor('+pairIdx+',this)">'+c.name+'</div>';
     }).join('');
-    if(cInp){cInp.disabled=false;cInp.style.background='';cInp.placeholder='Chọn màu...';}
+    if(cInp){
+        if (window._dhtIsFabricEditRestricted) {
+            cInp.disabled=true;
+            cInp.style.background='#f1f5f9';
+            cInp.style.color='#64748b';
+            cInp.style.cursor='not-allowed';
+            cInp.placeholder='Chỉ sửa được ở Ảnh 3';
+        } else {
+            cInp.disabled=false;
+            cInp.style.background='';
+            cInp.placeholder='Chọn màu...';
+        }
+    }
     if(preselectColorId){
         var found=colors.find(function(c){return String(c.id)===String(preselectColorId);});
         if(found){

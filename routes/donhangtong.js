@@ -2888,9 +2888,12 @@ module.exports = async function(fastify) {
                         [orderId, request.user.id, sessionId, originalData]
                     );
                 } else if (existingBackup.session_id !== sessionId) {
+                    // ★ Chỉ cập nhật session_id, KHÔNG đè original_data
+                    // Đảm bảo "Bỏ qua" LUÔN revert về trạng thái ban đầu khi mở workspace lần đầu
+                    // dù user đã "Cập Nhật Đơn" bao nhiêu lần trong phiên làm việc
                     await db.run(
-                        'UPDATE dht_order_session_backups SET session_id = $3, original_data = $4, created_at = NOW() WHERE order_id = $1 AND user_id = $2',
-                        [orderId, request.user.id, sessionId, originalData]
+                        'UPDATE dht_order_session_backups SET session_id = $3 WHERE order_id = $1 AND user_id = $2',
+                        [orderId, request.user.id, sessionId]
                     );
                 }
             } catch (backupErr) {
