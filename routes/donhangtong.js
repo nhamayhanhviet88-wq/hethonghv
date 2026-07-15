@@ -6999,7 +6999,8 @@ module.exports = async function(fastify) {
         });
         finText += `\n`;
         
-        const depositAmount = Number(order.deposit_amount) || 0;
+        const paymentSum = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        const depositAmount = Math.max(paymentSum, Number(order.deposit_amount_cache) || 0);
         const surTotal = surcharges.reduce((s, x) => s + (Number(x.amount) || 0), 0);
         const finalVat = calcVat;
         const hasVat = !!order.has_vat || (finalVat > 0);
