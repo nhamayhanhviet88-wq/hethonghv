@@ -157,7 +157,7 @@ async function renderTaophieudonhangPage(content) {
         _tpdOpenOrderTechCard(queryId);
     }
 
-    // Event delegation for deleting draft orders
+    // Event delegation for deleting draft orders and resending design emails
     if (!_tpd.deleteListenerAttached) {
         document.addEventListener('click', function(event) {
             const btn = event.target.closest('.tpd-delete-draft-btn');
@@ -167,6 +167,15 @@ async function renderTaophieudonhangPage(content) {
                 const orderId = btn.getAttribute('data-id');
                 const orderCode = btn.getAttribute('data-code');
                 _tpdDeleteDraft(orderId, orderCode);
+                return;
+            }
+
+            const resendBtn = event.target.closest('.tpd-resend-email-btn');
+            if (resendBtn) {
+                event.stopPropagation();
+                event.preventDefault();
+                const orderId = resendBtn.getAttribute('data-id');
+                _tpdResendDesignEmail(orderId, event);
             }
         }, true);
         _tpd.deleteListenerAttached = true;
@@ -589,6 +598,22 @@ function _tpdRenderList() {
         const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
         const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
 
+        // Build email badge and status text
+        let emailBadge = '';
+        let emailStatusText = '<span style="color: #94a3b8; font-weight: 500;">Chưa gửi</span>';
+        if (o.design_email_recipient) {
+            if (o.design_email_status === 'sent') {
+                emailBadge = `<span class="tpd-badge" style="background:#22c55e;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px;display:inline-block;" title="Gửi mail thành công đến ${escapeHTML(o.design_email_recipient)}">📧 Đã gửi</span>`;
+                emailStatusText = `<span style="color:#22c55e;font-weight:700;display:inline-flex;align-items:center;gap:4px;">✔️ Đã gửi <button class="tpd-resend-email-btn" data-id="${o.id}" style="background:#d1fae5;border:none;color:#065f46;cursor:pointer;border-radius:4px;padding:1px 4px;font-size:10px;font-weight:700;outline:none;display:inline-flex;align-items:center;">🔄 Gửi lại</button></span>`;
+            } else if (o.design_email_status === 'sending') {
+                emailBadge = `<span class="tpd-badge" style="background:#eab308;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px;display:inline-block;">📧 Đang gửi...</span>`;
+                emailStatusText = `<span style="color:#eab308;font-weight:700;">⏳ Đang gửi...</span>`;
+            } else if (o.design_email_status === 'failed') {
+                emailBadge = `<span class="tpd-badge" style="background:#ef4444;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px;display:inline-block;" title="Lỗi: ${escapeHTML(o.design_email_error || 'Lỗi không rõ')}">📧 Lỗi</span>`;
+                emailStatusText = `<span style="color:#ef4444;font-weight:700;display:inline-flex;align-items:center;gap:4px;" title="${escapeHTML(o.design_email_error || '')}">❌ Gửi lỗi <button class="tpd-resend-email-btn" data-id="${o.id}" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:1px 4px;font-size:10px;font-weight:700;outline:none;display:inline-flex;align-items:center;">🔄 Gửi lại</button></span>`;
+            }
+        }
+
         // Render card
         return `
             <div class="tpd-order-card ${isDraft ? 'card-draft' : ''} ${_tpd.activeOrderId == o.id ? 'card-active' : ''}" onclick="navigate('design-draft?id=${o.id}')">
@@ -599,6 +624,7 @@ function _tpdRenderList() {
                     </span>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <span class="tpd-badge ${badgeClass}">${badgeLabel}</span>
+                        ${emailBadge}
                         ${isDraft ? `<button class="tpd-delete-draft-btn" data-id="${o.id}" data-code="${escapeHTML(o.order_code || '')}" data-no-debounce="true" title="Xóa bản nháp" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;transition:all 0.15s;outline:none;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">🗑️ Xóa</button>` : ''}
                     </div>
                 </div>
@@ -618,6 +644,10 @@ function _tpdRenderList() {
                     <div class="card-row">
                         <span class="card-label">Hạn giao:</span>
                         <span class="card-value font-warning">${shipDate}${o.shipping_priority ? ` - <span style="font-weight: 800; color: ${o.shipping_priority === 'GẤP' ? '#dc2626' : o.shipping_priority === 'GỬI' ? '#f59e0b' : '#7c3aed'};">${o.shipping_priority}</span>` : ''}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Email xưởng:</span>
+                        <span class="card-value">${emailStatusText}</span>
                     </div>
                 </div>
                 <div class="card-footer">
@@ -664,6 +694,34 @@ async function _tpdDeleteDraft(orderId, orderCode) {
     } catch(e) {
         console.error(e);
         showToast('Lỗi xóa bản nháp: ' + e.message, 'error');
+    }
+}
+
+async function _tpdResendDesignEmail(orderId, event) {
+    if (!confirm('Bạn có chắc chắn muốn gửi lại email thiết kế này cho xưởng?')) return;
+    try {
+        const btn = event ? event.target.closest('.tpd-resend-email-btn') : null;
+        let originalText = '';
+        if (btn) {
+            originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Đang gửi...';
+        }
+        const res = await apiCall(`/api/dht/orders/${orderId}/resend-design-email`, 'POST');
+        if (res && res.success) {
+            showToast('🚀 Đang gửi lại email thiết kế thành công!', 'success');
+            setTimeout(async () => {
+                await _tpdLoadOrders();
+            }, 1000);
+        } else {
+            showToast('⚠️ Gửi lại thất bại: ' + (res.error || 'Lỗi không xác định'), 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+    } catch (err) {
+        showToast('⚠️ Gửi lại thất bại: ' + err.message, 'error');
     }
 }
 
