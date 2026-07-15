@@ -3017,7 +3017,16 @@ module.exports = async function(fastify) {
                     size_type: item.size_type || 'Size TT',
                     promo_gift_quantity: Number(item.promo_gift_quantity) || 0,
                     promo_gift_code: item.promo_gift_code || null,
-                    promo_gift_apply_row_index: item.promo_gift_apply_row_index !== null && item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null
+                    promo_gift_apply_row_index: item.promo_gift_apply_row_index !== null && item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null,
+                    mockup_image: item.mockup_image || null,
+                    front_technique_image: item.front_technique_image || null,
+                    back_technique_image: item.back_technique_image || null,
+                    workshop_note: item.workshop_note || null,
+                    style_name: item.style_name || null,
+                    print_details: typeof item.print_details === 'string' ? item.print_details : JSON.stringify(item.print_details || []),
+                    custom_layout: typeof item.custom_layout === 'string' ? item.custom_layout : JSON.stringify(item.custom_layout || {}),
+                    design_pdf_url: item.design_pdf_url || null,
+                    design_pdf_name: item.design_pdf_name || null
                 };
 
                 if (exists) {

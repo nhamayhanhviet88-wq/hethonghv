@@ -6574,9 +6574,57 @@ async function _tpdExportSheetAndOrder() {
     const allValid = _tpdValidateAllSheets();
     if (!allValid) return;
 
-    // Save active sheet changes first
-    const saveSuccess = await _tpdSaveProductionSheet();
-    if (!saveSuccess) return;
+    showToast('⏳ Đang lưu dữ liệu toàn bộ phiếu...', 'info');
+
+    // Save all sheets sequentially to make sure all draft/local-state changes are persisted to DB
+    for (let idx = 0; idx < state.items.length; idx++) {
+        const it = (idx === state.activeItemIndex) ? state.editingItem : _tpdCloneItemState(state.items[idx]);
+        if (!it) continue;
+
+        // Normalize quantities before saving
+        it.quantities = _tpdNormalizeItemQuantities(it);
+
+        const ngucDetail = (it.print_details || []).find(d => d.position === 'Ngực');
+        const lungDetail = (it.print_details || []).find(d => d.position === 'Lưng');
+        const payload = {
+            style_name: it.style_name,
+            material_name: it.material_name,
+            color_name: it.color_name,
+            workshop_note: it.workshop_note,
+            mockup_image: it.mockup_image,
+            print_details: it.print_details || [],
+            front_technique_image: ngucDetail ? ngucDetail.image : null,
+            back_technique_image: lungDetail ? lungDetail.image : null,
+            quantities: it.quantities,
+            size_type: it.size_type || 'Size TT',
+            custom_layout: it.custom_layout || {}
+        };
+
+        try {
+            const res = await apiCall(`/api/dht/orders/${state.orderId}/items/${it.id}/sheet`, 'PUT', payload);
+            if (res.success) {
+                _tpdClearDraft(it);
+            } else {
+                showToast(`⚠️ Không thể lưu Phiếu ${idx + 1}: ${res.error || 'Lỗi hệ thống'}`, 'error');
+                _tpdSwitchItemTab(idx);
+                return;
+            }
+        } catch (err) {
+            showToast(`⚠️ Không thể lưu Phiếu ${idx + 1}: ${err.message}`, 'error');
+            _tpdSwitchItemTab(idx);
+            return;
+        }
+    }
+
+    // Reload details in workspace state to keep in sync with database
+    try {
+        const details = await apiCall(`/api/dht/orders/${state.orderId}/detail?session_id=${_tpdGetSessionId()}`);
+        state.items = details.items || [];
+        state.order = details.order;
+        state.editingItem = _tpdCloneItemState(state.items[state.activeItemIndex]);
+    } catch (err) {
+        console.error('Failed to reload details after saving all sheets:', err);
+    }
 
     // Show export modal and process images
     _tpdShowExportSheetsModal();
