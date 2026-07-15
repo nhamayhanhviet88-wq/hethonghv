@@ -3098,6 +3098,13 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
+    // ========== AUDIT: Fabric Lock Override (GĐ) ==========
+    fastify.post('/api/audit/fabric-override', { preHandler: [authenticate] }, async (request, reply) => {
+        const { item_id, order_code, action } = request.body || {};
+        fastify.log.warn(`[FABRIC-AUDIT] User: ${request.user.full_name} (${request.user.role}) | Action: ${action} | Order: ${order_code} | Item: ${item_id}`);
+        return { success: true };
+    });
+
     // ========== ORDERS: Update Production Sheet per Item (Phiếu Sản Xuất) ==========
     fastify.put('/api/dht/orders/:orderId/items/:itemId/sheet', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.orderId);
@@ -3231,6 +3238,30 @@ module.exports = async function(fastify) {
             }
             sets.push(`print_details = $${idx++}`);
             vals.push(JSON.stringify(processedDetails));
+        }
+        // ★ Fabric Lock Guard — block material/color changes if fabric has been called
+        const FABRIC_LOCKED_FIELDS = ['material_name', 'color_name'];
+        const hasFabricLockedChange = FABRIC_LOCKED_FIELDS.some(f => b[f] !== undefined);
+        if (hasFabricLockedChange) {
+            const fabricCheck = await db.get(`
+                SELECT EXISTS (
+                    SELECT 1 FROM qlx_preparation p 
+                    WHERE (p.dht_order_id = $1 AND p.item_id IS NULL AND (p.fabric_called = true OR p.material_called = true))
+                       OR (p.item_id = $2 AND (p.fabric_called = true OR p.material_called = true))
+                ) AS has_fabric_called
+            `, [orderId, itemId]);
+            if (fabricCheck && fabricCheck.has_fabric_called) {
+                const oldItem = await db.get('SELECT material_name, color_name FROM dht_order_items WHERE id = $1', [itemId]);
+                const matChanged = b.material_name !== undefined && (b.material_name || '') !== (oldItem.material_name || '');
+                const colChanged = b.color_name !== undefined && (b.color_name || '') !== (oldItem.color_name || '');
+                if (matChanged || colChanged) {
+                    if (request.user.role !== 'giam_doc') {
+                        return reply.code(403).send({ error: '🔒 Phiếu đã được xưởng gọi vải — không thể thay đổi Chất liệu / Màu sắc. Liên hệ QLX hoặc Giám Đốc.' });
+                    }
+                    // Director override — log audit
+                    fastify.log.warn(`[FABRIC-OVERRIDE] GĐ ${request.user.full_name} (ID:${request.user.id}) changed material/color on item ${itemId} of order ${orderId}. Old: ${oldItem.material_name}/${oldItem.color_name} → New: ${b.material_name || oldItem.material_name}/${b.color_name || oldItem.color_name}`);
+                }
+            }
         }
         // Update text fields
         if (b.material_name !== undefined) { sets.push(`material_name = $${idx++}`); vals.push(b.material_name || null); }

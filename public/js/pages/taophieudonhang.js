@@ -4434,8 +4434,12 @@ function _tpdRenderFormInputs() {
 
     const disabledAttr = state.hasEditPermission ? '' : 'disabled';
     const isFabricCalled = !!it.has_fabric_called;
-    const fabricDisabledAttr = (isFabricCalled || !state.hasEditPermission) ? 'disabled' : '';
-    const fabricStyle = (isFabricCalled || !state.hasEditPermission) ? 'background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;' : '';
+    const curUser = window.currentUser || window._currentUser || {};
+    const isDirector = curUser.role === 'giam_doc';
+    const fabricOverridden = isFabricCalled && isDirector && window._tpdFabricOverride && window._tpdFabricOverride[it.id];
+    const fabricLocked = isFabricCalled && !fabricOverridden;
+    const fabricDisabledAttr = (fabricLocked || !state.hasEditPermission) ? 'disabled' : '';
+    const fabricStyle = (fabricLocked || !state.hasEditPermission) ? 'background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;' : '';
 
     // Compute defaults for overrides placeholders
     const orderTechNames = _tpdGetSewingTechniqueNames(it.sewing_techniques);
@@ -4446,8 +4450,38 @@ function _tpdRenderFormInputs() {
     const isSourceVip = !!(state.order && ['VT', 'HVVT'].includes(state.order.source));
     const isRedSheet = isSourceVip ? true : ((layout && typeof layout.is_red_sheet === 'boolean') ? layout.is_red_sheet : false);
 
+    // Fabric lock warning banner
+    let fabricWarningHtml = '';
+    if (isFabricCalled) {
+        if (fabricOverridden) {
+            fabricWarningHtml = `
+                <div style="background: linear-gradient(135deg, #fef3c7, #fffbeb); border: 1.5px solid #f59e0b; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px;">⚠️</span>
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; font-weight: 800; color: #b45309;">CHẾ ĐỘ GIÁM ĐỐC — ĐÃ MỞ KHÓA CHỈNH SỬA</div>
+                        <div style="font-size: 11px; color: #92400e; margin-top: 2px;">Phiếu này đã được xưởng gọi vải. Thay đổi sẽ được ghi nhận audit log.</div>
+                    </div>
+                    <button onclick="_tpdRevokeOverride(${it.id})" style="background: #dc2626; color: white; border: none; border-radius: 6px; padding: 4px 10px; font-size: 10px; font-weight: 700; cursor: pointer;">Khóa lại</button>
+                </div>
+            `;
+        } else {
+            fabricWarningHtml = `
+                <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1.5px solid #fca5a5; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px;">🔒</span>
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; font-weight: 800; color: #dc2626;">PHIẾU ĐÃ ĐƯỢC XƯỞNG GỌI VẢI</div>
+                        <div style="font-size: 11px; color: #991b1b; margin-top: 2px;">Không thể chỉnh sửa Chất liệu, Màu sắc. Vui lòng liên hệ QLX nếu cần thay đổi.</div>
+                    </div>
+                    ${isDirector ? `<button onclick="_tpdOverrideFabricLock(${it.id})" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 6px; padding: 5px 12px; font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap;">🔓 Mở khóa (GĐ)</button>` : ''}
+                </div>
+            `;
+        }
+    }
+
     // 1. Text Fields (Sản phẩm, Chất liệu vải, Màu sắc phối)
     let html = `
+        ${fabricWarningHtml}
+
         <div class="tpd-ws-form-group" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
             <input type="checkbox" id="tpdRedSheetCheckbox" ${isRedSheet ? 'checked' : ''} onchange="_tpdChangeLayoutRedSheet(this.checked)" style="width: 18px; height: 18px; cursor: pointer;" ${disabledAttr || isSourceVip ? 'disabled' : ''}>
             <label for="tpdRedSheetCheckbox" style="font-weight: 800; color: #dc2626; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 4px; margin: 0;">
@@ -4462,11 +4496,11 @@ function _tpdRenderFormInputs() {
 
         <div class="tpd-ws-grid-2">
             <div class="tpd-ws-form-group">
-                <label class="tpd-ws-form-label">Chất liệu vải</label>
+                <label class="tpd-ws-form-label">Chất liệu vải ${fabricLocked ? '<span style="color:#dc2626;font-size:10px;">🔒</span>' : ''}</label>
                 <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="Cá sấu, thun cotton..." onchange="_tpdUpdateField('material_name', this.value)" ${fabricDisabledAttr} style="${fabricStyle}">
             </div>
             <div class="tpd-ws-form-group">
-                <label class="tpd-ws-form-label">Màu sắc phối</label>
+                <label class="tpd-ws-form-label">Màu sắc phối ${fabricLocked ? '<span style="color:#dc2626;font-size:10px;">🔒</span>' : ''}</label>
                 <input type="text" class="tpd-ws-input" value="${escapeHTML(_tpdFormatColorName(it.color_name))}" placeholder="Navy phối vàng, đen..." onchange="_tpdUpdateField('color_name', this.value)" ${fabricDisabledAttr} style="${fabricStyle}">
             </div>
         </div>
@@ -5122,6 +5156,27 @@ function _tpdRenderFormInputs() {
     }
 
     container.innerHTML = html;
+}
+
+// ★ Giám Đốc override fabric lock
+function _tpdOverrideFabricLock(itemId) {
+    if (!confirm('⚠️ Phiếu này đã được xưởng gọi vải!\n\nBạn chắc chắn muốn MỞ KHÓA để chỉnh sửa Chất liệu / Màu sắc?\n\nThay đổi sẽ được ghi nhận audit log.')) return;
+    if (!window._tpdFabricOverride) window._tpdFabricOverride = {};
+    window._tpdFabricOverride[itemId] = true;
+    // Audit log
+    try {
+        var state = window._tpdWorkspaceState;
+        var orderCode = state && state.order ? state.order.order_code : '???';
+        apiCall('/api/audit/fabric-override', 'POST', { item_id: itemId, order_code: orderCode, action: 'override' });
+    } catch(e) {}
+    showToast('🔓 Đã mở khóa chỉnh sửa (Giám Đốc override)', 'warning');
+    _tpdRenderFormInputs();
+}
+
+function _tpdRevokeOverride(itemId) {
+    if (window._tpdFabricOverride) delete window._tpdFabricOverride[itemId];
+    showToast('🔒 Đã khóa lại chỉnh sửa Chất liệu / Màu sắc');
+    _tpdRenderFormInputs();
 }
 
 function _tpdUpdateField(field, val) {

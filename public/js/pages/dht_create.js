@@ -1728,9 +1728,13 @@ async function _dhtAddItem(editIdx) {
     window._ppTsamPatterns = _tsamPatRes.patterns || [];
     // Nhắc nhở: moved to order-level form
     var popupTitle = isRestricted ? '🔒 ' + orderCode + ' - Phiếu ' + (idx+1) : '📋 ' + orderCode + ' - Phiếu ' + (idx+1);
+    var fabricWarningBanner = isRestricted 
+        ? '<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔒</span><div><div style="font-size:11px;font-weight:800;color:#dc2626">PHIẾU ĐÃ ĐƯỢC XƯỞNG GỌI VẢI</div><div style="font-size:10px;color:#991b1b;margin-top:1px">Sản phẩm, Chất liệu, Màu sắc, Số lượng, Quy cách đã bị khóa.</div></div></div>'
+        : '';
     var saveBtn = '<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div>';
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:800;font-size:14px;color:'+(isRestricted?'#64748b':'var(--navy)')+'">'+popupTitle+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
+        +fabricWarningBanner
         +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
         +'<div id="_pp_sizeTypeContainer" style="display:none;margin-bottom:8px">'
