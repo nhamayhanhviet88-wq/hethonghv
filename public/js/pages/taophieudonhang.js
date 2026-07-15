@@ -6494,15 +6494,30 @@ async function _tpdShowExportSheetsModal() {
 
     window._tpdCopiedConfirmationText = localStorage.getItem(`tpd_copied_conf_${o.id}`) === 'true';
     window._tpdCopiedFinancialSummaryText = localStorage.getItem(`tpd_copied_fin_${o.id}`) === 'true';
-    window._tpdLogoApprovedUrl = localStorage.getItem(`tpd_logo_proof_${o.id}`) || '';
-    window._tpdChatConfirmedUrl = localStorage.getItem(`tpd_chat_proof_${o.id}`) || '';
+    window._tpdLogoApprovedUrl = localStorage.getItem(`tpd_logo_proof_${o.id}`) || o.logo_approved_image || '';
+    window._tpdChatConfirmedUrl = localStorage.getItem(`tpd_chat_proof_${o.id}`) || o.chat_confirmed_image || '';
     window._tpdActivePasteZone = '';
     window._tpdSheetDesigns = {};
     for (const item of items) {
-        window._tpdSheetDesigns[item.id] = {
-            url: localStorage.getItem(`tpd_pdf_url_${item.id}`) || '',
-            filename: localStorage.getItem(`tpd_pdf_filename_${item.id}`) || ''
-        };
+        const localUrl = localStorage.getItem(`tpd_pdf_url_${item.id}`) || '';
+        const localFilename = localStorage.getItem(`tpd_pdf_filename_${item.id}`) || '';
+        if (localUrl) {
+            window._tpdSheetDesigns[item.id] = {
+                url: localUrl,
+                filename: localFilename || localUrl.substring(localUrl.lastIndexOf('/') + 1)
+            };
+        } else if (item.design_pdf_url) {
+            const dbUrl = item.design_pdf_url;
+            window._tpdSheetDesigns[item.id] = {
+                url: dbUrl,
+                filename: dbUrl.substring(dbUrl.lastIndexOf('/') + 1) || `design_${item.id}.pdf`
+            };
+        } else {
+            window._tpdSheetDesigns[item.id] = {
+                url: '',
+                filename: ''
+            };
+        }
     }
 
     // Create the overlay container if not exists
@@ -6587,7 +6602,7 @@ async function _tpdShowExportSheetsModal() {
                                     <div id="pdfPreviewContainer_${item.id}" style="${design.url ? 'display: flex;' : 'display: none;'} width: 100%; align-items: center; justify-content: space-between; gap: 8px;">
                                         <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 24px);">
                                             <span style="font-size: 16px;">📄</span>
-                                            <span id="pdfFileName_${item.id}" style="font-size: 11px; font-weight: 700; color: #065f46; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(design.filename)}">${escapeHTML(design.filename)}</span>
+                                            <a href="${design.url}" target="_blank" onclick="event.stopPropagation()" id="pdfFileName_${item.id}" style="font-size: 11px; font-weight: 700; color: #0284c7; text-decoration: underline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(design.filename)}">${escapeHTML(design.filename)}</a>
                                         </div>
                                         <button onclick="_tpdRemovePdfFile(${item.id}, event)" style="background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">&times;</button>
                                     </div>
