@@ -3386,7 +3386,7 @@ module.exports = async function(fastify) {
             return { success: true, message: 'Đơn hàng đã được lên đơn chính thức' };
         }
 
-        const { logo_approved_image, chat_confirmed_image, item_designs } = request.body || {};
+        const { logo_approved_image, chat_confirmed_image, item_designs, recipient_email, sheet_images } = request.body || {};
         if (!logo_approved_image || !logo_approved_image.trim()) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh xác nhận duyệt logo của khách!' });
         }
@@ -3433,16 +3433,18 @@ module.exports = async function(fastify) {
         }
 
         // Start transaction or sequential db operations
+        const recipientEmailStr = (recipient_email || '').trim();
         await db.run(
             `UPDATE dht_orders 
              SET is_draft = FALSE, 
                  official_save_clicked = TRUE, 
                  logo_approved_image = $1, 
                  chat_confirmed_image = $2, 
+                 design_email_recipient = $3,
                  last_updated_at = NOW(), 
-                 last_updated_by = $3 
-             WHERE id = $4`,
-            [logo_approved_image.trim(), chat_confirmed_image.trim(), request.user.id, orderId]
+                 last_updated_by = $4 
+             WHERE id = $5`,
+            [logo_approved_image.trim(), chat_confirmed_image.trim(), recipientEmailStr || null, request.user.id, orderId]
         );
 
         for (const item of orderItems) {
@@ -3494,6 +3496,39 @@ module.exports = async function(fastify) {
                         depositPrId
                     ]);
                 }
+            }
+        }
+
+        // Save sheet images to disk & trigger sendDesignEmail
+        const savedSheetPaths = [];
+        if (Array.isArray(sheet_images) && sheet_images.length > 0) {
+            const uploadsDir = path.join(__dirname, '..', 'uploads', 'sheets');
+            if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+            
+            sheet_images.forEach((base64Str, idx) => {
+                if (base64Str && base64Str.startsWith('data:image')) {
+                    const matches = base64Str.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+                    if (matches && matches.length === 3) {
+                        const ext = matches[1].split('/')[1] || 'jpeg';
+                        const buffer = Buffer.from(matches[2], 'base64');
+                        const filename = `${order.order_code || 'order'}_sheet_${idx + 1}.${ext}`;
+                        const filepath = path.join(uploadsDir, filename);
+                        fs.writeFileSync(filepath, buffer);
+                        savedSheetPaths.push({
+                            path: filepath,
+                            filename: filename
+                        });
+                    }
+                }
+            });
+        }
+
+        if (recipientEmailStr && savedSheetPaths.length > 0) {
+            // Await email dispatch or let it run in background to keep UI snappy (but since it updates order status, await is fine)
+            try {
+                await sendDesignEmail(orderId, recipientEmailStr, savedSheetPaths);
+            } catch (emailErr) {
+                console.error('[ConfirmExport] sendDesignEmail failed:', emailErr);
             }
         }
 
@@ -6115,6 +6150,63 @@ module.exports = async function(fastify) {
             [JSON.stringify(cleaned)]
         );
         return { success: true };
+    });
+
+    // GET /api/dht/config/design-email-recipient
+    fastify.get('/api/dht/config/design-email-recipient', { preHandler: [authenticate] }, async (request, reply) => {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'dht_default_design_email_recipient'");
+        return { email: row ? row.value : '' };
+    });
+
+    // PUT /api/dht/config/design-email-recipient
+    fastify.put('/api/dht/config/design-email-recipient', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { email } = request.body || {};
+        const cleaned = (email || '').trim();
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_default_design_email_recipient', $1, NOW()) 
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [cleaned]
+        );
+        return { success: true };
+    });
+
+    // POST /api/dht/orders/:id/resend-design-email
+    fastify.post('/api/dht/orders/:id/resend-design-email', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        const order = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+        
+        const recipientEmail = (order.design_email_recipient || '').trim();
+        if (!recipientEmail) {
+            return reply.code(400).send({ error: 'Đơn hàng này chưa có cấu hình email nhận thiết kế!' });
+        }
+
+        const fs = require('fs');
+        const path = require('path');
+        const uploadsDir = path.join(__dirname, '..', 'uploads', 'sheets');
+        const items = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        const savedSheetPaths = [];
+        items.forEach((item, idx) => {
+            const filename = `${order.order_code || 'order'}_sheet_${idx + 1}.jpeg`;
+            const filepath = path.join(uploadsDir, filename);
+            if (fs.existsSync(filepath)) {
+                savedSheetPaths.push({
+                    path: filepath,
+                    filename: filename
+                });
+            }
+        });
+
+        try {
+            await sendDesignEmail(orderId, recipientEmail, savedSheetPaths);
+            const updated = await db.get('SELECT design_email_status, design_email_error FROM dht_orders WHERE id = $1', [orderId]);
+            if (updated.design_email_status === 'failed') {
+                return reply.code(400).send({ error: updated.design_email_error || 'Gửi email thất bại' });
+            }
+            return { success: true };
+        } catch (err) {
+            return reply.code(500).send({ error: err.message });
+        }
     });
 
     async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths) {

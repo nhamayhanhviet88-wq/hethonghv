@@ -40,6 +40,9 @@ async function renderTaophieudonhangPage(content) {
     _tpdInjectStyles();
 
     // Set page skeleton
+    const curUser = window.currentUser || window._currentUser;
+    const showSettingsBtn = curUser && curUser.role === 'giam_doc';
+
     content.innerHTML = `
         <div class="tpd-page-container">
             <!-- Header Filter Section -->
@@ -52,7 +55,12 @@ async function renderTaophieudonhangPage(content) {
                             <p class="tpd-subtitle-text">Quản lý kỹ thuật đơn hàng, in phiếu sản xuất và cập nhật khâu sản xuất</p>
                         </div>
                     </div>
-                    <div class="tpd-actions">
+                    <div class="tpd-actions" style="display: flex; gap: 10px; align-items: center;">
+                        ${showSettingsBtn ? `
+                            <button class="tpd-btn" style="background: linear-gradient(135deg, #4f46e5, #3b82f6); color: white; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);" onclick="_tpdOpenEmailSettingsModal()">
+                                ⚙️ Cài đặt Email Xưởng
+                            </button>
+                        ` : ''}
                         <button class="tpd-btn tpd-btn-scanner" onclick="_tpdStartQRScan()">
                             <span class="btn-icon">📷</span> Quét QR Sản Xuất
                         </button>
@@ -8845,5 +8853,101 @@ async function _tpdSaveSewingTechsConfig() {
         showToast('Không thể kết nối đến máy chủ', 'danger');
     }
 }
+
+window._tpdOpenEmailSettingsModal = async function() {
+    // 1. Fetch current config
+    let currentEmail = '';
+    try {
+        const res = await apiCall('/api/dht/config/design-email-recipient');
+        if (res && res.email) {
+            currentEmail = res.email;
+        }
+    } catch (e) {
+        console.error('Failed to fetch default design email:', e);
+    }
+
+    // 2. Create modal overlay
+    let overlay = document.getElementById('tpdEmailSettingsOverlay');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.id = 'tpdEmailSettingsOverlay';
+    overlay.style.position = 'fixed';
+    overlay.style.left = '0';
+    overlay.style.top = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.7)';
+    overlay.style.backdropFilter = 'blur(8px)';
+    overlay.style.display = 'flex';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    overlay.style.zIndex = '999999';
+    overlay.style.fontFamily = "'Inter', system-ui, sans-serif";
+
+    overlay.innerHTML = `
+        <div style="background: #ffffff; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 500px; max-width: 90%; display: flex; flex-direction: column; overflow: hidden; animation: tpdFadeIn 0.3s ease;">
+            <!-- Header -->
+            <div style="padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; background: #122546; color: white;">
+                <h3 style="margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">⚙️ Cấu hình Email Nhận Đơn Toàn Hệ Thống</h3>
+                <button onclick="document.getElementById('tpdEmailSettingsOverlay').remove()" style="background: none; border: none; color: #ffffff; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+            <!-- Body -->
+            <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <div style="font-size: 13px; color: #475569; line-height: 1.6;">
+                    Là Giám Đốc, anh có thể thiết lập **Email nhận file thiết kế và phiếu sản xuất mặc định** cho toàn bộ nhân viên Sale và Kinh doanh khi họ lên đơn.
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">Gmail nhận mặc định:</label>
+                    <input type="email" id="tpdGlobalEmailInput" value="${escapeHTML(currentEmail)}" placeholder="Nhập địa chỉ email (VD: xuongmay@gmail.com)" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
+                </div>
+                <div style="font-size: 11px; color: #dc2626; font-weight: 600; line-height: 1.4;">
+                    * Lưu ý: Khi thiết lập ở đây, tất cả nhân viên kinh doanh khi xuất phiếu lên đơn sẽ tự động có email này làm mặc định nhận đơn.
+                </div>
+            </div>
+            <!-- Footer -->
+            <div style="padding: 16px 24px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc;">
+                <button onclick="document.getElementById('tpdEmailSettingsOverlay').remove()" style="border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #475569; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+                    Hủy bỏ
+                </button>
+                <button id="tpdSaveGlobalEmailBtn" style="border: none; border-radius: 8px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 8px 24px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);" onclick="_tpdSaveGlobalEmail()">
+                    Lưu cấu hình
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+};
+
+window._tpdSaveGlobalEmail = async function() {
+    const input = document.getElementById('tpdGlobalEmailInput');
+    const btn = document.getElementById('tpdSaveGlobalEmailBtn');
+    if (!input || !btn) return;
+    
+    const email = input.value.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast('⚠️ Địa chỉ email không hợp lệ!', 'error');
+        return;
+    }
+
+    try {
+        btn.disabled = true;
+        btn.innerHTML = 'Đang lưu...';
+        const res = await apiCall('/api/dht/config/design-email-recipient', 'PUT', { email });
+        if (res && res.success) {
+            showToast('🎉 Lưu cấu hình email nhận thành công!', 'success');
+            document.getElementById('tpdEmailSettingsOverlay').remove();
+        } else {
+            showToast('⚠️ Lỗi: ' + (res.error || 'Không thể lưu'), 'error');
+            btn.disabled = false;
+            btn.innerHTML = 'Lưu cấu hình';
+        }
+    } catch (e) {
+        showToast('⚠️ Lỗi kết nối: ' + e.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = 'Lưu cấu hình';
+    }
+};
 
 
