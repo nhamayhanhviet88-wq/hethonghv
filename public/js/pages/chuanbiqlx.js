@@ -519,7 +519,8 @@ function _qlxRenderRows(paged) {
         var updateStr = '';
         if (o.last_update_at) { updateStr = _qlxFmtDate(o.last_update_at); if (o.last_update_by) updateStr += '<br><span style="color:#0369a1;font-size:9px">' + o.last_update_by + '</span>'; }
 
-        var h = '<tr style="' + (o.is_draft ? 'opacity:0.5; pointer-events:none;' : '') + bg + '">';
+        var isLocked = o.is_draft || o.is_locked_active;
+        var h = '<tr style="' + (isLocked ? 'opacity:0.5; pointer-events:none;' : '') + bg + '">';
         
         // Column 1: STT
         if (isNew) {
@@ -529,9 +530,10 @@ function _qlxRenderRows(paged) {
         }
 
         // Columns 2 to 5 (Preparation & Assignments)
-        if (o.is_draft) {
+        if (isLocked) {
             if (isNew) {
-                h += '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:dhtBlink 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
+                var lockText = o.is_draft ? '⚠️ Đơn đang sửa, chờ cập nhật' : ('⚠️ Đơn đang mở sửa bởi ' + (o.locked_by_name || 'người khác'));
+                h += '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:dhtBlink 1s infinite">' + lockText + '</span></td>';
             } else {
                 h += '<td colspan="4"></td>';
             }

@@ -1129,6 +1129,7 @@ module.exports = async function(fastify) {
                 o.category_id, c.name AS category_name,
                 COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
                 COALESCE(o.is_draft, false) AS is_draft,
+                o.is_locked, o.locked_by, o.locked_at, u_locked.full_name AS locked_by_name,
                 COALESCE(p.qlx_reviewed, false) AS qlx_reviewed,
                 COALESCE(p.qlx_received_phieu, false) AS qlx_received_phieu,
                 u_cskh.full_name AS cskh_name,
@@ -1182,6 +1183,7 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
+            LEFT JOIN users u_locked ON o.locked_by = u_locked.id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
             -- Assignments join
             LEFT JOIN qlx_assignments qa_cat ON qa_cat.dht_order_id = o.id AND qa_cat.assignment_type = 'cat' AND qa_cat.item_id IS NULL
@@ -1203,6 +1205,20 @@ module.exports = async function(fastify) {
             ${where}
             ORDER BY o.shipping_date ASC NULLS LAST, o.order_date DESC, o.id DESC
         `, params);
+
+        const TIMEOUT_MINUTES = 10;
+        const nowLockCheck = new Date();
+        for (const o of orders) {
+            let isActiveLocked = false;
+            if (o.is_locked && o.locked_at) {
+                const lockedAt = new Date(o.locked_at);
+                const diffMinutes = (nowLockCheck - lockedAt) / (1000 * 60);
+                if (diffMinutes < TIMEOUT_MINUTES) {
+                    isActiveLocked = true;
+                }
+            }
+            o.is_locked_active = isActiveLocked;
+        }
 
         // Fetch items for each order (for phối breakdown)
         const orderIds = orders.map(o => o.id);
