@@ -6310,10 +6310,13 @@ module.exports = async function(fastify) {
                 const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
                 const dayName = days[dt.getDay()];
                 shipDateFormatted = `${dayName} - Ngày ${dt.getDate()}/${dt.getMonth() + 1}`;
+                if (priority === 'CHUẨN' && order.standard_delivery_time) {
+                    shipDateFormatted += ` lúc ${order.standard_delivery_time}`;
+                }
             } catch(e) {}
         }
 
-        const subject = `${orderCode} - ${customerName} - ${totalQty} áo - Sale: ${cskhName} - Thiết kế: ${designerName} - 🏷️ TC Gửi: ${priority} - 📅 Ngày gửi: ${shipDateFormatted}`;
+        const subject = `${orderCode} - KH : ${customerName} - ${totalQty} áo - ${cskhName} - Thiết kế: ${designerName} - ${priority} - ${shipDateFormatted}`;
 
         // 6. Gather attachments & URLs
         const attachments = [];
