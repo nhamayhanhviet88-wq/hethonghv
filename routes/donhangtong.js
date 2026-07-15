@@ -3396,8 +3396,16 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thiếu file PDF thiết kế bắt buộc cho từng phiếu!' });
         }
         for (const item of orderItems) {
-            const pdfUrl = item_designs[item.id];
-            if (!pdfUrl || !pdfUrl.trim()) {
+            const designVal = item_designs[item.id];
+            let urlStr = '';
+            if (designVal) {
+                if (typeof designVal === 'object') {
+                    urlStr = designVal.url || '';
+                } else {
+                    urlStr = designVal || '';
+                }
+            }
+            if (!urlStr || !urlStr.trim()) {
                 return reply.code(400).send({ error: `Vui lòng tải lên file PDF thiết kế cho [${item.product_name || 'Phiếu'}]!` });
             }
         }
