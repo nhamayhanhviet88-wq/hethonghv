@@ -2670,10 +2670,9 @@ module.exports = async function(fastify) {
                    
                    -- Check fabric called status
                    EXISTS (
-                       SELECT 1 FROM qlx_preparation p 
-                       WHERE (p.dht_order_id = i.dht_order_id AND p.item_id IS NULL AND (p.fabric_called = true OR p.material_called = true))
-                          OR (p.item_id = i.id AND (p.fabric_called = true OR p.material_called = true))
-                   ) AS has_fabric_called,
+                        SELECT 1 FROM qlx_preparation p 
+                        WHERE p.item_id = i.id AND (p.fabric_called = true OR p.material_called = true)
+                    ) AS has_fabric_called,
 
                    -- Check print assignment status
                    EXISTS (
@@ -3251,8 +3250,7 @@ module.exports = async function(fastify) {
             const fabricCheck = await db.get(`
                 SELECT EXISTS (
                     SELECT 1 FROM qlx_preparation p 
-                    WHERE (p.dht_order_id = $1 AND p.item_id IS NULL AND (p.fabric_called = true OR p.material_called = true))
-                       OR (p.item_id = $2 AND (p.fabric_called = true OR p.material_called = true))
+                    WHERE p.item_id = $2 AND (p.fabric_called = true OR p.material_called = true)
                 ) AS has_fabric_called
             `, [orderId, itemId]);
             if (fabricCheck && fabricCheck.has_fabric_called) {
@@ -4950,10 +4948,9 @@ module.exports = async function(fastify) {
             const oldItems = await db.all(`
                 SELECT i.id, i.product_name, i.pattern_name, i.material_id, i.color_id, i.quantity, i.unit_price, i.quantities, i.sewing_techniques, i.extra_materials, i.material_pairs,
                        EXISTS (
-                           SELECT 1 FROM qlx_preparation p 
-                           WHERE (p.dht_order_id = i.dht_order_id AND p.item_id IS NULL AND (p.fabric_called = true OR p.material_called = true))
-                              OR (p.item_id = i.id AND (p.fabric_called = true OR p.material_called = true))
-                       ) AS has_fabric_called
+                        SELECT 1 FROM qlx_preparation p 
+                        WHERE p.item_id = i.id AND (p.fabric_called = true OR p.material_called = true)
+                    ) AS has_fabric_called
                 FROM dht_order_items i 
                 WHERE i.dht_order_id = $1
             `, [orderId]);

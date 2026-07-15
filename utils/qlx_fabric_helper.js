@@ -122,6 +122,9 @@ async function recalculateOrderFabricStatus(orderId) {
             } catch(e) {}
             if (!Array.isArray(pairs)) pairs = [];
 
+            let itemFabricArrived = false;
+            let itemFabricCalled = false;
+
             if (pairs.length === 0) {
                 totalPhois++;
                 const itemCuts = cuttingRows.filter(c => c.order_item_id === it.id);
@@ -129,20 +132,31 @@ async function recalculateOrderFabricStatus(orderId) {
                 if (isCutOrCutting) {
                     arrivedPhois++;
                     calledPhois++;
+                    itemFabricArrived = true;
+                    itemFabricCalled = true;
                 } else {
                     const key = `${it.id}_0`;
                     const pfs = phoiFabStatus[key];
                     if (pfs && pfs.pending === 0 && pfs.arrived > 0) {
                         arrivedPhois++;
                         calledPhois++;
+                        itemFabricArrived = true;
+                        itemFabricCalled = true;
                     } else if (pfs && pfs.total > 0) {
                         calledPhois++;
+                        itemFabricCalled = true;
                     } else if (it.material_called || it.material_arrived) {
                         calledPhois++;
-                        if (it.material_arrived) arrivedPhois++;
+                        itemFabricCalled = true;
+                        if (it.material_arrived) {
+                            arrivedPhois++;
+                            itemFabricArrived = true;
+                        }
                     }
                 }
             } else {
+                let itemArrivedPhoisCount = 0;
+                let itemCalledPhoisCount = 0;
                 pairs.forEach((p, pIdx) => {
                     totalPhois++;
                     const pMat = (p.material_name || '').trim().toLowerCase();
@@ -159,18 +173,36 @@ async function recalculateOrderFabricStatus(orderId) {
                     if (isMatchCutOrCutting) {
                         arrivedPhois++;
                         calledPhois++;
+                        itemArrivedPhoisCount++;
+                        itemCalledPhoisCount++;
                     } else {
                         const key = `${it.id}_${pIdx}`;
                         const pfs = phoiFabStatus[key];
                         if (pfs && pfs.pending === 0 && pfs.arrived > 0) {
                             arrivedPhois++;
                             calledPhois++;
+                            itemArrivedPhoisCount++;
+                            itemCalledPhoisCount++;
                         } else if (pfs && pfs.total > 0) {
                             calledPhois++;
+                            itemCalledPhoisCount++;
                         }
                     }
                 });
+                itemFabricCalled = (itemCalledPhoisCount > 0);
+                itemFabricArrived = (itemArrivedPhoisCount === pairs.length);
             }
+
+            // Ensure the item-level row exists or update it
+            await db.run(`
+                INSERT INTO qlx_preparation (dht_order_id, item_id, fabric_called, fabric_arrived, updated_at)
+                VALUES ($1, $2, $3, $4, NOW())
+                ON CONFLICT (item_id)
+                DO UPDATE SET 
+                    fabric_called = EXCLUDED.fabric_called, 
+                    fabric_arrived = EXCLUDED.fabric_arrived, 
+                    updated_at = EXCLUDED.updated_at
+            `, [orderId, it.id, itemFabricCalled, itemFabricArrived]);
         }
 
         let fabricArrived = false;
