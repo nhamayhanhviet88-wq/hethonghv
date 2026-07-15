@@ -8299,7 +8299,7 @@ function _tpdFormatColorName(color) {
 
 function _tpdSortBySewingGroup(arr, getTechFn) {
     if (!arr || arr.length <= 1) return arr;
-    const priority = ['NHÓM NẸP', 'Nhóm Cổ', 'Nhóm Bo / Tay', 'Khác'];
+    const priority = ['Nhóm Cổ', 'Nhóm Bo / Tay', 'NHÓM NẸP', 'Khác'];
     const normPriority = priority.map(p => _tpdNormalizeText(p));
     
     return arr.sort((a, b) => {
