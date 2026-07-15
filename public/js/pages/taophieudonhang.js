@@ -3456,12 +3456,6 @@ function _tpdRenderWorkspace(container) {
                             ✏️ Sửa Thông Tin Đơn (Giá/Cọc)
                         </button>
                     ` : ''}
-                    <button class="tpd-btn tpd-btn-print" onclick="_tpdPrintSingleSheet()">
-                        🖨️ In Phiếu Này (A4)
-                    </button>
-                    <button class="tpd-btn tpd-btn-scanner" onclick="_tpdPrintAllSheets()">
-                        🖨️ In Tất Cả (${items.length} Phiếu)
-                    </button>
                     <button class="tpd-btn tpd-btn-secondary" onclick="navigate('taophieudonhang')">
                         ✕ Đóng Workspace
                     </button>
