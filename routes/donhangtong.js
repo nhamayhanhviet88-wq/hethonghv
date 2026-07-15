@@ -7935,8 +7935,9 @@ module.exports = async function(fastify) {
                 user: senderEmail,
                 pass: decryptedPassword
             },
-            connectionTimeout: 10000, // 10s timeout to prevent hanging connections
-            socketTimeout: 10000       // 10s socket timeout
+            connectionTimeout: 60000, // 60s timeout to allow large attachment upload
+            socketTimeout: 60000,     // 60s socket timeout
+            greetingTimeout: 30000    // 30s greeting timeout
         });
 
         try {
