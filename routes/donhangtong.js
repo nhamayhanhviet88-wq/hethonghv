@@ -6356,6 +6356,156 @@ module.exports = async function(fastify) {
         }
     }
 
+    function getOrderStateSnapshot(order, items) {
+        return {
+            expected_ship_date: order.expected_ship_date || null,
+            standard_delivery_time: order.standard_delivery_time || null,
+            notes: order.notes || null,
+            items: items.map(it => {
+                let qtyArr = [];
+                try {
+                    qtyArr = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities || []);
+                } catch(e) {}
+                let layout = {};
+                try {
+                    layout = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
+                } catch(e) {}
+                return {
+                    id: it.id,
+                    product_name: it.product_name || null,
+                    quantity: Number(it.quantity) || 0,
+                    material_name: it.material_name || null,
+                    color_name: it.color_name || null,
+                    sewing_techniques: it.sewing_techniques || null,
+                    quantities: qtyArr,
+                    custom_layout: layout
+                };
+            })
+        };
+    }
+
+    function diffOrderStates(oldState, newState) {
+        const diffs = [];
+        if (!oldState || !newState) return diffs;
+        
+        // Compare order level fields
+        if (oldState.expected_ship_date !== newState.expected_ship_date) {
+            diffs.push(`- Ngày hẹn trả: [${oldState.expected_ship_date || 'Chưa có'}] ➔ [${newState.expected_ship_date || 'Chưa có'}]`);
+        }
+        if (oldState.standard_delivery_time !== newState.standard_delivery_time) {
+            diffs.push(`- Giờ hẹn trả: [${oldState.standard_delivery_time || 'Chưa có'}] ➔ [${newState.standard_delivery_time || 'Chưa có'}]`);
+        }
+        if (oldState.notes !== newState.notes) {
+            diffs.push(`- Ghi chú đơn: [${oldState.notes || 'Trống'}] ➔ [${newState.notes || 'Trống'}]`);
+        }
+        
+        // Compare items (sheets)
+        const oldItemsMap = new Map(oldState.items.map(it => [it.id, it]));
+        const newItemsMap = new Map(newState.items.map(it => [it.id, it]));
+        
+        // Check deleted items
+        oldState.items.forEach(oldIt => {
+            if (!newItemsMap.has(oldIt.id)) {
+                diffs.push(`- XÓA PHIẾU: [${oldIt.product_name || 'Đồng phục'}] (SL: ${oldIt.quantity})`);
+            }
+        });
+        
+        // Check added or updated items
+        newState.items.forEach((newIt, idx) => {
+            const oldIt = oldItemsMap.get(newIt.id);
+            const prefix = `Phiếu ${idx + 1} (${newIt.product_name || 'Đồng phục'})`;
+            
+            if (!oldIt) {
+                diffs.push(`- THÊM MỚI PHIẾU: [${newIt.product_name || 'Đồng phục'}] (SL: ${newIt.quantity})`);
+                return;
+            }
+            
+            // Product name changed
+            if (oldIt.product_name !== newIt.product_name) {
+                diffs.push(`- ${prefix} (Tên sản phẩm): [${oldIt.product_name || 'Đồng phục'}] ➔ [${newIt.product_name || 'Đồng phục'}]`);
+            }
+            
+            // Quantity changed
+            if (oldIt.quantity !== newIt.quantity) {
+                diffs.push(`- ${prefix} (Số lượng): [${oldIt.quantity}] ➔ [${newIt.quantity}]`);
+            }
+            
+            // Material changed
+            if (oldIt.material_name !== newIt.material_name || oldIt.color_name !== newIt.color_name) {
+                const oldMat = `${oldIt.material_name || 'Trống'} - ${oldIt.color_name || 'Trống'}`;
+                const newMat = `${newIt.material_name || 'Trống'} - ${newIt.color_name || 'Trống'}`;
+                if (oldMat !== newMat) {
+                    diffs.push(`- ${prefix} (Chất vải/màu): [${oldMat}] ➔ [${newMat}]`);
+                }
+            }
+            
+            // Sewing techniques changed
+            if (JSON.stringify(oldIt.sewing_techniques) !== JSON.stringify(newIt.sewing_techniques)) {
+                const getTechListStr = (field) => {
+                    if (!field) return 'Trống';
+                    try {
+                        const arr = typeof field === 'string' ? JSON.parse(field) : field;
+                        if (Array.isArray(arr)) {
+                            return arr.map(x => (x && typeof x === 'object') ? (x.name || x.tech || '') : String(x)).filter(Boolean).join(', ') || 'Trống';
+                        }
+                    } catch(e) {}
+                    return String(field);
+                };
+                const oldTechs = getTechListStr(oldIt.sewing_techniques);
+                const newTechs = getTechListStr(newIt.sewing_techniques);
+                if (oldTechs !== newTechs) {
+                    diffs.push(`- ${prefix} (Kỹ thuật may): [${oldTechs}] ➔ [${newTechs}]`);
+                }
+            }
+            
+            // Size allocation changed
+            const formatQuantities = (qtyArr) => {
+                if (!Array.isArray(qtyArr)) return '';
+                const activeQty = qtyArr.filter(q => q && Number(q.qty) > 0);
+                if (activeQty.length === 0) return 'Chưa nhập';
+                const sorted = [...activeQty].sort((a, b) => String(a.size).localeCompare(String(b.size)));
+                return sorted.map(q => `${q.size}: ${q.qty}`).join(', ');
+            };
+            
+            const oldSizesStr = formatQuantities(oldIt.quantities);
+            const newSizesStr = formatQuantities(newIt.quantities);
+            if (oldSizesStr !== newSizesStr) {
+                diffs.push(`- ${prefix} (Báo size): [${oldSizesStr}] ➔ [${newSizesStr}]`);
+            }
+            
+            // Print details changed
+            const getPrintDetailsStr = (layout) => {
+                if (!layout) return 'Không có in/thêu';
+                const details = layout.print_details || [];
+                if (details.length === 0) return 'Không có in/thêu';
+                return details.map(d => {
+                    if (!d || !d.position) return '';
+                    const isPrint3D = d.print_type === 'In 3D' || (d.position && d.position.toLowerCase().includes('in 3d'));
+                    const printType = isPrint3D ? 'In 3D' : (d.print_type || '').trim();
+                    const dim = (d.width || d.height || d.dimension) ? ` (${d.width || ''}x${d.height || ''}${d.dimension || ''})` : '';
+                    return `${d.position}: ${printType}${dim}`;
+                }).filter(Boolean).join(', ') || 'Không có in/thêu';
+            };
+            const oldPrint = getPrintDetailsStr(oldIt.custom_layout);
+            const newPrint = getPrintDetailsStr(newIt.custom_layout);
+            if (oldPrint !== newPrint) {
+                diffs.push(`- ${prefix} (Chi tiết in/thêu): [${oldPrint}] ➔ [${newPrint}]`);
+            }
+        });
+        
+        return diffs;
+    }
+
+    function escapeHTML(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths, preAllocatedTargetTime) {
         const nodemailer = require('nodemailer');
         const { decrypt } = require('../services/emailChecker');
@@ -6433,6 +6583,23 @@ module.exports = async function(fastify) {
 
         // 3. Fetch items, surcharges, and payments
         const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        
+        let oldState = null;
+        if (order.last_sent_order_state) {
+            try {
+                oldState = JSON.parse(order.last_sent_order_state);
+            } catch(e) {}
+        }
+        const newState = getOrderStateSnapshot(order, items);
+        let diffs = [];
+        let editCount = Number(order.edit_count) || 0;
+        if (oldState) {
+            diffs = diffOrderStates(oldState, newState);
+            if (diffs.length > 0) {
+                editCount += 1;
+            }
+        }
+
         let surcharges = [];
         try {
             surcharges = typeof order.surcharges === 'string' ? JSON.parse(order.surcharges) : (order.surcharges || []);
@@ -6730,13 +6897,15 @@ module.exports = async function(fastify) {
             } catch(e) {}
         }
 
-        const generatedSubject = `${orderCode} - KH : ${customerName} - ${totalQty} áo - ${cskhName} - Thiết kế: ${designerName} - ${priority} - ${shipDateFormatted}`;
+        let generatedSubject = `${orderCode} - KH : ${customerName} - ${totalQty} áo - ${cskhName} - Thiết kế: ${designerName} - ${priority} - ${shipDateFormatted}`;
+        if (editCount > 0) {
+            generatedSubject += ` - SỬA LẦN ${editCount}`;
+        }
         let subject = generatedSubject;
         let mailHeaders = {};
 
         if (order.design_email_message_id) {
-            const originalSubject = order.design_email_subject || generatedSubject;
-            subject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`;
+            subject = `Re: ${generatedSubject}`;
             mailHeaders = {
                 'In-Reply-To': order.design_email_message_id,
                 'References': order.design_email_message_id
@@ -6751,11 +6920,28 @@ module.exports = async function(fastify) {
         // Add sheet images as attachments
         savedSheetPaths.forEach(sheet => {
             if (fs.existsSync(sheet.path)) {
-                const stats = fs.statSync(sheet.path);
+                let filename = sheet.filename;
+                let finalPath = sheet.path;
+                if (editCount > 0) {
+                    const ext = path.extname(filename);
+                    const base = path.basename(filename, ext);
+                    if (!base.includes(' - Sua lan ')) {
+                        filename = `${base} - Sua lan ${editCount}${ext}`;
+                        finalPath = path.join(path.dirname(sheet.path), filename);
+                        try {
+                            fs.copyFileSync(sheet.path, finalPath);
+                        } catch(copyErr) {
+                            console.error('Failed to copy sheet image for edit suffix:', copyErr);
+                            finalPath = sheet.path; // fallback
+                        }
+                    }
+                }
+
+                const stats = fs.statSync(finalPath);
                 totalAttachmentSize += stats.size;
                 attachments.push({
-                    filename: sheet.filename,
-                    path: sheet.path
+                    filename: filename,
+                    path: finalPath
                 });
             }
         });
@@ -6769,7 +6955,14 @@ module.exports = async function(fastify) {
                 if (fs.existsSync(pdfFullPath)) {
                     const stats = fs.statSync(pdfFullPath);
                     const size = stats.size;
-                    const cleanName = item.design_pdf_name || `${orderCode} - Phieu ${idx + 1}.pdf`;
+                    let cleanName = item.design_pdf_name || `${orderCode} - Phieu ${idx + 1}.pdf`;
+                    if (editCount > 0) {
+                        const ext = path.extname(cleanName);
+                        const base = path.basename(cleanName, ext);
+                        if (!base.includes(' - Sua lan ')) {
+                            cleanName = `${base} - Sua lan ${editCount}${ext}`;
+                        }
+                    }
                     
                     if (totalAttachmentSize + size < 20 * 1024 * 1024) {
                         totalAttachmentSize += size;
@@ -6787,8 +6980,12 @@ module.exports = async function(fastify) {
                     }
                 } else {
                     const domain = process.env.BASE_URL || 'https://hethonghv.top';
+                    let fallbackName = `${orderCode} - Phieu ${idx + 1}.pdf (Link dự phòng)`;
+                    if (editCount > 0) {
+                        fallbackName = `${orderCode} - Phieu ${idx + 1} - Sua lan ${editCount}.pdf (Link dự phòng)`;
+                    }
                     inlinePdfLinks.push({
-                        name: `${orderCode} - Phieu ${idx + 1}.pdf (Link dự phòng)`,
+                        name: fallbackName,
                         url: `${domain}${item.design_pdf_url}`,
                         size: 'N/A'
                     });
@@ -7058,6 +7255,28 @@ module.exports = async function(fastify) {
 
         const emailBodyText = sheetBlocks.join('\n\n\n') + '\n\n\n' + finText;
 
+        // Construct Edit Notification Alert
+        let editDiffHtml = '';
+        if (editCount > 0) {
+            let diffListHtml = '';
+            if (diffs.length > 0) {
+                diffListHtml = diffs.map(d => `<li style="margin-bottom: 6px; font-weight: 600;">${escapeHTML(d)}</li>`).join('');
+            } else {
+                diffListHtml = `<li style="margin-bottom: 6px; font-style: italic; color: #64748b;">(Không có thay đổi kỹ thuật hoặc thông tin chính)</li>`;
+            }
+            editDiffHtml = `
+                <div style="background-color: #fef3c7; border: 2px dashed #f59e0b; border-radius: 8px; padding: 16px; margin-bottom: 20px; color: #78350f; font-family: 'Segoe UI', Arial, sans-serif;">
+                    <h3 style="margin-top: 0; color: #b45309; font-size: 16px; font-weight: 800; text-transform: uppercase;">
+                        ⚠️ THÔNG BÁO SỬA ĐƠN (LẦN ${editCount})
+                    </h3>
+                    <p style="margin: 4px 0 12px 0; font-size: 14px; font-weight: 500;">Xưởng lưu ý các nội dung thay đổi dưới đây:</p>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.5;">
+                        ${diffListHtml}
+                    </ul>
+                </div>
+            `;
+        }
+
         // 8. Construct HTML body
         let emailHtml = `
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
@@ -7066,6 +7285,7 @@ module.exports = async function(fastify) {
                     <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Mã đơn: <strong>${orderCode}</strong></p>
                 </div>
                 <div style="padding: 24px; background-color: #ffffff; color: #334155;">
+                    ${editDiffHtml}
                     <pre style="font-family: 'Segoe UI', Arial, sans-serif; white-space: pre-wrap; font-size: 14px; color: #1e293b; line-height: 1.6; margin: 0; padding: 20px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">${emailBodyText}</pre>
         `;
 
@@ -7126,13 +7346,13 @@ module.exports = async function(fastify) {
 
             if (!order.design_email_message_id) {
                 await db.run(
-                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_message_id = $1, design_email_subject = $2, design_email_planned_send_at = NULL WHERE id = $3`,
-                    [info.messageId, generatedSubject, orderId]
+                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_message_id = $1, design_email_subject = $2, design_email_planned_send_at = NULL, last_sent_order_state = $3, edit_count = $4 WHERE id = $5`,
+                    [info.messageId, generatedSubject, JSON.stringify(newState), editCount, orderId]
                 );
             } else {
                 await db.run(
-                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_planned_send_at = NULL WHERE id = $1`,
-                    [orderId]
+                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_planned_send_at = NULL, last_sent_order_state = $1, edit_count = $2 WHERE id = $3`,
+                    [JSON.stringify(newState), editCount, orderId]
                 );
             }
             console.log(`[DesignEmail] Email sent successfully for order ${orderCode} to ${recipientEmail}. Message-ID: ${info.messageId}`);
