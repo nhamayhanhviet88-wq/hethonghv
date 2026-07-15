@@ -3548,7 +3548,7 @@ module.exports = async function(fastify) {
             // Run in background to keep UI snappy, letting the rate-limiter handle spacing in the background
             (async () => {
                 try {
-                    await sendDesignEmail(orderId, recipientEmailStr, savedSheetPaths);
+                    await sendDesignEmail(orderId, recipientEmailStr, savedSheetPaths, null, false);
                 } catch (emailErr) {
                     console.error('[ConfirmExport] Background sendDesignEmail failed:', emailErr);
                 }
@@ -6292,7 +6292,7 @@ module.exports = async function(fastify) {
             // Execute the SMTP dispatch task in the background
             (async () => {
                 try {
-                    await sendDesignEmail(orderId, recipientEmail, savedSheetPaths, targetTime);
+                    await sendDesignEmail(orderId, recipientEmail, savedSheetPaths, targetTime, true);
                 } catch (emailErr) {
                     console.error('[ResendEmail] Background sendDesignEmail failed:', emailErr);
                 }
@@ -6506,7 +6506,7 @@ module.exports = async function(fastify) {
             .replace(/'/g, '&#039;');
     }
 
-    async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths, preAllocatedTargetTime) {
+    async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths, preAllocatedTargetTime, isResend = false) {
         const nodemailer = require('nodemailer');
         const { decrypt } = require('../services/emailChecker');
         
@@ -6598,6 +6598,10 @@ module.exports = async function(fastify) {
             if (diffs.length > 0) {
                 editCount += 1;
             }
+        } else if (order.design_email_message_id && !isResend) {
+            // Historical order migration: first edit after deployment
+            editCount = 1;
+            diffs = ["Có thay đổi chi tiết đơn hàng (hệ thống đã ghi nhận phiên bản mới)"];
         }
 
         let surcharges = [];
@@ -6729,6 +6733,32 @@ module.exports = async function(fastify) {
                 if (!hasWidth && !hasHeight && !hasDim) return false;
             }
             return true;
+        }
+
+        function sortPrintDetails(details) {
+            if (!Array.isArray(details)) return [];
+            const posWeights = {
+                'ngực': 1,
+                'lưng': 2,
+                'bụng': 3,
+                'tay trái': 4,
+                'tay phải': 5,
+                'gáy': 6
+            };
+            return [...details].sort((a, b) => {
+                const aPos = (a.position || '').trim().toLowerCase();
+                const bPos = (b.position || '').trim().toLowerCase();
+                let aW = 999;
+                let bW = 999;
+                for (const [k, w] of Object.entries(posWeights)) {
+                    if (aPos === k || aPos.startsWith(k)) { aW = w; break; }
+                }
+                for (const [k, w] of Object.entries(posWeights)) {
+                    if (bPos === k || bPos.startsWith(k)) { bW = w; break; }
+                }
+                if (aW !== bW) return aW - bW;
+                return aPos.localeCompare(bPos, 'vi');
+            });
         }
 
         function normalizePrintDetailOffsets(d, posConfig) {
