@@ -188,7 +188,9 @@ async function renderTaophieudonhangPage(content) {
             document.querySelectorAll('.tpd-email-countdown').forEach(el => {
                 const planned = Number(el.getAttribute('data-planned'));
                 if (!planned) return;
-                const remainingSecs = Math.max(0, Math.ceil((planned - Date.now()) / 1000));
+                const offset = window._tpdServerOffset || 0;
+                const nowWithOffset = Date.now() + offset;
+                const remainingSecs = Math.max(0, Math.ceil((planned - nowWithOffset) / 1000));
                 if (remainingSecs > 0) {
                     el.textContent = `(còn ${remainingSecs}s)`;
                 } else {
@@ -562,6 +564,9 @@ function _tpdStartPollingForSendingOrders() {
 
             const res = await apiCall(url);
             if (res && res.orders) {
+                if (res.serverTime) {
+                    window._tpdServerOffset = res.serverTime - Date.now();
+                }
                 let changed = false;
                 res.orders.forEach(newOrder => {
                     const existing = _tpd.orders.find(o => o.id === newOrder.id);
@@ -599,6 +604,9 @@ async function _tpdLoadOrders() {
 
         const res = await apiCall(url);
         if (res && res.orders) {
+            if (res.serverTime) {
+                window._tpdServerOffset = res.serverTime - Date.now();
+            }
             _tpd.orders = res.orders;
             _tpdRenderList();
             _tpdStartPollingForSendingOrders();
@@ -671,7 +679,9 @@ function _tpdRenderList() {
             } else if (o.design_email_status === 'sending') {
                 let countdownSpan = '';
                 if (o.design_email_planned_send_at) {
-                    const remainingSecs = Math.max(0, Math.ceil((Number(o.design_email_planned_send_at) - Date.now()) / 1000));
+                    const offset = window._tpdServerOffset || 0;
+                    const nowWithOffset = Date.now() + offset;
+                    const remainingSecs = Math.max(0, Math.ceil((Number(o.design_email_planned_send_at) - nowWithOffset) / 1000));
                     countdownSpan = `<span class="tpd-email-countdown" data-planned="${o.design_email_planned_send_at}" style="font-weight: 800; color: #ca8a04; margin-left: 2px;">(còn ${remainingSecs}s)</span>`;
                 }
                 emailBadge = `<span class="tpd-badge" style="background:#eab308;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px;display:inline-block;">📧 Đang gửi...</span>`;

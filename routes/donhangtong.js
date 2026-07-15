@@ -1697,7 +1697,7 @@ module.exports = async function(fastify) {
             });
         }
 
-        return { orders: allOrders };
+        return { orders: allOrders, serverTime: Date.now() };
     });
 
     // ========== ORDERS: Create ==========
