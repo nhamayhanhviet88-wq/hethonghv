@@ -4,9 +4,13 @@ async function run() {
     try {
         await db.init();
         
-        console.log('--- TYPE CONFIGS for huy and cap_cuu_sep ---');
-        const types = await db.all(`SELECT crm_menu, key, label, section_order, is_active FROM consult_type_configs WHERE key IN ('huy', 'cap_cuu_sep')`);
-        console.log(types);
+        console.log('--- User ID 58 details ---');
+        const user58 = await db.get(`SELECT id, username, full_name, role FROM users WHERE id = 58`);
+        console.log(user58);
+
+        console.log('--- Admin User details ---');
+        const adminUser = await db.get(`SELECT id, username, full_name, role FROM users WHERE username = 'admin'`);
+        console.log(adminUser);
         
     } catch (err) {
         console.error(err);

@@ -1828,6 +1828,13 @@ async function handleRoute() {
         }
     }
 
+    if (pathname !== 'chuanbiqlx') {
+        if (window._qlxLockPollingInterval) {
+            clearInterval(window._qlxLockPollingInterval);
+            window._qlxLockPollingInterval = null;
+        }
+    }
+
     // Block tkaffiliate from dashboard — first 3 login sessions → guide, 4th+ → report
     // sessionStorage flag ensures redirect fires ONCE per login session (survives reload, clears on tab close)
     var _hdsdSessionKey = 'hdsd_done_' + (currentUser ? currentUser.id : '0');

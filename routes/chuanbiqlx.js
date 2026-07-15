@@ -1092,6 +1092,22 @@ module.exports = async function(fastify) {
         };
     });
 
+    // ========== ORDERS: Lock statuses (lightweight polling) ==========
+    fastify.get('/api/qlx/orders/lock-statuses', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền truy cập' });
+
+        const locks = await db.all(`
+            SELECT o.id, o.is_locked, o.locked_by, o.locked_at, u_locked.full_name AS locked_by_name,
+                   COALESCE(o.is_draft, false) AS is_draft
+            FROM dht_orders o
+            LEFT JOIN users u_locked ON o.locked_by = u_locked.id
+            WHERE o.is_draft = TRUE OR (o.is_locked = TRUE AND o.locked_at > NOW() - INTERVAL '10 minutes')
+        `);
+
+        return { locks };
+    });
+
     // ========== ORDERS: List with filters ==========
     fastify.get('/api/qlx/orders', { preHandler: [authenticate] }, async (request, reply) => {
         const allowed = await isQLXUser(request);
