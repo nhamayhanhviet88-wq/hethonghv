@@ -1148,9 +1148,10 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                     html += statusBadge + ' ';
                     if (imgHtml) html += imgHtml;
                     html += '<span style="flex:1;font-weight:700;color:#1e293b">' + lbl + locHtml + inlineDate + createdInfo + '</span>';
-                    if (!isArrived && !isLocked) {
-                        html += '<button onclick="_qlxFabArrived(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap">✅ Vải Đã Về</button>';
-                    }
+                    // Hide 'Vải Đã Về' button as requested
+                    // if (!isArrived && !isLocked) {
+                    //     html += '<button onclick="_qlxFabArrived(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap">✅ Vải Đã Về</button>';
+                    // }
                     if ((ex.reservation_type === 'new_call' || ex.reservation_type === 'linked_call') && ex.call_content) {
                         html += '<button onclick="navigator.clipboard.writeText(\'' + (ex.call_content||'').replace(/'/g, "\\'") + '\');showToast(\'📋 Đã copy!\')" style="padding:3px 10px;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;font-size:9px;font-weight:600;cursor:pointer;color:#1e40af;white-space:nowrap">📋 Copy</button>';
                     }
