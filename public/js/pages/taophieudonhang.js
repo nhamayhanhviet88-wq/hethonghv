@@ -5015,7 +5015,7 @@ function _tpdRenderFormInputs() {
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                 <label class="tpd-ws-form-label" style="margin-bottom:0;">Loại Size</label>
                 <div style="display:flex; gap: 8px; align-items:center;">
-                    <select class="tpd-ws-select" style="padding: 4px 8px; font-size:12px; height:auto; width:150px; border-radius:4px; border:1px solid #cbd5e1;" onchange="_tpdChangeSizeType(this.value)" ${disabledAttr}>
+                    <select class="tpd-ws-select" style="padding: 4px 8px; font-size:12px; height:auto; width:150px; border-radius:4px; border:1px solid #cbd5e1; background-color:#f1f5f9; color:#64748b; cursor:not-allowed;" disabled>
                         ${Object.keys(config).filter(k => !k.startsWith('_')).map(typeName => `
                             <option value="${typeName}" ${currentSizeType === typeName ? 'selected' : ''}>${typeName}</option>
                         `).join('')}
