@@ -7695,9 +7695,24 @@ module.exports = async function(fastify) {
         // Construct sheet blocks
         let sheetBlocks = [];
         items.forEach((item, idx) => {
-            let block = `${orderCode} | PHIẾU ${idx + 1}/${items.length}\n`;
+            const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+            const numEmoji = numberEmojis[idx] || '🔹';
+            let block = `${numEmoji} ${orderCode} | PHIẾU ${idx + 1}/${items.length}\n`;
             block += `Sản Phẩm Bán: ${item.product_name || ''}\n`;
-            block += `Chất liệu vải:\n${item.material_name || ''}${item.color_name ? ` : ${item.color_name}` : ''}\n`;
+            
+            block += `Chất liệu vải:\n`;
+            const fabricParts = (item.material_name || '').split('+').map(x => x.trim()).filter(Boolean);
+            const colorParts = (item.color_name || '').split('+').map(x => x.trim()).filter(Boolean);
+            const maxLen = Math.max(fabricParts.length, colorParts.length);
+            if (maxLen === 0) {
+                block += `—\n`;
+            } else {
+                for (let i = 0; i < maxLen; i++) {
+                    const fab = fabricParts[i] || fabricParts[0] || '—';
+                    const col = colorParts[i] || 'Chưa chọn màu';
+                    block += `${fab} : ${col}\n`;
+                }
+            }
 
             const layout = typeof item.custom_layout === 'string' ? JSON.parse(item.custom_layout) : (item.custom_layout || {});
             const orderTechNames = getSewingTechniqueNames(item.sewing_techniques);
@@ -7868,15 +7883,12 @@ module.exports = async function(fastify) {
             if (item.size_type) {
                 block += `${item.size_type}:\n`;
             }
-            block += `${sizeTTVal}\n`;
+            block += `${sizeTTVal}\n\n`;
             block += `Tổng SL: ${item.quantity || 0}\n`;
-
-            // Sender
-            block += `Người gửi: ${cskhName}\n`;
 
             // Ship date
             const priorityStr = priority === 'GẤP' ? ' - ĐƠN GẤP' : '';
-            block += `GỬI HÀNG: - ${shipDayOfWeekAndDate}${priorityStr}`;
+            block += `⁉️GỬI HÀNG: - ${shipDayOfWeekAndDate}${priorityStr}`;
 
             sheetBlocks.push(block);
         });
@@ -7946,7 +7958,7 @@ module.exports = async function(fastify) {
         const fullAddress = [order.address, order.province].filter(Boolean).join(', ') || '—';
         const shipCarrier = order.carrier_name || '—';
         
-        finText += `Nhân Viên Lên Đơn : ${cskhName}\n`;
+        finText += `💡Nhân Viên Lên Đơn : ${cskhName}\n`;
         finText += `Tên Khách Hàng : ${customerName}\n`;
         finText += `SĐT : ${customerPhone}\n`;
         finText += `Địa Chỉ : ${fullAddress}\n`;
