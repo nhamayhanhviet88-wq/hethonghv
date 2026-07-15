@@ -201,6 +201,13 @@ async function renderTaophieudonhangPage(content) {
     }
 }
 
+function _tpdGetSessionId() {
+    if (!window._tpdWorkspaceSessionId) {
+        window._tpdWorkspaceSessionId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    return window._tpdWorkspaceSessionId;
+}
+
 // === Dedicated Design Draft Full-Page Route (Phiếu Sản Xuất SPA Workspace) ===
 async function renderDesignDraftPage(content) {
     _tpdInjectStyles();
@@ -236,7 +243,7 @@ async function renderDesignDraftPage(content) {
     try {
         // 1. Fetch order details, user info, and options in parallel
         const [details, myInfoRes] = await Promise.all([
-            apiCall(`/api/dht/orders/${orderId}/detail`),
+            apiCall(`/api/dht/orders/${orderId}/detail?session_id=${_tpdGetSessionId()}`),
             apiCall('/api/dht/my-info'),
             _tpdLoadSizeConfig(),
             _tpdLoadPrintPositionsConfig(),
@@ -3410,6 +3417,11 @@ function _tpdRenderWorkspace(container) {
 
                     <div class="tpd-ws-editor-footer">
                         ${state.hasEditPermission ? `
+                            ${!isOrderDraft ? `
+                                <button class="tpd-btn" onclick="_tpdDiscardChanges()" style="background: #ef4444; color: white; padding: 10px 24px; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2); border-radius: 8px; margin-right: 10px;">
+                                    🚫 Bỏ qua
+                                </button>
+                            ` : ''}
                             <button class="tpd-btn" onclick="_tpdExportSheetAndOrder()" style="background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 10px 24px; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.2); border-radius: 8px;">
                                 ${isOrderDraft ? '📤 Xuất Phiếu & Lên Đơn' : '💾 Lưu Cập Nhật Phiếu'}
                             </button>
@@ -6183,7 +6195,7 @@ async function _tpdSaveProductionSheet() {
             _tpdClearDraft(it);
             
             // Reload details in workspace state to keep other components in sync
-            const details = await apiCall(`/api/dht/orders/${state.orderId}/detail`);
+            const details = await apiCall(`/api/dht/orders/${state.orderId}/detail?session_id=${_tpdGetSessionId()}`);
             state.items = details.items || [];
             state.order = details.order;
             state.editingItem = _tpdCloneItemState(state.items[state.activeItemIndex]);
@@ -6199,6 +6211,51 @@ async function _tpdSaveProductionSheet() {
         console.error(e);
         showToast('Lỗi khi lưu phiếu sản xuất: ' + e.message, 'error');
         return false;
+    }
+}
+
+async function _tpdDiscardChanges() {
+    if (!confirm('⚠️ Bạn có chắc chắn muốn BỎ QUA tất cả các thay đổi và khôi phục đơn hàng về trạng thái ban đầu không?\n(Mọi thông tin đã nhập, ảnh đã tải lên, thay đổi giá/cọc... trong phiên làm việc này sẽ bị hủy bỏ)')) {
+        return;
+    }
+    
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.orderId) {
+        showToast('Không xác định được ID đơn hàng.', 'error');
+        return;
+    }
+    
+    try {
+        const orderId = state.orderId;
+        const sessionId = _tpdGetSessionId();
+        
+        // Show loading indicator
+        const footer = document.querySelector('.tpd-ws-editor-footer');
+        let originalFooterHtml = '';
+        if (footer) {
+            originalFooterHtml = footer.innerHTML;
+            footer.innerHTML = `<span style="color: #64748b; font-weight: 600; font-size: 13px;">🔄 Đang khôi phục dữ liệu ban đầu...</span>`;
+        }
+        
+        const res = await apiCall(`/api/dht/orders/${orderId}/revert?session_id=${sessionId}`, 'POST');
+        if (res && res.success) {
+            // Clear local storage drafts for this order items
+            const items = state.items || [];
+            for (const item of items) {
+                _tpdClearDraft(item);
+            }
+            
+            showToast('🔄 Đã khôi phục đơn hàng về trạng thái ban đầu thành công!', 'success');
+            
+            // Reload the workspace UI fresh from the DB
+            renderDesignDraftPage(window._dhtFullPageContainer || document.getElementById('main-content'));
+        } else {
+            if (footer) footer.innerHTML = originalFooterHtml;
+            showToast('Khôi phục thất bại: ' + (res.error || 'Lỗi không xác định'), 'error');
+        }
+    } catch (err) {
+        console.error('[Discard error]', err);
+        showToast('Lỗi khi khôi phục: ' + err.message, 'error');
     }
 }
 

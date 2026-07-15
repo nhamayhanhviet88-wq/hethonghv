@@ -2820,6 +2820,34 @@ module.exports = async function(fastify) {
             new Date(a.created_at) - new Date(b.created_at)
         );
 
+        // Manage session backup
+        const sessionId = request.query.session_id;
+        if (sessionId && sessionId.trim()) {
+            try {
+                // Delete backups older than 24 hours
+                await db.run("DELETE FROM dht_order_session_backups WHERE created_at < NOW() - INTERVAL '24 hours'");
+
+                const existingBackup = await db.get(
+                    'SELECT session_id FROM dht_order_session_backups WHERE order_id = $1 AND user_id = $2',
+                    [orderId, request.user.id]
+                );
+                const originalData = JSON.stringify({ order, items, surcharges });
+                if (!existingBackup) {
+                    await db.run(
+                        'INSERT INTO dht_order_session_backups (order_id, user_id, session_id, original_data) VALUES ($1, $2, $3, $4)',
+                        [orderId, request.user.id, sessionId, originalData]
+                    );
+                } else if (existingBackup.session_id !== sessionId) {
+                    await db.run(
+                        'UPDATE dht_order_session_backups SET session_id = $3, original_data = $4, created_at = NOW() WHERE order_id = $1 AND user_id = $2',
+                        [orderId, request.user.id, sessionId, originalData]
+                    );
+                }
+            } catch (backupErr) {
+                console.error('[SessionBackup Error]', backupErr);
+            }
+        }
+
         return {
             order,
             items,
@@ -2828,6 +2856,155 @@ module.exports = async function(fastify) {
             audit_logs: merged_logs,
             shipments
         };
+    });
+
+    // ========== ORDERS: Revert workspace session to backup ==========
+    fastify.post('/api/dht/orders/:id/revert', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        const sessionId = request.query.session_id || (request.body && request.body.session_id);
+        if (isNaN(orderId)) return reply.code(400).send({ error: 'ID không hợp lệ' });
+
+        const backup = await db.get(
+            'SELECT * FROM dht_order_session_backups WHERE order_id = $1 AND user_id = $2',
+            [orderId, request.user.id]
+        );
+        if (!backup) {
+            return reply.code(400).send({ error: 'Không tìm thấy phiên bản lưu trữ để khôi phục (hoặc phiên làm việc đã quá hạn).' });
+        }
+
+        // Verify session_id if provided
+        if (sessionId && backup.session_id !== sessionId) {
+            return reply.code(400).send({ error: 'Phiên làm việc không khớp, không thể khôi phục.' });
+        }
+
+        const data = typeof backup.original_data === 'string' ? JSON.parse(backup.original_data) : backup.original_data;
+        const backupOrder = data.order;
+        const backupItems = data.items || [];
+        const backupSurcharges = data.surcharges || [];
+
+        const client = await db.getDB().connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1. Revert order fields
+            const sets = [];
+            const params = [];
+            let idx = 1;
+
+            const fieldsToRestore = [
+                'customer_name', 'customer_phone', 'source', 'province', 'address',
+                'customer_id', 'cskh_user_id', 'total_quantity', 'total_amount', 'discount_amount',
+                'shipping_status', 'shipping_priority', 'shipping_date', 'notes', 'category_id', 'order_date',
+                'has_vat', 'vat_amount', 'additional_vat_amount', 'designer_user_id', 'designer_type', 'carrier_id',
+                'expected_ship_date', 'zalo_oa_sent',
+                'tracking_code', 'actual_carrier_id', 'actual_ship_datetime', 'delivery_progress',
+                'deposit_amount_cache', 'standard_delivery_time', 'sale_note_for_accountant',
+                'discount_reason', 'sx_print_confirmed', 'sx_print_confirmed_at', 'sx_print_confirmed_by',
+                'draft_name', 'official_save_clicked', 'is_draft',
+                'applied_coupon', 'promo_discount_amount', 'promo_gift_info'
+            ];
+
+            for (const f of fieldsToRestore) {
+                if (backupOrder[f] !== undefined) {
+                    sets.push(`${f} = $${idx++}`);
+                    let val = backupOrder[f];
+                    if (val !== null && typeof val === 'object') {
+                        val = JSON.stringify(val);
+                    }
+                    params.push(val);
+                }
+            }
+
+            // Also restore surcharges field in the order itself
+            sets.push(`surcharges = $${idx++}`);
+            params.push(JSON.stringify(backupSurcharges));
+
+            params.push(request.user.id);
+            params.push(orderId);
+            const query = `UPDATE dht_orders SET ${sets.join(', ')}, last_updated_by = $${idx++}, last_updated_at = NOW() WHERE id = $${idx}`;
+
+            await client.query(query, params);
+
+            // 2. Revert items (rich phiếu)
+            // First, delete items not in backup
+            const backupItemIds = backupItems.map(it => Number(it.id)).filter(Boolean);
+            if (backupItemIds.length > 0) {
+                await client.query('DELETE FROM dht_order_items WHERE dht_order_id = $1 AND id <> ALL($2)', [orderId, backupItemIds]);
+            } else {
+                await client.query('DELETE FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            }
+
+            // Upsert / restore items from backup
+            for (const item of backupItems) {
+                const itemId = Number(item.id);
+                // Check if item still exists in database
+                const existsRes = await client.query('SELECT id FROM dht_order_items WHERE id = $1', [itemId]);
+                const exists = existsRes.rows.length > 0;
+
+                const itemPayload = {
+                    description: item.product_name || item.description || '',
+                    quantity: Number(item.quantity) || 0,
+                    unit_price: Number(item.unit_price) || 0,
+                    total: Number(item.item_total || item.total) || 0,
+                    sale_type: item.sale_type || null,
+                    product_name: item.product_name || null,
+                    material_id: item.material_id ? Number(item.material_id) : null,
+                    material_name: item.material_name || null,
+                    color_id: item.color_id ? Number(item.color_id) : null,
+                    color_name: item.color_name || null,
+                    pattern_name: item.pattern_name || null,
+                    sewing_techniques: typeof item.sewing_techniques === 'string' ? item.sewing_techniques : JSON.stringify(item.sewing_techniques || []),
+                    accounting_notes: item.accounting_notes || null,
+                    extra_materials: typeof item.extra_materials === 'string' ? item.extra_materials : JSON.stringify(item.extra_materials || []),
+                    quantities: typeof item.quantities === 'string' ? item.quantities : JSON.stringify(item.quantities || []),
+                    extra_product: item.extra_product || null,
+                    extra_price: Number(item.extra_price) || 0,
+                    item_total: Number(item.item_total || item.total) || 0,
+                    material_pairs: typeof item.material_pairs === 'string' ? item.material_pairs : JSON.stringify(item.material_pairs || []),
+                    size_type: item.size_type || 'Size TT',
+                    promo_gift_quantity: Number(item.promo_gift_quantity) || 0,
+                    promo_gift_code: item.promo_gift_code || null,
+                    promo_gift_apply_row_index: item.promo_gift_apply_row_index !== null && item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null
+                };
+
+                if (exists) {
+                    const itemSets = [];
+                    const itemParams = [];
+                    let itemIdx = 1;
+                    for (const [k, v] of Object.entries(itemPayload)) {
+                        itemSets.push(`${k} = $${itemIdx++}`);
+                        itemParams.push(v);
+                    }
+                    itemParams.push(itemId);
+                    await client.query(`UPDATE dht_order_items SET ${itemSets.join(', ')} WHERE id = $${itemIdx}`, itemParams);
+                } else {
+                    const keys = ['dht_order_id', 'id', ...Object.keys(itemPayload)];
+                    const vals = [orderId, itemId, ...Object.values(itemPayload)];
+                    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+                    await client.query(`INSERT INTO dht_order_items (${keys.join(', ')}) VALUES (${placeholders})`, vals);
+                }
+            }
+
+            // 3. Clear backup
+            await client.query('DELETE FROM dht_order_session_backups WHERE id = $1', [backup.id]);
+
+            await client.query('COMMIT');
+
+            // Add audit log
+            try {
+                await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`, [
+                    orderId, 'revert', 'Hủy bỏ chỉnh sửa, khôi phục thông tin đơn hàng ban đầu', request.user.id
+                ]);
+            } catch(logErr) {}
+
+            return { success: true };
+        } catch(e) {
+            await client.query('ROLLBACK');
+            console.error('[Revert Error]', e);
+            return reply.code(500).send({ error: 'Lỗi khôi phục đơn hàng: ' + e.message });
+        } finally {
+            client.release();
+        }
     });
 
     // ========== ORDERS: Update Production Sheet per Item (Phiếu Sản Xuất) ==========

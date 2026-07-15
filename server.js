@@ -1054,7 +1054,23 @@ async function start() {
             }
             console.log(`[Migration v10b] Backfilled ${backfilled} audit logs for ${allOrders.length} orders`);
         }
-    } catch(e) { console.error('[Migration v10b] Backfill:', e.message); }
+    } catch(e) {
+        console.error('[Migration v10b] Audit log backfill:', e.message);
+    }
+
+    // Session backups for Discard / Revert feature
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_order_session_backups (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            session_id VARCHAR(100) NOT NULL,
+            original_data JSONB NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(order_id, user_id)
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_osb_order_user ON dht_order_session_backups(order_id, user_id)`);
+    } catch(e) { console.error('[Migration] dht_order_session_backups table:', e.message); }
 
     // v11: Production Workflow — Quy Trình Sản Xuất per order
     try {
