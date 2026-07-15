@@ -2030,6 +2030,8 @@ module.exports = async function(fastify) {
         // Insert order items (rich phiếu)
         if (Array.isArray(b.items) && result) {
             for (const item of b.items) {
+                const prodRow = await db.get('SELECT size_type FROM dht_products WHERE name = $1', [item.product_name || '']);
+                const resolvedSizeType = prodRow?.size_type || item.size_type || 'Size TT';
                 await db.run(`
                     INSERT INTO dht_order_items (dht_order_id, description, quantity, unit_price, total,
                         sale_type, product_name, material_id, material_name,
@@ -2058,7 +2060,7 @@ module.exports = async function(fastify) {
                     Number(item.extra_price) || 0,
                     Number(item.item_total) || 0,
                     JSON.stringify(item.material_pairs || []),
-                    item.size_type || 'Size TT',
+                    resolvedSizeType,
                     Number(item.promo_gift_quantity) || 0,
                     item.promo_gift_code || null,
                     item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null
@@ -3263,12 +3265,18 @@ module.exports = async function(fastify) {
                 }
             }
         }
+        const existingItem = await db.get('SELECT product_name, size_type FROM dht_order_items WHERE id = $1', [itemId]);
+        const prodRow = existingItem ? await db.get('SELECT size_type FROM dht_products WHERE name = $1', [existingItem.product_name || '']) : null;
+        const resolvedSizeType = prodRow?.size_type || b.size_type || existingItem?.size_type || 'Size TT';
+
         // Update text fields
         if (b.material_name !== undefined) { sets.push(`material_name = $${idx++}`); vals.push(b.material_name || null); }
         if (b.color_name !== undefined) { sets.push(`color_name = $${idx++}`); vals.push(b.color_name || null); }
         if (b.style_name !== undefined) { sets.push(`style_name = $${idx++}`); vals.push(b.style_name || null); }
         if (b.workshop_note !== undefined) { sets.push(`workshop_note = $${idx++}`); vals.push(b.workshop_note || null); }
-        if (b.size_type !== undefined) { sets.push(`size_type = $${idx++}`); vals.push(b.size_type || 'Size TT'); }
+        
+        sets.push(`size_type = $${idx++}`);
+        vals.push(resolvedSizeType);
         let isRedSheetVal = null;
         if (b.custom_layout !== undefined) {
             let layoutObj = b.custom_layout;
@@ -5051,6 +5059,9 @@ module.exports = async function(fastify) {
                         }
                     }
 
+                    const prodRow = await db.get('SELECT size_type FROM dht_products WHERE name = $1', [item.product_name || '']);
+                    const resolvedSizeType = prodRow?.size_type || item.size_type || 'Size TT';
+
                     // Update existing item — quantities is included for DHT to persist SL/price changes.
                     // TPD-format size breakdown is protected via frontend smart merge (localStorage draft).
                     await db.run(`
@@ -5082,7 +5093,7 @@ module.exports = async function(fastify) {
                         Number(item.extra_price) || 0,
                         Number(item.item_total) || 0,
                         JSON.stringify(item.material_pairs || []),
-                        item.size_type || 'Size TT',
+                        resolvedSizeType,
                         Number(item.promo_gift_quantity) || 0,
                         item.promo_gift_code || null,
                         item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null,
@@ -5208,6 +5219,8 @@ module.exports = async function(fastify) {
                     `, [item.product_name || '', itemId]);
                 } else {
                     // Insert new item
+                    const prodRow = await db.get('SELECT size_type FROM dht_products WHERE name = $1', [item.product_name || '']);
+                    const resolvedSizeType = prodRow?.size_type || item.size_type || 'Size TT';
                     await db.run(`
                         INSERT INTO dht_order_items (dht_order_id, description, quantity, unit_price, total,
                             sale_type, product_name, material_id, material_name,
@@ -5236,7 +5249,7 @@ module.exports = async function(fastify) {
                         Number(item.extra_price) || 0,
                         Number(item.item_total) || 0,
                         JSON.stringify(item.material_pairs || []),
-                        item.size_type || 'Size TT',
+                        resolvedSizeType,
                         Number(item.promo_gift_quantity) || 0,
                         item.promo_gift_code || null,
                         item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null

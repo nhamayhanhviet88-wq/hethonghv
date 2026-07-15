@@ -3468,6 +3468,7 @@ async function _dhtInitializeEditState(id, data) {
                 promo_gift_quantity: Number(it.promo_gift_quantity) || 0,
                 promo_gift_code: it.promo_gift_code || '',
                 promo_gift_apply_row_index: it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : null,
+                size_type: it.size_type || 'Size TT',
                 has_fabric_called: !!it.has_fabric_called,
                 has_print_assignment: !!it.has_print_assignment
             };
