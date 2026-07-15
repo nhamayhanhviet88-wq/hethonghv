@@ -9,7 +9,8 @@ var _tpd = {
     },
     activeOrderId: null,
     activeOrderDetails: null,
-    scanner: null
+    scanner: null,
+    _pollInterval: null
 };
 
 function _tpdFormatDateWithDayOfWeek(dateStr) {
@@ -524,6 +525,49 @@ function _tpdGetLabelStyle(sz, isCustom) {
     return 'background: #475569; color: #f8fafc; font-weight: 800; box-shadow: 0 1px 2px rgba(71,85,105,0.2);';
 }
 
+// Poll to see if sending orders finish dispatching in the background
+function _tpdStartPollingForSendingOrders() {
+    if (_tpd._pollInterval) return;
+    const hasSending = _tpd.orders && _tpd.orders.some(o => o.design_email_recipient && o.design_email_status === 'sending');
+    if (!hasSending) return;
+
+    _tpd._pollInterval = setInterval(async () => {
+        const stillSending = _tpd.orders && _tpd.orders.some(o => o.design_email_recipient && o.design_email_status === 'sending');
+        if (!stillSending) {
+            clearInterval(_tpd._pollInterval);
+            _tpd._pollInterval = null;
+            return;
+        }
+
+        try {
+            let url = '/api/dht/orders?include_drafts=true&';
+            if (_tpd.filter.year) url += `year=${_tpd.filter.year}&`;
+            if (_tpd.filter.month) url += `month=${_tpd.filter.month}&`;
+
+            const res = await apiCall(url);
+            if (res && res.orders) {
+                let changed = false;
+                res.orders.forEach(newOrder => {
+                    const existing = _tpd.orders.find(o => o.id === newOrder.id);
+                    if (existing) {
+                        if (existing.design_email_status !== newOrder.design_email_status ||
+                            existing.design_email_error !== newOrder.design_email_error) {
+                            existing.design_email_status = newOrder.design_email_status;
+                            existing.design_email_error = newOrder.design_email_error;
+                            changed = true;
+                        }
+                    }
+                });
+                if (changed) {
+                    _tpdRenderList();
+                }
+            }
+        } catch (e) {
+            console.error('[Polling] Error fetching order status:', e);
+        }
+    }, 5000);
+}
+
 // Fetch all orders/drafts from server
 async function _tpdLoadOrders() {
     try {
@@ -539,6 +583,7 @@ async function _tpdLoadOrders() {
         if (res && res.orders) {
             _tpd.orders = res.orders;
             _tpdRenderList();
+            _tpdStartPollingForSendingOrders();
         } else {
             throw new Error('Lỗi cấu trúc phản hồi API');
         }
@@ -607,7 +652,7 @@ function _tpdRenderList() {
                 emailStatusText = `<span style="color:#22c55e;font-weight:700;display:inline-flex;align-items:center;gap:4px;">✔️ Đã gửi <button class="tpd-resend-email-btn" data-id="${o.id}" style="background:#d1fae5;border:none;color:#065f46;cursor:pointer;border-radius:4px;padding:1px 4px;font-size:10px;font-weight:700;outline:none;display:inline-flex;align-items:center;">🔄 Gửi lại</button></span>`;
             } else if (o.design_email_status === 'sending') {
                 emailBadge = `<span class="tpd-badge" style="background:#eab308;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px;display:inline-block;">📧 Đang gửi...</span>`;
-                emailStatusText = `<span style="color:#eab308;font-weight:700;">⏳ Đang gửi...</span>`;
+                emailStatusText = `<span style="color:#eab308;font-weight:700;display:inline-flex;align-items:center;gap:4px;">⏳ Đang gửi... <button class="tpd-resend-email-btn" data-id="${o.id}" style="background:#fef3c7;border:none;color:#b45309;cursor:pointer;border-radius:4px;padding:1px 4px;font-size:10px;font-weight:700;outline:none;display:inline-flex;align-items:center;" title="Gửi lại nếu bị kẹt">🔄 Gửi lại</button></span>`;
             } else if (o.design_email_status === 'failed') {
                 emailBadge = `<span class="tpd-badge" style="background:#ef4444;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px;display:inline-block;" title="Lỗi: ${escapeHTML(o.design_email_error || 'Lỗi không rõ')}">📧 Lỗi</span>`;
                 emailStatusText = `<span style="color:#ef4444;font-weight:700;display:inline-flex;align-items:center;gap:4px;" title="${escapeHTML(o.design_email_error || '')}">❌ Gửi lỗi <button class="tpd-resend-email-btn" data-id="${o.id}" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:1px 4px;font-size:10px;font-weight:700;outline:none;display:inline-flex;align-items:center;">🔄 Gửi lại</button></span>`;
@@ -712,9 +757,7 @@ async function _tpdResendDesignEmail(orderId, event) {
         const res = await apiCall(`/api/dht/orders/${orderId}/resend-design-email`, 'POST');
         if (res && res.success) {
             showToast('🚀 Đang gửi lại email thiết kế thành công!', 'success');
-            setTimeout(async () => {
-                await _tpdLoadOrders();
-            }, 1000);
+            await _tpdLoadOrders();
         } else {
             showToast('⚠️ Gửi lại thất bại: ' + (res.error || 'Lỗi không xác định'), 'error');
             if (btn) {
