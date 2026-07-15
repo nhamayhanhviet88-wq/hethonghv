@@ -3545,12 +3545,14 @@ module.exports = async function(fastify) {
         }
 
         if (recipientEmailStr && savedSheetPaths.length > 0) {
-            // Await email dispatch or let it run in background to keep UI snappy (but since it updates order status, await is fine)
-            try {
-                await sendDesignEmail(orderId, recipientEmailStr, savedSheetPaths);
-            } catch (emailErr) {
-                console.error('[ConfirmExport] sendDesignEmail failed:', emailErr);
-            }
+            // Run in background to keep UI snappy, letting the rate-limiter handle spacing in the background
+            (async () => {
+                try {
+                    await sendDesignEmail(orderId, recipientEmailStr, savedSheetPaths);
+                } catch (emailErr) {
+                    console.error('[ConfirmExport] Background sendDesignEmail failed:', emailErr);
+                }
+            })();
         }
 
         // Audit log
@@ -6266,9 +6268,73 @@ module.exports = async function(fastify) {
         }
     });
 
+    async function allocateEmailSendTime() {
+        const client = await db.getDB().connect();
+        try {
+            await client.query('BEGIN');
+            
+            // Ensure the config row exists
+            await client.query(`
+                INSERT INTO app_config (key, value) 
+                VALUES ('last_planned_email_send_time', '0') 
+                ON CONFLICT (key) DO NOTHING
+            `);
+            
+            // Lock the row
+            const row = await client.query(`
+                SELECT value FROM app_config 
+                WHERE key = 'last_planned_email_send_time' 
+                FOR UPDATE
+            `);
+            
+            const lastPlannedTime = parseInt(row.rows[0]?.value || '0', 10) || 0;
+            const now = Date.now();
+            
+            // Minimum 15 seconds (15000ms) spacing between emails
+            const spacing = 15000;
+            let targetTime = now;
+            if (lastPlannedTime > now) {
+                targetTime = lastPlannedTime + spacing;
+            } else {
+                targetTime = now + 1000; // start 1 second from now
+            }
+            
+            await client.query(`
+                UPDATE app_config 
+                SET value = $1 
+                WHERE key = 'last_planned_email_send_time'
+            `, [targetTime.toString()]);
+            
+            await client.query('COMMIT');
+            return targetTime;
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
     async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths) {
         const nodemailer = require('nodemailer');
         const { decrypt } = require('../services/emailChecker');
+        
+        // 0. Update status to 'sending' and schedule rate-limited slot
+        await db.run(
+            `UPDATE dht_orders SET design_email_status = 'sending', design_email_error = NULL WHERE id = $1`,
+            [orderId]
+        );
+        
+        try {
+            const targetTime = await allocateEmailSendTime();
+            const delay = targetTime - Date.now();
+            if (delay > 0) {
+                console.log(`[sendDesignEmail] Order ${orderId} scheduled to send in ${delay}ms`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        } catch (slotErr) {
+            console.error('[sendDesignEmail] allocateEmailSendTime failed:', slotErr);
+        }
         
         // 1. Fetch Custom Sender or Fallback Config
         let senderEmail = '';
