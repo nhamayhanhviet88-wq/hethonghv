@@ -4474,8 +4474,8 @@ function _tpdRenderFormInputs() {
     const isDirector = curUser.role === 'giam_doc';
     const fabricOverridden = isFabricCalled && isDirector && window._tpdFabricOverride && window._tpdFabricOverride[it.id];
     const fabricLocked = isFabricCalled && !fabricOverridden;
-    const fabricDisabledAttr = (fabricLocked || !state.hasEditPermission) ? 'disabled' : '';
-    const fabricStyle = (fabricLocked || !state.hasEditPermission) ? 'background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;' : '';
+    const fabricDisabledAttr = 'disabled';
+    const fabricStyle = 'background:#f1f5f9; color:#64748b; cursor:not-allowed; border-color:#e2e8f0;';
 
     // Compute defaults for overrides placeholders
     const orderTechNames = _tpdGetSewingTechniqueNames(it.sewing_techniques);
@@ -4532,12 +4532,12 @@ function _tpdRenderFormInputs() {
 
         <div class="tpd-ws-grid-2">
             <div class="tpd-ws-form-group">
-                <label class="tpd-ws-form-label">Chất liệu vải ${fabricLocked ? '<span style="color:#dc2626;font-size:10px;">🔒</span>' : ''}</label>
-                <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="Cá sấu, thun cotton..." onchange="_tpdUpdateField('material_name', this.value)" ${fabricDisabledAttr} style="${fabricStyle}">
+                <label class="tpd-ws-form-label">Chất liệu vải <span style="color:#64748b;font-size:10.5px;" title="Chất liệu chỉ được chỉnh sửa ở mục Sửa đơn">🔒 (Sửa ở mục Sửa đơn)</span></label>
+                <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="Cá sấu, thun cotton..." ${fabricDisabledAttr} style="${fabricStyle}">
             </div>
             <div class="tpd-ws-form-group">
-                <label class="tpd-ws-form-label">Màu sắc phối ${fabricLocked ? '<span style="color:#dc2626;font-size:10px;">🔒</span>' : ''}</label>
-                <input type="text" class="tpd-ws-input" value="${escapeHTML(_tpdFormatColorName(it.color_name))}" placeholder="Navy phối vàng, đen..." onchange="_tpdUpdateField('color_name', this.value)" ${fabricDisabledAttr} style="${fabricStyle}">
+                <label class="tpd-ws-form-label">Màu sắc phối <span style="color:#64748b;font-size:10.5px;" title="Màu sắc chỉ được chỉnh sửa ở mục Sửa đơn">🔒 (Sửa ở mục Sửa đơn)</span></label>
+                <input type="text" class="tpd-ws-input" value="${escapeHTML(_tpdFormatColorName(it.color_name))}" placeholder="Navy phối vàng, đen..." ${fabricDisabledAttr} style="${fabricStyle}">
             </div>
         </div>
     `;

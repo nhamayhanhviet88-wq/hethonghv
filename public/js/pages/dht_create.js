@@ -1665,8 +1665,8 @@ async function _dhtAddItem(editIdx) {
     var existing = _dhtCreate.phieuItems[idx] || {};
     window._ppCurrentExistingPhieu = existing;
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
-    window._dhtIsFabricEditRestricted = isOldItem;
     var isRestricted = isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called;
+    window._dhtIsFabricEditRestricted = isRestricted;
     var po = _dhtCreate.phieuOpts || {};
     var ov = document.createElement('div');
     ov.id = '_phieuPopup';
@@ -1836,25 +1836,6 @@ async function _dhtAddItem(editIdx) {
         setTimeout(_lockPopup, 150);
         setTimeout(_lockPopup, 500);
         setTimeout(_lockPopup, 1000);
-    } else {
-        window._dhtPhieuRestricted = false;
-    }
-    
-    if (isOldItem) {
-        var _lockMaterialColorOnly = function() {
-            var popup = document.getElementById('_phieuPopup');
-            if (!popup) return;
-            popup.querySelectorAll('input[id^="_ppMat"], input[id^="_ppColor"]').forEach(function(el) {
-                el.disabled = true;
-                el.style.background = '#f1f5f9';
-                el.style.color = '#64748b';
-                el.style.cursor = 'not-allowed';
-                el.title = 'Chất liệu/màu chỉ sửa được ở Thiết Kế Market (Ảnh 3)';
-            });
-        };
-        setTimeout(_lockMaterialColorOnly, 150);
-        setTimeout(_lockMaterialColorOnly, 500);
-        setTimeout(_lockMaterialColorOnly, 1000);
     }
 }
 
