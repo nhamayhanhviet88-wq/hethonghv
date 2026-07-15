@@ -2504,6 +2504,7 @@ function _dhtSavePhieu(idx) {
     if(pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
     var qrRows = document.querySelectorAll('#_pp_qtyRows ._ppQR');
     var qtyPairs=[], raw=0, totalQty=0;
+    var typedQty = 0;
     for(var i=0;i<qrRows.length;i++){
         var row = qrRows[i];
         var qInp = row.querySelector('._pp_qty');
@@ -2511,6 +2512,7 @@ function _dhtSavePhieu(idx) {
         var qv = Number(qInp.value) || 0;
         var pv = Number(pInp.value) || 0;
         if(qv===0){showToast('SL'+(i+1)+' phải > 0','error');return;}
+        typedQty += qv;
         
         var origSizesStr = row.getAttribute('data-orig-sizes');
         var origSizes = null;
@@ -2521,18 +2523,10 @@ function _dhtSavePhieu(idx) {
         if (origSizes && origSizes.length > 0) {
             var sumOldQty = origSizes.reduce(function(s, x) { return s + (Number(x.qty) || 0); }, 0);
             if (sumOldQty > 0) {
-                var distributedQty = 0;
-                origSizes.forEach(function(os, oIdx) {
-                    var newQtyForSize = 0;
-                    if (oIdx === origSizes.length - 1) {
-                        newQtyForSize = qv - distributedQty;
-                    } else {
-                        newQtyForSize = Math.round(Number(os.qty) * (qv / sumOldQty));
-                        distributedQty += newQtyForSize;
-                    }
+                origSizes.forEach(function(os) {
                     qtyPairs.push({
                         size: os.size,
-                        qty: newQtyForSize,
+                        qty: Number(os.qty) || 0,
                         price: pv,
                         note: os.note || ''
                     });
@@ -2613,7 +2607,7 @@ function _dhtSavePhieu(idx) {
     // Build display name for color (all pairs)
     var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
     var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
-    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx};
+    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:typedQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
