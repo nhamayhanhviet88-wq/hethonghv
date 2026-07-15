@@ -5200,10 +5200,6 @@ function _tpdUpdateQty(size, val) {
     const it = state.editingItem;
     if (!it) return;
 
-    if (it.has_fabric_called) {
-        showToast('⚠️ Không thể sửa số lượng vì xưởng đã gọi vải!', 'error');
-        return;
-    }
 
     let qty = Math.max(0, Number(val) || 0);
 

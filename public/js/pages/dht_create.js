@@ -1729,7 +1729,7 @@ async function _dhtAddItem(editIdx) {
     // Nhắc nhở: moved to order-level form
     var popupTitle = isRestricted ? '🔒 ' + orderCode + ' - Phiếu ' + (idx+1) : '📋 ' + orderCode + ' - Phiếu ' + (idx+1);
     var fabricWarningBanner = isRestricted 
-        ? '<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔒</span><div><div style="font-size:11px;font-weight:800;color:#dc2626">PHIẾU ĐÃ ĐƯỢC XƯỞNG GỌI VẢI</div><div style="font-size:10px;color:#991b1b;margin-top:1px">Sản phẩm, Chất liệu, Màu sắc, Số lượng, Quy cách đã bị khóa.</div></div></div>'
+        ? '<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔒</span><div><div style="font-size:11px;font-weight:800;color:#dc2626">PHIẾU ĐÃ ĐƯỢC XƯỞNG GỌI VẢI</div><div style="font-size:10px;color:#991b1b;margin-top:1px">Bán/Quà, Sản phẩm, Thông số mẫu áo, Chất liệu, Màu sắc đã bị khóa. SL, Giá, VAT vẫn sửa được.</div></div></div>'
         : '';
     var saveBtn = '<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div>';
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
@@ -1803,15 +1803,19 @@ async function _dhtAddItem(editIdx) {
     window._dhtPhieuRestricted = isRestricted;
     _ppRenderSewTags();
     if (isRestricted) {
-        // Run multiple passes to catch async-rendered elements (colors load via API)
+        // Only lock production-critical fields: Bán/Quà, Sản Phẩm, Thông Số Mẫu Áo, Chất Liệu, Màu Sắc
+        var _FABRIC_LOCKED_IDS = ['_pp_sale', '_pp_product', '_pp_pattern'];
         var _lockPopup = function() {
             var popup = document.getElementById('_phieuPopup');
             if (!popup) return;
-            popup.querySelectorAll('input, select, textarea').forEach(function(el) {
-                if (el.id === '_pp_vat') return;
-                el.disabled = true;
-                el.style.background = '#f1f5f9';
-                el.style.cursor = 'not-allowed';
+            // Lock specific searchable fields
+            _FABRIC_LOCKED_IDS.forEach(function(fid) {
+                var inp = document.getElementById(fid);
+                if (inp) { inp.disabled = true; inp.style.background = '#f1f5f9'; inp.style.cursor = 'not-allowed'; }
+            });
+            // Lock all material/color pair inputs (_ppMat*, _ppColor*)
+            popup.querySelectorAll('input[id^="_ppMat"], input[id^="_ppColor"]').forEach(function(el) {
+                el.disabled = true; el.style.background = '#f1f5f9'; el.style.cursor = 'not-allowed';
             });
         };
         setTimeout(_lockPopup, 150);

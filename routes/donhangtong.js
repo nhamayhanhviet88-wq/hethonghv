@@ -4992,30 +4992,15 @@ module.exports = async function(fastify) {
                 if (itemId && oldItemIds.includes(itemId)) {
                     const oldIt = oldItems.find(x => Number(x.id) === itemId);
                     
-                    // A. Validation check if fabric is called
+                    // A. Validation check if fabric is called — only lock product, pattern, material, color
                     if (oldIt && oldIt.has_fabric_called && request.user.role !== 'giam_doc') {
                         const hasProductChanged = (item.product_name || '') !== (oldIt.product_name || '');
                         const hasPatternChanged = (item.pattern_name || '') !== (oldIt.pattern_name || '');
                         const hasMaterialChanged = (item.material_id ? Number(item.material_id) : null) !== (oldIt.material_id ? Number(oldIt.material_id) : null);
                         const hasColorChanged = (item.color_id ? Number(item.color_id) : null) !== (oldIt.color_id ? Number(oldIt.color_id) : null);
-                        
-                        let oldQArr = [];
-                        try { oldQArr = typeof oldIt.quantities === 'string' ? JSON.parse(oldIt.quantities) : (oldIt.quantities || []); } catch(e){}
-                        const newQArr = item.quantities || [];
-                        const hasQuantitiesChanged = JSON.stringify(oldQArr) !== JSON.stringify(newQArr);
-                        
-                        let oldSew = [];
-                        try { oldSew = typeof oldIt.sewing_techniques === 'string' ? JSON.parse(oldIt.sewing_techniques) : (oldIt.sewing_techniques || []); } catch(e){}
-                        const newSew = item.sewing_techniques || [];
-                        const hasSewChanged = JSON.stringify(oldSew) !== JSON.stringify(newSew);
 
-                        let oldExt = [];
-                        try { oldExt = typeof oldIt.extra_materials === 'string' ? JSON.parse(oldIt.extra_materials) : (oldIt.extra_materials || []); } catch(e){}
-                        const newExt = item.extra_materials || [];
-                        const hasExtChanged = JSON.stringify(oldExt) !== JSON.stringify(newExt);
-
-                        if (hasProductChanged || hasPatternChanged || hasMaterialChanged || hasColorChanged || hasQuantitiesChanged || hasSewChanged || hasExtChanged) {
-                            return reply.code(403).send({ error: `🔒 Phiếu "${oldIt.product_name || 'không tên'}" đã được xưởng gọi vải/nguyên liệu, không thể sửa đổi các trường sản xuất (Chất liệu, màu sắc, size, số lượng, quy cách...).` });
+                        if (hasProductChanged || hasPatternChanged || hasMaterialChanged || hasColorChanged) {
+                            return reply.code(403).send({ error: `🔒 Phiếu "${oldIt.product_name || 'không tên'}" đã được xưởng gọi vải/nguyên liệu — không thể sửa Sản phẩm, Thông số mẫu áo, Chất liệu hoặc Màu sắc.` });
                         }
                     }
 
