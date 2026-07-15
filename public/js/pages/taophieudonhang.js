@@ -734,7 +734,7 @@ function _tpdRenderList() {
                 </div>
                 <div class="card-footer">
                     <span class="card-cat">📂 ${escapeHTML(o.category_name || 'Đồng Phục')}</span>
-                    <button class="tpd-card-btn" onclick="event.stopPropagation(); navigate('design-draft?id=${o.id}')">Thiết kế phiếu →</button>
+                    <button class="tpd-card-btn" onclick="event.stopPropagation(); navigate('design-draft?id=${o.id}')">${isDraft ? 'Thiết kế phiếu →' : 'Sửa đơn →'}</button>
                 </div>
             </div>
         `;
