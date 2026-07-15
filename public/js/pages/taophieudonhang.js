@@ -6737,8 +6737,8 @@ async function _tpdShowExportSheetsModal() {
 
     let printHtml = '';
 
-    // Loop and generate A4 print templates
-    items.forEach((item, idx) => {
+    const getPageHtml = (idSuffix, idx, hideShipping) => {
+        const item = items[idx];
         const it = _tpdCloneItemState(item);
         const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
         const shipDate = _tpdFormatDateWithDayOfWeek(o.expected_ship_date);
@@ -6750,8 +6750,8 @@ async function _tpdShowExportSheetsModal() {
         const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
         const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
 
-        printHtml += `
-            <div class="tpd-print-page" id="tempExportPage_${idx}" style="width: 297mm; height: 210mm; box-sizing: border-box; padding: 8mm; background: white; border: none; margin: 0; overflow: hidden;">
+        return `
+            <div class="tpd-print-page" id="tempExportPage_${idSuffix}_${idx}" style="width: 297mm; height: 210mm; box-sizing: border-box; padding: 8mm; background: white; border: none; margin: 0; overflow: hidden;">
                 <div class="tpd-a4-preview-card" style="border:none; box-shadow:none; width:100%; height:100%; padding:0;">
                     <!-- Header Block -->
                     <div class="tpd-a4-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #122546; padding-bottom: 6px; margin-bottom: 6px;">
@@ -6793,11 +6793,17 @@ async function _tpdShowExportSheetsModal() {
                                 ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
-                        ${_tpdGetInfoBoxHtml(it, layout, o, true)}
+                        ${_tpdGetInfoBoxHtml(it, layout, o, hideShipping)}
                     </div>
                 </div>
             </div>
         `;
+    };
+
+    // Loop and generate A4 print templates (both customer and production versions)
+    items.forEach((item, idx) => {
+        printHtml += getPageHtml('cust', idx, true);
+        printHtml += getPageHtml('prod', idx, false);
     });
 
     tempContainer.innerHTML = printHtml;
@@ -6817,24 +6823,36 @@ async function _tpdShowExportSheetsModal() {
 
     // Generate canvas for each page sequentially
     for (let idx = 0; idx < items.length; idx++) {
-        const pageEl = document.getElementById(`tempExportPage_${idx}`);
-        if (!pageEl) continue;
+        const custPageEl = document.getElementById(`tempExportPage_cust_${idx}`);
+        const prodPageEl = document.getElementById(`tempExportPage_prod_${idx}`);
+        if (!custPageEl || !prodPageEl) continue;
 
         try {
-            const canvas = await html2canvas(pageEl, {
+            // Render customer version (no shipping banner)
+            const canvasCust = await html2canvas(custPageEl, {
                 scale: 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff'
             });
+            const imgUrlCust = canvasCust.toDataURL('image/jpeg', 0.8);
 
-            const imgUrl = canvas.toDataURL('image/jpeg', 0.8);
-            generatedImages[idx] = imgUrl;
+            // Render production version (has shipping banner)
+            const canvasProd = await html2canvas(prodPageEl, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            });
+            const imgUrlProd = canvasProd.toDataURL('image/jpeg', 0.8);
 
-            // Update Thumbnail Preview
+            // Stored to send in confirm-export email payload
+            generatedImages[idx] = imgUrlProd;
+
+            // Update Thumbnail Preview using Customer version
             const thumbContainer = document.getElementById(`exportThumbContainer_${idx}`);
             if (thumbContainer) {
-                thumbContainer.innerHTML = `<img src="${imgUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 4px;">`;
+                thumbContainer.innerHTML = `<img src="${imgUrlCust}" style="max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 4px;">`;
             }
 
             // Update Badge Status
@@ -6851,7 +6869,7 @@ async function _tpdShowExportSheetsModal() {
                 }
             }
 
-            // Enable Download Button
+            // Enable Download Button using Customer version
             const dlBtn = document.getElementById(`exportDlBtn_${idx}`);
             if (dlBtn) {
                 dlBtn.disabled = false;
@@ -6867,7 +6885,7 @@ async function _tpdShowExportSheetsModal() {
                     const filename = `${o.order_code || 'HV'}_Phieu_${idx + 1}_${cleanProductName}.jpg`;
                     
                     const link = document.createElement('a');
-                    link.href = imgUrl;
+                    link.href = imgUrlCust; // Download Customer version without shipping banner
                     link.download = filename;
                     document.body.appendChild(link);
                     link.click();
