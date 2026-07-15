@@ -617,15 +617,17 @@ function _tpdRenderList() {
         // Render card
         return `
             <div class="tpd-order-card ${isDraft ? 'card-draft' : ''} ${_tpd.activeOrderId == o.id ? 'card-active' : ''}" onclick="navigate('design-draft?id=${o.id}')">
-                <div class="card-header">
-                    <span class="card-code" style="display: flex; flex-direction: column; gap: 2px;">
-                        ${isDraft && o.draft_name ? `<span class="draft-name-label" style="color: #d97706; font-size: 14px; font-weight: 800;">📝 ${escapeHTML(o.draft_name)}</span>` : ''}
-                        ${isDraft && (o.order_code || '').startsWith('NHAP-') ? '' : `<span style="${isDraft ? 'font-size: 11px; color: #64748b; font-weight: 500;' : ''}">${escapeHTML(o.order_code || 'CHƯA CÓ MÃ')}</span>`}
-                    </span>
-                    <div style="display: flex; align-items: center; gap: 6px;">
+                <div class="card-header" style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                        <span class="card-code" style="display: flex; flex-direction: column; gap: 2px;">
+                            ${isDraft && o.draft_name ? `<span class="draft-name-label" style="color: #d97706; font-size: 14px; font-weight: 800;">📝 ${escapeHTML(o.draft_name)}</span>` : ''}
+                            ${isDraft && (o.order_code || '').startsWith('NHAP-') ? `<span style="font-size: 11px; color: #64748b; font-weight: 500;">BẢN NHÁP</span>` : `<span>${escapeHTML(o.order_code || 'CHƯA CÓ MÃ')}</span>`}
+                        </span>
+                        ${isDraft ? `<button class="tpd-delete-draft-btn" data-id="${o.id}" data-code="${escapeHTML(o.order_code || '')}" data-no-debounce="true" title="Xóa bản nháp" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;transition:all 0.15s;outline:none;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">🗑️ Xóa</button>` : ''}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span class="tpd-badge ${badgeClass}">${badgeLabel}</span>
                         ${emailBadge}
-                        ${isDraft ? `<button class="tpd-delete-draft-btn" data-id="${o.id}" data-code="${escapeHTML(o.order_code || '')}" data-no-debounce="true" title="Xóa bản nháp" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;transition:all 0.15s;outline:none;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">🗑️ Xóa</button>` : ''}
                     </div>
                 </div>
                 <div class="card-body">
