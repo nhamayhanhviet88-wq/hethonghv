@@ -803,6 +803,7 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS design_email_recipient TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS design_email_message_id TEXT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS design_email_subject TEXT`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS design_email_planned_send_at BIGINT`); } catch(e) {}
 
     // Migration: Bảng Giá May (BGM) — Sewing Price Catalog
     try {

@@ -181,6 +181,22 @@ async function renderTaophieudonhangPage(content) {
         }, true);
         _tpd.deleteListenerAttached = true;
     }
+
+    // Setup real-time countdown timer for email queueing
+    if (!window._tpdCountdownInterval) {
+        window._tpdCountdownInterval = setInterval(() => {
+            document.querySelectorAll('.tpd-email-countdown').forEach(el => {
+                const planned = Number(el.getAttribute('data-planned'));
+                if (!planned) return;
+                const remainingSecs = Math.max(0, Math.ceil((planned - Date.now()) / 1000));
+                if (remainingSecs > 0) {
+                    el.textContent = `(còn ${remainingSecs}s)`;
+                } else {
+                    el.textContent = `(đang gửi...)`;
+                }
+            });
+        }, 1000);
+    }
 }
 
 // === Dedicated Design Draft Full-Page Route (Phiếu Sản Xuất SPA Workspace) ===
@@ -551,9 +567,11 @@ function _tpdStartPollingForSendingOrders() {
                     const existing = _tpd.orders.find(o => o.id === newOrder.id);
                     if (existing) {
                         if (existing.design_email_status !== newOrder.design_email_status ||
-                            existing.design_email_error !== newOrder.design_email_error) {
+                            existing.design_email_error !== newOrder.design_email_error ||
+                            existing.design_email_planned_send_at !== newOrder.design_email_planned_send_at) {
                             existing.design_email_status = newOrder.design_email_status;
                             existing.design_email_error = newOrder.design_email_error;
+                            existing.design_email_planned_send_at = newOrder.design_email_planned_send_at;
                             changed = true;
                         }
                     }
@@ -651,8 +669,13 @@ function _tpdRenderList() {
                 emailBadge = `<span class="tpd-badge" style="background:#22c55e;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px;display:inline-block;" title="Gửi mail thành công đến ${escapeHTML(o.design_email_recipient)}">📧 Đã gửi</span>`;
                 emailStatusText = `<span style="color:#22c55e;font-weight:700;display:inline-flex;align-items:center;gap:4px;">✔️ Đã gửi <button class="tpd-resend-email-btn" data-id="${o.id}" style="background:#d1fae5;border:none;color:#065f46;cursor:pointer;border-radius:4px;padding:1px 4px;font-size:10px;font-weight:700;outline:none;display:inline-flex;align-items:center;">🔄 Gửi lại</button></span>`;
             } else if (o.design_email_status === 'sending') {
+                let countdownSpan = '';
+                if (o.design_email_planned_send_at) {
+                    const remainingSecs = Math.max(0, Math.ceil((Number(o.design_email_planned_send_at) - Date.now()) / 1000));
+                    countdownSpan = `<span class="tpd-email-countdown" data-planned="${o.design_email_planned_send_at}" style="font-weight: 800; color: #ca8a04; margin-left: 2px;">(còn ${remainingSecs}s)</span>`;
+                }
                 emailBadge = `<span class="tpd-badge" style="background:#eab308;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px;display:inline-block;">📧 Đang gửi...</span>`;
-                emailStatusText = `<span style="color:#eab308;font-weight:700;display:inline-flex;align-items:center;gap:4px;">⏳ Đang gửi... <button class="tpd-resend-email-btn" data-id="${o.id}" style="background:#fef3c7;border:none;color:#b45309;cursor:pointer;border-radius:4px;padding:1px 4px;font-size:10px;font-weight:700;outline:none;display:inline-flex;align-items:center;" title="Gửi lại nếu bị kẹt">🔄 Gửi lại</button></span>`;
+                emailStatusText = `<span style="color:#eab308;font-weight:700;display:inline-flex;align-items:center;gap:4px;">⏳ Đang gửi ${countdownSpan} <button class="tpd-resend-email-btn" data-id="${o.id}" style="background:#fef3c7;border:none;color:#b45309;cursor:pointer;border-radius:4px;padding:1px 4px;font-size:10px;font-weight:700;outline:none;display:inline-flex;align-items:center;" title="Gửi lại nếu bị kẹt">🔄 Gửi lại</button></span>`;
             } else if (o.design_email_status === 'failed') {
                 emailBadge = `<span class="tpd-badge" style="background:#ef4444;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px;display:inline-block;" title="Lỗi: ${escapeHTML(o.design_email_error || 'Lỗi không rõ')}">📧 Lỗi</span>`;
                 emailStatusText = `<span style="color:#ef4444;font-weight:700;display:inline-flex;align-items:center;gap:4px;" title="${escapeHTML(o.design_email_error || '')}">❌ Gửi lỗi <button class="tpd-resend-email-btn" data-id="${o.id}" style="background:#fee2e2;border:none;color:#dc2626;cursor:pointer;border-radius:4px;padding:1px 4px;font-size:10px;font-weight:700;outline:none;display:inline-flex;align-items:center;">🔄 Gửi lại</button></span>`;

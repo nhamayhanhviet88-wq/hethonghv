@@ -6338,12 +6338,16 @@ module.exports = async function(fastify) {
         
         // 0. Update status to 'sending' and schedule rate-limited slot
         await db.run(
-            `UPDATE dht_orders SET design_email_status = 'sending', design_email_error = NULL WHERE id = $1`,
+            `UPDATE dht_orders SET design_email_status = 'sending', design_email_error = NULL, design_email_planned_send_at = NULL WHERE id = $1`,
             [orderId]
         );
         
         try {
             const targetTime = await allocateEmailSendTime();
+            await db.run(
+                `UPDATE dht_orders SET design_email_planned_send_at = $1 WHERE id = $2`,
+                [targetTime, orderId]
+            );
             const delay = targetTime - Date.now();
             if (delay > 0) {
                 console.log(`[sendDesignEmail] Order ${orderId} scheduled to send in ${delay}ms`);
@@ -7079,12 +7083,12 @@ module.exports = async function(fastify) {
 
             if (!order.design_email_message_id) {
                 await db.run(
-                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_message_id = $1, design_email_subject = $2 WHERE id = $3`,
+                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_message_id = $1, design_email_subject = $2, design_email_planned_send_at = NULL WHERE id = $3`,
                     [info.messageId, generatedSubject, orderId]
                 );
             } else {
                 await db.run(
-                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL WHERE id = $1`,
+                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_planned_send_at = NULL WHERE id = $1`,
                     [orderId]
                 );
             }
@@ -7093,7 +7097,7 @@ module.exports = async function(fastify) {
         } catch (err) {
             console.error('[DesignEmail] SMTP Send failed:', err);
             await db.run(
-                `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
+                `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1, design_email_planned_send_at = NULL WHERE id = $2`,
                 [err.message, orderId]
             );
         }
