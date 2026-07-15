@@ -8866,10 +8866,14 @@ function escapeHTML(str) {
 window._tpdOpenEmailSettingsModal = async function() {
     // 1. Fetch current config
     let currentEmail = '';
+    let senderEmail = '';
+    let hasSenderPassword = false;
     try {
         const res = await apiCall('/api/dht/config/design-email-recipient');
-        if (res && res.email) {
-            currentEmail = res.email;
+        if (res) {
+            currentEmail = res.email || '';
+            senderEmail = res.senderEmail || '';
+            hasSenderPassword = !!res.hasSenderPassword;
         }
     } catch (e) {
         console.error('Failed to fetch default design email:', e);
@@ -8898,20 +8902,35 @@ window._tpdOpenEmailSettingsModal = async function() {
         <div style="background: #ffffff; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 500px; max-width: 90%; display: flex; flex-direction: column; overflow: hidden; animation: tpdFadeIn 0.3s ease;">
             <!-- Header -->
             <div style="padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; background: #122546; color: white;">
-                <h3 style="margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">⚙️ Cấu hình Email Nhận Đơn Toàn Hệ Thống</h3>
+                <h3 style="margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">⚙️ Cấu hình Email Xưởng & Gửi Đơn</h3>
                 <button onclick="document.getElementById('tpdEmailSettingsOverlay').remove()" style="background: none; border: none; color: #ffffff; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
             </div>
             <!-- Body -->
             <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
                 <div style="font-size: 13px; color: #475569; line-height: 1.6;">
-                    Là Giám Đốc, anh có thể thiết lập **Email nhận file thiết kế và phiếu sản xuất mặc định** cho toàn bộ nhân viên Sale và Kinh doanh khi họ lên đơn.
+                    Là Giám Đốc, anh có thể cấu hình riêng biệt email nhận đơn của xưởng và thông tin tài khoản Gmail gửi đơn đi dưới đây.
                 </div>
+                <!-- Recipient Email -->
                 <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">Gmail nhận mặc định:</label>
+                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">📧 Email nhận đơn (mặc định của Xưởng):</label>
                     <input type="email" id="tpdGlobalEmailInput" value="${escapeHTML(currentEmail)}" placeholder="Nhập địa chỉ email (VD: xuongmay@gmail.com)" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
                 </div>
-                <div style="font-size: 11px; color: #dc2626; font-weight: 600; line-height: 1.4;">
-                    * Lưu ý: Khi thiết lập ở đây, tất cả nhân viên kinh doanh khi xuất phiếu lên đơn sẽ tự động có email này làm mặc định nhận đơn.
+                
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 8px 0;">
+                
+                <!-- Sender Email -->
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">📤 Gmail gửi đơn đi (SMTP):</label>
+                    <input type="email" id="tpdSenderEmailInput" value="${escapeHTML(senderEmail)}" placeholder="Nhập Gmail gửi đi (VD: user@gmail.com)" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
+                </div>
+                <!-- Sender Password -->
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">🔑 App Password Gmail gửi đi ${hasSenderPassword ? '<span style="color:#059669;font-size:11px">(đã lưu)</span>' : ''}:</label>
+                    <input type="password" id="tpdSenderPasswordInput" placeholder="${hasSenderPassword ? '●●●● (để trống = giữ nguyên mật khẩu cũ)' : 'Nhập mật khẩu ứng dụng Gmail (16 ký tự)'}" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
+                </div>
+                
+                <div style="font-size: 11px; color: #64748b; font-style: italic; line-height: 1.4;">
+                    * Lưu ý: Nếu để trống cấu hình gửi đi, hệ thống sẽ tự động dùng tài khoản Gmail trong Sổ ghi nhận tiền (check bank) để bắn đơn. Mật khẩu ứng dụng Gmail phải là mật khẩu 16 ký tự được cấp từ Tài khoản Google -> Bảo mật -> Mật khẩu ứng dụng.
                 </div>
             </div>
             <!-- Footer -->
@@ -8931,21 +8950,34 @@ window._tpdOpenEmailSettingsModal = async function() {
 
 window._tpdSaveGlobalEmail = async function() {
     const input = document.getElementById('tpdGlobalEmailInput');
+    const senderInput = document.getElementById('tpdSenderEmailInput');
+    const senderPassInput = document.getElementById('tpdSenderPasswordInput');
     const btn = document.getElementById('tpdSaveGlobalEmailBtn');
-    if (!input || !btn) return;
+    if (!input || !senderInput || !senderPassInput || !btn) return;
     
     const email = input.value.trim();
+    const senderEmail = senderInput.value.trim();
+    const senderPassword = senderPassInput.value;
+    
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        showToast('⚠️ Địa chỉ email không hợp lệ!', 'error');
+        showToast('⚠️ Địa chỉ email nhận không hợp lệ!', 'error');
+        return;
+    }
+    if (senderEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail)) {
+        showToast('⚠️ Địa chỉ Gmail gửi đi không hợp lệ!', 'error');
         return;
     }
 
     try {
         btn.disabled = true;
         btn.innerHTML = 'Đang lưu...';
-        const res = await apiCall('/api/dht/config/design-email-recipient', 'PUT', { email });
+        const res = await apiCall('/api/dht/config/design-email-recipient', 'PUT', { 
+            email,
+            senderEmail,
+            senderPassword
+        });
         if (res && res.success) {
-            showToast('🎉 Lưu cấu hình email nhận thành công!', 'success');
+            showToast('🎉 Lưu cấu hình email thành công!', 'success');
             document.getElementById('tpdEmailSettingsOverlay').remove();
         } else {
             showToast('⚠️ Lỗi: ' + (res.error || 'Không thể lưu'), 'error');

@@ -6154,20 +6154,51 @@ module.exports = async function(fastify) {
 
     // GET /api/dht/config/design-email-recipient
     fastify.get('/api/dht/config/design-email-recipient', { preHandler: [authenticate] }, async (request, reply) => {
-        const row = await db.get("SELECT value FROM app_config WHERE key = 'dht_default_design_email_recipient'");
-        return { email: row ? row.value : '' };
+        const recipientRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_default_design_email_recipient'");
+        const senderEmailRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_email'");
+        const senderPassRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_password'");
+        
+        return {
+            email: recipientRow ? recipientRow.value : '',
+            senderEmail: senderEmailRow ? senderEmailRow.value : '',
+            hasSenderPassword: !!(senderPassRow && senderPassRow.value)
+        };
     });
 
     // PUT /api/dht/config/design-email-recipient
     fastify.put('/api/dht/config/design-email-recipient', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         try {
-            const { email } = request.body || {};
-            const cleaned = (email || '').trim();
+            const { email, senderEmail, senderPassword } = request.body || {};
+            
+            // Save recipient
+            const cleanedRecipient = (email || '').trim();
             await db.run(
                 `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_default_design_email_recipient', $1, NOW()) 
                  ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
-                [cleaned]
+                [cleanedRecipient]
             );
+            
+            // Save sender email
+            if (senderEmail !== undefined) {
+                const cleanedSender = (senderEmail || '').trim();
+                await db.run(
+                    `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_design_sender_email', $1, NOW()) 
+                     ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+                    [cleanedSender]
+                );
+            }
+            
+            // Save sender password
+            if (senderPassword) {
+                const { encrypt } = require('../services/emailChecker');
+                const encrypted = encrypt(senderPassword);
+                await db.run(
+                    `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_design_sender_password', $1, NOW()) 
+                     ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+                    [encrypted]
+                );
+            }
+            
             return { success: true };
         } catch (err) {
             request.log.error(err);
@@ -6216,22 +6247,30 @@ module.exports = async function(fastify) {
 
     async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths) {
         const nodemailer = require('nodemailer');
-        
-        // 1. Fetch email sender config from email_import_config
-        const config = await db.get('SELECT * FROM email_import_config WHERE id = 1');
-        if (!config || !config.is_active || !config.gmail_user || !config.gmail_pass) {
-            const errMsg = 'Chưa cấu hình hoặc kích hoạt tài khoản Gmail gửi đi trong Cấu hình check bank.';
-            await db.run(
-                `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
-                [errMsg, orderId]
-            );
-            return;
-        }
-
         const { decrypt } = require('../services/emailChecker');
-        const decryptedPassword = decrypt(config.gmail_pass);
-        if (!decryptedPassword) {
-            const errMsg = 'Không thể giải mã App Password của tài khoản gửi đi.';
+        
+        // 1. Fetch Custom Sender or Fallback Config
+        let senderEmail = '';
+        let decryptedPassword = '';
+        
+        const customEmailRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_email'");
+        const customPassRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_password'");
+        
+        if (customEmailRow && customEmailRow.value && customPassRow && customPassRow.value) {
+            senderEmail = customEmailRow.value.trim();
+            decryptedPassword = decrypt(customPassRow.value);
+        }
+        
+        if (!senderEmail || !decryptedPassword) {
+            const config = await db.get('SELECT * FROM email_import_config WHERE id = 1');
+            if (config && config.is_active && config.gmail_user && config.gmail_pass) {
+                senderEmail = config.gmail_user.trim();
+                decryptedPassword = decrypt(config.gmail_pass);
+            }
+        }
+        
+        if (!senderEmail || !decryptedPassword) {
+            const errMsg = 'Chưa cấu hình tài khoản Gmail gửi đi (trong Cấu hình thiết kế hoặc Sổ ghi nhận tiền).';
             await db.run(
                 `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
                 [errMsg, orderId]
@@ -6401,14 +6440,14 @@ module.exports = async function(fastify) {
             port: 465,
             secure: true,
             auth: {
-                user: config.gmail_user,
+                user: senderEmail,
                 pass: decryptedPassword
             }
         });
 
         try {
             await transporter.sendMail({
-                from: `"${config.gmail_user.split('@')[0].toUpperCase()} - DHT" <${config.gmail_user}>`,
+                from: `"${senderEmail.split('@')[0].toUpperCase()} - DHT" <${senderEmail}>`,
                 to: recipientEmail,
                 subject: subject,
                 html: emailHtml,
