@@ -3976,6 +3976,13 @@ module.exports = async function(fastify) {
             );
         } catch(e) { console.error('[AuditLog] promote_draft:', e.message); }
 
+        // Clear session backup on successful confirm-export so that future edits start with a fresh snapshot
+        try {
+            await db.run('DELETE FROM dht_order_session_backups WHERE order_id = $1 AND user_id = $2', [orderId, request.user.id]);
+        } catch (backupDelErr) {
+            console.error('[ConfirmExport] Failed to delete session backup:', backupDelErr);
+        }
+
         return { success: true };
     });
 
@@ -5367,6 +5374,13 @@ module.exports = async function(fastify) {
                 ]);
             }
         } catch(auditErr) { console.error('[AuditLog] update:', auditErr.message); }
+
+        // Clear session backup on successful order update so that future edits start with a fresh snapshot
+        try {
+            await db.run('DELETE FROM dht_order_session_backups WHERE order_id = $1 AND user_id = $2', [orderId, request.user.id]);
+        } catch (backupDelErr) {
+            console.error('[UpdateOrder] Failed to delete session backup:', backupDelErr);
+        }
 
         return { success: true };
     });
