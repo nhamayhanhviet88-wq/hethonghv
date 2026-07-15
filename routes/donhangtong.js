@@ -6316,7 +6316,18 @@ module.exports = async function(fastify) {
             } catch(e) {}
         }
 
-        const subject = `${orderCode} - KH : ${customerName} - ${totalQty} áo - ${cskhName} - Thiết kế: ${designerName} - ${priority} - ${shipDateFormatted}`;
+        const generatedSubject = `${orderCode} - KH : ${customerName} - ${totalQty} áo - ${cskhName} - Thiết kế: ${designerName} - ${priority} - ${shipDateFormatted}`;
+        let subject = generatedSubject;
+        let mailHeaders = {};
+
+        if (order.design_email_message_id) {
+            const originalSubject = order.design_email_subject || generatedSubject;
+            subject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`;
+            mailHeaders = {
+                'In-Reply-To': order.design_email_message_id,
+                'References': order.design_email_message_id
+            };
+        }
 
         // 6. Gather attachments & URLs
         const attachments = [];
@@ -6449,19 +6460,29 @@ module.exports = async function(fastify) {
         });
 
         try {
-            await transporter.sendMail({
+            const info = await transporter.sendMail({
                 from: `"${senderEmail.split('@')[0].toUpperCase()} - DHT" <${senderEmail}>`,
                 to: recipientEmail,
                 subject: subject,
                 html: emailHtml,
-                attachments: attachments
+                attachments: attachments,
+                inReplyTo: order.design_email_message_id || undefined,
+                references: order.design_email_message_id || undefined,
+                headers: mailHeaders
             });
 
-            await db.run(
-                `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL WHERE id = $1`,
-                [orderId]
-            );
-            console.log(`[DesignEmail] Email sent successfully for order ${orderCode} to ${recipientEmail}`);
+            if (!order.design_email_message_id) {
+                await db.run(
+                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_message_id = $1, design_email_subject = $2 WHERE id = $3`,
+                    [info.messageId, generatedSubject, orderId]
+                );
+            } else {
+                await db.run(
+                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL WHERE id = $1`,
+                    [orderId]
+                );
+            }
+            console.log(`[DesignEmail] Email sent successfully for order ${orderCode} to ${recipientEmail}. Message-ID: ${info.messageId}`);
 
         } catch (err) {
             console.error('[DesignEmail] SMTP Send failed:', err);
