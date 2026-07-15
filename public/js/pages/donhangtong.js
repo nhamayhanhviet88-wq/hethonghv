@@ -1221,6 +1221,7 @@ async function _dhtShowDetail(id) {
         };
         // Recalculate totals from items (source of truth)
         let calcBase = 0, calcVat = 0;
+        let totalGiftDeduction = 0;
         if (String(o.id).startsWith('sample_')) {
             for (const it of items) {
                 calcBase += Number(it.total_amount) || (Number(it.price_per_item) * Number(it.quantity)) || 0;
@@ -1228,18 +1229,48 @@ async function _dhtShowDetail(id) {
         } else {
             for (const it of items) {
                 try {
-                    const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]);
-                    const base = qs.reduce((s,x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
-                    calcBase += base;
-                    calcVat += (Number(it.item_total) || 0) - base;
-                } catch(e) { calcBase += Number(it.item_total) || 0; }
+                    let qtyArr = [];
+                    if (typeof it.quantities === 'string') {
+                        qtyArr = JSON.parse(it.quantities);
+                    } else if (Array.isArray(it.quantities)) {
+                        qtyArr = it.quantities;
+                    }
+                    const unitPrice = Number(it.unit_price) || 0;
+                    if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
+
+                    const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                    const giftQty = Number(it.promo_gift_quantity) || 0;
+                    const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
+                    
+                    let itemRaw = undiscRaw;
+                    if (giftQty > 0 && qtyArr.length > 0) {
+                        const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+                        itemRaw -= Math.round(giftPrice * giftQty);
+                        if (itemRaw < 0) itemRaw = 0;
+                        totalGiftDeduction += (undiscRaw - itemRaw);
+                    }
+
+                    const rawTotal = Number(it.item_total || it.total) || 0;
+                    let vatPct = 0;
+                    if (itemRaw > 0 && rawTotal > itemRaw) {
+                        vatPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                    }
+                    const itemVat = Math.round(itemRaw * vatPct / 100);
+
+                    calcBase += undiscRaw;
+                    calcVat += itemVat;
+                } catch(e) {
+                    calcBase += Number(it.item_total || it.total) || 0;
+                }
             }
         }
         if (calcVat < 0) calcVat = 0;
         calcVat += Number(o.additional_vat_amount || 0);
         const deposit = Number(o.deposit_amount) || 0;
         const vat = calcVat;
-        const discount = Number(o.discount_amount) || 0;
+        const promoDiscount = Number(o.promo_discount_amount) || 0;
+        const manualDiscount = Number(o.discount_amount) || 0;
+        const discount = totalGiftDeduction + promoDiscount + manualDiscount;
         const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
         const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
         const hasCarrierPayment = payments.some(p => p.money_source === 'nha_van_chuyen');
@@ -1478,8 +1509,21 @@ async function _dhtShowDetail(id) {
                 ['Tổng tiền hàng (trước VAT)', fmt(calcBase) + 'đ', '#1e293b', false],
                 ['Phụ phí', fmt(surchargeTotal) + 'đ', '#f59e0b', false],
                 [vatLabel, fmt(vat) + 'đ', '#6366f1', false],
-                ['Ưu đãi / Giảm giá', '-' + fmt(discount) + 'đ', '#059669', false],
             ];
+            if (totalGiftDeduction > 0) {
+                finRows.push(['Khuyến mãi tặng áo', '-' + fmt(totalGiftDeduction) + 'đ', '#059669', false]);
+            }
+            if (promoDiscount > 0) {
+                let label = 'Khuyến mãi giảm giá';
+                if (o.applied_coupon) label += ` [${o.applied_coupon}]`;
+                finRows.push([label, '-' + fmt(promoDiscount) + 'đ', '#059669', false]);
+            }
+            if (manualDiscount > 0) {
+                finRows.push(['Ưu đãi / Giảm giá khác', '-' + fmt(manualDiscount) + 'đ', '#059669', false]);
+            }
+            if (totalGiftDeduction === 0 && promoDiscount === 0 && manualDiscount === 0) {
+                finRows.push(['Ưu đãi / Giảm giá', '-0đ', '#059669', false]);
+            }
             if (o.discount_reason) {
                 finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
             }
@@ -2897,18 +2941,53 @@ async function _dhtPrintOrder(orderId) {
 
         // Calculate financials
         let calcBase = 0, calcVat = 0;
+        let totalGiftDeduction = 0;
         for (const it of items) {
-            let quantities = it.quantities || [];
-            if (typeof quantities === 'string') try { quantities = JSON.parse(quantities); } catch(e) { quantities = []; }
-            const base = quantities.reduce((s, x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
-            calcBase += base;
-            calcVat += (Number(it.item_total) || 0) - base;
+            try {
+                let qtyArr = [];
+                if (typeof it.quantities === 'string') {
+                    qtyArr = JSON.parse(it.quantities);
+                } else if (Array.isArray(it.quantities)) {
+                    qtyArr = it.quantities;
+                }
+                const unitPrice = Number(it.unit_price) || 0;
+                if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
+
+                const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                const giftQty = Number(it.promo_gift_quantity) || 0;
+                const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
+                
+                let itemRaw = undiscRaw;
+                if (giftQty > 0 && qtyArr.length > 0) {
+                    const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+                    itemRaw -= Math.round(giftPrice * giftQty);
+                    if (itemRaw < 0) itemRaw = 0;
+                    totalGiftDeduction += (undiscRaw - itemRaw);
+                }
+
+                const rawTotal = Number(it.item_total || it.total) || 0;
+                let vatPct = 0;
+                if (itemRaw > 0 && rawTotal > itemRaw) {
+                    vatPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                }
+                const itemVat = Math.round(itemRaw * vatPct / 100);
+
+                calcBase += undiscRaw;
+                calcVat += itemVat;
+            } catch(e) {
+                calcBase += Number(it.item_total || it.total) || 0;
+            }
         }
+        if (calcVat < 0) calcVat = 0;
+        calcVat += Number(o.additional_vat_amount || 0);
+
         const payments = d.payments || [];
         const deposit = payments.length > 0
             ? payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
             : (Number(o.deposit_amount) || Number(o.deposit_amount_cache) || 0);
-        const discount = Number(o.discount_amount) || 0;
+        const promoDiscount = Number(o.promo_discount_amount) || 0;
+        const manualDiscount = Number(o.discount_amount) || 0;
+        const discount = totalGiftDeduction + promoDiscount + manualDiscount;
         const surcharges = d.surcharges || [];
         const surTotal = surcharges.reduce((s, x) => s + (Number(x.amount) || 0), 0);
         const needToPay = calcBase + calcVat + surTotal - discount - deposit;
@@ -3013,7 +3092,9 @@ table tbody tr:nth-child(even) { background:#f8f9fa; }
     <div class="row"><span class="key">Tổng tiền hàng (trước VAT):</span><span class="val">${fmt(calcBase)}đ</span></div>
     ${surTotal > 0 ? `<div class="row"><span class="key">Phụ phí:</span><span class="val">${fmt(surTotal)}đ</span></div>` : ''}
     <div class="row"><span class="key">VAT:</span><span class="val" style="color:#6366f1">${fmt(calcVat)}đ</span></div>
-    ${discount > 0 ? `<div class="row"><span class="key">Giảm giá:</span><span class="val" style="color:#059669">-${fmt(discount)}đ</span></div>` : ''}
+    ${totalGiftDeduction > 0 ? `<div class="row"><span class="key">Khuyến mãi tặng áo:</span><span class="val" style="color:#059669">-${fmt(totalGiftDeduction)}đ</span></div>` : ''}
+    ${promoDiscount > 0 ? `<div class="row"><span class="key">Khuyến mãi giảm giá${o.applied_coupon ? ' [' + o.applied_coupon + ']' : ''}:</span><span class="val" style="color:#059669">-${fmt(promoDiscount)}đ</span></div>` : ''}
+    ${manualDiscount > 0 ? `<div class="row"><span class="key">Ưu đãi / Giảm giá khác:</span><span class="val" style="color:#059669">-${fmt(manualDiscount)}đ</span></div>` : ''}
     <div class="row"><span class="key">Đã đặt cọc:</span><span class="val" style="color:#2563eb">${fmt(deposit)}đ</span></div>
     <div class="row total-row"><span class="key">💰 CẦN THANH TOÁN:</span><span class="val">${fmt(needToPay)}đ</span></div>
 </div>
