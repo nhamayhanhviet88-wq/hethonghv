@@ -850,7 +850,8 @@ async function _dhtGoStep2() {
         _dhtCalcTotal();
 
         // ★ EDIT RESTRICTIONS: Non-GĐ users cannot modify critical fields (skip for drafts)
-        if (!o.is_draft && typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'giam_doc') {
+        var curUser = window.currentUser || window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
+        if (!o.is_draft && curUser && curUser.role !== 'giam_doc') {
             // 1. Lock Lĩnh Vực (category) — read-only
             var catEl = document.getElementById('_co_cat');
             if (catEl) { catEl.disabled = true; catEl.style.background = '#f1f5f9'; catEl.style.color = '#64748b'; catEl.style.cursor = 'not-allowed'; catEl.title = '🔒 Chỉ GĐ mới đổi được Lĩnh Vực'; }
@@ -1351,16 +1352,21 @@ if (!_dhtCreate.phieuItems) _dhtCreate.phieuItems = [];
 // Searchable dropdown helper: input + filtered list, no free text
 function _ppSearchField(id, label, items, curVal, hiddenVal) {
     if (hiddenVal === undefined) hiddenVal = curVal;
-    var isReadOnly = (id === '_pp_sale');
-    var roAttr = isReadOnly ? ' readonly' : '';
-    var placeholder = isReadOnly ? 'Chọn...' : 'Gõ để tìm...';
+    var isRestricted = !!window._dhtPhieuRestricted;
+    var isReadOnly = (id === '_pp_sale') || isRestricted;
+    var disabledAttr = isRestricted ? ' disabled' : '';
+    var bgStyle = isRestricted ? 'background:#f1f5f9;cursor:not-allowed;' : 'cursor:pointer;';
+    var roAttr = (id === '_pp_sale') ? ' readonly' : '';
+    var placeholder = isRestricted ? '🔒 Đã khóa' : (isReadOnly ? 'Chọn...' : 'Gõ để tìm...');
+    var focusAttr = isRestricted ? '' : ' onfocus="_ppShowList(\''+id+'\')"';
+    var inputAttr = isRestricted ? '' : ' oninput="_ppFilterList(\''+id+'\')"';
     var h = '<div style="position:relative"><label style="font-size:11px;font-weight:700">'+label+'</label>'
-        +'<input id="'+id+'" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="'+placeholder+'" value="'+(curVal||'')+'" onfocus="_ppShowList(\''+id+'\')" oninput="_ppFilterList(\''+id+'\')"' + roAttr + '>'
+        +'<input id="'+id+'" class="form-control _ppSF" autocomplete="off" style="font-size:12px;'+bgStyle+'" placeholder="'+placeholder+'" value="'+(curVal||'')+'"' + focusAttr + inputAttr + roAttr + disabledAttr + '>'
         +'<input type="hidden" id="'+id+'_val" value="'+(hiddenVal||'')+'">'
         +'<div id="'+id+'_list" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">';
     items.forEach(function(it) {
         var txt = it.text||it.name||it, val = it.value!==undefined?it.value:txt;
-        h += '<div class="_ppOpt" data-val="'+val+'" data-txt="'+txt+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\''+id+'\',this)">'+txt+'</div>';
+        h += '<div class="_ppOpt" data-val="'+val+'" data-txt="'+txt+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'\''+id+'\'\',this)">'+txt+'</div>';
     });
     return h + '</div></div>';
 }
@@ -1476,6 +1482,8 @@ function _dhtAddItemFree(editIdx) {
     var existing = _dhtCreate.phieuItems[idx] || {};
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
     var isRestricted = isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called;
+    window._dhtIsFabricEditRestricted = isRestricted;
+    window._dhtPhieuRestricted = isRestricted;
     var ov = document.createElement('div');
     ov.id = '_phieuPopup';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
@@ -1667,6 +1675,7 @@ async function _dhtAddItem(editIdx) {
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
     var isRestricted = isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called;
     window._dhtIsFabricEditRestricted = isRestricted;
+    window._dhtPhieuRestricted = isRestricted;
     var po = _dhtCreate.phieuOpts || {};
     var ov = document.createElement('div');
     ov.id = '_phieuPopup';
@@ -1736,6 +1745,7 @@ async function _dhtAddItem(editIdx) {
     var sfProd=_ppSearchField('_pp_product','Sản Phẩm *',prodItems,existing.product_name||'');
     // Cascade: disable product until Bán/Quà is selected
     setTimeout(function(){
+        if (window._dhtPhieuRestricted) return;
         var pInp=document.getElementById('_pp_product');if(pInp&&!existing.product_name){pInp.disabled=true;pInp.placeholder='← Chọn Bán/Quà trước';pInp.style.background='#f1f5f9';pInp.style.cursor='not-allowed';}
     },50);
     var sfPat=_ppSearchField('_pp_pattern','Thông Số Mẫu Áo *',patItems,existing.pattern_name||'');
@@ -1787,6 +1797,12 @@ async function _dhtAddItem(editIdx) {
     
     // Restore existing values / cascade product change
     setTimeout(function() {
+        if (window._dhtPhieuRestricted) {
+            if (existing.product_name) {
+                _dhtProductChange(true);
+            }
+            return;
+        }
         if (existing.sale_type) {
             // Populate product list based on current sale type ID
             var saleId = document.getElementById('_pp_sale_val')?.value;
@@ -2337,6 +2353,7 @@ function _dhtPatternChange(existing) {
 
 // Helper: show pair dropdown list
 function _ppShowPairList(listId) {
+    if (window._dhtIsFabricEditRestricted) return;
     var l=document.getElementById(listId);
     if(l) {
         l.style.display='block';
@@ -2345,6 +2362,7 @@ function _ppShowPairList(listId) {
 }
 // Helper: filter pair dropdown list
 function _ppFilterPairList(inputId, listId) {
+    if (window._dhtIsFabricEditRestricted) return;
     var inp=document.getElementById(inputId); if(!inp) return;
     var q=inp.value.toLowerCase();
     document.querySelectorAll('#'+listId+' ._ppPairOpt').forEach(function(el){ el.style.display=el.dataset.txt.toLowerCase().indexOf(q)>=0?'':'none'; });
@@ -3859,7 +3877,8 @@ async function _dhtEditOrderFree(o) {
     _dhtCalcTotal();
 
     // ★ EDIT RESTRICTIONS for non-GĐ users (skip for drafts)
-    if (!o.is_draft && typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'giam_doc') {
+    var curUser = window.currentUser || window._currentUser || (typeof currentUser !== 'undefined' ? currentUser : null);
+    if (!o.is_draft && curUser && curUser.role !== 'giam_doc') {
         var catEl2 = document.getElementById('_co_cat');
         if (catEl2) { catEl2.disabled = true; catEl2.style.background = '#f1f5f9'; catEl2.style.color = '#64748b'; catEl2.style.cursor = 'not-allowed'; catEl2.title = '🔒 Chỉ GĐ mới đổi được Lĩnh Vực'; }
 

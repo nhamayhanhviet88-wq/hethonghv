@@ -2668,10 +2668,21 @@ module.exports = async function(fastify) {
                    pr_ship.amount AS shipping_payment_amount,
                    cf_ship.cashflow_code AS shipping_cashflow_code,
                    
-                   -- Check fabric called status
-                   EXISTS (
-                        SELECT 1 FROM qlx_preparation p 
-                        WHERE p.item_id = i.id AND (p.fabric_called = true OR p.material_called = true)
+                                       -- Check fabric called status
+                    (
+                        EXISTS (
+                            SELECT 1 FROM qlx_preparation p 
+                            WHERE (p.item_id = i.id OR (p.dht_order_id = i.dht_order_id AND p.item_id IS NULL))
+                              AND (p.fabric_called = true OR p.material_called = true)
+                        ) OR
+                        EXISTS (
+                            SELECT 1 FROM qlx_fabric_reservations r
+                            WHERE r.item_id = i.id AND r.status NOT IN ('released', 'fulfilled')
+                        ) OR
+                        EXISTS (
+                            SELECT 1 FROM cutting_records cr
+                            WHERE cr.order_item_id = i.id
+                        )
                     ) AS has_fabric_called,
 
                    -- Check print assignment status
@@ -3257,9 +3268,20 @@ module.exports = async function(fastify) {
         const hasFabricLockedChange = FABRIC_LOCKED_FIELDS.some(f => b[f] !== undefined);
         if (hasFabricLockedChange) {
             const fabricCheck = await db.get(`
-                SELECT EXISTS (
-                    SELECT 1 FROM qlx_preparation p 
-                    WHERE p.item_id = $2 AND (p.fabric_called = true OR p.material_called = true)
+                SELECT (
+                    EXISTS (
+                        SELECT 1 FROM qlx_preparation p 
+                        WHERE (p.item_id = $2 OR (p.dht_order_id = $1 AND p.item_id IS NULL))
+                          AND (p.fabric_called = true OR p.material_called = true)
+                    ) OR
+                    EXISTS (
+                        SELECT 1 FROM qlx_fabric_reservations r
+                        WHERE r.item_id = $2 AND r.status NOT IN ('released', 'fulfilled')
+                    ) OR
+                    EXISTS (
+                        SELECT 1 FROM cutting_records cr
+                        WHERE cr.order_item_id = $2
+                    )
                 ) AS has_fabric_called
             `, [orderId, itemId]);
             if (fabricCheck && fabricCheck.has_fabric_called) {
@@ -4956,10 +4978,21 @@ module.exports = async function(fastify) {
         if (Array.isArray(b.items)) {
             const oldItems = await db.all(`
                 SELECT i.id, i.product_name, i.pattern_name, i.material_id, i.color_id, i.quantity, i.unit_price, i.quantities, i.sewing_techniques, i.extra_materials, i.material_pairs,
-                       EXISTS (
-                        SELECT 1 FROM qlx_preparation p 
-                        WHERE p.item_id = i.id AND (p.fabric_called = true OR p.material_called = true)
-                    ) AS has_fabric_called
+                       (
+                            EXISTS (
+                                SELECT 1 FROM qlx_preparation p 
+                                WHERE (p.item_id = i.id OR (p.dht_order_id = i.dht_order_id AND p.item_id IS NULL))
+                                  AND (p.fabric_called = true OR p.material_called = true)
+                            ) OR
+                            EXISTS (
+                                SELECT 1 FROM qlx_fabric_reservations r
+                                WHERE r.item_id = i.id AND r.status NOT IN ('released', 'fulfilled')
+                            ) OR
+                            EXISTS (
+                                SELECT 1 FROM cutting_records cr
+                                WHERE cr.order_item_id = i.id
+                            )
+                       ) AS has_fabric_called
                 FROM dht_order_items i 
                 WHERE i.dht_order_id = $1
             `, [orderId]);
