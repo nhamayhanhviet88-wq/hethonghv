@@ -6667,14 +6667,9 @@ async function _tpdShowExportSheetsModal() {
                     </div>
                 </div>
 
-                <!-- Email Recipient Field -->
-                <div style="margin: 0 24px 20px 24px; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                        <span style="font-size: 16px;">📧</span>
-                        <strong style="font-size: 13px; color: #1e293b;">Gmail nhận hình ảnh phiếu & file thiết kế:</strong>
-                    </div>
-                    <input type="email" id="tpdRecipientEmail" placeholder="Nhập địa chỉ email nhận (VD: xuongmay@gmail.com)" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;" oninput="this.style.borderColor = this.value ? '#3b82f6' : '#cbd5e1';">
-                    <div style="font-size: 11px; color: #64748b; margin-top: 6px; font-weight: 600;">* Hệ thống tự động lưu email này làm mặc định cho lần lên đơn tiếp theo. Để trống nếu không muốn gửi email.</div>
+                <!-- Email Recipient Field (Hidden for sales/kinh doanh since director already configured global default) -->
+                <div style="display: none;">
+                    <input type="email" id="tpdRecipientEmail">
                 </div>
             </div>
 
