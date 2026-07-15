@@ -2668,12 +2668,23 @@ module.exports = async function(fastify) {
                    pr_ship.amount AS shipping_payment_amount,
                    cf_ship.cashflow_code AS shipping_cashflow_code,
                    
-                                       -- Check fabric called status
+                    -- Check fabric called status
                     (
                         EXISTS (
                             SELECT 1 FROM qlx_preparation p 
-                            WHERE (p.item_id = i.id OR (p.dht_order_id = i.dht_order_id AND p.item_id IS NULL))
-                              AND (p.fabric_called = true OR p.material_called = true)
+                            WHERE p.item_id = i.id 
+                              AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                        ) OR
+                        (
+                            NOT EXISTS (
+                                SELECT 1 FROM qlx_preparation p2 
+                                WHERE p2.dht_order_id = i.dht_order_id AND p2.item_id IS NOT NULL
+                            )
+                            AND EXISTS (
+                                SELECT 1 FROM qlx_preparation p 
+                                WHERE p.dht_order_id = i.dht_order_id AND p.item_id IS NULL
+                                  AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                            )
                         ) OR
                         EXISTS (
                             SELECT 1 FROM qlx_fabric_reservations r
@@ -3271,8 +3282,19 @@ module.exports = async function(fastify) {
                 SELECT (
                     EXISTS (
                         SELECT 1 FROM qlx_preparation p 
-                        WHERE (p.item_id = $2 OR (p.dht_order_id = $1 AND p.item_id IS NULL))
-                          AND (p.fabric_called = true OR p.material_called = true)
+                        WHERE p.item_id = $2 
+                          AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                    ) OR
+                    (
+                        NOT EXISTS (
+                            SELECT 1 FROM qlx_preparation p2 
+                            WHERE p2.dht_order_id = $1 AND p2.item_id IS NOT NULL
+                        )
+                        AND EXISTS (
+                            SELECT 1 FROM qlx_preparation p 
+                            WHERE p.dht_order_id = $1 AND p.item_id IS NULL
+                              AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                        )
                     ) OR
                     EXISTS (
                         SELECT 1 FROM qlx_fabric_reservations r
@@ -4981,8 +5003,19 @@ module.exports = async function(fastify) {
                        (
                             EXISTS (
                                 SELECT 1 FROM qlx_preparation p 
-                                WHERE (p.item_id = i.id OR (p.dht_order_id = i.dht_order_id AND p.item_id IS NULL))
-                                  AND (p.fabric_called = true OR p.material_called = true)
+                                WHERE p.item_id = i.id 
+                                  AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                            ) OR
+                            (
+                                NOT EXISTS (
+                                    SELECT 1 FROM qlx_preparation p2 
+                                    WHERE p2.dht_order_id = i.dht_order_id AND p2.item_id IS NOT NULL
+                                )
+                                AND EXISTS (
+                                    SELECT 1 FROM qlx_preparation p 
+                                    WHERE p.dht_order_id = i.dht_order_id AND p.item_id IS NULL
+                                      AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                                )
                             ) OR
                             EXISTS (
                                 SELECT 1 FROM qlx_fabric_reservations r
