@@ -576,6 +576,7 @@ module.exports = async function(fastify) {
                 WHERE COALESCE(o.shipping_status, '') != 'shipped'
                   AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
                   AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
+                  AND COALESCE(o.is_draft, false) = false
             `);
             if (candidates.length === 0) return;
 
@@ -1031,6 +1032,7 @@ module.exports = async function(fastify) {
               AND COALESCE(o.shipping_status, '') != 'shipped'
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
+              AND COALESCE(o.is_draft, false) = false
             GROUP BY year, month, o.category_id, c.name
             ORDER BY year DESC, month DESC
         `);
@@ -1045,6 +1047,7 @@ module.exports = async function(fastify) {
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
               AND COALESCE(o.sx_print_confirmed, false) = false
+              AND COALESCE(o.is_draft, false) = false
         `);
 
         const complete = await db.all(`
@@ -1058,6 +1061,7 @@ module.exports = async function(fastify) {
             WHERE (COALESCE(p.is_completed, false) = true OR COALESCE(o.shipping_status, '') = 'shipped')
               AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM')
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
+              AND COALESCE(o.is_draft, false) = false
             GROUP BY year, month
             ORDER BY year DESC, month DESC
         `);
@@ -1097,7 +1101,7 @@ module.exports = async function(fastify) {
 
         const { status, year, month, category_id, search } = request.query;
 
-        let where = `WHERE 1=1 AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM') AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'`;
+        let where = `WHERE 1=1 AND UPPER(COALESCE(c.name, '')) NOT IN ('PET', 'TEM') AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%' AND COALESCE(o.is_draft, false) = false`;
         const params = [];
         let idx = 1;
 

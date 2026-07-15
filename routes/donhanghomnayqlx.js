@@ -192,8 +192,9 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_categories c ON c.id = o.category_id
                 LEFT JOIN users u ON u.id = o.cskh_user_id
                 LEFT JOIN users upd ON upd.id = o.qlx_updated_by
-                WHERE (o.shipping_status IN ('pending','rescheduled') AND o.qlx_actual_output_at IS NULL)
-                   OR (o.qlx_actual_output_at IS NOT NULL AND o.qlx_actual_output_at::date = $1::date)
+                WHERE ((o.shipping_status IN ('pending','rescheduled') AND o.qlx_actual_output_at IS NULL)
+                   OR (o.qlx_actual_output_at IS NOT NULL AND o.qlx_actual_output_at::date = $1::date))
+                   AND COALESCE(o.is_draft, false) = false
                 ORDER BY o.expected_ship_date ASC, o.id DESC
             `, [todayStr]);
 
@@ -452,6 +453,7 @@ module.exports = async function(fastify) {
                        COUNT(*)::int AS count
                 FROM dht_orders
                 WHERE qlx_actual_output_at IS NOT NULL
+                  AND COALESCE(is_draft, false) = false
                 GROUP BY year, month
                 ORDER BY year DESC, month DESC
             `);
@@ -490,6 +492,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN users upd ON upd.id = o.qlx_updated_by
                 WHERE o.qlx_actual_output_at IS NOT NULL
                   AND TO_CHAR(o.qlx_actual_output_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM') = $1
+                  AND COALESCE(o.is_draft, false) = false
                 ORDER BY o.qlx_actual_output_at DESC, o.id DESC
             `, [month]);
 
