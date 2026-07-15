@@ -3532,7 +3532,7 @@ module.exports = async function(fastify) {
                     if (matches && matches.length === 3) {
                         const ext = matches[1].split('/')[1] || 'jpeg';
                         const buffer = Buffer.from(matches[2], 'base64');
-                        const filename = `${order.order_code || 'order'}_sheet_${idx + 1}.${ext}`;
+                        const filename = `${order.order_code || 'order'} - Phieu ${idx + 1}.${ext}`;
                         const filepath = path.join(uploadsDir, filename);
                         fs.writeFileSync(filepath, buffer);
                         savedSheetPaths.push({
@@ -6258,13 +6258,22 @@ module.exports = async function(fastify) {
         const items = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
         const savedSheetPaths = [];
         items.forEach((item, idx) => {
-            const filename = `${order.order_code || 'order'}_sheet_${idx + 1}.jpeg`;
+            const filename = `${order.order_code || 'order'} - Phieu ${idx + 1}.jpeg`;
             const filepath = path.join(uploadsDir, filename);
             if (fs.existsSync(filepath)) {
                 savedSheetPaths.push({
                     path: filepath,
                     filename: filename
                 });
+            } else {
+                const oldFilename = `${order.order_code || 'order'}_sheet_${idx + 1}.jpeg`;
+                const oldFilepath = path.join(uploadsDir, oldFilename);
+                if (fs.existsSync(oldFilepath)) {
+                    savedSheetPaths.push({
+                        path: oldFilepath,
+                        filename: filename
+                    });
+                }
             }
         });
 
