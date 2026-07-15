@@ -351,9 +351,67 @@ async function renderDesignDraftPage(content) {
     }
 }
 
+// Normalize quantities to ensure they always have valid sizes mapping to the current size type configuration
+function _tpdNormalizeItemQuantities(it, config) {
+    if (!it) return [];
+    
+    let qtyArr = it.quantities;
+    if (typeof qtyArr === 'string') {
+        try { qtyArr = JSON.parse(qtyArr); } catch(e) { qtyArr = []; }
+    }
+    if (!Array.isArray(qtyArr)) qtyArr = [];
+
+    const activeConfig = config || _tpd.sizeTypesConfig || {
+        "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+        "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+    };
+
+    const currentSizeType = it.size_type || 'Size TT';
+    const stdSizes = activeConfig[currentSizeType] || [];
+    const ncList = (activeConfig._nc_config && activeConfig._nc_config[currentSizeType]) || [];
+
+    // For Size TT, we map missing/mismatched sizes to custom NC sizes in order, fallback to stdSizes
+    let targetSizes = [];
+    if (currentSizeType === 'Size TT') {
+        targetSizes = stdSizes.filter(sz => ncList.includes(sz));
+        if (targetSizes.length === 0) targetSizes = stdSizes;
+    } else {
+        targetSizes = stdSizes;
+    }
+
+    const mergedQuantities = [];
+    qtyArr.forEach((q, idx) => {
+        let size = q.size ? q.size.trim() : '';
+        const qty = Number(q.qty) || 0;
+        const price = Number(q.price) || Number(it.unit_price) || 0;
+        const note = q.note || '';
+
+        // Check if size is missing or invalid for the current size type config
+        const isMismatched = size && !stdSizes.includes(size);
+        if (!size || isMismatched) {
+            size = targetSizes[idx] || (stdSizes[idx] || `Size ${idx + 1}`);
+        }
+
+        if (qty > 0 || (note && note.trim())) {
+            mergedQuantities.push({
+                size: size,
+                qty: qty,
+                price: price,
+                note: note
+            });
+        }
+    });
+    return mergedQuantities;
+}
+
 // Clone order item to independent workspace editing state
 function _tpdCloneItemState(item) {
     if (!item) return null;
+
+    const config = _tpd.sizeTypesConfig || {
+        "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
+        "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
+    };
 
     // Check if there is a draft in localStorage
     const params = new URLSearchParams(window.location.search);
@@ -374,38 +432,16 @@ function _tpdCloneItemState(item) {
                     draft.pattern_name = item.pattern_name;
                     draft.sewing_techniques = item.sewing_techniques;
                     draft.tsam_sewing_tech = item.tsam_sewing_tech;
+                    
+                    // Normalize quantities in draft
+                    draft.quantities = _tpdNormalizeItemQuantities(draft, config);
                     return draft;
                 }
             } catch(e) {}
         }
     }
 
-    let qtyArr = [];
-    try { qtyArr = typeof item.quantities === 'string' ? JSON.parse(item.quantities) : (item.quantities || []); } catch(e) {}
-    if (!Array.isArray(qtyArr)) qtyArr = [];
-    
-    // Ensure currently configured sizes exist in quantities list for easy editor binding
-    const config = _tpd.sizeTypesConfig || {
-        "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
-        "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
-    };
-    const currentSizeType = item.size_type || Object.keys(config).filter(k => !k.startsWith('_'))[0] || 'Size TT';
-    const stdSizes = config[currentSizeType] || [];
-    const mergedQuantities = [];
-    
-    // Only import existing sizes that actually have a quantity greater than 0 or a non-empty note
-    qtyArr.forEach(q => {
-        if (q.size && (Number(q.qty) > 0 || (q.note && q.note.trim()))) {
-            mergedQuantities.push({
-                size: q.size.trim(),
-                qty: Number(q.qty) || 0,
-                price: Number(q.price) || Number(item.unit_price) || 0,
-                note: q.note || ''
-            });
-        }
-    });
-
-    item.quantities = mergedQuantities;
+    item.quantities = _tpdNormalizeItemQuantities(item, config);
 
     let printDetails = [];
     if (item.print_details) {
@@ -4812,6 +4848,14 @@ function _tpdRenderFormInputs() {
     };
     const configuredSizes = config[currentSizeType] || [];
 
+    // Self-healing: Normalize quantities if there are any sizes that don't match currentSizeType config
+    if (it.quantities && Array.isArray(it.quantities)) {
+        const hasMismatch = it.quantities.some(q => !configuredSizes.includes(q.size));
+        if (hasMismatch) {
+            it.quantities = _tpdNormalizeItemQuantities(it, config);
+        }
+    }
+
     // Auto-clean up legacy sizes that have 0 or empty quantity and are not in config
     if (it.quantities && Array.isArray(it.quantities)) {
         it.quantities = it.quantities.filter(q => {
@@ -6124,6 +6168,9 @@ async function _tpdSaveProductionSheet() {
         showToast('Bạn không có quyền chỉnh sửa phiếu này.', 'error');
         return false;
     }
+
+    // Normalize quantities before saving
+    it.quantities = _tpdNormalizeItemQuantities(it);
 
     // ★ Validation: Mockup image is mandatory
     if (!it.mockup_image || !it.mockup_image.trim()) {
@@ -7865,15 +7912,13 @@ function _tpdChangeSizeType(val) {
 
     it.size_type = val;
 
-    // Filter out sizes that don't match the new size type config
     const config = _tpd.sizeTypesConfig || {
         "Size TT": ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"],
         "Size Nam / Nữ": ["Nam S", "Nam M", "Nam L", "Nam XL", "Nam XXL", "Nữ S", "Nữ M", "Nữ L", "Nữ XL", "Nữ XXL"]
     };
-    const configuredSizes = config[val] || [];
-    if (it.quantities && Array.isArray(it.quantities)) {
-        it.quantities = it.quantities.filter(q => configuredSizes.includes(q.size));
-    }
+    
+    // Normalize/refresh quantities for the new size type config
+    it.quantities = _tpdNormalizeItemQuantities(it, config);
 
     _tpdSaveDraft(it);
     _tpdRenderFormInputs();
