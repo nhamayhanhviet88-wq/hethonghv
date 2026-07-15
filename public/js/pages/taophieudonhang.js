@@ -590,7 +590,7 @@ function _tpdRenderList() {
 
         // Render card
         return `
-            <div class="tpd-order-card ${isDraft ? 'card-draft' : ''} ${_tpd.activeOrderId == o.id ? 'card-active' : ''}" onclick="${isDraft ? `navigate('design-draft?id=${o.id}')` : `_tpdOpenOrderTechCard(${o.id})`}">
+            <div class="tpd-order-card ${isDraft ? 'card-draft' : ''} ${_tpd.activeOrderId == o.id ? 'card-active' : ''}" onclick="navigate('design-draft?id=${o.id}')">
                 <div class="card-header">
                     <span class="card-code" style="display: flex; flex-direction: column; gap: 2px;">
                         ${isDraft && o.draft_name ? `<span class="draft-name-label" style="color: #d97706; font-size: 14px; font-weight: 800;">📝 ${escapeHTML(o.draft_name)}</span>` : ''}
@@ -621,7 +621,7 @@ function _tpdRenderList() {
                 </div>
                 <div class="card-footer">
                     <span class="card-cat">📂 ${escapeHTML(o.category_name || 'Đồng Phục')}</span>
-                    <button class="tpd-card-btn" onclick="event.stopPropagation(); ${isDraft ? `navigate('design-draft?id=${o.id}')` : `_tpdOpenOrderTechCard(${o.id})`}">Thiết kế phiếu →</button>
+                    <button class="tpd-card-btn" onclick="event.stopPropagation(); navigate('design-draft?id=${o.id}')">Thiết kế phiếu →</button>
                 </div>
             </div>
         `;
@@ -3201,6 +3201,7 @@ function _tpdRenderWorkspace(container) {
     const state = window._tpdWorkspaceState;
     const o = state.order;
     const items = state.items;
+    const isOrderDraft = o.is_draft === true || o.is_draft === 1 || String(o.is_draft) === 'true';
 
     // Create item tabs
     let tabButtonsHtml = '';
@@ -3271,7 +3272,7 @@ function _tpdRenderWorkspace(container) {
                     <div class="tpd-ws-editor-footer">
                         ${state.hasEditPermission ? `
                             <button class="tpd-btn" onclick="_tpdExportSheetAndOrder()" style="background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 10px 24px; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.2); border-radius: 8px;">
-                                📤 Xuất Phiếu & Lên Đơn
+                                ${isOrderDraft ? '📤 Xuất Phiếu & Lên Đơn' : '💾 Lưu Cập Nhật Phiếu'}
                             </button>
                         ` : ''}
                     </div>
