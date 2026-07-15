@@ -8854,6 +8854,15 @@ async function _tpdSaveSewingTechsConfig() {
     }
 }
 
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#039;');
+}
+
 window._tpdOpenEmailSettingsModal = async function() {
     // 1. Fetch current config
     let currentEmail = '';
@@ -8882,7 +8891,7 @@ window._tpdOpenEmailSettingsModal = async function() {
     overlay.style.display = 'flex';
     overlay.style.justifyContent = 'center';
     overlay.style.alignItems = 'center';
-    overlay.style.zIndex = '999999';
+    overlay.style.zIndex = '9999';
     overlay.style.fontFamily = "'Inter', system-ui, sans-serif";
 
     overlay.innerHTML = `

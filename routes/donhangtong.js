@@ -6160,14 +6160,19 @@ module.exports = async function(fastify) {
 
     // PUT /api/dht/config/design-email-recipient
     fastify.put('/api/dht/config/design-email-recipient', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
-        const { email } = request.body || {};
-        const cleaned = (email || '').trim();
-        await db.run(
-            `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_default_design_email_recipient', $1, NOW()) 
-             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
-            [cleaned]
-        );
-        return { success: true };
+        try {
+            const { email } = request.body || {};
+            const cleaned = (email || '').trim();
+            await db.run(
+                `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_default_design_email_recipient', $1, NOW()) 
+                 ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+                [cleaned]
+            );
+            return { success: true };
+        } catch (err) {
+            request.log.error(err);
+            return reply.code(500).send({ success: false, error: 'Không thể lưu cấu hình vào cơ sở dữ liệu: ' + err.message });
+        }
     });
 
     // POST /api/dht/orders/:id/resend-design-email
