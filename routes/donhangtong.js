@@ -6180,18 +6180,20 @@ module.exports = async function(fastify) {
         const recipientRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_default_design_email_recipient'");
         const senderEmailRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_email'");
         const senderPassRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_password'");
+        const spacingRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_email_spacing_seconds'");
         
         return {
             email: recipientRow ? recipientRow.value : '',
             senderEmail: senderEmailRow ? senderEmailRow.value : '',
-            hasSenderPassword: !!(senderPassRow && senderPassRow.value)
+            hasSenderPassword: !!(senderPassRow && senderPassRow.value),
+            spacingSeconds: spacingRow ? parseInt(spacingRow.value, 10) || 15 : 15
         };
     });
 
     // PUT /api/dht/config/design-email-recipient
     fastify.put('/api/dht/config/design-email-recipient', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         try {
-            const { email, senderEmail, senderPassword } = request.body || {};
+            const { email, senderEmail, senderPassword, spacingSeconds } = request.body || {};
             
             // Save recipient
             const cleanedRecipient = (email || '').trim();
@@ -6219,6 +6221,16 @@ module.exports = async function(fastify) {
                     `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_design_sender_password', $1, NOW()) 
                      ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
                     [encrypted]
+                );
+            }
+
+            // Save spacing seconds
+            if (spacingSeconds !== undefined) {
+                const spacingVal = String(parseInt(spacingSeconds, 10) || 15);
+                await db.run(
+                    `INSERT INTO app_config (key, value, updated_at) VALUES ('dht_design_email_spacing_seconds', $1, NOW()) 
+                     ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+                    [spacingVal]
                 );
             }
             
@@ -6290,8 +6302,13 @@ module.exports = async function(fastify) {
             const lastPlannedTime = parseInt(row.rows[0]?.value || '0', 10) || 0;
             const now = Date.now();
             
-            // Minimum 15 seconds (15000ms) spacing between emails
-            const spacing = 15000;
+            // Minimum spacing between emails (defaults to 15 seconds)
+            const spacingRow = await client.query(`
+                SELECT value FROM app_config 
+                WHERE key = 'dht_design_email_spacing_seconds'
+            `);
+            const spacingSeconds = parseInt(spacingRow.rows[0]?.value || '15', 10) || 15;
+            const spacing = spacingSeconds * 1000;
             let targetTime = now;
             if (lastPlannedTime > now) {
                 targetTime = lastPlannedTime + spacing;

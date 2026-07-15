@@ -8900,12 +8900,14 @@ window._tpdOpenEmailSettingsModal = async function() {
     let currentEmail = '';
     let senderEmail = '';
     let hasSenderPassword = false;
+    let spacingSeconds = 15;
     try {
         const res = await apiCall('/api/dht/config/design-email-recipient');
         if (res) {
             currentEmail = res.email || '';
             senderEmail = res.senderEmail || '';
             hasSenderPassword = !!res.hasSenderPassword;
+            spacingSeconds = res.spacingSeconds !== undefined ? res.spacingSeconds : 15;
         }
     } catch (e) {
         console.error('Failed to fetch default design email:', e);
@@ -8961,6 +8963,12 @@ window._tpdOpenEmailSettingsModal = async function() {
                     <input type="password" id="tpdSenderPasswordInput" placeholder="${hasSenderPassword ? '●●●● (để trống = giữ nguyên mật khẩu cũ)' : 'Nhập mật khẩu ứng dụng Gmail (16 ký tự)'}" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
                 </div>
                 
+                <!-- Email Spacing -->
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">⏱️ Giãn cách gửi email tối thiểu (giây):</label>
+                    <input type="number" id="tpdEmailSpacingInput" value="${spacingSeconds}" min="1" max="3600" placeholder="VD: 15" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
+                </div>
+                
                 <div style="font-size: 11px; color: #64748b; font-style: italic; line-height: 1.4;">
                     * Lưu ý: Nếu để trống cấu hình gửi đi, hệ thống sẽ tự động dùng tài khoản Gmail trong Sổ ghi nhận tiền (check bank) để bắn đơn. Mật khẩu ứng dụng Gmail phải là mật khẩu 16 ký tự được cấp từ Tài khoản Google -> Bảo mật -> Mật khẩu ứng dụng.
                 </div>
@@ -8984,12 +8992,14 @@ window._tpdSaveGlobalEmail = async function() {
     const input = document.getElementById('tpdGlobalEmailInput');
     const senderInput = document.getElementById('tpdSenderEmailInput');
     const senderPassInput = document.getElementById('tpdSenderPasswordInput');
+    const spacingInput = document.getElementById('tpdEmailSpacingInput');
     const btn = document.getElementById('tpdSaveGlobalEmailBtn');
-    if (!input || !senderInput || !senderPassInput || !btn) return;
+    if (!input || !senderInput || !senderPassInput || !spacingInput || !btn) return;
     
     const email = input.value.trim();
     const senderEmail = senderInput.value.trim();
     const senderPassword = senderPassInput.value;
+    const spacingSeconds = parseInt(spacingInput.value, 10) || 15;
     
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         showToast('⚠️ Địa chỉ email nhận không hợp lệ!', 'error');
@@ -8999,6 +9009,10 @@ window._tpdSaveGlobalEmail = async function() {
         showToast('⚠️ Địa chỉ Gmail gửi đi không hợp lệ!', 'error');
         return;
     }
+    if (spacingSeconds < 1) {
+        showToast('⚠️ Giãn cách gửi email tối thiểu phải lớn hơn hoặc bằng 1 giây!', 'error');
+        return;
+    }
 
     try {
         btn.disabled = true;
@@ -9006,7 +9020,8 @@ window._tpdSaveGlobalEmail = async function() {
         const res = await apiCall('/api/dht/config/design-email-recipient', 'PUT', { 
             email,
             senderEmail,
-            senderPassword
+            senderPassword,
+            spacingSeconds
         });
         if (res && res.success) {
             showToast('🎉 Lưu cấu hình email thành công!', 'success');
