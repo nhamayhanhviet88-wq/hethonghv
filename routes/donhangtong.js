@@ -6390,13 +6390,13 @@ module.exports = async function(fastify) {
         
         // Compare order level fields
         if (oldState.expected_ship_date !== newState.expected_ship_date) {
-            diffs.push(`- Ngày hẹn trả: [${oldState.expected_ship_date || 'Chưa có'}] ➔ [${newState.expected_ship_date || 'Chưa có'}]`);
+            diffs.push(`Ngày hẹn trả: [${escapeHTML(oldState.expected_ship_date || 'Chưa có')}] ➔ [${escapeHTML(newState.expected_ship_date || 'Chưa có')}]`);
         }
         if (oldState.standard_delivery_time !== newState.standard_delivery_time) {
-            diffs.push(`- Giờ hẹn trả: [${oldState.standard_delivery_time || 'Chưa có'}] ➔ [${newState.standard_delivery_time || 'Chưa có'}]`);
+            diffs.push(`Giờ hẹn trả: [${escapeHTML(oldState.standard_delivery_time || 'Chưa có')}] ➔ [${escapeHTML(newState.standard_delivery_time || 'Chưa có')}]`);
         }
         if (oldState.notes !== newState.notes) {
-            diffs.push(`- Ghi chú đơn: [${oldState.notes || 'Trống'}] ➔ [${newState.notes || 'Trống'}]`);
+            diffs.push(`Ghi chú đơn: [${escapeHTML(oldState.notes || 'Trống')}] ➔ [${escapeHTML(newState.notes || 'Trống')}]`);
         }
         
         // Compare items (sheets)
@@ -6406,28 +6406,106 @@ module.exports = async function(fastify) {
         // Check deleted items
         oldState.items.forEach(oldIt => {
             if (!newItemsMap.has(oldIt.id)) {
-                diffs.push(`- XÓA PHIẾU: [${oldIt.product_name || 'Đồng phục'}] (SL: ${oldIt.quantity})`);
+                diffs.push(`XÓA PHIẾU: [${escapeHTML(oldIt.product_name || 'Đồng phục')}] (SL: ${oldIt.quantity})`);
             }
         });
         
         // Check added or updated items
         newState.items.forEach((newIt, idx) => {
             const oldIt = oldItemsMap.get(newIt.id);
-            const prefix = `Phiếu ${idx + 1} (${newIt.product_name || 'Đồng phục'})`;
             
             if (!oldIt) {
-                diffs.push(`- THÊM MỚI PHIẾU: [${newIt.product_name || 'Đồng phục'}] (SL: ${newIt.quantity})`);
+                diffs.push(`THÊM MỚI PHIẾU: [${escapeHTML(newIt.product_name || 'Đồng phục')}] (SL: ${newIt.quantity})`);
                 return;
             }
             
             // Product name changed
             if (oldIt.product_name !== newIt.product_name) {
-                diffs.push(`- ${prefix} (Tên sản phẩm): [${oldIt.product_name || 'Đồng phục'}] ➔ [${newIt.product_name || 'Đồng phục'}]`);
+                diffs.push(`Sửa tên sản phẩm Phiếu ${idx + 1}: [${escapeHTML(oldIt.product_name || 'Đồng phục')}] ➔ [${escapeHTML(newIt.product_name || 'Đồng phục')}]`);
             }
             
-            // Quantity changed
-            if (oldIt.quantity !== newIt.quantity) {
-                diffs.push(`- ${prefix} (Số lượng): [${oldIt.quantity}] ➔ [${newIt.quantity}]`);
+            // Size allocation changed
+            const formatQuantities = (qtyArr) => {
+                if (!Array.isArray(qtyArr)) return '';
+                const activeQty = qtyArr.filter(q => q && Number(q.qty) > 0);
+                if (activeQty.length === 0) return 'Chưa nhập';
+                const sorted = [...activeQty].sort((a, b) => String(a.size).localeCompare(String(b.size)));
+                return sorted.map(q => `${q.size}: ${q.qty}`).join(', ');
+            };
+            
+            const oldSizesStr = formatQuantities(oldIt.quantities);
+            const newSizesStr = formatQuantities(newIt.quantities);
+            
+            let sizeChanged = false;
+            if (oldSizesStr !== newSizesStr) {
+                sizeChanged = true;
+                
+                // Format nice size allocation as requested by user
+                const formatQuantitiesNice = (qtyArr, totalSL) => {
+                    if (!Array.isArray(qtyArr)) return '';
+                    const activeQty = qtyArr.filter(q => q && Number(q.qty) > 0);
+                    if (activeQty.length === 0) return 'Chưa nhập';
+                    
+                    const sizeOrder = [
+                        'S', 'M', 'L', 'XL', 'XXL',
+                        'XXXL', '3XL', 'XXXXL', '4XL', 'XXXXXL', '5XL', 'XXXXXXL', '6XL', '7XL'
+                    ];
+                    const getSizeRank = (sizeName) => {
+                        let core = sizeName.replace(/^(Nam|Nữ)\s+/i, '').trim().toUpperCase();
+                        const idx = sizeOrder.indexOf(core);
+                        if (idx !== -1) return idx;
+                        const parsed = parseInt(core);
+                        if (!isNaN(parsed)) return 1000 + parsed;
+                        return 9999;
+                    };
+                    
+                    const sorted = [...activeQty].sort((a, b) => {
+                        const aRank = getSizeRank(a.size || '');
+                        const bRank = getSizeRank(b.size || '');
+                        if (aRank !== bRank) return aRank - bRank;
+                        return String(a.size).localeCompare(String(b.size));
+                    });
+                    
+                    const namParts = [];
+                    const nuParts = [];
+                    const otherParts = [];
+                    
+                    sorted.forEach(q => {
+                        const sizeName = (q.size || '').trim();
+                        const qty = Number(q.qty) || 0;
+                        
+                        if (sizeName.startsWith('Nam ')) {
+                            const coreSize = sizeName.replace(/^Nam\s+/, '').trim();
+                            namParts.push(`${qty} ${coreSize}`);
+                        } else if (sizeName.startsWith('Nữ ')) {
+                            const coreSize = sizeName.replace(/^Nữ\s+/, '').trim();
+                            nuParts.push(`${qty} ${coreSize}`);
+                        } else {
+                            otherParts.push(`${qty} ${sizeName}`);
+                        }
+                    });
+                    
+                    let result = '<br><span style="font-weight: 500; color: #1e293b; display: inline-block; margin-top: 4px; margin-bottom: 2px;">Size Nam / Nữ:</span><br>';
+                    if (namParts.length > 0) {
+                        result += `<span style="padding-left: 12px; color: #475569;">Nam: ${namParts.join(' | ')}</span><br>`;
+                    }
+                    if (nuParts.length > 0) {
+                        result += `<span style="padding-left: 12px; color: #475569;">Nữ: ${nuParts.join(' | ')}</span><br>`;
+                    }
+                    if (otherParts.length > 0) {
+                        result += `<span style="padding-left: 12px; color: #475569;">Khác: ${otherParts.join(' | ')}</span><br>`;
+                    }
+                    result += `<span style="padding-left: 12px; font-weight: 700; color: #0f172a;">Tổng SL: ${totalSL}</span>`;
+                    return result;
+                };
+                
+                const niceSizes = formatQuantitiesNice(newIt.quantities, newIt.quantity);
+                diffs.push(`Sửa báo size Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}):${niceSizes}`);
+            }
+            
+            // Quantity changed (only if size allocation did NOT change, to avoid redundant lines)
+            if (!sizeChanged && oldIt.quantity !== newIt.quantity) {
+                diffs.push(`Sửa số lượng Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}): [${oldIt.quantity}] ➔ [${newIt.quantity}]`);
             }
             
             // Material changed
@@ -6435,7 +6513,7 @@ module.exports = async function(fastify) {
                 const oldMat = `${oldIt.material_name || 'Trống'} - ${oldIt.color_name || 'Trống'}`;
                 const newMat = `${newIt.material_name || 'Trống'} - ${newIt.color_name || 'Trống'}`;
                 if (oldMat !== newMat) {
-                    diffs.push(`- ${prefix} (Chất vải/màu): [${oldMat}] ➔ [${newMat}]`);
+                    diffs.push(`Sửa chất vải/màu Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}): [${escapeHTML(oldMat)}] ➔ [${escapeHTML(newMat)}]`);
                 }
             }
             
@@ -6454,23 +6532,8 @@ module.exports = async function(fastify) {
                 const oldTechs = getTechListStr(oldIt.sewing_techniques);
                 const newTechs = getTechListStr(newIt.sewing_techniques);
                 if (oldTechs !== newTechs) {
-                    diffs.push(`- ${prefix} (Kỹ thuật may): [${oldTechs}] ➔ [${newTechs}]`);
+                    diffs.push(`Sửa kỹ thuật may Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}): [${escapeHTML(oldTechs)}] ➔ [${escapeHTML(newTechs)}]`);
                 }
-            }
-            
-            // Size allocation changed
-            const formatQuantities = (qtyArr) => {
-                if (!Array.isArray(qtyArr)) return '';
-                const activeQty = qtyArr.filter(q => q && Number(q.qty) > 0);
-                if (activeQty.length === 0) return 'Chưa nhập';
-                const sorted = [...activeQty].sort((a, b) => String(a.size).localeCompare(String(b.size)));
-                return sorted.map(q => `${q.size}: ${q.qty}`).join(', ');
-            };
-            
-            const oldSizesStr = formatQuantities(oldIt.quantities);
-            const newSizesStr = formatQuantities(newIt.quantities);
-            if (oldSizesStr !== newSizesStr) {
-                diffs.push(`- ${prefix} (Báo size): [${oldSizesStr}] ➔ [${newSizesStr}]`);
             }
             
             // Print details changed
@@ -6489,7 +6552,7 @@ module.exports = async function(fastify) {
             const oldPrint = getPrintDetailsStr(oldIt.custom_layout);
             const newPrint = getPrintDetailsStr(newIt.custom_layout);
             if (oldPrint !== newPrint) {
-                diffs.push(`- ${prefix} (Chi tiết in/thêu): [${oldPrint}] ➔ [${newPrint}]`);
+                diffs.push(`Sửa chi tiết in/thêu Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}): [${escapeHTML(oldPrint)}] ➔ [${escapeHTML(newPrint)}]`);
             }
         });
         
@@ -7290,7 +7353,7 @@ module.exports = async function(fastify) {
         if (editCount > 0) {
             let diffListHtml = '';
             if (diffs.length > 0) {
-                diffListHtml = diffs.map(d => `<li style="margin-bottom: 6px; font-weight: 600;">${escapeHTML(d)}</li>`).join('');
+                diffListHtml = diffs.map(d => `<li style="margin-bottom: 8px; font-weight: 600; list-style-type: disc; margin-left: 20px; line-height: 1.5; color: #1e293b;">${d}</li>`).join('');
             } else {
                 diffListHtml = `<li style="margin-bottom: 6px; font-style: italic; color: #64748b;">(Không có thay đổi kỹ thuật hoặc thông tin chính)</li>`;
             }
