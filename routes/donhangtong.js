@@ -4593,7 +4593,16 @@ module.exports = async function(fastify) {
 
         // ★ Smart Update/Replace order items if provided (= full edit via Sửa Đơn)
         if (Array.isArray(b.items)) {
-            const oldItems = await db.all('SELECT id, color_id, material_pairs FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            const oldItems = await db.all(`
+                SELECT i.id, i.product_name, i.pattern_name, i.material_id, i.color_id, i.quantity, i.unit_price, i.quantities, i.sewing_techniques, i.extra_materials, i.material_pairs,
+                       EXISTS (
+                           SELECT 1 FROM qlx_preparation p 
+                           WHERE (p.dht_order_id = i.dht_order_id AND p.item_id IS NULL AND (p.fabric_called = true OR p.material_called = true))
+                              OR (p.item_id = i.id AND (p.fabric_called = true OR p.material_called = true))
+                       ) AS has_fabric_called
+                FROM dht_order_items i 
+                WHERE i.dht_order_id = $1
+            `, [orderId]);
             
             // Validate and apply allowed slips change in a client transaction
             const client = await db.getDB().connect();
@@ -4624,6 +4633,12 @@ module.exports = async function(fastify) {
             // 1. Identify deleted items
             const deletedItemIds = oldItemIds.filter(id => !sentItemIds.includes(id));
             if (deletedItemIds.length > 0) {
+                if (request.user.role !== 'giam_doc') {
+                    const deletedHasFabric = oldItems.some(it => deletedItemIds.includes(Number(it.id)) && it.has_fabric_called);
+                    if (deletedHasFabric) {
+                        return reply.code(403).send({ error: '🔒 Không thể xóa phiếu đã được xưởng gọi vải/nguyên liệu.' });
+                    }
+                }
                 // Fetch cutting records to restore roll weights first
                 const cuts = await db.all('SELECT is_cut_done, selected_roll_ids, kg_cut FROM cutting_records WHERE order_item_id = ANY($1)', [deletedItemIds]);
                 const { restoreRollWeightsForCuts } = require('../utils/kv_restore_roll');
@@ -4639,6 +4654,82 @@ module.exports = async function(fastify) {
             for (const item of b.items) {
                 const itemId = Number(item.id);
                 if (itemId && oldItemIds.includes(itemId)) {
+                    const oldIt = oldItems.find(x => Number(x.id) === itemId);
+                    
+                    // A. Validation check if fabric is called
+                    if (oldIt && oldIt.has_fabric_called && request.user.role !== 'giam_doc') {
+                        const hasProductChanged = (item.product_name || '') !== (oldIt.product_name || '');
+                        const hasPatternChanged = (item.pattern_name || '') !== (oldIt.pattern_name || '');
+                        const hasMaterialChanged = (item.material_id ? Number(item.material_id) : null) !== (oldIt.material_id ? Number(oldIt.material_id) : null);
+                        const hasColorChanged = (item.color_id ? Number(item.color_id) : null) !== (oldIt.color_id ? Number(oldIt.color_id) : null);
+                        
+                        let oldQArr = [];
+                        try { oldQArr = typeof oldIt.quantities === 'string' ? JSON.parse(oldIt.quantities) : (oldIt.quantities || []); } catch(e){}
+                        const newQArr = item.quantities || [];
+                        const hasQuantitiesChanged = JSON.stringify(oldQArr) !== JSON.stringify(newQArr);
+                        
+                        let oldSew = [];
+                        try { oldSew = typeof oldIt.sewing_techniques === 'string' ? JSON.parse(oldIt.sewing_techniques) : (oldIt.sewing_techniques || []); } catch(e){}
+                        const newSew = item.sewing_techniques || [];
+                        const hasSewChanged = JSON.stringify(oldSew) !== JSON.stringify(newSew);
+
+                        let oldExt = [];
+                        try { oldExt = typeof oldIt.extra_materials === 'string' ? JSON.parse(oldIt.extra_materials) : (oldIt.extra_materials || []); } catch(e){}
+                        const newExt = item.extra_materials || [];
+                        const hasExtChanged = JSON.stringify(oldExt) !== JSON.stringify(newExt);
+
+                        if (hasProductChanged || hasPatternChanged || hasMaterialChanged || hasColorChanged || hasQuantitiesChanged || hasSewChanged || hasExtChanged) {
+                            return reply.code(403).send({ error: `🔒 Phiếu "${oldIt.product_name || 'không tên'}" đã được xưởng gọi vải/nguyên liệu, không thể sửa đổi các trường sản xuất (Chất liệu, màu sắc, size, số lượng, quy cách...).` });
+                        }
+                    }
+
+                    // B. Auto reset print assignment if critical details changed
+                    let shouldResetPrint = false;
+                    if (oldIt) {
+                        const hasProductChanged = (item.product_name || '') !== (oldIt.product_name || '');
+                        const hasPatternChanged = (item.pattern_name || '') !== (oldIt.pattern_name || '');
+                        const hasColorChanged = (item.color_id ? Number(item.color_id) : null) !== (oldIt.color_id ? Number(oldIt.color_id) : null);
+                        
+                        let oldQArr = [];
+                        try { oldQArr = typeof oldIt.quantities === 'string' ? JSON.parse(oldIt.quantities) : (oldIt.quantities || []); } catch(e){}
+                        const newQArr = item.quantities || [];
+                        const hasQuantitiesChanged = JSON.stringify(oldQArr) !== JSON.stringify(newQArr);
+
+                        if (hasProductChanged || hasPatternChanged || hasColorChanged || hasQuantitiesChanged) {
+                            shouldResetPrint = true;
+                        }
+                    }
+
+                    if (shouldResetPrint) {
+                        await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+                        await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+                        
+                        const records = await db.all(`
+                            SELECT id FROM cutting_records 
+                            WHERE dht_order_id = $1 AND order_item_id = $2 AND printing_contractor_id IS NOT NULL AND is_cut_done = false
+                        `, [orderId, itemId]);
+                        if (records.length > 0) {
+                            const recordIds = records.map(r => r.id);
+                            await db.run(`
+                                UPDATE kv_rolls 
+                                SET locked_by_cutting_id = NULL 
+                                WHERE locked_by_cutting_id = ANY($1)
+                            `, [recordIds]);
+                            await db.run(`
+                                UPDATE cutting_records 
+                                SET printing_contractor_id = NULL,
+                                    cutter_id = NULL,
+                                    is_cutting = false,
+                                    cutting_at = NULL,
+                                    cutting_by = NULL,
+                                    selected_roll_ids = '[]',
+                                    kg_start = 0,
+                                    updated_at = NOW()
+                                WHERE id = ANY($1)
+                            `, [recordIds]);
+                        }
+                    }
+
                     // Update existing item — quantities is included for DHT to persist SL/price changes.
                     // TPD-format size breakdown is protected via frontend smart merge (localStorage draft).
                     await db.run(`

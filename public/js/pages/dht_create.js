@@ -1460,6 +1460,8 @@ document.addEventListener('click', function(e) {
 function _dhtAddItemFree(editIdx) {
     var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
     var existing = _dhtCreate.phieuItems[idx] || {};
+    var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
+    var isRestricted = isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called;
     var ov = document.createElement('div');
     ov.id = '_phieuPopup';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
@@ -1504,7 +1506,7 @@ function _dhtAddItemFree(editIdx) {
     prodSel += '<option value="Mét"' + (existing.product_name === 'Mét' ? ' selected' : '') + '>Mét</option>'
         + '<option value="Thiết Kế"' + (existing.product_name === 'Thiết Kế' ? ' selected' : '') + '>Thiết Kế</option>';
 
-    var title = '🐾 Phiếu ' + catName + ' #' + (idx + 1);
+    var title = (isRestricted ? '🔒 ' : '🐾 ') + 'Phiếu ' + catName + ' #' + (idx + 1);
 
     ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:800;font-size:14px;color:var(--navy)">' + title + '</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
@@ -1524,6 +1526,20 @@ function _dhtAddItemFree(editIdx) {
 
     document.body.appendChild(ov);
     _ppCalcFree();
+    if (isRestricted) {
+        var _lockPopupFree = function() {
+            var popup = document.getElementById('_phieuPopup');
+            if (!popup) return;
+            popup.querySelectorAll('input, select, textarea').forEach(function(el) {
+                if (el.id === '_ppf_vat') return;
+                el.disabled = true;
+                el.style.background = '#f1f5f9';
+                el.style.cursor = 'not-allowed';
+            });
+        };
+        setTimeout(_lockPopupFree, 100);
+        setTimeout(_lockPopupFree, 500);
+    }
 }
 
 function _ppAddQtyFree() {
@@ -1635,7 +1651,7 @@ async function _dhtAddItem(editIdx) {
     var existing = _dhtCreate.phieuItems[idx] || {};
     window._ppCurrentExistingPhieu = existing;
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
-    var isRestricted = isOldItem && window._dhtEditRestricted;
+    var isRestricted = isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called;
     var po = _dhtCreate.phieuOpts || {};
     var ov = document.createElement('div');
     ov.id = '_phieuPopup';
@@ -2614,7 +2630,8 @@ function _dhtRenderPhieuRows() {
         d.onmouseout=function(){this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';};
         d.onclick=function(e){if(e.target.tagName==='BUTTON')return; isFree ? _dhtAddItemFree(i) : _dhtAddItem(i);};
         var vl=p.vat_percent?'+'+p.vat_percent+'%':'';
-        var delBtn = (window._dhtEditRestricted && _dhtCreate.editMode)
+        var isItemRestricted = (window._dhtEditRestricted && _dhtCreate.editMode && p.has_fabric_called);
+        var delBtn = isItemRestricted
             ? ''
             : '<button onclick="event.stopPropagation();_dhtCreate.phieuItems.splice('+i+',1);_dhtRenderPhieuRows();_dhtCalcTotal()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:24px">✕</button>';
         
@@ -3448,7 +3465,9 @@ async function _dhtInitializeEditState(id, data) {
                 unit_price: Number(it.unit_price) || 0,
                 promo_gift_quantity: Number(it.promo_gift_quantity) || 0,
                 promo_gift_code: it.promo_gift_code || '',
-                promo_gift_apply_row_index: it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : null
+                promo_gift_apply_row_index: it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : null,
+                has_fabric_called: !!it.has_fabric_called,
+                has_print_assignment: !!it.has_print_assignment
             };
         });
 
