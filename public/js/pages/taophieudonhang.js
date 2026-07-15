@@ -5317,16 +5317,15 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
                         lines.push(`<div style="margin-top: 1px;"><span style="color: #1e3a8a; font-weight: 800;">Nam:</span> ${namStr}</div>`);
 
                         // Nữ line
-                        let nuStr = '—';
                         if (nuList.length > 0) {
                             const sortedNu = _tpdSortSizes(nuList.map(q => q.size));
-                            nuStr = sortedNu.map(sz => {
+                            const nuStr = sortedNu.map(sz => {
                                 const q = nuList.find(x => x.size === sz);
                                 const cleanSz = sz.replace(/^Nữ\s+/, '');
                                 return _tpdFormatSizeItem(cleanSz, q.qty, q.note);
                             }).join(' | ');
+                            lines.push(`<div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> ${nuStr}</div>`);
                         }
-                        lines.push(`<div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> ${nuStr}</div>`);
 
                         if (otherList.length > 0) {
                             const sortedOther = _tpdSortSizes(otherList.map(q => q.size));
@@ -5350,7 +5349,6 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
                     if (it.size_type === 'Size Nam / Nữ') {
                         defaultSizeTT = `
                             <div style="margin-top: 1px;"><span style="color: #1e3a8a; font-weight: 800;">Nam:</span> —</div>
-                            <div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> —</div>
                         `;
                     }
                 }
@@ -5360,7 +5358,6 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
         if (it.size_type === 'Size Nam / Nữ') {
             defaultSizeTT = `
                 <div style="margin-top: 1px;"><span style="color: #1e3a8a; font-weight: 800;">Nam:</span> —</div>
-                <div style="margin-top: 1px;"><span style="color: #db2777; font-weight: 800;">Nữ:</span> —</div>
             `;
         }
     }
