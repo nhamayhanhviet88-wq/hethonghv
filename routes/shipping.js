@@ -534,7 +534,7 @@ module.exports = async function(fastify) {
                 WHERE total_order_codes ILIKE '%' || o.order_code || '%'
                    OR order_tt_coc = o.order_code
             ) pr_dep ON true
-            WHERE o.expected_ship_date IS NOT NULL
+            WHERE o.expected_ship_date IS NOT NULL AND COALESCE(o.is_draft, false) = false
             ${visibilityFilter}
             ${filterWhere}
             ORDER BY ${orderBy}
@@ -1024,7 +1024,7 @@ module.exports = async function(fastify) {
                           AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                     ) THEN true ELSE false END AS was_rescheduled_today
                 FROM dht_orders o
-                WHERE o.shipping_status IN ('pending', 'rescheduled') AND o.expected_ship_date IS NOT NULL
+                WHERE o.shipping_status IN ('pending', 'rescheduled') AND o.expected_ship_date IS NOT NULL AND COALESCE(o.is_draft, false) = false
             `);
             const activeOrderIds = activeOrdersForCounts.map(o => o.id);
             const activeItemsList = await _getShippingItemsProgress(activeOrderIds);
@@ -1073,7 +1073,7 @@ module.exports = async function(fastify) {
             }
 
             const shippedCountRow = await db.get(`
-                SELECT COUNT(*) AS cnt FROM dht_orders WHERE shipping_status = 'shipped' AND expected_ship_date IS NOT NULL
+                SELECT COUNT(*) AS cnt FROM dht_orders WHERE shipping_status = 'shipped' AND expected_ship_date IS NOT NULL AND COALESCE(is_draft, false) = false
             `);
 
             countsObj = {
@@ -1103,7 +1103,7 @@ module.exports = async function(fastify) {
                           AND timezone('Asia/Ho_Chi_Minh', r.created_at)::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                     ) THEN true ELSE false END AS was_rescheduled_today
                 FROM dht_orders o
-                WHERE o.shipping_status IN ('pending', 'rescheduled') AND o.expected_ship_date IS NOT NULL
+                WHERE o.shipping_status IN ('pending', 'rescheduled') AND o.expected_ship_date IS NOT NULL AND COALESCE(o.is_draft, false) = false
                   ${activeVisibilityFilter}
             `, activeParams);
 
@@ -1173,7 +1173,7 @@ module.exports = async function(fastify) {
                 }
             }
             const shippedCountRow = await db.get(`
-                SELECT COUNT(*) AS cnt FROM dht_orders WHERE shipping_status = 'shipped' AND expected_ship_date IS NOT NULL
+                SELECT COUNT(*) AS cnt FROM dht_orders WHERE shipping_status = 'shipped' AND expected_ship_date IS NOT NULL AND COALESCE(is_draft, false) = false
                 ${shippedVisibilityFilter}
             `, shippedParams);
 
@@ -1252,6 +1252,7 @@ module.exports = async function(fastify) {
             WHERE shipping_status IN ('pending','rescheduled')
               AND expected_ship_date IS NOT NULL
               AND COALESCE(rescheduled_ship_date, expected_ship_date) < $1::date
+              AND COALESCE(is_draft, false) = false
               ${countVisibilityFilterDht}
         `, countParamsOverdueDht);
 
