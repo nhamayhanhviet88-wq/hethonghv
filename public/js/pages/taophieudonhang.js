@@ -6247,8 +6247,8 @@ async function _tpdDiscardChanges() {
             
             showToast('🔄 Đã khôi phục đơn hàng về trạng thái ban đầu thành công!', 'success');
             
-            // Reload the workspace UI fresh from the DB
-            renderDesignDraftPage(window._dhtFullPageContainer || document.getElementById('main-content'));
+            // Redirect back to the main Tạo Phiếu Đơn Hàng list page
+            navigate('taophieudonhang');
         } else {
             if (footer) footer.innerHTML = originalFooterHtml;
             showToast('Khôi phục thất bại: ' + (res.error || 'Lỗi không xác định'), 'error');
