@@ -416,7 +416,9 @@ function _tpdCloneItemState(item) {
         size_type: item.size_type || 'Size TT',
         custom_layout: customLayout,
         sewing_techniques: item.sewing_techniques || [],
-        tsam_sewing_tech: item.tsam_sewing_tech || []
+        tsam_sewing_tech: item.tsam_sewing_tech || [],
+        has_fabric_called: !!item.has_fabric_called,
+        has_print_assignment: !!item.has_print_assignment
     };
 }
 
@@ -4359,6 +4361,9 @@ function _tpdRenderFormInputs() {
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
 
     const disabledAttr = state.hasEditPermission ? '' : 'disabled';
+    const isFabricCalled = !!it.has_fabric_called;
+    const fabricDisabledAttr = (isFabricCalled || !state.hasEditPermission) ? 'disabled' : '';
+    const fabricStyle = (isFabricCalled || !state.hasEditPermission) ? 'background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;' : '';
 
     // Compute defaults for overrides placeholders
     const orderTechNames = _tpdGetSewingTechniqueNames(it.sewing_techniques);
@@ -4386,11 +4391,11 @@ function _tpdRenderFormInputs() {
         <div class="tpd-ws-grid-2">
             <div class="tpd-ws-form-group">
                 <label class="tpd-ws-form-label">Chất liệu vải</label>
-                <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="Cá sấu, thun cotton..." disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;">
+                <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="Cá sấu, thun cotton..." onchange="_tpdUpdateField('material_name', this.value)" ${fabricDisabledAttr} style="${fabricStyle}">
             </div>
             <div class="tpd-ws-form-group">
                 <label class="tpd-ws-form-label">Màu sắc phối</label>
-                <input type="text" class="tpd-ws-input" value="${escapeHTML(_tpdFormatColorName(it.color_name))}" placeholder="Navy phối vàng, đen..." disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border-color:#e2e8f0;">
+                <input type="text" class="tpd-ws-input" value="${escapeHTML(_tpdFormatColorName(it.color_name))}" placeholder="Navy phối vàng, đen..." onchange="_tpdUpdateField('color_name', this.value)" ${fabricDisabledAttr} style="${fabricStyle}">
             </div>
         </div>
     `;
@@ -4752,8 +4757,8 @@ function _tpdRenderFormInputs() {
                                         <div class="tpd-ws-size-input-box" style="width:140px; flex-shrink:0;">
                                             <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
                                             <div style="display:flex; flex-direction:column; width:100%; box-sizing:border-box; padding:4px;">
-                                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
-                                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${disabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
+                                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${fabricDisabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
+                                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${fabricDisabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
                                             </div>
                                         </div>
                                     `;
@@ -4761,7 +4766,7 @@ function _tpdRenderFormInputs() {
                                 return `
                                     <div class="tpd-ws-size-input-box" style="width:70px; flex-shrink:0;">
                                         <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
-                                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${fabricDisabledAttr}>
                                     </div>
                                 `;
                             }).join('')}
@@ -4781,8 +4786,8 @@ function _tpdRenderFormInputs() {
                                         <div class="tpd-ws-size-input-box" style="width:140px; flex-shrink:0;">
                                             <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
                                             <div style="display:flex; flex-direction:column; width:100%; box-sizing:border-box; padding:4px;">
-                                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
-                                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${disabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
+                                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${fabricDisabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
+                                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${fabricDisabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
                                             </div>
                                         </div>
                                     `;
@@ -4790,7 +4795,7 @@ function _tpdRenderFormInputs() {
                                 return `
                                     <div class="tpd-ws-size-input-box" style="width:70px; flex-shrink:0;">
                                         <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
-                                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${fabricDisabledAttr}>
                                     </div>
                                 `;
                             }).join('')}
@@ -4811,8 +4816,8 @@ function _tpdRenderFormInputs() {
                                         <div class="tpd-ws-size-input-box" style="width:140px; flex-shrink:0;">
                                             <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
                                             <div style="display:flex; flex-direction:column; width:100%; box-sizing:border-box; padding:4px;">
-                                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
-                                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${disabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
+                                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${fabricDisabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
+                                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${fabricDisabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
                                             </div>
                                         </div>
                                     `;
@@ -4820,7 +4825,7 @@ function _tpdRenderFormInputs() {
                                 return `
                                     <div class="tpd-ws-size-input-box" style="width:70px; flex-shrink:0;">
                                         <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
-                                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${fabricDisabledAttr}>
                                     </div>
                                 `;
                             }).join('')}
@@ -4839,8 +4844,8 @@ function _tpdRenderFormInputs() {
                         <div class="tpd-ws-size-input-box" style="grid-column: span 2; min-width: 140px;">
                             <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
                             <div style="display:flex; flex-direction:column; width:100%; box-sizing:border-box; padding:4px;">
-                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
-                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${disabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
+                                <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${fabricDisabledAttr} style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 0; margin-bottom:4px; font-weight:700; text-align:center; width:100%; background:white;">
+                                <input type="text" class="tpd-ws-size-note" value="${q.note || ''}" placeholder="Ghi chú..." onchange="_tpdUpdateSizeNote('${q.size}', this.value)" onkeyup="_tpdUpdateSizeNote('${q.size}', this.value)" ${fabricDisabledAttr} style="font-size:10px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; outline:none; width:100%; box-sizing:border-box; background:white;">
                             </div>
                         </div>
                     `;
@@ -4848,7 +4853,7 @@ function _tpdRenderFormInputs() {
                 return `
                     <div class="tpd-ws-size-input-box">
                         <span class="tpd-ws-size-label" style="${labelBg}">${q.size}</span>
-                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${disabledAttr}>
+                        <input type="number" class="tpd-ws-size-qty" value="${q.qty || ''}" min="0" placeholder="0" onchange="_tpdUpdateQty('${q.size}', this.value)" onkeyup="_tpdUpdateQty('${q.size}', this.value)" ${fabricDisabledAttr}>
                     </div>
                 `;
             }).join('');
@@ -4860,13 +4865,13 @@ function _tpdRenderFormInputs() {
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                 <label class="tpd-ws-form-label" style="margin-bottom:0;">Loại Size</label>
                 <div style="display:flex; gap: 8px; align-items:center;">
-                    <select class="tpd-ws-select" style="padding: 4px 8px; font-size:12px; height:auto; width:150px; border-radius:4px; border:1px solid #cbd5e1;" onchange="_tpdChangeSizeType(this.value)" ${disabledAttr}>
+                    <select class="tpd-ws-select" style="padding: 4px 8px; font-size:12px; height:auto; width:150px; border-radius:4px; border:1px solid #cbd5e1;" onchange="_tpdChangeSizeType(this.value)" ${fabricDisabledAttr}>
                         ${Object.keys(config).filter(k => !k.startsWith('_')).map(typeName => `
                             <option value="${typeName}" ${currentSizeType === typeName ? 'selected' : ''}>${typeName}</option>
                         `).join('')}
                     </select>
                     ${state.role === 'giam_doc' ? `
-                        <button type="button" class="btn" onclick="_tpdOpenSizeConfigModal()" style="padding: 4px 8px; font-size:11px; border-radius:4px; font-weight:700; background:#f59e0b; border:none; color:white; cursor:pointer;">⚙️ Cài đặt</button>
+                        <button type="button" class="btn" onclick="_tpdOpenSizeConfigModal()" style="padding: 4px 8px; font-size:11px; border-radius:4px; font-weight:700; background:#f59e0b; border:none; color:white; cursor:pointer;" ${fabricDisabledAttr}>⚙️ Cài đặt</button>
                     ` : ''}
                 </div>
             </div>
@@ -4884,7 +4889,7 @@ function _tpdRenderFormInputs() {
                         const isActive = it.quantities.some(q => q.size === sz);
                         return `
                             <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; cursor:pointer; font-weight:500; margin:0; padding: 2px 4px;">
-                                <input type="checkbox" style="cursor:pointer; margin:0;" ${isActive ? 'checked' : ''} onchange="_tpdToggleSizeActive('${sz}', this.checked)" ${disabledAttr}>
+                                <input type="checkbox" style="cursor:pointer; margin:0;" ${isActive ? 'checked' : ''} onchange="_tpdToggleSizeActive('${sz}', this.checked)" ${fabricDisabledAttr}>
                                 <span>${sz}</span>
                             </label>
                         `;
@@ -4924,7 +4929,7 @@ function _tpdRenderFormInputs() {
                             const isActive = it.quantities.some(q => q.size === sz);
                             return `
                                 <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; cursor:pointer; font-weight:500; margin:0;">
-                                    <input type="checkbox" style="cursor:pointer; margin:0;" ${isActive ? 'checked' : ''} onchange="_tpdToggleSizeActive('${sz}', this.checked)" ${disabledAttr}>
+                                    <input type="checkbox" style="cursor:pointer; margin:0;" ${isActive ? 'checked' : ''} onchange="_tpdToggleSizeActive('${sz}', this.checked)" ${fabricDisabledAttr}>
                                     <span>${sz}</span>
                                 </label>
                             `;
@@ -4936,7 +4941,7 @@ function _tpdRenderFormInputs() {
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
                 <label class="tpd-ws-form-label" style="margin-bottom:0;">Phân bổ Số lượng Size số</label>
                 ${(state.hasEditPermission && state.role === 'giam_doc') ? `
-                    <button type="button" class="btn btn-secondary" onclick="_tpdAddCustomSize()" style="padding: 2px 8px; font-size: 10px; border-radius:4px; font-weight:700;">+ Thêm size khác</button>
+                    <button type="button" class="btn btn-secondary" onclick="_tpdAddCustomSize()" style="padding: 2px 8px; font-size: 10px; border-radius:4px; font-weight:700;" ${fabricDisabledAttr}>+ Thêm size khác</button>
                 ` : ''}
             </div>
             <div class="${_tpdIsNamNuSize(currentSizeType) ? '' : 'tpd-ws-size-grid'}" style="margin-top:8px; margin-bottom: 8px;">
@@ -5068,6 +5073,11 @@ function _tpdUpdateQty(size, val) {
     const it = state.editingItem;
     if (!it) return;
 
+    if (it.has_fabric_called) {
+        showToast('⚠️ Không thể sửa số lượng vì xưởng đã gọi vải!', 'error');
+        return;
+    }
+
     let qty = Math.max(0, Number(val) || 0);
 
     // ★ Hard cap: total sizes must not exceed DHT quantity
@@ -5156,6 +5166,11 @@ function _tpdUpdateSizeNote(size, noteVal) {
     const it = state.editingItem;
     if (!it) return;
 
+    if (it.has_fabric_called) {
+        showToast('⚠️ Không thể sửa ghi chú size vì xưởng đã gọi vải!', 'error');
+        return;
+    }
+
     const qObj = it.quantities.find(q => q.size === size);
     if (qObj) {
         qObj.note = noteVal;
@@ -5175,13 +5190,18 @@ function _tpdAddCustomSize() {
         return;
     }
 
+    const it = state.editingItem;
+    if (it && it.has_fabric_called) {
+        showToast('⚠️ Không thể thêm size mới vì xưởng đã gọi vải!', 'error');
+        return;
+    }
+
     const name = prompt('Nhập tên size muốn thêm (Ví dụ: 6XL, Child 4, 30, 31...):');
     if (!name) return;
 
     const cleanName = name.trim().toUpperCase();
     if (!cleanName) return;
 
-    const it = state.editingItem;
     if (it.quantities.some(q => q.size === cleanName)) {
         showToast('Size này đã tồn tại!', 'warning');
         return;
@@ -6092,6 +6112,48 @@ async function _tpdSaveProductionSheet() {
     if (hasCoBe && !hasBoTay) {
         showToast('⚠️ Bạn đã chọn Cổ Bẻ, bắt buộc phải thêm Bo Tay ở Kỹ Thuật May!', 'error');
         return false;
+    }
+
+    // Check if print details changed when we have a print assignment
+    const originalItem = state.items[state.activeItemIndex];
+    if (originalItem && originalItem.has_print_assignment) {
+        let originalPrintDetails = [];
+        if (originalItem.print_details) {
+            try {
+                originalPrintDetails = typeof originalItem.print_details === 'string' 
+                    ? JSON.parse(originalItem.print_details) 
+                    : originalItem.print_details;
+            } catch(e) {}
+        }
+        if (!Array.isArray(originalPrintDetails)) originalPrintDetails = [];
+
+        const newPrintDetails = it.print_details || [];
+        let printDetailsChanged = false;
+        if (originalPrintDetails.length !== newPrintDetails.length) {
+            printDetailsChanged = true;
+        } else {
+            for (let i = 0; i < originalPrintDetails.length; i++) {
+                const o = originalPrintDetails[i] || {};
+                const n = newPrintDetails[i] || {};
+                if (
+                    (o.position || '').trim() !== (n.position || '').trim() ||
+                    (o.print_type || '').trim() !== (n.print_type || '').trim() ||
+                    (o.width || '').trim() !== (n.width || '').trim() ||
+                    (o.height || '').trim() !== (n.height || '').trim() ||
+                    (o.dimension || '').trim() !== (n.dimension || '').trim() ||
+                    (o.image || '').trim() !== (n.image || '').trim()
+                ) {
+                    printDetailsChanged = true;
+                    break;
+                }
+            }
+        }
+
+        if (printDetailsChanged) {
+            if (!confirm('Cảnh báo: Phiếu này ĐÃ ĐƯỢC PHÂN CÔNG IN.\nNếu bạn thay đổi vị trí in/thêu, phân công in cũ sẽ bị xóa và quản lý xưởng phải phân công lại từ đầu.\n\nBạn có chắc chắn muốn lưu thay đổi?')) {
+                return false;
+            }
+        }
     }
 
     showToast('⏳ Đang lưu thông tin phiếu sản xuất...', 'info');
@@ -7641,6 +7703,11 @@ function _tpdChangeSizeType(val) {
     const it = state.editingItem;
     if (!it) return;
 
+    if (it.has_fabric_called) {
+        showToast('⚠️ Không thể thay đổi loại size vì xưởng đã gọi vải!', 'error');
+        return;
+    }
+
     it.size_type = val;
 
     // Filter out sizes that don't match the new size type config
@@ -7663,6 +7730,11 @@ function _tpdToggleSizeActive(sizeName, isChecked) {
     const state = window._tpdWorkspaceState;
     const it = state.editingItem;
     if (!it) return;
+
+    if (it.has_fabric_called) {
+        showToast('⚠️ Không thể thay đổi size vì xưởng đã gọi vải!', 'error');
+        return;
+    }
 
     if (isChecked) {
         if (!it.quantities.some(q => q.size === sizeName)) {

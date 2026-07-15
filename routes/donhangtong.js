@@ -2662,7 +2662,22 @@ module.exports = async function(fastify) {
                    u.full_name AS shipped_by_name,
                    pr_ship.payment_code AS shipping_payment_code,
                    pr_ship.amount AS shipping_payment_amount,
-                   cf_ship.cashflow_code AS shipping_cashflow_code
+                   cf_ship.cashflow_code AS shipping_cashflow_code,
+                   
+                   -- Check fabric called status
+                   EXISTS (
+                       SELECT 1 FROM qlx_preparation p 
+                       WHERE (p.dht_order_id = i.dht_order_id AND p.item_id IS NULL AND (p.fabric_called = true OR p.material_called = true))
+                          OR (p.item_id = i.id AND (p.fabric_called = true OR p.material_called = true))
+                   ) AS has_fabric_called,
+
+                   -- Check print assignment status
+                   EXISTS (
+                       SELECT 1 FROM qlx_assignments qa 
+                       WHERE qa.assignment_type = 'in'
+                         AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                         AND (qa.item_id = i.id OR (qa.dht_order_id = i.dht_order_id AND qa.item_id IS NULL))
+                   ) AS has_print_assignment
             FROM dht_order_items i
             LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
             LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
@@ -2879,7 +2894,44 @@ module.exports = async function(fastify) {
             vals.push(imgPath || b.back_technique_image || null);
         }
         // Update print_details (dynamic printing positions)
+        let shouldResetPrint = false;
         if (b.print_details !== undefined) {
+            const existingItem = await db.get('SELECT print_details FROM dht_order_items WHERE id = $1', [itemId]);
+            let oldDetails = [];
+            if (existingItem && existingItem.print_details) {
+                try {
+                    oldDetails = typeof existingItem.print_details === 'string'
+                        ? JSON.parse(existingItem.print_details)
+                        : existingItem.print_details;
+                } catch(e) {}
+            }
+            if (!Array.isArray(oldDetails)) oldDetails = [];
+
+            const newDetails = Array.isArray(b.print_details) ? b.print_details : [];
+            let printDetailsChanged = false;
+            if (oldDetails.length !== newDetails.length) {
+                printDetailsChanged = true;
+            } else {
+                for (let i = 0; i < oldDetails.length; i++) {
+                    const o = oldDetails[i] || {};
+                    const n = newDetails[i] || {};
+                    if (
+                        (o.position || '').trim() !== (n.position || '').trim() ||
+                        (o.print_type || '').trim() !== (n.print_type || '').trim() ||
+                        (o.width || '').trim() !== (n.width || '').trim() ||
+                        (o.height || '').trim() !== (n.height || '').trim() ||
+                        (o.dimension || '').trim() !== (n.dimension || '').trim() ||
+                        (o.image || '').trim() !== (n.image || '').trim()
+                    ) {
+                        printDetailsChanged = true;
+                        break;
+                    }
+                }
+            }
+            if (printDetailsChanged) {
+                shouldResetPrint = true;
+            }
+
             const processedDetails = [];
             const detailsList = Array.isArray(b.print_details) ? b.print_details : [];
             for (let i = 0; i < detailsList.length; i++) {
@@ -2970,6 +3022,37 @@ module.exports = async function(fastify) {
 
         vals.push(itemId);
         await db.run(`UPDATE dht_order_items SET ${sets.join(', ')} WHERE id = $${idx}`, vals);
+
+        if (shouldResetPrint) {
+            await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+            await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+            
+            // Revert print-and-cut records associated with this item
+            const records = await db.all(`
+                SELECT id FROM cutting_records 
+                WHERE dht_order_id = $1 AND order_item_id = $2 AND printing_contractor_id IS NOT NULL AND is_cut_done = false
+            `, [orderId, itemId]);
+            if (records.length > 0) {
+                const recordIds = records.map(r => r.id);
+                await db.run(`
+                    UPDATE kv_rolls 
+                    SET locked_by_cutting_id = NULL 
+                    WHERE locked_by_cutting_id = ANY($1)
+                `, [recordIds]);
+                await db.run(`
+                    UPDATE cutting_records 
+                    SET printing_contractor_id = NULL,
+                        cutter_id = NULL,
+                        is_cutting = false,
+                        cutting_at = NULL,
+                        cutting_by = NULL,
+                        selected_roll_ids = '[]',
+                        kg_start = 0,
+                        updated_at = NOW()
+                    WHERE id = ANY($1)
+                `, [recordIds]);
+            }
+        }
 
         if (isRedSheetVal !== null) {
             // Synchronize is_red_sheet value to all other items of the same order
