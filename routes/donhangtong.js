@@ -6386,16 +6386,284 @@ module.exports = async function(fastify) {
         const order = await db.get(`
             SELECT o.*,
                    u_cskh.full_name AS cskh_name,
-                   u_designer.full_name AS designer_name
+                   u_designer.full_name AS designer_name,
+                   cr.name AS carrier_name
             FROM dht_orders o
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_designer ON o.designer_user_id = u_designer.id
+            LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
             WHERE o.id = $1
         `, [orderId]);
         if (!order) return;
 
-        // 3. Fetch items with PDF URLs
+        // 3. Fetch items, surcharges, and payments
         const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        const surcharges = await db.all('SELECT * FROM dht_order_surcharges WHERE dht_order_id = $1', [orderId]);
+        const payments = await db.all('SELECT * FROM payment_records WHERE total_order_codes ILIKE $1 OR order_tt_coc = $2', [`%${order.order_code}%`, order.order_code]);
+
+        // Helper functions
+        const fmt = (val) => {
+            if (val === undefined || val === null) return '0';
+            return String(Math.round(val)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        };
+
+        const sizeOrder = [
+            'S', 'M', 'L', 'XL', 'XXL',
+            'XXXL', '3XL', 'XXXXL', '4XL', 'XXXXXL', '5XL', 'XXXXXXL', '6XL', '7XL'
+        ];
+        function sortSizes(sizes) {
+            if (!Array.isArray(sizes)) return [];
+
+            const getSizeRank = (sz) => {
+                let core = sz.replace(/^(Nam|Nữ)\s+/i, '').trim().toUpperCase();
+                const idx = sizeOrder.indexOf(core);
+                if (idx !== -1) return idx;
+                const parsed = parseInt(core);
+                if (!isNaN(parsed)) return 1000 + parsed;
+                return 9999;
+            };
+
+            const getGroupRank = (sz) => {
+                const lower = sz.toLowerCase();
+                if (lower.startsWith('nam')) return 0;
+                if (lower.startsWith('nữ')) return 1;
+                return 2;
+            };
+
+            return [...sizes].sort((a, b) => {
+                const groupA = getGroupRank(a);
+                const groupB = getGroupRank(b);
+
+                if (groupA !== groupB) {
+                    return groupA - groupB;
+                }
+
+                const rankA = getSizeRank(a);
+                const rankB = getSizeRank(b);
+                if (rankA !== rankB) {
+                    return rankA - rankB;
+                }
+
+                return a.localeCompare(b, 'vi', { sensitivity: 'base' });
+            });
+        }
+
+        function sortBySewingGroup(arr) {
+            if (!arr || arr.length <= 1) return arr;
+            const priority = ['Nhóm Cổ', 'Nhóm Bo / Tay', 'NHÓM NẸP', 'Khác'];
+            const normPriority = priority.map(p => p.normalize('NFC').trim().toUpperCase());
+            
+            const getGroup = (tech) => {
+                if (!tech) return 'Khác';
+                const techName = String(tech).trim();
+                if (!techName || techName === 'Khác') return 'Khác';
+                
+                const lower = techName.toLowerCase();
+                if (lower.normalize('NFC').includes('nẹp')) return 'NHÓM NẸP';
+                if (lower.includes('cổ')) return 'Nhóm Cổ';
+                const accentRemoved = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/đ/g, 'd');
+                if (accentRemoved.startsWith('bo tay') || accentRemoved.startsWith('bo o tay')) return 'Nhóm Bo / Tay';
+                return 'Khác';
+            };
+
+            return arr.sort((a, b) => {
+                const groupA = getGroup(a);
+                const groupB = getGroup(b);
+                
+                const normA = groupA.normalize('NFC').trim().toUpperCase();
+                const normB = groupB.normalize('NFC').trim().toUpperCase();
+                
+                let idxA = normPriority.indexOf(normA);
+                let idxB = normPriority.indexOf(normB);
+                
+                if (idxA === -1 && (normA === 'NHÓM KHÁC' || normA === 'KHÁC')) idxA = normPriority.indexOf('KHÁC');
+                if (idxB === -1 && (normB === 'NHÓM KHÁC' || normB === 'KHÁC')) idxB = normPriority.indexOf('KHÁC');
+                
+                if (idxA !== -1 && idxB !== -1) {
+                    if (idxA !== idxB) {
+                        return idxA - idxB;
+                    }
+                    return a.normalize('NFC').trim().toUpperCase().localeCompare(b.normalize('NFC').trim().toUpperCase());
+                }
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                
+                return normA.localeCompare(normB);
+            });
+        }
+
+        function getSewingTechniqueNames(sewingTechField) {
+            if (!sewingTechField) return [];
+            try {
+                const arr = typeof sewingTechField === 'string' ? JSON.parse(sewingTechField) : sewingTechField;
+                if (Array.isArray(arr)) {
+                    const names = arr.map(x => {
+                        if (x && typeof x === 'object') {
+                            return x.name || x.tech || '';
+                        }
+                        return String(x);
+                    }).filter(Boolean);
+                    return sortBySewingGroup(names);
+                }
+            } catch(e) {}
+            return [];
+        }
+
+        function isPrintDetailComplete(d) {
+            if (!d || !d.position) return false;
+            const isPrint3D = d.print_type === 'In 3D' || (d.position && d.position.toLowerCase().includes('in 3d'));
+            const printType = isPrint3D ? 'In 3D' : (d.print_type || '').trim();
+            if (!printType || printType === '-- Kiểu in/thêu --') return false;
+            
+            if (!isPrint3D) {
+                const hasWidth = d.width && d.width.trim();
+                const hasHeight = d.height && d.height.trim();
+                const hasDim = d.dimension && d.dimension.trim();
+                if (!hasWidth && !hasHeight && !hasDim) return false;
+            }
+            return true;
+        }
+
+        function normalizePrintDetailOffsets(d, posConfig) {
+            let selectedOffsets = d.selected_offsets || {};
+            if (typeof selectedOffsets === 'string') {
+                try {
+                    selectedOffsets = JSON.parse(selectedOffsets);
+                } catch(e) {
+                    selectedOffsets = {};
+                }
+            }
+            if (typeof selectedOffsets !== 'object' || selectedOffsets === null) {
+                selectedOffsets = {};
+            }
+            
+            if (Object.keys(selectedOffsets).length === 0) {
+                const legacyVal = d.offset_value || d.gay_xuong || d.co_xuong || '';
+                let posOffsets = posConfig ? (posConfig.offsets || []) : [];
+                if (posOffsets.length === 0 && posConfig && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+                    posOffsets = [{
+                        label: posConfig.offset_label || 'Khoảng cách',
+                        placeholder: posConfig.offset_placeholder || 'Ví dụ: 10cm',
+                        require: !!posConfig.require_offset
+                    }];
+                }
+                if (legacyVal && posOffsets.length > 0) {
+                    selectedOffsets[posOffsets[0].label] = legacyVal;
+                } else {
+                    posOffsets.forEach((off, offIdx) => {
+                        if (off.require || off.label === '') {
+                            const defaultName = off.label || `_custom_offset_${offIdx + 1}`;
+                            selectedOffsets[defaultName] = '';
+                        }
+                    });
+                }
+            }
+            return selectedOffsets;
+        }
+
+        function getMappedOffsets(d, posConfig) {
+            const selectedOffsets = normalizePrintDetailOffsets(d, posConfig);
+            let posOffsets = posConfig ? (posConfig.offsets || []) : [];
+            
+            if (posOffsets.length === 0 && posConfig && (posConfig.has_offset || posConfig.require_offset || posConfig.offset_label)) {
+                return [{
+                    label: posConfig.offset_label || 'Khoảng cách',
+                    isChecked: true,
+                    value: selectedOffsets[posConfig.offset_label || 'Khoảng cách'] || '',
+                    require: !!posConfig.require_offset,
+                    isPredefined: false
+                }];
+            }
+            
+            return posOffsets.map((off, offIdx) => {
+                const name = off.label || `_custom_offset_${offIdx + 1}`;
+                const isChecked = selectedOffsets[name] !== undefined;
+                return {
+                    label: off.label,
+                    isChecked: isChecked,
+                    value: selectedOffsets[name] || '',
+                    require: !!off.require,
+                    isPredefined: true
+                };
+            });
+        }
+
+        function stripHtml(html) {
+            if (!html) return '';
+            return String(html)
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<\/div>/gi, '\n')
+                .replace(/<[^>]+>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .trim();
+        }
+
+        let printPositionsConfig = [];
+        try {
+            const configRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_print_positions_config'");
+            if (configRow && configRow.value) {
+                printPositionsConfig = JSON.parse(configRow.value);
+            }
+        } catch (e) {
+            console.error('[sendDesignEmail] Failed to load print positions config:', e);
+        }
+        if (!Array.isArray(printPositionsConfig) || printPositionsConfig.length === 0) {
+            printPositionsConfig = [
+                { name: "Ngực", require_offset: false, offset_label: "", offset_placeholder: "" },
+                { name: "Lưng", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 10cm" },
+                { name: "Bụng", require_offset: true, offset_label: "Cổ xuống", offset_placeholder: "Ví dụ: 12cm" },
+                { name: "Tay Trái", require_offset: false, offset_label: "", offset_placeholder: "" },
+                { name: "Tay Phải", require_offset: false, offset_label: "", offset_placeholder: "" },
+                { name: "Gáy", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 4cm" }
+            ];
+        }
+
+        // Recalculate totals from items (source of truth)
+        let calcBase = 0, calcVat = 0;
+        let totalGiftDeduction = 0;
+        let totalGiftQty = 0;
+        for (const it of items) {
+            try {
+                let qtyArr = [];
+                if (typeof it.quantities === 'string') {
+                    qtyArr = JSON.parse(it.quantities);
+                } else if (Array.isArray(it.quantities)) {
+                    qtyArr = it.quantities;
+                }
+                const unitPrice = Number(it.unit_price) || 0;
+                if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
+
+                const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                const giftQty = Number(it.promo_gift_quantity) || 0;
+                totalGiftQty += giftQty;
+                const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
+                
+                let itemRaw = undiscRaw;
+                if (giftQty > 0 && qtyArr.length > 0) {
+                    const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+                    itemRaw -= Math.round(giftPrice * giftQty);
+                    if (itemRaw < 0) itemRaw = 0;
+                    totalGiftDeduction += (undiscRaw - itemRaw);
+                }
+
+                const rawTotal = Number(it.item_total || it.total) || 0;
+                let vatPct = 0;
+                if (itemRaw > 0 && rawTotal > itemRaw) {
+                    vatPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                }
+                const itemVat = Math.round(itemRaw * vatPct / 100);
+
+                calcBase += undiscRaw;
+                calcVat += itemVat;
+            } catch(e) {
+                calcBase += Number(it.item_total || it.total) || 0;
+            }
+        }
+        if (calcVat < 0) calcVat = 0;
+        calcVat += Number(order.additional_vat_amount || 0);
+
+        const promoDiscount = Number(order.promo_discount_amount) || 0;
+        const manualDiscount = Number(order.discount_amount) || 0;
 
         // 4. Calculate total quantity
         const totalQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
@@ -6408,12 +6676,14 @@ module.exports = async function(fastify) {
         const priority = (order.shipping_priority || 'CHUẨN').trim();
         
         let shipDateFormatted = '—';
+        let shipDayOfWeekAndDate = '';
         if (order.expected_ship_date) {
             try {
                 const dt = new Date(order.expected_ship_date);
                 const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
                 const dayName = days[dt.getDay()];
                 shipDateFormatted = `${dayName} - Ngày ${dt.getDate()}/${dt.getMonth() + 1}`;
+                shipDayOfWeekAndDate = `${dayName.toUpperCase()} - ${dt.getDate()}/${dt.getMonth() + 1}`;
                 if (priority === 'CHUẨN' && order.standard_delivery_time) {
                     shipDateFormatted += ` lúc ${order.standard_delivery_time}`;
                 }
@@ -6486,40 +6756,270 @@ module.exports = async function(fastify) {
             }
         });
 
-        // 7. Construct HTML body
+        // Construct sheet blocks
+        let sheetBlocks = [];
+        items.forEach((item, idx) => {
+            let block = `${orderCode} | PHIẾU ${idx + 1}/${items.length}\n`;
+            block += `Sản Phẩm Bán: ${item.product_name || ''}\n`;
+            block += `Chất liệu vải:\n${item.material_name || ''}${item.color_name ? ` : ${item.color_name}` : ''}\n`;
+
+            const layout = typeof item.custom_layout === 'string' ? JSON.parse(item.custom_layout) : (item.custom_layout || {});
+            const orderTechNames = getSewingTechniqueNames(item.sewing_techniques);
+            const patternTechNames = getSewingTechniqueNames(item.tsam_sewing_tech);
+            const combinedTechNames = [...new Set([...patternTechNames, ...orderTechNames])];
+            const defaultSewing = combinedTechNames.length > 0 ? combinedTechNames.join(', ') : '—';
+            const sewingVal = layout.custom_sewing !== undefined && layout.custom_sewing !== '' ? layout.custom_sewing : defaultSewing;
+            const cleanSewingVal = stripHtml(sewingVal);
+            let sewingLines = [];
+            if (cleanSewingVal && cleanSewingVal !== '—') {
+                const parts = cleanSewingVal.split(/,\s*/).map(p => p.trim()).filter(Boolean);
+                parts.forEach(part => {
+                    sewingLines.push(`• ${part}`);
+                });
+            }
+            if (layout.custom_sewing_note && layout.custom_sewing_note.trim()) {
+                sewingLines.push(`* Ghi chú: ${stripHtml(layout.custom_sewing_note)}`);
+            }
+            block += `Kỹ Thuật May:\n${sewingLines.length > 0 ? sewingLines.join('\n') : '—'}\n`;
+
+            // Default printing
+            let defaultPrinting = '—';
+            if (item.print_details) {
+                try {
+                    const details = typeof item.print_details === 'string' ? JSON.parse(item.print_details) : item.print_details;
+                    if (Array.isArray(details) && details.length > 0) {
+                        const completedDetails = details.filter(isPrintDetailComplete);
+                        const sortedDetails = sortPrintDetails(completedDetails);
+                        if (sortedDetails.length > 0) {
+                            defaultPrinting = sortedDetails.map(d => {
+                                const w = (d.width || '').trim();
+                                const h = (d.height || '').trim();
+                                let dimStr = '';
+                                if (w) {
+                                    const wSuffix = w.toLowerCase().endsWith('cm') ? '' : 'cm';
+                                    dimStr += `Ngang ${w}${wSuffix}`;
+                                }
+                                if (h) {
+                                    const hSuffix = h.toLowerCase().endsWith('cm') ? '' : 'cm';
+                                    if (dimStr) dimStr += ' x ';
+                                    dimStr += `Cao ${h}${hSuffix}`;
+                                }
+                                const posConfig = printPositionsConfig.find(p => p.name === d.position);
+                                let offsetStr = '';
+                                if (posConfig) {
+                                    const mapped = getMappedOffsets(d, posConfig);
+                                    const parts = [];
+                                    mapped.forEach(itemOffset => {
+                                        if (itemOffset.isChecked) {
+                                            const val = (itemOffset.value || '').trim();
+                                            if (val) {
+                                                const suffix = val.toLowerCase().endsWith('cm') ? '' : 'cm';
+                                                let label = itemOffset.label || 'Khoảng cách';
+                                                if (label.startsWith('_custom_offset_')) {
+                                                    label = 'Khoảng cách';
+                                                }
+                                                if (label === 'Gáy xuống') label = 'Gáy';
+                                                if (label === 'Cổ xuống') label = 'Cổ';
+                                                const displayLabel = label.toLowerCase().startsWith('cách') ? label : `Cách ${label}`;
+                                                parts.push(`${displayLabel} : ${val}${suffix}`);
+                                            }
+                                        }
+                                    });
+                                    if (parts.length > 0) {
+                                        offsetStr = ` - ${parts.join(', ')}`;
+                                    }
+                                }
+                                const safePosition = d.position || '—';
+                                const safePrintType = d.print_type || '—';
+                                const isPrint3D = d.print_type === 'In 3D' || (d.position && d.position.toLowerCase().includes('in 3d'));
+                                const safeDimStr = isPrint3D ? '' : (dimStr ? ` - ${dimStr}` : '');
+                                const safeOffsetStr = offsetStr;
+                                return `• ${safePosition}: ${safePrintType}${safeDimStr}${safeOffsetStr}`;
+                            }).join('\n');
+                        }
+                    }
+                } catch(e) {
+                    console.error('[sendDesignEmail] Error generating printing text:', e);
+                }
+            }
+            const printingVal = layout.custom_printing !== undefined && layout.custom_printing !== '' ? layout.custom_printing : defaultPrinting;
+            const cleanPrintingVal = stripHtml(printingVal);
+            let printingLines = [];
+            if (cleanPrintingVal && cleanPrintingVal !== '—') {
+                const parts = cleanPrintingVal.split(/[\n,]+/).map(p => p.trim()).filter(Boolean);
+                parts.forEach(part => {
+                    if (part.startsWith('•')) {
+                        printingLines.push(part);
+                    } else {
+                        printingLines.push(`• ${part}`);
+                    }
+                });
+            }
+            block += `Kỹ Thuật In:\n${printingLines.length > 0 ? printingLines.join('\n') : '—'}\n`;
+
+            // Báo size
+            const baoSizeVal = layout.custom_bao_size !== undefined && layout.custom_bao_size !== '' 
+                ? stripHtml(layout.custom_bao_size) 
+                : (item.product_name ? `(${item.product_name})` : '—');
+            block += `Báo Size: ${baoSizeVal}\n`;
+            
+            let defaultSizeTT = '—';
+            let qtyArr = [];
+            if (typeof item.quantities === 'string') {
+                try { qtyArr = JSON.parse(item.quantities); } catch(e) {}
+            } else if (Array.isArray(item.quantities)) {
+                qtyArr = item.quantities;
+            }
+
+            if (qtyArr && qtyArr.length > 0) {
+                const activeQuantities = qtyArr.filter(q => Number(q.qty) > 0 || (q.note && q.note.trim()));
+                if (activeQuantities.length > 0) {
+                    if (item.size_type === 'Size Nam / Nữ') {
+                        const namList = activeQuantities.filter(q => q.size.startsWith('Nam'));
+                        const nuList = activeQuantities.filter(q => q.size.startsWith('Nữ'));
+                        const otherList = activeQuantities.filter(q => !q.size.startsWith('Nam') && !q.size.startsWith('Nữ'));
+
+                        const lines = [];
+
+                        // Nam line
+                        let namStr = '—';
+                        if (namList.length > 0) {
+                            const sortedNam = sortSizes(namList.map(q => q.size));
+                            namStr = sortedNam.map(sz => {
+                                const q = namList.find(x => x.size === sz);
+                                const cleanSz = sz.replace(/^Nam\s+/, '');
+                                return `${q.qty} ${cleanSz}${q.note && q.note.trim() ? ` (${q.note.trim()})` : ''}`;
+                            }).join(' | ');
+                            lines.push(`Nam: ${namStr}`);
+                        }
+
+                        // Nữ line
+                        if (nuList.length > 0) {
+                            const sortedNu = sortSizes(nuList.map(q => q.size));
+                            const nuStr = sortedNu.map(sz => {
+                                const q = nuList.find(x => x.size === sz);
+                                const cleanSz = sz.replace(/^Nữ\s+/, '');
+                                return `${q.qty} ${cleanSz}${q.note && q.note.trim() ? ` (${q.note.trim()})` : ''}`;
+                            }).join(' | ');
+                            lines.push(`Nữ: ${nuStr}`);
+                        }
+
+                        if (otherList.length > 0) {
+                            const sortedOther = sortSizes(otherList.map(q => q.size));
+                            const otherStr = sortedOther.map(sz => {
+                                const q = otherList.find(x => x.size === sz);
+                                return `${q.qty} ${sz}${q.note && q.note.trim() ? ` (${q.note.trim()})` : ''}`;
+                            }).join(' | ');
+                            lines.push(`Khác: ${otherStr}`);
+                        }
+
+                        defaultSizeTT = lines.join('\n');
+                    } else {
+                        const sorted = sortSizes(activeQuantities.map(q => q.size))
+                            .map(sz => activeQuantities.find(q => q.size === sz))
+                            .filter(Boolean);
+                        defaultSizeTT = sorted.map(q => {
+                            return `${q.qty} ${q.size}${q.note && q.note.trim() ? ` (${q.note.trim()})` : ''}`;
+                        }).join(' | ');
+                    }
+                }
+            }
+
+            const sizeTTVal = layout.custom_size_tt !== undefined && layout.custom_size_tt !== '' 
+                ? stripHtml(layout.custom_size_tt) 
+                : defaultSizeTT;
+
+            if (item.size_type) {
+                block += `${item.size_type}:\n`;
+            }
+            block += `${sizeTTVal}\n`;
+            block += `Tổng SL: ${item.quantity || 0}\n`;
+
+            // Sender
+            block += `Người gửi: ${cskhName}\n`;
+
+            // Ship date
+            const priorityStr = priority === 'GẤP' ? ' - ĐƠN GẤP' : '';
+            block += `GỬI HÀNG: - ${shipDayOfWeekAndDate}${priorityStr}`;
+
+            sheetBlocks.push(block);
+        });
+
+        // 7. Financial summary block
+        let finText = `💰 TỔNG KẾT TIỀN ĐƠN HÀNG ${orderCode}\n\n`;
+        items.forEach((item, idx) => {
+            let qtyArr = [];
+            if (typeof item.quantities === 'string') {
+                try { qtyArr = JSON.parse(item.quantities); } catch(e) {}
+            } else if (Array.isArray(item.quantities)) {
+                qtyArr = item.quantities;
+            }
+            const unitPrice = Number(item.unit_price) || 0;
+            if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: item.quantity || 0, price: unitPrice }];
+            
+            const itemQty = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+            
+            if (qtyArr.length === 1) {
+                finText += `Phiếu ${idx + 1}: ${itemQty} áo . Giá tiền ${fmt(qtyArr[0].price || unitPrice)}đ\n`;
+            } else {
+                const priceDesc = qtyArr.map(q => `${q.qty || 0} áo giá ${fmt(q.price || unitPrice)}đ`).join(', ');
+                finText += `Phiếu ${idx + 1}: ${itemQty} áo (${priceDesc})\n`;
+            }
+        });
+        finText += `\n`;
+        
+        const depositAmount = Number(order.deposit_amount) || 0;
+        const surTotal = surcharges.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+        const finalVat = calcVat;
+        const hasVat = !!order.has_vat || (finalVat > 0);
+        const totalAmount = calcBase - totalGiftDeduction - promoDiscount + finalVat + surTotal - manualDiscount;
+        const remainingAmount = totalAmount - depositAmount;
+
+        finText += `Tổng Tiền Hàng : ${fmt(calcBase)}đ\n`;
+        if (totalGiftDeduction > 0) {
+            finText += `Khuyến Mãi Tặng Áo : ${totalGiftQty} áo : -${fmt(totalGiftDeduction)}đ\n`;
+        }
+        if (promoDiscount > 0) {
+            const promoPct = (calcBase - totalGiftDeduction) > 0 ? Math.round((promoDiscount / (calcBase - totalGiftDeduction)) * 100) : 0;
+            finText += `Khuyến Mãi Giảm Giá : Giảm ${promoPct}% : -${fmt(promoDiscount)}đ\n`;
+        }
+        if (surTotal > 0) {
+            finText += `Phụ Phí : ${fmt(surTotal)}đ\n`;
+        }
+        if (manualDiscount > 0) {
+            finText += `Giảm Giá Khác : -${fmt(manualDiscount)}đ\n`;
+        }
+        if (hasVat) {
+            finText += `Tổng VAT : ${fmt(finalVat)}đ\n`;
+            finText += `Tổng Sau VAT : ${fmt(totalAmount)}đ\n`;
+        } else if (promoDiscount > 0 || totalGiftDeduction > 0 || surTotal > 0 || manualDiscount > 0) {
+            finText += `Tổng Tiền Sau Khấu Trừ : ${fmt(totalAmount)}đ\n`;
+        }
+        finText += `Đã Cọc : ${fmt(depositAmount)}đ\n`;
+        finText += `Còn Lại : ${fmt(remainingAmount)}đ\n`;
+        finText += `\n`;
+
+        const customerPhone = order.customer_phone || '—';
+        const fullAddress = [order.address, order.province].filter(Boolean).join(', ') || '—';
+        const shipCarrier = order.carrier_name || '—';
+        
+        finText += `Nhân Viên Lên Đơn : ${cskhName}\n`;
+        finText += `Tên Khách Hàng : ${customerName}\n`;
+        finText += `SĐT : ${customerPhone}\n`;
+        finText += `Địa Chỉ : ${fullAddress}\n`;
+        finText += `Hình Thức Gửi : ${shipCarrier}\n`;
+
+        const emailBodyText = sheetBlocks.join('\n\n\n') + '\n\n\n' + finText;
+
+        // 8. Construct HTML body
         let emailHtml = `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
                 <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 24px; color: #ffffff; text-align: center;">
                     <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">XÁC NHẬN LÊN ĐƠN SẢN XUẤT</h2>
                     <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Mã đơn: <strong>${orderCode}</strong></p>
                 </div>
                 <div style="padding: 24px; background-color: #ffffff; color: #334155;">
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 8px 0; font-weight: 600; color: #64748b; width: 150px;">Khách hàng:</td>
-                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${customerName}</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Tổng số lượng:</td>
-                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${totalQty} áo</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Nhân viên CSKH/Sale:</td>
-                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${cskhName}</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Người thiết kế:</td>
-                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${designerName}</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Mức độ ưu tiên:</td>
-                            <td style="padding: 8px 0; font-weight: 700; color: ${priority === 'GẤP' ? '#dc2626' : '#2563eb'};">${priority}</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 8px 0; font-weight: 600; color: #64748b;">Ngày gửi dự kiến:</td>
-                            <td style="padding: 8px 0; font-weight: 700; color: #1e293b;">${shipDateFormatted}</td>
-                        </tr>
-                    </table>
+                    <pre style="font-family: 'Segoe UI', Arial, sans-serif; white-space: pre-wrap; font-size: 14px; color: #1e293b; line-height: 1.6; margin: 0; padding: 20px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">${emailBodyText}</pre>
         `;
 
         if (inlinePdfLinks.length > 0) {
