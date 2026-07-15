@@ -336,6 +336,7 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS logo_approved_image TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS chat_confirmed_image TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS design_pdf_url TEXT DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS design_pdf_name TEXT DEFAULT NULL`); } catch(e) {}
     // Auto-seed "ĐƠN SỬA" category if not exists
     try { await db.run(`INSERT INTO dht_categories (name, display_order) SELECT 'ĐƠN SỬA', COALESCE(MAX(display_order),0)+1 FROM dht_categories WHERE NOT EXISTS (SELECT 1 FROM dht_categories WHERE name = 'ĐƠN SỬA')`); } catch(e) {}
     // Auto-seed J&T tracking URL if not set
@@ -3447,8 +3448,21 @@ module.exports = async function(fastify) {
         );
 
         for (const item of orderItems) {
-            const pdfUrl = item_designs[item.id];
-            await db.run('UPDATE dht_order_items SET design_pdf_url = $1 WHERE id = $2', [pdfUrl.trim(), item.id]);
+            const designVal = item_designs[item.id];
+            let pdfUrl = '';
+            let pdfName = '';
+            if (designVal) {
+                if (typeof designVal === 'object') {
+                    pdfUrl = designVal.url || '';
+                    pdfName = designVal.filename || '';
+                } else {
+                    pdfUrl = designVal || '';
+                }
+            }
+            await db.run(
+                'UPDATE dht_order_items SET design_pdf_url = $1, design_pdf_name = $2 WHERE id = $3',
+                [pdfUrl.trim() || null, pdfName.trim() || null, item.id]
+            );
         }
 
         // Link deposit child record if deposit_payment_id exists and not already linked (Only for draft promotion)
@@ -6354,7 +6368,7 @@ module.exports = async function(fastify) {
                 if (fs.existsSync(pdfFullPath)) {
                     const stats = fs.statSync(pdfFullPath);
                     const size = stats.size;
-                    const cleanName = `${orderCode} - Phieu ${idx + 1}.pdf`;
+                    const cleanName = item.design_pdf_name || `${orderCode} - Phieu ${idx + 1}.pdf`;
                     
                     if (totalAttachmentSize + size < 20 * 1024 * 1024) {
                         totalAttachmentSize += size;

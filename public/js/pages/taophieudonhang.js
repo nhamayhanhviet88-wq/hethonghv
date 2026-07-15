@@ -6510,7 +6510,7 @@ async function _tpdShowExportSheetsModal() {
             const dbUrl = item.design_pdf_url;
             window._tpdSheetDesigns[item.id] = {
                 url: dbUrl,
-                filename: dbUrl.substring(dbUrl.lastIndexOf('/') + 1) || `design_${item.id}.pdf`
+                filename: item.design_pdf_name || dbUrl.substring(dbUrl.lastIndexOf('/') + 1) || `design_${item.id}.pdf`
             };
         } else {
             window._tpdSheetDesigns[item.id] = {
@@ -7017,7 +7017,10 @@ async function _tpdShowExportSheetsModal() {
                     
                     const itemDesigns = {};
                     for (const item of items) {
-                        itemDesigns[item.id] = window._tpdSheetDesigns[item.id]?.url || '';
+                        itemDesigns[item.id] = {
+                            url: window._tpdSheetDesigns[item.id]?.url || '',
+                            filename: window._tpdSheetDesigns[item.id]?.filename || ''
+                        };
                     }
 
                     const recipientEmail = document.getElementById('tpdRecipientEmail')?.value || '';
