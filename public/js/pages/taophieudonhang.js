@@ -6638,19 +6638,26 @@ async function _tpdShowExportSheetsModal() {
     window._tpdChatConfirmedUrl = localStorage.getItem(`tpd_chat_proof_${o.id}`) || o.chat_confirmed_image || '';
     window._tpdActivePasteZone = '';
     window._tpdSheetDesigns = {};
-    for (const item of items) {
+    items.forEach((item, idx) => {
         const localUrl = localStorage.getItem(`tpd_pdf_url_${item.id}`) || '';
         const localFilename = localStorage.getItem(`tpd_pdf_filename_${item.id}`) || '';
+        const orderCode = o.order_code || o.draft_name || 'DONHANG';
+        const friendlyFallbackName = `${orderCode} - Phieu ${idx + 1}.pdf`;
+
         if (localUrl) {
             window._tpdSheetDesigns[item.id] = {
                 url: localUrl,
-                filename: localFilename || localUrl.substring(localUrl.lastIndexOf('/') + 1)
+                filename: localFilename || friendlyFallbackName
             };
         } else if (item.design_pdf_url) {
             const dbUrl = item.design_pdf_url;
+            let dbFilename = item.design_pdf_name || '';
+            if (!dbFilename || dbFilename.trim() === '' || /^design_\d+_\w+\.pdf$/i.test(dbFilename.trim())) {
+                dbFilename = friendlyFallbackName;
+            }
             window._tpdSheetDesigns[item.id] = {
                 url: dbUrl,
-                filename: item.design_pdf_name || dbUrl.substring(dbUrl.lastIndexOf('/') + 1) || `design_${item.id}.pdf`
+                filename: dbFilename
             };
         } else {
             window._tpdSheetDesigns[item.id] = {
@@ -6658,7 +6665,7 @@ async function _tpdShowExportSheetsModal() {
                 filename: ''
             };
         }
-    }
+    });
 
     // Create the overlay container if not exists
     let overlay = document.getElementById('tpdExportOverlay');

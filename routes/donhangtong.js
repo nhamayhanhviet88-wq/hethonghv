@@ -7048,7 +7048,10 @@ module.exports = async function(fastify) {
                 if (fs.existsSync(pdfFullPath)) {
                     const stats = fs.statSync(pdfFullPath);
                     const size = stats.size;
-                    let cleanName = item.design_pdf_name || `${orderCode} - Phieu ${idx + 1}.pdf`;
+                    let cleanName = item.design_pdf_name || '';
+                    if (!cleanName || cleanName.trim() === '' || /^design_\d+_\w+\.pdf$/i.test(cleanName.trim())) {
+                        cleanName = `${orderCode} - Phieu ${idx + 1}.pdf`;
+                    }
                     if (editCount > 0) {
                         const ext = path.extname(cleanName);
                         const base = path.basename(cleanName, ext);
