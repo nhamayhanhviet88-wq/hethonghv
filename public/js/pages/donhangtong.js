@@ -1222,6 +1222,7 @@ async function _dhtShowDetail(id) {
         // Recalculate totals from items (source of truth)
         let calcBase = 0, calcVat = 0;
         let totalGiftDeduction = 0;
+        let totalGiftQty = 0;
         if (String(o.id).startsWith('sample_')) {
             for (const it of items) {
                 calcBase += Number(it.total_amount) || (Number(it.price_per_item) * Number(it.quantity)) || 0;
@@ -1240,6 +1241,7 @@ async function _dhtShowDetail(id) {
 
                     const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
                     const giftQty = Number(it.promo_gift_quantity) || 0;
+                    totalGiftQty += giftQty;
                     const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
                     
                     let itemRaw = undiscRaw;
@@ -1511,12 +1513,11 @@ async function _dhtShowDetail(id) {
                 [vatLabel, fmt(vat) + 'đ', '#6366f1', false],
             ];
             if (totalGiftDeduction > 0) {
-                finRows.push(['Khuyến mãi tặng áo', '-' + fmt(totalGiftDeduction) + 'đ', '#059669', false]);
+                finRows.push(['Khuyến mãi tặng áo', `${totalGiftQty} áo : -${fmt(totalGiftDeduction)}đ`, '#059669', false]);
             }
             if (promoDiscount > 0) {
-                let label = 'Khuyến mãi giảm giá';
-                if (o.applied_coupon) label += ` [${o.applied_coupon}]`;
-                finRows.push([label, '-' + fmt(promoDiscount) + 'đ', '#059669', false]);
+                const promoPct = (calcBase - totalGiftDeduction) > 0 ? Math.round((promoDiscount / (calcBase - totalGiftDeduction)) * 100) : 0;
+                finRows.push(['Khuyến mãi giảm giá', `Giảm ${promoPct}% : -${fmt(promoDiscount)}đ`, '#059669', false]);
             }
             if (manualDiscount > 0) {
                 finRows.push(['Ưu đãi / Giảm giá khác', '-' + fmt(manualDiscount) + 'đ', '#059669', false]);
@@ -2942,6 +2943,7 @@ async function _dhtPrintOrder(orderId) {
         // Calculate financials
         let calcBase = 0, calcVat = 0;
         let totalGiftDeduction = 0;
+        let totalGiftQty = 0;
         for (const it of items) {
             try {
                 let qtyArr = [];
@@ -2955,6 +2957,7 @@ async function _dhtPrintOrder(orderId) {
 
                 const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
                 const giftQty = Number(it.promo_gift_quantity) || 0;
+                totalGiftQty += giftQty;
                 const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
                 
                 let itemRaw = undiscRaw;
@@ -3092,8 +3095,8 @@ table tbody tr:nth-child(even) { background:#f8f9fa; }
     <div class="row"><span class="key">Tổng tiền hàng (trước VAT):</span><span class="val">${fmt(calcBase)}đ</span></div>
     ${surTotal > 0 ? `<div class="row"><span class="key">Phụ phí:</span><span class="val">${fmt(surTotal)}đ</span></div>` : ''}
     <div class="row"><span class="key">VAT:</span><span class="val" style="color:#6366f1">${fmt(calcVat)}đ</span></div>
-    ${totalGiftDeduction > 0 ? `<div class="row"><span class="key">Khuyến mãi tặng áo:</span><span class="val" style="color:#059669">-${fmt(totalGiftDeduction)}đ</span></div>` : ''}
-    ${promoDiscount > 0 ? `<div class="row"><span class="key">Khuyến mãi giảm giá${o.applied_coupon ? ' [' + o.applied_coupon + ']' : ''}:</span><span class="val" style="color:#059669">-${fmt(promoDiscount)}đ</span></div>` : ''}
+    ${totalGiftDeduction > 0 ? `<div class="row"><span class="key">Khuyến mãi tặng áo:</span><span class="val" style="color:#059669">${totalGiftQty} áo : -${fmt(totalGiftDeduction)}đ</span></div>` : ''}
+    ${promoDiscount > 0 ? `<div class="row"><span class="key">Khuyến mãi giảm giá:</span><span class="val" style="color:#059669">Giảm ${(calcBase - totalGiftDeduction) > 0 ? Math.round((promoDiscount / (calcBase - totalGiftDeduction)) * 100) : 0}% : -${fmt(promoDiscount)}đ</span></div>` : ''}
     ${manualDiscount > 0 ? `<div class="row"><span class="key">Ưu đãi / Giảm giá khác:</span><span class="val" style="color:#059669">-${fmt(manualDiscount)}đ</span></div>` : ''}
     <div class="row"><span class="key">Đã đặt cọc:</span><span class="val" style="color:#2563eb">${fmt(deposit)}đ</span></div>
     <div class="row total-row"><span class="key">💰 CẦN THANH TOÁN:</span><span class="val">${fmt(needToPay)}đ</span></div>
