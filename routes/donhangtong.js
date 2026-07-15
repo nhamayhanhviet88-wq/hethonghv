@@ -3382,10 +3382,6 @@ module.exports = async function(fastify) {
         const order = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
         
-        if (!order.is_draft) {
-            return { success: true, message: 'Đơn hàng đã được lên đơn chính thức' };
-        }
-
         const { logo_approved_image, chat_confirmed_image, item_designs, recipient_email, sheet_images } = request.body || {};
         if (!logo_approved_image || !logo_approved_image.trim()) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh xác nhận duyệt logo của khách!' });
@@ -3405,34 +3401,37 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Validate order code before promoting
-        if (!order.order_code || !order.order_code.trim() || order.order_code.startsWith('NHAP-') || order.order_code.startsWith('📝')) {
-            return reply.code(400).send({ error: 'Vui lòng cung cấp Mã Đơn hợp lệ từ CRM trước khi Lên Đơn.' });
-        }
-
-        const dupCode = await db.get('SELECT id FROM dht_orders WHERE order_code = $1 AND id <> $2', [order.order_code.trim(), orderId]);
-        if (dupCode) {
-            return reply.code(400).send({ error: `Mã đơn "${order.order_code}" đã được sử dụng!` });
-        }
-
-        // Validate promo code maximum uses limit on promote
-        if (order.applied_coupon) {
-            const promoCheck = await validatePromoCodeForOrder(order.applied_coupon, orderId);
-            if (!promoCheck.valid) {
-                return reply.code(400).send({ error: `Ưu đãi [${order.applied_coupon}]: ${promoCheck.error}` });
+        // Only run draft-to-official promoting validations if the order is currently a draft
+        if (order.is_draft) {
+            // Validate order code before promoting
+            if (!order.order_code || !order.order_code.trim() || order.order_code.startsWith('NHAP-') || order.order_code.startsWith('📝')) {
+                return reply.code(400).send({ error: 'Vui lòng cung cấp Mã Đơn hợp lệ từ CRM trước khi Lên Đơn.' });
             }
-        }
-        const promoItems = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
-        for (const item of promoItems) {
-            if (item.promo_gift_code) {
-                const promoCheck = await validatePromoCodeForOrder(item.promo_gift_code, orderId);
+
+            const dupCode = await db.get('SELECT id FROM dht_orders WHERE order_code = $1 AND id <> $2', [order.order_code.trim(), orderId]);
+            if (dupCode) {
+                return reply.code(400).send({ error: `Mã đơn "${order.order_code}" đã được sử dụng!` });
+            }
+
+            // Validate promo code maximum uses limit on promote
+            if (order.applied_coupon) {
+                const promoCheck = await validatePromoCodeForOrder(order.applied_coupon, orderId);
                 if (!promoCheck.valid) {
-                    return reply.code(400).send({ error: `Tặng áo [${item.promo_gift_code}]: ${promoCheck.error}` });
+                    return reply.code(400).send({ error: `Ưu đãi [${order.applied_coupon}]: ${promoCheck.error}` });
+                }
+            }
+            const promoItems = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            for (const item of promoItems) {
+                if (item.promo_gift_code) {
+                    const promoCheck = await validatePromoCodeForOrder(item.promo_gift_code, orderId);
+                    if (!promoCheck.valid) {
+                        return reply.code(400).send({ error: `Tặng áo [${item.promo_gift_code}]: ${promoCheck.error}` });
+                    }
                 }
             }
         }
 
-        // Start transaction or sequential db operations
+        // Start database operations
         const recipientEmailStr = (recipient_email || '').trim();
         await db.run(
             `UPDATE dht_orders 
@@ -3452,8 +3451,8 @@ module.exports = async function(fastify) {
             await db.run('UPDATE dht_order_items SET design_pdf_url = $1 WHERE id = $2', [pdfUrl.trim(), item.id]);
         }
 
-        // Link deposit child record if deposit_payment_id exists and not already linked
-        if (order.deposit_payment_id) {
+        // Link deposit child record if deposit_payment_id exists and not already linked (Only for draft promotion)
+        if (order.is_draft && order.deposit_payment_id) {
             const depositPrId = Number(order.deposit_payment_id);
             const pr = await db.get('SELECT * FROM payment_records WHERE id = $1', [depositPrId]);
             if (pr) {
