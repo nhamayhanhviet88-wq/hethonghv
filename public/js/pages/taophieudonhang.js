@@ -380,6 +380,7 @@ function _tpdCloneItemState(item) {
         back_technique_image: item.back_technique_image || '',
         print_details: clonedPrintDetails,
         quantities: item.quantities,
+        quantity: Number(item.quantity) || 0,
         unit_price: Number(item.unit_price) || 0,
         product_name: item.product_name || '',
         sale_type: item.sale_type || '',
