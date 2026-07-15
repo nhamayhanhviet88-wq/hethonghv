@@ -7501,15 +7501,13 @@ module.exports = async function(fastify) {
             } catch(e) {}
         }
 
-        let generatedSubject = `${orderCode} - KH : ${customerName} - ${totalQty} áo - ${cskhName} - Thiết kế: ${designerName} - ${priority} - ${shipDateFormatted}`;
-        if (editCount > 0) {
-            generatedSubject += ` - SỬA LẦN ${editCount}`;
-        }
+        const generatedSubject = `${orderCode} - KH : ${customerName} - ${totalQty} áo - ${cskhName} - Thiết kế: ${designerName} - ${priority} - ${shipDateFormatted}`;
         let subject = generatedSubject;
         let mailHeaders = {};
 
         if (order.design_email_message_id) {
-            subject = `Re: ${generatedSubject}`;
+            const originalSubject = (order.design_email_subject || generatedSubject).trim();
+            subject = originalSubject.toLowerCase().startsWith('re:') ? originalSubject : `Re: ${originalSubject}`;
             mailHeaders = {
                 'In-Reply-To': order.design_email_message_id,
                 'References': order.design_email_message_id
