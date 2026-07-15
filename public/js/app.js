@@ -1828,7 +1828,7 @@ async function handleRoute() {
         }
     }
 
-    if (pathname !== 'chuanbiqlx') {
+    if (pathname !== 'chuanbiqlx' && pathname !== 'congviecqlx') {
         if (window._qlxLockPollingInterval) {
             clearInterval(window._qlxLockPollingInterval);
             window._qlxLockPollingInterval = null;

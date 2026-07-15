@@ -115,7 +115,8 @@ function renderQuanlyxuongqlxPage(content) {
 }
 
 async function _qlxPollLockStatuses() {
-    if (window.location.pathname.replace(/^\//, '') !== 'chuanbiqlx') {
+    var _qlxPath = window.location.pathname.replace(/^\//, '');
+    if (_qlxPath !== 'chuanbiqlx' && _qlxPath !== 'congviecqlx') {
         if (window._qlxLockPollingInterval) {
             clearInterval(window._qlxLockPollingInterval);
             window._qlxLockPollingInterval = null;
