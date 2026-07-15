@@ -6896,67 +6896,127 @@ module.exports = async function(fastify) {
     }
 
     function diffOrderStates(oldState, newState) {
-        const diffs = [];
-        if (!oldState || !newState) return diffs;
-        
+        const orderChanges = [];
+        const sheetChanges = {};
+        const addedSheets = [];
+        const deletedSheets = [];
+
+        if (!oldState || !newState) {
+            return { orderChanges, sheetChanges, addedSheets, deletedSheets, hasChanges: false };
+        }
+
+        const orderCode = newState.items[0]?.order_code || oldState.items[0]?.order_code || 'Đơn hàng';
+
         // Compare order level fields
         if (oldState.expected_ship_date !== newState.expected_ship_date) {
-            diffs.push(`Ngày hẹn trả: [${escapeHTML(oldState.expected_ship_date || 'Chưa có')}] ➔ [${escapeHTML(newState.expected_ship_date || 'Chưa có')}]`);
+            orderChanges.push(`Ngày hẹn trả: [${escapeHTML(oldState.expected_ship_date || 'Chưa có')}] ➔ [${escapeHTML(newState.expected_ship_date || 'Chưa có')}]`);
         }
         if (oldState.standard_delivery_time !== newState.standard_delivery_time) {
-            diffs.push(`Giờ hẹn trả: [${escapeHTML(oldState.standard_delivery_time || 'Chưa có')}] ➔ [${escapeHTML(newState.standard_delivery_time || 'Chưa có')}]`);
+            orderChanges.push(`Giờ hẹn trả: [${escapeHTML(oldState.standard_delivery_time || 'Chưa có')}] ➔ [${escapeHTML(newState.standard_delivery_time || 'Chưa có')}]`);
         }
         if (oldState.notes !== newState.notes) {
-            diffs.push(`Ghi chú đơn: [${escapeHTML(oldState.notes || 'Trống')}] ➔ [${escapeHTML(newState.notes || 'Trống')}]`);
+            orderChanges.push(`Ghi chú đơn: [${escapeHTML(oldState.notes || 'Trống')}] ➔ [${escapeHTML(newState.notes || 'Trống')}]`);
         }
-        
+
         // Compare items (sheets)
         const oldItemsMap = new Map(oldState.items.map(it => [it.id, it]));
         const newItemsMap = new Map(newState.items.map(it => [it.id, it]));
-        
+
         // Check deleted items
         oldState.items.forEach(oldIt => {
             if (!newItemsMap.has(oldIt.id)) {
-                diffs.push(`XÓA PHIẾU: [${escapeHTML(oldIt.product_name || 'Đồng phục')}] (SL: ${oldIt.quantity})`);
+                deletedSheets.push(`XÓA PHIẾU: [${escapeHTML(oldIt.product_name || 'Đồng phục')}] (SL: ${oldIt.quantity})`);
             }
         });
-        
+
         // Check added or updated items
         newState.items.forEach((newIt, idx) => {
             const oldIt = oldItemsMap.get(newIt.id);
-            
+
             if (!oldIt) {
-                diffs.push(`THÊM MỚI PHIẾU: [${escapeHTML(newIt.product_name || 'Đồng phục')}] (SL: ${newIt.quantity})`);
+                addedSheets.push(`THÊM MỚI PHIẾU: [${escapeHTML(newIt.product_name || 'Đồng phục')}] (SL: ${newIt.quantity})`);
                 return;
             }
-            
+
+            const sheetKey = idx.toString();
+            const initSheetChanges = () => {
+                if (!sheetChanges[sheetKey]) {
+                    sheetChanges[sheetKey] = {
+                        orderCode: orderCode,
+                        sheetNumber: idx + 1,
+                        productName: newIt.product_name || 'Đồng phục',
+                        changes: []
+                    };
+                }
+            };
+
             // Product name changed
             if (oldIt.product_name !== newIt.product_name) {
-                diffs.push(`Sửa tên sản phẩm Phiếu ${idx + 1}: [${escapeHTML(oldIt.product_name || 'Đồng phục')}] ➔ [${escapeHTML(newIt.product_name || 'Đồng phục')}]`);
+                initSheetChanges();
+                sheetChanges[sheetKey].changes.push({
+                    type: 'product_name',
+                    html: `
+                        <div style="margin-left: 15px; margin-bottom: 8px;">
+                            <span style="font-weight: 700; color: #1e293b;">Sửa sản phẩm :</span><br>
+                            <span style="padding-left: 10px; color: #475569;">[${escapeHTML(oldIt.product_name || 'Đồng phục')}] ➔ [${escapeHTML(newIt.product_name || 'Đồng phục')}]</span>
+                        </div>
+                    `
+                });
             }
-            
+
+            // Material changed
+            if (oldIt.material_name !== newIt.material_name || oldIt.color_name !== newIt.color_name) {
+                const oldMat = `${oldIt.material_name || 'Trống'} - ${oldIt.color_name || 'Trống'}`;
+                const newMat = `${newIt.material_name || 'Trống'} - ${newIt.color_name || 'Trống'}`;
+                if (oldMat !== newMat) {
+                    initSheetChanges();
+
+                    const fabricParts = (newIt.material_name || '').split('+').map(x => x.trim()).filter(Boolean);
+                    const colorParts = (newIt.color_name || '').split('+').map(x => x.trim()).filter(Boolean);
+
+                    let pairHtml = '';
+                    const maxLen = Math.max(fabricParts.length, colorParts.length);
+                    for (let i = 0; i < maxLen; i++) {
+                        const fab = fabricParts[i] || fabricParts[0] || '—';
+                        const col = colorParts[i] || 'Chưa chọn màu';
+                        pairHtml += `<span style="padding-left: 20px; color: #475569; display: block;">• ${escapeHTML(fab)} : Màu ${escapeHTML(col)}</span>`;
+                    }
+
+                    sheetChanges[sheetKey].changes.push({
+                        type: 'material',
+                        html: `
+                            <div style="margin-left: 15px; margin-bottom: 8px; line-height: 1.5;">
+                                <span style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Sửa chất liệu :</span>
+                                <span style="font-weight: 500; color: #475569; padding-left: 10px; display: block; margin-bottom: 2px;">Chất liệu vải:</span>
+                                ${pairHtml}
+                            </div>
+                        `
+                    });
+                }
+            }
+
             // Size allocation changed
-            const formatQuantities = (qtyArr) => {
+            const formatQuantitiesRaw = (qtyArr) => {
                 if (!Array.isArray(qtyArr)) return '';
                 const activeQty = qtyArr.filter(q => q && Number(q.qty) > 0);
                 if (activeQty.length === 0) return 'Chưa nhập';
                 const sorted = [...activeQty].sort((a, b) => String(a.size).localeCompare(String(b.size)));
                 return sorted.map(q => `${q.size}: ${q.qty}`).join(', ');
             };
-            
-            const oldSizesStr = formatQuantities(oldIt.quantities);
-            const newSizesStr = formatQuantities(newIt.quantities);
-            
+
+            const oldSizesStr = formatQuantitiesRaw(oldIt.quantities);
+            const newSizesStr = formatQuantitiesRaw(newIt.quantities);
+
             let sizeChanged = false;
             if (oldSizesStr !== newSizesStr) {
                 sizeChanged = true;
-                
-                // Format nice size allocation as requested by user
-                const formatQuantitiesNice = (qtyArr, totalSL) => {
+                initSheetChanges();
+
+                const formatQuantitiesNice = (qtyArr, totalSL, sizeType) => {
                     if (!Array.isArray(qtyArr)) return '';
                     const activeQty = qtyArr.filter(q => q && Number(q.qty) > 0);
-                    if (activeQty.length === 0) return 'Chưa nhập';
-                    
+                    if (activeQty.length === 0) return '<span style="padding-left: 20px; color: #475569;">Chưa nhập size</span>';
+
                     const sizeOrder = [
                         'S', 'M', 'L', 'XL', 'XXL',
                         'XXXL', '3XL', 'XXXXL', '4XL', 'XXXXXL', '5XL', 'XXXXXXL', '6XL', '7XL'
@@ -6969,22 +7029,22 @@ module.exports = async function(fastify) {
                         if (!isNaN(parsed)) return 1000 + parsed;
                         return 9999;
                     };
-                    
+
                     const sorted = [...activeQty].sort((a, b) => {
                         const aRank = getSizeRank(a.size || '');
                         const bRank = getSizeRank(b.size || '');
                         if (aRank !== bRank) return aRank - bRank;
                         return String(a.size).localeCompare(String(b.size));
                     });
-                    
+
                     const namParts = [];
                     const nuParts = [];
                     const otherParts = [];
-                    
+
                     sorted.forEach(q => {
                         const sizeName = (q.size || '').trim();
                         const qty = Number(q.qty) || 0;
-                        
+
                         if (sizeName.startsWith('Nam ')) {
                             const coreSize = sizeName.replace(/^Nam\s+/, '').trim();
                             namParts.push(`${qty} ${coreSize}`);
@@ -6995,39 +7055,47 @@ module.exports = async function(fastify) {
                             otherParts.push(`${qty} ${sizeName}`);
                         }
                     });
-                    
-                    let result = '<br><span style="font-weight: 500; color: #1e293b; display: inline-block; margin-top: 4px; margin-bottom: 2px;">Size Nam / Nữ:</span><br>';
+
+                    let result = `<span style="font-weight: 500; color: #475569; padding-left: 10px; display: block; margin-bottom: 2px;">${escapeHTML(sizeType || 'Size Nam / Nữ')}:</span>`;
                     if (namParts.length > 0) {
-                        result += `<span style="padding-left: 12px; color: #475569;">Nam: ${namParts.join(' | ')}</span><br>`;
+                        result += `<span style="padding-left: 20px; color: #475569; display: block;">Nam: ${namParts.join(' | ')}</span>`;
                     }
                     if (nuParts.length > 0) {
-                        result += `<span style="padding-left: 12px; color: #475569;">Nữ: ${nuParts.join(' | ')}</span><br>`;
+                        result += `<span style="padding-left: 20px; color: #475569; display: block;">Nữ: ${nuParts.join(' | ')}</span>`;
                     }
                     if (otherParts.length > 0) {
-                        result += `<span style="padding-left: 12px; color: #475569;">Khác: ${otherParts.join(' | ')}</span><br>`;
+                        result += `<span style="padding-left: 20px; color: #475569; display: block;">Khác: ${otherParts.join(' | ')}</span>`;
                     }
-                    result += `<span style="padding-left: 12px; font-weight: 700; color: #0f172a;">Tổng SL: ${totalSL}</span>`;
+                    result += `<span style="padding-left: 20px; font-weight: 700; color: #0f172a; display: block; margin-top: 2px;">Tổng SL: ${totalSL}</span>`;
                     return result;
                 };
-                
-                const niceSizes = formatQuantitiesNice(newIt.quantities, newIt.quantity);
-                diffs.push(`Sửa báo size Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}):${niceSizes}`);
+
+                const niceSizes = formatQuantitiesNice(newIt.quantities, newIt.quantity, newIt.size_type);
+                sheetChanges[sheetKey].changes.push({
+                    type: 'size',
+                    html: `
+                        <div style="margin-left: 15px; margin-bottom: 8px; line-height: 1.5;">
+                            <span style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Sửa báo size :</span>
+                            ${niceSizes}
+                        </div>
+                    `
+                });
             }
-            
+
             // Quantity changed (only if size allocation did NOT change, to avoid redundant lines)
             if (!sizeChanged && oldIt.quantity !== newIt.quantity) {
-                diffs.push(`Sửa số lượng Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}): [${oldIt.quantity}] ➔ [${newIt.quantity}]`);
+                initSheetChanges();
+                sheetChanges[sheetKey].changes.push({
+                    type: 'quantity',
+                    html: `
+                        <div style="margin-left: 15px; margin-bottom: 8px;">
+                            <span style="font-weight: 700; color: #1e293b;">Sửa số lượng :</span><br>
+                            <span style="padding-left: 10px; color: #475569;">[${oldIt.quantity}] ➔ [${newIt.quantity}]</span>
+                        </div>
+                    `
+                });
             }
-            
-            // Material changed
-            if (oldIt.material_name !== newIt.material_name || oldIt.color_name !== newIt.color_name) {
-                const oldMat = `${oldIt.material_name || 'Trống'} - ${oldIt.color_name || 'Trống'}`;
-                const newMat = `${newIt.material_name || 'Trống'} - ${newIt.color_name || 'Trống'}`;
-                if (oldMat !== newMat) {
-                    diffs.push(`Sửa chất vải/màu Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}): [${escapeHTML(oldMat)}] ➔ [${escapeHTML(newMat)}]`);
-                }
-            }
-            
+
             // Sewing techniques changed
             if (JSON.stringify(oldIt.sewing_techniques) !== JSON.stringify(newIt.sewing_techniques)) {
                 const getTechListStr = (field) => {
@@ -7043,10 +7111,19 @@ module.exports = async function(fastify) {
                 const oldTechs = getTechListStr(oldIt.sewing_techniques);
                 const newTechs = getTechListStr(newIt.sewing_techniques);
                 if (oldTechs !== newTechs) {
-                    diffs.push(`Sửa kỹ thuật may Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}): [${escapeHTML(oldTechs)}] ➔ [${escapeHTML(newTechs)}]`);
+                    initSheetChanges();
+                    sheetChanges[sheetKey].changes.push({
+                        type: 'sewing',
+                        html: `
+                            <div style="margin-left: 15px; margin-bottom: 8px;">
+                                <span style="font-weight: 700; color: #1e293b;">Sửa kỹ thuật may :</span><br>
+                                <span style="padding-left: 10px; color: #475569;">[${escapeHTML(oldTechs)}] ➔ [${escapeHTML(newTechs)}]</span>
+                            </div>
+                        `
+                    });
                 }
             }
-            
+
             // Print details changed
             const getPrintDetailsStr = (layout) => {
                 if (!layout) return 'Không có in/thêu';
@@ -7063,11 +7140,22 @@ module.exports = async function(fastify) {
             const oldPrint = getPrintDetailsStr(oldIt.custom_layout);
             const newPrint = getPrintDetailsStr(newIt.custom_layout);
             if (oldPrint !== newPrint) {
-                diffs.push(`Sửa chi tiết in/thêu Phiếu ${idx + 1} (${escapeHTML(newIt.product_name || 'Đồng phục')}): [${escapeHTML(oldPrint)}] ➔ [${escapeHTML(newPrint)}]`);
+                initSheetChanges();
+                sheetChanges[sheetKey].changes.push({
+                    type: 'printing',
+                    html: `
+                        <div style="margin-left: 15px; margin-bottom: 8px;">
+                            <span style="font-weight: 700; color: #1e293b;">Sửa chi tiết in/thêu :</span><br>
+                            <span style="padding-left: 10px; color: #475569;">[${escapeHTML(oldPrint)}] ➔ [${escapeHTML(newPrint)}]</span>
+                        </div>
+                    `
+                });
             }
         });
-        
-        return diffs;
+
+        const hasChanges = (orderChanges.length > 0 || Object.keys(sheetChanges).length > 0 || addedSheets.length > 0 || deletedSheets.length > 0);
+
+        return { orderChanges, sheetChanges, addedSheets, deletedSheets, hasChanges };
     }
 
     function escapeHTML(str) {
@@ -7165,17 +7253,23 @@ module.exports = async function(fastify) {
             } catch(e) {}
         }
         const newState = getOrderStateSnapshot(order, items);
-        let diffs = [];
+        let diffs = { orderChanges: [], sheetChanges: {}, addedSheets: [], deletedSheets: [], hasChanges: false };
         let editCount = Number(order.edit_count) || 0;
         if (oldState) {
             diffs = diffOrderStates(oldState, newState);
-            if (diffs.length > 0) {
+            if (diffs.hasChanges) {
                 editCount += 1;
             }
         } else if (order.design_email_message_id && !isResend) {
             // Historical order migration: first edit after deployment
             editCount = 1;
-            diffs = ["Có thay đổi chi tiết đơn hàng (hệ thống đã ghi nhận phiên bản mới)"];
+            diffs = {
+                orderChanges: ["Có thay đổi chi tiết đơn hàng (hệ thống đã ghi nhận phiên bản mới)"],
+                sheetChanges: {},
+                addedSheets: [],
+                deletedSheets: [],
+                hasChanges: true
+            };
         }
 
         let surcharges = [];
@@ -7864,20 +7958,69 @@ module.exports = async function(fastify) {
         let editDiffHtml = '';
         if (editCount > 0) {
             let diffListHtml = '';
-            if (diffs.length > 0) {
-                diffListHtml = diffs.map(d => `<li style="margin-bottom: 8px; font-weight: 600; list-style-type: disc; margin-left: 20px; line-height: 1.5; color: #1e293b;">${d}</li>`).join('');
+            if (diffs.hasChanges) {
+                let parts = [];
+                if (diffs.orderChanges && diffs.orderChanges.length > 0) {
+                    parts.push(`
+                        <div style="margin-bottom: 12px;">
+                            <span style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px;">Thay đổi chung của đơn hàng:</span>
+                            <ul style="margin: 0; padding-left: 20px; list-style-type: disc;">
+                                ${diffs.orderChanges.map(d => `<li style="margin-bottom: 4px; color: #475569; font-weight: 500;">${d}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `);
+                }
+                if (diffs.addedSheets && diffs.addedSheets.length > 0) {
+                    parts.push(`
+                        <div style="margin-bottom: 12px;">
+                            <ul style="margin: 0; padding-left: 20px; list-style-type: disc;">
+                                ${diffs.addedSheets.map(d => `<li style="margin-bottom: 4px; color: #16a34a; font-weight: 700;">${d}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `);
+                }
+                if (diffs.deletedSheets && diffs.deletedSheets.length > 0) {
+                    parts.push(`
+                        <div style="margin-bottom: 12px;">
+                            <ul style="margin: 0; padding-left: 20px; list-style-type: disc;">
+                                ${diffs.deletedSheets.map(d => `<li style="margin-bottom: 4px; color: #dc2626; font-weight: 700;">${d}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `);
+                }
+
+                // Sheet modifications
+                const sheetKeys = Object.keys(diffs.sheetChanges).sort((a, b) => Number(a) - Number(b));
+                if (sheetKeys.length > 0) {
+                    sheetKeys.forEach(k => {
+                        const sheet = diffs.sheetChanges[k];
+                        if (sheet.changes && sheet.changes.length > 0) {
+                            parts.push(`
+                                <div style="margin-top: 10px; margin-bottom: 15px; border-left: 4px solid #f59e0b; padding-left: 12px;">
+                                    <div style="font-weight: 800; color: #b45309; font-size: 14.5px; margin-bottom: 8px;">
+                                        Sửa Mã đơn : ${escapeHTML(sheet.orderCode)} - Phiếu ${sheet.sheetNumber} (${escapeHTML(sheet.productName)})
+                                    </div>
+                                    ${sheet.changes.map(c => c.html).join('')}
+                                </div>
+                            `);
+                        }
+                    });
+                }
+
+                diffListHtml = parts.join('');
             } else {
-                diffListHtml = `<li style="margin-bottom: 6px; font-style: italic; color: #64748b;">(Không có thay đổi kỹ thuật hoặc thông tin chính)</li>`;
+                diffListHtml = `<div style="font-style: italic; color: #64748b;">(Không có thay đổi kỹ thuật hoặc thông tin chính)</div>`;
             }
+
             editDiffHtml = `
                 <div style="background-color: #fef3c7; border: 2px dashed #f59e0b; border-radius: 8px; padding: 16px; margin-bottom: 20px; color: #78350f; font-family: 'Segoe UI', Arial, sans-serif;">
                     <h3 style="margin-top: 0; color: #b45309; font-size: 16px; font-weight: 800; text-transform: uppercase;">
                         ⚠️ THÔNG BÁO SỬA ĐƠN (LẦN ${editCount})
                     </h3>
                     <p style="margin: 4px 0 12px 0; font-size: 14px; font-weight: 500;">Xưởng lưu ý các nội dung thay đổi dưới đây:</p>
-                    <ul style="margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.5;">
+                    <div style="font-size: 13.5px; line-height: 1.5;">
                         ${diffListHtml}
-                    </ul>
+                    </div>
                 </div>
             `;
         }
