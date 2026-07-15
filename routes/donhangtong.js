@@ -6378,9 +6378,10 @@ module.exports = async function(fastify) {
             }
         }
         
-        // 1. Fetch Custom Sender or Fallback Config
-        let senderEmail = '';
-        let decryptedPassword = '';
+        try {
+            // 1. Fetch Custom Sender or Fallback Config
+            let senderEmail = '';
+            let decryptedPassword = '';
         
         const customEmailRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_email'");
         const customPassRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_password'");
@@ -6423,7 +6424,12 @@ module.exports = async function(fastify) {
 
         // 3. Fetch items, surcharges, and payments
         const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
-        const surcharges = await db.all('SELECT * FROM dht_order_surcharges WHERE dht_order_id = $1', [orderId]);
+        let surcharges = [];
+        try {
+            surcharges = typeof order.surcharges === 'string' ? JSON.parse(order.surcharges) : (order.surcharges || []);
+        } catch (e) {
+            surcharges = [];
+        }
         const payments = await db.all('SELECT * FROM payment_records WHERE total_order_codes ILIKE $1 OR order_tt_coc = $2', [`%${order.order_code}%`, order.order_code]);
 
         // Helper functions
@@ -7121,6 +7127,17 @@ module.exports = async function(fastify) {
                 `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1, design_email_planned_send_at = NULL WHERE id = $2`,
                 [err.message, orderId]
             );
+        }
+        } catch (globalErr) {
+            console.error('[DesignEmail] Global dispatch worker error:', globalErr);
+            try {
+                await db.run(
+                    `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1, design_email_planned_send_at = NULL WHERE id = $2`,
+                    [globalErr.message, orderId]
+                );
+            } catch (dbErr) {
+                console.error('[DesignEmail] Failed to write failure status to DB:', dbErr);
+            }
         }
     }
 };
