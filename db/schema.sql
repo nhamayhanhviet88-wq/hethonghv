@@ -1732,4 +1732,10 @@ CREATE TABLE IF NOT EXISTS staff_off_dates (
 CREATE INDEX IF NOT EXISTS idx_staff_off_dates_user ON staff_off_dates(user_id);
 CREATE INDEX IF NOT EXISTS idx_staff_off_dates_date ON staff_off_dates(off_date);
 
+-- ========== EDIT LOCK SYSTEM FOR DHT ORDERS ==========
+ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE;
+ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS locked_by INTEGER DEFAULT NULL;
+ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ DEFAULT NULL;
+
+
 

@@ -1822,6 +1822,10 @@ async function handleRoute() {
     if (pathname !== 'design-draft') {
         window._dhtFullPageMode = false;
         window._dhtFullPageContainer = null;
+        if (window._tpdHeartbeatInterval) {
+            clearInterval(window._tpdHeartbeatInterval);
+            window._tpdHeartbeatInterval = null;
+        }
     }
 
     // Block tkaffiliate from dashboard — first 3 login sessions → guide, 4th+ → report

@@ -217,6 +217,11 @@ async function renderDesignDraftPage(content) {
     window._dhtFullPageMode = true;
     window._dhtFullPageContainer = content;
 
+    if (window._tpdHeartbeatInterval) {
+        clearInterval(window._tpdHeartbeatInterval);
+        window._tpdHeartbeatInterval = null;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('id');
     if (!orderId) {
@@ -260,7 +265,43 @@ async function renderDesignDraftPage(content) {
         // 2. Determine permissions
         const isOwner = order.created_by === myInfo.id;
         const isAdmin = ['giam_doc', 'quan_ly'].includes(myInfo.role);
-        const hasEditPermission = isOwner || isAdmin;
+        let hasEditPermission = isOwner || isAdmin;
+
+        // If order is locked by another user, revoke edit permission
+        if (details.lock_warning) {
+            hasEditPermission = false;
+        }
+
+        // Start heartbeat if we own the lock
+        if (hasEditPermission) {
+            window._tpdHeartbeatInterval = setInterval(async () => {
+                try {
+                    const res = await apiCall(`/api/dht/orders/${orderId}/heartbeat`, 'POST');
+                    if (!res || !res.success) {
+                        console.warn('Lock lost during heartbeat:', res ? res.error : 'Unknown error');
+                        if (window._tpdHeartbeatInterval) {
+                            clearInterval(window._tpdHeartbeatInterval);
+                            window._tpdHeartbeatInterval = null;
+                        }
+                        
+                        // Force workspace to read-only
+                        window._tpdWorkspaceState.hasEditPermission = false;
+                        window._tpdWorkspaceState.lockWarning = {
+                            locked_by_name: 'Người khác (hoặc Khóa hết hạn)',
+                            locked_at: new Date().toISOString()
+                        };
+                        
+                        showToast('⚠️ Bạn đã bị mất khóa chỉnh sửa đơn hàng (do hết hạn hoặc admin giải phóng)! Chế độ xem được kích hoạt.', 'error');
+                        
+                        // Re-render workspace to update UI to read-only
+                        const container = window._dhtFullPageContainer;
+                        if (container) _tpdRenderWorkspace(container);
+                    }
+                } catch (e) {
+                    console.error('Error sending heartbeat:', e);
+                }
+            }, 60000); // every 60 seconds
+        }
 
         // 3. Initialize workspace state
         let activeIdx = 0;
@@ -287,6 +328,7 @@ async function renderDesignDraftPage(content) {
             activeItemIndex: activeIdx,
             hasEditPermission: hasEditPermission,
             role: myInfo.role || '',
+            lockWarning: details.lock_warning || null,
             // Deep copy of active item editing state
             editingItem: items.length > 0 ? _tpdCloneItemState(items[activeIdx]) : null
         };
@@ -3373,9 +3415,11 @@ function _tpdRenderWorkspace(container) {
                     </div>
                 </div>
                 <div class="tpd-ws-topbar-right">
-                    <button class="tpd-btn" onclick="_dhtInitializeEditState(${state.orderId})" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700;">
-                        ✏️ Sửa Thông Tin Đơn (Giá/Cọc)
-                    </button>
+                    ${!state.lockWarning ? `
+                        <button class="tpd-btn" onclick="_dhtInitializeEditState(${state.orderId})" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700;">
+                            ✏️ Sửa Thông Tin Đơn (Giá/Cọc)
+                        </button>
+                    ` : ''}
                     <button class="tpd-btn tpd-btn-print" onclick="_tpdPrintSingleSheet()">
                         🖨️ In Phiếu Này (A4)
                     </button>
@@ -3387,6 +3431,22 @@ function _tpdRenderWorkspace(container) {
                     </button>
                 </div>
             </div>
+
+            ${state.lockWarning ? `
+                <div class="tpd-lock-warning-banner no-print" style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #d97706; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; margin: 15px 20px 0 20px; box-shadow: 0 4px 6px rgba(217, 119, 6, 0.05); font-family: 'Inter', system-ui, sans-serif;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">🔒</span>
+                        <span style="font-size: 13px; font-weight: 600; color: #92400e;">
+                            Đơn hàng này đang được chỉnh sửa bởi <strong style="color: #b45309;">${escapeHTML(state.lockWarning.locked_by_name)}</strong> (khóa bắt đầu từ lúc ${new Date(state.lockWarning.locked_at).toLocaleString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh'})}). Bạn không thể chỉnh sửa.
+                        </span>
+                    </div>
+                    ${['giam_doc', 'quan_ly'].includes(state.role) ? `
+                        <button class="tpd-btn" onclick="_tpdForceUnlockOrder(${state.orderId})" style="background: #dc2626; color: white; padding: 6px 16px; font-size: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(220, 38, 38, 0.2); transition: all 0.2s;">
+                            🔓 Giải phóng Khóa (GĐ/QL)
+                        </button>
+                    ` : ''}
+                </div>
+            ` : ''}
 
             <!-- Tabs row -->
             <div class="tpd-ws-tabs no-print">
@@ -9311,6 +9371,27 @@ window._tpdSaveGlobalEmail = async function() {
         showToast('⚠️ Lỗi kết nối: ' + e.message, 'error');
         btn.disabled = false;
         btn.innerHTML = 'Lưu cấu hình';
+    }
+};
+
+window._tpdForceUnlockOrder = async function(orderId) {
+    if (!confirm('⚠️ Bạn có chắc chắn muốn giải phóng khóa chỉnh sửa của đơn hàng này không?\nHành động này có thể ghi đè/gây mất dữ liệu nếu người kia vẫn đang chỉnh sửa.')) {
+        return;
+    }
+    try {
+        const res = await apiCall(`/api/dht/orders/${orderId}/force-unlock`, 'POST');
+        if (res && res.success) {
+            showToast('🔓 Giải phóng khóa thành công! Đang tải lại workspace...', 'success');
+            if (window._dhtFullPageContainer) {
+                renderDesignDraftPage(window._dhtFullPageContainer);
+            } else {
+                location.reload();
+            }
+        } else {
+            showToast('Thất bại: ' + (res.error || 'Lỗi không xác định'), 'error');
+        }
+    } catch (err) {
+        showToast('Lỗi: ' + err.message, 'error');
     }
 };
 

@@ -2601,6 +2601,7 @@ module.exports = async function(fastify) {
                 u_created.full_name AS created_by_name,
                 u_updated.full_name AS last_updated_by_name,
                 u_designer.full_name AS designer_name,
+                u_locked.full_name AS locked_by_name,
                 cr.name AS carrier_name,
                 cr2.name AS actual_carrier_name,
                 cr2.tracking_url_template AS actual_carrier_tracking_url,
@@ -2624,6 +2625,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_created ON o.created_by = u_created.id
             LEFT JOIN users u_updated ON o.last_updated_by = u_updated.id
             LEFT JOIN users u_designer ON o.designer_user_id = u_designer.id
+            LEFT JOIN users u_locked ON o.locked_by = u_locked.id
             LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
             LEFT JOIN dht_carriers cr2 ON o.actual_carrier_id = cr2.id
             LEFT JOIN users u_shipped ON o.shipped_by = u_shipped.id
@@ -2822,10 +2824,56 @@ module.exports = async function(fastify) {
 
         // Manage session backup
         const sessionId = request.query.session_id;
+        let lockWarning = null;
         if (sessionId && sessionId.trim()) {
             try {
                 // Delete backups older than 24 hours
                 await db.run("DELETE FROM dht_order_session_backups WHERE created_at < NOW() - INTERVAL '24 hours'");
+
+                // Check lock status
+                const currentLock = await db.get(`
+                    SELECT o.is_locked, o.locked_by, o.locked_at, u.full_name AS locked_by_name
+                    FROM dht_orders o
+                    LEFT JOIN users u ON o.locked_by = u.id
+                    WHERE o.id = $1
+                `, [orderId]);
+
+                const TIMEOUT_MINUTES = 10;
+                if (currentLock && currentLock.is_locked) {
+                    const lockedAt = new Date(currentLock.locked_at);
+                    const now = new Date();
+                    const diffMinutes = (now - lockedAt) / (1000 * 60);
+
+                    if (diffMinutes < TIMEOUT_MINUTES) {
+                        if (currentLock.locked_by !== request.user.id) {
+                            lockWarning = {
+                                locked_by_name: currentLock.locked_by_name || 'Người dùng khác',
+                                locked_at: currentLock.locked_at,
+                                is_current_user: false
+                            };
+                        }
+                    } else {
+                        // Lock expired - automatically unlock
+                        await db.run(`UPDATE dht_orders SET is_locked = FALSE, locked_by = NULL, locked_at = NULL WHERE id = $1`, [orderId]);
+                    }
+                }
+
+                // If not locked by another user (or lock was expired), acquire/renew the lock
+                if (!lockWarning) {
+                    await db.run(`
+                        UPDATE dht_orders 
+                        SET is_locked = TRUE, 
+                            locked_by = $1, 
+                            locked_at = NOW() 
+                        WHERE id = $2
+                    `, [request.user.id, orderId]);
+                    
+                    // Update our in-memory order object to reflect that it is locked by current user
+                    order.is_locked = true;
+                    order.locked_by = request.user.id;
+                    order.locked_at = new Date().toISOString();
+                    order.locked_by_name = request.user.full_name;
+                }
 
                 const existingBackup = await db.get(
                     'SELECT session_id FROM dht_order_session_backups WHERE order_id = $1 AND user_id = $2',
@@ -2844,7 +2892,7 @@ module.exports = async function(fastify) {
                     );
                 }
             } catch (backupErr) {
-                console.error('[SessionBackup Error]', backupErr);
+                console.error('[SessionBackup / Lock Error]', backupErr);
             }
         }
 
@@ -2854,7 +2902,8 @@ module.exports = async function(fastify) {
             payments,
             surcharges,
             audit_logs: merged_logs,
-            shipments
+            shipments,
+            lock_warning: lockWarning
         };
     });
 
@@ -2985,8 +3034,9 @@ module.exports = async function(fastify) {
                 }
             }
 
-            // 3. Clear backup
+            // 3. Clear backup & Unlock
             await client.query('DELETE FROM dht_order_session_backups WHERE id = $1', [backup.id]);
+            await client.query('UPDATE dht_orders SET is_locked = FALSE, locked_by = NULL, locked_at = NULL WHERE id = $1', [orderId]);
 
             await client.query('COMMIT');
 
@@ -3007,6 +3057,47 @@ module.exports = async function(fastify) {
         }
     });
 
+    // ========== ORDERS: Heartbeat to keep editing lock alive ==========
+    fastify.post('/api/dht/orders/:id/heartbeat', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        if (isNaN(orderId)) return reply.code(400).send({ error: 'ID không hợp lệ' });
+
+        const order = await db.get('SELECT is_locked, locked_by FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        if (order.is_locked && order.locked_by === request.user.id) {
+            await db.run('UPDATE dht_orders SET locked_at = NOW() WHERE id = $1', [orderId]);
+            return { success: true };
+        } else {
+            return reply.code(400).send({ error: 'Bạn không giữ khóa của đơn hàng này hoặc khóa đã hết hạn.' });
+        }
+    });
+
+    // ========== ORDERS: Force Unlock (Admin override release) ==========
+    fastify.post('/api/dht/orders/:id/force-unlock', { preHandler: [authenticate] }, async (request, reply) => {
+        const orderId = Number(request.params.id);
+        if (isNaN(orderId)) return reply.code(400).send({ error: 'ID không hợp lệ' });
+
+        const isAdmin = ['giam_doc', 'quan_ly'].includes(request.user.role);
+        if (!isAdmin) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý mới có quyền giải phóng khóa khẩn cấp.' });
+        }
+
+        const order = await db.get('SELECT is_locked, locked_by FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        await db.run('UPDATE dht_orders SET is_locked = FALSE, locked_by = NULL, locked_at = NULL WHERE id = $1', [orderId]);
+
+        // Add audit log
+        try {
+            await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, performed_by) VALUES ($1, $2, $3, $4)`, [
+                orderId, 'force_unlock', 'Admin giải phóng khóa chỉnh sửa khẩn cấp', request.user.id
+            ]);
+        } catch(logErr) {}
+
+        return { success: true };
+    });
+
     // ========== ORDERS: Update Production Sheet per Item (Phiếu Sản Xuất) ==========
     fastify.put('/api/dht/orders/:orderId/items/:itemId/sheet', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.orderId);
@@ -3014,8 +3105,25 @@ module.exports = async function(fastify) {
         if (isNaN(orderId) || isNaN(itemId)) return reply.code(400).send({ error: 'ID không hợp lệ' });
 
         // Verify order exists and check permissions
-        const order = await db.get('SELECT id, created_by FROM dht_orders WHERE id = $1', [orderId]);
+        const order = await db.get('SELECT id, created_by, is_locked, locked_by, locked_at FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        // Check if order is locked by another user
+        if (order.is_locked && order.locked_by !== request.user.id) {
+            const TIMEOUT_MINUTES = 10;
+            const lockedAt = new Date(order.locked_at);
+            const now = new Date();
+            const diffMinutes = (now - lockedAt) / (1000 * 60);
+
+            if (diffMinutes < TIMEOUT_MINUTES) {
+                const lockedByUser = await db.get('SELECT full_name FROM users WHERE id = $1', [order.locked_by]);
+                const lockedByName = lockedByUser ? lockedByUser.full_name : 'Người dùng khác';
+                return reply.code(400).send({ error: `🔒 Đơn hàng đang được sửa đổi bởi ${lockedByName}. Không thể lưu cập nhật phiếu.` });
+            } else {
+                // Lock expired - release it
+                await db.run('UPDATE dht_orders SET is_locked = FALSE, locked_by = NULL, locked_at = NULL WHERE id = $1', [orderId]);
+            }
+        }
 
         const user = request.user;
         const isOwner = order.created_by === user.id;
@@ -3709,6 +3817,9 @@ module.exports = async function(fastify) {
                  logo_approved_image = $1, 
                  chat_confirmed_image = $2, 
                  design_email_recipient = $3,
+                 is_locked = FALSE,
+                 locked_by = NULL,
+                 locked_at = NULL,
                  last_updated_at = NOW(), 
                  last_updated_by = $4 
              WHERE id = $5`,
@@ -4408,6 +4519,23 @@ module.exports = async function(fastify) {
         // Fetch old data for audit log diff and draft logic
         const oldOrder = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
         if (!oldOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn' });
+
+        // Check if order is locked by another user
+        if (oldOrder.is_locked && oldOrder.locked_by !== request.user.id) {
+            const TIMEOUT_MINUTES = 10;
+            const lockedAt = new Date(oldOrder.locked_at);
+            const now = new Date();
+            const diffMinutes = (now - lockedAt) / (1000 * 60);
+
+            if (diffMinutes < TIMEOUT_MINUTES) {
+                const lockedByUser = await db.get('SELECT full_name FROM users WHERE id = $1', [oldOrder.locked_by]);
+                const lockedByName = lockedByUser ? lockedByUser.full_name : 'Người dùng khác';
+                return reply.code(400).send({ error: `🔒 Đơn hàng đang được sửa đổi bởi ${lockedByName}. Không thể lưu cập nhật.` });
+            } else {
+                // Lock expired - release it
+                await db.run('UPDATE dht_orders SET is_locked = FALSE, locked_by = NULL, locked_at = NULL WHERE id = $1', [orderId]);
+            }
+        }
 
         const isDraftNewVal = b.is_draft !== undefined ? (b.is_draft === true || b.is_draft === 'true') : oldOrder.is_draft;
         if (isDraftNewVal) {
