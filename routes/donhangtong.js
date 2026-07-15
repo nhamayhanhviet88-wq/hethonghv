@@ -6269,11 +6269,26 @@ module.exports = async function(fastify) {
         });
 
         try {
-            await sendDesignEmail(orderId, recipientEmail, savedSheetPaths);
-            const updated = await db.get('SELECT design_email_status, design_email_error FROM dht_orders WHERE id = $1', [orderId]);
-            if (updated.design_email_status === 'failed') {
-                return reply.code(400).send({ error: updated.design_email_error || 'Gửi email thất bại' });
-            }
+            // Update status and allocate queue slot synchronously so frontend displays countdown immediately
+            await db.run(
+                `UPDATE dht_orders SET design_email_status = 'sending', design_email_error = NULL, design_email_planned_send_at = NULL WHERE id = $1`,
+                [orderId]
+            );
+            const targetTime = await allocateEmailSendTime();
+            await db.run(
+                `UPDATE dht_orders SET design_email_planned_send_at = $1 WHERE id = $2`,
+                [targetTime, orderId]
+            );
+
+            // Execute the SMTP dispatch task in the background
+            (async () => {
+                try {
+                    await sendDesignEmail(orderId, recipientEmail, savedSheetPaths, targetTime);
+                } catch (emailErr) {
+                    console.error('[ResendEmail] Background sendDesignEmail failed:', emailErr);
+                }
+            })();
+
             return { success: true };
         } catch (err) {
             return reply.code(500).send({ error: err.message });
@@ -6332,29 +6347,35 @@ module.exports = async function(fastify) {
         }
     }
 
-    async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths) {
+    async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths, preAllocatedTargetTime) {
         const nodemailer = require('nodemailer');
         const { decrypt } = require('../services/emailChecker');
         
-        // 0. Update status to 'sending' and schedule rate-limited slot
-        await db.run(
-            `UPDATE dht_orders SET design_email_status = 'sending', design_email_error = NULL, design_email_planned_send_at = NULL WHERE id = $1`,
-            [orderId]
-        );
-        
-        try {
-            const targetTime = await allocateEmailSendTime();
+        let targetTime = preAllocatedTargetTime;
+        if (!targetTime) {
+            // 0. Update status to 'sending' and schedule rate-limited slot if not already pre-allocated
             await db.run(
-                `UPDATE dht_orders SET design_email_planned_send_at = $1 WHERE id = $2`,
-                [targetTime, orderId]
+                `UPDATE dht_orders SET design_email_status = 'sending', design_email_error = NULL, design_email_planned_send_at = NULL WHERE id = $1`,
+                [orderId]
             );
+            
+            try {
+                targetTime = await allocateEmailSendTime();
+                await db.run(
+                    `UPDATE dht_orders SET design_email_planned_send_at = $1 WHERE id = $2`,
+                    [targetTime, orderId]
+                );
+            } catch (slotErr) {
+                console.error('[sendDesignEmail] allocateEmailSendTime failed:', slotErr);
+            }
+        }
+        
+        if (targetTime) {
             const delay = targetTime - Date.now();
             if (delay > 0) {
                 console.log(`[sendDesignEmail] Order ${orderId} scheduled to send in ${delay}ms`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
-        } catch (slotErr) {
-            console.error('[sendDesignEmail] allocateEmailSendTime failed:', slotErr);
         }
         
         // 1. Fetch Custom Sender or Fallback Config
