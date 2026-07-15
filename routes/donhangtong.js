@@ -6990,10 +6990,16 @@ module.exports = async function(fastify) {
             
             const itemQty = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
             
-            if (qtyArr.length === 1) {
-                finText += `Phiếu ${idx + 1}: ${itemQty} áo . Giá tiền ${fmt(qtyArr[0].price || unitPrice)}đ\n`;
+            const priceGroups = {};
+            qtyArr.forEach(q => {
+                const p = Number(q.price) || unitPrice;
+                priceGroups[p] = (priceGroups[p] || 0) + (Number(q.qty) || 0);
+            });
+            const groupKeys = Object.keys(priceGroups).map(Number);
+            if (groupKeys.length === 1) {
+                finText += `Phiếu ${idx + 1}: ${itemQty} áo . Giá tiền ${fmt(groupKeys[0])}đ\n`;
             } else {
-                const priceDesc = qtyArr.map(q => `${q.qty || 0} áo giá ${fmt(q.price || unitPrice)}đ`).join(', ');
+                const priceDesc = groupKeys.map(price => `${priceGroups[price]} áo giá ${fmt(price)}đ`).join(', ');
                 finText += `Phiếu ${idx + 1}: ${itemQty} áo (${priceDesc})\n`;
             }
         });
