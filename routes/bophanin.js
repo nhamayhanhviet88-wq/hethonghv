@@ -831,20 +831,21 @@ module.exports = async function(fastify) {
                 }
             }
 
-            // Strip coordination label (— P1 —, — P2 —, etc.) - not needed for printing dept
+            // Strip coordination label (— P1 —, — P2 —, etc.) - not needed for printing dept
             let displayName = r.cut_product_name || finalProdName;
             displayName = displayName.replace(/\s*—\s*P\d+\s*—\s*/g, ' — ').replace(/\s*—\s*P\d+\s*$/g, '');
+            
+            // Extract the Phiếu number (e.g. — Phiếu 1) if present
+            const phieuMatch = displayName.match(/—\s*Phiếu\s*\d+/i);
+            let phieuPart = '';
+            if (phieuMatch) {
+                phieuPart = ' ' + phieuMatch[0].trim();
+            }
+            displayName = `${r.order_code}${phieuPart}`;
+
             if (r.is_discarded) {
-                let phieuPart = '';
-                const phieuMatch = displayName.match(/—\s*Phiếu\s*\d+/i);
-                if (phieuMatch) {
-                    phieuPart = ' ' + phieuMatch[0].trim() + ' —';
-                } else {
-                    phieuPart = ' —';
-                }
-                displayName = `${r.order_code}${phieuPart} [HỦY BỎ - BÙ PHÍ]`;
-            }
-
+                displayName = displayName + ' — [HỦY BỎ - BÙ PHÍ]';
+            }
             return {
                 ...r,
                 product_name: displayName,
