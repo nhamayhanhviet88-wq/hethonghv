@@ -2445,11 +2445,11 @@ module.exports = async function(fastify) {
                         `, [now, orderId]);
                     }
                 } else {
-                    // Normal deletion since nothing was printed
+                    // Normal deletion since nothing was printed — only delete active (non-discarded) records
                     if (itemId) {
-                        await txDb.run(`DELETE FROM printing_records WHERE order_item_id = $1`, [itemId]);
+                        await txDb.run(`DELETE FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false`, [itemId]);
                     } else {
-                        await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+                        await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
                     }
                 }
 
@@ -2500,11 +2500,11 @@ module.exports = async function(fastify) {
                     `, [orderId, 'update_order', `Hủy phân công in (In lại) & Thêm phụ phí bù in: +${finalSurcharge.toLocaleString('vi-VN')}đ`, JSON.stringify(changesArr), request.user.id]);
                 }
             } else {
-                // Free cancel: delete active printing records
+                // Free cancel: delete active printing records — preserve discarded records
                 if (itemId) {
-                    await txDb.run(`DELETE FROM printing_records WHERE order_item_id = $1`, [itemId]);
+                    await txDb.run(`DELETE FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false`, [itemId]);
                 } else {
-                    await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+                    await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
                 }
             }
 
@@ -2990,8 +2990,8 @@ module.exports = async function(fastify) {
             let existingRecs = [];
             if (itemId) {
                 existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false`, [itemId]);
-                // Clean up any stale order-level printing records since we are now assigning at the item level
-                await db.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+                // Clean up any stale order-level printing records since we are now assigning at the item level — preserve discarded
+                await db.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
             } else {
                 existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
             }
