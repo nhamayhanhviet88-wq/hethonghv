@@ -2425,32 +2425,63 @@ module.exports = async function(fastify) {
 
             // 3. Update or delete printing records
             if (isSurcharge) {
-                if (hasPrinted) {
-                    // Update active printing records to be discarded (archived)
-                    if (itemId) {
-                        await txDb.run(`
-                            UPDATE printing_records 
-                            SET is_discarded = true, 
-                                product_name = COALESCE(product_name, '') || ' - [HỦY BỎ - KHÁCH BÙ TIỀN]',
-                                updated_at = $1
-                            WHERE order_item_id = $2 AND COALESCE(is_discarded, false) = false
-                        `, [now, itemId]);
-                    } else {
-                        await txDb.run(`
-                            UPDATE printing_records 
-                            SET is_discarded = true, 
-                                product_name = COALESCE(product_name, '') || ' - [HỦY BỎ - KHÁCH BÙ TIỀN]',
-                                updated_at = $1
-                            WHERE dht_order_id = $2 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false
-                        `, [now, orderId]);
-                    }
+                // Count existing discarded records to determine cancellation round number
+                let discardedCount = 0;
+                if (itemId) {
+                    const countRow = await txDb.get(`SELECT COUNT(DISTINCT print_field) as cnt FROM printing_records WHERE order_item_id = $1 AND is_discarded = true`, [itemId]);
+                    discardedCount = countRow ? Math.floor(countRow.cnt / 1) : 0; // count distinct cancelled batches
                 } else {
-                    // Normal deletion since nothing was printed — only delete active (non-discarded) records
-                    if (itemId) {
-                        await txDb.run(`DELETE FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false`, [itemId]);
-                    } else {
-                        await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
-                    }
+                    const countRow = await txDb.get(`SELECT COUNT(DISTINCT print_field) as cnt FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND is_discarded = true`, [orderId]);
+                    discardedCount = countRow ? Math.floor(countRow.cnt / 1) : 0;
+                }
+                // Calculate round: if 0 discarded before → this is round 1 (no suffix), if 3 discarded (1 batch) → round 2, etc.
+                // Count actual batches by counting how many distinct "rounds" exist
+                let batchCount = 0;
+                if (itemId) {
+                    const batchRow = await txDb.get(`
+                        SELECT COUNT(*) as cnt FROM printing_records 
+                        WHERE order_item_id = $1 AND is_discarded = true
+                    `, [itemId]);
+                    // Get unique field count for this item
+                    const fieldRow = await txDb.get(`
+                        SELECT COUNT(DISTINCT print_field) as cnt FROM printing_records 
+                        WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false
+                    `, [itemId]);
+                    const activeFieldCount = fieldRow ? fieldRow.cnt : 1;
+                    batchCount = batchRow && activeFieldCount > 0 ? Math.floor(batchRow.cnt / activeFieldCount) : 0;
+                } else {
+                    const batchRow = await txDb.get(`
+                        SELECT COUNT(*) as cnt FROM printing_records 
+                        WHERE dht_order_id = $1 AND order_item_id IS NULL AND is_discarded = true
+                    `, [orderId]);
+                    const fieldRow = await txDb.get(`
+                        SELECT COUNT(DISTINCT print_field) as cnt FROM printing_records 
+                        WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false
+                    `, [orderId]);
+                    const activeFieldCount = fieldRow ? fieldRow.cnt : 1;
+                    batchCount = batchRow && activeFieldCount > 0 ? Math.floor(batchRow.cnt / activeFieldCount) : 0;
+                }
+                const roundNumber = batchCount + 1;
+                const roundSuffix = roundNumber > 1 ? ` (Lần ${roundNumber})` : '';
+                const discardTag = ` - [HỦY BỎ - BÙ PHÍ]${roundSuffix}`;
+
+                // Mark active records as discarded (archived) — works for both printed and not-printed
+                if (itemId) {
+                    await txDb.run(`
+                        UPDATE printing_records 
+                        SET is_discarded = true, 
+                            product_name = COALESCE(product_name, '') || $1,
+                            updated_at = $2
+                        WHERE order_item_id = $3 AND COALESCE(is_discarded, false) = false
+                    `, [discardTag, now, itemId]);
+                } else {
+                    await txDb.run(`
+                        UPDATE printing_records 
+                        SET is_discarded = true, 
+                            product_name = COALESCE(product_name, '') || $1,
+                            updated_at = $2
+                        WHERE dht_order_id = $3 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false
+                    `, [discardTag, now, orderId]);
                 }
 
                 // 4. Update order surcharges & total_amount
