@@ -2414,6 +2414,9 @@ async function _qlxAssignIn(orderId, itemId) {
 
         // Footer
         html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;border-radius:0 0 16px 16px">';
+        if (!data.is_production_done && !(data.is_print_done && data.is_press_done) && assignments && assignments.length > 0) {
+            html += '<button onclick="_qlxPACancelAll()" style="padding:10px 24px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(220,38,38,0.15);margin-right:auto">🗑️ Hủy phân công in toàn bộ</button>';
+        }
         html += '<button onclick="document.getElementById(\'_qlxPAOverlay\').remove()" style="padding:10px 24px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:#475569;transition:all 0.15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'">Hủy bỏ</button>';
         if (!data.is_production_done && !(data.is_print_done && data.is_press_done)) {
             html += '<button onclick="_qlxPASave()" style="padding:10px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(15,23,42,0.15)">💾 Lưu Phân Công</button>';
@@ -2677,6 +2680,35 @@ async function _qlxPASave() {
         showToast('✅ Đã lưu Phân Công In');
         await _qlxLoadAll();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); } finally { window._qlxPABusy = false; }
+}
+
+async function _qlxPACancelAll() {
+    var d = window._qlxPAData;
+    if (!d || !d.orderId) return;
+
+    if (!confirm('Bạn có chắc chắn muốn HỦY TOÀN BỘ phân công in cho đơn/phiếu này? Trạng thái sẽ được đưa về chưa phân công.')) {
+        return;
+    }
+
+    if (window._qlxPABusy) return;
+    window._qlxPABusy = true;
+
+    try {
+        var url = '/api/qlx/print-assignment/' + d.orderId + (d.itemId ? '?item_id=' + d.itemId : '');
+        var res = await apiCall(url, 'DELETE');
+
+        if (res && res.error) {
+            return showToast(res.error, 'error');
+        }
+
+        var ov = document.getElementById('_qlxPAOverlay'); if (ov) ov.remove();
+        showToast('✅ Đã hủy toàn bộ Phân Công In');
+        await _qlxLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        window._qlxPABusy = false;
+    }
 }
 
 async function _qlxReceivePhieu(orderId) {

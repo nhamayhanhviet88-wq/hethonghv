@@ -2220,6 +2220,117 @@ module.exports = async function(fastify) {
         };
     });
 
+    fastify.delete('/api/qlx/print-assignment/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const orderId = Number(request.params.orderId);
+        const { item_id } = request.query || {};
+        const itemId = item_id ? Number(item_id) : null;
+
+        // Check if production is completed
+        let isProdDone = false;
+        if (itemId) {
+            isProdDone = await checkItemProductionDone(itemId, orderId);
+        } else {
+            const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
+            if (items.length > 0) {
+                let allItemsDone = true;
+                for (const item of items) {
+                    const done = await checkItemProductionDone(item.id, orderId);
+                    if (!done) {
+                        allItemsDone = false;
+                        break;
+                    }
+                }
+                isProdDone = allItemsDone;
+            }
+        }
+
+        if (isProdDone) {
+            return reply.code(400).send({ error: 'Phiếu này đã hoàn thành sản xuất, không thể hủy phân công!' });
+        }
+
+        // Check if print or press is done
+        let isPrintDone = false;
+        let isPressDone = false;
+        if (itemId) {
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
+            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
+
+            const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
+            isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
+        } else {
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
+
+            const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+            isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
+        }
+
+        if (isPrintDone || isPressDone) {
+            return reply.code(400).send({ error: 'Công đoạn in hoặc ép đã hoàn thành, không thể hủy phân công!' });
+        }
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        // 1. Delete print assignments
+        if (itemId) {
+            await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+            await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+        } else {
+            await db.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+            await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
+            await db.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
+        }
+
+        // 2. Sync print and cut removal
+        await syncPrintAndCutRemoval(db, orderId, itemId);
+
+        // 3. Delete printing records
+        if (itemId) {
+            await db.run(`DELETE FROM printing_records WHERE order_item_id = $1`, [itemId]);
+        } else {
+            await db.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+        }
+
+        // 4. Reset reminders and choices in qlx_preparation
+        if (itemId) {
+            await ensureItemPrepRow(orderId, itemId);
+            await db.run(`
+                UPDATE qlx_preparation 
+                SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
+                WHERE item_id = $2
+            `, [now, itemId]);
+            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept IN ('in', 'ep')`, [itemId]);
+        } else {
+            await ensureOrderPrepRow(orderId);
+            await db.run(`
+                UPDATE qlx_preparation 
+                SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
+                WHERE dht_order_id = $2 AND item_id IS NULL
+            `, [now, orderId]);
+            await db.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept IN ('in', 'ep')`, [orderId]);
+        }
+
+        // 5. Add to history
+        const historyDetails = (itemId ? `[Phiếu ID: ${itemId}] ` : '') + 'Hủy phân công In toàn bộ';
+        if (itemId) {
+            await db.run(`
+                INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                VALUES ($1, $2, 'unassign_in_all', $3, $4, $5)
+            `, [orderId, itemId, historyDetails, request.user.id, now]);
+        } else {
+            await db.run(`
+                INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                VALUES ($1, 'unassign_in_all', $2, $3, $4)
+            `, [orderId, historyDetails, request.user.id, now]);
+        }
+
+        return { success: true };
+    });
+
     fastify.post('/api/qlx/print-assignment/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
