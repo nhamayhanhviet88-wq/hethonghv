@@ -8932,7 +8932,7 @@ function _tpdSortGroups(groups) {
 function _tpdGetSewingTechGroup(tech) {
     if (!tech) return 'Khác';
     const techName = _tpdExtractString(tech);
-    if (!techName || techName === 'Khác') return 'Khác';
+    if (!techName || techName === 'Khác' || techName === 'Kỹ thuật khác...') return 'Khác';
     
     const normalized = _tpdGetNormalizedSewingTechs();
     const match = normalized.find(n => {
@@ -8942,12 +8942,7 @@ function _tpdGetSewingTechGroup(tech) {
     });
     if (match) return match.group;
     
-    // Heuristic fallback for custom/new entries
-    const lower = techName.toLowerCase();
-    if (lower.normalize('NFC').includes('nẹp')) return 'NHÓM NẸP';
-    if (lower.includes('cổ')) return 'Nhóm Cổ';
-    const accentRemoved = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/đ/g, 'd');
-    if (accentRemoved.startsWith('bo tay') || accentRemoved.startsWith('bo o tay')) return 'Nhóm Bo / Tay';
+    // Custom typed notes/details should not lock predefined exclusive groups
     return 'Khác';
 }
 
