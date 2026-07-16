@@ -4027,20 +4027,8 @@ module.exports = async function(fastify) {
             );
         } catch(e) { console.error('[AuditLog] promote_draft:', e.message); }
 
-        // ★ Refresh session backup with current state so "Bỏ qua" reverts to this last saved+emailed state
-        try {
-            const freshOrder = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
-            const freshItems = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
-            let freshSurcharges = [];
-            try { freshSurcharges = freshOrder.surcharges ? (typeof freshOrder.surcharges === 'string' ? JSON.parse(freshOrder.surcharges) : freshOrder.surcharges) : []; } catch(e) {}
-            const freshData = JSON.stringify({ order: freshOrder, items: freshItems, surcharges: freshSurcharges });
-            const existingBackup = await db.get('SELECT id FROM dht_order_session_backups WHERE order_id = $1 AND user_id = $2', [orderId, request.user.id]);
-            if (existingBackup) {
-                await db.run('UPDATE dht_order_session_backups SET original_data = $1 WHERE id = $2', [freshData, existingBackup.id]);
-            }
-        } catch (backupRefreshErr) {
-            console.error('[ConfirmExport] Failed to refresh session backup:', backupRefreshErr);
-        }
+        // ★ Do NOT touch session backup here — backup preserves the state from when
+        // workspace was first opened, so "Bỏ qua" always reverts to the pre-edit state
 
         return { success: true };
     });
@@ -5455,20 +5443,8 @@ module.exports = async function(fastify) {
             }
         } catch(auditErr) { console.error('[AuditLog] update:', auditErr.message); }
 
-        // ★ Refresh session backup with current state so "Bỏ qua" reverts to this last saved state
-        try {
-            const freshOrder = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
-            const freshItems = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
-            let freshSurcharges = [];
-            try { freshSurcharges = freshOrder.surcharges ? (typeof freshOrder.surcharges === 'string' ? JSON.parse(freshOrder.surcharges) : freshOrder.surcharges) : []; } catch(e) {}
-            const freshData = JSON.stringify({ order: freshOrder, items: freshItems, surcharges: freshSurcharges });
-            const existingBackup = await db.get('SELECT id FROM dht_order_session_backups WHERE order_id = $1 AND user_id = $2', [orderId, request.user.id]);
-            if (existingBackup) {
-                await db.run('UPDATE dht_order_session_backups SET original_data = $1 WHERE id = $2', [freshData, existingBackup.id]);
-            }
-        } catch (backupRefreshErr) {
-            console.error('[UpdateOrder] Failed to refresh session backup:', backupRefreshErr);
-        }
+        // ★ Do NOT touch session backup here — backup preserves the state from when
+        // workspace was first opened, so "Bỏ qua" always reverts to the pre-edit state
 
         return { success: true };
     });
