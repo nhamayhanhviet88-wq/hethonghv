@@ -3884,8 +3884,7 @@ module.exports = async function(fastify) {
             }
             
             const dbUrl = item.design_pdf_url;
-            const dbName = item.design_pdf_name;
-            const isReusingDbPdf = dbUrl && dbName && (urlStr.trim() === dbUrl.trim()) && (filename.trim() === dbName.trim());
+            const isReusingDbPdf = dbUrl && (urlStr.trim() === dbUrl.trim());
 
             // Enforce file upload with the correct suffix if it is a revision/edit session
             if (!order.is_draft) {
