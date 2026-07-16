@@ -1510,15 +1510,11 @@ function _dhtAddItemFree(editIdx) {
     }
 
     var vatPct = existing.vat_percent || 0;
-    var vatSel = '<option value="0"' + (vatPct === 0 ? ' selected' : '') + '>0%</option>';
-    if (vatPct === 8) {
-        vatSel += '<option value="8" selected>8%</option>';
-    } else {
-        vatSel += '<option value="8">8%</option>';
-    }
     if (vatPct !== 0 && vatPct !== 8) {
-        vatSel += '<option value="' + vatPct + '" selected>' + vatPct + '%</option>';
+        vatPct = (vatPct >= 4) ? 8 : 0;
     }
+    var vatSel = '<option value="0"' + (vatPct === 0 ? ' selected' : '') + '>0%</option>';
+    vatSel += '<option value="8"' + (vatPct === 8 ? ' selected' : '') + '>8%</option>';
     
     // Hide 'Tờ' option if in PET mode
     var prodSel = '<option value="">-- Chọn --</option>';
@@ -1727,15 +1723,11 @@ async function _dhtAddItem(editIdx) {
         qpHTML+='<div class="_ppQR"' + sizeAttr + noteAttr + origSizesAttr + ' style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';
     }
     var vatPct = existing.vat_percent || 0;
-    var vatSel = '<option value="0"' + (vatPct === 0 ? ' selected' : '') + '>0%</option>';
-    if (vatPct === 8) {
-        vatSel += '<option value="8" selected>8%</option>';
-    } else {
-        vatSel += '<option value="8">8%</option>';
-    }
     if (vatPct !== 0 && vatPct !== 8) {
-        vatSel += '<option value="' + vatPct + '" selected>' + vatPct + '%</option>';
+        vatPct = (vatPct >= 4) ? 8 : 0;
     }
+    var vatSel = '<option value="0"' + (vatPct === 0 ? ' selected' : '') + '>0%</option>';
+    vatSel += '<option value="8"' + (vatPct === 8 ? ' selected' : '') + '>8%</option>';
     var orderCode=_dhtCreate.orderCode||'???';
     var activeSaleType = (po.sale_types || []).find(function(s) {
         return s.name === existing.sale_type;
@@ -3529,7 +3521,10 @@ async function _dhtInitializeEditState(id, data) {
                     base -= Math.round(giftPrice * giftQty);
                     if (base < 0) base = 0;
                 }
-                if (base > 0 && rawTotal > base) vatPct = Math.round((rawTotal - base) / base * 100);
+                if (base > 0 && rawTotal > base) {
+                    var calculatedPct = Math.round((rawTotal - base) / base * 100);
+                    vatPct = (calculatedPct >= 4) ? 8 : 0;
+                }
             }
             var vatAmt = vatPct > 0 ? Math.round((rawTotal * vatPct) / (100 + vatPct)) : 0;
             var baseTotal = rawTotal - vatAmt;

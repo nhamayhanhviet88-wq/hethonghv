@@ -6845,7 +6845,8 @@ function _tpdGenerateFinancialSummaryText(o, items) {
         const rawTotal = Number(item.item_total || item.total) || 0;
         let vatPct = 0;
         if (itemRaw > 0 && rawTotal > itemRaw) {
-            vatPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+            const calculatedPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+            vatPct = (calculatedPct >= 4) ? 8 : 0;
         }
         
         const itemVat = Math.round(itemRaw * vatPct / 100);

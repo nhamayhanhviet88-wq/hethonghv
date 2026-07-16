@@ -3376,7 +3376,8 @@ module.exports = async function(fastify) {
             const oldItemTotal = Number(oldItem.item_total || oldItem.total) || 0;
             let vatPct = 0;
             if (oldBase > 0 && oldItemTotal > oldBase) {
-                vatPct = Math.round((oldItemTotal - oldBase) / oldBase * 100);
+                const calculatedPct = Math.round((oldItemTotal - oldBase) / oldBase * 100);
+                vatPct = (calculatedPct >= 4) ? 8 : 0;
             }
 
             // Calculate new base (raw total after gift deduction)
@@ -3568,7 +3569,10 @@ module.exports = async function(fastify) {
             try { quantities = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities || []); } catch(e){}
             const base = quantities.reduce((s, x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
             const vatAmt = (Number(it.item_total) || 0) - base;
-            const vatPct = base > 0 && vatAmt > 0 ? Math.round(vatAmt / base * 100) : 0;
+            let vatPct = base > 0 && vatAmt > 0 ? Math.round(vatAmt / base * 100) : 0;
+            if (vatPct !== 0 && vatPct !== 8) {
+                vatPct = (vatPct >= 4) ? 8 : 0;
+            }
             const matColor = (it.material_name || '') + (it.color_name ? ' - ' + it.color_name : '');
             const saleLabel = (it.sale_type || '').toLowerCase() === 'bán' || (it.sale_type || '').toLowerCase() === 'ban' ? 'Bán' : 'Quà';
             itemRows += `<tr>
@@ -7632,7 +7636,8 @@ module.exports = async function(fastify) {
                 const rawTotal = Number(it.item_total || it.total) || 0;
                 let vatPct = 0;
                 if (itemRaw > 0 && rawTotal > itemRaw) {
-                    vatPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                    const calculatedPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                    vatPct = (calculatedPct >= 4) ? 8 : 0;
                 }
                 const itemVat = Math.round(itemRaw * vatPct / 100);
 
