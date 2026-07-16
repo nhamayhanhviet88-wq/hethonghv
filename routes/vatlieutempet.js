@@ -239,11 +239,65 @@ module.exports = async function(fastify) {
             // 1. Check if there is any other lot of this material type that is currently partially exported (remaining_qty < quantity)
             const partialLots = await client.query(`
                 SELECT mt.id,
-                       (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0))::numeric AS remaining_qty
+                       (mt.quantity 
+                        - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)
+                        - COALESCE((
+                            SELECT SUM((elem->>'quantity')::numeric)
+                            FROM material_transactions mt2,
+                                 jsonb_array_elements(mt2.material_items) AS elem
+                            WHERE mt2.tx_type = 'HOAN'
+                              AND (elem->>'import_record_id')::int = mt.import_record_id
+                              AND (elem->>'material_item_id')::int = mt.material_item_id
+                          ), 0)
+                        - COALESCE((
+                            SELECT SUM(mt2.quantity)
+                            FROM material_transactions mt2
+                            WHERE mt2.tx_type = 'HOAN'
+                              AND (mt2.material_items IS NULL OR jsonb_typeof(mt2.material_items) != 'array')
+                              AND mt2.import_record_id = mt.import_record_id
+                              AND mt2.material_item_id = mt.material_item_id
+                          ), 0)
+                       )::numeric AS remaining_qty
                 FROM material_transactions mt
                 WHERE mt.material_item_id = $1 AND mt.tx_type = 'NHAP'
-                  AND (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)) > 0
-                  AND (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)) < mt.quantity
+                  AND (mt.quantity 
+                       - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)
+                       - COALESCE((
+                           SELECT SUM((elem->>'quantity')::numeric)
+                           FROM material_transactions mt2,
+                                jsonb_array_elements(mt2.material_items) AS elem
+                           WHERE mt2.tx_type = 'HOAN'
+                             AND (elem->>'import_record_id')::int = mt.import_record_id
+                             AND (elem->>'material_item_id')::int = mt.material_item_id
+                         ), 0)
+                       - COALESCE((
+                           SELECT SUM(mt2.quantity)
+                           FROM material_transactions mt2
+                           WHERE mt2.tx_type = 'HOAN'
+                             AND (mt2.material_items IS NULL OR jsonb_typeof(mt2.material_items) != 'array')
+                             AND mt2.import_record_id = mt.import_record_id
+                             AND mt2.material_item_id = mt.material_item_id
+                         ), 0)
+                      ) > 0
+                  AND (mt.quantity 
+                       - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)
+                       - COALESCE((
+                           SELECT SUM((elem->>'quantity')::numeric)
+                           FROM material_transactions mt2,
+                                jsonb_array_elements(mt2.material_items) AS elem
+                           WHERE mt2.tx_type = 'HOAN'
+                             AND (elem->>'import_record_id')::int = mt.import_record_id
+                             AND (elem->>'material_item_id')::int = mt.material_item_id
+                         ), 0)
+                       - COALESCE((
+                           SELECT SUM(mt2.quantity)
+                           FROM material_transactions mt2
+                           WHERE mt2.tx_type = 'HOAN'
+                             AND (mt2.material_items IS NULL OR jsonb_typeof(mt2.material_items) != 'array')
+                             AND mt2.import_record_id = mt.import_record_id
+                             AND mt2.material_item_id = mt.material_item_id
+                         ), 0)
+                      ) < mt.quantity
                 LIMIT 1
             `, [materialItemId]);
 
@@ -260,7 +314,25 @@ module.exports = async function(fastify) {
             const lotRes = await client.query(`
                 SELECT 
                     mt.id, mt.quantity::numeric AS quantity,
-                    (mt.quantity - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0))::numeric AS remaining_qty
+                    (mt.quantity 
+                     - COALESCE((SELECT SUM(quantity) FROM material_transactions WHERE parent_tx_id = mt.id AND tx_type = 'XUAT' AND printing_record_id IS NULL), 0)
+                     - COALESCE((
+                         SELECT SUM((elem->>'quantity')::numeric)
+                         FROM material_transactions mt2,
+                              jsonb_array_elements(mt2.material_items) AS elem
+                         WHERE mt2.tx_type = 'HOAN'
+                           AND (elem->>'import_record_id')::int = mt.import_record_id
+                           AND (elem->>'material_item_id')::int = mt.material_item_id
+                       ), 0)
+                     - COALESCE((
+                         SELECT SUM(mt2.quantity)
+                         FROM material_transactions mt2
+                         WHERE mt2.tx_type = 'HOAN'
+                           AND (mt2.material_items IS NULL OR jsonb_typeof(mt2.material_items) != 'array')
+                           AND mt2.import_record_id = mt.import_record_id
+                           AND mt2.material_item_id = mt.material_item_id
+                       ), 0)
+                    )::numeric AS remaining_qty
                 FROM material_transactions mt
                 WHERE mt.id = $1 AND mt.tx_type = 'NHAP' AND mt.material_item_id = $2
             `, [selectedTxId, materialItemId]);
