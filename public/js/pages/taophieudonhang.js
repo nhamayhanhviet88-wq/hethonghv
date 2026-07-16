@@ -5559,7 +5559,8 @@ function _tpdGetTechWrapperHtml(it, isPrintMode = false) {
     `;
 }
 
-function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false) {
+function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false, isCustomerExport = false) {
+    if (isCustomerExport) hideShippingBanner = true;
     if (!layout) layout = {};
 
     // 1. Fabric (Chất liệu vải)
@@ -7535,7 +7536,7 @@ async function _tpdShowExportSheetsModal() {
 
     let printHtml = '';
 
-    const getPageHtml = (idSuffix, idx, hideShipping) => {
+    const getPageHtml = (idSuffix, idx, hideShipping, isCustomerExport = false) => {
         const item = items[idx];
         const it = _tpdCloneItemState(item);
         const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
@@ -7547,6 +7548,8 @@ async function _tpdShowExportSheetsModal() {
         const customHeight = (layout.height && layout.height !== 'auto') ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
         const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
         const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
+
+        const mockupStyle = isCustomerExport ? 'display: none !important;' : '';
 
         return `
             <div class="tpd-print-page" id="tempExportPage_${idSuffix}_${idx}" style="width: 297mm; height: 210mm; box-sizing: border-box; padding: 8mm; background: white; border: none; margin: 0; overflow: hidden;">
@@ -7585,13 +7588,13 @@ async function _tpdShowExportSheetsModal() {
 
                     <!-- Images Row -->
                     <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
-                        <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
+                        <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px; ${mockupStyle}">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
                                 ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
-                        ${_tpdGetInfoBoxHtml(it, layout, o, hideShipping)}
+                        ${_tpdGetInfoBoxHtml(it, layout, o, hideShipping, isCustomerExport)}
                     </div>
                 </div>
             </div>
@@ -7600,8 +7603,8 @@ async function _tpdShowExportSheetsModal() {
 
     // Loop and generate A4 print templates (both customer and production versions)
     items.forEach((item, idx) => {
-        printHtml += getPageHtml('cust', idx, true);
-        printHtml += getPageHtml('prod', idx, false);
+        printHtml += getPageHtml('cust', idx, true, true);
+        printHtml += getPageHtml('prod', idx, false, false);
     });
 
     tempContainer.innerHTML = printHtml;
@@ -8147,7 +8150,7 @@ function _tpdPrintSingleSheet() {
 }
 
 // Render all sheets of the order and print them sequentially using CSS page breaks
-async function _tpdPrintAllSheets() {
+async function _tpdPrintAllSheets(isCustomerExport = false) {
     const state = window._tpdWorkspaceState;
     const orderId = state.orderId;
     const items = state.items;
@@ -8179,6 +8182,8 @@ async function _tpdPrintAllSheets() {
         const customHeight = (layout.height && layout.height !== 'auto') ? layout.height + 'mm' : _tpdGetImagesRowHeight(it);
         const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
         const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
+
+        const mockupStyle = isCustomerExport ? 'display: none !important;' : '';
 
         printHtml += `
             <div class="tpd-print-page">
@@ -8217,13 +8222,13 @@ async function _tpdPrintAllSheets() {
 
                     <!-- Images Row -->
                     <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
-                        <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
+                        <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px; ${mockupStyle}">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
                                 ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
-                        ${_tpdGetInfoBoxHtml(it, layout, o)}
+                        ${_tpdGetInfoBoxHtml(it, layout, o, false, isCustomerExport)}
                     </div>
 
                     <!-- Size breakdown table -->
