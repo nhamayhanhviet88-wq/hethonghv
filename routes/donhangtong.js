@@ -3834,9 +3834,14 @@ module.exports = async function(fastify) {
         
         const orderCode = (request.query.order_code || '').trim();
         const sheetIndex = (request.query.sheet_index || '').trim();
+        const suaLan = (request.query.sua_lan || '').trim();
         let originalName = data.filename;
         if (orderCode && sheetIndex) {
-            originalName = `${orderCode} - Phieu ${sheetIndex}.pdf`;
+            if (suaLan && Number(suaLan) > 0) {
+                originalName = `${orderCode} - Phieu ${sheetIndex} - Sua lan ${suaLan}.pdf`;
+            } else {
+                originalName = `${orderCode} - Phieu ${sheetIndex}.pdf`;
+            }
         }
 
         return { success: true, url, originalName };
@@ -3860,18 +3865,30 @@ module.exports = async function(fastify) {
         if (!item_designs || typeof item_designs !== 'object') {
             return reply.code(400).send({ error: 'Thiếu file PDF thiết kế bắt buộc cho từng phiếu!' });
         }
+        const nextEditCount = (Number(order.edit_count) || 0) + 1;
         for (const item of orderItems) {
             const designVal = item_designs[item.id];
             let urlStr = '';
+            let filename = '';
             if (designVal) {
                 if (typeof designVal === 'object') {
                     urlStr = designVal.url || '';
+                    filename = designVal.filename || '';
                 } else {
                     urlStr = designVal || '';
                 }
             }
             if (!urlStr || !urlStr.trim()) {
                 return reply.code(400).send({ error: `Vui lòng tải lên file PDF thiết kế cho [${item.product_name || 'Phiếu'}]!` });
+            }
+            // Enforce file upload with the correct suffix if it is a revision/edit session
+            if (!order.is_draft) {
+                const requiredSuffix = ` - Sua lan ${nextEditCount}.pdf`;
+                if (!filename || !filename.toLowerCase().endsWith(requiredSuffix.toLowerCase())) {
+                    return reply.code(400).send({
+                        error: `Vui lòng tải lại FILE THIẾT KẾ (PDF BẮT BUỘC) cho [${item.product_name || 'Phiếu'}] để đảm bảo file có tên theo định dạng mới "${order.order_code} - Phieu X - Sua lan ${nextEditCount}.pdf"!`
+                    });
+                }
             }
         }
 
@@ -4000,7 +4017,12 @@ module.exports = async function(fastify) {
                     if (matches && matches.length === 3) {
                         const ext = matches[1].split('/')[1] || 'jpeg';
                         const buffer = Buffer.from(matches[2], 'base64');
-                        const filename = `${order.order_code || 'order'} - Phieu ${idx + 1}.${ext}`;
+                        let suffix = '';
+                        if (!order.is_draft) {
+                            const nextEditCount = (Number(order.edit_count) || 0) + 1;
+                            suffix = ` - Sua lan${nextEditCount}`;
+                        }
+                        const filename = `${order.order_code || 'order'} - Phieu ${idx + 1}${suffix}.${ext}`;
                         const filepath = path.join(uploadsDir, filename);
                         fs.writeFileSync(filepath, buffer);
                         savedSheetPaths.push({
@@ -6851,7 +6873,11 @@ module.exports = async function(fastify) {
         const items = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
         const savedSheetPaths = [];
         items.forEach((item, idx) => {
-            const filename = `${order.order_code || 'order'} - Phieu ${idx + 1}.jpeg`;
+            let suffix = '';
+            if (order.edit_count > 0) {
+                suffix = ` - Sua lan${order.edit_count}`;
+            }
+            const filename = `${order.order_code || 'order'} - Phieu ${idx + 1}${suffix}.jpeg`;
             const filepath = path.join(uploadsDir, filename);
             if (fs.existsSync(filepath)) {
                 savedSheetPaths.push({
@@ -7704,8 +7730,8 @@ module.exports = async function(fastify) {
                 if (editCount > 0) {
                     const ext = path.extname(filename);
                     const base = path.basename(filename, ext);
-                    if (!base.includes(' - Sua lan ')) {
-                        filename = `${base} - Sua lan ${editCount}${ext}`;
+                    if (!base.includes(' - Sua lan')) {
+                        filename = `${base} - Sua lan${editCount}${ext}`;
                         finalPath = path.join(path.dirname(sheet.path), filename);
                         try {
                             fs.copyFileSync(sheet.path, finalPath);

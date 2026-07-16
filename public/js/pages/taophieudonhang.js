@@ -35,6 +35,42 @@ function _tpdFormatDateWithDayOfWeek(dateStr) {
     return `${dayName} - ${date}/${month}`;
 }
 
+function _tpdFormatRevisionHeader(o, activeIndex, totalItems, context) {
+    const isDraft = !!(o.is_draft && (o.order_code || '').startsWith('NHAP-'));
+    const orderTitle = isDraft 
+        ? `TÊN ĐƠN NHÁP: ${escapeHTML((o.draft_name || 'ĐƠN NHÁP').toUpperCase())}` 
+        : `MÃ ĐƠN: ${escapeHTML(o.order_code.toUpperCase())}`;
+    
+    const sheetTitle = `PHIẾU ${activeIndex + 1}/${totalItems}`;
+    
+    if (o.is_draft) {
+        return `${orderTitle} | ${sheetTitle}`;
+    }
+    
+    let rev = Number(o.edit_count) || 0;
+    let timeInput = o.last_updated_at || o.created_at;
+    
+    if (context === 'editor' || context === 'export') {
+        rev += 1;
+        timeInput = new Date();
+    } else {
+        if (rev === 0) {
+            return `${orderTitle} | ${sheetTitle}`;
+        }
+    }
+    
+    const date = new Date(timeInput);
+    const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const vnDate = new Date(utc + (3600000 * 7));
+    const hh = String(vnDate.getHours()).padStart(2, '0');
+    const mm = String(vnDate.getMinutes()).padStart(2, '0');
+    const DD = String(vnDate.getDate()).padStart(2, '0');
+    const MM = String(vnDate.getMonth() + 1).padStart(2, '0');
+    const formattedTime = `${hh}:${mm} ${DD}/${MM}`;
+    
+    return `${orderTitle} | ${sheetTitle} - SỬA LẦN ${rev} : ${formattedTime}`;
+}
+
 // Main Entry Point
 async function renderTaophieudonhangPage(content) {
     // Inject clean styling for page and print layout
@@ -317,6 +353,14 @@ async function renderDesignDraftPage(content) {
                 url.searchParams.set('sheet', '1');
                 window.history.replaceState({}, '', url.toString());
             } catch(e) {}
+        }
+
+        // Clear out any stale session local storage design files for these items
+        if (items && items.length > 0) {
+            items.forEach(item => {
+                localStorage.removeItem(`tpd_pdf_url_${item.id}`);
+                localStorage.removeItem(`tpd_pdf_filename_${item.id}`);
+            });
         }
 
         window._tpdWorkspaceState = {
@@ -4254,7 +4298,7 @@ function _tpdUpdateLivePreview() {
                 </div>
                 <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
                     <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
-                    <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? `TÊN ĐƠN NHÁP: ${escapeHTML((o.draft_name || 'ĐƠN NHÁP').toUpperCase())}` : `MÃ ĐƠN: ${escapeHTML(o.order_code.toUpperCase())}`} | PHIẾU ${state.activeItemIndex + 1}/${state.items.length}</div>
+                    <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">${_tpdFormatRevisionHeader(o, state.activeItemIndex, state.items.length, 'editor')}</div>
                 </div>
                 <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
                     <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
@@ -6963,7 +7007,7 @@ async function _tpdShowExportSheetsModal() {
                 url: localUrl,
                 filename: localFilename || friendlyFallbackName
             };
-        } else if (item.design_pdf_url) {
+        } else if (o.is_draft && item.design_pdf_url) {
             const dbUrl = item.design_pdf_url;
             let dbFilename = item.design_pdf_name || '';
             if (!dbFilename || dbFilename.trim() === '' || /^design_\d+_\w+\.pdf$/i.test(dbFilename.trim())) {
@@ -7068,7 +7112,7 @@ async function _tpdShowExportSheetsModal() {
                                         <button onclick="_tpdRemovePdfFile(${item.id}, event)" style="background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">&times;</button>
                                     </div>
                                 </div>
-                                <input type="file" id="pdfFileInput_${item.id}" accept="application/pdf" style="display: none;" onchange="_tpdHandlePdfInput(event, ${item.id}, '${o.order_code || o.draft_name || 'DONHANG'}', ${idx + 1})">
+                                <input type="file" id="pdfFileInput_${item.id}" accept="application/pdf" style="display: none;" onchange="_tpdHandlePdfInput(event, ${item.id}, '${o.order_code || o.draft_name || 'DONHANG'}', ${idx + 1}, ${!o.is_draft ? (Number(o.edit_count) || 0) + 1 : "''"})">
                             </div>
                         </div>
                         `;
@@ -7222,7 +7266,7 @@ async function _tpdShowExportSheetsModal() {
                         </div>
                         <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
                             <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
-                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? `TÊN ĐƠN NHÁP: ${escapeHTML((o.draft_name || 'ĐƠN NHÁP').toUpperCase())}` : `MÃ ĐƠN: ${escapeHTML(o.order_code.toUpperCase())}`} | PHIẾU ${idx + 1}/${items.length}</div>
+                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">${_tpdFormatRevisionHeader(o, idx, items.length, 'export')}</div>
                         </div>
                         <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
                             <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
@@ -7651,7 +7695,7 @@ async function _tpdShowExportSheetsModal() {
         if (input) input.click();
     };
 
-    window._tpdHandlePdfInput = async function(event, itemId, orderCode, sheetIndex) {
+    window._tpdHandlePdfInput = async function(event, itemId, orderCode, sheetIndex, suaLan = '') {
         const file = event.target.files[0];
         if (!file) return;
 
@@ -7680,7 +7724,7 @@ async function _tpdShowExportSheetsModal() {
         fd.append('file', file);
 
         try {
-            const url = `/api/dht/orders/upload-design-pdf?order_code=${encodeURIComponent(orderCode || '')}&sheet_index=${sheetIndex || ''}`;
+            const url = `/api/dht/orders/upload-design-pdf?order_code=${encodeURIComponent(orderCode || '')}&sheet_index=${sheetIndex || ''}&sua_lan=${encodeURIComponent(suaLan || '')}`;
             const res = await fetch(url, {
                 method: 'POST',
                 body: fd,
@@ -7838,7 +7882,7 @@ async function _tpdPrintAllSheets() {
                         </div>
                         <div class="tpd-a4-header-center" style="text-align: center; flex: 1; margin-right: 20px;">
                             <h1 class="tpd-a4-title" style="font-size: 22px; font-weight: 900; color: #122546; margin: 0; text-transform: uppercase;">PHIẾU SẢN XUẤT</h1>
-                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">${(o.is_draft && (o.order_code || '').startsWith('NHAP-')) ? `TÊN ĐƠN NHÁP: ${escapeHTML((o.draft_name || 'ĐƠN NHÁP').toUpperCase())}` : `MÃ ĐƠN: ${escapeHTML(o.order_code.toUpperCase())}`} | PHIẾU ${idx + 1}/${items.length}</div>
+                            <div class="tpd-a4-order-code" style="font-size: 15px; font-weight: 900; color: #dc2626; margin-top: 2px; letter-spacing: 0.5px;">${_tpdFormatRevisionHeader(o, idx, items.length, 'print')}</div>
                         </div>
                         <div class="tpd-a4-header-right-qr" style="display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid #122546; border-radius: 6px; padding: 4px 6px; background: #ffffff; margin-top: -10px;">
                             <img src="${qrUrl}" style="width: 80px; height: 80px; object-fit: contain;">
