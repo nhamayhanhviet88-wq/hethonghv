@@ -296,6 +296,20 @@ async function renderDesignDraftPage(content) {
         if (!details || !details.order) throw new Error('Không lấy được chi tiết đơn hàng');
         const order = details.order;
         const items = details.items || [];
+
+        // Clear previous revision notes in-memory on workspace entry so staff must fill a fresh note
+        items.forEach(item => {
+            if (item.custom_layout) {
+                try {
+                    let layout = typeof item.custom_layout === 'string' ? JSON.parse(item.custom_layout) : item.custom_layout;
+                    if (layout) {
+                        layout.sheet_edit_note = '';
+                        item.custom_layout = layout;
+                    }
+                } catch (e) {}
+            }
+        });
+
         const myInfo = myInfoRes.user || {};
 
         // 2. Determine permissions
