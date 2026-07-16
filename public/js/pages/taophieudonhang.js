@@ -4114,6 +4114,52 @@ function _tpdChangeLayoutHeight(val) {
     _tpdSaveDraft(state.editingItem);
 }
 
+function _tpdUpdateEditNoteStyle() {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.order || state.order.is_draft || !state.editingItem) return;
+
+    const label = document.getElementById('tpd_edit_note_label');
+    const reqText = document.getElementById('tpd_edit_note_required_text');
+    const textarea = document.getElementById('tpd_edit_note_textarea');
+    if (!label || !textarea) return;
+
+    // Check if the current sheet is modified
+    let isSheetModified = false;
+    const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${state.orderId}`);
+    if (origItemsJson) {
+        try {
+            const origItems = JSON.parse(origItemsJson);
+            const origItem = origItems.find(x => x.id === state.editingItem.id);
+            if (origItem) {
+                isSheetModified = _tpdIsSheetModified(state.editingItem, origItem);
+            } else {
+                isSheetModified = true;
+            }
+        } catch(e) {}
+    } else if (state.dbBaselines) {
+        const origItem = state.dbBaselines.find(x => x.id === state.editingItem.id);
+        if (origItem) {
+            isSheetModified = _tpdIsSheetModified(state.editingItem, origItem);
+        } else {
+            isSheetModified = true;
+        }
+    } else {
+        isSheetModified = true;
+    }
+
+    if (isSheetModified) {
+        label.style.color = '#ef4444';
+        if (reqText) reqText.style.display = 'inline';
+        textarea.style.borderColor = '#ef4444';
+        textarea.style.borderWidth = '1.5px';
+    } else {
+        label.style.color = '#1e293b';
+        if (reqText) reqText.style.display = 'none';
+        textarea.style.borderColor = '#cbd5e1';
+        textarea.style.borderWidth = '1.5px';
+    }
+}
+
 function _tpdOnEditNoteChange(val) {
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
@@ -4132,6 +4178,7 @@ function _tpdOnEditNoteChange(val) {
     
     // Auto save draft to avoid losing changes
     _tpdSaveDraft(state.editingItem);
+    _tpdUpdateEditNoteStyle();
 }
 
 // Reset wrapper height to auto/dynamic behavior
@@ -4373,6 +4420,7 @@ function _tpdUpdateLivePreview() {
 
         </div>
     `;
+    _tpdUpdateEditNoteStyle();
 }
 
 const POSITION_ORDER = ["Ngực", "Lưng", "Bụng", "Tay Trái", "Tay Phải", "Gáy"];
@@ -5240,8 +5288,7 @@ function _tpdRenderFormInputs() {
     `;
 
     // 5.5. Edit Note field (mandatory for modified sheets)
-    const layout = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
-    const editNote = layout.sheet_edit_note || '';
+    const editNote = (layout && layout.sheet_edit_note) || '';
 
     // Check if the current sheet is modified
     let isSheetModified = false;
@@ -5262,10 +5309,10 @@ function _tpdRenderFormInputs() {
 
     html += `
         <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
-            <label class="tpd-ws-form-label" style="font-weight: 700; ${isSheetModified ? 'color: #ef4444;' : 'color: #1e293b;'}">
-                📝 NỘI DUNG SỬA ĐỔI CHI TIẾT ${isSheetModified ? '<span style="color: #ef4444;">(BẮT BUỘC KHI SỬA PHIẾU)</span>' : ''}
+            <label id="tpd_edit_note_label" class="tpd-ws-form-label" style="font-weight: 700; ${isSheetModified ? 'color: #ef4444;' : 'color: #1e293b;'}">
+                📝 NỘI DUNG SỬA ĐỔI CHI TIẾT <span id="tpd_edit_note_required_text" style="color: #ef4444; ${isSheetModified ? '' : 'display: none;'}">(BẮT BUỘC KHI SỬA PHIẾU)</span>
             </label>
-            <textarea class="tpd-ws-input" style="width: 100%; border: 1.5px solid ${isSheetModified ? '#ef4444' : '#cbd5e1'}; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; box-sizing: border-box; background: white;" 
+            <textarea id="tpd_edit_note_textarea" class="tpd-ws-input" style="width: 100%; border: 1.5px solid ${isSheetModified ? '#ef4444' : '#cbd5e1'}; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; box-sizing: border-box; background: white;" 
                 placeholder="Nhập lý do và chi tiết các thay đổi của phiếu này (ví dụ: Đổi kiểu cổ bẻ dệt, thêm in ngực 10cm)..." 
                 oninput="_tpdOnEditNoteChange(this.value)" ${disabledAttr}>${editNote}</textarea>
         </div>
@@ -6646,6 +6693,10 @@ function _tpdIsSheetModified(it, dbItem) {
         console.log('[_tpdIsSheetModified] size_type differs:', { current: it.size_type, db: dbItem.size_type });
         return true;
     }
+    if ((it.mockup_image || '') !== (dbItem.mockup_image || '')) {
+        console.log('[_tpdIsSheetModified] mockup_image differs:', { current: it.mockup_image, db: dbItem.mockup_image });
+        return true;
+    }
 
     // Compare sewing techniques
     const sewTech1 = Array.isArray(it.sewing_techniques) ? it.sewing_techniques : [];
@@ -6950,6 +7001,15 @@ function _tpdValidateAllSheets() {
                 } catch(e) {
                     isModified = false;
                 }
+            } else if (state.dbBaselines) {
+                origItem = state.dbBaselines.find(x => x.id === it.id);
+                if (origItem) {
+                    isModified = _tpdIsSheetModified(it, origItem);
+                } else {
+                    isModified = true;
+                }
+            } else {
+                isModified = true;
             }
             
             if (isModified) {
