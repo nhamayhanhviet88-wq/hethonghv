@@ -6690,12 +6690,11 @@ function _tpdValidateAllSheets() {
             return false;
         }
 
-        // 5. Enforce Mockup upload check when editing an official order and sheet is modified or is active
+        // 5. Enforce Mockup upload check when editing an official order and sheet is modified
         if (!isOrderDraft) {
             const dbItem = state.dbBaselines ? state.dbBaselines[idx] : state.items[idx];
-            const isActiveSheet = (idx === state.activeItemIndex);
             const isModified = dbItem && _tpdIsSheetModified(it, dbItem);
-            if (dbItem && (isActiveSheet || isModified)) {
+            if (dbItem && isModified) {
                 if (it.mockup_image === dbItem.mockup_image) {
                     showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Khi sửa đơn, bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
                     _tpdSwitchItemTab(idx);
