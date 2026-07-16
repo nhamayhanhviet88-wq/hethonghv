@@ -2051,7 +2051,7 @@ module.exports = async function(fastify) {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
         const orderId = Number(request.params.orderId);
-        const { item_id } = request.query || {};
+        const { item_id, dry_run } = request.query || {};
         const itemId = item_id ? Number(item_id) : null;
 
         // Order info
@@ -2225,7 +2225,7 @@ module.exports = async function(fastify) {
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const orderId = Number(request.params.orderId);
-        const { item_id } = request.query || {};
+        const { item_id, dry_run } = request.query || {};
         const itemId = item_id ? Number(item_id) : null;
 
         // Check if production is completed
@@ -2501,6 +2501,9 @@ module.exports = async function(fastify) {
             }
         } else {
             // Normal cancel print assignment (without printed meters)
+            if (dry_run === 'true') {
+                return { success: true, needs_confirm: true };
+            }
             const client = await db.pool.connect();
             const txDb = {
                 async run(sql, params = []) {

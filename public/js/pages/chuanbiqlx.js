@@ -2727,19 +2727,20 @@ async function _qlxPACancelAll() {
     var d = window._qlxPAData;
     if (!d || !d.orderId) return;
 
-    var confirmed = await _qlxCustomConfirm('Bạn có chắc chắn muốn HỦY TOÀN BỘ phân công in cho đơn/phiếu này? Trạng thái sẽ được đưa về chưa phân công.');
-    if (!confirmed) return;
-
     if (window._qlxPABusy) return;
     window._qlxPABusy = true;
 
     try {
-        var url = '/api/qlx/print-assignment/' + d.orderId + (d.itemId ? '?item_id=' + d.itemId : '');
-        var res = await apiCall(url, 'DELETE');
+        var baseUrl = '/api/qlx/print-assignment/' + d.orderId + (d.itemId ? '?item_id=' + d.itemId : '');
 
-        if (res && res.error) {
-            if (res.error_code === 'print_already_done') {
-                var details = res.details || {};
+        // 1. Send dry_run check to see if we need a surcharge
+        var checkUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'dry_run=true';
+        var checkRes = await apiCall(checkUrl, 'DELETE');
+
+        if (checkRes && checkRes.error) {
+            if (checkRes.error_code === 'print_already_done') {
+                window._qlxPABusy = false;
+                var details = checkRes.details || {};
                 var recordsHtml = (details.records || []).map(function(r) {
                     return '<div>- ' + r.print_field + ' (' + r.type + '): <strong>' + r.meters + 'm</strong> x ' + r.unit_price.toLocaleString() + 'đ = <strong>' + r.surcharge.toLocaleString() + 'đ</strong></div>';
                 }).join('');
@@ -2797,8 +2798,9 @@ async function _qlxPACancelAll() {
                 document.getElementById('_qlxConfirmSurchargeCancel').onclick = async function() {
                     var note = document.getElementById('_qlxSurchargeNote').value || '';
                     modalOverlay.remove();
+                    window._qlxPABusy = true;
                     try {
-                        var forceUrl = url + (url.includes('?') ? '&' : '?') + 'force_with_surcharge=true&surcharge_note=' + encodeURIComponent(note);
+                        var forceUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'force_with_surcharge=true&surcharge_note=' + encodeURIComponent(note);
                         var forceRes = await apiCall(forceUrl, 'DELETE');
                         if (forceRes && forceRes.error) {
                             return showToast(forceRes.error, 'error');
@@ -2808,16 +2810,31 @@ async function _qlxPACancelAll() {
                         await _qlxLoadAll();
                     } catch(e2) {
                         showToast(e2.message || 'Lỗi', 'error');
+                    } finally {
+                        window._qlxPABusy = false;
                     }
                 };
                 return;
+            } else {
+                showToast(checkRes.error, 'error');
+                return;
             }
-            return showToast(res.error, 'error');
         }
 
-        var ov = document.getElementById('_qlxPAOverlay'); if (ov) ov.remove();
-        showToast('✅ Đã hủy toàn bộ Phân Công In');
-        await _qlxLoadAll();
+        // 2. Normal cancel: ask for confirmation first
+        window._qlxPABusy = false;
+        var confirmed = await _qlxCustomConfirm('Bạn có chắc chắn muốn HỦY TOÀN BỘ phân công in cho đơn/phiếu này? Trạng thái sẽ được đưa về chưa phân công.');
+        if (!confirmed) return;
+
+        window._qlxPABusy = true;
+        var res = await apiCall(baseUrl, 'DELETE');
+        if (res && res.error) {
+            showToast(res.error, 'error');
+        } else {
+            var ov = document.getElementById('_qlxPAOverlay'); if (ov) ov.remove();
+            showToast('✅ Đã hủy toàn bộ Phân Công In');
+            await _qlxLoadAll();
+        }
     } catch(e) {
         showToast(e.message || 'Lỗi', 'error');
     } finally {
