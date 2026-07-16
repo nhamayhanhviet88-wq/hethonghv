@@ -2762,7 +2762,7 @@ async function _qlxPACancelAll() {
         modalOverlay.style.display = 'flex';
         modalOverlay.style.alignItems = 'center';
         modalOverlay.style.justifyContent = 'center';
-        modalOverlay.style.fontFamily = 'sans-serif';
+        modalOverlay.style.fontFamily = "'Inter', sans-serif";
 
         var recordsHtml = (records || []).map(function(r) {
             return '<div style="margin-bottom: 4px; font-size: 13px;">- ' + r.print_field + ' (' + r.type + '): <strong>' + r.meters + 'm</strong> x ' + r.unit_price.toLocaleString() + 'đ = <strong>' + r.surcharge.toLocaleString() + 'đ</strong></div>';
