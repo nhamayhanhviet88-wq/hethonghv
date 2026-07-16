@@ -4836,6 +4836,7 @@ function _tpdRenderFormInputs() {
     let detailBoxesHtml = '';
     details.forEach((d) => {
         const idx = d.originalIndex;
+        const imgSrc = d.image || '';
         const configPrintTypes = _tpd.printTypesConfig || ["Thêu", "In PET", "In 3D", "In lưới", "In Decal"];
         const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
         
