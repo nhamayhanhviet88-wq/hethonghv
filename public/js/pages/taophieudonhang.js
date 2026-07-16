@@ -4621,6 +4621,16 @@ function _tpdRenderFormInputs() {
                                 if (otherIdx === sIdx) return false;
                                 const isPredefined = configSewingTechs.includes(otherItem.tech);
                                 if (!isPredefined) return false;
+                                
+                                // Exception: "Nẹp Trong" and "Nẹp Ngoài" are allowed to coexist
+                                const isNepTrongOrNepNgoai = (tech) => {
+                                    const norm = _tpdNormalizeText(_tpdExtractString(tech));
+                                    return norm === 'NẸP TRONG' || norm === 'NẸP NGOÀI';
+                                };
+                                if (isNepTrongOrNepNgoai(t) && isNepTrongOrNepNgoai(otherItem.tech)) {
+                                    return false;
+                                }
+
                                 return _tpdGetSewingTechGroup(otherItem.tech) === groupName;
                             });
                             if (groupName === 'Nhóm Cổ') {
@@ -9019,6 +9029,16 @@ function _tpdAddSewingItem() {
             const configTechNames = configSewingTechs.map(t => typeof t === 'object' ? (t.tech || '') : String(t));
             let alreadyChosen = layout.sewing_items.some(item => {
                 if (!configTechNames.includes(item.tech)) return false;
+                
+                // Exception: "Nẹp Trong" and "Nẹp Ngoài" are allowed to coexist
+                const isNepTrongOrNepNgoai = (tech) => {
+                    const norm = _tpdNormalizeText(_tpdExtractString(tech));
+                    return norm === 'NẸP TRONG' || norm === 'NẸP NGOÀI';
+                };
+                if (isNepTrongOrNepNgoai(tName) && isNepTrongOrNepNgoai(item.tech)) {
+                    return false;
+                }
+
                 return _tpdGetSewingTechGroup(item.tech) === group;
             });
             if (group === 'Nhóm Cổ') {
@@ -9066,9 +9086,20 @@ function _tpdUpdateSewingItem(sIdx, field, value) {
             }
         }
         if (newGroup !== 'Khác' && newGroup !== 'Nhóm Cổ') {
+            // Exception: "Nẹp Trong" and "Nẹp Ngoài" are allowed to coexist
+            const isNepTrongOrNepNgoai = (tech) => {
+                const norm = _tpdNormalizeText(_tpdExtractString(tech));
+                return norm === 'NẸP TRONG' || norm === 'NẸP NGOÀI';
+            };
+            const isException = isNepTrongOrNepNgoai(value);
+
             const hasDuplicate = layout.sewing_items.some((item, idx) => {
                 if (idx === sIdx) return false;
-                return _tpdGetSewingTechGroup(item.tech) === newGroup;
+                const otherTech = item.tech;
+                if (isException && isNepTrongOrNepNgoai(otherTech)) {
+                    return false;
+                }
+                return _tpdGetSewingTechGroup(otherTech) === newGroup;
             });
             if (hasDuplicate) {
                 showToast(`Mỗi nhóm kỹ thuật may chỉ được chọn duy nhất 1 loại (Nhóm "${newGroup}" đã được chọn)!`, 'warning');
