@@ -2371,6 +2371,10 @@ module.exports = async function(fastify) {
         const { force_with_surcharge, surcharge_note, manual_surcharge } = request.query || {};
         const isSurcharge = force_with_surcharge === 'true';
 
+        if (isSurcharge && (!surcharge_note || !surcharge_note.trim())) {
+            return reply.code(400).send({ error: 'Vui lòng nhập NỘI DUNG / GHI CHÚ BÙ PHÍ' });
+        }
+
         if (hasPrinted && !isSurcharge) {
             return reply.code(400).send({ error: 'Đơn hàng đã được in thực tế, không thể hủy phân công trực tiếp mà không bù phí.' });
         }

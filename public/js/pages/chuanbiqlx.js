@@ -2923,6 +2923,11 @@ async function _qlxPACancelAll() {
             var rawAmt = amtInput.value.replace(/\D/g, '');
             var amt = Number(rawAmt) || 0;
 
+            if (!note) {
+                showToast('Vui lòng nhập NỘI DUNG / GHI CHÚ BÙ PHÍ', 'error');
+                return;
+            }
+
             if (amt <= 0) {
                 showToast('Vui lòng nhập số tiền bù in hợp lệ lớn hơn 0', 'error');
                 return;
