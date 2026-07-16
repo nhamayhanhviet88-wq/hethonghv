@@ -2681,7 +2681,9 @@ function _dhtSavePhieu(idx) {
     // Build display name for color (all pairs)
     var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
     var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
-    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:typedQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx};
+    // ★ Use totalQty from qtyPairs (source of truth) to ensure quantity always matches sum of quantities array
+    var finalQty = qtyPairs.reduce(function(s, x) { return s + (Number(x.qty) || 0); }, 0);
+    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:finalQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
@@ -3122,7 +3124,12 @@ async function _dhtSubmitCreateV2(isDraft) {
         province: prov,
         address: addr,
         cskh_user_id: _dhtCreate.myInfo?.id,
-        total_quantity: items.reduce(function(s,x){ return s + x.quantity; }, 0),
+        // ★ Compute total_quantity from quantities arrays (source of truth)
+        total_quantity: items.reduce(function(s, x) {
+            if (!x) return s;
+            var qa = x.quantities || [];
+            return s + (qa.length > 0 ? qa.reduce(function(qs, q) { return qs + (Number(q.qty) || 0); }, 0) : (x.quantity || 0));
+        }, 0),
         total_amount: totalAmt - promoDiscountAmt + vatAmt + (_dhtCreate.surcharges||[]).reduce(function(s,x){return s+(Number(x.amount)||0);},0),
         discount_amount: 0,
         applied_coupon: _dhtCreate.appliedPromo?.code || null,
@@ -4053,7 +4060,12 @@ async function _dhtSubmitEditV2(isDraft) {
         source: src,
         address: addr,
         province: prov || null,
-        total_quantity: items.reduce(function(s, x) { return s + (x ? x.quantity : 0); }, 0),
+        // ★ Compute total_quantity from quantities arrays (source of truth)
+        total_quantity: items.reduce(function(s, x) {
+            if (!x) return s;
+            var qa = x.quantities || [];
+            return s + (qa.length > 0 ? qa.reduce(function(qs, q) { return qs + (Number(q.qty) || 0); }, 0) : (x.quantity || 0));
+        }, 0),
         total_amount: totalAmt - promoDiscountAmt + vatAmt + surTotal,
         applied_coupon: _dhtCreate.appliedPromo?.code || null,
         promo_discount_amount: promoDiscountAmt,

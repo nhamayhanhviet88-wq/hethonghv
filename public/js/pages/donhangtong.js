@@ -41,7 +41,10 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
                      code.indexOf('PET') >= 0 || code.indexOf('TEM') >= 0;
 
     const parts = items.map(item => {
-        const qty = Number(item.quantity) || 0;
+        // ★ Compute qty from quantities array (source of truth) instead of potentially stale item.quantity
+        let _qArr = [];
+        try { _qArr = typeof item.quantities === 'string' ? JSON.parse(item.quantities) : (item.quantities || []); } catch(e){}
+        const qty = _qArr.length > 0 ? _qArr.reduce((s,x) => s + (Number(x.qty)||0), 0) : (Number(item.quantity) || 0);
         if (qty <= 0) return null;
 
         // Skip "Thiết Kế"
@@ -1365,7 +1368,10 @@ async function _dhtShowDetail(id) {
                     if (matPairs.length === 0) {
                         matPairs = [{ material_name: it.material_name || '—', color_name: it.color_name || '—' }];
                     }
-                    const totalQty = it.quantity || 0;
+                    // ★ Compute totalQty from quantities array (source of truth) instead of potentially stale it.quantity
+                    let qtyArr_display = [];
+                    try { qtyArr_display = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities || []); } catch(e){}
+                    const totalQty = qtyArr_display.length > 0 ? qtyArr_display.reduce((s,x) => s + (Number(x.qty)||0), 0) : (it.quantity || 0);
                     for (let pi = 0; pi < matPairs.length; pi++) {
                         const mp = matPairs[pi];
                         const isFirst = pi === 0;
