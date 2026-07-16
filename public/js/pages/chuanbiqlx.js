@@ -2228,17 +2228,18 @@ async function _qlxAssignIn(orderId, itemId) {
         var assignments = data.assignments || [];
         var printDisAttr = (data.is_production_done || data.is_print_done) ? 'disabled' : '';
         
+        var spLabel = o.order_code + (o.items_desc ? ' — ' + o.items_desc : '');
+
         // Store in global/window context for saving
         window._qlxPAData = { 
             orderId: orderId, 
             itemId: itemId, 
+            spLabel: spLabel,
             fields: fields,
             is_production_done: data.is_production_done,
             is_print_done: data.is_print_done,
             is_press_done: data.is_press_done
         };
-
-        var spLabel = o.order_code + (o.items_desc ? ' — ' + o.items_desc : '');
 
         var html = '<div style="padding:0">';
         // Header
@@ -2832,7 +2833,7 @@ async function _qlxPACancelAll() {
             '    <div style="display: flex; flex-direction: column; gap: 12px;">' +
             '      <div>' +
             '        <label style="font-size: 11px; font-weight: 800; color: #475569; display: block; margin-bottom: 6px;">NỘI DUNG / GHI CHÚ BÙ PHÍ</label>' +
-            '        <input type="text" id="_qlxChoiceSurchargeNote" value="Bù phí in Phiếu ' + (d.itemId || d.orderId) + ' (In lại)" style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 13px; box-sizing: border-box;">' +
+            '        <input type="text" id="_qlxChoiceSurchargeNote" value="Bù phí in Đơn ' + (d.spLabel || d.orderId) + ' (In lại)" style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 13px; box-sizing: border-box;">' +
             '      </div>' +
             '      <div>' +
             '        <label style="font-size: 11px; font-weight: 800; color: #475569; display: block; margin-bottom: 6px;">SỐ TIỀN IN BÙ (Đ)</label>' +
