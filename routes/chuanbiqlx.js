@@ -2292,121 +2292,141 @@ module.exports = async function(fastify) {
             return { sql: newSql, params };
         }
 
-        if (hasPrinted) {
-            const { force_with_surcharge, surcharge_note } = request.query || {};
+        // Fetch configuration prices
+        const configs = {};
+        const configRows = await db.all(`
+            SELECT key, value FROM app_config 
+            WHERE key IN ('pettem_surcharge_price_pet', 'pettem_surcharge_price_tem', 'pettem_surcharge_price_decal')
+        `);
+        configRows.forEach(row => {
+            configs[row.key] = Number(row.value);
+        });
 
-            // Fetch configuration prices
-            const configs = {};
-            const configRows = await db.all(`
-                SELECT key, value FROM app_config 
-                WHERE key IN ('pettem_surcharge_price_pet', 'pettem_surcharge_price_tem', 'pettem_surcharge_price_decal')
-            `);
-            configRows.forEach(row => {
-                configs[row.key] = Number(row.value);
+        const pricePet = configs['pettem_surcharge_price_pet'] !== undefined && configs['pettem_surcharge_price_pet'] !== null ? configs['pettem_surcharge_price_pet'] : 50000;
+        const priceTem = configs['pettem_surcharge_price_tem'] !== undefined && configs['pettem_surcharge_price_tem'] !== null ? configs['pettem_surcharge_price_tem'] : 30000;
+        const priceDecal = configs['pettem_surcharge_price_decal'] !== undefined && configs['pettem_surcharge_price_decal'] !== null ? configs['pettem_surcharge_price_decal'] : 40000;
+
+        let totalMeters = 0;
+        let totalSurcharge = 0;
+        const details = [];
+
+        for (const rec of activePrintRecs) {
+            const meters = Number(rec.print_meters) || 0;
+            if (meters <= 0) continue;
+            let type = 'PET';
+            const fieldUpper = (rec.print_field || '').toUpperCase();
+            if (fieldUpper.includes('TEM')) {
+                type = 'TEM';
+            } else if (fieldUpper.includes('DECAL')) {
+                type = 'DECAL';
+            }
+
+            const unitPrice = type === 'PET' ? pricePet : (type === 'TEM' ? priceTem : priceDecal);
+            const itemSurcharge = Math.round(meters * unitPrice);
+
+            totalMeters += meters;
+            totalSurcharge += itemSurcharge;
+            details.push({
+                id: rec.id,
+                print_field: rec.print_field,
+                type,
+                meters,
+                unit_price: unitPrice,
+                surcharge: itemSurcharge
             });
+        }
 
-            const pricePet = configs['pettem_surcharge_price_pet'] !== undefined && configs['pettem_surcharge_price_pet'] !== null ? configs['pettem_surcharge_price_pet'] : 50000;
-            const priceTem = configs['pettem_surcharge_price_tem'] !== undefined && configs['pettem_surcharge_price_tem'] !== null ? configs['pettem_surcharge_price_tem'] : 30000;
-            const priceDecal = configs['pettem_surcharge_price_decal'] !== undefined && configs['pettem_surcharge_price_decal'] !== null ? configs['pettem_surcharge_price_decal'] : 40000;
-
-            let totalMeters = 0;
-            let totalSurcharge = 0;
-            const details = [];
-
-            for (const rec of activePrintRecs) {
-                const meters = Number(rec.print_meters) || 0;
-                if (meters <= 0) continue;
-                let type = 'PET';
-                const fieldUpper = (rec.print_field || '').toUpperCase();
-                if (fieldUpper.includes('TEM')) {
-                    type = 'TEM';
-                } else if (fieldUpper.includes('DECAL')) {
-                    type = 'DECAL';
-                }
-
-                const unitPrice = type === 'PET' ? pricePet : (type === 'TEM' ? priceTem : priceDecal);
-                const itemSurcharge = Math.round(meters * unitPrice);
-
-                totalMeters += meters;
-                totalSurcharge += itemSurcharge;
-                details.push({
-                    id: rec.id,
-                    print_field: rec.print_field,
-                    type,
-                    meters,
-                    unit_price: unitPrice,
-                    surcharge: itemSurcharge
-                });
-            }
-
-            if (force_with_surcharge !== 'true') {
-                return reply.code(400).send({
-                    error_code: 'print_already_done',
-                    error: 'Công đoạn in đã hoàn thành hoặc đã ghi nhận số mét. Bạn cần xác nhận bù phí để hủy.',
-                    details: {
-                        total_meters: totalMeters,
-                        total_surcharge: totalSurcharge,
-                        records: details
-                    }
-                });
-            }
-
-            const client = await db.pool.connect();
-            const txDb = {
-                async run(sql, params = []) {
-                    const converted = convertPlaceholders(sql, params);
-                    const res = await client.query(converted.sql, converted.params);
-                    const lastInsertRowid = res.rows && res.rows.length > 0 && res.rows[0].id != null ? res.rows[0].id : 0;
-                    return { lastInsertRowid, changes: res.rowCount };
-                },
-                async all(sql, params = []) {
-                    const converted = convertPlaceholders(sql, params);
-                    const res = await client.query(converted.sql, converted.params);
-                    return res.rows;
-                },
-                async get(sql, params = []) {
-                    const converted = convertPlaceholders(sql, params);
-                    const res = await client.query(converted.sql, converted.params);
-                    return res.rows[0] || null;
+        if (dry_run === 'true') {
+            return {
+                success: true,
+                has_printed: hasPrinted,
+                details: {
+                    total_meters: totalMeters,
+                    total_surcharge: totalSurcharge,
+                    records: details
                 }
             };
+        }
 
-            try {
-                await client.query('BEGIN');
+        const { force_with_surcharge, surcharge_note, manual_surcharge } = request.query || {};
+        const isSurcharge = force_with_surcharge === 'true';
 
-                // 1. Delete print assignments
-                if (itemId) {
-                    await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
-                    await txDb.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+        if (hasPrinted && !isSurcharge) {
+            return reply.code(400).send({ error: 'Đơn hàng đã được in thực tế, không thể hủy phân công trực tiếp mà không bù phí.' });
+        }
+
+        const client = await db.pool.connect();
+        const txDb = {
+            async run(sql, params = []) {
+                const converted = convertPlaceholders(sql, params);
+                const res = await client.query(converted.sql, converted.params);
+                const lastInsertRowid = res.rows && res.rows.length > 0 && res.rows[0].id != null ? res.rows[0].id : 0;
+                return { lastInsertRowid, changes: res.rowCount };
+            },
+            async all(sql, params = []) {
+                const converted = convertPlaceholders(sql, params);
+                const res = await client.query(converted.sql, converted.params);
+                return res.rows;
+            },
+            async get(sql, params = []) {
+                const converted = convertPlaceholders(sql, params);
+                const res = await client.query(converted.sql, converted.params);
+                return res.rows[0] || null;
+            }
+        };
+
+        try {
+            await client.query('BEGIN');
+
+            // 1. Delete print assignments
+            if (itemId) {
+                await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+                await txDb.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+            } else {
+                await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+                await txDb.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
+                await txDb.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
+            }
+
+            // 2. Sync print and cut removal
+            await syncPrintAndCutRemoval(txDb, orderId, itemId);
+
+            // 3. Update or delete printing records
+            if (isSurcharge) {
+                if (hasPrinted) {
+                    // Update active printing records to be discarded (archived)
+                    if (itemId) {
+                        await txDb.run(`
+                            UPDATE printing_records 
+                            SET is_discarded = true, 
+                                product_name = COALESCE(product_name, '') || ' - [HỦY BỎ - KHÁCH BÙ TIỀN]',
+                                updated_at = $1
+                            WHERE order_item_id = $2 AND COALESCE(is_discarded, false) = false
+                        `, [now, itemId]);
+                    } else {
+                        await txDb.run(`
+                            UPDATE printing_records 
+                            SET is_discarded = true, 
+                                product_name = COALESCE(product_name, '') || ' - [HỦY BỎ - KHÁCH BÙ TIỀN]',
+                                updated_at = $1
+                            WHERE dht_order_id = $2 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false
+                        `, [now, orderId]);
+                    }
                 } else {
-                    await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
-                    await txDb.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
-                    await txDb.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
-                }
-
-                // 2. Sync print and cut removal
-                await syncPrintAndCutRemoval(txDb, orderId, itemId);
-
-                // 3. Update active printing records to be discarded (archived)
-                if (itemId) {
-                    await txDb.run(`
-                        UPDATE printing_records 
-                        SET is_discarded = true, 
-                            product_name = COALESCE(product_name, '') || ' - [HỦY BỎ - KHÁCH BÙ TIỀN]',
-                            updated_at = $1
-                        WHERE order_item_id = $2 AND COALESCE(is_discarded, false) = false
-                    `, [now, itemId]);
-                } else {
-                    await txDb.run(`
-                        UPDATE printing_records 
-                        SET is_discarded = true, 
-                            product_name = COALESCE(product_name, '') || ' - [HỦY BỎ - KHÁCH BÙ TIỀN]',
-                            updated_at = $1
-                        WHERE dht_order_id = $2 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false
-                    `, [now, orderId]);
+                    // Normal deletion since nothing was printed
+                    if (itemId) {
+                        await txDb.run(`DELETE FROM printing_records WHERE order_item_id = $1`, [itemId]);
+                    } else {
+                        await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+                    }
                 }
 
                 // 4. Update order surcharges & total_amount
+                let finalSurcharge = totalSurcharge;
+                if (manual_surcharge !== undefined && manual_surcharge !== null && manual_surcharge !== '') {
+                    finalSurcharge = Math.max(0, Math.round(Number(manual_surcharge)));
+                }
+
                 const order = await txDb.get(`SELECT surcharges, total_amount FROM dht_orders WHERE id = $1`, [orderId]);
                 if (order) {
                     let surcharges = [];
@@ -2417,11 +2437,11 @@ module.exports = async function(fastify) {
 
                     const oldSurTotal = surcharges.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
 
-                    const surchargeName = `Bù phí in ${itemId ? 'Phiếu ' + itemId : 'toàn bộ'} (In lại)`;
+                    const surchargeName = surcharge_note || `Bù phí in ${itemId ? 'Phiếu ' + itemId : 'toàn bộ'} (In lại)`;
                     surcharges = surcharges.filter(s => s.name !== surchargeName);
                     surcharges.push({
                         name: surchargeName,
-                        amount: totalSurcharge,
+                        amount: finalSurcharge,
                         note: surcharge_note || ''
                     });
 
@@ -2440,151 +2460,68 @@ module.exports = async function(fastify) {
                         field: 'surcharge_add',
                         label: `Thêm phụ phí "${surchargeName}"`,
                         old: null,
-                        new: String(totalSurcharge)
+                        new: String(finalSurcharge)
                     }];
                     await txDb.run(`
                         INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) 
                         VALUES ($1, $2, $3, $4, $5, NOW())
-                    `, [orderId, 'update_order', `Hủy phân công in (In lại) & Thêm phụ phí bù in: +${totalSurcharge.toLocaleString('vi-VN')}đ`, JSON.stringify(changesArr), request.user.id]);
+                    `, [orderId, 'update_order', `Hủy phân công in (In lại) & Thêm phụ phí bù in: +${finalSurcharge.toLocaleString('vi-VN')}đ`, JSON.stringify(changesArr), request.user.id]);
                 }
-
-                // 5. Reset reminders and choices in qlx_preparation
-                if (itemId) {
-                    const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE item_id = $1', [itemId]);
-                    if (!row) {
-                        try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id, item_id) VALUES ($1, $2)', [orderId, itemId]); } catch(e){}
-                    }
-                    await txDb.run(`
-                        UPDATE qlx_preparation 
-                        SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
-                        WHERE item_id = $2
-                    `, [now, itemId]);
-                    await txDb.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept IN ('in', 'ep')`, [itemId]);
-                } else {
-                    const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
-                    if (!row) {
-                        try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id) VALUES ($1)', [orderId]); } catch(e){}
-                    }
-                    await txDb.run(`
-                        UPDATE qlx_preparation 
-                        SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
-                        WHERE dht_order_id = $2 AND item_id IS NULL
-                    `, [now, orderId]);
-                    await txDb.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept IN ('in', 'ep')`, [orderId]);
-                }
-
-                // 6. Add to history
-                const historyDetails = (itemId ? `[Phiếu ID: ${itemId}] ` : '') + 'Hủy phân công In toàn bộ (Khách bù tiền)';
-                if (itemId) {
-                    await txDb.run(`
-                        INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
-                        VALUES ($1, $2, 'unassign_in_all', $3, $4, $5)
-                    `, [orderId, itemId, historyDetails, request.user.id, now]);
-                } else {
-                    await txDb.run(`
-                        INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
-                        VALUES ($1, 'unassign_in_all', $2, $3, $4)
-                    `, [orderId, historyDetails, request.user.id, now]);
-                }
-
-                await client.query('COMMIT');
-                return { success: true };
-            } catch (txErr) {
-                await client.query('ROLLBACK');
-                throw txErr;
-            } finally {
-                client.release();
-            }
-        } else {
-            // Normal cancel print assignment (without printed meters)
-            if (dry_run === 'true') {
-                return { success: true, needs_confirm: true };
-            }
-            const client = await db.pool.connect();
-            const txDb = {
-                async run(sql, params = []) {
-                    const converted = convertPlaceholders(sql, params);
-                    const res = await client.query(converted.sql, converted.params);
-                    const lastInsertRowid = res.rows && res.rows.length > 0 && res.rows[0].id != null ? res.rows[0].id : 0;
-                    return { lastInsertRowid, changes: res.rowCount };
-                },
-                async all(sql, params = []) {
-                    const converted = convertPlaceholders(sql, params);
-                    const res = await client.query(converted.sql, converted.params);
-                    return res.rows;
-                },
-                async get(sql, params = []) {
-                    const converted = convertPlaceholders(sql, params);
-                    const res = await client.query(converted.sql, converted.params);
-                    return res.rows[0] || null;
-                }
-            };
-
-            try {
-                await client.query('BEGIN');
-
-                if (itemId) {
-                    await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
-                    await txDb.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
-                } else {
-                    await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
-                    await txDb.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
-                    await txDb.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
-                }
-
-                await syncPrintAndCutRemoval(txDb, orderId, itemId);
-
+            } else {
+                // Free cancel: delete active printing records
                 if (itemId) {
                     await txDb.run(`DELETE FROM printing_records WHERE order_item_id = $1`, [itemId]);
                 } else {
                     await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
                 }
-
-                if (itemId) {
-                    const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE item_id = $1', [itemId]);
-                    if (!row) {
-                        try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id, item_id) VALUES ($1, $2)', [orderId, itemId]); } catch(e){}
-                    }
-                    await txDb.run(`
-                        UPDATE qlx_preparation 
-                        SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
-                        WHERE item_id = $2
-                    `, [now, itemId]);
-                    await txDb.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept IN ('in', 'ep')`, [itemId]);
-                } else {
-                    const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
-                    if (!row) {
-                        try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id) VALUES ($1)', [orderId]); } catch(e){}
-                    }
-                    await txDb.run(`
-                        UPDATE qlx_preparation 
-                        SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
-                        WHERE dht_order_id = $2 AND item_id IS NULL
-                    `, [now, orderId]);
-                    await txDb.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept IN ('in', 'ep')`, [orderId]);
-                }
-
-                const historyDetails = (itemId ? `[Phiếu ID: ${itemId}] ` : '') + 'Hủy phân công In toàn bộ';
-                if (itemId) {
-                    await txDb.run(`
-                        INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
-                        VALUES ($1, $2, 'unassign_in_all', $3, $4, $5)
-                    `, [orderId, itemId, historyDetails, request.user.id, now]);
-                } else {
-                    await txDb.run(`
-                        INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
-                        VALUES ($1, 'unassign_in_all', $2, $3, $4)
-                    `, [orderId, historyDetails, request.user.id, now]);
-                }
-
-                await client.query('COMMIT');
-                return { success: true };
-            } catch (txErr) {
-                await client.query('ROLLBACK');
-                throw txErr;
-            } finally {
-                client.release();
             }
+
+            // 5. Reset reminders and choices in qlx_preparation
+            if (itemId) {
+                const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE item_id = $1', [itemId]);
+                if (!row) {
+                    try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id, item_id) VALUES ($1, $2)', [orderId, itemId]); } catch(e){}
+                }
+                await txDb.run(`
+                    UPDATE qlx_preparation 
+                    SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
+                    WHERE item_id = $2
+                `, [now, itemId]);
+                await txDb.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept IN ('in', 'ep')`, [itemId]);
+            } else {
+                const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
+                if (!row) {
+                    try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id) VALUES ($1)', [orderId]); } catch(e){}
+                }
+                await txDb.run(`
+                    UPDATE qlx_preparation 
+                    SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
+                    WHERE dht_order_id = $2 AND item_id IS NULL
+                `, [now, orderId]);
+                await txDb.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept IN ('in', 'ep')`, [orderId]);
+            }
+
+            // 6. Add to history
+            const historyDetails = (itemId ? `[Phiếu ID: ${itemId}] ` : '') + (isSurcharge ? 'Hủy phân công In toàn bộ (Khách bù tiền)' : 'Hủy phân công In toàn bộ');
+            if (itemId) {
+                await txDb.run(`
+                    INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                    VALUES ($1, $2, 'unassign_in_all', $3, $4, $5)
+                `, [orderId, itemId, historyDetails, request.user.id, now]);
+            } else {
+                await txDb.run(`
+                    INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'unassign_in_all', $2, $3, $4)
+                `, [orderId, historyDetails, request.user.id, now]);
+            }
+
+            await client.query('COMMIT');
+            return { success: true };
+        } catch (txErr) {
+            await client.query('ROLLBACK');
+            throw txErr;
+        } finally {
+            client.release();
         }
     });
 
