@@ -2315,6 +2315,7 @@ module.exports = async function(fastify) {
 
             for (const rec of activePrintRecs) {
                 const meters = Number(rec.print_meters) || 0;
+                if (meters <= 0) continue;
                 let type = 'PET';
                 const fieldUpper = (rec.print_field || '').toUpperCase();
                 if (fieldUpper.includes('TEM')) {
