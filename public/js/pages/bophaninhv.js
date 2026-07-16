@@ -125,7 +125,7 @@ function renderBophaninPage(content) {
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In / Bàn Giao</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Cuộn / Mét In</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In / Bàn Giao</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>Cuộn / Mét In</th><th>SL Đơn</th><th>CSKH</th><th>Ghi Chú</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody id="bpiTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     
     _bpi.search = '';
@@ -668,9 +668,9 @@ function _bpiRender() {
             +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
             +'<td style="font-weight:600;color:#1e293b">'+priBadge+clickableName+imgIcon+'</td>'
             +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
-            +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
-            +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
             + rollMeterCell
+            +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
+            +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
             + notesMergedCell
             +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
         }
@@ -686,9 +686,9 @@ function _bpiRender() {
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
         +'<td style="font-weight:600;color:#1e293b">'+priBadge+clickableName+imgIcon+'</td>'
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
-        +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
         + rollMeterCell
+        +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
+        +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
         + notesMergedCell
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
     }).join(''); }
