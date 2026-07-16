@@ -7549,7 +7549,7 @@ async function _tpdShowExportSheetsModal() {
         const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
         const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
 
-        const mockupStyle = isCustomerExport ? 'display: none !important;' : '';
+        const mockupStyle = '';
 
         return `
             <div class="tpd-print-page" id="tempExportPage_${idSuffix}_${idx}" style="width: 297mm; height: 210mm; box-sizing: border-box; padding: 8mm; background: white; border: none; margin: 0; overflow: hidden;">
@@ -8183,7 +8183,7 @@ async function _tpdPrintAllSheets(isCustomerExport = false) {
         const alignmentStyle = `justify-content: ${layout.alignment || 'flex-start'};`;
         const metaMarginStyle = `margin-bottom: ${layout.topSpacing !== undefined ? layout.topSpacing : 7}px;`;
 
-        const mockupStyle = isCustomerExport ? 'display: none !important;' : '';
+        const mockupStyle = '';
 
         printHtml += `
             <div class="tpd-print-page">
