@@ -3348,8 +3348,8 @@ module.exports = async function(fastify) {
             const newQuantities = b.quantities || [];
             vals.push(JSON.stringify(newQuantities));
 
-            // Recalculate total quantity
-            const totalQty = newQuantities.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+            // Use client-provided quantity if available to support manual unallocated quantities
+            const totalQty = b.quantity !== undefined ? Number(b.quantity) : newQuantities.reduce((s, x) => s + (Number(x.qty) || 0), 0);
             sets.push(`quantity = $${idx++}`);
             vals.push(totalQty);
 
@@ -3379,8 +3379,15 @@ module.exports = async function(fastify) {
                 vatPct = (calculatedPct >= 4) ? 8 : 0;
             }
 
-            // Calculate new base (raw total after gift deduction)
+            // Calculate new base (raw total after gift deduction), taking into account qtyDiff for unallocated items
+            const sumQuantitiesQty = newQuantities.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+            const qtyDiff = totalQty - sumQuantitiesQty;
+            const currentUnitPrice = (newQuantities.length > 0 && Number(newQuantities[0].price)) ? Number(newQuantities[0].price) : unitPrice;
             let newBase = newQuantities.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+            if (qtyDiff !== 0) {
+                newBase += qtyDiff * currentUnitPrice;
+                if (newBase < 0) newBase = 0;
+            }
             if (giftQty > 0 && newQuantities.length > 0) {
                 const giftPrice = Number(newQuantities[giftApplyIdx]?.price) || unitPrice;
                 newBase -= Math.round(giftPrice * giftQty);
@@ -3454,10 +3461,11 @@ module.exports = async function(fastify) {
                 let qtyArr = [];
                 try { qtyArr = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities || []); } catch(e) {}
                 const unitPrice = Number(it.unit_price) || 0;
-                if (qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
 
-                totalQtyVal += qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+                const actualQty = Number(it.quantity) || 0;
+                totalQtyVal += actualQty;
 
+                const sumQtyArr = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
                 let itBase = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
                 const giftQty = Number(it.promo_gift_quantity) || 0;
                 const giftApplyIdx = it.promo_gift_apply_row_index !== null ? Number(it.promo_gift_apply_row_index) : 0;
@@ -3465,6 +3473,14 @@ module.exports = async function(fastify) {
                 if (giftQty > 0 && qtyArr.length > 0) {
                     const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
                     itBase -= Math.round(giftPrice * giftQty);
+                    if (itBase < 0) itBase = 0;
+                }
+
+                // Adjust itBase with unallocated quantity difference
+                if (actualQty !== sumQtyArr) {
+                    const qtyDiff = actualQty - sumQtyArr;
+                    const currentUnitPrice = (qtyArr.length > 0 && Number(qtyArr[0].price)) ? Number(qtyArr[0].price) : unitPrice;
+                    itBase += qtyDiff * currentUnitPrice;
                     if (itBase < 0) itBase = 0;
                 }
 

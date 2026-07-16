@@ -2705,7 +2705,7 @@ function _dhtRenderPhieuRows() {
             ? '🐾 Phiếu ' + catName + ' #'+(i+1)+' — '+p.product_name + giftBadge
             : '📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span>' + giftBadge;
         d.innerHTML='<div style="font-weight:700;color:var(--navy)">'+label+'</div>'
-            +'<div style="text-align:center;font-weight:700">SL:'+(Array.isArray(p.quantities)&&p.quantities.length>0?p.quantities.reduce(function(s,x){return s+(Number(x.qty)||0);},0):p.quantity)+'</div>'
+            +'<div style="text-align:center;font-weight:700">SL:'+p.quantity+'</div>'
             +'<div style="text-align:right">'+p.raw_total.toLocaleString('vi-VN')+'đ</div>'
             +'<div style="text-align:center;font-size:10px;color:#b8860b;font-weight:700">'+vl+'</div>'
             +'<div style="text-align:right;font-weight:800;color:#059669">'+p.item_total.toLocaleString('vi-VN')+'đ</div>'
@@ -3115,8 +3115,7 @@ async function _dhtSubmitCreateV2(isDraft) {
         // ★ Compute total_quantity from quantities arrays (source of truth)
         total_quantity: items.reduce(function(s, x) {
             if (!x) return s;
-            var qa = x.quantities || [];
-            return s + (qa.length > 0 ? qa.reduce(function(qs, q) { return qs + (Number(q.qty) || 0); }, 0) : (x.quantity || 0));
+            return s + (Number(x.quantity) || 0);
         }, 0),
         total_amount: totalAmt - promoDiscountAmt + vatAmt + (_dhtCreate.surcharges||[]).reduce(function(s,x){return s+(Number(x.amount)||0);},0),
         discount_amount: 0,
@@ -3485,6 +3484,8 @@ async function _dhtInitializeEditState(id, data) {
             var vatPct = 0;
             // Detect VAT from raw vs total, taking promo_gift_quantity into account
             if (it.unit_price && it.quantity) {
+                var actualQty = Number(it.quantity) || 0;
+                var sumQtyArr = qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0); }, 0);
                 var base = qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0)*(Number(x.price)||0); }, 0);
                 var giftQty = Number(it.promo_gift_quantity) || 0;
                 var giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : null;
@@ -3499,6 +3500,13 @@ async function _dhtInitializeEditState(id, data) {
                         }
                     }
                     base -= Math.round(giftPrice * giftQty);
+                    if (base < 0) base = 0;
+                }
+                // Adjust base with unallocated qty mismatch to prevent wrong VAT detection
+                if (actualQty !== sumQtyArr) {
+                    var qtyDiff = actualQty - sumQtyArr;
+                    var currentUnitPrice = (qtyArr.length > 0 && Number(qtyArr[0].price)) ? Number(qtyArr[0].price) : (it.unit_price || 0);
+                    base += qtyDiff * currentUnitPrice;
                     if (base < 0) base = 0;
                 }
                 if (base > 0 && rawTotal > base) {
@@ -3527,8 +3535,7 @@ async function _dhtInitializeEditState(id, data) {
                 vat_amount: vatAmt,
                 raw_total: baseTotal,
                 item_total: rawTotal,
-                // ★ Sync quantity from quantities array (source of truth) to fix stale DB values
-                quantity: qtyArr.length > 0 ? qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0); }, 0) : (Number(it.quantity) || 0),
+                quantity: Number(it.quantity) || 0,
                 unit_price: Number(it.unit_price) || 0,
                 promo_gift_quantity: Number(it.promo_gift_quantity) || 0,
                 promo_gift_code: it.promo_gift_code || '',
@@ -4055,8 +4062,7 @@ async function _dhtSubmitEditV2(isDraft) {
         // ★ Compute total_quantity from quantities arrays (source of truth)
         total_quantity: items.reduce(function(s, x) {
             if (!x) return s;
-            var qa = x.quantities || [];
-            return s + (qa.length > 0 ? qa.reduce(function(qs, q) { return qs + (Number(q.qty) || 0); }, 0) : (x.quantity || 0));
+            return s + (Number(x.quantity) || 0);
         }, 0),
         total_amount: totalAmt - promoDiscountAmt + vatAmt + surTotal,
         applied_coupon: _dhtCreate.appliedPromo?.code || null,
