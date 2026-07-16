@@ -6496,6 +6496,66 @@ function _tpdParseLayout(val) {
     return val;
 }
 
+function _tpdNormalizeLayoutForComparison(layout) {
+    const defLayout = _tpdGetDefaultLayoutConfig();
+    const lay = layout ? { ...layout } : {};
+    if (lay.height === undefined || lay.height === '') lay.height = defLayout.height;
+    if (lay.topSpacing === undefined) lay.topSpacing = defLayout.topSpacing;
+    if (lay.alignment === undefined) lay.alignment = defLayout.alignment;
+    if (lay.is_red_sheet === undefined) lay.is_red_sheet = false;
+    return lay;
+}
+
+function _tpdNormalizeSewingItemsForComparison(layout, it) {
+    let sewing_items = [];
+    if (layout && layout.sewing_items) {
+        sewing_items = JSON.parse(JSON.stringify(layout.sewing_items));
+    } else if (layout && layout.custom_sewing && layout.custom_sewing !== '—') {
+        sewing_items = _tpdParseSewingTechs(layout.custom_sewing);
+    }
+
+    if (Array.isArray(sewing_items)) {
+        sewing_items.forEach(item => {
+            if (item) {
+                item.tech = _tpdExtractString(item.tech);
+            }
+        });
+    } else {
+        sewing_items = [];
+    }
+
+    const orderTechNames = _tpdGetSewingTechniqueNames(it.sewing_techniques);
+    const patternTechNames = _tpdGetSewingTechniqueNames(it.tsam_sewing_tech);
+    const uniqueMasterTechs = [...new Set([...patternTechNames, ...orderTechNames])];
+
+    uniqueMasterTechs.forEach(techName => {
+        const existingItem = sewing_items.find(x => x.tech === techName);
+        if (existingItem) {
+            existingItem.is_bgm = true;
+        } else {
+            sewing_items.push({ tech: techName, detail: '', is_bgm: true });
+        }
+    });
+
+    sewing_items.forEach(item => {
+        if (item && uniqueMasterTechs.includes(item.tech)) {
+            item.is_bgm = true;
+        }
+    });
+
+    sewing_items = sewing_items.filter(item => {
+        if (!item) return false;
+        if (!item.tech || item.tech === '—' || item.tech.trim() === '') {
+            return !!item.detail;
+        }
+        return true;
+    });
+
+    _tpdSortBySewingGroup(sewing_items, x => x.tech);
+
+    return sewing_items;
+}
+
 function _tpdIsSheetModified(it, dbItem) {
     if (!it || !dbItem) {
         console.log('[_tpdIsSheetModified] it or dbItem is missing:', { it: !!it, dbItem: !!dbItem });
@@ -6623,8 +6683,11 @@ function _tpdIsSheetModified(it, dbItem) {
     }
 
     // Compare custom layout sewing items
-    const lay1 = _tpdParseLayout(it.custom_layout);
-    const lay2 = _tpdParseLayout(dbItem.custom_layout);
+    const rawLay1 = _tpdParseLayout(it.custom_layout);
+    const rawLay2 = _tpdParseLayout(dbItem.custom_layout);
+
+    const lay1 = _tpdNormalizeLayoutForComparison(rawLay1);
+    const lay2 = _tpdNormalizeLayoutForComparison(rawLay2);
     
     if ((lay1.height || '') !== (lay2.height || '')) {
         console.log('[_tpdIsSheetModified] layout height differs:', { current: lay1.height, db: lay2.height });
@@ -6634,7 +6697,7 @@ function _tpdIsSheetModified(it, dbItem) {
         console.log('[_tpdIsSheetModified] layout alignment differs:', { current: lay1.alignment, db: lay2.alignment });
         return true;
     }
-    if ((lay1.topSpacing || '') !== (lay2.topSpacing || '')) {
+    if (lay1.topSpacing !== lay2.topSpacing) {
         console.log('[_tpdIsSheetModified] layout topSpacing differs:', { current: lay1.topSpacing, db: lay2.topSpacing });
         return true;
     }
@@ -6643,8 +6706,8 @@ function _tpdIsSheetModified(it, dbItem) {
         return true;
     }
 
-    const sew1 = lay1.sewing_items || [];
-    const sew2 = lay2.sewing_items || [];
+    const sew1 = _tpdNormalizeSewingItemsForComparison(lay1, it);
+    const sew2 = _tpdNormalizeSewingItemsForComparison(lay2, dbItem);
     if (sew1.length !== sew2.length) {
         console.log('[_tpdIsSheetModified] sewing_items length differs:', { current: sew1.length, db: sew2.length });
         return true;
