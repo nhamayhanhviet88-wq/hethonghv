@@ -3255,6 +3255,16 @@ module.exports = async function(fastify) {
                 }
             }
             if (printDetailsChanged) {
+                const printAssignment = await db.get(`
+                    SELECT 1 FROM qlx_assignments qa 
+                    WHERE qa.assignment_type = 'in'
+                      AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                      AND (qa.item_id = $1 OR (qa.dht_order_id = $2 AND qa.item_id IS NULL))
+                    LIMIT 1
+                `, [itemId, orderId]);
+                if (printAssignment) {
+                    return reply.code(400).send({ error: '⚠️ Phiếu này đã được phân công in, không thể thay đổi Vị trí in/thêu chi tiết!' });
+                }
                 shouldResetPrint = true;
             }
 

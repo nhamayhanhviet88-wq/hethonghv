@@ -4611,6 +4611,20 @@ function _tpdRenderFormInputs() {
     const fabricDisabledAttr = 'disabled';
     const fabricStyle = 'background:#f1f5f9; color:#64748b; cursor:not-allowed; border-color:#e2e8f0;';
 
+    const printLocked = !!it.has_print_assignment;
+    let printWarningHtml = '';
+    if (printLocked) {
+        printWarningHtml = `
+            <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1.5px solid #fca5a5; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #991b1b;">
+                <span style="font-size: 16px;">🔒</span>
+                <div style="flex: 1; font-weight: 700;">
+                    PHIẾU ĐÃ ĐƯỢC PHÂN CÔNG IN
+                    <span style="font-weight: 500; font-size: 11px; display: block; margin-top: 1px; color: #b91c1c;">Không thể thêm hoặc chỉnh sửa vị trí in/thêu. Vui lòng liên hệ Quản lý xưởng Hủy phân công in toàn bộ để chỉnh sửa.</span>
+                </div>
+            </div>
+        `;
+    }
+
     // Compute defaults for overrides placeholders
     const orderTechNames = _tpdGetSewingTechniqueNames(it.sewing_techniques);
     const patternTechNames = _tpdGetSewingTechniqueNames(it.tsam_sewing_tech);
@@ -4869,13 +4883,12 @@ function _tpdRenderFormInputs() {
             ? 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1.5px solid #ef4444; background: #fef2f2; outline: none;' 
             : 'flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;';
 
-        const imgSrc = d.image || '';
         const imageZoneHtml = `
             <div style="display: none; margin-top: 4px; border-top: 1px dashed #f1f5f9; padding-top: 4px;">
                 <span style="font-size: 9px; color: #64748b; font-weight: 700; display: block; margin-bottom: 2px;">Ảnh vị trí:</span>
                 <div class="tpd-ws-upload-box paste-target" data-zone="detail_${idx}" style="min-height: 60px; cursor: pointer; padding: 4px; border-radius: 6px; position: relative; display: flex; align-items: center; justify-content: center; border: 1.5px dashed #cbd5e1; background: #f8fafc; transition: all 0.2s;">
                     ${imgSrc ? `
-                        <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('detail_${idx}')" style="background:#ef4444; border: none; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 8px; cursor: pointer; position: absolute; top: 2px; right: 2px; z-index: 10;" ${disabledAttr}>✕</button>
+                        <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdClearZone('detail_${idx}')" style="background:#ef4444; border: none; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 8px; cursor: pointer; position: absolute; top: 2px; right: 2px; z-index: 10;" ${disabledAttr || printLocked ? 'disabled style="background:#cbd5e1; cursor:not-allowed;"' : ''}>✕</button>
                         <img src="${imgSrc}" class="tpd-ws-upload-preview" style="max-height:50px; max-width: 100%; object-fit: contain;">
                     ` : `
                         <div style="text-align: center; line-height: 1;">
@@ -4890,7 +4903,7 @@ function _tpdRenderFormInputs() {
         detailBoxesHtml += `
             <div class="tpd-ws-detail-card" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #ffffff; display: flex; flex-direction: column; gap: 6px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                 <!-- Clear / Delete button -->
-                <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdRemoveDetailZone(${idx})" style="background:#ef4444; position: absolute; top: 4px; right: 4px; border: none; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; line-height: 1; z-index: 10;" title="Xóa vị trí này" ${disabledAttr}>✕</button>
+                <button type="button" class="tpd-ws-upload-clear" onclick="event.stopPropagation(); _tpdRemoveDetailZone(${idx})" style="background:#ef4444; position: absolute; top: 4px; right: 4px; border: none; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; line-height: 1; z-index: 10;" title="Xóa vị trí này" ${disabledAttr || printLocked ? 'disabled style="background:#cbd5e1; cursor:not-allowed;"' : ''}>✕</button>
                 
                 <!-- Position title -->
                 <div style="font-size: 12px; font-weight: 800; color: #1e293b; text-align: center; margin-bottom: 2px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">
@@ -4901,7 +4914,7 @@ function _tpdRenderFormInputs() {
                 <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f1f5f9; padding-top: 4px;">
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kiểu:</span>
-                        <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr || isPrint3DPosition ? 'disabled' : ''}>
+                        <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr || isPrint3DPosition || printLocked ? 'disabled' : ''}>
                             <option value="">-- Kiểu in/thêu --</option>
                             ${localTypes.map(t => `<option value="${t}" ${d.print_type === t ? 'selected' : ''}>${t}</option>`).join('')}
                         </select>
@@ -4914,9 +4927,9 @@ function _tpdRenderFormInputs() {
                     ` : `
                         <div style="display: flex; gap: 4px; align-items: center;">
                             <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
-                            <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="document.getElementById('tpd_height_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="${widthStyle}" ${disabledAttr || (valHeight ? 'disabled' : '')}>
+                            <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="document.getElementById('tpd_height_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="${widthStyle}" ${disabledAttr || (valHeight ? 'disabled' : '') || printLocked ? 'disabled' : ''}>
                             <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
-                            <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '')}>
+                            <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '') || printLocked ? 'disabled' : ''}>
                         </div>
                     `}
 
@@ -4937,10 +4950,10 @@ function _tpdRenderFormInputs() {
                                 return `
                                     <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
                                         <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; color: #475569; margin: 0; cursor: pointer; min-width: 75px;">
-                                            <input type="checkbox" ${item.isChecked ? 'checked' : ''} onchange="_tpdToggleDetailOffset(${idx}, '${item.configLabel}', this.checked, ${oIdx})" style="width: 12px; height: 12px; margin: 0; cursor: pointer;" ${disabledAttr}>
+                                            <input type="checkbox" ${item.isChecked ? 'checked' : ''} onchange="_tpdToggleDetailOffset(${idx}, '${item.configLabel}', this.checked, ${oIdx})" style="width: 12px; height: 12px; margin: 0; cursor: pointer;" ${disabledAttr || printLocked ? 'disabled' : ''}>
                                             <span>${item.label}:</span>
                                         </label>
-                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '${item.configLabel}', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr} ${item.isChecked ? '' : 'disabled'}>
+                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '${item.configLabel}', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr || printLocked ? 'disabled' : ''} ${item.isChecked && !printLocked ? '' : 'disabled'}>
                                     </div>
                                 `;
                             } else {
@@ -4954,8 +4967,8 @@ function _tpdRenderFormInputs() {
                                 return `
                                     <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
                                         <input type="checkbox" checked disabled style="width: 12px; height: 12px; margin: 0; cursor: not-allowed;">
-                                        <input type="text" placeholder="Tên khoảng cách..." value="${displayLabel}" onchange="_tpdUpdateDetailOffsetLabel(${idx}, '${item.label}', this.value, ${oIdx})" style="width: 75px; font-size: 9px; font-weight: 700; color: #475569; padding: 2px 4px; height: 18px; outline: none; border-radius: 4px; ${labelBorderStyle}" ${disabledAttr}>
-                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr}>
+                                        <input type="text" placeholder="Tên khoảng cách..." value="${displayLabel}" onchange="_tpdUpdateDetailOffsetLabel(${idx}, '${item.label}', this.value, ${oIdx})" style="width: 75px; font-size: 9px; font-weight: 700; color: #475569; padding: 2px 4px; height: 18px; outline: none; border-radius: 4px; ${labelBorderStyle}" ${disabledAttr || printLocked ? 'disabled' : ''}>
+                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr || printLocked ? 'disabled' : ''}>
                                     </div>
                                 `;
                             }
@@ -4974,19 +4987,20 @@ function _tpdRenderFormInputs() {
                 <label class="tpd-ws-form-label" style="margin-bottom:0;">Vị trí in / thêu chi tiết</label>
                 ${state.hasEditPermission ? `
                     <div style="display:flex; gap:6px; align-items:center;">
-                        <select id="tpdNewPositionSelect" class="tpd-ws-input" style="padding:2px 6px; font-size:11px; height:24px; width:110px; border-radius:4px;">
+                        <select id="tpdNewPositionSelect" class="tpd-ws-input" style="padding:2px 6px; font-size:11px; height:24px; width:110px; border-radius:4px;" ${printLocked ? 'disabled' : ''}>
                             ${(_tpd.printPositionsConfig || []).map(p => `
                                 <option value="${p.name}">${p.name}</option>
                             `).join('')}
-                            <option value="Vị Trí Khác">Vị Trí Khác...</option>
+                            <option value="Vị Trí Khác" ${printLocked ? 'disabled' : ''}>Vị Trí Khác...</option>
                         </select>
-                        <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546; color: white;">Thêm</button>
+                        <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546; color: white;" ${printLocked ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>Thêm</button>
                         ${state.role === 'giam_doc' ? `
-                            <button type="button" class="btn btn-secondary" onclick="_tpdOpenPrintPositionsConfigModal()" style="padding:2px 6px; font-size:12px; height:24px; border-radius:4px; font-weight:700; background:#64748b; border:1px solid #64748b; color: white;" title="Cấu hình vị trí in/thêu">⚙️</button>
+                            <button type="button" class="btn btn-secondary" onclick="_tpdOpenPrintPositionsConfigModal()" style="padding:2px 6px; font-size:12px; height:24px; border-radius:4px; font-weight:700; background:#64748b; border:1px solid #64748b; color: white;" title="Cấu hình vị trí in/thêu" ${printLocked ? 'disabled' : ''}>⚙️</button>
                         ` : ''}
                     </div>
                 ` : ''}
             </div>
+            ${printWarningHtml}
             <div class="tpd-ws-upload-row" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
                 ${detailBoxesHtml || `<div style="grid-column:1/-1; padding:20px; text-align:center; color:#94a3b8; font-size:11px; font-weight:600; border:2px dashed #cbd5e1; border-radius:10px;">Chưa thêm vị trí in/thêu nào.</div>`}
             </div>
@@ -6024,6 +6038,12 @@ function _tpdAddPosition() {
     const select = document.getElementById('tpdNewPositionSelect');
     if (!select) return;
 
+    const it = state.editingItem;
+    if (it && it.has_print_assignment) {
+        showToast('⚠️ Phiếu đã được phân công in, không thể thêm vị trí in/thêu!', 'error');
+        return;
+    }
+
     let val = select.value;
     if (val === 'Vị Trí Khác') {
         const custom = prompt('Nhập tên vị trí in/thêu khác (Ví dụ: Cổ áo, Sườn áo...):');
@@ -6062,6 +6082,10 @@ function _tpdRemoveDetailZone(idx) {
     if (!state.hasEditPermission || !state.editingItem) return;
 
     const it = state.editingItem;
+    if (it.has_print_assignment) {
+        showToast('⚠️ Phiếu đã được phân công in, không thể xóa vị trí in/thêu!', 'error');
+        return;
+    }
     if (!it.print_details) return;
 
     const removed = it.print_details[idx];
@@ -6082,6 +6106,10 @@ function _tpdUpdateDetailField(idx, field, value) {
     if (!state || !state.editingItem) return;
 
     const it = state.editingItem;
+    if (it.has_print_assignment) {
+        showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        return;
+    }
     if (!it.print_details || !it.print_details[idx]) return;
 
     let cleanVal = value ? value.trim() : '';
@@ -6134,6 +6162,10 @@ function _tpdToggleDetailOffset(idx, label, isChecked, offsetIndex) {
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
     const it = state.editingItem;
+    if (it.has_print_assignment) {
+        showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        return;
+    }
     if (!it.print_details || !it.print_details[idx]) return;
     const d = it.print_details[idx];
     const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
@@ -6185,6 +6217,10 @@ function _tpdUpdateDetailOffsetLabel(idx, oldLabel, newLabel, offsetIndex) {
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
     const it = state.editingItem;
+    if (it.has_print_assignment) {
+        showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        return;
+    }
     if (!it.print_details || !it.print_details[idx]) return;
     const d = it.print_details[idx];
     const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
@@ -6214,6 +6250,10 @@ function _tpdUpdateDetailOffsetVal(idx, label, value, offsetIndex) {
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
     const it = state.editingItem;
+    if (it.has_print_assignment) {
+        showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        return;
+    }
     if (!it.print_details || !it.print_details[idx]) return;
     const d = it.print_details[idx];
     const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
@@ -6274,6 +6314,11 @@ function _tpdClearZone(zone) {
     const state = window._tpdWorkspaceState;
     if (!state.hasEditPermission || !state.editingItem) return;
 
+    if (zone.startsWith('detail_') && state.editingItem.has_print_assignment) {
+        showToast('⚠️ Phiếu đã được phân công in, không thể xóa ảnh vị trí in/thêu!', 'error');
+        return;
+    }
+
     if (zone === 'mockup') {
         state.editingItem.mockup_image = '';
     } else if (zone.startsWith('detail_')) {
@@ -6299,6 +6344,15 @@ function _tpdSetupPasteZones() {
     let activeTarget = null;
 
     targets.forEach(t => {
+        const zone = t.getAttribute('data-zone') || '';
+        const isPrintLocked = state.editingItem && !!state.editingItem.has_print_assignment;
+        if (zone.startsWith('detail_') && isPrintLocked) {
+            t.style.cursor = 'not-allowed';
+            t.style.opacity = '0.6';
+            t.style.pointerEvents = 'none'; // prevents click and highlights
+            return;
+        }
+
         t.addEventListener('click', () => {
             targets.forEach(el => el.classList.remove(activeZoneClass));
             t.classList.add(activeZoneClass);
