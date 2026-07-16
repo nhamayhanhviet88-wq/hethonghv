@@ -2682,13 +2682,53 @@ async function _qlxPASave() {
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); } finally { window._qlxPABusy = false; }
 }
 
+function _qlxCustomConfirm(message) {
+    return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.id = '_qlxCustomConfirmOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:100000;display:flex;align-items:center;justify-content:center;animation:_qcfFadeIn .2s ease';
+
+        var html = '<div style="background:#fff;border-radius:16px;max-width:380px;width:90%;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;animation:_qcfScaleIn .2s ease">'
+            + '<div style="padding:24px;text-align:center">'
+            + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
+            + '<h3 style="margin:0 0 10px 0;font-size:15px;font-weight:800;color:#1e293b">Xác Nhận Hủy Phân Công</h3>'
+            + '<p style="margin:0;font-size:13px;color:#64748b;line-height:1.5">' + message + '</p>'
+            + '</div>'
+            + '<div style="padding:16px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:12px;justify-content:flex-end">'
+            + '<button id="_qcfCancel" style="padding:8px 16px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Quay lại</button>'
+            + '<button id="_qcfConfirm" style="padding:8px 16px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(220,38,38,0.15)">Hủy Phân Công</button>'
+            + '</div>'
+            + '</div>';
+
+        overlay.innerHTML = html;
+
+        if (!document.getElementById('_qcfStyles')) {
+            var st = document.createElement('style');
+            st.id = '_qcfStyles';
+            st.textContent = '@keyframes _qcfFadeIn{from{opacity:0}to{opacity:1}}@keyframes _qcfScaleIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}';
+            document.head.appendChild(st);
+        }
+
+        document.body.appendChild(overlay);
+
+        overlay.querySelector('#_qcfCancel').onclick = function() {
+            overlay.remove();
+            resolve(false);
+        };
+
+        overlay.querySelector('#_qcfConfirm').onclick = function() {
+            overlay.remove();
+            resolve(true);
+        };
+    });
+}
+
 async function _qlxPACancelAll() {
     var d = window._qlxPAData;
     if (!d || !d.orderId) return;
 
-    if (!confirm('Bạn có chắc chắn muốn HỦY TOÀN BỘ phân công in cho đơn/phiếu này? Trạng thái sẽ được đưa về chưa phân công.')) {
-        return;
-    }
+    var confirmed = await _qlxCustomConfirm('Bạn có chắc chắn muốn HỦY TOÀN BỘ phân công in cho đơn/phiếu này? Trạng thái sẽ được đưa về chưa phân công.');
+    if (!confirmed) return;
 
     if (window._qlxPABusy) return;
     window._qlxPABusy = true;
