@@ -1385,6 +1385,7 @@ function _ppRevertSF(inputId, hiddenId, listId) {
     var hid = document.getElementById(hiddenId);
     var list = document.getElementById(listId);
     if (!inp || !hid || !list) return;
+    if (inp.disabled) return;
     
     var valText = inp.value.trim().toLowerCase();
     var opts = Array.from(list.querySelectorAll('div, ._ppOpt, ._ppPairOpt'));
