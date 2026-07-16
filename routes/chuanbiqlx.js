@@ -2425,43 +2425,22 @@ module.exports = async function(fastify) {
 
             // 3. Update or delete printing records
             if (isSurcharge) {
-                // Count existing discarded records to determine cancellation round number
-                let discardedCount = 0;
+                // Count previous cancellation rounds by checking how many times any one field was discarded
+                let previousRounds = 0;
                 if (itemId) {
-                    const countRow = await txDb.get(`SELECT COUNT(DISTINCT print_field) as cnt FROM printing_records WHERE order_item_id = $1 AND is_discarded = true`, [itemId]);
-                    discardedCount = countRow ? Math.floor(countRow.cnt / 1) : 0; // count distinct cancelled batches
+                    const sample = await txDb.get(`SELECT print_field FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false LIMIT 1`, [itemId]);
+                    if (sample) {
+                        const countRow = await txDb.get(`SELECT COUNT(*) as cnt FROM printing_records WHERE order_item_id = $1 AND print_field = $2 AND is_discarded = true`, [itemId, sample.print_field]);
+                        previousRounds = countRow ? Number(countRow.cnt) : 0;
+                    }
                 } else {
-                    const countRow = await txDb.get(`SELECT COUNT(DISTINCT print_field) as cnt FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND is_discarded = true`, [orderId]);
-                    discardedCount = countRow ? Math.floor(countRow.cnt / 1) : 0;
+                    const sample = await txDb.get(`SELECT print_field FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false LIMIT 1`, [orderId]);
+                    if (sample) {
+                        const countRow = await txDb.get(`SELECT COUNT(*) as cnt FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND print_field = $2 AND is_discarded = true`, [orderId, sample.print_field]);
+                        previousRounds = countRow ? Number(countRow.cnt) : 0;
+                    }
                 }
-                // Calculate round: if 0 discarded before → this is round 1 (no suffix), if 3 discarded (1 batch) → round 2, etc.
-                // Count actual batches by counting how many distinct "rounds" exist
-                let batchCount = 0;
-                if (itemId) {
-                    const batchRow = await txDb.get(`
-                        SELECT COUNT(*) as cnt FROM printing_records 
-                        WHERE order_item_id = $1 AND is_discarded = true
-                    `, [itemId]);
-                    // Get unique field count for this item
-                    const fieldRow = await txDb.get(`
-                        SELECT COUNT(DISTINCT print_field) as cnt FROM printing_records 
-                        WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false
-                    `, [itemId]);
-                    const activeFieldCount = fieldRow ? fieldRow.cnt : 1;
-                    batchCount = batchRow && activeFieldCount > 0 ? Math.floor(batchRow.cnt / activeFieldCount) : 0;
-                } else {
-                    const batchRow = await txDb.get(`
-                        SELECT COUNT(*) as cnt FROM printing_records 
-                        WHERE dht_order_id = $1 AND order_item_id IS NULL AND is_discarded = true
-                    `, [orderId]);
-                    const fieldRow = await txDb.get(`
-                        SELECT COUNT(DISTINCT print_field) as cnt FROM printing_records 
-                        WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false
-                    `, [orderId]);
-                    const activeFieldCount = fieldRow ? fieldRow.cnt : 1;
-                    batchCount = batchRow && activeFieldCount > 0 ? Math.floor(batchRow.cnt / activeFieldCount) : 0;
-                }
-                const roundNumber = batchCount + 1;
+                const roundNumber = previousRounds + 1;
                 const roundSuffix = roundNumber > 1 ? ` (Lần ${roundNumber})` : '';
                 const discardTag = ` - [HỦY BỎ - BÙ PHÍ]${roundSuffix}`;
 
