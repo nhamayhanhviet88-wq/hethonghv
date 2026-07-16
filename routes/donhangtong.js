@@ -4036,7 +4036,8 @@ module.exports = async function(fastify) {
                         fs.writeFileSync(filepath, buffer);
                         savedSheetPaths.push({
                             path: filepath,
-                            filename: filename
+                            filename: filename,
+                            sheetIndex: idx
                         });
                     }
                 }
@@ -4047,7 +4048,7 @@ module.exports = async function(fastify) {
             // Run in background to keep UI snappy, letting the rate-limiter handle spacing in the background
             (async () => {
                 try {
-                    await sendDesignEmail(orderId, recipientEmailStr, savedSheetPaths, null, false);
+                    await sendDesignEmail(orderId, recipientEmailStr, savedSheetPaths, null, false, item_designs);
                 } catch (emailErr) {
                     console.error('[ConfirmExport] Background sendDesignEmail failed:', emailErr);
                 }
@@ -6891,7 +6892,8 @@ module.exports = async function(fastify) {
             if (fs.existsSync(filepath)) {
                 savedSheetPaths.push({
                     path: filepath,
-                    filename: filename
+                    filename: filename,
+                    sheetIndex: idx
                 });
             } else {
                 const oldFilename = `${order.order_code || 'order'}_sheet_${idx + 1}.jpeg`;
@@ -6899,7 +6901,8 @@ module.exports = async function(fastify) {
                 if (fs.existsSync(oldFilepath)) {
                     savedSheetPaths.push({
                         path: oldFilepath,
-                        filename: filename
+                        filename: filename,
+                        sheetIndex: idx
                     });
                 }
             }
@@ -7285,7 +7288,7 @@ module.exports = async function(fastify) {
             .replace(/'/g, '&#039;');
     }
 
-    async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths, preAllocatedTargetTime, isResend = false) {
+    async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths, preAllocatedTargetTime, isResend = false, itemDesigns = null) {
         const nodemailer = require('nodemailer');
         const { decrypt } = require('../services/emailChecker');
         
@@ -7388,6 +7391,41 @@ module.exports = async function(fastify) {
                 hasChanges: true
             };
         }
+
+        const modifiedItemIds = new Set();
+        if (itemDesigns && typeof itemDesigns === 'object') {
+            for (const [idStr, val] of Object.entries(itemDesigns)) {
+                if (val && val.is_modified) {
+                    modifiedItemIds.add(Number(idStr));
+                }
+            }
+        }
+
+        const isSheetModified = (item, idx) => {
+            // If it is the first time sending (not a revision), send all sheets
+            if (!order.design_email_message_id && editCount === 0) {
+                return true;
+            }
+
+            // If explicitly flagged from client
+            if (modifiedItemIds.size > 0 && modifiedItemIds.has(item.id)) {
+                return true;
+            }
+
+            // If we have oldState, compare
+            if (oldState) {
+                const isAdded = !oldState.items.some(oldIt => oldIt.id === item.id);
+                if (isAdded) return true;
+
+                const sheetKey = idx.toString();
+                if (diffs.sheetChanges[sheetKey] && diffs.sheetChanges[sheetKey].changes.length > 0) return true;
+
+                const oldIt = oldState.items.find(oldIt => oldIt.id === item.id);
+                if (oldIt && oldIt.design_pdf_url !== item.design_pdf_url) return true;
+            }
+
+            return false;
+        };
 
         let surcharges = [];
         try {
@@ -7733,6 +7771,21 @@ module.exports = async function(fastify) {
 
         // Add sheet images as attachments
         savedSheetPaths.forEach(sheet => {
+            let idx = sheet.sheetIndex;
+            if (idx === undefined && sheet.filename) {
+                const match = sheet.filename.match(/(?:Phieu\s+|sheet_)(\d+)/i);
+                if (match) {
+                    idx = parseInt(match[1], 10) - 1;
+                }
+            }
+            if (idx !== undefined && idx >= 0 && idx < items.length) {
+                const item = items[idx];
+                if (!isSheetModified(item, idx)) {
+                    // Skip unmodified sheet image
+                    return;
+                }
+            }
+
             if (fs.existsSync(sheet.path)) {
                 let filename = sheet.filename;
                 let finalPath = sheet.path;
@@ -7762,6 +7815,10 @@ module.exports = async function(fastify) {
 
         // Check PDFs
         items.forEach((item, idx) => {
+            if (!isSheetModified(item, idx)) {
+                // Skip unmodified PDFs
+                return;
+            }
             if (item.design_pdf_url) {
                 const pdfRelativePath = item.design_pdf_url.startsWith('/') ? item.design_pdf_url.substring(1) : item.design_pdf_url;
                 const pdfFullPath = path.join(__dirname, '..', pdfRelativePath);
@@ -7813,6 +7870,10 @@ module.exports = async function(fastify) {
         // Construct sheet blocks
         let sheetBlocks = [];
         items.forEach((item, idx) => {
+            if (!isSheetModified(item, idx)) {
+                // Skip unmodified sheet blocks
+                return;
+            }
             const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
             const numEmoji = numberEmojis[idx] || '🔹';
             let block = `${numEmoji} ${orderCode} | PHIẾU ${idx + 1}/${items.length}\n`;
@@ -8082,7 +8143,7 @@ module.exports = async function(fastify) {
         finText += `Địa Chỉ : ${fullAddress}\n`;
         finText += `Hình Thức Gửi : ${shipCarrier}\n`;
 
-        const emailBodyText = sheetBlocks.join('\n\n\n') + '\n\n\n' + finText;
+        const emailBodyText = [sheetBlocks.join('\n\n\n'), finText].filter(Boolean).join('\n\n\n');
 
         // Construct Edit Notification Alert
         let editDiffHtml = '';
