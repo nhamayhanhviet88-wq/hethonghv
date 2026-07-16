@@ -2832,7 +2832,7 @@ async function _qlxPACancelAll() {
 
             '    <div style="display: flex; flex-direction: column; gap: 12px;">' +
             '      <div>' +
-            '        <label style="font-size: 11px; font-weight: 800; color: #475569; display: block; margin-bottom: 6px;">NỘI DUNG / GHI CHÚ BÙ PHÍ</label>' +
+            '        <label style="font-size: 11px; font-weight: 800; color: #475569; display: block; margin-bottom: 6px;">NỘI DUNG / GHI CHÚ BÙ PHÍ <span style="color:#ef4444">*</span></label>' +
             '        <input type="text" id="_qlxChoiceSurchargeNote" value="" placeholder="Nhập ghi chú bù phí (ví dụ: Bù phí in Đơn ' + (d.spLabel || d.orderId) + ')" style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 13px; box-sizing: border-box;">' +
             '      </div>' +
             '      <div>' +
