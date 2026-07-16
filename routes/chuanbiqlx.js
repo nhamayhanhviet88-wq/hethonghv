@@ -2407,13 +2407,15 @@ module.exports = async function(fastify) {
                 }
 
                 // 4. Update order surcharges & total_amount
-                const order = await txDb.get(`SELECT surcharges, net_total, vat_rate, discount, manual_discount FROM dht_orders WHERE id = $1`, [orderId]);
+                const order = await txDb.get(`SELECT surcharges, total_amount FROM dht_orders WHERE id = $1`, [orderId]);
                 if (order) {
                     let surcharges = [];
                     try {
                         surcharges = typeof order.surcharges === 'string' ? JSON.parse(order.surcharges) : (order.surcharges || []);
                     } catch(e) { surcharges = []; }
                     if (!Array.isArray(surcharges)) surcharges = [];
+
+                    const oldSurTotal = surcharges.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
 
                     const surchargeName = `Bù phí in ${itemId ? 'Phiếu ' + itemId : 'toàn bộ'} (In lại)`;
                     surcharges = surcharges.filter(s => s.name !== surchargeName);
@@ -2423,21 +2425,15 @@ module.exports = async function(fastify) {
                         note: surcharge_note || ''
                     });
 
-                    const netTotal = Number(order.net_total) || 0;
-                    const vatRate = Number(order.vat_rate) || 0;
-                    const discount = Number(order.discount) || 0;
-                    const manualDiscount = Number(order.manual_discount) || 0;
-
-                    const baseAmount = netTotal - discount;
-                    const calcVat = Math.round(baseAmount * (vatRate / 100));
-                    const surTotal = surcharges.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-                    const finalTotalAmount = baseAmount + calcVat + surTotal - manualDiscount;
+                    const newSurTotal = surcharges.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                    const diff = newSurTotal - oldSurTotal;
+                    const finalTotalAmount = (Number(order.total_amount) || 0) + diff;
 
                     await txDb.run(`
                         UPDATE dht_orders 
-                        SET surcharges = $1, total_amount = $2, updated_at = NOW()
-                        WHERE id = $3
-                    `, [JSON.stringify(surcharges), finalTotalAmount, orderId]);
+                        SET surcharges = $1, total_amount = $2, last_updated_at = NOW(), last_updated_by = $3
+                        WHERE id = $4
+                    `, [JSON.stringify(surcharges), finalTotalAmount, request.user.id, orderId]);
 
                     // Write audit log
                     const changesArr = [{
