@@ -374,7 +374,9 @@ async function renderDesignDraftPage(content) {
             role: myInfo.role || '',
             lockWarning: details.lock_warning || null,
             // Deep copy of active item editing state
-            editingItem: items.length > 0 ? _tpdCloneItemState(items[activeIdx]) : null
+            editingItem: items.length > 0 ? _tpdCloneItemState(items[activeIdx]) : null,
+            // Clean database baseline states (normalized but without drafts)
+            dbBaselines: items.length > 0 ? items.map(it => _tpdCloneItemState(it, true)) : []
         };
 
         // Render main workspace wrapper
@@ -449,7 +451,7 @@ function _tpdNormalizeItemQuantities(it, config) {
 }
 
 // Clone order item to independent workspace editing state
-function _tpdCloneItemState(item) {
+function _tpdCloneItemState(item, ignoreDraft = false) {
     if (!item) return null;
 
     const config = _tpd.sizeTypesConfig || {
@@ -460,7 +462,7 @@ function _tpdCloneItemState(item) {
     // Check if there is a draft in localStorage
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
-    if (orderId && item.id) {
+    if (orderId && item.id && !ignoreDraft) {
         const draftStr = localStorage.getItem(`tpd_draft_${orderId}_${item.id}`);
         if (draftStr) {
             try {
@@ -6407,6 +6409,7 @@ async function _tpdSaveProductionSheet() {
             const details = await apiCall(`/api/dht/orders/${state.orderId}/detail?session_id=${_tpdGetSessionId()}`);
             state.items = details.items || [];
             state.order = details.order;
+            state.dbBaselines = (details.items || []).map(it => _tpdCloneItemState(it, true));
             state.editingItem = _tpdCloneItemState(state.items[state.activeItemIndex]);
             
             // Refresh preview and tab buttons
@@ -6687,12 +6690,14 @@ function _tpdValidateAllSheets() {
             return false;
         }
 
-        // 5. Enforce Mockup upload check when editing an official order and sheet is modified
+        // 5. Enforce Mockup upload check when editing an official order and sheet is modified or is active
         if (!isOrderDraft) {
-            const dbItem = state.items[idx];
-            if (dbItem && _tpdIsSheetModified(it, dbItem)) {
+            const dbItem = state.dbBaselines ? state.dbBaselines[idx] : state.items[idx];
+            const isActiveSheet = (idx === state.activeItemIndex);
+            const isModified = dbItem && _tpdIsSheetModified(it, dbItem);
+            if (dbItem && (isActiveSheet || isModified)) {
                 if (it.mockup_image === dbItem.mockup_image) {
-                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Phát hiện thay đổi thông tin sản xuất. Bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Khi sửa đơn, bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
                     _tpdSwitchItemTab(idx);
                     return false;
                 }
@@ -6764,6 +6769,7 @@ async function _tpdExportSheetAndOrder() {
         const details = await apiCall(`/api/dht/orders/${state.orderId}/detail?session_id=${_tpdGetSessionId()}`);
         state.items = details.items || [];
         state.order = details.order;
+        state.dbBaselines = (details.items || []).map(it => _tpdCloneItemState(it, true));
         state.editingItem = _tpdCloneItemState(state.items[state.activeItemIndex]);
     } catch (err) {
         console.error('Failed to reload details after saving all sheets:', err);
