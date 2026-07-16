@@ -125,8 +125,8 @@ function renderBophaninPage(content) {
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In / Bàn Giao</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Mét In</th><th>Cuộn Vật Liệu</th><th>SL Đầu Cuộn</th><th>SL Cuối Cuộn</th><th>In/Thêu Chung</th><th>Ghi Chú</th><th>Cập Nhật</th>'
-        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="20" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
+        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In / Bàn Giao</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>CSKH</th><th>SL Đơn</th><th>Cuộn / Mét In</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+        +'</tr></thead><tbody id="bpiTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     
     _bpi.search = '';
     var searchEl = document.getElementById('bpiSearch');
@@ -601,26 +601,34 @@ function _bpiRender() {
             rollDisplay = parts.join('');
         }
 
-        var metersCell = '';
-        var startCell = '';
-        var endCell = '';
-        var rollCell = '';
+        var rollMeterCell = '';
+        var notesMergedCell = '';
         
         if (r.id) {
-            metersCell = '<td style="text-align:center;font-weight:700;color:#dc2626">'+(r.print_meters||'0')+'</td>';
-            if (r.material_tx_id || r.pettem_roll_id) {
-                rollCell = '<td style="text-align:center;font-weight:600">' + rollDisplay + '</td>';
-            } else {
-                rollCell = '<td style="text-align:center;font-weight:600;cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditRollCell(this,\''+r.id+'\',\''+(r.print_field||'')+'\',\''+(r.pettem_roll_id||'')+'\')">' +rollDisplay+'</td>';
+            var meterVal = r.print_meters || '0';
+            var startVal = r.roll_start_qty || '0';
+            var endVal = r.roll_end_qty || '0';
+            var rollClickAttr = '';
+            if (!r.material_tx_id && !r.pettem_roll_id) {
+                rollClickAttr = ' style="cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditRollCell(this,\''+r.id+'\',\''+(r.print_field||'')+'\',\''+(r.pettem_roll_id||'')+'\')"';
             }
-            startCell = '<td style="text-align:center;font-weight:600">'+(r.roll_start_qty||'0')+'</td>';
-            endCell = '<td style="text-align:center;font-weight:600">'+(r.roll_end_qty||'0')+'</td>';
+            var rollLine = rollDisplay ? '<div' + rollClickAttr + '>' + rollDisplay + '</div>' : '';
+            var metersLine = '<div style="font-size:10px;white-space:nowrap;margin-top:2px">'
+                + '<span style="color:#64748b">' + startVal + '</span>'
+                + '<span style="color:#cbd5e1;margin:0 2px">→</span>'
+                + '<span style="color:#dc2626;font-weight:800">' + meterVal + '</span>'
+                + '<span style="color:#cbd5e1;margin:0 2px">→</span>'
+                + '<span style="color:#64748b">' + endVal + '</span>'
+                + '</div>';
+            rollMeterCell = '<td style="text-align:center;font-weight:600;line-height:1.5">' + rollLine + metersLine + '</td>';
         } else {
-            metersCell = '<td style="text-align:center;color:#94a3b8">—</td>';
-            rollCell = '<td style="text-align:center;color:#94a3b8">—</td>';
-            startCell = '<td style="text-align:center;color:#94a3b8">—</td>';
-            endCell = '<td style="text-align:center;color:#94a3b8">—</td>';
+            rollMeterCell = '<td style="text-align:center;color:#94a3b8">—</td>';
         }
+        // Build merged notes cell (In/Thêu Chung + Ghi Chú)
+        var notesParts = [];
+        if (r.shared_process) notesParts.push('<span style="color:#7c3aed;font-weight:700">' + r.shared_process + '</span>');
+        if (r.notes) notesParts.push(r.notes);
+        notesMergedCell = '<td style="font-size:9px;color:#6b7280;max-width:120px;overflow:hidden;text-overflow:ellipsis">' + (notesParts.length > 0 ? notesParts.join(' · ') : '—') + '</td>';
 
         var imgIcon = '';
         if (r.image_url) {
@@ -662,12 +670,8 @@ function _bpiRender() {
             +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
             +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
             +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
-            + metersCell
-            + rollCell
-            + startCell
-            + endCell
-            +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.shared_process||'—')+'</td>'
-            +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
+            + rollMeterCell
+            + notesMergedCell
             +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
         }
         var trStyle = r.is_discarded ? ' style="background:#fee2e2;opacity:0.85;"' : '';
@@ -684,12 +688,8 @@ function _bpiRender() {
         +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
-        + metersCell
-        + rollCell
-        + startCell
-        + endCell
-        +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.shared_process||'—')+'</td>'
-        +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
+        + rollMeterCell
+        + notesMergedCell
         +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
     }).join(''); }
     // Stats
