@@ -7838,7 +7838,9 @@ async function _tpdShowExportSheetsModal() {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
+                windowWidth: 1200,
+                windowHeight: 900
             });
             const imgUrlCust = canvasCust.toDataURL('image/jpeg', 0.8);
 
@@ -7847,7 +7849,9 @@ async function _tpdShowExportSheetsModal() {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
+                windowWidth: 1200,
+                windowHeight: 900
             });
             const imgUrlProd = canvasProd.toDataURL('image/jpeg', 0.8);
 
