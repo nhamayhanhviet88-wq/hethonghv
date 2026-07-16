@@ -1,0 +1,2 @@
+⚠️ Schema warning: there is no unique or exclusion constraint matching the ON CONFLICT specification
+⚠️ [Pool Health] get: total=2, idle=2, active=0, waiting=1, max=3

@@ -3861,7 +3861,7 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh khách nhắn chốt đơn!' });
         }
 
-        const orderItems = await db.all('SELECT id, product_name, design_pdf_url, design_pdf_name FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        const orderItems = await db.all('SELECT id, product_name, design_pdf_url, design_pdf_name FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
         if (!item_designs || typeof item_designs !== 'object') {
             return reply.code(400).send({ error: 'Thiếu file PDF thiết kế bắt buộc cho từng phiếu!' });
         }
@@ -6879,7 +6879,7 @@ module.exports = async function(fastify) {
         const fs = require('fs');
         const path = require('path');
         const uploadsDir = path.join(__dirname, '..', 'uploads', 'sheets');
-        const items = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        const items = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
         const savedSheetPaths = [];
         items.forEach((item, idx) => {
             let suffix = '';
@@ -6991,6 +6991,9 @@ module.exports = async function(fastify) {
             expected_ship_date: order.expected_ship_date || null,
             standard_delivery_time: order.standard_delivery_time || null,
             notes: order.notes || null,
+            shipping_priority: order.shipping_priority || null,
+            sale_note_for_accountant: order.sale_note_for_accountant || null,
+            carrier_name: order.carrier_name || null,
             items: items.map(it => {
                 let qtyArr = [];
                 try {
@@ -7000,6 +7003,10 @@ module.exports = async function(fastify) {
                 try {
                     layout = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
                 } catch(e) {}
+                let printDetails = [];
+                try {
+                    printDetails = typeof it.print_details === 'string' ? JSON.parse(it.print_details) : (it.print_details || []);
+                } catch(e) {}
                 return {
                     id: it.id,
                     product_name: it.product_name || null,
@@ -7008,7 +7015,10 @@ module.exports = async function(fastify) {
                     color_name: it.color_name || null,
                     sewing_techniques: it.sewing_techniques || null,
                     quantities: qtyArr,
-                    custom_layout: layout
+                    custom_layout: layout,
+                    print_details: printDetails,
+                    design_pdf_url: it.design_pdf_url || null,
+                    design_pdf_name: it.design_pdf_name || null
                 };
             })
         };
@@ -7028,13 +7038,22 @@ module.exports = async function(fastify) {
 
         // Compare order level fields
         if (oldState.expected_ship_date !== newState.expected_ship_date) {
-            orderChanges.push(`Ngày hẹn trả: [${escapeHTML(oldState.expected_ship_date || 'Chưa có')}] ➔ [${escapeHTML(newState.expected_ship_date || 'Chưa có')}]`);
+            orderChanges.push(`Ngày hẹn trả: ${escapeHTML(newState.expected_ship_date || 'Chưa có')}`);
         }
         if (oldState.standard_delivery_time !== newState.standard_delivery_time) {
-            orderChanges.push(`Giờ hẹn trả: [${escapeHTML(oldState.standard_delivery_time || 'Chưa có')}] ➔ [${escapeHTML(newState.standard_delivery_time || 'Chưa có')}]`);
+            orderChanges.push(`Giờ hẹn trả: ${escapeHTML(newState.standard_delivery_time || 'Chưa có')}`);
         }
         if (oldState.notes !== newState.notes) {
-            orderChanges.push(`Ghi chú đơn: [${escapeHTML(oldState.notes || 'Trống')}] ➔ [${escapeHTML(newState.notes || 'Trống')}]`);
+            orderChanges.push(`Ghi chú đơn: ${escapeHTML(newState.notes || 'Trống')}`);
+        }
+        if (oldState.shipping_priority !== newState.shipping_priority) {
+            orderChanges.push(`Tiêu chuẩn gửi: ${escapeHTML(newState.shipping_priority || 'CHUẨN')}`);
+        }
+        if (oldState.carrier_name !== newState.carrier_name) {
+            orderChanges.push(`Nhà vận chuyển: ${escapeHTML(newState.carrier_name || 'Chưa có')}`);
+        }
+        if (oldState.sale_note_for_accountant !== newState.sale_note_for_accountant) {
+            orderChanges.push(`Dặn kế toán gửi hàng: ${escapeHTML(newState.sale_note_for_accountant || 'Trống')}`);
         }
 
         // Compare items (sheets)
@@ -7060,10 +7079,13 @@ module.exports = async function(fastify) {
             const sheetKey = idx.toString();
             const initSheetChanges = () => {
                 if (!sheetChanges[sheetKey]) {
+                    const newLayout = typeof newIt.custom_layout === 'string' ? JSON.parse(newIt.custom_layout) : (newIt.custom_layout || {});
+                    const sheetEditNote = (newLayout.sheet_edit_note || '').trim();
                     sheetChanges[sheetKey] = {
                         orderCode: orderCode,
                         sheetNumber: idx + 1,
                         productName: newIt.product_name || 'Đồng phục',
+                        sheetEditNote: sheetEditNote,
                         changes: []
                     };
                 }
@@ -7216,61 +7238,154 @@ module.exports = async function(fastify) {
             }
 
             // Sewing techniques changed
-            if (JSON.stringify(oldIt.sewing_techniques) !== JSON.stringify(newIt.sewing_techniques)) {
-                const getTechListStr = (field) => {
-                    if (!field) return 'Trống';
-                    try {
-                        const arr = typeof field === 'string' ? JSON.parse(field) : field;
-                        if (Array.isArray(arr)) {
-                            return arr.map(x => (x && typeof x === 'object') ? (x.name || x.tech || '') : String(x)).filter(Boolean).join(', ') || 'Trống';
-                        }
-                    } catch(e) {}
-                    return String(field);
-                };
-                const oldTechs = getTechListStr(oldIt.sewing_techniques);
-                const newTechs = getTechListStr(newIt.sewing_techniques);
-                if (oldTechs !== newTechs) {
-                    initSheetChanges();
-                    sheetChanges[sheetKey].changes.push({
-                        type: 'sewing',
-                        html: `
-                            <div style="margin-left: 15px; margin-bottom: 8px;">
-                                <span style="font-weight: 700; color: #1e293b;">Sửa kỹ thuật may :</span><br>
-                                <span style="padding-left: 10px; color: #475569;">[${escapeHTML(oldTechs)}] ➔ [${escapeHTML(newTechs)}]</span>
-                            </div>
-                        `
-                    });
+            const oldLayout = typeof oldIt.custom_layout === 'string' ? JSON.parse(oldIt.custom_layout) : (oldIt.custom_layout || {});
+            const newLayout = typeof newIt.custom_layout === 'string' ? JSON.parse(newIt.custom_layout) : (newIt.custom_layout || {});
+
+            const oldSewing = (oldLayout.custom_sewing || '').trim() || 'Trống';
+            const newSewing = (newLayout.custom_sewing || '').trim() || 'Trống';
+            const oldSewingNote = (oldLayout.custom_sewing_note || '').trim();
+            const newSewingNote = (newLayout.custom_sewing_note || '').trim();
+
+            if (oldSewing !== newSewing || oldSewingNote !== newSewingNote) {
+                initSheetChanges();
+                
+                const newSewingItems = Array.isArray(newLayout.sewing_items) ? newLayout.sewing_items : [];
+                let newItemsHtml = '';
+                newSewingItems.forEach(item => {
+                    if (item && item.tech) {
+                        const detailStr = item.detail ? `: ${item.detail}` : '';
+                        newItemsHtml += `<div style="padding-left: 10px; color: #475569;">${escapeHTML(item.tech)}${escapeHTML(detailStr)}</div>`;
+                    }
+                });
+                if (!newItemsHtml) {
+                    newItemsHtml = `<div style="padding-left: 10px; color: #475569;">Trống</div>`;
                 }
+                if (newSewingNote) {
+                    newItemsHtml += `<div style="padding-left: 10px; color: #64748b; font-size: 12.5px;">Ghi chú: ${escapeHTML(newSewingNote)}</div>`;
+                }
+
+                sheetChanges[sheetKey].changes.push({
+                    type: 'sewing',
+                    html: `
+                        <div style="margin-left: 15px; margin-bottom: 8px; line-height: 1.5;">
+                            <span style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Sửa kỹ thuật may :</span>
+                            ${newItemsHtml}
+                        </div>
+                    `
+                });
             }
 
             // Print details changed
-            const getPrintDetailsStr = (layout) => {
-                if (!layout) return 'Không có in/thêu';
-                const details = layout.print_details || [];
+            const getPrintDetailsStr = (printDetailsArray) => {
+                const details = Array.isArray(printDetailsArray) ? printDetailsArray : [];
                 if (details.length === 0) return 'Không có in/thêu';
                 return details.map(d => {
                     if (!d || !d.position) return '';
                     const isPrint3D = d.print_type === 'In 3D' || (d.position && d.position.toLowerCase().includes('in 3d'));
                     const printType = isPrint3D ? 'In 3D' : (d.print_type || '').trim();
-                    const dim = (d.width || d.height || d.dimension) ? ` (${d.width || ''}x${d.height || ''}${d.dimension || ''})` : '';
-                    return `${d.position}: ${printType}${dim}`;
+                    
+                    const w = (d.width || '').trim();
+                    const h = (d.height || '').trim();
+                    let dimParts = [];
+                    if (w) dimParts.push(`Ngang ${w}`);
+                    if (h) dimParts.push(`Cao ${h}`);
+                    const dimStr = dimParts.length > 0 ? ` (${dimParts.join(' x ')})` : '';
+                    
+                    // Collect offsets
+                    let offsetParts = [];
+                    if (d.selected_offsets && typeof d.selected_offsets === 'object') {
+                        for (const [k, v] of Object.entries(d.selected_offsets)) {
+                            if (v && String(v).trim()) {
+                                offsetParts.push(`${k}: ${String(v).trim()}`);
+                            }
+                        }
+                    } else {
+                        if (d.gay_xuong && String(d.gay_xuong).trim()) {
+                            offsetParts.push(`Gáy xuống: ${String(d.gay_xuong).trim()}`);
+                        }
+                        if (d.co_xuong && String(d.co_xuong).trim()) {
+                            offsetParts.push(`Cổ xuống: ${String(d.co_xuong).trim()}`);
+                        }
+                    }
+                    const offsetStr = offsetParts.length > 0 ? ` - ${offsetParts.join(', ')}` : '';
+
+                    return `${d.position}: ${printType}${dimStr}${offsetStr}`;
                 }).filter(Boolean).join(', ') || 'Không có in/thêu';
             };
-            const oldPrint = getPrintDetailsStr(oldIt.custom_layout);
-            const newPrint = getPrintDetailsStr(newIt.custom_layout);
+
+            const oldPrint = getPrintDetailsStr(oldIt.print_details);
+            const newPrint = getPrintDetailsStr(newIt.print_details);
             if (oldPrint !== newPrint) {
                 initSheetChanges();
+                
+                const newDetails = Array.isArray(newIt.print_details) ? newIt.print_details : [];
+                let printHtml = '';
+                newDetails.forEach(d => {
+                    if (!d || !d.position) return;
+                    const isPrint3D = d.print_type === 'In 3D' || (d.position && d.position.toLowerCase().includes('in 3d'));
+                    const printType = isPrint3D ? 'In 3D' : (d.print_type || '').trim();
+                    
+                    const w = (d.width || '').trim();
+                    const h = (d.height || '').trim();
+                    let dimParts = [];
+                    if (w) dimParts.push(`Ngang ${w}`);
+                    if (h) dimParts.push(`Cao ${h}`);
+                    const dimStr = dimParts.length > 0 ? ` (${dimParts.join(' x ')})` : '';
+                    
+                    // Collect offsets
+                    let offsetParts = [];
+                    if (d.selected_offsets && typeof d.selected_offsets === 'object') {
+                        for (const [k, v] of Object.entries(d.selected_offsets)) {
+                            if (v && String(v).trim()) {
+                                offsetParts.push(`${k}: ${String(v).trim()}`);
+                            }
+                        }
+                    } else {
+                        if (d.gay_xuong && String(d.gay_xuong).trim()) {
+                            offsetParts.push(`Gáy xuống: ${String(d.gay_xuong).trim()}`);
+                        }
+                        if (d.co_xuong && String(d.co_xuong).trim()) {
+                            offsetParts.push(`Cổ xuống: ${String(d.co_xuong).trim()}`);
+                        }
+                    }
+                    const offsetStr = offsetParts.length > 0 ? ` - ${offsetParts.join(', ')}` : '';
+
+                    printHtml += `<div style="padding-left: 10px; color: #475569;">${escapeHTML(d.position)}: ${escapeHTML(printType)}${escapeHTML(dimStr)}${offsetStr ? ` - ${escapeHTML(offsetParts.join(', '))}` : ''}</div>`;
+                });
+                if (!printHtml) {
+                    printHtml = `<div style="padding-left: 10px; color: #475569;">Không có in/thêu</div>`;
+                }
+
                 sheetChanges[sheetKey].changes.push({
                     type: 'printing',
                     html: `
-                        <div style="margin-left: 15px; margin-bottom: 8px;">
-                            <span style="font-weight: 700; color: #1e293b;">Sửa chi tiết in/thêu :</span><br>
-                            <span style="padding-left: 10px; color: #475569;">[${escapeHTML(oldPrint)}] ➔ [${escapeHTML(newPrint)}]</span>
+                        <div style="margin-left: 15px; margin-bottom: 8px; line-height: 1.5;">
+                            <span style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Sửa chi tiết in/thêu :</span>
+                            ${printHtml}
                         </div>
                     `
                 });
             }
         });
+
+        // Sort sheet changes so that size and quantity modifications are placed at the bottom
+        const typePriority = {
+            'product_name': 1,
+            'material': 2,
+            'sewing': 3,
+            'printing': 4,
+            'quantity': 5,
+            'size': 6
+        };
+        for (const sheetKey in sheetChanges) {
+            if (sheetChanges[sheetKey].changes) {
+                sheetChanges[sheetKey].changes.sort((a, b) => {
+                    const pA = typePriority[a.type] || 99;
+                    const pB = typePriority[b.type] || 99;
+                    return pA - pB;
+                });
+            }
+        }
 
         const hasChanges = (orderChanges.length > 0 || Object.keys(sheetChanges).length > 0 || addedSheets.length > 0 || deletedSheets.length > 0);
 
@@ -7363,7 +7478,7 @@ module.exports = async function(fastify) {
         if (!order) return;
 
         // 3. Fetch items, surcharges, and payments
-        const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
         
         let oldState = null;
         if (order.last_sent_order_state) {
@@ -7420,7 +7535,7 @@ module.exports = async function(fastify) {
                 if (diffs.sheetChanges[sheetKey] && diffs.sheetChanges[sheetKey].changes.length > 0) return true;
 
                 const oldIt = oldState.items.find(oldIt => oldIt.id === item.id);
-                if (oldIt && oldIt.design_pdf_url !== item.design_pdf_url) return true;
+                if (oldIt && oldIt.design_pdf_url !== undefined && oldIt.design_pdf_url !== item.design_pdf_url) return true;
             }
 
             return false;
@@ -8152,11 +8267,11 @@ module.exports = async function(fastify) {
                 let parts = [];
                 if (diffs.orderChanges && diffs.orderChanges.length > 0) {
                     parts.push(`
-                        <div style="margin-bottom: 12px;">
+                        <div style="margin-bottom: 12px; line-height: 1.5;">
                             <span style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px;">Thay đổi chung của đơn hàng:</span>
-                            <ul style="margin: 0; padding-left: 20px; list-style-type: disc;">
-                                ${diffs.orderChanges.map(d => `<li style="margin-bottom: 4px; color: #475569; font-weight: 500;">${d}</li>`).join('')}
-                            </ul>
+                            <div style="color: #475569; font-weight: 500;">
+                                ${diffs.orderChanges.map(d => `<div style="margin-bottom: 4px; padding-left: 10px;">${d}</div>`).join('')}
+                            </div>
                         </div>
                     `);
                 }
@@ -8190,6 +8305,12 @@ module.exports = async function(fastify) {
                                     <div style="font-weight: 800; color: #b45309; font-size: 14.5px; margin-bottom: 8px;">
                                         Sửa Mã đơn : ${escapeHTML(sheet.orderCode)} - Phiếu ${sheet.sheetNumber} (${escapeHTML(sheet.productName)})
                                     </div>
+                                    ${sheet.sheetEditNote ? `
+                                        <div style="margin-top: 6px; margin-bottom: 12px; padding: 10px; background-color: #fef2f2; border: 1.5px solid #ef4444; border-radius: 6px; color: #991b1b; font-family: inherit;">
+                                            <span style="font-weight: 800; text-transform: uppercase; font-size: 12px; display: block; margin-bottom: 4px; color: #b91c1c;">📣 NỘI DUNG SALES YÊU CẦU SỬA:</span>
+                                            <span style="font-weight: 700; font-size: 14px; white-space: pre-wrap; line-height: 1.4;">${escapeHTML(sheet.sheetEditNote)}</span>
+                                        </div>
+                                    ` : ''}
                                     ${sheet.changes.map(c => c.html).join('')}
                                 </div>
                             `);

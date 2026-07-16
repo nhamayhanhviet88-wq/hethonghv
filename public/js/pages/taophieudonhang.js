@@ -4114,6 +4114,26 @@ function _tpdChangeLayoutHeight(val) {
     _tpdSaveDraft(state.editingItem);
 }
 
+function _tpdOnEditNoteChange(val) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem) return;
+    let layout = state.editingItem.custom_layout;
+    if (!layout) {
+        layout = {};
+    } else if (typeof layout === 'string') {
+        try {
+            layout = JSON.parse(layout);
+        } catch(e) {
+            layout = {};
+        }
+    }
+    layout.sheet_edit_note = val;
+    state.editingItem.custom_layout = layout;
+    
+    // Auto save draft to avoid losing changes
+    _tpdSaveDraft(state.editingItem);
+}
+
 // Reset wrapper height to auto/dynamic behavior
 function _tpdResetLayoutHeight() {
     const state = window._tpdWorkspaceState;
@@ -5218,6 +5238,39 @@ function _tpdRenderFormInputs() {
             </div>
         </div>
     `;
+
+    // 5.5. Edit Note field (mandatory for modified sheets)
+    const layout = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
+    const editNote = layout.sheet_edit_note || '';
+
+    // Check if the current sheet is modified
+    let isSheetModified = false;
+    if (state.order && !state.order.is_draft) {
+        const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${state.orderId}`);
+        if (origItemsJson) {
+            try {
+                const origItems = JSON.parse(origItemsJson);
+                const origItem = origItems.find(x => x.id === it.id);
+                if (origItem) {
+                    isSheetModified = _tpdIsSheetModified(it, origItem);
+                } else {
+                    isSheetModified = true;
+                }
+            } catch(e) {}
+        }
+    }
+
+    html += `
+        <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
+            <label class="tpd-ws-form-label" style="font-weight: 700; ${isSheetModified ? 'color: #ef4444;' : 'color: #1e293b;'}">
+                📝 NỘI DUNG SỬA ĐỔI CHI TIẾT ${isSheetModified ? '<span style="color: #ef4444;">(BẮT BUỘC KHI SỬA PHIẾU)</span>' : ''}
+            </label>
+            <textarea class="tpd-ws-input" style="width: 100%; border: 1.5px solid ${isSheetModified ? '#ef4444' : '#cbd5e1'}; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; box-sizing: border-box; background: white;" 
+                placeholder="Nhập lý do và chi tiết các thay đổi của phiếu này (ví dụ: Đổi kiểu cổ bẻ dệt, thêm in ngực 10cm)..." 
+                oninput="_tpdOnEditNoteChange(this.value)" ${disabledAttr}>${editNote}</textarea>
+        </div>
+    `;
+
 
 
 
@@ -6903,6 +6956,14 @@ function _tpdValidateAllSheets() {
                 const checkBaseMockup = origItem ? origItem.mockup_image : (state.dbBaselines && state.dbBaselines[idx] ? state.dbBaselines[idx].mockup_image : '');
                 if (it.mockup_image === checkBaseMockup) {
                     showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Khi sửa đơn, bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
+                    _tpdSwitchItemTab(idx);
+                    return false;
+                }
+
+                const layoutVal = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
+                const note = (layoutVal.sheet_edit_note || '').trim();
+                if (!note) {
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Bạn bắt buộc phải nhập Nội dung sửa đổi chi tiết cho phiếu này!`, 'error');
                     _tpdSwitchItemTab(idx);
                     return false;
                 }
