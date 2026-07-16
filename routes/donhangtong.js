@@ -1384,8 +1384,8 @@ module.exports = async function(fastify) {
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
                 COALESCE(repair_check.repair_count, 0) > 0 AS has_repair_order,
                 CASE 
-                    WHEN EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id) THEN
-                        NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL)
+                    WHEN EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND COALESCE(is_discarded, false) = false) THEN
+                        NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL AND COALESCE(is_discarded, false) = false)
                     ELSE
                         COALESCE((SELECT op_in.is_completed FROM dht_order_production op_in WHERE op_in.dht_order_id = o.id AND op_in.step_id = 3), false)
                 END AS is_print_done,
@@ -1406,6 +1406,7 @@ module.exports = async function(fastify) {
                         SELECT 1 FROM printing_records pr
                         WHERE pr.dht_order_id = o.id
                           AND pr.print_field IN ('IN PET', 'IN DECAL')
+                          AND COALESCE(pr.is_discarded, false) = false
                     )
                 ) AS has_press_printing,
                 (
@@ -1415,6 +1416,7 @@ module.exports = async function(fastify) {
                     ) OR EXISTS (
                         SELECT 1 FROM printing_records pr
                         WHERE pr.dht_order_id = o.id
+                          AND COALESCE(pr.is_discarded, false) = false
                     )
                 ) AS has_any_printing
             FROM dht_orders o

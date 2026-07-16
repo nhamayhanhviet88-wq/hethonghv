@@ -2698,6 +2698,80 @@ async function _qlxPACancelAll() {
         var res = await apiCall(url, 'DELETE');
 
         if (res && res.error) {
+            if (res.error_code === 'print_already_done') {
+                var details = res.details || {};
+                var recordsHtml = (details.records || []).map(function(r) {
+                    return '<div>- ' + r.print_field + ' (' + r.type + '): <strong>' + r.meters + 'm</strong> x ' + r.unit_price.toLocaleString() + 'đ = <strong>' + r.surcharge.toLocaleString() + 'đ</strong></div>';
+                }).join('');
+
+                var confirmHtml = '<div style="padding: 20px; font-family: sans-serif;">' +
+                    '<h4 style="margin: 0 0 15px 0; color: #dc2626; font-size: 16px; font-weight: 800;">CẢNH BÁO: ĐÃ PHÁT SINH SỐ MÉT IN</h4>' +
+                    '<p style="margin: 0 0 12px 0; font-size: 13px; line-height: 1.5; color: #334155;">' +
+                    'Đơn/phiếu này đã được ghi nhận in thực tế. Nếu hủy phân công, hệ thống sẽ tính phụ phí tiền in bù từ khách hàng để hoàn trả trạng thái:' +
+                    '</p>' +
+                    '<div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 16px; color: #1e293b; line-height: 1.6;">' +
+                    recordsHtml +
+                    '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-weight: 800; font-size: 14px; color: #dc2626; display: flex; justify-content: space-between;">' +
+                    '<span>TỔNG PHỤ PHÍ CẦN THU BÙ:</span>' +
+                    '<span>' + details.total_surcharge.toLocaleString() + 'đ</span>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div style="margin-bottom: 16px;">' +
+                    '<label style="font-size: 11px; font-weight: 800; color: #475569; display: block; margin-bottom: 6px;">LÝ DO / GHI CHÚ BÙ PHÍ</label>' +
+                    '<input type="text" id="_qlxSurchargeNote" value="Khách bù tiền in để sửa chi tiết" style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 13px; box-sizing: border-box;">' +
+                    '</div>' +
+                    '<div style="display: flex; gap: 12px; justify-content: flex-end;">' +
+                    '<button id="_qlxConfirmSurchargeCancel" style="padding: 10px 20px; background: linear-gradient(135deg,#dc2626,#ef4444); color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 10px rgba(220,38,38,0.15);">Xác nhận & Thêm phụ phí</button>' +
+                    '<button id="_qlxCloseSurchargeConfirm" style="padding: 10px 20px; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; color: #475569;">Hủy bỏ</button>' +
+                    '</div>' +
+                    '</div>';
+
+                var modalOverlay = document.createElement('div');
+                modalOverlay.id = '_qlxSurchargeOverlay';
+                modalOverlay.style.position = 'fixed';
+                modalOverlay.style.top = '0';
+                modalOverlay.style.left = '0';
+                modalOverlay.style.width = '100%';
+                modalOverlay.style.height = '100%';
+                modalOverlay.style.background = 'rgba(15,23,42,0.6)';
+                modalOverlay.style.backdropFilter = 'blur(4px)';
+                modalOverlay.style.zIndex = '10000';
+                modalOverlay.style.display = 'flex';
+                modalOverlay.style.alignItems = 'center';
+                modalOverlay.style.justifyContent = 'center';
+
+                var modalBox = document.createElement('div');
+                modalBox.style.background = '#fff';
+                modalBox.style.borderRadius = '16px';
+                modalBox.style.width = '420px';
+                modalBox.style.maxWidth = '90%';
+                modalBox.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)';
+                modalBox.innerHTML = confirmHtml;
+                modalOverlay.appendChild(modalBox);
+                document.body.appendChild(modalOverlay);
+
+                document.getElementById('_qlxCloseSurchargeConfirm').onclick = function() {
+                    modalOverlay.remove();
+                };
+
+                document.getElementById('_qlxConfirmSurchargeCancel').onclick = async function() {
+                    var note = document.getElementById('_qlxSurchargeNote').value || '';
+                    modalOverlay.remove();
+                    try {
+                        var forceUrl = url + (url.includes('?') ? '&' : '?') + 'force_with_surcharge=true&surcharge_note=' + encodeURIComponent(note);
+                        var forceRes = await apiCall(forceUrl, 'DELETE');
+                        if (forceRes && forceRes.error) {
+                            return showToast(forceRes.error, 'error');
+                        }
+                        var ov = document.getElementById('_qlxPAOverlay'); if (ov) ov.remove();
+                        showToast('🗑️ Đã hủy phân công in và ghi nhận phụ phí bù ' + details.total_surcharge.toLocaleString() + 'đ');
+                        await _qlxLoadAll();
+                    } catch(e2) {
+                        showToast(e2.message || 'Lỗi', 'error');
+                    }
+                };
+                return;
+            }
             return showToast(res.error, 'error');
         }
 

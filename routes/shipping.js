@@ -77,7 +77,7 @@ async function _getShippingItemsProgress(orderIds) {
                       AND pf.name IN ('IN PET', 'IN DECAL')
                 ) OR EXISTS (
                     SELECT 1 FROM printing_records pr
-                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                       AND pr.print_field IN ('IN PET', 'IN DECAL')
                 )
             ) AS has_press_printing,
@@ -87,7 +87,7 @@ async function _getShippingItemsProgress(orderIds) {
                     WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
                 ) OR EXISTS (
                     SELECT 1 FROM printing_records pr
-                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                 )
             ) AS has_any_printing,
             COALESCE(
@@ -103,11 +103,11 @@ async function _getShippingItemsProgress(orderIds) {
             ) AS cut_done,
             COALESCE(
                 CASE 
-                    WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id) 
-                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND is_print_done = false AND contractor_id IS NULL)
-                    WHEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
-                         AND EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
-                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_print_done = false AND contractor_id IS NULL)
+                    WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND COALESCE(is_discarded, false) = false) 
+                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND is_print_done = false AND contractor_id IS NULL AND COALESCE(is_discarded, false) = false)
+                    WHEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL AND COALESCE(is_discarded, false) = false)
+                         AND EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false)
+                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_print_done = false AND contractor_id IS NULL AND COALESCE(is_discarded, false) = false)
                     ELSE false
                 END,
                 false

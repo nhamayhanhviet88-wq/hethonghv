@@ -133,8 +133,8 @@ module.exports = async function(fastify) {
                 ) AS cut_done,
                 COALESCE(
                     CASE 
-                        WHEN EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id) 
-                        THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL)
+                        WHEN EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND COALESCE(is_discarded, false) = false) 
+                        THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL AND COALESCE(is_discarded, false) = false)
                         ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 3 LIMIT 1)
                     END,
                     false
@@ -374,7 +374,7 @@ module.exports = async function(fastify) {
                           AND pf.name IN ('IN PET', 'IN DECAL')
                     ) OR EXISTS (
                         SELECT 1 FROM printing_records pr
-                        WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                        WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                           AND pr.print_field IN ('IN PET', 'IN DECAL')
                     )
                 ) AS has_press_printing,
@@ -384,7 +384,7 @@ module.exports = async function(fastify) {
                         WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
                     ) OR EXISTS (
                         SELECT 1 FROM printing_records pr
-                        WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                        WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                     )
                 ) AS has_any_printing
             FROM dht_order_items oi
@@ -405,14 +405,14 @@ module.exports = async function(fastify) {
                 LIMIT 1
             `, [orderId]);
             const hasPressPrinting = !!pressPrintAssign || await db.get(`
-                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND print_field IN ('IN PET', 'IN DECAL') LIMIT 1
+                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND print_field IN ('IN PET', 'IN DECAL') AND COALESCE(is_discarded, false) = false LIMIT 1
             `, [orderId]);
 
             const anyPrintAssign = await db.get(`
                 SELECT 1 FROM qlx_order_print_assignments qa WHERE qa.dht_order_id = $1 AND qa.item_id IS NULL LIMIT 1
             `, [orderId]);
             const hasAnyPrinting = !!anyPrintAssign || await db.get(`
-                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL LIMIT 1
+                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false LIMIT 1
             `, [orderId]);
 
             items.push({
@@ -629,8 +629,8 @@ module.exports = async function(fastify) {
                    ) AS cut_done,
                    COALESCE(
                        CASE 
-                           WHEN EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id) 
-                           THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL)
+                           WHEN EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND COALESCE(is_discarded, false) = false) 
+                           THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = o.id AND is_print_done = false AND contractor_id IS NULL AND COALESCE(is_discarded, false) = false)
                            ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 3 LIMIT 1)
                        END,
                        false
@@ -897,7 +897,7 @@ module.exports = async function(fastify) {
                       OR (
                           pr.order_item_id IS NULL 
                           AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1 AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%')
-                          AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.dht_order_id = $1 AND pr2.order_item_id IS NOT NULL)
+                          AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.dht_order_id = $1 AND pr2.order_item_id IS NOT NULL AND COALESCE(pr2.is_discarded, false) = false)
                       )
                   )
                 ORDER BY pr.id ASC
@@ -961,7 +961,7 @@ module.exports = async function(fastify) {
                 if (hasPrintAssignment) {
                     const pendingPrint = await db.get(`
                         SELECT 1 FROM printing_records pr
-                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                           AND pr.print_field IN ('IN PET', 'IN DECAL')
                           AND (pr.is_print_done = false AND pr.contractor_id IS NULL)
                         LIMIT 1
@@ -1632,7 +1632,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                       AND pf.name IN ('IN PET', 'IN DECAL')
                 ) OR EXISTS (
                     SELECT 1 FROM printing_records pr
-                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                        WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                       AND pr.print_field IN ('IN PET', 'IN DECAL')
                 )
             ) AS has_press_printing,
@@ -1642,7 +1642,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                     WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
                 ) OR EXISTS (
                     SELECT 1 FROM printing_records pr
-                    WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)))
+                        WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                 )
             ) AS has_any_printing,
             COALESCE(
@@ -1664,11 +1664,11 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             ) AS cut_done,
             COALESCE(
                 CASE 
-                    WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id) 
-                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND is_print_done = false AND contractor_id IS NULL)
-                    WHEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
-                         AND EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL)
-                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_print_done = false AND contractor_id IS NULL)
+                    WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND COALESCE(is_discarded, false) = false) 
+                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id AND is_print_done = false AND contractor_id IS NULL AND COALESCE(is_discarded, false) = false)
+                    WHEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL AND COALESCE(is_discarded, false) = false)
+                         AND EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false)
+                    THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NULL AND is_print_done = false AND contractor_id IS NULL AND COALESCE(is_discarded, false) = false)
                     ELSE false
                 END,
                 false

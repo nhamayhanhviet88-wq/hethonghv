@@ -7,6 +7,7 @@ var _ptIC={PET:'🏷️',TEM:'🎫',DECAL:'📋'};
 var _ptCL={PET:'#e11d48',TEM:'#7c3aed',DECAL:'#d97706'};
 var _ptImpStocks={PET:0,TEM:0,DECAL:0};
 var _ptAllowedWaste = { PET: 5, TEM: 5, DECAL: 10 };
+var _ptSurchargePrices = { PET: 50000, TEM: 30000, DECAL: 40000 };
 
 function renderVatlieutempetPage(content){
     if(!document.getElementById('_ptStyle')){
@@ -65,7 +66,7 @@ function renderVatlieutempetPage(content){
         document.head.appendChild(st);}
     var configBtnHtml = '';
     if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') {
-        configBtnHtml = '<button class="pt-btn" style="background:#475569;color:#fff;border:1px solid #475569" onclick="openPtConfigWasteModal()">⚙️ Cài đặt hao hụt</button>';
+        configBtnHtml = '<button class="pt-btn" style="background:#475569;color:#fff;border:1px solid #475569" onclick="openPtConfigWasteModal()">⚙️ Cấu hình hao hụt & Phụ phí bù</button>';
     }
     content.innerHTML='<div class="pt-wrap"><div class="pt-sb" id="ptSb"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="pt-main">'
     +'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="ptInfo" style="font-size:12px"></div><div id="ptStats" style="display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap"></div>' + configBtnHtml + '<button class="pt-btn pt-btn-primary" onclick="openPtImportModal()">➕ Thêm Vật Liệu</button><input id="ptSearch" placeholder="🔍 Tìm lĩnh vực, ghi chú..." style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;width:200px;outline:none"></div>'
@@ -84,12 +85,19 @@ async function _ptLoadAll(){
         
         try {
             var configs = await apiCall('/api/app-configs/batch', 'POST', {
-                keys: ['pettem_allowed_waste_pet', 'pettem_allowed_waste_tem', 'pettem_allowed_waste_decal']
+                keys: [
+                    'pettem_allowed_waste_pet', 'pettem_allowed_waste_tem', 'pettem_allowed_waste_decal',
+                    'pettem_surcharge_price_pet', 'pettem_surcharge_price_tem', 'pettem_surcharge_price_decal'
+                ]
             });
             if (configs) {
                 if (configs.pettem_allowed_waste_pet !== null && configs.pettem_allowed_waste_pet !== undefined) _ptAllowedWaste.PET = Number(configs.pettem_allowed_waste_pet);
                 if (configs.pettem_allowed_waste_tem !== null && configs.pettem_allowed_waste_tem !== undefined) _ptAllowedWaste.TEM = Number(configs.pettem_allowed_waste_tem);
                 if (configs.pettem_allowed_waste_decal !== null && configs.pettem_allowed_waste_decal !== undefined) _ptAllowedWaste.DECAL = Number(configs.pettem_allowed_waste_decal);
+                
+                if (configs.pettem_surcharge_price_pet !== null && configs.pettem_surcharge_price_pet !== undefined) _ptSurchargePrices.PET = Number(configs.pettem_surcharge_price_pet);
+                if (configs.pettem_surcharge_price_tem !== null && configs.pettem_surcharge_price_tem !== undefined) _ptSurchargePrices.TEM = Number(configs.pettem_surcharge_price_tem);
+                if (configs.pettem_surcharge_price_decal !== null && configs.pettem_surcharge_price_decal !== undefined) _ptSurchargePrices.DECAL = Number(configs.pettem_surcharge_price_decal);
             }
         } catch(cfgErr) {
             console.error('[PT] Fetch config failed:', cfgErr);
@@ -1070,27 +1078,45 @@ function openPtConfigWasteModal() {
         document.body.appendChild(m);
         
         m.innerHTML = 
-            '<div class="pt-modal-content">'
+            '<div class="pt-modal-content" style="width:480px">'
             + '  <div class="pt-modal-header">'
-            + '    <h3>⚙️ Cài đặt tỷ lệ hao hụt cho phép</h3>'
+            + '    <h3>⚙️ Cấu hình hao hụt & Phụ phí bù in</h3>'
             + '    <span class="pt-close-btn" onclick="closePtConfigWasteModal()">&times;</span>'
             + '  </div>'
             + '  <form id="ptConfigWasteForm" onsubmit="submitPtConfigWasteForm(event)">'
             + '    <div class="pt-modal-body">'
             + '      <div style="font-size:11px;color:#64748b;margin-bottom:16px;line-height:1.4">'
-            + '        Chỉ Giám đốc mới có quyền thay đổi thông số này. Nếu (Hao hụt + Lỗi) vượt quá tỷ lệ cấu hình, Quản lý xưởng bắt buộc phải được Giám đốc duyệt (hoặc nhập Mã Khóa Tổng) mới được chốt cuộn.'
+            + '        Chỉ Giám đốc mới có quyền thay đổi các thông số này.'
             + '      </div>'
-            + '      <div class="pt-form-group">'
-            + '        <label>Tỉ lệ hao hụt PET (%)</label>'
-            + '        <input type="number" id="ptCfgWastePet" step="0.1" min="0" max="100" required>'
+            + '      <div style="font-weight:800;font-size:11px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px">I. Tỷ lệ hao hụt cho phép</div>'
+            + '      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">'
+            + '        <div class="pt-form-group">'
+            + '          <label style="font-size:9px">PET (%)</label>'
+            + '          <input type="number" id="ptCfgWastePet" step="0.1" min="0" max="100" required>'
+            + '        </div>'
+            + '        <div class="pt-form-group">'
+            + '          <label style="font-size:9px">TEM (%)</label>'
+            + '          <input type="number" id="ptCfgWasteTem" step="0.1" min="0" max="100" required>'
+            + '        </div>'
+            + '        <div class="pt-form-group">'
+            + '          <label style="font-size:9px">DECAL (%)</label>'
+            + '          <input type="number" id="ptCfgWasteDecal" step="0.1" min="0" max="100" required>'
+            + '        </div>'
             + '      </div>'
-            + '      <div class="pt-form-group">'
-            + '        <label>Tỉ lệ hao hụt TEM (%)</label>'
-            + '        <input type="number" id="ptCfgWasteTem" step="0.1" min="0" max="100" required>'
-            + '      </div>'
-            + '      <div class="pt-form-group">'
-            + '        <label>Tỉ lệ hao hụt DECAL (%)</label>'
-            + '        <input type="number" id="ptCfgWasteDecal" step="0.1" min="0" max="100" required>'
+            + '      <div style="font-weight:800;font-size:11px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px">II. Đơn giá phụ phí bù tiền in (đ/mét)</div>'
+            + '      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">'
+            + '        <div class="pt-form-group">'
+            + '          <label style="font-size:9px">PET (đ/m)</label>'
+            + '          <input type="number" id="ptCfgSurchargePet" min="0" required>'
+            + '        </div>'
+            + '        <div class="pt-form-group">'
+            + '          <label style="font-size:9px">TEM (đ/m)</label>'
+            + '          <input type="number" id="ptCfgSurchargeTem" min="0" required>'
+            + '        </div>'
+            + '        <div class="pt-form-group">'
+            + '          <label style="font-size:9px">DECAL (đ/m)</label>'
+            + '          <input type="number" id="ptCfgSurchargeDecal" min="0" required>'
+            + '        </div>'
             + '      </div>'
             + '      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">'
             + '        <button type="button" class="pt-btn" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1" onclick="closePtConfigWasteModal()">Hủy</button>'
@@ -1104,6 +1130,10 @@ function openPtConfigWasteModal() {
     document.getElementById('ptCfgWastePet').value = _ptAllowedWaste.PET;
     document.getElementById('ptCfgWasteTem').value = _ptAllowedWaste.TEM;
     document.getElementById('ptCfgWasteDecal').value = _ptAllowedWaste.DECAL;
+    
+    document.getElementById('ptCfgSurchargePet').value = _ptSurchargePrices.PET;
+    document.getElementById('ptCfgSurchargeTem').value = _ptSurchargePrices.TEM;
+    document.getElementById('ptCfgSurchargeDecal').value = _ptSurchargePrices.DECAL;
     
     m.style.display = 'flex';
 }
@@ -1125,16 +1155,28 @@ async function submitPtConfigWasteForm(event) {
     var temVal = parseFloat(document.getElementById('ptCfgWasteTem').value);
     var decalVal = parseFloat(document.getElementById('ptCfgWasteDecal').value);
     
+    var surPetVal = parseInt(document.getElementById('ptCfgSurchargePet').value) || 0;
+    var surTemVal = parseInt(document.getElementById('ptCfgSurchargeTem').value) || 0;
+    var surDecalVal = parseInt(document.getElementById('ptCfgSurchargeDecal').value) || 0;
+    
     try {
         await apiCall('/api/app-config/pettem_allowed_waste_pet', 'PUT', { value: petVal });
         await apiCall('/api/app-config/pettem_allowed_waste_tem', 'PUT', { value: temVal });
         await apiCall('/api/app-config/pettem_allowed_waste_decal', 'PUT', { value: decalVal });
         
+        await apiCall('/api/app-config/pettem_surcharge_price_pet', 'PUT', { value: surPetVal });
+        await apiCall('/api/app-config/pettem_surcharge_price_tem', 'PUT', { value: surTemVal });
+        await apiCall('/api/app-config/pettem_surcharge_price_decal', 'PUT', { value: surDecalVal });
+        
         _ptAllowedWaste.PET = petVal;
         _ptAllowedWaste.TEM = temVal;
         _ptAllowedWaste.DECAL = decalVal;
         
-        showToast('Đã cập nhật cấu hình tỷ lệ hao hụt!', 'success');
+        _ptSurchargePrices.PET = surPetVal;
+        _ptSurchargePrices.TEM = surTemVal;
+        _ptSurchargePrices.DECAL = surDecalVal;
+        
+        showToast('Đã cập nhật cấu hình hao hụt & phụ phí!', 'success');
         closePtConfigWasteModal();
         _ptLoadAll();
     } catch(e) {

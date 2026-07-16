@@ -946,7 +946,7 @@ module.exports = async function(fastify) {
             const hasPrintRecs = await db.get(`
                 SELECT EXISTS (
                     SELECT 1 FROM printing_records 
-                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                    WHERE (order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false))) AND COALESCE(is_discarded, false) = false
                 ) AS has_recs
             `, [itemId, orderId]);
             if (!hasPrintRecs || !hasPrintRecs.has_recs) {
@@ -955,7 +955,7 @@ module.exports = async function(fastify) {
             const printPending = await db.get(`
                 SELECT EXISTS (
                     SELECT 1 FROM printing_records pr
-                    WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                       AND pr.is_print_done = false AND pr.contractor_id IS NULL
                 ) AS pending
             `, [itemId, orderId]);
@@ -1950,10 +1950,10 @@ module.exports = async function(fastify) {
                 if (viewedIds.includes(r.id)) continue;
                 if (r.dept === 'in') {
                     const row = record_id
-                        ? await db.get(`SELECT 1 FROM printing_records WHERE id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [Number(record_id)])
+                        ? await db.get(`SELECT 1 FROM printing_records WHERE id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) AND COALESCE(is_discarded, false) = false LIMIT 1`, [Number(record_id)])
                         : (r.item_id 
-                            ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId, r.item_id])
-                            : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId]));
+                            ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND (is_print_done = true OR contractor_id IS NOT NULL) AND COALESCE(is_discarded, false) = false LIMIT 1`, [orderId, r.item_id])
+                            : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) AND COALESCE(is_discarded, false) = false LIMIT 1`, [orderId]));
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'ep') {
                     const row = record_id
@@ -2155,8 +2155,8 @@ module.exports = async function(fastify) {
                 if (viewedIds.includes(r.id)) continue;
                 if (r.dept === 'in') {
                     const row = itemId 
-                        ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId, itemId])
-                        : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) LIMIT 1`, [orderId]);
+                        ? await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND (is_print_done = true OR contractor_id IS NOT NULL) AND COALESCE(is_discarded, false) = false LIMIT 1`, [orderId, itemId])
+                        : await db.get(`SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND (is_print_done = true OR contractor_id IS NOT NULL) AND COALESCE(is_discarded, false) = false LIMIT 1`, [orderId]);
                     if (row) viewedIds.push(r.id);
                 } else if (r.dept === 'ep') {
                     const row = itemId
@@ -2251,84 +2251,341 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Phiếu này đã hoàn thành sản xuất, không thể hủy phân công!' });
         }
 
-        // Check if print or press is done
-        let isPrintDone = false;
+        // Check if press is done
         let isPressDone = false;
         if (itemId) {
-            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
-            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
-
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
         } else {
-            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
-            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
-
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
         }
 
-        if (isPrintDone || isPressDone) {
-            return reply.code(400).send({ error: 'Công đoạn in hoặc ép đã hoàn thành, không thể hủy phân công!' });
+        if (isPressDone) {
+            return reply.code(400).send({ error: 'Công đoạn ép đã hoàn thành, không thể hủy phân công!' });
         }
 
+        // Fetch active printing records
+        let activePrintRecs = [];
+        if (itemId) {
+            activePrintRecs = await db.all(`
+                SELECT id, print_field, print_meters, is_print_done
+                FROM printing_records
+                WHERE dht_order_id = $1 AND order_item_id = $2 AND COALESCE(is_discarded, false) = false
+            `, [orderId, itemId]);
+        } else {
+            activePrintRecs = await db.all(`
+                SELECT id, print_field, print_meters, is_print_done
+                FROM printing_records
+                WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false
+            `, [orderId]);
+        }
+
+        const hasPrinted = activePrintRecs.some(r => r.is_print_done || (Number(r.print_meters) || 0) > 0);
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
-        // 1. Delete print assignments
-        if (itemId) {
-            await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
-            await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
-        } else {
-            await db.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
-            await db.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
-            await db.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
+        function convertPlaceholders(sql, params) {
+            if (!params || params.length === 0) return { sql, params };
+            let idx = 0;
+            const newSql = sql.replace(/\?/g, () => `$${++idx}`);
+            return { sql: newSql, params };
         }
 
-        // 2. Sync print and cut removal
-        await syncPrintAndCutRemoval(db, orderId, itemId);
+        if (hasPrinted) {
+            const { force_with_surcharge, surcharge_note } = request.query || {};
 
-        // 3. Delete printing records
-        if (itemId) {
-            await db.run(`DELETE FROM printing_records WHERE order_item_id = $1`, [itemId]);
+            // Fetch configuration prices
+            const configs = {};
+            const configRows = await db.all(`
+                SELECT key, value FROM app_config 
+                WHERE key IN ('pettem_surcharge_price_pet', 'pettem_surcharge_price_tem', 'pettem_surcharge_price_decal')
+            `);
+            configRows.forEach(row => {
+                configs[row.key] = Number(row.value);
+            });
+
+            const pricePet = configs['pettem_surcharge_price_pet'] !== undefined && configs['pettem_surcharge_price_pet'] !== null ? configs['pettem_surcharge_price_pet'] : 50000;
+            const priceTem = configs['pettem_surcharge_price_tem'] !== undefined && configs['pettem_surcharge_price_tem'] !== null ? configs['pettem_surcharge_price_tem'] : 30000;
+            const priceDecal = configs['pettem_surcharge_price_decal'] !== undefined && configs['pettem_surcharge_price_decal'] !== null ? configs['pettem_surcharge_price_decal'] : 40000;
+
+            let totalMeters = 0;
+            let totalSurcharge = 0;
+            const details = [];
+
+            for (const rec of activePrintRecs) {
+                const meters = Number(rec.print_meters) || 0;
+                let type = 'PET';
+                const fieldUpper = (rec.print_field || '').toUpperCase();
+                if (fieldUpper.includes('TEM')) {
+                    type = 'TEM';
+                } else if (fieldUpper.includes('DECAL')) {
+                    type = 'DECAL';
+                }
+
+                const unitPrice = type === 'PET' ? pricePet : (type === 'TEM' ? priceTem : priceDecal);
+                const itemSurcharge = Math.round(meters * unitPrice);
+
+                totalMeters += meters;
+                totalSurcharge += itemSurcharge;
+                details.push({
+                    id: rec.id,
+                    print_field: rec.print_field,
+                    type,
+                    meters,
+                    unit_price: unitPrice,
+                    surcharge: itemSurcharge
+                });
+            }
+
+            if (force_with_surcharge !== 'true') {
+                return reply.code(400).send({
+                    error_code: 'print_already_done',
+                    error: 'Công đoạn in đã hoàn thành hoặc đã ghi nhận số mét. Bạn cần xác nhận bù phí để hủy.',
+                    details: {
+                        total_meters: totalMeters,
+                        total_surcharge: totalSurcharge,
+                        records: details
+                    }
+                });
+            }
+
+            const client = await db.pool.connect();
+            const txDb = {
+                async run(sql, params = []) {
+                    const converted = convertPlaceholders(sql, params);
+                    const res = await client.query(converted.sql, converted.params);
+                    const lastInsertRowid = res.rows && res.rows.length > 0 && res.rows[0].id != null ? res.rows[0].id : 0;
+                    return { lastInsertRowid, changes: res.rowCount };
+                },
+                async all(sql, params = []) {
+                    const converted = convertPlaceholders(sql, params);
+                    const res = await client.query(converted.sql, converted.params);
+                    return res.rows;
+                },
+                async get(sql, params = []) {
+                    const converted = convertPlaceholders(sql, params);
+                    const res = await client.query(converted.sql, converted.params);
+                    return res.rows[0] || null;
+                }
+            };
+
+            try {
+                await client.query('BEGIN');
+
+                // 1. Delete print assignments
+                if (itemId) {
+                    await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+                    await txDb.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+                } else {
+                    await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+                    await txDb.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
+                    await txDb.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
+                }
+
+                // 2. Sync print and cut removal
+                await syncPrintAndCutRemoval(txDb, orderId, itemId);
+
+                // 3. Update active printing records to be discarded (archived)
+                if (itemId) {
+                    await txDb.run(`
+                        UPDATE printing_records 
+                        SET is_discarded = true, 
+                            product_name = COALESCE(product_name, '') || ' - [HỦY BỎ - KHÁCH BÙ TIỀN]',
+                            updated_at = $1
+                        WHERE order_item_id = $2 AND COALESCE(is_discarded, false) = false
+                    `, [now, itemId]);
+                } else {
+                    await txDb.run(`
+                        UPDATE printing_records 
+                        SET is_discarded = true, 
+                            product_name = COALESCE(product_name, '') || ' - [HỦY BỎ - KHÁCH BÙ TIỀN]',
+                            updated_at = $1
+                        WHERE dht_order_id = $2 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false
+                    `, [now, orderId]);
+                }
+
+                // 4. Update order surcharges & total_amount
+                const order = await txDb.get(`SELECT surcharges, net_total, vat_rate, discount, manual_discount FROM dht_orders WHERE id = $1`, [orderId]);
+                if (order) {
+                    let surcharges = [];
+                    try {
+                        surcharges = typeof order.surcharges === 'string' ? JSON.parse(order.surcharges) : (order.surcharges || []);
+                    } catch(e) { surcharges = []; }
+                    if (!Array.isArray(surcharges)) surcharges = [];
+
+                    const surchargeName = `Bù phí in ${itemId ? 'Phiếu ' + itemId : 'toàn bộ'} (In lại)`;
+                    surcharges = surcharges.filter(s => s.name !== surchargeName);
+                    surcharges.push({
+                        name: surchargeName,
+                        amount: totalSurcharge,
+                        note: surcharge_note || ''
+                    });
+
+                    const netTotal = Number(order.net_total) || 0;
+                    const vatRate = Number(order.vat_rate) || 0;
+                    const discount = Number(order.discount) || 0;
+                    const manualDiscount = Number(order.manual_discount) || 0;
+
+                    const baseAmount = netTotal - discount;
+                    const calcVat = Math.round(baseAmount * (vatRate / 100));
+                    const surTotal = surcharges.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                    const finalTotalAmount = baseAmount + calcVat + surTotal - manualDiscount;
+
+                    await txDb.run(`
+                        UPDATE dht_orders 
+                        SET surcharges = $1, total_amount = $2, updated_at = NOW()
+                        WHERE id = $3
+                    `, [JSON.stringify(surcharges), finalTotalAmount, orderId]);
+
+                    // Write audit log
+                    const changesArr = [{
+                        field: 'surcharge_add',
+                        label: `Thêm phụ phí "${surchargeName}"`,
+                        old: null,
+                        new: String(totalSurcharge)
+                    }];
+                    await txDb.run(`
+                        INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) 
+                        VALUES ($1, $2, $3, $4, $5, NOW())
+                    `, [orderId, 'update_order', `Hủy phân công in (In lại) & Thêm phụ phí bù in: +${totalSurcharge.toLocaleString('vi-VN')}đ`, JSON.stringify(changesArr), request.user.id]);
+                }
+
+                // 5. Reset reminders and choices in qlx_preparation
+                if (itemId) {
+                    const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE item_id = $1', [itemId]);
+                    if (!row) {
+                        try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id, item_id) VALUES ($1, $2)', [orderId, itemId]); } catch(e){}
+                    }
+                    await txDb.run(`
+                        UPDATE qlx_preparation 
+                        SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
+                        WHERE item_id = $2
+                    `, [now, itemId]);
+                    await txDb.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept IN ('in', 'ep')`, [itemId]);
+                } else {
+                    const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
+                    if (!row) {
+                        try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id) VALUES ($1)', [orderId]); } catch(e){}
+                    }
+                    await txDb.run(`
+                        UPDATE qlx_preparation 
+                        SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
+                        WHERE dht_order_id = $2 AND item_id IS NULL
+                    `, [now, orderId]);
+                    await txDb.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept IN ('in', 'ep')`, [orderId]);
+                }
+
+                // 6. Add to history
+                const historyDetails = (itemId ? `[Phiếu ID: ${itemId}] ` : '') + 'Hủy phân công In toàn bộ (Khách bù tiền)';
+                if (itemId) {
+                    await txDb.run(`
+                        INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                        VALUES ($1, $2, 'unassign_in_all', $3, $4, $5)
+                    `, [orderId, itemId, historyDetails, request.user.id, now]);
+                } else {
+                    await txDb.run(`
+                        INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                        VALUES ($1, 'unassign_in_all', $2, $3, $4)
+                    `, [orderId, historyDetails, request.user.id, now]);
+                }
+
+                await client.query('COMMIT');
+                return { success: true };
+            } catch (txErr) {
+                await client.query('ROLLBACK');
+                throw txErr;
+            } finally {
+                client.release();
+            }
         } else {
-            await db.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
-        }
+            // Normal cancel print assignment (without printed meters)
+            const client = await db.pool.connect();
+            const txDb = {
+                async run(sql, params = []) {
+                    const converted = convertPlaceholders(sql, params);
+                    const res = await client.query(converted.sql, converted.params);
+                    const lastInsertRowid = res.rows && res.rows.length > 0 && res.rows[0].id != null ? res.rows[0].id : 0;
+                    return { lastInsertRowid, changes: res.rowCount };
+                },
+                async all(sql, params = []) {
+                    const converted = convertPlaceholders(sql, params);
+                    const res = await client.query(converted.sql, converted.params);
+                    return res.rows;
+                },
+                async get(sql, params = []) {
+                    const converted = convertPlaceholders(sql, params);
+                    const res = await client.query(converted.sql, converted.params);
+                    return res.rows[0] || null;
+                }
+            };
 
-        // 4. Reset reminders and choices in qlx_preparation
-        if (itemId) {
-            await ensureItemPrepRow(orderId, itemId);
-            await db.run(`
-                UPDATE qlx_preparation 
-                SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
-                WHERE item_id = $2
-            `, [now, itemId]);
-            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept IN ('in', 'ep')`, [itemId]);
-        } else {
-            await ensureOrderPrepRow(orderId);
-            await db.run(`
-                UPDATE qlx_preparation 
-                SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
-                WHERE dht_order_id = $2 AND item_id IS NULL
-            `, [now, orderId]);
-            await db.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept IN ('in', 'ep')`, [orderId]);
-        }
+            try {
+                await client.query('BEGIN');
 
-        // 5. Add to history
-        const historyDetails = (itemId ? `[Phiếu ID: ${itemId}] ` : '') + 'Hủy phân công In toàn bộ';
-        if (itemId) {
-            await db.run(`
-                INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
-                VALUES ($1, $2, 'unassign_in_all', $3, $4, $5)
-            `, [orderId, itemId, historyDetails, request.user.id, now]);
-        } else {
-            await db.run(`
-                INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
-                VALUES ($1, 'unassign_in_all', $2, $3, $4)
-            `, [orderId, historyDetails, request.user.id, now]);
-        }
+                if (itemId) {
+                    await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+                    await txDb.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+                } else {
+                    await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
+                    await txDb.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
+                    await txDb.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
+                }
 
-        return { success: true };
+                await syncPrintAndCutRemoval(txDb, orderId, itemId);
+
+                if (itemId) {
+                    await txDb.run(`DELETE FROM printing_records WHERE order_item_id = $1`, [itemId]);
+                } else {
+                    await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+                }
+
+                if (itemId) {
+                    const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE item_id = $1', [itemId]);
+                    if (!row) {
+                        try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id, item_id) VALUES ($1, $2)', [orderId, itemId]); } catch(e){}
+                    }
+                    await txDb.run(`
+                        UPDATE qlx_preparation 
+                        SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
+                        WHERE item_id = $2
+                    `, [now, itemId]);
+                    await txDb.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept IN ('in', 'ep')`, [itemId]);
+                } else {
+                    const row = await txDb.get('SELECT 1 FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
+                    if (!row) {
+                        try { await txDb.run('INSERT INTO qlx_preparation (dht_order_id) VALUES ($1)', [orderId]); } catch(e){}
+                    }
+                    await txDb.run(`
+                        UPDATE qlx_preparation 
+                        SET print_remind_choice = 'none', press_remind_choice = 'none', updated_at = $1
+                        WHERE dht_order_id = $2 AND item_id IS NULL
+                    `, [now, orderId]);
+                    await txDb.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept IN ('in', 'ep')`, [orderId]);
+                }
+
+                const historyDetails = (itemId ? `[Phiếu ID: ${itemId}] ` : '') + 'Hủy phân công In toàn bộ';
+                if (itemId) {
+                    await txDb.run(`
+                        INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                        VALUES ($1, $2, 'unassign_in_all', $3, $4, $5)
+                    `, [orderId, itemId, historyDetails, request.user.id, now]);
+                } else {
+                    await txDb.run(`
+                        INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                        VALUES ($1, 'unassign_in_all', $2, $3, $4)
+                    `, [orderId, historyDetails, request.user.id, now]);
+                }
+
+                await client.query('COMMIT');
+                return { success: true };
+            } catch (txErr) {
+                await client.query('ROLLBACK');
+                throw txErr;
+            } finally {
+                client.release();
+            }
+        }
     });
 
     fastify.post('/api/qlx/print-assignment/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
@@ -2377,13 +2634,13 @@ module.exports = async function(fastify) {
         let isPrintDone = false;
         let isPressDone = false;
         if (itemId) {
-            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND COALESCE(is_discarded, false) = false`, [orderId, itemId]);
             isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
         } else {
-            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
             isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
@@ -3428,7 +3685,7 @@ module.exports = async function(fastify) {
             const hasPrintRecs = await db.get(`
                 SELECT EXISTS (
                     SELECT 1 FROM printing_records 
-                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                    WHERE (order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false))) AND COALESCE(is_discarded, false) = false
                 ) AS has_recs
             `, [itemId, orderId]);
             if (!hasPrintRecs || !hasPrintRecs.has_recs) {
@@ -3437,7 +3694,7 @@ module.exports = async function(fastify) {
                 const printPending = await db.get(`
                     SELECT EXISTS (
                         SELECT 1 FROM printing_records pr
-                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                           AND pr.is_print_done = false AND pr.contractor_id IS NULL
                     ) AS pending
                 `, [itemId, orderId]);
@@ -3535,7 +3792,7 @@ module.exports = async function(fastify) {
             const hasPrintRecs = await db.get(`
                 SELECT EXISTS (
                     SELECT 1 FROM printing_records 
-                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                    WHERE (order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false))) AND COALESCE(is_discarded, false) = false
                 ) AS has_recs
             `, [item_id, dht_order_id]);
             if (!hasPrintRecs || !hasPrintRecs.has_recs) {
@@ -3544,7 +3801,7 @@ module.exports = async function(fastify) {
                 const printPending = await db.get(`
                     SELECT EXISTS (
                         SELECT 1 FROM printing_records pr
-                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                           AND pr.is_print_done = false AND pr.contractor_id IS NULL
                     ) AS pending
                 `, [item_id, dht_order_id]);
@@ -3841,7 +4098,7 @@ module.exports = async function(fastify) {
             const hasPrintRecs = await db.get(`
                 SELECT EXISTS (
                     SELECT 1 FROM printing_records 
-                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                    WHERE (order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false))) AND COALESCE(is_discarded, false) = false
                 ) AS has_recs
             `, [item_id, dht_order_id]);
             if (!hasPrintRecs || !hasPrintRecs.has_recs) {
@@ -3850,7 +4107,7 @@ module.exports = async function(fastify) {
                 const printPending = await db.get(`
                     SELECT EXISTS (
                         SELECT 1 FROM printing_records pr
-                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                           AND pr.is_print_done = false AND pr.contractor_id IS NULL
                     ) AS pending
                 `, [item_id, dht_order_id]);
@@ -4025,7 +4282,7 @@ module.exports = async function(fastify) {
             const hasPrintRecs = await db.get(`
                 SELECT EXISTS (
                     SELECT 1 FROM printing_records 
-                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                    WHERE (order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false))) AND COALESCE(is_discarded, false) = false
                 ) AS has_recs
             `, [res.item_id, res.dht_order_id]);
             if (!hasPrintRecs || !hasPrintRecs.has_recs) {
@@ -4034,7 +4291,7 @@ module.exports = async function(fastify) {
                 const printPending = await db.get(`
                     SELECT EXISTS (
                         SELECT 1 FROM printing_records pr
-                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                           AND pr.is_print_done = false AND pr.contractor_id IS NULL
                     ) AS pending
                 `, [res.item_id, res.dht_order_id]);
@@ -4138,7 +4395,7 @@ module.exports = async function(fastify) {
             const hasPrintRecs = await db.get(`
                 SELECT EXISTS (
                     SELECT 1 FROM printing_records 
-                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                    WHERE (order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false))) AND COALESCE(is_discarded, false) = false
                 ) AS has_recs
             `, [res.item_id, res.dht_order_id]);
             if (!hasPrintRecs || !hasPrintRecs.has_recs) {
@@ -4147,7 +4404,7 @@ module.exports = async function(fastify) {
                 const printPending = await db.get(`
                     SELECT EXISTS (
                         SELECT 1 FROM printing_records pr
-                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                           AND pr.is_print_done = false AND pr.contractor_id IS NULL
                     ) AS pending
                 `, [res.item_id, res.dht_order_id]);
@@ -4256,7 +4513,7 @@ module.exports = async function(fastify) {
             const hasPrintRecs = await db.get(`
                 SELECT EXISTS (
                     SELECT 1 FROM printing_records 
-                    WHERE order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1))
+                    WHERE (order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false))) AND COALESCE(is_discarded, false) = false
                 ) AS has_recs
             `, [res.item_id, res.dht_order_id]);
             if (!hasPrintRecs || !hasPrintRecs.has_recs) {
@@ -4265,7 +4522,7 @@ module.exports = async function(fastify) {
                 const printPending = await db.get(`
                     SELECT EXISTS (
                         SELECT 1 FROM printing_records pr
-                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)))
+                        WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                           AND pr.is_print_done = false AND pr.contractor_id IS NULL
                     ) AS pending
                 `, [res.item_id, res.dht_order_id]);
@@ -4927,8 +5184,8 @@ module.exports = async function(fastify) {
                     ) AS cut_done,
                     COALESCE(
                         CASE 
-                            WHEN EXISTS (SELECT 1 FROM printing_records WHERE order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) 
-                            THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE (order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) AND is_print_done = false AND contractor_id IS NULL)
+                            WHEN EXISTS (SELECT 1 FROM printing_records WHERE (order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) AND COALESCE(is_discarded, false) = false) 
+                            THEN NOT EXISTS (SELECT 1 FROM printing_records WHERE (order_item_id = oi.id OR (oi.id IS NULL AND dht_order_id = o.id)) AND is_print_done = false AND contractor_id IS NULL AND COALESCE(is_discarded, false) = false)
                             ELSE (SELECT op.is_completed FROM dht_order_production op WHERE op.dht_order_id = o.id AND op.step_id = 3 LIMIT 1)
                         END,
                         false
