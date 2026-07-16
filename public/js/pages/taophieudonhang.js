@@ -6054,7 +6054,6 @@ function _tpdAddPosition() {
 
     if (!val) return;
 
-    const it = state.editingItem;
     if (!it.print_details) it.print_details = [];
 
     // Prevent duplicates
