@@ -6484,14 +6484,34 @@ function _tpdParseLayout(val) {
 }
 
 function _tpdIsSheetModified(it, dbItem) {
-    if (!it || !dbItem) return false;
+    if (!it || !dbItem) {
+        console.log('[_tpdIsSheetModified] it or dbItem is missing:', { it: !!it, dbItem: !!dbItem });
+        return false;
+    }
+
+    console.log('[_tpdIsSheetModified] Comparing sheet:', it.product_name, 'ID:', it.id);
 
     // Compare basic fields
-    if ((it.style_name || '') !== (dbItem.style_name || '')) return true;
-    if ((it.material_name || '') !== (dbItem.material_name || '')) return true;
-    if ((it.color_name || '') !== (dbItem.color_name || '')) return true;
-    if ((it.workshop_note || '') !== (dbItem.workshop_note || '')) return true;
-    if ((it.size_type || '') !== (dbItem.size_type || '')) return true;
+    if ((it.style_name || '') !== (dbItem.style_name || '')) {
+        console.log('[_tpdIsSheetModified] style_name differs:', { current: it.style_name, db: dbItem.style_name });
+        return true;
+    }
+    if ((it.material_name || '') !== (dbItem.material_name || '')) {
+        console.log('[_tpdIsSheetModified] material_name differs:', { current: it.material_name, db: dbItem.material_name });
+        return true;
+    }
+    if ((it.color_name || '') !== (dbItem.color_name || '')) {
+        console.log('[_tpdIsSheetModified] color_name differs:', { current: it.color_name, db: dbItem.color_name });
+        return true;
+    }
+    if ((it.workshop_note || '') !== (dbItem.workshop_note || '')) {
+        console.log('[_tpdIsSheetModified] workshop_note differs:', { current: it.workshop_note, db: dbItem.workshop_note });
+        return true;
+    }
+    if ((it.size_type || '') !== (dbItem.size_type || '')) {
+        console.log('[_tpdIsSheetModified] size_type differs:', { current: it.size_type, db: dbItem.size_type });
+        return true;
+    }
 
     // Compare quantities
     const q1 = it.quantities || [];
@@ -6499,9 +6519,13 @@ function _tpdIsSheetModified(it, dbItem) {
     if (typeof q2 === 'string') {
         try { q2 = JSON.parse(q2); } catch(e) { q2 = []; }
     }
-    if (q1.length !== q2.length) return true;
+    if (q1.length !== q2.length) {
+        console.log('[_tpdIsSheetModified] quantities length differs:', { current: q1.length, db: q2.length });
+        return true;
+    }
     for (let i = 0; i < q1.length; i++) {
         if (q1[i].size !== q2[i].size || Number(q1[i].qty) !== Number(q2[i].qty) || (q1[i].note || '') !== (q2[i].note || '')) {
+            console.log('[_tpdIsSheetModified] quantity row differs at index', i, { current: q1[i], db: q2[i] });
             return true;
         }
     }
@@ -6512,28 +6536,98 @@ function _tpdIsSheetModified(it, dbItem) {
     if (typeof p2 === 'string') {
         try { p2 = JSON.parse(p2); } catch(e) { p2 = []; }
     }
-    if (p1.length !== p2.length) return true;
+    if (p1.length !== p2.length) {
+        console.log('[_tpdIsSheetModified] print_details length differs:', { current: p1.length, db: p2.length });
+        return true;
+    }
     for (let i = 0; i < p1.length; i++) {
-        if ((p1[i].position || '') !== (p2[i].position || '')) return true;
-        if ((p1[i].print_type || '') !== (p2[i].print_type || '')) return true;
-        if ((p1[i].width || '') !== (p2[i].width || '')) return true;
-        if ((p1[i].height || '') !== (p2[i].height || '')) return true;
-        if ((p1[i].dimension || '') !== (p2[i].dimension || '')) return true;
-        if ((p1[i].note || '') !== (p2[i].note || '')) return true;
-        if ((p1[i].image || '') !== (p2[i].image || '')) return true;
+        if ((p1[i].position || '') !== (p2[i].position || '')) {
+            console.log('[_tpdIsSheetModified] print_details position differs at index', i, { current: p1[i].position, db: p2[i].position });
+            return true;
+        }
+        if ((p1[i].print_type || '') !== (p2[i].print_type || '')) {
+            console.log('[_tpdIsSheetModified] print_details print_type differs at index', i, { current: p1[i].print_type, db: p2[i].print_type });
+            return true;
+        }
+        if ((p1[i].width || '') !== (p2[i].width || '')) {
+            console.log('[_tpdIsSheetModified] print_details width differs at index', i, { current: p1[i].width, db: p2[i].width });
+            return true;
+        }
+        if ((p1[i].height || '') !== (p2[i].height || '')) {
+            console.log('[_tpdIsSheetModified] print_details height differs at index', i, { current: p1[i].height, db: p2[i].height });
+            return true;
+        }
+        if ((p1[i].dimension || '') !== (p2[i].dimension || '')) {
+            console.log('[_tpdIsSheetModified] print_details dimension differs at index', i, { current: p1[i].dimension, db: p2[i].dimension });
+            return true;
+        }
+        if ((p1[i].note || '') !== (p2[i].note || '')) {
+            console.log('[_tpdIsSheetModified] print_details note differs at index', i, { current: p1[i].note, db: p2[i].note });
+            return true;
+        }
+        if ((p1[i].image || '') !== (p2[i].image || '')) {
+            console.log('[_tpdIsSheetModified] print_details image differs at index', i, { current: !!p1[i].image, db: !!p2[i].image });
+            return true;
+        }
+        
+        // Also check offset properties
+        if ((p1[i].gay_xuong || '') !== (p2[i].gay_xuong || '')) {
+            console.log('[_tpdIsSheetModified] print_details gay_xuong differs at index', i, { current: p1[i].gay_xuong, db: p2[i].gay_xuong });
+            return true;
+        }
+        if ((p1[i].co_xuong || '') !== (p2[i].co_xuong || '')) {
+            console.log('[_tpdIsSheetModified] print_details co_xuong differs at index', i, { current: p1[i].co_xuong, db: p2[i].co_xuong });
+            return true;
+        }
+        if ((p1[i].offset_value || '') !== (p2[i].offset_value || '')) {
+            console.log('[_tpdIsSheetModified] print_details offset_value differs at index', i, { current: p1[i].offset_value, db: p2[i].offset_value });
+            return true;
+        }
+        if (JSON.stringify(p1[i].selected_offsets || {}) !== JSON.stringify(p2[i].selected_offsets || {})) {
+            console.log('[_tpdIsSheetModified] print_details selected_offsets differs at index', i, { current: p1[i].selected_offsets, db: p2[i].selected_offsets });
+            return true;
+        }
     }
 
     // Compare custom layout sewing items
     const lay1 = _tpdParseLayout(it.custom_layout);
     const lay2 = _tpdParseLayout(dbItem.custom_layout);
-    const sew1 = lay1.sewing_items || [];
-    const sew2 = lay2.sewing_items || [];
-    if (sew1.length !== sew2.length) return true;
-    for (let i = 0; i < sew1.length; i++) {
-        if ((sew1[i].tech || '') !== (sew2[i].tech || '')) return true;
-        if ((sew1[i].detail || '') !== (sew2[i].detail || '')) return true;
+    
+    if ((lay1.height || '') !== (lay2.height || '')) {
+        console.log('[_tpdIsSheetModified] layout height differs:', { current: lay1.height, db: lay2.height });
+        return true;
+    }
+    if ((lay1.alignment || '') !== (lay2.alignment || '')) {
+        console.log('[_tpdIsSheetModified] layout alignment differs:', { current: lay1.alignment, db: lay2.alignment });
+        return true;
+    }
+    if ((lay1.topSpacing || '') !== (lay2.topSpacing || '')) {
+        console.log('[_tpdIsSheetModified] layout topSpacing differs:', { current: lay1.topSpacing, db: lay2.topSpacing });
+        return true;
+    }
+    if (!!lay1.is_red_sheet !== !!lay2.is_red_sheet) {
+        console.log('[_tpdIsSheetModified] layout is_red_sheet differs:', { current: lay1.is_red_sheet, db: lay2.is_red_sheet });
+        return true;
     }
 
+    const sew1 = lay1.sewing_items || [];
+    const sew2 = lay2.sewing_items || [];
+    if (sew1.length !== sew2.length) {
+        console.log('[_tpdIsSheetModified] sewing_items length differs:', { current: sew1.length, db: sew2.length });
+        return true;
+    }
+    for (let i = 0; i < sew1.length; i++) {
+        if ((sew1[i].tech || '') !== (sew2[i].tech || '')) {
+            console.log('[_tpdIsSheetModified] sewing_items tech differs at index', i, { current: sew1[i].tech, db: sew2[i].tech });
+            return true;
+        }
+        if ((sew1[i].detail || '') !== (sew2[i].detail || '')) {
+            console.log('[_tpdIsSheetModified] sewing_items detail differs at index', i, { current: sew1[i].detail, db: sew2[i].detail });
+            return true;
+        }
+    }
+
+    console.log('[_tpdIsSheetModified] Sheet is not modified.');
     return false;
 }
 
