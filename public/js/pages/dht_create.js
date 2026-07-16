@@ -2733,7 +2733,7 @@ function _dhtRenderPhieuRows() {
             ? '🐾 Phiếu ' + catName + ' #'+(i+1)+' — '+p.product_name + giftBadge
             : '📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span>' + giftBadge;
         d.innerHTML='<div style="font-weight:700;color:var(--navy)">'+label+'</div>'
-            +'<div style="text-align:center;font-weight:700">SL:'+p.quantity+'</div>'
+            +'<div style="text-align:center;font-weight:700">SL:'+(Array.isArray(p.quantities)&&p.quantities.length>0?p.quantities.reduce(function(s,x){return s+(Number(x.qty)||0);},0):p.quantity)+'</div>'
             +'<div style="text-align:right">'+p.raw_total.toLocaleString('vi-VN')+'đ</div>'
             +'<div style="text-align:center;font-size:10px;color:#b8860b;font-weight:700">'+vl+'</div>'
             +'<div style="text-align:right;font-weight:800;color:#059669">'+p.item_total.toLocaleString('vi-VN')+'đ</div>'
@@ -3552,7 +3552,8 @@ async function _dhtInitializeEditState(id, data) {
                 vat_amount: vatAmt,
                 raw_total: baseTotal,
                 item_total: rawTotal,
-                quantity: Number(it.quantity) || 0,
+                // ★ Sync quantity from quantities array (source of truth) to fix stale DB values
+                quantity: qtyArr.length > 0 ? qtyArr.reduce(function(s, x){ return s + (Number(x.qty)||0); }, 0) : (Number(it.quantity) || 0),
                 unit_price: Number(it.unit_price) || 0,
                 promo_gift_quantity: Number(it.promo_gift_quantity) || 0,
                 promo_gift_code: it.promo_gift_code || '',
