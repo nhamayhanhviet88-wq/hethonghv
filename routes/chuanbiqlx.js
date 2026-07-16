@@ -2189,13 +2189,13 @@ module.exports = async function(fastify) {
         let isPrintDone = false;
         let isPressDone = false;
         if (itemId) {
-            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND COALESCE(is_discarded, false) = false`, [orderId, itemId]);
             isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
         } else {
-            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
             isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
@@ -3015,11 +3015,11 @@ module.exports = async function(fastify) {
 
             let existingRecs = [];
             if (itemId) {
-                existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE order_item_id = $1`, [itemId]);
+                existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_discarded, false) = false`, [itemId]);
                 // Clean up any stale order-level printing records since we are now assigning at the item level
                 await db.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
             } else {
-                existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+                existingRecs = await db.all(`SELECT id, print_field FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
             }
             const existingFMap = {}; existingRecs.forEach(r => existingFMap[r.print_field] = r.id);
 
