@@ -112,6 +112,7 @@ module.exports = async function(fastify) {
                         SELECT 1 FROM printing_records pr
                         WHERE pr.dht_order_id = o.id AND pr.order_item_id IS NULL
                           AND pr.print_field IN ('IN PET', 'IN DECAL')
+                          AND COALESCE(pr.is_discarded, false) = false
                     )
                 ) AS has_press_printing,
                 (
@@ -121,6 +122,7 @@ module.exports = async function(fastify) {
                     ) OR EXISTS (
                         SELECT 1 FROM printing_records pr
                         WHERE pr.dht_order_id = o.id AND pr.order_item_id IS NULL
+                          AND COALESCE(pr.is_discarded, false) = false
                     )
                 ) AS has_any_printing,
                 COALESCE(
@@ -317,13 +319,13 @@ module.exports = async function(fastify) {
             WHERE fr.dht_order_id = $1 ORDER BY fr.id ASC
         `, [orderId]);
 
-        // Printing records
+        // Printing records — only active (non-discarded) for audit
         const printing = await db.all(`
             SELECT pr.*, u.full_name AS printer_name, c.name AS contractor_name
             FROM printing_records pr
             LEFT JOIN users u ON pr.printer_id = u.id
             LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
-            WHERE pr.dht_order_id = $1 ORDER BY pr.id ASC
+            WHERE pr.dht_order_id = $1 AND COALESCE(pr.is_discarded, false) = false ORDER BY pr.id ASC
         `, [orderId]);
 
         // Pressing records
@@ -891,6 +893,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_order_items doi ON pr.order_item_id = doi.id
                 LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
                 WHERE pr.dht_order_id = $1
+                  AND COALESCE(pr.is_discarded, false) = false
                   AND (
                       $2::int IS NULL 
                       OR pr.order_item_id = $2 
@@ -902,7 +905,19 @@ module.exports = async function(fastify) {
                   )
                 ORDER BY pr.id ASC
             `, [orderId, itemId]);
-            return { step: 'in', order_code: order.order_code, cskh_name: order.cskh_name, records };
+
+            // Count discarded rounds for surcharge history note
+            const discardedInfo = await db.get(`
+                SELECT COUNT(*) as total_discarded,
+                       COUNT(DISTINCT print_field) as field_count
+                FROM printing_records
+                WHERE dht_order_id = $1 AND is_discarded = true
+                  AND ($2::int IS NULL OR order_item_id = $2 OR (order_item_id IS NULL AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1)))
+            `, [orderId, itemId]);
+            const discardedCount = discardedInfo ? Number(discardedInfo.total_discarded) : 0;
+            const discardedRounds = discardedInfo && discardedInfo.field_count > 0 ? Math.ceil(discardedCount / discardedInfo.field_count) : 0;
+
+            return { step: 'in', order_code: order.order_code, cskh_name: order.cskh_name, records, discarded_rounds: discardedRounds };
         }
 
         if (step === 'ep') {
@@ -1331,7 +1346,7 @@ module.exports = async function(fastify) {
                         END
                     ) AS max_print_time
                     FROM printing_records
-                    WHERE dht_order_id = $1 AND (contractor_id IS NOT NULL OR is_print_done = true)
+                    WHERE dht_order_id = $1 AND (contractor_id IS NOT NULL OR is_print_done = true) AND COALESCE(is_discarded, false) = false
                 `, [orderId]);
                 done_order_at = printRow ? printRow.max_print_time : null;
             } else {

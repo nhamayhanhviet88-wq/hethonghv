@@ -678,9 +678,19 @@ function _tsRenderStepModal(step, d){
     }
     else if(step==='in'){
         html = hdr('🖨️','BÁO CÁO IN',d.order_code,'#7c3aed,#6d28d9');
-        if(!d.records||!d.records.length){ body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🖨️</div><div style="font-size:14px;font-weight:800;color:#991b1b;margin-bottom:6px">Chưa có dữ liệu in</div><div style="font-size:12px;font-weight:600;color:#64748b">Do Quản Lý Xưởng chưa phân công thợ in / gia công</div></div>'; }
+        const _discRounds = d.discarded_rounds || 0;
+        if(!d.records||!d.records.length){
+            let emptyMsg = '<div style="font-size:14px;font-weight:800;color:#991b1b;margin-bottom:6px">Chưa có dữ liệu in</div><div style="font-size:12px;font-weight:600;color:#64748b">Do Quản Lý Xưởng chưa phân công thợ in / gia công</div>';
+            if (_discRounds > 0) {
+                emptyMsg += '<div style="margin-top:12px;padding:8px 14px;background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;font-size:12px;font-weight:700;color:#92400e">⚠️ Đã hủy phân công & bù phí ' + _discRounds + ' lần trước đó. Đang chờ phân công lại.</div>';
+            }
+            body='<div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:16px;margin:24px;box-shadow:0 4px 12px rgba(0,0,0,0.02)"><div style="font-size:32px;margin-bottom:12px;filter:grayscale(100%);opacity:0.6">🖨️</div>' + emptyMsg + '</div>';
+        }
         else {
             body+=`<div style="padding:16px 24px;display:flex;flex-direction:column;gap:14px">`;
+            if (_discRounds > 0) {
+                body+=`<div style="padding:10px 14px;background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;font-size:12px;font-weight:700;color:#92400e;display:flex;align-items:center;gap:8px">⚠️ Lưu ý: Đơn này đã hủy phân công & bù phí <strong>${_discRounds} lần</strong> trước đó.</div>`;
+            }
             // Group by order_item_id
             const groups = [];
             const groupMap = {};
