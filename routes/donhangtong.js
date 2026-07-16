@@ -2910,11 +2910,10 @@ module.exports = async function(fastify) {
                     );
                 } else if (existingBackup.session_id !== sessionId) {
                     // ★ Phát hiện phiên làm việc mới (người dùng đóng/mở lại trang hoặc tải lại trang).
-                    // Cập nhật cả session_id mới và ghi đè original_data với dữ liệu hiện tại trong cơ sở dữ liệu.
-                    // Điều này đảm bảo nút "Bỏ qua" sẽ luôn khôi phục về trạng thái trước khi phiên làm việc hiện tại bắt đầu.
+                    // Chỉ cập nhật session_id mới để khớp phiên làm việc, giữ nguyên vẹn dữ liệu gốc original_data từ lúc bắt đầu phiên chỉnh sửa đầu tiên.
                     await db.run(
-                        'UPDATE dht_order_session_backups SET session_id = $3, original_data = $4 WHERE order_id = $1 AND user_id = $2',
-                        [orderId, request.user.id, sessionId, originalData]
+                        'UPDATE dht_order_session_backups SET session_id = $3 WHERE order_id = $1 AND user_id = $2',
+                        [orderId, request.user.id, sessionId]
                     );
                 }
             } catch (backupErr) {
