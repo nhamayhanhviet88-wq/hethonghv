@@ -385,8 +385,11 @@ function _bpiGetProductNameDisplay(r) {
     var code = (r.order_code || '').toUpperCase();
     var isTarget = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0;
     var base = isTarget ? (r.order_code || '—') : (r.product_name || '—');
+    base = base.replace(/\s*-\s*\[HỦY BỎ - KHÁCH BÙ TIỀN\]/g, '');
+    base = base.replace(/\s*-\s*\[HỦY BỎ - BÙ PHÍ\]/g, '');
+    base = base.replace(/\s*—\s*\[HỦY BỎ - BÙ PHÍ\]/g, '');
     if (r.is_discarded) {
-        return base + ' - [HỦY BỎ - BÙ PHÍ]';
+        return base + ' — [HỦY BỎ - BÙ PHÍ]';
     }
     return base;
 }

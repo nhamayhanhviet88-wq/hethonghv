@@ -835,7 +835,14 @@ module.exports = async function(fastify) {
             let displayName = r.cut_product_name || finalProdName;
             displayName = displayName.replace(/\s*—\s*P\d+\s*—\s*/g, ' — ').replace(/\s*—\s*P\d+\s*$/g, '');
             if (r.is_discarded) {
-                displayName = displayName + ' - [HỦY BỎ - BÙ PHÍ]';
+                let phieuPart = '';
+                const phieuMatch = displayName.match(/—\s*Phiếu\s*\d+/i);
+                if (phieuMatch) {
+                    phieuPart = ' ' + phieuMatch[0].trim() + ' —';
+                } else {
+                    phieuPart = ' —';
+                }
+                displayName = `${r.order_code}${phieuPart} [HỦY BỎ - BÙ PHÍ]`;
             }
 
             return {
