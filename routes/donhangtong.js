@@ -3861,19 +3861,20 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh khách nhắn chốt đơn!' });
         }
 
-        const orderItems = await db.all('SELECT id, product_name FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        const orderItems = await db.all('SELECT id, product_name, design_pdf_url, design_pdf_name FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
         if (!item_designs || typeof item_designs !== 'object') {
             return reply.code(400).send({ error: 'Thiếu file PDF thiết kế bắt buộc cho từng phiếu!' });
         }
-        const nextEditCount = (Number(order.edit_count) || 0) + 1;
         for (const item of orderItems) {
             const designVal = item_designs[item.id];
             let urlStr = '';
             let filename = '';
+            let isModifiedInput = false;
             if (designVal) {
                 if (typeof designVal === 'object') {
                     urlStr = designVal.url || '';
                     filename = designVal.filename || '';
+                    isModifiedInput = !!designVal.is_modified;
                 } else {
                     urlStr = designVal || '';
                 }
@@ -3881,13 +3882,21 @@ module.exports = async function(fastify) {
             if (!urlStr || !urlStr.trim()) {
                 return reply.code(400).send({ error: `Vui lòng tải lên file PDF thiết kế cho [${item.product_name || 'Phiếu'}]!` });
             }
+            
+            const dbUrl = item.design_pdf_url;
+            const dbName = item.design_pdf_name;
+            const isReusingDbPdf = dbUrl && dbName && (urlStr.trim() === dbUrl.trim()) && (filename.trim() === dbName.trim());
+
             // Enforce file upload with the correct suffix if it is a revision/edit session
             if (!order.is_draft) {
-                const requiredSuffix = ` - Sua lan ${nextEditCount}.pdf`;
-                if (!filename || !filename.toLowerCase().endsWith(requiredSuffix.toLowerCase())) {
-                    return reply.code(400).send({
-                        error: `Vui lòng tải lại FILE THIẾT KẾ (PDF BẮT BUỘC) cho [${item.product_name || 'Phiếu'}] để đảm bảo file có tên theo định dạng mới "${order.order_code} - Phieu X - Sua lan ${nextEditCount}.pdf"!`
-                    });
+                if (isModifiedInput || !isReusingDbPdf) {
+                    const nextEditCount = (Number(order.edit_count) || 0) + 1;
+                    const requiredSuffix = ` - Sua lan ${nextEditCount}.pdf`;
+                    if (!filename || !filename.toLowerCase().endsWith(requiredSuffix.toLowerCase())) {
+                        return reply.code(400).send({
+                            error: `Vui lòng tải lại FILE THIẾT KẾ (PDF BẮT BUỘC) cho [${item.product_name || 'Phiếu'}] để đảm bảo file có tên theo định dạng mới "${order.order_code} - Phieu X - Sua lan ${nextEditCount}.pdf"!`
+                        });
+                    }
                 }
             }
         }

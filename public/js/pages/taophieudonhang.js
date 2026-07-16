@@ -355,12 +355,22 @@ async function renderDesignDraftPage(content) {
             } catch(e) {}
         }
 
-        // Clear out any stale session local storage design files for these items
-        if (items && items.length > 0) {
-            items.forEach(item => {
-                localStorage.removeItem(`tpd_pdf_url_${item.id}`);
-                localStorage.removeItem(`tpd_pdf_filename_${item.id}`);
-            });
+        // Initialize sessionStorage original items baseline if not already present
+        const storageKey = `tpd_orig_items_${orderId}`;
+        const countKey = `tpd_orig_edit_count_${orderId}`;
+        let origItemsJson = sessionStorage.getItem(storageKey);
+        
+        if (!origItemsJson) {
+            sessionStorage.setItem(storageKey, JSON.stringify(items.map(it => _tpdCloneItemState(it, true))));
+            sessionStorage.setItem(countKey, order.edit_count || 0);
+            
+            // Clear out any stale session local storage design files for these items only on fresh entry
+            if (items && items.length > 0) {
+                items.forEach(item => {
+                    localStorage.removeItem(`tpd_pdf_url_${item.id}`);
+                    localStorage.removeItem(`tpd_pdf_filename_${item.id}`);
+                });
+            }
         }
 
         window._tpdWorkspaceState = {
@@ -6456,6 +6466,8 @@ async function _tpdDiscardChanges() {
             for (const item of items) {
                 _tpdClearDraft(item);
             }
+            sessionStorage.removeItem(`tpd_orig_items_${orderId}`);
+            sessionStorage.removeItem(`tpd_orig_edit_count_${orderId}`);
             
             showToast('🔄 Đã khôi phục đơn hàng về trạng thái ban đầu thành công!', 'success');
             
@@ -6492,6 +6504,14 @@ function _tpdIsSheetModified(it, dbItem) {
     console.log('[_tpdIsSheetModified] Comparing sheet:', it.product_name, 'ID:', it.id);
 
     // Compare basic fields
+    if ((it.product_name || '') !== (dbItem.product_name || '')) {
+        console.log('[_tpdIsSheetModified] product_name differs:', { current: it.product_name, db: dbItem.product_name });
+        return true;
+    }
+    if ((it.pattern_name || '') !== (dbItem.pattern_name || '')) {
+        console.log('[_tpdIsSheetModified] pattern_name differs:', { current: it.pattern_name, db: dbItem.pattern_name });
+        return true;
+    }
     if ((it.style_name || '') !== (dbItem.style_name || '')) {
         console.log('[_tpdIsSheetModified] style_name differs:', { current: it.style_name, db: dbItem.style_name });
         return true;
@@ -6510,6 +6530,18 @@ function _tpdIsSheetModified(it, dbItem) {
     }
     if ((it.size_type || '') !== (dbItem.size_type || '')) {
         console.log('[_tpdIsSheetModified] size_type differs:', { current: it.size_type, db: dbItem.size_type });
+        return true;
+    }
+
+    // Compare sewing techniques
+    const sewTech1 = Array.isArray(it.sewing_techniques) ? it.sewing_techniques : [];
+    let sewTech2 = dbItem.sewing_techniques || [];
+    if (typeof sewTech2 === 'string') {
+        try { sewTech2 = JSON.parse(sewTech2); } catch(e) { sewTech2 = []; }
+    }
+    if (!Array.isArray(sewTech2)) sewTech2 = [];
+    if (JSON.stringify(sewTech1) !== JSON.stringify(sewTech2)) {
+        console.log('[_tpdIsSheetModified] sewing_techniques differs:', { current: sewTech1, db: sewTech2 });
         return true;
     }
 
@@ -6786,10 +6818,26 @@ function _tpdValidateAllSheets() {
 
         // 5. Enforce Mockup upload check when editing an official order and sheet is modified
         if (!isOrderDraft) {
-            const dbItem = state.dbBaselines ? state.dbBaselines[idx] : state.items[idx];
-            const isModified = dbItem && _tpdIsSheetModified(it, dbItem);
-            if (dbItem && isModified) {
-                if (it.mockup_image === dbItem.mockup_image) {
+            const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${state.orderId}`);
+            let isModified = false;
+            let origItem = null;
+            if (origItemsJson) {
+                try {
+                    const origItems = JSON.parse(origItemsJson);
+                    origItem = origItems.find(x => x.id === it.id);
+                    if (origItem) {
+                        isModified = _tpdIsSheetModified(it, origItem);
+                    } else {
+                        isModified = true;
+                    }
+                } catch(e) {
+                    isModified = false;
+                }
+            }
+            
+            if (isModified) {
+                const checkBaseMockup = origItem ? origItem.mockup_image : (state.dbBaselines && state.dbBaselines[idx] ? state.dbBaselines[idx].mockup_image : '');
+                if (it.mockup_image === checkBaseMockup) {
                     showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Khi sửa đơn, bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
                     _tpdSwitchItemTab(idx);
                     return false;
@@ -7200,12 +7248,41 @@ async function _tpdShowExportSheetsModal() {
         const orderCode = o.order_code || o.draft_name || 'DONHANG';
         const friendlyFallbackName = `${orderCode} - Phieu ${idx + 1}.pdf`;
 
+        // Check if modified compared to sessionStorage baseline
+        const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${o.id}`);
+        let isSheetModified = false;
+        if (origItemsJson) {
+            try {
+                const origItems = JSON.parse(origItemsJson);
+                const origItem = origItems.find(x => x.id === item.id);
+                if (origItem) {
+                    isSheetModified = _tpdIsSheetModified(item, origItem);
+                } else {
+                    isSheetModified = true;
+                }
+            } catch(e) {
+                isSheetModified = true;
+            }
+        }
+
         if (localUrl) {
             window._tpdSheetDesigns[item.id] = {
                 url: localUrl,
                 filename: localFilename || friendlyFallbackName
             };
+        } else if (!isSheetModified && item.design_pdf_url) {
+            // Unmodified sheet can reuse the database PDF
+            const dbUrl = item.design_pdf_url;
+            let dbFilename = item.design_pdf_name || '';
+            if (!dbFilename || dbFilename.trim() === '' || /^design_\d+_\w+\.pdf$/i.test(dbFilename.trim())) {
+                dbFilename = friendlyFallbackName;
+            }
+            window._tpdSheetDesigns[item.id] = {
+                url: dbUrl,
+                filename: dbFilename
+            };
         } else if (o.is_draft && item.design_pdf_url) {
+            // Draft order sheet can reuse database PDF
             const dbUrl = item.design_pdf_url;
             let dbFilename = item.design_pdf_name || '';
             if (!dbFilename || dbFilename.trim() === '' || /^design_\d+_\w+\.pdf$/i.test(dbFilename.trim())) {
@@ -7268,6 +7345,24 @@ async function _tpdShowExportSheetsModal() {
                 <div id="tpdExportGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
                     ${items.map((item, idx) => {
                         const design = window._tpdSheetDesigns[item.id] || { url: '', filename: '' };
+                        
+                        // Check if modified compared to sessionStorage baseline
+                        const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${o.id}`);
+                        let isSheetModified = false;
+                        if (origItemsJson) {
+                            try {
+                                const origItems = JSON.parse(origItemsJson);
+                                const origItem = origItems.find(x => x.id === item.id);
+                                if (origItem) {
+                                    isSheetModified = _tpdIsSheetModified(item, origItem);
+                                } else {
+                                    isSheetModified = true;
+                                }
+                            } catch(e) {
+                                isSheetModified = true;
+                            }
+                        }
+
                         return `
                         <div class="tpd-export-card" id="exportCard_${idx}" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: all 0.2s;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -7297,10 +7392,10 @@ async function _tpdShowExportSheetsModal() {
                                 <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 6px; text-align: left; display: flex; align-items: center; gap: 4px;">
                                     📄 FILE THIẾT KẾ (PDF BẮT BUỘC)
                                 </div>
-                                <div id="pdfUploadContainer_${item.id}" onclick="_tpdTriggerPdfUpload(${item.id})" style="border: 1.5px dashed ${design.url ? '#10b981' : '#cbd5e1'}; border-radius: 6px; padding: 10px; background: ${design.url ? '#f0fdf4' : '#ffffff'}; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60px; transition: all 0.2s;" onmouseover="if(!window._tpdSheetDesigns[${item.id}]?.url) this.style.borderColor='#3b82f6';" onmouseout="if(!window._tpdSheetDesigns[${item.id}]?.url) this.style.borderColor='#cbd5e1';">
-                                    <div id="pdfUploadPrompt_${item.id}" style="font-size: 11px; color: #64748b; font-weight: 700; text-align: center; ${design.url ? 'display: none;' : ''}">
-                                        <div style="font-size: 16px; margin-bottom: 2px;">📤</div>
-                                        Chọn file thiết kế PDF
+                                <div id="pdfUploadContainer_${item.id}" onclick="_tpdTriggerPdfUpload(${item.id})" style="border: 1.5px dashed ${design.url ? '#10b981' : (isSheetModified ? '#ef4444' : '#cbd5e1')}; border-radius: 6px; padding: 10px; background: ${design.url ? '#f0fdf4' : (isSheetModified ? '#fff5f5' : '#ffffff')}; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60px; transition: all 0.2s;" onmouseover="if(!window._tpdSheetDesigns[${item.id}]?.url) this.style.borderColor='#3b82f6';" onmouseout="if(!window._tpdSheetDesigns[${item.id}]?.url) this.style.borderColor=window._tpdSheetDesigns[${item.id}]?.is_modified ? '#ef4444' : '#cbd5e1';">
+                                    <div id="pdfUploadPrompt_${item.id}" style="font-size: 11px; color: ${isSheetModified ? '#ef4444' : '#64748b'}; font-weight: 700; text-align: center; ${design.url ? 'display: none;' : ''}">
+                                        <div style="font-size: 16px; margin-bottom: 2px;">${isSheetModified ? '⚠️' : '📤'}</div>
+                                        ${isSheetModified ? 'Phiếu bị sửa: Bắt buộc tải mới PDF!' : 'Chọn file thiết kế PDF'}
                                     </div>
                                     <div id="pdfPreviewContainer_${item.id}" style="${design.url ? 'display: flex;' : 'display: none;'} width: 100%; align-items: center; justify-content: space-between; gap: 8px;">
                                         <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 24px);">
@@ -7719,10 +7814,24 @@ async function _tpdShowExportSheetsModal() {
                     confirmBtn.innerHTML = 'Đang xử lý...';
                     
                     const itemDesigns = {};
+                    const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${o.id}`);
+                    let origItems = [];
+                    if (origItemsJson) {
+                        try { origItems = JSON.parse(origItemsJson); } catch(e) {}
+                    }
                     for (const item of items) {
+                        const origItem = origItems.find(x => x.id === item.id);
+                        let isSheetModified = false;
+                        if (origItem) {
+                            isSheetModified = _tpdIsSheetModified(item, origItem);
+                        } else {
+                            isSheetModified = true;
+                        }
+
                         itemDesigns[item.id] = {
                             url: window._tpdSheetDesigns[item.id]?.url || '',
-                            filename: window._tpdSheetDesigns[item.id]?.filename || ''
+                            filename: window._tpdSheetDesigns[item.id]?.filename || '',
+                            is_modified: isSheetModified
                         };
                     }
 
@@ -7741,6 +7850,8 @@ async function _tpdShowExportSheetsModal() {
                         localStorage.removeItem(`tpd_chat_proof_${o.id}`);
                         localStorage.removeItem(`tpd_copied_conf_${o.id}`);
                         localStorage.removeItem(`tpd_copied_fin_${o.id}`);
+                        sessionStorage.removeItem(`tpd_orig_items_${o.id}`);
+                        sessionStorage.removeItem(`tpd_orig_edit_count_${o.id}`);
                         for (const item of items) {
                             localStorage.removeItem(`tpd_pdf_url_${item.id}`);
                             localStorage.removeItem(`tpd_pdf_filename_${item.id}`);
