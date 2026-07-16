@@ -702,7 +702,7 @@ module.exports = async function(fastify) {
             FROM printing_records pr
             LEFT JOIN users u ON pr.printer_id = u.id
             LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
-            WHERE pr.dht_order_id IN (${orderIds.map((_, i) => `${i+1}`).join(',')}) AND COALESCE(pr.is_discarded, false) = false
+            WHERE pr.dht_order_id IN (${orderIds.map((_, i) => `$${i+1}`).join(',')}) AND COALESCE(pr.is_discarded, false) = false
         `, orderIds) : [];
 
         const getRecordOpName = (pr) => {
