@@ -6468,10 +6468,78 @@ async function _tpdDiscardChanges() {
     }
 }
 
+function _tpdParseLayout(val) {
+    if (!val) return {};
+    if (typeof val === 'string') {
+        try {
+            return JSON.parse(val);
+        } catch(e) {
+            return {};
+        }
+    }
+    return val;
+}
+
+function _tpdIsSheetModified(it, dbItem) {
+    if (!it || !dbItem) return false;
+
+    // Compare basic fields
+    if ((it.style_name || '') !== (dbItem.style_name || '')) return true;
+    if ((it.material_name || '') !== (dbItem.material_name || '')) return true;
+    if ((it.color_name || '') !== (dbItem.color_name || '')) return true;
+    if ((it.workshop_note || '') !== (dbItem.workshop_note || '')) return true;
+    if ((it.size_type || '') !== (dbItem.size_type || '')) return true;
+
+    // Compare quantities
+    const q1 = it.quantities || [];
+    let q2 = dbItem.quantities || [];
+    if (typeof q2 === 'string') {
+        try { q2 = JSON.parse(q2); } catch(e) { q2 = []; }
+    }
+    if (q1.length !== q2.length) return true;
+    for (let i = 0; i < q1.length; i++) {
+        if (q1[i].size !== q2[i].size || Number(q1[i].qty) !== Number(q2[i].qty) || (q1[i].note || '') !== (q2[i].note || '')) {
+            return true;
+        }
+    }
+
+    // Compare print details
+    const p1 = it.print_details || [];
+    let p2 = dbItem.print_details || [];
+    if (typeof p2 === 'string') {
+        try { p2 = JSON.parse(p2); } catch(e) { p2 = []; }
+    }
+    if (p1.length !== p2.length) return true;
+    for (let i = 0; i < p1.length; i++) {
+        if ((p1[i].position || '') !== (p2[i].position || '')) return true;
+        if ((p1[i].print_type || '') !== (p2[i].print_type || '')) return true;
+        if ((p1[i].width || '') !== (p2[i].width || '')) return true;
+        if ((p1[i].height || '') !== (p2[i].height || '')) return true;
+        if ((p1[i].dimension || '') !== (p2[i].dimension || '')) return true;
+        if ((p1[i].note || '') !== (p2[i].note || '')) return true;
+        if ((p1[i].image || '') !== (p2[i].image || '')) return true;
+    }
+
+    // Compare custom layout sewing items
+    const lay1 = _tpdParseLayout(it.custom_layout);
+    const lay2 = _tpdParseLayout(dbItem.custom_layout);
+    const sew1 = lay1.sewing_items || [];
+    const sew2 = lay2.sewing_items || [];
+    if (sew1.length !== sew2.length) return true;
+    for (let i = 0; i < sew1.length; i++) {
+        if ((sew1[i].tech || '') !== (sew2[i].tech || '')) return true;
+        if ((sew1[i].detail || '') !== (sew2[i].detail || '')) return true;
+    }
+
+    return false;
+}
+
 // Validate all sheets of the order to ensure they are fully filled
 function _tpdValidateAllSheets() {
     const state = window._tpdWorkspaceState;
     if (!state) return false;
+
+    const isOrderDraft = state.order && (state.order.is_draft === true || state.order.is_draft === 'true' || state.order.is_draft === 1 || String(state.order.is_draft) === 'true');
 
     // First, gather and validate quantity checks for all sheets at once
     const missingSheets = [];
@@ -6617,6 +6685,18 @@ function _tpdValidateAllSheets() {
             showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng tải lên Hình ảnh thiết kế Mockup lớn!`, 'error');
             _tpdSwitchItemTab(idx);
             return false;
+        }
+
+        // 5. Enforce Mockup upload check when editing an official order and sheet is modified
+        if (!isOrderDraft) {
+            const dbItem = state.items[idx];
+            if (dbItem && _tpdIsSheetModified(it, dbItem)) {
+                if (it.mockup_image === dbItem.mockup_image) {
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Phát hiện thay đổi thông tin sản xuất. Bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
+                    _tpdSwitchItemTab(idx);
+                    return false;
+                }
+            }
         }
     }
     return true;
