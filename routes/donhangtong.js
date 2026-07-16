@@ -2909,12 +2909,12 @@ module.exports = async function(fastify) {
                         [orderId, request.user.id, sessionId, originalData]
                     );
                 } else if (existingBackup.session_id !== sessionId) {
-                    // ★ Chỉ cập nhật session_id, KHÔNG đè original_data
-                    // Đảm bảo "Bỏ qua" LUÔN revert về trạng thái ban đầu khi mở workspace lần đầu
-                    // dù user đã "Cập Nhật Đơn" bao nhiêu lần trong phiên làm việc
+                    // ★ Phát hiện phiên làm việc mới (người dùng đóng/mở lại trang hoặc tải lại trang).
+                    // Cập nhật cả session_id mới và ghi đè original_data với dữ liệu hiện tại trong cơ sở dữ liệu.
+                    // Điều này đảm bảo nút "Bỏ qua" sẽ luôn khôi phục về trạng thái trước khi phiên làm việc hiện tại bắt đầu.
                     await db.run(
-                        'UPDATE dht_order_session_backups SET session_id = $3 WHERE order_id = $1 AND user_id = $2',
-                        [orderId, request.user.id, sessionId]
+                        'UPDATE dht_order_session_backups SET session_id = $3, original_data = $4 WHERE order_id = $1 AND user_id = $2',
+                        [orderId, request.user.id, sessionId, originalData]
                     );
                 }
             } catch (backupErr) {
@@ -4062,8 +4062,15 @@ module.exports = async function(fastify) {
             );
         } catch(e) { console.error('[AuditLog] promote_draft:', e.message); }
 
-        // ★ Do NOT touch session backup here — backup preserves the state from when
-        // workspace was first opened, so "Bỏ qua" always reverts to the pre-edit state
+        // ★ Đơn hàng đã chốt thiết kế & lên đơn thành công -> Xóa bản sao lưu phiên làm việc để phiên tiếp theo bắt đầu sạch sẽ.
+        try {
+            await db.run(
+                'DELETE FROM dht_order_session_backups WHERE order_id = $1 AND user_id = $2',
+                [orderId, request.user.id]
+            );
+        } catch (backupDelErr) {
+            console.error('[ConfirmExport] Failed to delete session backup:', backupDelErr);
+        }
 
         return { success: true };
     });
