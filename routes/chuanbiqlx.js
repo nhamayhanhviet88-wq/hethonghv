@@ -21,6 +21,26 @@ module.exports = async function(fastify) {
         }
     }
 
+    async function syncPettemRollMeters(txDb, rollId) {
+        if (!rollId) return;
+        try {
+            const sumRow = await txDb.get(`
+                SELECT COALESCE(SUM(print_meters), 0)::numeric AS total_printed
+                FROM printing_records
+                WHERE pettem_roll_id = $1
+            `, [Number(rollId)]);
+            const totalPrinted = Number(sumRow.total_printed) || 0;
+            
+            const roll = await txDb.get('SELECT qty_imported, qty_waste, qty_error FROM pettem_rolls WHERE id = $1', [Number(rollId)]);
+            if (roll) {
+                const remaining = Number(roll.qty_imported || 0) - Number(roll.qty_waste || 0) - Number(roll.qty_error || 0) - totalPrinted;
+                await txDb.run('UPDATE pettem_rolls SET qty_printed = $1, qty_remaining = $2 WHERE id = $3', [totalPrinted, remaining, Number(rollId)]);
+            }
+        } catch(err) {
+            console.error('[QLX] syncPettemRollMeters error:', err.message);
+        }
+    }
+
     async function syncPrintAndCutCuttingRecords(db, orderId, itemId, contractorId, now) {
         let items = [];
         if (itemId) {
@@ -2391,6 +2411,14 @@ module.exports = async function(fastify) {
             // 2. Sync print and cut removal
             await syncPrintAndCutRemoval(txDb, orderId, itemId);
 
+            // Fetch affected rolls to sync after deletion/update
+            const affectedRolls = await txDb.all(`
+                SELECT DISTINCT pettem_roll_id 
+                FROM printing_records 
+                WHERE (order_item_id = $1 OR (order_item_id IS NULL AND dht_order_id = $2))
+                  AND pettem_roll_id IS NOT NULL
+            `, [itemId, orderId]);
+
             // 3. Update or delete printing records
             if (isSurcharge) {
                 if (hasPrinted) {
@@ -2474,6 +2502,11 @@ module.exports = async function(fastify) {
                 } else {
                     await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
                 }
+            }
+
+            // Sync affected rolls
+            for (const roll of affectedRolls) {
+                await syncPettemRollMeters(txDb, roll.pettem_roll_id);
             }
 
             // 5. Reset reminders and choices in qlx_preparation

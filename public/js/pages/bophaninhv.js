@@ -384,10 +384,11 @@ function _bpiGetQtyDisplay(r) {
 function _bpiGetProductNameDisplay(r) {
     var code = (r.order_code || '').toUpperCase();
     var isTarget = code.indexOf('GCPET') >= 0 || code.indexOf('GCTEM') >= 0 || code.indexOf('SUAGCPET') >= 0 || code.indexOf('SUAGCTEM') >= 0 || code.indexOf('SUAPET') >= 0 || code.indexOf('SUATEM') >= 0;
-    if (isTarget) {
-        return r.order_code || '—';
+    var base = isTarget ? (r.order_code || '—') : (r.product_name || '—');
+    if (r.is_discarded) {
+        return base + ' - [HỦY BỎ - BÙ PHÍ]';
     }
-    return r.product_name || '—';
+    return base;
 }
 
 function _bpiGetProgressDisplay(r) {
@@ -666,7 +667,8 @@ function _bpiRender() {
             +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes||'—')+'</td>'
             +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
         }
-        return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
+        var trStyle = r.is_discarded ? ' style="background:#fee2e2;opacity:0.85;"' : '';
+        return '<tr' + trStyle + '><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell
         +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#94a3b8">—</span>' : '<button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button>')+'</td>'
         +'<td style="text-align:center">'+doneBtnHtml+'</td>'

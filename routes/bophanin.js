@@ -529,7 +529,8 @@ module.exports = async function(fastify) {
         const records = await db.all(`
             WITH unified_printing AS (
                 SELECT 
-                    pr.id AS id,
+                    pr.id AS id,
+                    COALESCE(pr.is_discarded, false) AS is_discarded,
                     pr.dht_order_id,
                     pr.material_tx_id,
                     pr.pettem_roll_id,
@@ -601,7 +602,8 @@ module.exports = async function(fastify) {
                 UNION ALL
 
                 SELECT 
-                    NULL::int AS id,
+                    NULL::int AS id,
+                    false AS is_discarded,
                     o.id AS dht_order_id,
                     NULL::int AS material_tx_id,
                     NULL::int AS pettem_roll_id,
@@ -830,8 +832,11 @@ module.exports = async function(fastify) {
             }
 
             // Strip coordination label (— P1 —, — P2 —, etc.) - not needed for printing dept
-            let displayName = r.cut_product_name || finalProdName;
-            displayName = displayName.replace(/\s*—\s*P\d+\s*—\s*/g, ' — ').replace(/\s*—\s*P\d+\s*$/g, '');
+            let displayName = r.cut_product_name || finalProdName;
+            displayName = displayName.replace(/\s*—\s*P\d+\s*—\s*/g, ' — ').replace(/\s*—\s*P\d+\s*$/g, '');
+            if (r.is_discarded) {
+                displayName = displayName + ' - [HỦY BỎ - BÙ PHÍ]';
+            }
 
             return {
                 ...r,

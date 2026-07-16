@@ -509,6 +509,7 @@ module.exports = async function(fastify) {
     fastify.get('/api/pettem/rolls/:id/orders', { preHandler: [authenticate] }, async (req) => {
         const orders = await db.all(`
             SELECT pr.id, o.order_code, pr.order_quantity, pr.print_meters, pr.print_done_at,
+                   COALESCE(pr.is_discarded, false) AS is_discarded,
                    COALESCE(u.full_name, u.username) AS printer_name, c.name AS contractor_name
             FROM printing_records pr
             LEFT JOIN dht_orders o ON pr.dht_order_id = o.id

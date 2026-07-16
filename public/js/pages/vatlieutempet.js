@@ -830,9 +830,12 @@ async function openPtDetailsModal(rollId) {
         }
         
         var orderRows = orders.map(function(o) {
-            return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,0.02)">'
+            var cardBg = o.is_discarded ? '#fef2f2' : '#fff';
+            var cardBorder = o.is_discarded ? '1px solid #fca5a5' : '1px solid #e2e8f0';
+            var discardBadge = o.is_discarded ? ' <span style="background:#ef4444;color:#fff;font-size:8.5px;padding:1px 4.5px;border-radius:3px;font-weight:bold;margin-left:4px">HỦY - BÙ PHÍ</span>' : '';
+            return '<div style="background:' + cardBg + ';border:' + cardBorder + ';border-radius:8px;padding:10px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,0.02)">'
                  + '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
-                 + '    <span style="font-weight:800;color:#0284c7;font-size:11.5px">#' + o.order_code + '</span>'
+                 + '    <span style="font-weight:800;color:#0284c7;font-size:11.5px">#' + o.order_code + discardBadge + '</span>'
                  + '    <span style="font-size:10px;color:#059669;font-weight:700">' + _ptFN(o.print_meters) + 'm</span>'
                  + '  </div>'
                  + '  <div style="font-size:9.5px;color:#475569;display:flex;justify-content:space-between">'
