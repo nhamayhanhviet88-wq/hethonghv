@@ -3249,7 +3249,7 @@ function _tpdInjectWorkspaceStyles() {
 
         .tpd-a4-mockup-wrapper {
             width: fit-content;
-            max-width: 100%;
+            max-width: calc(100% - 95mm - 10px);
             border: 1.5px solid #122546;
             border-radius: 8px;
             overflow: auto;
@@ -4417,7 +4417,7 @@ function _tpdUpdateLivePreview() {
 
             <!-- Images Row -->
             <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
-                <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px;">
+                <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: calc(100% - 95mm - 10px); height: 100%; min-width: 120px;">
                     <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
                         ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Tải lên ảnh từ bảng bên phải</span></div>`}
@@ -5885,7 +5885,7 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false, isCustome
     const normalizedSaleType = (saleTypeVal.toLowerCase() === 'bán' || saleTypeVal.toLowerCase() === 'ban') ? 'Bán' : (saleTypeVal.toLowerCase() === 'quà' || saleTypeVal.toLowerCase() === 'qua') ? 'Quà' : (saleTypeVal || 'Bán');
 
     return `
-        <div class="tpd-a4-info-box" style="flex: 1; border: 1.5px solid #122546; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; background: #ffffff; height: 100%; box-sizing: border-box; min-width: 200px;">
+        <div class="tpd-a4-info-box" style="width: 95mm; min-width: 95mm; flex-shrink: 0; border: 1.5px solid #122546; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; background: #ffffff; height: 100%; box-sizing: border-box;">
             <div style="background: #122546; color: white; padding: 5px 8px; font-weight: 700; font-size: 11px; text-transform: uppercase; text-align: center; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Thông Tin Chi Tiết Sản Xuất
             </div>
@@ -7806,7 +7806,7 @@ async function _tpdShowExportSheetsModal() {
 
                     <!-- Images Row -->
                     <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
-                        <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px; ${mockupStyle}">
+                        <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: calc(100% - 95mm - 10px); height: 100%; min-width: 120px; ${mockupStyle}">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
                                 ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
@@ -8444,7 +8444,7 @@ async function _tpdPrintAllSheets(isCustomerExport = false) {
 
                     <!-- Images Row -->
                     <div class="tpd-a4-images-row" style="height: ${customHeight}; ${alignmentStyle}">
-                        <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: 100%; height: 100%; min-width: 120px; ${mockupStyle}">
+                        <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: calc(100% - 95mm - 10px); height: 100%; min-width: 120px; ${mockupStyle}">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
                                 ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
