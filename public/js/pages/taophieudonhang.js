@@ -5463,27 +5463,39 @@ function _tpdUpdateQty(size, val) {
     // Update warning banner
     const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
     const qtyWarning = document.getElementById('tpd-qty-warning');
-    if (dhtQty > 0 && totalSizeQty < dhtQty) {
-        if (qtyWarning) {
+    if (qtyWarning) {
+        if (dhtQty > 0 && totalSizeQty > dhtQty) {
+            qtyWarning.style.display = 'block';
+            qtyWarning.innerHTML = `⚠️ Tổng size (<b>${totalSizeQty}</b>) vượt quá SL phiếu (<b>${dhtQty}</b>). Vui lòng điều chỉnh!`;
+            qtyWarning.style.color = '#dc2626';
+            qtyWarning.style.background = '#fef2f2';
+            qtyWarning.style.borderColor = '#fecaca';
+        } else if (dhtQty > 0 && totalSizeQty < dhtQty) {
             qtyWarning.style.display = 'block';
             qtyWarning.innerHTML = `⚠️ Tổng size (<b>${totalSizeQty}</b>) chưa đủ SL phiếu (<b>${dhtQty}</b>). Còn thiếu <b>${dhtQty - totalSizeQty}</b> áo.`;
             qtyWarning.style.color = '#d97706';
             qtyWarning.style.background = '#fffbeb';
             qtyWarning.style.borderColor = '#fde68a';
-        }
-    } else if (dhtQty > 0 && totalSizeQty === dhtQty) {
-        if (qtyWarning) {
+        } else if (dhtQty > 0 && totalSizeQty === dhtQty) {
             qtyWarning.style.display = 'block';
             qtyWarning.innerHTML = `✅ Tổng size (<b>${totalSizeQty}</b>) khớp với SL phiếu (<b>${dhtQty}</b>)`;
             qtyWarning.style.color = '#059669';
             qtyWarning.style.background = '#ecfdf5';
             qtyWarning.style.borderColor = '#a7f3d0';
             setTimeout(() => {
-                if (qtyWarning) { qtyWarning.style.display = 'none'; }
+                const latestIt = window._tpdWorkspaceState?.editingItem;
+                if (latestIt) {
+                    const latestDhtQ = Number(latestIt.quantity) || 0;
+                    const latestTotalQ = (latestIt.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
+                    if (latestDhtQ > 0 && latestTotalQ === latestDhtQ) {
+                        const activeWarning = document.getElementById('tpd-qty-warning');
+                        if (activeWarning) { activeWarning.style.display = 'none'; }
+                    }
+                }
             }, 3000);
+        } else {
+            qtyWarning.style.display = 'none';
         }
-    } else {
-        if (qtyWarning) qtyWarning.style.display = 'none';
     }
 
     _tpdSaveDraft(it);

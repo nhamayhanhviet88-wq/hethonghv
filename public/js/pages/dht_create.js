@@ -2589,31 +2589,10 @@ function _dhtSavePhieu(idx) {
         if (origSizes && origSizes.length > 0) {
             var sumOldQty = origSizes.reduce(function(s, x) { return s + (Number(x.qty) || 0); }, 0);
             if (sumOldQty > 0) {
-                // ★ FIX: Scale origSizes proportionally when user changes SL input
-                if (qv !== sumOldQty && qv > 0) {
-                    // Proportional rescale with largest-remainder method for exact integer distribution
-                    var ratio = qv / sumOldQty;
-                    var scaled = origSizes.map(function(os) {
-                        var exact = (Number(os.qty) || 0) * ratio;
-                        return { size: os.size, floored: Math.floor(exact), remainder: exact - Math.floor(exact), note: os.note || '' };
-                    });
-                    var flooredSum = scaled.reduce(function(s, x) { return s + x.floored; }, 0);
-                    var diff = qv - flooredSum;
-                    // Distribute remainder to entries with largest fractional parts
-                    scaled.sort(function(a, b) { return b.remainder - a.remainder; });
-                    for (var ri = 0; ri < diff && ri < scaled.length; ri++) { scaled[ri].floored++; }
-                    // Restore original order
-                    var sizeOrder = origSizes.map(function(os) { return os.size; });
-                    scaled.sort(function(a, b) { return sizeOrder.indexOf(a.size) - sizeOrder.indexOf(b.size); });
-                    scaled.forEach(function(sc) {
-                        qtyPairs.push({ size: sc.size, qty: sc.floored, price: pv, note: sc.note });
-                    });
-                } else {
-                    // No change in total — keep origSizes as-is
-                    origSizes.forEach(function(os) {
-                        qtyPairs.push({ size: os.size, qty: Number(os.qty) || 0, price: pv, note: os.note || '' });
-                    });
-                }
+                // Keep manual sizes exactly as-is; do not automatically scale them.
+                origSizes.forEach(function(os) {
+                    qtyPairs.push({ size: os.size, qty: Number(os.qty) || 0, price: pv, note: os.note || '' });
+                });
             } else {
                 origSizes.forEach(function(os, oIdx) {
                     qtyPairs.push({
