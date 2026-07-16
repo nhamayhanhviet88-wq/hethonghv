@@ -6697,6 +6697,14 @@ function _tpdIsSheetModified(it, dbItem) {
         console.log('[_tpdIsSheetModified] mockup_image differs:', { current: it.mockup_image, db: dbItem.mockup_image });
         return true;
     }
+    if ((it.front_technique_image || '') !== (dbItem.front_technique_image || '')) {
+        console.log('[_tpdIsSheetModified] front_technique_image differs:', { current: it.front_technique_image, db: dbItem.front_technique_image });
+        return true;
+    }
+    if ((it.back_technique_image || '') !== (dbItem.back_technique_image || '')) {
+        console.log('[_tpdIsSheetModified] back_technique_image differs:', { current: it.back_technique_image, db: dbItem.back_technique_image });
+        return true;
+    }
 
     // Compare sewing techniques
     const sewTech1 = Array.isArray(it.sewing_techniques) ? it.sewing_techniques : [];
@@ -6707,6 +6715,18 @@ function _tpdIsSheetModified(it, dbItem) {
     if (!Array.isArray(sewTech2)) sewTech2 = [];
     if (JSON.stringify(sewTech1) !== JSON.stringify(sewTech2)) {
         console.log('[_tpdIsSheetModified] sewing_techniques differs:', { current: sewTech1, db: sewTech2 });
+        return true;
+    }
+
+    // Compare tsam sewing techniques
+    const tsamTech1 = Array.isArray(it.tsam_sewing_tech) ? it.tsam_sewing_tech : [];
+    let tsamTech2 = dbItem.tsam_sewing_tech || [];
+    if (typeof tsamTech2 === 'string') {
+        try { tsamTech2 = JSON.parse(tsamTech2); } catch(e) { tsamTech2 = []; }
+    }
+    if (!Array.isArray(tsamTech2)) tsamTech2 = [];
+    if (JSON.stringify(tsamTech1) !== JSON.stringify(tsamTech2)) {
+        console.log('[_tpdIsSheetModified] tsam_sewing_tech differs:', { current: tsamTech1, db: tsamTech2 });
         return true;
     }
 
