@@ -4617,12 +4617,21 @@ function _tpdRenderFormInputs() {
                         const selected = t === sewItem.tech ? 'selected' : '';
                         let disabled = '';
                         if (groupName !== 'Khác' && t !== sewItem.tech) {
-                            const isGroupAlreadyChosen = layout.sewing_items.some((otherItem, otherIdx) => {
+                            let isGroupAlreadyChosen = layout.sewing_items.some((otherItem, otherIdx) => {
                                 if (otherIdx === sIdx) return false;
                                 const isPredefined = configSewingTechs.includes(otherItem.tech);
                                 if (!isPredefined) return false;
                                 return _tpdGetSewingTechGroup(otherItem.tech) === groupName;
                             });
+                            if (groupName === 'Nhóm Cổ') {
+                                const hasCollarInOther = layout.sewing_items.some((otherItem, otherIdx) => {
+                                    if (otherIdx === sIdx) return false;
+                                    return _tpdIsCollarTech(otherItem.tech);
+                                });
+                                if (hasCollarInOther) {
+                                    isGroupAlreadyChosen = true;
+                                }
+                            }
                             if (isGroupAlreadyChosen) {
                                 disabled = 'disabled';
                             }
@@ -8960,6 +8969,32 @@ function _tpdIsBoTay(techName) {
     return accentRemoved.startsWith('bo tay') || accentRemoved.startsWith('bo o tay');
 }
 
+function _tpdIsCollarTech(techName) {
+    if (!techName) return false;
+    const trimmed = techName.trim();
+    if (!trimmed || trimmed === 'Khác') return false;
+
+    // 1. Check if it matches config and is in collar group
+    const normalizedConfig = _tpdGetNormalizedSewingTechs();
+    const normTech = _tpdNormalizeText(trimmed);
+    const match = normalizedConfig.find(n => {
+        return _tpdNormalizeText(n.tech) === normTech;
+    });
+    if (match) {
+        return match.group === 'Nhóm Cổ';
+    }
+
+    // 2. Check keyword matching (lowercase, NFC)
+    const lower = trimmed.toLowerCase().normalize('NFC');
+    const keywords = ['cổ bẻ dệt', 'cổ tròn', 'cổ tim', 'cổ bẻ', 'cổ dệt', 'cổ vải', 'cổ lá sen', 'cổ sen', 'cổ trụ', 'cổ dựng', 'bo cổ'];
+    if (keywords.some(kw => lower.includes(kw))) {
+        return true;
+    }
+
+    // 3. Fallback heuristic using _tpdGetSewingTechGroup
+    return _tpdGetSewingTechGroup(trimmed) === 'Nhóm Cổ';
+}
+
 // Add sewing technique item row
 function _tpdAddSewingItem() {
     const state = window._tpdWorkspaceState;
@@ -8987,10 +9022,16 @@ function _tpdAddSewingItem() {
             break;
         } else {
             const configTechNames = configSewingTechs.map(t => typeof t === 'object' ? (t.tech || '') : String(t));
-            const alreadyChosen = layout.sewing_items.some(item => {
+            let alreadyChosen = layout.sewing_items.some(item => {
                 if (!configTechNames.includes(item.tech)) return false;
                 return _tpdGetSewingTechGroup(item.tech) === group;
             });
+            if (group === 'Nhóm Cổ') {
+                const hasCollar = layout.sewing_items.some(item => _tpdIsCollarTech(item.tech));
+                if (hasCollar) {
+                    alreadyChosen = true;
+                }
+            }
             if (!alreadyChosen) {
                 defaultTech = tName;
                 break;
@@ -9018,7 +9059,18 @@ function _tpdUpdateSewingItem(sIdx, field, value) {
 
     if (field === 'tech') {
         const newGroup = _tpdGetSewingTechGroup(value);
-        if (newGroup !== 'Khác') {
+        if (_tpdIsCollarTech(value)) {
+            const hasOtherCollar = layout.sewing_items.some((item, idx) => {
+                if (idx === sIdx) return false;
+                return _tpdIsCollarTech(item.tech);
+            });
+            if (hasOtherCollar) {
+                showToast(`Đã chọn hoặc nhập kỹ thuật liên quan đến Cổ ở dòng khác! Vui lòng không chọn thêm Nhóm Cổ.`, 'warning');
+                _tpdRenderFormInputs();
+                return;
+            }
+        }
+        if (newGroup !== 'Khác' && newGroup !== 'Nhóm Cổ') {
             const hasDuplicate = layout.sewing_items.some((item, idx) => {
                 if (idx === sIdx) return false;
                 return _tpdGetSewingTechGroup(item.tech) === newGroup;
