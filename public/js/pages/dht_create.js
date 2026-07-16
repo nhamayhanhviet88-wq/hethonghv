@@ -2597,14 +2597,31 @@ function _dhtSavePhieu(idx) {
         if (origSizes && origSizes.length > 0) {
             var sumOldQty = origSizes.reduce(function(s, x) { return s + (Number(x.qty) || 0); }, 0);
             if (sumOldQty > 0) {
-                origSizes.forEach(function(os) {
-                    qtyPairs.push({
-                        size: os.size,
-                        qty: Number(os.qty) || 0,
-                        price: pv,
-                        note: os.note || ''
+                // ★ FIX: Scale origSizes proportionally when user changes SL input
+                if (qv !== sumOldQty && qv > 0) {
+                    // Proportional rescale with largest-remainder method for exact integer distribution
+                    var ratio = qv / sumOldQty;
+                    var scaled = origSizes.map(function(os) {
+                        var exact = (Number(os.qty) || 0) * ratio;
+                        return { size: os.size, floored: Math.floor(exact), remainder: exact - Math.floor(exact), note: os.note || '' };
                     });
-                });
+                    var flooredSum = scaled.reduce(function(s, x) { return s + x.floored; }, 0);
+                    var diff = qv - flooredSum;
+                    // Distribute remainder to entries with largest fractional parts
+                    scaled.sort(function(a, b) { return b.remainder - a.remainder; });
+                    for (var ri = 0; ri < diff && ri < scaled.length; ri++) { scaled[ri].floored++; }
+                    // Restore original order
+                    var sizeOrder = origSizes.map(function(os) { return os.size; });
+                    scaled.sort(function(a, b) { return sizeOrder.indexOf(a.size) - sizeOrder.indexOf(b.size); });
+                    scaled.forEach(function(sc) {
+                        qtyPairs.push({ size: sc.size, qty: sc.floored, price: pv, note: sc.note });
+                    });
+                } else {
+                    // No change in total — keep origSizes as-is
+                    origSizes.forEach(function(os) {
+                        qtyPairs.push({ size: os.size, qty: Number(os.qty) || 0, price: pv, note: os.note || '' });
+                    });
+                }
             } else {
                 origSizes.forEach(function(os, oIdx) {
                     qtyPairs.push({
@@ -2681,9 +2698,8 @@ function _dhtSavePhieu(idx) {
     // Build display name for color (all pairs)
     var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
     var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
-    // ★ Use totalQty from qtyPairs (source of truth) to ensure quantity always matches sum of quantities array
-    var finalQty = qtyPairs.reduce(function(s, x) { return s + (Number(x.qty) || 0); }, 0);
-    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:finalQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx};
+    // ★ quantity = typedQty (what user typed) — qtyPairs are now scaled to match
+    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:typedQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
