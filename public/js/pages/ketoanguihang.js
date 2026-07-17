@@ -1095,8 +1095,9 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     const deposit = Number(o.deposit_amount) || 0;
     const vat = calcVat;
     const discount = Number(o.discount_amount) || 0;
+    const promoDiscount = Number(o.promo_discount_amount) || 0;
     const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
+    const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount - promoDiscount);
     const hasCarrierPayment = payments.some(p => p.money_source === 'nha_van_chuyen');
     const shipCK = o.ship_ck_deduct !== undefined ? (Number(o.ship_ck_deduct) || 0) : ((!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && !(o.tracking_code && o.tracking_code.trim())) ? (Number(o.shipping_fee) || 0) : 0);
     const remaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : (String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, total - deposit - shipCK));
@@ -1388,7 +1389,8 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         surHTML += `</div>`;
     }
 
-    const finRemaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : (String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, calcBase + surchargeTotal + vat - discount - deposit - shipCK));
+    const promoDiscount = Number(o.promo_discount_amount) || 0;
+    const finRemaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : (String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, calcBase + surchargeTotal + vat - discount - promoDiscount - deposit - shipCK));
     const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
     var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px">`;
     finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
@@ -1411,11 +1413,14 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
             ['VAT', fmtMoney(vat) + 'đ', '#6366f1', false],
             ['Ưu đãi / Giảm giá', '-' + fmtMoney(discount) + 'đ', '#059669', false],
         ];
+        if (promoDiscount > 0) {
+            finRows.push(['Ưu đãi Coupon/KM', '-' + fmtMoney(promoDiscount) + 'đ', '#059669', false]);
+        }
         if (o.discount_reason) {
             finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
         }
         finRows.push(
-            ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase + surchargeTotal + vat - discount) + 'đ', '#1e293b', true],
+            ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase + surchargeTotal + vat - discount - promoDiscount) + 'đ', '#1e293b', true],
             ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true],
         );
         if (shipCK > 0) {
