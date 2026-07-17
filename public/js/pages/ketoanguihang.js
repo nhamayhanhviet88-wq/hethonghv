@@ -1073,31 +1073,66 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
 
     // Recalculate totals from items (source of truth)
     let calcBase = 0, calcVat = 0;
+    let totalGiftDeduction = 0;
+    let totalGiftQty = 0;
     if (String(o.id).startsWith('sample_')) {
         for (const it of items) {
             calcBase += Number(it.total_amount) || (Number(it.price_per_item) * Number(it.quantity)) || 0;
         }
     } else {
         for (const it of items) {
-            if (it.production_cancelled) {
-                calcBase += Number(it.item_total || it.total) || 0;
-                continue;
-            }
             try {
-                const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]);
-                const base = qs.reduce((s,x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
-                calcBase += base;
-                calcVat += (Number(it.item_total) || 0) - base;
-            } catch(e) { calcBase += Number(it.item_total) || 0; }
+                let qtyArr = [];
+                if (typeof it.quantities === 'string') {
+                    qtyArr = JSON.parse(it.quantities);
+                } else if (Array.isArray(it.quantities)) {
+                    qtyArr = it.quantities;
+                }
+                const unitPrice = Number(it.unit_price) || 0;
+                if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
+
+                let undiscRaw = 0;
+                if (it.production_cancelled) {
+                    undiscRaw = Number(it.item_total || it.total) || 0;
+                } else {
+                    undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                }
+                const giftQty = it.production_cancelled ? 0 : (Number(it.promo_gift_quantity) || 0);
+                totalGiftQty += giftQty;
+                const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
+                
+                let itemRaw = undiscRaw;
+                if (!it.production_cancelled && giftQty > 0 && qtyArr.length > 0) {
+                    const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+                    itemRaw -= Math.round(giftPrice * giftQty);
+                    if (itemRaw < 0) itemRaw = 0;
+                    totalGiftDeduction += (undiscRaw - itemRaw);
+                }
+
+                const rawTotal = Number(it.item_total || it.total) || 0;
+                let vatPct = 0;
+                if (itemRaw > 0 && rawTotal > itemRaw) {
+                    const calculatedPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                    vatPct = (calculatedPct >= 4) ? 8 : 0;
+                }
+                const itemVat = Math.round(itemRaw * vatPct / 100);
+
+                calcBase += undiscRaw;
+                calcVat += itemVat;
+            } catch(e) {
+                calcBase += Number(it.item_total || it.total) || 0;
+            }
         }
     }
     if (calcVat < 0) calcVat = 0;
+    calcVat += Number(o.additional_vat_amount || 0);
     const deposit = Number(o.deposit_amount) || 0;
     const vat = calcVat;
-    const discount = Number(o.discount_amount) || 0;
     const promoDiscount = Number(o.promo_discount_amount) || 0;
+    const manualDiscount = Number(o.discount_amount) || 0;
+    const discount = totalGiftDeduction + promoDiscount + manualDiscount;
     const surchargeTotal = surcharges.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount - promoDiscount);
+    const total = String(o.id).startsWith('sample_') ? calcBase : (calcBase + calcVat + surchargeTotal - discount);
     const hasCarrierPayment = payments.some(p => p.money_source === 'nha_van_chuyen');
     const shipCK = o.ship_ck_deduct !== undefined ? (Number(o.ship_ck_deduct) || 0) : ((!hasCarrierPayment && o.shipping_fee_payer === 'hv' && o.shipping_fee_method === 'ck' && !(o.tracking_code && o.tracking_code.trim())) ? (Number(o.shipping_fee) || 0) : 0);
     const remaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : (String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, total - deposit - shipCK));
@@ -1389,15 +1424,14 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         surHTML += `</div>`;
     }
 
-    const promoDiscount = Number(o.promo_discount_amount) || 0;
-    const finRemaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : (String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, calcBase + surchargeTotal + vat - discount - promoDiscount - deposit - shipCK));
+    const finRemaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : (String(o.id).startsWith('sample_') ? (Number(o.remaining_amount) || 0) : Math.max(0, calcBase + surchargeTotal + vat - discount - deposit - shipCK));
     const remColor = finRemaining > 0 ? '#dc2626' : '#059669';
     var finHTML = `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1px solid #fde68a;padding:12px;margin-bottom:16px">`;
     finHTML += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:12px">💰 Tổng kết tài chính</div>`;
     let finRows = [];
     if (String(o.id).startsWith('sample_')) {
-        const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - (Number(deposit) || 0) - shipCK);
-        const totalPaid = (Number(deposit) || 0) + otherPaid;
+        const otherPaid = Math.max(0, (Number(o.total_amount) || 0) - (Number(o.remaining_amount) || 0) - deposit - shipCK);
+        const totalPaid = deposit + otherPaid;
         finRows.push(
             ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase) + 'đ', '#1e293b', true],
             ['Đã thanh toán (cọc)', fmtMoney(totalPaid) + 'đ', '#10b981', true]
@@ -1407,20 +1441,50 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         }
         finRows.push(['Còn lại', fmtMoney(finRemaining) + 'đ', remColor, true]);
     } else {
+        let vatLabel = 'VAT';
+        if (Number(o.additional_vat_amount || 0) > 0) {
+            vatLabel = `VAT (gồm thêm <span style="font-weight:700;color:#4f46e5">${fmtMoney(o.additional_vat_amount)}đ</span>)`;
+        }
+
+        const isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+        const isTrinh = typeof currentUser !== 'undefined' && currentUser && (
+            (currentUser.full_name && (currentUser.full_name.includes('Lê Việt Trinh') || currentUser.full_name.includes('Le Viet Trinh'))) || 
+            currentUser.username === 'leviettrinh' || 
+            currentUser.username === 'trinh'
+        );
+        const canEditVAT = (Number(o.additional_vat_amount || 0) === 0) || isGD || isTrinh;
+
+        if (canEditVAT) {
+            vatLabel += ` <span onclick="event.stopPropagation();showToast('Vui lòng chỉnh sửa VAT thêm tại màn hình Đơn Hàng Tổng', 'error')" style="cursor:pointer;margin-left:6px;color:#4f46e5;font-weight:bold;font-size:11px;background:#e0e7ff;padding:2px 6px;border-radius:6px;display:inline-flex;align-items:center;gap:3px;transition:all 0.2s;" onmouseover="this.style.background='#c7d2fe'" onmouseout="this.style.background='#e0e7ff'">
+                ${Number(o.additional_vat_amount || 0) > 0 ? '✏️ Sửa VAT Thêm' : '➕ Thêm VAT'}
+            </span>`;
+        } else {
+            vatLabel += ` <span style="margin-left:6px;color:#94a3b8;font-size:11px;display:inline-flex;align-items:center;" title="Số tiền VAT thêm đã nhập. Chỉ Giám đốc hoặc Lê Việt Trinh mới được sửa.">🔒 Khóa</span>`;
+        }
+
         finRows = [
             ['Tổng tiền hàng (trước VAT)', fmtMoney(calcBase) + 'đ', '#1e293b', false],
             ['Phụ phí', fmtMoney(surchargeTotal) + 'đ', '#f59e0b', false],
-            ['VAT', fmtMoney(vat) + 'đ', '#6366f1', false],
-            ['Ưu đãi / Giảm giá', '-' + fmtMoney(discount) + 'đ', '#059669', false],
+            [vatLabel, fmtMoney(vat) + 'đ', '#6366f1', false],
         ];
+        if (totalGiftDeduction > 0) {
+            finRows.push(['Khuyến mãi tặng áo', `${totalGiftQty} áo : -${fmtMoney(totalGiftDeduction)}đ`, '#059669', false]);
+        }
         if (promoDiscount > 0) {
-            finRows.push(['Ưu đãi Coupon/KM', '-' + fmtMoney(promoDiscount) + 'đ', '#059669', false]);
+            const promoPct = (calcBase - totalGiftDeduction) > 0 ? Math.round((promoDiscount / (calcBase - totalGiftDeduction)) * 100) : 0;
+            finRows.push(['Khuyến mãi giảm giá', `Giảm ${promoPct}% : -${fmtMoney(promoDiscount)}đ`, '#059669', false]);
+        }
+        if (manualDiscount > 0) {
+            finRows.push(['Ưu đãi / Giảm giá khác', '-' + fmtMoney(manualDiscount) + 'đ', '#059669', false]);
+        }
+        if (totalGiftDeduction === 0 && promoDiscount === 0 && manualDiscount === 0) {
+            finRows.push(['Ưu đãi / Giảm giá', '-0đ', '#059669', false]);
         }
         if (o.discount_reason) {
             finRows.push(['_reason_', o.discount_reason, '#dc2626', false]);
         }
         finRows.push(
-            ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase + surchargeTotal + vat - discount - promoDiscount) + 'đ', '#1e293b', true],
+            ['Tổng Tiền Hàng Thực Tế', fmtMoney(calcBase + surchargeTotal + vat - discount) + 'đ', '#1e293b', true],
             ['Đã thanh toán (cọc)', fmtMoney(deposit) + 'đ', '#10b981', true],
         );
         if (shipCK > 0) {
