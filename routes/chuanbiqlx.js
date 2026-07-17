@@ -1122,7 +1122,7 @@ module.exports = async function(fastify) {
                    COALESCE(o.is_draft, false) AS is_draft
             FROM dht_orders o
             LEFT JOIN users u_locked ON o.locked_by = u_locked.id
-            WHERE o.is_draft = TRUE OR (o.is_locked = TRUE AND o.locked_at > NOW() - INTERVAL '10 minutes')
+            WHERE o.is_draft = TRUE OR (o.is_locked = TRUE AND o.locked_at > NOW() - INTERVAL '5 minutes')
         `);
 
         return { locks };
@@ -1242,7 +1242,7 @@ module.exports = async function(fastify) {
             ORDER BY o.shipping_date ASC NULLS LAST, o.order_date DESC, o.id DESC
         `, params);
 
-        const TIMEOUT_MINUTES = 10;
+        const TIMEOUT_MINUTES = 5;
         const nowLockCheck = new Date();
         for (const o of orders) {
             let isActiveLocked = false;

@@ -2863,7 +2863,7 @@ module.exports = async function(fastify) {
                     WHERE o.id = $1
                 `, [orderId]);
 
-                const TIMEOUT_MINUTES = 10;
+                const TIMEOUT_MINUTES = 5;
                 if (currentLock && currentLock.is_locked) {
                     const lockedAt = new Date(currentLock.locked_at);
                     const now = new Date();
@@ -3153,7 +3153,7 @@ module.exports = async function(fastify) {
 
         // Check if order is locked by another user
         if (order.is_locked && order.locked_by !== request.user.id) {
-            const TIMEOUT_MINUTES = 10;
+            const TIMEOUT_MINUTES = 5;
             const lockedAt = new Date(order.locked_at);
             const now = new Date();
             const diffMinutes = (now - lockedAt) / (1000 * 60);
@@ -4687,7 +4687,7 @@ module.exports = async function(fastify) {
 
         // Check if order is locked by another user
         if (oldOrder.is_locked && oldOrder.locked_by !== request.user.id) {
-            const TIMEOUT_MINUTES = 10;
+            const TIMEOUT_MINUTES = 5;
             const lockedAt = new Date(oldOrder.locked_at);
             const now = new Date();
             const diffMinutes = (now - lockedAt) / (1000 * 60);
