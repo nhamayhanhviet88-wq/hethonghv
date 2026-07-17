@@ -1750,6 +1750,64 @@
                 const qlxHenVal = (r.is_rescheduled && r.original_expected_date) ? r.original_expected_date : r.expected_date;
                 const qlmHenVal = (r.is_rescheduled && r.original_expected_date) ? r.expected_date : (activeTab === '2' ? r.expected_date : null);
 
+                if (r.production_cancelled) {
+                    const errorBadge = r.error_reported ? `<span style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;">⚠️ LỖI</span>` : '';
+                    const missingTechBadge = (r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? `<span style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center;">⚠️ THIẾU KỸ THUẬT</span>` : '';
+                    const cancelBadge = `<span style="background:#7f1d1d; color:#fca5a5; font-size:10px; padding:2.5px 7px; border-radius:4px; font-weight:800; display:inline-flex; align-items:center;">🚫 HỦY SẢN XUẤT</span>`;
+                    return `<div class="card" style="opacity:0.45; pointer-events:none; background:repeating-linear-gradient(45deg,rgba(17,24,39,0.92),rgba(17,24,39,0.92) 10px,rgba(127,29,29,0.03) 10px,rgba(127,29,29,0.03) 20px);">
+                        <div class="card-header">
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; max-width:80%;">
+                                ${getPriorityBadge(r.shipping_priority)}
+                                ${errorBadge}
+                                ${missingTechBadge}
+                                ${cancelBadge}
+                                <span class="card-code">${cleanProdName(r)}</span>
+                            </div>
+                            <span class="card-client">${r.cskh_name || 'Sale'}</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Khúc 1: Thông tin sản xuất & Chất liệu -->
+                            <div class="meta-section">
+                                <div class="meta-grid" style="margin-top:0;">
+                                    <div class="meta-item">
+                                        <span class="meta-label">📦 SL (Đơn / May)</span>
+                                        <span class="meta-value accent" style="font-size:15px;">${r.order_qty || 0} / ${r.quantity || 0} ${getUnitText(r)}</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">👤 Đơn vị may</span>
+                                        <span class="meta-value highlight">${assigneeName}</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">🧵 Chất liệu</span>
+                                        <span class="meta-value" style="color:#fbbf24; line-height: 1.4;">${(r.material_name || '—').split('+').map(s => s.trim()).filter(Boolean).join('<br>')}</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">🎨 Màu</span>
+                                        <span class="meta-value" style="line-height: 1.4;">${(r.color_name || '—').split('+').map(s => s.trim()).filter(Boolean).join('<br>')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Khúc 2: Thời hạn & Tiến độ -->
+                            <div class="meta-section">
+                                <div class="meta-grid" style="margin-top:0;">
+                                    <div class="meta-item">
+                                        <span class="meta-label">📅 Ngày QLX Hẹn</span>
+                                        <span class="meta-value">${fd(qlxHenVal)}</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">📅 QLM HẸN MỚI</span>
+                                        <span class="meta-value" style="color:#fbbf24; font-weight:700;">${fd(qlmHenVal)}</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">📅 Hạn trả hàng</span>
+                                        <span class="meta-value">${fd(r.expected_ship_date || r.shipping_date)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
                 let urgentBadge = isUnassigned ? `<div class="badge-urgent">🚨 CHƯA CHIA TỔ MAY!</div>` : '';
                 
                 // Photos preview (hidden as per user request)
