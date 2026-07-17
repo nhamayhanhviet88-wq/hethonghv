@@ -2895,6 +2895,12 @@ function _qkvToggleOnlyNguyenFilter(checked) {
 }
 
 function _qkvOpenImportBill(importId) {
+    if (typeof _bnhFM !== 'function') {
+        window._bnhFM = function(n) {
+            if (!n && n !== 0) return '0';
+            return Number(n).toLocaleString('vi-VN');
+        };
+    }
     if (typeof _bnhFabDetail === 'function') {
         _bnhFabDetail(importId);
     } else {
@@ -3104,8 +3110,16 @@ async function _qkvShowRollDetail(rollId) {
         var tdS = 'padding:6px 12px;border-bottom:1px solid var(--gray-100)';
         var body = '';
         if (rl.image_path) {
+            var imgStyle = "max-height:240px;max-width:100%;object-fit:contain;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1)";
+            var imgClick = "";
+            var imgTitle = "";
+            if (rl.source_import_id && _qkvCanViewBill()) {
+                imgStyle += ";cursor:pointer";
+                imgClick = ' onclick="_qkvOpenImportBill(' + rl.source_import_id + ')"';
+                imgTitle = ' title="Click để xem Chi Tiết Bill Nhập Vải"';
+            }
             body += '<div style="text-align:center;margin-bottom:16px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:12px;padding:8px;position:relative;overflow:hidden;max-width:100%">';
-            body += '  <img src="' + rl.image_path + '" style="max-height:240px;max-width:100%;object-fit:contain;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1)">';
+            body += '  <img src="' + rl.image_path + '"' + imgClick + imgTitle + ' style="' + imgStyle + '">';
             body += '  <div style="font-size:11px;color:#64748b;font-weight:700;margin-top:6px">📷 HÌNH ẢNH ĐỊNH DANH CÂY VẢI</div>';
             body += '</div>';
         }

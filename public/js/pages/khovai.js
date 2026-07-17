@@ -632,43 +632,52 @@ async function _kvShowRollDetail(rollId) {
         var thS = 'padding:6px 12px;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;width:160px;border-bottom:1px solid var(--gray-100)';
         var tdS = 'padding:6px 12px;border-bottom:1px solid var(--gray-100)';
         var body = '';
+        var canViewBill = typeof currentUser !== 'undefined' && currentUser && (
+            currentUser.role === 'giam_doc' || 
+            currentUser.role === 'ke_toan' || 
+            currentUser.username === 'ketoan' || 
+            currentUser.username === 'ketoan1' ||
+            currentUser.username === 'leviettrinh' || 
+            currentUser.username === 'trinh.lvt' || 
+            currentUser.username === 'trinh' || 
+            (currentUser.full_name && (currentUser.full_name.indexOf('Lê Việt Trinh') !== -1 || currentUser.full_name.indexOf('Le Viet Trinh') !== -1)) ||
+            currentUser.username === 'lecongthuc' || 
+            currentUser.username === 'thuc.lct' || 
+            currentUser.username === 'thuc' || 
+            (currentUser.full_name && (currentUser.full_name.indexOf('Lê Công Thực') !== -1 || currentUser.full_name.indexOf('Le Cong Thuc') !== -1))
+        );
+
         if (rl.image_path) {
+            var imgStyle = "max-height:240px;max-width:100%;object-fit:contain;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1)";
+            var imgClick = "";
+            var imgTitle = "";
+            if (rl.source_import_id && canViewBill) {
+                imgStyle += ";cursor:pointer";
+                imgClick = ' onclick="_kvOpenImportBill(' + rl.source_import_id + ')"';
+                imgTitle = ' title="Click để xem Chi Tiết Bill Nhập Vải"';
+            }
             body += '<div style="text-align:center;margin-bottom:16px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:12px;padding:8px;position:relative;overflow:hidden;max-width:100%">';
-            body += '  <img src="' + rl.image_path + '" style="max-height:240px;max-width:100%;object-fit:contain;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1)">';
+            body += '  <img src="' + rl.image_path + '"' + imgClick + imgTitle + ' style="' + imgStyle + '">';
             body += '  <div style="font-size:11px;color:#64748b;font-weight:700;margin-top:6px">📷 HÌNH ẢNH ĐỊNH DANH CÂY VẢI</div>';
             body += '</div>';
         }
         body += '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:16px">';
         body += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
-        body += '<tr><td style="' + thS + '">T\u00caN C\u00c2Y V\u1ea2I</td><td style="' + tdS + '"><b style="color:#0d9488;font-size:14px">' + label + '</b></td></tr>';
-        body += '<tr><td style="' + thS + '">ID CU\u1ed8N V\u1ea2I</td><td style="' + tdS + '"><code style="background:#e2e8f0;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:1px">' + (rl.roll_code||'N/A') + '</code></td></tr>';
-        body += '<tr><td style="' + thS + '">NH\u1eacP</td><td style="' + tdS + '"><b style="color:#059669">' + _kvFmt(origW) + '</b></td></tr>';
-        body += '<tr><td style="' + thS + '">XU\u1ea4T</td><td style="' + tdS + '"><b style="color:#dc2626">' + _kvFmt(xuatW) + '</b></td></tr>';
-        body += '<tr><td style="' + thS + '">T\u1ed2N</td><td style="' + tdS + '"><b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(curW) + '</b></td></tr>';
-        body += '<tr><td style="' + thS + '">HO\u00c0N</td><td style="' + tdS + '">' + (rl.is_returned ? '<span style="color:#f59e0b;font-weight:700">\u0110\u00e3 ho\u00e0n</span>' : '<span style="color:#64748b">Ch\u01b0a ho\u00e0n</span>') + '</td></tr>';
-        body += '<tr><td style="' + thS + '">UPDATE TIME</td><td style="' + tdS + '">' + upStr + (rl.created_by_name ? ' \u2014 <b>' + rl.created_by_name + '</b>' : '') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">TÊN CÂN VẢI</td><td style="' + tdS + '"><b style="color:#0d9488;font-size:14px">' + label + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">ID CUỘN VẢI</td><td style="' + tdS + '"><code style="background:#e2e8f0;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:1px">' + (rl.roll_code||'N/A') + '</code></td></tr>';
+        body += '<tr><td style="' + thS + '">NHẬP</td><td style="' + tdS + '"><b style="color:#059669">' + _kvFmt(origW) + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">XUẤT</td><td style="' + tdS + '"><b style="color:#dc2626">' + _kvFmt(xuatW) + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">TỒN</td><td style="' + tdS + '"><b style="color:' + cuoiColor + ';font-size:16px">' + _kvFmt(curW) + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">HOÀN</td><td style="' + tdS + '">' + (rl.is_returned ? '<span style="color:#f59e0b;font-weight:700">Đã hoàn</span>' : '<span style="color:#64748b">Chưa hoàn</span>') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">UPDATE TIME</td><td style="' + tdS + '">' + upStr + (rl.created_by_name ? ' — <b>' + rl.created_by_name + '</b>' : '') + '</td></tr>';
         var rlCutLabel = rl.cutting_order_name ? (rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
         body += '<tr><td style="' + thS + '">ĐANG CẮT</td><td style="' + tdS + '">' + (rlCutLabel ? '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700">' + rlCutLabel + '</span>' : '<span style="color:#94a3b8">—</span>') + '</td></tr>';
-        body += '<tr><td style="' + thS + '">NG\u01af\u1edcI NH\u1eacP V\u1ea2I</td><td style="' + tdS + '">' + (rl.created_by_name || '\u2014') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">NGƯỜI NHẬP VẢI</td><td style="' + tdS + '">' + (rl.created_by_name || '—') + '</td></tr>';
         
         var billLink = '<span style="color:var(--gray-400)">Chưa có</span>';
         if (rl.source === 'kiem_kho_du') {
             billLink = '<a href="javascript:void(0)" onclick="_kvOpenRollOrigin(' + rl.id + ')" style="color:#0284c7;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #0284c7">📋 Xem Bill Kiểm Kê</a>';
         } else if (rl.source_import_id) {
-            var canViewBill = typeof currentUser !== 'undefined' && currentUser && (
-                currentUser.role === 'giam_doc' || 
-                currentUser.role === 'ke_toan' || 
-                currentUser.username === 'ketoan' || 
-                currentUser.username === 'ketoan1' ||
-                currentUser.username === 'leviettrinh' || 
-                currentUser.username === 'trinh.lvt' || 
-                currentUser.username === 'trinh' || 
-                (currentUser.full_name && (currentUser.full_name.indexOf('Lê Việt Trinh') !== -1 || currentUser.full_name.indexOf('Le Viet Trinh') !== -1)) ||
-                currentUser.username === 'lecongthuc' || 
-                currentUser.username === 'thuc.lct' || 
-                currentUser.username === 'thuc' || 
-                (currentUser.full_name && (currentUser.full_name.indexOf('Lê Công Thực') !== -1 || currentUser.full_name.indexOf('Le Cong Thuc') !== -1))
-            );
             if (canViewBill) {
                 billLink = '<a href="javascript:void(0)" onclick="_kvOpenImportBill(' + rl.source_import_id + ')" style="color:#7c3aed;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #7c3aed">🧵 Xem Chi Tiết Bill Nhập Vải</a>';
             } else {
@@ -1112,6 +1121,12 @@ window._kvOpenImportBill = function(importId) {
     if (!canViewBill) {
         showToast('Bạn không có quyền xem chi tiết bill nhập vải!', 'error');
         return;
+    }
+    if (typeof _bnhFM !== 'function') {
+        window._bnhFM = function(n) {
+            if (!n && n !== 0) return '0';
+            return Number(n).toLocaleString('vi-VN');
+        };
     }
     if (typeof _bnhFabDetail === 'function') {
         _bnhFabDetail(importId);
