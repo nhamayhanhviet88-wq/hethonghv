@@ -109,7 +109,7 @@ module.exports = async function(fastify) {
             ) seq_list ON r.material_tx_id = seq_list.id
             LEFT JOIN LATERAL (SELECT h.performed_at, h.performed_by FROM pettem_history h WHERE h.roll_id=r.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
-            ${where} ORDER BY r.import_date DESC NULLS LAST, r.created_at DESC`, params);
+            ${where} ORDER BY r.import_date DESC NULLS LAST, seq_list.seq DESC NULLS LAST, r.created_at DESC`, params);
         return { rolls };
     });
 
