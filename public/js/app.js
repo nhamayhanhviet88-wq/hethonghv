@@ -2195,6 +2195,9 @@ async function handleRoute() {
     setTimeout(async () => {
         try {
             const cleanKey = currentPage.replace(/-/g, '').toLowerCase();
+            if (cleanKey === 'trasoatdonhang' || cleanKey === 'lichradonhang') {
+                await _loadScript('/js/pages/trasoat-modal.js');
+            }
             const scriptPath = _PAGE_SCRIPT_MAP[currentPage] || _PAGE_SCRIPT_MAP[cleanKey];
             if (scriptPath) {
                 await _loadScript(scriptPath);
