@@ -8,6 +8,15 @@ function _qlxWtInit(c){
     _qlxWtLoadAll();
 }
 async function _qlxWtLoadAll(){
+    if (typeof _wtPLB === 'undefined' || typeof _wtDeadlineBadge === 'undefined') {
+        if (typeof _loadScript === 'function') {
+            try {
+                await _loadScript('/js/pages/taophieuxulycv.js');
+            } catch (e) {
+                console.error('[QLX-WT] Failed to load taophieuxulycv.js helpers:', e);
+            }
+        }
+    }
     try{var r=await apiCall('/api/work-tickets/staff');_qlxWt.staff=r.users||[];_qlxWt.depts=r.departments||[];}catch(e){}
     try{var r2=await apiCall('/api/work-tickets/stats');_qlxWt.stats=r2.stats||{};}catch(e){}
     _qlxWtLoadList();
@@ -91,8 +100,8 @@ function _qlxWtRender(){
             h+='<td style="padding:6px;font-weight:700;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.title||'—')+'</td>';
             var _ndyc=t.latest_reply||t.description||'—';
             h+='<td style="padding:6px;color:#475569;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.latest_reply?'💬 ':'')+_ndyc+'</td>';
-            h+='<td style="padding:6px;text-align:center">'+(_wtPLB?_wtPLB(t.priority_level||'low'):(t.priority||'—'))+'</td>';
-            h+='<td style="padding:6px;text-align:center;white-space:nowrap">'+(_wtDeadlineBadge?_wtDeadlineBadge(t):'—')+'</td>';
+            h+='<td style="padding:6px;text-align:center">'+((typeof _wtPLB !== 'undefined')?_wtPLB(t.priority_level||'low'):(t.priority||'—'))+'</td>';
+            h+='<td style="padding:6px;text-align:center;white-space:nowrap">'+((typeof _wtDeadlineBadge !== 'undefined')?_wtDeadlineBadge(t):'—')+'</td>';
             h+='<td style="padding:6px;text-align:center;color:'+(late?'#dc2626':'#64748b')+';font-size:11px;font-weight:'+(late?'800':'600')+';white-space:nowrap">'+deadlineFmt+'</td>';
             h+='<td style="padding:6px;color:#d97706;font-weight:600;white-space:nowrap">'+(t.assigned_to_name||'—')+'</td>';
             h+='<td style="padding:6px;text-align:center"><span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">💬 '+(t.reply_count||0)+'</span></td>';
