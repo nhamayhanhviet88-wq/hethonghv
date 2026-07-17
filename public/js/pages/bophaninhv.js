@@ -189,6 +189,11 @@ function _bpiRenderSb() {
                 var temActive = f.year == yr.year && f.status === 'pending' && f.field === 'IN TEM';
                 h += '<div class="bpi-sb-item'+(temActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'IN TEM\')">'
                   + '<span>🟢 IN TEM</span><span>'+yr.pending.tem+'</span></div>';
+                
+                // Hẹn Ngày GC
+                var gcActive = f.year == yr.year && f.status === 'pending' && f.field === 'GC';
+                h += '<div class="bpi-sb-item'+(gcActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'GC\')" style="'+(gcActive?'':'color:#d97706')+'">'
+                  + '<span>📅 Hẹn Ngày GC</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:800">'+(yr.pending.gc||0)+'</span></div>';
             }
             
             // "Đã in xong" folder
@@ -392,6 +397,31 @@ function _bpiGetProductNameDisplay(r) {
 }
 
 function _bpiGetProgressDisplay(r) {
+    // GC orders: show gc_deadline info and extension button
+    var isGC = r.order_code && r.order_code.toUpperCase().indexOf('GC') >= 0;
+    if (isGC && !r.is_completed && !r.is_discarded) {
+        var deadline = r.gc_deadline || r.expected_ship_date;
+        if (deadline) {
+            var now = new Date();
+            var vnNow = new Date(now.getTime() + (7 * 60 * 60 * 1000) - (now.getTimezoneOffset() * 60000));
+            var dlDate = new Date(String(deadline).substring(0, 10) + 'T00:00:00Z');
+            var todayStr = vnNow.getUTCFullYear() + '-' + String(vnNow.getUTCMonth()+1).padStart(2,'0') + '-' + String(vnNow.getUTCDate()).padStart(2,'0');
+            var todayDate = new Date(todayStr + 'T00:00:00Z');
+            var diff = Math.round((dlDate - todayDate) / (1000 * 60 * 60 * 24));
+            var extCount = r.gc_extension_count || 0;
+            var extLabel = extCount > 0 ? ' <span style="font-size:8px;color:#6b7280">(rời '+extCount+'x)</span>' : '';
+            var extBtn = '<button onclick="event.stopPropagation();_bpiShowGcExtendModal(\''+r.id+'\')" style="background:#fef3c7;color:#92400e;border:1px solid #d97706;border-radius:4px;padding:1px 6px;font-size:8px;font-weight:700;cursor:pointer;margin-left:4px" title="Rời ngày gia công">📅 Rời</button>';
+            if (diff < 0) {
+                return '<span style="color:#dc2626;font-weight:700">🔥 Quá hạn ' + Math.abs(diff) + ' ngày</span>' + extLabel + extBtn;
+            } else if (diff === 0) {
+                return '<span style="color:#d97706;font-weight:700">⚡ Hôm nay!</span>' + extLabel + extBtn;
+            } else if (diff <= 3) {
+                return '<span style="color:#ea580c;font-weight:600">⏰ Còn ' + diff + ' ngày</span>' + extLabel + extBtn;
+            } else {
+                return '<span style="color:#059669;font-weight:600">📅 Còn ' + diff + ' ngày</span>' + extLabel;
+            }
+        }
+    }
     if (r.is_completed) {
         if (!r.expected_ship_date) {
             return '<span style="color:#059669;font-weight:700">✅ Xong</span>';
@@ -2428,3 +2458,87 @@ window._bpiEditRollCell = async function(cell, id, printField, selectedRollId) {
         showToast('Lỗi tải danh sách cây vật liệu: ' + e.message, 'error');
     }
 };
+
+// ========== GC DEADLINE EXTENSION MODAL ==========
+function _bpiShowGcExtendModal(recordId) {
+    var r = _bpi.records.find(function(x) { return String(x.id) === String(recordId); });
+    if (!r) { alert('Không tìm thấy đơn'); return; }
+    
+    var deadline = r.gc_deadline || r.expected_ship_date || '—';
+    var deadlineStr = String(deadline).substring(0, 10);
+    var extCount = r.gc_extension_count || 0;
+    
+    var overlay = document.createElement('div');
+    overlay.className = 'bpi-modal-overlay';
+    overlay.id = '_bpiGcExtendOverlay';
+    overlay.onclick = function(e) { if (e.target === overlay) { document.body.removeChild(overlay); } };
+    
+    var h = '<div class="bpi-modal">';
+    h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#d97706,#f59e0b)">';
+    h += '<span class="m-icon">📅</span>';
+    h += '<div><div class="m-title">Rời Ngày Gia Công</div>';
+    h += '<div style="font-size:11px;opacity:0.9;margin-top:2px">' + _bpiGetProductNameDisplay(r) + '</div></div></div>';
+    
+    h += '<div style="padding:20px">';
+    h += '<div style="display:flex;gap:12px;margin-bottom:16px">';
+    h += '<div style="flex:1;background:#fef3c7;border-radius:8px;padding:12px;text-align:center">';
+    h += '<div style="font-size:10px;color:#92400e;font-weight:600">Deadline hiện tại</div>';
+    h += '<div style="font-size:16px;font-weight:800;color:#78350f">' + deadlineStr + '</div></div>';
+    h += '<div style="flex:1;background:#dbeafe;border-radius:8px;padding:12px;text-align:center">';
+    h += '<div style="font-size:10px;color:#1e40af;font-weight:600">Số lần rời</div>';
+    h += '<div style="font-size:16px;font-weight:800;color:#1e3a8a">' + extCount + '</div></div></div>';
+    
+    h += '<div style="margin-bottom:16px">';
+    h += '<label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Lý do rời ngày:</label>';
+    h += '<textarea id="_bpiGcExtReason" rows="3" style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:8px;font-size:12px;resize:vertical" placeholder="Nhập lý do rời ngày (vd: hàng chưa in kịp, máy hỏng...)"></textarea>';
+    h += '</div>';
+    
+    h += '<div id="_bpiGcExtResult" style="display:none;margin-bottom:12px"></div>';
+    
+    h += '<div style="display:flex;gap:8px;justify-content:flex-end">';
+    h += '<button onclick="document.body.removeChild(document.getElementById(\'_bpiGcExtendOverlay\'))" style="padding:8px 20px;border-radius:8px;border:1.5px solid #d1d5db;background:#fff;font-weight:600;cursor:pointer;font-size:12px">Hủy</button>';
+    h += '<button id="_bpiGcExtBtn" onclick="_bpiDoGcExtend(\''+recordId+'\',this)" style="padding:8px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;font-weight:700;cursor:pointer;font-size:12px;box-shadow:0 2px 8px rgba(217,119,6,0.3)">📅 Xác nhận rời ngày</button>';
+    h += '</div></div></div>';
+    
+    overlay.innerHTML = h;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function() { overlay.classList.add('show'); });
+}
+
+function _bpiDoGcExtend(recordId, btn) {
+    var reason = document.getElementById('_bpiGcExtReason');
+    var reasonVal = reason ? reason.value.trim() : '';
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang xử lý...';
+    
+    fetch('/api/printing/gc-extend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('token') || sessionStorage.getItem('token')) },
+        body: JSON.stringify({ record_id: recordId, reason: reasonVal })
+    })
+    .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+    .then(function(result) {
+        var el = document.getElementById('_bpiGcExtResult');
+        if (result.ok && result.data.success) {
+            el.style.display = 'block';
+            el.innerHTML = '<div style="background:#dcfce7;border:1px solid #16a34a;border-radius:8px;padding:10px;text-align:center"><div style="font-size:16px">✅</div><div style="font-size:12px;font-weight:700;color:#15803d">'+result.data.message+'</div><div style="font-size:10px;color:#166534;margin-top:4px">Người rời: '+result.data.extended_by+'</div></div>';
+            setTimeout(function() {
+                var overlay = document.getElementById('_bpiGcExtendOverlay');
+                if (overlay) document.body.removeChild(overlay);
+                _bpiLoad();
+            }, 2000);
+        } else {
+            el.style.display = 'block';
+            el.innerHTML = '<div style="background:#fee2e2;border:1px solid #dc2626;border-radius:8px;padding:10px;text-align:center;font-size:12px;color:#dc2626;font-weight:700">❌ '+(result.data.error || 'Lỗi không xác định')+'</div>';
+            btn.disabled = false;
+            btn.textContent = '📅 Xác nhận rời ngày';
+        }
+    })
+    .catch(function(err) {
+        alert('Lỗi: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '📅 Xác nhận rời ngày';
+    });
+}
+

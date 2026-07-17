@@ -93,7 +93,9 @@ async function khoaTKNVRoutes(fastify, options) {
             phieu_qlx_qua_han: 'Phiếu QLX quá hạn — QLX không xử lý',
             phat_qlx_tre_don_hom_nay: 'Quản Lý Xưởng — Xử Lý Đơn Hàng Hôm Nay',
             qlx_cutoff_time: 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng',
-            kt_cutoff_time: 'Giờ kết thúc ca làm của Kế Toán'
+            kt_cutoff_time: 'Giờ kết thúc ca làm của Kế Toán',
+            gc_print_khong_bao_cao: 'NV In — Đơn GC quá hạn không báo cáo',
+            gc_penalty_check_time: 'Giờ tính phạt đơn GC In (HH:MM, vd: 2330 = 23:30)'
         };
 
         for (const cfg of configs) {

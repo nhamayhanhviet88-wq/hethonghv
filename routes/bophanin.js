@@ -276,6 +276,7 @@ module.exports = async function(fastify) {
                     pr.is_test_print,
                     pr.error_reported,
                     pr.created_at,
+                    o.order_code,
                     CASE 
                         WHEN COALESCE(pr.is_discarded, false) = true THEN true
                         WHEN pr.contractor_id IS NOT NULL THEN true
@@ -296,7 +297,8 @@ module.exports = async function(fastify) {
                     false AS is_test_print,
                     false AS error_reported,
                     o.created_at,
-                    false AS is_completed
+                    false AS is_completed,
+                    o.order_code
                 FROM dht_orders o
                 WHERE (
                     (o.category_id IN (8, 9) AND o.parent_order_id IS NULL)
@@ -312,7 +314,8 @@ module.exports = async function(fastify) {
                 is_completed,
                 is_test_print,
                 error_reported,
-                print_field
+                print_field,
+                order_code
             FROM unified_printing
         `, params);
 
@@ -395,7 +398,8 @@ module.exports = async function(fastify) {
                         total: 0,
                         pet: 0,
                         decal: 0,
-                        tem: 0
+                        tem: 0,
+                        gc: 0
                     },
                     done: 0,
                     doneMonths: {}
@@ -416,6 +420,11 @@ module.exports = async function(fastify) {
                     item.pending.decal++;
                 } else {
                     item.pending.tem++;
+                }
+                // Count GC orders (GCPET, GCTEM, SUAGCPET, SUAGCTEM)
+                const oc = (r.order_code || '').toUpperCase();
+                if (oc.includes('GC')) {
+                    item.pending.gc++;
                 }
             }
         }
@@ -474,10 +483,12 @@ module.exports = async function(fastify) {
             }
         }
         if (field) {
-            if (field.toUpperCase() === 'IN TEM') {
+            if (field.toUpperCase() === 'GC') {
+                where += ` AND (up.order_code ILIKE '%GC%')`;
+            } else if (field.toUpperCase() === 'IN TEM') {
                 where += ` AND (up.print_field NOT ILIKE '%PET%' AND up.print_field NOT ILIKE '%DECAL%' OR up.print_field IS NULL)`;
             } else {
-                where += ` AND up.print_field = $${idx++}`;
+                where += ` AND up.print_field = ${idx++}`;
                 params.push(field);
             }
             if (status === 'done') {
@@ -584,6 +595,8 @@ module.exports = async function(fastify) {
                         ELSE pr.is_print_done 
                     END AS is_completed,
                     pr.order_item_id AS order_item_id,
+                    pr.gc_deadline,
+                    pr.gc_extension_count,
                     o.category_id AS category_id,
                     (SELECT product_name FROM cutting_records WHERE order_item_id = pr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name
                 FROM printing_records pr
@@ -1340,4 +1353,143 @@ module.exports = async function(fastify) {
         }
         return { success: true };
     });
+
+    // ========== GC DEADLINE EXTENSION API ==========
+    
+    // POST: Extend GC deadline
+    fastify.post('/api/printing/gc-extend', { preHandler: [authenticate] }, async (req, reply) => {
+        const userId = req.user.id;
+        const userRole = req.user.role;
+        
+        const { record_id, reason } = req.body || {};
+        if (!record_id) return reply.code(400).send({ error: 'Thiếu record_id' });
+        
+        const record = await db.get(
+            'SELECT pr.*, o.order_code, o.expected_ship_date FROM printing_records pr LEFT JOIN dht_orders o ON pr.dht_order_id = o.id WHERE pr.id = $1',
+            [Number(record_id)]
+        );
+        if (!record) return reply.code(404).send({ error: 'Không tìm thấy đơn in' });
+        
+        // Must be a GC order
+        const oc = (record.order_code || '').toUpperCase();
+        if (!oc.includes('GC')) {
+            return reply.code(400).send({ error: 'Chỉ đơn gia công (GC) mới được hẹn ngày' });
+        }
+        
+        // Check max extension count
+        const maxCountRow = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_count'");
+        const maxCount = Number(maxCountRow?.value || 3);
+        const currentCount = record.gc_extension_count || 0;
+        
+        if (currentCount >= maxCount) {
+            return reply.code(400).send({ error: 'Đã rời tối đa ' + maxCount + ' lần. Không thể rời thêm.' });
+        }
+        
+        // Get max days per extension
+        const maxDaysRow = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_days'");
+        const maxDays = Number(maxDaysRow?.value || 1);
+        
+        // Calculate next working day (skip Sunday, holidays, printer leave)
+        const currentDeadline = record.gc_deadline || record.expected_ship_date;
+        if (!currentDeadline) return reply.code(400).send({ error: 'Đơn chưa có deadline' });
+        
+        const { vnNow: _vnNow, vnDateStr: _vnDateStr } = require('../utils/timezone');
+        
+        // Load holidays
+        const holidayRows = await db.all("SELECT holiday_date::text as d FROM holidays");
+        const holidays = new Set(holidayRows.map(r => r.d));
+        
+        // Load leave for the printer
+        const printerId = record.printer_id || userId;
+        const leaveRows = await db.all(
+            "SELECT date_from::text as date_from, date_to::text as date_to FROM leave_requests WHERE user_id = $1 AND status = 'active' UNION ALL SELECT off_date::text as date_from, off_date::text as date_to FROM staff_off_dates WHERE user_id = $1 AND (type = 'off' OR type IS NULL)",
+            [printerId]
+        );
+        
+        function _isDateOff(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00Z');
+            if (d.getUTCDay() === 0) return true;
+            if (holidays.has(dateStr)) return true;
+            for (const lr of leaveRows) {
+                if (dateStr >= lr.date_from && dateStr <= lr.date_to) return true;
+            }
+            return false;
+        }
+        
+        function _toDateStr(d) {
+            return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+        }
+        
+        // Move forward by maxDays working days
+        let newDeadlineDate = new Date(String(currentDeadline).substring(0, 10) + 'T00:00:00Z');
+        let daysAdded = 0;
+        let maxIter = 30;
+        while (daysAdded < maxDays && maxIter-- > 0) {
+            newDeadlineDate.setUTCDate(newDeadlineDate.getUTCDate() + 1);
+            if (!_isDateOff(_toDateStr(newDeadlineDate))) {
+                daysAdded++;
+            }
+        }
+        
+        const newDeadlineStr = _toDateStr(newDeadlineDate);
+        const oldDeadlineStr = String(currentDeadline).substring(0, 10);
+        
+        // Save extension history
+        await db.run(
+            'INSERT INTO gc_deadline_extensions (printing_record_id, old_deadline, new_deadline, reason, extended_by) VALUES ($1, $2, $3, $4, $5)',
+            [record.id, oldDeadlineStr, newDeadlineStr, reason || '', userId]
+        );
+        
+        // Update printing record
+        await db.run(
+            'UPDATE printing_records SET gc_deadline = $1, gc_extension_count = COALESCE(gc_extension_count, 0) + 1 WHERE id = $2',
+            [newDeadlineStr, record.id]
+        );
+        
+        const user = await db.get('SELECT full_name FROM users WHERE id = $1', [userId]);
+        
+        return {
+            success: true,
+            old_deadline: oldDeadlineStr,
+            new_deadline: newDeadlineStr,
+            extension_count: currentCount + 1,
+            max_count: maxCount,
+            message: 'Đã rời ngày: ' + oldDeadlineStr + ' → ' + newDeadlineStr + ' (Lần ' + (currentCount + 1) + '/' + maxCount + ')',
+            extended_by: user?.full_name || 'Unknown'
+        };
+    });
+    
+    // GET: GC deadline extension history
+    fastify.get('/api/printing/gc-extensions/:recordId', { preHandler: [authenticate] }, async (req, reply) => {
+        const recordId = Number(req.params.recordId);
+        const extensions = await db.all(
+            'SELECT ge.*, u.full_name AS extended_by_name FROM gc_deadline_extensions ge LEFT JOIN users u ON ge.extended_by = u.id WHERE ge.printing_record_id = $1 ORDER BY ge.created_at DESC',
+            [recordId]
+        );
+        return { extensions };
+    });
+    
+    // GET: GC config
+    fastify.get('/api/printing/gc-config', { preHandler: [authenticate] }, async (req, reply) => {
+        const maxDays = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_days'");
+        const maxCount = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_count'");
+        return {
+            max_extension_days: Number(maxDays?.value || 1),
+            max_extension_count: Number(maxCount?.value || 3)
+        };
+    });
+    
+    // POST: Update GC config (GĐ only)
+    fastify.post('/api/printing/gc-config', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        const { max_extension_days, max_extension_count } = req.body || {};
+        if (max_extension_days !== undefined) {
+            await db.run("INSERT INTO app_config (key, value) VALUES ('gc_max_extension_days', $1) ON CONFLICT (key) DO UPDATE SET value = $1", [String(max_extension_days)]);
+        }
+        if (max_extension_count !== undefined) {
+            await db.run("INSERT INTO app_config (key, value) VALUES ('gc_max_extension_count', $1) ON CONFLICT (key) DO UPDATE SET value = $1", [String(max_extension_count)]);
+        }
+        return { success: true };
+    });
+
 };
