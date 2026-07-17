@@ -1665,9 +1665,12 @@ async function _dhtShowDetail(id) {
             let statusText = '';
             
             if (o.design_email_status === 'sent') {
-                const sentTimeStr = o.design_email_sent_at ? fmtDateTimeHM(o.design_email_sent_at) : '—';
+                const sentTimeStr = o.design_email_sent_at ? fmtDateTimeHM(o.design_email_sent_at) : (o.last_updated_at ? fmtDateTimeHM(o.last_updated_at) : (o.created_at ? fmtDateTimeHM(o.created_at) : '—'));
                 const sentCountVal = o.design_email_sent_count || 1;
-                statusText = `<span style="color:#15803d;font-weight:700;">✅ Đã gửi thành công</span> <span style="color:#475569;margin-left:6px;font-weight:600;">(Gửi lần ${sentCountVal} lúc ${sentTimeStr})</span>`;
+                statusText = `
+                    <span style="color:#15803d;font-weight:700;">✅ Đã gửi thành công</span>
+                    <div style="color:#475569;font-size:11px;margin-top:2px;font-weight:600;">(Gửi lần ${sentCountVal} lúc ${sentTimeStr})</div>
+                `;
             } else if (o.design_email_status === 'sending') {
                 statusText = `<span style="color:#d97706;font-weight:700;">⏳ Đang gửi...</span>`;
             } else if (o.design_email_status === 'failed') {

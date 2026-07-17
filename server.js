@@ -806,6 +806,15 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS design_email_planned_send_at BIGINT`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS design_email_sent_at TIMESTAMP`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS design_email_sent_count INTEGER DEFAULT 0`); } catch(e) {}
+    try {
+        await db.exec(`
+            UPDATE dht_orders
+            SET design_email_sent_count = COALESCE(edit_count, 0) + 1,
+                design_email_sent_at = COALESCE(last_updated_at, created_at)
+            WHERE design_email_status = 'sent'
+              AND (design_email_sent_at IS NULL OR design_email_sent_count = 0)
+        `);
+    } catch(e) {}
 
     // Migration: Bảng Giá May (BGM) — Sewing Price Catalog
     try {
