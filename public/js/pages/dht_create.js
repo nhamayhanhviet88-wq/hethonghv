@@ -1483,6 +1483,7 @@ function _dhtAddItemFree(editIdx) {
     var existing = _dhtCreate.phieuItems[idx] || {};
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
     var isRestricted = isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called;
+    var isCuttingRestricted = isOldItem && !!existing.has_cutting_started;
     window._dhtIsFabricEditRestricted = isRestricted;
     window._dhtPhieuRestricted = isRestricted;
     var ov = document.createElement('div');
@@ -1496,6 +1497,13 @@ function _dhtAddItemFree(editIdx) {
         catName = 'PET/TEM';
     }
 
+    var warningBanner = '';
+    if (isCuttingRestricted) {
+        warningBanner = '<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fed7aa;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔒</span><div><div style="font-size:11px;font-weight:800;color:#ea580c">PHIẾU ĐANG CẮT HOẶC ĐÃ CẮT XONG</div><div style="font-size:10px;color:#c2410c;margin-top:1px">Số lượng size, Giá bán đã bị khóa vì xưởng đã nhận cắt.</div></div></div>';
+    } else if (isRestricted) {
+        warningBanner = '<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔒</span><div><div style="font-size:11px;font-weight:800;color:#dc2626">PHIẾU ĐÃ ĐƯỢC XƯỞNG GỌI VẢI</div><div style="font-size:10px;color:#991b1b;margin-top:1px">Sản phẩm đã bị khóa. SL, Giá, VAT vẫn sửa được.</div></div></div>';
+    }
+
     // Qty/price rows
     var qps = existing.quantities || [{qty: '', price: ''}];
     var qpHTML = '';
@@ -1503,10 +1511,14 @@ function _dhtAddItemFree(editIdx) {
         var n = qi + 1;
         var sizeAttr = qps[qi].size ? ' data-size="' + qps[qi].size + '"' : '';
         var noteAttr = qps[qi].note ? ' data-note="' + qps[qi].note + '"' : '';
-        var rm = qi > 0 ? '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalcFree()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>' : '<div></div>';
+        var rm = (qi > 0 && !isCuttingRestricted) ? '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalcFree()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>' : '<div></div>';
+        
+        var qtyStyle = isCuttingRestricted ? 'disabled style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;background:#f1f5f9;cursor:not-allowed"' : 'style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"';
+        var priceStyle = isCuttingRestricted ? 'disabled style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;background:#f1f5f9;cursor:not-allowed"' : 'style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"';
+        
         qpHTML += '<div class="_ppQR"' + sizeAttr + noteAttr + ' style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">'
-            + '<div><label style="font-size:10px;font-weight:700">SL' + n + ' *</label><input type="number" class="_pp_qty" value="' + (qps[qi].qty || '') + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
-            + '<div><label style="font-size:10px;font-weight:700">Giá ' + n + ' *</label><input type="number" class="_pp_price" value="' + (qps[qi].price || '') + '" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalcFree()"></div>'
+            + '<div><label style="font-size:10px;font-weight:700">SL' + n + ' *</label><input type="number" class="_pp_qty" value="' + (qps[qi].qty || '') + '" min="0" ' + qtyStyle + ' oninput="_ppCalcFree()"></div>'
+            + '<div><label style="font-size:10px;font-weight:700">Giá ' + n + ' *</label><input type="number" class="_pp_price" value="' + (qps[qi].price || '') + '" min="0" ' + priceStyle + ' oninput="_ppCalcFree()"></div>'
             + rm + '</div>';
     }
 
@@ -1525,16 +1537,17 @@ function _dhtAddItemFree(editIdx) {
     prodSel += '<option value="Mét"' + (existing.product_name === 'Mét' ? ' selected' : '') + '>Mét</option>'
         + '<option value="Thiết Kế"' + (existing.product_name === 'Thiết Kế' ? ' selected' : '') + '>Thiết Kế</option>';
 
-    var title = (isRestricted ? '🔒 ' : '🐾 ') + 'Phiếu ' + catName + ' #' + (idx + 1);
+    var title = (isRestricted || isCuttingRestricted) ? '🔒 Phiếu ' + catName + ' #' + (idx + 1) : '🐾 Phiếu ' + catName + ' #' + (idx + 1);
 
     ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:800;font-size:14px;color:var(--navy)">' + title + '</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
+        + warningBanner
         + '<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px">'
         + '<div class="form-group"><label style="font-weight:700;font-size:12px">Sản Phẩm <span style="color:red">*</span></label><select id="_ppf_product" class="form-control" style="font-size:13px">' + prodSel + '</select></div>'
         + '</div>'
         + '<div style="border-top:1px solid #e2e8f0;padding-top:10px">'
         + '<div id="_ppf_qtyRows">' + qpHTML + '</div>'
-        + '<button type="button" onclick="_ppAddQtyFree()" style="display:none;background:#059669;color:#fff;border:none;padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;margin:4px 0">+ Thêm SL/Giá</button>'
+        + (isCuttingRestricted ? '' : '<button type="button" onclick="_ppAddQtyFree()" style="display:none;background:#059669;color:#fff;border:none;padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;margin:4px 0">+ Thêm SL/Giá</button>')
         + '</div>'
         + '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'
         + '<div><label style="font-size:10px;font-weight:700">VAT</label><select id="_ppf_vat" class="form-control" onchange="_ppCalcFree()" style="width:80px;font-size:12px">' + vatSel + '</select></div>'
@@ -1545,12 +1558,13 @@ function _dhtAddItemFree(editIdx) {
 
     document.body.appendChild(ov);
     _ppCalcFree();
-    if (isRestricted) {
+    if (isRestricted || isCuttingRestricted) {
         var _lockPopupFree = function() {
             var popup = document.getElementById('_phieuPopup');
             if (!popup) return;
             popup.querySelectorAll('input, select, textarea').forEach(function(el) {
                 if (el.id === '_ppf_vat') return;
+                if (!isCuttingRestricted && (el.classList.contains('_pp_qty') || el.classList.contains('_pp_price'))) return;
                 el.disabled = true;
                 el.style.background = '#f1f5f9';
                 el.style.cursor = 'not-allowed';
@@ -1606,6 +1620,20 @@ function _dhtSavePhieuFree(idx) {
         raw += qv * pv;
     }
     if (!qtyPairs.length || qtyPairs[0].qty === 0) { showToast('SL1 phải > 0', 'error'); return; }
+
+    // Check if cutting started and they changed quantities/prices
+    if (existing.id && _dhtCreate.editMode && existing.has_cutting_started) {
+        var oldQArr = existing.quantities || [];
+        var isQuantitiesChanged = JSON.stringify(oldQArr) !== JSON.stringify(qtyPairs);
+        var oldQuantity = Number(existing.quantity) || 0;
+        var totalQty = qtyPairs.reduce(function(s, x) { return s + x.qty; }, 0);
+        var isQuantityChanged = oldQuantity !== totalQty;
+
+        if (isQuantitiesChanged || isQuantityChanged) {
+            showToast('⚠️ Phiếu đã được xưởng nhận cắt hoặc đã cắt xong. Không thể thay đổi Loại Size, Số lượng hoặc Đơn giá.', 'error');
+            return;
+        }
+    }
 
     var va = Math.round(raw * vp / 100);
     _dhtCreate.phieuItems[idx] = {
@@ -1670,7 +1698,8 @@ async function _dhtAddItem(editIdx) {
     var existing = _dhtCreate.phieuItems[idx] || {};
     window._ppCurrentExistingPhieu = existing;
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
-    var isRestricted = isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called;
+    var isCuttingRestricted = isOldItem && !!existing.has_cutting_started;
+    var isRestricted = (isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called) || isCuttingRestricted;
     window._dhtIsFabricEditRestricted = isRestricted;
     window._dhtPhieuRestricted = isRestricted;
     var po = _dhtCreate.phieuOpts || {};
@@ -1720,8 +1749,12 @@ async function _dhtAddItem(editIdx) {
         var sizeAttr = qps[qi].size ? ' data-size="' + qps[qi].size + '"' : '';
         var noteAttr = qps[qi].note ? ' data-note="' + qps[qi].note + '"' : '';
         var origSizesAttr = qps[qi].originalSizes ? " data-orig-sizes='" + JSON.stringify(qps[qi].originalSizes).replace(/'/g, "&#39;") + "'" : "";
-        var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc();_ppUpdateAddBtnVisibility()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';
-        qpHTML+='<div class="_ppQR"' + sizeAttr + noteAttr + origSizesAttr + ' style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';
+        var rm=(qi>0 && !isCuttingRestricted)?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc();_ppUpdateAddBtnVisibility()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';
+        
+        var qtyStyle = isCuttingRestricted ? 'disabled style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;background:#f1f5f9;cursor:not-allowed"' : 'style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"';
+        var priceStyle = isCuttingRestricted ? 'disabled style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;background:#f1f5f9;cursor:not-allowed"' : 'style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"';
+        
+        qpHTML+='<div class="_ppQR"' + sizeAttr + noteAttr + origSizesAttr + ' style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||'')+'" min="0" '+qtyStyle+' oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||'')+'" min="0" '+priceStyle+' oninput="_ppCalc()"></div>'+rm+'</div>';
     }
     var vatPct = existing.vat_percent || 0;
     if (vatPct !== 0 && vatPct !== 8) {
@@ -1746,13 +1779,18 @@ async function _dhtAddItem(editIdx) {
     window._ppTsamPatterns = _tsamPatRes.patterns || [];
     // Nhắc nhở: moved to order-level form
     var popupTitle = isRestricted ? '🔒 ' + orderCode + ' - Phiếu ' + (idx+1) : '📋 ' + orderCode + ' - Phiếu ' + (idx+1);
-    var fabricWarningBanner = isRestricted 
-        ? '<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔒</span><div><div style="font-size:11px;font-weight:800;color:#dc2626">PHIẾU ĐÃ ĐƯỢC XƯỞNG GỌI VẢI</div><div style="font-size:10px;color:#991b1b;margin-top:1px">Bán/Quà, Sản phẩm, Thông số mẫu áo, Chất liệu, Màu sắc đã bị khóa. SL, Giá, VAT vẫn sửa được.</div></div></div>'
-        : '';
+    
+    var warningBanner = '';
+    if (isCuttingRestricted) {
+        warningBanner = '<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fed7aa;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔒</span><div><div style="font-size:11px;font-weight:800;color:#ea580c">PHIẾU ĐANG CẮT HOẶC ĐÃ CẮT XONG</div><div style="font-size:10px;color:#c2410c;margin-top:1px">Loại size, Số lượng, Giá đã bị khóa vì xưởng đã nhận cắt.</div></div></div>';
+    } else if (isRestricted) {
+        warningBanner = '<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">🔒</span><div><div style="font-size:11px;font-weight:800;color:#dc2626">PHIẾU ĐÃ ĐƯỢC XƯỞNG GỌI VẢI</div><div style="font-size:10px;color:#991b1b;margin-top:1px">Bán/Quà, Sản phẩm, Thông số mẫu áo, Chất liệu, Màu sắc đã bị khóa. SL, Giá, VAT vẫn sửa được.</div></div></div>';
+    }
+    
     var saveBtn = '<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div>';
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:800;font-size:14px;color:'+(isRestricted?'#64748b':'var(--navy)')+'">'+popupTitle+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
-        +fabricWarningBanner
+        +warningBanner
         +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
         +'<div id="_pp_sizeTypeContainer" style="display:none;margin-bottom:8px">'
@@ -1766,7 +1804,7 @@ async function _dhtAddItem(editIdx) {
         +'<div id="_pp_matColorPairs" style="margin-bottom:8px"></div>'
         +'<div id="_pp_stockLimitWarnings" style="display:none;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:11.5px;color:#b45309;line-height:1.5"></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Chi Tiết May Thêm</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div>'+(isRestricted ? '' : '<button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button>')+'</div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple'+(isRestricted?' disabled':'')+'>'+( extOpts||noOpt)+'</select></div></div>'
-        +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div>'+(isRestricted ? '' : '<button type="button" id="_pp_btn_addQtyRow" onclick="_ppAddQtyRow()" style="display:'+(qps.length>=2?'none':'inline-block')+';background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button>')+'</div>'
+        +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div>'+(isCuttingRestricted ? '' : '<button type="button" id="_pp_btn_addQtyRow" onclick="_ppAddQtyRow()" style="display:'+(qps.length>=2?'none':'inline-block')+';background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button>')+'</div>'
         +'<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">'
         +'  <div style="display:flex;flex-direction:column;gap:4px;background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #cbd5e1">'
         +'    <div style="display:flex;justify-content:space-between;align-items:center">'
@@ -2615,6 +2653,23 @@ function _dhtSavePhieu(idx) {
         raw+=qv*pv;
         totalQty+=qv;
     }
+
+    // Check if cutting started and they changed quantities/prices or size type
+    if (existing.id && _dhtCreate.editMode && existing.has_cutting_started) {
+        var oldQArr = existing.quantities || [];
+        var isQuantitiesChanged = JSON.stringify(oldQArr) !== JSON.stringify(qtyPairs);
+        var oldQuantity = Number(existing.quantity) || 0;
+        var isQuantityChanged = oldQuantity !== typedQty;
+        var oldSizeType = existing.size_type || 'Size TT';
+        var newSizeType = document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT';
+        var isSizeTypeChanged = oldSizeType !== newSizeType;
+
+        if (isQuantitiesChanged || isQuantityChanged || isSizeTypeChanged) {
+            showToast('⚠️ Phiếu đã được xưởng nhận cắt hoặc đã cắt xong. Không thể thay đổi Loại Size, Số lượng hoặc Đơn giá.', 'error');
+            return;
+        }
+    }
+
     var giftQty = Number(document.getElementById('_pp_promoGiftQty')?.value)||0;
     var giftCode = document.getElementById('_pp_promoGiftCode')?.value || '';
     var selectedRowIdx = null;
