@@ -7184,7 +7184,7 @@ function _tpdValidateAllSheets() {
             }
             
             if (isModified) {
-                const checkBaseMockup = origItem ? origItem.mockup_image : (state.dbBaselines && state.dbBaselines[idx] ? state.dbBaselines[idx].mockup_image : '');
+                const checkBaseMockup = origItem ? origItem.mockup_image : (state.dbBaselines && state.dbBaselines.find(x => x.id === it.id) ? state.dbBaselines.find(x => x.id === it.id).mockup_image : '');
                 if (it.mockup_image === checkBaseMockup) {
                     showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Khi sửa đơn, bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
                     _tpdSwitchItemTab(idx);
