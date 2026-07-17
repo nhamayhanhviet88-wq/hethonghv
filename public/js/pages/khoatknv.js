@@ -100,7 +100,8 @@ async function _penaltyLoadConfig() {
             { title: '⏰ KH Chưa Xử Lý Trễ', icon: '⏰', keys: ['kh_chua_xu_ly_tre'] },
             { title: '📦 Gửi Hàng Trễ', icon: '📦', keys: ['gui_hang_tre'] },
             { title: '📋 Phiếu QLX', icon: '📋', keys: ['phieu_qlx_qua_han'] },
-            { title: '🏭 Quản Lý Xưởng', icon: '🏭', keys: ['phat_qlx_tre_don_hom_nay', 'qlx_cutoff_time'] }
+            { title: '🏭 Quản Lý Xưởng', icon: '🏭', keys: ['phat_qlx_tre_don_hom_nay', 'qlx_cutoff_time'] },
+            { title: '🖨️ Gia Công In', icon: '🖨️', keys: ['gc_print_khong_bao_cao', 'gc_penalty_check_time'] }
         ];
 
         const configMap = {};
@@ -118,14 +119,16 @@ async function _penaltyLoadConfig() {
                     phieu_qlx_qua_han: 'QLX không xử lý',
                     gui_hang_tre: 'KT chưa gửi đơn hôm nay',
                     phat_qlx_tre_don_hom_nay: 'QLX chưa hoàn thành đơn hàng hôm nay',
-                    qlx_cutoff_time: 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng'
+                    qlx_cutoff_time: 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng',
+                    gc_print_khong_bao_cao: 'NV In — Đơn GC quá hạn không báo cáo',
+                    gc_penalty_check_time: 'Giờ tính phạt đơn GC In (HH:MM)'
                 };
                 const amount = cfg ? cfg.amount : (key === 'phieu_qlx_qua_han' ? 50000 : (key === 'phat_qlx_tre_don_hom_nay' ? 100000 : (key === 'qlx_cutoff_time' ? 1080 : 0)));
                 const rawLabel = cfg ? cfg.label : (DEFAULT_LABELS[key] || key);
                 // Short label (remove category prefix)
                 const shortLabel = rawLabel.replace(/^[^—]+—\s*/, '');
 
-                if (key === 'qlx_cutoff_time') {
+                if (key === 'qlx_cutoff_time' || key === 'gc_penalty_check_time') {
                     const totalMins = amount || 1080;
                     const hrs = Math.floor(totalMins / 60);
                     const mins = totalMins % 60;
@@ -447,7 +450,9 @@ async function _penaltyLoadStats() {
             customer_unhandled: { icon: '❌', label: 'KH Chưa XL', color: '#ea580c', bg: '#fff7ed' },
             customer_overdue: { icon: '⏰', label: 'KH Trễ', color: '#b91c1c', bg: '#fef2f2' },
             gui_hang_tre: { icon: '📦', label: 'Gửi Hàng Trễ', color: '#7c3aed', bg: '#f5f3ff' },
-            phieu_qlx_qua_han: { icon: '📋', label: 'Phiếu QLX', color: '#0891b2', bg: '#ecfeff' }
+            phieu_qlx_qua_han: { icon: '📋', label: 'Phiếu QLX', color: '#0891b2', bg: '#ecfeff' },
+            phat_qlx_tre_don_hom_nay: { icon: '🏭', label: 'QLX Trễ Đơn', color: '#6d28d9', bg: '#f5f3ff' },
+            gc_print: { icon: '🖨️', label: 'GC In Quá Hạn', color: '#d97706', bg: '#fffbeb' }
         };
 
         // Build HTML tree
@@ -678,7 +683,9 @@ async function _penaltyShowSlip(managerId, month, managerName) {
                 customer_unhandled: { bg: '#fff7ed', color: '#ea580c', label: '❌ KH Chưa XL' },
                 customer_overdue: { bg: '#fef2f2', color: '#b91c1c', label: '⏰ KH Trễ' },
                 gui_hang_tre: { bg: '#f5f3ff', color: '#7c3aed', label: '📦 Gửi Hàng Trễ' },
-                phieu_qlx_qua_han: { bg: '#ecfeff', color: '#0891b2', label: '📋 Phiếu QLX' }
+                phieu_qlx_qua_han: { bg: '#ecfeff', color: '#0891b2', label: '📋 Phiếu QLX' },
+                phat_qlx_tre_don_hom_nay: { bg: '#f5f3ff', color: '#6d28d9', label: '🏭 QLX Trễ Đơn' },
+                gc_print: { bg: '#fffbeb', color: '#d97706', label: '🖨️ GC In Quá Hạn' }
             };
             const cfg = map[type] || { bg: '#f3f4f6', color: '#6b7280', label: type };
             return `<span style="background:${cfg.bg};color:${cfg.color};padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">${cfg.label}</span>`;
