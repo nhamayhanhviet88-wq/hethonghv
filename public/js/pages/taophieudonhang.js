@@ -6942,6 +6942,10 @@ function _tpdIsSheetModified(it, dbItem) {
         console.log('[_tpdIsSheetModified] layout is_red_sheet differs:', { current: lay1.is_red_sheet, db: lay2.is_red_sheet });
         return true;
     }
+    if (((lay1.sheet_edit_note || '').trim()) !== ((lay2.sheet_edit_note || '').trim())) {
+        console.log('[_tpdIsSheetModified] layout sheet_edit_note differs:', { current: lay1.sheet_edit_note, db: lay2.sheet_edit_note });
+        return true;
+    }
 
     const sew1 = _tpdNormalizeSewingItemsForComparison(lay1, it);
     const sew2 = _tpdNormalizeSewingItemsForComparison(lay2, dbItem);
