@@ -6456,6 +6456,51 @@ async function _tpdSaveProductionSheet() {
         return false;
     }
 
+    // Check if editing an official order and sheet is modified
+    const isOrderDraft = state.order && (state.order.is_draft === true || state.order.is_draft === 'true' || state.order.is_draft === 1 || String(state.order.is_draft) === 'true');
+    if (!isOrderDraft) {
+        const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${state.orderId}`);
+        let isModified = false;
+        let origItem = null;
+        if (origItemsJson) {
+            try {
+                const origItems = JSON.parse(origItemsJson);
+                origItem = origItems.find(x => x.id === it.id);
+                if (origItem) {
+                    isModified = _tpdIsSheetModified(it, origItem);
+                } else {
+                    isModified = true;
+                }
+            } catch(e) {
+                isModified = false;
+            }
+        } else if (state.dbBaselines) {
+            origItem = state.dbBaselines.find(x => x.id === it.id);
+            if (origItem) {
+                isModified = _tpdIsSheetModified(it, origItem);
+            } else {
+                isModified = true;
+            }
+        } else {
+            isModified = true;
+        }
+
+        if (isModified) {
+            const checkBaseMockup = origItem ? origItem.mockup_image : (state.dbBaselines && state.dbBaselines.find(x => x.id === it.id) ? state.dbBaselines.find(x => x.id === it.id).mockup_image : '');
+            if (it.mockup_image === checkBaseMockup) {
+                showToast(`⚠️ Khi sửa đơn, bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
+                return false;
+            }
+
+            const layoutVal = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
+            const note = (layoutVal.sheet_edit_note || '').trim();
+            if (!note) {
+                showToast(`⚠️ Bạn bắt buộc phải nhập Nội dung sửa đổi chi tiết cho phiếu này!`, 'error');
+                return false;
+            }
+        }
+    }
+
     // ★ Validation: total size qty must match DHT quantity
     const dhtQty = Number(it.quantity) || 0;
     const totalSizeQty = (it.quantities || []).reduce((s, q) => s + (Number(q.qty) || 0), 0);
