@@ -7180,6 +7180,12 @@ module.exports = async function(fastify) {
                 }
             };
 
+            const newLayout = typeof newIt.custom_layout === 'string' ? JSON.parse(newIt.custom_layout) : (newIt.custom_layout || {});
+            const sheetEditNote = (newLayout.sheet_edit_note || '').trim();
+            if (sheetEditNote) {
+                initSheetChanges();
+            }
+
             // Product name changed
             if (oldIt.product_name !== newIt.product_name) {
                 initSheetChanges();
@@ -7621,7 +7627,7 @@ module.exports = async function(fastify) {
                 if (isAdded) return true;
 
                 const sheetKey = idx.toString();
-                if (diffs.sheetChanges[sheetKey] && diffs.sheetChanges[sheetKey].changes.length > 0) return true;
+                if (diffs.sheetChanges[sheetKey] && (diffs.sheetChanges[sheetKey].changes.length > 0 || diffs.sheetChanges[sheetKey].sheetEditNote)) return true;
 
                 const oldIt = oldState.items.find(oldIt => oldIt.id === item.id);
                 if (oldIt && oldIt.design_pdf_url !== undefined && oldIt.design_pdf_url !== item.design_pdf_url) return true;
@@ -8383,12 +8389,11 @@ module.exports = async function(fastify) {
                     `);
                 }
 
-                // Sheet modifications
                 const sheetKeys = Object.keys(diffs.sheetChanges).sort((a, b) => Number(a) - Number(b));
                 if (sheetKeys.length > 0) {
                     sheetKeys.forEach(k => {
                         const sheet = diffs.sheetChanges[k];
-                        if (sheet.changes && sheet.changes.length > 0) {
+                        if ((sheet.changes && sheet.changes.length > 0) || sheet.sheetEditNote) {
                             parts.push(`
                                 <div style="margin-top: 10px; margin-bottom: 15px; border-left: 4px solid #f59e0b; padding-left: 12px;">
                                     <div style="font-weight: 800; color: #b45309; font-size: 14.5px; margin-bottom: 8px;">
