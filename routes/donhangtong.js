@@ -9218,7 +9218,7 @@ module.exports = async function(fastify) {
                     last_updated_at = $4,
                     last_updated_by = $5
                 WHERE id = $6
-            `, [totalQtyVal, newTotalAmount, finalVat, now, user.id, orderId]);
+            `, [totalQtyVal, newOrderTotal, finalVat, now, user.id, orderId]);
 
             // 4. Audit log
             await db.run(`
