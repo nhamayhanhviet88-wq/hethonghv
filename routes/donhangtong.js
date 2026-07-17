@@ -2704,7 +2704,14 @@ module.exports = async function(fastify) {
                        WHERE qa.assignment_type = 'in'
                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                          AND (qa.item_id = i.id OR (qa.dht_order_id = i.dht_order_id AND qa.item_id IS NULL))
-                   ) AS has_print_assignment
+                   ) AS has_print_assignment,
+
+                   -- Check cutting status
+                   EXISTS (
+                       SELECT 1 FROM cutting_records cr
+                       WHERE cr.order_item_id = i.id
+                         AND (cr.is_cutting = true OR cr.is_cut_done = true)
+                   ) AS has_cutting_started
             FROM dht_order_items i
             LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
             LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
@@ -3180,6 +3187,30 @@ module.exports = async function(fastify) {
         if (!item) return reply.code(404).send({ error: 'Không tìm thấy phiếu sản phẩm trong đơn hàng này' });
 
         const b = request.body || {};
+
+        // Check if item has started cutting
+        const cuttingCheck = await db.get(`
+            SELECT 1 FROM cutting_records cr
+            WHERE cr.order_item_id = $1
+              AND (cr.is_cutting = true OR cr.is_cut_done = true)
+            LIMIT 1
+        `, [itemId]);
+        const hasCuttingStarted = !!cuttingCheck;
+
+        if (hasCuttingStarted) {
+            const oldItem = await db.get('SELECT size_type, quantity, quantities FROM dht_order_items WHERE id = $1', [itemId]);
+            const isSizeTypeChanged = b.size_type !== undefined && b.size_type !== oldItem.size_type;
+            
+            let oldQArr = [];
+            try { oldQArr = typeof oldItem.quantities === 'string' ? JSON.parse(oldItem.quantities) : (oldItem.quantities || []); } catch(e){}
+            const isQuantitiesChanged = b.quantities !== undefined && JSON.stringify(b.quantities) !== JSON.stringify(oldQArr);
+            
+            const isQuantityChanged = b.quantity !== undefined && Number(b.quantity) !== Number(oldItem.quantity);
+
+            if (isSizeTypeChanged || isQuantitiesChanged || isQuantityChanged) {
+                return reply.code(400).send({ error: '⚠️ Phiếu đã được xưởng nhận cắt hoặc đã cắt xong. Không thể thay đổi Loại Size hoặc Số lượng.' });
+            }
+        }
         const sets = [];
         const vals = [];
         let idx = 1;
@@ -5090,7 +5121,13 @@ module.exports = async function(fastify) {
                                 SELECT 1 FROM cutting_records cr
                                 WHERE cr.order_item_id = i.id
                             )
-                       ) AS has_fabric_called
+                       ) AS has_fabric_called,
+                       EXISTS (
+                           SELECT 1 FROM cutting_records cr
+                           WHERE cr.order_item_id = i.id
+                             AND (cr.is_cutting = true OR cr.is_cut_done = true)
+                       ) AS has_cutting_started,
+                       i.size_type
                 FROM dht_order_items i 
                 WHERE i.dht_order_id = $1
             `, [orderId]);
@@ -5124,6 +5161,10 @@ module.exports = async function(fastify) {
             // 1. Identify deleted items
             const deletedItemIds = oldItemIds.filter(id => !sentItemIds.includes(id));
             if (deletedItemIds.length > 0) {
+                const deletedInCutting = oldItems.some(it => deletedItemIds.includes(Number(it.id)) && it.has_cutting_started);
+                if (deletedInCutting) {
+                    return reply.code(400).send({ error: '⚠️ Không thể xóa phiếu đã được xưởng nhận cắt hoặc đã cắt xong.' });
+                }
                 if (request.user.role !== 'giam_doc') {
                     const deletedHasFabric = oldItems.some(it => deletedItemIds.includes(Number(it.id)) && it.has_fabric_called);
                     if (deletedHasFabric) {
@@ -5147,6 +5188,20 @@ module.exports = async function(fastify) {
                 if (itemId && oldItemIds.includes(itemId)) {
                     const oldIt = oldItems.find(x => Number(x.id) === itemId);
                     
+                    // C. Validation check if cutting is started — block size type / quantity changes (applies to Giám đốc too)
+                    if (oldIt && oldIt.has_cutting_started) {
+                        const hasQtyChanged = Number(item.quantity) !== Number(oldIt.quantity);
+                        let oldQArr = [];
+                        try { oldQArr = typeof oldIt.quantities === 'string' ? JSON.parse(oldIt.quantities) : (oldIt.quantities || []); } catch(e){}
+                        const newQArr = item.quantities || [];
+                        const hasQuantitiesChanged = JSON.stringify(oldQArr) !== JSON.stringify(newQArr);
+                        const hasSizeTypeChanged = item.size_type && item.size_type !== oldIt.size_type;
+
+                        if (hasQtyChanged || hasQuantitiesChanged || hasSizeTypeChanged) {
+                            return reply.code(400).send({ error: `⚠️ Phiếu "${oldIt.product_name || 'không tên'}" đã được xưởng nhận cắt hoặc đã cắt xong. Không thể thay đổi Loại Size hoặc Số lượng.` });
+                        }
+                    }
+
                     // A. Validation check if fabric is called — only lock product, pattern, material, color
                     if (oldIt && oldIt.has_fabric_called && request.user.role !== 'giam_doc') {
                         const hasProductChanged = (item.product_name || '') !== (oldIt.product_name || '');
