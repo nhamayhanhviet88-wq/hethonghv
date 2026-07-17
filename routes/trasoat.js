@@ -361,6 +361,7 @@ module.exports = async function(fastify) {
                 oi.description, 
                 oi.quantity,
                 oi.material_pairs,
+                oi.production_cancelled,
                 (
                     SELECT string_agg(pp.step_id::text, ',') 
                     FROM dht_product_process pp 
@@ -456,6 +457,7 @@ module.exports = async function(fastify) {
                 product_name: item.product_name,
                 description: item.description,
                 quantity: item.quantity,
+                production_cancelled: !!item.production_cancelled,
                 timeline,
                 qlx_schedule: itemSchedule || null,
                 qlx_reports: itemReports || []
@@ -1539,7 +1541,10 @@ function _processOrderWithItems(o, items, todayStr) {
         }
 
         let currentStepName = 'Hoàn thành';
-        if (isShipped) {
+        if (item.production_cancelled) {
+            currentStepName = 'Đã hủy';
+            doneSteps = totalSteps; // Marked as complete so it doesn't drag down order progress percent
+        } else if (isShipped) {
             currentStepName = 'Hoàn thành';
             doneSteps = totalSteps;
         } else if (!cutDone) {
@@ -1558,7 +1563,7 @@ function _processOrderWithItems(o, items, todayStr) {
         orderDoneSteps += doneSteps;
 
         const pri = STEP_PRIORITY[currentStepName] || 6;
-        if (pri < slowestStepPriority) {
+        if (pri < slowestStepPriority && currentStepName !== 'Đã hủy') {
             slowestStepPriority = pri;
             slowestStepName = currentStepName;
         }
@@ -1568,6 +1573,7 @@ function _processOrderWithItems(o, items, todayStr) {
             product_name: item.product_name,
             description: item.description,
             quantity: item.quantity,
+            production_cancelled: !!item.production_cancelled,
             total_steps: totalSteps,
             done_steps: doneSteps,
             current_step_name: currentStepName,
@@ -1611,6 +1617,10 @@ function _processOrderWithItems(o, items, todayStr) {
         }
     }
 
+    if (slowestStepName === 'Hoàn thành' && processedItems.every(item => item.current_step_name === 'Đã hủy')) {
+        slowestStepName = 'Đã hủy';
+    }
+
     return {
         id: o.id, order_code: o.order_code, customer_name: o.customer_name,
         customer_phone: o.customer_phone, province: o.province,
@@ -1649,6 +1659,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             oi.description,
             oi.quantity,
             oi.material_pairs,
+            oi.production_cancelled,
             (
                 SELECT string_agg(pp.step_id::text, ',') 
                 FROM dht_product_process pp 

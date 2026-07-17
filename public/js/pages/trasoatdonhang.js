@@ -335,7 +335,10 @@ function _tsRenderTable(orders, totalCount) {
     </tr></thead><tbody>`;
 
     orders.forEach((o, i) => {
-        const pColor = o.progress_percent === 100 ? '#10b981' : o.progress_percent >= 50 ? '#f59e0b' : '#6366f1';
+        const isCancelled = o.current_step_name === 'Đã hủy';
+        const pColor = isCancelled ? '#64748b' : o.progress_percent === 100 ? '#10b981' : o.progress_percent >= 50 ? '#f59e0b' : '#6366f1';
+        const cancelBadge = isCancelled ? '<span class="ts-badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;margin-left:4px;font-weight:800;">ĐÃ HỦY</span>' : '';
+        const orderCodeStyle = isCancelled ? 'text-decoration: line-through; opacity: 0.6;' : '';
         const badges = (o.is_repair ? '<span class="ts-badge ts-badge-repair">ĐƠN SỬA</span>' : '') +
                        (o.is_pet_tem ? '<span class="ts-badge ts-badge-pet">PET/TEM</span>' : '');
         const priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
@@ -347,7 +350,7 @@ function _tsRenderTable(orders, totalCount) {
             <td style="color:#9ca3af;font-weight:600">${(_ts.page-1)*50+i+1}</td>
             <td style="white-space:nowrap;font-weight:bold;">${getProgressSaleHTML(o)}</td>
             <td>
-                <span style="color:#4338ca;font-weight:800">${o.order_code}</span>${badges}
+                <span style="color:#4338ca;font-weight:800;${orderCodeStyle}">${o.order_code}</span>${badges}${cancelBadge}
                 ${o.created_by_name ? `<div style="font-size:11px;color:#e65100;font-weight:700;margin-top:2px">👤 Sale: ${o.created_by_name}</div>` : ''}
             </td>
             <td><div style="font-weight:600">${o.customer_name||'-'}</div><div style="font-size:11px;color:#6b7280">${o.customer_phone||''}</div></td>
@@ -355,7 +358,7 @@ function _tsRenderTable(orders, totalCount) {
             <td style="font-weight:600; white-space:nowrap;">${formatSaleExpectedDate(o.expected_ship_date, o.shipping_priority, o.standard_delivery_time)}</td>
             <td style="font-weight:600; white-space:nowrap;">${formatQlxExpectedDate(o.qlx_expected_date, o.qlx_expected_hour, o.qlx_rescheduled_date, o.qlx_rescheduled_reason, o.qlx_actual_output_at, o.reschedule_count, o.id, o.order_code, o.progress_percent === 100 || o.shipping_status === 'shipped')}</td>
             <td style="min-width:120px"><div class="ts-progress"><div class="ts-progress-bar" style="width:${o.progress_percent}%;background:${pColor}"></div></div><div style="font-size:10px;font-weight:700;color:${pColor};margin-top:2px">${o.done_steps}/${o.total_steps} (${o.progress_percent}%)</div></td>
-            <td><span style="font-weight:700;font-size:12px">${o.current_step_name}</span></td>
+            <td><span style="font-weight:700;font-size:12px;color:${isCancelled ? '#dc2626' : 'inherit'}">${o.current_step_name}</span></td>
             <td><span class="ts-badge ts-badge-${o.deviation_class}">${o.deviation_label}</span></td>
         </tr>`;
         if (_ts.expandedId === o.id) {
@@ -436,6 +439,7 @@ function _tsRenderTimeline(res) {
             .ts-step-icon.done{background:#10b981;border-color:#10b981;color:white}
             .ts-step-icon.active{background:#f59e0b;border-color:#f59e0b;color:white;animation:tsPulse 1.5s infinite}
             .ts-step-icon.pending{background:white;border-color:#d1d5db;color:#9ca3af}
+            .ts-step-icon.cancelled{background:#fee2e2;border-color:#fca5a5;color:#dc2626}
             @keyframes tsPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}50%{box-shadow:0 0 0 8px rgba(245,158,11,0)}}
             .ts-step-name{font-size:11px;font-weight:700;color:#374151}
             .ts-step-time{font-size:10px;color:#6b7280;margin-top:2px}
@@ -460,22 +464,34 @@ function _tsRenderTimeline(res) {
         html += '<div style="text-align:center;padding:12px;color:#9ca3af">Không có sản phẩm nào</div>';
     } else {
         items.forEach((item, itemIdx) => {
-            html += `<div class="ts-item-timeline-section" style="margin-bottom: 24px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; background:#fff">`;
-            html += `<div style="font-weight:700;font-size:13px;color:#4338ca;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-                <span>🏷️ Phiếu ${itemIdx + 1}: ${item.product_name || 'Sản phẩm'} ${item.description ? `(${item.description})` : ''}</span>
-                <span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:12px;font-size:11px">SL: ${item.quantity || 0}</span>
+            const isItemCancelled = !!item.production_cancelled;
+            html += `<div class="ts-item-timeline-section" style="margin-bottom: 24px; padding: 12px; border: ${isItemCancelled ? '2px dashed #fca5a5' : '1px solid #e5e7eb'}; border-radius: 8px; background:${isItemCancelled ? '#fff8f8' : '#fff'}; opacity: ${isItemCancelled ? 0.9 : 1}">`;
+            html += `<div style="font-weight:700;font-size:13px;color:${isItemCancelled ? '#991b1b' : '#4338ca'};margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+                <span>🏷️ Phiếu ${itemIdx + 1}: ${item.product_name || 'Sản phẩm'} ${item.description ? `(${item.description})` : ''}
+                    ${isItemCancelled ? '<span class="ts-badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;margin-left:8px;font-weight:800;">❌ HỦY SẢN XUẤT</span>' : ''}
+                </span>
+                <span style="background:${isItemCancelled ? '#fca5a5' : '#e0e7ff'};color:${isItemCancelled ? '#7f1d1d' : '#3730a3'};padding:2px 8px;border-radius:12px;font-size:11px">SL: ${item.quantity || 0}</span>
             </div>`;
             
             html += '<div class="ts-timeline">';
             const timeline = item.timeline || [];
             timeline.forEach((s, i) => {
-                const cls = s.done ? 'done' : (i > 0 && timeline[i-1].done && !s.done) ? 'active' : (i === 0 && !s.done) ? 'active' : 'pending';
-                const icon = s.done ? '✓' : cls === 'active' ? '⏳' : (i+1);
+                let cls = s.done ? 'done' : (i > 0 && timeline[i-1].done && !s.done) ? 'active' : (i === 0 && !s.done) ? 'active' : 'pending';
+                let icon = s.done ? '✓' : cls === 'active' ? '⏳' : (i+1);
+                
+                if (isItemCancelled && !s.done) {
+                    cls = 'cancelled';
+                    icon = '✕';
+                }
+
                 const lineCls = s.done ? 'done' : '';
+                const lineStyle = isItemCancelled && !s.done ? 'border-top: 3px dashed #d1d5db; background: transparent; height: 0;' : '';
+                const stepNameStyle = isItemCancelled && !s.done ? 'text-decoration: line-through; color: #9ca3af;' : '';
+
                 html += `<div class="ts-step">`;
-                if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}"></div>`;
+                if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}" style="${lineStyle}"></div>`;
                 html += `<div class="ts-step-icon ${cls}" onclick="event.stopPropagation();_tsOpenStepModal(${o.id},'${s.name}',${item.id})" style="cursor:pointer" title="Xem báo cáo ${s.name}">${icon}</div>
-                    <div class="ts-step-name">${s.short || s.name}</div>
+                    <div class="ts-step-name" style="${stepNameStyle}">${s.short || s.name}</div>
                     ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
                     <div class="ts-step-time">${s.time ? fmtDT(s.time) : ''}</div>
                     <div class="ts-step-time">${s.worker || ''}</div>
