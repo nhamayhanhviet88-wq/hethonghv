@@ -225,6 +225,8 @@ function renderBophancatPage(content) {
 +'.bpc-icon-btn.on-sal{background:#fef3c7;border-color:#f59e0b}'
 +'.bpc-icon-btn.on-wash{background:#e0e7ff;border-color:#6366f1}'
 +'.bpc-icon-btn.on-err{background:#fee2e2;border-color:#ef4444}'
++'.bpc-icon-btn.on-pending{background:#fbbf24;border-color:#d97706;color:#78350f;font-weight:900;width:auto !important;padding:0 8px;font-size:11px;animation:bpcPulseAnimation 1.5s infinite}'
++'@keyframes bpcPulseAnimation{0%,100%{opacity:1}50%{opacity:0.55}}'
 +'.bpc-claim-btn{padding:7px 16px;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;font-family:"Inter",system-ui,sans-serif;letter-spacing:0.3px}'
 +'.bpc-claim-btn.ready{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 3px 10px rgba(16,185,129,0.3)}'
 +'.bpc-claim-btn.ready:hover{transform:translateY(-1px);box-shadow:0 5px 15px rgba(16,185,129,0.4)}'
@@ -919,7 +921,7 @@ function _bpcMapRecordRow(r, i) {
             }
         } else {
             if (r.pending_undo_cutting) {
-                cutBtnHtml = '<button class="bpc-icon-btn" onclick="_bpcOpenUndoApprovalModal(' + r.id + ')" title="Chờ duyệt về nhận cắt" style="background:#fef3c7;border-color:#fde047;color:#ca8a04;font-weight:bold;animation: bpcPulse 1.5s infinite">⏳ Chờ</button>';
+                cutBtnHtml = '<button class="bpc-icon-btn on-pending" onclick="_bpcOpenUndoApprovalModal(' + r.id + ')" title="Chờ duyệt về nhận cắt">⏳ Chờ duyệt</button>';
             } else {
                 if (canInteract) {
                     cutBtnHtml = '<button class="bpc-icon-btn" onclick="_bpcRequestUndoCutting(' + r.id + ')" title="Yêu cầu trở về nhận cắt" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626">↩️</button>';
