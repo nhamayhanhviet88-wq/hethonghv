@@ -2192,7 +2192,8 @@ async function handleRoute() {
     // Defer the script loading and actual rendering to let the skeleton paint immediately
     setTimeout(async () => {
         try {
-            const scriptPath = _PAGE_SCRIPT_MAP[currentPage];
+            const cleanKey = currentPage.replace(/-/g, '').toLowerCase();
+            const scriptPath = _PAGE_SCRIPT_MAP[currentPage] || _PAGE_SCRIPT_MAP[cleanKey];
             if (scriptPath) {
                 await _loadScript(scriptPath);
             }
