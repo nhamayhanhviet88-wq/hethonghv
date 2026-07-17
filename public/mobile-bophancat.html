@@ -1033,7 +1033,13 @@ function mRenderMine(items = null, showSectionBadge = false){
                     actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:default;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;margin:8px 0;opacity:0.65" disabled>'+doneTxt+' (CHỈ GIÁM ĐỐC ĐƯỢC HOÀN TÁC)</button>';
                 }
             } else {
-                actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mOpenDoneModal('+r.id+')">'+doneTxt+'</button>';
+                if (r.pending_undo_cutting) {
+                    actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:not-allowed;font-family:Inter,sans-serif;background:#d97706;color:#fff;margin:8px 0" disabled>⏳ ĐANG CHỜ DUYỆT VỀ NHẬN CẮT</button>';
+                    actionHtml+='<button style="width:100%;padding:10px;border:1px solid #fca5a5;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;margin:4px 0 8px 0;box-sizing:border-box" onclick="mToggle('+r.id+',\'cancel_undo_cutting_request\')">↩️ HỦY YÊU CẦU VỀ NHẬN CẮT</button>';
+                } else {
+                    actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mOpenDoneModal('+r.id+')">'+doneTxt+'</button>';
+                    actionHtml+='<button style="width:100%;padding:10px;border:1px solid #fca5a5;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;margin:4px 0 8px 0;box-sizing:border-box" onclick="mToggle('+r.id+',\'request_undo_cutting\')">↩️ TRỞ VỀ NHẬN CẮT (CHỜ DUYỆT)</button>';
+                }
             }
         }
 
@@ -1309,6 +1315,10 @@ async function mToggle(id,action){
         msg='Hoàn tác bắt đầu cắt? Sẽ mở khóa tất cả cây vải đã chọn.';
     } else if(action==='cancel_compensation'){
         msg='Bạn có chắc chắn muốn HỦY đơn cắt bù này không? Phiếu cắt bù này sẽ bị xóa vĩnh viễn khỏi hệ thống.';
+    } else if(action==='request_undo_cutting'){
+        msg='Bạn có chắc chắn muốn yêu cầu TRỞ VỀ NHẬN CẮT? Đơn sẽ chuyển sang trạng thái chờ quản lý duyệt.';
+    } else if(action==='cancel_undo_cutting_request'){
+        msg='Bạn có chắc chắn muốn HỦY yêu cầu trở về nhận cắt?';
     }
     if(msg && !confirm(msg))return;
 

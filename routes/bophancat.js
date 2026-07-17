@@ -824,6 +824,10 @@ module.exports = async function(fastify) {
 
     try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS ratio_rejected BOOLEAN DEFAULT false`); } catch(e) {}
 
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS pending_undo_cutting BOOLEAN DEFAULT false`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS pending_undo_cutting_by INTEGER REFERENCES users(id)`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE cutting_records ADD COLUMN IF NOT EXISTS pending_undo_cutting_at TIMESTAMPTZ`); } catch(e) {}
+
     // Backfill cutting_category for existing records
 
     try {
@@ -1964,6 +1968,10 @@ module.exports = async function(fastify) {
 
                    cr.multi_cut_group_id, cr.unit_price, cr.salary, cr.wash_items, cr.wash_market_image,
 
+                   cr.pending_undo_cutting, cr.pending_undo_cutting_by, cr.pending_undo_cutting_at,
+
+                   u_undo.full_name AS pending_undo_cutting_by_name,
+
                    (
 
                        CASE 
@@ -2150,6 +2158,8 @@ module.exports = async function(fastify) {
 
              LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
 
+             LEFT JOIN users u_undo ON cr.pending_undo_cutting_by = u_undo.id
+
              LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
 
              LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -2215,6 +2225,10 @@ module.exports = async function(fastify) {
                    cr.created_by, cr.created_at, cr.updated_at, cr.cutting_category, cr.selected_roll_ids,
 
                    cr.multi_cut_group_id, cr.unit_price, cr.salary, cr.wash_items, cr.wash_market_image,
+
+                   cr.pending_undo_cutting, cr.pending_undo_cutting_by, cr.pending_undo_cutting_at,
+
+                   u_undo.full_name AS pending_undo_cutting_by_name,
 
                    (
 
@@ -2410,6 +2424,8 @@ module.exports = async function(fastify) {
 
             LEFT JOIN users u_wash ON cr.wash_reported_by = u_wash.id
 
+            LEFT JOIN users u_undo ON cr.pending_undo_cutting_by = u_undo.id
+
             LEFT JOIN dht_orders o ON cr.dht_order_id = o.id
 
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -2598,9 +2614,9 @@ module.exports = async function(fastify) {
 
         } else if (rec.cutter_id) {
 
-            if (!['approve_salary', 'undo_approve_salary', 'cancel_compensation'].includes(action)) {
+            if (!['approve_salary', 'undo_approve_salary', 'cancel_compensation', 'request_undo_cutting', 'cancel_undo_cutting_request', 'approve_undo_cutting', 'reject_undo_cutting'].includes(action)) {
 
-                if (rec.cutter_id !== request.user.id && request.user.role !== 'giam_doc') {
+                if (rec.cutter_id !== request.user.id && request.user.role !== 'giam_doc' && !isManager) {
 
                     return reply.code(403).send({ error: 'Bạn không thể thao tác trên đơn hàng của thợ cắt khác!' });
 
@@ -2867,6 +2883,268 @@ module.exports = async function(fastify) {
                 );
 
                 detail = '↩️ Hoàn tác bắt đầu cắt — đã unlock cây vải';
+
+            }
+
+        } else if (action === 'request_undo_cutting') {
+
+            if (rec.is_cut_done) return reply.code(400).send({ error: 'Đơn đã báo cắt xong, không thể hoàn tác' });
+
+            if (!rec.is_cutting) return reply.code(400).send({ error: 'Đơn chưa bắt đầu cắt, không thể yêu cầu hoàn tác' });
+
+            if (rec.pending_undo_cutting) return reply.code(400).send({ error: 'Đơn đang trong trạng thái chờ duyệt hoàn tác' });
+
+            await db.run(
+
+                `UPDATE cutting_records SET pending_undo_cutting = true, pending_undo_cutting_by = $1, pending_undo_cutting_at = $2, updated_at = $2 WHERE id = $3`,
+
+                [request.user.id, now, id]
+
+            );
+
+            detail = '⏳ Yêu cầu trở về nhận cắt (chờ duyệt)';
+
+        } else if (action === 'cancel_undo_cutting_request') {
+
+            if (!rec.pending_undo_cutting) return reply.code(400).send({ error: 'Đơn không ở trạng thái chờ duyệt' });
+
+            if (rec.cutter_id !== request.user.id && !isManager) {
+
+                return reply.code(403).send({ error: 'Bạn không có quyền hủy yêu cầu này' });
+
+            }
+
+            await db.run(
+
+                `UPDATE cutting_records SET pending_undo_cutting = false, pending_undo_cutting_by = NULL, pending_undo_cutting_at = NULL, updated_at = $1 WHERE id = $2`,
+
+                [now, id]
+
+            );
+
+            detail = '↩️ Hủy yêu cầu trở về nhận cắt';
+
+        } else if (action === 'reject_undo_cutting') {
+
+            if (!isManager) return reply.code(403).send({ error: 'Chỉ quản lý mới được từ chối duyệt hoàn tác' });
+
+            if (!rec.pending_undo_cutting) return reply.code(400).send({ error: 'Đơn không ở trạng thái chờ duyệt' });
+
+            await db.run(
+
+                `UPDATE cutting_records SET pending_undo_cutting = false, pending_undo_cutting_by = NULL, pending_undo_cutting_at = NULL, updated_at = $1 WHERE id = $2`,
+
+                [now, id]
+
+            );
+
+            detail = '❌ Từ chối duyệt trở về nhận cắt';
+
+        } else if (action === 'approve_undo_cutting') {
+
+            if (!isManager) return reply.code(403).send({ error: 'Chỉ quản lý mới được duyệt hoàn tác' });
+
+            if (!rec.pending_undo_cutting) return reply.code(400).send({ error: 'Đơn không ở trạng thái chờ duyệt' });
+
+            const { mode, amount, note } = b;
+
+            const client = await db.pool.connect();
+
+            const txDb = {
+
+                async run(sql, params = []) {
+
+                    const converted = convertPlaceholders(sql, params);
+
+                    const res = await client.query(converted.sql, converted.params);
+
+                    const lastInsertRowid = res.rows && res.rows.length > 0 && res.rows[0].id != null ? res.rows[0].id : 0;
+
+                    return { lastInsertRowid, changes: res.rowCount };
+
+                },
+
+                async all(sql, params = []) {
+
+                    const converted = convertPlaceholders(sql, params);
+
+                    const res = await client.query(converted.sql, converted.params);
+
+                    return res.rows;
+
+                },
+
+                async get(sql, params = []) {
+
+                    const converted = convertPlaceholders(sql, params);
+
+                    const res = await client.query(converted.sql, converted.params);
+
+                    return res.rows[0] || null;
+
+                }
+
+            };
+
+            function convertPlaceholders(sql, params) {
+
+                if (!params || params.length === 0) return { sql, params };
+
+                let idx = 0;
+
+                const newSql = sql.replace(/\?/g, () => `$${++idx}`);
+
+                return { sql: newSql, params };
+
+            }
+
+            try {
+
+                await client.query('BEGIN');
+
+                if (rec.multi_cut_group_id) {
+
+                    const groupMembers = await txDb.all(
+
+                        `SELECT id FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cutting = true`,
+
+                        [rec.multi_cut_group_id, id]
+
+                    );
+
+                    if (groupMembers.length > 0) {
+
+                        const lockOwned = await txDb.get(`SELECT id FROM kv_rolls WHERE locked_by_cutting_id = $1 LIMIT 1`, [id]);
+
+                        if (lockOwned) {
+
+                            await txDb.run(`UPDATE kv_rolls SET locked_by_cutting_id = $1 WHERE locked_by_cutting_id = $2`, [groupMembers[0].id, id]);
+
+                        }
+
+                        const remaining = await txDb.all(`SELECT product_name FROM cutting_records WHERE multi_cut_group_id = $1 AND id != $2 AND is_cutting = true`, [rec.multi_cut_group_id, id]);
+
+                        const newShared = 'Cắt chung ' + remaining.length + ' đơn: ' + remaining.map(r => r.product_name).join(', ');
+
+                        await txDb.run(`UPDATE cutting_records SET cut_shared = $1, updated_at = $2 WHERE multi_cut_group_id = $3 AND id != $4 AND is_cutting = true`, [newShared, now, rec.multi_cut_group_id, id]);
+
+                    } else {
+
+                        const rolls = await txDb.all('SELECT id FROM kv_rolls WHERE locked_by_cutting_id = $1', [id]);
+
+                        await onRollsUnlockedFromCutting(txDb, rolls.map(r => r.id), false);
+
+                    }
+
+                    await txDb.run(
+
+                        `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', multi_cut_group_id = NULL, cut_shared = NULL, pending_undo_cutting = false, pending_undo_cutting_by = NULL, pending_undo_cutting_at = NULL, updated_at = $1 WHERE id = $2`,
+
+                        [now, id]
+
+                    );
+
+                } else {
+
+                    const rolls = await txDb.all('SELECT id FROM kv_rolls WHERE locked_by_cutting_id = $1', [id]);
+
+                    await onRollsUnlockedFromCutting(txDb, rolls.map(r => r.id), false);
+
+                    await txDb.run(
+
+                        `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', pending_undo_cutting = false, pending_undo_cutting_by = NULL, pending_undo_cutting_at = NULL, updated_at = $1 WHERE id = $2`,
+
+                        [now, id]
+
+                    );
+
+                }
+
+                if (mode === 'surcharge' && rec.dht_order_id) {
+
+                    const finalSurcharge = Math.max(0, Math.round(Number(amount) || 0));
+
+                    const order = await txDb.get(`SELECT surcharges, total_amount FROM dht_orders WHERE id = $1 FOR UPDATE`, [rec.dht_order_id]);
+
+                    if (order) {
+
+                        let surcharges = [];
+
+                        try {
+
+                            surcharges = typeof order.surcharges === 'string' ? JSON.parse(order.surcharges) : (order.surcharges || []);
+
+                        } catch(e) { surcharges = []; }
+
+                        if (!Array.isArray(surcharges)) surcharges = [];
+
+                        const oldSurTotal = surcharges.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+                        const surchargeName = note || `Bù phí cắt đơn`;
+
+                        surcharges.push({
+
+                            name: surchargeName,
+
+                            amount: finalSurcharge,
+
+                            note: surchargeName
+
+                        });
+
+                        const newSurTotal = surcharges.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+                        const diff = newSurTotal - oldSurTotal;
+
+                        const finalTotalAmount = (Number(order.total_amount) || 0) + diff;
+
+                        await txDb.run(`
+
+                            UPDATE dht_orders 
+
+                            SET surcharges = $1, total_amount = $2, last_updated_at = NOW(), last_updated_by = $3
+
+                            WHERE id = $4
+
+                        `, [JSON.stringify(surcharges), finalTotalAmount, request.user.id, rec.dht_order_id]);
+
+                        const changesArr = [{
+
+                            field: 'surcharge_add',
+
+                            label: `Thêm phụ phí "${surchargeName}"`,
+
+                            old: null,
+
+                            new: String(finalSurcharge)
+
+                        }];
+
+                        await txDb.run(`
+
+                            INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) 
+
+                            VALUES ($1, $2, $3, $4, $5, NOW())
+
+                        `, [rec.dht_order_id, 'update_order', `Duyệt về nhận cắt & Thêm phụ phí bù cắt: +${finalSurcharge.toLocaleString('vi-VN')}đ`, JSON.stringify(changesArr), request.user.id]);
+
+                    }
+
+                }
+
+                await client.query('COMMIT');
+
+                detail = '↩️ Phê duyệt trở về nhận cắt — ' + (mode === 'surcharge' ? 'bù phí ' + amount.toLocaleString() + 'đ' : 'miễn phí');
+
+            } catch (err) {
+
+                await client.query('ROLLBACK');
+
+                throw err;
+
+            } finally {
+
+                client.release();
 
             }
 

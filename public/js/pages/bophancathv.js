@@ -918,7 +918,15 @@ function _bpcMapRecordRow(r, i) {
                 cutBtnHtml = '<button class="bpc-icon-btn" disabled title="' + disableReason + '" style="opacity:0.4;cursor:default">' + cutIcon + '</button>';
             }
         } else {
-            cutBtnHtml = '<button class="bpc-icon-btn on-cut" disabled title="Đang cắt" style="opacity:0.4;cursor:default">✂️</button>';
+            if (r.pending_undo_cutting) {
+                cutBtnHtml = '<button class="bpc-icon-btn" onclick="_bpcOpenUndoApprovalModal(' + r.id + ')" title="Chờ duyệt về nhận cắt" style="background:#fef3c7;border-color:#fde047;color:#ca8a04;font-weight:bold;animation: bpcPulse 1.5s infinite">⏳ Chờ</button>';
+            } else {
+                if (canInteract) {
+                    cutBtnHtml = '<button class="bpc-icon-btn" onclick="_bpcRequestUndoCutting(' + r.id + ')" title="Yêu cầu trở về nhận cắt" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626">↩️</button>';
+                } else {
+                    cutBtnHtml = '<button class="bpc-icon-btn on-cut" disabled title="Đang cắt" style="opacity:0.4;cursor:default">✂️</button>';
+                }
+            }
         }
     }
     
@@ -933,10 +941,14 @@ function _bpcMapRecordRow(r, i) {
                     ? '<button class="bpc-icon-btn on-done" onclick="_bpcToggleAction('+r.id+',\'undo_cut_done\')" title="Hoàn tác cắt xong (chỉ dành cho Giám đốc)">'+doneIcon+'</button>'
                     : '<button class="bpc-icon-btn on-done" disabled title="Đã hoàn thành (chỉ Giám đốc mới được hoàn tác)" style="opacity:0.6;cursor:default">'+doneIcon+'</button>';
             } else {
-                if (canInteract) {
-                    doneBtnHtml = '<button class="bpc-icon-btn" onclick="_bpcOpenDoneModal('+r.id+')" title="Cắt xong" style="background:#eff6ff;border-color:#3b82f6">'+doneIcon+'</button>';
+                if (r.pending_undo_cutting) {
+                    doneBtnHtml = '<button class="bpc-icon-btn" disabled title="Đang chờ duyệt hoàn tác" style="opacity:0.4;cursor:default">' + doneIcon + '</button>';
                 } else {
-                    doneBtnHtml = '<button class="bpc-icon-btn" disabled title="' + disableReason + '" style="opacity:0.4;cursor:default">'+doneIcon+'</button>';
+                    if (canInteract) {
+                        doneBtnHtml = '<button class="bpc-icon-btn" onclick="_bpcOpenDoneModal('+r.id+')" title="Cắt xong" style="background:#eff6ff;border-color:#3b82f6">'+doneIcon+'</button>';
+                    } else {
+                        doneBtnHtml = '<button class="bpc-icon-btn" disabled title="' + disableReason + '" style="opacity:0.4;cursor:default">'+doneIcon+'</button>';
+                    }
                 }
             }
         } else {
@@ -1861,6 +1873,177 @@ async function _bpcUnclaimOrder(orderId, itemId, phoiIndex, orderCode) {
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 
+async function _bpcRequestUndoCutting(recordId) {
+    var rec = _bpc.records.find(function(r) { return r.id === recordId; });
+    if (!rec) return;
+    if (!confirm('Bạn có chắc chắn muốn yêu cầu TRỞ VỀ NHẬN CẮT cho đơn ' + rec.order_code + '? Đơn sẽ chuyển sang trạng thái chờ quản lý duyệt.')) return;
+    
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
+    try {
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'request_undo_cutting' });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
+        showToast('✅ Đã gửi yêu cầu trở về nhận cắt. Chờ quản lý duyệt.');
+        await _bpcLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        window._bpcBusy = false;
+    }
+}
+
+async function _bpcOpenUndoApprovalModal(recordId) {
+    var r = _bpc.records.find(function(x) { return x.id === recordId; });
+    if (!r) return;
+    
+    const existing = document.getElementById('_bpcUndoApprovalModal');
+    if (existing) existing.remove();
+
+    var h = '<div class="bpc-modal-overlay" id="_bpcUndoApprovalModal" onclick="if(event.target===this)_bpcCloseUndoApprovalModal()">';
+    h += '<div class="bpc-modal" style="width:480px; max-height:90vh; overflow-y:auto;">';
+    h += '  <div class="bpc-modal-header" style="background:linear-gradient(135deg,#d97706,#f59e0b)">';
+    h += '    <div class="m-icon">⏳</div>';
+    h += '    <div>';
+    h += '      <div class="m-title">DUYỆT VỀ NHẬN CẮT</div>';
+    h += '      <div class="m-sub">Đơn hàng: ' + r.order_code + '</div>';
+    h += '    </div>';
+    h += '  </div>';
+    h += '  <div class="bpc-modal-body" style="padding:20px">';
+    h += '    <div style="font-size:13px;color:#1e293b;margin-bottom:15px;line-height:1.5">';
+    h += '      Đơn hàng <strong>' + (r.product_name || r.order_code) + '</strong> đang ở trạng thái <strong>Đang cắt</strong>.';
+    h += '      Thợ cắt <strong>' + (r.cutter_name || 'Không rõ') + '</strong> đã yêu cầu trở về trạng thái <strong>Nhận Cắt</strong>.';
+    h += '    </div>';
+    
+    h += '    <div id="_bpcUndoActionsArea" style="display:flex; flex-direction:column; gap:10px">';
+    h += '      <button class="bpc-modal-btn" onclick="_bpcApproveUndoFree(' + recordId + ')" style="background:#059669; color:#fff; width:100%; font-weight:bold; padding:12px; border:none; border-radius:8px; cursor:pointer">↩️ VỀ NHẬN CẮT (MIỄN PHÍ)</button>';
+    h += '      <button class="bpc-modal-btn" onclick="_bpcShowSurchargeForm()" style="background:#dc2626; color:#fff; width:100%; font-weight:bold; padding:12px; border:none; border-radius:8px; cursor:pointer">💰 BÙ CHI PHÍ CẮT</button>';
+    h += '      <button class="bpc-modal-btn" onclick="_bpcRejectUndo(' + recordId + ')" style="background:#64748b; color:#fff; width:100%; font-weight:bold; padding:10px; border:none; border-radius:8px; cursor:pointer">❌ TỪ CHỐI DUYỆT</button>';
+    h += '    </div>';
+    
+    h += '    <div id="_bpcUndoSurchargeForm" style="display:none; border-top:2px dashed #e2e8f0; margin-top:20px; padding-top:15px">';
+    h += '      <h4 style="margin:0 0 10px 0; color:#dc2626; font-size:12px; font-weight:800; text-transform:uppercase">Nhập thông tin phụ phí bù cắt</h4>';
+    h += '      <div class="bpc-modal-row" style="margin-bottom:10px">';
+    h += '        <span class="bpc-modal-lbl">Số tiền (đ) <span style="color:red">*</span></span>';
+    h += '        <input id="_bpcUndoSurAmount" type="number" min="0" value="0" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-weight:bold; font-size:14px; text-align:right">';
+    h += '      </div>';
+    h += '      <div class="bpc-modal-row" style="margin-bottom:15px">';
+    h += '        <span class="bpc-modal-lbl">Lý do / Nội dung <span style="color:red">*</span></span>';
+    h += '        <input id="_bpcUndoSurNote" type="text" placeholder="Ghi lý do bù chi phí cắt..." style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-size:12px">';
+    h += '      </div>';
+    h += '      <div style="display:flex; gap:8px">';
+    h += '        <button class="bpc-modal-btn cancel" onclick="_bpcHideSurchargeForm()" style="flex:1">Quay lại</button>';
+    h += '        <button class="bpc-modal-btn confirm" onclick="_bpcApproveUndoSurcharge(' + recordId + ')" style="flex:2; background:#dc2626; color:#fff">Xác nhận & Bù phí</button>';
+    h += '      </div>';
+    h += '    </div>';
+    
+    h += '  </div>';
+    h += '  <div class="bpc-modal-actions" style="padding:15px; border-top:1px solid #f1f5f9; text-align:right">';
+    h += '    <button class="bpc-modal-btn cancel" onclick="_bpcCloseUndoApprovalModal()">Đóng</button>';
+    h += '  </div>';
+    h += '</div></div>';
+    
+    document.body.insertAdjacentHTML('beforeend', h);
+    requestAnimationFrame(function() { document.getElementById('_bpcUndoApprovalModal').classList.add('show'); });
+}
+
+function _bpcCloseUndoApprovalModal() {
+    var m = document.getElementById('_bpcUndoApprovalModal');
+    if (m) {
+        m.classList.remove('show');
+        setTimeout(function() { m.remove(); }, 300);
+    }
+}
+
+function _bpcShowSurchargeForm() {
+    document.getElementById('_bpcUndoActionsArea').style.display = 'none';
+    document.getElementById('_bpcUndoSurchargeForm').style.display = 'block';
+}
+
+function _bpcHideSurchargeForm() {
+    document.getElementById('_bpcUndoActionsArea').style.display = 'flex';
+    document.getElementById('_bpcUndoSurchargeForm').style.display = 'none';
+}
+
+async function _bpcApproveUndoFree(recordId) {
+    if (!confirm('Xác nhận duyệt cho đơn này trở về nhận cắt (MIỄN PHÍ)?\nTất cả cây vải đã chọn sẽ được unlock.')) return;
+    _bpcCloseUndoApprovalModal();
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
+    try {
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'approve_undo_cutting', mode: 'free' });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
+        showToast('✅ Đã duyệt trở về nhận cắt (Miễn phí)');
+        await _bpcLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        window._bpcBusy = false;
+    }
+}
+
+async function _bpcApproveUndoSurcharge(recordId) {
+    var amount = Number(document.getElementById('_bpcUndoSurAmount').value) || 0;
+    var note = document.getElementById('_bpcUndoSurNote').value.trim();
+    if (amount <= 0) {
+        alert('Vui lòng nhập số tiền lớn hơn 0');
+        return;
+    }
+    if (!note) {
+        alert('Vui lòng nhập nội dung / lý do bù phí');
+        return;
+    }
+    
+    if (!confirm('Xác nhận duyệt trở về nhận cắt & BÙ PHÍ ' + amount.toLocaleString('vi-VN') + 'đ?\nSố tiền này sẽ được cộng vào phụ phí đơn hàng.')) return;
+    
+    _bpcCloseUndoApprovalModal();
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
+    try {
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', { 
+            action: 'approve_undo_cutting', 
+            mode: 'surcharge',
+            amount: amount,
+            note: note
+        });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
+        showToast('✅ Đã duyệt trở về nhận cắt & tính phụ phí');
+        await _bpcLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        window._bpcBusy = false;
+    }
+}
+
+async function _bpcRejectUndo(recordId) {
+    if (!confirm('Xác nhận TỪ CHỐI yêu cầu trở về nhận cắt?')) return;
+    _bpcCloseUndoApprovalModal();
+    if (window._bpcBusy) return;
+    window._bpcBusy = true;
+    try {
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'reject_undo_cutting' });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
+        showToast('✅ Đã từ chối yêu cầu. Đơn vẫn giữ trạng thái Đang cắt.');
+        await _bpcLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi', 'error');
+    } finally {
+        window._bpcBusy = false;
+    }
+}
+
 // ========== CUT MODAL: Form chọn cây vải khi ấn ✂️ ==========
 async function _bpcOpenCutModal(recordId) {
     if (window._bpcBusy) return;
@@ -2199,8 +2382,8 @@ async function _bpcOpenDetail(recordId) {
         }
         var rolls = [];
         try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
-        var statusTxt = r.is_cut_done ? '✅ Đã cắt xong' : r.is_cutting ? '✂️ Đang cắt' : '📋 Chờ cắt';
-        var statusBg = r.is_cut_done ? '#059669' : r.is_cutting ? '#dc2626' : '#6366f1';
+        var statusTxt = r.pending_undo_cutting ? '⏳ Chờ duyệt về nhận cắt' : r.is_cut_done ? '✅ Đã cắt xong' : r.is_cutting ? '✂️ Đang cắt' : '📋 Chờ cắt';
+        var statusBg = r.pending_undo_cutting ? '#d97706' : r.is_cut_done ? '#059669' : r.is_cutting ? '#dc2626' : '#6366f1';
         var h = '<div class="bpc-modal-overlay" id="_bpcDetailModal" onclick="if(event.target===this)this.classList.remove(\'show\'),setTimeout(function(){document.getElementById(\'_bpcDetailModal\').remove()},300)">';
         h += '<div class="bpc-modal" style="width:540px">';
         h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,'+statusBg+','+statusBg+'cc)"><div class="m-icon">📋</div><div><div class="m-title">CHI TIẾT ĐƠN CẮT</div><div class="m-sub">' + statusTxt + '</div></div></div>';
