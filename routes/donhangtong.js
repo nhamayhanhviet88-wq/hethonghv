@@ -7180,10 +7180,12 @@ module.exports = async function(fastify) {
                 }
             };
 
-            const newLayout = typeof newIt.custom_layout === 'string' ? JSON.parse(newIt.custom_layout) : (newIt.custom_layout || {});
-            const sheetEditNote = (newLayout.sheet_edit_note || '').trim();
-            if (sheetEditNote) {
-                initSheetChanges();
+            {
+                const newLayout = typeof newIt.custom_layout === 'string' ? JSON.parse(newIt.custom_layout) : (newIt.custom_layout || {});
+                const sheetEditNote = (newLayout.sheet_edit_note || '').trim();
+                if (sheetEditNote) {
+                    initSheetChanges();
+                }
             }
 
             // Product name changed
