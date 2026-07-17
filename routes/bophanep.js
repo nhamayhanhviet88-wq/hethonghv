@@ -938,6 +938,7 @@ module.exports = async function(fastify) {
                     doi.material_pairs,
                     doi.quantity AS quantity,
                     cc.name AS category_name,
+                    COALESCE(doi.production_cancelled, false) AS production_cancelled,
                     (SELECT product_name FROM cutting_records WHERE order_item_id = doi.id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                     (
                         SELECT COUNT(*)::int 
@@ -1179,7 +1180,8 @@ module.exports = async function(fastify) {
                     warning_msg: warningMsg,
                     ready: ready,
                     phoi: phoiList,
-                    cut_product_name: it.cut_product_name || null
+                    cut_product_name: it.cut_product_name || null,
+                    production_cancelled: it.production_cancelled
                 });
             }
         }
@@ -1218,7 +1220,7 @@ module.exports = async function(fastify) {
 
             // Lock the target dht_order_items row using FOR UPDATE to block concurrent claim requests
             const itemRes = await client.query(`
-                SELECT doi.id, doi.description, doi.material_pairs, doi.quantity,
+                SELECT doi.id, doi.description, doi.material_pairs, doi.quantity, COALESCE(doi.production_cancelled, false) AS production_cancelled,
                        (
                            CASE 
                                WHEN doi.material_pairs IS NULL OR jsonb_array_length(doi.material_pairs) = 0 THEN (
@@ -1334,6 +1336,11 @@ module.exports = async function(fastify) {
             if (!item) {
                 await client.query('ROLLBACK');
                 return reply.code(404).send({ error: 'Không tìm thấy phiếu' });
+            }
+
+            if (item.production_cancelled) {
+                await client.query('ROLLBACK');
+                return reply.code(400).send({ error: 'Đơn hàng này đã bị HỦY SẢN XUẤT!' });
             }
 
             if (!item.has_pc_in) {

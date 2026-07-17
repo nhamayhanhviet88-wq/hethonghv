@@ -391,7 +391,8 @@ async function _bpeLoadRecs() {
                         presser_id: null,
                         ready: ur.ready,
                         warning_msg: ur.warning_msg,
-                        phoi: ur.phoi || []
+                        phoi: ur.phoi || [],
+                        production_cancelled: ur.production_cancelled
                     };
                 });
                 records = records.concat(unassignedRecords);
@@ -448,7 +449,8 @@ async function _bpeLoadUnassigned() {
                 presser_id: null,
                 ready: ur.ready,
                 warning_msg: ur.warning_msg,
-                phoi: ur.phoi || []
+                phoi: ur.phoi || [],
+                production_cancelled: ur.production_cancelled
             };
         });
         
@@ -567,6 +569,7 @@ function _bpeRenderRows(paged) {
         } else {
             priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
         }
+        var upd = ''; if (r.last_update_at) { upd = _bpeFD(r.last_update_at); if (r.last_update_by) upd += '<br><span style="color:#ea580c;font-size:9px">' + r.last_update_by + '</span>'; }
 
         var posColsHtml = (window._bpePositions || []).map(function(pos) {
             if (r.is_unpressed) {
@@ -659,7 +662,6 @@ function _bpeRenderRows(paged) {
                 imgs += '</div>';
             }
         } catch (e) {}
-        var upd = ''; if (r.last_update_at) { upd = _bpeFD(r.last_update_at); if (r.last_update_by) upd += '<br><span style="color:#ea580c;font-size:9px">' + r.last_update_by + '</span>'; }
         
         var presserHtml = r.presser_name || '—';
         
