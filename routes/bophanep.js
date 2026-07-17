@@ -131,8 +131,7 @@ module.exports = async function(fastify) {
                    )
                      AND pf.name IN ('IN PET', 'IN DECAL')
                      AND qa.operator_type = 'user'
-               ) AS has_pc_in,
-               (
+               ) AS has_pc_in, (
                    EXISTS (
                        SELECT 1 FROM printing_records pr 
                        WHERE (
@@ -140,11 +139,12 @@ module.exports = async function(fastify) {
                            OR (
                                pr.order_item_id IS NULL 
                                AND pr.dht_order_id = $2 
-                               AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)
+                               AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false)
                            )
                        )
                          AND pr.print_field IN ('IN PET', 'IN DECAL')
                          AND pr.printer_id IS NOT NULL
+                         AND COALESCE(pr.is_discarded, false) = false
                    ) AND NOT EXISTS (
                        SELECT 1 FROM printing_records pr 
                        WHERE (
@@ -152,14 +152,15 @@ module.exports = async function(fastify) {
                            OR (
                                pr.order_item_id IS NULL 
                                AND pr.dht_order_id = $2 
-                               AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)
+                               AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false)
                            )
                        )
                          AND pr.print_field IN ('IN PET', 'IN DECAL')
                          AND pr.printer_id IS NOT NULL
+                         AND COALESCE(pr.is_discarded, false) = false
                          AND pr.is_print_done = false
-                   )
-               ) AS is_print_done_rec,
+                    )
+                ) AS is_print_done_rec,
                (
                    SELECT string_agg(pf.name, ', ')
                    FROM qlx_order_print_assignments qa
@@ -173,21 +174,21 @@ module.exports = async function(fastify) {
                        )
                    )
                      AND pf.name IN ('IN PET', 'IN DECAL')
-                     AND qa.operator_type = 'user'
-                     AND NOT EXISTS (
-                         SELECT 1 FROM printing_records pr 
-                         WHERE (
-                             pr.order_item_id = $1 
-                             OR (
-                                 pr.order_item_id IS NULL 
-                                 AND pr.dht_order_id = $2 
-                                 AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1)
-                             )
-                         )
-                           AND pr.print_field = pf.name
-                           AND pr.printer_id IS NOT NULL
-                           AND pr.is_print_done = true
-                     )
+                     AND qa.operator_type = 'user' AND NOT EXISTS (
+                          SELECT 1 FROM printing_records pr 
+                          WHERE (
+                              pr.order_item_id = $1 
+                              OR (
+                                  pr.order_item_id IS NULL 
+                                  AND pr.dht_order_id = $2 
+                                  AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = $1 AND COALESCE(pr2.is_discarded, false) = false)
+                              )
+                          )
+                            AND pr.print_field = pf.name
+                            AND pr.printer_id IS NOT NULL
+                            AND COALESCE(pr.is_discarded, false) = false
+                            AND pr.is_print_done = true
+                      )
                ) AS pending_print_types
         `, [orderItemId, dhtOrderId]);
 
@@ -289,11 +290,12 @@ module.exports = async function(fastify) {
                                 OR (
                                     pr.order_item_id IS NULL 
                                     AND pr.dht_order_id = o.id 
-                                    AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)
+                                    AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false)
                                 )
                             )
                               AND pr.print_field IN ('IN PET', 'IN DECAL')
                               AND pr.printer_id IS NOT NULL
+                              AND COALESCE(pr.is_discarded, false) = false
                         ) AND NOT EXISTS (
                             SELECT 1 FROM printing_records pr 
                             WHERE (
@@ -301,11 +303,12 @@ module.exports = async function(fastify) {
                                 OR (
                                     pr.order_item_id IS NULL 
                                     AND pr.dht_order_id = o.id 
-                                    AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)
+                                    AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false)
                                 )
                             )
                               AND pr.print_field IN ('IN PET', 'IN DECAL')
                               AND pr.printer_id IS NOT NULL
+                              AND COALESCE(pr.is_discarded, false) = false
                               AND pr.is_print_done = false
                         )
                     ) AS is_print_done
@@ -405,20 +408,20 @@ module.exports = async function(fastify) {
                             )
                         )
                           AND pf.name IN ('IN PET', 'IN DECAL')
-                          AND qa.operator_type = 'user'
-                          AND NOT EXISTS (
-                              SELECT 1 FROM printing_records prr
-                              WHERE (
-                                  prr.order_item_id = pr.order_item_id
-                                  OR (
-                                      prr.order_item_id IS NULL
-                                      AND prr.dht_order_id = pr.dht_order_id
-                                      AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = pr.order_item_id)
-                                  )
-                              )
-                                AND prr.print_field = pf.name
-                                AND prr.is_print_done = true
-                          )
+                          AND qa.operator_type = 'user' AND NOT EXISTS (
+                               SELECT 1 FROM printing_records prr
+                               WHERE (
+                                   prr.order_item_id = pr.order_item_id
+                                   OR (
+                                       prr.order_item_id IS NULL
+                                       AND prr.dht_order_id = pr.dht_order_id
+                                       AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = pr.order_item_id AND COALESCE(pr2.is_discarded, false) = false)
+                                   )
+                               )
+                                 AND prr.print_field = pf.name
+                                 AND COALESCE(prr.is_discarded, false) = false
+                                 AND prr.is_print_done = true
+                           )
                    ) AS pending_print_types,
                    COALESCE(oi.production_cancelled, false) AS production_cancelled
             FROM pressing_records pr LEFT JOIN users u ON pr.presser_id=u.id
@@ -894,11 +897,12 @@ module.exports = async function(fastify) {
                               OR (
                                   prr.order_item_id IS NULL 
                                   AND prr.dht_order_id = o.id 
-                                  AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)
+                                  AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false)
                               )
                           )
                             AND prr.print_field IN ('IN PET', 'IN DECAL')
                             AND prr.printer_id IS NOT NULL
+                            AND COALESCE(prr.is_discarded, false) = false
                       )
                       AND NOT EXISTS (
                           SELECT 1 FROM printing_records prr 
@@ -907,11 +911,12 @@ module.exports = async function(fastify) {
                               OR (
                                   prr.order_item_id IS NULL 
                                   AND prr.dht_order_id = o.id 
-                                  AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id)
+                                  AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false)
                               )
                           )
                             AND prr.print_field IN ('IN PET', 'IN DECAL')
                             AND prr.printer_id IS NOT NULL
+                            AND COALESCE(prr.is_discarded, false) = false
                             AND prr.is_print_done = false
                       )
                 ) THEN 0 ELSE 1 END,
@@ -983,11 +988,12 @@ module.exports = async function(fastify) {
                                 OR (
                                     pr.order_item_id IS NULL 
                                     AND pr.dht_order_id = doi.dht_order_id 
-                                    AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id)
+                                    AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id AND COALESCE(pr2.is_discarded, false) = false)
                                 )
                             )
                               AND pr.print_field IN ('IN PET', 'IN DECAL')
                               AND pr.printer_id IS NOT NULL
+                              AND COALESCE(pr.is_discarded, false) = false
                         ) AND NOT EXISTS (
                             SELECT 1 FROM printing_records pr 
                             WHERE (
@@ -995,11 +1001,12 @@ module.exports = async function(fastify) {
                                 OR (
                                     pr.order_item_id IS NULL 
                                     AND pr.dht_order_id = doi.dht_order_id 
-                                    AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id)
+                                    AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id AND COALESCE(pr2.is_discarded, false) = false)
                                 )
                             )
                               AND pr.print_field IN ('IN PET', 'IN DECAL')
                               AND pr.printer_id IS NOT NULL
+                              AND COALESCE(pr.is_discarded, false) = false
                               AND pr.is_print_done = false
                         )
                     ) AS is_print_done_rec,
@@ -1039,10 +1046,11 @@ module.exports = async function(fastify) {
                                   OR (
                                       pr.order_item_id IS NULL
                                       AND pr.dht_order_id = doi.dht_order_id
-                                      AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id)
+                                      AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id AND COALESCE(pr2.is_discarded, false) = false)
                                   )
                               )
                                 AND pr.print_field = pf.name
+                                AND COALESCE(pr.is_discarded, false) = false
                                 AND pr.is_print_done = true
                           )
                     ) AS pending_print_types
@@ -1246,35 +1254,36 @@ module.exports = async function(fastify) {
                            )
                              AND pf.name IN ('IN PET', 'IN DECAL')
                              AND qa.operator_type = 'user'
-                       ) AS has_pc_in,
-                       (
-                           EXISTS (
-                               SELECT 1 FROM printing_records pr 
-                               WHERE (
-                                   pr.order_item_id = doi.id 
-                                   OR (
-                                       pr.order_item_id IS NULL 
-                                       AND pr.dht_order_id = doi.dht_order_id 
-                                       AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id)
-                                   )
-                               )
-                                 AND pr.print_field IN ('IN PET', 'IN DECAL')
-                                 AND pr.printer_id IS NOT NULL
-                           ) AND NOT EXISTS (
-                               SELECT 1 FROM printing_records pr 
-                               WHERE (
-                                   pr.order_item_id = doi.id 
-                                   OR (
-                                       pr.order_item_id IS NULL 
-                                       AND pr.dht_order_id = doi.dht_order_id 
-                                       AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id)
-                                   )
-                               )
-                                 AND pr.print_field IN ('IN PET', 'IN DECAL')
-                                 AND pr.printer_id IS NOT NULL
-                                 AND pr.is_print_done = false
-                           )
-                       ) AS is_print_done_rec,
+                       ) AS has_pc_in, (
+                            EXISTS (
+                                SELECT 1 FROM printing_records pr 
+                                WHERE (
+                                    pr.order_item_id = doi.id 
+                                    OR (
+                                        pr.order_item_id IS NULL 
+                                        AND pr.dht_order_id = doi.dht_order_id 
+                                        AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id AND COALESCE(pr2.is_discarded, false) = false)
+                                    )
+                                )
+                                  AND pr.print_field IN ('IN PET', 'IN DECAL')
+                                  AND pr.printer_id IS NOT NULL
+                                  AND COALESCE(pr.is_discarded, false) = false
+                            ) AND NOT EXISTS (
+                                SELECT 1 FROM printing_records pr 
+                                WHERE (
+                                    pr.order_item_id = doi.id 
+                                    OR (
+                                        pr.order_item_id IS NULL 
+                                        AND pr.dht_order_id = doi.dht_order_id 
+                                        AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id AND COALESCE(pr2.is_discarded, false) = false)
+                                    )
+                                )
+                                  AND pr.print_field IN ('IN PET', 'IN DECAL')
+                                  AND pr.printer_id IS NOT NULL
+                                  AND COALESCE(pr.is_discarded, false) = false
+                                  AND pr.is_print_done = false
+                            )
+                        ) AS is_print_done_rec,
                        (
                            SELECT string_agg(pf.name, ', ')
                            FROM qlx_order_print_assignments qa
@@ -1303,20 +1312,20 @@ module.exports = async function(fastify) {
                                )
                            )
                              AND pf.name IN ('IN PET', 'IN DECAL')
-                             AND qa.operator_type = 'user'
-                             AND NOT EXISTS (
-                                 SELECT 1 FROM printing_records pr
-                                 WHERE (
-                                     pr.order_item_id = doi.id
-                                     OR (
-                                         pr.order_item_id IS NULL
-                                         AND pr.dht_order_id = doi.dht_order_id
-                                         AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id)
-                                     )
-                                 )
-                                   AND pr.print_field = pf.name
-                                   AND pr.is_print_done = true
-                             )
+                             AND qa.operator_type = 'user' AND NOT EXISTS (
+                                  SELECT 1 FROM printing_records pr
+                                  WHERE (
+                                      pr.order_item_id = doi.id
+                                      OR (
+                                          pr.order_item_id IS NULL
+                                          AND pr.dht_order_id = doi.dht_order_id
+                                          AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = doi.id AND COALESCE(pr2.is_discarded, false) = false)
+                                      )
+                                  )
+                                    AND pr.print_field = pf.name
+                                    AND COALESCE(pr.is_discarded, false) = false
+                                    AND pr.is_print_done = true
+                              )
                        ) AS pending_print_types
                 FROM dht_order_items doi
                 WHERE doi.id = $1 FOR UPDATE
