@@ -9041,17 +9041,25 @@ module.exports = async function(fastify) {
             const orderMeta = await db.get(`
                 SELECT COALESCE(additional_vat_amount, 0) AS add_vat,
                        COALESCE(discount_amount, 0) AS disc,
-                       COALESCE(promo_discount_amount, 0) AS promo_disc
+                       COALESCE(promo_discount_amount, 0) AS promo_disc,
+                       surcharges
                 FROM dht_orders WHERE id = $1
             `, [orderId]);
 
-            const surchargeRow = await db.get(`
-                SELECT COALESCE(SUM(COALESCE(amount, 0)), 0)::numeric AS sur_total
-                FROM dht_order_surcharges WHERE dht_order_id = $1
-            `, [orderId]);
+            let surTotal = 0;
+            if (orderMeta && orderMeta.surcharges) {
+                try {
+                    const surArr = typeof orderMeta.surcharges === 'string' ? JSON.parse(orderMeta.surcharges) : orderMeta.surcharges;
+                    if (Array.isArray(surArr)) {
+                        for (const s of surArr) {
+                            surTotal += Number(s.amount || 0);
+                        }
+                    }
+                } catch(e) {}
+            }
 
             const finalVat = totalItemsVat + (orderMeta?.add_vat || 0);
-            const newTotalAmount = totalItemsRaw - (orderMeta?.promo_disc || 0) + finalVat + (surchargeRow?.sur_total || 0) - (orderMeta?.disc || 0);
+            const newOrderTotal = totalItemsRaw - (orderMeta?.promo_disc || 0) + finalVat + surTotal - (orderMeta?.disc || 0);
 
             await db.run(`
                 UPDATE dht_orders
@@ -9182,17 +9190,25 @@ module.exports = async function(fastify) {
             const orderMeta = await db.get(`
                 SELECT COALESCE(additional_vat_amount, 0) AS add_vat,
                        COALESCE(discount_amount, 0) AS disc,
-                       COALESCE(promo_discount_amount, 0) AS promo_disc
+                       COALESCE(promo_discount_amount, 0) AS promo_disc,
+                       surcharges
                 FROM dht_orders WHERE id = $1
             `, [orderId]);
 
-            const surchargeRow = await db.get(`
-                SELECT COALESCE(SUM(COALESCE(amount, 0)), 0)::numeric AS sur_total
-                FROM dht_order_surcharges WHERE dht_order_id = $1
-            `, [orderId]);
+            let surTotal = 0;
+            if (orderMeta && orderMeta.surcharges) {
+                try {
+                    const surArr = typeof orderMeta.surcharges === 'string' ? JSON.parse(orderMeta.surcharges) : orderMeta.surcharges;
+                    if (Array.isArray(surArr)) {
+                        for (const s of surArr) {
+                            surTotal += Number(s.amount || 0);
+                        }
+                    }
+                } catch(e) {}
+            }
 
             const finalVat = totalItemsVat + (orderMeta?.add_vat || 0);
-            const newTotalAmount = totalItemsRaw - (orderMeta?.promo_disc || 0) + finalVat + (surchargeRow?.sur_total || 0) - (orderMeta?.disc || 0);
+            const newOrderTotal = totalItemsRaw - (orderMeta?.promo_disc || 0) + finalVat + surTotal - (orderMeta?.disc || 0);
 
             await db.run(`
                 UPDATE dht_orders
