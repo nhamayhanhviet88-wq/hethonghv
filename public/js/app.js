@@ -423,6 +423,7 @@ const _PAGE_SCRIPT_MAP = {
     'kpikdoanh': '/js/pages/kpikdoanh.js',
     'camketcuochop': '/js/pages/camketcuochop.js',
     'khovai': '/js/pages/khovai.js',
+    'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',
     'kiemkho': '/js/pages/kiemkho.js',
     'nhapxuathoanvai': '/js/pages/nhapxuathoanvai.js',
