@@ -1700,7 +1700,30 @@ function _bpcBuildUnassignedTableHtml(all) {
             var qtyVal = _bpcFormatOrderQty(r.item_qty || r.total_quantity || '', spName, r.cutting_category_name);
             var finalSpName = spName;
 
-            if (r.edit_lock_by) {
+            if (r.production_cancelled) {
+                var actionColHtml = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#7f1d1d;color:#fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block">🚫 HỦY SẢN XUẤT</span></td>';
+                th += '<tr style="opacity:0.45; pointer-events:none; background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(127,29,29,0.03) 10px,rgba(127,29,29,0.03) 20px); '+bg+'">'
+                    +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
+                    +actionColHtml
+                    +'<td style="font-size:10px">—</td>'
+                    +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
+                    +'<td style="font-weight:600;color:#1e293b;font-size:11px">' + finalSpName + '</td>'
+                    +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
+                    +'<td style="font-size:10px">'
+                    +_bpcFormatMaterialName(r.material_name)
+                    +'<br>' + (r.color_name||'—')
+                    +'</td>'
+                    +'<td style="'+qtyStyle+'">'+qtyVal+'</td>'
+                    +'<td style="text-align:center;font-weight:700;color:#7c3aed">—</td>'
+                    +'<td style="text-align:center;font-weight:700;color:#dc2626">—</td>'
+                    +'<td style="text-align:center;font-weight:800;color:#3b82f6">—</td>'
+                    +'<td style="font-size:9px;color:#6b7280">—</td>'
+                    +'<td style="text-align:center;font-weight:600">—</td>'
+                    +'<td style="text-align:center;font-weight:600">—</td>'
+                    +'<td style="font-size:10px;text-align:center">—</td>'
+                    +'<td style="font-size:9px;color:#6b7280">—</td>'
+                    +'</tr>';
+            } else if (r.edit_lock_by) {
                 var actionColHtml = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + '</span></td>';
                 th += '<tr style="opacity:0.5; pointer-events:none; '+bg+'">'
                     +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'

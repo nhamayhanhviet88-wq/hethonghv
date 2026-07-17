@@ -5518,9 +5518,14 @@ module.exports = async function(fastify) {
 
             LEFT JOIN printing_contractors pc_in ON qa_in.assigned_contractor_id = pc_in.id
 
+            WHERE EXISTS (
+
                 SELECT 1 FROM dht_order_items oi
+
                 WHERE oi.dht_order_id = o.id
+
                 ${wherePrintCut}
+
                 AND COALESCE(oi.production_cancelled, false) = false
                 AND (
 
@@ -5658,6 +5663,8 @@ module.exports = async function(fastify) {
 
                     doi.quantity,
 
+                    COALESCE(doi.production_cancelled, false) AS production_cancelled,
+
                     cc.name AS cutting_category_name,
 
                     EXISTS(
@@ -5683,7 +5690,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN qlx_item_schedules sch ON sch.order_item_id = doi.id
 
                 WHERE ${itemsWhere}
-                  AND COALESCE(doi.production_cancelled, false) = false
+
                 ORDER BY doi.dht_order_id, doi.id
             `, itemsParams);
 
@@ -5897,7 +5904,9 @@ module.exports = async function(fastify) {
 
                                 printing_contractor_id: contractorId || null,
 
-                                contractor_has_shelf: contractorHasShelf
+                                contractor_has_shelf: contractorHasShelf,
+
+                                production_cancelled: it.production_cancelled
 
                             });
 
@@ -5973,7 +5982,9 @@ module.exports = async function(fastify) {
 
                             printing_contractor_id: contractorId || null,
 
-                            contractor_has_shelf: contractorHasShelf
+                            contractor_has_shelf: contractorHasShelf,
+
+                            production_cancelled: it.production_cancelled
 
                         });
 
