@@ -6447,7 +6447,8 @@ async function _tpdSaveProductionSheet() {
             isModified = true;
         }
 
-        if (isModified) {
+        // Always require mockup upload when saving a sheet of an official order
+        if (true) {
             const checkBaseMockup = origItem ? origItem.mockup_image : (state.dbBaselines && state.dbBaselines.find(x => x.id === it.id) ? state.dbBaselines.find(x => x.id === it.id).mockup_image : '');
             if (it.mockup_image === checkBaseMockup) {
                 showToast(`⚠️ Khi sửa đơn, bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
@@ -7149,7 +7150,8 @@ function _tpdValidateAllSheets() {
                 isModified = true;
             }
             
-            if (isModified) {
+            // Enforce mockup upload for the active sheet (currently editing) or any modified sheets
+            if (isModified || idx === state.activeItemIndex) {
                 const checkBaseMockup = origItem ? origItem.mockup_image : (state.dbBaselines && state.dbBaselines.find(x => x.id === it.id) ? state.dbBaselines.find(x => x.id === it.id).mockup_image : '');
                 if (it.mockup_image === checkBaseMockup) {
                     showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Khi sửa đơn, bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
