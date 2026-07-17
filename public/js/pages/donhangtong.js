@@ -1293,6 +1293,13 @@ async function _dhtShowDetail(id) {
         // Mỗi nút có feature key riêng → GĐ tick từng nút trong trang Phân Quyền
         actionsHTML = `<div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;border:1px solid #e2e8f0;margin-bottom:16px">`;
         const isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+        const _isTrinh = typeof currentUser !== 'undefined' && currentUser && (
+            (currentUser.full_name && (currentUser.full_name.includes('Lê Việt Trinh') || currentUser.full_name.includes('Le Viet Trinh'))) ||
+            currentUser.username === 'leviettrinh' || currentUser.username === 'trinh'
+        );
+        const _canCancelProd = isGD || _isTrinh;
+        const _hasCancelledItems = items.some(it => it.production_cancelled);
+        const _allItemsCancelled = items.every(it => it.production_cancelled);
         const _isFullyPaid = remaining <= 0 && !isGD;
         const actionBtns = [
             { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view'), disabled: _isFullyPaid, disabledTitle: 'Đã thu đủ tiền — không thể sửa đơn (chỉ Giám đốc mới được sửa)' },
@@ -1304,7 +1311,9 @@ async function _dhtShowDetail(id) {
             { icon: o.sx_print_confirmed ? '✅' : '🏭', label: o.sx_print_confirmed ? 'Đã In Phiếu SX' : 'In Phiếu SX', color: o.sx_print_confirmed ? '#059669' : '#0891b2', bg: o.sx_print_confirmed ? '#d1fae5' : '#cffafe', fn: `_dhtShowPhieuSX(${id})`, perm: true },
             { icon: '🔧', label: 'Lên Đơn Sửa', color: (o.has_error && o.all_errors_handed_over) ? '#b45309' : '#cbd5e1', bg: (o.has_error && o.all_errors_handed_over) ? '#fef3c7' : '#f1f5f9', fn: `_dhtCreateRepairOrder(${id})`, disabled: !(o.has_error && o.all_errors_handed_over), perm: canDo('dht_don_sua', 'view'), disabledTitle: !o.has_error ? 'Cần báo đơn lỗi trước' : 'Cần bàn giao Hàng Lỗi Về cho QLX trước', extraClass: (o.has_error && o.all_errors_handed_over) ? 'dht-don-sua-glow' : '' },
             { icon: '📦', label: 'Hàng Lỗi Về', color: o.has_error ? (o.all_errors_handed_over ? '#059669' : '#0369a1') : '#cbd5e1', bg: o.has_error ? (o.all_errors_handed_over ? '#d1fae5' : '#e0f2fe') : '#f1f5f9', fn: `_dhtErrorReturnHandover(${id})`, disabled: !o.has_error, perm: canDo('dht_bao_loi', 'view'), disabledTitle: 'Cần báo đơn lỗi trước', extraClass: o.has_error ? 'dht-hang-loi-ve-glow' : '' },
-            { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') }
+            { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') },
+            { icon: '🚫', label: 'Hủy Phiếu SX', color: '#7f1d1d', bg: '#fef2f2', fn: `_dhtCancelProductionStart(${id})`, perm: _canCancelProd, disabled: _allItemsCancelled, disabledTitle: 'Tất cả phiếu đã bị hủy SX' },
+            { icon: '♻️', label: 'Phục Hồi Phiếu', color: '#065f46', bg: '#d1fae5', fn: `_dhtRestoreProductionStart(${id})`, perm: _canCancelProd && _hasCancelledItems, disabled: !_hasCancelledItems, disabledTitle: 'Chưa có phiếu nào bị hủy' }
         ];
         for (const a of actionBtns) {
             const noPerm = a.perm === false;
@@ -1381,9 +1390,13 @@ async function _dhtShowDetail(id) {
                         const pLabel = matPairs.length > 1 ? `PHỐI ${pi+1}` : '';
                         const phieuLabel = `Phiếu ${idx+1}`;
                         const labelText = pLabel ? `${pLabel} — ${phieuLabel}` : phieuLabel;
-                        itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s;border-left:4px solid ${pColor};background:${isFirst ? '' : pBg}" onclick="_dhtShowItemDetail(${idx})" onmouseover="this.style.background='${pBg}'" onmouseout="this.style.background='${isFirst ? '' : pBg}'">`;
+                        const _isCancelled = it.production_cancelled;
+                        const _cancelStyle = _isCancelled ? 'opacity:0.6;text-decoration:line-through;' : '';
+                        const _cancelBorderColor = _isCancelled ? '#dc2626' : pColor;
+                        itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s;border-left:4px solid ${_cancelBorderColor};background:${_isCancelled ? '#fef2f2' : (isFirst ? '' : pBg)};${_cancelStyle}" onclick="_dhtShowItemDetail(${idx})" onmouseover="this.style.background='${_isCancelled ? '#fee2e2' : pBg}'" onmouseout="this.style.background='${_isCancelled ? '#fef2f2' : (isFirst ? '' : pBg)}'">`;
                         // Col 1: Phối label + Sale badge (only first row)
-                        itemsHTML += `<td style="padding:6px"><div style="font-size:10px;font-weight:800;color:${pColor}">${labelText}</div>${isFirst ? '<div style="margin-top:3px">'+saleBadge+'</div>' : ''}</td>`;
+                        const _cancelBadge = _isCancelled ? '<div style="margin-top:3px"><span style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;padding:2px 8px;border-radius:6px;font-size:9px;font-weight:800;text-decoration:none;display:inline-block;animation:dht-cancel-pulse 2s infinite">🚫 HỦY SX</span></div>' : '';
+                        itemsHTML += `<td style="padding:6px"><div style="font-size:10px;font-weight:800;color:${_isCancelled ? '#dc2626' : pColor}">${labelText}</div>${isFirst ? '<div style="margin-top:3px">'+saleBadge+'</div>' : ''}${isFirst ? _cancelBadge : ''}</td>`;
                         // Col 2: Product name (only first row)
                         itemsHTML += `<td style="padding:6px;font-weight:700;color:var(--navy)">${isFirst ? (it.product_name || it.description || '—') + ' <span style="font-size:9px;color:#94a3b8">🔍</span>' : '<span style="color:#94a3b8;font-size:11px">↳ '+( it.product_name || '')+'</span>'}</td>`;
                         // Col 3: Material
@@ -1395,7 +1408,7 @@ async function _dhtShowDetail(id) {
                             itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700">${totalQty}</td>`;
                             itemsHTML += `<td style="padding:6px;text-align:right;white-space:nowrap">${fmt(it.unit_price)}đ</td>`;
                             itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700;color:#6366f1">${itVat > 0 ? itVat+'%' : '0%'}</td>`;
-                            itemsHTML += `<td style="padding:6px;text-align:right;font-weight:800;color:#dc2626;white-space:nowrap">${fmt(it.item_total || it.total)}đ</td>`;
+                            itemsHTML += `<td style="padding:6px;text-align:right;font-weight:800;color:${_isCancelled ? '#94a3b8' : '#dc2626'};white-space:nowrap">${_isCancelled ? '<s>'+fmt(it.original_item_total || it.item_total || it.total)+'đ</s> <span style="color:#dc2626">'+fmt(it.item_total || it.total)+'đ</span>' : fmt(it.item_total || it.total)+'đ'}</td>`;
                         } else {
                             itemsHTML += `<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">${totalQty}</td>`;
                             itemsHTML += `<td colspan="3" style="padding:6px;text-align:center;color:#94a3b8;font-size:10px;font-style:italic">Cùng giá với Phối 1</td>`;
@@ -4099,6 +4112,357 @@ window._dhtResendDesignEmail = async function(orderId) {
         }
     } catch (err) {
         showToast('⚠️ Gửi lại thất bại: ' + err.message, 'error');
+    }
+};
+
+// ========== HỦY PHIẾU SẢN XUẤT — Production Cancellation Flow ==========
+
+// CSS animation for cancel badge pulse
+if (!document.getElementById('dht-cancel-pulse-style')) {
+    const st = document.createElement('style');
+    st.id = 'dht-cancel-pulse-style';
+    st.textContent = `@keyframes dht-cancel-pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }`;
+    document.head.appendChild(st);
+}
+
+// Step 1: Choose which phiếu to cancel
+window._dhtCancelProductionStart = async function(orderId) {
+    const items = window._dhtDetailItems || [];
+    if (!items || items.length === 0) {
+        showToast('⚠️ Không có phiếu nào để hủy', 'error');
+        return;
+    }
+
+    const activeItems = items.filter(it => !it.production_cancelled);
+    if (activeItems.length === 0) {
+        showToast('⚠️ Tất cả phiếu đã bị hủy SX rồi', 'error');
+        return;
+    }
+
+    let html = `<div style="max-width:560px;margin:0 auto;padding:24px">`;
+    html += `<div style="text-align:center;margin-bottom:20px">`;
+    html += `<div style="font-size:48px;margin-bottom:8px">🚫</div>`;
+    html += `<div style="font-size:20px;font-weight:900;color:#7f1d1d">HỦY PHIẾU SẢN XUẤT</div>`;
+    html += `<div style="font-size:12px;color:#94a3b8;margin-top:4px">Chọn phiếu cần hủy sản xuất</div>`;
+    html += `</div>`;
+
+    html += `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">`;
+    for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const cancelled = it.production_cancelled;
+        const matInfo = it.material_name ? ` — ${it.material_name}` : '';
+        const colorInfo = it.color_name ? ` — ${it.color_name}` : '';
+        
+        if (cancelled) {
+            html += `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;opacity:0.5">`;
+            html += `<span style="font-size:20px">🚫</span>`;
+            html += `<div style="flex:1"><div style="font-weight:700;color:#dc2626;font-size:13px">Phiếu ${i+1}: ${it.product_name || it.description}${matInfo}${colorInfo}</div>`;
+            html += `<div style="font-size:11px;color:#94a3b8;margin-top:2px">ĐÃ HỦY SX</div></div></div>`;
+        } else {
+            html += `<div onclick="_dhtCancelProductionPreview(${orderId}, ${it.id}, ${i})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:all .2s" onmouseover="this.style.background='#fef2f2';this.style.borderColor='#fca5a5'" onmouseout="this.style.background='#fff';this.style.borderColor='#e2e8f0'">`;
+            html += `<span style="font-size:20px">📋</span>`;
+            html += `<div style="flex:1"><div style="font-weight:700;color:#1e293b;font-size:13px">Phiếu ${i+1}: ${it.product_name || it.description}${matInfo}${colorInfo}</div>`;
+            html += `<div style="font-size:11px;color:#64748b;margin-top:2px">${it.quantity || 0} cái — ${fmt(it.item_total || it.total || 0)}đ</div></div>`;
+            html += `<span style="color:#dc2626;font-size:14px">→</span></div>`;
+        }
+    }
+    html += `</div>`;
+    html += `<div style="text-align:center"><button onclick="closeModal()" style="padding:10px 32px;border:1px solid #e2e8f0;background:#fff;border-radius:10px;font-weight:700;color:#64748b;cursor:pointer;font-size:13px">← Quay lại</button></div>`;
+    html += `</div>`;
+
+    showModal(html);
+};
+
+// Step 2: Preview production details + cost input
+window._dhtCancelProductionPreview = async function(orderId, itemId, itemIndex) {
+    showModal(`<div style="text-align:center;padding:60px"><div style="font-size:36px;animation:dht-cancel-pulse 1s infinite">⏳</div><div style="margin-top:12px;color:#64748b;font-weight:600">Đang quét công đoạn sản xuất...</div></div>`);
+
+    try {
+        const data = await apiCall(`/api/dht/orders/${orderId}/items/${itemId}/cancel-production/preview`);
+        if (data.error) { showToast('⚠️ ' + data.error, 'error'); return; }
+
+        const item = data.item;
+        const completed = data.completed_steps || [];
+        const pending = data.pending_steps || [];
+
+        let html = `<div style="max-width:620px;margin:0 auto;padding:24px;max-height:80vh;overflow-y:auto">`;
+        
+        // Header
+        html += `<div style="text-align:center;margin-bottom:20px">`;
+        html += `<div style="font-size:40px;margin-bottom:6px">🚫</div>`;
+        html += `<div style="font-size:18px;font-weight:900;color:#7f1d1d">HỦY PHIẾU SẢN XUẤT</div>`;
+        html += `<div style="margin-top:6px;padding:8px 16px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;display:inline-block">`;
+        html += `<span style="font-weight:700;color:#1e3a8a">${data.order.order_code}</span>`;
+        html += `<span style="margin:0 6px;color:#94a3b8">—</span>`;
+        html += `<span style="font-weight:600;color:#334155">${item.product_name || '—'}</span>`;
+        html += `<span style="margin:0 6px;color:#94a3b8">—</span>`;
+        html += `<span style="font-weight:700;color:#059669">${item.quantity || 0} cái</span>`;
+        html += `</div>`;
+        html += `<div style="margin-top:6px;font-size:12px;color:#64748b">Giá trị phiếu hiện tại: <b style="color:#1e293b">${fmt(item.item_total)}đ</b></div>`;
+        html += `</div>`;
+
+        // Active work warning
+        if (data.has_active_work) {
+            html += `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:16px;display:flex;align-items:center;gap:8px">`;
+            html += `<span style="font-size:20px">⚠️</span>`;
+            html += `<div style="font-size:12px;color:#92400e;font-weight:600">Phiếu này đang có công đoạn chưa hoàn thành. Hủy sẽ dừng toàn bộ.</div></div>`;
+        }
+
+        // Completed steps
+        if (completed.length > 0) {
+            html += `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin-bottom:16px">`;
+            html += `<div style="font-weight:800;font-size:13px;color:#166534;margin-bottom:12px;border-bottom:2px solid #86efac;padding-bottom:8px">✅ CÔNG ĐOẠN ĐÃ HOÀN THÀNH (${completed.length})</div>`;
+            
+            for (const step of completed) {
+                html += `<div style="margin-bottom:14px;padding:12px;background:#fff;border-radius:10px;border:1px solid #dcfce7">`;
+                html += `<div style="font-weight:800;font-size:13px;color:#166534;margin-bottom:8px">${step.icon} ${step.step}</div>`;
+                
+                for (const d of (step.details || [])) {
+                    html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px">`;
+                    html += `<span style="color:#64748b">${d.label}</span>`;
+                    html += `<span style="font-weight:700;color:#1e293b">${d.value}${d.unit ? ' ' + d.unit : ''}</span>`;
+                    html += `</div>`;
+                    if (d.sub) {
+                        html += `<div style="font-size:10px;color:#94a3b8;text-align:right">${d.sub}</div>`;
+                    }
+                }
+                
+                // Cost input
+                html += `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e2e8f0;display:flex;align-items:center;gap:8px">`;
+                html += `<span style="font-size:12px;font-weight:700;color:#b45309">💰 Chi phí:</span>`;
+                html += `<input type="text" id="cost_${step.cost_input_key}" class="cancel-cost-input" placeholder="0" value="" style="flex:1;padding:8px 12px;border:2px solid #fde68a;border-radius:8px;font-size:14px;font-weight:700;text-align:right;color:#1e293b;background:#fffbeb;outline:none;transition:border .2s" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fde68a';_dhtCancelCalcTotal()">`;
+                html += `<span style="font-size:12px;color:#94a3b8">đ</span>`;
+                html += `</div>`;
+                
+                html += `</div>`;
+            }
+            html += `</div>`;
+        } else {
+            html += `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;color:#94a3b8;font-size:13px">Chưa có công đoạn nào hoàn thành</div>`;
+        }
+
+        // Pending steps
+        if (pending.length > 0) {
+            html += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px;margin-bottom:16px">`;
+            html += `<div style="font-weight:800;font-size:13px;color:#991b1b;margin-bottom:10px;border-bottom:2px solid #fca5a5;padding-bottom:8px">❌ CÔNG ĐOẠN CHƯA LÀM — SẼ DỪNG (${pending.length})</div>`;
+            for (const step of pending) {
+                html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;color:#991b1b;font-size:12px">`;
+                html += `<span>${step.icon}</span><span style="font-weight:600">${step.step}</span>`;
+                html += `<span style="color:#94a3b8;font-size:10px;margin-left:auto">Sẽ không thực hiện</span>`;
+                html += `</div>`;
+            }
+            html += `</div>`;
+        }
+
+        // Total cost summary
+        html += `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border:2px solid #fde68a;border-radius:12px;padding:16px;margin-bottom:16px">`;
+        html += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:10px">💰 TỔNG CHI PHÍ SẢN XUẤT — KHÁCH TRẢ</div>`;
+        html += `<div id="cancel-cost-summary"></div>`;
+        html += `<div style="margin-top:10px;padding-top:10px;border-top:2px solid #fde68a;display:flex;justify-content:space-between;align-items:center">`;
+        html += `<span style="font-weight:900;font-size:15px;color:#92400e">TỔNG CỘNG:</span>`;
+        html += `<span id="cancel-total-display" style="font-weight:900;font-size:22px;color:#dc2626">0đ</span>`;
+        html += `</div>`;
+        html += `<div style="margin-top:6px;font-size:11px;color:#b45309;font-style:italic">💡 Giá trị phiếu gốc: ${fmt(item.item_total)}đ → Phiếu sẽ được gom lại bằng tổng chi phí trên</div>`;
+        html += `</div>`;
+
+        // Reason input
+        html += `<div style="margin-bottom:16px">`;
+        html += `<label style="font-weight:700;font-size:13px;color:#334155;display:block;margin-bottom:6px">📝 Lý do hủy phiếu (*)</label>`;
+        html += `<textarea id="cancel-reason" rows="3" placeholder="Nhập lý do hủy phiếu sản xuất..." style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:13px;resize:vertical;outline:none;transition:border .2s;font-family:inherit;box-sizing:border-box" onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#e2e8f0'"></textarea>`;
+        html += `</div>`;
+
+        // Warning
+        html += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;margin-bottom:16px;text-align:center">`;
+        html += `<div style="font-size:13px;font-weight:800;color:#991b1b">⚠️ CẢNH BÁO: Hành động này sẽ dừng toàn bộ sản xuất của phiếu!</div>`;
+        html += `<div style="font-size:11px;color:#b91c1c;margin-top:4px">Bạn có thể phục hồi phiếu sau nếu cần.</div>`;
+        html += `</div>`;
+
+        // Buttons
+        html += `<div style="display:flex;gap:12px;justify-content:center">`;
+        html += `<button onclick="_dhtCancelProductionStart(${orderId})" style="padding:12px 28px;border:1px solid #e2e8f0;background:#fff;border-radius:10px;font-weight:700;color:#64748b;cursor:pointer;font-size:13px">← Quay lại</button>`;
+        html += `<button id="btn-confirm-cancel" onclick="_dhtCancelProductionConfirm(${orderId}, ${itemId})" style="padding:12px 28px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px;transition:all .2s" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">🚫 XÁC NHẬN HỦY PHIẾU</button>`;
+        html += `</div>`;
+        html += `</div>`;
+
+        // Store steps data for submit
+        window._dhtCancelData = { completed_steps: completed, pending_steps: pending, item };
+
+        showModal(html);
+
+        // Init total calculation
+        setTimeout(() => _dhtCancelCalcTotal(), 100);
+
+    } catch (err) {
+        showToast('⚠️ Lỗi: ' + err.message, 'error');
+    }
+};
+
+// Helper: calculate total cost from inputs
+window._dhtCancelCalcTotal = function() {
+    const inputs = document.querySelectorAll('.cancel-cost-input');
+    let total = 0;
+    let summaryHTML = '';
+    
+    for (const inp of inputs) {
+        const rawVal = inp.value.replace(/[^\d]/g, '');
+        const val = Number(rawVal) || 0;
+        total += val;
+        
+        // Format input with thousand separators
+        if (rawVal) {
+            inp.value = Number(rawVal).toLocaleString('vi-VN');
+        }
+        
+        const stepName = inp.id.replace('cost_', '').replace('_cost', '');
+        const nameMap = { cutting: 'Cắt', printing: 'In', pressing: 'Ép', sewing: 'May', qc: 'KTCL', finishing: 'Hoàn Thiện' };
+        if (val > 0) {
+            summaryHTML += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px">`;
+            summaryHTML += `<span style="color:#64748b">Chi phí ${nameMap[stepName] || stepName}:</span>`;
+            summaryHTML += `<span style="font-weight:700;color:#1e293b">${val.toLocaleString('vi-VN')}đ</span>`;
+            summaryHTML += `</div>`;
+        }
+    }
+
+    const summaryEl = document.getElementById('cancel-cost-summary');
+    if (summaryEl) summaryEl.innerHTML = summaryHTML || '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:4px 0">Chưa nhập chi phí nào</div>';
+    
+    const totalEl = document.getElementById('cancel-total-display');
+    if (totalEl) totalEl.textContent = total.toLocaleString('vi-VN') + 'đ';
+};
+
+// Step 3: Confirm cancellation
+window._dhtCancelProductionConfirm = async function(orderId, itemId) {
+    const reason = (document.getElementById('cancel-reason')?.value || '').trim();
+    if (!reason) {
+        showToast('⚠️ Vui lòng nhập lý do hủy phiếu!', 'error');
+        document.getElementById('cancel-reason')?.focus();
+        return;
+    }
+
+    // Collect costs
+    const costDetails = {};
+    let totalCost = 0;
+    const inputs = document.querySelectorAll('.cancel-cost-input');
+    for (const inp of inputs) {
+        const key = inp.id.replace('cost_', '');
+        const val = Number(inp.value.replace(/[^\d]/g, '')) || 0;
+        costDetails[key] = val;
+        totalCost += val;
+    }
+
+    const cancelData = window._dhtCancelData || {};
+    const itemTotal = cancelData.item?.item_total || 0;
+
+    // Final confirmation
+    const ok = confirm(
+        `🚫 XÁC NHẬN HỦY PHIẾU SẢN XUẤT\n\n` +
+        `Phiếu: ${cancelData.item?.product_name || '—'}\n` +
+        `Giá trị gốc: ${Number(itemTotal).toLocaleString('vi-VN')}đ\n` +
+        `Chi phí SX (khách trả): ${totalCost.toLocaleString('vi-VN')}đ\n\n` +
+        `Lý do: ${reason}\n\n` +
+        `Bấm OK để xác nhận hủy phiếu!`
+    );
+    if (!ok) return;
+
+    const btn = document.getElementById('btn-confirm-cancel');
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Đang xử lý...'; }
+
+    try {
+        const res = await apiCall(`/api/dht/orders/${orderId}/items/${itemId}/cancel-production`, 'POST', {
+            reason,
+            cost_details: costDetails,
+            total_cost: totalCost,
+            completed_steps: cancelData.completed_steps || [],
+            pending_steps: cancelData.pending_steps || []
+        });
+
+        if (res.success) {
+            showToast('✅ Đã hủy phiếu sản xuất thành công!', 'success');
+            closeModal();
+            setTimeout(async () => {
+                await _dhtShowDetail(orderId);
+                if (typeof _dhtLoadOrders === 'function') await _dhtLoadOrders();
+            }, 500);
+        } else {
+            showToast('⚠️ ' + (res.error || 'Lỗi không xác định'), 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = '🚫 XÁC NHẬN HỦY PHIẾU'; }
+        }
+    } catch (err) {
+        showToast('⚠️ Lỗi: ' + err.message, 'error');
+        if (btn) { btn.disabled = false; btn.innerHTML = '🚫 XÁC NHẬN HỦY PHIẾU'; }
+    }
+};
+
+// ========== PHỤC HỒI PHIẾU SẢN XUẤT — Restore Cancelled Production ==========
+
+window._dhtRestoreProductionStart = async function(orderId) {
+    const items = window._dhtDetailItems || [];
+    const cancelledItems = items.filter(it => it.production_cancelled);
+    
+    if (cancelledItems.length === 0) {
+        showToast('⚠️ Không có phiếu nào bị hủy để phục hồi', 'error');
+        return;
+    }
+
+    let html = `<div style="max-width:560px;margin:0 auto;padding:24px">`;
+    html += `<div style="text-align:center;margin-bottom:20px">`;
+    html += `<div style="font-size:48px;margin-bottom:8px">♻️</div>`;
+    html += `<div style="font-size:20px;font-weight:900;color:#065f46">PHỤC HỒI PHIẾU SẢN XUẤT</div>`;
+    html += `<div style="font-size:12px;color:#94a3b8;margin-top:4px">Chọn phiếu đã hủy cần phục hồi</div>`;
+    html += `</div>`;
+
+    html += `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">`;
+    for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (!it.production_cancelled) continue;
+        
+        const matInfo = it.material_name ? ` — ${it.material_name}` : '';
+        const colorInfo = it.color_name ? ` — ${it.color_name}` : '';
+        const originalTotal = it.original_item_total || it.item_total || 0;
+        const currentTotal = it.item_total || it.total || 0;
+        
+        html += `<div onclick="_dhtRestoreProductionConfirm(${orderId}, ${it.id}, '${(it.product_name || it.description || '').replace(/'/g, "\\'")}')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;cursor:pointer;transition:all .2s" onmouseover="this.style.background='#d1fae5';this.style.borderColor='#86efac'" onmouseout="this.style.background='#fef2f2';this.style.borderColor='#fecaca'">`;
+        html += `<span style="font-size:20px">🚫</span>`;
+        html += `<div style="flex:1"><div style="font-weight:700;color:#991b1b;font-size:13px">Phiếu ${i+1}: ${it.product_name || it.description}${matInfo}${colorInfo}</div>`;
+        html += `<div style="font-size:11px;color:#b91c1c;margin-top:2px">Chi phí SX: ${fmt(currentTotal)}đ — Giá gốc: ${fmt(originalTotal)}đ</div></div>`;
+        html += `<span style="color:#059669;font-size:14px;font-weight:800">♻️</span></div>`;
+    }
+    html += `</div>`;
+    html += `<div style="text-align:center"><button onclick="closeModal()" style="padding:10px 32px;border:1px solid #e2e8f0;background:#fff;border-radius:10px;font-weight:700;color:#64748b;cursor:pointer;font-size:13px">← Quay lại</button></div>`;
+    html += `</div>`;
+
+    showModal(html);
+};
+
+window._dhtRestoreProductionConfirm = async function(orderId, itemId, productName) {
+    const ok = confirm(
+        `♻️ PHỤC HỒI PHIẾU SẢN XUẤT\n\n` +
+        `Phiếu: ${productName}\n\n` +
+        `Phiếu sẽ được khôi phục về trạng thái bình thường:\n` +
+        `• Giá trị phiếu → trở về giá gốc ban đầu\n` +
+        `• Trạng thái → hoạt động bình thường\n` +
+        `• Tổng đơn hàng → tính lại\n\n` +
+        `Bấm OK để phục hồi!`
+    );
+    if (!ok) return;
+
+    try {
+        showModal(`<div style="text-align:center;padding:60px"><div style="font-size:36px;animation:dht-cancel-pulse 1s infinite">♻️</div><div style="margin-top:12px;color:#059669;font-weight:600">Đang phục hồi phiếu...</div></div>`);
+        
+        const res = await apiCall(`/api/dht/orders/${orderId}/items/${itemId}/restore-production`, 'POST', {});
+        
+        if (res.success) {
+            showToast('✅ Đã phục hồi phiếu sản xuất thành công! Giá trị phục hồi: ' + Number(res.restored_total || 0).toLocaleString('vi-VN') + 'đ', 'success');
+            closeModal();
+            setTimeout(async () => {
+                await _dhtShowDetail(orderId);
+                if (typeof _dhtLoadOrders === 'function') await _dhtLoadOrders();
+            }, 500);
+        } else {
+            showToast('⚠️ ' + (res.error || 'Lỗi không xác định'), 'error');
+        }
+    } catch (err) {
+        showToast('⚠️ Lỗi: ' + err.message, 'error');
     }
 };
 

@@ -8617,5 +8617,399 @@ module.exports = async function(fastify) {
             }
         }
     }
+
+    // ========== HỦY PHIẾU SẢN XUẤT — Production Cancellation per Item ==========
+
+    // Helper: check if user is GĐ or Lê Việt Trinh
+    function _isGDOrTrinh(user) {
+        if (user.role === 'giam_doc') return true;
+        if (user.username === 'leviettrinh' || user.username === 'trinh') return true;
+        if (user.full_name && (user.full_name.includes('Lê Việt Trinh') || user.full_name.includes('Le Viet Trinh'))) return true;
+        return false;
+    }
+
+    // ★ PREVIEW: Quét tất cả công đoạn cho 1 phiếu (item)
+    fastify.get('/api/dht/orders/:orderId/items/:itemId/cancel-production/preview', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = await db.get('SELECT id, role, username, full_name FROM users WHERE id = $1', [request.user.id]);
+        if (!user || !_isGDOrTrinh(user)) {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc hoặc Quản lý cấp cao Lê Việt Trinh mới được hủy phiếu SX' });
+        }
+
+        const orderId = Number(request.params.orderId);
+        const itemId = Number(request.params.itemId);
+
+        const order = await db.get('SELECT id, order_code, customer_name FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        const item = await db.get('SELECT * FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
+        if (!item) return reply.code(404).send({ error: 'Không tìm thấy phiếu' });
+
+        if (item.production_cancelled) {
+            return reply.code(400).send({ error: 'Phiếu này đã bị hủy SX rồi' });
+        }
+
+        const completedSteps = [];
+        const pendingSteps = [];
+
+        // 1. CẮT — cutting_records
+        const cutRecords = await db.all(`
+            SELECT cr.*, u.full_name AS cutter_name
+            FROM cutting_records cr
+            LEFT JOIN users u ON cr.cutter_id = u.id
+            WHERE cr.order_item_id = $1
+            ORDER BY cr.id
+        `, [itemId]);
+        
+        const cutDone = cutRecords.filter(r => r.is_cut_done);
+        const cutPending = cutRecords.filter(r => !r.is_cut_done);
+        
+        if (cutDone.length > 0) {
+            const totalKg = cutDone.reduce((sum, r) => sum + (Number(r.kg_cut) || 0), 0);
+            const totalQty = cutDone.reduce((sum, r) => sum + (Number(r.cut_quantity) || 0), 0);
+            completedSteps.push({
+                step: 'Cắt', icon: '✂️', cost_input_key: 'cutting_cost',
+                details: [
+                    { label: 'Số kg vải đã cắt', value: totalKg, unit: 'kg' },
+                    { label: 'Số áo đã cắt', value: totalQty, unit: 'áo' },
+                    ...cutDone.map(r => ({
+                        label: `${r.material_name || '—'} — ${r.fabric_color || '—'}`,
+                        value: `${r.cut_quantity || 0} áo, ${r.kg_cut || 0} kg`,
+                        sub: r.cutter_name ? `Thợ cắt: ${r.cutter_name}` : null
+                    }))
+                ]
+            });
+        } else if (cutRecords.length === 0) {
+            pendingSteps.push({ step: 'Cắt', icon: '✂️' });
+        }
+        if (cutPending.length > 0 && cutDone.length === 0) {
+            // Has records but none done
+        }
+
+        // 2. IN — printing_records
+        const printRecords = await db.all(`
+            SELECT pr.*, u.full_name AS printer_name, c.name AS contractor_name
+            FROM printing_records pr
+            LEFT JOIN users u ON pr.printer_id = u.id
+            LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
+            WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2))
+              AND COALESCE(pr.is_discarded, false) = false
+            ORDER BY pr.id
+        `, [itemId, orderId]);
+        
+        const printDone = printRecords.filter(r => r.is_print_done || r.contractor_id);
+        
+        if (printDone.length > 0) {
+            const totalMeters = printDone.reduce((sum, r) => sum + (Number(r.print_meters) || 0), 0);
+            completedSteps.push({
+                step: 'In', icon: '🖨️', cost_input_key: 'printing_cost',
+                details: [
+                    { label: 'Tổng số mét đã in', value: totalMeters, unit: 'mét' },
+                    ...printDone.map(r => ({
+                        label: r.print_field || 'In',
+                        value: `${r.print_meters || 0} mét`,
+                        sub: r.contractor_name ? `GC: ${r.contractor_name}` : (r.printer_name ? `Thợ in: ${r.printer_name}` : null)
+                    }))
+                ]
+            });
+        } else if (printRecords.length === 0) {
+            pendingSteps.push({ step: 'In', icon: '🖨️' });
+        } else {
+            pendingSteps.push({ step: 'In', icon: '🖨️' });
+        }
+
+        // 3. ÉP — pressing_records
+        const pressRecords = await db.all(`
+            SELECT pr.*, u.full_name AS presser_name
+            FROM pressing_records pr
+            LEFT JOIN users u ON pr.presser_id = u.id
+            WHERE pr.order_item_id = $1
+            ORDER BY pr.id
+        `, [itemId]);
+        
+        const pressDone = pressRecords.filter(r => r.is_reported);
+        
+        if (pressDone.length > 0) {
+            const totalQty = pressDone.reduce((sum, r) => sum + (Number(r.press_quantity) || 0), 0);
+            completedSteps.push({
+                step: 'Ép', icon: '🔥', cost_input_key: 'pressing_cost',
+                details: [
+                    { label: 'Số áo đã ép', value: totalQty, unit: 'áo' },
+                    ...pressDone.map(r => ({
+                        label: r.product_name || 'Ép',
+                        value: `${r.press_quantity || 0} áo`,
+                        sub: r.presser_name ? `Thợ ép: ${r.presser_name}` : null
+                    }))
+                ]
+            });
+        } else {
+            pendingSteps.push({ step: 'Ép', icon: '🔥' });
+        }
+
+        // 4. MAY — sewing_records
+        const sewRecords = await db.all(`
+            SELECT sr.*, u.full_name AS tailor_name
+            FROM sewing_records sr
+            LEFT JOIN users u ON sr.tailor_id = u.id
+            WHERE sr.order_item_id = $1
+            ORDER BY sr.id
+        `, [itemId]);
+        
+        const sewDone = sewRecords.filter(r => r.done_date);
+        
+        if (sewDone.length > 0) {
+            const totalQty = sewDone.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+            completedSteps.push({
+                step: 'May', icon: '🧵', cost_input_key: 'sewing_cost',
+                details: [
+                    { label: 'Số áo đã may', value: totalQty, unit: 'áo' },
+                    ...sewDone.map(r => ({
+                        label: r.product_name || 'May',
+                        value: `${r.quantity || 0} áo`,
+                        sub: r.tailor_name ? `Thợ may: ${r.tailor_name}` : null
+                    }))
+                ]
+            });
+        } else {
+            pendingSteps.push({ step: 'May', icon: '🧵' });
+        }
+
+        // 5. KIỂM TRA CHẤT LƯỢNG — dht_order_production
+        const qcStep = await db.get(`
+            SELECT op.is_completed, op.completed_at, u.full_name AS completed_by_name
+            FROM dht_order_production op
+            LEFT JOIN users u ON op.completed_by = u.id
+            LEFT JOIN dht_process_steps ps ON op.step_id = ps.id
+            WHERE op.dht_order_id = $1 AND ps.code = 'KTCL'
+        `, [orderId]);
+        
+        if (qcStep && qcStep.is_completed) {
+            completedSteps.push({
+                step: 'Kiểm Tra Chất Lượng', icon: '🔍', cost_input_key: 'qc_cost',
+                details: [{ label: 'Trạng thái', value: 'Đã hoàn thành' }]
+            });
+        } else {
+            pendingSteps.push({ step: 'Kiểm Tra Chất Lượng', icon: '🔍' });
+        }
+
+        // 6. HOÀN THIỆN — finishing_records
+        const finishRecords = await db.all(`
+            SELECT fr.*, u.full_name AS worker_name
+            FROM finishing_records fr
+            LEFT JOIN users u ON fr.worker_id = u.id
+            WHERE fr.order_item_id = $1
+            ORDER BY fr.id
+        `, [itemId]);
+        
+        const finishDone = finishRecords.filter(r => r.is_done);
+        
+        if (finishDone.length > 0) {
+            const totalQty = finishDone.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+            completedSteps.push({
+                step: 'Cắt Chỉ & Hoàn Thiện', icon: '✨', cost_input_key: 'finishing_cost',
+                details: [
+                    { label: 'Số áo hoàn thiện', value: totalQty, unit: 'áo' },
+                ]
+            });
+        } else {
+            pendingSteps.push({ step: 'Cắt Chỉ & Hoàn Thiện', icon: '✨' });
+        }
+
+        // Check active work
+        const hasActiveWork = cutPending.length > 0 ||
+            printRecords.some(r => !r.is_print_done && !r.contractor_id) ||
+            pressRecords.some(r => !r.is_reported) ||
+            sewRecords.some(r => !r.done_date) ||
+            finishRecords.some(r => !r.is_done);
+
+        return {
+            order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
+            item: {
+                id: item.id,
+                product_name: item.product_name || item.description,
+                material_name: item.material_name,
+                color_name: item.color_name,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                item_total: Number(item.item_total) || 0
+            },
+            completed_steps: completedSteps,
+            pending_steps: pendingSteps,
+            has_active_work: hasActiveWork
+        };
+    });
+
+    // ★ CANCEL: Xác nhận hủy phiếu sản xuất
+    fastify.post('/api/dht/orders/:orderId/items/:itemId/cancel-production', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = await db.get('SELECT id, role, username, full_name FROM users WHERE id = $1', [request.user.id]);
+        if (!user || !_isGDOrTrinh(user)) {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc hoặc Quản lý cấp cao Lê Việt Trinh mới được hủy phiếu SX' });
+        }
+
+        const orderId = Number(request.params.orderId);
+        const itemId = Number(request.params.itemId);
+        const { reason, cost_details, total_cost, completed_steps, pending_steps } = request.body || {};
+
+        if (!reason || !reason.trim()) {
+            return reply.code(400).send({ error: 'Vui lòng nhập lý do hủy phiếu' });
+        }
+
+        const order = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        const item = await db.get('SELECT * FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
+        if (!item) return reply.code(404).send({ error: 'Không tìm thấy phiếu' });
+
+        if (item.production_cancelled) {
+            return reply.code(400).send({ error: 'Phiếu này đã bị hủy SX rồi' });
+        }
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+        const originalItemTotal = Number(item.item_total) || 0;
+        const newItemTotal = Number(total_cost) || 0;
+
+        try {
+            // 1. Save cancellation record
+            await db.run(`
+                INSERT INTO dht_item_production_cancellations
+                    (dht_order_id, order_item_id, completed_steps, pending_steps, cost_details, total_cost, original_item_total, reason, cancelled_by, cancelled_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            `, [
+                orderId, itemId,
+                JSON.stringify(completed_steps || []),
+                JSON.stringify(pending_steps || []),
+                JSON.stringify(cost_details || {}),
+                newItemTotal,
+                originalItemTotal,
+                reason.trim(),
+                user.id,
+                now
+            ]);
+
+            // 2. Flag item as cancelled + save original total for restore
+            await db.run(`
+                UPDATE dht_order_items
+                SET production_cancelled = true,
+                    production_cancelled_at = $1,
+                    production_cancelled_by = $2,
+                    original_item_total = CASE WHEN original_item_total IS NULL THEN item_total ELSE original_item_total END,
+                    item_total = $3,
+                    total = $3
+                WHERE id = $4
+            `, [now, user.id, newItemTotal, itemId]);
+
+            // 3. Recalculate order total_amount
+            const sumRow = await db.get(`
+                SELECT COALESCE(SUM(COALESCE(item_total, 0)), 0)::numeric AS new_total
+                FROM dht_order_items WHERE dht_order_id = $1
+            `, [orderId]);
+            const newOrderTotal = Number(sumRow.new_total) || 0;
+            await db.run(`UPDATE dht_orders SET total_amount = $1, last_updated_at = $2, last_updated_by = $3 WHERE id = $4`,
+                [newOrderTotal, now, user.id, orderId]);
+
+            // 4. Audit log
+            await db.run(`
+                INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by)
+                VALUES ($1, $2, $3, $4, $5)
+            `, [
+                orderId, 'cancel_production',
+                `🚫 Hủy phiếu SX: ${item.product_name || item.description} — Chi phí SX: ${(newItemTotal || 0).toLocaleString('vi-VN')}đ (gốc: ${originalItemTotal.toLocaleString('vi-VN')}đ)`,
+                JSON.stringify([
+                    { field: 'production_cancelled', label: 'Hủy phiếu SX', old: 'false', new: 'true' },
+                    { field: 'item_total', label: 'Giá trị phiếu', old: String(originalItemTotal), new: String(newItemTotal) },
+                    { field: 'reason', label: 'Lý do', old: null, new: reason.trim() }
+                ]),
+                user.id
+            ]);
+
+            // 5. Telegram notification
+            try {
+                const { notifyTelegram } = require('../utils/telegram');
+                const completedNames = (completed_steps || []).map(s => s.step).join(', ') || 'Không có';
+                const pendingNames = (pending_steps || []).map(s => s.step).join(', ') || 'Không có';
+                const msg = `🚫 <b>HỦY PHIẾU SẢN XUẤT</b>\n\n` +
+                    `📋 Đơn: <b>${order.order_code}</b>\n` +
+                    `👤 KH: ${order.customer_name || '—'}\n` +
+                    `👕 SP: ${item.product_name || item.description} — ${item.material_name || ''} — ${item.color_name || ''} — ${item.quantity || 0} cái\n\n` +
+                    `✅ Đã làm: ${completedNames}\n` +
+                    `❌ Dừng: ${pendingNames}\n\n` +
+                    `💰 Chi phí SX: ${(newItemTotal || 0).toLocaleString('vi-VN')}đ\n` +
+                    `💰 Giá trị gốc: ${originalItemTotal.toLocaleString('vi-VN')}đ\n` +
+                    `📝 Lý do: ${reason.trim()}\n\n` +
+                    `👤 Hủy bởi: ${user.full_name || user.username}`;
+                await notifyTelegram(null, 'huy_phieu_sx', msg);
+            } catch (tgErr) {
+                console.error('[CancelProd] Telegram error:', tgErr.message);
+            }
+
+            return { success: true, new_item_total: newItemTotal, new_order_total: newOrderTotal };
+        } catch (err) {
+            console.error('[CancelProd] Error:', err);
+            return reply.code(500).send({ error: 'Lỗi khi hủy phiếu: ' + err.message });
+        }
+    });
+
+    // ★ RESTORE: Phục hồi phiếu đã hủy
+    fastify.post('/api/dht/orders/:orderId/items/:itemId/restore-production', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = await db.get('SELECT id, role, username, full_name FROM users WHERE id = $1', [request.user.id]);
+        if (!user || !_isGDOrTrinh(user)) {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc hoặc Quản lý cấp cao Lê Việt Trinh mới được phục hồi phiếu' });
+        }
+
+        const orderId = Number(request.params.orderId);
+        const itemId = Number(request.params.itemId);
+
+        const item = await db.get('SELECT * FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
+        if (!item) return reply.code(404).send({ error: 'Không tìm thấy phiếu' });
+        if (!item.production_cancelled) return reply.code(400).send({ error: 'Phiếu này chưa bị hủy SX' });
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+        const restoredTotal = Number(item.original_item_total) || Number(item.item_total) || 0;
+
+        try {
+            // 1. Restore item total + clear flags
+            await db.run(`
+                UPDATE dht_order_items
+                SET production_cancelled = false,
+                    production_cancelled_at = NULL,
+                    production_cancelled_by = NULL,
+                    item_total = $1,
+                    total = $1
+                WHERE id = $2
+            `, [restoredTotal, itemId]);
+
+            // 2. Delete cancellation record
+            await db.run('DELETE FROM dht_item_production_cancellations WHERE order_item_id = $1', [itemId]);
+
+            // 3. Recalculate order total
+            const sumRow = await db.get(`
+                SELECT COALESCE(SUM(COALESCE(item_total, 0)), 0)::numeric AS new_total
+                FROM dht_order_items WHERE dht_order_id = $1
+            `, [orderId]);
+            const newOrderTotal = Number(sumRow.new_total) || 0;
+            await db.run(`UPDATE dht_orders SET total_amount = $1, last_updated_at = $2, last_updated_by = $3 WHERE id = $4`,
+                [newOrderTotal, now, user.id, orderId]);
+
+            // 4. Audit log
+            await db.run(`
+                INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by)
+                VALUES ($1, $2, $3, $4, $5)
+            `, [
+                orderId, 'restore_production',
+                `✅ Phục hồi phiếu SX: ${item.product_name || item.description} — Giá trị phục hồi: ${restoredTotal.toLocaleString('vi-VN')}đ`,
+                JSON.stringify([
+                    { field: 'production_cancelled', label: 'Phục hồi phiếu SX', old: 'true', new: 'false' },
+                    { field: 'item_total', label: 'Giá trị phiếu', old: String(Number(item.item_total) || 0), new: String(restoredTotal) }
+                ]),
+                user.id
+            ]);
+
+            return { success: true, restored_total: restoredTotal, new_order_total: newOrderTotal };
+        } catch (err) {
+            console.error('[RestoreProd] Error:', err);
+            return reply.code(500).send({ error: 'Lỗi khi phục hồi phiếu: ' + err.message });
+        }
+    });
 };
 

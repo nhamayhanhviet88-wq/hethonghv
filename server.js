@@ -1308,6 +1308,31 @@ async function start() {
         console.log('✅ CTV/HH tables checked/created successfully');
     } catch(e) { console.error('[CTV/HH Migration Error]', e.message); }
 
+    // v15: Hủy Phiếu Sản Xuất — Production Cancellation per Item
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_item_production_cancellations (
+            id                SERIAL PRIMARY KEY,
+            dht_order_id      INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            order_item_id     INTEGER NOT NULL REFERENCES dht_order_items(id) ON DELETE CASCADE,
+            completed_steps   JSONB DEFAULT '[]',
+            pending_steps     JSONB DEFAULT '[]',
+            cost_details      JSONB DEFAULT '{}',
+            total_cost        NUMERIC DEFAULT 0,
+            original_item_total NUMERIC DEFAULT 0,
+            reason            TEXT,
+            cancelled_by      INTEGER REFERENCES users(id),
+            cancelled_at      TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(order_item_id)
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dipc_order ON dht_item_production_cancellations(dht_order_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dipc_item ON dht_item_production_cancellations(order_item_id)`);
+        await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS production_cancelled BOOLEAN DEFAULT false`);
+        await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS production_cancelled_at TIMESTAMPTZ`);
+        await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS production_cancelled_by INTEGER`);
+        await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS original_item_total NUMERIC`);
+        console.log('✅ [Migration v15] Production Cancellation tables ready');
+    } catch(e) { console.error('[Migration v15] Production Cancellation:', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
