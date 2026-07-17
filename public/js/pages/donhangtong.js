@@ -2770,13 +2770,32 @@ function _dhtShowItemDetail(idx) {
 
     // Quantities breakdown
     if (quantities.length > 0) {
+        const hasSizes = quantities.some(q => q.size);
+        const hasNotes = quantities.some(q => q.note);
+
         html += `<div style="margin-bottom:14px"><div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px">📊 Chi tiết số lượng & giá</div>`;
-        html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--navy);color:#fff"><th style="padding:6px 10px;text-align:center">SL</th><th style="padding:6px 10px;text-align:right">Đơn Giá</th><th style="padding:6px 10px;text-align:center">VAT</th><th style="padding:6px 10px;text-align:right">Thành Tiền</th></tr></thead><tbody>`;
+        html += `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--navy);color:#fff">`;
+        if (hasSizes) {
+            html += `<th style="padding:6px 10px;text-align:left">Size</th>`;
+        }
+        html += `<th style="padding:6px 10px;text-align:center">SL</th><th style="padding:6px 10px;text-align:right">Đơn Giá</th><th style="padding:6px 10px;text-align:center">VAT</th><th style="padding:6px 10px;text-align:right">Thành Tiền</th>`;
+        if (hasNotes) {
+            html += `<th style="padding:6px 10px;text-align:left">Ghi chú</th>`;
+        }
+        html += `</tr></thead><tbody>`;
         for (const q of quantities) {
             const qBase = (Number(q.qty)||0) * (Number(q.price)||0);
             const qVatAmt = (Number(q.subtotal)||qBase) - qBase;
             const qVatPct = qBase > 0 && qVatAmt > 0 ? Math.round(qVatAmt / qBase * 100) : 0;
-            html += `<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px 10px;text-align:center;font-weight:700">${q.qty}</td><td style="padding:6px 10px;text-align:right">${fmt(q.price)}đ</td><td style="padding:6px 10px;text-align:center;font-weight:700;color:#6366f1">${vatPercent > 0 ? vatPercent+'%' : '0%'}</td><td style="padding:6px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(qBase + (qBase * vatPercent / 100))}đ</td></tr>`;
+            html += `<tr style="border-bottom:1px solid #f1f5f9">`;
+            if (hasSizes) {
+                html += `<td style="padding:6px 10px;text-align:left;font-weight:600;color:#475569">${q.size || '—'}</td>`;
+            }
+            html += `<td style="padding:6px 10px;text-align:center;font-weight:700">${q.qty}</td><td style="padding:6px 10px;text-align:right">${fmt(q.price)}đ</td><td style="padding:6px 10px;text-align:center;font-weight:700;color:#6366f1">${vatPercent > 0 ? vatPercent+'%' : '0%'}</td><td style="padding:6px 10px;text-align:right;font-weight:800;color:#dc2626">${fmt(qBase + (qBase * vatPercent / 100))}đ</td>`;
+            if (hasNotes) {
+                html += `<td style="padding:6px 10px;text-align:left;color:#64748b">${q.note || ''}</td>`;
+            }
+            html += `</tr>`;
         }
         html += `</tbody></table></div>`;
     }
