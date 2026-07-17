@@ -4493,8 +4493,8 @@ async function _shDoReconcileCancelledItem(orderId, itemId) {
     const write_off_amount = Number(amountInput.value.replace(/\D/g, '')) || 0;
     const note = noteInput.value.trim();
     
-    if (write_off_amount <= 0) {
-        return alert('Vui lòng nhập số tiền giảm trừ hợp lệ (lớn hơn 0đ)');
+    if (write_off_amount < 0) {
+        return alert('Vui lòng nhập số tiền giảm trừ hợp lệ (lớn hơn hoặc bằng 0đ)');
     }
     if (!note) {
         return alert('Vui lòng nhập lý do quyết toán công nợ');
