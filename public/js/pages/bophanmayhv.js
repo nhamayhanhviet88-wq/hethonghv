@@ -334,6 +334,36 @@ function _bpmRender(){
         + '<button class="bpm-ib'+eC+'" onclick="_bpmErr('+r.id+')" title="Báo lỗi">'+eI+'</button>'
         + '</div>';
 
+        var slText = '<span style="color:#2563eb;font-weight:700" title="SL Thực Tế">' + (r.order_qty || r.quantity) + '</span> / <span style="color:#0d9488;font-weight:700" title="SL May">' + _bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name) + '</span>';
+
+        var priceText = '<span style="color:#475569" title="Giá Gốc">' + _bpmFN(r.base_price) + '</span> / <span style="color:#dc2626;font-weight:700" title="Giá KTra">' + _bpmFN(r.checked_price) + '</span>';
+
+        var qcDateDisplay = '—';
+        var qcDateVal = r.qc_date || r.done_date;
+        if (qcDateVal) {
+            qcDateDisplay = '<span style="padding:4px 8px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:10.5px;font-weight:800;display:inline-block;white-space:nowrap">' + _bpmFDT(qcDateVal) + '</span>';
+        } else {
+            qcDateDisplay = '<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa KTra</span>';
+        }
+
+        if (r.production_cancelled) {
+            var cancelBanner = '<td style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#7f1d1d;color:#fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block">🚫 HỦY SẢN XUẤT</span></td>';
+            return '<tr style="opacity:0.45; pointer-events:none; background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(127,29,29,0.03) 10px,rgba(127,29,29,0.03) 20px);"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
+            + cancelBanner
+            +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvN+'</td>'
+            +'<td style="font-size:10px">'+(r.handover_date?_bpmFDT(r.handover_date):'—')+'</td>'
+            +'<td style="text-align:center;vertical-align:middle;font-weight:700;font-size:11px;color:#4f46e5;white-space:nowrap">'+_bpmFDDM(r.expected_date)+'</td>'
+            +'<td style="text-align:center;vertical-align:middle">'+qcDateDisplay+'</td>'
+            +'<td style="text-align:center;vertical-align:middle">'+(r.done_date?'<span style="padding:4px 8px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:10.5px;font-weight:800;display:inline-block;white-space:nowrap">'+_bpmFDT(r.done_date)+'</span>':'<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa May</span>')+'</td>'
+            +'<td style="text-align:center;vertical-align:middle">'+_bpmProgress(r.expected_ship_date || r.shipping_date, r.done_date)+'</td>'
+            +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpmShowHandoverModal('+r.id+')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+_bpmDisplayProdName(r)+'</a></td>'
+            +'<td style="font-size:10px;color:#475569;font-weight:600">'+(r.cskh_name||'—')+'</td>'
+            +'<td style="text-align:center;font-size:11px">'+slText+'</td>'
+            +'<td style="text-align:right;font-size:11px">'+priceText+'</td>'
+            +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
+            +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
+        }
+
         if (r.is_draft) {
             var warnBanner = '<td style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
             return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
@@ -350,18 +380,6 @@ function _bpmRender(){
             +'<td style="text-align:right;font-size:11px">'+priceText+'</td>'
             +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
             +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
-        }
-
-        var slText = '<span style="color:#2563eb;font-weight:700" title="SL Thực Tế">' + (r.order_qty || r.quantity) + '</span> / <span style="color:#0d9488;font-weight:700" title="SL May">' + _bpmFormatOrderQty(r.quantity, r.category_name, r.cut_product_name || r.product_name) + '</span>';
-
-        var priceText = '<span style="color:#475569" title="Giá Gốc">' + _bpmFN(r.base_price) + '</span> / <span style="color:#dc2626;font-weight:700" title="Giá KTra">' + _bpmFN(r.checked_price) + '</span>';
-
-        var qcDateDisplay = '—';
-        var qcDateVal = r.qc_date || r.done_date;
-        if (qcDateVal) {
-            qcDateDisplay = '<span style="padding:4px 8px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:10.5px;font-weight:800;display:inline-block;white-space:nowrap">' + _bpmFDT(qcDateVal) + '</span>';
-        } else {
-            qcDateDisplay = '<span style="padding:4px 8px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap">Chưa KTra</span>';
         }
 
         return '<tr><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'

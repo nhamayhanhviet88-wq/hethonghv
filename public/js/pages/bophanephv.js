@@ -597,6 +597,26 @@ function _bpeRenderRows(paged) {
                 +'</tr>';
         }
 
+        if (r.production_cancelled) {
+            var cancelBanner = '<td colspan="2" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#7f1d1d;color:#fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block">🚫 HỦY SẢN XUẤT</span></td>';
+            return '<tr style="opacity:0.45; pointer-events:none; background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(127,29,29,0.03) 10px,rgba(127,29,29,0.03) 20px);">'
+                +'<td class="bpe-col-stt" style="font-weight:700;color:#94a3b8">'+(globalIndex+1)+'</td>'
+                +cancelBanner
+                +'<td style="font-size:10px">—</td>'
+                +'<td style="font-size:10px;color:#ea580c;font-weight:600">'+(r.presser_name||'—')+'</td>'
+                +'<td style="font-weight:600;color:#1e293b"><a href="javascript:void(0)" onclick="_bpeOpenDetail(null,' + (r.order_item_id || 'null') + ')" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+priBadge+_bpeDisplayProdName(r)+'</a>' + _bpeGetPrintStatusHtml(r) + '</td>'
+                +'<td style="text-align:center;font-size:10px">—</td>'
+                +'<td class="bpe-hide-desktop" style="font-size:10px;font-weight:bold">'+(r.material_name||'—')+'</td>'
+                +'<td class="bpe-hide-desktop" style="font-size:10px">'+(r.fabric_color||'—')+'</td>'
+                +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
+                +'<td style="text-align:center;font-weight:600;color:#0369a1">'+_bpeFormatOrderQty(r.order_quantity, r.category_name, r.product_name)+'</td>'
+                +'<td style="text-align:center;font-weight:700;color:#ea580c">'+(r.press_quantity || '—')+'</td>'
+                + posColsHtml
+                +'<td style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.notes || '—')+'</td>'
+                +'<td style="font-size:9px;color:#6b7280">'+upd+'</td>'
+                +'</tr>';
+        }
+
         if (r.is_unpressed) {
             var claimHtml = '';
             if (r.ready) {

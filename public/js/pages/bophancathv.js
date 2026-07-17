@@ -888,6 +888,11 @@ function _bpcMapRecordRow(r, i) {
         disableReason = '⚠️ Đơn đang được sửa bởi ' + r.edit_lock_by;
     }
 
+    if (r.production_cancelled) {
+        canInteract = false;
+        disableReason = '🚫 Phiếu này đã bị HỦY SẢN XUẤT';
+    }
+
     var cutBtnHtml = '';
     if (r.is_uncut) {
         var ready = r.fabric_arrived && r.has_pc_in;
@@ -1050,6 +1055,32 @@ function _bpcMapRecordRow(r, i) {
             +warnBanner
             +'<td style="font-size:10px">—</td>'
             +'<td style="font-size:10px;color:#059669;font-weight:600">—</td>'
+            +nameHtml
+            +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
+            +'<td style="font-size:10px">'
+            +_bpcFormatMaterialName(r.material_name)
+            +'<br>' + (r.fabric_color||'—')
+            +(r.warehouse_location ? '<br>' + _bpcFormatLocation(r.warehouse_location) : '')
+            +'</td>'
+            +'<td style="text-align:center;font-weight:700;color:'+qtyColor+'">'+_bpcFormatOrderQty(r.order_quantity, r.product_name, r.cutting_category)+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:'+cutColor+'">'+_bpcFormatOrderQty(r.cut_quantity, r.product_name, r.cutting_category)+'</td>'
+            +'<td style="text-align:center;font-weight:700;color:#dc2626">'+_bpcFmtKg(r.kg_cut)+'</td>'
+            +'<td style="text-align:center;font-weight:800;color:'+ratioColor+'">'+(r.cut_ratio ? r.cut_ratio + ' sp/' + (r.fabric_unit || 'kg') : '—')+'</td>'
+            +'<td style="font-size:9px;color:#6b7280;max-width:80px;overflow:hidden;text-overflow:ellipsis">'+(r.ratio_reason||'—')+'</td>'
+            +'<td style="text-align:center;font-weight:600">'+_bpcFmtKg(r.kg_start)+'</td>'
+            +'<td style="text-align:center;font-weight:600">'+_bpcFmtKg(r.kg_end)+'</td>'
+            +'<td style="font-size:10px;text-align:center">'+sharedCol+'</td>'
+            +'<td style="font-size:9px;color:#6b7280">'+updateStr+'</td>'
+            +'</tr>';
+    }
+
+    if (r.production_cancelled) {
+        var cancelBanner = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#7f1d1d;color:#fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block">🚫 HỦY SẢN XUẤT</span></td>';
+        return '<tr style="opacity:0.45; pointer-events:none; background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(127,29,29,0.03) 10px,rgba(127,29,29,0.03) 20px);">'
+            +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
+            +cancelBanner
+            +'<td style="font-size:10px">—</td>'
+            +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.cutter_name||'—')+'</td>'
             +nameHtml
             +'<td style="font-size:10px;color:#475569">'+(r.cskh_name||'—')+'</td>'
             +'<td style="font-size:10px">'

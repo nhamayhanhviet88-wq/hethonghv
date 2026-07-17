@@ -778,6 +778,22 @@ function _bpiRender() {
             + notesMergedCell
             +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
         }
+        if (r.production_cancelled) {
+            var cancelBanner = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#7f1d1d;color:#fca5a5;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block">🚫 HỦY SẢN XUẤT</span></td>';
+            return '<tr style="opacity:0.45; pointer-events:none; background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(127,29,29,0.03) 10px,rgba(127,29,29,0.03) 20px);"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
+            + cancelBanner
+            +'<td style="text-align:center">'+fieldBadge+'</td>'
+            +'<td style="font-size:10px">'+printDateVal+'</td>'
+            +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
+            +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
+            +'<td style="font-weight:600;color:#1e293b">'+priBadge+clickableName+imgIcon+'</td>'
+            +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
+            + rollMeterCell
+            +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
+            +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
+            + notesMergedCell
+            +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
+        }
         var trStyle = '';
         return '<tr' + trStyle + '><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell

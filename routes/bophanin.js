@@ -632,9 +632,11 @@ module.exports = async function(fastify) {
                     pr.gc_deadline,
                     pr.gc_extension_count,
                     o.category_id AS category_id,
-                    (SELECT product_name FROM cutting_records WHERE order_item_id = pr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name
+                    (SELECT product_name FROM cutting_records WHERE order_item_id = pr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
+                    COALESCE(oi_cancel.production_cancelled, false) AS production_cancelled
                 FROM printing_records pr
                 LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
+                LEFT JOIN dht_order_items oi_cancel ON oi_cancel.id = pr.order_item_id
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
                 LEFT JOIN users u_locked ON o.locked_by = u_locked.id
                 LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
@@ -707,7 +709,8 @@ module.exports = async function(fastify) {
                     NULL::date AS gc_deadline,
                     0 AS gc_extension_count,
                     o.category_id AS category_id,
-                    NULL::text AS cut_product_name
+                    NULL::text AS cut_product_name,
+                    false AS production_cancelled
                 FROM dht_orders o
                 LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
                 LEFT JOIN users u_locked ON o.locked_by = u_locked.id
@@ -948,8 +951,9 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: err.message });
         }
 
-        const rec = await db.get('SELECT * FROM printing_records WHERE id=$1', [id]);
+        const rec = await db.get('SELECT pr.*, COALESCE(oi.production_cancelled, false) AS production_cancelled FROM printing_records pr LEFT JOIN dht_order_items oi ON oi.id = pr.order_item_id WHERE pr.id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+        if (rec.production_cancelled) return reply.code(403).send({ error: '🚫 Phiếu này đã bị HỦY SẢN XUẤT — không thể thao tác' });
 
         const isManager = await isPrintManager(req);
         if (rec.is_print_done && !isManager) {

@@ -2144,9 +2144,13 @@ module.exports = async function(fastify) {
 
                    w.unit AS fabric_unit,
 
-                   sch.cut_expected_at
+                   sch.cut_expected_at,
+
+                   COALESCE(oi.production_cancelled, false) AS production_cancelled
 
              FROM cutting_records cr
+
+             LEFT JOIN dht_order_items oi ON oi.id = cr.order_item_id
 
              LEFT JOIN users u_cutter ON cr.cutter_id = u_cutter.id
 
@@ -2580,9 +2584,11 @@ module.exports = async function(fastify) {
 
 
 
-        const rec = await db.get('SELECT * FROM cutting_records WHERE id = $1', [id]);
+        const rec = await db.get('SELECT cr.*, COALESCE(oi.production_cancelled, false) AS production_cancelled FROM cutting_records cr LEFT JOIN dht_order_items oi ON oi.id = cr.order_item_id WHERE cr.id = $1', [id]);
 
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        if (rec.production_cancelled) return reply.code(403).send({ error: '🚫 Phiếu này đã bị HỦY SẢN XUẤT — không thể thao tác' });
 
 
 

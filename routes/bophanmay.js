@@ -1,1046 +1,1048 @@
-// ========== BỘ PHẬN MAY — Routes ==========
-const db = require('../db/pool');
-const { authenticate } = require('../middleware/auth');
-const { vnNow, vnDateStr } = require('../utils/timezone');
-const { getHolidays } = require('../utils/workingDay');
-const { syncFinishingRecord } = require('../utils/finishingSync');
-const path = require('path');
-const fs = require('fs');
-
-module.exports = async function(fastify) {
-
-    fastify.addHook('preHandler', async (request, reply) => {
-        if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return;
-        const url = request.url;
-        if (url.includes('/api/sewing/contractors') || url.includes('/api/sewing/staff') || url.includes('/api/sewing/teams')) return;
-        let dhtOrderId = null;
-        if (request.body && request.body.dht_order_id) {
-            dhtOrderId = Number(request.body.dht_order_id);
-        } else if (request.params && request.params.id) {
-            const id = Number(request.params.id);
-            if (url.includes('/api/sewing/records/') || url.includes('/api/sewing/toggle/')) {
-                const rec = await db.get('SELECT dht_order_id FROM sewing_records WHERE id = $1', [id]);
-                if (rec) dhtOrderId = rec.dht_order_id;
-            }
-        } else if (request.params && request.params.sewingRecordId) {
-            const sewingRecordId = Number(request.params.sewingRecordId);
-            const rec = await db.get('SELECT dht_order_id FROM sewing_records WHERE id = $1', [sewingRecordId]);
-            if (rec) dhtOrderId = rec.dht_order_id;
-        }
-        if (dhtOrderId) {
-            const order = await db.get('SELECT is_draft FROM dht_orders WHERE id = $1', [dhtOrderId]);
-            if (order && order.is_draft) {
-                return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
-            }
-        }
-    });
-
-
-    // ========== AUTO-MIGRATE ==========
-    try { await db.exec(`CREATE TABLE IF NOT EXISTS sewing_contractors (
-        id SERIAL PRIMARY KEY, name TEXT NOT NULL, phone TEXT, notes TEXT,
-        is_active BOOLEAN DEFAULT true, display_order INTEGER DEFAULT 0,
-        created_by INTEGER REFERENCES users(id), created_at TIMESTAMPTZ DEFAULT NOW()
-    )`); } catch(e) { console.error('[BPM] contractors:', e.message); }
-
-    try { await db.exec(`CREATE TABLE IF NOT EXISTS sewing_records (
-        id SERIAL PRIMARY KEY, dht_order_id INTEGER,
-        order_item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE,
-        sewing_team_id INTEGER REFERENCES departments(id),
-        is_reported BOOLEAN DEFAULT false, reported_at TIMESTAMPTZ, reported_by INTEGER REFERENCES users(id),
-        error_reported BOOLEAN DEFAULT false, error_order_id INTEGER,
-        salary_approved BOOLEAN DEFAULT false, salary_approved_at TIMESTAMPTZ, salary_approved_by INTEGER REFERENCES users(id),
-        salary_note TEXT,
-        expected_date DATE, handover_date DATE, done_date TIMESTAMPTZ,
-        sewer_id INTEGER REFERENCES users(id), contractor_id INTEGER,
-        product_name TEXT, quantity INTEGER DEFAULT 0,
-        base_price NUMERIC DEFAULT 0, checked_price NUMERIC DEFAULT 0, salary NUMERIC DEFAULT 0,
-        sewing_details TEXT, inventory_notes TEXT, shared_sewing TEXT,
-        finish_images TEXT DEFAULT '[]', notes TEXT,
-        created_by INTEGER REFERENCES users(id),
-        created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
-    )`);
-    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_sewer ON sewing_records(sewer_id)`);
-    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_contractor ON sewing_records(contractor_id)`);
-    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_handover ON sewing_records(handover_date)`);
-    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_order_item ON sewing_records(order_item_id)`);
-    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_sewing_team ON sewing_records(sewing_team_id)`);
-    try {
-        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS salary_note TEXT`);
-        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS is_rescheduled BOOLEAN DEFAULT false`);
-        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS original_expected_date DATE`);
-        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_missing_notes TEXT`);
-        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_evidence_images TEXT DEFAULT '[]'`);
-        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_missing_price_images TEXT DEFAULT '[]'`);
-        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS sew_notes TEXT`);
-    } catch(err) {
-        console.error('[BPM] Migration error for fields:', err.message);
-    }
-    } catch(e) { console.error('[BPM] records:', e.message); }
-
-    try { await db.exec(`CREATE TABLE IF NOT EXISTS sewing_history (
-        id SERIAL PRIMARY KEY, sewing_id INTEGER NOT NULL REFERENCES sewing_records(id) ON DELETE CASCADE,
-        action TEXT NOT NULL, details TEXT, performed_by INTEGER REFERENCES users(id),
-        performed_at TIMESTAMPTZ DEFAULT NOW()
-    )`);
-    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sh_sid ON sewing_history(sewing_id)`);
-    } catch(e) { console.error('[BPM] history:', e.message); }
-
-    // QC Checklist database tables
-    try {
-        await db.exec(`CREATE TABLE IF NOT EXISTS qc_checklist_templates (
-            id SERIAL PRIMARY KEY,
-            type VARCHAR(20) DEFAULT 'yes_no',
-            content TEXT NOT NULL,
-            sort_order INT DEFAULT 0,
-            is_active BOOLEAN DEFAULT TRUE,
-            created_by INTEGER REFERENCES users(id),
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        )`);
-        await db.exec(`CREATE TABLE IF NOT EXISTS qc_checklist_answers (
-            id SERIAL PRIMARY KEY,
-            sewing_record_id INTEGER NOT NULL REFERENCES sewing_records(id) ON DELETE CASCADE,
-            template_id INTEGER NOT NULL REFERENCES qc_checklist_templates(id) ON DELETE CASCADE,
-            answer_value TEXT,
-            answered_by INTEGER REFERENCES users(id),
-            answered_at TIMESTAMPTZ,
-            UNIQUE(sewing_record_id, template_id)
-        )`);
-    } catch(e) {
-        console.error('[QC Checklist Migration] Error:', e.message);
-    }
-
-    // Ensure uploads dir
-    const uploadsDir = path.join(__dirname, '..', 'uploads', 'sewing');
-    try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch(e) {}
-
-    // ========== HELPERS ==========
-    const MGMT = ['giam_doc', 'quan_ly_cap_cao'];
-    async function isSewManager(req) {
-        if (MGMT.includes(req.user.role)) return true;
-        // Check if user has kiem_tra_chat_luong permission
-        const hasQCPerm = await db.get(`
-            SELECT 1 FROM (
-                SELECT can_view FROM user_permissions WHERE user_id = $1 AND feature_key = 'kiem_tra_chat_luong'
-                UNION ALL
-                SELECT dp.can_view FROM department_permissions dp JOIN users u ON u.department_id = dp.department_id WHERE u.id = $1 AND dp.feature_key = 'kiem_tra_chat_luong'
-            ) t WHERE can_view > 0 LIMIT 1
-        `, [req.user.id]);
-        if (hasQCPerm) return true;
-
-        const d = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [req.user.id]);
-        if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('qlx') || n.includes('may') || n.includes('quản lý xưởng')) return true; }
-        return false;
-    }
-    async function canApproveSalary(req) {
-        if (req.user.role === 'giam_doc') return true;
-        const u = await db.get(`SELECT username, role FROM users WHERE id=$1`, [req.user.id]);
-        return u && u.role === 'quan_ly_cap_cao' && u.username === 'trinh';
-    }
-    function calcSalary(approved, qty, base, checked) {
-        if (!approved) return 0;
-        const q = Number(qty)||0, c = Number(checked)||0;
-        return q * c;
-    }
-
-
-
-    // ========== CONTRACTORS CRUD ==========
-    fastify.get('/api/sewing/contractors', { preHandler: [authenticate] }, async () => {
-        return { contractors: await db.all(`SELECT * FROM sewing_contractors WHERE is_active=true ORDER BY display_order, name`) };
-    });
-    fastify.post('/api/sewing/contractors', { preHandler: [authenticate] }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền tạo nhà gia công may' });
-        const { name, phone, notes } = req.body || {};
-        if (!name) return reply.code(400).send({ error: 'Tên bắt buộc' });
-        const r = await db.get(`INSERT INTO sewing_contractors (name,phone,notes,created_by) VALUES ($1,$2,$3,$4) RETURNING id`, [name, phone||null, notes||null, req.user.id]);
-        return { success: true, id: r.id };
-    });
-    fastify.put('/api/sewing/contractors/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền chỉnh sửa nhà gia công may' });
-        const { name, phone, notes } = req.body || {};
-        await db.run(`UPDATE sewing_contractors SET name=$1, phone=$2, notes=$3 WHERE id=$4`, [name, phone||null, notes||null, req.params.id]);
-        return { success: true };
-    });
-    fastify.delete('/api/sewing/contractors/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền xóa nhà gia công may' });
-        await db.run(`UPDATE sewing_contractors SET is_active=false WHERE id=$1`, [req.params.id]);
-        return { success: true };
-    });
-
-    // ========== TREE ==========
-    fastify.get('/api/sewing/tree', { preHandler: [authenticate] }, async (req) => {
-        const mgr = await isSewManager(req);
-        let where = '', params = [];
-        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
-            where = ' AND (sr.sewer_id=$1 OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id=$1))'; 
-            params.push(req.user.id); 
-        }
-        
-        const rows = await db.all(`
-            SELECT EXTRACT(YEAR FROM COALESCE(sr.handover_date,sr.created_at))::int AS year,
-                   sr.sewer_id, u.full_name AS sewer_name,
-                   sr.sewing_team_id, dt.name AS sewing_team_name,
-                   sr.contractor_id, c.name AS contractor_name,
-                   CASE WHEN sr.done_date IS NOT NULL THEN 1 ELSE 0 END AS is_done,
-                   CASE WHEN sr.done_date IS NOT NULL THEN EXTRACT(MONTH FROM COALESCE(sr.done_date,sr.handover_date,sr.created_at))::int ELSE NULL END AS done_month,
-                   COUNT(*)::int AS count
-            FROM sewing_records sr
-            LEFT JOIN users u ON sr.sewer_id=u.id
-            LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
-            LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
-            WHERE 1=1 ${where}
-            GROUP BY year, sr.sewer_id, u.full_name, sr.sewing_team_id, dt.name, sr.contractor_id, c.name, is_done, done_month
-            ORDER BY year DESC, dt.name, u.full_name, c.name, done_month DESC`, params);
-
-        const total = rows.reduce((s,r) => s+r.count, 0);
-        const yearMap = {};
-        for (const r of rows) {
-            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, sewers: {} };
-            const isContractor = !!r.contractor_id;
-            const isTeam = !!r.sewing_team_id;
-            const key = isContractor ? `c_${r.contractor_id}` : (isTeam ? `t_${r.sewing_team_id}` : `s_${r.sewer_id || 0}`);
-            
-            if (!yearMap[r.year].sewers[key]) {
-                yearMap[r.year].sewers[key] = {
-                    id: isContractor ? r.contractor_id : (isTeam ? r.sewing_team_id : r.sewer_id),
-                    is_contractor: isContractor,
-                    is_team: isTeam,
-                    name: isContractor ? (r.contractor_name || 'Gia công') : (isTeam ? r.sewing_team_name : (r.sewer_name || 'Chưa phân công')),
-                    total: 0,
-                    incomplete_count: 0,
-                    months: {}
-                };
-            }
-            
-            const sewer = yearMap[r.year].sewers[key];
-            sewer.total += r.count;
-            yearMap[r.year].count += r.count;
-            
-            if (r.is_done === 1 && r.done_month !== null) {
-                if (!sewer.months[r.done_month]) {
-                    sewer.months[r.done_month] = { month: r.done_month, count: 0 };
-                }
-                sewer.months[r.done_month].count += r.count;
-            } else {
-                sewer.incomplete_count += r.count;
-            }
-        }
-        
-        const tree = Object.values(yearMap).map(y => ({
-            year: y.year,
-            count: y.count,
-            sewers: Object.values(y.sewers).map(s => ({
-                ...s,
-                months: Object.values(s.months).sort((a,b) => b.month - a.month)
-            }))
-        })).sort((a,b) => b.year - a.year);
-
-        const stats = await db.get(`SELECT COUNT(*)::int AS total,
-            COUNT(*) FILTER (WHERE is_reported AND done_date IS NULL)::int AS in_progress,
-            COUNT(*) FILTER (WHERE done_date IS NOT NULL)::int AS done,
-            COUNT(*) FILTER (WHERE salary_approved)::int AS approved
-            FROM sewing_records sr WHERE 1=1 ${where}`, params);
-        return { tree, total, stats: stats || {total:0,in_progress:0,done:0,approved:0} };
-    });
-
-    // ========== TABS COUNTS ==========
-    fastify.get('/api/sewing/counts', { preHandler: [authenticate] }, async (req) => {
-        const mgr = await isSewManager(req);
-        let where = 'WHERE 1=1', params = [];
-        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
-            where += ' AND (sr.sewer_id = $1 OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id = $1))'; 
-            params.push(req.user.id);
-        }
-        const counts = await db.get(`
-            SELECT 
-                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab1,
-                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab2,
-                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL)::int AS tab3,
-                COUNT(*) FILTER (WHERE sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date)))::int AS tab4,
-                COUNT(*) FILTER (WHERE sr.error_reported = true)::int AS tab5
-            FROM sewing_records sr
-            LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
-            ${where}
-        `, params);
-        return counts || { tab1: 0, tab2: 0, tab3: 0, tab4: 0, tab5: 0 };
-    });
-
-    // ========== LIST ==========
-    fastify.get('/api/sewing/records', { preHandler: [authenticate] }, async (req) => {
-        const mgr = await isSewManager(req);
-        const { year, month, sewer_id, contractor_id, sewing_team_id, status, search, tab } = req.query;
-        let where = 'WHERE 1=1', params = [], idx = 1;
-        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
-            where += ` AND (sr.sewer_id=$${idx} OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id=$${idx}))`; 
-            params.push(req.user.id); 
-            idx++;
-        }
-        if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(sr.handover_date,sr.created_at))=$${idx++}`; params.push(Number(year)); }
-        if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(sr.handover_date,sr.created_at))=$${idx++}`; params.push(Number(month)); }
-        if (sewer_id) {
-            if (sewer_id === 'none') {
-                where += ` AND sr.sewer_id IS NULL AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL`;
-            } else {
-                where += ` AND sr.sewer_id=$${idx++}`; params.push(Number(sewer_id));
-            }
-        }
-        if (contractor_id) { where += ` AND sr.contractor_id=$${idx++}`; params.push(Number(contractor_id)); }
-        if (sewing_team_id) { where += ` AND sr.sewing_team_id=$${idx++}`; params.push(Number(sewing_team_id)); }
-        
-        if (tab === '1') {
-            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
-        } else if (tab === '2') {
-            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
-        } else if (tab === '3') {
-            where += ` AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL`;
-        } else if (tab === '4') {
-            if (status === 'done_today') {
-                where += ` AND sr.done_date::date = (timezone('Asia/Ho_Chi_Minh', now())::date)`;
-            } else if (status === 'done_all') {
-                where += ` AND sr.done_date IS NOT NULL`;
-                if (req.query.done_date) {
-                    where += ` AND sr.done_date::date = $${idx++}`;
-                    params.push(req.query.done_date);
-                }
-                if (req.query.done_month) {
-                    where += ` AND EXTRACT(MONTH FROM sr.done_date) = $${idx++}`;
-                    params.push(Number(req.query.done_month));
-                }
-                if (req.query.done_year) {
-                    where += ` AND EXTRACT(YEAR FROM sr.done_date) = $${idx++}`;
-                    params.push(Number(req.query.done_year));
-                }
-            } else if (status === 'undone_past_today') {
-                where += ` AND sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date))`;
-            } else if (status === 'all') {
-                // Return all orders (no done_date conditions)
-            } else {
-                where += ` AND sr.done_date IS NULL`;
-            }
-        } else if (tab === '5') {
-            where += ` AND sr.error_reported = true`;
-        } else {
-            if (status==='progress') where += ` AND sr.is_reported=true AND sr.done_date IS NULL`;
-            else if (status==='done') where += ` AND sr.done_date IS NOT NULL`;
-            else if (status==='approved') where += ` AND sr.salary_approved=true`;
-            else if (status==='incomplete') where += ` AND sr.done_date IS NULL`;
-        }
-
-        if (search) { where += ` AND (sr.product_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
-        let limitVal = null;
-        let offsetVal = null;
-        if (req.query.page) {
-            const page = Number(req.query.page) || 1;
-            const limit = Number(req.query.limit) || 25;
-            limitVal = limit;
-            offsetVal = (page - 1) * limit;
-        }
-
-        const orderByClause = tab ? `
-                CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
-                o.order_code DESC NULLS LAST,
-                sr.product_name ASC,
-                sr.expected_date ASC NULLS LAST,
-                CASE 
-                    WHEN sr.sewing_team_id IS NOT NULL AND sr.contractor_id IS NULL THEN 1
-                    WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 2
-                    ELSE 3
-                END ASC,
-                COALESCE(o.expected_ship_date, o.shipping_date) ASC NULLS LAST,
-                CASE 
-                    WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'CHUẨN' THEN 1
-                    WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'GẤP' THEN 2
-                    WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'GỬI' THEN 3
-                    ELSE 4
-                END ASC,
-                sr.created_at DESC` : `
-                CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
-                o.order_code DESC NULLS LAST,
-                sr.product_name ASC,
-                sr.expected_date ASC NULLS LAST,
-                CASE WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 0 ELSE 1 END ASC,
-                sr.created_at DESC`;
-
-        let queryStr = `
-            SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
-                   u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority, COALESCE(o.is_draft, false) AS is_draft,
-                   o.expected_ship_date, o.shipping_date, o.standard_delivery_time,
-                   u_cskh.full_name AS cskh_name,
-                   (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
-                   cc.name AS category_name,
-                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.quantity AS order_qty,
-                   ts.factory_price AS ts_factory_price, ts.processing_price AS ts_processing_price, ts.sewing_tech AS ts_sewing_tech, ts.spec_image AS ts_spec_image,
-                   (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date,
-                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
-                   COUNT(*) OVER() AS total_count
-            FROM sewing_records sr 
-            LEFT JOIN users u ON sr.sewer_id=u.id 
-            LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
-            LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
-            LEFT JOIN users u_rpt ON sr.reported_by=u_rpt.id LEFT JOIN users u_sal ON sr.salary_approved_by=u_sal.id
-            LEFT JOIN dht_orders o ON sr.dht_order_id=o.id
-            LEFT JOIN users u_cskh ON o.cskh_user_id=u_cskh.id
-            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
-            LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
-            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
-            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
-            LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM sewing_history h WHERE h.sewing_id=sr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
-            LEFT JOIN users lhu ON lh.performed_by=lhu.id
-            ${where} ORDER BY ${orderByClause}`;
-
-        if (limitVal !== null) {
-            queryStr += ` LIMIT $${idx++} OFFSET $${idx++}`;
-            params.push(limitVal, offsetVal);
-        }
-
-        const records = await db.all(queryStr, params);
-        const totalCount = records.length > 0 ? Number(records[0].total_count) : 0;
-        return { records, totalCount };
-    });
-
-    fastify.get('/api/sewing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id);
-        const record = await db.get(`
-            SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
-                   u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority, COALESCE(o.is_draft, false) AS is_draft,
-                   o.expected_ship_date, o.shipping_date, o.standard_delivery_time,
-                   u_cskh.full_name AS cskh_name,
-                   (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
-                   cc.name AS category_name,
-                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.quantity AS order_qty,
-                   ts.factory_price AS ts_factory_price, ts.processing_price AS ts_processing_price, ts.sewing_tech AS ts_sewing_tech, ts.spec_image AS ts_spec_image,
-                   (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date,
-                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
-            FROM sewing_records sr 
-            LEFT JOIN users u ON sr.sewer_id=u.id 
-            LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
-            LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
-            LEFT JOIN users u_rpt ON sr.reported_by=u_rpt.id LEFT JOIN users u_sal ON sr.salary_approved_by=u_sal.id
-            LEFT JOIN dht_orders o ON sr.dht_order_id=o.id
-            LEFT JOIN users u_cskh ON o.cskh_user_id=u_cskh.id
-            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
-            LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
-            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
-            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
-            LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM sewing_history h WHERE h.sewing_id=sr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
-            LEFT JOIN users lhu ON lh.performed_by=lhu.id
-            WHERE sr.id = $1
-        `, [id]);
-        if (!record) return reply.code(404).send({ error: 'Không tìm thấy phiếu may' });
-        return { record };
-    });
-
-    // ========== CREATE ==========
-    fastify.post('/api/sewing/records', { preHandler: [authenticate] }, async (req) => {
-        const b = req.body||{}, now = vnNow();
-        const sal = calcSalary(false, b.quantity, b.base_price, b.checked_price);
-        const r = await db.get(`INSERT INTO sewing_records (dht_order_id,expected_date,handover_date,done_date,sewer_id,contractor_id,
-            product_name,quantity,base_price,checked_price,salary,sewing_details,inventory_notes,shared_sewing,finish_images,notes,created_by,created_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`,
-            [b.dht_order_id||null, b.expected_date||null, b.handover_date||null, b.done_date||null,
-             b.sewer_id||null, b.contractor_id||null, b.product_name||null, Number(b.quantity)||0,
-             Number(b.base_price)||0, Number(b.checked_price)||0, sal,
-             b.sewing_details||null, b.inventory_notes||null, b.shared_sewing||null,
-             b.finish_images||'[]', b.notes||null, req.user.id, now]);
-        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [r.id, 'create', 'Tạo đơn may mới', req.user.id, now]);
-        await syncFinishingRecord(r.id, req.user.id, now);
-        return { success: true, id: r.id };
-    });
-
-    // ========== TOGGLE ==========
-    fastify.post('/api/sewing/toggle/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), { action } = req.body||{}, now = vnNow();
-        const rec = await db.get('SELECT * FROM sewing_records WHERE id=$1', [id]);
-        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
-        let detail = '';
-        if (action === 'report') {
-            await db.run(`UPDATE sewing_records SET is_reported=true, reported_at=$1, reported_by=$2, handover_date = COALESCE(handover_date, $1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
-            detail = '📋 Báo cáo may';
-            await syncFinishingRecord(id, req.user.id, now);
-        } else if (action === 'undo_report') {
-            if (!rec.contractor_id) {
-                await db.run(`UPDATE sewing_records SET is_reported=false, reported_at=NULL, reported_by=NULL, handover_date=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
-            } else {
-                await db.run(`UPDATE sewing_records SET is_reported=false, reported_at=NULL, reported_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
-            }
-            detail = '↩️ Hoàn tác báo cáo';
-            try {
-                await db.run(`DELETE FROM finishing_records WHERE sewing_record_id = $1 AND is_completed = false AND done_date IS NULL`, [id]);
-            } catch(e) {
-                console.error('[BPHT] Error deleting linked finishing record on undo_report:', e.message);
-            }
-        } else if (action === 'approve_salary') {
-            if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền tính lương!' });
-            if (rec.notes && rec.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
-                return reply.code(400).send({ error: 'Chưa thể duyệt lương vì đơn hàng đang bị gắn cờ "Thiếu Kỹ Thuật May". Vui lòng sửa lại đơn hàng (bỏ tích cờ Thiếu kỹ thuật và cập nhật lại Giá kiểm tra chính xác) trước khi duyệt lương.' });
-            }
-            if (!rec.checked_price || Number(rec.checked_price) <= 0) {
-                return reply.code(400).send({ error: 'Cần nhập Giá KTra trước khi tính lương!' });
-            }
-            const salary_note = req.body.salary_note || null;
-            const sal = Number(rec.quantity || 0) * Number(rec.checked_price || 0);
-            await db.run(`UPDATE sewing_records SET salary_approved=true, salary_approved_at=$1, salary_approved_by=$2, salary_note=$3, salary=$4, updated_at=$1 WHERE id=$5`, [now, req.user.id, salary_note, sal, id]);
-            detail = '💰 Duyệt lương may' + (salary_note ? ': ' + salary_note : '');
-        } else if (action === 'undo_salary') {
-            if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Không có quyền' });
-            await db.run(`UPDATE sewing_records SET salary_approved=false, salary_approved_at=NULL, salary_approved_by=NULL, salary_note=NULL, salary=0, updated_at=$1 WHERE id=$2`, [now, id]);
-            detail = '↩️ Hoàn tác duyệt lương';
-        } else if (action === 'report_error') {
-            await db.run(`UPDATE sewing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);
-            detail = '⚠️ Báo lỗi nội bộ';
-        } else if (action === 'resolve_error') {
-            await db.run(`UPDATE sewing_records SET error_reported=false, error_order_id=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
-            detail = '✅ Sửa xong lỗi nội bộ';
-        } else if (action === 'mark_done') {
-            await db.run(`UPDATE sewing_records SET done_date=$1, is_reported=true, reported_at=COALESCE(reported_at,$1), updated_at=$1 WHERE id=$2`, [now, id]);
-            detail = '✅ May xong';
-            await syncFinishingRecord(id, req.user.id, now);
-        } else if (action === 'undo_done') {
-            await db.run(`UPDATE sewing_records SET done_date=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
-            detail = '↩️ Hoàn tác may xong';
-            try {
-                await db.run(`DELETE FROM finishing_records WHERE sewing_record_id = $1`, [id]);
-            } catch(e) {
-                console.error('[BPHT] Error deleting linked finishing record:', e.message);
-            }
-        } else { return reply.code(400).send({ error: 'Action không hợp lệ' }); }
-        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, action, detail, req.user.id, now]);
-        return { success: true };
-    });
-
-    // ========== UPDATE ==========
-    fastify.put('/api/sewing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), b = req.body||{}, now = vnNow();
-        const rec = await db.get('SELECT * FROM sewing_records WHERE id=$1', [id]);
-        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
-        const qty = b.quantity!==undefined ? Number(b.quantity)||0 : rec.quantity;
-        const bp = b.base_price!==undefined ? Number(b.base_price)||0 : Number(rec.base_price)||0;
-        const cp = b.checked_price!==undefined ? Number(b.checked_price)||0 : Number(rec.checked_price)||0;
-        const sal = calcSalary(rec.salary_approved, qty, bp, cp);
-        let isRescheduled = rec.is_rescheduled;
-        let origExpected = rec.original_expected_date;
-        if (b.expected_date !== undefined && b.expected_date !== rec.expected_date) {
-            const dateVal = b.expected_date ? b.expected_date.split('T')[0] : '';
-            const todayStr = vnDateStr();
-            if (!dateVal || dateVal < todayStr) {
-                return reply.code(400).send({ error: 'Chỉ được hẹn từ ngày hôm nay trở đi!' });
-            }
-            const holidays = await getHolidays();
-            if (holidays.has(dateVal)) {
-                return reply.code(400).send({ error: 'Không được chọn ngày nghỉ lễ!' });
-            }
-            origExpected = rec.original_expected_date || rec.expected_date;
-            isRescheduled = true;
-        }
-
-        await db.run(`UPDATE sewing_records SET expected_date=$1,handover_date=$2,done_date=$3,sewer_id=$4,contractor_id=$5,
-            product_name=$6,quantity=$7,base_price=$8,checked_price=$9,salary=$10,sewing_details=$11,
-            inventory_notes=$12,shared_sewing=$13,finish_images=$14,notes=$15,updated_at=$16,sewing_team_id=$17,
-            is_rescheduled=$18, original_expected_date=$19 WHERE id=$20`,
-            [b.expected_date!==undefined?b.expected_date:rec.expected_date, b.handover_date!==undefined?b.handover_date:rec.handover_date,
-             b.done_date!==undefined?b.done_date:rec.done_date, b.sewer_id!==undefined?b.sewer_id:rec.sewer_id,
-             b.contractor_id!==undefined?b.contractor_id:rec.contractor_id, b.product_name!==undefined?b.product_name:rec.product_name,
-             qty, bp, cp, sal, b.sewing_details!==undefined?b.sewing_details:rec.sewing_details,
-             b.inventory_notes!==undefined?b.inventory_notes:rec.inventory_notes,
-             b.shared_sewing!==undefined?b.shared_sewing:rec.shared_sewing,
-             b.finish_images!==undefined?b.finish_images:rec.finish_images,
-             b.notes!==undefined?b.notes:rec.notes, now, b.sewing_team_id!==undefined?b.sewing_team_id:rec.sewing_team_id,
-             isRescheduled, origExpected, id]);
-        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [id, 'update', 'Cập nhật thông tin may', req.user.id, now]);
-        await syncFinishingRecord(id, req.user.id, now);
-        return { success: true, salary: sal };
-    });
-
-    // ========== INLINE FIELD ==========
-    fastify.patch('/api/sewing/records/:id/field', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), { field, value } = req.body||{}, now = vnNow();
-        const ALLOWED = ['expected_date','handover_date','done_date','sewer_id','contractor_id','sewing_team_id','product_name',
-            'quantity','base_price','checked_price','sewing_details','inventory_notes','shared_sewing','notes','checked_techniques',
-            'qc_missing_notes','qc_evidence_images','qc_missing_price_images','sew_notes'];
-        if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
-        const numF = ['quantity','base_price','checked_price','sewer_id','contractor_id','sewing_team_id'];
-        const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
-        if (field === 'expected_date') {
-            const dateVal = value ? value.split('T')[0] : '';
-            const todayStr = vnDateStr();
-            if (!dateVal || dateVal < todayStr) {
-                return reply.code(400).send({ error: 'Chỉ được hẹn từ ngày hôm nay trở đi!' });
-            }
-            const holidays = await getHolidays();
-            if (holidays.has(dateVal)) {
-                return reply.code(400).send({ error: 'Không được chọn ngày nghỉ lễ!' });
-            }
-
-            const rec = await db.get('SELECT expected_date, original_expected_date FROM sewing_records WHERE id=$1', [id]);
-            if (rec && dateVal !== rec.expected_date) {
-                const orig = rec.original_expected_date || rec.expected_date;
-                await db.run(`UPDATE sewing_records SET expected_date=$1, is_rescheduled=true, original_expected_date=$2, updated_at=$3 WHERE id=$4`, [dateVal, orig, now, id]);
-                await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-                    [id, 'inline_update', `Hẹn Lại: ${rec.expected_date} ➔ ${dateVal}`, req.user.id, now]);
-            }
-        } else {
-            await db.run(`UPDATE sewing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
-        }
-        // Recalc salary if price/qty changed
-        if (['quantity','base_price','checked_price'].includes(field)) {
-            const rec = await db.get('SELECT salary_approved, quantity, base_price, checked_price FROM sewing_records WHERE id=$1', [id]);
-            if (rec) { const sal = calcSalary(rec.salary_approved, rec.quantity, rec.base_price, rec.checked_price);
-                await db.run(`UPDATE sewing_records SET salary=$1 WHERE id=$2`, [sal, id]); }
-        }
-        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [id, 'inline_update', `${field}: ${value}`, req.user.id, now]);
-        await syncFinishingRecord(id, req.user.id, now);
-        return { success: true };
-    });
-
-    // ========== SPLIT HANDOVER FOR MULTIPLE TEAMS ==========
-    fastify.post('/api/sewing/records/:id/split-handover', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id);
-        const { assignments } = req.body || {};
-        if (!Array.isArray(assignments) || !assignments.length) {
-            return reply.code(400).send({ error: 'Danh sách bàn giao không hợp lệ' });
-        }
-
-        const now = vnNow();
-
-        const pool = db.getDB();
-        let client;
-        const idsToSync = [id];
-
-        try {
-            client = await pool.connect();
-            await client.query('BEGIN');
-
-            const recRes = await client.query('SELECT * FROM sewing_records WHERE id=$1', [id]);
-            const rec = recRes.rows[0];
-            if (!rec) {
-                const err = new Error('Không tìm thấy bản ghi may');
-                err.statusCode = 404;
-                throw err;
-            }
-
-            if (rec.contractor_id !== null) {
-                const err = new Error('Không thể phân tổ trong nhà cho đơn may gia công ngoài!');
-                err.statusCode = 400;
-                throw err;
-            }
-
-            if (rec.done_date !== null || rec.salary_approved === true) {
-                const err = new Error('Đơn may đã hoàn thành hoặc đã duyệt lương. Không thể thay đổi phân tổ!');
-                err.statusCode = 400;
-                throw err;
-            }
-
-            // Validate quantities
-            let totalQty = 0;
-            for (const ass of assignments) {
-                const qty = Number(ass.quantity) || 0;
-                if (qty <= 0) {
-                    const err = new Error('Số lượng bàn giao cho từng tổ phải lớn hơn 0!');
-                    err.statusCode = 400;
-                    throw err;
-                }
-                if (!ass.team_id) {
-                    const err = new Error('Tổ may bàn giao không hợp lệ!');
-                    err.statusCode = 400;
-                    throw err;
-                }
-                totalQty += qty;
-            }
-
-            if (totalQty !== Number(rec.quantity)) {
-                const err = new Error(`Tổng số lượng bàn giao (${totalQty}) phải bằng số lượng của đơn (${rec.quantity})!`);
-                err.statusCode = 400;
-                throw err;
-            }
-
-            for (let i = 0; i < assignments.length; i++) {
-                const ass = assignments[i];
-                const teamId = Number(ass.team_id);
-                const qty = Number(ass.quantity);
-
-                const teamRes = await client.query('SELECT name FROM departments WHERE id=$1', [teamId]);
-                const teamRow = teamRes.rows[0];
-                const teamName = teamRow ? teamRow.name : `Tổ #${teamId}`;
-
-                if (i === 0) {
-                    const sal = calcSalary(rec.salary_approved, qty, rec.base_price, rec.checked_price);
-
-                    await client.query(`
-                        UPDATE sewing_records 
-                        SET sewing_team_id=$1, quantity=$2, salary=$3, is_reported=true, reported_at=$4, reported_by=$5, handover_date=COALESCE(handover_date, $4), updated_at=$4 
-                        WHERE id=$6
-                    `, [teamId, qty, sal, now, req.user.id, id]);
-
-                    await client.query(`
-                        INSERT INTO sewing_history (sewing_id, action, details, performed_by, performed_at)
-                        VALUES ($1, $2, $3, $4, $5)
-                    `, [id, 'report', `Bàn giao: ${teamName} (SL: ${qty})`, req.user.id, now]);
-                } else {
-                    const sal = calcSalary(rec.salary_approved, qty, rec.base_price, rec.checked_price);
-
-                    const newRowRes = await client.query(`
-                        INSERT INTO sewing_records (
-                            dht_order_id, order_item_id, sewing_team_id, is_reported, reported_at, reported_by,
-                            expected_date, handover_date, product_name, quantity, base_price, checked_price, salary,
-                            sewing_details, inventory_notes, shared_sewing, notes, created_by, created_at, updated_at
-                        )
-                        VALUES ($1, $2, $3, true, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $4)
-                        RETURNING id
-                    `, [
-                        rec.dht_order_id, rec.order_item_id, teamId, now, req.user.id,
-                        rec.expected_date, rec.handover_date || now, rec.product_name, qty, rec.base_price, rec.checked_price, sal,
-                        rec.sewing_details, rec.inventory_notes, rec.shared_sewing, rec.notes, rec.created_by, rec.created_at
-                    ]);
-
-                    const newId = newRowRes.rows[0] ? newRowRes.rows[0].id : null;
-                    if (newId) {
-                        idsToSync.push(newId);
-                        await client.query(`
-                            INSERT INTO sewing_history (sewing_id, action, details, performed_by, performed_at)
-                            VALUES ($1, $2, $3, $4, $5)
-                        `, [newId, 'report', `Bàn giao: ${teamName} (SL: ${qty})`, req.user.id, now]);
-                    }
-                }
-            }
-
-            await client.query('COMMIT');
-        } catch (err) {
-            if (client) {
-                try {
-                    await client.query('ROLLBACK');
-                } catch (rollbackErr) {
-                    console.error('[Sewing Split] ROLLBACK failed:', rollbackErr);
-                }
-            }
-            console.error('[Sewing Split] split-handover failed:', err);
-            const status = err.statusCode || 500;
-            return reply.code(status).send({ error: err.message });
-        } finally {
-            if (client) {
-                client.release();
-            }
-        }
-
-        // Run syncFinishingRecord COMPLETELY outside the transaction try-catch-finally block
-        try {
-            for (const sId of idsToSync) {
-                await syncFinishingRecord(sId, req.user.id, now);
-            }
-        } catch (syncErr) {
-            console.error('[Sewing Split] syncFinishingRecord failed:', syncErr);
-        }
-
-        return { success: true };
-    });
-
-    // ========== TEAMS ==========
-    fastify.get('/api/sewing/teams', { preHandler: [authenticate] }, async () => {
-        return { teams: await db.all(`SELECT id, name FROM departments WHERE parent_id = 14 ORDER BY name`) };
-    });
-
-    // ========== UPLOAD IMAGES ==========
-    fastify.post('/api/sewing/records/:id/images', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), now = vnNow();
-        const rec = await db.get('SELECT finish_images FROM sewing_records WHERE id=$1', [id]);
-        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
-        const parts = await req.parts();
-        let images = []; try { images = JSON.parse(rec.finish_images || '[]'); } catch(e) { images = []; }
-        for await (const part of parts) {
-            if (part.file) {
-                const ext = path.extname(part.filename || '.jpg');
-                const fname = `sew_${id}_${Date.now()}${ext}`;
-                const dest = path.join(uploadsDir, fname);
-                const chunks = []; for await (const chunk of part.file) chunks.push(chunk);
-                fs.writeFileSync(dest, Buffer.concat(chunks));
-                images.push(`/uploads/sewing/${fname}`);
-            }
-        }
-        await db.run(`UPDATE sewing_records SET finish_images=$1, updated_at=$2 WHERE id=$3`, [JSON.stringify(images), now, id]);
-        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [id, 'upload_image', `Upload ${images.length} ảnh`, req.user.id, now]);
-        return { success: true, images };
-    });
-
-    fastify.post('/api/sewing/records/:id/evidence-images', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), now = vnNow();
-        const rec = await db.get('SELECT qc_evidence_images FROM sewing_records WHERE id=$1', [id]);
-        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
-        const parts = await req.parts();
-        let images = []; try { images = JSON.parse(rec.qc_evidence_images || '[]'); } catch(e) { images = []; }
-        for await (const part of parts) {
-            if (part.file) {
-                const ext = path.extname(part.filename || '.jpg');
-                const fname = `sew_evid_${id}_${Date.now()}${ext}`;
-                const dest = path.join(uploadsDir, fname);
-                const chunks = []; for await (const chunk of part.file) chunks.push(chunk);
-                fs.writeFileSync(dest, Buffer.concat(chunks));
-                images.push(`/uploads/sewing/${fname}`);
-            }
-        }
-        await db.run(`UPDATE sewing_records SET qc_evidence_images=$1, updated_at=$2 WHERE id=$3`, [JSON.stringify(images), now, id]);
-        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [id, 'upload_evidence_image', `Upload ${images.length} ảnh dẫn chứng`, req.user.id, now]);
-        return { success: true, images };
-    });
-
-    fastify.post('/api/sewing/records/:id/missing-price-images', { preHandler: [authenticate] }, async (req, reply) => {
-        const id = Number(req.params.id), now = vnNow();
-        const rec = await db.get('SELECT qc_missing_price_images FROM sewing_records WHERE id=$1', [id]);
-        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
-        const parts = await req.parts();
-        let images = []; try { images = JSON.parse(rec.qc_missing_price_images || '[]'); } catch(e) { images = []; }
-        for await (const part of parts) {
-            if (part.file) {
-                const ext = path.extname(part.filename || '.jpg');
-                const fname = `sew_missing_price_${id}_${Date.now()}${ext}`;
-                const dest = path.join(uploadsDir, fname);
-                const chunks = []; for await (const chunk of part.file) chunks.push(chunk);
-                fs.writeFileSync(dest, Buffer.concat(chunks));
-                images.push(`/uploads/sewing/${fname}`);
-            }
-        }
-        await db.run(`UPDATE sewing_records SET qc_missing_price_images=$1, updated_at=$2 WHERE id=$3`, [JSON.stringify(images), now, id]);
-        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
-            [id, 'upload_missing_price_image', `Upload ${images.length} ảnh thiếu kỹ thuật`, req.user.id, now]);
-        return { success: true, images };
-    });
-
-    // ========== DELETE ==========
-    fastify.delete('/api/sewing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!(await isSewManager(req))) return reply.code(403).send({ error: 'Chỉ QLX/GĐ' });
-        await db.run('DELETE FROM sewing_records WHERE id=$1', [Number(req.params.id)]);
-        return { success: true };
-    });
-
-    // ========== HISTORY ==========
-    fastify.get('/api/sewing/history/:id', { preHandler: [authenticate] }, async (req) => {
-        return { history: await db.all(`SELECT h.*, u.full_name AS performer_name FROM sewing_history h LEFT JOIN users u ON h.performed_by=u.id WHERE h.sewing_id=$1 ORDER BY h.performed_at DESC LIMIT 50`, [Number(req.params.id)]) };
-    });
-
-    // ========== STAFF ==========
-    fastify.get('/api/sewing/staff', { preHandler: [authenticate] }, async () => {
-        return { staff: await db.all(`SELECT u.id, u.full_name, u.username, d.name AS dept_name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`) };
-    });
-
-    // ========== QC CHECKLIST TEMPLATES & ANSWERS ==========
-    // 1. GET active templates
-    fastify.get('/api/qc/checklist/templates', { preHandler: [authenticate] }, async (req) => {
-        const templates = await db.all(`SELECT * FROM qc_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
-        return { templates };
-    });
-
-    // 2. GET all templates for administration
-    fastify.get('/api/qc/checklist/templates/all', { preHandler: [authenticate] }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
-        const templates = await db.all(`SELECT t.*, u.full_name AS created_by_name FROM qc_checklist_templates t LEFT JOIN users u ON t.created_by = u.id ORDER BY t.sort_order, t.id`);
-        return { templates };
-    });
-
-    // 3. POST create template
-    fastify.post('/api/qc/checklist/templates', { preHandler: [authenticate] }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
-        const { type, content, sort_order } = req.body || {};
-        if (!content || !content.trim()) return reply.code(400).send({ error: 'Nội dung không được trống' });
-        const row = await db.get(`INSERT INTO qc_checklist_templates (type, content, sort_order, created_by) VALUES ($1, $2, $3, $4) RETURNING *`,
-            [type || 'yes_no', content.trim(), sort_order || 0, req.user.id]);
-        return { success: true, template: row };
-    });
-
-    // 4. PUT update template
-    fastify.put('/api/qc/checklist/templates/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
-        const { content, sort_order, is_active, type } = req.body || {};
-        await db.run(`UPDATE qc_checklist_templates SET content = COALESCE($1, content), sort_order = COALESCE($2, sort_order), is_active = COALESCE($3, is_active), type = COALESCE($4, type) WHERE id = $5`,
-            [content, sort_order, is_active, type, req.params.id]);
-        return { success: true };
-    });
-
-    // 5. DELETE template
-    fastify.delete('/api/qc/checklist/templates/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
-        await db.run(`DELETE FROM qc_checklist_answers WHERE template_id = $1`, [req.params.id]);
-        await db.run(`DELETE FROM qc_checklist_templates WHERE id = $1`, [req.params.id]);
-        return { success: true };
-    });
-
-    // 6. GET answers and templates for a sewing record
-    fastify.get('/api/qc/checklist/answers/:sewingRecordId', { preHandler: [authenticate] }, async (req) => {
-        const sewingRecordId = parseInt(req.params.sewingRecordId);
-        const templates = await db.all(`SELECT * FROM qc_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
-        const answers = await db.all(`SELECT a.*, u.full_name AS answered_by_name FROM qc_checklist_answers a LEFT JOIN users u ON a.answered_by = u.id WHERE a.sewing_record_id = $1`, [sewingRecordId]);
-        return { templates, answers };
-    });
-
-    // 7. POST submit answers for a sewing record
-    fastify.post('/api/qc/checklist/answers/:sewingRecordId', { preHandler: [authenticate] }, async (req) => {
-        const sewingRecordId = parseInt(req.params.sewingRecordId);
-        const { answers } = req.body || {};
-        const { vnNow, vnDateStr } = require('../utils/timezone');
-        const now = vnNow();
-
-        if (Array.isArray(answers)) {
-            for (const ans of answers) {
-                const templateId = parseInt(ans.template_id);
-                const val = ans.answer_value;
-                
-                await db.run(`
-                    INSERT INTO qc_checklist_answers (sewing_record_id, template_id, answer_value, answered_by, answered_at)
-                    VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT(sewing_record_id, template_id)
-                    DO UPDATE SET answer_value = EXCLUDED.answer_value, answered_by = EXCLUDED.answered_by, answered_at = EXCLUDED.answered_at
-                `, [sewingRecordId, templateId, val, req.user.id, now]);
-            }
-        }
-
-        // Auto-complete finishing record for contractor orders
-        const sRec = await db.get('SELECT contractor_id FROM sewing_records WHERE id = $1', [sewingRecordId]);
-        if (sRec && sRec.contractor_id) {
-            const fRec = await db.get('SELECT id, is_completed FROM finishing_records WHERE sewing_record_id = $1', [sewingRecordId]);
-            if (fRec && !fRec.is_completed) {
-                const todayStr = vnDateStr(now);
-                await db.run(`
-                    UPDATE finishing_records
-                    SET is_completed = true,
-                        completed_at = $1,
-                        completed_by = $2,
-                        done_date = COALESCE(done_date, $3),
-                        updated_at = $1
-                    WHERE id = $4
-                `, [now, req.user.id, todayStr, fRec.id]);
-                
-                await db.run(`
-                    INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at)
-                    VALUES ($1, 'complete', 'hoàn thiện từ kiểm tra qc', $2, $3)
-                `, [fRec.id, req.user.id, now]);
-            }
-        }
-
-        return { success: true };
-    });
-
-    // 8. POST send Telegram notification for QC checklist
-    fastify.post('/api/qc/checklist/notify/:sewingRecordId', { preHandler: [authenticate] }, async (req, reply) => {
-        const sewingRecordId = parseInt(req.params.sewingRecordId);
-        
-        // Fetch sewing record with order, product, sewer details
-        const rec = await db.get(`
-            SELECT sr.*, COALESCE(dt.name, u.full_name, sc.name) AS sewer_name,
-                   o.order_code,
-                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques,
-                   ts.sewing_tech
-            FROM sewing_records sr
-            LEFT JOIN users u ON sr.sewer_id = u.id
-            LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
-            LEFT JOIN sewing_contractors sc ON sr.contractor_id = sc.id
-            LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
-            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
-            LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
-            WHERE sr.id = $1
-        `, [sewingRecordId]);
-
-        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi may' });
-
-        // Fetch answers and active checklist templates
-        const qa = await db.all(`
-            SELECT a.answer_value, t.content, t.type
-            FROM qc_checklist_answers a
-            JOIN qc_checklist_templates t ON a.template_id = t.id
-            WHERE a.sewing_record_id = $1 AND t.is_active = true
-            ORDER BY t.sort_order, t.id
-        `, [sewingRecordId]);
-
-        // Get techniques name checked
-        let techNames = '—';
-        if (rec.checked_techniques) {
-            try {
-                const ids = JSON.parse(rec.checked_techniques);
-                if (Array.isArray(ids) && ids.length > 0) {
-                    let allTechs = [];
-                    try {
-                        const t1 = typeof rec.sewing_techniques === 'string' ? JSON.parse(rec.sewing_techniques) : (rec.sewing_techniques || []);
-                        const t2 = typeof rec.sewing_tech === 'string' ? JSON.parse(rec.sewing_tech) : (rec.sewing_tech || []);
-                        allTechs = [...t1, ...t2];
-                    } catch(e){}
-                    
-                    const matched = [];
-                    const seen = new Set();
-                    allTechs.forEach(t => {
-                        if (t && t.id && ids.includes(t.id) && !seen.has(t.id)) {
-                            seen.add(t.id);
-                            matched.push(t.name);
-                        }
-                    });
-                    if (matched.length > 0) {
-                        techNames = matched.join(', ');
-                    }
-                }
-            } catch(e){}
-        }
-
-        const isMissingPrice = rec.notes && rec.notes.startsWith('[THIẾU GIÁ CHI TIẾT]');
-        let msg = '';
-        if (isMissingPrice) {
-            msg += `⚠️ <b>BÁO CÁO THIẾU GIÁ CHI TIẾT (QC)</b>\n`;
-        } else {
-            msg += `✅ <b>BÁO CÁO KIỂM TRA CHẤT LƯỢNG (QC)</b>\n`;
-        }
-        msg += `━━━━━━━━━━━━━━━━━\n`;
-        msg += `📋 <b>Mã đơn:</b> ${rec.order_code || '—'}\n`;
-        msg += `👕 <b>Sản phẩm:</b> ${rec.product_name || '—'}\n`;
-        msg += `👤 <b>Thợ may:</b> ${rec.sewer_name || '—'}\n`;
-        msg += `💰 <b>Giá gốc may:</b> ${Number(rec.base_price || 0).toLocaleString('vi-VN')}đ\n`;
-        msg += `💰 <b>Giá kiểm tra:</b> ${Number(rec.checked_price || 0).toLocaleString('vi-VN')}đ\n`;
-        msg += `🛠️ <b>Kỹ thuật may:</b> ${techNames}\n`;
-        if (rec.notes) {
-            msg += `📝 <b>Ghi chú:</b> ${rec.notes.replace('[THIẾU GIÁ CHI TIẾT] ', '')}\n`;
-        }
-        
-        if (!isMissingPrice && qa.length > 0) {
-            msg += `\n📋 <b>KẾT QUẢ CHECKLIST:</b>\n`;
-            qa.forEach(ans => {
-                let valLabel = ans.answer_value;
-                if (ans.type === 'yes_no') {
-                    valLabel = ans.answer_value === 'yes' ? 'Có' : 'Không';
-                } else if (ans.type === 'percentage') {
-                    valLabel = ans.answer_value + '%';
-                }
-                msg += `• ${ans.content}: <b>${valLabel}</b>\n`;
-            });
-        }
-        msg += `━━━━━━━━━━━━━━━━━\n`;
-        msg += `👤 <b>Người kiểm tra:</b> ${req.user.full_name}\n`;
-
-        // Send to Telegram
-        const { sendTelegramPhoto, sendTelegramMessage } = require('../utils/telegram');
-        const tgConfigRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_global_hoan_thanh_may'");
-        const chatId = tgConfigRow?.value?.trim();
-
-        if (chatId) {
-            let photoSent = false;
-            try {
-                const images = JSON.parse(rec.finish_images || '[]');
-                if (Array.isArray(images) && images.length > 0) {
-                    const firstImage = images[0];
-                    if (firstImage.startsWith('/uploads/')) {
-                        const absolutePath = path.join(__dirname, '..', 'public', firstImage);
-                        if (fs.existsSync(absolutePath)) {
-                            photoSent = await sendTelegramPhoto(chatId, absolutePath, msg);
-                        }
-                    }
-                }
-            } catch(e) {
-                console.error('[QC Telegram] Error sending photo:', e);
-            }
-            
-            if (!photoSent) {
-                await sendTelegramMessage(chatId, msg);
-            }
-        }
-
-        return { success: true };
-    });
-};
+// ========== BỘ PHẬN MAY — Routes ==========
+const db = require('../db/pool');
+const { authenticate } = require('../middleware/auth');
+const { vnNow, vnDateStr } = require('../utils/timezone');
+const { getHolidays } = require('../utils/workingDay');
+const { syncFinishingRecord } = require('../utils/finishingSync');
+const path = require('path');
+const fs = require('fs');
+
+module.exports = async function(fastify) {
+
+    fastify.addHook('preHandler', async (request, reply) => {
+        if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return;
+        const url = request.url;
+        if (url.includes('/api/sewing/contractors') || url.includes('/api/sewing/staff') || url.includes('/api/sewing/teams')) return;
+        let dhtOrderId = null;
+        if (request.body && request.body.dht_order_id) {
+            dhtOrderId = Number(request.body.dht_order_id);
+        } else if (request.params && request.params.id) {
+            const id = Number(request.params.id);
+            if (url.includes('/api/sewing/records/') || url.includes('/api/sewing/toggle/')) {
+                const rec = await db.get('SELECT dht_order_id FROM sewing_records WHERE id = $1', [id]);
+                if (rec) dhtOrderId = rec.dht_order_id;
+            }
+        } else if (request.params && request.params.sewingRecordId) {
+            const sewingRecordId = Number(request.params.sewingRecordId);
+            const rec = await db.get('SELECT dht_order_id FROM sewing_records WHERE id = $1', [sewingRecordId]);
+            if (rec) dhtOrderId = rec.dht_order_id;
+        }
+        if (dhtOrderId) {
+            const order = await db.get('SELECT is_draft FROM dht_orders WHERE id = $1', [dhtOrderId]);
+            if (order && order.is_draft) {
+                return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
+            }
+        }
+    });
+
+
+    // ========== AUTO-MIGRATE ==========
+    try { await db.exec(`CREATE TABLE IF NOT EXISTS sewing_contractors (
+        id SERIAL PRIMARY KEY, name TEXT NOT NULL, phone TEXT, notes TEXT,
+        is_active BOOLEAN DEFAULT true, display_order INTEGER DEFAULT 0,
+        created_by INTEGER REFERENCES users(id), created_at TIMESTAMPTZ DEFAULT NOW()
+    )`); } catch(e) { console.error('[BPM] contractors:', e.message); }
+
+    try { await db.exec(`CREATE TABLE IF NOT EXISTS sewing_records (
+        id SERIAL PRIMARY KEY, dht_order_id INTEGER,
+        order_item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE,
+        sewing_team_id INTEGER REFERENCES departments(id),
+        is_reported BOOLEAN DEFAULT false, reported_at TIMESTAMPTZ, reported_by INTEGER REFERENCES users(id),
+        error_reported BOOLEAN DEFAULT false, error_order_id INTEGER,
+        salary_approved BOOLEAN DEFAULT false, salary_approved_at TIMESTAMPTZ, salary_approved_by INTEGER REFERENCES users(id),
+        salary_note TEXT,
+        expected_date DATE, handover_date DATE, done_date TIMESTAMPTZ,
+        sewer_id INTEGER REFERENCES users(id), contractor_id INTEGER,
+        product_name TEXT, quantity INTEGER DEFAULT 0,
+        base_price NUMERIC DEFAULT 0, checked_price NUMERIC DEFAULT 0, salary NUMERIC DEFAULT 0,
+        sewing_details TEXT, inventory_notes TEXT, shared_sewing TEXT,
+        finish_images TEXT DEFAULT '[]', notes TEXT,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_sewer ON sewing_records(sewer_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_contractor ON sewing_records(contractor_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_handover ON sewing_records(handover_date)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_order_item ON sewing_records(order_item_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sr_sewing_team ON sewing_records(sewing_team_id)`);
+    try {
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS salary_note TEXT`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS is_rescheduled BOOLEAN DEFAULT false`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS original_expected_date DATE`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_missing_notes TEXT`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_evidence_images TEXT DEFAULT '[]'`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS qc_missing_price_images TEXT DEFAULT '[]'`);
+        await db.exec(`ALTER TABLE sewing_records ADD COLUMN IF NOT EXISTS sew_notes TEXT`);
+    } catch(err) {
+        console.error('[BPM] Migration error for fields:', err.message);
+    }
+    } catch(e) { console.error('[BPM] records:', e.message); }
+
+    try { await db.exec(`CREATE TABLE IF NOT EXISTS sewing_history (
+        id SERIAL PRIMARY KEY, sewing_id INTEGER NOT NULL REFERENCES sewing_records(id) ON DELETE CASCADE,
+        action TEXT NOT NULL, details TEXT, performed_by INTEGER REFERENCES users(id),
+        performed_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_sh_sid ON sewing_history(sewing_id)`);
+    } catch(e) { console.error('[BPM] history:', e.message); }
+
+    // QC Checklist database tables
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS qc_checklist_templates (
+            id SERIAL PRIMARY KEY,
+            type VARCHAR(20) DEFAULT 'yes_no',
+            content TEXT NOT NULL,
+            sort_order INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS qc_checklist_answers (
+            id SERIAL PRIMARY KEY,
+            sewing_record_id INTEGER NOT NULL REFERENCES sewing_records(id) ON DELETE CASCADE,
+            template_id INTEGER NOT NULL REFERENCES qc_checklist_templates(id) ON DELETE CASCADE,
+            answer_value TEXT,
+            answered_by INTEGER REFERENCES users(id),
+            answered_at TIMESTAMPTZ,
+            UNIQUE(sewing_record_id, template_id)
+        )`);
+    } catch(e) {
+        console.error('[QC Checklist Migration] Error:', e.message);
+    }
+
+    // Ensure uploads dir
+    const uploadsDir = path.join(__dirname, '..', 'uploads', 'sewing');
+    try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch(e) {}
+
+    // ========== HELPERS ==========
+    const MGMT = ['giam_doc', 'quan_ly_cap_cao'];
+    async function isSewManager(req) {
+        if (MGMT.includes(req.user.role)) return true;
+        // Check if user has kiem_tra_chat_luong permission
+        const hasQCPerm = await db.get(`
+            SELECT 1 FROM (
+                SELECT can_view FROM user_permissions WHERE user_id = $1 AND feature_key = 'kiem_tra_chat_luong'
+                UNION ALL
+                SELECT dp.can_view FROM department_permissions dp JOIN users u ON u.department_id = dp.department_id WHERE u.id = $1 AND dp.feature_key = 'kiem_tra_chat_luong'
+            ) t WHERE can_view > 0 LIMIT 1
+        `, [req.user.id]);
+        if (hasQCPerm) return true;
+
+        const d = await db.get(`SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.id=$1`, [req.user.id]);
+        if (d && d.name) { const n = d.name.toLowerCase(); if (n.includes('qlx') || n.includes('may') || n.includes('quản lý xưởng')) return true; }
+        return false;
+    }
+    async function canApproveSalary(req) {
+        if (req.user.role === 'giam_doc') return true;
+        const u = await db.get(`SELECT username, role FROM users WHERE id=$1`, [req.user.id]);
+        return u && u.role === 'quan_ly_cap_cao' && u.username === 'trinh';
+    }
+    function calcSalary(approved, qty, base, checked) {
+        if (!approved) return 0;
+        const q = Number(qty)||0, c = Number(checked)||0;
+        return q * c;
+    }
+
+
+
+    // ========== CONTRACTORS CRUD ==========
+    fastify.get('/api/sewing/contractors', { preHandler: [authenticate] }, async () => {
+        return { contractors: await db.all(`SELECT * FROM sewing_contractors WHERE is_active=true ORDER BY display_order, name`) };
+    });
+    fastify.post('/api/sewing/contractors', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền tạo nhà gia công may' });
+        const { name, phone, notes } = req.body || {};
+        if (!name) return reply.code(400).send({ error: 'Tên bắt buộc' });
+        const r = await db.get(`INSERT INTO sewing_contractors (name,phone,notes,created_by) VALUES ($1,$2,$3,$4) RETURNING id`, [name, phone||null, notes||null, req.user.id]);
+        return { success: true, id: r.id };
+    });
+    fastify.put('/api/sewing/contractors/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền chỉnh sửa nhà gia công may' });
+        const { name, phone, notes } = req.body || {};
+        await db.run(`UPDATE sewing_contractors SET name=$1, phone=$2, notes=$3 WHERE id=$4`, [name, phone||null, notes||null, req.params.id]);
+        return { success: true };
+    });
+    fastify.delete('/api/sewing/contractors/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền xóa nhà gia công may' });
+        await db.run(`UPDATE sewing_contractors SET is_active=false WHERE id=$1`, [req.params.id]);
+        return { success: true };
+    });
+
+    // ========== TREE ==========
+    fastify.get('/api/sewing/tree', { preHandler: [authenticate] }, async (req) => {
+        const mgr = await isSewManager(req);
+        let where = '', params = [];
+        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
+            where = ' AND (sr.sewer_id=$1 OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id=$1))'; 
+            params.push(req.user.id); 
+        }
+        
+        const rows = await db.all(`
+            SELECT EXTRACT(YEAR FROM COALESCE(sr.handover_date,sr.created_at))::int AS year,
+                   sr.sewer_id, u.full_name AS sewer_name,
+                   sr.sewing_team_id, dt.name AS sewing_team_name,
+                   sr.contractor_id, c.name AS contractor_name,
+                   CASE WHEN sr.done_date IS NOT NULL THEN 1 ELSE 0 END AS is_done,
+                   CASE WHEN sr.done_date IS NOT NULL THEN EXTRACT(MONTH FROM COALESCE(sr.done_date,sr.handover_date,sr.created_at))::int ELSE NULL END AS done_month,
+                   COUNT(*)::int AS count
+            FROM sewing_records sr
+            LEFT JOIN users u ON sr.sewer_id=u.id
+            LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
+            LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
+            WHERE 1=1 ${where}
+            GROUP BY year, sr.sewer_id, u.full_name, sr.sewing_team_id, dt.name, sr.contractor_id, c.name, is_done, done_month
+            ORDER BY year DESC, dt.name, u.full_name, c.name, done_month DESC`, params);
+
+        const total = rows.reduce((s,r) => s+r.count, 0);
+        const yearMap = {};
+        for (const r of rows) {
+            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, sewers: {} };
+            const isContractor = !!r.contractor_id;
+            const isTeam = !!r.sewing_team_id;
+            const key = isContractor ? `c_${r.contractor_id}` : (isTeam ? `t_${r.sewing_team_id}` : `s_${r.sewer_id || 0}`);
+            
+            if (!yearMap[r.year].sewers[key]) {
+                yearMap[r.year].sewers[key] = {
+                    id: isContractor ? r.contractor_id : (isTeam ? r.sewing_team_id : r.sewer_id),
+                    is_contractor: isContractor,
+                    is_team: isTeam,
+                    name: isContractor ? (r.contractor_name || 'Gia công') : (isTeam ? r.sewing_team_name : (r.sewer_name || 'Chưa phân công')),
+                    total: 0,
+                    incomplete_count: 0,
+                    months: {}
+                };
+            }
+            
+            const sewer = yearMap[r.year].sewers[key];
+            sewer.total += r.count;
+            yearMap[r.year].count += r.count;
+            
+            if (r.is_done === 1 && r.done_month !== null) {
+                if (!sewer.months[r.done_month]) {
+                    sewer.months[r.done_month] = { month: r.done_month, count: 0 };
+                }
+                sewer.months[r.done_month].count += r.count;
+            } else {
+                sewer.incomplete_count += r.count;
+            }
+        }
+        
+        const tree = Object.values(yearMap).map(y => ({
+            year: y.year,
+            count: y.count,
+            sewers: Object.values(y.sewers).map(s => ({
+                ...s,
+                months: Object.values(s.months).sort((a,b) => b.month - a.month)
+            }))
+        })).sort((a,b) => b.year - a.year);
+
+        const stats = await db.get(`SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE is_reported AND done_date IS NULL)::int AS in_progress,
+            COUNT(*) FILTER (WHERE done_date IS NOT NULL)::int AS done,
+            COUNT(*) FILTER (WHERE salary_approved)::int AS approved
+            FROM sewing_records sr WHERE 1=1 ${where}`, params);
+        return { tree, total, stats: stats || {total:0,in_progress:0,done:0,approved:0} };
+    });
+
+    // ========== TABS COUNTS ==========
+    fastify.get('/api/sewing/counts', { preHandler: [authenticate] }, async (req) => {
+        const mgr = await isSewManager(req);
+        let where = 'WHERE 1=1', params = [];
+        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
+            where += ' AND (sr.sewer_id = $1 OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id = $1))'; 
+            params.push(req.user.id);
+        }
+        const counts = await db.get(`
+            SELECT 
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab1,
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab2,
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL)::int AS tab3,
+                COUNT(*) FILTER (WHERE sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date)))::int AS tab4,
+                COUNT(*) FILTER (WHERE sr.error_reported = true)::int AS tab5
+            FROM sewing_records sr
+            LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
+            ${where}
+        `, params);
+        return counts || { tab1: 0, tab2: 0, tab3: 0, tab4: 0, tab5: 0 };
+    });
+
+    // ========== LIST ==========
+    fastify.get('/api/sewing/records', { preHandler: [authenticate] }, async (req) => {
+        const mgr = await isSewManager(req);
+        const { year, month, sewer_id, contractor_id, sewing_team_id, status, search, tab } = req.query;
+        let where = 'WHERE 1=1', params = [], idx = 1;
+        if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) { 
+            where += ` AND (sr.sewer_id=$${idx} OR sr.sewing_team_id IN (SELECT department_id FROM users WHERE id=$${idx}))`; 
+            params.push(req.user.id); 
+            idx++;
+        }
+        if (year) { where += ` AND EXTRACT(YEAR FROM COALESCE(sr.handover_date,sr.created_at))=$${idx++}`; params.push(Number(year)); }
+        if (month) { where += ` AND EXTRACT(MONTH FROM COALESCE(sr.handover_date,sr.created_at))=$${idx++}`; params.push(Number(month)); }
+        if (sewer_id) {
+            if (sewer_id === 'none') {
+                where += ` AND sr.sewer_id IS NULL AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL`;
+            } else {
+                where += ` AND sr.sewer_id=$${idx++}`; params.push(Number(sewer_id));
+            }
+        }
+        if (contractor_id) { where += ` AND sr.contractor_id=$${idx++}`; params.push(Number(contractor_id)); }
+        if (sewing_team_id) { where += ` AND sr.sewing_team_id=$${idx++}`; params.push(Number(sewing_team_id)); }
+        
+        if (tab === '1') {
+            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
+        } else if (tab === '2') {
+            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
+        } else if (tab === '3') {
+            where += ` AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL`;
+        } else if (tab === '4') {
+            if (status === 'done_today') {
+                where += ` AND sr.done_date::date = (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+            } else if (status === 'done_all') {
+                where += ` AND sr.done_date IS NOT NULL`;
+                if (req.query.done_date) {
+                    where += ` AND sr.done_date::date = $${idx++}`;
+                    params.push(req.query.done_date);
+                }
+                if (req.query.done_month) {
+                    where += ` AND EXTRACT(MONTH FROM sr.done_date) = $${idx++}`;
+                    params.push(Number(req.query.done_month));
+                }
+                if (req.query.done_year) {
+                    where += ` AND EXTRACT(YEAR FROM sr.done_date) = $${idx++}`;
+                    params.push(Number(req.query.done_year));
+                }
+            } else if (status === 'undone_past_today') {
+                where += ` AND sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date))`;
+            } else if (status === 'all') {
+                // Return all orders (no done_date conditions)
+            } else {
+                where += ` AND sr.done_date IS NULL`;
+            }
+        } else if (tab === '5') {
+            where += ` AND sr.error_reported = true`;
+        } else {
+            if (status==='progress') where += ` AND sr.is_reported=true AND sr.done_date IS NULL`;
+            else if (status==='done') where += ` AND sr.done_date IS NOT NULL`;
+            else if (status==='approved') where += ` AND sr.salary_approved=true`;
+            else if (status==='incomplete') where += ` AND sr.done_date IS NULL`;
+        }
+
+        if (search) { where += ` AND (sr.product_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
+        let limitVal = null;
+        let offsetVal = null;
+        if (req.query.page) {
+            const page = Number(req.query.page) || 1;
+            const limit = Number(req.query.limit) || 25;
+            limitVal = limit;
+            offsetVal = (page - 1) * limit;
+        }
+
+        const orderByClause = tab ? `
+                CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
+                o.order_code DESC NULLS LAST,
+                sr.product_name ASC,
+                sr.expected_date ASC NULLS LAST,
+                CASE 
+                    WHEN sr.sewing_team_id IS NOT NULL AND sr.contractor_id IS NULL THEN 1
+                    WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 2
+                    ELSE 3
+                END ASC,
+                COALESCE(o.expected_ship_date, o.shipping_date) ASC NULLS LAST,
+                CASE 
+                    WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'CHUẨN' THEN 1
+                    WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'GẤP' THEN 2
+                    WHEN UPPER(COALESCE(o.shipping_priority, 'CHUẨN')) = 'GỬI' THEN 3
+                    ELSE 4
+                END ASC,
+                sr.created_at DESC` : `
+                CASE WHEN sr.done_date IS NULL THEN 0 ELSE 1 END ASC,
+                o.order_code DESC NULLS LAST,
+                sr.product_name ASC,
+                sr.expected_date ASC NULLS LAST,
+                CASE WHEN sr.sewing_team_id IS NULL AND sr.contractor_id IS NULL THEN 0 ELSE 1 END ASC,
+                sr.created_at DESC`;
+
+        let queryStr = `
+            SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
+                   u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority, COALESCE(o.is_draft, false) AS is_draft,
+                   o.expected_ship_date, o.shipping_date, o.standard_delivery_time,
+                   u_cskh.full_name AS cskh_name,
+                   (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
+                   cc.name AS category_name,
+                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.quantity AS order_qty,
+                   ts.factory_price AS ts_factory_price, ts.processing_price AS ts_processing_price, ts.sewing_tech AS ts_sewing_tech, ts.spec_image AS ts_spec_image,
+                   (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date,
+                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
+                   COUNT(*) OVER() AS total_count,
+                   COALESCE(oi.production_cancelled, false) AS production_cancelled
+            FROM sewing_records sr 
+            LEFT JOIN users u ON sr.sewer_id=u.id 
+            LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
+            LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
+            LEFT JOIN users u_rpt ON sr.reported_by=u_rpt.id LEFT JOIN users u_sal ON sr.salary_approved_by=u_sal.id
+            LEFT JOIN dht_orders o ON sr.dht_order_id=o.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id=u_cskh.id
+            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
+            LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
+            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+            LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM sewing_history h WHERE h.sewing_id=sr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
+            LEFT JOIN users lhu ON lh.performed_by=lhu.id
+            ${where} ORDER BY ${orderByClause}`;
+
+        if (limitVal !== null) {
+            queryStr += ` LIMIT $${idx++} OFFSET $${idx++}`;
+            params.push(limitVal, offsetVal);
+        }
+
+        const records = await db.all(queryStr, params);
+        const totalCount = records.length > 0 ? Number(records[0].total_count) : 0;
+        return { records, totalCount };
+    });
+
+    fastify.get('/api/sewing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const record = await db.get(`
+            SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
+                   u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority, COALESCE(o.is_draft, false) AS is_draft,
+                   o.expected_ship_date, o.shipping_date, o.standard_delivery_time,
+                   u_cskh.full_name AS cskh_name,
+                   (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
+                   cc.name AS category_name,
+                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.quantity AS order_qty,
+                   ts.factory_price AS ts_factory_price, ts.processing_price AS ts_processing_price, ts.sewing_tech AS ts_sewing_tech, ts.spec_image AS ts_spec_image,
+                   (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date,
+                   lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
+            FROM sewing_records sr 
+            LEFT JOIN users u ON sr.sewer_id=u.id 
+            LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
+            LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
+            LEFT JOIN users u_rpt ON sr.reported_by=u_rpt.id LEFT JOIN users u_sal ON sr.salary_approved_by=u_sal.id
+            LEFT JOIN dht_orders o ON sr.dht_order_id=o.id
+            LEFT JOIN users u_cskh ON o.cskh_user_id=u_cskh.id
+            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
+            LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
+            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+            LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM sewing_history h WHERE h.sewing_id=sr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
+            LEFT JOIN users lhu ON lh.performed_by=lhu.id
+            WHERE sr.id = $1
+        `, [id]);
+        if (!record) return reply.code(404).send({ error: 'Không tìm thấy phiếu may' });
+        return { record };
+    });
+
+    // ========== CREATE ==========
+    fastify.post('/api/sewing/records', { preHandler: [authenticate] }, async (req) => {
+        const b = req.body||{}, now = vnNow();
+        const sal = calcSalary(false, b.quantity, b.base_price, b.checked_price);
+        const r = await db.get(`INSERT INTO sewing_records (dht_order_id,expected_date,handover_date,done_date,sewer_id,contractor_id,
+            product_name,quantity,base_price,checked_price,salary,sewing_details,inventory_notes,shared_sewing,finish_images,notes,created_by,created_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`,
+            [b.dht_order_id||null, b.expected_date||null, b.handover_date||null, b.done_date||null,
+             b.sewer_id||null, b.contractor_id||null, b.product_name||null, Number(b.quantity)||0,
+             Number(b.base_price)||0, Number(b.checked_price)||0, sal,
+             b.sewing_details||null, b.inventory_notes||null, b.shared_sewing||null,
+             b.finish_images||'[]', b.notes||null, req.user.id, now]);
+        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [r.id, 'create', 'Tạo đơn may mới', req.user.id, now]);
+        await syncFinishingRecord(r.id, req.user.id, now);
+        return { success: true, id: r.id };
+    });
+
+    // ========== TOGGLE ==========
+    fastify.post('/api/sewing/toggle/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id), { action } = req.body||{}, now = vnNow();
+        const rec = await db.get('SELECT sr.*, COALESCE(oi.production_cancelled, false) AS production_cancelled FROM sewing_records sr LEFT JOIN dht_order_items oi ON oi.id = sr.order_item_id WHERE sr.id=$1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+        if (rec.production_cancelled) return reply.code(403).send({ error: '🚫 Phiếu này đã bị HỦY SẢN XUẤT — không thể thao tác' });
+        let detail = '';
+        if (action === 'report') {
+            await db.run(`UPDATE sewing_records SET is_reported=true, reported_at=$1, reported_by=$2, handover_date = COALESCE(handover_date, $1), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
+            detail = '📋 Báo cáo may';
+            await syncFinishingRecord(id, req.user.id, now);
+        } else if (action === 'undo_report') {
+            if (!rec.contractor_id) {
+                await db.run(`UPDATE sewing_records SET is_reported=false, reported_at=NULL, reported_by=NULL, handover_date=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            } else {
+                await db.run(`UPDATE sewing_records SET is_reported=false, reported_at=NULL, reported_by=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            }
+            detail = '↩️ Hoàn tác báo cáo';
+            try {
+                await db.run(`DELETE FROM finishing_records WHERE sewing_record_id = $1 AND is_completed = false AND done_date IS NULL`, [id]);
+            } catch(e) {
+                console.error('[BPHT] Error deleting linked finishing record on undo_report:', e.message);
+            }
+        } else if (action === 'approve_salary') {
+            if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao (trinh) mới có quyền tính lương!' });
+            if (rec.notes && rec.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) {
+                return reply.code(400).send({ error: 'Chưa thể duyệt lương vì đơn hàng đang bị gắn cờ "Thiếu Kỹ Thuật May". Vui lòng sửa lại đơn hàng (bỏ tích cờ Thiếu kỹ thuật và cập nhật lại Giá kiểm tra chính xác) trước khi duyệt lương.' });
+            }
+            if (!rec.checked_price || Number(rec.checked_price) <= 0) {
+                return reply.code(400).send({ error: 'Cần nhập Giá KTra trước khi tính lương!' });
+            }
+            const salary_note = req.body.salary_note || null;
+            const sal = Number(rec.quantity || 0) * Number(rec.checked_price || 0);
+            await db.run(`UPDATE sewing_records SET salary_approved=true, salary_approved_at=$1, salary_approved_by=$2, salary_note=$3, salary=$4, updated_at=$1 WHERE id=$5`, [now, req.user.id, salary_note, sal, id]);
+            detail = '💰 Duyệt lương may' + (salary_note ? ': ' + salary_note : '');
+        } else if (action === 'undo_salary') {
+            if (!(await canApproveSalary(req))) return reply.code(403).send({ error: 'Không có quyền' });
+            await db.run(`UPDATE sewing_records SET salary_approved=false, salary_approved_at=NULL, salary_approved_by=NULL, salary_note=NULL, salary=0, updated_at=$1 WHERE id=$2`, [now, id]);
+            detail = '↩️ Hoàn tác duyệt lương';
+        } else if (action === 'report_error') {
+            await db.run(`UPDATE sewing_records SET error_reported=true, error_order_id=$1, updated_at=$2 WHERE id=$3`, [req.body.error_order_id||null, now, id]);
+            detail = '⚠️ Báo lỗi nội bộ';
+        } else if (action === 'resolve_error') {
+            await db.run(`UPDATE sewing_records SET error_reported=false, error_order_id=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            detail = '✅ Sửa xong lỗi nội bộ';
+        } else if (action === 'mark_done') {
+            await db.run(`UPDATE sewing_records SET done_date=$1, is_reported=true, reported_at=COALESCE(reported_at,$1), updated_at=$1 WHERE id=$2`, [now, id]);
+            detail = '✅ May xong';
+            await syncFinishingRecord(id, req.user.id, now);
+        } else if (action === 'undo_done') {
+            await db.run(`UPDATE sewing_records SET done_date=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
+            detail = '↩️ Hoàn tác may xong';
+            try {
+                await db.run(`DELETE FROM finishing_records WHERE sewing_record_id = $1`, [id]);
+            } catch(e) {
+                console.error('[BPHT] Error deleting linked finishing record:', e.message);
+            }
+        } else { return reply.code(400).send({ error: 'Action không hợp lệ' }); }
+        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`, [id, action, detail, req.user.id, now]);
+        return { success: true };
+    });
+
+    // ========== UPDATE ==========
+    fastify.put('/api/sewing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id), b = req.body||{}, now = vnNow();
+        const rec = await db.get('SELECT * FROM sewing_records WHERE id=$1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const qty = b.quantity!==undefined ? Number(b.quantity)||0 : rec.quantity;
+        const bp = b.base_price!==undefined ? Number(b.base_price)||0 : Number(rec.base_price)||0;
+        const cp = b.checked_price!==undefined ? Number(b.checked_price)||0 : Number(rec.checked_price)||0;
+        const sal = calcSalary(rec.salary_approved, qty, bp, cp);
+        let isRescheduled = rec.is_rescheduled;
+        let origExpected = rec.original_expected_date;
+        if (b.expected_date !== undefined && b.expected_date !== rec.expected_date) {
+            const dateVal = b.expected_date ? b.expected_date.split('T')[0] : '';
+            const todayStr = vnDateStr();
+            if (!dateVal || dateVal < todayStr) {
+                return reply.code(400).send({ error: 'Chỉ được hẹn từ ngày hôm nay trở đi!' });
+            }
+            const holidays = await getHolidays();
+            if (holidays.has(dateVal)) {
+                return reply.code(400).send({ error: 'Không được chọn ngày nghỉ lễ!' });
+            }
+            origExpected = rec.original_expected_date || rec.expected_date;
+            isRescheduled = true;
+        }
+
+        await db.run(`UPDATE sewing_records SET expected_date=$1,handover_date=$2,done_date=$3,sewer_id=$4,contractor_id=$5,
+            product_name=$6,quantity=$7,base_price=$8,checked_price=$9,salary=$10,sewing_details=$11,
+            inventory_notes=$12,shared_sewing=$13,finish_images=$14,notes=$15,updated_at=$16,sewing_team_id=$17,
+            is_rescheduled=$18, original_expected_date=$19 WHERE id=$20`,
+            [b.expected_date!==undefined?b.expected_date:rec.expected_date, b.handover_date!==undefined?b.handover_date:rec.handover_date,
+             b.done_date!==undefined?b.done_date:rec.done_date, b.sewer_id!==undefined?b.sewer_id:rec.sewer_id,
+             b.contractor_id!==undefined?b.contractor_id:rec.contractor_id, b.product_name!==undefined?b.product_name:rec.product_name,
+             qty, bp, cp, sal, b.sewing_details!==undefined?b.sewing_details:rec.sewing_details,
+             b.inventory_notes!==undefined?b.inventory_notes:rec.inventory_notes,
+             b.shared_sewing!==undefined?b.shared_sewing:rec.shared_sewing,
+             b.finish_images!==undefined?b.finish_images:rec.finish_images,
+             b.notes!==undefined?b.notes:rec.notes, now, b.sewing_team_id!==undefined?b.sewing_team_id:rec.sewing_team_id,
+             isRescheduled, origExpected, id]);
+        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [id, 'update', 'Cập nhật thông tin may', req.user.id, now]);
+        await syncFinishingRecord(id, req.user.id, now);
+        return { success: true, salary: sal };
+    });
+
+    // ========== INLINE FIELD ==========
+    fastify.patch('/api/sewing/records/:id/field', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id), { field, value } = req.body||{}, now = vnNow();
+        const ALLOWED = ['expected_date','handover_date','done_date','sewer_id','contractor_id','sewing_team_id','product_name',
+            'quantity','base_price','checked_price','sewing_details','inventory_notes','shared_sewing','notes','checked_techniques',
+            'qc_missing_notes','qc_evidence_images','qc_missing_price_images','sew_notes'];
+        if (!ALLOWED.includes(field)) return reply.code(400).send({ error: 'Trường không hợp lệ' });
+        const numF = ['quantity','base_price','checked_price','sewer_id','contractor_id','sewing_team_id'];
+        const fv = numF.includes(field) ? (Number(value)||0) : (value||null);
+        if (field === 'expected_date') {
+            const dateVal = value ? value.split('T')[0] : '';
+            const todayStr = vnDateStr();
+            if (!dateVal || dateVal < todayStr) {
+                return reply.code(400).send({ error: 'Chỉ được hẹn từ ngày hôm nay trở đi!' });
+            }
+            const holidays = await getHolidays();
+            if (holidays.has(dateVal)) {
+                return reply.code(400).send({ error: 'Không được chọn ngày nghỉ lễ!' });
+            }
+
+            const rec = await db.get('SELECT expected_date, original_expected_date FROM sewing_records WHERE id=$1', [id]);
+            if (rec && dateVal !== rec.expected_date) {
+                const orig = rec.original_expected_date || rec.expected_date;
+                await db.run(`UPDATE sewing_records SET expected_date=$1, is_rescheduled=true, original_expected_date=$2, updated_at=$3 WHERE id=$4`, [dateVal, orig, now, id]);
+                await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+                    [id, 'inline_update', `Hẹn Lại: ${rec.expected_date} ➔ ${dateVal}`, req.user.id, now]);
+            }
+        } else {
+            await db.run(`UPDATE sewing_records SET ${field}=$1, updated_at=$2 WHERE id=$3`, [fv, now, id]);
+        }
+        // Recalc salary if price/qty changed
+        if (['quantity','base_price','checked_price'].includes(field)) {
+            const rec = await db.get('SELECT salary_approved, quantity, base_price, checked_price FROM sewing_records WHERE id=$1', [id]);
+            if (rec) { const sal = calcSalary(rec.salary_approved, rec.quantity, rec.base_price, rec.checked_price);
+                await db.run(`UPDATE sewing_records SET salary=$1 WHERE id=$2`, [sal, id]); }
+        }
+        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [id, 'inline_update', `${field}: ${value}`, req.user.id, now]);
+        await syncFinishingRecord(id, req.user.id, now);
+        return { success: true };
+    });
+
+    // ========== SPLIT HANDOVER FOR MULTIPLE TEAMS ==========
+    fastify.post('/api/sewing/records/:id/split-handover', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const { assignments } = req.body || {};
+        if (!Array.isArray(assignments) || !assignments.length) {
+            return reply.code(400).send({ error: 'Danh sách bàn giao không hợp lệ' });
+        }
+
+        const now = vnNow();
+
+        const pool = db.getDB();
+        let client;
+        const idsToSync = [id];
+
+        try {
+            client = await pool.connect();
+            await client.query('BEGIN');
+
+            const recRes = await client.query('SELECT * FROM sewing_records WHERE id=$1', [id]);
+            const rec = recRes.rows[0];
+            if (!rec) {
+                const err = new Error('Không tìm thấy bản ghi may');
+                err.statusCode = 404;
+                throw err;
+            }
+
+            if (rec.contractor_id !== null) {
+                const err = new Error('Không thể phân tổ trong nhà cho đơn may gia công ngoài!');
+                err.statusCode = 400;
+                throw err;
+            }
+
+            if (rec.done_date !== null || rec.salary_approved === true) {
+                const err = new Error('Đơn may đã hoàn thành hoặc đã duyệt lương. Không thể thay đổi phân tổ!');
+                err.statusCode = 400;
+                throw err;
+            }
+
+            // Validate quantities
+            let totalQty = 0;
+            for (const ass of assignments) {
+                const qty = Number(ass.quantity) || 0;
+                if (qty <= 0) {
+                    const err = new Error('Số lượng bàn giao cho từng tổ phải lớn hơn 0!');
+                    err.statusCode = 400;
+                    throw err;
+                }
+                if (!ass.team_id) {
+                    const err = new Error('Tổ may bàn giao không hợp lệ!');
+                    err.statusCode = 400;
+                    throw err;
+                }
+                totalQty += qty;
+            }
+
+            if (totalQty !== Number(rec.quantity)) {
+                const err = new Error(`Tổng số lượng bàn giao (${totalQty}) phải bằng số lượng của đơn (${rec.quantity})!`);
+                err.statusCode = 400;
+                throw err;
+            }
+
+            for (let i = 0; i < assignments.length; i++) {
+                const ass = assignments[i];
+                const teamId = Number(ass.team_id);
+                const qty = Number(ass.quantity);
+
+                const teamRes = await client.query('SELECT name FROM departments WHERE id=$1', [teamId]);
+                const teamRow = teamRes.rows[0];
+                const teamName = teamRow ? teamRow.name : `Tổ #${teamId}`;
+
+                if (i === 0) {
+                    const sal = calcSalary(rec.salary_approved, qty, rec.base_price, rec.checked_price);
+
+                    await client.query(`
+                        UPDATE sewing_records 
+                        SET sewing_team_id=$1, quantity=$2, salary=$3, is_reported=true, reported_at=$4, reported_by=$5, handover_date=COALESCE(handover_date, $4), updated_at=$4 
+                        WHERE id=$6
+                    `, [teamId, qty, sal, now, req.user.id, id]);
+
+                    await client.query(`
+                        INSERT INTO sewing_history (sewing_id, action, details, performed_by, performed_at)
+                        VALUES ($1, $2, $3, $4, $5)
+                    `, [id, 'report', `Bàn giao: ${teamName} (SL: ${qty})`, req.user.id, now]);
+                } else {
+                    const sal = calcSalary(rec.salary_approved, qty, rec.base_price, rec.checked_price);
+
+                    const newRowRes = await client.query(`
+                        INSERT INTO sewing_records (
+                            dht_order_id, order_item_id, sewing_team_id, is_reported, reported_at, reported_by,
+                            expected_date, handover_date, product_name, quantity, base_price, checked_price, salary,
+                            sewing_details, inventory_notes, shared_sewing, notes, created_by, created_at, updated_at
+                        )
+                        VALUES ($1, $2, $3, true, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $4)
+                        RETURNING id
+                    `, [
+                        rec.dht_order_id, rec.order_item_id, teamId, now, req.user.id,
+                        rec.expected_date, rec.handover_date || now, rec.product_name, qty, rec.base_price, rec.checked_price, sal,
+                        rec.sewing_details, rec.inventory_notes, rec.shared_sewing, rec.notes, rec.created_by, rec.created_at
+                    ]);
+
+                    const newId = newRowRes.rows[0] ? newRowRes.rows[0].id : null;
+                    if (newId) {
+                        idsToSync.push(newId);
+                        await client.query(`
+                            INSERT INTO sewing_history (sewing_id, action, details, performed_by, performed_at)
+                            VALUES ($1, $2, $3, $4, $5)
+                        `, [newId, 'report', `Bàn giao: ${teamName} (SL: ${qty})`, req.user.id, now]);
+                    }
+                }
+            }
+
+            await client.query('COMMIT');
+        } catch (err) {
+            if (client) {
+                try {
+                    await client.query('ROLLBACK');
+                } catch (rollbackErr) {
+                    console.error('[Sewing Split] ROLLBACK failed:', rollbackErr);
+                }
+            }
+            console.error('[Sewing Split] split-handover failed:', err);
+            const status = err.statusCode || 500;
+            return reply.code(status).send({ error: err.message });
+        } finally {
+            if (client) {
+                client.release();
+            }
+        }
+
+        // Run syncFinishingRecord COMPLETELY outside the transaction try-catch-finally block
+        try {
+            for (const sId of idsToSync) {
+                await syncFinishingRecord(sId, req.user.id, now);
+            }
+        } catch (syncErr) {
+            console.error('[Sewing Split] syncFinishingRecord failed:', syncErr);
+        }
+
+        return { success: true };
+    });
+
+    // ========== TEAMS ==========
+    fastify.get('/api/sewing/teams', { preHandler: [authenticate] }, async () => {
+        return { teams: await db.all(`SELECT id, name FROM departments WHERE parent_id = 14 ORDER BY name`) };
+    });
+
+    // ========== UPLOAD IMAGES ==========
+    fastify.post('/api/sewing/records/:id/images', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id), now = vnNow();
+        const rec = await db.get('SELECT finish_images FROM sewing_records WHERE id=$1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const parts = await req.parts();
+        let images = []; try { images = JSON.parse(rec.finish_images || '[]'); } catch(e) { images = []; }
+        for await (const part of parts) {
+            if (part.file) {
+                const ext = path.extname(part.filename || '.jpg');
+                const fname = `sew_${id}_${Date.now()}${ext}`;
+                const dest = path.join(uploadsDir, fname);
+                const chunks = []; for await (const chunk of part.file) chunks.push(chunk);
+                fs.writeFileSync(dest, Buffer.concat(chunks));
+                images.push(`/uploads/sewing/${fname}`);
+            }
+        }
+        await db.run(`UPDATE sewing_records SET finish_images=$1, updated_at=$2 WHERE id=$3`, [JSON.stringify(images), now, id]);
+        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [id, 'upload_image', `Upload ${images.length} ảnh`, req.user.id, now]);
+        return { success: true, images };
+    });
+
+    fastify.post('/api/sewing/records/:id/evidence-images', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id), now = vnNow();
+        const rec = await db.get('SELECT qc_evidence_images FROM sewing_records WHERE id=$1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const parts = await req.parts();
+        let images = []; try { images = JSON.parse(rec.qc_evidence_images || '[]'); } catch(e) { images = []; }
+        for await (const part of parts) {
+            if (part.file) {
+                const ext = path.extname(part.filename || '.jpg');
+                const fname = `sew_evid_${id}_${Date.now()}${ext}`;
+                const dest = path.join(uploadsDir, fname);
+                const chunks = []; for await (const chunk of part.file) chunks.push(chunk);
+                fs.writeFileSync(dest, Buffer.concat(chunks));
+                images.push(`/uploads/sewing/${fname}`);
+            }
+        }
+        await db.run(`UPDATE sewing_records SET qc_evidence_images=$1, updated_at=$2 WHERE id=$3`, [JSON.stringify(images), now, id]);
+        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [id, 'upload_evidence_image', `Upload ${images.length} ảnh dẫn chứng`, req.user.id, now]);
+        return { success: true, images };
+    });
+
+    fastify.post('/api/sewing/records/:id/missing-price-images', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id), now = vnNow();
+        const rec = await db.get('SELECT qc_missing_price_images FROM sewing_records WHERE id=$1', [id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const parts = await req.parts();
+        let images = []; try { images = JSON.parse(rec.qc_missing_price_images || '[]'); } catch(e) { images = []; }
+        for await (const part of parts) {
+            if (part.file) {
+                const ext = path.extname(part.filename || '.jpg');
+                const fname = `sew_missing_price_${id}_${Date.now()}${ext}`;
+                const dest = path.join(uploadsDir, fname);
+                const chunks = []; for await (const chunk of part.file) chunks.push(chunk);
+                fs.writeFileSync(dest, Buffer.concat(chunks));
+                images.push(`/uploads/sewing/${fname}`);
+            }
+        }
+        await db.run(`UPDATE sewing_records SET qc_missing_price_images=$1, updated_at=$2 WHERE id=$3`, [JSON.stringify(images), now, id]);
+        await db.run(`INSERT INTO sewing_history (sewing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
+            [id, 'upload_missing_price_image', `Upload ${images.length} ảnh thiếu kỹ thuật`, req.user.id, now]);
+        return { success: true, images };
+    });
+
+    // ========== DELETE ==========
+    fastify.delete('/api/sewing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!(await isSewManager(req))) return reply.code(403).send({ error: 'Chỉ QLX/GĐ' });
+        await db.run('DELETE FROM sewing_records WHERE id=$1', [Number(req.params.id)]);
+        return { success: true };
+    });
+
+    // ========== HISTORY ==========
+    fastify.get('/api/sewing/history/:id', { preHandler: [authenticate] }, async (req) => {
+        return { history: await db.all(`SELECT h.*, u.full_name AS performer_name FROM sewing_history h LEFT JOIN users u ON h.performed_by=u.id WHERE h.sewing_id=$1 ORDER BY h.performed_at DESC LIMIT 50`, [Number(req.params.id)]) };
+    });
+
+    // ========== STAFF ==========
+    fastify.get('/api/sewing/staff', { preHandler: [authenticate] }, async () => {
+        return { staff: await db.all(`SELECT u.id, u.full_name, u.username, d.name AS dept_name FROM users u LEFT JOIN departments d ON u.department_id=d.id WHERE u.status='active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien') ORDER BY u.full_name`) };
+    });
+
+    // ========== QC CHECKLIST TEMPLATES & ANSWERS ==========
+    // 1. GET active templates
+    fastify.get('/api/qc/checklist/templates', { preHandler: [authenticate] }, async (req) => {
+        const templates = await db.all(`SELECT * FROM qc_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
+        return { templates };
+    });
+
+    // 2. GET all templates for administration
+    fastify.get('/api/qc/checklist/templates/all', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const templates = await db.all(`SELECT t.*, u.full_name AS created_by_name FROM qc_checklist_templates t LEFT JOIN users u ON t.created_by = u.id ORDER BY t.sort_order, t.id`);
+        return { templates };
+    });
+
+    // 3. POST create template
+    fastify.post('/api/qc/checklist/templates', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const { type, content, sort_order } = req.body || {};
+        if (!content || !content.trim()) return reply.code(400).send({ error: 'Nội dung không được trống' });
+        const row = await db.get(`INSERT INTO qc_checklist_templates (type, content, sort_order, created_by) VALUES ($1, $2, $3, $4) RETURNING *`,
+            [type || 'yes_no', content.trim(), sort_order || 0, req.user.id]);
+        return { success: true, template: row };
+    });
+
+    // 4. PUT update template
+    fastify.put('/api/qc/checklist/templates/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        const { content, sort_order, is_active, type } = req.body || {};
+        await db.run(`UPDATE qc_checklist_templates SET content = COALESCE($1, content), sort_order = COALESCE($2, sort_order), is_active = COALESCE($3, is_active), type = COALESCE($4, type) WHERE id = $5`,
+            [content, sort_order, is_active, type, req.params.id]);
+        return { success: true };
+    });
+
+    // 5. DELETE template
+    fastify.delete('/api/qc/checklist/templates/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền thiết lập' });
+        await db.run(`DELETE FROM qc_checklist_answers WHERE template_id = $1`, [req.params.id]);
+        await db.run(`DELETE FROM qc_checklist_templates WHERE id = $1`, [req.params.id]);
+        return { success: true };
+    });
+
+    // 6. GET answers and templates for a sewing record
+    fastify.get('/api/qc/checklist/answers/:sewingRecordId', { preHandler: [authenticate] }, async (req) => {
+        const sewingRecordId = parseInt(req.params.sewingRecordId);
+        const templates = await db.all(`SELECT * FROM qc_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
+        const answers = await db.all(`SELECT a.*, u.full_name AS answered_by_name FROM qc_checklist_answers a LEFT JOIN users u ON a.answered_by = u.id WHERE a.sewing_record_id = $1`, [sewingRecordId]);
+        return { templates, answers };
+    });
+
+    // 7. POST submit answers for a sewing record
+    fastify.post('/api/qc/checklist/answers/:sewingRecordId', { preHandler: [authenticate] }, async (req) => {
+        const sewingRecordId = parseInt(req.params.sewingRecordId);
+        const { answers } = req.body || {};
+        const { vnNow, vnDateStr } = require('../utils/timezone');
+        const now = vnNow();
+
+        if (Array.isArray(answers)) {
+            for (const ans of answers) {
+                const templateId = parseInt(ans.template_id);
+                const val = ans.answer_value;
+                
+                await db.run(`
+                    INSERT INTO qc_checklist_answers (sewing_record_id, template_id, answer_value, answered_by, answered_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT(sewing_record_id, template_id)
+                    DO UPDATE SET answer_value = EXCLUDED.answer_value, answered_by = EXCLUDED.answered_by, answered_at = EXCLUDED.answered_at
+                `, [sewingRecordId, templateId, val, req.user.id, now]);
+            }
+        }
+
+        // Auto-complete finishing record for contractor orders
+        const sRec = await db.get('SELECT contractor_id FROM sewing_records WHERE id = $1', [sewingRecordId]);
+        if (sRec && sRec.contractor_id) {
+            const fRec = await db.get('SELECT id, is_completed FROM finishing_records WHERE sewing_record_id = $1', [sewingRecordId]);
+            if (fRec && !fRec.is_completed) {
+                const todayStr = vnDateStr(now);
+                await db.run(`
+                    UPDATE finishing_records
+                    SET is_completed = true,
+                        completed_at = $1,
+                        completed_by = $2,
+                        done_date = COALESCE(done_date, $3),
+                        updated_at = $1
+                    WHERE id = $4
+                `, [now, req.user.id, todayStr, fRec.id]);
+                
+                await db.run(`
+                    INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at)
+                    VALUES ($1, 'complete', 'hoàn thiện từ kiểm tra qc', $2, $3)
+                `, [fRec.id, req.user.id, now]);
+            }
+        }
+
+        return { success: true };
+    });
+
+    // 8. POST send Telegram notification for QC checklist
+    fastify.post('/api/qc/checklist/notify/:sewingRecordId', { preHandler: [authenticate] }, async (req, reply) => {
+        const sewingRecordId = parseInt(req.params.sewingRecordId);
+        
+        // Fetch sewing record with order, product, sewer details
+        const rec = await db.get(`
+            SELECT sr.*, COALESCE(dt.name, u.full_name, sc.name) AS sewer_name,
+                   o.order_code,
+                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques,
+                   ts.sewing_tech
+            FROM sewing_records sr
+            LEFT JOIN users u ON sr.sewer_id = u.id
+            LEFT JOIN departments dt ON sr.sewing_team_id = dt.id
+            LEFT JOIN sewing_contractors sc ON sr.contractor_id = sc.id
+            LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
+            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
+            LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
+            WHERE sr.id = $1
+        `, [sewingRecordId]);
+
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy bản ghi may' });
+
+        // Fetch answers and active checklist templates
+        const qa = await db.all(`
+            SELECT a.answer_value, t.content, t.type
+            FROM qc_checklist_answers a
+            JOIN qc_checklist_templates t ON a.template_id = t.id
+            WHERE a.sewing_record_id = $1 AND t.is_active = true
+            ORDER BY t.sort_order, t.id
+        `, [sewingRecordId]);
+
+        // Get techniques name checked
+        let techNames = '—';
+        if (rec.checked_techniques) {
+            try {
+                const ids = JSON.parse(rec.checked_techniques);
+                if (Array.isArray(ids) && ids.length > 0) {
+                    let allTechs = [];
+                    try {
+                        const t1 = typeof rec.sewing_techniques === 'string' ? JSON.parse(rec.sewing_techniques) : (rec.sewing_techniques || []);
+                        const t2 = typeof rec.sewing_tech === 'string' ? JSON.parse(rec.sewing_tech) : (rec.sewing_tech || []);
+                        allTechs = [...t1, ...t2];
+                    } catch(e){}
+                    
+                    const matched = [];
+                    const seen = new Set();
+                    allTechs.forEach(t => {
+                        if (t && t.id && ids.includes(t.id) && !seen.has(t.id)) {
+                            seen.add(t.id);
+                            matched.push(t.name);
+                        }
+                    });
+                    if (matched.length > 0) {
+                        techNames = matched.join(', ');
+                    }
+                }
+            } catch(e){}
+        }
+
+        const isMissingPrice = rec.notes && rec.notes.startsWith('[THIẾU GIÁ CHI TIẾT]');
+        let msg = '';
+        if (isMissingPrice) {
+            msg += `⚠️ <b>BÁO CÁO THIẾU GIÁ CHI TIẾT (QC)</b>\n`;
+        } else {
+            msg += `✅ <b>BÁO CÁO KIỂM TRA CHẤT LƯỢNG (QC)</b>\n`;
+        }
+        msg += `━━━━━━━━━━━━━━━━━\n`;
+        msg += `📋 <b>Mã đơn:</b> ${rec.order_code || '—'}\n`;
+        msg += `👕 <b>Sản phẩm:</b> ${rec.product_name || '—'}\n`;
+        msg += `👤 <b>Thợ may:</b> ${rec.sewer_name || '—'}\n`;
+        msg += `💰 <b>Giá gốc may:</b> ${Number(rec.base_price || 0).toLocaleString('vi-VN')}đ\n`;
+        msg += `💰 <b>Giá kiểm tra:</b> ${Number(rec.checked_price || 0).toLocaleString('vi-VN')}đ\n`;
+        msg += `🛠️ <b>Kỹ thuật may:</b> ${techNames}\n`;
+        if (rec.notes) {
+            msg += `📝 <b>Ghi chú:</b> ${rec.notes.replace('[THIẾU GIÁ CHI TIẾT] ', '')}\n`;
+        }
+        
+        if (!isMissingPrice && qa.length > 0) {
+            msg += `\n📋 <b>KẾT QUẢ CHECKLIST:</b>\n`;
+            qa.forEach(ans => {
+                let valLabel = ans.answer_value;
+                if (ans.type === 'yes_no') {
+                    valLabel = ans.answer_value === 'yes' ? 'Có' : 'Không';
+                } else if (ans.type === 'percentage') {
+                    valLabel = ans.answer_value + '%';
+                }
+                msg += `• ${ans.content}: <b>${valLabel}</b>\n`;
+            });
+        }
+        msg += `━━━━━━━━━━━━━━━━━\n`;
+        msg += `👤 <b>Người kiểm tra:</b> ${req.user.full_name}\n`;
+
+        // Send to Telegram
+        const { sendTelegramPhoto, sendTelegramMessage } = require('../utils/telegram');
+        const tgConfigRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_global_hoan_thanh_may'");
+        const chatId = tgConfigRow?.value?.trim();
+
+        if (chatId) {
+            let photoSent = false;
+            try {
+                const images = JSON.parse(rec.finish_images || '[]');
+                if (Array.isArray(images) && images.length > 0) {
+                    const firstImage = images[0];
+                    if (firstImage.startsWith('/uploads/')) {
+                        const absolutePath = path.join(__dirname, '..', 'public', firstImage);
+                        if (fs.existsSync(absolutePath)) {
+                            photoSent = await sendTelegramPhoto(chatId, absolutePath, msg);
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error('[QC Telegram] Error sending photo:', e);
+            }
+            
+            if (!photoSent) {
+                await sendTelegramMessage(chatId, msg);
+            }
+        }
+
+        return { success: true };
+    });
+};
