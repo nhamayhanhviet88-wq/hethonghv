@@ -1584,7 +1584,9 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_orders o ON o.id = res.dht_order_id
             LEFT JOIN dht_order_items it ON it.id = res.item_id
             LEFT JOIN users u ON u.id = res.created_by
-            WHERE res.reservation_type = 'new_call' AND res.status = 'reserved'
+            WHERE res.reservation_type = 'new_call' 
+              AND res.status = 'reserved'
+              AND COALESCE(it.production_cancelled, false) = false
             ORDER BY res.created_at DESC
         `);
 
