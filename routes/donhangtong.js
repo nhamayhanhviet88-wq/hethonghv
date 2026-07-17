@@ -8749,7 +8749,7 @@ module.exports = async function(fastify) {
         const sewRecords = await db.all(`
             SELECT sr.*, u.full_name AS tailor_name
             FROM sewing_records sr
-            LEFT JOIN users u ON sr.tailor_id = u.id
+            LEFT JOIN users u ON sr.sewer_id = u.id
             WHERE sr.order_item_id = $1
             ORDER BY sr.id
         `, [itemId]);
