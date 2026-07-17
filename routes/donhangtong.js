@@ -9058,8 +9058,8 @@ module.exports = async function(fastify) {
                 } catch(e) {}
             }
 
-            const finalVat = totalItemsVat + (orderMeta?.add_vat || 0);
-            const newOrderTotal = totalItemsRaw - (orderMeta?.promo_disc || 0) + finalVat + surTotal - (orderMeta?.disc || 0);
+            const finalVat = totalItemsVat + Number(orderMeta?.add_vat || 0);
+            const newOrderTotal = totalItemsRaw - Number(orderMeta?.promo_disc || 0) + finalVat + surTotal - Number(orderMeta?.disc || 0);
 
             await db.run(`
                 UPDATE dht_orders
@@ -9207,8 +9207,8 @@ module.exports = async function(fastify) {
                 } catch(e) {}
             }
 
-            const finalVat = totalItemsVat + (orderMeta?.add_vat || 0);
-            const newOrderTotal = totalItemsRaw - (orderMeta?.promo_disc || 0) + finalVat + surTotal - (orderMeta?.disc || 0);
+            const finalVat = totalItemsVat + Number(orderMeta?.add_vat || 0);
+            const newOrderTotal = totalItemsRaw - Number(orderMeta?.promo_disc || 0) + finalVat + surTotal - Number(orderMeta?.disc || 0);
 
             await db.run(`
                 UPDATE dht_orders
