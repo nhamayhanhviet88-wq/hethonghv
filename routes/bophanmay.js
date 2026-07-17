@@ -13,20 +13,32 @@ module.exports = async function(fastify) {
         if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return;
         const url = request.url;
         if (url.includes('/api/sewing/contractors') || url.includes('/api/sewing/staff') || url.includes('/api/sewing/teams')) return;
+        
+        let sewingRecordId = null;
         let dhtOrderId = null;
-        if (request.body && request.body.dht_order_id) {
-            dhtOrderId = Number(request.body.dht_order_id);
-        } else if (request.params && request.params.id) {
-            const id = Number(request.params.id);
-            if (url.includes('/api/sewing/records/') || url.includes('/api/sewing/toggle/')) {
-                const rec = await db.get('SELECT dht_order_id FROM sewing_records WHERE id = $1', [id]);
-                if (rec) dhtOrderId = rec.dht_order_id;
-            }
+        if (request.params && request.params.id && (url.includes('/api/sewing/records/') || url.includes('/api/sewing/toggle/'))) {
+            sewingRecordId = Number(request.params.id);
         } else if (request.params && request.params.sewingRecordId) {
-            const sewingRecordId = Number(request.params.sewingRecordId);
-            const rec = await db.get('SELECT dht_order_id FROM sewing_records WHERE id = $1', [sewingRecordId]);
-            if (rec) dhtOrderId = rec.dht_order_id;
+            sewingRecordId = Number(request.params.sewingRecordId);
         }
+
+        if (sewingRecordId) {
+            const rec = await db.get(`
+                SELECT sr.dht_order_id, COALESCE(oi.production_cancelled, false) AS production_cancelled 
+                FROM sewing_records sr 
+                LEFT JOIN dht_order_items oi ON oi.id = sr.order_item_id 
+                WHERE sr.id = $1
+            `, [sewingRecordId]);
+            if (rec) {
+                if (rec.production_cancelled) {
+                    return reply.code(403).send({ error: '🚫 Phiếu này đã bị HỦY SẢN XUẤT — không thể thao tác' });
+                }
+                dhtOrderId = rec.dht_order_id;
+            }
+        } else if (request.body && request.body.dht_order_id) {
+            dhtOrderId = Number(request.body.dht_order_id);
+        }
+
         if (dhtOrderId) {
             const order = await db.get('SELECT is_draft FROM dht_orders WHERE id = $1', [dhtOrderId]);
             if (order && order.is_draft) {
