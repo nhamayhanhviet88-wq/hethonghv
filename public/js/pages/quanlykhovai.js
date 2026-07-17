@@ -1047,21 +1047,10 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                     <div class="roll-row-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #e2e8f0;">
                                         <div style="flex:1; min-width:0;">
                                             <div style="font-size:12px; font-weight:700; color:#334155; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-                                                <span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">                                                    ${_qkvCanViewBill() ? (
-                                                        r.source_import_id ? `
-                                                            <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
-                                                                ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
-                                                            </span>
-                                                        ` : `
-                                                            <span style="cursor:pointer; color:#334155;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
-                                                                ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
-                                                            </span>
-                                                        `
-                                                    ) : `
-                                                        <span style="color:#334155;">
-                                                            ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
-                                                        </span>
-                                                    `}
+                                                <span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
+                                                    <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img || '')}', ${r.id})" title="Nhấp để xem thông tin cây vải">
+                                                        ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
+                                                    </span>
                                                      ${typeBadge}
                                                     ${locText}
                                                 </span>
@@ -2492,6 +2481,11 @@ function openImagePreviewModal(imgUrl, rollId = null) {
                 }
             }
             
+            var billLinkHTML = '';
+            if (_qkvCanViewBill() && foundRoll.source_import_id) {
+                billLinkHTML = ` | <span style="cursor:pointer; color:#38bdf8; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${foundRoll.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">📄 Xem Bill Nhập</span>`;
+            }
+
             infoContainer.innerHTML = `
                 <div style="display:flex; justify-content:space-between; gap:16px; color:#f8fafc; font-size:13px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
                     <div><strong>Chất liệu:</strong> <span style="color:#38bdf8">${escapeHTML(materialText)}</span></div>
@@ -2499,10 +2493,10 @@ function openImagePreviewModal(imgUrl, rollId = null) {
                     <div><strong>Mã cây:</strong> <span style="color:#fbbf24; font-family:monospace; font-weight:bold;">${escapeHTML(codeText)}</span></div>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; color:#f8fafc; font-size:13px; padding-top:4px;">
-                    <div style="display:flex; gap:16px;">
+                    <div style="display:flex; gap:16px; flex-wrap:wrap;">
                         <div><strong>Cân nặng:</strong> <span style="color:#34d399; font-weight:bold;">${weightText}</span></div>
                         <div><strong>Vị trí:</strong> <span style="color:#94a3b8;">📍 ${escapeHTML(locText)}</span></div>
-                        <div><strong>Nhà cung cấp:</strong> <span style="color:#a78bfa;">${escapeHTML(sourceText)}</span></div>
+                        <div><strong>Nhà cung cấp:</strong> <span style="color:#a78bfa;">${escapeHTML(sourceText)}</span>${billLinkHTML}</div>
                     </div>
                     ${returnBtnHTML}
                 </div>
@@ -2855,21 +2849,9 @@ function _qkvUpdateModalView() {
                         <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; gap:8px;">
                             <div style="min-width:0; flex:1;">
                                 <div style="font-size:13px; font-weight:800; color:#0f766e;">
-                                    ${_qkvCanViewBill() ? (
-                                        r.source_import_id ? `
-                                            <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvOpenImportBill(${r.source_import_id})" title="Nhấp để xem chi tiết bill nhập vải">
-                                                ${r.w} kg
-                                            </span>
-                                        ` : `
-                                            <span style="cursor:pointer;" onclick="event.stopPropagation(); showToast('Cây vải này được tạo thủ công hoặc từ phần vải cắt dư, không có hóa đơn nhập gốc.', 'info');" title="Không có hóa đơn nhập">
-                                                ${r.w} kg
-                                            </span>
-                                        `
-                                    ) : `
-                                        <span>
-                                            ${r.w} kg
-                                        </span>
-                                    `}
+                                    <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img || '')}', ${r.id})" title="Nhấp để xem thông tin cây vải">
+                                        ${r.w} kg
+                                    </span>
                                 </div>
                                 <div style="font-size:10px; color:#64748b; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Mã: ${escapeHTML(r.code || 'không mã')}</div>
                             </div>
