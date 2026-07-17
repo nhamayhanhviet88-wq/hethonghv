@@ -4142,42 +4142,18 @@ function _tpdUpdateEditNoteStyle() {
     if (!state || !state.order || state.order.is_draft || !state.editingItem) return;
 
     const label = document.getElementById('tpd_edit_note_label');
-    const reqText = document.getElementById('tpd_edit_note_required_text');
     const textarea = document.getElementById('tpd_edit_note_textarea');
     if (!label || !textarea) return;
 
-    // Check if the current sheet is modified
-    let isSheetModified = false;
-    const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${state.orderId}`);
-    if (origItemsJson) {
-        try {
-            const origItems = JSON.parse(origItemsJson);
-            const origItem = origItems.find(x => x.id === state.editingItem.id);
-            if (origItem) {
-                isSheetModified = _tpdIsSheetModified(state.editingItem, origItem);
-            } else {
-                isSheetModified = true;
-            }
-        } catch(e) {}
-    } else if (state.dbBaselines) {
-        const origItem = state.dbBaselines.find(x => x.id === state.editingItem.id);
-        if (origItem) {
-            isSheetModified = _tpdIsSheetModified(state.editingItem, origItem);
-        } else {
-            isSheetModified = true;
-        }
-    } else {
-        isSheetModified = true;
-    }
+    const layoutVal = typeof state.editingItem.custom_layout === 'string' ? JSON.parse(state.editingItem.custom_layout) : (state.editingItem.custom_layout || {});
+    const note = (layoutVal.sheet_edit_note || '').trim();
 
-    if (isSheetModified) {
+    if (!note) {
         label.style.color = '#ef4444';
-        if (reqText) reqText.style.display = 'inline';
         textarea.style.borderColor = '#ef4444';
         textarea.style.borderWidth = '1.5px';
     } else {
         label.style.color = '#1e293b';
-        if (reqText) reqText.style.display = 'none';
         textarea.style.borderColor = '#cbd5e1';
         textarea.style.borderWidth = '1.5px';
     }
@@ -5342,32 +5318,18 @@ function _tpdRenderFormInputs() {
         </div>
     `;
 
-    // 5.5. Edit Note field (mandatory for modified sheets)
+    // 5.5. Edit Note field (mandatory for official orders)
     const editNote = (layout && layout.sheet_edit_note) || '';
-
-    // Check if the current sheet is modified
-    let isSheetModified = false;
-    if (state.order && !state.order.is_draft) {
-        const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${state.orderId}`);
-        if (origItemsJson) {
-            try {
-                const origItems = JSON.parse(origItemsJson);
-                const origItem = origItems.find(x => x.id === it.id);
-                if (origItem) {
-                    isSheetModified = _tpdIsSheetModified(it, origItem);
-                } else {
-                    isSheetModified = true;
-                }
-            } catch(e) {}
-        }
-    }
+    const isOrderOfficial = state.order && !state.order.is_draft;
+    const isNoteEmpty = !editNote.trim();
+    const showRequiredStyle = isOrderOfficial && isNoteEmpty;
 
     html += `
         <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
-            <label id="tpd_edit_note_label" class="tpd-ws-form-label" style="font-weight: 700; ${isSheetModified ? 'color: #ef4444;' : 'color: #1e293b;'}">
-                📝 NỘI DUNG SỬA ĐỔI CHI TIẾT <span id="tpd_edit_note_required_text" style="color: #ef4444; ${isSheetModified ? '' : 'display: none;'}">(BẮT BUỘC KHI SỬA PHIẾU)</span>
+            <label id="tpd_edit_note_label" class="tpd-ws-form-label" style="font-weight: 700; ${showRequiredStyle ? 'color: #ef4444;' : 'color: #1e293b;'}">
+                📝 NỘI DUNG SỬA ĐỔI CHI TIẾT ${isOrderOfficial ? `<span id="tpd_edit_note_required_text" style="color: #ef4444;">(BẮT BUỘC)</span>` : ''}
             </label>
-            <textarea id="tpd_edit_note_textarea" class="tpd-ws-input" style="width: 100%; border: 1.5px solid ${isSheetModified ? '#ef4444' : '#cbd5e1'}; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; box-sizing: border-box; background: white;" 
+            <textarea id="tpd_edit_note_textarea" class="tpd-ws-input" style="width: 100%; border: 1.5px solid ${showRequiredStyle ? '#ef4444' : '#cbd5e1'}; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; box-sizing: border-box; background: white;" 
                 placeholder="Nhập lý do và chi tiết các thay đổi của phiếu này (ví dụ: Đổi kiểu cổ bẻ dệt, thêm in ngực 10cm)..." 
                 oninput="_tpdOnEditNoteChange(this.value)" ${disabledAttr}>${editNote}</textarea>
         </div>
@@ -6491,13 +6453,13 @@ async function _tpdSaveProductionSheet() {
                 showToast(`⚠️ Khi sửa đơn, bạn bắt buộc phải tải lại / tải mới lên Hình ảnh thiết kế Mockup lớn!`, 'error');
                 return false;
             }
+        }
 
-            const layoutVal = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
-            const note = (layoutVal.sheet_edit_note || '').trim();
-            if (!note) {
-                showToast(`⚠️ Bạn bắt buộc phải nhập Nội dung sửa đổi chi tiết cho phiếu này!`, 'error');
-                return false;
-            }
+        const layoutVal = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
+        const note = (layoutVal.sheet_edit_note || '').trim();
+        if (!note) {
+            showToast(`⚠️ Bạn bắt buộc phải nhập Nội dung sửa đổi chi tiết cho phiếu này!`, 'error');
+            return false;
         }
     }
 
@@ -7190,14 +7152,14 @@ function _tpdValidateAllSheets() {
                     _tpdSwitchItemTab(idx);
                     return false;
                 }
+            }
 
-                const layoutVal = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
-                const note = (layoutVal.sheet_edit_note || '').trim();
-                if (!note) {
-                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Bạn bắt buộc phải nhập Nội dung sửa đổi chi tiết cho phiếu này!`, 'error');
-                    _tpdSwitchItemTab(idx);
-                    return false;
-                }
+            const layoutVal = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
+            const note = (layoutVal.sheet_edit_note || '').trim();
+            if (!note) {
+                showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Bạn bắt buộc phải nhập Nội dung sửa đổi chi tiết cho phiếu này!`, 'error');
+                _tpdSwitchItemTab(idx);
+                return false;
             }
         }
     }
