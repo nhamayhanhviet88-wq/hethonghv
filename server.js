@@ -1814,8 +1814,9 @@ async function start() {
 
         // Build script tags for MISSING files only (inject before </body>)
         const buildVer = Date.now(); // Cache-bust: mỗi lần server restart = version mới
+        const allowedGlobalInjects = new Set(['notifications.js', 'emergency.js']);
         const missingScripts = pageFiles
-            .filter(f => !alreadyIncluded.has(f))
+            .filter(f => !alreadyIncluded.has(f) && allowedGlobalInjects.has(f))
             .map(f => {
                 let mtime = buildVer;
                 try {
@@ -1825,9 +1826,12 @@ async function start() {
             })
             .join('\n');
 
+        // Inject BUILD_VERSION
+        html = html.replace('<head>', `<head>\n    <script>window.BUILD_VERSION = "${buildVer}";</script>`);
+
         if (missingScripts) {
             console.log(`📦 Auto-injecting ${missingScripts.split('\n').length} page scripts:`,
-                pageFiles.filter(f => !alreadyIncluded.has(f)).join(', '));
+                pageFiles.filter(f => !alreadyIncluded.has(f) && allowedGlobalInjects.has(f)).join(', '));
             html = html.replace('</body>', missingScripts + '\n</body>');
         }
 
@@ -2030,4 +2034,4 @@ const closeGracefully = async (signal) => {
 process.on('SIGINT', () => closeGracefully('SIGINT'));
 process.on('SIGTERM', () => closeGracefully('SIGTERM'));
 
-// Reload comment 52
+// Reload comment 53

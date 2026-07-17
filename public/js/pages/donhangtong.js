@@ -535,68 +535,112 @@ async function renderDonhangtongPage(content) {
             +'@keyframes dhtBlink{0%,100%{opacity:1}50%{opacity:0.4}}';
         document.head.appendChild(st);
     }
-    const [catRes, staffRes] = await Promise.all([apiCall('/api/dht/categories'), apiCall('/api/dht/staff')]);
-    _dht.categories = catRes.categories || [];
-    _dht.staff = staffRes.staff || [];
-    content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="dhtSearchWrap" style="position:relative;display:flex;align-items:center;gap:0"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn hàng, SĐT, tên khách..." style="width:320px;font-size:13px;padding:8px 36px 8px 14px;border-radius:10px 0 0 10px;border:2px solid #daa520;border-right:none;transition:all .2s" onfocus="this.style.borderColor=&apos;#b8860b&apos;;this.style.boxShadow=&apos;0 0 0 3px rgba(184,134,11,0.15)&apos;" onblur="this.style.borderColor=&apos;#daa520&apos;;this.style.boxShadow=&apos;none&apos;"><button onclick="_dhtDoSearch()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 16px;border-radius:0 10px 10px 0;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;height:100%;transition:all .15s" onmouseover="this.style.filter=&apos;brightness(1.1)&apos;" onmouseout="this.style.filter=&apos;&apos;">Tìm</button><button id="dhtSearchClear" onclick="_dhtClearSearch()" style="display:none;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px;white-space:nowrap" title="Xóa tìm kiếm">✕</button></div><div id="dhtSearchBadge" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;color:#92400e"></div><div id="dhtFilterInfo" style="font-size:12px"></div>'
-        +'<div id="dhtStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
-        +'<div style="margin-left:auto;display:flex;align-items:center;gap:8px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateFreBtn" onclick="_dhtShowCreateFree()" style="font-size:13px;padding:9px 20px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(5,150,105,0.35);transition:all .2s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">🐾 Tạo PET/TEM</button><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:9px 20px;background:linear-gradient(135deg,#b8860b,#daa520,#f0c040);color:#fff;border:none;border-radius:10px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(184,134,11,0.4);transition:all .2s;text-shadow:0 1px 2px rgba(0,0,0,0.2)" onmouseover="this.style.transform=\'scale(1.05)\';this.style.boxShadow=\'0 5px 18px rgba(184,134,11,0.5)\'" onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 3px 12px rgba(184,134,11,0.4)\'">✨ Tạo Đồng Phục</button></div></div>'
-        +'<div id="dhtFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
-        +'<div id="dhtDateBar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:10px">'
-        +'<button onclick="_dhtDateFilterToday()" style="background:#0369a1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Hôm Nay</button>'
-        +'<button onclick="_dhtDateFilterMonth(0)" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Tháng Này</button>'
-        +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
-        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">🗓️ CHỌN THÁNG</label>'
-        +'<input type="month" id="dhtMonthPick" class="form-control" style="width:160px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterMonthPick()">'
-        +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
-        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">📆 CHỌN NĂM</label>'
-        +'<select id="dhtYearPick" class="form-control" style="width:90px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterYear()"><option value="">Tất cả</option></select>'
 
-        +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
-        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">👤 CSKH</label>'
-        +'<select id="dhtCskhPick" class="form-control" style="width:150px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterCskh()"><option value="">Tất cả</option></select>'
-        +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
-        +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">📝 LOẠI ĐƠN</label>'
-        +'<select id="dhtDraftPick" class="form-control" style="width:130px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterDraft()">'
-        +'<option value="">Tất cả</option>'
-        +'<option value="official">Đơn chính thức</option>'
-        +'<option value="draft">Đơn nháp</option>'
-        +'</select>'
-        +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
-        +'</div>'
-        +'<div id="dhtPaginationTop" style="margin:8px 0"></div>'
-        +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
-        +'<div id="dhtPaginationBottom" style="margin:8px 0"></div>'
-        +'</div></div>';
-    let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtDoSearch(), 500); });
-    document.getElementById('dhtSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(_st); _dhtDoSearch(); } });
-    // Default: load current year (no month pre-selected)
-    var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-    _dht.filter = { year: nowVN.getFullYear() };
-    _dht.draftFilter = 'official';
-    _dhtSyncDateInputs();
-    // Populate year dropdown (current year ± 2)
-    var ypEl = document.getElementById('dhtYearPick');
-    if (ypEl) { var cy = nowVN.getFullYear(); for (var yi = cy+1; yi >= cy-3; yi--) { ypEl.innerHTML += '<option value="'+yi+'">'+yi+'</option>'; } }
-    var dpEl = document.getElementById('dhtDraftPick');
-    if (dpEl) dpEl.value = 'official';
-    await _dhtLoadTree();
-    const autoSearch = sessionStorage.getItem('dhtSearchOnLoad');
-    if (autoSearch) {
-        sessionStorage.removeItem('dhtSearchOnLoad');
-        const searchInput = document.getElementById('dhtSearch');
-        if (searchInput) {
-            searchInput.value = autoSearch;
-            _dht._preSearchFilter = _dht._preSearchFilter || Object.assign({}, _dht.filter);
-            _dht._isSearching = true;
-            const badge = document.getElementById('dhtSearchBadge');
-            const clearBtn = document.getElementById('dhtSearchClear');
-            if (badge) { badge.style.display = ''; badge.textContent = '🔍 Đang tìm: "' + autoSearch + '" — Tất cả đơn hàng'; }
-            if (clearBtn) clearBtn.style.display = '';
+    // Render skeleton layout IMMEDIATELY (synchronously)
+    content.innerHTML = '<div class="dht-wrap">'
+        + '<div class="dht-sidebar" id="dhtSidebar">'
+        + '<div class="dht-sb-title"><span style="color:var(--navy)">───</span> <span style="color:#b8860b;font-weight:900">✨ Đơn hàng tổng ✨</span> <span style="color:var(--navy)">───</span></div>'
+        + '<div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div>'
+        + '</div>'
+        + '<div class="dht-main">'
+        + '<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center;opacity:0.5;pointer-events:none">'
+        + '<input type="text" class="form-control" placeholder="🔍 Đang tải dữ liệu..." style="width:320px;" disabled>'
+        + '<div style="margin-left:auto;display:flex;gap:8px">'
+        + '<button class="btn btn-secondary" disabled>Xuất File</button>'
+        + '<button class="btn" disabled>🐾 Tạo PET/TEM</button>'
+        + '<button class="btn" disabled>✨ Tạo Đồng Phục</button>'
+        + '</div>'
+        + '</div>'
+        + '<div class="card" style="opacity:0.6">'
+        + '<div class="card-body" style="overflow-x:auto;padding:8px">'
+        + '<table class="table" style="font-size:12px;white-space:nowrap">'
+        + '<thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead>'
+        + '<tbody><tr><td colspan="16" style="text-align:center;padding:100px 0;"><div class="spa-spinner" style="margin:0 auto 12px"></div><div style="color:var(--gray-400);font-weight:600">Đang tải danh sách đơn hàng...</div></td></tr></tbody>'
+        + '</table>'
+        + '</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+
+    // Defer the heavy API calling and full DOM rendering
+    setTimeout(async () => {
+        try {
+            const [catRes, staffRes] = await Promise.all([apiCall('/api/dht/categories'), apiCall('/api/dht/staff')]);
+            _dht.categories = catRes.categories || [];
+            _dht.staff = staffRes.staff || [];
+            
+            content.innerHTML = '<div class="dht-wrap"><div class="dht-sidebar" id="dhtSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="dht-main"><div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center"><div id="dhtSearchWrap" style="position:relative;display:flex;align-items:center;gap:0"><input type="text" id="dhtSearch" class="form-control" placeholder="🔍 Tìm mã đơn hàng, SĐT, tên khách..." style="width:320px;font-size:13px;padding:8px 36px 8px 14px;border-radius:10px 0 0 10px;border:2px solid #daa520;border-right:none;transition:all .2s" onfocus="this.style.borderColor=&apos;#b8860b&apos;;this.style.boxShadow=&apos;0 0 0 3px rgba(184,134,11,0.15)&apos;" onblur="this.style.borderColor=&apos;#daa520&apos;;this.style.boxShadow=&apos;none&apos;"><button onclick="_dhtDoSearch()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 16px;border-radius:0 10px 10px 0;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;height:100%;transition:all .15s" onmouseover="this.style.filter=&apos;brightness(1.1)&apos;" onmouseout="this.style.filter=&apos;&apos;">Tìm</button><button id="dhtSearchClear" onclick="_dhtClearSearch()" style="display:none;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px;white-space:nowrap" title="Xóa tìm kiếm">✕</button></div><div id="dhtSearchBadge" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;color:#92400e"></div><div id="dhtFilterInfo" style="font-size:12px"></div>'
+                +'<div id="dhtStatCards" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
+                +'<div style="margin-left:auto;display:flex;align-items:center;gap:8px"><button class="btn btn-secondary" onclick="_dhtExport()" style="font-size:12px;padding:5px 12px">📥 Xuất File</button><div id="dhtNextCode" style="font-size:11px;color:#94a3b8">⏳ Đang tải mã đơn...</div><button class="btn" id="dhtCreateFreBtn" onclick="_dhtShowCreateFree()" style="font-size:13px;padding:9px 20px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:10px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(5,150,105,0.35);transition:all .2s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">🐾 Tạo PET/TEM</button><button class="btn" id="dhtCreateBtn" onclick="_dhtShowCreate()" style="font-size:13px;padding:9px 20px;background:linear-gradient(135deg,#b8860b,#daa520,#f0c040);color:#fff;border:none;border-radius:10px;font-weight:900;cursor:pointer;box-shadow:0 3px 12px rgba(184,134,11,0.4);transition:all .2s;text-shadow:0 1px 2px rgba(0,0,0,0.2)" onmouseover="this.style.transform=\'scale(1.05)\';this.style.boxShadow=\'0 5px 18px rgba(184,134,11,0.5)\'" onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 3px 12px rgba(184,134,11,0.4)\'">✨ Tạo Đồng Phục</button></div></div>'
+                +'<div id="dhtFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>'
+                +'<div id="dhtDateBar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:10px">'
+                +'<button onclick="_dhtDateFilterToday()" style="background:#0369a1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Hôm Nay</button>'
+                +'<button onclick="_dhtDateFilterMonth(0)" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">📅 Tháng Này</button>'
+                +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
+                +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">🗓️ CHỌN THÁNG</label>'
+                +'<input type="month" id="dhtMonthPick" class="form-control" style="width:160px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterMonthPick()">'
+                +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
+                +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">📆 CHỌN NĂM</label>'
+                +'<select id="dhtYearPick" class="form-control" style="width:90px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterYear()"><option value="">Tất cả</option></select>'
+                +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
+                +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">👤 CSKH</label>'
+                +'<select id="dhtCskhPick" class="form-control" style="width:150px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterCskh()"><option value="">Tất cả</option></select>'
+                +'<span style="width:1px;height:24px;background:#93c5fd;margin:0 4px"></span>'
+                +'<label style="font-size:11px;font-weight:700;color:#0c4a6e">📝 LOẠI ĐƠN</label>'
+                +'<select id="dhtDraftPick" class="form-control" style="width:130px;font-size:11px;padding:4px 8px" onchange="_dhtDateFilterDraft()">'
+                +'<option value="">Tất cả</option>'
+                +'<option value="official">Đơn chính thức</option>'
+                +'<option value="draft">Đơn nháp</option>'
+                +'</select>'
+                +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
+                +'</div>'
+                +'<div id="dhtPaginationTop" style="margin:8px 0"></div>'
+                +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+                +'<div id="dhtPaginationBottom" style="margin:8px 0"></div>'
+                +'</div></div>';
+
+            let _st; document.getElementById('dhtSearch').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(() => _dhtDoSearch(), 500); });
+            document.getElementById('dhtSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(_st); _dhtDoSearch(); } });
+            
+            // Default: load current year (no month pre-selected)
+            var nowVN = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+            _dht.filter = { year: nowVN.getFullYear() };
+            _dht.draftFilter = 'official';
+            _dhtSyncDateInputs();
+            
+            // Populate year dropdown (current year ± 2)
+            var ypEl = document.getElementById('dhtYearPick');
+            if (ypEl) {
+                var cy = nowVN.getFullYear();
+                for (var yi = cy+1; yi >= cy-3; yi--) {
+                    ypEl.innerHTML += '<option value="'+yi+'">'+yi+'</option>';
+                }
+            }
+            var dpEl = document.getElementById('dhtDraftPick');
+            if (dpEl) dpEl.value = 'official';
+            
+            await _dhtLoadTree();
+            
+            const autoSearch = sessionStorage.getItem('dhtSearchOnLoad');
+            if (autoSearch) {
+                sessionStorage.removeItem('dhtSearchOnLoad');
+                const searchInput = document.getElementById('dhtSearch');
+                if (searchInput) {
+                    searchInput.value = autoSearch;
+                    _dht._preSearchFilter = _dht._preSearchFilter || Object.assign({}, _dht.filter);
+                    _dht._isSearching = true;
+                    const badge = document.getElementById('dhtSearchBadge');
+                    const clearBtn = document.getElementById('dhtSearchClear');
+                    if (badge) { badge.style.display = ''; badge.textContent = '🔍 Đang tìm: "' + autoSearch + '" — Tất cả đơn hàng'; }
+                    if (clearBtn) clearBtn.style.display = '';
+                }
+            }
+            await _dhtLoadOrders();
+            _dhtShowNextCode();
+        } catch (err) {
+            console.error('❌ Failed to initialize donhangtong page asynchronously:', err);
         }
-    }
-    await _dhtLoadOrders();
-    _dhtShowNextCode();
+    }, 0);
 }
 
 // ========== AVAILABLE ORDER CODES DISPLAY ==========

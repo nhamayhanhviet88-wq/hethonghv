@@ -274,18 +274,223 @@ var _isDoitacDomain = window.location.hostname.indexOf('dongphuchv.net') !== -1;
     _acObserver.observe(document.documentElement, { childList: true, subtree: true });
 })();
 
+// ==================== CENTRALIZED HEARTBEAT SERVICE ====================
+const _heartbeatTasks = [];
+window.registerHeartbeatTask = function(name, taskFn, intervalSecs, conditionFn) {
+    if (_heartbeatTasks.some(t => t.name === name)) return;
+    
+    const taskObj = {
+        name: name,
+        task: taskFn,
+        intervalSecs: intervalSecs,
+        condition: conditionFn || (() => true),
+        lastRun: 0
+    };
+    _heartbeatTasks.push(taskObj);
+
+    // Stagger initial run slightly to avoid parallel network requests on start
+    const delay = (_heartbeatTasks.length * 1000) + 1000;
+    setTimeout(() => {
+        if (taskObj.condition() && taskObj.lastRun === 0) {
+            taskObj.lastRun = Date.now();
+            try {
+                taskObj.task();
+            } catch (e) {
+                console.error(`[Heartbeat] Staggered initial execution error in ${name}:`, e);
+            }
+        }
+    }, delay);
+};
+
+function startHeartbeatSystem() {
+    setInterval(() => {
+        const now = Date.now();
+        _heartbeatTasks.forEach(t => {
+            if (!t.condition()) return;
+            const elapsed = (now - t.lastRun) / 1000;
+            if (elapsed >= t.intervalSecs) {
+                t.lastRun = now;
+                try {
+                    t.task();
+                } catch (e) {
+                    console.error(`[Heartbeat] Execution error in task ${t.name}:`, e);
+                }
+            }
+        });
+    }, 5000);
+}
+
+// ==================== DYNAMIC LAZY LOADER ====================
+const _PAGE_SCRIPT_MAP = {
+    'accounts': '/js/pages/accounts.js',
+    'teams': '/js/pages/teams.js',
+    'permissions': '/js/pages/permissions.js',
+    'quan-ly-affiliate': '/js/pages/quanlyaffiliate.js',
+    'settings': '/js/pages/settings.js',
+    'caidatpancake': '/js/pages/caidatpancake.js',
+    'tu-van-khach-aff': '/js/pages/baocaohoahong.js',
+    'theo-doi-tu-van-aff': '/js/pages/baocaohoahong.js',
+    'bao-cao-hoa-hong': '/js/pages/baocaohoahong.js',
+    'baocaohoahong': '/js/pages/baocaohoahong.js',
+    'crm-nhu-cau': '/js/pages/crm-nhucau.js',
+    'crm-ctv': '/js/pages/crm-ctv-full.js',
+    'chamsockhsale': '/js/pages/chamsockhsale.js',
+    'sokhachsale': '/js/pages/sokhachsale.js',
+    'cham-soc-affiliate': '/js/pages/crm-affiliate-full.js',
+    'chamsocaffiliate': '/js/pages/crm-affiliate-full.js',
+    'cham-soc-koc-kol': '/js/pages/crm-kockol-full.js',
+    'chamsockockol': '/js/pages/crm-kockol-full.js',
+    'chap-nhan-ctv-affiliate': '/js/pages/chapnhanctvaffliate.js',
+    'chapnhanctvaffliate': '/js/pages/chapnhanctvaffliate.js',
+    'cap-cuu-sep': '/js/pages/emergency.js',
+    'huy-khach': '/js/pages/emergency.js',
+    'tai-khoan-affiliate': '/js/pages/taikhoanaffiliate.js',
+    'my-customers': '/js/pages/hoahong.js',
+    'withdraw': '/js/pages/hoahong.js',
+    'withdraw-manage': '/js/pages/hoahong.js',
+    'rut-tien-affiliate': '/js/pages/rut-tien-affiliate.js',
+    'bao-cao-hoa-hong-hv': '/js/pages/baocaohoahonghv.js',
+    'baocaohoahonghv': '/js/pages/baocaohoahonghv.js',
+    'huong-dan-su-dung': '/js/pages/huongdansudung.js',
+    'huongdansudung': '/js/pages/huongdansudung.js',
+    'quanlytkhethongaff': '/js/pages/quanly-hethong-aff.js',
+    'bang-xep-hang-affiliate': '/js/pages/bangxephangaffiliate.js',
+    'bangxephangaffiliate': '/js/pages/bangxephangaffiliate.js',
+    'bang-xep-hang-kinh-doanh': '/js/pages/bangxephangkinhdoanh.js',
+    'bangxephangkinhdoanh': '/js/pages/bangxephangkinhdoanh.js',
+    'bang-xep-hang-sale': '/js/pages/bangxephangsale.js',
+    'bangxephangsale': '/js/pages/bangxephangsale.js',
+    'bang-xep-hang-ctv': '/js/pages/bangxephangctv.js',
+    'bangxephangctv': '/js/pages/bangxephangctv.js',
+    'bxh-san-xuat': '/js/pages/bxhsanxuat.js',
+    'bxhsanxuat': '/js/pages/bxhsanxuat.js',
+    'bxh-van-phong': '/js/pages/bxhvanphong.js',
+    'bxhvanphong': '/js/pages/bxhvanphong.js',
+    'giai-thuong-game': '/js/pages/giaithuonggame.js',
+    'giaithuonggame': '/js/pages/giaithuonggame.js',
+    'trao-giai-thuong': '/js/pages/traogiaithuong.js',
+    'traogiaithuong': '/js/pages/traogiaithuong.js',
+    'bangiao-diem-kd': '/js/pages/bangiao-diem.js',
+    'bangiaodiem': '/js/pages/bangiao-diem.js',
+    'lich-khoa-bieu': '/js/pages/lich-khoabieu.js',
+    'lichkhoabieu': '/js/pages/lich-khoabieu.js',
+    'congvieckhoaxuly': '/js/pages/congvieckhoaxuly.js',
+    'lich-su-bao-cao': '/js/pages/lichsu-baocao.js',
+    'lichsubaocaocv': '/js/pages/lichsu-baocao.js',
+    'khoa-tk-nv': '/js/pages/khoatknv.js',
+    'khoatknv': '/js/pages/khoatknv.js',
+    'mo-khoa-tk-phat': '/js/pages/mokhoatkphat.js',
+    'mokhoatkphat': '/js/pages/mokhoatkphat.js',
+    'xin-nghi-nv': '/js/pages/xinnghi.js',
+    'xinnghinhanvien': '/js/pages/xinnghi.js',
+    'setup-ngay-le': '/js/pages/setupngayle.js',
+    'setupngayle': '/js/pages/setupngayle.js',
+    'bangiao-khoa': '/js/pages/bangiao-khoa.js',
+    'bangiaokhoa': '/js/pages/bangiao-khoa.js',
+    'goidien': '/js/pages/goidien.js',
+    'hethonggoidien': '/js/pages/hethonggoidien.js',
+    'quytacnuttuvancrmnhucau': '/js/pages/quytac-tuvan.js',
+    'quytacnuttuvancrmctv': '/js/pages/quytac-tuvan-ctv.js',
+    'quytacnuttuvancrmaffiliate': '/js/pages/quytac-tuvan-affiliate.js',
+    'quytacnuttuvancrmkockol': '/js/pages/quytac-tuvan-kockol.js',
+    'quytacnuttuvancrmsale': '/js/pages/quytac-tuvan-sale.js',
+    'dailylinks': '/js/pages/dailylinks.js',
+    'timgrzalovathongke': '/js/pages/timgrzalovathongke.js',
+    'hethongphanchiagrzalo': '/js/pages/hethongphanchiagrzalo.js',
+    'addcmtdoitackh': '/js/pages/addcmtdoitackh.js',
+    'timkiemkhachhang': '/js/pages/timkiem-khachhang.js',
+    'timkiemkhachhanghv': '/js/pages/timkiem-khachhang.js',
+    'xuatvathv': '/js/pages/xuatvathv.js',
+    'xuatvaicat': '/js/pages/xuatvaicat.js',
+    'chuanbiqlx': '/js/pages/chuanbiqlx.js',
+    'taophieudonhang': '/js/pages/taophieudonhang.js',
+    'design-draft': '/js/pages/taophieudonhang.js',
+    'khuyenmaigiamgia': '/js/pages/khuyenmaigiamgia.js',
+    'donhangtong': '/js/pages/donhangtong.js',
+    'bophancat': '/js/pages/bophancathv.js',
+    'bophanmay': '/js/pages/bophanmayhv.js',
+    'bophanhoanthien': '/js/pages/bophanhoanthienhv.js',
+    'bophanin': '/js/pages/bophaninhv.js',
+    'bophanep': '/js/pages/bophanephv.js',
+    'donhangthietke': '/js/pages/donhangthietke.js',
+    'donguiaomau': '/js/pages/donguiaomau.js',
+    'socophanmay': '/js/pages/socophanmay.js',
+    'soghinhantien': '/js/pages/soghinhantien.js',
+    'sothuchi': '/js/pages/sothuchi.js',
+    'donloikhachhang': '/js/pages/donloikhachhang.js',
+    'donloinoibo': '/js/pages/donloinoibo.js',
+    'kiemtrachatluong': '/js/pages/kiemtrachatluong.js',
+    'kpikdoanh': '/js/pages/kpikdoanh.js',
+    'camketcuochop': '/js/pages/camketcuochop.js',
+    'khovai': '/js/pages/khovai.js',
+    'khovatlieu': '/js/pages/khovatlieu.js',
+    'kiemkho': '/js/pages/kiemkho.js',
+    'nhapxuathoanvai': '/js/pages/nhapxuathoanvai.js',
+    'tongdoansosale': '/js/pages/tongdoansosale.js',
+    'trasoatdonhang': '/js/pages/trasoatdonhang.js',
+    'tulieuxuongvp': '/js/pages/tulieuxuongvp.js',
+    'donhangchuathutien': '/js/pages/donhangchuathutien.js',
+    'taophieuxulycv': '/js/pages/taophieuxulycv.js',
+    'tao-phieu-xu-ly-cv': '/js/pages/taophieuxulycv.js',
+    'bxh-template': '/js/pages/bxh-template.js',
+    'zalo-finder': '/js/pages/zalo-finder.js',
+    'nhantintimdoitackh': '/js/pages/nhantintimdoitackh.js',
+    'dangvideo': '/js/pages/dangvideo.js',
+    'dangcontent': '/js/pages/dangcontent.js',
+    'danggruop': '/js/pages/danggruop.js',
+    'seddingcongdong': '/js/pages/seddingcongdong.js',
+    'dangbanthansp': '/js/pages/dangbanthansp.js',
+    'tuyendungsvkd': '/js/pages/tuyendungsvkd.js',
+    'thongsoaomau': '/js/pages/thongsoaomau.js',
+    'ketoanguihang': '/js/pages/ketoanguihang.js',
+    'kinhdoanhguihang': '/js/pages/kinhdoanhguihang.js',
+    'fab-import-v4': '/js/pages/fab-import-v4.js',
+    'billnhaphang': '/js/pages/billnhaphang.js',
+    'billvatlieu': '/js/pages/billvatlieu.js',
+    'vatlieutempet': '/js/pages/vatlieutempet.js',
+    'gianhapgoc': '/js/pages/gianhapgoc.js',
+    'baogiagoc': '/js/pages/baogiagoc.js',
+    'baogiactvhh': '/js/pages/baogiactvhh.js',
+    'tilecatgoc': '/js/pages/tilecatgoc.js',
+    'luongsanxuat': '/js/pages/luongsanxuat.js',
+    'trasoat-modal': '/js/pages/trasoat-modal.js',
+    'donhanghomnayqlx': '/js/pages/donhanghomnayqlx.js',
+    'lichradonhang': '/js/pages/lichradonhang.js',
+    'nhapxuathoanvatlieu': '/js/pages/nhapxuathoanvatlieu.js'
+};
+
+const _loadedScripts = new Set();
+async function _loadScript(src) {
+    if (_loadedScripts.has(src)) return;
+    const existing = document.querySelector(`script[src^="${src}"]`);
+    if (existing) {
+        _loadedScripts.add(src);
+        return;
+    }
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        const ver = window.BUILD_VERSION || Date.now();
+        s.src = src + '?v=' + ver;
+        s.async = true;
+        s.onload = () => {
+            _loadedScripts.add(src);
+            resolve();
+        };
+        s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        document.body.appendChild(s);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         await checkAuth();
     } catch (err) {
-        // ★ checkAuth đã hiển thị retry screen → KHÔNG remove overlay, KHÔNG chạy tiếp
         console.error('[Auth] Xác thực thất bại:', err.message);
         return;
     }
     setupEventListeners();
     handleRoute();
 
-    // ★ Remove auth loading overlay (fade out smoothly)
     var _authOverlay = document.getElementById('authLoadingOverlay');
     if (_authOverlay) {
         _authOverlay.style.transition = 'opacity .3s';
@@ -293,7 +498,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(function() { _authOverlay.remove(); }, 300);
     }
 
-    // ★ DOITAC PORTAL — skip ALL internal popups & polling for speed
     if (_isDoitacDomain) return;
 
     // Start prize celebration popup polling (skip for affiliate accounts)
@@ -304,42 +508,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 2000);
     }
 
-    // Restore scroll position after F5
     const savedScroll = sessionStorage.getItem('scrollPos');
     if (savedScroll) {
         setTimeout(() => window.scrollTo(0, parseInt(savedScroll)), 100);
         sessionStorage.removeItem('scrollPos');
     }
 
-    // Handle browser back/forward
     window.addEventListener('popstate', () => {
         handleRoute();
     });
 
-    // Save scroll position before unload (F5 / close)
     window.addEventListener('beforeunload', () => {
         sessionStorage.setItem('scrollPos', window.scrollY.toString());
     });
 
-    // Start emergency popup checker for QL/TP
+    // Register global tasks in central HeartbeatService
     if (currentUser && ['quan_ly', 'truong_phong'].includes(currentUser.role)) {
-        emPopupCheck();
-        setInterval(emPopupCheck, 60000);
+        window.registerHeartbeatTask('emPopupCheck', emPopupCheck, 60, () => {
+            return currentUser && ['quan_ly', 'truong_phong'].includes(currentUser.role);
+        });
     }
 
-    // ★ DISABLED — Popup "CẢNH BÁO PHẠT" không cần nữa vì có block screen "TÀI KHOẢN BỊ TẠM CHẶN"
-    // if (currentUser && ['quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'thu_viec', 'part_time'].includes(currentUser.role)) {
-    //     setTimeout(async () => {
-    //         try {
-    //             const data = await apiCall('/api/penalty/my-pending');
-    //             if (data.pending && data.pending.length > 0) {
-    //                 _showPenaltyLockPopup(data.pending, data.total, data.penaltyDate);
-    //             }
-    //         } catch(e) {}
-    //     }, 1500);
-    // }
-
-    // Manager penalty popup — show team penalties (once per day, server-tracked)
     if (currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
         setTimeout(async () => {
             try {
@@ -351,32 +540,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 3000);
     }
 
-    // Cancel popup checker for NV (9:30, 15:00)
     if (currentUser && ['nhan_vien', 'thu_viec', 'truong_phong'].includes(currentUser.role)) {
-        cancelNVPopupCheck();
-        setInterval(cancelNVPopupCheck, 60000);
+        window.registerHeartbeatTask('cancelNVPopupCheck', cancelNVPopupCheck, 60, () => {
+            return currentUser && ['nhan_vien', 'thu_viec', 'truong_phong'].includes(currentUser.role);
+        });
     }
 
-    // Cancel popup checker for QL/GĐ (17:00)
     if (currentUser && ['quan_ly', 'giam_doc'].includes(currentUser.role)) {
-        cancelManagerPopupCheck();
-        setInterval(cancelManagerPopupCheck, 60000);
+        window.registerHeartbeatTask('cancelManagerPopupCheck', cancelManagerPopupCheck, 60, () => {
+            return currentUser && ['quan_ly', 'giam_doc'].includes(currentUser.role);
+        });
     }
 
-    // Withdrawal request polling for GĐ/Trinh
     if (currentUser && ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role)) {
         window._wdLastPendingCount = -1;
-        wdPollPending();
-        setInterval(wdPollPending, 15000);
+        window.registerHeartbeatTask('wdPollPending', wdPollPending, 15, () => {
+            return currentUser && ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role);
+        });
     }
 
-    // ★ Commission cap alert (>15%) for GĐ — check once per session
-    // Backend tracks checkpoint persistently → chỉ trả đơn MỚI chưa duyệt
     if (currentUser && currentUser.role === 'giam_doc' && !sessionStorage.getItem('commCapChecked')) {
         setTimeout(async () => {
             try {
                 const data = await apiCall('/api/admin/commission-cap-check');
-                sessionStorage.setItem('commCapChecked', '1'); // Không check lại trong cùng session
+                sessionStorage.setItem('commCapChecked', '1');
                 if (data.alerts && data.alerts.length > 0) {
                     _showCommCapAlert(data.alerts);
                 }
@@ -384,23 +571,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 4000);
     }
 
-    // CTV Conversion pending badge polling
     if (currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
-        _ctvPollBadge();
-        setInterval(_ctvPollBadge, 30000);
+        window.registerHeartbeatTask('_ctvPollBadge', _ctvPollBadge, 30, () => {
+            return currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
+        });
     }
 
-    // ★ Commitment topbar button — load for non-affiliate accounts
     const COMMIT_BLOCK_ROLES = ['tkaffiliate', 'hoa_hong'];
     if (currentUser && !COMMIT_BLOCK_ROLES.includes(currentUser.role)) {
         setTimeout(_commitLoad, 1200);
-        // ★ Commitment popup — show after 60s if user has unseen commitments
         setTimeout(_commitPopupCheck, 60000);
     } else {
-        // Hide button for affiliate users
         var commitWrap = document.getElementById('commitBtnWrap');
         if (commitWrap) commitWrap.style.display = 'none';
     }
+
+    startHeartbeatSystem();
 });
 
 // ========== COMMITMENT TOPBAR BUTTON ==========
@@ -1813,9 +1999,22 @@ function hasMenuPermission(item) {
     return true;
 }
 
-// Smart redirect for tkaffiliate uses sessionStorage (survives reload, clears on tab close)
+window._pageIntervals = window._pageIntervals || [];
+window.registerPageInterval = function(intervalId) {
+    window._pageIntervals.push(intervalId);
+    return intervalId;
+};
+window.clearPageIntervals = function() {
+    window._pageIntervals.forEach(id => {
+        try { clearInterval(id); } catch(e) {}
+    });
+    window._pageIntervals = [];
+};
 
 async function handleRoute() {
+    // Clear all page-specific registered intervals/timers immediately
+    window.clearPageIntervals();
+
     // Read page from pathname (e.g. /crm-nhu-cau → crm-nhu-cau)
     const pathname = window.location.pathname.replace(/^\//, '') || 'dashboard';
 
@@ -1990,85 +2189,89 @@ async function handleRoute() {
         sessionStorage.setItem('_rh_lastPage', currentPage);
     }
 
-    // Use setTimeout to let spinner render before heavy sync work
-    await new Promise(r => setTimeout(r, 10));
-
-    try {
-        switch (currentPage) {
-            case 'accounts': renderAccountsPage(content); break;
-            case 'teams': renderTeamsPage(content); break;
-            case 'permissions': renderPermissionsPage(content); break;
-            case 'quan-ly-affiliate': renderQuanLyAffiliatePage(content); break;
-            case 'settings': renderSettingsPage(content); break;
-            case 'dashboard': renderDashboardPage(content); break;
-            case 'chuyen-so': renderChuyenSoPage(content); break;
-            case 'chuyensosale': renderChuyensosalePage(content); break;
-            case 'caidatpancake': renderCaidatpancakePage(content); break;
-            case 'tu-van-khach-aff': renderBaoCaoHoaHongPage(content, 'nhu_cau'); break;
-            case 'theo-doi-tu-van-aff': renderBaoCaoHoaHongPage(content, 'ctv_hoa_hong'); break;
-            case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
-            case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
-            case 'crm-ctv': renderCRMCtvPage(content); break;
-            case 'chamsockhsale': renderChamsockhsalePage(content); break;
-            case 'sokhachsale': renderSokhachsalePage(content); break;
-            case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;
-            case 'cham-soc-koc-kol': case 'chamsockockol': renderCRMKocKolPage(content); break;
-            case 'chap-nhan-ctv-affiliate': case 'chapnhanctvaffliate': renderChapNhanCTVAffiliatePage(content); break;
-            case 'cap-cuu-sep': renderEmergencyPage(content); break;
-            case 'huy-khach': renderCancelPage(content); break;
-            case 'tai-khoan-affiliate': renderTaiKhoanAffiliatePage(content); break;
-            case 'my-customers': renderMyCustomersPage(content); break;
-            case 'withdraw': renderWithdrawPage(content); break;
-            case 'withdraw-manage': renderWithdrawManagePage(content); break;
-            case 'rut-tien-affiliate': renderWithdrawAffiliatePage(content); break;
-            case 'bao-cao-hoa-hong-hv': case 'baocaohoahonghv': renderBaoCaoHoaHongHVPage(content); break;
-            case 'huong-dan-su-dung': case 'huongdansudung': renderHuongDanSuDungPage(content); break;
-            case 'quanlytkhethongaff': renderQuanLyHTAffPage(content); break;
-            case 'bang-xep-hang-affiliate': case 'bangxephangaffiliate': renderBangXepHangAffiliatePage(content); break;
-            case 'bang-xep-hang-kinh-doanh': case 'bangxephangkinhdoanh': renderBangXepHangKinhDoanhPage(content); break;
-            case 'bang-xep-hang-sale': case 'bangxephangsale': renderBangXepHangSalePage(content); break;
-            case 'bang-xep-hang-ctv': case 'bangxephangctv': renderBangXepHangCtvPage(content); break;
-            case 'bxh-san-xuat': case 'bxhsanxuat': renderBangXepHangSanXuatPage(content); break;
-            case 'bxh-van-phong': case 'bxhvanphong': renderBangXepHangVanPhongPage(content); break;
-            case 'giai-thuong-game': case 'giaithuonggame': renderGiaiThuongGamePage(content); break;
-            case 'trao-giai-thuong': case 'traogiaithuong': renderTraoGiaiThuongPage(content); break;
-            case 'bangiao-diem-kd': case 'bangiaodiem': renderBanGiaoDiemPage(content); break;
-            case 'lich-khoa-bieu': case 'lichkhoabieu': renderLichKhoaBieuPage(content); break;
-            case 'congvieckhoaxuly': renderCongViecPhatPage(content); break;
-            case 'lich-su-bao-cao': case 'lichsubaocaocv': renderLichSuBaoCaoPage(content); break;
-            case 'khoa-tk-nv': case 'khoatknv': renderKhoaTKNVPage(content); break;
-            case 'mo-khoa-tk-phat': case 'mokhoatkphat': renderMoKhoaTKPhatPage(content); break;
-            case 'xin-nghi-nv': case 'xinnghinhanvien': renderXinNghiPage(content); break;
-            case 'setup-ngay-le': case 'setupngayle': renderSetupNgayLePage(content); break;
-            case 'bangiao-khoa': case 'bangiaokhoa': renderBanGiaoKhoaPage(content); break;
-            case 'goidien': renderGoiDienPage(content); break;
-            case 'hethonggoidien': renderHeThongGoiDienPage(content); break;
-            case 'quytacnuttuvancrmnhucau': renderQuyTacTuVanPage(content); break;
-            case 'quytacnuttuvancrmctv': renderQuyTacTuVanCtvPage(content); break;
-            case 'quytacnuttuvancrmaffiliate': renderQuyTacTuVanAffPage(content); break;
-            case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
-            case 'quytacnuttuvancrmsale': renderQuyTacTuVanSalePage(content); break;
-            case 'dailylinks': renderDailyLinksPage(content); break;
-            case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _dlInit==='function')_dlInit();},50); break;
-            case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;
-            case 'addcmtdoitackh': content.innerHTML=''; setTimeout(function(){if(typeof _acInit==='function')_acInit();},50); break;
-            case 'timkiemkhachhang': case 'timkiemkhachhanghv': renderTimKiemKhachHang(content); break;
-            case 'xuatvathv': renderXuatvathvPage(content); break;
-            default:
-                // ========== CONVENTION-BASED AUTO-RENDER ==========
-                // Try multiple naming patterns to auto-discover page render functions
-                if (!_tryAutoRenderPage(currentPage, content)) {
-                    renderComingSoon(content);
-                }
-                break;
+    // Defer the script loading and actual rendering to let the skeleton paint immediately
+    setTimeout(async () => {
+        try {
+            const scriptPath = _PAGE_SCRIPT_MAP[currentPage];
+            if (scriptPath) {
+                await _loadScript(scriptPath);
+            }
+            switch (currentPage) {
+                case 'accounts': renderAccountsPage(content); break;
+                case 'teams': renderTeamsPage(content); break;
+                case 'permissions': renderPermissionsPage(content); break;
+                case 'quan-ly-affiliate': renderQuanLyAffiliatePage(content); break;
+                case 'settings': renderSettingsPage(content); break;
+                case 'dashboard': renderDashboardPage(content); break;
+                case 'chuyen-so': renderChuyenSoPage(content); break;
+                case 'chuyensosale': renderChuyensosalePage(content); break;
+                case 'caidatpancake': renderCaidatpancakePage(content); break;
+                case 'tu-van-khach-aff': renderBaoCaoHoaHongPage(content, 'nhu_cau'); break;
+                case 'theo-doi-tu-van-aff': renderBaoCaoHoaHongPage(content, 'ctv_hoa_hong'); break;
+                case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
+                case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
+                case 'crm-ctv': renderCRMCtvPage(content); break;
+                case 'chamsockhsale': renderChamsockhsalePage(content); break;
+                case 'sokhachsale': renderSokhachsalePage(content); break;
+                case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;
+                case 'cham-soc-koc-kol': case 'chamsockockol': renderCRMKocKolPage(content); break;
+                case 'chap-nhan-ctv-affiliate': case 'chapnhanctvaffliate': renderChapNhanCTVAffiliatePage(content); break;
+                case 'cap-cuu-sep': renderEmergencyPage(content); break;
+                case 'huy-khach': renderCancelPage(content); break;
+                case 'tai-khoan-affiliate': renderTaiKhoanAffiliatePage(content); break;
+                case 'my-customers': renderMyCustomersPage(content); break;
+                case 'withdraw': renderWithdrawPage(content); break;
+                case 'withdraw-manage': renderWithdrawManagePage(content); break;
+                case 'rut-tien-affiliate': renderWithdrawAffiliatePage(content); break;
+                case 'bao-cao-hoa-hong-hv': case 'baocaohoahonghv': renderBaoCaoHoaHongHVPage(content); break;
+                case 'huong-dan-su-dung': case 'huongdansudung': renderHuongDanSuDungPage(content); break;
+                case 'quanlytkhethongaff': renderQuanLyHTAffPage(content); break;
+                case 'bang-xep-hang-affiliate': case 'bangxephangaffiliate': renderBangXepHangAffiliatePage(content); break;
+                case 'bang-xep-hang-kinh-doanh': case 'bangxephangkinhdoanh': renderBangXepHangKinhDoanhPage(content); break;
+                case 'bang-xep-hang-sale': case 'bangxephangsale': renderBangXepHangSalePage(content); break;
+                case 'bang-xep-hang-ctv': case 'bangxephangctv': renderBangXepHangCtvPage(content); break;
+                case 'bxh-san-xuat': case 'bxhsanxuat': renderBangXepHangSanXuatPage(content); break;
+                case 'bxh-van-phong': case 'bxhvanphong': renderBangXepHangVanPhongPage(content); break;
+                case 'giai-thuong-game': case 'giaithuonggame': renderGiaiThuongGamePage(content); break;
+                case 'trao-giai-thuong': case 'traogiaithuong': renderTraoGiaiThuongPage(content); break;
+                case 'bangiao-diem-kd': case 'bangiaodiem': renderBanGiaoDiemPage(content); break;
+                case 'lich-khoa-bieu': case 'lichkhoabieu': renderLichKhoaBieuPage(content); break;
+                case 'congvieckhoaxuly': renderCongViecPhatPage(content); break;
+                case 'lich-su-bao-cao': case 'lichsubaocaocv': renderLichSuBaoCaoPage(content); break;
+                case 'khoa-tk-nv': case 'khoatknv': renderKhoaTKNVPage(content); break;
+                case 'mo-khoa-tk-phat': case 'mokhoatkphat': renderMoKhoaTKPhatPage(content); break;
+                case 'xin-nghi-nv': case 'xinnghinhanvien': renderXinNghiPage(content); break;
+                case 'setup-ngay-le': case 'setupngayle': renderSetupNgayLePage(content); break;
+                case 'bangiao-khoa': case 'bangiaokhoa': renderBanGiaoKhoaPage(content); break;
+                case 'goidien': renderGoiDienPage(content); break;
+                case 'hethonggoidien': renderHeThongGoiDienPage(content); break;
+                case 'quytacnuttuvancrmnhucau': renderQuyTacTuVanPage(content); break;
+                case 'quytacnuttuvancrmctv': renderQuyTacTuVanCtvPage(content); break;
+                case 'quytacnuttuvancrmaffiliate': renderQuyTacTuVanAffPage(content); break;
+                case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
+                case 'quytacnuttuvancrmsale': renderQuyTacTuVanSalePage(content); break;
+                case 'dailylinks': renderDailyLinksPage(content); break;
+                case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _dlInit==='function')_dlInit();},50); break;
+                case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;
+                case 'addcmtdoitackh': content.innerHTML=''; setTimeout(function(){if(typeof _acInit==='function')_acInit();},50); break;
+                case 'timkiemkhachhang': case 'timkiemkhachhanghv': renderTimKiemKhachHang(content); break;
+                case 'xuatvathv': renderXuatvathvPage(content); break;
+                default:
+                    // ========== CONVENTION-BASED AUTO-RENDER ==========
+                    // Try multiple naming patterns to auto-discover page render functions
+                    if (!_tryAutoRenderPage(currentPage, content)) {
+                        renderComingSoon(content);
+                    }
+                    break;
+            }
+        } catch (err) {
+            console.error('❌ Page render error:', err);
+            content.innerHTML = '<div class="card"><div class="card-body"><div class="empty-state"><div class="icon">⚠️</div><h3>Lỗi tải trang</h3><p>' + (err.message || 'Không thể tải trang. Vui lòng thử lại.') + '</p><button class="btn btn-primary" onclick="handleRoute()" style="margin-top:12px;">🔄 Thử lại</button></div></div></div>';
         }
-    } catch (err) {
-        console.error('❌ Page render error:', err);
-        content.innerHTML = '<div class="card"><div class="card-body"><div class="empty-state"><div class="icon">⚠️</div><h3>Lỗi tải trang</h3><p>' + (err.message || 'Không thể tải trang. Vui lòng thử lại.') + '</p><button class="btn btn-primary" onclick="handleRoute()" style="margin-top:12px;">🔄 Thử lại</button></div></div></div>';
-    }
 
-    // Refresh sidebar badges after every navigation
-    setTimeout(_globalRefreshBadges, 500);
+        // Refresh sidebar badges after every navigation
+        setTimeout(_globalRefreshBadges, 200);
+    }, 0);
 }
 
 // ========== GLOBAL SIDEBAR BADGES ==========
@@ -2097,35 +2300,45 @@ function _setBadge(menuText, count) {
     });
 }
 
+let _lastBadgeRefresh = 0;
+let _badgeRefreshPromise = null;
 async function _globalRefreshBadges() {
-    // Badge phạt cho TẤT CẢ users
-    try {
-        const penaltyRes = await apiCall('/api/penalty-tasks/count').catch(() => ({ count: 0 }));
-        _setBadge('CV Phạt Phải Xử Lý', penaltyRes.count || 0);
-    } catch(e) {}
+    const now = Date.now();
+    if (now - _lastBadgeRefresh < 2000) {
+        return _badgeRefreshPromise;
+    }
+    _lastBadgeRefresh = now;
+    _badgeRefreshPromise = (async () => {
+        // Badge phạt cho TẤT CẢ users
+        try {
+            const penaltyRes = await apiCall('/api/penalty-tasks/count').catch(() => ({ count: 0 }));
+            _setBadge('CV Phạt Phải Xử Lý', penaltyRes.count || 0);
+        } catch(e) {}
 
-    // Override badges for ALL users (show ✏️ TC on sidebar menu items with custom points/quantity)
-    _refreshOverrideBadges();
+        // Override badges for ALL users (show ✏️ TC on sidebar menu items with custom points/quantity)
+        _refreshOverrideBadges();
 
-    const isManager = ['giam_doc','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser?.role);
-    if (!isManager) return;
-    try {
-        const [scheduleRes, cancelRes, emergencyRes] = await Promise.all([
-            apiCall('/api/schedule/pending-count').catch(() => ({ count: 0 })),
-            apiCall('/api/cancel/pending-count').catch(() => ({ count: 0 })),
-            apiCall('/api/emergency/pending-count').catch(() => ({ count: 0 }))
-        ]);
-        // Lịch Khóa Biểu Công Việc
-        if (typeof _kbUpdateSidebarBadge === 'function') {
-            _kbUpdateSidebarBadge(scheduleRes.count || 0);
-        } else {
-            _setBadge('Lịch Khóa Biểu', scheduleRes.count || 0);
-        }
-        // Hủy Khách Hàng
-        _setBadge('Hủy Khách Hàng', cancelRes.count || 0);
-        // Cấp Cứu Sếp
-        _setBadge('Cấp Cứu Sếp', emergencyRes.count || 0);
-    } catch(e) {}
+        const isManager = ['giam_doc','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser?.role);
+        if (!isManager) return;
+        try {
+            const [scheduleRes, cancelRes, emergencyRes] = await Promise.all([
+                apiCall('/api/schedule/pending-count').catch(() => ({ count: 0 })),
+                apiCall('/api/cancel/pending-count').catch(() => ({ count: 0 })),
+                apiCall('/api/emergency/pending-count').catch(() => ({ count: 0 }))
+            ]);
+            // Lịch Khóa Biểu Công Việc
+            if (typeof _kbUpdateSidebarBadge === 'function') {
+                _kbUpdateSidebarBadge(scheduleRes.count || 0);
+            } else {
+                _setBadge('Lịch Khóa Biểu', scheduleRes.count || 0);
+            }
+            // Hủy Khách Hàng
+            _setBadge('Hủy Khách Hàng', cancelRes.count || 0);
+            // Cấp Cứu Sếp
+            _setBadge('Cấp Cứu Sếp', emergencyRes.count || 0);
+        } catch(e) {}
+    })();
+    return _badgeRefreshPromise;
 }
 
 // ========== OVERRIDE BADGES ON SIDEBAR MENU ==========
