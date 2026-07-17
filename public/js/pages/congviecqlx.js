@@ -76,36 +76,42 @@ function _cvqlxRenderActiveTab() {
     // Show loading
     container.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:14px"><div style="font-size:32px;margin-bottom:12px;animation:cvqlxPulse 1s infinite">⏳</div>Đang tải...</div>';
 
-    // Delegate to existing render functions
+    // Delegate to existing render functions with dynamic script loading
     switch (_cvqlxActiveTab) {
         case 'phieuyeucau':
-            _qlxWtInit(container);
+            _loadScript('/js/pages/congviecqlx-phieu.js').then(() => {
+                if (typeof _qlxWtInit === 'function') {
+                    _qlxWtInit(container);
+                } else {
+                    container.innerHTML = '<div style="text-align:center;padding:60px;color:#dc2626">⚠️ Lỗi: Không tìm thấy hàm khởi tạo Phiếu Yêu Cầu.</div>';
+                }
+            }).catch(err => {
+                container.innerHTML = '<div style="text-align:center;padding:60px;color:#dc2626">⚠️ Lỗi tải module Phiếu Yêu Cầu. Vui lòng thử lại.</div>';
+            });
             break;
 
         case 'chuanbi':
-            // Chuẩn Bị QLX — uses renderQuanlyxuongqlxPage
-            if (typeof renderQuanlyxuongqlxPage === 'function') {
-                renderQuanlyxuongqlxPage(container);
-            } else {
-                container.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🏭</div><h3 style="color:#334155">Chuẩn Bị QLX</h3><p>Trang đang được tải...</p></div>';
-            }
+            _loadScript('/js/pages/chuanbiqlx.js').then(() => {
+                if (typeof renderQuanlyxuongqlxPage === 'function') {
+                    renderQuanlyxuongqlxPage(container);
+                } else {
+                    container.innerHTML = '<div style="text-align:center;padding:60px;color:#dc2626">⚠️ Lỗi: Không tìm thấy hàm hiển thị Chuẩn Bị QLX.</div>';
+                }
+            }).catch(err => {
+                container.innerHTML = '<div style="text-align:center;padding:60px;color:#dc2626">⚠️ Lỗi tải module Chuẩn Bị QLX. Vui lòng thử lại.</div>';
+            });
             break;
 
         case 'donhanghomnay':
-            // Đơn Hàng Hôm Nay QLX — uses renderDonhanghomnayqlxPage if exists
-            if (typeof renderDonhanghomnayqlxPage === 'function') {
-                renderDonhanghomnayqlxPage(container);
-            } else {
-                container.innerHTML = '<div style="text-align:center;padding:80px 20px">'
-                    +'<div style="font-size:56px;margin-bottom:16px">🚀</div>'
-                    +'<h3 style="color:#0c4a6e;font-size:20px;font-weight:800;margin:0 0 8px">Đơn Hàng Hôm Nay QLX</h3>'
-                    +'<p style="color:#64748b;font-size:13px;max-width:400px;margin:0 auto">Module đang được phát triển.</p>'
-                    +'<div style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);padding:10px 20px;border-radius:10px;border:1px solid #bae6fd">'
-                    +'<span style="font-size:14px">🔧</span>'
-                    +'<span style="font-size:12px;font-weight:700;color:#0369a1">Đang phát triển</span>'
-                    +'</div>'
-                    +'</div>';
-            }
+            _loadScript('/js/pages/donhanghomnayqlx.js').then(() => {
+                if (typeof renderDonhanghomnayqlxPage === 'function') {
+                    renderDonhanghomnayqlxPage(container);
+                } else {
+                    container.innerHTML = '<div style="text-align:center;padding:60px;color:#dc2626">⚠️ Lỗi: Không tìm thấy hàm hiển thị Đơn Hàng Hôm Nay QLX.</div>';
+                }
+            }).catch(err => {
+                container.innerHTML = '<div style="text-align:center;padding:60px;color:#dc2626">⚠️ Lỗi tải module Đơn Hàng Hôm Nay QLX. Vui lòng thử lại.</div>';
+            });
             break;
 
         default:

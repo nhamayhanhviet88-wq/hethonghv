@@ -456,7 +456,9 @@ const _PAGE_SCRIPT_MAP = {
     'trasoat-modal': '/js/pages/trasoat-modal.js',
     'donhanghomnayqlx': '/js/pages/donhanghomnayqlx.js',
     'lichradonhang': '/js/pages/lichradonhang.js',
-    'nhapxuathoanvatlieu': '/js/pages/nhapxuathoanvatlieu.js'
+    'nhapxuathoanvatlieu': '/js/pages/nhapxuathoanvatlieu.js',
+    'congviec-qlx': '/js/pages/congviecqlx.js',
+    'congviecqlx': '/js/pages/congviecqlx.js'
 };
 
 const _loadedScripts = new Set();
