@@ -4385,3 +4385,8 @@ function _dhtApplyRepairOverrides() {
     _dhtCreate.depositCode = '';
     _dhtCreate.orderCode = repairCode;
 }
+
+// Expose functions globally to overwrite any lazy wrappers
+window._dhtShowCreate = _dhtShowCreate;
+window._dhtShowCreateFree = _dhtShowCreateFree;
+window._dhtEditOrderFull = _dhtEditOrderFull;
