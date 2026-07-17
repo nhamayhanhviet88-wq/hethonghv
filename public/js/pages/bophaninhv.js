@@ -674,7 +674,26 @@ function _bpiRender() {
             + notesMergedCell
             +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
         }
-        var trStyle = r.is_discarded ? ' style="background:#fee2e2;opacity:0.85;"' : '';
+        // ===== DISCARDED (HỦY BỎ - BÙ PHÍ) records: hide buttons, show as done =====
+        if (r.is_discarded) {
+            var discardedTime = r.updated_at ? _bpiFT(r.updated_at) : '—';
+            var discardedDateVal = '<span style="background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block; font-size: 9px;">HỦY: ' + discardedTime + '</span>';
+            var discardedBanner = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:linear-gradient(135deg,#fecaca,#fca5a5);color:#991b1b;padding:3px 10px;border-radius:6px;font-size:9px;font-weight:800;white-space:nowrap;display:inline-block;letter-spacing:0.3px">🚫 ĐÃ HỦY - BÙ PHÍ</span></td>';
+            return '<tr style="background:#fef2f2;opacity:0.8;"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
+            + discardedBanner
+            +'<td style="text-align:center">'+fieldBadge+'</td>'
+            +'<td style="font-size:10px">'+discardedDateVal+'</td>'
+            +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
+            +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
+            +'<td style="font-weight:600;color:#1e293b">'+priBadge+clickableName+imgIcon+'</td>'
+            +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
+            + rollMeterCell
+            +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
+            +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
+            + notesMergedCell
+            +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
+        }
+        var trStyle = '';
         return '<tr' + trStyle + '><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell
         +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#94a3b8">—</span>' : '<button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button>')+'</td>'

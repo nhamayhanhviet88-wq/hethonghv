@@ -277,6 +277,7 @@ module.exports = async function(fastify) {
                     pr.error_reported,
                     pr.created_at,
                     CASE 
+                        WHEN COALESCE(pr.is_discarded, false) = true THEN true
                         WHEN pr.contractor_id IS NOT NULL THEN true
                         ELSE pr.is_print_done 
                     END AS is_completed
@@ -331,6 +332,7 @@ module.exports = async function(fastify) {
             LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
             WHERE (
                 CASE 
+                    WHEN COALESCE(pr.is_discarded, false) = true THEN true
                     WHEN pr.contractor_id IS NOT NULL THEN true
                     ELSE pr.is_print_done 
                 END
@@ -504,7 +506,7 @@ module.exports = async function(fastify) {
                 up.created_at DESC`;
         if (status === 'done') {
             orderBy = `ORDER BY 
-                MAX(COALESCE(up.print_done_at, up.print_date)) OVER (PARTITION BY COALESCE(up.order_code, up.id::text)) DESC NULLS LAST,
+                MAX(COALESCE(CASE WHEN COALESCE(up.is_discarded, false) THEN up.updated_at ELSE up.print_done_at END, up.print_date)) OVER (PARTITION BY COALESCE(up.order_code, up.id::text)) DESC NULLS LAST,
                 COALESCE(up.order_code, ''),
                 up.order_item_id ASC NULLS FIRST,
                 up.created_at DESC`;
@@ -577,6 +579,7 @@ module.exports = async function(fastify) {
                     u_test.full_name AS test_by_name,
                     u_done.full_name AS done_by_name,
                     CASE 
+                        WHEN COALESCE(pr.is_discarded, false) = true THEN true
                         WHEN pr.contractor_id IS NOT NULL THEN true
                         ELSE pr.is_print_done 
                     END AS is_completed,
