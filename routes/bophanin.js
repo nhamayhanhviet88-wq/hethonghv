@@ -5,29 +5,36 @@ const { vnNow } = require('../utils/timezone');
 
 module.exports = async function(fastify) {
 
-    fastify.addHook('preHandler', async (request, reply) => {
-        if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return;
-        const url = request.url;
-        if (url.includes('/api/printing/contractors') || url.includes('/api/printing/staff') || url.includes('/api/printing/fields')) {
-            return;
-        }
-        let dhtOrderId = null;
-        if (request.body && request.body.dht_order_id) {
-            dhtOrderId = Number(request.body.dht_order_id);
-        } else if (request.params && request.params.id) {
-            const id = Number(request.params.id);
-            if (url.includes('/api/printing/records/') || url.includes('/api/printing/toggle/')) {
-                const rec = await db.get('SELECT dht_order_id FROM printing_records WHERE id = $1', [id]);
-                if (rec) dhtOrderId = rec.dht_order_id;
-            }
-        }
-        if (dhtOrderId) {
-            const order = await db.get('SELECT is_draft FROM dht_orders WHERE id = $1', [dhtOrderId]);
-            if (order && order.is_draft) {
-                return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
-            }
-        }
-    });
+    fastify.addHook('preHandler', async (request, reply) => {
+        if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return;
+        const url = request.url;
+        if (url.includes('/api/printing/contractors') || url.includes('/api/printing/staff') || url.includes('/api/printing/fields')) {
+            return;
+        }
+        let dhtOrderId = null;
+        if (request.body && request.body.dht_order_id) {
+            dhtOrderId = Number(request.body.dht_order_id);
+        } else if (request.params && request.params.id) {
+            const idStr = String(request.params.id).trim();
+            if (idStr.startsWith('dht_')) {
+                dhtOrderId = Number(idStr.replace('dht_', ''));
+            } else {
+                const id = Number(idStr);
+                if (!isNaN(id)) {
+                    if (url.includes('/api/printing/records/') || url.includes('/api/printing/toggle/')) {
+                        const rec = await db.get('SELECT dht_order_id FROM printing_records WHERE id = $1', [id]);
+                        if (rec) dhtOrderId = rec.dht_order_id;
+                    }
+                }
+            }
+        }
+        if (dhtOrderId && !isNaN(dhtOrderId)) {
+            const order = await db.get('SELECT is_draft FROM dht_orders WHERE id = $1', [dhtOrderId]);
+            if (order && order.is_draft) {
+                return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
+            }
+        }
+    });
 
 
     // ========== AUTO-MIGRATE ==========

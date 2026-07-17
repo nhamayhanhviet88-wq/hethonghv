@@ -6,6 +6,20 @@ var _bpiOpen = {};
 _bpiOpen['y' + currentYear] = true;
 _bpiOpen['p' + currentYear] = true;
 
+function _bpiFindRecord(id) {
+    if (id === null || id === undefined || id === '' || id === 'null' || id === 'undefined') return null;
+    var idStr = String(id).trim();
+    if (idStr.startsWith('dht_')) {
+        var orderId = Number(idStr.replace('dht_', ''));
+        return _bpi.records.find(function(x) { return Number(x.dht_order_id) === orderId; });
+    }
+    if (idStr.startsWith('order_')) {
+        var orderId = Number(idStr.replace('order_', ''));
+        return _bpi.records.find(function(x) { return Number(x.dht_order_id) === orderId; });
+    }
+    return _bpi.records.find(function(x) { return String(x.id) === idStr; });
+}
+
 function _bpiSaveUrlState() {
     var f = _bpi.filter;
     var params = new URLSearchParams();
@@ -521,6 +535,7 @@ function _bpiRender() {
     var tb=document.getElementById('bpiTb'); if(!tb)return;
     if(!paged.length){tb.innerHTML='<tr><td colspan="20"><div class="empty-state"><div class="icon">🖨️</div><h3>Chưa có đơn in nào</h3></div></td></tr>';} else {
     tb.innerHTML=paged.map(function(r,i){
+        var recordId = r.id || ('dht_' + r.dht_order_id);
         var priority = (r.shipping_priority || 'CHUẨN').toUpperCase();
         var priBadge = '';
         if (priority === 'GẤP') {
@@ -537,12 +552,12 @@ function _bpiRender() {
         var errBtnHtml = '';
         if (r.error_reported) {
             if (isManager) {
-                errBtnHtml = '<button class="bpi-ib on-err" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi tiếp">⚠️</button>';
+                errBtnHtml = '<button class="bpi-ib on-err" onclick="_bpiErr(\''+recordId+'\')" title="Báo lỗi tiếp">⚠️</button>';
             } else {
                 errBtnHtml = '<span style="font-size:12px;display:inline-block;width:26px;text-align:center;line-height:26px">⚠️</span>';
             }
         } else {
-            errBtnHtml = '<button class="bpi-ib" onclick="_bpiErr(\''+r.id+'\')" title="Báo lỗi">⬜</button>';
+            errBtnHtml = '<button class="bpi-ib" onclick="_bpiErr(\''+recordId+'\')" title="Báo lỗi">⬜</button>';
         }
 
         var nvName=r.contractor_id?(r.contractor_name?'🏭 '+r.contractor_name:'🏭 Gia công'):(r.printer_name||'—');
@@ -577,7 +592,7 @@ function _bpiRender() {
                 auditDetails = '<div style="font-size:8px;color:#0284c7;margin-top:2px;line-height:1">' + shName + '<br>' + _bpiFT(r.audit_checked_at) + noteHtml + '</div>';
             }
             var titleText = r.audit_checked ? ('Đã kiểm tra: ' + (r.audit_note || '(Không có ghi chú)')) : 'Kiểm tra';
-            auditCell = '<td style="text-align:center"><button class="bpi-ib' + aC + '" onclick="_bpiAudit(\'' + r.id + '\')" title="' + titleText + '">' + aI + '</button>' + auditDetails + '</td>';
+            auditCell = '<td style="text-align:center"><button class="bpi-ib' + aC + '" onclick="_bpiAudit(\'' + recordId + '\')" title="' + titleText + '">' + aI + '</button>' + auditDetails + '</td>';
         } else {
             if (r.audit_checked) {
                 var shName = (r.audit_checked_by_name || '').split(' ').pop() || 'Duyệt';
@@ -682,10 +697,10 @@ function _bpiRender() {
             if (r.is_print_done && !isManager) {
                 doneBtnHtml = '<button class="bpi-ib' + dC + '" style="opacity:0.75;cursor:not-allowed" disabled>' + dI + '</button>';
             } else {
-                doneBtnHtml = '<button class="bpi-ib' + dC + '" onclick="_bpiTog(\'' + r.id + '\',\'' + dA + '\')" title="In xong">' + dI + '</button>';
+                doneBtnHtml = '<button class="bpi-ib' + dC + '" onclick="_bpiTog(\'' + recordId + '\',\'' + dA + '\')" title="In xong">' + dI + '</button>';
             }
         }
-        var clickableName = '<span class="bpi-name-link" onclick="_bpiShowDetailModal(\'' + r.id + '\')">' + _bpiGetProductNameDisplay(r) + '</span>';
+        var clickableName = '<span class="bpi-name-link" onclick="_bpiShowDetailModal(\'' + recordId + '\')">' + _bpiGetProductNameDisplay(r) + '</span>';
         if (r.is_draft) {
             var warnBanner = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
             return '<tr style="opacity:0.5; pointer-events:none;"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
@@ -724,7 +739,7 @@ function _bpiRender() {
         var trStyle = '';
         return '<tr' + trStyle + '><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
         + auditCell
-        +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#94a3b8">—</span>' : '<button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+r.id+'\',\''+tA+'\')" title="In test">'+tI+'</button>')+'</td>'
+        +'<td style="text-align:center">'+(r.contractor_id ? '<span style="color:#94a3b8">—</span>' : '<button class="bpi-ib'+tC+'" onclick="_bpiTog(\''+recordId+'\',\''+tA+'\')" title="In test">'+tI+'</button>')+'</td>'
         +'<td style="text-align:center">'+doneBtnHtml+'</td>'
         +'<td style="text-align:center">' + errBtnHtml + '</td>'
         +'<td style="text-align:center">'+fieldBadge+'</td>'
@@ -803,7 +818,7 @@ function _bpiNextPage() {
 }
 
 async function _bpiTog(id, action) {
-    var r = _bpi.records.find(function(rec) { return String(rec.id) === String(id); });
+    var r = _bpiFindRecord(id);
     if (!r) return;
 
     var isManager = window._currentUser && ['giam_doc', 'quan_ly_xuong', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(window._currentUser.role);
@@ -858,11 +873,14 @@ async function _bpiTog(id, action) {
         }
     }
     try {
-        await apiCall('/api/printing/toggle/'+id,'POST',{action});
+        var res = await apiCall('/api/printing/toggle/'+id,'POST',{action});
         showToast('✅ Cập nhật');
         if (action === 'print_done') {
-            if (window._bpiRecentlyCompletedIds.indexOf(Number(id)) === -1) {
-                window._bpiRecentlyCompletedIds.push(Number(id));
+            var newId = res.id || Number(id);
+            if (!isNaN(newId)) {
+                if (window._bpiRecentlyCompletedIds.indexOf(newId) === -1) {
+                    window._bpiRecentlyCompletedIds.push(newId);
+                }
             }
         }
         await _bpiLoadAll();
@@ -880,7 +898,7 @@ async function _bpiShowDoneModal(r) {
     var printViewedIds = [];
     if (!r.contractor_id) {
         try {
-            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in&record_type=printing&record_id=' + r.id;
+            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in&record_type=printing&record_id=' + (r.id || 'dht_' + r.dht_order_id);
             if (r.order_item_id) url += '&item_id=' + r.order_item_id;
             var remRes = await apiCall(url);
             printReminders = remRes.reminders || [];
@@ -1344,7 +1362,7 @@ async function _bpiSubmitDone(id) {
     
     if (!rollId) {
         var rollType = 'PET';
-        var r = _bpi.records.find(function(x) { return x.id == id; });
+        var r = _bpiFindRecord(id);
         if (r) {
             var fieldUpper = (r.print_field || '').toUpperCase();
             if (fieldUpper.includes('TEM') || fieldUpper.includes('DECAL')) {
@@ -1373,7 +1391,7 @@ async function _bpiSubmitDone(id) {
     }
     
     try {
-        await apiCall('/api/printing/toggle/' + id, 'POST', {
+        var res = await apiCall('/api/printing/toggle/' + id, 'POST', {
             action: 'print_done',
             pettem_roll_id: rollId,
             roll_start_qty: startQty,
@@ -1381,6 +1399,8 @@ async function _bpiSubmitDone(id) {
             roll_end_qty: endQty,
             image_url: imageUrl
         });
+        
+        var realId = res.id;
         
         // Save viewed reminders
         var viewedReminderIds = [];
@@ -1396,13 +1416,13 @@ async function _bpiSubmitDone(id) {
                 await apiCall('/api/qlx/reminders/viewed', 'POST', {
                     reminder_ids: viewedReminderIds,
                     record_type: 'printing',
-                    record_id: Number(id)
+                    record_id: realId
                 });
             } catch(ve) { console.error('Lỗi lưu trạng thái xem nhắc nhở:', ve); }
         }
         
-        if (window._bpiRecentlyCompletedIds.indexOf(Number(id)) === -1) {
-            window._bpiRecentlyCompletedIds.push(Number(id));
+        if (window._bpiRecentlyCompletedIds.indexOf(realId) === -1) {
+            window._bpiRecentlyCompletedIds.push(realId);
         }
         showToast('✅ Đã xác nhận in xong');
         _bpiCloseDoneModal();
@@ -1428,7 +1448,7 @@ window._bpiShowDetailModal = async function(id) {
     var old = document.getElementById('_bpiDetailModal');
     if (old) old.remove();
     
-    var r = _bpi.records.find(function(x) { return String(x.id) === String(id); });
+    var r = _bpiFindRecord(id);
     if (!r) {
         showToast('Không tìm thấy bản ghi!', 'error');
         return;
@@ -1439,7 +1459,7 @@ window._bpiShowDetailModal = async function(id) {
     var printViewedIds = [];
     if (!r.contractor_id) {
         try {
-            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in&record_type=printing&record_id=' + r.id;
+            var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=in&record_type=printing&record_id=' + (r.id || 'dht_' + r.dht_order_id);
             if (r.order_item_id) url += '&item_id=' + r.order_item_id;
             var remRes = await apiCall(url);
             printReminders = remRes.reminders || [];
@@ -2101,7 +2121,7 @@ async function _bpiReportError(recordId) {
     window._bpiBusy = true;
 
     try {
-        var r = _bpi.records.find(function(x) { return x.id == recordId; });
+        var r = _bpiFindRecord(recordId);
         if (!r) { showToast('Không tìm thấy đơn in', 'error'); window._bpiBusy = false; return; }
 
         var ce = await apiCall('/api/common-errors-tpl');
@@ -2297,7 +2317,7 @@ async function _bpiSubmitError(recordId) {
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
 
     try {
-        var r = _bpi.records.find(function(x) { return x.id == recordId; });
+        var r = _bpiFindRecord(recordId);
         if (!r) { throw new Error('Không tìm thấy record gốc'); }
 
         var today = new Date().toISOString().split('T')[0];
@@ -2467,7 +2487,7 @@ function _bpiShowGcExtendModal(recordId) {
         var orderId = String(recordId).replace('order_', '');
         r = _bpi.records.find(function(x) { return String(x.dht_order_id) === orderId; });
     } else {
-        r = _bpi.records.find(function(x) { return String(x.id) === String(recordId); });
+        r = _bpiFindRecord(recordId);
     }
     if (!r) { alert('Không tìm thấy đơn'); return; }
     
