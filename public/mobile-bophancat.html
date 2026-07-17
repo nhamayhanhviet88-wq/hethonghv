@@ -859,7 +859,7 @@ function mRenderUncut(items = null, showSectionBadge = false){
         h+='</div><div class="m-card-body">';
         h+='<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val">'+(o.customer_name||'—')+'</span></div>';
         if(o.edit_lock_by){
-            h+='<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px;font-weight:700;color:#dc2626">⚠️ Đơn đang mở sửa bởi '+o.edit_lock_by+', bao giờ sửa xong mới được làm</div>';
+            h+='<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px;font-weight:700;color:#dc2626">⚠️ Đơn đang mở sửa bởi '+o.edit_lock_by+'</div>';
         }
         if(o.cut_warning){
             h+='<div style="background:rgba(234,88,12,0.15);border:1px solid rgba(234,88,12,0.3);border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px;font-weight:700;color:#f97316">⚠️ '+o.cut_warning+'</div>';
@@ -1108,7 +1108,7 @@ function mRenderMine(items = null, showSectionBadge = false){
             +metricsHtml
             +sharedHtml
             +compWarningHtml
-            +(r.edit_lock_by ? '<div style="margin:4px 0;padding:6px 10px;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;font-size:10px;font-weight:700;color:#dc2626">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + ', bao giờ sửa xong mới được làm</div>' : '')
+            +(r.edit_lock_by ? '<div style="margin:4px 0;padding:6px 10px;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;font-size:10px;font-weight:700;color:#dc2626">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + '</div>' : '')
             +actionHtml
             +'</div></div>';
     }).join('');

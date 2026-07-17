@@ -42,7 +42,7 @@ module.exports = async function(fastify) {
                     const now = new Date();
                     const diffMinutes = (now - lockedAt) / (1000 * 60);
                     if (diffMinutes < 5) {
-                        return reply.code(423).send({ error: `⚠️ Đơn đang được sửa bởi ${order.locked_by_name || 'sale'}, bao giờ sửa xong mới được làm` });
+                        return reply.code(423).send({ error: `⚠️ Đơn đang được sửa bởi ${order.locked_by_name || 'sale'}` });
                     }
                 }
             }

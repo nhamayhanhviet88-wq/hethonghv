@@ -885,7 +885,7 @@ function _bpcMapRecordRow(r, i) {
 
     if (r.edit_lock_by) {
         canInteract = false;
-        disableReason = '⚠️ Đơn đang được sửa bởi ' + r.edit_lock_by + ', bao giờ sửa xong mới được làm';
+        disableReason = '⚠️ Đơn đang được sửa bởi ' + r.edit_lock_by;
     }
 
     var cutBtnHtml = '';
@@ -1018,7 +1018,7 @@ function _bpcMapRecordRow(r, i) {
     var cutColor = isPhoi ? '#c084fc' : '#7c3aed';
 
     if (r.edit_lock_by) {
-        var warnBanner = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + ', bao giờ sửa xong mới được làm</span></td>';
+        var warnBanner = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + '</span></td>';
         return '<tr style="opacity:0.5; pointer-events:none;">'
             +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1)+'</td>'
             +warnBanner
@@ -1670,7 +1670,7 @@ function _bpcBuildUnassignedTableHtml(all) {
             var finalSpName = spName;
 
             if (r.edit_lock_by) {
-                var actionColHtml = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + ', bao giờ sửa xong mới được làm</span></td>';
+                var actionColHtml = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + '</span></td>';
                 th += '<tr style="opacity:0.5; pointer-events:none; '+bg+'">'
                     +'<td style="text-align:center;font-weight:700;color:#94a3b8">'+(isNew?stt:'')+'</td>'
                     +actionColHtml

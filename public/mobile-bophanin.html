@@ -327,7 +327,7 @@ const mClickableName = '<span style="cursor:pointer;text-decoration:underline da
 if (r.edit_lock_by) {
     return '<div class="card" style="opacity:0.6; pointer-events:none;"><div class="ct"><div class="ci">📋</div><div class="cn">'+mClickableName+imgIcon+'</div><div class="cc">'+priBadge+(r.order_code||'')+'</div></div>'
     + '<div class="cb">'
-    + '<div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px;margin:8px 0;font-size:12.5px;font-weight:700;color:#fca5a5;text-align:center;line-height:1.4">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + ', bao giờ sửa xong mới được làm</div>'
+    + '<div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px;margin:8px 0;font-size:12.5px;font-weight:700;color:#fca5a5;text-align:center;line-height:1.4">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + '</div>'
     + '</div></div>';
 }
 if (r.is_draft) {
