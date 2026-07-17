@@ -7154,12 +7154,14 @@ function _tpdValidateAllSheets() {
                 }
             }
 
-            const layoutVal = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
-            const note = (layoutVal.sheet_edit_note || '').trim();
-            if (!note) {
-                showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Bạn bắt buộc phải nhập Nội dung sửa đổi chi tiết cho phiếu này!`, 'error');
-                _tpdSwitchItemTab(idx);
-                return false;
+            if (idx === state.activeItemIndex) {
+                const layoutVal = typeof it.custom_layout === 'string' ? JSON.parse(it.custom_layout) : (it.custom_layout || {});
+                const note = (layoutVal.sheet_edit_note || '').trim();
+                if (!note) {
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Bạn bắt buộc phải nhập Nội dung sửa đổi chi tiết cho phiếu này!`, 'error');
+                    _tpdSwitchItemTab(idx);
+                    return false;
+                }
             }
         }
     }
