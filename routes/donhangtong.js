@@ -3977,22 +3977,11 @@ module.exports = async function(fastify) {
         if (!chat_confirmed_image || !chat_confirmed_image.trim()) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh khách nhắn chốt đơn!' });
         }
+        if (!gift_proof_image || !gift_proof_image.trim()) {
+            return reply.code(400).send({ error: 'Thiếu hình ảnh gửi phiếu tặng quà khách!' });
+        }
 
         const orderItems = await db.all('SELECT id, product_name, design_pdf_url, design_pdf_name, sale_type, promo_gift_code FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
-        
-        // Validate gift proof if order has coupon or gift items
-        const hasGiftOrPromo = !!(
-            order.applied_coupon || 
-            orderItems.some(item => {
-                const st = (item.sale_type || '').toLowerCase();
-                return st === 'quà' || st === 'qua' || item.promo_gift_code;
-            })
-        );
-        if (hasGiftOrPromo) {
-            if (!gift_proof_image || !gift_proof_image.trim()) {
-                return reply.code(400).send({ error: 'Thiếu hình ảnh gửi phiếu tặng quà khách!' });
-            }
-        }
 
         if (!item_designs || typeof item_designs !== 'object') {
             return reply.code(400).send({ error: 'Thiếu file PDF thiết kế bắt buộc cho từng phiếu!' });

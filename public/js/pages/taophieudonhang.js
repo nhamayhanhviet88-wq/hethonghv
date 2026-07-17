@@ -7565,13 +7565,6 @@ async function _tpdShowExportSheetsModal() {
     window._tpdLogoApprovedUrl = localStorage.getItem(`tpd_logo_proof_${o.id}`) || o.logo_approved_image || '';
     window._tpdChatConfirmedUrl = localStorage.getItem(`tpd_chat_proof_${o.id}`) || o.chat_confirmed_image || '';
     window._tpdGiftProofUrl = localStorage.getItem(`tpd_gift_proof_${o.id}`) || o.gift_proof_image || '';
-    const hasGiftOrPromo = !!(
-        o.applied_coupon || 
-        items.some(item => {
-            const st = (item.sale_type || '').toLowerCase();
-            return st === 'quà' || st === 'qua' || item.promo_gift_code;
-        })
-    );
     window._tpdActivePasteZone = '';
     window._tpdSheetDesigns = {};
     items.forEach((item, idx) => {
@@ -7814,10 +7807,10 @@ async function _tpdShowExportSheetsModal() {
                         </div>
 
                         <!-- Gift Voucher Paste Box -->
-                        <div id="tpdGiftPasteArea" tabindex="0" onclick="_tpdActivatePasteZone('gift'); if(event.target.id === 'tpdGiftPasteArea' || event.target.closest('#tpdGiftPastePrompt')) { _tpdTriggerFileInput('gift', event); }" style="flex: 1; min-width: 250px; background: #ffffff; border: 2px dashed ${hasGiftOrPromo ? '#dc2626' : '#cbd5e1'}; border-radius: 10px; padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; text-align: center; outline: none;">
+                        <div id="tpdGiftPasteArea" tabindex="0" onclick="_tpdActivatePasteZone('gift'); if(event.target.id === 'tpdGiftPasteArea' || event.target.closest('#tpdGiftPastePrompt')) { _tpdTriggerFileInput('gift', event); }" style="flex: 1; min-width: 250px; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; text-align: center; outline: none;">
                             <div id="tpdGiftPastePrompt" style="font-size: 12px; font-weight: 600; pointer-events: none; ${window._tpdGiftProofUrl ? 'display: none;' : ''}">
                                 <div style="font-size: 24px; margin-bottom: 6px;">🎁</div>
-                                <strong style="color: ${hasGiftOrPromo ? '#dc2626' : '#2563eb'}; font-size: 14px; font-weight: 900; display: block; margin-bottom: 4px; text-transform: uppercase;">GỬI PHIẾU TẶNG QUÀ KHÁCH ${hasGiftOrPromo ? '* (BẮT BUỘC)' : '(TÙY CHỌN)'}</strong>
+                                <strong style="color: #2563eb; font-size: 14px; font-weight: 900; display: block; margin-bottom: 4px; text-transform: uppercase;">GỬI PHIẾU TẶNG QUÀ KHÁCH * (BẮT BUỘC)</strong>
                                 <div style="font-size: 11px; color: #475569; margin-top: 4px; font-weight: 700;">Ctrl + V để dán ảnh</div>
                             </div>
                             <div id="tpdGiftPreviewContainer" style="${window._tpdGiftProofUrl ? 'display: flex; flex-direction: column; align-items: center; justify-content: center;' : 'display: none;'} width: 100%; height: 100%; position: relative;">
@@ -8156,8 +8149,7 @@ async function _tpdShowExportSheetsModal() {
         if (!confirmBtn) return;
         
         const allDownloaded = downloaded.every(d => d === true);
-        const giftValid = !hasGiftOrPromo || !!window._tpdGiftProofUrl;
-        const hasProofs = !!(window._tpdLogoApprovedUrl && window._tpdChatConfirmedUrl && giftValid);
+        const hasProofs = !!(window._tpdLogoApprovedUrl && window._tpdChatConfirmedUrl && window._tpdGiftProofUrl);
         const allPdfsUploaded = items.every(item => {
             const design = window._tpdSheetDesigns[item.id];
             return !!(design && design.url);
@@ -8257,7 +8249,7 @@ async function _tpdShowExportSheetsModal() {
         chatArea.style.borderColor = '#cbd5e1';
         chatArea.style.background = '#ffffff';
         if (giftArea) {
-            giftArea.style.borderColor = hasGiftOrPromo ? '#dc2626' : '#cbd5e1';
+            giftArea.style.borderColor = '#cbd5e1';
             giftArea.style.background = '#ffffff';
         }
         
