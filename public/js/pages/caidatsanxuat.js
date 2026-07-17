@@ -20,6 +20,7 @@ async function renderCaidatsanxuatPage(container) {
                     <div class="tab" data-tab="vi-tri-phoi" onclick="switchCdsxTab('vi-tri-phoi', this)">📌 Vị Trí Phối</div>
                     <div class="tab" data-tab="quyen-duyet" onclick="switchCdsxTab('quyen-duyet', this)">🔑 Quyền Duyệt TSAM</div>
                     <div class="tab" data-tab="nhac-nho" onclick="switchCdsxTab('nhac-nho', this)">🔔 Nhắc Nhở Công Việc</div>
+                    <div class="tab" data-tab="gia-cong" onclick="switchCdsxTab('gia-cong', this)">🖨️ Gia Công In</div>
                 </div>
                 <div id="cdsxContent">
                     <div class="text-center text-muted" style="padding:30px;">Đang tải...</div>
@@ -76,6 +77,9 @@ async function switchCdsxTab(tab, el) {
             break;
         case 'quyen-duyet':
             await _cdsxLoadQuyenDuyet(content);
+            break;
+        case 'gia-cong':
+            await _cdsxLoadGiaCong(content);
             break;
         default:
             _cdsxLoadShell(content, '🔧', tab, 'Tab chưa được cấu hình');
@@ -1547,5 +1551,84 @@ async function _lteSubmitPositionForm(id = null) {
         showToast('Lỗi kết nối', 'error');
     }
 }
+
+// ===== GIA CÔNG IN Tab =====
+async function _cdsxLoadGiaCong(container) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray-400)">Đang tải cấu hình gia công...</div>';
+    try {
+        const res = await apiCall('/api/printing/gc-config');
+        const maxDays = res.max_extension_days || 1;
+        const maxCount = res.max_extension_count || 3;
+
+        container.innerHTML = `
+            <div style="max-width:600px; margin:20px auto; background:#fff; border-radius:12px; padding:24px; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
+                <div style="border-bottom:1px solid #f1f5f9; padding-bottom:12px; margin-bottom:20px; display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:20px;">🖨️</span>
+                    <div>
+                        <h4 style="margin:0; font-weight:800; color:#1e293b;">Cấu Hình Hạn Rời Ngày Gia Công</h4>
+                        <div style="font-size:11px; color:#94a3b8; margin-top:2px;">Thiết lập các giới hạn khi nhân viên/quản lý dời tiến độ đơn hàng PET/TEM gia công.</div>
+                    </div>
+                </div>
+                
+                <div style="display:grid; gap:16px;">
+                    <div>
+                        <label style="font-weight:700; font-size:13px; color:#374151; display:block; margin-bottom:6px;">Số ngày dời tối đa mỗi lần dời:</label>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="number" id="_gcMaxDays" class="form-control" value="${maxDays}" min="1" style="max-width:120px; font-weight:700; text-align:center;">
+                            <span style="font-size:12px; font-weight:600; color:#64748b;">ngày</span>
+                        </div>
+                        <small style="display:block; color:#94a3b8; margin-top:4px; font-size:11px;">Mỗi khi thực hiện dời ngày (gia hạn), khoảng thời gian gia hạn tối đa không được vượt quá số ngày này.</small>
+                    </div>
+
+                    <div style="margin-top:8px;">
+                        <label style="font-weight:700; font-size:13px; color:#374151; display:block; margin-bottom:6px;">Số lần dời ngày tối đa của một đơn hàng:</label>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="number" id="_gcMaxCount" class="form-control" value="${maxCount}" min="1" style="max-width:120px; font-weight:700; text-align:center;">
+                            <span style="font-size:12px; font-weight:600; color:#64748b;">lần</span>
+                        </div>
+                        <small style="display:block; color:#94a3b8; margin-top:4px; font-size:11px;">Một đơn hàng gia công PET/TEM không được dời quá số lần giới hạn này trong suốt vòng đời sản xuất.</small>
+                    </div>
+
+                    <div style="margin-top:16px; border-top:1px solid #f1f5f9; padding-top:20px; display:flex; justify-content:flex-end;">
+                        <button onclick="_cdsxSaveGiaCong()" style="background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; padding:10px 24px; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.2); transition:all 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
+                            💾 Lưu Cài Đặt
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch(e) {
+        container.innerHTML = '<div style="padding:20px;color:#dc2626;font-weight:700;">Lỗi tải cấu hình gia công: ' + e.message + '</div>';
+    }
+}
+
+async function _cdsxSaveGiaCong() {
+    const max_extension_days = Number(document.getElementById('_gcMaxDays')?.value || 1);
+    const max_extension_count = Number(document.getElementById('_gcMaxCount')?.value || 3);
+
+    if (isNaN(max_extension_days) || max_extension_days < 1) {
+        showToast('Số ngày dời tối đa phải từ 1 ngày trở lên', 'error');
+        return;
+    }
+    if (isNaN(max_extension_count) || max_extension_count < 1) {
+        showToast('Số lần dời tối đa phải từ 1 lần trở lên', 'error');
+        return;
+    }
+
+    try {
+        const res = await apiCall('/api/printing/gc-config', 'POST', {
+            max_extension_days,
+            max_extension_count
+        });
+        if (res.success !== false) {
+            showToast('✅ Đã lưu cấu hình dời ngày gia công thành công');
+        } else {
+            showToast(res.error || 'Lỗi lưu cấu hình', 'error');
+        }
+    } catch(err) {
+        showToast('Lỗi kết nối hệ thống', 'error');
+    }
+}
+
 
 
