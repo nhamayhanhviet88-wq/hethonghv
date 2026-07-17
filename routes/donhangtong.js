@@ -8779,7 +8779,7 @@ module.exports = async function(fastify) {
             FROM dht_order_production op
             LEFT JOIN users u ON op.completed_by = u.id
             LEFT JOIN dht_process_steps ps ON op.step_id = ps.id
-            WHERE op.dht_order_id = $1 AND ps.code = 'KTCL'
+            WHERE op.dht_order_id = $1 AND ps.short_name = 'KTCL'
         `, [orderId]);
         
         if (qcStep && qcStep.is_completed) {
