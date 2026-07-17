@@ -525,9 +525,9 @@ module.exports = async function(fastify) {
         const isPetOrTemField = field && (field.toUpperCase() === 'IN PET' || field.toUpperCase() === 'IN TEM');
         if (sort_by === 'roll' || isPetOrTemField) {
             orderBy = `ORDER BY 
-                CASE WHEN up.pettem_roll_seq IS NOT NULL THEN 0 ELSE 1 END ASC,
-                up.pettem_roll_seq DESC NULLS LAST,
-                up.roll_start_qty DESC NULLS LAST,
+                CASE WHEN COALESCE(up.pettem_roll_seq, up.pettem_roll_id) IS NOT NULL THEN 0 ELSE 1 END ASC,
+                COALESCE(up.pettem_roll_seq, up.pettem_roll_id) DESC NULLS LAST,
+                up.roll_start_qty ASC NULLS LAST,
                 COALESCE(up.order_code, ''),
                 up.order_item_id ASC NULLS FIRST,
                 up.created_at DESC`;
