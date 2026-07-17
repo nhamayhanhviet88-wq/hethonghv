@@ -8795,12 +8795,13 @@ module.exports = async function(fastify) {
         const finishRecords = await db.all(`
             SELECT fr.*, u.full_name AS worker_name
             FROM finishing_records fr
+            JOIN sewing_records sr ON fr.sewing_record_id = sr.id
             LEFT JOIN users u ON fr.finisher_id = u.id
-            WHERE fr.order_item_id = $1
+            WHERE sr.order_item_id = $1
             ORDER BY fr.id
         `, [itemId]);
         
-        const finishDone = finishRecords.filter(r => r.is_done);
+        const finishDone = finishRecords.filter(r => r.is_completed);
         
         if (finishDone.length > 0) {
             const totalQty = finishDone.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
