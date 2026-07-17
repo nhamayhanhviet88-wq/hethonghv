@@ -2641,6 +2641,11 @@ function setupEventListeners() {
 
 // ========== MODAL ==========
 function openModal(title, bodyHTML, footerHTML = '', forcePopup = false) {
+    const header = document.querySelector('#modalContainer .modal-header');
+    const footer = document.getElementById('modalFooter');
+    if (header) header.style.display = '';
+    if (footer) footer.style.display = '';
+
     if (window._dhtFullPageMode && window._dhtFullPageContainer && !forcePopup) {
         const isDesignDraft = window.location.href.includes('design-draft');
         window._dhtFullPageContainer.innerHTML = `
@@ -2670,7 +2675,31 @@ function openModal(title, bodyHTML, footerHTML = '', forcePopup = false) {
     document.getElementById('modalOverlay').classList.add('show');
 }
 
+function showModal(html) {
+    const header = document.querySelector('#modalContainer .modal-header');
+    const footer = document.getElementById('modalFooter');
+    if (header) header.style.display = 'none';
+    if (footer) footer.style.display = 'none';
+    
+    document.getElementById('modalTitle').innerHTML = '';
+    document.getElementById('modalBody').innerHTML = html;
+    document.getElementById('modalFooter').innerHTML = '';
+    
+    const container = document.getElementById('modalContainer');
+    if (container) {
+        container.style.maxWidth = '600px';
+        container.style.width = '90%';
+    }
+    
+    document.getElementById('modalOverlay').classList.add('show');
+}
+
 function closeModal() {
+    const header = document.querySelector('#modalContainer .modal-header');
+    const footer = document.getElementById('modalFooter');
+    if (header) header.style.display = '';
+    if (footer) footer.style.display = '';
+
     var overlay = document.getElementById('modalOverlay');
     if (overlay && overlay.classList.contains('show')) {
         overlay.classList.remove('show');
