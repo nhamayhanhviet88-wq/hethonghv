@@ -9013,27 +9013,34 @@ module.exports = async function(fastify) {
                 const unitPrice = Number(it.unit_price) || 0;
                 if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
 
-                const itemQty = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+                let itemQty = 0;
+                let itemRaw = 0;
+                let itemVat = 0;
+
+                if (it.production_cancelled) {
+                    itemRaw = Number(it.item_total || it.total) || 0;
+                } else {
+                    itemQty = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+                    const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                    const giftQty = Number(it.promo_gift_quantity) || 0;
+                    itemRaw = undiscRaw;
+                    if (giftQty > 0 && qtyArr.length > 0) {
+                        const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
+                        const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+                        itemRaw -= Math.round(giftPrice * giftQty);
+                        if (itemRaw < 0) itemRaw = 0;
+                    }
+
+                    const rawTotal = Number(it.item_total || it.total) || 0;
+                    let vatPct = 0;
+                    if (itemRaw > 0 && rawTotal > itemRaw) {
+                        const calculatedPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                        vatPct = (calculatedPct >= 4) ? 8 : 0;
+                    }
+                    itemVat = Math.round(itemRaw * vatPct / 100);
+                }
+
                 totalQtyVal += itemQty;
-
-                const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
-                const giftQty = Number(it.promo_gift_quantity) || 0;
-                let itemRaw = undiscRaw;
-                if (giftQty > 0 && qtyArr.length > 0) {
-                    const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
-                    const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
-                    itemRaw -= Math.round(giftPrice * giftQty);
-                    if (itemRaw < 0) itemRaw = 0;
-                }
-
-                const rawTotal = Number(it.item_total || it.total) || 0;
-                let vatPct = 0;
-                if (itemRaw > 0 && rawTotal > itemRaw) {
-                    const calculatedPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
-                    vatPct = (calculatedPct >= 4) ? 8 : 0;
-                }
-                const itemVat = Math.round(itemRaw * vatPct / 100);
-
                 totalItemsRaw += itemRaw;
                 totalItemsVat += itemVat;
             }
@@ -9162,27 +9169,34 @@ module.exports = async function(fastify) {
                 const unitPrice = Number(it.unit_price) || 0;
                 if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
 
-                const itemQty = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+                let itemQty = 0;
+                let itemRaw = 0;
+                let itemVat = 0;
+
+                if (it.production_cancelled) {
+                    itemRaw = Number(it.item_total || it.total) || 0;
+                } else {
+                    itemQty = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+                    const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                    const giftQty = Number(it.promo_gift_quantity) || 0;
+                    itemRaw = undiscRaw;
+                    if (giftQty > 0 && qtyArr.length > 0) {
+                        const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
+                        const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+                        itemRaw -= Math.round(giftPrice * giftQty);
+                        if (itemRaw < 0) itemRaw = 0;
+                    }
+
+                    const rawTotal = Number(it.item_total || it.total) || 0;
+                    let vatPct = 0;
+                    if (itemRaw > 0 && rawTotal > itemRaw) {
+                        const calculatedPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                        vatPct = (calculatedPct >= 4) ? 8 : 0;
+                    }
+                    itemVat = Math.round(itemRaw * vatPct / 100);
+                }
+
                 totalQtyVal += itemQty;
-
-                const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
-                const giftQty = Number(it.promo_gift_quantity) || 0;
-                let itemRaw = undiscRaw;
-                if (giftQty > 0 && qtyArr.length > 0) {
-                    const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
-                    const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
-                    itemRaw -= Math.round(giftPrice * giftQty);
-                    if (itemRaw < 0) itemRaw = 0;
-                }
-
-                const rawTotal = Number(it.item_total || it.total) || 0;
-                let vatPct = 0;
-                if (itemRaw > 0 && rawTotal > itemRaw) {
-                    const calculatedPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
-                    vatPct = (calculatedPct >= 4) ? 8 : 0;
-                }
-                const itemVat = Math.round(itemRaw * vatPct / 100);
-
                 totalItemsRaw += itemRaw;
                 totalItemsVat += itemVat;
             }

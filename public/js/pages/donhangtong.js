@@ -1292,13 +1292,18 @@ async function _dhtShowDetail(id) {
                     const unitPrice = Number(it.unit_price) || 0;
                     if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
 
-                    const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
-                    const giftQty = Number(it.promo_gift_quantity) || 0;
+                    let undiscRaw = 0;
+                    if (it.production_cancelled) {
+                        undiscRaw = Number(it.item_total || it.total) || 0;
+                    } else {
+                        undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                    }
+                    const giftQty = it.production_cancelled ? 0 : (Number(it.promo_gift_quantity) || 0);
                     totalGiftQty += giftQty;
                     const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
                     
                     let itemRaw = undiscRaw;
-                    if (giftQty > 0 && qtyArr.length > 0) {
+                    if (!it.production_cancelled && giftQty > 0 && qtyArr.length > 0) {
                         const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
                         itemRaw -= Math.round(giftPrice * giftQty);
                         if (itemRaw < 0) itemRaw = 0;
