@@ -1646,7 +1646,10 @@ function _dhtSavePhieuFree(idx) {
         quantities: qtyPairs, vat_percent: vp, vat_amount: va,
         raw_total: raw, item_total: raw + va,
         quantity: qtyPairs.reduce(function(s, x) { return s + x.qty; }, 0),
-        unit_price: qtyPairs[0]?.price || 0
+        unit_price: qtyPairs[0]?.price || 0,
+        has_fabric_called: !!existing.has_fabric_called,
+        has_print_assignment: !!existing.has_print_assignment,
+        has_cutting_started: !!existing.has_cutting_started
     };
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
@@ -2726,7 +2729,7 @@ function _dhtSavePhieu(idx) {
     var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
     var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
     // ★ quantity = typedQty (what user typed) — qtyPairs are now scaled to match
-    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:typedQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx};
+    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:typedQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx,has_fabric_called:!!existing.has_fabric_called,has_print_assignment:!!existing.has_print_assignment,has_cutting_started:!!existing.has_cutting_started};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
@@ -2743,7 +2746,7 @@ function _dhtRenderPhieuRows() {
         d.onmouseout=function(){this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';};
         d.onclick=function(e){if(e.target.tagName==='BUTTON')return; isFree ? _dhtAddItemFree(i) : _dhtAddItem(i);};
         var vl=p.vat_percent?'+'+p.vat_percent+'%':'';
-        var isItemRestricted = (window._dhtEditRestricted && _dhtCreate.editMode && p.has_fabric_called);
+        var isItemRestricted = (window._dhtEditRestricted && _dhtCreate.editMode && (p.has_fabric_called || p.has_cutting_started || p.has_print_assignment));
         var delBtn = isItemRestricted
             ? ''
             : '<button onclick="event.stopPropagation();_dhtCreate.phieuItems.splice('+i+',1);_dhtRenderPhieuRows();_dhtCalcTotal()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:24px">✕</button>';
@@ -3597,7 +3600,8 @@ async function _dhtInitializeEditState(id, data) {
                 promo_gift_apply_row_index: it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : null,
                 size_type: it.size_type || 'Size TT',
                 has_fabric_called: !!it.has_fabric_called,
-                has_print_assignment: !!it.has_print_assignment
+                has_print_assignment: !!it.has_print_assignment,
+                has_cutting_started: !!it.has_cutting_started
             };
         });
 
