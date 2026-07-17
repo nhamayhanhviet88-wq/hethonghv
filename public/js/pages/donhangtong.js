@@ -1,4 +1,10 @@
 // ========== ĐƠN HÀNG TỔNG — Bộ Phận Văn Phòng ==========
+if (typeof escapeHTML !== 'function') {
+    function escapeHTML(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+}
 var _dht = { tree: [], categories: [], staff: [], orders: [], filter: {}, activeFilters: {}, sortCol: null, sortDir: null, page: 1, pageSize: 100 };
 function _dhtFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 function _dhtFmtCount(n) { return Number(n||0).toLocaleString('vi-VN') + ' đơn'; }

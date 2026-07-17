@@ -2873,6 +2873,14 @@ async function submitChangePassword() {
     }
 }
 
+// ========== GLOBAL UTILITIES ==========
+if (typeof window.escapeHTML !== 'function') {
+    window.escapeHTML = function(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    };
+}
+
 // ========== API HELPER ==========
 async function apiCall(url, method = 'GET', body = null) {
     console.log("[apiCall LOG] url:", url, "body:", body, "typeof body:", typeof body, "isFormData:", body && (body instanceof FormData), "hasAppend:", body && typeof body.append);
