@@ -3446,7 +3446,7 @@ module.exports = async function(fastify) {
                     logSummary += ` — Thanh toán: ${paymentLinkResult.payment_code} (${Number(paymentLinkResult.amount).toLocaleString('vi-VN')}đ)`;
                 }
                 await db.run(`
-                    INSERT INTO dht_order_logs (dht_order_id, action, summary, performed_by)
+                    INSERT INTO dht_audit_logs (dht_order_id, action, summary, performed_by)
                     VALUES ($1, 'update_shipment', $2, $3)
                 `, [orderId, logSummary, userId]);
             } catch(logErr) {}
@@ -3552,7 +3552,7 @@ module.exports = async function(fastify) {
         // Insert audit log with action cancel-production
         const logSummary = `Kế toán quyết toán nợ đơn hủy${itemInfo} thành công (Dư nợ = 0đ). Lý do: ${note || 'Không có lý do'}`;
         await db.run(`
-            INSERT INTO dht_order_logs (dht_order_id, action, summary, performed_by)
+            INSERT INTO dht_audit_logs (dht_order_id, action, summary, performed_by)
             VALUES ($1, 'cancel-production', $2, $3)
         `, [orderId, logSummary, userId]);
 
