@@ -8729,7 +8729,7 @@ module.exports = async function(fastify) {
         const pressDone = pressRecords.filter(r => r.is_reported);
         
         if (pressDone.length > 0) {
-            const totalQty = pressDone.reduce((sum, r) => sum + (Number(r.press_quantity) || 0), 0);
+            const totalQty = pressDone.reduce((sum, r) => sum + (Number(r.order_quantity) || 0), 0);
             const activePositions = await db.all(`
                 SELECT key_code, display_name FROM pressing_positions 
                 WHERE is_active = true 
@@ -8743,7 +8743,7 @@ module.exports = async function(fastify) {
             for (const r of pressDone) {
                 pressDetails.push({
                     label: r.product_name || 'Ép',
-                    value: `${r.press_quantity || 0} áo`,
+                    value: `${r.order_quantity || 0} áo`,
                     sub: r.presser_name ? `Thợ ép: ${r.presser_name}` : null
                 });
                 
