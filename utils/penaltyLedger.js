@@ -659,6 +659,67 @@ async function syncLedgerForDate(dateStr) {
     } catch (e) { console.error('  ❌ [Ledger] QLX Trễ Đơn:', e.stack || e.message); }
     } // end if (!isDateOff) Source 11
 
+    // Source 12: GC Print — Đơn gia công (GCPET/GCTEM) quá hạn không báo cáo in xong
+    // Cộng dồn mỗi ngày chưa xử lý, bỏ qua nếu NV nghỉ phép được duyệt
+    // ★ Skip ngày nghỉ
+    if (!isDateOff) {
+    try {
+        const PENALTY_GC = GPC.gc_print_khong_bao_cao || 50000;
+
+        // Find GC printing records past deadline, not completed, not discarded
+        const gcOverdue = await db.all(`
+            SELECT pr.id, pr.printer_id, pr.gc_deadline, pr.gc_extension_count,
+                   o.order_code, o.expected_ship_date,
+                   COALESCE(pr.gc_deadline, o.expected_ship_date)::text AS effective_deadline
+            FROM printing_records pr
+            JOIN dht_orders o ON pr.dht_order_id = o.id
+            WHERE COALESCE(pr.is_discarded, false) = false
+              AND pr.is_print_done = false
+              AND pr.contractor_id IS NULL
+              AND (o.order_code ILIKE '%GC%')
+              AND COALESCE(pr.gc_deadline, o.expected_ship_date) IS NOT NULL
+              AND COALESCE(pr.gc_deadline, o.expected_ship_date)::date < $1::date
+        `, [dateStr]);
+
+        if (gcOverdue.length > 0) {
+            // Load approved leave for all printers involved
+            const printerIds = [...new Set(gcOverdue.map(r => r.printer_id).filter(Boolean))];
+            const leaveMap = {};
+            if (printerIds.length > 0) {
+                const leaveRows = await db.all(`
+                    SELECT user_id FROM leave_requests 
+                    WHERE user_id = ANY($1::int[]) AND status = 'active' 
+                      AND $2::date BETWEEN date_from AND date_to
+                    UNION ALL
+                    SELECT user_id FROM staff_off_dates
+                    WHERE user_id = ANY($1::int[]) AND off_date = $2::date
+                      AND (type = 'off' OR type IS NULL)
+                `, [printerIds, dateStr]);
+                leaveRows.forEach(r => leaveMap[r.user_id] = true);
+            }
+
+            for (const r of gcOverdue) {
+                const printerId = r.printer_id;
+                if (!printerId) continue;
+                
+                // Skip if printer is on approved leave today
+                if (leaveMap[printerId]) continue;
+
+                await writeLedger(
+                    printerId, dateStr, 'gc_print_khong_bao_cao', 'pr_' + r.id,
+                    'Đơn GC quá hạn: ' + r.order_code + ' (hạn: ' + r.effective_deadline + ')',
+                    PENALTY_GC, 'Không báo cáo in xong đơn gia công trước deadline'
+                );
+                count++;
+            }
+            if (gcOverdue.length > 0) {
+                const penalized = gcOverdue.filter(r => r.printer_id && !leaveMap[r.printer_id]);
+                console.log(`  📅 [GC Print] ${gcOverdue.length} đơn quá hạn, phạt ${penalized.length} đơn (skip ${gcOverdue.length - penalized.length} nghỉ phép)`);
+            }
+        }
+    } catch (e) { console.error('  ❌ [Ledger] GC Print:', e.stack || e.message); }
+    } // end if (!isDateOff) Source 12
+
     return count;
 }
 

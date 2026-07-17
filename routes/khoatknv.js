@@ -221,7 +221,9 @@ async function khoaTKNVRoutes(fastify, options) {
             'cv_diem': 'diem', 'cap_cuu': 'emergency',
             'kh_chua_xl': 'customer_unhandled', 'kh_tre': 'customer_overdue',
             'gui_hang_tre': 'gui_hang_tre',
-            'phieu_qlx_qua_han': 'phieu_qlx_qua_han'
+            'phieu_qlx_qua_han': 'phieu_qlx_qua_han',
+            'phat_qlx_tre_don_hom_nay': 'phat_qlx_tre_don_hom_nay',
+            'gc_print_khong_bao_cao': 'gc_print'
         };
 
         const testAccountIds = await getTestAccountIds();
