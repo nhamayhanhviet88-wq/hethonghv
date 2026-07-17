@@ -1425,9 +1425,8 @@ module.exports = async function(fastify) {
                 JOIN printing_contractors pc ON pa.operator_id = pc.id AND pa.operator_type = 'contractor'
 
                 WHERE (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
-
                   AND COALESCE(o.shipping_status, '') != 'shipped'
-
+                  AND COALESCE(i.production_cancelled, false) = false
                   AND (
 
                       CASE WHEN COALESCE(jsonb_array_length(i.material_pairs), 0) > 0 
@@ -1625,7 +1624,7 @@ module.exports = async function(fastify) {
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
 
               AND COALESCE(o.shipping_status, '') != 'shipped'
-
+              AND COALESCE(i.production_cancelled, false) = false
               AND NOT EXISTS (
 
                   SELECT 1 FROM qlx_order_print_assignments pa
@@ -5519,14 +5518,10 @@ module.exports = async function(fastify) {
 
             LEFT JOIN printing_contractors pc_in ON qa_in.assigned_contractor_id = pc_in.id
 
-            WHERE EXISTS (
-
                 SELECT 1 FROM dht_order_items oi
-
                 WHERE oi.dht_order_id = o.id
-
                 ${wherePrintCut}
-
+                AND COALESCE(oi.production_cancelled, false) = false
                 AND (
 
                     (
@@ -5688,9 +5683,8 @@ module.exports = async function(fastify) {
                 LEFT JOIN qlx_item_schedules sch ON sch.order_item_id = doi.id
 
                 WHERE ${itemsWhere}
-
+                  AND COALESCE(doi.production_cancelled, false) = false
                 ORDER BY doi.dht_order_id, doi.id
-
             `, itemsParams);
 
 
@@ -6158,11 +6152,10 @@ module.exports = async function(fastify) {
 
 
 
-        const items = await db.all(`SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1`, [order_item_id]);
-
+        const items = await db.all(`SELECT id, description, material_pairs, quantity, COALESCE(production_cancelled, false) AS production_cancelled FROM dht_order_items WHERE id = $1`, [order_item_id]);
         if (items.length === 0) return reply.code(404).send({ error: 'Phiếu không tồn tại' });
-
         const it = items[0];
+        if (it.production_cancelled) return reply.code(400).send({ error: '🚫 Phiếu này đã bị HỦY SẢN XUẤT' });
 
 
 
@@ -7315,47 +7308,28 @@ module.exports = async function(fastify) {
         // Re-validate: all items must be unclaimed + have preconditions met
 
         const items = await db.all(`
-
             SELECT oi.id AS order_item_id, oi.description, oi.quantity, oi.material_pairs,
-
                    o.id AS dht_order_id, o.order_code, o.shipping_status,
-
                    COALESCE(p.fabric_arrived, false) AS order_fabric_arrived,
-
                    EXISTS(SELECT 1 FROM qlx_assignments qa
-
                           WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
-
                           AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-
-                   ) AS has_print
-
+                   ) AS has_print,
+                   COALESCE(oi.production_cancelled, false) AS production_cancelled
             FROM dht_order_items oi
-
             JOIN dht_orders o ON o.id = oi.dht_order_id
-
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
-
             WHERE oi.id = ANY($1)
-
         `, [selected_order_item_ids]);
 
-
-
         if (items.length !== selected_order_item_ids.length)
-
             return reply.code(400).send({ error: 'Một số phiếu không tồn tại' });
 
-
-
         const isGiamDoc = request.user.role === 'giam_doc';
-
         const isFactoryManager = !isGiamDoc && (await isCutManager(request));
 
-
-
         for (const it of items) {
-
+            if (it.production_cancelled) return reply.code(400).send({ error: 'Phiếu ' + (it.description || it.order_code) + ' đã bị HỦY SẢN XUẤT' });
             // Check not already claimed by someone else
 
             const existing = await db.get(`SELECT id FROM cutting_records WHERE order_item_id = $1 AND cutter_id IS NOT NULL AND is_cut_done = false LIMIT 1`, [it.order_item_id]);

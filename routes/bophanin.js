@@ -604,7 +604,7 @@ module.exports = async function(fastify) {
                     pr.printer_id,
                     pr.contractor_id,
                     o.customer_name AS customer_name,
-                    COALESCE(pr.product_name, (SELECT string_agg(description || ' (SL: ' || quantity || ')', '; ') FROM dht_order_items WHERE dht_order_id = o.id)) AS product_name,
+                    COALESCE(pr.product_name, (SELECT string_agg(description || ' (SL: ' || quantity || ')', '; ') FROM dht_order_items WHERE dht_order_id = o.id AND COALESCE(production_cancelled, false) = false)) AS product_name,
                     COALESCE(pr.cskh_name, u_cskh.full_name) AS cskh_name,
                     COALESCE(pr.order_quantity, o.total_quantity, 0) AS order_quantity,
                     pr.print_meters,
@@ -685,7 +685,7 @@ module.exports = async function(fastify) {
                     NULL::int AS printer_id,
                     NULL::int AS contractor_id,
                     o.customer_name AS customer_name,
-                    (SELECT string_agg(description || ' (SL: ' || quantity || ')', '; ') FROM dht_order_items WHERE dht_order_id = o.id) AS product_name,
+                    (SELECT string_agg(description || ' (SL: ' || quantity || ')', '; ') FROM dht_order_items WHERE dht_order_id = o.id AND COALESCE(production_cancelled, false) = false) AS product_name,
                     u_cskh.full_name AS cskh_name,
                     COALESCE(o.total_quantity, 0) AS order_quantity,
                     0::numeric AS print_meters,
@@ -722,6 +722,9 @@ module.exports = async function(fastify) {
                       SELECT 1 FROM printing_records pr 
                       WHERE pr.dht_order_id = o.id AND COALESCE(pr.is_discarded, false) = false
                   )
+                  AND EXISTS (
+                      SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND COALESCE(production_cancelled, false) = false
+                  )
             )
             SELECT up.*,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
@@ -755,6 +758,7 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_products p ON TRIM(COALESCE(it.product_name, it.description)) = p.name AND p.is_active = true
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             WHERE it.dht_order_id IN (${orderIds.map((_, i) => `$${i+1}`).join(',')})
+              AND COALESCE(it.production_cancelled, false) = false
         `, orderIds) : [];
 
         const allPrRecs = orderIds.length ? await db.all(`
