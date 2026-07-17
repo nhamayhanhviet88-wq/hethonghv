@@ -3942,7 +3942,7 @@ async function _abCheckUnblock() {
         if (el.closest && el.closest('[role="tab"], [data-toggle], .tab-btn, .nav-tab')) return true;
         // Close buttons (modals, popups) — always allow
         var txt = (el.textContent || '').trim();
-        if (txt === '✕' || txt === '×' || txt === 'X' || txt === '✕ Đóng') return true;
+        if (txt === '✕' || txt === '×' || txt === 'X' || txt === '✕ Đóng' || txt.indexOf('Bỏ qua') >= 0) return true;
         // Elements explicitly marked as safe
         if (el.dataset && el.dataset.noDebounce) return true;
         // Copy buttons — safe to click multiple times
