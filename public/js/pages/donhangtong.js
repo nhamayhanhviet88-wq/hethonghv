@@ -1684,7 +1684,7 @@ async function _dhtShowDetail(id) {
             `);
         }
 
-        if (o.logo_approved_image || o.chat_confirmed_image || o.gift_proof_image) {
+        if (o.logo_approved_image || o.chat_confirmed_image || o.gift_proof_image || o.warranty_proof_image) {
             infoHTML += `<tr><td colspan="2" style="padding:12px 12px 4px 12px"><div style="border-top:1.5px dashed #e2e8f0;padding-top:12px">`;
             infoHTML += `<div style="font-weight:800;font-size:12px;color:var(--navy);margin-bottom:8px">🖼️ Hình ảnh bằng chứng xác nhận:</div>`;
             infoHTML += `<div style="display:flex;gap:12px;flex-wrap:wrap">`;
@@ -1704,6 +1704,12 @@ async function _dhtShowDetail(id) {
                 infoHTML += `<div style="flex:1;min-width:140px;text-align:center;background:#f8fafc;padding:6px;border-radius:8px;border:1px solid #e2e8f0">`;
                 infoHTML += `<div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:4px">🎁 Phiếu Tặng Quà</div>`;
                 infoHTML += `<a href="${o.gift_proof_image}" target="_blank"><img src="${o.gift_proof_image}" style="max-width:100%;max-height:120px;border-radius:6px;border:1px solid #cbd5e1;object-fit:contain"></a>`;
+                infoHTML += `</div>`;
+            }
+            if (o.warranty_proof_image) {
+                infoHTML += `<div style="flex:1;min-width:140px;text-align:center;background:#f8fafc;padding:6px;border-radius:8px;border:1px solid #e2e8f0">`;
+                infoHTML += `<div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:4px">🛡️ Bảo Hành & Kiểm Hàng</div>`;
+                infoHTML += `<a href="${o.warranty_proof_image}" target="_blank"><img src="${o.warranty_proof_image}" style="max-width:100%;max-height:120px;border-radius:6px;border:1px solid #cbd5e1;object-fit:contain"></a>`;
                 infoHTML += `</div>`;
             }
             infoHTML += `</div></div></td></tr>`;
