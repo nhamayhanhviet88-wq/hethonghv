@@ -8730,16 +8730,36 @@ module.exports = async function(fastify) {
         
         if (pressDone.length > 0) {
             const totalQty = pressDone.reduce((sum, r) => sum + (Number(r.press_quantity) || 0), 0);
+            const activePositions = await db.all(`
+                SELECT key_code, display_name FROM pressing_positions 
+                WHERE is_active = true 
+                ORDER BY display_order ASC, id ASC
+            `);
+            
+            const pressDetails = [
+                { label: 'Số áo đã ép', value: totalQty, unit: 'áo' }
+            ];
+            
+            for (const r of pressDone) {
+                pressDetails.push({
+                    label: r.product_name || 'Ép',
+                    value: `${r.press_quantity || 0} áo`,
+                    sub: r.presser_name ? `Thợ ép: ${r.presser_name}` : null
+                });
+                
+                for (const pos of activePositions) {
+                    const qty = Number(r[pos.key_code]) || 0;
+                    pressDetails.push({
+                        label: `&nbsp;&nbsp;&nbsp;&nbsp;• ${pos.display_name}`,
+                        value: `${qty}`,
+                        unit: 'sp'
+                    });
+                }
+            }
+
             completedSteps.push({
                 step: 'Ép', icon: '🔥', cost_input_key: 'pressing_cost',
-                details: [
-                    { label: 'Số áo đã ép', value: totalQty, unit: 'áo' },
-                    ...pressDone.map(r => ({
-                        label: r.product_name || 'Ép',
-                        value: `${r.press_quantity || 0} áo`,
-                        sub: r.presser_name ? `Thợ ép: ${r.presser_name}` : null
-                    }))
-                ]
+                details: pressDetails
             });
         } else {
             pendingSteps.push({ step: 'Ép', icon: '🔥' });
