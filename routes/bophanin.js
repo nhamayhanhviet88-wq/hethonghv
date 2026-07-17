@@ -297,8 +297,8 @@ module.exports = async function(fastify) {
                     false AS is_test_print,
                     false AS error_reported,
                     o.created_at,
-                    false AS is_completed,
-                    o.order_code
+                    o.order_code,
+                    false AS is_completed
                 FROM dht_orders o
                 WHERE (
                     (o.category_id IN (8, 9) AND o.parent_order_id IS NULL)
@@ -667,6 +667,8 @@ module.exports = async function(fastify) {
                     NULL AS done_by_name,
                     false AS is_completed,
                     NULL::int AS order_item_id,
+                    NULL::date AS gc_deadline,
+                    0 AS gc_extension_count,
                     o.category_id AS category_id,
                     NULL::text AS cut_product_name
                 FROM dht_orders o
