@@ -388,9 +388,6 @@ function _bpiGetProductNameDisplay(r) {
     base = base.replace(/\s*-\s*\[HỦY BỎ - KHÁCH BÙ TIỀN\]/g, '');
     base = base.replace(/\s*-\s*\[HỦY BỎ - BÙ PHÍ\]/g, '');
     base = base.replace(/\s*—\s*\[HỦY BỎ - BÙ PHÍ\]/g, '');
-    if (r.is_discarded) {
-        return base + ' — [HỦY BỎ - BÙ PHÍ]';
-    }
     return base;
 }
 
