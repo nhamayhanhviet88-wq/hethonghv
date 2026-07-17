@@ -1365,6 +1365,7 @@ module.exports = async function(fastify) {
         
         const { record_id, reason, new_date } = req.body || {};
         if (!record_id) return reply.code(400).send({ error: 'Thiếu record_id' });
+        if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do dời ngày' });
         
         const record = await db.get(
             'SELECT pr.*, o.order_code, o.expected_ship_date FROM printing_records pr LEFT JOIN dht_orders o ON pr.dht_order_id = o.id WHERE pr.id = $1',

@@ -2516,7 +2516,7 @@ function _bpiShowGcExtendModal(recordId) {
     
     // Reason
     h += '<div style="margin-bottom:16px">';
-    h += '<label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📝 Lý do rời ngày:</label>';
+    h += '<label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📝 Lý do rời ngày: <span style="color:#ef4444">*</span></label>';
     h += '<textarea id="_bpiGcExtReason" rows="2" style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:8px;font-size:12px;resize:vertical" placeholder="Nhập lý do rời ngày (vd: hàng chưa in kịp, máy hỏng...)"></textarea>';
     h += '</div>';
     
@@ -2645,6 +2645,12 @@ function _bpiDoGcExtend(recordId, btn) {
     
     if (!newDate) {
         alert('Vui lòng chọn ngày rời đến');
+        return;
+    }
+    
+    if (!reasonVal) {
+        alert('Vui lòng nhập lý do dời ngày');
+        if (reason) reason.focus();
         return;
     }
     
