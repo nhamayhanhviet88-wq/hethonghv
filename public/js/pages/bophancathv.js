@@ -868,10 +868,10 @@ function _bpcMapRecordRow(r, i) {
                 canInteract = true;
             }
         } else {
-            if (isMyRecord || isGiamDoc) {
+            if (isMyRecord || isGiamDoc || isManager) {
                 canInteract = true;
             } else {
-                disableReason = 'Chỉ thợ cắt của đơn này mới có quyền thao tác';
+                disableReason = 'Chỉ thợ cắt của đơn này hoặc quản lý mới có quyền thao tác';
             }
         }
     }
@@ -905,7 +905,10 @@ function _bpcMapRecordRow(r, i) {
             cutBtnHtml = '<button class="bpc-icon-btn on-cut" disabled title="Đã hoàn thành cắt" style="opacity:0.8;cursor:default">✅</button>';
         } else if (showCutBtn) {
             if (canInteract) {
-                cutBtnHtml = '<button class="bpc-icon-btn'+cutCls+'" onclick="_bpcOpenCutModal('+r.id+')" title="Bắt đầu cắt">'+cutIcon+'</button>';
+                cutBtnHtml = '<div style="display:flex;gap:4px;justify-content:center;align-items:center">';
+                cutBtnHtml += '<button class="bpc-icon-btn'+cutCls+'" onclick="_bpcOpenCutModal('+r.id+')" title="Bắt đầu cắt">'+cutIcon+'</button>';
+                cutBtnHtml += '<button class="bpc-icon-btn" onclick="_bpcUnclaimOrder('+r.dht_order_id+','+(r.order_item_id||'null')+', '+r.phoi_index+', \''+r.order_code+'\')" title="Hủy nhận đơn cắt" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626">↩️</button>';
+                cutBtnHtml += '</div>';
             } else {
                 cutBtnHtml = '<button class="bpc-icon-btn" disabled title="' + disableReason + '" style="opacity:0.4;cursor:default">' + cutIcon + '</button>';
             }

@@ -1007,6 +1007,7 @@ function mRenderMine(items = null, showSectionBadge = false){
             const btnBg = r.cut_warning ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'linear-gradient(135deg,#dc2626,#ef4444)';
             const btnShadow = r.cut_warning ? '0 4px 15px rgba(233,110,26,0.4)' : '0 4px 15px rgba(239,68,68,0.4)';
             actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+btnBg+';color:#fff;box-shadow:'+btnShadow+';margin:8px 0" onclick="mOpenCutModal('+r.id+')">'+btnText+'</button>';
+            actionHtml+='<button style="width:100%;padding:10px;border:1px solid #fca5a5;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;margin:4px 0 8px 0;box-sizing:border-box" onclick="mUnclaim('+r.dht_order_id+','+(r.order_item_id||'null')+', '+r.phoi_index+', \''+r.order_code+'\')">↩️ HỦY NHẬN ĐƠN CẮT</button>';
             if (r.cut_warning && r.cut_warning.indexOf('Cắt bù') >= 0) {
                 actionHtml+='<button style="width:100%;padding:10px;border:1px solid #fca5a5;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;margin:4px 0 8px 0;box-sizing:border-box" onclick="mToggle('+r.id+',\'cancel_compensation\')">❌ HỦY CẮT BÙ</button>';
             }
@@ -1307,6 +1308,22 @@ async function mToggle(id,action){
     }
     catch(e){mToast(e.message||'Lỗi',false);}
     finally{window._mSubmitBusy=false;}
+}
+
+async function mUnclaim(orderId, itemId, phoiIndex, orderCode) {
+    if (!confirm('Hủy nhận phối đơn ' + orderCode + '? Record cắt sẽ bị xóa.')) return;
+    if (window._mSubmitBusy) return;
+    window._mSubmitBusy = true;
+    try {
+        const res = await mApi('/api/cutting/unclaim', 'POST', { dht_order_id: orderId, order_item_id: itemId, phoi_index: phoiIndex });
+        if (res && res.error) {
+            mToast('⚠️ ' + res.error, false);
+            return;
+        }
+        mToast('✅ Đã trả phối đơn ' + orderCode);
+        await mLoadAll();
+    } catch(e) { mToast(e.message || 'Lỗi', false); }
+    finally { window._mSubmitBusy = false; }
 }
 
 // ========== WASH MODAL ON MOBILE ==========

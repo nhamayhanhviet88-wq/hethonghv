@@ -7542,9 +7542,27 @@ module.exports = async function(fastify) {
 
 
 
+        // Fetch records details before deleting for history logging
+        const recordsToLog = await db.all(`
+            SELECT dht_order_id, order_item_id, phoi_index, cutter_id, printing_contractor_id
+            FROM cutting_records
+            WHERE ${whereClause}
+        `, params);
+
         await db.run(`DELETE FROM cutting_records WHERE ${whereClause}`, params);
 
-
+        // Log to qlx_history
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+        for (const r of recordsToLog) {
+            const cutterUser = r.cutter_id ? await db.get('SELECT full_name FROM users WHERE id = $1', [r.cutter_id]) : null;
+            const cutterName = cutterUser ? cutterUser.full_name : (r.printing_contractor_id ? 'Nhà in 3D' : 'Không rõ');
+            const details = `Hủy nhận đơn cắt cho phối index ${r.phoi_index || 0} (Thợ trước đó: ${cutterName})`;
+            await db.run(`
+                INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `, [r.dht_order_id, r.order_item_id || null, 'unclaim_cut', details, request.user.id, now]);
+        }
 
         return { success: true };
 
