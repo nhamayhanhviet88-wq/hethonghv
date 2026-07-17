@@ -161,7 +161,7 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
         let url = '/api/trasoat/orders/'+orderId+'/step/'+stepKey;
         if (itemId) url += '?item_id=' + itemId;
         const res = await apiCall(url);
-        document.getElementById('tsModalBody').innerHTML = _tsRenderStepModal(stepKey, res);
+        document.getElementById('tsModalBody').innerHTML = _tsRenderStepModal(stepKey, res, itemId);
 
         if (stepKey === 'ep' && res.records && res.records.length > 0) {
             res.records.forEach(function(r) {
@@ -512,11 +512,12 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
             });
         }
     } catch(e) {
+        console.error('Lỗi _tsOpenStepModal:', e);
         document.getElementById('tsModalBody').innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444">❌ Chưa có dữ liệu hoặc chưa đến giai đoạn này</div><div style="padding:0 20px 20px;text-align:center"><button onclick="_tsCloseModal()" style="padding:10px 40px;border:none;border-radius:10px;background:#1e293b;color:white;font-weight:700;cursor:pointer">Đóng</button></div>';
     }
 }
 
-function _tsRenderStepModal(step, d){
+function _tsRenderStepModal(step, d, itemId = null){
     const fmtDT = t => { if(!t) return '—'; return formatVNDate(t, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }); };
     const fmtD = t => { if(!t) return '—'; return formatVNDate(t, { day: '2-digit', month: '2-digit', year: 'numeric' }); };
     const fmtQCDate = t => {
