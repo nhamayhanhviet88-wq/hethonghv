@@ -3982,7 +3982,7 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh gửi phiếu tặng quà khách!' });
         }
         if (!warranty_proof_image || !warranty_proof_image.trim()) {
-            return reply.code(400).send({ error: 'Thiếu hình ảnh bằng chứng bảo hành & kiểm hàng!' });
+            return reply.code(400).send({ error: 'Thiếu hình ảnh bằng chứng bảo quản & kiểm hàng!' });
         }
 
         const orderItems = await db.all('SELECT id, product_name, design_pdf_url, design_pdf_name, sale_type, promo_gift_code FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);

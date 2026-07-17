@@ -1708,7 +1708,7 @@ async function _dhtShowDetail(id) {
             }
             if (o.warranty_proof_image) {
                 infoHTML += `<div style="flex:1;min-width:140px;text-align:center;background:#f8fafc;padding:6px;border-radius:8px;border:1px solid #e2e8f0">`;
-                infoHTML += `<div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:4px">🛡️ Bảo Hành & Kiểm Hàng</div>`;
+                infoHTML += `<div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:4px">🛡️ Bảo Quản & Kiểm Hàng</div>`;
                 infoHTML += `<a href="${o.warranty_proof_image}" target="_blank"><img src="${o.warranty_proof_image}" style="max-width:100%;max-height:120px;border-radius:6px;border:1px solid #cbd5e1;object-fit:contain"></a>`;
                 infoHTML += `</div>`;
             }

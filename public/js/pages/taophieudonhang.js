@@ -7831,7 +7831,7 @@ async function _tpdShowExportSheetsModal() {
                         <div id="tpdWarrantyPasteArea" tabindex="0" onclick="_tpdActivatePasteZone('warranty'); if(event.target.id === 'tpdWarrantyPasteArea' || event.target.closest('#tpdWarrantyPastePrompt')) { _tpdTriggerFileInput('warranty', event); }" style="flex: 1; min-width: 250px; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; text-align: center; outline: none;">
                             <div id="tpdWarrantyPastePrompt" style="font-size: 12px; font-weight: 600; pointer-events: none; ${window._tpdWarrantyProofUrl ? 'display: none;' : ''}">
                                 <div style="font-size: 24px; margin-bottom: 6px;">🛡️</div>
-                                <strong style="color: #2563eb; font-size: 14px; font-weight: 900; display: block; margin-bottom: 4px; text-transform: uppercase;">BẢO HÀNH & KIỂM HÀNG * (BẮT BUỘC)</strong>
+                                <strong style="color: #2563eb; font-size: 14px; font-weight: 900; display: block; margin-bottom: 4px; text-transform: uppercase;">BẢO QUẢN & KIỂM HÀNG * (BẮT BUỘC)</strong>
                                 <div style="font-size: 11px; color: #475569; margin-top: 4px; font-weight: 700;">Ctrl + V để dán ảnh</div>
                             </div>
                             <div id="tpdWarrantyPreviewContainer" style="${window._tpdWarrantyProofUrl ? 'display: flex; flex-direction: column; align-items: center; justify-content: center;' : 'display: none;'} width: 100%; height: 100%; position: relative;">
@@ -7840,7 +7840,7 @@ async function _tpdShowExportSheetsModal() {
                                         <img src="${window._tpdWarrantyProofUrl}" style="max-height: 100px; max-width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain;">
                                         <button onclick="_tpdRemoveProofImage('warranty', event)" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">&times;</button>
                                     </div>
-                                    <div style="font-size: 13px; font-weight: 800; color: #2563eb; margin-top: 6px; text-transform: uppercase;">🛡️ BẢO HÀNH & KIỂM HÀNG</div>
+                                    <div style="font-size: 13px; font-weight: 800; color: #2563eb; margin-top: 6px; text-transform: uppercase;">🛡️ BẢO QUẢN & KIỂM HÀNG</div>
                                 ` : ''}
                             </div>
                             <div style="color: #dc2626; font-size: 11px; font-weight: 900; margin-top: 8px; text-transform: uppercase; line-height: 1.4;">⚠️ Chụp hình ảnh sai chịu trách nhiệm đơn hàng</div>
@@ -8396,7 +8396,7 @@ async function _tpdShowExportSheetsModal() {
                 let labelText = '🎨 KHÁCH DUYỆT LOGO';
                 if (zone === 'chat') labelText = '💬 KHÁCH NHẮN CHỐT ĐƠN';
                 if (zone === 'gift') labelText = '🎁 GỬI PHIẾU TẶNG QUÀ';
-                if (zone === 'warranty') labelText = '🛡️ BẢO HÀNH & KIỂM HÀNG';
+                if (zone === 'warranty') labelText = '🛡️ BẢO QUẢN & KIỂM HÀNG';
 
                 previewContainer.innerHTML = `
                     <div style="position: relative; max-width: 100%; max-height: 120px; display: inline-block;">
