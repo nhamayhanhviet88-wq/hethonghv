@@ -772,11 +772,28 @@ module.exports = async function(fastify) {
             // Get selected rolls for each record
             for (const r of records) {
                 try {
-                    const rollIds = JSON.parse(r.selected_roll_ids || '[]');
-                    if (rollIds.length > 0) {
-                        r.rolls = await db.all(`SELECT id, material_name, color, kg FROM kv_rolls WHERE id = ANY($1::int[])`, [rollIds]);
+                    let rawRollIds = [];
+                    if (typeof r.selected_roll_ids === 'string') {
+                        rawRollIds = JSON.parse(r.selected_roll_ids || '[]');
+                    } else if (Array.isArray(r.selected_roll_ids)) {
+                        rawRollIds = r.selected_roll_ids;
+                    }
+                    const parsedIds = (rawRollIds || [])
+                        .map(item => typeof item === 'object' && item !== null ? (item.roll_id || item.id) : Number(item))
+                        .filter(Boolean);
+                    if (parsedIds.length > 0) {
+                        r.rolls = await db.all(`
+                            SELECT r.id, m.name AS material_name, fc.color_name AS color, r.weight AS kg
+                            FROM kv_rolls r
+                            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                            JOIN kv_materials m ON m.id = fc.material_id
+                            WHERE r.id = ANY($1::int[])
+                        `, [parsedIds]);
                     } else { r.rolls = []; }
-                } catch(e) { r.rolls = []; }
+                } catch(e) {
+                    console.error('Lỗi lấy thông tin cây vải trong trasoat:', e);
+                    r.rolls = [];
+                }
             }
 
             // Get preparation and assignment status for all items in the order
