@@ -4351,7 +4351,7 @@ window._dhtCancelProductionPreview = async function(orderId, itemId, itemIndex) 
         html += `</div>`;
 
         // Store steps data for submit
-        window._dhtCancelData = { completed_steps: completed, pending_steps: pending, item };
+        window._dhtCancelData = { completed_steps: completed, pending_steps: pending, item, itemIndex };
 
         showModal(html);
 
@@ -4419,7 +4419,7 @@ window._dhtCancelCalcTotal = function() {
 };
 
 // Step 3: Confirm cancellation
-window._dhtCancelProductionConfirm = async function(orderId, itemId) {
+window._dhtCancelProductionConfirm = function(orderId, itemId) {
     const reason = (document.getElementById('cancel-reason')?.value || '').trim();
     if (!reason) {
         showToast('⚠️ Vui lòng nhập lý do hủy phiếu!', 'error');
@@ -4438,21 +4438,70 @@ window._dhtCancelProductionConfirm = async function(orderId, itemId) {
         totalCost += val;
     }
 
+    // Save state to _dhtCancelData
     const cancelData = window._dhtCancelData || {};
-    const itemTotal = cancelData.item?.item_total || 0;
+    cancelData.reason = reason;
+    cancelData.costDetails = costDetails;
+    cancelData.totalCost = totalCost;
+    window._dhtCancelData = cancelData;
 
-    // Final confirmation
-    const ok = confirm(
-        `🚫 XÁC NHẬN HỦY PHIẾU SẢN XUẤT\n\n` +
-        `Phiếu: ${cancelData.item?.product_name || '—'}\n` +
-        `Giá trị gốc: ${Number(itemTotal).toLocaleString('vi-VN')}đ\n` +
-        `Chi phí SX (khách trả): ${totalCost.toLocaleString('vi-VN')}đ\n\n` +
-        `Lý do: ${reason}\n\n` +
-        `Bấm OK để xác nhận hủy phiếu!`
-    );
-    if (!ok) return;
+    // Show custom confirmation modal instead of blocking confirm()
+    _dhtCancelShowConfirmStep(orderId, itemId);
+};
 
-    const btn = document.getElementById('btn-confirm-cancel');
+// Custom Confirmation Dialog (Replaces native window.confirm)
+window._dhtCancelShowConfirmStep = function(orderId, itemId) {
+    const cancelData = window._dhtCancelData || {};
+    const item = cancelData.item || {};
+    const itemTotal = item.item_total || 0;
+    const totalCost = cancelData.totalCost || 0;
+    const reason = cancelData.reason || '';
+
+    let html = `<div style="max-width:520px;margin:0 auto;padding:24px;text-align:center">`;
+    html += `<div style="font-size:56px;margin-bottom:12px;animation:dht-cancel-pulse 1.5s infinite">⚠️</div>`;
+    html += `<div style="font-size:20px;font-weight:900;color:#991b1b;margin-bottom:16px">XÁC NHẬN HỦY SẢN XUẤT</div>`;
+    
+    // Details table
+    html += `<div style="background:#fffbeb;border:2px dashed #fef3c7;border-radius:12px;padding:16px;margin-bottom:24px;text-align:left;font-size:13px">`;
+    html += `<div style="display:flex;justify-content:space-between;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #fde68a">`;
+    html += `<span style="color:#64748b">Phiếu sản xuất:</span>`;
+    html += `<span style="font-weight:800;color:#1e3a8a">${item.product_name || '—'}</span>`;
+    html += `</div>`;
+    html += `<div style="display:flex;justify-content:space-between;margin-bottom:8px">`;
+    html += `<span style="color:#64748b">Giá trị phiếu gốc:</span>`;
+    html += `<span style="font-weight:700;color:#334155">${fmt(itemTotal)}đ</span>`;
+    html += `</div>`;
+    html += `<div style="display:flex;justify-content:space-between;margin-bottom:8px">`;
+    html += `<span style="color:#64748b">Chi phí phát sinh:</span>`;
+    html += `<span style="font-weight:800;color:#b91c1c">${fmt(totalCost)}đ</span>`;
+    html += `</div>`;
+    html += `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #fde68a">`;
+    html += `<div style="color:#64748b;margin-bottom:4px;font-weight:600">Lý do hủy:</div>`;
+    html += `<div style="background:#fff;padding:8px 12px;border:1px solid #fde68a;border-radius:6px;font-weight:600;color:#1e293b;word-break:break-all">${reason}</div>`;
+    html += `</div>`;
+    html += `</div>`;
+
+    html += `<p style="font-size:12px;color:#64748b;margin-bottom:24px;line-height:1.5">Nhấp nút bên dưới để hoàn tất việc hủy. Hành động này không thể hoàn tác trực tiếp trừ khi được khôi phục.</p>`;
+
+    // Buttons
+    html += `<div style="display:flex;gap:12px;justify-content:center">`;
+    html += `<button onclick="_dhtCancelProductionPreview(${orderId}, ${itemId}, ${cancelData.itemIndex || 0})" style="padding:12px 24px;border:1px solid #cbd5e1;background:#fff;border-radius:10px;font-weight:700;color:#475569;cursor:pointer;font-size:13px">← Quay lại</button>`;
+    html += `<button id="btn-final-cancel" onclick="_dhtCancelProductionSubmit(${orderId}, ${itemId})" style="padding:12px 24px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px;box-shadow:0 4px 12px rgba(220,38,38,0.25)" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">🚫 XÁC NHẬN HỦY PHIẾU</button>`;
+    html += `</div>`;
+
+    html += `</div>`;
+
+    showModal(html);
+};
+
+// Final submission to API
+window._dhtCancelProductionSubmit = async function(orderId, itemId) {
+    const cancelData = window._dhtCancelData || {};
+    const reason = cancelData.reason || '';
+    const costDetails = cancelData.costDetails || {};
+    const totalCost = cancelData.totalCost || 0;
+
+    const btn = document.getElementById('btn-final-cancel');
     if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Đang xử lý...'; }
 
     try {
