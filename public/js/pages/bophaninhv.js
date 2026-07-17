@@ -189,6 +189,11 @@ function _bpiRenderSb() {
               + '<span>'+yr.pending.total+'</span></div>';
               
             if (po) {
+                // IN GIA CÔNG
+                var gcActive = f.year == yr.year && f.status === 'pending' && f.field === 'GC';
+                h += '<div class="bpi-sb-item'+(gcActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'GC\')" style="'+(gcActive?'':'color:#d97706')+'">'
+                  + '<span>🏭 IN GIA CÔNG</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:800">'+(yr.pending.gc||0)+'</span></div>';
+
                 // IN PET
                 var petActive = f.year == yr.year && f.status === 'pending' && f.field === 'IN PET';
                 h += '<div class="bpi-sb-item'+(petActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'IN PET\')">'
@@ -203,11 +208,6 @@ function _bpiRenderSb() {
                 var temActive = f.year == yr.year && f.status === 'pending' && f.field === 'IN TEM';
                 h += '<div class="bpi-sb-item'+(temActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'IN TEM\')">'
                   + '<span>🟢 IN TEM</span><span>'+yr.pending.tem+'</span></div>';
-                
-                // Hẹn Ngày GC
-                var gcActive = f.year == yr.year && f.status === 'pending' && f.field === 'GC';
-                h += '<div class="bpi-sb-item'+(gcActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'GC\')" style="'+(gcActive?'':'color:#d97706')+'">'
-                  + '<span>📅 Hẹn Ngày GC</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:800">'+(yr.pending.gc||0)+'</span></div>';
             }
             
             // "Đã in xong" folder
@@ -757,7 +757,13 @@ function _bpiRender() {
     // Stats
     var el=document.getElementById('bpiInfo'); if(el){
         var parts=['🖨️ Bộ Phận In']; if(_bpi.filter.year)parts.push('📆 '+_bpi.filter.year); if(_bpi.filter.status==='pending')parts.push('⏳ Chưa in'); else if(_bpi.filter.status==='done')parts.push('✅ Đã in');
-        if(_bpi.filter.field)parts.push(_bpi.filter.field);
+        if(_bpi.filter.field) {
+            if (_bpi.filter.field === 'GC') {
+                parts.push('IN GIA CÔNG');
+            } else {
+                parts.push(_bpi.filter.field);
+            }
+        }
         el.innerHTML='<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff;padding:6px 18px;border-radius:8px;font-size:13px;font-weight:700">'+parts.join(' <span style="opacity:0.5;margin:0 6px">•</span> ')+' — <span style="color:#c4b5fd;font-weight:900">'+tot+'</span> đơn</div>';
     }
     var sc=document.getElementById('bpiStats'); if(sc){
