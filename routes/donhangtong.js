@@ -8678,11 +8678,14 @@ module.exports = async function(fastify) {
                     }))
                 ]
             });
-        } else if (cutRecords.length === 0) {
-            pendingSteps.push({ step: 'Cắt', icon: '✂️' });
         }
-        if (cutPending.length > 0 && cutDone.length === 0) {
-            // Has records but none done
+        
+        if (cutPending.length > 0 || cutRecords.length === 0) {
+            const assignedCutters = [...new Set(cutRecords.map(r => r.cutter_name).filter(Boolean))];
+            const info = assignedCutters.length > 0 
+                ? `Đã phân công: ${assignedCutters.join(', ')}` 
+                : 'Chưa phân công';
+            pendingSteps.push({ step: 'Cắt', icon: '✂️', statusText: 'Chờ cắt', info });
         }
 
         // 2. IN — printing_records
@@ -8697,6 +8700,7 @@ module.exports = async function(fastify) {
         `, [itemId, orderId]);
         
         const printDone = printRecords.filter(r => r.is_print_done || r.contractor_id);
+        const printPending = printRecords.filter(r => !r.is_print_done && !r.contractor_id);
         
         if (printDone.length > 0) {
             const totalMeters = printDone.reduce((sum, r) => sum + (Number(r.print_meters) || 0), 0);
@@ -8711,10 +8715,14 @@ module.exports = async function(fastify) {
                     }))
                 ]
             });
-        } else if (printRecords.length === 0) {
-            pendingSteps.push({ step: 'In', icon: '🖨️' });
-        } else {
-            pendingSteps.push({ step: 'In', icon: '🖨️' });
+        }
+        
+        if (printPending.length > 0 || printRecords.length === 0) {
+            const assignedPrinters = [...new Set(printRecords.map(r => r.contractor_name || r.printer_name).filter(Boolean))];
+            const info = assignedPrinters.length > 0 
+                ? `Đã phân công: ${assignedPrinters.join(', ')}` 
+                : 'Chưa phân công';
+            pendingSteps.push({ step: 'In', icon: '🖨️', statusText: 'Chờ in', info });
         }
 
         // 3. ÉP — pressing_records
@@ -8727,6 +8735,7 @@ module.exports = async function(fastify) {
         `, [itemId]);
         
         const pressDone = pressRecords.filter(r => r.is_reported);
+        const pressPending = pressRecords.filter(r => !r.is_reported);
         
         if (pressDone.length > 0) {
             const totalQty = pressDone.reduce((sum, r) => sum + (Number(r.order_quantity) || 0), 0);
@@ -8749,11 +8758,13 @@ module.exports = async function(fastify) {
                 
                 for (const pos of activePositions) {
                     const qty = Number(r[pos.key_code]) || 0;
-                    pressDetails.push({
-                        label: `&nbsp;&nbsp;&nbsp;&nbsp;• ${pos.display_name}`,
-                        value: `${qty}`,
-                        unit: 'sp'
-                    });
+                    if (qty > 0) {
+                        pressDetails.push({
+                            label: `&nbsp;&nbsp;&nbsp;&nbsp;• ${pos.display_name}`,
+                            value: `${qty}`,
+                            unit: 'sp'
+                        });
+                    }
                 }
             }
 
@@ -8761,20 +8772,39 @@ module.exports = async function(fastify) {
                 step: 'Ép', icon: '🔥', cost_input_key: 'pressing_cost',
                 details: pressDetails
             });
-        } else {
-            pendingSteps.push({ step: 'Ép', icon: '🔥' });
+        }
+        
+        if (pressPending.length > 0 || pressRecords.length === 0) {
+            const assignedPressers = [...new Set(pressRecords.map(r => r.presser_name).filter(Boolean))];
+            const info = assignedPressers.length > 0 
+                ? `Đã phân công: ${assignedPressers.join(', ')}` 
+                : 'Chưa phân công';
+            pendingSteps.push({ step: 'Ép', icon: '🔥', statusText: 'Chờ ép', info });
         }
 
         // 4. MAY — sewing_records
         const sewRecords = await db.all(`
-            SELECT sr.*, u.full_name AS tailor_name
+            SELECT sr.*, 
+                   u.full_name AS tailor_name,
+                   d.name AS team_name,
+                   sc.name AS contractor_name
             FROM sewing_records sr
             LEFT JOIN users u ON sr.sewer_id = u.id
+            LEFT JOIN departments d ON sr.sewing_team_id = d.id
+            LEFT JOIN sewing_contractors sc ON sr.contractor_id = sc.id
             WHERE sr.order_item_id = $1
             ORDER BY sr.id
         `, [itemId]);
         
+        const getSewAssignment = (r) => {
+            if (r.contractor_name) return `Gia công: ${r.contractor_name}`;
+            if (r.team_name) return `Tổ: ${r.team_name}`;
+            if (r.tailor_name) return `Thợ: ${r.tailor_name}`;
+            return null;
+        };
+
         const sewDone = sewRecords.filter(r => r.done_date);
+        const sewPending = sewRecords.filter(r => !r.done_date);
         
         if (sewDone.length > 0) {
             const totalQty = sewDone.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
@@ -8785,15 +8815,21 @@ module.exports = async function(fastify) {
                     ...sewDone.map(r => ({
                         label: r.product_name || 'May',
                         value: `${r.quantity || 0} áo`,
-                        sub: r.tailor_name ? `Thợ may: ${r.tailor_name}` : null
+                        sub: getSewAssignment(r)
                     }))
                 ]
             });
-        } else {
-            pendingSteps.push({ step: 'May', icon: '🧵' });
+        }
+        
+        if (sewPending.length > 0 || sewRecords.length === 0) {
+            const assignedTailors = [...new Set(sewRecords.map(r => getSewAssignment(r)).filter(Boolean))];
+            const info = assignedTailors.length > 0 
+                ? `Đã phân công: ${assignedTailors.join(', ')}` 
+                : 'Chưa phân công';
+            pendingSteps.push({ step: 'May', icon: '🧵', statusText: 'Chờ may', info });
         }
 
-        // 5. KIỂM TRA CHẤT LƯỢNG — dht_order_production
+        // 5. KIỂM TRA CHẤT LƯỢNG — dht_order_production & qc_checklist_answers
         const qcStep = await db.get(`
             SELECT op.is_completed, op.completed_at, u.full_name AS completed_by_name
             FROM dht_order_production op
@@ -8802,13 +8838,42 @@ module.exports = async function(fastify) {
             WHERE op.dht_order_id = $1 AND ps.short_name = 'KTCL'
         `, [orderId]);
         
-        if (qcStep && qcStep.is_completed) {
+        const qcRecords = await db.all(`
+            SELECT sr.id AS sewing_record_id, sr.quantity,
+                   (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id) AS qc_count,
+                   (SELECT u2.full_name FROM qc_checklist_answers qca JOIN users u2 ON qca.answered_by = u2.id WHERE qca.sewing_record_id = sr.id LIMIT 1) AS qc_by_name
+            FROM sewing_records sr
+            WHERE sr.order_item_id = $1
+        `, [itemId]);
+        
+        const totalQcDone = qcRecords.filter(r => r.qc_count > 0);
+        const hasQcAnswers = totalQcDone.length > 0;
+        const allQcDone = qcRecords.length > 0 && qcRecords.every(r => r.qc_count > 0);
+        
+        if ((qcStep && qcStep.is_completed) || allQcDone) {
+            const completedBy = qcStep?.completed_by_name || totalQcDone[0]?.qc_by_name || '';
             completedSteps.push({
                 step: 'Kiểm Tra Chất Lượng', icon: '🔍', cost_input_key: 'qc_cost',
-                details: [{ label: 'Trạng thái', value: 'Đã hoàn thành' }]
+                details: [
+                    { label: 'Trạng thái', value: 'Đã hoàn thành' },
+                    ...(completedBy ? [{ label: 'Người kiểm tra', value: completedBy }] : []),
+                    ...qcRecords.map(r => ({
+                        label: `Phiếu may #${r.sewing_record_id} (${r.quantity} áo)`,
+                        value: r.qc_count > 0 ? 'Đã QC' : 'Chưa QC',
+                        sub: r.qc_by_name ? `Người kiểm tra: ${r.qc_by_name}` : null
+                    }))
+                ]
             });
         } else {
-            pendingSteps.push({ step: 'Kiểm Tra Chất Lượng', icon: '🔍' });
+            const info = hasQcAnswers 
+                ? `Đã QC: ${totalQcDone.reduce((sum, r) => sum + r.quantity, 0)}/${qcRecords.reduce((sum, r) => sum + r.quantity, 0)} áo (Thợ QC: ${[...new Set(totalQcDone.map(r => r.qc_by_name).filter(Boolean))].join(', ')})`
+                : 'Chưa kiểm tra';
+            pendingSteps.push({
+                step: 'Kiểm Tra Chất Lượng', 
+                icon: '🔍', 
+                statusText: hasQcAnswers ? 'Đang kiểm tra' : 'Chờ kiểm tra', 
+                info 
+            });
         }
 
         // 6. HOÀN THIỆN — finishing_records
@@ -8822,6 +8887,7 @@ module.exports = async function(fastify) {
         `, [itemId]);
         
         const finishDone = finishRecords.filter(r => r.is_completed);
+        const finishPending = finishRecords.filter(r => !r.is_completed);
         
         if (finishDone.length > 0) {
             const totalQty = finishDone.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
@@ -8829,18 +8895,30 @@ module.exports = async function(fastify) {
                 step: 'Cắt Chỉ & Hoàn Thiện', icon: '✨', cost_input_key: 'finishing_cost',
                 details: [
                     { label: 'Số áo hoàn thiện', value: totalQty, unit: 'áo' },
+                    ...finishDone.map(r => ({
+                        label: r.product_name || 'Hoàn thiện',
+                        value: `${r.quantity || 0} áo`,
+                        sub: r.worker_name ? `Thợ hoàn thiện: ${r.worker_name}` : null
+                    }))
                 ]
             });
-        } else {
-            pendingSteps.push({ step: 'Cắt Chỉ & Hoàn Thiện', icon: '✨' });
+        }
+        
+        if (finishPending.length > 0 || finishRecords.length === 0) {
+            const assignedWorkers = [...new Set(finishRecords.map(r => r.worker_name).filter(Boolean))];
+            const info = assignedWorkers.length > 0 
+                ? `Đã phân công: ${assignedWorkers.join(', ')}` 
+                : 'Chưa phân công';
+            pendingSteps.push({ step: 'Cắt Chỉ & Hoàn Thiện', icon: '✨', statusText: 'Chờ hoàn thiện', info });
         }
 
         // Check active work
         const hasActiveWork = cutPending.length > 0 ||
-            printRecords.some(r => !r.is_print_done && !r.contractor_id) ||
-            pressRecords.some(r => !r.is_reported) ||
-            sewRecords.some(r => !r.done_date) ||
-            finishRecords.some(r => !r.is_done);
+            printPending.length > 0 ||
+            pressPending.length > 0 ||
+            sewPending.length > 0 ||
+            finishPending.length > 0 ||
+            (qcRecords.length > 0 && !allQcDone);
 
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },

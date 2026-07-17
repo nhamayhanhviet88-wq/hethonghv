@@ -4244,7 +4244,7 @@ window._dhtCancelProductionPreview = async function(orderId, itemId, itemIndex) 
         html += `<div style="font-size:40px;margin-bottom:6px">🚫</div>`;
         html += `<div style="font-size:18px;font-weight:900;color:#7f1d1d">HỦY PHIẾU SẢN XUẤT</div>`;
         html += `<div style="margin-top:6px;padding:8px 16px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;display:inline-block">`;
-        html += `<span style="font-weight:700;color:#1e3a8a">${data.order.order_code}</span>`;
+        html += `<span style="font-weight:700;color:#1e3a8a">${data.order.order_code} — Phiếu ${itemIndex + 1}</span>`;
         html += `<span style="margin:0 6px;color:#94a3b8">—</span>`;
         html += `<span style="font-weight:600;color:#334155">${item.product_name || '—'}</span>`;
         html += `<span style="margin:0 6px;color:#94a3b8">—</span>`;
@@ -4298,9 +4298,23 @@ window._dhtCancelProductionPreview = async function(orderId, itemId, itemIndex) 
             html += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px;margin-bottom:16px">`;
             html += `<div style="font-weight:800;font-size:13px;color:#991b1b;margin-bottom:10px;border-bottom:2px solid #fca5a5;padding-bottom:8px">❌ CÔNG ĐOẠN CHƯA LÀM — SẼ DỪNG (${pending.length})</div>`;
             for (const step of pending) {
-                html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;color:#991b1b;font-size:12px">`;
-                html += `<span>${step.icon}</span><span style="font-weight:600">${step.step}</span>`;
-                html += `<span style="color:#94a3b8;font-size:10px;margin-left:auto">Sẽ không thực hiện</span>`;
+                html += `<div style="display:flex;flex-direction:column;gap:4px;padding:8px 0;border-bottom:1px dashed #fee2e2;color:#991b1b;font-size:12px">`;
+                
+                html += `<div style="display:flex;align-items:center;gap:8px">`;
+                html += `<span>${step.icon}</span><span style="font-weight:700">${step.step}</span>`;
+                html += `<span style="background:#fecaca;color:#991b1b;font-weight:800;font-size:9px;padding:2px 6px;border-radius:4px;text-transform:uppercase;margin-left:auto">Sẽ dừng</span>`;
+                html += `</div>`;
+                
+                const statusLabel = step.statusText || 'Chưa làm';
+                const infoLabel = step.info || '';
+                
+                html += `<div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#64748b;padding-left:22px">`;
+                html += `<span>Trạng thái: <strong style="color:#b91c1c">${statusLabel}</strong></span>`;
+                if (infoLabel) {
+                    html += `<span style="font-style:italic;color:#475569">${infoLabel}</span>`;
+                }
+                html += `</div>`;
+                
                 html += `</div>`;
             }
             html += `</div>`;
@@ -4362,7 +4376,7 @@ window._dhtCancelFormatOnInput = function(el) {
         return;
     }
     
-    const formatted = Number(rawVal).toLocaleString('vi-VN');
+    const formatted = rawVal.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     el.value = formatted;
     
     _dhtCancelCalcTotal();
@@ -4386,9 +4400,10 @@ window._dhtCancelCalcTotal = function() {
         const stepName = inp.id.replace('cost_', '').replace('_cost', '');
         const nameMap = { cutting: 'Cắt', printing: 'In', pressing: 'Ép', sewing: 'May', qc: 'KTCL', finishing: 'Hoàn Thiện' };
         if (val > 0) {
+            const formattedVal = String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
             summaryHTML += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px">`;
             summaryHTML += `<span style="color:#64748b">Chi phí ${nameMap[stepName] || stepName}:</span>`;
-            summaryHTML += `<span style="font-weight:700;color:#1e293b">${val.toLocaleString('vi-VN')}đ</span>`;
+            summaryHTML += `<span style="font-weight:700;color:#1e293b">${formattedVal}đ</span>`;
             summaryHTML += `</div>`;
         }
     }
@@ -4397,7 +4412,10 @@ window._dhtCancelCalcTotal = function() {
     if (summaryEl) summaryEl.innerHTML = summaryHTML || '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:4px 0">Chưa nhập chi phí nào</div>';
     
     const totalEl = document.getElementById('cancel-total-display');
-    if (totalEl) totalEl.textContent = total.toLocaleString('vi-VN') + 'đ';
+    if (totalEl) {
+        const formattedTotal = String(total).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        totalEl.textContent = formattedTotal + 'đ';
+    }
 };
 
 // Step 3: Confirm cancellation
