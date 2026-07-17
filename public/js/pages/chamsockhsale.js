@@ -1222,7 +1222,7 @@ async function _saleOpenConsultModal(customerId) {
     } else if (orderStatus === 'hoan_thanh') {
         allowedTypes = _getFlowRuleTypes('hoan_thanh') || allTypes.filter(([k]) => ['sau_ban_hang'].includes(k));
     } else if (orderStatus === 'chot_don') {
-        allowedTypes = _getFlowRuleTypes('chot_don') || allTypes.filter(([k]) => ['dang_san_xuat','hoan_thanh','cap_cuu_sep','huy_don_tra_coc'].includes(k));
+        allowedTypes = _getFlowRuleTypes('chot_don') || allTypes.filter(([k]) => ['dang_san_xuat','hoan_thanh','cap_cuu_sep'].includes(k));
     } else if (orderStatus === 'dat_coc') {
         allowedTypes = _getFlowRuleTypes('dat_coc') || allTypes.filter(([k]) => ['chot_don','cap_cuu_sep','huy_coc'].includes(k));
     } else if (orderStatus === 'gui_stk_coc') {
