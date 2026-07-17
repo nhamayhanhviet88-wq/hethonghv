@@ -1363,7 +1363,7 @@ module.exports = async function(fastify) {
         const userId = req.user.id;
         const userRole = req.user.role;
         
-        const { record_id, reason } = req.body || {};
+        const { record_id, reason, new_date } = req.body || {};
         if (!record_id) return reply.code(400).send({ error: 'Thiếu record_id' });
         
         const record = await db.get(
@@ -1387,15 +1387,8 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Đã rời tối đa ' + maxCount + ' lần. Không thể rời thêm.' });
         }
         
-        // Get max days per extension
-        const maxDaysRow = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_days'");
-        const maxDays = Number(maxDaysRow?.value || 1);
-        
-        // Calculate next working day (skip Sunday, holidays, printer leave)
         const currentDeadline = record.gc_deadline || record.expected_ship_date;
         if (!currentDeadline) return reply.code(400).send({ error: 'Đơn chưa có deadline' });
-        
-        const { vnNow: _vnNow, vnDateStr: _vnDateStr } = require('../utils/timezone');
         
         // Load holidays
         const holidayRows = await db.all("SELECT holiday_date::text as d FROM holidays");
@@ -1422,14 +1415,27 @@ module.exports = async function(fastify) {
             return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
         }
         
-        // Move forward by maxDays working days
-        let newDeadlineDate = new Date(String(currentDeadline).substring(0, 10) + 'T00:00:00Z');
-        let daysAdded = 0;
-        let maxIter = 30;
-        while (daysAdded < maxDays && maxIter-- > 0) {
-            newDeadlineDate.setUTCDate(newDeadlineDate.getUTCDate() + 1);
-            if (!_isDateOff(_toDateStr(newDeadlineDate))) {
-                daysAdded++;
+        // Use user-chosen date, or auto-calculate +1 working day
+        let newDeadlineDate;
+        if (new_date) {
+            // User chose a specific date — if it's a day off, shift to next working day
+            newDeadlineDate = new Date(String(new_date).substring(0, 10) + 'T00:00:00Z');
+            let maxIter = 30;
+            while (_isDateOff(_toDateStr(newDeadlineDate)) && maxIter-- > 0) {
+                newDeadlineDate.setUTCDate(newDeadlineDate.getUTCDate() + 1);
+            }
+        } else {
+            // Auto: move forward by 1 working day from current deadline
+            const maxDaysRow = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_days'");
+            const maxDays = Number(maxDaysRow?.value || 1);
+            newDeadlineDate = new Date(String(currentDeadline).substring(0, 10) + 'T00:00:00Z');
+            let daysAdded = 0;
+            let maxIter = 30;
+            while (daysAdded < maxDays && maxIter-- > 0) {
+                newDeadlineDate.setUTCDate(newDeadlineDate.getUTCDate() + 1);
+                if (!_isDateOff(_toDateStr(newDeadlineDate))) {
+                    daysAdded++;
+                }
             }
         }
         

@@ -410,7 +410,8 @@ function _bpiGetProgressDisplay(r) {
             var diff = Math.round((dlDate - todayDate) / (1000 * 60 * 60 * 24));
             var extCount = r.gc_extension_count || 0;
             var extLabel = extCount > 0 ? ' <span style="font-size:8px;color:#6b7280">(rời '+extCount+'x)</span>' : '';
-            var extBtn = '<button onclick="event.stopPropagation();_bpiShowGcExtendModal(\''+r.id+'\')" style="background:#fef3c7;color:#92400e;border:1px solid #d97706;border-radius:4px;padding:1px 6px;font-size:8px;font-weight:700;cursor:pointer;margin-left:4px" title="Rời ngày gia công">📅 Rời</button>';
+            var gcModalId = r.id || ('order_' + r.dht_order_id);
+            var extBtn = '<button onclick="event.stopPropagation();_bpiShowGcExtendModal(\''+gcModalId+'\')" style="background:#fef3c7;color:#92400e;border:1px solid #d97706;border-radius:4px;padding:1px 6px;font-size:8px;font-weight:700;cursor:pointer;margin-left:4px" title="Rời ngày gia công">📅 Rời</button>';
             if (diff < 0) {
                 return '<span style="color:#dc2626;font-weight:700">🔥 Quá hạn ' + Math.abs(diff) + ' ngày</span>' + extLabel + extBtn;
             } else if (diff === 0) {
@@ -2461,8 +2462,20 @@ window._bpiEditRollCell = async function(cell, id, printField, selectedRollId) {
 
 // ========== GC DEADLINE EXTENSION MODAL ==========
 function _bpiShowGcExtendModal(recordId) {
-    var r = _bpi.records.find(function(x) { return String(x.id) === String(recordId); });
+    var r;
+    if (String(recordId).startsWith('order_')) {
+        var orderId = String(recordId).replace('order_', '');
+        r = _bpi.records.find(function(x) { return String(x.dht_order_id) === orderId; });
+    } else {
+        r = _bpi.records.find(function(x) { return String(x.id) === String(recordId); });
+    }
     if (!r) { alert('Không tìm thấy đơn'); return; }
+    
+    // If virtual record (no printing_records entry), show info
+    if (!r.id) {
+        alert('Đơn ' + (r.order_code || '') + ' chưa được phân công in.\nHãy phân công in trước rồi mới rời ngày.');
+        return;
+    }
     
     var deadline = r.gc_deadline || r.expected_ship_date || '—';
     var deadlineStr = String(deadline).substring(0, 10);
@@ -2477,37 +2490,84 @@ function _bpiShowGcExtendModal(recordId) {
     h += '<div class="bpi-modal-header" style="background:linear-gradient(135deg,#d97706,#f59e0b)">';
     h += '<span class="m-icon">📅</span>';
     h += '<div><div class="m-title">Rời Ngày Gia Công</div>';
-    h += '<div style="font-size:11px;opacity:0.9;margin-top:2px">' + _bpiGetProductNameDisplay(r) + '</div></div></div>';
+    h += '<div style="font-size:11px;opacity:0.9;margin-top:2px">' + (r.order_code || '') + ' — ' + _bpiGetProductNameDisplay(r) + '</div></div></div>';
     
     h += '<div style="padding:20px">';
+    
+    // Current deadline + extension count
     h += '<div style="display:flex;gap:12px;margin-bottom:16px">';
     h += '<div style="flex:1;background:#fef3c7;border-radius:8px;padding:12px;text-align:center">';
-    h += '<div style="font-size:10px;color:#92400e;font-weight:600">Deadline hiện tại</div>';
-    h += '<div style="font-size:16px;font-weight:800;color:#78350f">' + deadlineStr + '</div></div>';
+    h += '<div style="font-size:10px;color:#92400e;font-weight:600">📅 Deadline hiện tại</div>';
+    h += '<div style="font-size:18px;font-weight:800;color:#78350f">' + deadlineStr + '</div></div>';
     h += '<div style="flex:1;background:#dbeafe;border-radius:8px;padding:12px;text-align:center">';
-    h += '<div style="font-size:10px;color:#1e40af;font-weight:600">Số lần rời</div>';
-    h += '<div style="font-size:16px;font-weight:800;color:#1e3a8a">' + extCount + '</div></div></div>';
+    h += '<div style="font-size:10px;color:#1e40af;font-weight:600">🔄 Số lần rời</div>';
+    h += '<div style="font-size:18px;font-weight:800;color:#1e3a8a">' + extCount + '</div></div></div>';
     
-    h += '<div style="margin-bottom:16px">';
-    h += '<label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">Lý do rời ngày:</label>';
-    h += '<textarea id="_bpiGcExtReason" rows="3" style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:8px;font-size:12px;resize:vertical" placeholder="Nhập lý do rời ngày (vd: hàng chưa in kịp, máy hỏng...)"></textarea>';
+    // New deadline date picker
+    h += '<div style="margin-bottom:16px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:10px;padding:14px;border:1.5px solid #10b981">';
+    h += '<label style="font-size:11px;font-weight:700;color:#065f46;display:block;margin-bottom:6px">📆 Chọn ngày rời đến:</label>';
+    // Calculate min date = tomorrow
+    var tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    var tomorrowStr = tomorrow.getFullYear() + '-' + String(tomorrow.getMonth()+1).padStart(2,'0') + '-' + String(tomorrow.getDate()).padStart(2,'0');
+    h += '<input type="date" id="_bpiGcNewDate" value="' + tomorrowStr + '" min="' + tomorrowStr + '" style="width:100%;padding:10px 14px;border:1.5px solid #10b981;border-radius:8px;font-size:15px;font-weight:700;color:#065f46;text-align:center;background:#fff;cursor:pointer" />';
+    h += '<div style="font-size:9px;color:#047857;margin-top:4px;text-align:center">⚠️ Nếu chọn ngày CN/lễ/nghỉ, hệ thống tự rời tới ngày làm việc gần nhất</div>';
     h += '</div>';
+    
+    // Reason
+    h += '<div style="margin-bottom:16px">';
+    h += '<label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px">📝 Lý do rời ngày:</label>';
+    h += '<textarea id="_bpiGcExtReason" rows="2" style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:8px;font-size:12px;resize:vertical" placeholder="Nhập lý do rời ngày (vd: hàng chưa in kịp, máy hỏng...)"></textarea>';
+    h += '</div>';
+    
+    // Extension history
+    h += '<div id="_bpiGcHistory" style="margin-bottom:12px"><div style="text-align:center;font-size:10px;color:#9ca3af">⏳ Đang tải lịch sử...</div></div>';
     
     h += '<div id="_bpiGcExtResult" style="display:none;margin-bottom:12px"></div>';
     
     h += '<div style="display:flex;gap:8px;justify-content:flex-end">';
     h += '<button onclick="document.body.removeChild(document.getElementById(\'_bpiGcExtendOverlay\'))" style="padding:8px 20px;border-radius:8px;border:1.5px solid #d1d5db;background:#fff;font-weight:600;cursor:pointer;font-size:12px">Hủy</button>';
-    h += '<button id="_bpiGcExtBtn" onclick="_bpiDoGcExtend(\''+recordId+'\',this)" style="padding:8px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;font-weight:700;cursor:pointer;font-size:12px;box-shadow:0 2px 8px rgba(217,119,6,0.3)">📅 Xác nhận rời ngày</button>';
+    h += '<button id="_bpiGcExtBtn" onclick="_bpiDoGcExtend(\''+r.id+'\',this)" style="padding:8px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;font-weight:700;cursor:pointer;font-size:12px;box-shadow:0 2px 8px rgba(217,119,6,0.3)">📅 Xác nhận rời ngày</button>';
     h += '</div></div></div>';
     
     overlay.innerHTML = h;
     document.body.appendChild(overlay);
     requestAnimationFrame(function() { overlay.classList.add('show'); });
+    
+    // Load extension history
+    fetch('/api/printing/gc-extensions/' + r.id, {
+        headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || sessionStorage.getItem('token')) }
+    }).then(function(res) { return res.json(); }).then(function(data) {
+        var histDiv = document.getElementById('_bpiGcHistory');
+        if (!histDiv) return;
+        if (data.extensions && data.extensions.length > 0) {
+            var hh = '<div style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px">📋 Lịch sử rời ngày:</div>';
+            data.extensions.forEach(function(ext, i) {
+                hh += '<div style="background:#f8fafc;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:10px;display:flex;justify-content:space-between;align-items:center">';
+                hh += '<span style="color:#374151"><b>Lần ' + (data.extensions.length - i) + ':</b> ' + String(ext.old_deadline).substring(0,10) + ' → ' + String(ext.new_deadline).substring(0,10) + '</span>';
+                hh += '<span style="color:#6b7280">' + (ext.extended_by_name || '') + '</span>';
+                hh += '</div>';
+            });
+            histDiv.innerHTML = hh;
+        } else {
+            histDiv.innerHTML = '<div style="text-align:center;font-size:10px;color:#9ca3af">Chưa có lịch sử rời ngày</div>';
+        }
+    }).catch(function() {
+        var histDiv = document.getElementById('_bpiGcHistory');
+        if (histDiv) histDiv.innerHTML = '';
+    });
 }
 
 function _bpiDoGcExtend(recordId, btn) {
     var reason = document.getElementById('_bpiGcExtReason');
     var reasonVal = reason ? reason.value.trim() : '';
+    var newDateInput = document.getElementById('_bpiGcNewDate');
+    var newDate = newDateInput ? newDateInput.value : '';
+    
+    if (!newDate) {
+        alert('Vui lòng chọn ngày rời đến');
+        return;
+    }
     
     btn.disabled = true;
     btn.textContent = '⏳ Đang xử lý...';
@@ -2515,7 +2575,7 @@ function _bpiDoGcExtend(recordId, btn) {
     fetch('/api/printing/gc-extend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('token') || sessionStorage.getItem('token')) },
-        body: JSON.stringify({ record_id: recordId, reason: reasonVal })
+        body: JSON.stringify({ record_id: recordId, reason: reasonVal, new_date: newDate })
     })
     .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
     .then(function(result) {
