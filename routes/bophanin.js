@@ -488,7 +488,7 @@ module.exports = async function(fastify) {
             } else if (field.toUpperCase() === 'IN TEM') {
                 where += ` AND (up.print_field NOT ILIKE '%PET%' AND up.print_field NOT ILIKE '%DECAL%' OR up.print_field IS NULL)`;
             } else {
-                where += ` AND up.print_field = ${idx++}`;
+                where += ` AND up.print_field = $${idx++}`;
                 params.push(field);
             }
             if (status === 'done') {
