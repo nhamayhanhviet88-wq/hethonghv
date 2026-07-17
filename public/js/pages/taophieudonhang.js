@@ -784,7 +784,15 @@ function _tpdRenderList() {
     if (!grid) return;
 
     // Apply Client-side Filtering
-    let filtered = _tpd.orders;
+    let filtered = _tpd.orders.filter(o => {
+        const code = o.order_code || '';
+        const isPetTem = code.includes('GCPET') || code.includes('GCTEM') || 
+                         code.includes('SUAGCPET') || code.includes('SUAGCTEM') || 
+                         code.includes('SUAPET') || code.includes('SUATEM') ||
+                         o.category_id === 8 || o.category_id === 9 ||
+                         (o.category_name && (o.category_name.toUpperCase() === 'PET' || o.category_name.toUpperCase() === 'TEM'));
+        return !isPetTem;
+    });
 
     // 1. Status Filter (Draft vs Official)
     if (_tpd.filter.status === 'draft') {
