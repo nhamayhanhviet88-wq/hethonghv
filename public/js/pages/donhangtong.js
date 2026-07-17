@@ -4282,7 +4282,7 @@ window._dhtCancelProductionPreview = async function(orderId, itemId, itemIndex) 
                 // Cost input
                 html += `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e2e8f0;display:flex;align-items:center;gap:8px">`;
                 html += `<span style="font-size:12px;font-weight:700;color:#b45309">💰 Chi phí:</span>`;
-                html += `<input type="text" id="cost_${step.cost_input_key}" class="cancel-cost-input" placeholder="0" value="" style="flex:1;padding:8px 12px;border:2px solid #fde68a;border-radius:8px;font-size:14px;font-weight:700;text-align:right;color:#1e293b;background:#fffbeb;outline:none;transition:border .2s" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fde68a';_dhtCancelCalcTotal()">`;
+                html += `<input type="text" id="cost_${step.cost_input_key}" class="cancel-cost-input" placeholder="0" value="" style="flex:1;padding:8px 12px;border:2px solid #fde68a;border-radius:8px;font-size:14px;font-weight:700;text-align:right;color:#1e293b;background:#fffbeb;outline:none;transition:border .2s" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fde68a'" oninput="_dhtCancelFormatOnInput(this)">`;
                 html += `<span style="font-size:12px;color:#94a3b8">đ</span>`;
                 html += `</div>`;
                 
@@ -4349,6 +4349,29 @@ window._dhtCancelProductionPreview = async function(orderId, itemId, itemIndex) 
     }
 };
 
+// Helper: format cost input dynamically with dot separators while typing
+window._dhtCancelFormatOnInput = function(el) {
+    const val = el.value;
+    const oldLen = val.length;
+    const caretPos = el.selectionStart;
+    
+    const rawVal = val.replace(/[^\d]/g, '');
+    if (!rawVal) {
+        el.value = '';
+        _dhtCancelCalcTotal();
+        return;
+    }
+    
+    const formatted = Number(rawVal).toLocaleString('vi-VN');
+    el.value = formatted;
+    
+    _dhtCancelCalcTotal();
+    
+    const newLen = formatted.length;
+    const newCaretPos = caretPos + (newLen - oldLen);
+    el.setSelectionRange(newCaretPos, newCaretPos);
+};
+
 // Helper: calculate total cost from inputs
 window._dhtCancelCalcTotal = function() {
     const inputs = document.querySelectorAll('.cancel-cost-input');
@@ -4359,11 +4382,6 @@ window._dhtCancelCalcTotal = function() {
         const rawVal = inp.value.replace(/[^\d]/g, '');
         const val = Number(rawVal) || 0;
         total += val;
-        
-        // Format input with thousand separators
-        if (rawVal) {
-            inp.value = Number(rawVal).toLocaleString('vi-VN');
-        }
         
         const stepName = inp.id.replace('cost_', '').replace('_cost', '');
         const nameMap = { cutting: 'Cắt', printing: 'In', pressing: 'Ép', sewing: 'May', qc: 'KTCL', finishing: 'Hoàn Thiện' };
