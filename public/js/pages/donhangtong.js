@@ -1663,17 +1663,17 @@ async function _dhtShowDetail(id) {
 
         if (o.design_email_recipient) {
             let statusText = '';
-            let btnStyle = 'padding:2px 8px;font-size:11px;font-weight:700;border-radius:4px;border:none;background:#2563eb;color:#fff;cursor:pointer;margin-left:8px;';
-            const resendBtn = `<button style="${btnStyle}" onclick="event.stopPropagation(); _dhtResendDesignEmail('${o.id}')">🔄 Gửi lại</button>`;
             
             if (o.design_email_status === 'sent') {
-                statusText = `<span style="color:#15803d;font-weight:700;">✅ Đã gửi thành công</span> ${resendBtn}`;
+                const sentTimeStr = o.design_email_sent_at ? fmtDateTimeHM(o.design_email_sent_at) : '—';
+                const sentCountVal = o.design_email_sent_count || 1;
+                statusText = `<span style="color:#15803d;font-weight:700;">✅ Đã gửi thành công</span> <span style="color:#475569;margin-left:6px;font-weight:600;">(Gửi lần ${sentCountVal} lúc ${sentTimeStr})</span>`;
             } else if (o.design_email_status === 'sending') {
                 statusText = `<span style="color:#d97706;font-weight:700;">⏳ Đang gửi...</span>`;
             } else if (o.design_email_status === 'failed') {
-                statusText = `<span style="color:#dc2626;font-weight:700;">❌ Thất bại</span> <div style="color:#dc2626;font-size:11px;margin-top:4px;font-weight:600;word-break:break-all;">Lỗi: ${escapeHTML(o.design_email_error || 'Không rõ nguyên nhân')}</div> ${resendBtn}`;
+                statusText = `<span style="color:#dc2626;font-weight:700;">❌ Thất bại</span> <div style="color:#dc2626;font-size:11px;margin-top:4px;font-weight:600;word-break:break-all;">Lỗi: ${escapeHTML(o.design_email_error || 'Không rõ nguyên nhân')}</div>`;
             } else {
-                statusText = `<span style="color:#64748b;font-style:italic;">Chưa gửi</span> ${resendBtn}`;
+                statusText = `<span style="color:#64748b;font-style:italic;">Chưa gửi</span>`;
             }
 
             infoHTML += row('Email thiết kế', `

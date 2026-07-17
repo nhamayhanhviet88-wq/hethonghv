@@ -8587,12 +8587,12 @@ module.exports = async function(fastify) {
 
             if (!order.design_email_message_id) {
                 await db.run(
-                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_message_id = $1, design_email_subject = $2, design_email_planned_send_at = NULL, last_sent_order_state = $3, edit_count = $4 WHERE id = $5`,
+                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_message_id = $1, design_email_subject = $2, design_email_planned_send_at = NULL, last_sent_order_state = $3, edit_count = $4, design_email_sent_at = NOW(), design_email_sent_count = COALESCE(design_email_sent_count, 0) + 1 WHERE id = $5`,
                     [info.messageId, generatedSubject, JSON.stringify(newState), editCount, orderId]
                 );
             } else {
                 await db.run(
-                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_planned_send_at = NULL, last_sent_order_state = $1, edit_count = $2 WHERE id = $3`,
+                    `UPDATE dht_orders SET design_email_status = 'sent', design_email_error = NULL, design_email_planned_send_at = NULL, last_sent_order_state = $1, edit_count = $2, design_email_sent_at = NOW(), design_email_sent_count = COALESCE(design_email_sent_count, 0) + 1 WHERE id = $3`,
                     [JSON.stringify(newState), editCount, orderId]
                 );
             }
