@@ -335,6 +335,7 @@ module.exports = async function(fastify) {
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS repair_source_code TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS logo_approved_image TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS chat_confirmed_image TEXT DEFAULT NULL`); } catch(e) {}
+    try { await db.run(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS gift_proof_image TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS design_pdf_url TEXT DEFAULT NULL`); } catch(e) {}
     try { await db.run(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS design_pdf_name TEXT DEFAULT NULL`); } catch(e) {}
     // Auto-seed "ĐƠN SỬA" category if not exists
@@ -3969,7 +3970,7 @@ module.exports = async function(fastify) {
         const order = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
         
-        const { logo_approved_image, chat_confirmed_image, item_designs, recipient_email, sheet_images } = request.body || {};
+        const { logo_approved_image, chat_confirmed_image, gift_proof_image, item_designs, recipient_email, sheet_images } = request.body || {};
         if (!logo_approved_image || !logo_approved_image.trim()) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh xác nhận duyệt logo của khách!' });
         }
@@ -3977,7 +3978,22 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh khách nhắn chốt đơn!' });
         }
 
-        const orderItems = await db.all('SELECT id, product_name, design_pdf_url, design_pdf_name FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
+        const orderItems = await db.all('SELECT id, product_name, design_pdf_url, design_pdf_name, sale_type, promo_gift_code FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
+        
+        // Validate gift proof if order has coupon or gift items
+        const hasGiftOrPromo = !!(
+            order.applied_coupon || 
+            orderItems.some(item => {
+                const st = (item.sale_type || '').toLowerCase();
+                return st === 'quà' || st === 'qua' || item.promo_gift_code;
+            })
+        );
+        if (hasGiftOrPromo) {
+            if (!gift_proof_image || !gift_proof_image.trim()) {
+                return reply.code(400).send({ error: 'Thiếu hình ảnh gửi phiếu tặng quà khách!' });
+            }
+        }
+
         if (!item_designs || typeof item_designs !== 'object') {
             return reply.code(400).send({ error: 'Thiếu file PDF thiết kế bắt buộc cho từng phiếu!' });
         }
@@ -4054,14 +4070,22 @@ module.exports = async function(fastify) {
                  official_save_clicked = TRUE, 
                  logo_approved_image = $1, 
                  chat_confirmed_image = $2, 
-                 design_email_recipient = $3,
+                 gift_proof_image = $3,
+                 design_email_recipient = $4,
                  is_locked = FALSE,
                  locked_by = NULL,
                  locked_at = NULL,
                  last_updated_at = NOW(), 
-                 last_updated_by = $4 
-             WHERE id = $5`,
-            [logo_approved_image.trim(), chat_confirmed_image.trim(), recipientEmailStr || null, request.user.id, orderId]
+                 last_updated_by = $5 
+             WHERE id = $6`,
+            [
+                logo_approved_image.trim(), 
+                chat_confirmed_image.trim(), 
+                gift_proof_image ? gift_proof_image.trim() : null,
+                recipientEmailStr || null, 
+                request.user.id, 
+                orderId
+            ]
         );
 
         for (const item of orderItems) {

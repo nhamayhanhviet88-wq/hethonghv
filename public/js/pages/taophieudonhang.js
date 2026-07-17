@@ -7564,6 +7564,14 @@ async function _tpdShowExportSheetsModal() {
     window._tpdCopiedFinancialSummaryText = localStorage.getItem(`tpd_copied_fin_${o.id}`) === 'true';
     window._tpdLogoApprovedUrl = localStorage.getItem(`tpd_logo_proof_${o.id}`) || o.logo_approved_image || '';
     window._tpdChatConfirmedUrl = localStorage.getItem(`tpd_chat_proof_${o.id}`) || o.chat_confirmed_image || '';
+    window._tpdGiftProofUrl = localStorage.getItem(`tpd_gift_proof_${o.id}`) || o.gift_proof_image || '';
+    const hasGiftOrPromo = !!(
+        o.applied_coupon || 
+        items.some(item => {
+            const st = (item.sale_type || '').toLowerCase();
+            return st === 'quà' || st === 'qua' || item.promo_gift_code;
+        })
+    );
     window._tpdActivePasteZone = '';
     window._tpdSheetDesigns = {};
     items.forEach((item, idx) => {
@@ -7803,6 +7811,26 @@ async function _tpdShowExportSheetsModal() {
                             </div>
                             <div style="color: #dc2626; font-size: 11px; font-weight: 900; margin-top: 8px; text-transform: uppercase; line-height: 1.4;">⚠️ Chụp hình ảnh sai chịu trách nhiệm đơn hàng</div>
                             <input type="file" id="tpdChatFileInput" accept="image/*" style="display: none;" onchange="_tpdHandleFileInput(event, 'chat')">
+                        </div>
+
+                        <!-- Gift Voucher Paste Box -->
+                        <div id="tpdGiftPasteArea" tabindex="0" onclick="_tpdActivatePasteZone('gift'); if(event.target.id === 'tpdGiftPasteArea' || event.target.closest('#tpdGiftPastePrompt')) { _tpdTriggerFileInput('gift', event); }" style="flex: 1; min-width: 250px; background: #ffffff; border: 2px dashed ${hasGiftOrPromo ? '#dc2626' : '#cbd5e1'}; border-radius: 10px; padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; text-align: center; outline: none;">
+                            <div id="tpdGiftPastePrompt" style="font-size: 12px; font-weight: 600; pointer-events: none; ${window._tpdGiftProofUrl ? 'display: none;' : ''}">
+                                <div style="font-size: 24px; margin-bottom: 6px;">🎁</div>
+                                <strong style="color: ${hasGiftOrPromo ? '#dc2626' : '#2563eb'}; font-size: 14px; font-weight: 900; display: block; margin-bottom: 4px; text-transform: uppercase;">GỬI PHIẾU TẶNG QUÀ KHÁCH ${hasGiftOrPromo ? '* (BẮT BUỘC)' : '(TÙY CHỌN)'}</strong>
+                                <div style="font-size: 11px; color: #475569; margin-top: 4px; font-weight: 700;">Ctrl + V để dán ảnh</div>
+                            </div>
+                            <div id="tpdGiftPreviewContainer" style="${window._tpdGiftProofUrl ? 'display: flex; flex-direction: column; align-items: center; justify-content: center;' : 'display: none;'} width: 100%; height: 100%; position: relative;">
+                                ${window._tpdGiftProofUrl ? `
+                                    <div style="position: relative; max-width: 100%; max-height: 120px; display: inline-block;">
+                                        <img src="${window._tpdGiftProofUrl}" style="max-height: 100px; max-width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain;">
+                                        <button onclick="_tpdRemoveProofImage('gift', event)" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">&times;</button>
+                                    </div>
+                                    <div style="font-size: 13px; font-weight: 800; color: #2563eb; margin-top: 6px; text-transform: uppercase;">🎁 GỬI PHIẾU TẶNG QUÀ</div>
+                                ` : ''}
+                            </div>
+                            <div style="color: #dc2626; font-size: 11px; font-weight: 900; margin-top: 8px; text-transform: uppercase; line-height: 1.4;">⚠️ Chụp hình ảnh sai chịu trách nhiệm đơn hàng</div>
+                            <input type="file" id="tpdGiftFileInput" accept="image/*" style="display: none;" onchange="_tpdHandleFileInput(event, 'gift')">
                         </div>
                     </div>
                 </div>
@@ -8128,7 +8156,8 @@ async function _tpdShowExportSheetsModal() {
         if (!confirmBtn) return;
         
         const allDownloaded = downloaded.every(d => d === true);
-        const hasProofs = !!(window._tpdLogoApprovedUrl && window._tpdChatConfirmedUrl);
+        const giftValid = !hasGiftOrPromo || !!window._tpdGiftProofUrl;
+        const hasProofs = !!(window._tpdLogoApprovedUrl && window._tpdChatConfirmedUrl && giftValid);
         const allPdfsUploaded = items.every(item => {
             const design = window._tpdSheetDesigns[item.id];
             return !!(design && design.url);
@@ -8172,6 +8201,7 @@ async function _tpdShowExportSheetsModal() {
                     const res = await apiCall(`/api/dht/orders/${o.id}/confirm-export`, 'POST', {
                         logo_approved_image: window._tpdLogoApprovedUrl,
                         chat_confirmed_image: window._tpdChatConfirmedUrl,
+                        gift_proof_image: window._tpdGiftProofUrl || '',
                         item_designs: itemDesigns,
                         sheet_images: generatedImages,
                         recipient_email: recipientEmail
@@ -8180,6 +8210,7 @@ async function _tpdShowExportSheetsModal() {
                         showToast('🎉 Xác nhận lên đơn và xuất phiếu thành công!', 'success');
                         localStorage.removeItem(`tpd_logo_proof_${o.id}`);
                         localStorage.removeItem(`tpd_chat_proof_${o.id}`);
+                        localStorage.removeItem(`tpd_gift_proof_${o.id}`);
                         localStorage.removeItem(`tpd_copied_conf_${o.id}`);
                         localStorage.removeItem(`tpd_copied_fin_${o.id}`);
                         sessionStorage.removeItem(`tpd_orig_items_${o.id}`);
@@ -8218,33 +8249,49 @@ async function _tpdShowExportSheetsModal() {
         window._tpdActivePasteZone = zone;
         const logoArea = document.getElementById('tpdLogoPasteArea');
         const chatArea = document.getElementById('tpdChatPasteArea');
+        const giftArea = document.getElementById('tpdGiftPasteArea');
         if (!logoArea || !chatArea) return;
+        
+        logoArea.style.borderColor = '#cbd5e1';
+        logoArea.style.background = '#ffffff';
+        chatArea.style.borderColor = '#cbd5e1';
+        chatArea.style.background = '#ffffff';
+        if (giftArea) {
+            giftArea.style.borderColor = hasGiftOrPromo ? '#dc2626' : '#cbd5e1';
+            giftArea.style.background = '#ffffff';
+        }
         
         if (zone === 'logo') {
             logoArea.style.borderColor = '#3b82f6';
             logoArea.style.background = '#f0f7ff';
             logoArea.focus();
-            chatArea.style.borderColor = '#cbd5e1';
-            chatArea.style.background = '#ffffff';
-        } else {
+        } else if (zone === 'chat') {
             chatArea.style.borderColor = '#3b82f6';
             chatArea.style.background = '#f0f7ff';
             chatArea.focus();
-            logoArea.style.borderColor = '#cbd5e1';
-            logoArea.style.background = '#ffffff';
+        } else if (zone === 'gift' && giftArea) {
+            giftArea.style.borderColor = '#3b82f6';
+            giftArea.style.background = '#f0f7ff';
+            giftArea.focus();
         }
     };
 
     window._tpdTriggerFileInput = function(zone, event) {
         if (event) event.stopPropagation();
-        const input = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}FileInput`);
+        let prefix = 'Logo';
+        if (zone === 'chat') prefix = 'Chat';
+        if (zone === 'gift') prefix = 'Gift';
+        const input = document.getElementById(`tpd${prefix}FileInput`);
         if (input) input.click();
     };
 
     window._tpdUploadProofFile = async function(file, zone) {
-        const promptEl = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PastePrompt`);
-        const previewContainer = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PreviewContainer`);
-        const area = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PasteArea`);
+        let prefix = 'Logo';
+        if (zone === 'chat') prefix = 'Chat';
+        if (zone === 'gift') prefix = 'Gift';
+        const promptEl = document.getElementById(`tpd${prefix}PastePrompt`);
+        const previewContainer = document.getElementById(`tpd${prefix}PreviewContainer`);
+        const area = document.getElementById(`tpd${prefix}PasteArea`);
         if (!previewContainer || !promptEl || !area) return;
 
         // Show loading
@@ -8269,19 +8316,24 @@ async function _tpdShowExportSheetsModal() {
                 if (zone === 'logo') {
                     window._tpdLogoApprovedUrl = data.url;
                     localStorage.setItem(`tpd_logo_proof_${o.id}`, data.url);
-                } else {
+                } else if (zone === 'chat') {
                     window._tpdChatConfirmedUrl = data.url;
                     localStorage.setItem(`tpd_chat_proof_${o.id}`, data.url);
+                } else {
+                    window._tpdGiftProofUrl = data.url;
+                    localStorage.setItem(`tpd_gift_proof_${o.id}`, data.url);
                 }
                 
+                let labelText = '🎨 KHÁCH DUYỆT LOGO';
+                if (zone === 'chat') labelText = '💬 KHÁCH NHẮN CHỐT ĐƠN';
+                if (zone === 'gift') labelText = '🎁 GỬI PHIẾU TẶNG QUÀ';
+
                 previewContainer.innerHTML = `
                     <div style="position: relative; max-width: 100%; max-height: 120px; display: inline-block;">
                         <img src="${data.url}" style="max-height: 100px; max-width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain;">
                         <button onclick="_tpdRemoveProofImage('${zone}', event)" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">&times;</button>
                     </div>
-                    <div style="font-size: 13px; font-weight: 800; color: #2563eb; margin-top: 6px; text-transform: uppercase;">
-                        \${zone === 'logo' ? '🎨 KHÁCH DUYỆT LOGO' : '💬 KHÁCH NHẮN CHỐT ĐƠN'}
-                    </div>
+                    <div style="font-size: 13px; font-weight: 800; color: #2563eb; margin-top: 6px; text-transform: uppercase;">${labelText}</div>
                 `;
                 showToast('Tải ảnh bằng chứng thành công!', 'success');
             } else {
@@ -8295,9 +8347,12 @@ async function _tpdShowExportSheetsModal() {
             if (zone === 'logo') {
                 window._tpdLogoApprovedUrl = '';
                 localStorage.removeItem(`tpd_logo_proof_${o.id}`);
-            } else {
+            } else if (zone === 'chat') {
                 window._tpdChatConfirmedUrl = '';
                 localStorage.removeItem(`tpd_chat_proof_${o.id}`);
+            } else {
+                window._tpdGiftProofUrl = '';
+                localStorage.removeItem(`tpd_gift_proof_${o.id}`);
             }
         }
         window._tpdCheckConfirmUnlock();
@@ -8305,18 +8360,26 @@ async function _tpdShowExportSheetsModal() {
 
     window._tpdRemoveProofImage = function(zone, event) {
         if (event) event.stopPropagation();
-        const promptEl = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PastePrompt`);
-        const previewContainer = document.getElementById(`tpd${zone === 'logo' ? 'Logo' : 'Chat'}PreviewContainer`);
+        let prefix = 'Logo';
+        if (zone === 'chat') prefix = 'Chat';
+        if (zone === 'gift') prefix = 'Gift';
+        const promptEl = document.getElementById(`tpd${prefix}PastePrompt`);
+        const previewContainer = document.getElementById(`tpd${prefix}PreviewContainer`);
         
         if (zone === 'logo') {
             window._tpdLogoApprovedUrl = '';
             localStorage.removeItem(`tpd_logo_proof_${o.id}`);
             const input = document.getElementById('tpdLogoFileInput');
             if (input) input.value = '';
-        } else {
+        } else if (zone === 'chat') {
             window._tpdChatConfirmedUrl = '';
             localStorage.removeItem(`tpd_chat_proof_${o.id}`);
             const input = document.getElementById('tpdChatFileInput');
+            if (input) input.value = '';
+        } else {
+            window._tpdGiftProofUrl = '';
+            localStorage.removeItem(`tpd_gift_proof_${o.id}`);
+            const input = document.getElementById('tpdGiftFileInput');
             if (input) input.value = '';
         }
         if (previewContainer) {
