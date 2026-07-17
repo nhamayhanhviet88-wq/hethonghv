@@ -7778,6 +7778,7 @@ async function _tpdShowExportSheetsModal() {
                                         <img src="${window._tpdLogoApprovedUrl}" style="max-height: 100px; max-width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain;">
                                         <button onclick="_tpdRemoveProofImage('logo', event)" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">&times;</button>
                                     </div>
+                                    <div style="font-size: 13px; font-weight: 800; color: #2563eb; margin-top: 6px; text-transform: uppercase;">🎨 KHÁCH DUYỆT LOGO</div>
                                 ` : ''}
                             </div>
                             <div style="color: #dc2626; font-size: 11px; font-weight: 900; margin-top: 8px; text-transform: uppercase; line-height: 1.4;">⚠️ Chụp hình ảnh sai chịu trách nhiệm đơn hàng</div>
@@ -7797,6 +7798,7 @@ async function _tpdShowExportSheetsModal() {
                                         <img src="${window._tpdChatConfirmedUrl}" style="max-height: 100px; max-width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain;">
                                         <button onclick="_tpdRemoveProofImage('chat', event)" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">&times;</button>
                                     </div>
+                                    <div style="font-size: 13px; font-weight: 800; color: #2563eb; margin-top: 6px; text-transform: uppercase;">💬 KHÁCH NHẮN CHỐT ĐƠN</div>
                                 ` : ''}
                             </div>
                             <div style="color: #dc2626; font-size: 11px; font-weight: 900; margin-top: 8px; text-transform: uppercase; line-height: 1.4;">⚠️ Chụp hình ảnh sai chịu trách nhiệm đơn hàng</div>
@@ -8276,6 +8278,9 @@ async function _tpdShowExportSheetsModal() {
                     <div style="position: relative; max-width: 100%; max-height: 120px; display: inline-block;">
                         <img src="${data.url}" style="max-height: 100px; max-width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain;">
                         <button onclick="_tpdRemoveProofImage('${zone}', event)" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">&times;</button>
+                    </div>
+                    <div style="font-size: 13px; font-weight: 800; color: #2563eb; margin-top: 6px; text-transform: uppercase;">
+                        \${zone === 'logo' ? '🎨 KHÁCH DUYỆT LOGO' : '💬 KHÁCH NHẮN CHỐT ĐƠN'}
                     </div>
                 `;
                 showToast('Tải ảnh bằng chứng thành công!', 'success');
