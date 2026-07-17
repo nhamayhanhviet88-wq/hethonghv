@@ -827,7 +827,11 @@ function _shBuildItemsTable(order) {
         const isSampleNotApproved = isSample && !order.is_hoan_hang && !order.status_duyet;
 
         if (item.production_cancelled) {
-            actionHtml = `<button onclick="event.stopPropagation(); _shReconcileCancelledItem('${order.id}', '${item.item_id}', '${(order.order_code||'').replace(/'/g,"\\'")}', '${(item.product_name||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#7c3aed;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">💵 Quyết toán nợ</button>`;
+            if (order.shipping_status === 'shipped') {
+                actionHtml = `<span style="color:#059669;font-weight:700;font-size:10px;background:#dcfce7;border:1px solid #86efac;padding:3px 8px;border-radius:4px;">✓ Đã quyết toán</span>`;
+            } else {
+                actionHtml = `<button onclick="event.stopPropagation(); _shReconcileCancelledItem('${order.id}', '${item.item_id}', '${(order.order_code||'').replace(/'/g,"\\'")}', '${(item.product_name||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#7c3aed;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">💵 Quyết toán nợ</button>`;
+            }
         } else if (isSampleNotApproved) {
             actionHtml = `<span style="color:#94a3b8;font-style:italic">Chờ duyệt</span>`;
         } else if (item.shipping_status === 'shipped') {
@@ -4399,6 +4403,30 @@ async function _shReconcileCancelledItem(orderId, itemId, orderCode, productName
 
     const remaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : 0;
     
+    if (remaining > 10) {
+        const html = `
+            <div style="font-size:13px;line-height:1.6;color:#334155;padding:10px 0;">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;background:#fef2f2;border:1px solid #fee2e2;padding:12px;border-radius:8px;">
+                    <span style="font-size:24px;">⚠️</span>
+                    <div style="font-weight:800;color:#991b1b;font-size:14px;">Không thể quyết toán công nợ đơn hàng hủy!</div>
+                </div>
+                <div style="margin-bottom:12px;font-size:13.5px;">Đơn hàng <b>${orderCode}</b> hiện tại vẫn còn số tiền chưa thanh toán là: 
+                    <span style="color:#ef4444;font-weight:900;font-size:15px;background:#fee2e2;padding:2px 8px;border-radius:6px;border:1px solid #fca5a5;white-space:nowrap;display:inline-block;margin-top:2px;">${remaining.toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div style="background:#f8fafc;border:1.5px dashed #cbd5e1;padding:12px;border-radius:10px;font-size:12.5px;color:#475569;margin-top:14px;line-height:1.7;">
+                    💡 <b>Hướng dẫn cho Kế toán:</b><br>
+                    1. Vui lòng vào mục <b>"Sổ Ghi Nhận Tiền"</b> hoặc <b>"Tra Soát Đơn Hàng"</b>.<br>
+                    2. Tìm mã tiền giao dịch thanh toán và liên kết vào đơn hàng <b>${orderCode}</b> để thu hồi hết tiền nợ về <b>0đ</b>.<br>
+                    3. Quay lại đây để thực hiện <b>Quyết toán công nợ đơn hàng hủy</b>.
+                </div>
+                <div style="margin-top:20px;text-align:right;">
+                    <button onclick="document.getElementById('shAlertModal')?.remove()" style="padding:8px 24px;border:none;border-radius:8px;background:#ef4444;color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 4px rgba(239,68,68,0.2);">Đã hiểu</button>
+                </div>
+            </div>
+        `;
+        return _shShowAlert('Không thể quyết toán công nợ', html, '480px', '', 'background:linear-gradient(135deg,#ef4444,#dc2626);', '⚠️');
+    }
+    
     // Create and append the modal html
     document.getElementById('shReconcileModal')?.remove();
     
@@ -4410,7 +4438,7 @@ async function _shReconcileCancelledItem(orderId, itemId, orderCode, productName
     <div style="background:white;border-radius:16px;width:500px;max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;animation:shAlertSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
         <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:18px 24px;color:white;display:flex;align-items:center;gap:10px;">
             <span style="font-size:22px;">💵</span>
-            <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;">Quyết toán nợ đơn hàng hủy</div>
+            <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;">Quyết toán công nợ đơn hàng hủy</div>
         </div>
         <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;">
             <div style="margin-bottom:12px;background:#f3e8ff;border:1px solid #e9d5ff;padding:12px;border-radius:8px;">
@@ -4425,20 +4453,23 @@ async function _shReconcileCancelledItem(orderId, itemId, orderCode, productName
                     </tr>
                     <tr>
                         <td style="padding:4px 0;color:#5b21b6;font-weight:700;">Dư nợ hiện tại:</td>
-                        <td style="padding:4px 0;color:#10b981;font-weight:700;font-size:14px;">${remaining.toLocaleString('vi-VN')}đ</td>
+                        <td style="padding:4px 0;color:#10b981;font-weight:700;font-size:14px;">0đ (Đã thu hồi hết)</td>
                     </tr>
                 </table>
             </div>
             
-            <div style="margin-bottom:12px;">
+            <div style="margin-bottom:12px;display:none;">
                 <label style="display:block;font-weight:700;margin-bottom:6px;color:#475569;">Số tiền giảm trừ/hủy nợ (đ):</label>
-                <input type="text" id="shReconcileAmount" value="${remaining}" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-weight:700;color:#7c3aed;outline:none;box-sizing:border-box;" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
-                <span style="font-size:11px;color:#64748b;margin-top:4px;display:block;">* Hệ thống sẽ tự động tăng chiết khấu của đơn để giảm công nợ. Tối đa: ${remaining.toLocaleString('vi-VN')}đ</span>
+                <input type="text" id="shReconcileAmount" value="0">
             </div>
             
             <div style="margin-bottom:8px;">
                 <label style="display:block;font-weight:700;margin-bottom:6px;color:#475569;">Lý do quyết toán công nợ:</label>
-                <textarea id="shReconcileNote" placeholder="Ví dụ: Hủy nợ cho phiếu hàng sản xuất lỗi đã dừng sản xuất..." rows="3" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;resize:vertical;"></textarea>
+                <textarea id="shReconcileNote" placeholder="Ví dụ: Đã khớp đủ tiền trong sổ ghi nhận tiền, quyết toán hoàn thành đơn hàng hủy..." rows="3" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;resize:vertical;"></textarea>
+            </div>
+            
+            <div style="font-size:11.5px;color:#15803d;margin-top:14px;background:#f0fdf4;border:1px solid #bbf7d0;padding:10px;border-radius:8px;line-height:1.5;">
+                ℹ️ <b>Thông tin:</b> Sau khi xác nhận quyết toán, nếu toàn bộ các phiếu trong đơn hàng này đều đã được gửi hoặc bị hủy, trạng thái của đơn hàng sẽ chuyển sang <b>"Đã Gửi"</b> và đơn hàng sẽ hoàn thành.
             </div>
         </div>
         <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">

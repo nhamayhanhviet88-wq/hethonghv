@@ -3489,7 +3489,7 @@ module.exports = async function(fastify) {
         const orderId = Number(request.params.id);
         const { write_off_amount, note, item_id } = request.body || {};
 
-        if (!write_off_amount || isNaN(write_off_amount) || write_off_amount <= 0) {
+        if (write_off_amount === undefined || isNaN(write_off_amount) || write_off_amount < 0) {
             return reply.code(400).send({ error: 'Số tiền giảm trừ không hợp lệ' });
         }
 
@@ -3532,31 +3532,65 @@ module.exports = async function(fastify) {
             - shipTotal
         );
 
-        if (write_off_amount > currentDebt + 10) {
+        if (currentDebt > 10) {
             return reply.code(400).send({ 
-                error: `Không thể giảm trừ nhiều hơn số dư nợ hiện tại (${currentDebt.toLocaleString('vi-VN')}đ)` 
+                error: `⚠️ Không thể quyết toán nợ: Đơn hàng vẫn còn dư nợ chưa thanh toán (${currentDebt.toLocaleString('vi-VN')}đ). Vui lòng cập nhật mã tiền hoặc đối soát giảm trừ về 0đ trước.` 
             });
         }
 
-        // Apply discount_amount update
-        await db.run(`
-            UPDATE dht_orders 
-            SET discount_amount = COALESCE(discount_amount, 0) + $1,
-                last_updated_by = $2,
-                last_updated_at = NOW()
-            WHERE id = $3
-        `, [Number(write_off_amount), userId, orderId]);
+        // Apply discount_amount update if write_off_amount is positive
+        if (Number(write_off_amount) > 0) {
+            await db.run(`
+                UPDATE dht_orders 
+                SET discount_amount = COALESCE(discount_amount, 0) + $1,
+                    last_updated_by = $2,
+                    last_updated_at = NOW()
+                WHERE id = $3
+            `, [Number(write_off_amount), userId, orderId]);
+        }
 
         // Insert audit log with action cancel-production
-        const logSummary = `Kế toán quyết toán nợ đơn hủy${itemInfo}. Giảm trừ: ${Number(write_off_amount).toLocaleString('vi-VN')}đ. Lý do: ${note || 'Không có lý do'}`;
+        const logSummary = `Kế toán quyết toán nợ đơn hủy${itemInfo} thành công (Dư nợ = 0đ). Lý do: ${note || 'Không có lý do'}`;
         await db.run(`
             INSERT INTO dht_order_logs (dht_order_id, action, summary, performed_by)
             VALUES ($1, 'cancel-production', $2, $3)
         `, [orderId, logSummary, userId]);
 
+        // Check if all items in order are now shipped/cancelled
+        const unshipped = await db.get(`
+            SELECT COUNT(*) AS cnt FROM dht_order_items 
+            WHERE dht_order_id = $1 
+              AND shipping_status = 'pending'
+              AND COALESCE(production_cancelled, false) = false
+              AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
+              AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
+              AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
+              AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%'
+        `, [orderId]);
+
+        let orderUpdatedMessage = '';
+        if (Number(unshipped?.cnt || 0) === 0) {
+            const now = vnNow();
+            const todayStr = vnDateStr(now);
+            await db.run(`
+                UPDATE dht_orders 
+                SET shipping_status = 'shipped',
+                    shipped_by = $1,
+                    shipped_at = $2,
+                    shipping_date = $3,
+                    actual_ship_datetime = $2,
+                    rescheduled_ship_date = NULL,
+                    reschedule_reason = NULL,
+                    last_updated_by = $1,
+                    last_updated_at = NOW()
+                WHERE id = $4
+            `, [userId, now.toISOString(), todayStr, orderId]);
+            orderUpdatedMessage = ' Đơn hàng đã được chuyển sang trạng thái Đã Gửi và hoàn thành.';
+        }
+
         return { 
             success: true, 
-            message: `Quyết toán nợ thành công! Đã chiết khấu giảm trừ ${Number(write_off_amount).toLocaleString('vi-VN')}đ.`
+            message: `Quyết toán nợ thành công!${orderUpdatedMessage}`
         };
     });
 };
