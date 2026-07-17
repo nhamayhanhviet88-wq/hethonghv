@@ -1353,20 +1353,21 @@ if (!_dhtCreate.phieuItems) _dhtCreate.phieuItems = [];
 function _ppSearchField(id, label, items, curVal, hiddenVal) {
     if (hiddenVal === undefined) hiddenVal = curVal;
     var isRestricted = !!window._dhtPhieuRestricted;
-    var isReadOnly = (id === '_pp_sale') || isRestricted;
-    var disabledAttr = isRestricted ? ' disabled' : '';
-    var bgStyle = isRestricted ? 'background:#f1f5f9;cursor:not-allowed;' : 'cursor:pointer;';
+    var fieldRestricted = isRestricted && (id !== '_pp_sale');
+    var isReadOnly = (id === '_pp_sale') || fieldRestricted;
+    var disabledAttr = fieldRestricted ? ' disabled' : '';
+    var bgStyle = fieldRestricted ? 'background:#f1f5f9;cursor:not-allowed;' : 'cursor:pointer;';
     var roAttr = (id === '_pp_sale') ? ' readonly' : '';
-    var placeholder = isRestricted ? '🔒 Đã khóa' : (isReadOnly ? 'Chọn...' : 'Gõ để tìm...');
-    var focusAttr = isRestricted ? '' : ' onfocus="_ppShowList(\''+id+'\')"';
-    var inputAttr = isRestricted ? '' : ' oninput="_ppFilterList(\''+id+'\')"';
+    var placeholder = fieldRestricted ? '🔒 Đã khóa' : (isReadOnly ? 'Chọn...' : 'Gõ để tìm...');
+    var focusAttr = fieldRestricted ? '' : ' onfocus="_ppShowList(\''+id+'\')"';
+    var inputAttr = fieldRestricted ? '' : ' oninput="_ppFilterList(\''+id+'\')"';
     var h = '<div style="position:relative"><label style="font-size:11px;font-weight:700">'+label+'</label>'
         +'<input id="'+id+'" class="form-control _ppSF" autocomplete="off" style="font-size:12px;'+bgStyle+'" placeholder="'+placeholder+'" value="'+(curVal||'')+'"' + focusAttr + inputAttr + roAttr + disabledAttr + '>'
         +'<input type="hidden" id="'+id+'_val" value="'+(hiddenVal||'')+'">'
         +'<div id="'+id+'_list" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">';
     items.forEach(function(it) {
         var txt = it.text||it.name||it, val = it.value!==undefined?it.value:txt;
-        h += '<div class="_ppOpt" data-val="'+val+'" data-txt="'+txt+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'\''+id+'\'\',this)">'+txt+'</div>';
+        h += '<div class="_ppOpt" data-val="'+val+'" data-txt="'+txt+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\''+id+'\',this)">'+txt+'</div>';
     });
     return h + '</div></div>';
 }
@@ -1868,8 +1869,8 @@ async function _dhtAddItem(editIdx) {
     window._dhtPhieuRestricted = isRestricted;
     _ppRenderSewTags();
     if (isRestricted) {
-        // Only lock production-critical fields: Bán/Quà, Sản Phẩm, Thông Số Mẫu Áo, Chất Liệu, Màu Sắc
-        var _FABRIC_LOCKED_IDS = ['_pp_sale', '_pp_product', '_pp_pattern'];
+        // Only lock production-critical fields: Sản Phẩm, Thông Số Mẫu Áo, Chất Liệu, Màu Sắc (exclude Bán/Quà)
+        var _FABRIC_LOCKED_IDS = ['_pp_product', '_pp_pattern'];
         var _lockPopup = function() {
             var popup = document.getElementById('_phieuPopup');
             if (!popup) return;
@@ -2117,6 +2118,7 @@ async function _ppApplyGiftCode() {
 
 // Cascade: sale type → filter products
 function _dhtSaleChange() {
+    if (window._dhtPhieuRestricted) return;
     var saleId=document.getElementById('_pp_sale_val')?.value;
     var pInp=document.getElementById('_pp_product');
     var pList=document.getElementById('_pp_product_list');
