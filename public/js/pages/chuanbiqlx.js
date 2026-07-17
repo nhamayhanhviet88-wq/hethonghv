@@ -744,6 +744,9 @@ function _qlxRenderRows(paged) {
 
         var matAct = isMatArrived ? 'reset_arrive' : isMatCalled ? 'arrive' : 'call';
 
+        var isCancelled = it && it.production_cancelled;
+        var cancelBadge = isCancelled ? '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">HỦY SX</span>' : '';
+
         var itemDesc = it ? (it.description || '') : '';
         var totalRows = rowCountPerOrder[o.id] || 1;
         var priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
@@ -757,9 +760,9 @@ function _qlxRenderRows(paged) {
         }
         var spName;
         if (totalRows > 1) {
-            spName = priBadge + o.order_code + ' \u2014 Phi\u1ebfu ' + r.itemIdx + ' \u2014 P' + r.phoiInItem + (itemDesc ? ' \u2014 ' + itemDesc : '');
+            spName = cancelBadge + priBadge + o.order_code + ' \u2014 Phi\u1ebfu ' + r.itemIdx + ' \u2014 P' + r.phoiInItem + (itemDesc ? ' \u2014 ' + itemDesc : '');
         } else {
-            spName = priBadge + o.order_code + (itemDesc ? ' \u2014 ' + itemDesc : '');
+            spName = cancelBadge + priBadge + o.order_code + (itemDesc ? ' \u2014 ' + itemDesc : '');
         }
         var phoiTag = '';
         var matName = p ? (p.material_name || '') : (it ? (it.material_name || '') : '');
@@ -777,7 +780,14 @@ function _qlxRenderRows(paged) {
         if (o.last_update_at) { updateStr = _qlxFmtDate(o.last_update_at); if (o.last_update_by) updateStr += '<br><span style="color:#0369a1;font-size:9px">' + o.last_update_by + '</span>'; }
 
         var isLocked = o.is_draft || o.is_locked_active;
-        var h = '<tr class="qlx-order-row" data-order-id="' + o.id + '" style="' + (isLocked ? 'opacity:0.5; pointer-events:none;' : '') + bg + '">';
+        var h = '';
+        if (isLocked) {
+            h = '<tr class="qlx-order-row" data-order-id="' + o.id + '" style="opacity:0.5; pointer-events:none;' + bg + '">';
+        } else if (isCancelled) {
+            h = '<tr class="qlx-order-row" data-order-id="' + o.id + '" style="opacity:0.65; background:#f1f5f9 !important;' + bg + '">';
+        } else {
+            h = '<tr class="qlx-order-row" data-order-id="' + o.id + '" style="' + bg + '">';
+        }
         
         // Column 1: STT
         if (isNew) {
@@ -793,6 +803,16 @@ function _qlxRenderRows(paged) {
                 h += '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:dhtBlink 1s infinite">' + lockText + '</span></td>';
             } else {
                 h += '<td colspan="4"></td>';
+            }
+        } else if (isCancelled) {
+            if (r.phoiInItem === 1) {
+                h += '<td style="text-align:center"><button class="qlx-icon-btn" style="border:2.5px solid #ef4444 !important; background:#fff; cursor:pointer;" onclick="alert(\'Phiếu đơn này đã hủy sản xuất\')" title="Vải">' + fabIcon + '</button></td>';
+                h += '<td style="text-align:center"><button class="qlx-icon-btn" style="border:2.5px solid #ef4444 !important; background:#fff; cursor:pointer;" onclick="alert(\'Phiếu đơn này đã hủy sản xuất\')" title="VL">' + matIcon + '</button></td>';
+                h += '<td style="text-align:center"><button class="qlx-icon-btn" style="border:2.5px solid #ef4444 !important; background:#fff; cursor:pointer;" onclick="alert(\'Phiếu đơn này đã hủy sản xuất\')" title="PC In">🖨️</button></td>';
+                h += '<td style="text-align:center"><button class="qlx-icon-btn" style="border:2.5px solid #ef4444 !important; background:#fff; cursor:pointer;" onclick="alert(\'Phiếu đơn này đã hủy sản xuất\')" title="PC May">🪡</button></td>';
+            } else {
+                h += '<td style="text-align:center"><button class="qlx-icon-btn" style="border:2.5px solid #ef4444 !important; background:#fff; cursor:pointer;" onclick="alert(\'Phiếu đơn này đã hủy sản xuất\')" title="Vải">' + fabIcon + '</button></td>';
+                h += '<td></td><td></td><td></td>';
             }
         } else if (o.qlx_reviewed) {
             if (r.phoiInItem === 1) {
