@@ -8997,14 +8997,71 @@ module.exports = async function(fastify) {
                 WHERE id = $4
             `, [now, user.id, newItemTotal, itemId]);
 
-            // 3. Recalculate order total_amount
-            const sumRow = await db.get(`
-                SELECT COALESCE(SUM(COALESCE(item_total, 0)), 0)::numeric AS new_total
-                FROM dht_order_items WHERE dht_order_id = $1
+            // 3. Recalculate order total_amount, vat_amount, and total_quantity
+            const itemsList = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            let totalQtyVal = 0;
+            let totalItemsRaw = 0;
+            let totalItemsVat = 0;
+
+            for (const it of itemsList) {
+                let qtyArr = [];
+                if (typeof it.quantities === 'string') {
+                    try { qtyArr = JSON.parse(it.quantities); } catch(e) {}
+                } else if (Array.isArray(it.quantities)) {
+                    qtyArr = it.quantities;
+                }
+                const unitPrice = Number(it.unit_price) || 0;
+                if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
+
+                const itemQty = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+                totalQtyVal += itemQty;
+
+                const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                const giftQty = Number(it.promo_gift_quantity) || 0;
+                let itemRaw = undiscRaw;
+                if (giftQty > 0 && qtyArr.length > 0) {
+                    const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
+                    const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+                    itemRaw -= Math.round(giftPrice * giftQty);
+                    if (itemRaw < 0) itemRaw = 0;
+                }
+
+                const rawTotal = Number(it.item_total || it.total) || 0;
+                let vatPct = 0;
+                if (itemRaw > 0 && rawTotal > itemRaw) {
+                    const calculatedPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                    vatPct = (calculatedPct >= 4) ? 8 : 0;
+                }
+                const itemVat = Math.round(itemRaw * vatPct / 100);
+
+                totalItemsRaw += itemRaw;
+                totalItemsVat += itemVat;
+            }
+
+            const orderMeta = await db.get(`
+                SELECT COALESCE(additional_vat_amount, 0) AS add_vat,
+                       COALESCE(discount_amount, 0) AS disc,
+                       COALESCE(promo_discount_amount, 0) AS promo_disc
+                FROM dht_orders WHERE id = $1
             `, [orderId]);
-            const newOrderTotal = Number(sumRow.new_total) || 0;
-            await db.run(`UPDATE dht_orders SET total_amount = $1, last_updated_at = $2, last_updated_by = $3 WHERE id = $4`,
-                [newOrderTotal, now, user.id, orderId]);
+
+            const surchargeRow = await db.get(`
+                SELECT COALESCE(SUM(COALESCE(amount, 0)), 0)::numeric AS sur_total
+                FROM dht_order_surcharges WHERE dht_order_id = $1
+            `, [orderId]);
+
+            const finalVat = totalItemsVat + (orderMeta?.add_vat || 0);
+            const newTotalAmount = totalItemsRaw - (orderMeta?.promo_disc || 0) + finalVat + (surchargeRow?.sur_total || 0) - (orderMeta?.disc || 0);
+
+            await db.run(`
+                UPDATE dht_orders
+                SET total_quantity = $1,
+                    total_amount = $2,
+                    vat_amount = $3,
+                    last_updated_at = $4,
+                    last_updated_by = $5
+                WHERE id = $6
+            `, [totalQtyVal, newTotalAmount, finalVat, now, user.id, orderId]);
 
             // 4. Audit log
             await db.run(`
@@ -9081,14 +9138,71 @@ module.exports = async function(fastify) {
             // 2. Delete cancellation record
             await db.run('DELETE FROM dht_item_production_cancellations WHERE order_item_id = $1', [itemId]);
 
-            // 3. Recalculate order total
-            const sumRow = await db.get(`
-                SELECT COALESCE(SUM(COALESCE(item_total, 0)), 0)::numeric AS new_total
-                FROM dht_order_items WHERE dht_order_id = $1
+            // 3. Recalculate order total_amount, vat_amount, and total_quantity
+            const itemsList = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+            let totalQtyVal = 0;
+            let totalItemsRaw = 0;
+            let totalItemsVat = 0;
+
+            for (const it of itemsList) {
+                let qtyArr = [];
+                if (typeof it.quantities === 'string') {
+                    try { qtyArr = JSON.parse(it.quantities); } catch(e) {}
+                } else if (Array.isArray(it.quantities)) {
+                    qtyArr = it.quantities;
+                }
+                const unitPrice = Number(it.unit_price) || 0;
+                if (!qtyArr || qtyArr.length === 0) qtyArr = [{ qty: it.quantity || 0, price: unitPrice }];
+
+                const itemQty = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+                totalQtyVal += itemQty;
+
+                const undiscRaw = qtyArr.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+                const giftQty = Number(it.promo_gift_quantity) || 0;
+                let itemRaw = undiscRaw;
+                if (giftQty > 0 && qtyArr.length > 0) {
+                    const giftApplyIdx = it.promo_gift_apply_row_index !== null && it.promo_gift_apply_row_index !== undefined ? Number(it.promo_gift_apply_row_index) : 0;
+                    const giftPrice = Number(qtyArr[giftApplyIdx]?.price) || unitPrice;
+                    itemRaw -= Math.round(giftPrice * giftQty);
+                    if (itemRaw < 0) itemRaw = 0;
+                }
+
+                const rawTotal = Number(it.item_total || it.total) || 0;
+                let vatPct = 0;
+                if (itemRaw > 0 && rawTotal > itemRaw) {
+                    const calculatedPct = Math.round((rawTotal - itemRaw) / itemRaw * 100);
+                    vatPct = (calculatedPct >= 4) ? 8 : 0;
+                }
+                const itemVat = Math.round(itemRaw * vatPct / 100);
+
+                totalItemsRaw += itemRaw;
+                totalItemsVat += itemVat;
+            }
+
+            const orderMeta = await db.get(`
+                SELECT COALESCE(additional_vat_amount, 0) AS add_vat,
+                       COALESCE(discount_amount, 0) AS disc,
+                       COALESCE(promo_discount_amount, 0) AS promo_disc
+                FROM dht_orders WHERE id = $1
             `, [orderId]);
-            const newOrderTotal = Number(sumRow.new_total) || 0;
-            await db.run(`UPDATE dht_orders SET total_amount = $1, last_updated_at = $2, last_updated_by = $3 WHERE id = $4`,
-                [newOrderTotal, now, user.id, orderId]);
+
+            const surchargeRow = await db.get(`
+                SELECT COALESCE(SUM(COALESCE(amount, 0)), 0)::numeric AS sur_total
+                FROM dht_order_surcharges WHERE dht_order_id = $1
+            `, [orderId]);
+
+            const finalVat = totalItemsVat + (orderMeta?.add_vat || 0);
+            const newTotalAmount = totalItemsRaw - (orderMeta?.promo_disc || 0) + finalVat + (surchargeRow?.sur_total || 0) - (orderMeta?.disc || 0);
+
+            await db.run(`
+                UPDATE dht_orders
+                SET total_quantity = $1,
+                    total_amount = $2,
+                    vat_amount = $3,
+                    last_updated_at = $4,
+                    last_updated_by = $5
+                WHERE id = $6
+            `, [totalQtyVal, newTotalAmount, finalVat, now, user.id, orderId]);
 
             // 4. Audit log
             await db.run(`
