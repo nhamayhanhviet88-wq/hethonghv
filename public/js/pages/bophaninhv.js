@@ -726,6 +726,23 @@ function _bpiRender() {
             }
         }
         var clickableName = '<span class="bpi-name-link" onclick="_bpiShowDetailModal(\'' + recordId + '\')">' + _bpiGetProductNameDisplay(r) + '</span>';
+        if (r.edit_lock_by) {
+            var warnBanner = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + ', bao giờ sửa xong mới được làm</span></td>';
+            return '<tr style="opacity:0.5; pointer-events:none;"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'
+            + warnBanner
+            +'<td style="text-align:center">'+fieldBadge+'</td>'
+            +'<td style="font-size:10px">'+printDateVal+'</td>'
+            +'<td style="font-size:10px;font-weight:600">'+_bpiGetProgressDisplay(r)+'</td>'
+            +'<td style="font-size:10px;color:#059669;font-weight:600">'+nvName+'</td>'
+            +'<td style="font-weight:600;color:#1e293b">'+priBadge+clickableName+imgIcon+'</td>'
+            +'<td style="font-weight:700;color:#e11d48">'+(r.customer_name||'—')+'</td>'
+            + rollMeterCell
+            +'<td style="text-align:center;font-weight:700;color:'+_bpiGetQtyColor(r)+'">'+_bpiGetQtyDisplay(r)+'</td>'
+            +'<td style="font-size:10px;color:#0369a1">'+(r.cskh_name||'—')+'</td>'
+            + notesMergedCell
+            +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
+        }
+
         if (r.is_draft) {
             var warnBanner = '<td colspan="4" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
             return '<tr style="opacity:0.5; pointer-events:none;"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(i+1+(_bpi.page-1)*_bpi.ps)+'</td>'

@@ -26,33 +26,51 @@ module.exports = async function(fastify) {
                 if (rec) dhtOrderId = rec.dht_order_id;
             }
         }
+        
+        const orderIds = new Set();
+        if (dhtOrderId && !isNaN(dhtOrderId)) orderIds.add(dhtOrderId);
+
         if (url.includes('/api/cutting/multi-cut')) {
             const { selected_order_item_ids, group_id } = request.body || {};
             if (selected_order_item_ids && selected_order_item_ids.length > 0) {
-                const draftOrders = await db.all(`
-                    SELECT o.id, o.order_code FROM dht_order_items oi
-                    JOIN dht_orders o ON o.id = oi.dht_order_id
-                    WHERE oi.id = ANY($1) AND o.is_draft = true
-                `, [selected_order_item_ids]);
-                if (draftOrders.length > 0) {
-                    return reply.code(400).send({ error: `Đơn hàng ${draftOrders.map(o => o.order_code).join(', ')} đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!` });
-                }
+                const items = await db.all('SELECT DISTINCT dht_order_id FROM dht_order_items WHERE id = ANY($1)', [selected_order_item_ids]);
+                items.forEach(item => orderIds.add(item.dht_order_id));
             }
             if (group_id) {
-                const draftOrders = await db.all(`
-                    SELECT DISTINCT o.order_code FROM cutting_records cr
-                    JOIN dht_orders o ON o.id = cr.dht_order_id
-                    WHERE cr.multi_cut_group_id = $1 AND o.is_draft = true
-                `, [group_id]);
-                if (draftOrders.length > 0) {
-                    return reply.code(400).send({ error: `Đơn hàng ${draftOrders.map(o => o.order_code).join(', ')} đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!` });
-                }
+                const records = await db.all('SELECT DISTINCT dht_order_id FROM cutting_records WHERE multi_cut_group_id = $1', [group_id]);
+                records.forEach(r => orderIds.add(r.dht_order_id));
             }
         }
-        if (dhtOrderId) {
-            const order = await db.get('SELECT is_draft FROM dht_orders WHERE id = $1', [dhtOrderId]);
-            if (order && order.is_draft) {
-                return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
+
+        if (orderIds.size > 0) {
+            const idsArray = Array.from(orderIds);
+            
+            // Check if draft
+            const draftOrders = await db.all(`
+                SELECT id, order_code FROM dht_orders
+                WHERE id = ANY($1) AND is_draft = true
+            `, [idsArray]);
+            if (draftOrders.length > 0) {
+                return reply.code(400).send({ error: `Đơn hàng ${draftOrders.map(o => o.order_code).join(', ')} đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!` });
+            }
+
+            // Check if locked for design modifications
+            const locks = await db.all(`
+                SELECT o.id, o.order_code, o.is_locked, o.locked_at, u.full_name AS locked_by_name
+                FROM dht_orders o
+                LEFT JOIN users u ON o.locked_by = u.id
+                WHERE o.id = ANY($1)
+            `, [idsArray]);
+            
+            for (const lock of locks) {
+                if (lock.is_locked && lock.locked_at) {
+                    const lockedAt = new Date(lock.locked_at);
+                    const now = new Date();
+                    const diffMinutes = (now - lockedAt) / (1000 * 60);
+                    if (diffMinutes < 10) {
+                        return reply.code(423).send({ error: `⚠️ Đơn đang được sửa bởi ${lock.locked_by_name || 'sale'}, bao giờ sửa xong mới được làm` });
+                    }
+                }
             }
         }
     });
@@ -5196,7 +5214,8 @@ module.exports = async function(fastify) {
 
                    ) AS has_pc_in,
 
-                   COALESCE(a_in.full_name, pc_in.name) AS nguoi_in
+                   COALESCE(a_in.full_name, pc_in.name) AS nguoi_in,
+                   o.is_locked, o.locked_at, u_locked.full_name AS locked_by_name
 
             FROM dht_orders o
 
@@ -5207,6 +5226,8 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
 
             LEFT JOIN users u_created ON o.created_by = u_created.id
+
+            LEFT JOIN users u_locked ON o.locked_by = u_locked.id
 
             LEFT JOIN qlx_assignments qa_in ON qa_in.dht_order_id = o.id AND qa_in.assignment_type = 'in' AND qa_in.item_id IS NULL
 
@@ -5686,7 +5707,16 @@ module.exports = async function(fastify) {
 
         }
 
-
+        rows.forEach(row => {
+            if (row.is_locked && row.locked_at) {
+                const lockedAt = new Date(row.locked_at);
+                const now = new Date();
+                const diffMinutes = (now - lockedAt) / (1000 * 60);
+                if (diffMinutes < 10) {
+                    row.edit_lock_by = row.locked_by_name || 'sale';
+                }
+            }
+        });
 
         return { orders: rows };
 

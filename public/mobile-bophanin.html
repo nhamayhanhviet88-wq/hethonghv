@@ -324,6 +324,18 @@ const endHtml = isReal
 
 const imgIcon = r.image_url ? ' <a href="' + r.image_url + '" target="_blank" style="text-decoration:none;margin-left:6px" onclick="event.stopPropagation()">🖼️</a>' : '';
 const mClickableName = '<span style="cursor:pointer;text-decoration:underline dashed rgba(255,255,255,0.4);color:#60a5fa" onclick="mShowDetailModal('+r.id+')">'+(r.product_name||'Sản phẩm')+'</span>';
+if (r.edit_lock_by) {
+    return '<div class="card" style="opacity:0.6; pointer-events:none;"><div class="ct"><div class="ci">📋</div><div class="cn">'+mClickableName+imgIcon+'</div><div class="cc">'+priBadge+(r.order_code||'')+'</div></div>'
+    + '<div class="cb">'
+    + '<div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px;margin:8px 0;font-size:12.5px;font-weight:700;color:#fca5a5;text-align:center;line-height:1.4">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + ', bao giờ sửa xong mới được làm</div>'
+    + '</div></div>';
+}
+if (r.is_draft) {
+    return '<div class="card" style="opacity:0.6; pointer-events:none;"><div class="ct"><div class="ci">📋</div><div class="cn">'+mClickableName+imgIcon+'</div><div class="cc">'+priBadge+(r.order_code||'')+'</div></div>'
+    + '<div class="cb">'
+    + '<div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px;margin:8px 0;font-size:12.5px;font-weight:700;color:#fca5a5;text-align:center;line-height:1.4">⚠️ Đơn đang sửa, chờ cập nhật</div>'
+    + '</div></div>';
+}
 return '<div class="card"><div class="ct"><div class="ci">'+ic+'</div><div class="cn">'+mClickableName+imgIcon+'</div><div class="cc">'+priBadge+(r.order_code||'')+'</div></div>'
 + '<div class="cb">'
 + '<div class="cr"><span class="cl">📅 Ngày in</span><span class="cv">'+fd(r.print_date)+'</span></div>'

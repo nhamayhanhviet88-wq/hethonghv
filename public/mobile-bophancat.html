@@ -858,6 +858,9 @@ function mRenderUncut(items = null, showSectionBadge = false){
         h+='<span class="'+priCls+'">'+priLbl+'</span>';
         h+='</div><div class="m-card-body">';
         h+='<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val">'+(o.customer_name||'—')+'</span></div>';
+        if(o.edit_lock_by){
+            h+='<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px;font-weight:700;color:#dc2626">⚠️ Đơn đang mở sửa bởi '+o.edit_lock_by+', bao giờ sửa xong mới được làm</div>';
+        }
         if(o.cut_warning){
             h+='<div style="background:rgba(234,88,12,0.15);border:1px solid rgba(234,88,12,0.3);border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px;font-weight:700;color:#f97316">⚠️ '+o.cut_warning+'</div>';
         }
@@ -927,7 +930,9 @@ function mRenderUncut(items = null, showSectionBadge = false){
             h+='</div>';
 
             h+='<div style="margin-left:8px;display:flex;flex-direction:column;align-items:flex-end">';
-            if(pReady){
+            if (o.edit_lock_by) {
+                h+='<button style="border:none;border-radius:8px;color:#ef4444;background:#fee2e2;font-weight:700;padding:6px 12px;font-size:11px;cursor:not-allowed" disabled title="Đang sửa bởi ' + o.edit_lock_by + '">🔒 Đang sửa</button>';
+            } else if(pReady){
                 const btnText = p.cut_warning ? '✂️ Nhận Bù' : '✂️ Nhận';
                 const btnBg = p.cut_warning ? 'background:linear-gradient(135deg,#f97316,#ea580c)' : 'background:linear-gradient(135deg,#10b981,#059669)';
                 h+='<button style="border:none;border-radius:8px;color:#fff;font-weight:700;padding:6px 12px;font-size:11px;cursor:pointer;'+btnBg+'" onclick="mClaim('+o.id+','+(o.item_id||'null')+', '+p.phoi_pair_index+', \''+o.order_code+'\')">'+btnText+'</button>';
@@ -989,18 +994,24 @@ function mRenderMine(items = null, showSectionBadge = false){
         const sharedBadge=r.multi_cut_group_id?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Chung</span>':'';
         const compBadge=r.cut_warning?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Bù</span>':'';
         const sectBadge = showSectionBadge ? '<span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase;">Đơn Tôi</span>' : '';
-        const washBtnHtml = r.wash_reported
-            ? '<button style="background:rgba(139,92,246,0.15);border:1.5px solid rgba(139,92,246,0.35);color:#c084fc;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:default;font-family:Inter,sans-serif" disabled>🫧 Đã báo giặt</button>'
-            : '<button onclick="mOpenWashModal('+r.id+')" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">⬜ Báo giặt</button>';
+        const washBtnHtml = r.edit_lock_by
+            ? '<button style="background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.06);color:#94a3b8;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:not-allowed" disabled>🔒 Báo giặt</button>'
+            : (r.wash_reported
+                ? '<button style="background:rgba(139,92,246,0.15);border:1.5px solid rgba(139,92,246,0.35);color:#c084fc;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:default;font-family:Inter,sans-serif" disabled>🫧 Đã báo giặt</button>'
+                : '<button onclick="mOpenWashModal('+r.id+')" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">⬜ Báo giặt</button>');
         const washRowHtml = '<div class="m-row"><span class="m-lbl">🫧 Giặt vải</span><span class="m-val">'+washBtnHtml+'</span></div>';
-        const errBtnHtml = r.error_reported
-            ? '<button style="background:rgba(239,68,68,0.15);border:1.5px solid rgba(239,68,68,0.35);color:#fca5a5;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:default;font-family:Inter,sans-serif" disabled>🚨 Đã báo lỗi</button>'
-            : '<button onclick="mOpenErrorModal('+r.id+')" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">⚠️ Báo lỗi</button>';
+        const errBtnHtml = r.edit_lock_by
+            ? '<button style="background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.06);color:#94a3b8;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:not-allowed" disabled>🔒 Báo lỗi</button>'
+            : (r.error_reported
+                ? '<button style="background:rgba(239,68,68,0.15);border:1.5px solid rgba(239,68,68,0.35);color:#fca5a5;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:default;font-family:Inter,sans-serif" disabled>🚨 Đã báo lỗi</button>'
+                : '<button onclick="mOpenErrorModal('+r.id+')" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif">⚠️ Báo lỗi</button>');
         const errRowHtml = '<div class="m-row"><span class="m-lbl">⚠️ Báo lỗi</span><span class="m-val">'+errBtnHtml+'</span></div>';
         
         // Cut/Done button visibility
         let actionHtml='';
-        if (!r.is_cut_done && !r.fabric_arrived) {
+        if (r.edit_lock_by) {
+            actionHtml = '<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:not-allowed;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;margin:8px 0" disabled>⚠️ ĐƠN ĐANG ĐƯỢC SỬA BỞI ' + r.edit_lock_by.toUpperCase() + '</button>';
+        } else if (!r.is_cut_done && !r.fabric_arrived) {
             actionHtml = '<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:not-allowed;font-family:Inter,sans-serif;background:#334155;color:#94a3b8;margin:8px 0" disabled>🔒 VẢI CHƯA VỀ ĐỦ</button>';
         } else if(!r.is_cutting){
             const btnText = r.cut_warning ? '✂️ BẮT ĐẦU CẮT BÙ' : '✂️ BẮT ĐẦU CẮT';
@@ -1091,6 +1102,7 @@ function mRenderMine(items = null, showSectionBadge = false){
             +metricsHtml
             +sharedHtml
             +compWarningHtml
+            +(r.edit_lock_by ? '<div style="margin:4px 0;padding:6px 10px;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;font-size:10px;font-weight:700;color:#dc2626">⚠️ Đơn đang mở sửa bởi ' + r.edit_lock_by + ', bao giờ sửa xong mới được làm</div>' : '')
             +actionHtml
             +'</div></div>';
     }).join('');
