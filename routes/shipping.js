@@ -62,6 +62,7 @@ async function _getShippingItemsProgress(orderIds) {
             oi.shipping_fee_payer,
             oi.shipping_fee_method,
             cr.name AS actual_carrier_name,
+            COALESCE(oi.production_cancelled, false) AS production_cancelled,
             (
                 SELECT string_agg(pp.step_id::text, ',') 
                 FROM dht_product_process pp 
@@ -258,7 +259,8 @@ function _processShippingOrderItems(order, itemsList, isPetTem) {
             press_done: true,
             sew_done: true,
             finish_done: true,
-            qc_done: true
+            qc_done: true,
+            production_cancelled: false
         }];
     }
     
@@ -1827,12 +1829,16 @@ module.exports = async function(fastify) {
         let itemsToShip = [];
         if (itemIds.length > 0) {
             itemsToShip = await db.all(`
-                SELECT id, dht_order_id, shipping_status, product_name, description, quantity 
+                SELECT id, dht_order_id, shipping_status, product_name, description, quantity, COALESCE(production_cancelled, false) AS production_cancelled
                 FROM dht_order_items 
                 WHERE id = ANY($1::int[]) AND dht_order_id = $2
             `, [itemIds, orderId]);
             if (itemsToShip.length !== itemIds.length) {
                 return reply.code(404).send({ error: 'Không tìm thấy đầy đủ các phiếu/sản phẩm được chọn' });
+            }
+            const cancelledItem = itemsToShip.find(it => it.production_cancelled);
+            if (cancelledItem) {
+                return reply.code(400).send({ error: `⚠️ Không thể gửi sản phẩm "${cancelledItem.product_name}" vì sản xuất đã bị hủy.` });
             }
         }
 
@@ -1969,6 +1975,7 @@ module.exports = async function(fastify) {
                 SELECT COUNT(*) AS cnt FROM dht_order_items 
                 WHERE dht_order_id = $1 
                   AND shipping_status = 'pending'
+                  AND COALESCE(production_cancelled, false) = false
                   AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
                   AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
                   AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%'
@@ -2035,7 +2042,7 @@ module.exports = async function(fastify) {
                     shipping_cashflow_id = $12,
                     shipping_payment_id = $14,
                     is_pending_update = $15
-                WHERE dht_order_id = $13
+                WHERE dht_order_id = $13 AND COALESCE(production_cancelled, false) = false
             `, [
                 userId, now.toISOString(), todayStr, Number(b.actual_carrier_id),
                 (isPendingUpdate ? null : b.tracking_code) || null, (isPendingUpdate ? null : b.shipping_bill_link) || null, (isPendingUpdate ? null : b.carrier_phone) || null,
@@ -3468,5 +3475,88 @@ module.exports = async function(fastify) {
         }
 
         return { success: true, message: 'Đã cập nhật cấu hình nhà vận chuyển thành công' };
+    });
+
+    fastify.post('/api/shipping/orders/:id/reconcile-cancelled-debt', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const userRole = request.user.role;
+
+        if (userRole !== 'giam_doc') {
+            const kt = await isKeToan(userId);
+            if (!kt) return reply.code(403).send({ error: '🔒 Chỉ Kế toán hoặc Giám đốc mới có quyền quyết toán nợ' });
+        }
+
+        const orderId = Number(request.params.id);
+        const { write_off_amount, note, item_id } = request.body || {};
+
+        if (!write_off_amount || isNaN(write_off_amount) || write_off_amount <= 0) {
+            return reply.code(400).send({ error: 'Số tiền giảm trừ không hợp lệ' });
+        }
+
+        const order = await db.get(`
+            SELECT id, order_code, total_amount, discount_amount, deposit_amount_cache 
+            FROM dht_orders WHERE id = $1
+        `, [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        let itemInfo = '';
+        if (item_id) {
+            const item = await db.get(`
+                SELECT product_name FROM dht_order_items WHERE id = $1 AND dht_order_id = $2
+            `, [Number(item_id), orderId]);
+            if (item) {
+                itemInfo = ` (Sản phẩm: ${item.product_name})`;
+            }
+        }
+
+        // Calculate remaining debt
+        const depRow = await db.get(`
+            SELECT COALESCE(SUM(amount), 0) AS deposit_total
+            FROM payment_records
+            WHERE total_order_codes ILIKE '%' || $1 || '%'
+               OR order_tt_coc = $1
+        `, [order.order_code]);
+        const depositTotal = Number(depRow?.deposit_total) || 0;
+
+        const shipRow = await db.get(`
+            SELECT SUM(COALESCE(shipping_fee, 0)) AS ship_total
+            FROM dht_order_shipments
+            WHERE dht_order_id = $1 AND shipping_fee_payer = 'hv' AND shipping_fee_method = 'ck' AND (tracking_code IS NULL OR tracking_code = '')
+        `, [orderId]);
+        const shipTotal = Number(shipRow?.ship_total) || 0;
+
+        const currentDebt = Math.max(0, 
+            (Number(order.total_amount) || 0) 
+            - (Number(order.discount_amount) || 0) 
+            - Math.max(depositTotal, Number(order.deposit_amount_cache) || 0)
+            - shipTotal
+        );
+
+        if (write_off_amount > currentDebt + 10) {
+            return reply.code(400).send({ 
+                error: `Không thể giảm trừ nhiều hơn số dư nợ hiện tại (${currentDebt.toLocaleString('vi-VN')}đ)` 
+            });
+        }
+
+        // Apply discount_amount update
+        await db.run(`
+            UPDATE dht_orders 
+            SET discount_amount = COALESCE(discount_amount, 0) + $1,
+                last_updated_by = $2,
+                last_updated_at = NOW()
+            WHERE id = $3
+        `, [Number(write_off_amount), userId, orderId]);
+
+        // Insert audit log with action cancel-production
+        const logSummary = `Kế toán quyết toán nợ đơn hủy${itemInfo}. Giảm trừ: ${Number(write_off_amount).toLocaleString('vi-VN')}đ. Lý do: ${note || 'Không có lý do'}`;
+        await db.run(`
+            INSERT INTO dht_order_logs (dht_order_id, action, summary, performed_by)
+            VALUES ($1, 'cancel-production', $2, $3)
+        `, [orderId, logSummary, userId]);
+
+        return { 
+            success: true, 
+            message: `Quyết toán nợ thành công! Đã chiết khấu giảm trừ ${Number(write_off_amount).toLocaleString('vi-VN')}đ.`
+        };
     });
 };

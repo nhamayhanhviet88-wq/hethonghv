@@ -826,7 +826,9 @@ function _shBuildItemsTable(order) {
         const isSample = String(order.id).startsWith('sample_');
         const isSampleNotApproved = isSample && !order.is_hoan_hang && !order.status_duyet;
 
-        if (isSampleNotApproved) {
+        if (item.production_cancelled) {
+            actionHtml = `<button onclick="event.stopPropagation(); _shReconcileCancelledItem('${order.id}', '${item.item_id}', '${(order.order_code||'').replace(/'/g,"\\'")}', '${(item.product_name||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#7c3aed;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">💵 Quyết toán nợ</button>`;
+        } else if (isSampleNotApproved) {
             actionHtml = `<span style="color:#94a3b8;font-style:italic">Chờ duyệt</span>`;
         } else if (item.shipping_status === 'shipped') {
             actionHtml = isSample ? '' : `<button onclick="event.stopPropagation();_shShipOrder('${order.id}','${(order.order_code||'').replace(/'/g,"\\'")}')" style="padding:3px 8px;border:none;border-radius:4px;background:#4f46e5;color:white;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;" title="Gửi thêm hoặc hoàn hàng cho đơn này">🔁 Gửi lại</button>`;
@@ -839,15 +841,19 @@ function _shBuildItemsTable(order) {
         }
 
         const progressHtml = _shBuildProgressHTML(item);
-        const statusBadge = item.shipping_status === 'shipped' 
-            ? `<span style="background:#ecfdf5;color:#047857;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">✅ Đã gửi</span>` 
-            : (isSampleNotApproved
-                ? `<span style="background:#fef3c7;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chưa duyệt</span>`
-                : `<span style="background:#fffbeb;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chờ gửi</span>`);
+        const statusBadge = item.production_cancelled
+            ? `<span style="background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">❌ HỦY SẢN XUẤT</span>`
+            : (item.shipping_status === 'shipped' 
+                ? `<span style="background:#ecfdf5;color:#047857;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">✅ Đã gửi</span>` 
+                : (isSampleNotApproved
+                    ? `<span style="background:#fef3c7;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chưa duyệt</span>`
+                    : `<span style="background:#fffbeb;color:#b45309;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;">⏳ Chờ gửi</span>`));
+
+        const nameStyle = item.production_cancelled ? 'text-decoration: line-through; color: #94a3b8;' : 'color:#1e293b;';
 
         html += `<tr style="${trStyle}">
-            <td style="padding:6px 8px;font-weight:600;color:#1e293b;">
-                <div>🏷️ Phiếu ${i + 1}: ${item.product_name}</div>
+            <td style="padding:6px 8px;font-weight:600;${nameStyle}">
+                <div>🏷️ Phiếu ${i + 1}: ${item.product_name} ${item.production_cancelled ? '<span style="color:#ef4444;font-weight:bold;">(ĐÃ HỦY)</span>' : ''}</div>
                 <div style="font-size:10px;color:#64748b;font-weight:normal;margin-top:2px;">${item.description || ''}</div>
             </td>
             <td style="padding:6px 8px;text-align:center;font-weight:700;color:#334155;">${item.quantity}</td>
@@ -931,7 +937,7 @@ function _shShowOrderSlipsModal(orderId) {
     const o = _shOrders.find(x => String(x.id) === String(orderId));
     if (!o) return;
 
-    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+    const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending' && !item.production_cancelled) : [];
     const completedPendingItems = pendingItems.filter(item => item.all_done);
     const completedPendingIds = completedPendingItems.map(item => item.item_id);
 
@@ -4383,5 +4389,118 @@ async function _shSaveKTCutoffSettings() {
     }
 }
 window._shSaveKTCutoffSettings = _shSaveKTCutoffSettings;
+
+async function _shReconcileCancelledItem(orderId, itemId, orderCode, productName) {
+    const o = _shOrders.find(x => String(x.id) === String(orderId));
+    if (!o) return alert('Không tìm thấy thông tin đơn hàng!');
+
+    const remaining = (o.remaining_amount !== undefined && o.remaining_amount !== null) ? Number(o.remaining_amount) : 0;
+    
+    // Create and append the modal html
+    document.getElementById('shReconcileModal')?.remove();
+    
+    const m = document.createElement('div');
+    m.id = 'shReconcileModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:shAlertFadeIn 0.2s ease-out;';
+    
+    m.innerHTML = `
+    <div style="background:white;border-radius:16px;width:500px;max-width:98vw;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;animation:shAlertSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
+        <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:18px 24px;color:white;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">💵</span>
+            <div style="font-weight:800;font-size:15px;letter-spacing:0.5px;">Quyết toán nợ đơn hàng hủy</div>
+        </div>
+        <div style="padding:22px 24px;font-size:13px;color:#334155;line-height:1.6;">
+            <div style="margin-bottom:12px;background:#f3e8ff;border:1px solid #e9d5ff;padding:12px;border-radius:8px;">
+                <table style="width:100%;font-size:12px;border-collapse:collapse;">
+                    <tr>
+                        <td style="padding:4px 0;color:#5b21b6;font-weight:700;width:120px;">Mã đơn hàng:</td>
+                        <td style="padding:4px 0;color:#1e293b;font-weight:600;">${orderCode}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:4px 0;color:#5b21b6;font-weight:700;">Phiếu đã hủy:</td>
+                        <td style="padding:4px 0;color:#dc2626;font-weight:600;">${productName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:4px 0;color:#5b21b6;font-weight:700;">Dư nợ hiện tại:</td>
+                        <td style="padding:4px 0;color:#10b981;font-weight:700;font-size:14px;">${remaining.toLocaleString('vi-VN')}đ</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-weight:700;margin-bottom:6px;color:#475569;">Số tiền giảm trừ/hủy nợ (đ):</label>
+                <input type="text" id="shReconcileAmount" value="${remaining}" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-weight:700;color:#7c3aed;outline:none;box-sizing:border-box;" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+                <span style="font-size:11px;color:#64748b;margin-top:4px;display:block;">* Hệ thống sẽ tự động tăng chiết khấu của đơn để giảm công nợ. Tối đa: ${remaining.toLocaleString('vi-VN')}đ</span>
+            </div>
+            
+            <div style="margin-bottom:8px;">
+                <label style="display:block;font-weight:700;margin-bottom:6px;color:#475569;">Lý do quyết toán công nợ:</label>
+                <textarea id="shReconcileNote" placeholder="Ví dụ: Hủy nợ cho phiếu hàng sản xuất lỗi đã dừng sản xuất..." rows="3" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;resize:vertical;"></textarea>
+            </div>
+        </div>
+        <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="document.getElementById('shReconcileModal')?.remove()" style="padding:8px 20px;border:1px solid #cbd5e1;border-radius:8px;background:white;color:#475569;cursor:pointer;font-weight:700;font-size:13px;">Hủy</button>
+            <button id="shConfirmReconcileBtn" onclick="_shDoReconcileCancelledItem('${orderId}', '${itemId || ''}')" style="padding:8px 20px;border:none;border-radius:8px;background:#7c3aed;color:white;cursor:pointer;font-weight:700;font-size:13px;transition:background 0.2s;" onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">Xác nhận</button>
+        </div>
+    </div>`;
+
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+}
+window._shReconcileCancelledItem = _shReconcileCancelledItem;
+
+async function _shDoReconcileCancelledItem(orderId, itemId) {
+    const amountInput = document.getElementById('shReconcileAmount');
+    const noteInput = document.getElementById('shReconcileNote');
+    const btn = document.getElementById('shConfirmReconcileBtn');
+    
+    if (!amountInput || !noteInput) return;
+    
+    const write_off_amount = Number(amountInput.value.replace(/\D/g, '')) || 0;
+    const note = noteInput.value.trim();
+    
+    if (write_off_amount <= 0) {
+        return alert('Vui lòng nhập số tiền giảm trừ hợp lệ (lớn hơn 0đ)');
+    }
+    if (!note) {
+        return alert('Vui lòng nhập lý do quyết toán công nợ');
+    }
+    
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Đang xử lý...';
+    }
+    
+    try {
+        const r = await apiCall(`/api/shipping/orders/${orderId}/reconcile-cancelled-debt`, 'POST', {
+            write_off_amount,
+            note,
+            item_id: itemId ? Number(itemId) : null
+        });
+        
+        if (r.error) {
+            alert(r.error);
+        } else {
+            showToast(r.message || '✅ Quyết toán nợ thành công');
+            document.getElementById('shReconcileModal')?.remove();
+            
+            // Reload order info on slips modal if it was open
+            const slipsModal = document.getElementById('shAlertModal');
+            if (slipsModal) {
+                slipsModal.remove();
+            }
+            
+            await _shLoadOrders();
+        }
+    } catch(err) {
+        alert('Lỗi khi quyết toán: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Xác nhận';
+        }
+    }
+}
+window._shDoReconcileCancelledItem = _shDoReconcileCancelledItem;
 
 
