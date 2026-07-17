@@ -1048,7 +1048,7 @@ function _qkvBuildCardHtml(group, isUnassigned, searchKey) {
                                         <div style="flex:1; min-width:0;">
                                             <div style="font-size:12px; font-weight:700; color:#334155; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
                                                 <span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
-                                                    <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img || '')}', ${r.id})" title="Nhấp để xem thông tin cây vải">
+                                                    <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvShowRollDetail(${r.id})" title="Nhấp để xem thông tin cây vải">
                                                         ${Number(r.w) === 0 ? 'Chờ Vải Về Tính Kg' : 'Cây ' + r.w + 'kg'}
                                                     </span>
                                                      ${typeBadge}
@@ -2849,7 +2849,7 @@ function _qkvUpdateModalView() {
                         <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; gap:8px;">
                             <div style="min-width:0; flex:1;">
                                 <div style="font-size:13px; font-weight:800; color:#0f766e;">
-                                    <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); openImagePreviewModal('${escapeHTML(r.img || '')}', ${r.id})" title="Nhấp để xem thông tin cây vải">
+                                    <span style="cursor:pointer; color:#4f46e5; text-decoration:underline;" onclick="event.stopPropagation(); _qkvShowRollDetail(${r.id})" title="Nhấp để xem thông tin cây vải">
                                         ${r.w} kg
                                     </span>
                                 </div>
@@ -3079,6 +3079,373 @@ async function cancelRollReturnRequest(rollId) {
     }
 }
 window.cancelRollReturnRequest = cancelRollReturnRequest;
+
+
+function _qkvFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
+
+async function _qkvShowRollDetail(rollId) {
+    try {
+        var data = await apiCall('/api/khovai/rolls/' + rollId + '/detail');
+        if (data.error) { showToast(data.error, 'error'); return; }
+        var rl = data.roll;
+        var cuts = data.cutHistory || [];
+
+        var label = (rl.material_name||'') + ' - ' + (rl.color_name||'') + ' - ' + _qkvFmt(rl.weight) + (rl.unit||'kg');
+        var origW = Number(rl.original_weight || rl.weight);
+        var curW = Number(rl.weight);
+        var xuatW = origW - curW;
+        var cuoiColor = curW > 0 ? '#059669' : '#dc2626';
+
+        var upDate = rl.updated_at ? new Date(rl.updated_at) : (rl.created_at ? new Date(rl.created_at) : null);
+        var upStr = upDate ? (String(upDate.getDate()).padStart(2,'0') + '/' + String(upDate.getMonth()+1).padStart(2,'0') + '/' + upDate.getFullYear() + ' ' + String(upDate.getHours()).padStart(2,'0') + ':' + String(upDate.getMinutes()).padStart(2,'0') + ':' + String(upDate.getSeconds()).padStart(2,'0')) : '—';
+
+        // Part 1: Info card
+        var thS = 'padding:6px 12px;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;width:160px;border-bottom:1px solid var(--gray-100)';
+        var tdS = 'padding:6px 12px;border-bottom:1px solid var(--gray-100)';
+        var body = '';
+        if (rl.image_path) {
+            body += '<div style="text-align:center;margin-bottom:16px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:12px;padding:8px;position:relative;overflow:hidden;max-width:100%">';
+            body += '  <img src="' + rl.image_path + '" style="max-height:240px;max-width:100%;object-fit:contain;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1)">';
+            body += '  <div style="font-size:11px;color:#64748b;font-weight:700;margin-top:6px">📷 HÌNH ẢNH ĐỊNH DANH CÂY VẢI</div>';
+            body += '</div>';
+        }
+        body += '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:16px">';
+        body += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
+        body += '<tr><td style="' + thS + '">TÊN CÂY VẢI</td><td style="' + tdS + '"><b style="color:#0d9488;font-size:14px">' + label + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">ID CUỘN VẢI</td><td style="' + tdS + '"><code style="background:#e2e8f0;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:1px">' + (rl.roll_code||'N/A') + '</code></td></tr>';
+        body += '<tr><td style="' + thS + '">NHẬP</td><td style="' + tdS + '"><b style="color:#059669">' + _qkvFmt(origW) + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">XUẤT</td><td style="' + tdS + '"><b style="color:#dc2626">' + _qkvFmt(xuatW) + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">TỒN</td><td style="' + tdS + '"><b style="color:' + cuoiColor + ';font-size:16px">' + _qkvFmt(curW) + '</b></td></tr>';
+        body += '<tr><td style="' + thS + '">HOÀN</td><td style="' + tdS + '">' + (rl.is_returned ? '<span style="color:#f59e0b;font-weight:700">Đã hoàn</span>' : '<span style="color:#64748b">Chưa hoàn</span>') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">UPDATE TIME</td><td style="' + tdS + '">' + upStr + (rl.created_by_name ? ' — <b>' + rl.created_by_name + '</b>' : '') + '</td></tr>';
+        var rlCutLabel = rl.cutting_order_name ? (rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
+        body += '<tr><td style="' + thS + '">ĐANG CẮT</td><td style="' + tdS + '">' + (rlCutLabel ? '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700">' + rlCutLabel + '</span>' : '<span style="color:#94a3b8">—</span>') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">NGƯỜI NHẬP VẢI</td><td style="' + tdS + '">' + (rl.created_by_name || '—') + '</td></tr>';
+        
+        var billLink = '<span style="color:var(--gray-400)">Chưa có</span>';
+        if (rl.source === 'kiem_kho_du') {
+            billLink = '<a href="javascript:void(0)" onclick="_qkvOpenRollOrigin(' + rl.id + ')" style="color:#0284c7;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #0284c7">📋 Xem Bill Kiểm Kê</a>';
+        } else if (rl.source_import_id) {
+            if (_qkvCanViewBill()) {
+                billLink = '<a href="javascript:void(0)" onclick="_qkvOpenImportBill(' + rl.source_import_id + ')" style="color:#7c3aed;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #7c3aed">🧵 Xem Chi Tiết Bill Nhập Vải</a>';
+            } else {
+                billLink = '<span style="color:#ef4444;font-weight:600">🔒 Chỉ Kế toán/Quản lý mới được xem</span>';
+            }
+        } else if (rl.stockcheck_session_id) {
+            billLink = '<a href="javascript:void(0)" onclick="_qkvOpenStockcheckBill(' + rl.stockcheck_session_id + ')" style="color:#0284c7;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #0284c7">📋 Xem Bill Kiểm Kê</a>';
+        } else if (rl.receipt_image) {
+            billLink = '<a href="' + rl.receipt_image + '" target="_blank" style="color:#0d9488;font-weight:800;text-decoration:none;border-bottom:1.5px dashed #0d9488">🖼 Xem ảnh phiếu</a>';
+        }
+        body += '<tr><td style="' + thS + '">🧵 Chi Tiết Bill Nhập Vải</td><td style="' + tdS + '">' + billLink + '</td></tr>';
+        body += '</table></div>';
+
+        // Part 2: Cut history
+        body += '<div style="background:#f8fafc;border:1px solid var(--gray-200);border-radius:10px;padding:16px">';
+        body += '<div style="font-weight:800;font-size:14px;margin-bottom:12px">🔪 ĐƠN HÀNG ĐÃ SẢN XUẤT <span style="background:#6366f1;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">' + cuts.length + '</span></div>';
+
+        if (!cuts.length) {
+            body += '<div style="text-align:center;padding:20px;color:var(--gray-400)"><div style="font-size:24px">📦</div><div style="margin-top:4px">Chưa có đơn cắt nào</div></div>';
+        } else {
+            var cThS = 'padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#fff;background:#1e293b';
+            body += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
+            body += '<th style="' + cThS + ';border-radius:6px 0 0 0">#</th>';
+            body += '<th style="' + cThS + '">Đơn Cắt / Sản Phẩm</th>';
+            body += '<th style="' + cThS + '">Ngày Cắt</th>';
+            body += '<th style="' + cThS + ';text-align:right">SL Đơn</th>';
+            body += '<th style="' + cThS + ';text-align:right">SL Cắt</th>';
+            body += '<th style="' + cThS + ';text-align:right">Kg Sử Dụng</th>';
+            body += '<th style="' + cThS + ';border-radius:0 6px 0 0">Thợ Cắt</th>';
+            body += '</tr></thead><tbody>';
+            cuts.forEach(function(c, ci) {
+                var cDate = c.cut_date ? new Date(c.cut_date) : null;
+                var cDs = cDate ? (String(cDate.getDate()).padStart(2,'0') + '/' + String(cDate.getMonth()+1).padStart(2,'0') + '/' + cDate.getFullYear()) : '—';
+                body += '<tr style="border-bottom:1px solid var(--gray-100)">';
+                body += '<td style="padding:6px 8px;color:var(--gray-400)">' + (ci+1) + '</td>';
+                body += '<td style="padding:6px 8px;font-weight:700;color:#0d9488"><a href="javascript:void(0)" onclick="_qkvOpenCuttingDetail(' + c.cutting_record_id + ')" style="color:#0d9488;font-weight:700;text-decoration:underline">' + (c.product_name||'') + '</a></td>';
+                body += '<td style="padding:6px 8px;font-size:10px">' + cDs + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right">' + _qkvFmt(c.order_quantity) + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#0d9488">' + _qkvFmt(c.cut_quantity) + '</td>';
+                body += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#dc2626">' + _qkvFmt(c.kg_cut) + ' kg</td>';
+                body += '<td style="padding:6px 8px;font-size:10px">' + (c.cutter_name||'—') + '</td>';
+                body += '</tr>';
+            });
+            body += '</tbody></table>';
+        }
+        body += '</div>';
+
+        var footer = '<button class="btn btn-primary" onclick="closeModal()" style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff !important;font-weight:700">← Quay lại</button> ';
+        footer += '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>';
+        openModal('🧵 ' + label, body, footer);
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+window._qkvShowRollDetail = _qkvShowRollDetail;
+
+function _qkvOpenStockcheckBill(sessionId) {
+    closeModal();
+    const url = new URL(window.location.href);
+    url.pathname = '/kiemkhohv';
+    url.searchParams.set('session_id', sessionId);
+    window.history.pushState({ page: 'kiemkhohv', view: 'report', sessionId: sessionId }, '', url.pathname + url.search);
+    handleRoute();
+}
+window._qkvOpenStockcheckBill = _qkvOpenStockcheckBill;
+
+function _qkvInjectCuttingDetailStyles() {
+    if (document.getElementById('_bpcDetailStyles')) return;
+    var style = document.createElement('style');
+    style.id = '_bpcDetailStyles';
+    style.textContent = `
+        .bpc-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); backdrop-filter: blur(6px); z-index: 99999; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .25s ease; pointer-events: none; }
+        .bpc-modal-overlay.show { opacity: 1; pointer-events: auto; }
+        .bpc-modal { background: #fff; border-radius: 16px; width: 460px; max-width: 92vw; box-shadow: 0 25px 60px rgba(0,0,0,0.25); transform: scale(0.85); transition: transform .3s cubic-bezier(0.34,1.56,0.64,1); overflow: hidden; }
+        .bpc-modal-overlay.show .bpc-modal { transform: scale(1); }
+        .bpc-modal-header { background: linear-gradient(135deg,#059669,#10b981); color: #fff; padding: 18px 24px; display: flex; align-items: center; gap: 12px; position: relative; }
+        .bpc-modal-header .m-icon { font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
+        .bpc-modal-header .m-title { font-size: 16px; font-weight: 800; letter-spacing: 0.3px; font-family: Inter,system-ui,sans-serif; text-align: left; }
+        .bpc-modal-header .m-sub { font-size: 11px; opacity: 0.85; margin-top: 2px; text-align: left; }
+        .bpc-modal-body { padding: 20px 24px; }
+        .bpc-modal-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-family: Inter,system-ui,sans-serif; }
+        .bpc-modal-row:last-child { border-bottom: none; }
+        .bpc-modal-lbl { font-size: 12px; color: #64748b; font-weight: 600; text-align: left; }
+        .bpc-modal-val { font-size: 13px; color: #1e293b; font-weight: 700; text-align: right; max-width: 60%; }
+        .bpc-modal-actions { display: flex; gap: 10px; padding: 16px 24px; border-top: 1px solid #f1f5f9; }
+        .bpc-modal-btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: Inter,system-ui,sans-serif; transition: all .15s; }
+        .bpc-modal-btn.confirm { background: linear-gradient(135deg,#059669,#10b981); color: #fff; box-shadow: 0 4px 15px rgba(16,185,129,0.3); }
+        .bpc-modal-btn.confirm:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(16,185,129,0.4); }
+        .bpc-modal-btn.cancel { background: #f1f5f9; color: #475569; }
+        .bpc-modal-btn.cancel:hover { background: #e2e8f0; }
+        .bpc-modal-header .bpc-modal-close { position: absolute; top: 18px; right: 20px; font-size: 20px; color: rgba(255,255,255,0.7); cursor: pointer; background: none; border: none; transition: color 0.15s; }
+        .bpc-modal-header .bpc-modal-close:hover { color: #fff; }
+    `;
+    document.head.appendChild(style);
+}
+
+async function _qkvOpenCuttingDetail(cuttingRecordId) {
+    _qkvInjectCuttingDetailStyles();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'bpc-modal-overlay';
+    overlay.id = '_bpcDetailModal';
+    overlay.onclick = function(event) {
+        if (event.target === overlay) {
+            overlay.classList.remove('show');
+            setTimeout(function() { overlay.remove(); }, 300);
+        }
+    };
+
+    var h = '<div class="bpc-modal" style="width:540px">';
+    h += '<div class="bpc-modal-header" style="background:linear-gradient(135deg,#059669,#10b981)">';
+    h += '<div class="m-icon">📋</div>';
+    h += '<div><div class="m-title">CHI TIẾT ĐƠN CẮT</div><div class="m-sub">⏳ Đang tải...</div></div>';
+    h += '<button class="bpc-modal-close" onclick="var m=document.getElementById(\'_bpcDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}">×</button>';
+    h += '</div>';
+    h += '<div class="bpc-modal-body" id="_kvCutDetailBody" style="max-height:65vh;overflow-y:auto;text-align:center;padding:40px;color:#94a3b8">';
+    h += '⏳ Đang tải chi tiết đơn cắt...';
+    h += '</div>';
+    h += '<div class="bpc-modal-actions">';
+    h += '<button class="bpc-modal-btn cancel" onclick="var m=document.getElementById(\'_bpcDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300)}" style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff !important;font-weight:700">← Quay lại</button>';
+    h += '<button class="bpc-modal-btn cancel" onclick="var m=document.getElementById(\'_bpcDetailModal\');if(m){m.classList.remove(\'show\');setTimeout(function(){m.remove()},300);closeModal();}" style="background:#f1f5f9;color:#475569;font-weight:700">Đóng</button>';
+    h += '</div>';
+    h += '</div>';
+
+    overlay.innerHTML = h;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function() { overlay.classList.add('show'); });
+
+    try {
+        var res = await apiCall('/api/cutting/records/' + cuttingRecordId);
+        if (!res || !res.record) {
+            document.getElementById('_kvCutDetailBody').innerHTML = '<div style="color:#dc2626;font-weight:700;padding:20px;">Không tìm thấy thông tin đơn cắt</div>';
+            return;
+        }
+        var r = res.record;
+        var rolls = [];
+        try { rolls = typeof r.selected_roll_ids === 'string' ? JSON.parse(r.selected_roll_ids) : (r.selected_roll_ids || []); } catch(e) {}
+        
+        var statusTxt = r.is_cut_done ? '✅ Đã cắt xong' : r.is_cutting ? '✂️ Đang cắt' : '📋 Chờ cắt';
+        var statusBg = r.is_cut_done ? '#059669' : r.is_cutting ? '#dc2626' : '#6366f1';
+
+        var headerEl = overlay.querySelector('.bpc-modal-header');
+        if (headerEl) {
+            headerEl.style.background = 'linear-gradient(135deg,' + statusBg + ',' + statusBg + 'cc)';
+            headerEl.querySelector('.m-sub').textContent = statusTxt;
+        }
+
+        var bodyHTML = '';
+        bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📋 Màu</span><span class="bpc-modal-val"><span style="background:#1e293b;color:#fff;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.fabric_color||'—') + '</span></span></div>';
+        bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🏷️ Sản Phẩm Cắt</span><span class="bpc-modal-val"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700">' + (r.cutting_category||'—') + '</span></span></div>';
+        bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">👤 NV Cắt</span><span class="bpc-modal-val" style="color:#059669">' + (r.cutter_name||'—') + '</span></div>';
+        
+        var cutDoneStr = '—';
+        if (r.cut_done_at) {
+            try {
+                var dObj = new Date(r.cut_done_at);
+                var formatter = new Intl.DateTimeFormat('vi-VN', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour12: false
+                });
+                var parts = formatter.formatToParts(dObj);
+                var hour = '', minute = '', day = '', month = '';
+                for (var i = 0; i < parts.length; i++) {
+                    if (parts[i].type === 'hour') hour = parts[i].value;
+                    else if (parts[i].type === 'minute') minute = parts[i].value;
+                    else if (parts[i].type === 'day') day = parts[i].value;
+                    else if (parts[i].type === 'month') month = parts[i].value;
+                }
+                cutDoneStr = hour + ':' + minute + ' ' + day + '/' + month;
+            } catch(e) {
+                cutDoneStr = '—';
+            }
+        } else if (r.cut_date) {
+            var cDate = new Date(r.cut_date);
+            cutDoneStr = String(cDate.getDate()).padStart(2,'0') + '/' + String(cDate.getMonth()+1).padStart(2,'0') + '/' + cDate.getFullYear();
+        }
+        bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📅 Cắt Xong</span><span class="bpc-modal-val">' + cutDoneStr + '</span></div>';
+        bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📦 SL Đơn</span><span class="bpc-modal-val" style="color:#0369a1;font-size:15px">' + (r.order_quantity||'—') + '</span></div>';
+        
+        bodyHTML += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px;text-align:left;"><div style="font-size:11px;font-weight:800;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📦 CÂY VẢI ĐÃ CHỌN (' + rolls.length + ')</div>';
+        if (rolls.length) {
+            rolls.forEach(function(rl, idx) {
+                bodyHTML += '<div style="padding:8px 14px;border:1.5px solid #f1f5f9;border-radius:10px;margin-bottom:6px;font-size:13px;font-weight:600;color:#1e293b">' + (rl.label || rl.roll_code || 'Cây '+(idx+1)) + '</div>';
+            });
+        } else {
+            bodyHTML += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Chưa có dữ liệu cây vải</div>';
+        }
+        bodyHTML += '</div>';
+        
+        bodyHTML += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
+        bodyHTML += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+        bodyHTML += '<div style="background:#fef3c7;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#b45309">' + (r.kg_start||'—') + '</div></div>';
+        bodyHTML += '<div style="background:#fee2e2;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">⚖️ KG CUỐI</div><div style="font-size:18px;font-weight:900;color:#dc2626">' + (r.kg_end||'—') + '</div></div>';
+        bodyHTML += '<div style="background:#dcfce7;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#166534">✂️ KG CẮT</div><div style="font-size:18px;font-weight:900;color:#059669">' + (r.kg_cut||'—') + '</div></div>';
+        bodyHTML += '<div style="background:#dbeafe;padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#1e40af">📦 SL CẮT</div><div style="font-size:18px;font-weight:900;color:#2563eb">' + (r.cut_quantity||'—') + '</div></div>';
+        bodyHTML += '</div></div>';
+        
+        if (r.cut_ratio) {
+            var rc = Number(r.cut_ratio) > 5 ? '#dc2626' : Number(r.cut_ratio) > 3 ? '#f59e0b' : '#059669';
+            bodyHTML += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px">';
+            bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📊 Tỉ Lệ</span><span class="bpc-modal-val" style="color:'+rc+';font-size:18px">' + r.cut_ratio + '</span></div>';
+            if (r.ratio_reason) bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">📝 Lý do</span><span class="bpc-modal-val" style="font-size:11px;color:#64748b;white-space:pre-wrap;text-align:right;">' + r.ratio_reason + '</span></div>';
+            bodyHTML += '</div>';
+        }
+        
+        if (r.cut_warning) bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">⚠️ Cảnh Báo</span><span class="bpc-modal-val" style="color:#dc2626">' + r.cut_warning + '</span></div>';
+        
+        var cutSharedVal = '';
+        if (r.cut_shared) {
+            cutSharedVal = r.cut_shared;
+        }
+        if (cutSharedVal) {
+            bodyHTML += '<div class="bpc-modal-row"><span class="bpc-modal-lbl">🔄 Cắt Chung</span><span class="bpc-modal-val" style="color:#6366f1;white-space:pre-line;line-height:1.5;font-size:10px;text-align:right;">' + cutSharedVal + '</span></div>';
+        }
+        
+        document.getElementById('_kvCutDetailBody').innerHTML = bodyHTML;
+    } catch(e) {
+        document.getElementById('_kvCutDetailBody').innerHTML = '<div style="color:#dc2626;font-weight:700;padding:20px;">Lỗi tải dữ liệu: ' + e.message + '</div>';
+    }
+}
+window._qkvOpenCuttingDetail = _qkvOpenCuttingDetail;
+
+async function _qkvOpenRollOrigin(rollId) {
+    try {
+        const r = await apiCall('/api/stockcheck/roll-origin/' + rollId);
+        if (!r) {
+            showToast('Không lấy được thông tin nguồn gốc cây vải', 'error');
+            return;
+        }
+
+        const isNguyen = Number(r.weight) === Number(r.original_weight);
+        const typeLabel = isNguyen 
+            ? '<span style="background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700;">🌲 Cây Nguyên (Chưa cắt)</span>' 
+            : '<span style="background:#fff7ed; color:#ea580c; border:1px solid #ffedd5; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700;">✂️ Cây Lẻ (Đã cắt dở)</span>';
+
+        const originText = r.source === 'kiem_kho_du'
+            ? '<strong style="color:#7c3aed;">💜 Báo dư từ đợt kiểm kê</strong>'
+            : '<strong>Tạo thủ công / Cắt dư từ đơn hàng</strong>';
+
+        const modalHtml = `
+            <div class="kk-modal-overlay" id="kkRollOriginModal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);">
+                <div class="kk-modal" style="background:#fff; border-radius:16px; width:100%; max-width:480px; box-shadow:0 25px 50px rgba(0,0,0,0.25); overflow:hidden; font-family:Inter,system-ui,sans-serif;">
+                    <div class="kk-modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #e2e8f0; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff;">
+                        <div class="kk-modal-title" style="font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px;">🔍 Truy Xuất Nguồn Gốc Cây Vải</div>
+                        <button onclick="_qkvCloseRollOriginModal()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px; font-weight:700;">✕ Đóng</button>
+                    </div>
+                    <div class="kk-modal-body" style="padding:20px; display:flex; flex-direction:column; gap:12px; font-size:13px; color:#334155;">
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Mã Cây Vải:</span>
+                            <code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700; color:#0f172a;">${r.roll_code}</code>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Xuất Xứ Cây:</span>
+                            <span>${originText}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Thời Gian Kiểm/Tạo:</span>
+                            <span style="font-weight:700;">${r.created_at_formatted}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Nhân Viên Thực Hiện:</span>
+                            <span style="font-weight:700; color:#3b82f6;">👤 ${r.creator_name}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Chất Liệu Vải:</span>
+                            <span style="font-weight:700; color:#0f172a;">${r.material_name}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Màu Vải:</span>
+                            <span style="font-weight:700; color:#0d9488;">🎨 ${r.color_name}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Trọng Lượng Lúc Báo Dư:</span>
+                            <span style="font-weight:800; color:#059669; font-size:14px;">${r.original_weight} kg</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Trọng Lượng Hiện Tại:</span>
+                            <span style="font-weight:800; color:#0d9488; font-size:14px;">${r.weight} kg</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Phân Loại Cây:</span>
+                            <span>${typeLabel}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                            <span style="color:#64748b; font-weight:600;">Vị Trí Kệ Lưu Trữ:</span>
+                            <span style="font-weight:700; color:#4f46e5;">📍 ${r.location}</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; background:#f8fafc; padding:10px 14px; border-radius:8px; border:1px solid #e2e8f0; text-align:left;">
+                            <span style="color:#64748b; font-weight:600; font-size:11px;">Ghi chú chi tiết lúc kiểm:</span>
+                            <span style="font-style:italic; color:#475569; font-weight:500; line-height:1.4;">${r.note || 'Không có ghi chú thêm'}</span>
+                        </div>
+                    </div>
+                    <div class="kk-modal-footer" style="background:#fafafa; display:flex; justify-content:flex-end; padding:12px 20px; border-top:1px solid #f1f5f9;">
+                        <button class="kk-btn kk-btn-secondary" onclick="_qkvCloseRollOriginModal()" style="background:#64748b; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const oldContainer = document.getElementById('kkRollOriginModalContainer');
+        if (oldContainer) oldContainer.remove();
+
+        const div = document.createElement('div');
+        div.id = 'kkRollOriginModalContainer';
+        div.innerHTML = modalHtml;
+        document.body.appendChild(div);
+    } catch (e) {
+        console.error('[KV] Open roll origin detail error:', e);
+        showToast('Không lấy được thông tin chi tiết cây vải', 'error');
+    }
+}
+window._qkvOpenRollOrigin = _qkvOpenRollOrigin;
+
+function _qkvCloseRollOriginModal() {
+    const el = document.getElementById('kkRollOriginModalContainer');
+    if (el) el.remove();
+}
+window._qkvCloseRollOriginModal = _qkvCloseRollOriginModal;
 
 
 
