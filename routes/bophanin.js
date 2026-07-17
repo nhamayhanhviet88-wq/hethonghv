@@ -1420,7 +1420,7 @@ module.exports = async function(fastify) {
         const maxDays = Number(maxDaysRow?.value || 1);
 
         const baseDate = new Date(String(currentDeadline).substring(0, 10) + 'T00:00:00Z');
-        const todayDate = new Date(vnNow().substring(0, 10) + 'T00:00:00Z');
+        const todayDate = new Date(require('../utils/timezone').vnDateStr() + 'T00:00:00Z');
         const startDate = baseDate > todayDate ? baseDate : todayDate;
 
         let maxAllowedDate = new Date(startDate.getTime());
