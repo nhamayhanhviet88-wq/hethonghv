@@ -953,7 +953,10 @@ function _shShowOrderSlipsModal(orderId) {
         headerStyle = 'background:linear-gradient(135deg,#374151,#1f2937);';
         icon = '📦';
         html = `
-            <div style="margin-bottom:12px;font-size:13px;color:#334155;">Đơn hàng <b style="color:#1e293b;">${o.order_code}</b> hiện tại không có phiếu sản phẩm nào ở trạng thái chờ gửi.</div>
+            <div style="margin-bottom:12px;font-size:13px;color:#334155;">Đơn hàng <b style="color:#1e293b;">${o.order_code}</b> hiện tại không có phiếu sản phẩm nào ở trạng thái chờ gửi (tất cả đã gửi hoặc bị hủy). Chi tiết các phiếu:</div>
+            <div style="margin-bottom:14px;">
+                ${_shBuildItemsTable(o)}
+            </div>
         `;
     } else {
         let actionButtonsHtml = '';
