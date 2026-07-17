@@ -8325,10 +8325,51 @@ async function _tpdShowExportSheetsModal() {
         previewContainer.style.flexDirection = 'column';
         previewContainer.style.alignItems = 'center';
         previewContainer.style.justifyContent = 'center';
-        previewContainer.innerHTML = `<div class="tpd-spinner" style="width: 24px; height: 24px; border-width: 3px;"></div><span style="font-size: 11px; color: #4b5563; margin-top: 6px;">Đang tải lên...</span>`;
+        previewContainer.innerHTML = `<div class="tpd-spinner" style="width: 24px; height: 24px; border-width: 3px;"></div><span style="font-size: 11px; color: #4b5563; margin-top: 6px;">Đang xử lý & tải lên...</span>`;
+
+        // Client-side image compression helper
+        const compressImageClient = (imgFile) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const maxDim = 1200;
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round((height * maxDim) / width);
+                                width = maxDim;
+                            } else {
+                                width = Math.round((width * maxDim) / height);
+                                height = maxDim;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob((blob) => {
+                            resolve(blob || imgFile);
+                        }, 'image/jpeg', 0.8);
+                    };
+                    img.onerror = () => resolve(imgFile);
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => resolve(imgFile);
+                reader.readAsDataURL(imgFile);
+            });
+        };
+
+        let uploadFile = file;
+        if (file && file.type && file.type.startsWith('image/')) {
+            uploadFile = await compressImageClient(file);
+        }
 
         const fd = new FormData();
-        fd.append('file', file, `proof_${zone}.png`);
+        fd.append('file', uploadFile, `proof_${zone}.jpg`);
 
         try {
             const res = await fetch('/api/dht/orders/upload-proof', {
