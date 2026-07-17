@@ -4117,6 +4117,8 @@ window._dhtResendDesignEmail = async function(orderId) {
 
 // ========== HỦY PHIẾU SẢN XUẤT — Production Cancellation Flow ==========
 
+const fmt = n => Number(n||0).toLocaleString('vi-VN');
+
 // CSS animation for cancel badge pulse
 if (!document.getElementById('dht-cancel-pulse-style')) {
     const st = document.createElement('style');
