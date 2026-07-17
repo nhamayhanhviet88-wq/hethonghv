@@ -846,9 +846,6 @@ module.exports = async function(fastify) {
             }
             displayName = `${r.order_code}${phieuPart}`;
 
-            if (r.is_discarded) {
-                displayName = displayName + ' — [HỦY BỎ - BÙ PHÍ]';
-            }
             return {
                 ...r,
                 product_name: displayName,
