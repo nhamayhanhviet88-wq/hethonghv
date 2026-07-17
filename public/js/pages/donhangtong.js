@@ -2267,7 +2267,7 @@ async function _dhtShowDetail(id) {
 
                 histHTML += `<div style="padding:10px 12px;border-left:3px solid ${st.border};margin-bottom:8px;background:${st.bg};border-radius:0 8px 8px 0">`;
                 histHTML += `<div style="font-size:11px;color:#64748b">${st.icon} ${vnFormat(log.created_at)}</div>`;
-                histHTML += `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px">👤 <span style="color:var(--info)">${log.performer_name || '—'}</span> ${log.summary}</div>`;
+                histHTML += `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px">👤 <span style="color:var(--info)">${log.performer_name || '—'}</span> ${escapeHTML(log.summary)}</div>`;
                 // Render changes detail
                 var changes = [];
                 try { changes = typeof log.changes === 'string' ? JSON.parse(log.changes) : (log.changes || []); } catch(e) {}
@@ -2284,7 +2284,7 @@ async function _dhtShowDetail(id) {
                                 var numV = Number(v);
                                 if (!isNaN(numV)) return numV.toLocaleString('vi-VN') + 'đ';
                             }
-                            return v;
+                            return escapeHTML(v);
                         };
 
                         // Special styling for payment-related fields
@@ -2361,7 +2361,7 @@ async function _dhtShowDetail(id) {
                     
                     notesHTML += `
                         <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:10px 14px;box-shadow: 0 1px 2px rgba(0,0,0,0.02);display:flex;justify-content:space-between;align-items:center;gap:16px;transition:all .15s;" id="note-container-${nt.id}">
-                            <div style="font-size:13px;color:#1e293b;line-height:1.5;white-space:pre-wrap;font-weight:500;flex:1;min-width:0;word-break:break-word;" id="note-text-display-${nt.id}">${nt.note_text}</div>
+                            <div style="font-size:13px;color:#1e293b;line-height:1.5;white-space:pre-wrap;font-weight:500;flex:1;min-width:0;word-break:break-word;" id="note-text-display-${nt.id}">${escapeHTML(nt.note_text)}</div>
                             <div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:12px;white-space:nowrap;flex-shrink:0;">
                                 <span>bởi <strong style="color:#334155;">${nt.created_by_name}</strong> lúc <span style="font-weight:600;">${formattedTime}</span></span>
                                 ${isOwner ? `
