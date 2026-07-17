@@ -1415,6 +1415,24 @@ module.exports = async function(fastify) {
             return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
         }
         
+        const maxDaysRow = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_days'");
+        const maxDays = Number(maxDaysRow?.value || 1);
+
+        const baseDate = new Date(String(currentDeadline).substring(0, 10) + 'T00:00:00Z');
+        const todayDate = new Date(vnNow().substring(0, 10) + 'T00:00:00Z');
+        const startDate = baseDate > todayDate ? baseDate : todayDate;
+
+        let maxAllowedDate = new Date(startDate.getTime());
+        let daysAdded = 0;
+        let maxIterLimit = 100;
+        while (daysAdded < maxDays && maxIterLimit-- > 0) {
+            maxAllowedDate.setUTCDate(maxAllowedDate.getUTCDate() + 1);
+            if (!_isDateOff(_toDateStr(maxAllowedDate))) {
+                daysAdded++;
+            }
+        }
+        const maxAllowedStr = _toDateStr(maxAllowedDate);
+
         // Use user-chosen date, or auto-calculate +1 working day
         let newDeadlineDate;
         if (new_date) {
@@ -1424,17 +1442,20 @@ module.exports = async function(fastify) {
             while (_isDateOff(_toDateStr(newDeadlineDate)) && maxIter-- > 0) {
                 newDeadlineDate.setUTCDate(newDeadlineDate.getUTCDate() + 1);
             }
+            
+            const newDeadlineStr = _toDateStr(newDeadlineDate);
+            if (newDeadlineStr > maxAllowedStr) {
+                return reply.code(400).send({ error: `Chỉ được dời tối đa ${maxDays} ngày làm việc (đến ngày ${maxAllowedStr.split('-').reverse().join('/')})` });
+            }
         } else {
             // Auto: move forward by 1 working day from current deadline
-            const maxDaysRow = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_days'");
-            const maxDays = Number(maxDaysRow?.value || 1);
             newDeadlineDate = new Date(String(currentDeadline).substring(0, 10) + 'T00:00:00Z');
-            let daysAdded = 0;
+            let daysAddedAuto = 0;
             let maxIter = 30;
-            while (daysAdded < maxDays && maxIter-- > 0) {
+            while (daysAddedAuto < maxDays && maxIter-- > 0) {
                 newDeadlineDate.setUTCDate(newDeadlineDate.getUTCDate() + 1);
                 if (!_isDateOff(_toDateStr(newDeadlineDate))) {
-                    daysAdded++;
+                    daysAddedAuto++;
                 }
             }
         }
@@ -1467,14 +1488,38 @@ module.exports = async function(fastify) {
         };
     });
     
-    // GET: GC deadline extension history
+    // GET: GC deadline extension history & config validation context
     fastify.get('/api/printing/gc-extensions/:recordId', { preHandler: [authenticate] }, async (req, reply) => {
         const recordId = Number(req.params.recordId);
         const extensions = await db.all(
             'SELECT ge.*, u.full_name AS extended_by_name FROM gc_deadline_extensions ge LEFT JOIN users u ON ge.extended_by = u.id WHERE ge.printing_record_id = $1 ORDER BY ge.created_at DESC',
             [recordId]
         );
-        return { extensions };
+
+        const record = await db.get('SELECT printer_id FROM printing_records WHERE id = $1', [recordId]);
+        const printerId = record?.printer_id || req.user.id;
+
+        const maxDaysRow = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_days'");
+        const maxDays = Number(maxDaysRow?.value || 1);
+
+        const maxCountRow = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_count'");
+        const maxCount = Number(maxCountRow?.value || 3);
+
+        const holidayRows = await db.all("SELECT holiday_date::text as d FROM holidays");
+        const holidays = holidayRows.map(r => r.d);
+
+        const leaveRows = await db.all(
+            "SELECT date_from::text as date_from, date_to::text as date_to FROM leave_requests WHERE user_id = $1 AND status = 'active' UNION ALL SELECT off_date::text as date_from, off_date::text as date_to FROM staff_off_dates WHERE user_id = $1 AND (type = 'off' OR type IS NULL)",
+            [printerId]
+        );
+
+        return {
+            extensions,
+            max_extension_days: maxDays,
+            max_extension_count: maxCount,
+            holidays,
+            leave_rows: leaveRows
+        };
     });
     
     // GET: GC config

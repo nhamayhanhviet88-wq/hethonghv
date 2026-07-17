@@ -2510,7 +2510,7 @@ function _bpiShowGcExtendModal(recordId) {
     var tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     var tomorrowStr = tomorrow.getFullYear() + '-' + String(tomorrow.getMonth()+1).padStart(2,'0') + '-' + String(tomorrow.getDate()).padStart(2,'0');
-    h += '<input type="date" id="_bpiGcNewDate" value="' + tomorrowStr + '" min="' + tomorrowStr + '" style="width:100%;padding:10px 14px;border:1.5px solid #10b981;border-radius:8px;font-size:15px;font-weight:700;color:#065f46;text-align:center;background:#fff;cursor:pointer" />';
+    h += '<input type="date" id="_bpiGcNewDate" disabled style="width:100%;padding:10px 14px;border:1.5px solid #10b981;border-radius:8px;font-size:15px;font-weight:700;color:#065f46;text-align:center;background:#fff;cursor:pointer" />';
     h += '<div style="font-size:9px;color:#047857;margin-top:4px;text-align:center">⚠️ Nếu chọn ngày CN/lễ/nghỉ, hệ thống tự rời tới ngày làm việc gần nhất</div>';
     h += '</div>';
     
@@ -2534,27 +2534,106 @@ function _bpiShowGcExtendModal(recordId) {
     document.body.appendChild(overlay);
     requestAnimationFrame(function() { overlay.classList.add('show'); });
     
-    // Load extension history
+    // Load extension history and config
     fetch('/api/printing/gc-extensions/' + r.id, {
         headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || sessionStorage.getItem('token')) }
     }).then(function(res) { return res.json(); }).then(function(data) {
         var histDiv = document.getElementById('_bpiGcHistory');
-        if (!histDiv) return;
-        if (data.extensions && data.extensions.length > 0) {
-            var hh = '<div style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px">📋 Lịch sử rời ngày:</div>';
-            data.extensions.forEach(function(ext, i) {
-                hh += '<div style="background:#f8fafc;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:10px;display:flex;justify-content:space-between;align-items:center">';
-                hh += '<span style="color:#374151"><b>Lần ' + (data.extensions.length - i) + ':</b> ' + String(ext.old_deadline).substring(0,10) + ' → ' + String(ext.new_deadline).substring(0,10) + '</span>';
-                hh += '<span style="color:#6b7280">' + (ext.extended_by_name || '') + '</span>';
-                hh += '</div>';
-            });
-            histDiv.innerHTML = hh;
-        } else {
-            histDiv.innerHTML = '<div style="text-align:center;font-size:10px;color:#9ca3af">Chưa có lịch sử rời ngày</div>';
+        if (histDiv) {
+            if (data.extensions && data.extensions.length > 0) {
+                var hh = '<div style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:4px">📋 Lịch sử rời ngày:</div>';
+                data.extensions.forEach(function(ext, i) {
+                    hh += '<div style="background:#f8fafc;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:10px;display:flex;justify-content:space-between;align-items:center">';
+                    hh += '<span style="color:#374151"><b>Lần ' + (data.extensions.length - i) + ':</b> ' + String(ext.old_deadline).substring(0,10) + ' → ' + String(ext.new_deadline).substring(0,10) + '</span>';
+                    hh += '<span style="color:#6b7280">' + (ext.extended_by_name || '') + '</span>';
+                    hh += '</div>';
+                });
+                histDiv.innerHTML = hh;
+            } else {
+                histDiv.innerHTML = '<div style="text-align:center;font-size:10px;color:#9ca3af">Chưa có lịch sử rời ngày</div>';
+            }
         }
-    }).catch(function() {
+
+        // Configure date picker based on max days and off days
+        var dateInput = document.getElementById('_bpiGcNewDate');
+        if (dateInput) {
+            var holidays = data.holidays || [];
+            var leaveRows = data.leave_rows || [];
+            var maxDays = data.max_extension_days || 1;
+
+            function isDateOff(dateStr) {
+                var d = new Date(dateStr + 'T00:00:00Z');
+                if (d.getUTCDay() === 0) return true; // Sunday
+                if (holidays.indexOf(dateStr) >= 0) return true;
+                for (var i = 0; i < leaveRows.length; i++) {
+                    var lr = leaveRows[i];
+                    if (dateStr >= lr.date_from && dateStr <= lr.date_to) return true;
+                }
+                return false;
+            }
+
+            function toDateStr(d) {
+                return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+            }
+
+            var now = new Date();
+            var vnOffset = 7 * 60;
+            var localTime = now.getTime();
+            var localOffset = now.getTimezoneOffset();
+            var vnTime = new Date(localTime + (localOffset + vnOffset) * 60000);
+            var todayStr = vnTime.getFullYear() + '-' + String(vnTime.getMonth()+1).padStart(2,'0') + '-' + String(vnTime.getDate()).padStart(2,'0');
+
+            var startDateStr = deadlineStr > todayStr ? deadlineStr : todayStr;
+
+            var validDates = [];
+            var d = new Date(startDateStr + 'T00:00:00Z');
+            var daysFound = 0;
+            var maxIter = 100;
+            while (daysFound < maxDays && maxIter-- > 0) {
+                d.setUTCDate(d.getUTCDate() + 1);
+                var dStr = toDateStr(d);
+                if (!isDateOff(dStr)) {
+                    validDates.push(dStr);
+                    daysFound++;
+                }
+            }
+
+            if (validDates.length > 0) {
+                dateInput.min = validDates[0];
+                dateInput.max = validDates[validDates.length - 1];
+                dateInput.value = validDates[0];
+                dateInput.removeAttribute('disabled');
+
+                dateInput.onchange = function() {
+                    var val = dateInput.value;
+                    if (validDates.indexOf(val) < 0) {
+                        var closest = validDates[0];
+                        for (var j = 0; j < validDates.length; j++) {
+                            if (validDates[j] >= val) {
+                                closest = validDates[j];
+                                break;
+                            }
+                        }
+                        alert('Ngày đã chọn trùng Chủ Nhật, ngày lễ hoặc ngày nghỉ. Hệ thống tự động chuyển sang ngày làm việc gần nhất: ' + closest.split('-').reverse().join('/'));
+                        dateInput.value = closest;
+                    }
+                };
+            } else {
+                dateInput.value = tomorrowStr;
+                dateInput.min = tomorrowStr;
+                dateInput.removeAttribute('disabled');
+            }
+        }
+    }).catch(function(err) {
+        console.error(err);
         var histDiv = document.getElementById('_bpiGcHistory');
         if (histDiv) histDiv.innerHTML = '';
+        var dateInput = document.getElementById('_bpiGcNewDate');
+        if (dateInput) {
+            dateInput.value = tomorrowStr;
+            dateInput.min = tomorrowStr;
+            dateInput.removeAttribute('disabled');
+        }
     });
 }
 
