@@ -1597,6 +1597,16 @@ module.exports = async function(fastify) {
                 await db.run(`UPDATE cutting_records SET is_cutting = true, cutting_at = $1 WHERE id = $2`, [now, r.id]);
             }
         } else if (action === 'reset_call') {
+            const cutClaimed = await db.get(`
+                SELECT 1 FROM cutting_records
+                WHERE dht_order_id = $1
+                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                LIMIT 1
+            `, [orderId]);
+            if (cutClaimed) {
+                return reply.code(400).send({ error: 'Đơn hàng này đã được nhận cắt hoặc đang cắt, không thể hủy gọi vải!' });
+            }
+
             await db.run(`UPDATE qlx_preparation SET fabric_called = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
                 [now, orderId]);
             await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'fabric_reset', 'Đã reset trạng thái vải', $2, $3)`,
@@ -1611,6 +1621,16 @@ module.exports = async function(fastify) {
                 await db.run(`UPDATE cutting_records SET is_cutting = false, cutting_at = NULL WHERE id = $2`, [r.id]);
             }
         } else if (action === 'reset_arrive') {
+            const cutClaimed = await db.get(`
+                SELECT 1 FROM cutting_records
+                WHERE dht_order_id = $1
+                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                LIMIT 1
+            `, [orderId]);
+            if (cutClaimed) {
+                return reply.code(400).send({ error: 'Đơn hàng này đã được nhận cắt hoặc đang cắt, không thể hủy vải về!' });
+            }
+
             await db.run(`UPDATE qlx_preparation SET fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
                 [now, orderId]);
             await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'fabric_arrive_reset', 'Đã reset vải về', $2, $3)`,
@@ -3716,6 +3736,14 @@ module.exports = async function(fastify) {
             }
         }
 
+        const hasClaimedCut = await db.get(`
+            SELECT 1 FROM cutting_records 
+            WHERE order_item_id = $1 AND phoi_index = $2
+              AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+            LIMIT 1
+        `, [itemId, pi]);
+        const isPhoiCutClaimed = !!hasClaimedCut;
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
             item: { id: item.id, description: item.description, quantity: item.quantity, item_index: item.item_index },
@@ -3735,6 +3763,7 @@ module.exports = async function(fastify) {
             primary_index: primaryIndex,
             is_production_done: isPhoiProdDone,
             is_cut_done: isPhoiCutDone,
+            is_cut_claimed: isPhoiCutClaimed,
             target_shelf
         };
     });
@@ -3755,6 +3784,17 @@ module.exports = async function(fastify) {
         const now = vnNow();
 
         const pi = phoi_index !== undefined && phoi_index !== null ? parseInt(phoi_index) : 0;
+        const cutClaimed = await db.get(`
+            SELECT 1 FROM cutting_records
+            WHERE order_item_id = $1 
+              AND phoi_index = $2
+              AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+            LIMIT 1
+        `, [item_id, pi]);
+        if (cutClaimed) {
+            return reply.code(400).send({ error: 'Phối này đã được nhận cắt hoặc đang cắt, không thể thay đổi dữ liệu vải!' });
+        }
+
         const cuttingRecord = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
@@ -4056,6 +4096,17 @@ module.exports = async function(fastify) {
         if (!dht_order_id || !item_id) return reply.code(400).send({ error: 'Thiếu thông tin đơn hàng' });
 
         const pi = phoi_index !== undefined && phoi_index !== null ? parseInt(phoi_index) : 0;
+        const cutClaimed = await db.get(`
+            SELECT 1 FROM cutting_records
+            WHERE order_item_id = $1 
+              AND phoi_index = $2
+              AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+            LIMIT 1
+        `, [item_id, pi]);
+        if (cutClaimed) {
+            return reply.code(400).send({ error: 'Phối này đã được nhận cắt hoặc đang cắt, không thể chỉnh sửa nhắc nhở!' });
+        }
+
         const hasCompletedCut = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
@@ -4240,6 +4291,19 @@ module.exports = async function(fastify) {
         if (res.reservation_type !== 'from_stock') return reply.code(400).send({ error: 'Chỉ sửa được loại lấy từ kho' });
 
         const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
+        if (res.item_id) {
+            const cutClaimed = await db.get(`
+                SELECT 1 FROM cutting_records
+                WHERE order_item_id = $1 
+                  AND phoi_index = $2
+                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                LIMIT 1
+            `, [res.item_id, pi]);
+            if (cutClaimed) {
+                return reply.code(400).send({ error: 'Phối này đã được nhận cắt hoặc đang cắt, không thể cập nhật số kg!' });
+            }
+        }
+
         const hasCompletedCut = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
@@ -4353,6 +4417,19 @@ module.exports = async function(fastify) {
         if (res.status === 'arrived') return reply.code(400).send({ error: 'Đã xác nhận rồi' });
 
         const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
+        if (res.item_id) {
+            const cutClaimed = await db.get(`
+                SELECT 1 FROM cutting_records
+                WHERE order_item_id = $1 
+                  AND phoi_index = $2
+                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                LIMIT 1
+            `, [res.item_id, pi]);
+            if (cutClaimed) {
+                return reply.code(400).send({ error: 'Phối này đã được nhận cắt hoặc đang cắt, không thể xác nhận vải về!' });
+            }
+        }
+
         const hasCompletedCut = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true
@@ -4471,6 +4548,29 @@ module.exports = async function(fastify) {
         if (!res) return reply.code(404).send({ error: 'Không tìm thấy' });
 
         const pi = res.phoi_index !== undefined && res.phoi_index !== null ? res.phoi_index : 0;
+        if (res.item_id) {
+            const cutClaimed = await db.get(`
+                SELECT 1 FROM cutting_records
+                WHERE order_item_id = $1 
+                  AND phoi_index = $2
+                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                LIMIT 1
+            `, [res.item_id, pi]);
+            if (cutClaimed) {
+                return reply.code(400).send({ error: 'Phối này đã được nhận cắt hoặc đang cắt, không thể hủy giữ vải!' });
+            }
+        } else {
+            const cutClaimed = await db.get(`
+                SELECT 1 FROM cutting_records
+                WHERE dht_order_id = $1
+                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                LIMIT 1
+            `, [res.dht_order_id]);
+            if (cutClaimed) {
+                return reply.code(400).send({ error: 'Đơn hàng này đã được nhận cắt hoặc đang cắt, không thể hủy giữ vải!' });
+            }
+        }
+
         const hasCompletedCut = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2 AND is_cut_done = true

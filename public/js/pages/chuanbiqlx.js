@@ -1052,6 +1052,20 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         }
         html += '</div>';
 
+        if (data.is_production_done) {
+            html += '<div style="background:#fef2f2; border-left:4px solid #dc2626; padding:10px 16px; font-size:12px; color:#991b1b; font-weight:700; margin:12px 20px 0 20px; border-radius:6px;">';
+            html += '🔒 Phiếu đã hoàn thành sản xuất (đã in/cắt xong). Không thể chỉnh sửa gọi/giữ vải!';
+            html += '</div>';
+        } else if (data.is_cut_done) {
+            html += '<div style="background:#fef2f2; border-left:4px solid #dc2626; padding:10px 16px; font-size:12px; color:#991b1b; font-weight:700; margin:12px 20px 0 20px; border-radius:6px;">';
+            html += '🔒 Phối đã hoàn thành cắt xong. Không thể chỉnh sửa gọi/giữ vải!';
+            html += '</div>';
+        } else if (data.is_cut_claimed) {
+            html += '<div style="background:#fff7ed; border-left:4px solid #f97316; padding:10px 16px; font-size:12px; color:#c2410c; font-weight:700; margin:12px 20px 0 20px; border-radius:6px;">';
+            html += '🔒 Cảnh báo: Phối đã được nhận cắt hoặc đang cắt. Không thể chỉnh sửa gọi/giữ vải!';
+            html += '</div>';
+        }
+
         if (data.target_shelf) {
             html += '<div style="background:#e0f2fe; border-left:4px solid #0284c7; padding:10px 16px; font-size:12px; color:#0369a1; font-weight:700; margin:12px 20px 0 20px; border-radius:6px; display:flex; align-items:center; gap:8px;">';
             html += '<span>🎯</span>';
@@ -1064,10 +1078,10 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         } else if (!wh) {
             // No match in kho
             html += '<div style="padding:16px 20px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px;font-size:12px;color:#92400e;font-weight:600">⚠️ Kho không có chất liệu <b>' + ph.material_name + '</b> màu <b>' + ph.color_name + '</b></div></div>';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed);
         } else {
             // Determine which type already chosen
-            var isLocked = data.is_production_done || data.is_cut_done;
+            var isLocked = data.is_production_done || data.is_cut_done || data.is_cut_claimed;
             var hasStock = false, hasCall = false;
             if (existing.length) {
                 existing.forEach(function(ex) {
@@ -1157,6 +1171,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                     }
                     if (!isLocked) {
                         html += '<button onclick="_qlxFabRelease(' + ex.id + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="padding:3px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:9px;cursor:pointer;color:#dc2626;font-weight:600;white-space:nowrap">🔓 Hủy</button>';
+                    } else {
+                        html += '<button disabled style="padding:3px 10px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:6px;font-size:9px;color:#94a3b8;cursor:not-allowed;white-space:nowrap" title="Không thể hủy khi đang hoặc đã nhận cắt">🔒 Hủy</button>';
                     }
                     html += '</div>';
                     // Show linked orders for new_call / linked_call reservations
@@ -1349,7 +1365,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                                              Number(rl.lock_order_id) === Number(orderId) &&
                                              Number(rl.lock_item_id) === Number(itemId) &&
                                              Number(rl.lock_phoi_index) === Number(pairIndex);
-                    if (avail > 0 && !alreadyMarked && !isLockedSameCoord && !isDisabled) {
+                    if (avail > 0 && !alreadyMarked && !isLockedSameCoord && !isDisabled && !isLocked) {
                         html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
                         html += '<span style="font-size:10px;color:#475569;font-weight:700">Sử dụng:<span style="color:#dc2626"> *</span></span>';
                         html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="Tối đa ' + avail + '" required style="width:90px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';
@@ -1373,7 +1389,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
 
             // === Call new section (always visible) ===
             html += '<div id="_qlxSecCall">';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed);
             html += '</div>';
         }
 
@@ -1427,9 +1443,9 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule, primaryIndex) {
+function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule, primaryIndex, isCutClaimed) {
     cutChoice = cutChoice || '';
-    var isLocked = isProductionDone || isCutDone;
+    var isLocked = isProductionDone || isCutDone || isCutClaimed;
     var isScheduleLocked = isLocked || (primaryIndex !== null && primaryIndex !== undefined && pairIndex !== primaryIndex);
     var mat = (ph.material_name||'').replace(/'/g, "\\'");
     var col = (ph.color_name||'').replace(/'/g, "\\'");
@@ -1508,6 +1524,8 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
             subText = '🔒 Phiếu đã sản xuất xong, không thể chỉnh sửa nhắc nhở.';
         } else if (isCutDone) {
             subText = '🔒 Phiếu đã cắt xong, không thể chỉnh sửa nhắc nhở.';
+        } else if (isCutClaimed) {
+            subText = '🔒 Phối đã được nhận cắt hoặc đang cắt, không thể chỉnh sửa nhắc nhở.';
         } else {
             subText = '🔒 Lịch cắt & nhắc nhở được khóa theo phối chính (Phối ' + (primaryIndex + 1) + ').';
         }
