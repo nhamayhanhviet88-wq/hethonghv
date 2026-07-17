@@ -1,6 +1,6 @@
 // ========== BỘ PHẬN IN — Desktop SPA ==========
 var currentYear = new Date().getFullYear();
-var _bpi = { records: [], tree: null, filter: { year: currentYear, status: 'pending', field: null }, statsFilter: 'all', search: '', page: 1, ps: 200, contractors: [] };
+var _bpi = { records: [], tree: null, filter: { year: currentYear, status: 'pending', field: null, sort_by: null }, statsFilter: 'all', search: '', page: 1, ps: 200, contractors: [] };
 window._bpiRecentlyCompletedIds = [];
 var _bpiOpen = {};
 _bpiOpen['y' + currentYear] = true;
@@ -29,6 +29,7 @@ function _bpiSaveUrlState() {
     if (f.month) params.set('month', f.month);
     if (f.operator_type) params.set('operator_type', f.operator_type);
     if (f.operator_id) params.set('operator_id', f.operator_id);
+    if (f.sort_by) params.set('sort_by', f.sort_by);
     if (_bpi.search) params.set('search', _bpi.search);
     
     var openKeys = Object.keys(_bpiOpen).filter(function(k) { return _bpiOpen[k]; });
@@ -43,7 +44,7 @@ function _bpiRestoreUrlState() {
     var params = new URLSearchParams(window.location.search);
     var currentYear = new Date().getFullYear();
     
-    if (params.has('year') || params.has('status') || params.has('field') || params.has('month') || params.has('operator_id') || params.has('search')) {
+    if (params.has('year') || params.has('status') || params.has('field') || params.has('month') || params.has('operator_id') || params.has('search') || params.has('sort_by')) {
         var year = params.get('year');
         var status = params.get('status');
         var field = params.get('field');
@@ -51,6 +52,7 @@ function _bpiRestoreUrlState() {
         var operator_type = params.get('operator_type');
         var operator_id = params.get('operator_id');
         var search = params.get('search');
+        var sort_by = params.get('sort_by');
         
         _bpi.filter = {
             year: year ? Number(year) : null,
@@ -58,7 +60,8 @@ function _bpiRestoreUrlState() {
             field: field || null,
             month: month ? Number(month) : null,
             operator_type: operator_type || null,
-            operator_id: operator_id ? Number(operator_id) : null
+            operator_id: operator_id ? Number(operator_id) : null,
+            sort_by: sort_by || null
         };
         _bpi.search = '';
         _bpi.statsFilter = 'all';
@@ -71,7 +74,7 @@ function _bpiRestoreUrlState() {
             });
         }
     } else {
-        _bpi.filter = { year: currentYear, status: 'pending', field: null };
+        _bpi.filter = { year: currentYear, status: 'pending', field: null, sort_by: null };
         _bpi.statsFilter = 'all';
         _bpi.search = '';
         _bpiOpen = {};
@@ -139,7 +142,7 @@ function renderBophaninPage(content) {
         +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In / Bàn Giao</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th>Cuộn / Mét In</th><th>SL Đơn</th><th>CSKH</th><th>Ghi Chú</th><th>Cập Nhật</th>'
+        +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In / Bàn Giao</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th onclick="_bpiToggleSort(\'roll\')" style="cursor:pointer;text-decoration:underline;color:#c4b5fd" title="Sắp xếp theo Cuộn/Mét">Cuộn / Mét In <span id="bpiSortIndicator"></span></th><th>SL Đơn</th><th>CSKH</th><th>Ghi Chú</th><th>Cập Nhật</th>'
         +'</tr></thead><tbody id="bpiTb"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div></div></div>';
     
     _bpi.search = '';
@@ -336,10 +339,22 @@ async function _bpiLoadRecs() {
     if (f.month) qs += '&month='+f.month;
     if (f.operator_type) qs += '&operator_type='+f.operator_type;
     if (f.operator_id) qs += '&operator_id='+f.operator_id;
+    if (f.sort_by) qs += '&sort_by='+encodeURIComponent(f.sort_by);
     if (window._bpiRecentlyCompletedIds && window._bpiRecentlyCompletedIds.length) {
         qs += '&include_ids='+window._bpiRecentlyCompletedIds.join(',');
     }
     try { var res = await apiCall('/api/printing/records'+qs); _bpi.records = res.records||[]; _bpi.page=1; _bpiRender(); } catch(e) { console.error('[BPI]',e); }
+}
+
+function _bpiToggleSort(type) {
+    if (_bpi.filter.sort_by === type) {
+        _bpi.filter.sort_by = null;
+    } else {
+        _bpi.filter.sort_by = type;
+    }
+    _bpi.page = 1;
+    _bpiSaveUrlState();
+    _bpiLoadRecs();
 }
 
 function _bpiFD(d) { if (!d) return '—'; try { var p=d.split('T')[0].split('-'); return p[2]+'/'+p[1]+'/'+p[0]; } catch(e) { return d; } }
@@ -489,6 +504,16 @@ function _bpiGetProgressDisplay(r) {
 }
 
 function _bpiRender() {
+    var indicator = document.getElementById('bpiSortIndicator');
+    if (indicator) {
+        var f = _bpi.filter;
+        var isPetOrTemField = f.field && (f.field.toUpperCase() === 'IN PET' || f.field.toUpperCase() === 'IN TEM');
+        if (f.sort_by === 'roll' || isPetOrTemField) {
+            indicator.textContent = ' ▼';
+        } else {
+            indicator.textContent = '';
+        }
+    }
     var all = _bpi.records.slice();
     if (_bpi.search) {
         var q = _bpi.search.toLowerCase();
