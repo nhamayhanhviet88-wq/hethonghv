@@ -3574,6 +3574,64 @@ module.exports = async function(fastify) {
             await db.run(`UPDATE dht_orders SET last_updated_at = NOW(), last_updated_by = $1 WHERE id = $2`, [user.id, orderId]);
         }
 
+        // Sync updated product name, material name, color, and quantity to related cutting/sewing records
+        try {
+            const updatedItem = await db.get('SELECT * FROM dht_order_items WHERE id = $1', [itemId]);
+            if (updatedItem) {
+                const ordRow = await db.get('SELECT order_code FROM dht_orders WHERE id = $1', [orderId]);
+                const orderCode = ordRow ? ordRow.order_code : '';
+                const allItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
+                const itemIdx = allItems.findIndex(x => x.id === itemId) + 1;
+                const crs = await db.all('SELECT id, phoi_index, is_cut_done FROM cutting_records WHERE order_item_id = $1', [itemId]);
+                let pairs = [];
+                try {
+                    pairs = typeof updatedItem.material_pairs === 'string' ? JSON.parse(updatedItem.material_pairs) : (updatedItem.material_pairs || []);
+                } catch(e) {}
+                const totalPhoi = pairs.length;
+
+                for (const cr of crs) {
+                    let matName = updatedItem.material_name || '';
+                    let fabColor = updatedItem.color_name || '';
+                    let pIdx = cr.phoi_index || 0;
+                    if (totalPhoi > 0) {
+                        const pair = pairs[pIdx] || pairs[0];
+                        if (pair) {
+                            matName = pair.material_name || '';
+                            fabColor = pair.color_name || '';
+                        }
+                    }
+                    let cProdName = '';
+                    if (totalPhoi > 1) {
+                        cProdName = orderCode + ' — Phiếu ' + itemIdx + ' — P' + (pIdx + 1) + (updatedItem.product_name ? ' — ' + updatedItem.product_name : '');
+                    } else {
+                        cProdName = orderCode + (updatedItem.product_name ? ' — ' + updatedItem.product_name : '');
+                    }
+
+                    if (cr.is_cut_done) {
+                        await db.run(`
+                            UPDATE cutting_records
+                            SET product_name = $1, material_name = $2, fabric_color = $3
+                            WHERE id = $4
+                        `, [cProdName, matName, fabColor, cr.id]);
+                    } else {
+                        await db.run(`
+                            UPDATE cutting_records
+                            SET product_name = $1, material_name = $2, fabric_color = $3, order_quantity = $4
+                            WHERE id = $5
+                        `, [cProdName, matName, fabColor, Number(updatedItem.quantity) || 0, cr.id]);
+                    }
+                }
+
+                await db.run(`
+                    UPDATE sewing_records
+                    SET product_name = $1
+                    WHERE order_item_id = $2
+                `, [updatedItem.product_name || '', itemId]);
+            }
+        } catch (syncErr) {
+            fastify.log.error('Sheet update sync error: ' + syncErr.message);
+        }
+
         return { success: true };
     });
 
@@ -5382,7 +5440,7 @@ module.exports = async function(fastify) {
                     const orderCode = ordRow ? ordRow.order_code : '';
                     const allItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
                     const itemIdx = allItems.findIndex(x => x.id === itemId) + 1;
-                    const crs = await db.all('SELECT id, phoi_index FROM cutting_records WHERE order_item_id = $1', [itemId]);
+                    const crs = await db.all('SELECT id, phoi_index, is_cut_done FROM cutting_records WHERE order_item_id = $1', [itemId]);
                     let pairs = [];
                     try {
                         pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []);
@@ -5407,11 +5465,19 @@ module.exports = async function(fastify) {
                             cProdName = orderCode + (item.product_name ? ' — ' + item.product_name : '');
                         }
 
-                        await db.run(`
-                            UPDATE cutting_records
-                            SET product_name = $1, material_name = $2, fabric_color = $3
-                            WHERE id = $4
-                        `, [cProdName, matName, fabColor, cr.id]);
+                        if (cr.is_cut_done) {
+                            await db.run(`
+                                UPDATE cutting_records
+                                SET product_name = $1, material_name = $2, fabric_color = $3
+                                WHERE id = $4
+                            `, [cProdName, matName, fabColor, cr.id]);
+                        } else {
+                            await db.run(`
+                                UPDATE cutting_records
+                                SET product_name = $1, material_name = $2, fabric_color = $3, order_quantity = $4
+                                WHERE id = $5
+                            `, [cProdName, matName, fabColor, Number(item.quantity) || 0, cr.id]);
+                        }
                     }
 
                     await db.run(`
