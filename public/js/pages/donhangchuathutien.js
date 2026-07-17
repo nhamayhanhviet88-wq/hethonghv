@@ -58,6 +58,21 @@ var _dhcttFormatDetailedQuantity = function(items, totalQuantity, orderCode) {
             return null;
         }
 
+        if (item.production_cancelled) {
+            let cat = item.cutting_category_name;
+            if (!cat) {
+                const descLower = (item.product_name || item.description || '').toLowerCase();
+                if (descLower.includes('áo gió')) cat = 'Áo Gió';
+                else if (descLower.includes('áo')) cat = 'Áo';
+                else if (descLower.includes('quần')) cat = 'Quần';
+                else if (descLower.includes('váy')) cat = 'Váy';
+                else if (descLower.includes('tạp dề')) cat = 'Tạp Dề';
+                else if (descLower.includes('túi')) cat = 'Túi';
+            }
+            const itemLabelStr = cat ? `${qty} ${cat}` : `${qty}`;
+            return `<span style="display:inline-block;padding:2px 6px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:4px;opacity:0.6;text-decoration:line-through;color:#94a3b8;" title="Sản xuất đã bị hủy">🚫 Hủy ${itemLabelStr}</span>`;
+        }
+
         // Determine if this item matches the active carrier filter
         let isMatching = true;
         if (isCarrierFilterActive && Number(activeCarrierId) !== -2) {

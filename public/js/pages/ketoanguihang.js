@@ -1079,6 +1079,10 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         }
     } else {
         for (const it of items) {
+            if (it.production_cancelled) {
+                calcBase += Number(it.item_total || it.total) || 0;
+                continue;
+            }
             try {
                 const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]);
                 const base = qs.reduce((s,x) => s + (Number(x.qty)||0) * (Number(x.price)||0), 0);
@@ -1269,37 +1273,48 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
             const _phoiBgs = ['#f5f3ff','#eff6ff','#ecfdf5','#fffbeb','#fef2f2'];
             for (let idx = 0; idx < items.length; idx++) {
                 const it = items[idx];
+                const isCancelled = !!it.production_cancelled;
                 const saleText = (it.sale_type || '').toLowerCase();
                 const isBan = saleText === 'bán' || saleText === 'ban';
-                const saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
+                let saleBadge = isBan ? '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Bán</span>' : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Quà</span>';
+                if (isCancelled) {
+                    saleBadge = '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">🚫 Hủy</span>';
+                }
                 let itVat = 0;
-                try { const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]); const base = qs.reduce((s,x)=>s+(Number(x.qty)||0)*(Number(x.price)||0),0); if(base>0 && Number(it.item_total)>base) itVat=Math.round((Number(it.item_total)-base)/base*100); } catch(e){}
+                if (!isCancelled) {
+                    try { const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities||[]); const base = qs.reduce((s,x)=>s+(Number(x.qty)||0)*(Number(x.price)||0),0); if(base>0 && Number(it.item_total)>base) itVat=Math.round((Number(it.item_total)-base)/base*100); } catch(e){}
+                }
                 let matPairs = [];
                 try { matPairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e){}
                 if (matPairs.length === 0) {
                     matPairs = [{ material_name: it.material_name || '—', color_name: it.color_name || '—' }];
                 }
-                const totalQty = it.quantity || 0;
+                const totalQty = isCancelled ? 0 : (it.quantity || 0);
+                const displayQty = isCancelled ? `<s>${it.quantity || 0}</s>` : (it.quantity || 0);
                 for (let pi = 0; pi < matPairs.length; pi++) {
                     const mp = matPairs[pi];
                     const isFirst = pi === 0;
-                    const pColor = _phoiColors[idx % _phoiColors.length];
-                    const pBg = _phoiBgs[idx % _phoiBgs.length];
+                    const pColor = isCancelled ? '#94a3b8' : _phoiColors[idx % _phoiColors.length];
+                    const pBg = isCancelled ? '#f8fafc' : _phoiBgs[idx % _phoiBgs.length];
                     const pLabel = matPairs.length > 1 ? `PHỐI ${pi+1}` : '';
                     const phieuLabel = `Phiếu ${idx+1}`;
                     const labelText = pLabel ? `${pLabel} — ${phieuLabel}` : phieuLabel;
-                    itemsHTML += `<tr style="border-bottom:1px solid #f1f5f9;border-left:4px solid ${pColor};background:${isFirst ? '' : pBg}">`;
+                    let trStyle = `border-bottom:1px solid #f1f5f9;border-left:4px solid ${pColor};background:${isFirst ? '' : pBg};`;
+                    if (isCancelled) {
+                        trStyle += `opacity: 0.55; text-decoration: line-through; color: #94a3b8;`;
+                    }
+                    itemsHTML += `<tr style="${trStyle}">`;
                     itemsHTML += `<td style="padding:6px"><div style="font-size:10px;font-weight:800;color:${pColor}">${labelText}</div>${isFirst ? '<div style="margin-top:3px">'+saleBadge+'</div>' : ''}</td>`;
-                    itemsHTML += `<td style="padding:6px;font-weight:700;color:#1e3a8a">${isFirst ? (it.product_name || it.description || '—') : '<span style="color:#94a3b8;font-size:11px">↳ '+( it.product_name || '')+'</span>'}</td>`;
+                    itemsHTML += `<td style="padding:6px;font-weight:700;color:${isCancelled ? '#94a3b8' : '#1e3a8a'}">${isFirst ? (it.product_name || it.description || '—') : '<span style="color:#94a3b8;font-size:11px">↳ '+( it.product_name || '')+'</span>'}</td>`;
                     itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.material_name || '—'}</td>`;
                     itemsHTML += `<td style="padding:6px;font-weight:700;color:${pColor}">${mp.color_name || '—'}</td>`;
                     if (isFirst) {
-                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700">${totalQty}</td>`;
-                        itemsHTML += `<td style="padding:6px;text-align:right;white-space:nowrap">${fmtMoney(it.unit_price)}đ</td>`;
-                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700;color:#6366f1">${itVat > 0 ? itVat+'%' : '0%'}</td>`;
-                        itemsHTML += `<td style="padding:6px;text-align:right;font-weight:800;color:#dc2626;white-space:nowrap">${fmtMoney(it.item_total || it.total)}đ</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700">${displayQty}</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:right;white-space:nowrap">${isCancelled ? '—' : fmtMoney(it.unit_price) + 'đ'}</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:center;font-weight:700;color:#6366f1">${isCancelled ? '—' : (itVat > 0 ? itVat+'%' : '0%')}</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:right;font-weight:800;color:${isCancelled ? '#94a3b8' : '#dc2626'};white-space:nowrap">${fmtMoney(it.item_total || it.total)}đ</td>`;
                     } else {
-                        itemsHTML += `<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">${totalQty}</td>`;
+                        itemsHTML += `<td style="padding:6px;text-align:center;color:#94a3b8;font-size:11px">${displayQty}</td>`;
                         itemsHTML += `<td colspan="3" style="padding:6px;text-align:center;color:#94a3b8;font-size:10px;font-style:italic">Cùng giá với Phối 1</td>`;
                     }
                     itemsHTML += `</tr>`;
