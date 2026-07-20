@@ -7748,6 +7748,7 @@ async function _tpdShowExportSheetsModal() {
                                             <a href="${design.url}" target="_blank" onclick="event.stopPropagation()" id="pdfFileName_${item.id}" style="font-size: 11px; font-weight: 700; color: #0284c7; text-decoration: underline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(design.filename)}">${escapeHTML(design.filename)}</a>
                                         </div>
                                         <button onclick="_tpdRemovePdfFile(${item.id}, event)" style="background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">&times;</button>
+                                    </div>
                                 </div>
                                 <input type="file" id="pdfFileInput_${item.id}" accept="application/pdf" style="display: none;" onchange="_tpdHandlePdfInput(event, ${item.id}, '${o.order_code || o.draft_name || 'DONHANG'}', ${idx + 1}, ${!o.is_draft ? (Number(o.edit_count) || 0) + 1 : "''"})">
                             </div>
