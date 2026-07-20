@@ -2229,13 +2229,16 @@ window._ppToggleWorkflowType = function(type) {
     var checkboxes = document.querySelectorAll('#_pp_processSteps input[type="checkbox"]');
     checkboxes.forEach(function(cb) {
         var stepId = cb.getAttribute('data-step-id');
-        var isQlx = (String(stepId) === '1');
+        var shortName = cb.getAttribute('data-short-name') || '';
+        var isQlx = (String(stepId) === '1' || shortName.toUpperCase() === 'CBQLX');
+        var isCcht = (shortName.toUpperCase() === 'CCHT');
+        var isMandatory = (isQlx || isCcht);
         if (type === 'full') {
             cb.checked = true;
             cb.disabled = true;
         } else {
             cb.checked = true;
-            if (isQlx) {
+            if (isMandatory) {
                 cb.disabled = true;
             } else {
                 cb.disabled = false;
@@ -2394,12 +2397,14 @@ async function _dhtProductChange(keepExistingPattern) {
                     var bg=colors[i%colors.length];
                     var isChecked = false;
                     var disabledAttr = 'disabled';
-                    var isQlx = (String(s.step_id) === '1');
+                    var isQlx = (String(s.step_id) === '1' || (s.short_name || '').toUpperCase() === 'CBQLX');
+                    var isCcht = ((s.short_name || '').toUpperCase() === 'CCHT');
+                    var isMandatory = (isQlx || isCcht);
                     if (isFull) {
                         isChecked = true;
                         disabledAttr = 'disabled';
                     } else if (isCustom) {
-                        if (isQlx) {
+                        if (isMandatory) {
                             isChecked = true;
                             disabledAttr = 'disabled';
                         } else {
@@ -2413,7 +2418,7 @@ async function _dhtProductChange(keepExistingPattern) {
                     var checkedAttr = isChecked ? 'checked' : '';
                     
                     return '<label style="display:inline-flex;align-items:center;gap:4px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;margin:0;user-select:none">'
-                        +'<input type="checkbox" class="_pp_step_cb" data-step-id="'+s.step_id+'" '+checkedAttr+' '+disabledAttr+' style="margin:0;cursor:pointer"> '
+                        +'<input type="checkbox" class="_pp_step_cb" data-step-id="'+s.step_id+'" data-short-name="'+(s.short_name||'')+'" '+checkedAttr+' '+disabledAttr+' style="margin:0;cursor:pointer"> '
                         +'<span style="background:rgba(255,255,255,0.3);padding:1px 3px;border-radius:2px;font-size:8px;font-weight:800">'+(s.short_name||'')+'</span> '
                         +s.name+'</label>';
                 }).join('');
@@ -2946,6 +2951,13 @@ function _dhtSavePhieu(idx) {
         });
         if (stepsVal.indexOf(1) === -1) {
             stepsVal.push(1);
+        }
+        var cchtCb = document.querySelector('#_pp_processSteps input[data-short-name="CCHT"]');
+        if (cchtCb) {
+            var cchtId = Number(cchtCb.getAttribute('data-step-id'));
+            if (cchtId && stepsVal.indexOf(cchtId) === -1) {
+                stepsVal.push(cchtId);
+            }
         }
     }
 
