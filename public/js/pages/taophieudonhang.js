@@ -7752,44 +7752,9 @@ async function _tpdShowExportSheetsModal() {
                                 </div>
                                 <input type="file" id="pdfFileInput_${item.id}" accept="application/pdf" style="display: none;" onchange="_tpdHandlePdfInput(event, ${item.id}, '${o.order_code || o.draft_name || 'DONHANG'}', ${idx + 1}, ${!o.is_draft ? (Number(o.edit_count) || 0) + 1 : "''"})">
                             </div>
-                            <!-- Embroidery PNG Upload Section -->
+                            <!-- Embroidery PNG Upload Section (Hidden) -->
                             ${(() => {
-                                let embroideryHtml = '';
-                                const pDetails = (typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []));
-                                const embroideryDetails = pDetails.filter(d => d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu')));
-                                
-                                if (embroideryDetails.length > 0) {
-                                    embroideryHtml = `<div style="margin-top: 12px; border-top: 1px dashed #e2e8f0; padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">`;
-                                    embroideryDetails.forEach(d => {
-                                        const emb = (window._tpdEmbroideryImages[item.id] && window._tpdEmbroideryImages[item.id][d.position]) || { url: '', filename: '' };
-                                        const hasEmb = !!emb.url;
-                                        const safePos = d.position.replace(/'/g, "\\'");
-                                        
-                                        embroideryHtml += `
-                                        <div>
-                                            <div style="font-size: 11px; font-weight: 850; color: #b45309; text-transform: uppercase; margin-bottom: 6px; text-align: left; display: flex; align-items: center; gap: 4px;">
-                                                🖼️ ẢNH BẮT BUỘC THÊU: ${escapeHTML(d.position.toUpperCase())} (.PNG)
-                                            </div>
-                                            <div id="embUploadContainer_${item.id}_${escapeHTML(d.position)}" onclick="_tpdTriggerEmbUpload(${item.id}, '${safePos}')" style="border: 1.5px dashed ${hasEmb ? '#10b981' : '#f59e0b'}; border-radius: 6px; padding: 10px; background: ${hasEmb ? '#f0fdf4' : '#fffbeb'}; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60px; transition: all 0.2s;" onmouseover="if(!window._tpdEmbroideryImages[${item.id}]?.[ '${safePos}' ]?.url) this.style.borderColor='#3b82f6';" onmouseout="if(!window._tpdEmbroideryImages[${item.id}]?.[ '${safePos}' ]?.url) this.style.borderColor='#f59e0b';">
-                                                <div id="embUploadPrompt_${item.id}_${escapeHTML(d.position)}" style="font-size: 11px; color: #78350f; font-weight: 700; text-align: center; ${hasEmb ? 'display: none;' : ''}">
-                                                    <div style="font-size: 16px; margin-bottom: 2px;">⚠️</div>
-                                                    Tải ảnh thêu ${escapeHTML(d.position)} (.png)
-                                                </div>
-                                                <div id="embPreviewContainer_${item.id}_${escapeHTML(d.position)}" style="${hasEmb ? 'display: flex;' : 'display: none;'} width: 100%; align-items: center; justify-content: space-between; gap: 8px;">
-                                                    <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 24px);">
-                                                        <span style="font-size: 16px;">🖼️</span>
-                                                        <a href="${emb.url}" target="_blank" onclick="event.stopPropagation()" id="embFileName_${item.id}_${escapeHTML(d.position)}" style="font-size: 11px; font-weight: 700; color: #0284c7; text-decoration: underline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(emb.filename)}">${escapeHTML(emb.filename)}</a>
-                                                    </div>
-                                                    <button onclick="_tpdRemoveEmbFile(${item.id}, '${safePos}', event)" style="background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">&times;</button>
-                                                </div>
-                                            </div>
-                                            <input type="file" id="embFileInput_${item.id}_${escapeHTML(d.position)}" accept="image/png" style="display: none;" onchange="_tpdHandleEmbInput(event, ${item.id}, '${safePos}', '${o.order_code || o.draft_name || 'DONHANG'}', ${idx + 1}, ${!o.is_draft ? (Number(o.edit_count) || 0) + 1 : "''"})">
-                                        </div>
-                                        `;
-                                    });
-                                    embroideryHtml += `</div>`;
-                                }
-                                return embroideryHtml;
+                                return '';
                             })()}
                         </div>
                         `;
@@ -8234,14 +8199,7 @@ async function _tpdShowExportSheetsModal() {
             return !!(design && design.url);
         });
 
-        const allEmbroideryUploaded = items.every(item => {
-            const printDetails = (typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []));
-            const embroideryDetails = printDetails.filter(d => d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu')));
-            return embroideryDetails.every(d => {
-                const emb = (window._tpdEmbroideryImages[item.id] && window._tpdEmbroideryImages[item.id][d.position]);
-                return !!(emb && emb.url);
-            });
-        });
+        const allEmbroideryUploaded = true; // Disabled mandatory embroidery check
 
         if (allDownloaded && window._tpdCopiedConfirmationText && window._tpdCopiedFinancialSummaryText && hasProofs && allPdfsUploaded && allEmbroideryUploaded) {
             confirmBtn.disabled = false;

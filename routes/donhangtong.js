@@ -4080,47 +4080,7 @@ module.exports = async function(fastify) {
                 }
             }
 
-            // Validate mandatory embroidery PNGs
-            let printDetails = [];
-            try {
-                printDetails = typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []);
-            } catch(e) {}
-
-            for (const d of printDetails) {
-                if (d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu'))) {
-                    const embMap = (item_embroidery_images && item_embroidery_images[item.id]) || {};
-                    const embVal = embMap[d.position];
-                    let embUrl = '';
-                    let embFilename = '';
-                    if (embVal) {
-                        if (typeof embVal === 'object') {
-                            embUrl = embVal.url || '';
-                            embFilename = embVal.filename || '';
-                        } else {
-                            embUrl = embVal || '';
-                        }
-                    }
-                    const dbEmbUrl = d.embroidery_image_url || '';
-                    const finalEmbUrl = embUrl || dbEmbUrl;
-
-                    if (!finalEmbUrl || !finalEmbUrl.trim()) {
-                        return reply.code(400).send({ error: `Vui lòng tải lên ảnh thêu định dạng PNG bắt buộc cho vị trí [${d.position}] của [${item.product_name || 'Phiếu'}]!` });
-                    }
-
-                    // Enforce file name suffix if it is a revision/edit session and file is newly uploaded/changed
-                    if (!order.is_draft) {
-                        if (embUrl && embUrl.trim() !== dbEmbUrl.trim()) {
-                            const nextEditCount = (Number(order.edit_count) || 0) + 1;
-                            const requiredSuffix = ` - Sua lan ${nextEditCount}.png`;
-                            if (!embFilename || !embFilename.toLowerCase().endsWith(requiredSuffix.toLowerCase())) {
-                                return reply.code(400).send({
-                                    error: `Vui lòng tải lại ẢNH THÊU cho vị trí [${d.position}] của [${item.product_name || 'Phiếu'}] để đảm bảo file có tên theo định dạng mới kết thúc bằng "${requiredSuffix}"!`
-                                });
-                            }
-                        }
-                    }
-                }
-            }
+            // Validate mandatory embroidery PNGs (Disabled)
         }
 
         // Only run draft-to-official promoting validations if the order is currently a draft
