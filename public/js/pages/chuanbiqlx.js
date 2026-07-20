@@ -1094,16 +1094,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         html += '  </label>';
         html += '</div>';
 
-        if (isNoCut) {
-            html += '<div style="padding:40px 20px;text-align:center;color:#059669;font-weight:700">';
-            html += '🍀 Đơn hàng được đánh dấu KHÔNG CẮT.<br>';
-            html += '<span style="font-size:12px;color:#6b7280;font-weight:normal;">Quy trình gọi vải và cắt vải đã được bỏ qua thành công.</span>';
-            html += '</div>';
-
-            html += '<div style="padding:12px 20px;border-top:1px solid #e2e8f0;text-align:right">';
-            html += '<button onclick="document.getElementById(\'_qlxFabOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button>';
-            html += '</div></div>';
-        } else {
+        // Bỏ qua nhánh check if (isNoCut) để luôn hiển thị đầy đủ popup gọi vải, cho phép bật/tắt KHÔNG CẮT bất cứ lúc nào.
+        // Chỉ ẩn phần Lịch cắt phối thông qua ID _qlxCutScheduleContainer ở bên dưới.
             if (data.is_production_done) {
             html += '<div style="background:#fef2f2; border-left:4px solid #dc2626; padding:10px 16px; font-size:12px; color:#991b1b; font-weight:700; margin:12px 20px 0 20px; border-radius:6px;">';
             html += '🔒 Phiếu đã hoàn thành sản xuất (đã in/cắt xong). Không thể chỉnh sửa gọi/giữ vải!';
@@ -1130,7 +1122,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         } else if (!wh) {
             // No match in kho
             html += '<div style="padding:16px 20px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px;font-size:12px;color:#92400e;font-weight:600">⚠️ Kho không có chất liệu <b>' + ph.material_name + '</b> màu <b>' + ph.color_name + '</b></div></div>';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed, isNoCut);
         } else {
             // Determine which type already chosen
             var isLocked = data.is_production_done || data.is_cut_done || data.is_cut_claimed;
@@ -1441,14 +1433,14 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
 
             // === Call new section (always visible) ===
             html += '<div id="_qlxSecCall">';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed, isNoCut);
             html += '</div>';
         }
 
             html += '<div style="padding:12px 20px;border-top:1px solid #e2e8f0;text-align:right">';
             html += '<button onclick="document.getElementById(\'_qlxFabOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button>';
             html += '</div></div>';
-        }
+        // Kết thúc block else cũ
 
         var old = document.getElementById('_qlxFabOverlay'); if (old) old.remove();
         var ov = document.createElement('div');
@@ -1498,11 +1490,21 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
 
 async function _qlxToggleNoCutMode(chk, orderId, itemId, pairIndex) {
     var checked = chk.checked;
+    
+    // Cập nhật giao diện tức thì
+    var scheduleContainer = document.getElementById('_qlxCutScheduleContainer');
+    if (scheduleContainer) {
+        scheduleContainer.style.display = checked ? 'none' : 'block';
+    }
+    
     try {
         var res = await apiCall('/api/qlx/order/' + orderId + '/no-cut', 'POST', { is_no_cut: checked });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');
             chk.checked = !checked; // revert
+            if (scheduleContainer) {
+                scheduleContainer.style.display = !checked ? 'none' : 'block';
+            }
             return;
         }
         showToast(checked ? '✅ Đã kích hoạt chế độ KHÔNG CẮT' : '✅ Đã tắt chế độ KHÔNG CẮT');
@@ -1512,10 +1514,13 @@ async function _qlxToggleNoCutMode(chk, orderId, itemId, pairIndex) {
     } catch (e) {
         showToast('Lỗi: ' + e.message, 'error');
         chk.checked = !checked; // revert
+        if (scheduleContainer) {
+            scheduleContainer.style.display = !checked ? 'none' : 'block';
+        }
     }
 }
 
-function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule, primaryIndex, isCutClaimed) {
+function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule, primaryIndex, isCutClaimed, isNoCut) {
     cutChoice = cutChoice || '';
     var isLocked = isProductionDone || isCutDone || isCutClaimed;
     var isScheduleLocked = isLocked || (primaryIndex !== null && primaryIndex !== undefined && pairIndex !== primaryIndex);
@@ -1535,7 +1540,8 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
     html += '<div style="margin-bottom:8px"><label style="font-size:10px;font-weight:600;color:#475569">Ngày gọi</label><input id="_qlxFabCallDate" type="date" value="' + new Date(new Date().getTime() + 7*3600000).toISOString().slice(0,10) + '" readonly style="display:block;padding:6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;margin-top:2px;background:#f1f5f9;color:#475569;cursor:not-allowed"></div>';
 
     // Nhắc Nhở Bộ Phận Cắt
-    html += '<div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px;">';
+    var cutScheduleDisplay = isNoCut ? 'none' : 'block';
+    html += '<div id="_qlxCutScheduleContainer" style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px; display: ' + cutScheduleDisplay + ';">';
     
     // Cutting Schedule
     var schedStr = '';
