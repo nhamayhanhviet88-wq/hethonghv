@@ -1865,7 +1865,14 @@ async function _dhtAddItem(editIdx) {
             if (e.target && e.target.type === 'checkbox') {
                 var targetShort = (e.target.getAttribute('data-short-name') || '').toUpperCase();
                 var isChecked = e.target.checked;
-                if (!isChecked) {
+                if (isChecked) {
+                    if (targetShort === 'ÉP') {
+                        var inCb = stepsEl.querySelector('input[data-short-name="IN"]');
+                        if (inCb && !inCb.checked) {
+                            inCb.checked = true;
+                        }
+                    }
+                } else {
                     if (targetShort === 'IN') {
                         var epCb = stepsEl.querySelector('input[data-short-name="ÉP"]');
                         if (epCb && epCb.checked) {
