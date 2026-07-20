@@ -955,6 +955,7 @@ async function start() {
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_cashflow_id INTEGER`); } catch(e) {}
 
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_payment_id INTEGER`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_no_cut BOOLEAN DEFAULT FALSE`); } catch(e) {}
 
     // Item-level shipping fields in dht_order_items
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_status TEXT DEFAULT 'pending'`); } catch(e) {}

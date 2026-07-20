@@ -730,11 +730,16 @@ function _qlxRenderRows(paged) {
 
         var fabIcon, fabCls = '', matIcon, matCls = '';
         // Per-phoi fabric icon
-        var _pfKey = o.id + '_' + (it ? it.id : 0) + '_' + (r.pairIndex || 0);
-        var _pfs = (_qlx.phoiFabStatus || {})[_pfKey];
-        if (_pfs && _pfs.pending === 0 && _pfs.arrived > 0) { fabIcon = '✅'; fabCls = ' on-fab'; }
-        else if (_pfs && _pfs.total > 0) { fabIcon = '📞'; fabCls = ' on-mat'; }
-        else { fabIcon = '🧵'; }
+        if (o.is_no_cut) {
+            fabIcon = '🚫';
+            fabCls = ' on-fab';
+        } else {
+            var _pfKey = o.id + '_' + (it ? it.id : 0) + '_' + (r.pairIndex || 0);
+            var _pfs = (_qlx.phoiFabStatus || {})[_pfKey];
+            if (_pfs && _pfs.pending === 0 && _pfs.arrived > 0) { fabIcon = '✅'; fabCls = ' on-fab'; }
+            else if (_pfs && _pfs.total > 0) { fabIcon = '📞'; fabCls = ' on-mat'; }
+            else { fabIcon = '🧵'; }
+        }
         // Material called/arrived status per-ticket
         var isMatArrived = it ? it.material_arrived : o.material_arrived;
         var isMatCalled = it ? it.material_called : o.material_called;
@@ -830,7 +835,9 @@ function _qlxRenderRows(paged) {
                     if (receivedPhieu) {
                         var hasNguoiIn = it ? it.nguoi_in : o.nguoi_in;
                         var hasNguoiMay = it ? it.nguoi_may : o.nguoi_may;
-                        var isSewingAllowed = it ? (it.is_cut_done && it.is_material_done) : (o.is_cut_done && o.is_material_done);
+                        var isSewingAllowed = o.is_no_cut 
+                            ? (it ? it.is_material_done : o.is_material_done)
+                            : (it ? (it.is_cut_done && it.is_material_done) : (o.is_cut_done && o.is_material_done));
                         var sewClass = '';
                         if (hasNguoiMay) {
                             sewClass = ' on-sew';
@@ -895,7 +902,7 @@ function _qlxRenderRows(paged) {
         h += '<td style="font-size:10px;color:#475569">' + (isNew ? _qlxFmtDate(o.expected_ship_date) : '') + '</td>';
         h += '<td style="text-align:center">' + (isNew ? statusHtml : '') + '</td>';
         
-        var nvCatHtml = showAssignNames ? ((it && it.nguoi_cat) || o.nguoi_cat || '—') : '';
+        var nvCatHtml = showAssignNames ? (o.is_no_cut ? '<span style="color:#ef4444;font-weight:bold;font-size:9px">KHÔNG CẮT</span>' : ((it && it.nguoi_cat) || o.nguoi_cat || '—')) : '';
         h += '<td style="font-size:10px;color:#059669;font-weight:600">' + nvCatHtml + '</td>';
         
         var nvInHtml = showAssignNames ? ((it && it.nguoi_in) || o.nguoi_in || '—') : '';
@@ -1072,7 +1079,32 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         }
         html += '</div>';
 
-        if (data.is_production_done) {
+        var isNoCut = !!o.is_no_cut;
+        html += '<div style="margin: 12px 20px 0; padding: 12px 16px; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 12px; display: flex; align-items: center; justify-content: space-between;">';
+        html += '  <div style="display: flex; align-items: center; gap: 8px;">';
+        html += '    <span style="font-size: 18px;">🚫</span>';
+        html += '    <div>';
+        html += '      <div style="font-size: 12px; font-weight: 800; color: #9f1239;">ĐƠN HÀNG KHÔNG CẮT</div>';
+        html += '      <div style="font-size: 10px; color: #e11d48; font-weight: 600;">Tích chọn nếu đơn hàng này không cần cắt vải (bỏ qua gọi vải & cho phép phân công may luôn)</div>';
+        html += '    </div>';
+        html += '  </div>';
+        html += '  <label style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #be123c; cursor: pointer; margin: 0; background: #ffe4e6; border: 1.5px solid #fda4af; padding: 6px 14px; border-radius: 8px;">';
+        html += '    <input type="checkbox" id="qlx_is_no_cut" ' + (isNoCut ? 'checked' : '') + ' onchange="_qlxToggleNoCutMode(this, ' + orderId + ', ' + itemId + ', ' + pairIndex + ')" style="accent-color: #e11d48; width: 18px; height: 18px; cursor: pointer; margin: 0;">';
+        html += '    KHÔNG CẮT';
+        html += '  </label>';
+        html += '</div>';
+
+        if (isNoCut) {
+            html += '<div style="padding:40px 20px;text-align:center;color:#059669;font-weight:700">';
+            html += '🍀 Đơn hàng được đánh dấu KHÔNG CẮT.<br>';
+            html += '<span style="font-size:12px;color:#6b7280;font-weight:normal;">Quy trình gọi vải và cắt vải đã được bỏ qua thành công.</span>';
+            html += '</div>';
+
+            html += '<div style="padding:12px 20px;border-top:1px solid #e2e8f0;text-align:right">';
+            html += '<button onclick="document.getElementById(\'_qlxFabOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button>';
+            html += '</div></div>';
+        } else {
+            if (data.is_production_done) {
             html += '<div style="background:#fef2f2; border-left:4px solid #dc2626; padding:10px 16px; font-size:12px; color:#991b1b; font-weight:700; margin:12px 20px 0 20px; border-radius:6px;">';
             html += '🔒 Phiếu đã hoàn thành sản xuất (đã in/cắt xong). Không thể chỉnh sửa gọi/giữ vải!';
             html += '</div>';
@@ -1413,9 +1445,10 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             html += '</div>';
         }
 
-        html += '<div style="padding:12px 20px;border-top:1px solid #e2e8f0;text-align:right">';
-        html += '<button onclick="document.getElementById(\'_qlxFabOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button>';
-        html += '</div></div>';
+            html += '<div style="padding:12px 20px;border-top:1px solid #e2e8f0;text-align:right">';
+            html += '<button onclick="document.getElementById(\'_qlxFabOverlay\').remove()" style="padding:8px 20px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Đóng</button>';
+            html += '</div></div>';
+        }
 
         var old = document.getElementById('_qlxFabOverlay'); if (old) old.remove();
         var ov = document.createElement('div');
@@ -1461,6 +1494,25 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             }
         }
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _qlxToggleNoCutMode(chk, orderId, itemId, pairIndex) {
+    var checked = chk.checked;
+    try {
+        var res = await apiCall('/api/qlx/order/' + orderId + '/no-cut', 'POST', { is_no_cut: checked });
+        if (res && res.error) {
+            showToast('⚠️ ' + res.error, 'error');
+            chk.checked = !checked; // revert
+            return;
+        }
+        showToast(checked ? '✅ Đã kích hoạt chế độ KHÔNG CẮT' : '✅ Đã tắt chế độ KHÔNG CẮT');
+        await _qlxLoadAll();
+        // Re-open fabric popup to reflect changes
+        await _qlxFabricPopup(orderId, itemId, pairIndex, true);
+    } catch (e) {
+        showToast('Lỗi: ' + e.message, 'error');
+        chk.checked = !checked; // revert
+    }
 }
 
 function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule, primaryIndex, isCutClaimed) {

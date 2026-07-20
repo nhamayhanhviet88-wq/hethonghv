@@ -90,6 +90,7 @@ module.exports = async function(fastify) {
 
                 const rows = await db.all(`
             SELECT o.id, o.order_code, o.order_date, o.expected_ship_date,
+                COALESCE(o.is_no_cut, false) AS is_no_cut,
                 o.rescheduled_ship_date, o.shipping_status,
                 o.customer_name, o.customer_phone, o.province,
                 o.shipped_at, o.tracking_code, o.total_amount,
@@ -665,6 +666,7 @@ module.exports = async function(fastify) {
             SELECT o.id, o.order_code, o.shipping_status, o.shipped_at,
                    c.name AS category_name,
                    req.required_steps,
+                   COALESCE(o.is_no_cut, false) AS is_no_cut,
                    EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND is_no_sew = true) AS is_no_sew,
                    COALESCE(
                        CASE 
@@ -1553,7 +1555,7 @@ function _processOrderWithItems(o, items, todayStr) {
 
         const isKhongIn = !!item.is_khong_in;
         const isNoSew = !!item.is_no_sew;
-        const needsCut = requiredStepIds.has(2);
+        const needsCut = o.is_no_cut ? false : requiredStepIds.has(2);
         const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
         let needsPress = isKhongIn ? false : requiredStepIds.has(4);
         if (item.has_any_printing && !isPetTem && !isKhongIn) {
@@ -1927,7 +1929,7 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
 
     const isKhongIn = !!item.is_khong_in;
     const isNoSew = !!item.is_no_sew;
-    const needsCut = requiredStepIds.has(2);
+    const needsCut = order.is_no_cut ? false : requiredStepIds.has(2);
     const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
     let needsPress = isKhongIn ? false : requiredStepIds.has(4);
     if (item.has_any_printing && !isPetTem && !isKhongIn) {

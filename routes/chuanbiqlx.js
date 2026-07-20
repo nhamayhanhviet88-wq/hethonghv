@@ -1165,6 +1165,7 @@ module.exports = async function(fastify) {
             SELECT o.id, o.order_code, o.order_date, o.customer_name, o.customer_phone,
                 o.total_quantity, o.expected_ship_date, o.shipping_priority,
                 o.category_id, c.name AS category_name,
+                COALESCE(o.is_no_cut, false) AS is_no_cut,
                 COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
                 COALESCE(o.is_draft, false) AS is_draft,
                 o.is_locked, o.locked_by, o.locked_at, u_locked.full_name AS locked_by_name,
@@ -1570,6 +1571,43 @@ module.exports = async function(fastify) {
         return { orders, phoi_fab_status: phoiFabStatus };
     });
 
+    // POST /api/qlx/order/:orderId/no-cut
+    fastify.post('/api/qlx/order/:orderId/no-cut', { preHandler: [authenticate] }, async (request, reply) => {
+        const allowed = await isQLXUser(request);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const orderId = Number(request.params.orderId);
+        const { is_no_cut } = request.body || {};
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        // Check if order exists
+        const order = await db.get('SELECT id, order_code FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Đơn hàng không tồn tại' });
+
+        // Update is_no_cut on dht_orders
+        await db.run('UPDATE dht_orders SET is_no_cut = $1 WHERE id = $2', [!!is_no_cut, orderId]);
+
+        // Ensure prep row exists
+        await ensureOrderPrepRow(orderId);
+
+        if (is_no_cut) {
+            // Set fabric_called and fabric_arrived to true
+            await db.run(`UPDATE qlx_preparation SET fabric_called = true, fabric_called_at = $1, fabric_called_by = $2, fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+                [now, request.user.id, orderId]);
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'toggle_no_cut', 'Đã bật KHÔNG CẮT (bỏ qua gọi vải)', $2, $3)`,
+                [orderId, request.user.id, now]);
+        } else {
+            // Reset fabric_called and fabric_arrived to false
+            await db.run(`UPDATE qlx_preparation SET fabric_called = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
+                [now, orderId]);
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'toggle_no_cut', 'Đã tắt KHÔNG CẮT (yêu cầu gọi vải lại)', $2, $3)`,
+                [orderId, request.user.id, now]);
+        }
+
+        return { success: true };
+    });
+
     // ========== FABRIC: Toggle gọi vải / vải về ==========
     fastify.post('/api/qlx/fabric/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
         const allowed = await isQLXUser(request);
@@ -1720,11 +1758,14 @@ module.exports = async function(fastify) {
     });
 
     async function checkSewingPrerequisites(orderId, itemId) {
+        const order = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut FROM dht_orders WHERE id = $1', [orderId]);
+        const isNoCut = order ? !!order.is_no_cut : false;
+
         let isCutDone = true;
         let isMatDone = true;
 
         if (itemId) {
-            isCutDone = await checkItemCuttingDone(itemId);
+            isCutDone = isNoCut ? true : await checkItemCuttingDone(itemId);
 
             const matStatus = await db.get(`
                 SELECT 
@@ -1740,7 +1781,7 @@ module.exports = async function(fastify) {
             const items = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1`, [orderId]);
             if (items.length > 0) {
                 for (const item of items) {
-                    const cutDone = await checkItemCuttingDone(item.id);
+                    const cutDone = isNoCut ? true : await checkItemCuttingDone(item.id);
                     if (!cutDone) {
                         isCutDone = false;
                     }
@@ -1758,12 +1799,16 @@ module.exports = async function(fastify) {
                     }
                 }
             } else {
-                const cut = await db.get(`
-                    SELECT 
-                        EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1) AS has_cut_records,
-                        NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = false) AS all_cuts_done
-                `, [orderId]);
-                isCutDone = !!(cut && cut.has_cut_records && cut.all_cuts_done);
+                if (isNoCut) {
+                    isCutDone = true;
+                } else {
+                    const cut = await db.get(`
+                        SELECT 
+                            EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1) AS has_cut_records,
+                            NOT EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = $1 AND is_cut_done = false) AS all_cuts_done
+                    `, [orderId]);
+                    isCutDone = !!(cut && cut.has_cut_records && cut.all_cuts_done);
+                }
 
                 const mat = await db.get(`
                     SELECT material_called OR material_arrived AS material_done FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL
@@ -3396,7 +3441,7 @@ module.exports = async function(fastify) {
         const pi = parseInt(phoiIndex) || 0;
 
         // Get order + item
-        const order = await db.get('SELECT id, order_code, customer_name, COALESCE(sx_print_confirmed, false) AS sx_print_confirmed FROM dht_orders WHERE id = $1', [orderId]);
+        const order = await db.get('SELECT id, order_code, customer_name, COALESCE(sx_print_confirmed, false) AS sx_print_confirmed, COALESCE(is_no_cut, false) AS is_no_cut FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
 
         const item = await db.get('SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
