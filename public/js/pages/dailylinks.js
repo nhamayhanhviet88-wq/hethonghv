@@ -96,7 +96,7 @@ function _dlApplyCustomDate() {
 
 function _dlInit() {
     const path = window.location.pathname;
-    const cfg = _DL_MODULES[path];
+    const cfg = _DL_MODULES[path] || _DL_MODULES['/' + currentPage] || _DL_MODULES[currentPage];
     if (!cfg) return;
     _dl.mod = cfg;
     _dl.imageData = null;
