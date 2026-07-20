@@ -1769,7 +1769,7 @@ async function _dhtShowDetail(id) {
 
         if (o.design_email_recipient) {
             let statusText = '';
-            const resendBtn = `<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); _dhtResendDesignEmail('${o.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:11px;font-weight:600;height:24px;border-radius:4px;line-height:1;margin-left:8px;border:1px solid #cbd5e1;background:#fff;color:#334155;cursor:pointer;">🔄 Gửi lại</button>`;
+            const resendBtn = `<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); _dhtResendDesignEmail('${o.id}', event)" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:11px;font-weight:600;height:24px;border-radius:4px;line-height:1;margin-left:8px;border:1px solid #cbd5e1;background:#fff;color:#334155;cursor:pointer;">🔄 Gửi lại</button>`;
             
             if (o.design_email_status === 'sent') {
                 const sentTimeStr = o.design_email_sent_at ? fmtDateTimeHM(o.design_email_sent_at) : (o.last_updated_at ? fmtDateTimeHM(o.last_updated_at) : (o.created_at ? fmtDateTimeHM(o.created_at) : '—'));
@@ -4252,10 +4252,10 @@ async function _dhtConfirmAddVat(orderId) {
     }
 }
 
-window._dhtResendDesignEmail = async function(orderId) {
+window._dhtResendDesignEmail = async function(orderId, event) {
     if (!confirm('Bạn có chắc chắn muốn gửi lại email thiết kế này cho xưởng?')) return;
     try {
-        const btn = event.target;
+        const btn = event ? event.target.closest('button') : null;
         if (btn) {
             btn.disabled = true;
             btn.innerHTML = '⏳ Đang gửi...';
