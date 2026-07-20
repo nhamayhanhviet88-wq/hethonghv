@@ -35,6 +35,34 @@ function _tpdFormatDateWithDayOfWeek(dateStr) {
     return `${dayName} - ${date}/${month}`;
 }
 
+function _tpdHasSewingStep(it) {
+    if (!it) return false;
+    if (it.is_no_sew) return false;
+    
+    let itemSteps = it.production_steps;
+    if (itemSteps === null || itemSteps === undefined) {
+        return true;
+    }
+    if (typeof itemSteps === 'string') {
+        try {
+            itemSteps = JSON.parse(itemSteps);
+        } catch(e) {
+            return true;
+        }
+    }
+    if (Array.isArray(itemSteps)) {
+        const stepsList = (_tpd.activeOrderDetails && _tpd.activeOrderDetails.steps) || [];
+        const stepMay = stepsList.find(s => (s.short_name || '').toUpperCase() === 'MAY' || (s.name || '').toUpperCase() === 'MAY');
+        if (stepMay) {
+            const mayId = stepMay.step_id;
+            return itemSteps.includes(mayId) || itemSteps.includes(String(mayId)) || itemSteps.includes(Number(mayId));
+        } else {
+            return itemSteps.includes(5) || itemSteps.includes('5');
+        }
+    }
+    return true;
+}
+
 function _tpdFormatRevisionHeader(o, activeIndex, totalItems, context) {
     const isDraft = !!(o.is_draft && (o.order_code || '').startsWith('NHAP-'));
     const orderTitle = isDraft 
@@ -1172,6 +1200,7 @@ function _tpdRenderTechCardContent(data, steps) {
                                         </div>
 
                                         <!-- Sewing techniques -->
+                                        ${_tpdHasSewingStep(it) ? `
                                         <div class="item-detail-row">
                                             <span class="detail-label">Kỹ thuật may:</span>
                                             <div class="detail-tags">
@@ -4598,7 +4627,7 @@ function _tpdRenderFormInputs() {
     const cuttingLocked = !!it.has_cutting_started;
     const sizeDisabledAttr = cuttingLocked ? 'disabled' : disabledAttr;
 
-    const isNoSew = !!it.is_no_sew;
+    const isNoSew = !!it.is_no_sew || !_tpdHasSewingStep(it);
     const qcLocked = !!it.has_qc_completed || isNoSew;
     const sewingDisabledAttr = qcLocked ? 'disabled' : disabledAttr;
     const sewingEditAllowed = state.hasEditPermission && !qcLocked;
@@ -4843,26 +4872,28 @@ function _tpdRenderFormInputs() {
         }).join('');
     }
 
-    html += `
-        <div class="tpd-ws-form-group" style="margin-top: 10px; margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <label class="tpd-ws-form-label" style="margin-bottom: 0;">Kỹ Thuật May</label>
-                ${sewingEditAllowed ? `
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <button type="button" class="btn btn-primary" onclick="_tpdAddSewingItem()" style="padding: 2px 8px; font-size: 11px; height: 24px; border-radius: 4px; font-weight: 700; background: #122546; border: 1px solid #122546; color: white;">+ Thêm</button>
-                        ${state.role === 'giam_doc' ? `
-                            <button type="button" class="btn btn-secondary" onclick="_tpdOpenSewingTechsConfigModal()" style="padding: 2px 6px; font-size: 12px; height: 24px; border-radius: 4px; font-weight: 700; background: #64748b; border: 1px solid #64748b; color: white;" title="Cấu hình danh sách kỹ thuật may">⚙️</button>
-                        ` : ''}
-                    </div>
-                ` : `
-                    ${qcLocked ? `<span style="font-size: 11.5px; color: #dc2626; font-weight: 800; background: #fef2f2; padding: 2px 8px; border-radius: 6px; border: 1px dashed #fca5a5;">🔒 QC Đã Kiểm Tra</span>` : ''}
-                `}
+    if (!isNoSew) {
+        html += `
+            <div class="tpd-ws-form-group" style="margin-top: 10px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label class="tpd-ws-form-label" style="margin-bottom: 0;">Kỹ Thuật May</label>
+                    ${sewingEditAllowed ? `
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <button type="button" class="btn btn-primary" onclick="_tpdAddSewingItem()" style="padding: 2px 8px; font-size: 11px; height: 24px; border-radius: 4px; font-weight: 700; background: #122546; border: 1px solid #122546; color: white;">+ Thêm</button>
+                            ${state.role === 'giam_doc' ? `
+                                <button type="button" class="btn btn-secondary" onclick="_tpdOpenSewingTechsConfigModal()" style="padding: 2px 6px; font-size: 12px; height: 24px; border-radius: 4px; font-weight: 700; background: #64748b; border: 1px solid #64748b; color: white;" title="Cấu hình danh sách kỹ thuật may">⚙️</button>
+                            ` : ''}
+                        </div>
+                    ` : `
+                        ${qcLocked ? `<span style="font-size: 11.5px; color: #dc2626; font-weight: 800; background: #fef2f2; padding: 2px 8px; border-radius: 6px; border: 1px dashed #fca5a5;">🔒 QC Đã Kiểm Tra</span>` : ''}
+                    `}
+                </div>
+                <div style="background: #ffffff; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                    ${sewingListHtml}
+                </div>
             </div>
-            <div style="background: #ffffff; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
-                ${sewingListHtml}
-            </div>
-        </div>
-    `;
+        `;
+    }
 
     // 3. Vị trí in / thêu chi tiết
     const details = (it.print_details || [])
@@ -5990,10 +6021,12 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false, isCustome
                     </div>
 
                     <!-- Phần 2: Kỹ thuật may -->
+                    ${!(!!it.is_no_sew || !_tpdHasSewingStep(it)) ? `
                     <div style="display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
                         <strong style="color: #0f172a; font-weight: 800;">Kỹ Thuật May:</strong> 
                         <span style="font-weight: 700; color: #b45309; display: block; margin-top: 2px;">${sewingHtml}</span>
                     </div>
+                    ` : ''}
 
                     <!-- Phần 3: Kỹ thuật in -->
                     <div style="display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
@@ -6616,36 +6649,39 @@ async function _tpdSaveProductionSheet() {
     }
 
     // Validation for sewing items details
-    const layout = _tpdGetCustomLayout(state.activeItemIndex);
-    let hasCoBe = false;
-    let hasBoTay = false;
-    if (layout.sewing_items && layout.sewing_items.length > 0) {
-        for (let i = 0; i < layout.sewing_items.length; i++) {
-            const s = layout.sewing_items[i];
-            const techName = (s.tech || '').trim();
-            if (!techName || techName === 'Khác') {
-                showToast(`⚠️ Vui lòng chọn hoặc nhập tên kỹ thuật may ở dòng thứ ${i + 1}!`, 'error');
-                return false;
-            }
-            if (!s.detail || !s.detail.trim()) {
-                showToast(`⚠️ Vui lòng nhập thông tin chi tiết cho kỹ thuật may "${techName}"!`, 'error');
-                return false;
-            }
+    const isNoSew = !!it.is_no_sew || !_tpdHasSewingStep(it);
+    if (!isNoSew) {
+        const layout = _tpdGetCustomLayout(state.activeItemIndex);
+        let hasCoBe = false;
+        let hasBoTay = false;
+        if (layout.sewing_items && layout.sewing_items.length > 0) {
+            for (let i = 0; i < layout.sewing_items.length; i++) {
+                const s = layout.sewing_items[i];
+                const techName = (s.tech || '').trim();
+                if (!techName || techName === 'Khác') {
+                    showToast(`⚠️ Vui lòng chọn hoặc nhập tên kỹ thuật may ở dòng thứ ${i + 1}!`, 'error');
+                    return false;
+                }
+                if (!s.detail || !s.detail.trim()) {
+                    showToast(`⚠️ Vui lòng nhập thông tin chi tiết cho kỹ thuật may "${techName}"!`, 'error');
+                    return false;
+                }
 
-            // Check if Cổ bẻ is selected
-            const normalizedTech = techName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/đ/g, 'd');
-            if (normalizedTech.includes('co be')) {
-                hasCoBe = true;
-            }
-            // Check if Bo tay is selected
-            if (_tpdIsBoTay(techName)) {
-                hasBoTay = true;
+                // Check if Cổ bẻ is selected
+                const normalizedTech = techName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/đ/g, 'd');
+                if (normalizedTech.includes('co be')) {
+                    hasCoBe = true;
+                }
+                // Check if Bo tay is selected
+                if (_tpdIsBoTay(techName)) {
+                    hasBoTay = true;
+                }
             }
         }
-    }
-    if (hasCoBe && !hasBoTay) {
-        showToast('⚠️ Bạn đã chọn Cổ Bẻ, bắt buộc phải thêm Bo Tay ở Kỹ Thuật May!', 'error');
-        return false;
+        if (hasCoBe && !hasBoTay) {
+            showToast('⚠️ Bạn đã chọn Cổ Bẻ, bắt buộc phải thêm Bo Tay ở Kỹ Thuật May!', 'error');
+            return false;
+        }
     }
 
     // Check if print details changed when we have a print assignment or is_no_print
@@ -7171,38 +7207,41 @@ function _tpdValidateAllSheets() {
         }
 
         // 3. Validate sewing items
-        let hasCoBe = false;
-        let hasBoTay = false;
-        if (layout.sewing_items && layout.sewing_items.length > 0) {
-            for (let k = 0; k < layout.sewing_items.length; k++) {
-                const s = layout.sewing_items[k];
-                const techName = (s.tech || '').trim();
-                if (!techName || techName === 'Khác') {
-                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng chọn hoặc nhập tên kỹ thuật may ở dòng thứ ${k + 1}!`, 'error');
-                    _tpdSwitchItemTab(idx);
-                    return false;
-                }
-                if (!s.detail || !s.detail.trim()) {
-                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng nhập thông tin chi tiết cho kỹ thuật may "${techName}"!`, 'error');
-                    _tpdSwitchItemTab(idx);
-                    return false;
-                }
+        const itemIsNoSew = !!it.is_no_sew || !_tpdHasSewingStep(it);
+        if (!itemIsNoSew) {
+            let hasCoBe = false;
+            let hasBoTay = false;
+            if (layout.sewing_items && layout.sewing_items.length > 0) {
+                for (let k = 0; k < layout.sewing_items.length; k++) {
+                    const s = layout.sewing_items[k];
+                    const techName = (s.tech || '').trim();
+                    if (!techName || techName === 'Khác') {
+                        showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng chọn hoặc nhập tên kỹ thuật may ở dòng thứ ${k + 1}!`, 'error');
+                        _tpdSwitchItemTab(idx);
+                        return false;
+                    }
+                    if (!s.detail || !s.detail.trim()) {
+                        showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng nhập thông tin chi tiết cho kỹ thuật may "${techName}"!`, 'error');
+                        _tpdSwitchItemTab(idx);
+                        return false;
+                    }
 
-                // Check if Cổ bẻ is selected
-                const normalizedTech = techName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/đ/g, 'd');
-                if (normalizedTech.includes('co be')) {
-                    hasCoBe = true;
-                }
-                // Check if Bo tay is selected
-                if (_tpdIsBoTay(techName)) {
-                    hasBoTay = true;
+                    // Check if Cổ bẻ is selected
+                    const normalizedTech = techName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/đ/g, 'd');
+                    if (normalizedTech.includes('co be')) {
+                        hasCoBe = true;
+                    }
+                    // Check if Bo tay is selected
+                    if (_tpdIsBoTay(techName)) {
+                        hasBoTay = true;
+                    }
                 }
             }
-        }
-        if (hasCoBe && !hasBoTay) {
-            showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Bạn đã chọn Cổ Bẻ, bắt buộc phải thêm Bo Tay ở Kỹ Thuật May!`, 'error');
-            _tpdSwitchItemTab(idx);
-            return false;
+            if (hasCoBe && !hasBoTay) {
+                showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Bạn đã chọn Cổ Bẻ, bắt buộc phải thêm Bo Tay ở Kỹ Thuật May!`, 'error');
+                _tpdSwitchItemTab(idx);
+                return false;
+            }
         }
 
         // 4. Validate mockup image is uploaded
