@@ -687,11 +687,10 @@ async function _dhtShowNextCode() {
         var count = res.count || 0;
         if (count === 0) {
             el.innerHTML = '<span style="color:#94a3b8;font-size:11px">📋 Không có mã đơn chờ — Chốt Đơn ở CRM trước</span>';
-            if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
         } else {
             el.innerHTML = '📋 <span style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:3px 14px;border-radius:6px;font-size:13px;font-weight:900">' + count + ' mã đơn chờ tạo</span>';
-            if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
         }
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
     } catch(e) {
         el.innerHTML = '<span style="color:#94a3b8;font-size:11px">—</span>';
     }
