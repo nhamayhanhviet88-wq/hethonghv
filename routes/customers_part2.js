@@ -1094,7 +1094,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         const logTypes = await db.all('SELECT DISTINCT log_type FROM consultation_logs WHERE customer_id = ?', [customerId]);
         const doneTypes = logTypes.map(l => l.log_type);
-        // if (log_type === 'chot_don' && !doneTypes.includes('dat_coc')) return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
+        if (log_type === 'chot_don' && !doneTypes.includes('dat_coc')) return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
 
         // Generate Order Code automatically if chot_don (unified request optimization)
         let generatedOrderCode = null;

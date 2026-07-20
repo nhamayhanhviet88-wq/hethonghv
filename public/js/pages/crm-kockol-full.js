@@ -1132,6 +1132,12 @@ async function _kockolOpenConsultModal(customerId) {
         allowedTypes = _getFlowRuleTypes('cancel_auto_revert') || allTypes.filter(([k]) => k === 'huy');
     }
 
+    // Enforce deposit mandatory before chot_don
+    const hasDeposit = consultLogs.some(l => l.log_type === 'dat_coc');
+    if (!hasDeposit) {
+        allowedTypes = allowedTypes.filter(([k]) => k !== 'chot_don');
+    }
+
     // ★ Use admin-configured flow rule defaults (⭐ Mặc định from Quy Tắc Liên Kết)
     const effectiveRules = flowRules[effectiveStatus] || [];
     const defaultRule = effectiveRules.find(r => r.is_default);
