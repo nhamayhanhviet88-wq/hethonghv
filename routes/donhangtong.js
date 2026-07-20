@@ -3983,13 +3983,51 @@ module.exports = async function(fastify) {
         return { success: true, url, originalName };
     });
 
+    // ========== ORDERS: Upload Embroidery PNG ==========
+    fastify.post('/api/dht/orders/upload-embroidery-png', { preHandler: [authenticate] }, async (request, reply) => {
+        const data = await request.file();
+        if (!data) return reply.code(400).send({ error: 'Không có file' });
+        
+        const path = require('path');
+        const fs = require('fs');
+        const dir = path.join(__dirname, '..', 'uploads', 'dht_embroidery');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+        const ext = path.extname(data.filename).toLowerCase();
+        if (ext !== '.png') {
+            return reply.code(400).send({ error: 'Chỉ chấp nhận file định dạng PNG!' });
+        }
+
+        const orderCode = (request.query.order_code || '').trim();
+        const sheetIndex = (request.query.sheet_index || '').trim();
+        const position = (request.query.position || '').trim();
+        const suaLan = (request.query.sua_lan || '').trim();
+
+        if (!orderCode || !sheetIndex || !position) {
+            return reply.code(400).send({ error: 'Thiếu thông tin mã đơn, số phiếu hoặc vị trí thêu!' });
+        }
+
+        let baseName = `${orderCode} - Phiếu ${sheetIndex} - ${position}`;
+        if (suaLan && Number(suaLan) > 0) {
+            baseName += ` - Sua lan ${suaLan}`;
+        }
+        const savedFileName = `${baseName}${ext}`;
+        const filePath = path.join(dir, savedFileName);
+
+        const buf = await data.toBuffer();
+        fs.writeFileSync(filePath, buf);
+
+        const url = `/uploads/dht_embroidery/${savedFileName}`;
+        return { success: true, url, originalName: savedFileName };
+    });
+
     // ========== ORDERS: Confirm Export (Promote draft to official) ==========
     fastify.post('/api/dht/orders/:id/confirm-export', { preHandler: [authenticate] }, async (request, reply) => {
         const orderId = Number(request.params.id);
         const order = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
         if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
         
-        const { logo_approved_image, chat_confirmed_image, gift_proof_image, warranty_proof_image, item_designs, recipient_email, sheet_images } = request.body || {};
+        const { logo_approved_image, chat_confirmed_image, gift_proof_image, warranty_proof_image, item_designs, item_embroidery_images, recipient_email, sheet_images } = request.body || {};
         if (!logo_approved_image || !logo_approved_image.trim()) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh xác nhận duyệt logo của khách!' });
         }
@@ -4003,7 +4041,7 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thiếu hình ảnh bằng chứng bảo quản & kiểm hàng!' });
         }
 
-        const orderItems = await db.all('SELECT id, product_name, design_pdf_url, design_pdf_name, sale_type, promo_gift_code FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
+        const orderItems = await db.all('SELECT id, product_name, design_pdf_url, design_pdf_name, sale_type, promo_gift_code, print_details FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
 
         if (!item_designs || typeof item_designs !== 'object') {
             return reply.code(400).send({ error: 'Thiếu file PDF thiết kế bắt buộc cho từng phiếu!' });
@@ -4038,6 +4076,48 @@ module.exports = async function(fastify) {
                         return reply.code(400).send({
                             error: `Vui lòng tải lại FILE THIẾT KẾ (PDF BẮT BUỘC) cho [${item.product_name || 'Phiếu'}] để đảm bảo file có tên theo định dạng mới "${order.order_code} - Phieu X - Sua lan ${nextEditCount}.pdf"!`
                         });
+                    }
+                }
+            }
+
+            // Validate mandatory embroidery PNGs
+            let printDetails = [];
+            try {
+                printDetails = typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []);
+            } catch(e) {}
+
+            for (const d of printDetails) {
+                if (d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu'))) {
+                    const embMap = (item_embroidery_images && item_embroidery_images[item.id]) || {};
+                    const embVal = embMap[d.position];
+                    let embUrl = '';
+                    let embFilename = '';
+                    if (embVal) {
+                        if (typeof embVal === 'object') {
+                            embUrl = embVal.url || '';
+                            embFilename = embVal.filename || '';
+                        } else {
+                            embUrl = embVal || '';
+                        }
+                    }
+                    const dbEmbUrl = d.embroidery_image_url || '';
+                    const finalEmbUrl = embUrl || dbEmbUrl;
+
+                    if (!finalEmbUrl || !finalEmbUrl.trim()) {
+                        return reply.code(400).send({ error: `Vui lòng tải lên ảnh thêu định dạng PNG bắt buộc cho vị trí [${d.position}] của [${item.product_name || 'Phiếu'}]!` });
+                    }
+
+                    // Enforce file name suffix if it is a revision/edit session and file is newly uploaded/changed
+                    if (!order.is_draft) {
+                        if (embUrl && embUrl.trim() !== dbEmbUrl.trim()) {
+                            const nextEditCount = (Number(order.edit_count) || 0) + 1;
+                            const requiredSuffix = ` - Sua lan ${nextEditCount}.png`;
+                            if (!embFilename || !embFilename.toLowerCase().endsWith(requiredSuffix.toLowerCase())) {
+                                return reply.code(400).send({
+                                    error: `Vui lòng tải lại ẢNH THÊU cho vị trí [${d.position}] của [${item.product_name || 'Phiếu'}] để đảm bảo file có tên theo định dạng mới kết thúc bằng "${requiredSuffix}"!`
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -4113,9 +4193,38 @@ module.exports = async function(fastify) {
                     pdfUrl = designVal || '';
                 }
             }
+
+            let printDetails = [];
+            try {
+                printDetails = typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []);
+            } catch(e) {}
+
+            for (const d of printDetails) {
+                if (d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu'))) {
+                    const embMap = (item_embroidery_images && item_embroidery_images[item.id]) || {};
+                    const embVal = embMap[d.position];
+                    let embUrl = '';
+                    let embFilename = '';
+                    if (embVal) {
+                        if (typeof embVal === 'object') {
+                            embUrl = embVal.url || '';
+                            embFilename = embVal.filename || '';
+                        } else {
+                            embUrl = embVal || '';
+                        }
+                    }
+                    if (embUrl) {
+                        d.embroidery_image_url = embUrl;
+                        if (embFilename) {
+                            d.embroidery_file_name = embFilename;
+                        }
+                    }
+                }
+            }
+
             await db.run(
-                'UPDATE dht_order_items SET design_pdf_url = $1, design_pdf_name = $2 WHERE id = $3',
-                [pdfUrl.trim() || null, pdfName.trim() || null, item.id]
+                'UPDATE dht_order_items SET design_pdf_url = $1, design_pdf_name = $2, print_details = $3 WHERE id = $4',
+                [pdfUrl.trim() || null, pdfName.trim() || null, JSON.stringify(printDetails), item.id]
             );
         }
 
@@ -8192,6 +8301,58 @@ module.exports = async function(fastify) {
                     });
                 }
             }
+        });
+
+        // Check Embroidery PNGs
+        items.forEach((item, idx) => {
+            if (!isSheetModified(item, idx)) {
+                return;
+            }
+            let printDetails = [];
+            try {
+                printDetails = typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []);
+            } catch(e) {}
+
+            printDetails.forEach(d => {
+                if (d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu')) && d.embroidery_image_url) {
+                    let relativePath = d.embroidery_image_url;
+                    try {
+                        relativePath = decodeURIComponent(relativePath);
+                    } catch(e) {}
+                    if (relativePath.startsWith('/')) {
+                        relativePath = relativePath.substring(1);
+                    }
+                    const fullPath = path.join(__dirname, '..', relativePath);
+                    if (fs.existsSync(fullPath)) {
+                        const stats = fs.statSync(fullPath);
+                        const size = stats.size;
+                        
+                        let cleanName = d.embroidery_file_name || path.basename(fullPath);
+                        if (editCount > 0) {
+                            const ext = path.extname(cleanName);
+                            const base = path.basename(cleanName, ext);
+                            if (!base.includes(' - Sua lan ')) {
+                                cleanName = `${base} - Sua lan ${editCount}${ext}`;
+                            }
+                        }
+
+                        if (totalAttachmentSize + size < 20 * 1024 * 1024) {
+                            totalAttachmentSize += size;
+                            attachments.push({
+                                filename: cleanName,
+                                path: fullPath
+                            });
+                        } else {
+                            const domain = process.env.BASE_URL || 'https://hethonghv.top';
+                            inlinePdfLinks.push({
+                                name: cleanName,
+                                url: `${domain}${d.embroidery_image_url}`,
+                                size: (size / (1024 * 1024)).toFixed(2) + ' MB'
+                            });
+                        }
+                    }
+                }
+            });
         });
 
         // Construct sheet blocks

@@ -7570,6 +7570,7 @@ async function _tpdShowExportSheetsModal() {
     window._tpdWarrantyProofUrl = localStorage.getItem(`tpd_warranty_proof_${o.id}`) || o.warranty_proof_image || '';
     window._tpdActivePasteZone = '';
     window._tpdSheetDesigns = {};
+    window._tpdEmbroideryImages = {};
     items.forEach((item, idx) => {
         const localUrl = localStorage.getItem(`tpd_pdf_url_${item.id}`) || '';
         const localFilename = localStorage.getItem(`tpd_pdf_filename_${item.id}`) || '';
@@ -7626,6 +7627,22 @@ async function _tpdShowExportSheetsModal() {
                 filename: ''
             };
         }
+
+        // Populate embroidery images state
+        const printDetails = (typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []));
+        printDetails.forEach(d => {
+            if (d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu'))) {
+                const localEmbUrl = localStorage.getItem(`tpd_emb_url_${item.id}_${d.position}`) || d.embroidery_image_url || '';
+                const localEmbFilename = localStorage.getItem(`tpd_emb_filename_${item.id}_${d.position}`) || d.embroidery_file_name || '';
+                if (!window._tpdEmbroideryImages[item.id]) {
+                    window._tpdEmbroideryImages[item.id] = {};
+                }
+                window._tpdEmbroideryImages[item.id][d.position] = {
+                    url: localEmbUrl,
+                    filename: localEmbFilename || `${orderCode} - Phiếu ${idx + 1} - ${d.position}.png`
+                };
+            }
+        });
     });
 
     // Create the overlay container if not exists
@@ -7731,10 +7748,48 @@ async function _tpdShowExportSheetsModal() {
                                             <a href="${design.url}" target="_blank" onclick="event.stopPropagation()" id="pdfFileName_${item.id}" style="font-size: 11px; font-weight: 700; color: #0284c7; text-decoration: underline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(design.filename)}">${escapeHTML(design.filename)}</a>
                                         </div>
                                         <button onclick="_tpdRemovePdfFile(${item.id}, event)" style="background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">&times;</button>
-                                    </div>
                                 </div>
                                 <input type="file" id="pdfFileInput_${item.id}" accept="application/pdf" style="display: none;" onchange="_tpdHandlePdfInput(event, ${item.id}, '${o.order_code || o.draft_name || 'DONHANG'}', ${idx + 1}, ${!o.is_draft ? (Number(o.edit_count) || 0) + 1 : "''"})">
                             </div>
+                            <!-- Embroidery PNG Upload Section -->
+                            ${(() => {
+                                let embroideryHtml = '';
+                                const pDetails = (typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []));
+                                const embroideryDetails = pDetails.filter(d => d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu')));
+                                
+                                if (embroideryDetails.length > 0) {
+                                    embroideryHtml = `<div style="margin-top: 12px; border-top: 1px dashed #e2e8f0; padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">`;
+                                    embroideryDetails.forEach(d => {
+                                        const emb = (window._tpdEmbroideryImages[item.id] && window._tpdEmbroideryImages[item.id][d.position]) || { url: '', filename: '' };
+                                        const hasEmb = !!emb.url;
+                                        const safePos = d.position.replace(/'/g, "\\'");
+                                        
+                                        embroideryHtml += `
+                                        <div>
+                                            <div style="font-size: 11px; font-weight: 850; color: #b45309; text-transform: uppercase; margin-bottom: 6px; text-align: left; display: flex; align-items: center; gap: 4px;">
+                                                🖼️ ẢNH BẮT BUỘC THÊU: ${escapeHTML(d.position.toUpperCase())} (.PNG)
+                                            </div>
+                                            <div id="embUploadContainer_${item.id}_${escapeHTML(d.position)}" onclick="_tpdTriggerEmbUpload(${item.id}, '${safePos}')" style="border: 1.5px dashed ${hasEmb ? '#10b981' : '#f59e0b'}; border-radius: 6px; padding: 10px; background: ${hasEmb ? '#f0fdf4' : '#fffbeb'}; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60px; transition: all 0.2s;" onmouseover="if(!window._tpdEmbroideryImages[${item.id}]?.[ '${safePos}' ]?.url) this.style.borderColor='#3b82f6';" onmouseout="if(!window._tpdEmbroideryImages[${item.id}]?.[ '${safePos}' ]?.url) this.style.borderColor='#f59e0b';">
+                                                <div id="embUploadPrompt_${item.id}_${escapeHTML(d.position)}" style="font-size: 11px; color: #78350f; font-weight: 700; text-align: center; ${hasEmb ? 'display: none;' : ''}">
+                                                    <div style="font-size: 16px; margin-bottom: 2px;">⚠️</div>
+                                                    Tải ảnh thêu ${escapeHTML(d.position)} (.png)
+                                                </div>
+                                                <div id="embPreviewContainer_${item.id}_${escapeHTML(d.position)}" style="${hasEmb ? 'display: flex;' : 'display: none;'} width: 100%; align-items: center; justify-content: space-between; gap: 8px;">
+                                                    <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 24px);">
+                                                        <span style="font-size: 16px;">🖼️</span>
+                                                        <a href="${emb.url}" target="_blank" onclick="event.stopPropagation()" id="embFileName_${item.id}_${escapeHTML(d.position)}" style="font-size: 11px; font-weight: 700; color: #0284c7; text-decoration: underline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(emb.filename)}">${escapeHTML(emb.filename)}</a>
+                                                    </div>
+                                                    <button onclick="_tpdRemoveEmbFile(${item.id}, '${safePos}', event)" style="background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">&times;</button>
+                                                </div>
+                                            </div>
+                                            <input type="file" id="embFileInput_${item.id}_${escapeHTML(d.position)}" accept="image/png" style="display: none;" onchange="_tpdHandleEmbInput(event, ${item.id}, '${safePos}', '${o.order_code || o.draft_name || 'DONHANG'}', ${idx + 1}, ${!o.is_draft ? (Number(o.edit_count) || 0) + 1 : "''"})">
+                                        </div>
+                                        `;
+                                    });
+                                    embroideryHtml += `</div>`;
+                                }
+                                return embroideryHtml;
+                            })()}
                         </div>
                         `;
                     }).join('')}
@@ -8178,7 +8233,16 @@ async function _tpdShowExportSheetsModal() {
             return !!(design && design.url);
         });
 
-        if (allDownloaded && window._tpdCopiedConfirmationText && window._tpdCopiedFinancialSummaryText && hasProofs && allPdfsUploaded) {
+        const allEmbroideryUploaded = items.every(item => {
+            const printDetails = (typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []));
+            const embroideryDetails = printDetails.filter(d => d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu')));
+            return embroideryDetails.every(d => {
+                const emb = (window._tpdEmbroideryImages[item.id] && window._tpdEmbroideryImages[item.id][d.position]);
+                return !!(emb && emb.url);
+            });
+        });
+
+        if (allDownloaded && window._tpdCopiedConfirmationText && window._tpdCopiedFinancialSummaryText && hasProofs && allPdfsUploaded && allEmbroideryUploaded) {
             confirmBtn.disabled = false;
             confirmBtn.style.background = 'linear-gradient(135deg, #059669, #10b981)';
             confirmBtn.style.color = '#ffffff';
@@ -8219,6 +8283,7 @@ async function _tpdShowExportSheetsModal() {
                         gift_proof_image: window._tpdGiftProofUrl || '',
                         warranty_proof_image: window._tpdWarrantyProofUrl || '',
                         item_designs: itemDesigns,
+                        item_embroidery_images: window._tpdEmbroideryImages,
                         sheet_images: generatedImages,
                         recipient_email: recipientEmail
                     });
@@ -8235,6 +8300,13 @@ async function _tpdShowExportSheetsModal() {
                         for (const item of items) {
                             localStorage.removeItem(`tpd_pdf_url_${item.id}`);
                             localStorage.removeItem(`tpd_pdf_filename_${item.id}`);
+                            const printDetails = (typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []));
+                            printDetails.forEach(d => {
+                                if (d.print_type && (d.print_type.toLowerCase().includes('thêu') || d.print_type.toLowerCase().includes('theu'))) {
+                                    localStorage.removeItem(`tpd_emb_url_${item.id}_${d.position}`);
+                                    localStorage.removeItem(`tpd_emb_filename_${item.id}_${d.position}`);
+                                }
+                            });
                         }
                         overlay.remove();
                         if (tempContainer) tempContainer.remove();
@@ -8585,6 +8657,125 @@ async function _tpdShowExportSheetsModal() {
         localStorage.removeItem(`tpd_pdf_filename_${itemId}`);
 
         window._tpdCheckConfirmUnlock();
+    };
+
+    window._tpdTriggerEmbUpload = function(itemId, position) {
+        const input = document.getElementById(`embFileInput_${itemId}_${position}`);
+        if (input) {
+            input.value = '';
+            input.click();
+        }
+    };
+
+    window._tpdHandleEmbInput = async function(event, itemId, position, orderCode, sheetIdx, suaLan = '') {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.name.toLowerCase().endsWith('.png')) {
+            showToast('⚠️ Chỉ chấp nhận file định dạng hình ảnh .png cho vị trí thêu!', 'error');
+            event.target.value = '';
+            return;
+        }
+
+        const container = document.getElementById(`embUploadContainer_${itemId}_${position}`);
+        const prompt = document.getElementById(`embUploadPrompt_${itemId}_${position}`);
+        const preview = document.getElementById(`embPreviewContainer_${itemId}_${position}`);
+        const link = document.getElementById(`embFileName_${itemId}_${position}`);
+
+        if (!container || !prompt || !preview || !link) return;
+
+        // Show loading state
+        prompt.style.display = 'none';
+        preview.style.display = 'none';
+        container.style.borderColor = '#3b82f6';
+        container.style.background = '#f0f7ff';
+
+        const originalContent = container.innerHTML;
+        container.innerHTML = `<div class="tpd-spinner" style="width: 20px; height: 20px; border-width: 2.5px;"></div><span style="font-size: 10px; color: #3b82f6; margin-top: 4px; font-weight: 700;">Đang tải lên...</span>`;
+
+        const fd = new FormData();
+        fd.append('file', file);
+
+        try {
+            const url = `/api/dht/orders/upload-embroidery-png?order_code=${encodeURIComponent(orderCode || '')}&sheet_index=${sheetIdx || ''}&position=${encodeURIComponent(position || '')}&sua_lan=${encodeURIComponent(suaLan || '')}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                body: fd,
+                credentials: 'include'
+            });
+            const data = await res.json();
+            if (data.success && data.url) {
+                container.innerHTML = originalContent;
+
+                const newPrompt = document.getElementById(`embUploadPrompt_${itemId}_${position}`);
+                const newPreview = document.getElementById(`embPreviewContainer_${itemId}_${position}`);
+                const newFileName = document.getElementById(`embFileName_${itemId}_${position}`);
+
+                if (newPrompt) newPrompt.style.display = 'none';
+                if (newPreview) newPreview.style.display = 'flex';
+                if (newFileName) {
+                    newFileName.textContent = data.originalName;
+                    newFileName.title = data.originalName;
+                }
+
+                container.style.borderColor = '#10b981';
+                container.style.background = '#f0fdf4';
+
+                if (!window._tpdEmbroideryImages[itemId]) {
+                    window._tpdEmbroideryImages[itemId] = {};
+                }
+                window._tpdEmbroideryImages[itemId][position] = {
+                    url: data.url,
+                    filename: data.originalName
+                };
+                localStorage.setItem(`tpd_emb_url_${itemId}_${position}`, data.url);
+                localStorage.setItem(`tpd_emb_filename_${itemId}_${position}`, data.originalName);
+
+                showToast(`Tải lên ảnh thêu ${position} thành công!`, 'success');
+            } else {
+                throw new Error(data.error || 'Lỗi tải lên');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast(`⚠️ Lỗi tải ảnh thêu: ${err.message}`, 'error');
+            container.innerHTML = originalContent;
+            const newPrompt = document.getElementById(`embUploadPrompt_${itemId}_${position}`);
+            if (newPrompt) newPrompt.style.display = 'block';
+            container.style.borderColor = '#f59e0b';
+            container.style.background = '#fffbeb';
+        }
+
+        window._tpdCheckConfirmUnlock();
+    };
+
+    window._tpdRemoveEmbFile = function(itemId, position, event) {
+        if (event) event.stopPropagation();
+
+        if (confirm(`Bạn có chắc muốn xóa file ảnh thêu vị trí ${position}?`)) {
+            if (window._tpdEmbroideryImages[itemId]) {
+                delete window._tpdEmbroideryImages[itemId][position];
+            }
+            localStorage.removeItem(`tpd_emb_url_${itemId}_${position}`);
+            localStorage.removeItem(`tpd_emb_filename_${itemId}_${position}`);
+
+            const container = document.getElementById(`embUploadContainer_${itemId}_${position}`);
+            const prompt = document.getElementById(`embUploadPrompt_${itemId}_${position}`);
+            const preview = document.getElementById(`embPreviewContainer_${itemId}_${position}`);
+            const input = document.getElementById(`embFileInput_${itemId}_${position}`);
+
+            if (input) input.value = '';
+            if (prompt) prompt.style.display = 'block';
+            if (preview) preview.style.display = 'none';
+            if (container) {
+                container.style.borderColor = '#f59e0b';
+                container.style.background = '#fffbeb';
+            }
+
+            window._tpdCheckConfirmUnlock();
+        }
+    };
+
+    window._tpdCheckConfirmUnlock();
     };
 
     // Paste listener for the export modal
