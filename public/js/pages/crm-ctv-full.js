@@ -1103,7 +1103,7 @@ async function _ctvOpenConsultModal(customerId) {
     } else if (orderStatus === 'tuong_tac_ket_noi') {
         allowedTypes = _getFlowRuleTypes('tuong_tac_ket_noi') || allTypes.filter(([k]) => ['gui_ct_kh_cu'].includes(k));
     } else if (orderStatus === 'gui_ct_kh_cu') {
-        allowedTypes = _getFlowRuleTypes('gui_ct_kh_cu') || allTypes.filter(([k]) => ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
+        allowedTypes = _getFlowRuleTypes('gui_ct_kh_cu') || allTypes.filter(([k]) => ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc','chot_don'].includes(k));
     } else if (orderStatus === 'lam_quen_tuong_tac') {
         allowedTypes = _getFlowRuleTypes('lam_quen_tuong_tac') || allTypes.filter(([k]) => ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke'].includes(k));
     } else if (orderStatus === 'hoan_thanh') {
@@ -1115,7 +1115,7 @@ async function _ctvOpenConsultModal(customerId) {
     } else if (orderStatus === 'gui_stk_coc') {
         const fr = _getFlowRuleTypes('gui_stk_coc');
         if (fr) { allowedTypes = fr; }
-        else { const order = ['giuc_coc','dat_coc','nhan_tin','cap_cuu_sep']; allowedTypes = order.map(k => [k, CTV_CONSULT_TYPES[k]]).filter(([,v]) => v); }
+        else { const order = ['giuc_coc','dat_coc','chot_don','nhan_tin','cap_cuu_sep']; allowedTypes = order.map(k => [k, CTV_CONSULT_TYPES[k]]).filter(([,v]) => v); }
     } else if (orderStatus === 'huy_coc') {
         allowedTypes = _getFlowRuleTypes('huy_coc') || allTypes.filter(([k]) => ['tuong_tac_ket_noi','nhan_tin','goi_dien','gap_truc_tiep','cap_cuu_sep'].includes(k));
     } else if (orderStatus === 'duyet_huy') {
@@ -1123,10 +1123,10 @@ async function _ctvOpenConsultModal(customerId) {
     } else if (orderStatus === 'tu_van_lai') {
         allowedTypes = _getFlowRuleTypes('tu_van_lai') || allTypes.filter(([k]) => ['giam_gia','thiet_ke'].includes(k));
     } else if (orderStatus === 'giam_gia') {
-        allowedTypes = _getFlowRuleTypes('giam_gia') || allTypes.filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
+        allowedTypes = _getFlowRuleTypes('giam_gia') || allTypes.filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc','chot_don'].includes(k));
     } else {
         // Fallback: consultation phase types only
-        const normalTypes = ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc','cap_cuu_sep','huy'];
+        const normalTypes = ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc','chot_don','cap_cuu_sep','huy'];
         allowedTypes = allTypes.filter(([k]) => normalTypes.includes(k));
     }
 
@@ -1135,7 +1135,7 @@ async function _ctvOpenConsultModal(customerId) {
 
     // Override: after Hoàn Thành Cấp Cứu → show full consultation types with Giảm Giá
     if (lastLog && lastLog.log_type === 'hoan_thanh_cap_cuu') {
-        allowedTypes = allTypes.filter(([k]) => ['giam_gia','lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
+        allowedTypes = allTypes.filter(([k]) => ['giam_gia','lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc','chot_don'].includes(k));
     }
 
     // Override: if customer has a PENDING emergency → lock to cap_cuu_sep only
