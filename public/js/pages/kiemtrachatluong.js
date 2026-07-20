@@ -2494,8 +2494,12 @@ async function _ktclOpenQCModal(recordId) {
         layoutSewItems.forEach(item => {
             if (item && item.tech) {
                 const nameKey = item.tech.trim().toLowerCase();
-                if (!seenNames.has(nameKey)) {
-                    seenNames.add(nameKey);
+                const existing = techniques.find(t => t.name.trim().toLowerCase() === nameKey);
+                if (existing) {
+                    if (item.detail) {
+                        existing.name = existing.name + `: ${item.detail}`;
+                    }
+                } else {
                     techniques.push({
                         id: item.id || ('custom_' + item.tech),
                         name: item.tech + (item.detail ? `: ${item.detail}` : ''),
