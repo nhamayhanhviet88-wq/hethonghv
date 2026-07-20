@@ -5474,10 +5474,10 @@ module.exports = async function(fastify) {
                                           WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                                       ))
                                       OR
-                                      (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                      (sr.contractor_id IS NOT NULL AND ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                           SELECT 1 FROM qc_checklist_answers qca 
                                           WHERE qca.sewing_record_id = sr.id
-                                      ))
+                                      )))
                                   )
                             )
                             ELSE false
@@ -5492,10 +5492,10 @@ module.exports = async function(fastify) {
                                 JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
                                 WHERE (sr.order_item_id = oi.id OR (oi.id IS NULL AND fr.dht_order_id = o.id))
                                   AND (
-                                      NOT EXISTS (
+                                      ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                            SELECT 1 FROM qc_checklist_answers qca 
                                            WHERE qca.sewing_record_id = fr.sewing_record_id
-                                      )
+                                      ))
                                       OR
                                       (sr.contractor_id IS NULL AND fr.is_completed = false)
                                   )
@@ -5512,10 +5512,10 @@ module.exports = async function(fastify) {
                                                   WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                                               ))
                                               OR
-                                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                                              (sr.contractor_id IS NOT NULL AND ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                                   SELECT 1 FROM qc_checklist_answers qca 
                                                   WHERE qca.sewing_record_id = sr.id
-                                              ))
+                                              )))
                                           )
                                     )
                                     ELSE false

@@ -840,6 +840,7 @@ module.exports = async function(fastify) {
             WHERE EXISTS (
                 SELECT 1 FROM dht_order_items oi
                 WHERE oi.dht_order_id = o.id
+                  AND (oi.production_steps IS NULL OR oi.production_steps @> '4'::jsonb)
                   AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = oi.id)
                   AND EXISTS (
                       SELECT 1 FROM qlx_order_print_assignments qa
@@ -864,6 +865,7 @@ module.exports = async function(fastify) {
                 CASE WHEN EXISTS (
                     SELECT 1 FROM dht_order_items oi
                     WHERE oi.dht_order_id = o.id
+                      AND (oi.production_steps IS NULL OR oi.production_steps @> '4'::jsonb)
                       AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = oi.id)
                       AND EXISTS (
                           SELECT 1 FROM qlx_order_print_assignments qa
@@ -1070,6 +1072,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 WHERE doi.dht_order_id = ANY($1)
+                  AND (doi.production_steps IS NULL OR doi.production_steps @> '4'::jsonb)
                   AND NOT EXISTS (SELECT 1 FROM pressing_records pr WHERE pr.order_item_id = doi.id)
                   AND EXISTS (
                       SELECT 1 FROM qlx_order_print_assignments qa

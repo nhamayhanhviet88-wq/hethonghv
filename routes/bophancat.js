@@ -1625,18 +1625,14 @@ module.exports = async function(fastify) {
 
               AND o.order_code NOT ILIKE '%TEM%' AND o.order_code NOT ILIKE '%PET%'
 
-              AND COALESCE(o.shipping_status, '') != 'shipped'
+               AND COALESCE(o.shipping_status, '') != 'shipped'
               AND COALESCE(i.production_cancelled, false) = false
+              AND (i.production_steps IS NULL OR i.production_steps @> '2'::jsonb)
               AND NOT EXISTS (
-
                   SELECT 1 FROM qlx_order_print_assignments pa
-
                   JOIN printing_fields pf ON pa.field_id = pf.id
-
                   WHERE (pa.item_id = i.id OR (pa.item_id IS NULL AND pa.dht_order_id = o.id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments pa2 WHERE pa2.item_id = i.id)))
-
                     AND (pa.field_id IN (4, 7) OR LOWER(pf.name) LIKE '%in cắt%' OR LOWER(pf.name) LIKE '%tự cắt%')
-
               )
 
         `);
@@ -5524,13 +5520,10 @@ module.exports = async function(fastify) {
             LEFT JOIN printing_contractors pc_in ON qa_in.assigned_contractor_id = pc_in.id
 
             WHERE EXISTS (
-
                 SELECT 1 FROM dht_order_items oi
-
                 WHERE oi.dht_order_id = o.id
-
+                AND (oi.production_steps IS NULL OR oi.production_steps @> '2'::jsonb)
                 ${wherePrintCut}
-
                 AND COALESCE(oi.production_cancelled, false) = false
                 AND (
 

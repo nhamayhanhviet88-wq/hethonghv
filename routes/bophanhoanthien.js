@@ -222,7 +222,7 @@ module.exports = async function(fastify) {
                        LIMIT 1
                    ) AS cut_product_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
-                   (CASE WHEN fr.sewing_record_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = fr.sewing_record_id) THEN 0 ELSE 1 END) AS is_qc_checked,
+                   (CASE WHEN fr.sewing_record_id IS NOT NULL AND (oi_cancel.production_steps IS NULL OR oi_cancel.production_steps @> '6'::jsonb) AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = fr.sewing_record_id) THEN 0 ELSE 1 END) AS is_qc_checked,
                    COALESCE(oi_cancel.production_cancelled, false) AS production_cancelled
             FROM finishing_records fr 
             LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
@@ -264,7 +264,7 @@ module.exports = async function(fastify) {
     // ========== TOGGLE ==========
     fastify.post('/api/finishing/toggle/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { action } = req.body || {}, now = vnNow();
-        const rec = await db.get('SELECT fr.*, COALESCE(oi.production_cancelled, false) AS production_cancelled FROM finishing_records fr LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id LEFT JOIN dht_order_items oi ON oi.id = sr.order_item_id WHERE fr.id=$1', [id]);
+        const rec = await db.get('SELECT fr.*, oi.production_steps, COALESCE(oi.production_cancelled, false) AS production_cancelled FROM finishing_records fr LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id LEFT JOIN dht_order_items oi ON oi.id = sr.order_item_id WHERE fr.id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
         if (rec.production_cancelled) return reply.code(403).send({ error: '🚫 Phiếu này đã bị HỦY SẢN XUẤT — không thể thao tác' });
 
@@ -273,9 +273,21 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: 'Đơn hàng chưa được phân công. Vui lòng phân công trước khi hoàn thành!' });
             }
             if (rec.sewing_record_id) {
-                const qcAns = await db.get('SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = $1 LIMIT 1', [rec.sewing_record_id]);
-                if (!qcAns) {
-                    return reply.code(400).send({ error: 'Đơn hàng chưa được kiểm tra chất lượng (QC). Hãy nhắc bộ phận QC kiểm tra trước!' });
+                let isQcRequired = true;
+                if (rec.production_steps) {
+                    let steps = rec.production_steps;
+                    if (typeof steps === 'string') {
+                        try { steps = JSON.parse(steps); } catch (e) {}
+                    }
+                    if (Array.isArray(steps)) {
+                        isQcRequired = steps.includes(6) || steps.includes('6');
+                    }
+                }
+                if (isQcRequired) {
+                    const qcAns = await db.get('SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = $1 LIMIT 1', [rec.sewing_record_id]);
+                    if (!qcAns) {
+                        return reply.code(400).send({ error: 'Đơn hàng chưa được kiểm tra chất lượng (QC). Hãy nhắc bộ phận QC kiểm tra trước!' });
+                    }
                 }
             }
         }

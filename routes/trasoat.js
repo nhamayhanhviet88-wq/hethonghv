@@ -379,6 +379,7 @@ module.exports = async function(fastify) {
                 oi.production_cancelled,
                 oi.is_no_sew,
                 COALESCE(oi.is_no_cut, false) AS is_no_cut,
+                oi.production_steps,
                 (
                     SELECT string_agg(pp.step_id::text, ',') 
                     FROM dht_product_process pp 
@@ -1555,12 +1556,21 @@ function _processOrderWithItems(o, items, todayStr) {
             }
         }
 
+        let stepsVal = item.production_steps;
+        if (typeof stepsVal === 'string') {
+            try { stepsVal = JSON.parse(stepsVal); } catch(e) { stepsVal = null; }
+        }
+        if (Array.isArray(stepsVal)) {
+            const allowed = new Set(stepsVal.map(Number));
+            requiredStepIds = new Set([...requiredStepIds].filter(id => allowed.has(id)));
+        }
+
         const isKhongIn = !!item.is_khong_in;
         const isNoSew = !!item.is_no_sew;
         const needsCut = item.is_no_cut ? false : requiredStepIds.has(2);
         const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
         let needsPress = isKhongIn ? false : requiredStepIds.has(4);
-        if (item.has_any_printing && !isPetTem && !isKhongIn) {
+        if (needsPress && item.has_any_printing && !isPetTem && !isKhongIn) {
             needsPress = !!item.has_press_printing;
         }
         const needsSew = isNoSew ? false : requiredStepIds.has(5);
@@ -1713,6 +1723,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             oi.production_cancelled,
             oi.is_no_sew,
             COALESCE(oi.is_no_cut, false) AS is_no_cut,
+            oi.production_steps,
             (
                 SELECT string_agg(pp.step_id::text, ',') 
                 FROM dht_product_process pp 
@@ -1805,7 +1816,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                                   WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                               ))
                               OR
-                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = sr.id
                               ))
@@ -1822,7 +1833,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                                   WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                               ))
                               OR
-                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = sr.id
                               ))
@@ -1843,10 +1854,10 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
                         WHERE sr.order_item_id = oi.id
                           AND (
-                              NOT EXISTS (
+                              ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = fr.sewing_record_id
-                              )
+                              ))
                               OR
                               (sr.contractor_id IS NULL AND fr.is_completed = false)
                           )
@@ -1858,10 +1869,10 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
                         WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
                           AND (
-                              NOT EXISTS (
+                              ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = fr.sewing_record_id
-                              )
+                              ))
                               OR
                               (sr.contractor_id IS NULL AND fr.is_completed = false)
                           )
@@ -1930,12 +1941,21 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
         }
     }
 
+    let stepsVal = item.production_steps;
+    if (typeof stepsVal === 'string') {
+        try { stepsVal = JSON.parse(stepsVal); } catch(e) { stepsVal = null; }
+    }
+    if (Array.isArray(stepsVal)) {
+        const allowed = new Set(stepsVal.map(Number));
+        requiredStepIds = new Set([...requiredStepIds].filter(id => allowed.has(id)));
+    }
+
     const isKhongIn = !!item.is_khong_in;
     const isNoSew = !!item.is_no_sew;
     const needsCut = order.is_no_cut ? false : requiredStepIds.has(2);
     const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
     let needsPress = isKhongIn ? false : requiredStepIds.has(4);
-    if (item.has_any_printing && !isPetTem && !isKhongIn) {
+    if (needsPress && item.has_any_printing && !isPetTem && !isKhongIn) {
         needsPress = !!item.has_press_printing;
     }
     const needsSew = isNoSew ? false : requiredStepIds.has(5);
@@ -2038,12 +2058,14 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
         const htDisplayTime = htTotalCount > 0 ? htTime : finRec?.completed_at;
         const htDisplayWorker = htTotalCount > 0 ? htWorker : finRec?.finisher_name;
 
+        const needsQc = isNoSew ? false : requiredStepIds.has(6);
+
         timeline = [];
         if (needsCut) timeline.push({ name: 'Cắt', short: 'CẮT', done: allCutDone, time: cutTime, worker: cutWorker, progress: cutProgress });
         if (needsPrint) timeline.push({ name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress });
         if (needsPress) timeline.push({ name: 'Ép', short: 'ÉP', done: pressDone, time: pressDisplayTime, worker: pressDisplayWorker, progress: pressProgress });
         if (needsSew) timeline.push({ name: 'May', short: 'MAY', done: sewDone, time: sewDisplayTime, worker: sewDisplayWorker, progress: sewProgress });
-        if (!isNoSew) timeline.push({ name: 'Kiểm Tra CL', short: 'QC', done: qcDone, time: qcDisplayTime, worker: qcDisplayWorker, progress: qcProgress });
+        if (needsQc) timeline.push({ name: 'Kiểm Tra CL', short: 'QC', done: qcDone, time: qcDisplayTime, worker: qcDisplayWorker, progress: qcProgress });
         if (needsFinishing) timeline.push({ name: 'Hoàn Thiện', short: 'HT', done: htDone, time: htDisplayTime, worker: htDisplayWorker, progress: htProgress });
         timeline.push({ name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name });
     }

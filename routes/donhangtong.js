@@ -2051,8 +2051,9 @@ module.exports = async function(fastify) {
                         sale_type, product_name, material_id, material_name,
                         color_id, color_name, pattern_name, sewing_techniques,
                         accounting_notes, extra_materials, quantities,
-                        extra_product, extra_price, item_total, material_pairs, size_type, promo_gift_quantity, promo_gift_code, promo_gift_apply_row_index)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                        extra_product, extra_price, item_total, material_pairs, size_type, promo_gift_quantity, promo_gift_code, promo_gift_apply_row_index,
+                        production_steps)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
                 `, [
                     result.id,
                     item.product_name || '',
@@ -2077,7 +2078,8 @@ module.exports = async function(fastify) {
                     resolvedSizeType,
                     Number(item.promo_gift_quantity) || 0,
                     item.promo_gift_code || null,
-                    item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null
+                    item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null,
+                    item.production_steps ? JSON.stringify(item.production_steps) : null
                 ]);
             }
 
@@ -3436,6 +3438,11 @@ module.exports = async function(fastify) {
         if (b.color_name !== undefined) { sets.push(`color_name = $${idx++}`); vals.push(b.color_name || null); }
         if (b.style_name !== undefined) { sets.push(`style_name = $${idx++}`); vals.push(b.style_name || null); }
         if (b.workshop_note !== undefined) { sets.push(`workshop_note = $${idx++}`); vals.push(b.workshop_note || null); }
+        if (b.production_steps !== undefined) {
+            sets.push(`production_steps = $${idx++}`);
+            vals.push(b.production_steps ? JSON.stringify(b.production_steps) : null);
+        }
+
         
         sets.push(`size_type = $${idx++}`);
         vals.push(resolvedSizeType);
@@ -5495,8 +5502,9 @@ module.exports = async function(fastify) {
                             color_id = $9, color_name = $10, pattern_name = $11, sewing_techniques = $12,
                             accounting_notes = $13, extra_materials = $14, quantities = $15,
                             extra_product = $16, extra_price = $17, item_total = $18, material_pairs = $19,
-                            size_type = $20, promo_gift_quantity = $21, promo_gift_code = $22, promo_gift_apply_row_index = $23
-                        WHERE id = $24 AND dht_order_id = $25
+                            size_type = $20, promo_gift_quantity = $21, promo_gift_code = $22, promo_gift_apply_row_index = $23,
+                            production_steps = $24
+                        WHERE id = $25 AND dht_order_id = $26
                     `, [
                         item.product_name || '',
                         Number(item.quantity) || 0,
@@ -5521,6 +5529,7 @@ module.exports = async function(fastify) {
                         Number(item.promo_gift_quantity) || 0,
                         item.promo_gift_code || null,
                         item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null,
+                        item.production_steps ? JSON.stringify(item.production_steps) : null,
                         itemId,
                         orderId
                     ]);
@@ -5658,8 +5667,9 @@ module.exports = async function(fastify) {
                             sale_type, product_name, material_id, material_name,
                             color_id, color_name, pattern_name, sewing_techniques,
                             accounting_notes, extra_materials, quantities,
-                            extra_product, extra_price, item_total, material_pairs, size_type, promo_gift_quantity, promo_gift_code, promo_gift_apply_row_index)
-                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                            extra_product, extra_price, item_total, material_pairs, size_type, promo_gift_quantity, promo_gift_code, promo_gift_apply_row_index,
+                            production_steps)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
                     `, [
                         orderId,
                         item.product_name || '',
@@ -5684,7 +5694,8 @@ module.exports = async function(fastify) {
                         resolvedSizeType,
                         Number(item.promo_gift_quantity) || 0,
                         item.promo_gift_code || null,
-                        item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null
+                        item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null,
+                        item.production_steps ? JSON.stringify(item.production_steps) : null
                     ]);
                 }
             }

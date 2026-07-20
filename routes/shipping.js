@@ -105,6 +105,7 @@ async function _getShippingItemsProgress(orderIds) {
                 )
             ) AS is_khong_in,
             COALESCE(oi.is_no_sew, false) AS is_no_sew,
+            oi.production_steps,
             COALESCE(
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) 
@@ -151,7 +152,7 @@ async function _getShippingItemsProgress(orderIds) {
                                   WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                               ))
                               OR
-                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = sr.id
                               ))
@@ -168,7 +169,7 @@ async function _getShippingItemsProgress(orderIds) {
                                   WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                               ))
                               OR
-                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
+                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = sr.id
                               ))
@@ -189,10 +190,10 @@ async function _getShippingItemsProgress(orderIds) {
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
                         WHERE sr.order_item_id = oi.id
                           AND (
-                              NOT EXISTS (
+                              ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = fr.sewing_record_id
-                              )
+                              ))
                               OR
                               (sr.contractor_id IS NULL AND fr.is_completed = false)
                           )
@@ -204,10 +205,10 @@ async function _getShippingItemsProgress(orderIds) {
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
                         WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
                           AND (
-                              NOT EXISTS (
+                              ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = fr.sewing_record_id
-                              )
+                              ))
                               OR
                               (sr.contractor_id IS NULL AND fr.is_completed = false)
                           )
@@ -223,6 +224,7 @@ async function _getShippingItemsProgress(orderIds) {
                     THEN NOT EXISTS (
                         SELECT 1 FROM sewing_records sr
                         WHERE sr.order_item_id = oi.id
+                          AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb)
                           AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id)
                     )
                     WHEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
@@ -230,6 +232,7 @@ async function _getShippingItemsProgress(orderIds) {
                     THEN NOT EXISTS (
                         SELECT 1 FROM sewing_records sr
                         WHERE sr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
+                          AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb)
                           AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id)
                     )
                     ELSE false
@@ -297,22 +300,33 @@ function _processShippingOrderItems(order, itemsList, isPetTem) {
             }
         }
 
+        let stepsVal = item.production_steps;
+        if (typeof stepsVal === 'string') {
+            try { stepsVal = JSON.parse(stepsVal); } catch(e) { stepsVal = null; }
+        }
+        if (Array.isArray(stepsVal)) {
+            const allowed = new Set(stepsVal.map(Number));
+            requiredStepIds = new Set([...requiredStepIds].filter(id => allowed.has(id)));
+        }
+
         const isKhongIn = !!item.is_khong_in;
         const isNoSew = !!item.is_no_sew;
         const needsCut = requiredStepIds.has(2);
         const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
         let needsPress = isKhongIn ? false : requiredStepIds.has(4);
-        if (item.has_any_printing && !isPetTem && !isKhongIn) {
+        if (needsPress && item.has_any_printing && !isPetTem && !isKhongIn) {
             needsPress = !!item.has_press_printing;
         }
         const needsSew = isNoSew ? false : requiredStepIds.has(5);
         const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
 
+        const needsQc = isNoSew ? false : requiredStepIds.has(6);
+
         const cutDone = !needsCut || item.cut_done;
         const printDone = !needsPrint || item.print_done;
         const pressDone = !needsPress || item.press_done;
         const sewDone = !needsSew || item.sew_done;
-        const qcDone = !needsSew || item.qc_done; // QC is tied to Sewing
+        const qcDone = !needsQc || item.qc_done;
         const finishDone = !needsFinishing || item.finish_done;
 
         const allDone = cutDone && printDone && pressDone && sewDone && qcDone && finishDone;

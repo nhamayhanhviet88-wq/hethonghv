@@ -1809,7 +1809,20 @@ async function _dhtAddItem(editIdx) {
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:800;font-size:14px;color:'+(isRestricted?'#64748b':'var(--navy)')+'">'+popupTitle+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
         +warningBanner
-        +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
+        +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px">'
+        +'  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+        +'    <div style="font-size:10px;font-weight:800;color:#1d4ed8">⚙️ QUY TRÌNH SẢN XUẤT</div>'
+        +'    <div style="display:flex;gap:10px">'
+        +'      <label style="font-size:10.5px;font-weight:700;color:#1e40af;cursor:pointer;margin:0;display:flex;align-items:center;gap:2px">'
+        +'        <input type="radio" id="_pp_wf_full" name="_pp_wf_type" value="full" checked onchange="_ppToggleWorkflowType(this.value)"> Đủ QT'
+        +'      </label>'
+        +'      <label style="font-size:10.5px;font-weight:700;color:#1e40af;cursor:pointer;margin:0;display:flex;align-items:center;gap:2px">'
+        +'        <input type="radio" id="_pp_wf_custom" name="_pp_wf_type" value="custom" onchange="_ppToggleWorkflowType(this.value)"> Lược bớt'
+        +'      </label>'
+        +'    </div>'
+        +'  </div>'
+        +'  <div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div>'
+        +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
         +'<div id="_pp_sizeTypeContainer" style="display:none;margin-bottom:8px">'
         +'<label style="font-size:11px;font-weight:700;color:#475569">📏 Loại Size Mặc Định *</label>'
@@ -2199,6 +2212,18 @@ function _dhtUpdatePatternList(prodId) {
     }).join('');
 }
 
+window._ppToggleWorkflowType = function(type) {
+    var checkboxes = document.querySelectorAll('#_pp_processSteps input[type="checkbox"]');
+    checkboxes.forEach(function(cb) {
+        if (type === 'full') {
+            cb.checked = true;
+            cb.disabled = true;
+        } else {
+            cb.disabled = false;
+        }
+    });
+};
+
 // Cascade: product → show process steps + store assigned materials globally
 async function _dhtProductChange(keepExistingPattern) {
     window._ppStockLimits = {};
@@ -2258,14 +2283,32 @@ async function _dhtProductChange(keepExistingPattern) {
         if(bar&&stepsEl){
             if(steps.length>0){
                 var colors=['#3b82f6','#059669','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0891b2','#64748b'];
+                var existing = window._ppCurrentExistingPhieu || {};
+                var isCustom = existing.production_steps && Array.isArray(existing.production_steps);
+                
                 stepsEl.innerHTML=steps.map(function(s,i){
                     var bg=colors[i%colors.length];
-                    var clickAttr = s.page_link ? 'onclick="window.open(\''+s.page_link+'\',\'_blank\')" style="display:inline-flex;align-items:center;gap:3px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseover="this.style.transform=\'scale(1.05)\';this.style.boxShadow=\'0 2px 6px rgba(0,0,0,0.2)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'" title="Click để mở '+s.name+'"'
-                        : 'style="display:inline-flex;align-items:center;gap:3px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700"';
-                    return '<span '+clickAttr+'>'
+                    var isChecked = true;
+                    if (isCustom) {
+                        isChecked = existing.production_steps.indexOf(Number(s.step_id)) >= 0 || existing.production_steps.indexOf(String(s.step_id)) >= 0;
+                    }
+                    var checkedAttr = isChecked ? 'checked' : '';
+                    var disabledAttr = isCustom ? '' : 'disabled';
+                    
+                    return '<label style="display:inline-flex;align-items:center;gap:4px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;margin:0;user-select:none">'
+                        +'<input type="checkbox" class="_pp_step_cb" data-step-id="'+s.step_id+'" '+checkedAttr+' '+disabledAttr+' style="margin:0;cursor:pointer"> '
                         +'<span style="background:rgba(255,255,255,0.3);padding:1px 3px;border-radius:2px;font-size:8px;font-weight:800">'+(s.short_name||'')+'</span> '
-                        +s.name+'</span>';
+                        +s.name+'</label>';
                 }).join('');
+                
+                if (isCustom) {
+                    var rdCustom = document.getElementById('_pp_wf_custom');
+                    if (rdCustom) rdCustom.checked = true;
+                } else {
+                    var rdFull = document.getElementById('_pp_wf_full');
+                    if (rdFull) rdFull.checked = true;
+                }
+                
                 bar.style.display='block';
             } else { bar.style.display='none'; }
         }
@@ -2744,8 +2787,16 @@ function _dhtSavePhieu(idx) {
     // Build display name for color (all pairs)
     var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
     var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
+    var wfType = document.querySelector('input[name="_pp_wf_type"]:checked')?.value || 'full';
+    var stepsVal = null;
+    if (wfType === 'custom') {
+        stepsVal = Array.from(document.querySelectorAll('#_pp_processSteps input[type="checkbox"]:checked')).map(function(cb) {
+            return Number(cb.getAttribute('data-step-id'));
+        });
+    }
+
     // ★ quantity = typedQty (what user typed) — qtyPairs are now scaled to match
-    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:typedQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx,has_fabric_called:!!existing.has_fabric_called,has_print_assignment:!!existing.has_print_assignment,has_cutting_started:!!existing.has_cutting_started};
+    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:typedQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx,has_fabric_called:!!existing.has_fabric_called,has_print_assignment:!!existing.has_print_assignment,has_cutting_started:!!existing.has_cutting_started,production_steps:stepsVal};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
