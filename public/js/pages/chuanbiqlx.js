@@ -1268,7 +1268,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             }
 
             // === Stock section (always visible when warehouse has data) ===
-            html += '<div id="_qlxSecStock">';
+            var stockDisplay = isNoCut ? 'none' : 'block';
+            html += '<div id="_qlxSecStock" style="display: ' + stockDisplay + ';">';
             html += '<div style="padding:0 20px"><div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px">📦 LẤY VẢI TỪ KHO (' + wh.warehouse_name + ') <span style="font-weight:600;color:#6b7280;font-size:11px">— ' + rolls.length + ' Cây Vải</span></div>';
             if (rolls.length) {
                 // Sort: group by primary order tag, then by available ascending
@@ -1430,10 +1431,12 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             html += '</div></div>';
 
             // === Divider ===
-            html += '<div style="padding:0 20px;margin:12px 0"><div style="border-top:1.5px dashed #cbd5e1"></div></div>';
+            var dividerDisplay = isNoCut ? 'none' : 'block';
+            html += '<div id="_qlxSecDivider" style="padding:0 20px;margin:12px 0;display: ' + dividerDisplay + ';"><div style="border-top:1.5px dashed #cbd5e1"></div></div>';
 
             // === Call new section (always visible) ===
-            html += '<div id="_qlxSecCall">';
+            var callDisplay = isNoCut ? 'none' : 'block';
+            html += '<div id="_qlxSecCall" style="display: ' + callDisplay + ';">';
             html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed, isNoCut);
             html += '</div>';
         }
@@ -1494,19 +1497,21 @@ async function _qlxToggleNoCutMode(chk, orderId, itemId, pairIndex) {
     console.log("[DEBUG ToggleNoCutMode] orderId:", orderId, "checked:", checked);
     
     // Cập nhật giao diện tức thì
-    var scheduleContainer = document.getElementById('_qlxCutScheduleContainer');
-    if (scheduleContainer) {
-        scheduleContainer.style.display = checked ? 'none' : 'block';
-    }
+    var secStock = document.getElementById('_qlxSecStock');
+    if (secStock) secStock.style.display = checked ? 'none' : 'block';
+    var secDivider = document.getElementById('_qlxSecDivider');
+    if (secDivider) secDivider.style.display = checked ? 'none' : 'block';
+    var secCall = document.getElementById('_qlxSecCall');
+    if (secCall) secCall.style.display = checked ? 'none' : 'block';
     
     try {
         var res = await apiCall('/api/qlx/order/' + orderId + '/no-cut', 'POST', { is_no_cut: checked });
         if (res && res.error) {
             showToast('⚠️ ' + res.error, 'error');
             chk.checked = !checked; // revert
-            if (scheduleContainer) {
-                scheduleContainer.style.display = !checked ? 'none' : 'block';
-            }
+            if (secStock) secStock.style.display = !checked ? 'none' : 'block';
+            if (secDivider) secDivider.style.display = !checked ? 'none' : 'block';
+            if (secCall) secCall.style.display = !checked ? 'none' : 'block';
             return;
         }
         showToast(checked ? '✅ Đã kích hoạt chế độ KHÔNG CẮT' : '✅ Đã tắt chế độ KHÔNG CẮT');
@@ -1516,9 +1521,9 @@ async function _qlxToggleNoCutMode(chk, orderId, itemId, pairIndex) {
     } catch (e) {
         showToast('Lỗi: ' + e.message, 'error');
         chk.checked = !checked; // revert
-        if (scheduleContainer) {
-            scheduleContainer.style.display = !checked ? 'none' : 'block';
-        }
+        if (secStock) secStock.style.display = !checked ? 'none' : 'block';
+        if (secDivider) secDivider.style.display = !checked ? 'none' : 'block';
+        if (secCall) secCall.style.display = !checked ? 'none' : 'block';
     }
 }
 

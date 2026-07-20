@@ -3805,7 +3805,7 @@ module.exports = async function(fastify) {
         const isPhoiCutClaimed = !!hasClaimedCut;
 
         return {
-            order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name },
+            order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, is_no_cut: !!order.is_no_cut, sx_print_confirmed: !!order.sx_print_confirmed },
             item: { id: item.id, description: item.description, quantity: item.quantity, item_index: item.item_index },
             phoi: { material_name: phoi.material_name, color_name: phoi.color_name, phoi_index: pi },
             warehouse,
