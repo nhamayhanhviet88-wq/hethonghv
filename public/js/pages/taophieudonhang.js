@@ -1210,6 +1210,7 @@ function _tpdRenderTechCardContent(data, steps) {
                                                 `).join('')}
                                             </div>
                                         </div>
+                                        ` : ''}
 
                                         <!-- Extra materials -->
                                         ${extraMats.length > 0 ? `
