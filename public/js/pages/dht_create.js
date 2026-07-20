@@ -2300,6 +2300,11 @@ function _ppIsCuttingSelected() {
 function _ppUpdateCuttingFieldsVisibility() {
     var isCutting = _ppIsCuttingSelected();
     
+    // Check if the product has any assigned materials from KHO SẴN
+    var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
+        return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
+    });
+    
     // 1. Loại Size Mặc Định
     var sizeContainer = document.getElementById('_pp_sizeTypeContainer');
     if (sizeContainer) {
@@ -2319,7 +2324,10 @@ function _ppUpdateCuttingFieldsVisibility() {
     if (!isCutting) {
         if (techEl) techEl.style.display = 'none';
         if (imgEl) imgEl.style.display = 'none';
-        if (mixInfo) mixInfo.style.display = 'none';
+        // Note: Mix info is shown if we need to display material & color pairs
+        if (mixInfo) {
+            mixInfo.style.display = hasKhoSan ? 'block' : 'none';
+        }
     } else {
         if (techEl && techEl.innerHTML.trim() !== '') techEl.style.display = 'block';
         if (imgEl && imgEl.innerHTML.trim() !== '') imgEl.style.display = 'block';
@@ -2329,7 +2337,7 @@ function _ppUpdateCuttingFieldsVisibility() {
     // 3. Chất Liệu 1 & Màu 1
     var matColorPairs = document.getElementById('_pp_matColorPairs');
     if (matColorPairs) {
-        matColorPairs.style.display = isCutting ? 'block' : 'none';
+        matColorPairs.style.display = (isCutting || hasKhoSan) ? 'block' : 'none';
     }
     
     // 4. Vật Liệu Kèm / Chi Tiết May Thêm container
@@ -2393,6 +2401,9 @@ async function _dhtProductChange(keepExistingPattern) {
             apiCall('/api/dht/product-process/'+prod.id),
             apiCall('/api/dht/product-materials/'+prod.id)
         ]);
+        // Store assigned materials globally FIRST so subsequent render/visibility logic can access it
+        window._ppAssignedMats=matRes.materials||[];
+        
         // Show process steps
         var steps=procRes.steps||[];
         if(bar&&stepsEl){
@@ -2479,11 +2490,12 @@ async function _dhtProductChange(keepExistingPattern) {
                 }
             } else { bar.style.display='none'; }
         }
-        // Store assigned materials globally for pair rendering
-        window._ppAssignedMats=matRes.materials||[];
-        // Re-render pairs if pattern already selected
+        // Re-render pairs if pattern already selected or if we have KHO SẴN materials
         var patName=document.getElementById('_pp_pattern')?.value;
-        if(patName) {
+        var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
+            return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
+        });
+        if(patName || hasKhoSan) {
             _dhtPatternChange(window._ppCurrentExistingPhieu);
         }
     }catch(e){if(bar)bar.style.display='none';}
@@ -2499,7 +2511,11 @@ function _dhtPatternChange(existing) {
     var pairsEl = document.getElementById('_pp_matColorPairs');
     var mixInfo = document.getElementById('_pp_mixInfo');
     if (!pairsEl) return;
-    if (!patName) {
+    var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
+        return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
+    });
+
+    if (!patName && !hasKhoSan) {
         pairsEl.innerHTML='';
         if(mixInfo)mixInfo.style.display='none';
         var imgEl=document.getElementById('_pp_specImage');if(imgEl)imgEl.style.display='none';

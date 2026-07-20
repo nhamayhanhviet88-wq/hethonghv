@@ -6419,8 +6419,10 @@ module.exports = async function(fastify) {
 
     fastify.get('/api/dht/product-materials/:productId', { preHandler: [authenticate] }, async (request, reply) => {
         const pid = Number(request.params.productId);
-        const rows = await db.all(`SELECT pm.id, pm.material_id, m.name as material_name, m.stop_import
-            FROM dht_product_materials pm JOIN kv_materials m ON m.id = pm.material_id
+        const rows = await db.all(`SELECT pm.id, pm.material_id, m.name as material_name, m.stop_import, w.name as warehouse_name
+            FROM dht_product_materials pm 
+            JOIN kv_materials m ON m.id = pm.material_id
+            JOIN kv_warehouses w ON w.id = m.warehouse_id
             WHERE pm.product_id = $1 AND pm.is_active = true AND m.is_active = true ORDER BY m.name ASC`, [pid]);
         return { materials: rows };
     });
