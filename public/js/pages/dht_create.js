@@ -2301,10 +2301,18 @@ function _ppUpdateCuttingFieldsVisibility() {
     var isCutting = _ppIsCuttingSelected();
     
     // Check if the product has any assigned materials from KHO SẴN or is a ready-made product (name contains "SẴN")
-    var prodName = (document.getElementById('_pp_product')?.value || '').trim().toUpperCase();
+    var prodNameStr = document.getElementById('_pp_product')?.value || '';
+    var prodName = prodNameStr.trim().toUpperCase();
     var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
         return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
     }) || prodName.indexOf('SẴN') >= 0;
+    
+    var allProds = (_dhtCreate.phieuOpts || {}).products || [];
+    var prod = allProds.find(function(p) { return p.name === prodNameStr; });
+    var isReadyStockProduct = false;
+    if (prod && (prod.cutting_category_name || '').trim().toUpperCase() === 'HÀNG SẴN') {
+        isReadyStockProduct = true;
+    }
     
     // 1. Loại Size Mặc Định
     var sizeContainer = document.getElementById('_pp_sizeTypeContainer');
@@ -2315,14 +2323,14 @@ function _ppUpdateCuttingFieldsVisibility() {
     // 2. Thông Số Mẫu Áo
     var patternContainer = document.getElementById('_pp_patternContainer');
     if (patternContainer) {
-        patternContainer.style.display = isCutting ? 'grid' : 'none';
+        patternContainer.style.display = (isCutting && !isReadyStockProduct) ? 'grid' : 'none';
     }
     
     // Dependent pattern elements: Kỹ Thuật May, Hình Ảnh Thông Số, Mẫu Đơn
     var techEl = document.getElementById('_pp_patternSewingTech');
     var imgEl = document.getElementById('_pp_specImage');
     var mixInfo = document.getElementById('_pp_mixInfo');
-    if (!isCutting) {
+    if (!isCutting || isReadyStockProduct) {
         if (techEl) techEl.style.display = 'none';
         if (imgEl) imgEl.style.display = 'none';
         // Note: Mix info is shown if we need to display material & color pairs
@@ -2828,8 +2836,14 @@ function _dhtSavePhieu(idx) {
     if(!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
     if(!prod){showToast('Chọn Sản Phẩm','error');return;}
 
+    var allProds=(po.products||[]);
+    var selectedProd=allProds.find(function(p){return p.name===prod;});
+    if(!selectedProd){showToast('Sản Phẩm không hợp lệ','error');return;}
+
+    var isReadyStockProduct = (selectedProd && (selectedProd.cutting_category_name || '').trim().toUpperCase() === 'HÀNG SẴN');
+
     var isCutting = _ppIsCuttingSelected();
-    if (isCutting) {
+    if (isCutting && !isReadyStockProduct) {
         if(!pat){showToast('Chọn Thông Số Mẫu Áo','error');return;}
     }
 
@@ -2848,12 +2862,7 @@ function _dhtSavePhieu(idx) {
         }
     }
 
-    // Validate pattern is associated with product
-    var allProds=(po.products||[]);
-    var selectedProd=allProds.find(function(p){return p.name===prod;});
-    if(!selectedProd){showToast('Sản Phẩm không hợp lệ','error');return;}
-
-    if (isCutting && pat) {
+    if (isCutting && pat && !isReadyStockProduct) {
         var selectedPat=(window._ppTsamPatterns||[]).find(function(p){ return p.name===pat; });
         if(selectedPat){
             var pIds = selectedPat.product_ids || [];
@@ -3036,7 +3045,7 @@ function _dhtSavePhieu(idx) {
         material_name:matDisplay,
         color_id:mainPair?mainPair.color_id:null,
         color_name:colorDisplay,
-        pattern_name:isCutting?pat:'',
+        pattern_name:(isCutting && !isReadyStockProduct)?pat:'',
         material_pairs:pairs,
         sewing_techniques:sewArr,
         reminders:nnArr,
