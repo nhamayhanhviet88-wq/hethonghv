@@ -663,7 +663,7 @@ function _tpdSortSizes(sizes) {
     if (!Array.isArray(sizes)) return [];
 
     const sizeOrder = [
-        'S', 'M', 'L', 'XL', 'XXL',
+        'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL',
         'XXXL', '3XL', 'XXXXL', '4XL', 'XXXXXL', '5XL', 'XXXXXXL', '6XL', '7XL'
     ];
 
