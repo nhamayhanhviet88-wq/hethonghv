@@ -66,6 +66,42 @@ function _tpdHasSewingStep(it) {
     return true;
 }
 
+function _tpdHasPrintOrPressStep(it) {
+    if (!it) return false;
+    if (it.is_no_print) return false;
+
+    let itemSteps = it.production_steps;
+    if (itemSteps === null || itemSteps === undefined) {
+        return true;
+    }
+    if (typeof itemSteps === 'string') {
+        try {
+            itemSteps = JSON.parse(itemSteps);
+        } catch(e) {
+            return true;
+        }
+    }
+    if (Array.isArray(itemSteps)) {
+        const stepsList = (_tpd.activeOrderDetails && _tpd.activeOrderDetails.steps) || [];
+        const targetSteps = stepsList.filter(s => {
+            const short = (s.short_name || '').toUpperCase();
+            const name = (s.name || '').toUpperCase();
+            return short === 'IN' || name === 'IN' || short === 'ÉP' || name === 'ÉP' || short === 'EP' || name === 'EP';
+        });
+
+        if (targetSteps.length > 0) {
+            return targetSteps.some(s => {
+                const stepId = s.step_id;
+                return itemSteps.includes(stepId) || itemSteps.includes(String(stepId)) || itemSteps.includes(Number(stepId));
+            });
+        } else {
+            // Default step IDs fallback: 3 is In, 4 is Ép
+            return itemSteps.includes(3) || itemSteps.includes('3') || itemSteps.includes(4) || itemSteps.includes('4');
+        }
+    }
+    return true;
+}
+
 function _tpdFormatRevisionHeader(o, activeIndex, totalItems, context) {
     const isDraft = !!(o.is_draft && (o.order_code || '').startsWith('NHAP-'));
     const orderTitle = isDraft 
@@ -5074,31 +5110,33 @@ function _tpdRenderFormInputs() {
         `;
     });
 
-    html += `
-        <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <label class="tpd-ws-form-label" style="margin-bottom:0;">Vị trí in / thêu chi tiết</label>
-                ${state.hasEditPermission ? `
-                    <div style="display:flex; gap:6px; align-items:center;">
-                        <select id="tpdNewPositionSelect" class="tpd-ws-input" style="padding:2px 6px; font-size:11px; height:24px; width:110px; border-radius:4px;" ${printLocked ? 'disabled' : ''}>
-                            ${(_tpd.printPositionsConfig || []).map(p => `
-                                <option value="${p.name}">${p.name}</option>
-                            `).join('')}
-                            <option value="Vị Trí Khác" ${printLocked ? 'disabled' : ''}>Vị Trí Khác...</option>
-                        </select>
-                        <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546; color: white;" ${printLocked ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>Thêm</button>
-                        ${state.role === 'giam_doc' ? `
-                            <button type="button" class="btn btn-secondary" onclick="_tpdOpenPrintPositionsConfigModal()" style="padding:2px 6px; font-size:12px; height:24px; border-radius:4px; font-weight:700; background:#64748b; border:1px solid #64748b; color: white;" title="Cấu hình vị trí in/thêu" ${printLocked ? 'disabled' : ''}>⚙️</button>
-                        ` : ''}
-                    </div>
-                ` : ''}
+    if (_tpdHasPrintOrPressStep(it)) {
+        html += `
+            <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <label class="tpd-ws-form-label" style="margin-bottom:0;">Vị trí in / thêu chi tiết</label>
+                    ${state.hasEditPermission ? `
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <select id="tpdNewPositionSelect" class="tpd-ws-input" style="padding:2px 6px; font-size:11px; height:24px; width:110px; border-radius:4px;" ${printLocked ? 'disabled' : ''}>
+                                ${(_tpd.printPositionsConfig || []).map(p => `
+                                    <option value="${p.name}">${p.name}</option>
+                                `).join('')}
+                                <option value="Vị Trí Khác" ${printLocked ? 'disabled' : ''}>Vị Trí Khác...</option>
+                            </select>
+                            <button type="button" class="btn btn-primary" onclick="_tpdAddPosition()" style="padding:2px 8px; font-size:11px; height:24px; border-radius:4px; font-weight:700; background:#122546; border:1px solid #122546; color: white;" ${printLocked ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : ''}>Thêm</button>
+                            ${state.role === 'giam_doc' ? `
+                                <button type="button" class="btn btn-secondary" onclick="_tpdOpenPrintPositionsConfigModal()" style="padding:2px 6px; font-size:12px; height:24px; border-radius:4px; font-weight:700; background:#64748b; border:1px solid #64748b; color: white;" title="Cấu hình vị trí in/thêu" ${printLocked ? 'disabled' : ''}>⚙️</button>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+                ${printWarningHtml}
+                <div class="tpd-ws-upload-row" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
+                    ${detailBoxesHtml || `<div style="grid-column:1/-1; padding:20px; text-align:center; color:#94a3b8; font-size:11px; font-weight:600; border:2px dashed #cbd5e1; border-radius:10px;">Chưa thêm vị trí in/thêu nào.</div>`}
+                </div>
             </div>
-            ${printWarningHtml}
-            <div class="tpd-ws-upload-row" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
-                ${detailBoxesHtml || `<div style="grid-column:1/-1; padding:20px; text-align:center; color:#94a3b8; font-size:11px; font-weight:600; border:2px dashed #cbd5e1; border-radius:10px;">Chưa thêm vị trí in/thêu nào.</div>`}
-            </div>
-        </div>
-    `;
+        `;
+    }
 
     // 4. Size Selection & Quantities Grid
     const currentSizeType = it.size_type || 'Size TT';
@@ -6032,10 +6070,12 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false, isCustome
                     ` : ''}
 
                     <!-- Phần 3: Kỹ thuật in -->
+                    ${_tpdHasPrintOrPressStep(it) ? `
                     <div style="display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
                         <strong style="color: #0f172a; font-weight: 800;">Kỹ Thuật In:</strong> 
                         <span style="font-weight: 700; color: #047857; display: block; margin-top: 2px;">${printingVal}</span>
                     </div>
+                    ` : ''}
 
                     <!-- Phần 4: Báo size -->
                     <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -6599,7 +6639,7 @@ async function _tpdSaveProductionSheet() {
     }
 
     // Validation for print details: Kiểu, Kích thước (ngang hoặc cao), and offset
-    if (it.print_details && it.print_details.length > 0) {
+    if (_tpdHasPrintOrPressStep(it) && it.print_details && it.print_details.length > 0) {
         for (let i = 0; i < it.print_details.length; i++) {
             const d = it.print_details[i];
             const isPrint3DPosition = d.position && d.position.toLowerCase().includes('in 3d');
@@ -7155,7 +7195,7 @@ function _tpdValidateAllSheets() {
         const layout = _tpdGetCustomLayout(idx);
 
         // 2. Validate print details
-        if (it.print_details && it.print_details.length > 0) {
+        if (_tpdHasPrintOrPressStep(it) && it.print_details && it.print_details.length > 0) {
             for (let k = 0; k < it.print_details.length; k++) {
                 const d = it.print_details[k];
                 if (!d.print_type || !d.print_type.trim()) {
