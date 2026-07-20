@@ -2922,6 +2922,83 @@ function _dhtShowItemDetail(idx) {
     document.body.appendChild(overlay);
 }
 
+// ========== HELPER FUNCTIONS FOR PRINT FIRST COMPLIANCE ==========
+window._dhtPrintSingleSheetImage = function(imgUrl, orderCode, idx) {
+    const printWindow = window.open('', '_blank', 'width=900,height=950');
+    if (!printWindow) {
+        alert('⚠️ Trình duyệt của bạn đã chặn cửa sổ bật lên. Vui lòng cấp quyền mở cửa sổ bật lên để thực hiện in phiếu.');
+        return;
+    }
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>In Phiếu Sản Xuất - ${orderCode} - Phiếu ${idx}</title>
+            <style>
+                @page { size: A4; margin: 0; }
+                body {
+                    margin: 0;
+                    padding: 0;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    background: #fff;
+                    height: 100vh;
+                }
+                img {
+                    max-width: 100%;
+                    max-height: 100%;
+                    object-fit: contain;
+                }
+                @media print {
+                    body { margin: 0; padding: 0; }
+                    img { width: 100%; height: 100%; object-fit: contain; page-break-inside: avoid; }
+                }
+            </style>
+        </head>
+        <body onload="window.print(); window.close();">
+            <img src="${imgUrl}">
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+};
+
+window._dhtPrintAndMark = function(orderId, itemId, idx, imgUrl, orderCode) {
+    window._dhtPrintSingleSheetImage(imgUrl, orderCode, idx + 1);
+    
+    const printKey = `dht_printed_${orderId}_${itemId}`;
+    localStorage.setItem(printKey, 'true');
+    
+    const statusEl = document.getElementById(`print_status_${idx}`);
+    if (statusEl) {
+        statusEl.innerHTML = `<span style="color:#10b981;display:inline-flex;align-items:center;gap:4px">✅ Đã in phiếu</span>`;
+    }
+    
+    window._dhtCheckAllPrintedAndUnlock(orderId);
+};
+
+window._dhtCheckAllPrintedAndUnlock = function(orderId) {
+    const itemIds = window._dhtCurrentOrderItems || [];
+    if (itemIds.length === 0) return;
+    
+    const allPrinted = itemIds.every(itemId => {
+        const printKey = `dht_printed_${orderId}_${itemId}`;
+        return localStorage.getItem(printKey) === 'true';
+    });
+    
+    const warningEl = document.getElementById('dht_print_warning_box');
+    const confirmBtnWrap = document.getElementById('dht_confirm_btn_wrap');
+    
+    if (allPrinted) {
+        if (warningEl) warningEl.style.display = 'none';
+        if (confirmBtnWrap) confirmBtnWrap.style.display = 'block';
+    } else {
+        if (warningEl) warningEl.style.display = 'flex';
+        if (confirmBtnWrap) confirmBtnWrap.style.display = 'none';
+    }
+};
+
 // ========== IN PHIẾU SẢN XUẤT ==========
 async function _dhtShowPhieuSX(orderId) {
     try {
@@ -2939,6 +3016,9 @@ async function _dhtShowPhieuSX(orderId) {
 
         // Build items table
         let itemsHTML = '';
+        window._dhtCurrentOrderItems = items.map(it => it.id);
+        const confirmed = o.sx_print_confirmed;
+
         items.forEach((it, idx) => {
             const qs = typeof it.quantities === 'string' ? JSON.parse(it.quantities) : (it.quantities || []);
             const totalQty = qs.reduce((s, x) => s + (Number(x.qty) || 0), 0);
@@ -2948,27 +3028,61 @@ async function _dhtShowPhieuSX(orderId) {
             const matStr = matPairs.length > 0
                 ? matPairs.map(p => `${p.material || ''}/${p.color || ''}`).join(', ')
                 : `${it.material_name || ''}/${it.color_name || ''}`;
-            itemsHTML += `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:8px">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                    <span style="font-weight:800;font-size:13px;color:#0f172a">📋 Phiếu ${idx + 1}: ${it.product_name || '—'}</span>
-                    <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">SL: ${totalQty}</span>
+
+            const suffix = (o.edit_count && o.edit_count > 0) ? ` - Sua lan${o.edit_count}` : '';
+            const sheetImgUrl = `/uploads/sheets/${encodeURIComponent(o.order_code)} - Phieu ${idx + 1}${suffix}.jpeg`;
+            const printKey = `dht_printed_${orderId}_${it.id}`;
+            const isPrinted = confirmed || localStorage.getItem(printKey) === 'true';
+
+            itemsHTML += `<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05),0 2px 4px -1px rgba(0,0,0,0.03)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:12px">
+                    <span style="font-weight:800;font-size:14px;color:#0f172a">📋 Phiếu sản xuất ${idx + 1}: ${it.product_name || '—'}</span>
+                    <span style="background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">SL: ${totalQty}</span>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:#475569">
-                    <div>🏷️ Loại: <b>${it.sale_type || '—'}</b></div>
-                    <div>📐 Mẫu: <b>${it.pattern_name || '—'}</b></div>
-                    <div>🧵 Chất liệu: <b>${matStr}</b></div>
-                    <div>✂️ CT May Thêm: <b>${sewStr}</b></div>
-                    <div style="grid-column: span 2; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
-                        📄 Thiết kế: 
-                        ${it.design_pdf_url 
-                            ? `<a href="${it.design_pdf_url}" download="${o.order_code || 'DONHANG'} - Phieu ${idx + 1}.pdf" target="_blank" style="color: #0284c7; font-weight: 800; text-decoration: underline;">Mở File PDF</a>`
-                            : `<span style="color: #ef4444; font-weight: 800;">Chưa tải lên</span>`
-                        }
+                
+                <div style="display:grid;grid-template-columns:1fr;gap:16px">
+                    <!-- Sheet Preview Image -->
+                    <div style="text-align:center;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:8px;position:relative">
+                        <img src="${sheetImgUrl}" alt="Phiếu sản xuất ${idx + 1}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="max-height:250px;max-width:100%;object-fit:contain;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:transform 0.2s;cursor:pointer" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='none'" onclick="window.open('${sheetImgUrl}', '_blank')">
+                        <div style="display:none;padding:40px 20px;background:#f1f5f9;border-radius:8px;border:1px dashed #cbd5e1">
+                            <span style="font-size:24px;display:block;margin-bottom:8px">📄</span>
+                            <span style="font-size:12px;color:#64748b;font-weight:600">Không tìm thấy tệp ảnh của phiếu sản xuất</span>
+                        </div>
+                        <div style="font-size:10px;color:#64748b;margin-top:6px">🔍 Click vào ảnh để phóng to</div>
+                    </div>
+                    
+                    <!-- Info and Actions -->
+                    <div style="display:flex;flex-direction:column;justify-content:space-between;gap:10px">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:#475569">
+                            <div>🏷️ Loại: <b>${it.sale_type || '—'}</b></div>
+                            <div>📐 Mẫu: <b>${it.pattern_name || '—'}</b></div>
+                            <div>🧵 Chất liệu: <b>${matStr}</b></div>
+                            <div>✂️ CT May Thêm: <b>${sewStr}</b></div>
+                            <div style="grid-column: span 2;display:flex;align-items:center;gap:4px">
+                                📄 Thiết kế: 
+                                ${it.design_pdf_url 
+                                    ? `<a href="${it.design_pdf_url}" download="${o.order_code || 'DONHANG'} - Phieu ${idx + 1}.pdf" target="_blank" style="color:#0284c7;font-weight:800;text-decoration:underline">Mở File PDF</a>`
+                                    : `<span style="color:#ef4444;font-weight:800">Chưa tải lên</span>`
+                                }
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;border-top:1px solid #f1f5f9;padding-top:12px">
+                            <!-- Status indicator -->
+                            <div id="print_status_${idx}" style="font-size:12px;font-weight:700">
+                                ${isPrinted 
+                                    ? `<span style="color:#10b981;display:inline-flex;align-items:center;gap:4px">✅ Đã in phiếu</span>`
+                                    : `<span style="color:#f59e0b;display:inline-flex;align-items:center;gap:4px">⚠️ Chưa in phiếu</span>`
+                                }
+                            </div>
+                            
+                            <!-- Print button -->
+                            <button class="btn" onclick="window._dhtPrintAndMark('${orderId}', '${it.id}', ${idx}, '${sheetImgUrl}', '${o.order_code}')" style="padding:6px 16px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 2px 4px rgba(29,78,216,0.2)">
+                                🖨️ In Phiếu
+                            </button>
+                        </div>
                     </div>
                 </div>
-                ${qs.length > 0 ? `<div style="margin-top:6px;border-top:1px solid #e2e8f0;padding-top:6px;font-size:10px;color:#64748b">
-                    ${qs.map((q, qi) => `<span style="background:#f1f5f9;padding:2px 6px;border-radius:3px;margin-right:4px">SL${qi+1}: <b>${q.qty}</b> × ${fmt(q.price)}đ</span>`).join('')}
-                </div>` : ''}
             </div>`;
         });
 
@@ -2977,7 +3091,6 @@ async function _dhtShowPhieuSX(orderId) {
         }
 
         // Status badge
-        const confirmed = o.sx_print_confirmed;
         const statusBadge = confirmed
             ? `<div style="background:#d1fae5;color:#059669;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:4px">✅ Đã Xác Nhận In SX</div>`
             : `<div style="background:#fef3c7;color:#92400e;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:4px">⏳ Chờ Xác Nhận</div>`;
@@ -2985,6 +3098,15 @@ async function _dhtShowPhieuSX(orderId) {
         var body = `<div style="padding:4px 0">
             <div style="text-align:center;margin-bottom:16px">${statusBadge}</div>
             <div style="max-height:45vh;overflow-y:auto;padding-right:4px">${itemsHTML}</div>
+            
+            <!-- Warning box if not all printed -->
+            <div id="dht_print_warning_box" style="background:#fef2f2;border:1px solid #fee2e2;border-radius:10px;padding:12px;margin-top:12px;display:${confirmed ? 'none' : 'flex'};align-items:center;gap:8px">
+                <span style="font-size:18px">⚠️</span>
+                <div style="font-size:12px;color:#991b1b;font-weight:600">
+                    Vui lòng bấm nút "In Phiếu" cho tất cả các phiếu ở trên để mở khóa nút Xác Nhận.
+                </div>
+            </div>
+
             <div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #7dd3fc;border-radius:10px;padding:10px 14px;margin-top:12px">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
                     <div>📦 Tổng phiếu: <b>${items.length}</b></div>
@@ -2997,14 +3119,23 @@ async function _dhtShowPhieuSX(orderId) {
 
         var confirmBtn = '';
         if (canConfirm && !confirmed) {
-            confirmBtn = `<button class="btn" onclick="_dhtConfirmPhieuSX('${orderId}')" style="padding:8px 24px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận In SX</button>`;
+            confirmBtn = `<div id="dht_confirm_btn_wrap" style="display:none;float:right">
+                <button class="btn" onclick="_dhtConfirmPhieuSX('${orderId}')" style="padding:8px 24px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận In SX</button>
+            </div>`;
         } else if (canConfirm && confirmed) {
-            confirmBtn = `<button class="btn" disabled style="padding:8px 24px;background:#d1d5db;color:#6b7280;border:none;border-radius:8px;font-weight:800;cursor:not-allowed;margin-left:8px">✅ Đã Xác Nhận</button>`;
+            confirmBtn = `<div id="dht_confirm_btn_wrap" style="display:block;float:right">
+                <button class="btn" disabled style="padding:8px 24px;background:#d1d5db;color:#6b7280;border:none;border-radius:8px;font-weight:800;cursor:not-allowed;margin-left:8px">✅ Đã Xác Nhận</button>
+            </div>`;
         }
-        var footer = `<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail('${orderId}')},200)" style="padding:8px 20px">← Quay Lại</button>`
+        var footer = `<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail('${orderId}')},200)" style="padding:8px 20px;float:left">← Quay Lại</button>`
             + confirmBtn;
 
         openModal(`🏭 Phiếu Sản Xuất — ${o.order_code}`, body, footer);
+
+        // Run check to toggle warning box and confirm button on startup
+        if (!confirmed) {
+            window._dhtCheckAllPrintedAndUnlock(orderId);
+        }
     } catch(e) {
         console.error(e);
         showToast('❌ ' + (e.message || 'Lỗi tải phiếu SX'), 'error');
