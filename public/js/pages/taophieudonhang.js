@@ -8776,7 +8776,6 @@ async function _tpdShowExportSheetsModal() {
     };
 
     window._tpdCheckConfirmUnlock();
-    };
 
     // Paste listener for the export modal
     const pasteHandler = function(e) {
