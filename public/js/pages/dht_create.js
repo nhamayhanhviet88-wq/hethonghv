@@ -2220,7 +2220,7 @@ window._ppToggleWorkflowType = function(type) {
             cb.checked = true;
             cb.disabled = true;
         } else {
-            cb.checked = false;
+            cb.checked = true;
             cb.disabled = false;
         }
     });
@@ -2325,7 +2325,7 @@ async function _dhtProductChange(keepExistingPattern) {
                         isChecked = true;
                         disabledAttr = 'disabled';
                     } else if (isCustom) {
-                        isChecked = false;
+                        isChecked = true;
                         disabledAttr = '';
                         if (existing.production_steps && Array.isArray(existing.production_steps)) {
                             isChecked = existing.production_steps.indexOf(Number(s.step_id)) >= 0 || existing.production_steps.indexOf(String(s.step_id)) >= 0;
@@ -2688,6 +2688,14 @@ function _dhtSavePhieu(idx) {
     if (!rdFullSelected && !rdCustomSelected) {
         showToast('Vui lòng chọn Quy trình sản xuất (Đủ QT hoặc Lược bớt)', 'error');
         return;
+    }
+    if (rdCustomSelected) {
+        var totalSteps = document.querySelectorAll('#_pp_processSteps input[type="checkbox"]').length;
+        var checkedSteps = document.querySelectorAll('#_pp_processSteps input[type="checkbox"]:checked').length;
+        if (totalSteps > 0 && checkedSteps === totalSteps) {
+            showToast('Quy trình "Lược bớt" phải bỏ tích ít nhất 1 công đoạn. Nếu chạy đủ quy trình, vui lòng chọn "Đủ QT".', 'error');
+            return;
+        }
     }
 
     // Validate pattern is associated with product
