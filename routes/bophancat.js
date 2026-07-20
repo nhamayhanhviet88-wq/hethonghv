@@ -4333,7 +4333,7 @@ module.exports = async function(fastify) {
 
                                   AND (oc.id IS NULL OR oc.status <> 'cancelled')
 
-                                  AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+                                  AND (cust.id IS NULL OR cust.order_status NOT IN ('da_huy_don_tra_coc', 'da_huy_don'))
 
                             `);
 

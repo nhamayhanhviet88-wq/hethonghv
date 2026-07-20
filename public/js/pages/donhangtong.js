@@ -1383,6 +1383,7 @@ async function _dhtShowDetail(id) {
         const _hasCancelledItems = items.some(it => it.production_cancelled);
         const _allItemsCancelled = items.every(it => it.production_cancelled);
         const _isFullyPaid = remaining <= 0 && !isGD;
+        const _isOrderAlreadyCancelled = o.order_code_status === 'cancelled';
         const actionBtns = [
             { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view'), disabled: _isFullyPaid, disabledTitle: 'Đã thu đủ tiền — không thể sửa đơn (chỉ Giám đốc mới được sửa)' },
             { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})`, perm: canDo('dht_xoa_don', 'view') },
@@ -1395,7 +1396,8 @@ async function _dhtShowDetail(id) {
             { icon: '📦', label: 'Hàng Lỗi Về', color: o.has_error ? (o.all_errors_handed_over ? '#059669' : '#0369a1') : '#cbd5e1', bg: o.has_error ? (o.all_errors_handed_over ? '#d1fae5' : '#e0f2fe') : '#f1f5f9', fn: `_dhtErrorReturnHandover(${id})`, disabled: !o.has_error, perm: canDo('dht_bao_loi', 'view'), disabledTitle: 'Cần báo đơn lỗi trước', extraClass: o.has_error ? 'dht-hang-loi-ve-glow' : '' },
             // { icon: '🚫', label: 'Hủy Đơn Trả Cọc', color: '#be123c', bg: '#ffe4e6', fn: `alert('Chức năng Hủy Đơn Trả Cọc đang phát triển!')`, perm: canDo('dht_huy_don_tra_coc', 'view') },
             { icon: '🚫', label: 'Hủy Phiếu SX', color: '#7f1d1d', bg: '#fef2f2', fn: `_dhtCancelProductionStart(${id})`, perm: _canCancelProd, disabled: _allItemsCancelled, disabledTitle: 'Tất cả phiếu đã bị hủy SX' },
-            { icon: '♻️', label: 'Phục Hồi Phiếu', color: '#065f46', bg: '#d1fae5', fn: `_dhtRestoreProductionStart(${id})`, perm: _canCancelProd && _hasCancelledItems, disabled: !_hasCancelledItems, disabledTitle: 'Chưa có phiếu nào bị hủy' }
+            { icon: '♻️', label: 'Phục Hồi Phiếu', color: '#065f46', bg: '#d1fae5', fn: `_dhtRestoreProductionStart(${id})`, perm: _canCancelProd && _hasCancelledItems, disabled: !_hasCancelledItems, disabledTitle: 'Chưa có phiếu nào bị hủy' },
+            { icon: '🚫', label: 'Hủy Toàn Bộ Đơn', color: '#991b1b', bg: '#fee2e2', fn: `_dhtCancelFullStart(${id})`, perm: _canCancelProd, disabled: _isOrderAlreadyCancelled, disabledTitle: 'Đơn hàng này đã bị hủy toàn bộ' }
         ];
         for (const a of actionBtns) {
             const noPerm = a.perm === false;
@@ -4653,4 +4655,289 @@ window._dhtRestoreProductionConfirm = async function(orderId, itemId, productNam
         showToast('⚠️ Lỗi: ' + err.message, 'error');
     }
 };
+
+// ========== HỦY TOÀN BỘ ĐƠN HÀNG — Global Order Cancellation Flow ==========
+
+window._dhtCancelFullFormatOnInput = function(el) {
+    const val = el.value;
+    const oldLen = val.length;
+    const caretPos = el.selectionStart;
+    
+    const rawVal = val.replace(/[^\d]/g, '');
+    if (!rawVal) {
+        el.value = '';
+        _dhtCancelFullCalcTotal();
+        return;
+    }
+    
+    const formatted = rawVal.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    el.value = formatted;
+    
+    _dhtCancelFullCalcTotal();
+    
+    const newLen = formatted.length;
+    const newCaretPos = caretPos + (newLen - oldLen);
+    el.setSelectionRange(newCaretPos, newCaretPos);
+};
+
+window._dhtCancelFullCalcTotal = function() {
+    const inputs = document.querySelectorAll('.cancel-full-item-cost');
+    let total = 0;
+    let summaryHTML = '';
+    
+    const cancelData = window._dhtCancelFullData || {};
+    const items = cancelData.items || [];
+    for (const itDetail of items) {
+        if (itDetail.item.production_cancelled) {
+            const val = Number(itDetail.item.item_total) || 0;
+            total += val;
+            if (val > 0) {
+                const formattedVal = String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                summaryHTML += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px">`;
+                summaryHTML += `<span style="color:#64748b">${itDetail.item.product_name} (Đã hủy trước):</span>`;
+                summaryHTML += `<span style="font-weight:700;color:#475569">${formattedVal}đ</span>`;
+                summaryHTML += `</div>`;
+            }
+        }
+    }
+
+    for (const inp of inputs) {
+        const rawVal = inp.value.replace(/[^\d]/g, '');
+        const val = Number(rawVal) || 0;
+        total += val;
+        
+        const itemId = inp.id.replace('item_cost_', '');
+        const itDetail = items.find(x => String(x.item.id) === String(itemId));
+        const name = itDetail ? itDetail.item.product_name : 'Phiếu';
+        if (val > 0) {
+            const formattedVal = String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            summaryHTML += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px">`;
+            summaryHTML += `<span style="color:#64748b">${name}:</span>`;
+            summaryHTML += `<span style="font-weight:700;color:#1e293b">${formattedVal}đ</span>`;
+            summaryHTML += `</div>`;
+        }
+    }
+
+    const summaryEl = document.getElementById('cancel-full-summary');
+    if (summaryEl) summaryEl.innerHTML = summaryHTML || '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:4px 0">Chưa có chi phí đền bù nào</div>';
+    
+    const totalEl = document.getElementById('cancel-full-total-display');
+    if (totalEl) {
+        const formattedTotal = String(total).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        totalEl.textContent = formattedTotal + 'đ';
+    }
+};
+
+window._dhtCancelFullStart = async function(orderId) {
+    showModal(`<div style="text-align:center;padding:60px"><div style="font-size:36px;animation:dht-cancel-pulse 1s infinite">⏳</div><div style="margin-top:12px;color:#64748b;font-weight:600">Đang quét toàn bộ công đoạn đơn hàng...</div></div>`);
+
+    try {
+        const data = await apiCall(`/api/dht/orders/${orderId}/cancel-full/preview`);
+        if (data.error) { showToast('⚠️ ' + data.error, 'error'); return; }
+
+        const order = data.order;
+        const items = data.items || [];
+        const hasActiveWork = data.has_active_work;
+
+        let html = `<div style="max-width:680px;margin:0 auto;padding:24px;max-height:80vh;overflow-y:auto">`;
+        
+        html += `<div style="text-align:center;margin-bottom:20px">`;
+        html += `<div style="font-size:48px;margin-bottom:6px">🚫</div>`;
+        html += `<div style="font-size:22px;font-weight:900;color:#7f1d1d">HỦY TOÀN BỘ ĐƠN HÀNG</div>`;
+        html += `<div style="margin-top:6px;padding:8px 16px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;display:inline-block">`;
+        html += `<span style="font-weight:700;color:#1e3a8a">Mã đơn: ${order.order_code}</span>`;
+        html += `<span style="margin:0 6px;color:#94a3b8">—</span>`;
+        html += `<span style="font-weight:600;color:#334155">${order.customer_name || '—'}</span>`;
+        html += `</div>`;
+        html += `<div style="margin-top:6px;font-size:12px;color:#64748b">Tổng giá trị gốc: <b style="color:#1e293b">${Number(order.total_amount || 0).toLocaleString('vi-VN')}đ</b></div>`;
+        html += `</div>`;
+
+        if (hasActiveWork) {
+            html += `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:16px;display:flex;align-items:center;gap:8px">`;
+            html += `<span style="font-size:20px">⚠️</span>`;
+            html += `<div style="font-size:12px;color:#92400e;font-weight:600">Đơn hàng này đang có công đoạn sản xuất chưa hoàn thành. Hủy toàn bộ đơn sẽ dừng tất cả phiếu!</div></div>`;
+        }
+
+        html += `<div style="font-weight:800;font-size:14px;color:#334155;margin-bottom:10px">DANH SÁCH PHIẾU SẢN XUẤT</div>`;
+        html += `<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">`;
+        
+        for (let i = 0; i < items.length; i++) {
+            const itDetail = items[i];
+            const it = itDetail.item;
+            const matInfo = it.material_name ? ` — ${it.material_name}` : '';
+            const colorInfo = it.color_name ? ` — ${it.color_name}` : '';
+            
+            if (it.production_cancelled) {
+                html += `<div style="padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;opacity:0.75">`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:center">`;
+                html += `<div>`;
+                html += `<div style="font-weight:700;color:#64748b;font-size:13px">Phiếu ${i+1}: ${it.product_name}${matInfo}${colorInfo}</div>`;
+                html += `<div style="font-size:11px;color:#ef4444;margin-top:2px;font-weight:600">🚫 ĐÃ HỦY SẢN XUẤT TRƯỚC ĐÓ</div>`;
+                html += `</div>`;
+                html += `<div style="font-weight:700;color:#475569;font-size:14px">${Number(it.item_total || 0).toLocaleString('vi-VN')}đ</div>`;
+                html += `</div>`;
+                html += `</div>`;
+            } else {
+                html += `<div style="padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px">`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:8px">`;
+                html += `<div>`;
+                html += `<div style="font-weight:700;color:#1e293b;font-size:13px">Phiếu ${i+1}: ${it.product_name}${matInfo}${colorInfo}</div>`;
+                html += `<div style="font-size:11px;color:#64748b;margin-top:2px">${it.quantity || 0} cái — Giá trị gốc: ${Number(it.item_total || 0).toLocaleString('vi-VN')}đ</div>`;
+                html += `</div>`;
+                html += `</div>`;
+
+                if (itDetail.completed_steps && itDetail.completed_steps.length > 0) {
+                    html += `<div style="margin-top:6px;background:#f0fdf4;padding:8px 12px;border-radius:8px;font-size:11px;color:#166534">`;
+                    html += `<div style="font-weight:700;margin-bottom:4px">Đã làm:</div>`;
+                    for (const step of itDetail.completed_steps) {
+                        html += `<div>• ${step.icon} ${step.step}</div>`;
+                    }
+                    html += `</div>`;
+                }
+
+                html += `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e2e8f0;display:flex;align-items:center;gap:8px">`;
+                html += `<span style="font-size:12px;font-weight:700;color:#b45309">💰 Chi phí đền bù (Khách trả):</span>`;
+                html += `<input type="text" id="item_cost_${it.id}" class="cancel-full-item-cost" data-original-total="${it.item_total}" placeholder="0" value="" style="flex:1;padding:8px 12px;border:2px solid #fde68a;border-radius:8px;font-size:14px;font-weight:700;text-align:right;color:#1e293b;background:#fffbeb;outline:none;transition:border .2s" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fde68a'" oninput="_dhtCancelFullFormatOnInput(this)">`;
+                html += `<span style="font-size:12px;color:#94a3b8">đ</span>`;
+                html += `</div>`;
+
+                html += `</div>`;
+            }
+        }
+        
+        html += `</div>`;
+
+        html += `<div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border:2px solid #fde68a;border-radius:12px;padding:16px;margin-bottom:16px">`;
+        html += `<div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:10px">💰 TỔNG CHI PHÍ ĐỀN BÙ CHO ĐƠN HÀNG</div>`;
+        html += `<div id="cancel-full-summary"></div>`;
+        html += `<div style="margin-top:10px;padding-top:10px;border-top:2px solid #fde68a;display:flex;justify-content:space-between;align-items:center">`;
+        html += `<span style="font-weight:900;font-size:15px;color:#92400e">TỔNG DOANH SỐ ĐƠN SAU HỦY:</span>`;
+        html += `<span id="cancel-full-total-display" style="font-weight:900;font-size:22px;color:#dc2626">0đ</span>`;
+        html += `</div>`;
+        html += `<div style="margin-top:6px;font-size:11px;color:#b45309;font-style:italic">💡 Giá trị đơn sau khi hủy sẽ bằng tổng chi phí đền bù trên (doanh số tính cho nhân viên sẽ tự động giảm về số tiền này)</div>`;
+        html += `</div>`;
+
+        html += `<div style="margin-bottom:16px">`;
+        html += `<label style="font-weight:700;font-size:13px;color:#334155;display:block;margin-bottom:6px">📝 Lý do hủy đơn hàng (*)</label>`;
+        html += `<textarea id="cancel-full-reason" rows="3" placeholder="Nhập lý do hủy toàn bộ đơn hàng..." style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:13px;resize:vertical;outline:none;transition:border .2s;font-family:inherit;box-sizing:border-box" onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#e2e8f0'"></textarea>`;
+        html += `</div>`;
+
+        html += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;margin-bottom:16px;text-align:center">`;
+        html += `<div style="font-size:13px;font-weight:800;color:#991b1b">⚠️ CẢNH BÁO QUAN TRỌNG: Hành động này sẽ hủy toàn bộ các phiếu sản xuất, giải phóng tất cả kho vải, và không thể tự khôi phục trực tiếp!</div>`;
+        html += `</div>`;
+
+        html += `<div style="display:flex;gap:12px;justify-content:center">`;
+        html += `<button onclick="closeModal();setTimeout(function(){_dhtShowDetail(${orderId})},200)" style="padding:12px 28px;border:1px solid #e2e8f0;background:#fff;border-radius:10px;font-weight:700;color:#64748b;cursor:pointer;font-size:13px">← Quay lại</button>`;
+        html += `<button id="btn-confirm-cancel-full" onclick="_dhtCancelFullConfirm(${orderId})" style="padding:12px 28px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px;transition:all .2s" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">🚫 HỦY TOÀN BỘ ĐƠN</button>`;
+        html += `</div>`;
+        html += `</div>`;
+
+        window._dhtCancelFullData = { order, items };
+
+        showModal(html);
+
+        setTimeout(() => _dhtCancelFullCalcTotal(), 100);
+
+    } catch (err) {
+        showToast('⚠️ Lỗi: ' + err.message, 'error');
+    }
+};
+
+window._dhtCancelFullConfirm = function(orderId) {
+    const reason = (document.getElementById('cancel-full-reason')?.value || '').trim();
+    if (!reason) {
+        showToast('⚠️ Vui lòng nhập lý do hủy đơn hàng!', 'error');
+        document.getElementById('cancel-full-reason')?.focus();
+        return;
+    }
+
+    const itemCosts = {};
+    let totalCost = 0;
+    const inputs = document.querySelectorAll('.cancel-full-item-cost');
+    for (const inp of inputs) {
+        const itemId = inp.id.replace('item_cost_', '');
+        const val = Number(inp.value.replace(/[^\d]/g, '')) || 0;
+        itemCosts[itemId] = val;
+        totalCost += val;
+    }
+
+    const cancelData = window._dhtCancelFullData || {};
+    const items = cancelData.items || [];
+    for (const itDetail of items) {
+        if (itDetail.item.production_cancelled) {
+            totalCost += (Number(itDetail.item.item_total) || 0);
+        }
+    }
+
+    cancelData.reason = reason;
+    cancelData.itemCosts = itemCosts;
+    cancelData.totalCost = totalCost;
+    window._dhtCancelFullData = cancelData;
+
+    let html = `<div style="max-width:520px;margin:0 auto;padding:24px;text-align:center">`;
+    html += `<div style="font-size:56px;margin-bottom:12px;animation:dht-cancel-pulse 1.5s infinite">⚠️</div>`;
+    html += `<div style="font-size:20px;font-weight:900;color:#991b1b;margin-bottom:16px">XÁC NHẬN HỦY TOÀN BỘ ĐƠN</div>`;
+    
+    html += `<div style="background:#fffbeb;border:2px dashed #fde68a;border-radius:12px;padding:16px;margin-bottom:24px;text-align:left;font-size:13px">`;
+    html += `<div style="display:flex;justify-content:space-between;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #fde68a">`;
+    html += `<span style="color:#64748b">Mã đơn hàng:</span>`;
+    html += `<span style="font-weight:800;color:#1e3a8a">${cancelData.order.order_code}</span>`;
+    html += `</div>`;
+    html += `<div style="display:flex;justify-content:space-between;margin-bottom:8px">`;
+    html += `<span style="color:#64748b">Giá trị đơn gốc:</span>`;
+    html += `<span style="font-weight:700;color:#334155">${Number(cancelData.order.total_amount || 0).toLocaleString('vi-VN')}đ</span>`;
+    html += `</div>`;
+    html += `<div style="display:flex;justify-content:space-between;margin-bottom:8px">`;
+    html += `<span style="color:#64748b">Tổng chi phí đền bù mới:</span>`;
+    html += `<span style="font-weight:800;color:#b91c1c">${Number(totalCost).toLocaleString('vi-VN')}đ</span>`;
+    html += `</div>`;
+    html += `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #fde68a">`;
+    html += `<div style="color:#64748b;margin-bottom:4px;font-weight:600">Lý do hủy đơn:</div>`;
+    html += `<div style="background:#fff;padding:8px 12px;border:1px solid #fde68a;border-radius:6px;font-weight:600;color:#1e293b;word-break:break-all">${reason}</div>`;
+    html += `</div>`;
+    html += `</div>`;
+
+    html += `<p style="font-size:12px;color:#64748b;margin-bottom:24px;line-height:1.5">Hành động này sẽ cập nhật doanh số đơn hàng về mức đền bù và đánh dấu trạng thái hủy (da_huy_don). Việc này không thể phục hồi tự động.</p>`;
+
+    html += `<div style="display:flex;gap:12px;justify-content:center">`;
+    html += `<button onclick="_dhtCancelFullStart(${orderId})" style="padding:12px 24px;border:1px solid #cbd5e1;background:#fff;border-radius:10px;font-weight:700;color:#475569;cursor:pointer;font-size:13px">← Quay lại</button>`;
+    html += `<button id="btn-final-cancel-full" onclick="_dhtCancelFullSubmit(${orderId})" style="padding:12px 24px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px;box-shadow:0 4px 12px rgba(220,38,38,0.25)" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">🚫 XÁC NHẬN HỦY</button>`;
+    html += `</div>`;
+
+    html += `</div>`;
+
+    showModal(html);
+};
+
+window._dhtCancelFullSubmit = async function(orderId) {
+    const cancelData = window._dhtCancelFullData || {};
+    const reason = cancelData.reason || '';
+    const itemCosts = cancelData.itemCosts || {};
+
+    const btn = document.getElementById('btn-final-cancel-full');
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Đang xử lý...'; }
+
+    try {
+        const res = await apiCall(`/api/dht/orders/${orderId}/cancel-full`, 'POST', {
+            reason,
+            item_costs: itemCosts
+        });
+
+        if (res.success) {
+            showToast('✅ Đã hủy toàn bộ đơn hàng thành công!', 'success');
+            closeModal();
+            setTimeout(async () => {
+                await _dhtShowDetail(orderId);
+                if (typeof _dhtLoadOrders === 'function') await _dhtLoadOrders();
+            }, 500);
+        } else {
+            showToast('⚠️ ' + (res.error || 'Lỗi không xác định'), 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = '🚫 XÁC NHẬN HỦY'; }
+        }
+    } catch (err) {
+        showToast('⚠️ Lỗi: ' + err.message, 'error');
+        if (btn) { btn.disabled = false; btn.innerHTML = '🚫 XÁC NHẬN HỦY'; }
+    }
+};
+
 

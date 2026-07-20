@@ -1585,7 +1585,8 @@ DO $$ BEGIN
     INSERT INTO consult_type_configs (key, label, icon, color, text_color, sort_order, stage, rule_phase) VALUES
         ('huy_don_tra_coc', 'Hủy Đơn Trả Cọc', '🚫', '#7c3aed', 'white', 26, 'capuu', 'huy_capuu'),
         ('da_huy_don_tra_coc', 'Đã Hủy Đơn Trả Cọc', '🚫', '#991b1b', 'white', 27, 'capuu', 'huy_capuu'),
-        ('cho_duyet_huy_don', 'Chờ Duyệt Hủy Đơn', '⏳', '#9333ea', 'white', 28, 'capuu', 'huy_capuu');
+        ('cho_duyet_huy_don', 'Chờ Duyệt Hủy Đơn', '⏳', '#9333ea', 'white', 28, 'capuu', 'huy_capuu'),
+        ('da_huy_don', 'Đã Hủy Đơn', '🚫', '#dc2626', 'white', 29, 'capuu', 'huy_capuu');
 EXCEPTION WHEN unique_violation THEN NULL;
 END $$;
 

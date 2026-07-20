@@ -1517,7 +1517,7 @@ module.exports = async function (fastify) {
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             WHERE (cr.id IS NULL OR cr.is_cut_done = false)
               AND (oc.id IS NULL OR oc.status <> 'cancelled')
-              AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+              AND (cust.id IS NULL OR cust.order_status NOT IN ('da_huy_don_tra_coc', 'da_huy_don'))
         `);
 
         // Fetch target ratios
@@ -1728,7 +1728,7 @@ module.exports = async function (fastify) {
                 LEFT JOIN customers cust ON cust.id = o.customer_id
                 WHERE (cr.id IS NULL OR cr.is_cut_done = false)
                   AND (oc.id IS NULL OR oc.status <> 'cancelled')
-                  AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+                  AND (cust.id IS NULL OR cust.order_status NOT IN ('da_huy_don_tra_coc', 'da_huy_don'))
             `);
 
             const colId = Number(request.params.id);
@@ -1856,7 +1856,7 @@ module.exports = async function (fastify) {
                       LEFT JOIN order_codes oc ON oc.order_code = o.order_code
                       LEFT JOIN customers cust ON cust.id = o.customer_id
                       WHERE (oc.id IS NULL OR oc.status <> 'cancelled')
-                        AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+                        AND (cust.id IS NULL OR cust.order_status NOT IN ('da_huy_don_tra_coc', 'da_huy_don'))
                         AND pa.field_id = 4
                         AND (
                             (pa.operator_type = 'contractor' AND pa.operator_id = l.printing_contractor_id)

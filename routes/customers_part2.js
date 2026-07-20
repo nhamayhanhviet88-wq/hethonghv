@@ -32,7 +32,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 LEFT JOIN last_boundary lb ON c.id = lb.customer_id
                 LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
                     AND (lb.id IS NULL OR cl.id > lb.id)
-                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
+                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'da_huy_don', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                     AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
                 WHERE c.id = $1
                 GROUP BY c.id
@@ -976,7 +976,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 LEFT JOIN last_boundary lb ON c.id = lb.customer_id
                 LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
                     AND (lb.id IS NULL OR cl.id > lb.id)
-                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
+                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'da_huy_don', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                     AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
                 WHERE c.id = $1
                 GROUP BY c.id
@@ -1386,7 +1386,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextBizDay, customerId]);
         }
 
-        const statusMap = { 'goi_dien': 'dang_tu_van', 'nhan_tin': 'dang_tu_van', 'gap_truc_tiep': 'dang_tu_van', 'gui_bao_gia': 'bao_gia', 'gui_mau': 'dang_tu_van', 'thiet_ke': 'dang_tu_van', 'bao_sua': 'dang_tu_van', 'lam_quen_tuong_tac': 'lam_quen_tuong_tac', 'gui_stk_coc': 'gui_stk_coc', 'giuc_coc': 'gui_stk_coc', 'dat_coc': 'dat_coc', 'chot_don': 'chot_don', 'dang_san_xuat': 'chot_don', 'hoan_thanh': 'hoan_thanh', 'sau_ban_hang': 'sau_ban_hang', 'tuong_tac_ket_noi': 'tuong_tac_ket_noi', 'gui_ct_kh_cu': 'gui_ct_kh_cu', 'giam_gia': 'giam_gia', 'huy_coc': 'huy_coc', 'da_huy_don_tra_coc': 'da_huy_don_tra_coc' };
+        const statusMap = { 'goi_dien': 'dang_tu_van', 'nhan_tin': 'dang_tu_van', 'gap_truc_tiep': 'dang_tu_van', 'gui_bao_gia': 'bao_gia', 'gui_mau': 'dang_tu_van', 'thiet_ke': 'dang_tu_van', 'bao_sua': 'dang_tu_van', 'lam_quen_tuong_tac': 'lam_quen_tuong_tac', 'gui_stk_coc': 'gui_stk_coc', 'giuc_coc': 'gui_stk_coc', 'dat_coc': 'dat_coc', 'chot_don': 'chot_don', 'dang_san_xuat': 'chot_don', 'hoan_thanh': 'hoan_thanh', 'sau_ban_hang': 'sau_ban_hang', 'tuong_tac_ket_noi': 'tuong_tac_ket_noi', 'gui_ct_kh_cu': 'gui_ct_kh_cu', 'giam_gia': 'giam_gia', 'huy_coc': 'huy_coc', 'da_huy_don_tra_coc': 'da_huy_don_tra_coc', 'da_huy_don': 'da_huy_don', 'huy_don': 'da_huy_don' };
         if (statusMap[log_type]) {
             await db.run('UPDATE customers SET order_status = ?, updated_at = NOW() WHERE id = ?', [statusMap[log_type], customerId]);
 
@@ -1449,7 +1449,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             LEFT JOIN last_boundary lb ON c.id = lb.customer_id
             LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
                 AND (lb.id IS NULL OR cl.id > lb.id)
-                AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
+                AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'da_huy_don', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                 AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
             WHERE c.id = $1
             GROUP BY c.id
@@ -1539,7 +1539,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     LEFT JOIN last_boundary lb ON c.id = lb.customer_id
                     LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
                         AND (lb.id IS NULL OR cl.id > lb.id)
-                        AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
+                        AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'da_huy_don', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
                         AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
                     WHERE c.id IN (${placeholders})
                     GROUP BY c.id
@@ -1877,6 +1877,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 'giam_gia': 'giam_gia', 
                 'huy_coc': 'huy_coc', 
                 'da_huy_don_tra_coc': 'da_huy_don_tra_coc',
+                'da_huy_don': 'da_huy_don',
                 'tu_van_lai': 'tu_van_lai',
                 'cho_duyet_huy': 'cho_duyet_huy',
                 'duyet_huy': 'duyet_huy'

@@ -178,12 +178,14 @@ module.exports = async function(fastify) {
                             - COALESCE(o.vat_amount, 0)
                         ), 0) AS revenue
                     FROM dht_orders o
+                    JOIN order_codes oc ON o.order_code = oc.order_code
                     LEFT JOIN dht_categories cat ON o.category_id = cat.id
                     LEFT JOIN LATERAL (
                         SELECT COALESCE(SUM(di.item_total), 0) AS item_total
                         FROM dht_order_items di WHERE di.dht_order_id = o.id
                     ) oi_sum ON true
                     WHERE o.created_by IN (${userPh})
+                      AND oc.status != 'cancelled'
                       AND o.parent_order_id IS NULL
                       ${repairCatId ? `AND (o.category_id IS NULL OR o.category_id != ${repairCatId})` : ''}
                       AND o.order_date >= $${pStart}::date
@@ -505,6 +507,7 @@ module.exports = async function(fastify) {
                 -- Affiliate: check if linked via order_codes → customers → referrer
                 ref_u.full_name AS referrer_name
             FROM dht_orders o
+            JOIN order_codes oc ON o.order_code = oc.order_code
             LEFT JOIN dht_categories cat ON o.category_id = cat.id
             LEFT JOIN users u ON o.created_by = u.id
             LEFT JOIN LATERAL (
@@ -513,13 +516,14 @@ module.exports = async function(fastify) {
             ) oi_sum ON true
             LEFT JOIN LATERAL (
                 SELECT c.referrer_id
-                FROM order_codes oc
-                JOIN customers c ON oc.customer_id = c.id
-                WHERE oc.order_code = o.order_code
+                FROM order_codes oc2
+                JOIN customers c ON oc2.customer_id = c.id
+                WHERE oc2.order_code = o.order_code
                 LIMIT 1
             ) ref_link ON true
             LEFT JOIN users ref_u ON ref_u.id = ref_link.referrer_id AND ref_u.role = 'tkaffiliate'
             WHERE o.created_by IN (${userPh})
+              AND oc.status != 'cancelled'
               AND o.parent_order_id IS NULL
               ${repairCatId ? `AND (o.category_id IS NULL OR o.category_id != ${repairCatId})` : ''}
               AND o.order_date >= $${paramIdx}::date

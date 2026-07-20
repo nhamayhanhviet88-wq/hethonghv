@@ -183,7 +183,7 @@ async function validateFabricStockLimits(items, excludeOrderId = null) {
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             WHERE (cr.id IS NULL OR cr.is_cut_done = false)
               AND (oc.id IS NULL OR oc.status <> 'cancelled')
-              AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+              AND (cust.id IS NULL OR cust.order_status NOT IN ('da_huy_don_tra_coc', 'da_huy_don'))
               AND o.id <> $1
               AND NOT EXISTS (
                   SELECT 1 FROM kv_order_consumed_slips cs
@@ -2638,9 +2638,11 @@ module.exports = async function(fastify) {
                 COALESCE(err_check.error_count, 0) > 0 AS has_error,
                 CASE WHEN COALESCE(err_check.error_count, 0) > 0
                      THEN COALESCE(err_check.error_count, 0) = COALESCE(err_handover.handed_count, 0)
-                     ELSE FALSE END AS all_errors_handed_over
+                     ELSE FALSE END AS all_errors_handed_over,
+                oc.status AS order_code_status
             FROM dht_orders o
             LEFT JOIN customers cust ON o.customer_id = cust.id
+            LEFT JOIN order_codes oc ON o.order_code = oc.order_code
             LEFT JOIN settings_sources src ON cust.source_id = src.id
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
@@ -6104,7 +6106,7 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             WHERE (cr.id IS NULL OR cr.is_cut_done = false)
               AND (oc.id IS NULL OR oc.status <> 'cancelled')
-              AND (cust.id IS NULL OR cust.order_status <> 'da_huy_don_tra_coc')
+              AND (cust.id IS NULL OR cust.order_status NOT IN ('da_huy_don_tra_coc', 'da_huy_don'))
               AND o.id <> $1
               AND NOT EXISTS (
                   SELECT 1 FROM kv_order_consumed_slips cs
@@ -8648,6 +8650,702 @@ module.exports = async function(fastify) {
     }
 
     // ========== HỦY PHIẾU SẢN XUẤT — Production Cancellation per Item ==========
+
+    function _isGDOrTrinh(user) {
+        if (user.role === 'giam_doc') return true;
+        if (user.username === 'leviettrinh' || user.username === 'trinh') return true;
+        if (user.full_name && (user.full_name.includes('Lê Việt Trinh') || user.full_name.includes('Le Viet Trinh'))) return true;
+        return false;
+    }
+
+    // ========== HỦY TOÀN BỘ ĐƠN HÀNG — Global Order Cancellation ==========
+
+    // ★ PREVIEW: Quét tất cả công đoạn cho toàn bộ đơn hàng
+    fastify.get('/api/dht/orders/:orderId/cancel-full/preview', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = await db.get('SELECT id, role, username, full_name FROM users WHERE id = $1', [request.user.id]);
+        if (!user || !_isGDOrTrinh(user)) {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc hoặc Quản lý cấp cao Lê Việt Trinh mới được hủy toàn bộ đơn hàng' });
+        }
+
+        const orderId = Number(request.params.orderId);
+
+        const order = await db.get('SELECT id, order_code, customer_name, customer_id, total_amount, total_quantity FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id', [orderId]);
+        if (items.length === 0) return reply.code(400).send({ error: 'Đơn hàng không có phiếu sản xuất nào' });
+
+        const itemsDetail = [];
+        let hasActiveWork = false;
+        let totalOriginalAmount = 0;
+
+        for (const item of items) {
+            totalOriginalAmount += Number(item.item_total || item.total) || 0;
+            if (item.production_cancelled) {
+                itemsDetail.push({
+                    item: {
+                        id: item.id,
+                        product_name: item.product_name || item.description,
+                        material_name: item.material_name,
+                        color_name: item.color_name,
+                        quantity: item.quantity,
+                        unit_price: item.unit_price,
+                        item_total: Number(item.item_total) || 0,
+                        production_cancelled: true
+                    },
+                    completed_steps: [],
+                    pending_steps: [],
+                    has_active_work: false
+                });
+                continue;
+            }
+
+            const completedSteps = [];
+            const pendingSteps = [];
+
+            // 1. CẮT — cutting_records
+            const cutRecords = await db.all(`
+                SELECT cr.*, u.full_name AS cutter_name
+                FROM cutting_records cr
+                LEFT JOIN users u ON cr.cutter_id = u.id
+                WHERE cr.order_item_id = $1
+                ORDER BY cr.id
+            `, [item.id]);
+            
+            const cutDone = cutRecords.filter(r => r.is_cut_done);
+            const cutPending = cutRecords.filter(r => !r.is_cut_done);
+            
+            if (cutDone.length > 0) {
+                const totalKg = cutDone.reduce((sum, r) => sum + (Number(r.kg_cut) || 0), 0);
+                const totalQty = cutDone.reduce((sum, r) => sum + (Number(r.cut_quantity) || 0), 0);
+                completedSteps.push({
+                    step: 'Cắt', icon: '✂️', cost_input_key: `cutting_cost_${item.id}`,
+                    details: [
+                        { label: 'Số kg vải đã cắt', value: totalKg, unit: 'kg' },
+                        { label: 'Số áo đã cắt', value: totalQty, unit: 'áo' },
+                        ...cutDone.map(r => ({
+                            label: `${r.material_name || '—'} — ${r.fabric_color || '—'}`,
+                            value: `${r.cut_quantity || 0} áo, ${r.kg_cut || 0} kg`,
+                            sub: r.cutter_name ? `Thợ cắt: ${r.cutter_name}` : null
+                        }))
+                    ]
+                });
+            }
+            
+            if (cutPending.length > 0 || cutRecords.length === 0) {
+                const assignedCutters = [...new Set(cutRecords.map(r => r.cutter_name).filter(Boolean))];
+                const info = assignedCutters.length > 0 
+                    ? `Đã phân công: ${assignedCutters.join(', ')}` 
+                    : 'Chưa phân công';
+                pendingSteps.push({ step: 'Cắt', icon: '✂️', statusText: 'Chờ cắt', info });
+            }
+
+            // 2. IN — printing_records
+            const printRecords = await db.all(`
+                SELECT pr.*, u.full_name AS printer_name, c.name AS contractor_name
+                FROM printing_records pr
+                LEFT JOIN users u ON pr.printer_id = u.id
+                LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
+                WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2))
+                  AND COALESCE(pr.is_discarded, false) = false
+                ORDER BY pr.id
+            `, [item.id, orderId]);
+            
+            const printDone = printRecords.filter(r => r.is_print_done || r.contractor_id);
+            const printPending = printRecords.filter(r => !r.is_print_done && !r.contractor_id);
+            
+            if (printDone.length > 0) {
+                const totalMeters = printDone.reduce((sum, r) => sum + (Number(r.print_meters) || 0), 0);
+                completedSteps.push({
+                    step: 'In', icon: '🖨️', cost_input_key: `printing_cost_${item.id}`,
+                    details: [
+                        { label: 'Tổng số mét đã in', value: totalMeters, unit: 'mét' },
+                        ...printDone.map(r => ({
+                            label: r.print_field || 'In',
+                            value: `${r.print_meters || 0} mét`,
+                            sub: r.contractor_name ? `GC: ${r.contractor_name}` : (r.printer_name ? `Thợ in: ${r.printer_name}` : null)
+                        }))
+                    ]
+                });
+            }
+            
+            if (printPending.length > 0 || printRecords.length === 0) {
+                const assignedPrinters = [...new Set(printRecords.map(r => r.contractor_name || r.printer_name).filter(Boolean))];
+                const info = assignedPrinters.length > 0 
+                    ? `Đã phân công: ${assignedPrinters.join(', ')}` 
+                    : 'Chưa phân công';
+                pendingSteps.push({ step: 'In', icon: '🖨️', statusText: 'Chờ in', info });
+            }
+
+            // 3. ÉP — pressing_records
+            const pressRecords = await db.all(`
+                SELECT pr.*, u.full_name AS presser_name
+                FROM pressing_records pr
+                LEFT JOIN users u ON pr.presser_id = u.id
+                WHERE pr.order_item_id = $1
+                ORDER BY pr.id
+            `, [item.id]);
+            
+            const pressDone = pressRecords.filter(r => r.is_reported);
+            const pressPending = pressRecords.filter(r => !r.is_reported);
+            
+            if (pressDone.length > 0) {
+                const totalQty = pressDone.reduce((sum, r) => sum + (Number(r.order_quantity) || 0), 0);
+                const activePositions = await db.all(`
+                    SELECT key_code, display_name FROM pressing_positions 
+                    WHERE is_active = true 
+                    ORDER BY display_order ASC, id ASC
+                `);
+                
+                const pressDetails = [
+                    { label: 'Số áo đã ép', value: totalQty, unit: 'áo' }
+                ];
+                
+                for (const r of pressDone) {
+                    pressDetails.push({
+                        label: r.product_name || 'Ép',
+                        value: `${r.order_quantity || 0} áo`,
+                        sub: r.presser_name ? `Thợ ép: ${r.presser_name}` : null
+                    });
+                    
+                    for (const pos of activePositions) {
+                        const qty = Number(r[pos.key_code]) || 0;
+                        if (qty > 0) {
+                            pressDetails.push({
+                                label: `&nbsp;&nbsp;&nbsp;&nbsp;• ${pos.display_name}`,
+                                value: `${qty}`,
+                                unit: 'sp'
+                            });
+                        }
+                    }
+                }
+
+                completedSteps.push({
+                    step: 'Ép', icon: '🔥', cost_input_key: `pressing_cost_${item.id}`,
+                    details: pressDetails
+                });
+            }
+            
+            if (pressPending.length > 0 || pressRecords.length === 0) {
+                const assignedPressers = [...new Set(pressRecords.map(r => r.presser_name).filter(Boolean))];
+                const info = assignedPressers.length > 0 
+                    ? `Đã phân công: ${assignedPressers.join(', ')}` 
+                    : 'Chưa phân công';
+                pendingSteps.push({ step: 'Ép', icon: '🔥', statusText: 'Chờ ép', info });
+            }
+
+            // 4. MAY — sewing_records
+            const sewRecords = await db.all(`
+                SELECT sr.*, 
+                       u.full_name AS tailor_name,
+                       d.name AS team_name,
+                       sc.name AS contractor_name
+                FROM sewing_records sr
+                LEFT JOIN users u ON sr.sewer_id = u.id
+                LEFT JOIN departments d ON sr.sewing_team_id = d.id
+                LEFT JOIN sewing_contractors sc ON sr.contractor_id = sc.id
+                WHERE sr.order_item_id = $1
+                ORDER BY sr.id
+            `, [item.id]);
+            
+            const getSewAssignment = (r) => {
+                if (r.contractor_name) return `Gia công: ${r.contractor_name}`;
+                if (r.team_name) return `Tổ: ${r.team_name}`;
+                if (r.tailor_name) return `Thợ: ${r.tailor_name}`;
+                return null;
+            };
+
+            const sewDone = sewRecords.filter(r => r.done_date);
+            const sewPending = sewRecords.filter(r => !r.done_date);
+            
+            if (sewDone.length > 0) {
+                const totalQty = sewDone.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+                completedSteps.push({
+                    step: 'May', icon: '🧵', cost_input_key: `sewing_cost_${item.id}`,
+                    details: [
+                        { label: 'Số áo đã may', value: totalQty, unit: 'áo' },
+                        ...sewDone.map(r => ({
+                            label: r.product_name || 'May',
+                            value: `${r.quantity || 0} áo`,
+                            sub: getSewAssignment(r)
+                        }))
+                    ]
+                });
+            }
+            
+            if (sewPending.length > 0 || sewRecords.length === 0) {
+                const assignedTailors = [...new Set(sewRecords.map(r => getSewAssignment(r)).filter(Boolean))];
+                const info = assignedTailors.length > 0 
+                    ? `Đã phân công: ${assignedTailors.join(', ')}` 
+                    : 'Chưa phân công';
+                pendingSteps.push({ step: 'May', icon: '🧵', statusText: 'Chờ may', info });
+            }
+
+            // 5. QC
+            const qcStep = await db.get(`
+                SELECT op.is_completed, op.completed_at, u.full_name AS completed_by_name
+                FROM dht_order_production op
+                LEFT JOIN users u ON op.completed_by = u.id
+                LEFT JOIN dht_process_steps ps ON op.step_id = ps.id
+                WHERE op.dht_order_id = $1 AND ps.short_name = 'KTCL'
+            `, [orderId]);
+            
+            const qcRecords = await db.all(`
+                SELECT sr.id AS sewing_record_id, sr.quantity,
+                       (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id) AS qc_count,
+                       (SELECT u2.full_name FROM qc_checklist_answers qca JOIN users u2 ON qca.answered_by = u2.id WHERE qca.sewing_record_id = sr.id LIMIT 1) AS qc_by_name
+                FROM sewing_records sr
+                WHERE sr.order_item_id = $1
+            `, [item.id]);
+            
+            const totalQcDone = qcRecords.filter(r => r.qc_count > 0);
+            const hasQcAnswers = totalQcDone.length > 0;
+            const allQcDone = qcRecords.length > 0 && qcRecords.every(r => r.qc_count > 0);
+            
+            if ((qcStep && qcStep.is_completed) || allQcDone) {
+                const completedBy = qcStep?.completed_by_name || totalQcDone[0]?.qc_by_name || '';
+                completedSteps.push({
+                    step: 'Kiểm Tra Chất Lượng', icon: '🔍', cost_input_key: `qc_cost_${item.id}`,
+                    details: [
+                        { label: 'Trạng thái', value: 'Đã hoàn thành' },
+                        ...(completedBy ? [{ label: 'Người kiểm tra', value: completedBy }] : []),
+                        ...qcRecords.map(r => ({
+                            label: `Phiếu may #${r.sewing_record_id} (${r.quantity} áo)`,
+                            value: r.qc_count > 0 ? 'Đã QC' : 'Chưa QC',
+                            sub: r.qc_by_name ? `Người kiểm tra: ${r.qc_by_name}` : null
+                        }))
+                    ]
+                });
+            } else {
+                const info = hasQcAnswers 
+                    ? `Đã QC: ${totalQcDone.reduce((sum, r) => sum + r.quantity, 0)}/${qcRecords.reduce((sum, r) => sum + r.quantity, 0)} áo`
+                    : 'Chưa kiểm tra';
+                pendingSteps.push({
+                    step: 'Kiểm Tra Chất Lượng', 
+                    icon: '🔍', 
+                    statusText: hasQcAnswers ? 'Đang kiểm tra' : 'Chờ kiểm tra', 
+                    info 
+                });
+            }
+
+            // 6. HOÀN THIỆN
+            const finishRecords = await db.all(`
+                SELECT fr.*, u.full_name AS worker_name
+                FROM finishing_records fr
+                JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+                LEFT JOIN users u ON fr.finisher_id = u.id
+                WHERE sr.order_item_id = $1
+                ORDER BY fr.id
+            `, [item.id]);
+            
+            const finishDone = finishRecords.filter(r => r.is_completed);
+            const finishPending = finishRecords.filter(r => !r.is_completed);
+            
+            if (finishDone.length > 0) {
+                const totalQty = finishDone.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+                completedSteps.push({
+                    step: 'Cắt Chỉ & Hoàn Thiện', icon: '✨', cost_input_key: `finishing_cost_${item.id}`,
+                    details: [
+                        { label: 'Số áo hoàn thiện', value: totalQty, unit: 'áo' },
+                        ...finishDone.map(r => ({
+                            label: r.product_name || 'Hoàn thiện',
+                            value: `${r.quantity || 0} áo`,
+                            sub: r.worker_name ? `Thợ hoàn thiện: ${r.worker_name}` : null
+                        }))
+                    ]
+                });
+            }
+            
+            if (finishPending.length > 0 || finishRecords.length === 0) {
+                const assignedWorkers = [...new Set(finishRecords.map(r => r.worker_name).filter(Boolean))];
+                const info = assignedWorkers.length > 0 
+                    ? `Đã phân công: ${assignedWorkers.join(', ')}` 
+                    : 'Chưa phân công';
+                pendingSteps.push({ step: 'Cắt Chỉ & Hoàn Thiện', icon: '✨', statusText: 'Chờ hoàn thiện', info });
+            }
+
+            const itemHasActiveWork = cutPending.length > 0 ||
+                printPending.length > 0 ||
+                pressPending.length > 0 ||
+                sewPending.length > 0 ||
+                finishPending.length > 0 ||
+                (qcRecords.length > 0 && !allQcDone);
+
+            if (itemHasActiveWork) hasActiveWork = true;
+
+            itemsDetail.push({
+                item: {
+                    id: item.id,
+                    product_name: item.product_name || item.description,
+                    material_name: item.material_name,
+                    color_name: item.color_name,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    item_total: Number(item.item_total) || 0,
+                    production_cancelled: false
+                },
+                completed_steps: completedSteps,
+                pending_steps: pendingSteps,
+                has_active_work: itemHasActiveWork
+            });
+        }
+
+        return {
+            order: order,
+            items: itemsDetail,
+            total_original_amount: totalOriginalAmount,
+            has_active_work: hasActiveWork
+        };
+    });
+
+    // ★ CONFIRM: Thực hiện hủy toàn bộ đơn hàng
+    fastify.post('/api/dht/orders/:orderId/cancel-full', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = await db.get('SELECT id, role, username, full_name FROM users WHERE id = $1', [request.user.id]);
+        if (!user || !_isGDOrTrinh(user)) {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc hoặc Quản lý cấp cao Lê Việt Trinh mới được hủy toàn bộ đơn hàng' });
+        }
+
+        const orderId = Number(request.params.orderId);
+        const { reason, item_costs } = request.body || {};
+
+        if (!reason || !reason.trim()) {
+            return reply.code(400).send({ error: 'Vui lòng nhập lý do hủy đơn hàng' });
+        }
+
+        const order = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
+        if (!order) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng' });
+
+        const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId]);
+        if (items.length === 0) return reply.code(400).send({ error: 'Đơn hàng không có phiếu sản xuất nào' });
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+
+        // Start transaction using a dedicated pg client
+        const client = await db.getDB().connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1. Handle each order item cancellation
+            for (const item of items) {
+                if (item.production_cancelled) continue;
+
+                const originalItemTotal = Number(item.item_total || item.total) || 0;
+                const newItemTotal = Number(item_costs?.[item.id]) || 0;
+
+                // Query completed & pending steps for this item to log in dht_item_production_cancellations
+                // 1a. Cắt — cutting_records
+                const cutRecords = (await client.query(`
+                    SELECT cr.is_cut_done, u.full_name AS cutter_name, cr.kg_cut, cr.cut_quantity, cr.material_name, cr.fabric_color
+                    FROM cutting_records cr
+                    LEFT JOIN users u ON cr.cutter_id = u.id
+                    WHERE cr.order_item_id = $1
+                    ORDER BY cr.id
+                `, [item.id])).rows;
+                const cutDone = cutRecords.filter(r => r.is_cut_done);
+                const cutPending = cutRecords.filter(r => !r.is_cut_done);
+                const completedSteps = [];
+                const pendingSteps = [];
+
+                if (cutDone.length > 0) {
+                    completedSteps.push({
+                        step: 'Cắt', icon: '✂️', cost_input_key: `cutting_cost_${item.id}`,
+                        details: [
+                            { label: 'Số kg vải đã cắt', value: cutDone.reduce((sum, r) => sum + (Number(r.kg_cut) || 0), 0), unit: 'kg' },
+                            { label: 'Số áo đã cắt', value: cutDone.reduce((sum, r) => sum + (Number(r.cut_quantity) || 0), 0), unit: 'áo' }
+                        ]
+                    });
+                }
+                if (cutPending.length > 0 || cutRecords.length === 0) {
+                    pendingSteps.push({ step: 'Cắt', icon: '✂️', statusText: 'Chờ cắt' });
+                }
+
+                // 1b. In — printing_records
+                const printRecords = (await client.query(`
+                    SELECT pr.is_print_done, pr.print_meters, pr.print_field, u.full_name AS printer_name, c.name AS contractor_name
+                    FROM printing_records pr
+                    LEFT JOIN users u ON pr.printer_id = u.id
+                    LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
+                    WHERE (pr.order_item_id = $1 OR (pr.order_item_id IS NULL AND pr.dht_order_id = $2))
+                      AND COALESCE(pr.is_discarded, false) = false
+                    ORDER BY pr.id
+                `, [item.id, orderId])).rows;
+                const printDone = printRecords.filter(r => r.is_print_done || r.contractor_id);
+                const printPending = printRecords.filter(r => !r.is_print_done && !r.contractor_id);
+                if (printDone.length > 0) {
+                    completedSteps.push({
+                        step: 'In', icon: '🖨️', cost_input_key: `printing_cost_${item.id}`,
+                        details: [
+                            { label: 'Tổng số mét đã in', value: printDone.reduce((sum, r) => sum + (Number(r.print_meters) || 0), 0), unit: 'mét' }
+                        ]
+                    });
+                }
+                if (printPending.length > 0 || printRecords.length === 0) {
+                    pendingSteps.push({ step: 'In', icon: '🖨️', statusText: 'Chờ in' });
+                }
+
+                // 1c. Ép — pressing_records
+                const pressRecords = (await client.query(`
+                    SELECT pr.is_reported, pr.order_quantity, u.full_name AS presser_name
+                    FROM pressing_records pr
+                    LEFT JOIN users u ON pr.presser_id = u.id
+                    WHERE pr.order_item_id = $1
+                    ORDER BY pr.id
+                `, [item.id])).rows;
+                const pressDone = pressRecords.filter(r => r.is_reported);
+                const pressPending = pressRecords.filter(r => !r.is_reported);
+                if (pressDone.length > 0) {
+                    completedSteps.push({
+                        step: 'Ép', icon: '🔥', cost_input_key: `pressing_cost_${item.id}`,
+                        details: [{ label: 'Số áo đã ép', value: pressDone.reduce((sum, r) => sum + (Number(r.order_quantity) || 0), 0), unit: 'áo' }]
+                    });
+                }
+                if (pressPending.length > 0 || pressRecords.length === 0) {
+                    pendingSteps.push({ step: 'Ép', icon: '🔥', statusText: 'Chờ ép' });
+                }
+
+                // 1d. May — sewing_records
+                const sewRecords = (await client.query(`
+                    SELECT sr.done_date, sr.quantity
+                    FROM sewing_records sr
+                    WHERE sr.order_item_id = $1
+                    ORDER BY sr.id
+                `, [item.id])).rows;
+                const sewDone = sewRecords.filter(r => r.done_date);
+                const sewPending = sewRecords.filter(r => !r.done_date);
+                if (sewDone.length > 0) {
+                    completedSteps.push({
+                        step: 'May', icon: '🧵', cost_input_key: `sewing_cost_${item.id}`,
+                        details: [{ label: 'Số áo đã may', value: sewDone.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0), unit: 'áo' }]
+                    });
+                }
+                if (sewPending.length > 0 || sewRecords.length === 0) {
+                    pendingSteps.push({ step: 'May', icon: '🧵', statusText: 'Chờ may' });
+                }
+
+                // 1e. QC - dht_order_production
+                const qcStep = (await client.query(`
+                    SELECT op.is_completed
+                    FROM dht_order_production op
+                    LEFT JOIN dht_process_steps ps ON op.step_id = ps.id
+                    WHERE op.dht_order_id = $1 AND ps.short_name = 'KTCL'
+                `, [orderId])).rows[0];
+                const qcRecords = (await client.query(`
+                    SELECT sr.id, (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id) AS qc_count
+                    FROM sewing_records sr
+                    WHERE sr.order_item_id = $1
+                `, [item.id])).rows;
+                const allQcDone = qcRecords.length > 0 && qcRecords.every(r => r.qc_count > 0);
+                if ((qcStep && qcStep.is_completed) || allQcDone) {
+                    completedSteps.push({ step: 'Kiểm Tra Chất Lượng', icon: '🔍', cost_input_key: `qc_cost_${item.id}` });
+                } else {
+                    pendingSteps.push({ step: 'Kiểm Tra Chất Lượng', icon: '🔍', statusText: 'Chờ kiểm tra' });
+                }
+
+                // 1f. Hoàn thiện — finishing_records
+                const finishRecords = (await client.query(`
+                    SELECT fr.is_completed, fr.quantity
+                    FROM finishing_records fr
+                    JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+                    WHERE sr.order_item_id = $1
+                    ORDER BY fr.id
+                `, [item.id])).rows;
+                const finishDone = finishRecords.filter(r => r.is_completed);
+                const finishPending = finishRecords.filter(r => !r.is_completed);
+                if (finishDone.length > 0) {
+                    completedSteps.push({
+                        step: 'Cắt Chỉ & Hoàn Thiện', icon: '✨', cost_input_key: `finishing_cost_${item.id}`,
+                        details: [{ label: 'Số áo hoàn thiện', value: finishDone.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0), unit: 'áo' }]
+                    });
+                }
+                if (finishPending.length > 0 || finishRecords.length === 0) {
+                    pendingSteps.push({ step: 'Cắt Chỉ & Hoàn Thiện', icon: '✨', statusText: 'Chờ hoàn thiện' });
+                }
+
+                // Save item production cancellation
+                await client.query(`
+                    INSERT INTO dht_item_production_cancellations
+                        (dht_order_id, order_item_id, completed_steps, pending_steps, cost_details, total_cost, original_item_total, reason, cancelled_by, cancelled_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                `, [
+                    orderId, item.id,
+                    JSON.stringify(completedSteps),
+                    JSON.stringify(pendingSteps),
+                    JSON.stringify({}),
+                    newItemTotal,
+                    originalItemTotal,
+                    reason.trim(),
+                    user.id,
+                    now
+                ]);
+
+                // Update item flags and set total to compensation cost
+                await client.query(`
+                    UPDATE dht_order_items
+                    SET production_cancelled = true,
+                        production_cancelled_at = $1,
+                        production_cancelled_by = $2,
+                        original_item_total = CASE WHEN original_item_total IS NULL THEN item_total ELSE original_item_total END,
+                        item_total = $3,
+                        total = $3
+                    WHERE id = $4
+                `, [now, user.id, newItemTotal, item.id]);
+
+                // Release fabric reservations for this item
+                const activeReservations = (await client.query(`
+                    SELECT id, roll_id, status, reservation_type, roll_code, kg_reserved, call_amount, unit
+                    FROM qlx_fabric_reservations
+                    WHERE item_id = $1 AND status IN ('reserved', 'arrived')
+                `, [item.id])).rows;
+
+                for (const res of activeReservations) {
+                    await client.query('UPDATE qlx_fabric_reservations SET status = $1, updated_at = $2 WHERE id = $3', ['released', now, res.id]);
+
+                    await client.query(`
+                        INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at)
+                        VALUES ($1, 'fabric_release', $2, $3, $4)
+                    `, [orderId, `Tự động hủy giữ/gọi vải do hủy sản xuất đơn hàng: ${res.roll_code || 'Gọi vải'} (${res.kg_reserved || res.call_amount || 0}${res.unit || 'kg'})`, user.id, now]);
+
+                    if (res.roll_id) {
+                        const roll = (await client.query('SELECT id, roll_code, location, original_location, return_tx_id FROM kv_rolls WHERE id = $1', [res.roll_id])).rows[0];
+                        if (roll) {
+                            const otherActiveRes = (await client.query(`
+                                SELECT 1 FROM qlx_fabric_reservations
+                                WHERE roll_id = $1 AND status IN ('reserved', 'arrived', 'fulfilled') AND id != $2
+                                LIMIT 1
+                            `, [roll.id, res.id])).rows[0];
+
+                            if (!otherActiveRes) {
+                                if (res.status === 'arrived') {
+                                    await client.query(`
+                                        UPDATE kv_rolls 
+                                        SET location = 'Cây Nguyên Cần Xử Lý Kho',
+                                            updated_at = $1
+                                        WHERE id = $2
+                                    `, [now, roll.id]);
+                                }
+
+                                if (roll.return_tx_id) {
+                                    const txId = roll.return_tx_id;
+                                    const tx = (await client.query('SELECT notes FROM fabric_transactions WHERE id = $1', [txId])).rows[0];
+                                    let cleanNotes = tx ? (tx.notes || '') : '';
+                                    if (cleanNotes.startsWith('[ĐÃ HỦY] ')) {
+                                        cleanNotes = cleanNotes.substring('[ĐÃ HỦY] '.length);
+                                    } else {
+                                        cleanNotes = cleanNotes.replace(/QLX chọn cắt\s+\S+/g, '').trim();
+                                    }
+                                    await client.query(`UPDATE fabric_transactions SET is_canceled = false, notes = $1, updated_at = $2 WHERE id = $3`, [cleanNotes, now, txId]);
+                                    await client.query(`INSERT INTO fabric_tx_history (tx_id, action, details, performed_by, performed_at) VALUES ($1, 'uncancel', $2, $3, $4)`, 
+                                        [txId, `Hoàn tác hủy do QLX hủy giữ/đánh dấu cắt cây vải ${roll.roll_code || roll.id} (Hủy sản xuất)`, user.id, now]);
+                                }
+                            }
+                        }
+                    }
+
+                    if (res.reservation_type === 'new_call') {
+                        const linkedRows = (await client.query(
+                            'SELECT id FROM qlx_fabric_reservations WHERE linked_call_id = $1 AND status != $2',
+                            [res.id, 'released']
+                        )).rows;
+                        for (const lk of linkedRows) {
+                            await client.query('UPDATE qlx_fabric_reservations SET status = $1, updated_at = $2 WHERE id = $3', ['released', now, lk.id]);
+                        }
+                    }
+                }
+
+                // Delete incomplete cutting records
+                await client.query('DELETE FROM cutting_records WHERE order_item_id = $1 AND is_cut_done = false', [item.id]);
+            }
+
+            // 2. Set global statuses to 'cancelled' / 'da_huy_don'
+            await client.query("UPDATE order_codes SET status = 'cancelled' WHERE order_code = $1", [order.order_code]);
+
+            if (order.customer_id) {
+                await client.query(`
+                    UPDATE customers 
+                    SET order_status = 'da_huy_don',
+                        cancel_approved = 0,
+                        cancel_requested = 0,
+                        updated_at = NOW()
+                    WHERE id = $1
+                `, [order.customer_id]);
+
+                // Refund slips & import slips
+                const { refundSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_slips');
+                const { refundImportSlipsForDeletedOrCancelledOrder } = require('../utils/kv_allowed_imports');
+                await refundSlipsForDeletedOrCancelledOrder(client, orderId);
+                await refundImportSlipsForDeletedOrCancelledOrder(client, orderId);
+
+                // Log customer consultation log
+                await client.query(`
+                    INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
+                    VALUES ($1, 'da_huy_don', $2, $3)
+                `, [order.customer_id, `🚫 Hủy toàn bộ đơn hàng ${order.order_code} — Lý do: ${reason.trim()}`, user.id]);
+            }
+
+            // 3. Recalculate order totals to be the sum of compensation costs
+            const itemsList = (await client.query('SELECT * FROM dht_order_items WHERE dht_order_id = $1', [orderId])).rows;
+            const newOrderTotal = itemsList.reduce((sum, it) => sum + (Number(it.item_total || it.total) || 0), 0);
+
+            await client.query(`
+                UPDATE dht_orders
+                SET total_quantity = 0,
+                    total_amount = $1,
+                    vat_amount = 0,
+                    last_updated_at = $2,
+                    last_updated_by = $3
+                WHERE id = $4
+            `, [newOrderTotal, now, user.id, orderId]);
+
+            // 4. Audit log for global cancellation
+            await client.query(`
+                INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by)
+                VALUES ($1, $2, $3, $4, $5)
+            `, [
+                orderId, 'cancel_full_order',
+                `🚫 Hủy toàn bộ đơn: ${order.order_code} — Chi phí đền bù: ${newOrderTotal.toLocaleString('vi-VN')}đ`,
+                JSON.stringify([
+                    { field: 'order_status', label: 'Trạng thái đơn', old: 'chot_don', new: 'da_huy_don' },
+                    { field: 'total_amount', label: 'Doanh số đơn', old: String(order.total_amount), new: String(newOrderTotal) },
+                    { field: 'reason', label: 'Lý do', old: null, new: reason.trim() }
+                ]),
+                user.id
+            ]);
+
+            // Recalculate fabric status
+            try {
+                const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+                await recalculateOrderFabricStatus(orderId);
+            } catch (recalcErr) {
+                console.error('[CancelFull] Recalc error:', recalcErr);
+            }
+
+            await client.query('COMMIT');
+
+            // 5. Telegram notification
+            try {
+                const { notifyTelegram } = require('../utils/telegram');
+                const msg = `🚫 <b>HỦY TOÀN BỘ ĐƠN HÀNG</b> 🚫\n\n` +
+                    `📋 Đơn: <b>${order.order_code}</b>\n` +
+                    `👤 KH: ${order.customer_name || '—'}\n` +
+                    `💰 Chi phí đền bù: ${newOrderTotal.toLocaleString('vi-VN')}đ\n` +
+                    `💰 Doanh số gốc: ${(Number(order.total_amount) || 0).toLocaleString('vi-VN')}đ\n` +
+                    `📝 Lý do: ${reason.trim()}\n\n` +
+                    `👤 Thực hiện bởi: ${user.full_name || user.username}`;
+                await notifyTelegram(null, 'huy_don_tra_coc', msg);
+            } catch (tgErr) {
+                console.error('[CancelFull] Telegram error:', tgErr.message);
+            }
+
+            return { success: true, new_order_total: newOrderTotal };
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('[CancelFull] Error:', err);
+            return reply.code(500).send({ error: 'Lỗi khi hủy toàn bộ đơn: ' + err.message });
+        } finally {
+            client.release();
+        }
+    });
 
     // Helper: check if user is GĐ or Lê Việt Trinh
     function _isGDOrTrinh(user) {
