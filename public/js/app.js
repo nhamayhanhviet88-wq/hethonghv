@@ -1360,6 +1360,11 @@ function saveSidebarScrollAndNavigate(href) {
 }
 
 // ========== SIDEBAR ==========
+if (!localStorage.getItem('sidebarDefaultsSet_v3')) {
+    localStorage.removeItem('sidebarCollapsed');
+    localStorage.removeItem('sidebarParentCollapsed');
+    localStorage.setItem('sidebarDefaultsSet_v3', 'true');
+}
 var _sidebarCollapsed = JSON.parse(localStorage.getItem('sidebarCollapsed') || '{}');
 var _sidebarParentCollapsed = JSON.parse(localStorage.getItem('sidebarParentCollapsed') || '{}');
 var _sidebarSectionKeys = [];
@@ -1416,7 +1421,7 @@ function renderSidebar() {
         if (containsActiveItem) {
             _sidebarCollapsed[sectionName] = false;
         } else if (_sidebarCollapsed[sectionName] === undefined) {
-            _sidebarCollapsed[sectionName] = true;
+            _sidebarCollapsed[sectionName] = false;
         }
     });
 
@@ -1428,7 +1433,7 @@ function renderSidebar() {
         if (containsActive) {
             _sidebarParentCollapsed[parent.name] = false;
         } else if (_sidebarParentCollapsed[parent.name] === undefined) {
-            _sidebarParentCollapsed[parent.name] = true;
+            _sidebarParentCollapsed[parent.name] = false;
         }
     });
 
