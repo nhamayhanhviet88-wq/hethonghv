@@ -2228,12 +2228,18 @@ function _dhtUpdatePatternList(prodId) {
 window._ppToggleWorkflowType = function(type) {
     var checkboxes = document.querySelectorAll('#_pp_processSteps input[type="checkbox"]');
     checkboxes.forEach(function(cb) {
+        var stepId = cb.getAttribute('data-step-id');
+        var isQlx = (String(stepId) === '1');
         if (type === 'full') {
             cb.checked = true;
             cb.disabled = true;
         } else {
             cb.checked = true;
-            cb.disabled = false;
+            if (isQlx) {
+                cb.disabled = true;
+            } else {
+                cb.disabled = false;
+            }
         }
     });
     if (typeof _ppUpdateCuttingFieldsVisibility === 'function') {
@@ -2388,14 +2394,20 @@ async function _dhtProductChange(keepExistingPattern) {
                     var bg=colors[i%colors.length];
                     var isChecked = false;
                     var disabledAttr = 'disabled';
+                    var isQlx = (String(s.step_id) === '1');
                     if (isFull) {
                         isChecked = true;
                         disabledAttr = 'disabled';
                     } else if (isCustom) {
-                        isChecked = true;
-                        disabledAttr = '';
-                        if (existing.production_steps && Array.isArray(existing.production_steps)) {
-                            isChecked = existing.production_steps.indexOf(Number(s.step_id)) >= 0 || existing.production_steps.indexOf(String(s.step_id)) >= 0;
+                        if (isQlx) {
+                            isChecked = true;
+                            disabledAttr = 'disabled';
+                        } else {
+                            isChecked = true;
+                            disabledAttr = '';
+                            if (existing.production_steps && Array.isArray(existing.production_steps)) {
+                                isChecked = existing.production_steps.indexOf(Number(s.step_id)) >= 0 || existing.production_steps.indexOf(String(s.step_id)) >= 0;
+                            }
                         }
                     }
                     var checkedAttr = isChecked ? 'checked' : '';
@@ -2932,6 +2944,9 @@ function _dhtSavePhieu(idx) {
         stepsVal = Array.from(document.querySelectorAll('#_pp_processSteps input[type="checkbox"]:checked')).map(function(cb) {
             return Number(cb.getAttribute('data-step-id'));
         });
+        if (stepsVal.indexOf(1) === -1) {
+            stepsVal.push(1);
+        }
     }
 
     var sizeTypeVal = isCutting ? (document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT') : '';
