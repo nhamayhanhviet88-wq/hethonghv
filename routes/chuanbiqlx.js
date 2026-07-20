@@ -1187,7 +1187,7 @@ module.exports = async function(fastify) {
                     a_cat.full_name
                 ) AS nguoi_cat,
                 COALESCE(
-                    (SELECT string_agg(pf.name || ': ' || op_names.names, '; ' ORDER BY pf.display_order)
+                    (SELECT string_agg(pf.name || COALESCE(': ' || op_names.names, ''), '; ' ORDER BY pf.display_order)
                      FROM (
                          SELECT opa.dht_order_id, opa.field_id,
                                 string_agg(CASE WHEN opa.operator_type = 'user' THEN u.full_name ELSE pc.name END, ', ') AS names
@@ -1278,7 +1278,7 @@ module.exports = async function(fastify) {
                            a_cat_item.full_name, a_cat_ord.full_name
                        ) AS nguoi_cat,
                        COALESCE(
-                           (SELECT string_agg(pf.name || ': ' || op_names.names, '; ' ORDER BY pf.display_order)
+                           (SELECT string_agg(pf.name || COALESCE(': ' || op_names.names, ''), '; ' ORDER BY pf.display_order)
                             FROM (
                                 SELECT opa.item_id, opa.field_id,
                                        string_agg(CASE WHEN opa.operator_type = 'user' THEN u.full_name ELSE pc.name END, ', ') AS names
