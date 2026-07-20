@@ -2685,6 +2685,7 @@ module.exports = async function(fastify) {
                    ts.factory_price AS tsam_factory_price, 
                    ts.processing_price AS tsam_processing_price,
                    ts.sewing_tech AS tsam_sewing_tech,
+                   cc.name AS cutting_category_name,
                    cr.name AS actual_carrier_name,
                    cr.tracking_url_template AS actual_carrier_tracking_url,
                    u.full_name AS shipped_by_name,
@@ -2750,6 +2751,8 @@ module.exports = async function(fastify) {
                    ) AS has_qc_completed
             FROM dht_order_items i
             LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
+            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(i.product_name, i.description)) AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id
             LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
             LEFT JOIN users u ON i.shipped_by = u.id
             LEFT JOIN payment_records pr_ship ON i.shipping_payment_id = pr_ship.id

@@ -38,6 +38,9 @@ function _tpdFormatDateWithDayOfWeek(dateStr) {
 function _tpdHasSewingStep(it) {
     if (!it) return false;
     if (it.is_no_sew) return false;
+    if ((it.cutting_category_name || '').trim().toUpperCase() === 'HÀNG SẴN') {
+        return false;
+    }
     
     let itemSteps = it.production_steps;
     if (itemSteps === null || itemSteps === undefined) {
@@ -535,6 +538,9 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
                     draft.is_no_print = !!item.is_no_print;
                     draft.has_cutting_started = !!item.has_cutting_started;
                     draft.has_qc_completed = !!item.has_qc_completed;
+                    draft.cutting_category_name = item.cutting_category_name;
+                    draft.is_no_sew = !!item.is_no_sew;
+                    draft.production_steps = item.production_steps;
                     
                     // Normalize quantities in draft
                     draft.quantities = _tpdNormalizeItemQuantities(draft, config);
@@ -609,7 +615,10 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
         has_print_assignment: !!item.has_print_assignment,
         is_no_print: !!item.is_no_print,
         has_cutting_started: !!item.has_cutting_started,
-        has_qc_completed: !!item.has_qc_completed
+        has_qc_completed: !!item.has_qc_completed,
+        cutting_category_name: item.cutting_category_name || '',
+        is_no_sew: !!item.is_no_sew,
+        production_steps: item.production_steps || null
     };
 }
 
