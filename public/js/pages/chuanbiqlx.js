@@ -1056,7 +1056,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             }
         }
 
-        var data = await apiCall('/api/qlx/fabric-lookup/' + orderId + '/' + itemId + '/' + pairIndex);
+        var data = await apiCall('/api/qlx/fabric-lookup/' + orderId + '/' + itemId + '/' + pairIndex + '?_=' + Date.now());
         var d = data; // keep reference for pendingCalls/myLinkedIds
         var o = data.order, it = data.item, ph = data.phoi, wh = data.warehouse, rolls = data.rolls || [], existing = data.existing || [];
         var unit = wh ? wh.unit : 'kg';

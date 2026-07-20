@@ -2944,6 +2944,11 @@ if (typeof window.escapeHTML !== 'function') {
 // ========== API HELPER ==========
 async function apiCall(url, method = 'GET', body = null) {
     console.log("[apiCall LOG] url:", url, "body:", body, "typeof body:", typeof body, "isFormData:", body && (body instanceof FormData), "hasAppend:", body && typeof body.append);
+    let finalUrl = url;
+    if (method.toUpperCase() === 'GET') {
+        const separator = url.includes('?') ? '&' : '?';
+        finalUrl = url + separator + '_=' + Date.now();
+    }
     const options = { method };
     if (body && typeof body.append === 'function') {
         options.body = body;
@@ -2951,7 +2956,7 @@ async function apiCall(url, method = 'GET', body = null) {
         options.headers = { 'Content-Type': 'application/json' };
         options.body = JSON.stringify(body);
     }
-    const res = await fetch(url, options);
+    const res = await fetch(finalUrl, options);
     return res.json();
 }
 
