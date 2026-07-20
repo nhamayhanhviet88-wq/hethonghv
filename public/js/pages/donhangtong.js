@@ -2999,6 +2999,30 @@ window._dhtCheckAllPrintedAndUnlock = function(orderId) {
     }
 };
 
+window._dhtZoomImage = function(imgUrl) {
+    const overlay = document.createElement('div');
+    overlay.id = '_dhtImageZoomOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:100000;display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:_dhtFadeIn 0.2s ease;';
+    
+    overlay.innerHTML = `
+        <div style="position:relative;max-width:92%;max-height:92%;display:flex;align-items:center;justify-content:center;">
+            <img src="${imgUrl}" style="max-width:100%;max-height:90vh;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);cursor:default;">
+            <button onclick="document.getElementById('_dhtImageZoomOverlay').remove()" style="position:absolute;top:-15px;right:-15px;width:36px;height:36px;border-radius:50%;background:#ffffff;border:2px solid #1e293b;color:#1e293b;font-size:18px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:all 0.15s;z-index:100001;" onmouseover="this.style.transform='scale(1.1)';this.style.background='#f1f5f9';" onmouseout="this.style.transform='none';this.style.background='#ffffff';">✕</button>
+        </div>
+        <style>
+            @keyframes _dhtFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        </style>
+    `;
+    
+    overlay.onclick = function(e) {
+        if (e.target === overlay) {
+            overlay.remove();
+        }
+    };
+    
+    document.body.appendChild(overlay);
+};
+
 // ========== IN PHIẾU SẢN XUẤT ==========
 async function _dhtShowPhieuSX(orderId) {
     try {
@@ -3043,7 +3067,7 @@ async function _dhtShowPhieuSX(orderId) {
                 <div style="display:grid;grid-template-columns:1fr;gap:16px">
                     <!-- Sheet Preview Image -->
                     <div style="text-align:center;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:8px;position:relative">
-                        <img src="${sheetImgUrl}" alt="Phiếu sản xuất ${idx + 1}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="max-height:250px;max-width:100%;object-fit:contain;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:transform 0.2s;cursor:pointer" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='none'" onclick="window.open('${sheetImgUrl}', '_blank')">
+                        <img src="${sheetImgUrl}" alt="Phiếu sản xuất ${idx + 1}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="max-height:250px;max-width:100%;object-fit:contain;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:transform 0.2s;cursor:pointer" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='none'" onclick="window._dhtZoomImage('${sheetImgUrl}')">
                         <div style="display:none;padding:40px 20px;background:#f1f5f9;border-radius:8px;border:1px dashed #cbd5e1">
                             <span style="font-size:24px;display:block;margin-bottom:8px">📄</span>
                             <span style="font-size:12px;color:#64748b;font-weight:600">Không tìm thấy tệp ảnh của phiếu sản xuất</span>
