@@ -672,7 +672,8 @@ async function syncLedgerForDate(dateStr) {
         const gcOverdue = await db.all(`
             SELECT pr.id, pr.printer_id, pr.gc_deadline, pr.gc_extension_count,
                    o.order_code, o.expected_ship_date,
-                   COALESCE(pr.gc_deadline, o.expected_ship_date)::text AS effective_deadline
+                   COALESCE(pr.gc_deadline, o.expected_ship_date)::text AS effective_deadline,
+                   pr.print_field
             FROM printing_records pr
             JOIN dht_orders o ON pr.dht_order_id = o.id
             WHERE COALESCE(pr.is_discarded, false) = false
@@ -700,24 +701,50 @@ async function syncLedgerForDate(dateStr) {
                 leaveRows.forEach(r => leaveMap[r.user_id] = true);
             }
 
+            // Group by printer_id and print_field
+            const grouped = {};
             for (const r of gcOverdue) {
                 const printerId = r.printer_id;
                 if (!printerId) continue;
-                
-                // Skip if printer is on approved leave today
                 if (leaveMap[printerId]) continue;
 
+                // Normalize field name to standard uppercase or fallback
+                let field = (r.print_field || 'IN PET').toUpperCase().trim();
+                if (field.includes('PET')) field = 'IN PET';
+                else if (field.includes('TEM')) field = 'IN TEM';
+                else if (field.includes('DECAL')) field = 'IN DECAL';
+
+                const key = `${printerId}_${field}`;
+                if (!grouped[key]) {
+                    grouped[key] = {
+                        printerId,
+                        field,
+                        orders: []
+                    };
+                }
+                grouped[key].orders.push(r);
+            }
+
+            // Write grouped penalty to ledger
+            for (const key in grouped) {
+                const group = grouped[key];
+                const refId = 'gc_field_' + group.field.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                const orderCodes = group.orders.map(o => o.order_code).join(', ');
+                
+                let orderDesc = orderCodes;
+                if (orderDesc.length > 100) {
+                    orderDesc = orderDesc.slice(0, 97) + '...';
+                }
+
                 await writeLedger(
-                    printerId, dateStr, 'gc_print_khong_bao_cao', 'pr_' + r.id,
-                    'Đơn GC quá hạn: ' + r.order_code + ' (hạn: ' + r.effective_deadline + ')',
-                    PENALTY_GC, 'Không báo cáo in xong đơn gia công trước deadline'
+                    group.printerId, dateStr, 'gc_print_khong_bao_cao', refId,
+                    `Trễ đơn gia công (${group.field}): ${orderDesc}`,
+                    PENALTY_GC, `Không báo cáo in xong đơn gia công ${group.field} trước deadline (tổng số: ${group.orders.length} đơn)`
                 );
                 count++;
             }
-            if (gcOverdue.length > 0) {
-                const penalized = gcOverdue.filter(r => r.printer_id && !leaveMap[r.printer_id]);
-                console.log(`  📅 [GC Print] ${gcOverdue.length} đơn quá hạn, phạt ${penalized.length} đơn (skip ${gcOverdue.length - penalized.length} nghỉ phép)`);
-            }
+
+            console.log(`  📅 [GC Print] ${gcOverdue.length} đơn quá hạn, chia làm ${Object.keys(grouped).length} nhóm phạt theo lĩnh vực`);
         }
     } catch (e) { console.error('  ❌ [Ledger] GC Print:', e.stack || e.message); }
     } // end if (!isDateOff) Source 12
