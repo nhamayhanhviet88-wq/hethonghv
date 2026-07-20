@@ -4598,21 +4598,34 @@ function _tpdRenderFormInputs() {
     const cuttingLocked = !!it.has_cutting_started;
     const sizeDisabledAttr = cuttingLocked ? 'disabled' : disabledAttr;
 
-    const qcLocked = !!it.has_qc_completed;
+    const isNoSew = !!it.is_no_sew;
+    const qcLocked = !!it.has_qc_completed || isNoSew;
     const sewingDisabledAttr = qcLocked ? 'disabled' : disabledAttr;
     const sewingEditAllowed = state.hasEditPermission && !qcLocked;
 
     let qcWarningHtml = '';
     if (qcLocked) {
-        qcWarningHtml = `
-            <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1.5px solid #fca5a5; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #991b1b;">
-                <span style="font-size: 16px;">🔒</span>
-                <div style="flex: 1; font-weight: 700;">
-                    PHIẾU ĐÃ ĐƯỢC KIỂM TRA CHẤT LƯỢNG (QC)
-                    <span style="font-weight: 500; font-size: 11px; display: block; margin-top: 1px; color: #b91c1c;">Không thể chỉnh sửa kỹ thuật may vì công đoạn kiểm tra chất lượng đã hoàn thành.</span>
+        if (isNoSew) {
+            qcWarningHtml = `
+                <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1.5px solid #fca5a5; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #991b1b;">
+                    <span style="font-size: 16px;">🚫</span>
+                    <div style="flex: 1; font-weight: 700;">
+                        ĐƠN HÀNG KHÔNG MAY
+                        <span style="font-weight: 500; font-size: 11px; display: block; margin-top: 1px; color: #b91c1c;">Không cho phép thêm hoặc chỉnh sửa gì ở KỸ THUẬT MAY.</span>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        } else {
+            qcWarningHtml = `
+                <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1.5px solid #fca5a5; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #991b1b;">
+                    <span style="font-size: 16px;">🔒</span>
+                    <div style="flex: 1; font-weight: 700;">
+                        PHIẾU ĐÃ ĐƯỢC KIỂM TRA CHẤT LƯỢNG (QC)
+                        <span style="font-weight: 500; font-size: 11px; display: block; margin-top: 1px; color: #b91c1c;">Không thể chỉnh sửa kỹ thuật may vì công đoạn kiểm tra chất lượng đã hoàn thành.</span>
+                    </div>
+                </div>
+            `;
+        }
     }
 
     let cuttingWarningHtml = '';
@@ -4736,7 +4749,13 @@ function _tpdRenderFormInputs() {
     const normalizedConfig = _tpdGetNormalizedSewingTechs();
     const configSewingTechs = normalizedConfig.map(c => c.tech);
 
-    if (layout.sewing_items.length === 0) {
+    if (isNoSew) {
+        sewingListHtml = `
+            <div style="padding: 10px; text-align: center; color: #dc2626; font-size: 11.5px; border: 1.5px dashed #fca5a5; border-radius: 8px; margin-bottom: 10px; background: #fef2f2; font-weight: 800;">
+                🚫 ĐƠN HÀNG KHÔNG MAY
+            </div>
+        `;
+    } else if (layout.sewing_items.length === 0) {
         sewingListHtml = `
             <div style="padding: 10px; text-align: center; color: #94a3b8; font-size: 11px; border: 1.5px dashed #cbd5e1; border-radius: 8px; margin-bottom: 10px; background: #f8fafc;">
                 Chưa chọn kỹ thuật may nào. Mặc định sẽ dùng: ${escapeHTML(defaultSewing)}
@@ -5762,7 +5781,9 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false, isCustome
     let defaultSewing = combinedTechNames.length > 0 ? combinedTechNames.join(', ') : '—';
     const sewingVal = layout.custom_sewing !== undefined && layout.custom_sewing !== '' ? layout.custom_sewing : defaultSewing;
     let sewingHtml = '—';
-    if (sewingVal && sewingVal !== '—') {
+    if (it.is_no_sew) {
+        sewingHtml = `<div style="color: #dc2626; font-weight: 800; font-size: 11px; padding: 2px 0;">🚫 ĐƠN HÀNG KHÔNG MAY</div>`;
+    } else if (sewingVal && sewingVal !== '—') {
         const parts = sewingVal.split(/,\s*/).map(p => p.trim()).filter(Boolean);
         if (parts.length > 0) {
             sewingHtml = parts.map(part => {

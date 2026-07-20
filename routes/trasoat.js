@@ -138,6 +138,7 @@ module.exports = async function(fastify) {
                           AND pf.name = 'KHÔNG IN'
                     )
                 ) AS is_khong_in,
+                EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND is_no_sew = true) AS is_no_sew,
                 COALESCE(
                     CASE 
                         WHEN EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) 
@@ -375,6 +376,7 @@ module.exports = async function(fastify) {
                 oi.quantity,
                 oi.material_pairs,
                 oi.production_cancelled,
+                oi.is_no_sew,
                 (
                     SELECT string_agg(pp.step_id::text, ',') 
                     FROM dht_product_process pp 
@@ -481,7 +483,7 @@ module.exports = async function(fastify) {
             const itemPressing = pressing.filter(p => p.order_item_id === item.id || (p.order_item_id === null && isFirst && !hasItemSpecificPressing));
             const itemSewing = sewing.filter(s => s.order_item_id === item.id || (s.order_item_id === null && isFirst && !hasItemSpecificSewing));
             const itemSewingIds = new Set(itemSewing.map(s => s.id));
-            const itemFinishing = finishing.filter(f => itemSewingIds.has(f.sewing_record_id));
+            const itemFinishing = finishing.filter(f => f.order_item_id === item.id || itemSewingIds.has(f.sewing_record_id));
 
             const itemSchedule = schedules.find(s => s.order_item_id === item.id || (s.order_item_id === null && item.id === null));
             const itemReports = reports.filter(r => r.order_item_id === item.id || (r.order_item_id === null && item.id === null));
@@ -663,6 +665,7 @@ module.exports = async function(fastify) {
             SELECT o.id, o.order_code, o.shipping_status, o.shipped_at,
                    c.name AS category_name,
                    req.required_steps,
+                   EXISTS (SELECT 1 FROM dht_order_items WHERE dht_order_id = o.id AND is_no_sew = true) AS is_no_sew,
                    COALESCE(
                        CASE 
                            WHEN EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) 
@@ -1514,7 +1517,8 @@ function _processOrderWithItems(o, items, todayStr) {
             finish_done: o.finish_done,
             has_press_printing: o.has_press_printing,
             has_any_printing: o.has_any_printing,
-            is_khong_in: o.is_khong_in
+            is_khong_in: o.is_khong_in,
+            is_no_sew: o.is_no_sew
         }];
     }
 
@@ -1548,13 +1552,14 @@ function _processOrderWithItems(o, items, todayStr) {
         }
 
         const isKhongIn = !!item.is_khong_in;
+        const isNoSew = !!item.is_no_sew;
         const needsCut = requiredStepIds.has(2);
         const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
         let needsPress = isKhongIn ? false : requiredStepIds.has(4);
         if (item.has_any_printing && !isPetTem && !isKhongIn) {
             needsPress = !!item.has_press_printing;
         }
-        const needsSew = requiredStepIds.has(5);
+        const needsSew = isNoSew ? false : requiredStepIds.has(5);
         const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
 
         const cutDone = !needsCut || item.cut_done;
@@ -1702,6 +1707,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             oi.quantity,
             oi.material_pairs,
             oi.production_cancelled,
+            oi.is_no_sew,
             (
                 SELECT string_agg(pp.step_id::text, ',') 
                 FROM dht_product_process pp 
@@ -1823,6 +1829,9 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             ) AS sew_done,
             COALESCE(
                 CASE 
+                    WHEN oi.is_no_sew = true THEN
+                        EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id)
+                        AND NOT EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id AND is_completed = false)
                     WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
                     THEN NOT EXISTS (
                         SELECT 1 FROM finishing_records fr 
@@ -1917,13 +1926,14 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
     }
 
     const isKhongIn = !!item.is_khong_in;
+    const isNoSew = !!item.is_no_sew;
     const needsCut = requiredStepIds.has(2);
     const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
     let needsPress = isKhongIn ? false : requiredStepIds.has(4);
     if (item.has_any_printing && !isPetTem && !isKhongIn) {
         needsPress = !!item.has_press_printing;
     }
-    const needsSew = requiredStepIds.has(5);
+    const needsSew = isNoSew ? false : requiredStepIds.has(5);
     const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
 
     let timeline;
@@ -2004,6 +2014,7 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
 
         const isOrderShipped = !!order.delivery_date;
         const checkFDone = f => {
+            if (isNoSew) return f.is_completed;
             if (isOrderShipped) return f.is_completed;
             const isQcDone = f.qc_count > 0;
             const isOutsourced = f.contractor_id !== null;
@@ -2027,7 +2038,7 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
         if (needsPrint) timeline.push({ name: 'In', short: 'IN', done: printDone, time: printTime || printStep?.completed_at, worker: printWorker || printStep?.completed_by_name, extra: printFields, progress: printProgress });
         if (needsPress) timeline.push({ name: 'Ép', short: 'ÉP', done: pressDone, time: pressDisplayTime, worker: pressDisplayWorker, progress: pressProgress });
         if (needsSew) timeline.push({ name: 'May', short: 'MAY', done: sewDone, time: sewDisplayTime, worker: sewDisplayWorker, progress: sewProgress });
-        timeline.push({ name: 'Kiểm Tra CL', short: 'QC', done: qcDone, time: qcDisplayTime, worker: qcDisplayWorker, progress: qcProgress });
+        if (!isNoSew) timeline.push({ name: 'Kiểm Tra CL', short: 'QC', done: qcDone, time: qcDisplayTime, worker: qcDisplayWorker, progress: qcProgress });
         if (needsFinishing) timeline.push({ name: 'Hoàn Thiện', short: 'HT', done: htDone, time: htDisplayTime, worker: htDisplayWorker, progress: htProgress });
         timeline.push({ name: 'Gửi Hàng', short: 'GỬI', done: isShipped, time: order.shipped_at, worker: order.shipped_by_name });
     }

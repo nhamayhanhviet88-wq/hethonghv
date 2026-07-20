@@ -1266,6 +1266,7 @@ module.exports = async function(fastify) {
             items = await db.all(`
                 SELECT doi.dht_order_id, doi.id, doi.description, doi.material_pairs, doi.quantity,
                        doi.material_name, doi.color_name, COALESCE(doi.production_cancelled, false) AS production_cancelled,
+                       doi.is_no_sew,
                        cc.name AS cutting_category_name,
                        COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
                        COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived,
@@ -1290,17 +1291,19 @@ module.exports = async function(fastify) {
                             JOIN printing_fields pf ON op_names.field_id = pf.id
                             WHERE op_names.item_id = doi.id
                            ),
-                           COALESCE(a_in_item_u.full_name, pc_in_item.name),
+                           a_in_item_u.full_name, pc_in_item.name,
                            COALESCE(a_in_ord_u.full_name, pc_in_ord.name)
                        ) AS nguoi_in,
-                       COALESCE(
-                           (SELECT string_agg(COALESCE(c.name, 'May nhà') || ' (' || sr.quantity || ')', ', ')
-                            FROM sewing_records sr
-                            LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
-                            WHERE sr.order_item_id = doi.id
-                           ),
-                           a_may_item_u.full_name, a_may_ord_u.full_name
-                       ) AS nguoi_may
+                       CASE WHEN doi.is_no_sew = true THEN 'ĐƠN KHÔNG MAY'
+                            ELSE COALESCE(
+                                (SELECT string_agg(COALESCE(c.name, 'May nhà') || ' (' || sr.quantity || ')', ', ')
+                                 FROM sewing_records sr
+                                 LEFT JOIN sewing_contractors c ON sr.contractor_id = c.id
+                                 WHERE sr.order_item_id = doi.id
+                                ),
+                                a_may_item_u.full_name, a_may_ord_u.full_name
+                            )
+                       END AS nguoi_may
                 FROM dht_order_items doi
                 -- Item-level joins
                 LEFT JOIN qlx_preparation p_item ON p_item.item_id = doi.id
@@ -4780,7 +4783,7 @@ module.exports = async function(fastify) {
 
         // 1. Get order item and order info
         const item = await db.get(`
-            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, doi.material_pairs, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
+            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, doi.material_pairs, doi.is_no_sew, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
             WHERE doi.id = $1
@@ -4904,8 +4907,9 @@ module.exports = async function(fastify) {
         }
 
         const isSewingDone = rawAssignments.length > 0 && rawAssignments.every(a => a.done_date !== null || a.salary_approved === true);
-        const fRec = await db.get(`SELECT fr.is_completed FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = $1 LIMIT 1`, [itemId]);
+        const fRec = await db.get(`SELECT is_completed, expected_date FROM finishing_records WHERE order_item_id = $1 LIMIT 1`, [itemId]);
         const isFinishingDone = fRec ? fRec.is_completed : false;
+        const finishingExpectedDate = fRec && fRec.expected_date ? fRec.expected_date : null;
 
         return {
             item,
@@ -4926,7 +4930,8 @@ module.exports = async function(fastify) {
                 is_viewed: viewedIds.includes(r.id)
             })),
             is_sewing_done: isSewingDone,
-            is_finishing_done: isFinishingDone
+            is_finishing_done: isFinishingDone,
+            finishing_expected_date: finishingExpectedDate
         };
     });
 
@@ -4936,7 +4941,7 @@ module.exports = async function(fastify) {
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const itemId = Number(request.params.itemId);
-        const { assignments, may_remind_choice, may_reminders, hoanthien_remind_choice, hoanthien_reminders } = request.body || {};
+        const { is_no_sew, assignments, may_remind_choice, may_reminders, hoanthien_remind_choice, hoanthien_reminders } = request.body || {};
         if (assignments && !Array.isArray(assignments)) {
             return reply.code(400).send({ error: 'Dữ liệu phân công không hợp lệ' });
         }
@@ -4946,7 +4951,7 @@ module.exports = async function(fastify) {
 
         // 1. Fetch item and order info
         const item = await db.get(`
-            SELECT doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.material_pairs, o.order_code, doi.sewing_techniques
+            SELECT doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.material_pairs, o.order_code, doi.sewing_techniques, o.expected_ship_date, o.shipping_priority
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
             WHERE doi.id = $1
@@ -4954,6 +4959,117 @@ module.exports = async function(fastify) {
         if (!item) return reply.code(404).send({ error: 'Không tìm thấy chi tiết sản phẩm' });
 
         const productName = item.product_name || item.description || 'N/A';
+
+        if (is_no_sew) {
+            // Check if there are locked sewing records
+            const lockedRecords = await db.all(`
+                SELECT id FROM sewing_records
+                WHERE order_item_id = $1 AND (done_date IS NOT NULL OR COALESCE(salary_approved, false) = true)
+            `, [itemId]);
+            if (lockedRecords.length > 0) {
+                return reply.code(400).send({ error: 'Sản phẩm đã có bản ghi may đã hoàn thành hoặc duyệt lương, không thể chuyển thành Không May!' });
+            }
+
+            // Update is_no_sew status
+            await db.run('UPDATE dht_order_items SET is_no_sew = true WHERE id = $1', [itemId]);
+
+            // Delete any existing sewing records and assignments
+            await db.run('DELETE FROM sewing_records WHERE order_item_id = $1', [itemId]);
+            await db.run("DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'may'", [itemId]);
+
+            // Save prep choices
+            await ensureItemPrepRow(item.dht_order_id, itemId);
+            await db.run(`
+                UPDATE qlx_preparation
+                SET may_remind_choice = $1, hoanthien_remind_choice = $2, updated_at = $3
+                WHERE item_id = $4
+            `, ['none', hoanthien_remind_choice || 'none', now, itemId]);
+
+            // Delete sewing reminders
+            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'may'`, [itemId]);
+
+            // Save finishing reminders
+            if (hoanthien_remind_choice) {
+                await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = 'hoanthien'`, [itemId]);
+                if (hoanthien_remind_choice === 'yes' && Array.isArray(hoanthien_reminders)) {
+                    for (const content of hoanthien_reminders) {
+                        await db.run(`
+                            INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                            VALUES ($1, $2, 'hoanthien', $3, $4, $5)
+                        `, [item.dht_order_id, itemId, content.trim(), request.user.id, now]);
+                    }
+                }
+            }
+
+            // Sync finishing record (directly insert/update finishing record for this no-sew item)
+            const finishingExpectedDate = request.body.expected_date || item.expected_ship_date;
+            
+            // Check if finishing record already exists
+            const existingFinishing = await db.get(`SELECT id FROM finishing_records WHERE order_item_id = $1`, [itemId]);
+            
+            // Fetch total completed cut quantity
+            const cutQtyRow = await db.get(`
+                SELECT COALESCE(SUM(cut_quantity), 0)::int AS cut_qty
+                FROM cutting_records
+                WHERE order_item_id = $1 AND is_cut_done = true
+            `, [itemId]);
+            const rawCutQty = cutQtyRow ? cutQtyRow.cut_qty : 0;
+            let numPhois = 1;
+            try {
+                const pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []);
+                if (Array.isArray(pairs) && pairs.length > 0) {
+                    numPhois = pairs.length;
+                }
+            } catch(e) {}
+            const cut_qty = Math.round(rawCutQty / numPhois) || 0;
+
+            const shippingStandard = (item.shipping_priority || 'CHUẨN').toLowerCase() === 'gấp' ? 'gap' : 
+                                     ((item.shipping_priority || 'CHUẨN').toLowerCase() === 'gửi' ? 'gui' : 'chuan');
+
+            if (!existingFinishing) {
+                const r = await db.get(`
+                    INSERT INTO finishing_records (
+                        dht_order_id, order_item_id, expected_date, is_completed, product_name, cskh_name, quantity, sewer_name, shipping_standard, created_by, created_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id
+                `, [
+                    item.dht_order_id,
+                    itemId,
+                    finishingExpectedDate,
+                    false,
+                    productName,
+                    null,
+                    cut_qty,
+                    'ĐƠN KHÔNG MAY',
+                    shippingStandard,
+                    request.user.id,
+                    now
+                ]);
+                await db.run(`INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at) VALUES ($1, $2, $3, $4, $5)`,
+                    [r.id, 'create', 'Tạo tự động cho đơn KHÔNG MAY', request.user.id, now]);
+            } else {
+                await db.run(`
+                    UPDATE finishing_records
+                    SET expected_date = $1,
+                        quantity = $2,
+                        sewer_name = $3,
+                        shipping_standard = $4,
+                        updated_at = $5
+                    WHERE id = $6
+                `, [finishingExpectedDate, cut_qty, 'ĐƠN KHÔNG MAY', shippingStandard, now, existingFinishing.id]);
+            }
+
+            // Write to qlx_history
+            await db.run(`
+                INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at)
+                VALUES ($1, $2, 'assign_may', $3, $4, $5)
+            `, [item.dht_order_id, itemId, 'Đơn hàng KHÔNG MAY (Bỏ qua may & QC, chuyển thẳng Hoàn Thiện)', request.user.id, now]);
+
+            return { success: true };
+        }
+
+        // If not no_sew, ensure it is set to false, and delete any dummy finishing record
+        await db.run('UPDATE dht_order_items SET is_no_sew = false WHERE id = $1', [itemId]);
+        await db.run('DELETE FROM finishing_records WHERE order_item_id = $1 AND sewing_record_id IS NULL', [itemId]);
 
         // 2. Load existing sewing records to determine locking status
         const existingRecords = await db.all(`
@@ -4966,7 +5082,7 @@ module.exports = async function(fastify) {
             .map(r => r.id);
         const isSewingDone = existingRecords.length > 0 && existingRecords.length === lockedIds.length;
 
-        const fRec = await db.get(`SELECT fr.is_completed FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = $1 LIMIT 1`, [itemId]);
+        const fRec = await db.get(`SELECT is_completed FROM finishing_records WHERE order_item_id = $1 LIMIT 1`, [itemId]);
         const isFinishingDone = fRec ? fRec.is_completed : false;
 
         // Fetch existing prep row to preserve choices if done

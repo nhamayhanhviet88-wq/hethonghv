@@ -76,21 +76,35 @@ async function _getShippingItemsProgress(orderIds) {
                     JOIN printing_fields pf ON qa.field_id = pf.id
                     WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
                       AND pf.name IN ('IN PET', 'IN DECAL')
+                      AND pf.name != 'KHÔNG IN'
                 ) OR EXISTS (
                     SELECT 1 FROM printing_records pr
                     WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                       AND pr.print_field IN ('IN PET', 'IN DECAL')
+                      AND pr.print_field != 'KHÔNG IN'
                 )
             ) AS has_press_printing,
             (
                 EXISTS (
                     SELECT 1 FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
                     WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                      AND pf.name != 'KHÔNG IN'
                 ) OR EXISTS (
                     SELECT 1 FROM printing_records pr
                     WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
+                      AND pr.print_field != 'KHÔNG IN'
                 )
             ) AS has_any_printing,
+            (
+                EXISTS (
+                    SELECT 1 FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
+                    WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                      AND pf.name = 'KHÔNG IN'
+                )
+            ) AS is_khong_in,
+            COALESCE(oi.is_no_sew, false) AS is_no_sew,
             COALESCE(
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) 
@@ -126,6 +140,7 @@ async function _getShippingItemsProgress(orderIds) {
             ) AS press_done,
             COALESCE(
                 CASE 
+                    WHEN oi.is_no_sew = true THEN true
                     WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id) 
                     THEN NOT EXISTS (
                         SELECT 1 FROM sewing_records sr
@@ -165,6 +180,9 @@ async function _getShippingItemsProgress(orderIds) {
             ) AS sew_done,
             COALESCE(
                 CASE 
+                    WHEN oi.is_no_sew = true THEN
+                        EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id)
+                        AND NOT EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id AND is_completed = false)
                     WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
                     THEN NOT EXISTS (
                         SELECT 1 FROM finishing_records fr 
@@ -200,6 +218,7 @@ async function _getShippingItemsProgress(orderIds) {
             ) AS finish_done,
             COALESCE(
                 CASE
+                    WHEN oi.is_no_sew = true THEN true
                     WHEN EXISTS (SELECT 1 FROM sewing_records WHERE order_item_id = oi.id)
                     THEN NOT EXISTS (
                         SELECT 1 FROM sewing_records sr
@@ -278,13 +297,15 @@ function _processShippingOrderItems(order, itemsList, isPetTem) {
             }
         }
 
+        const isKhongIn = !!item.is_khong_in;
+        const isNoSew = !!item.is_no_sew;
         const needsCut = requiredStepIds.has(2);
-        const needsPrint = requiredStepIds.has(3);
-        let needsPress = requiredStepIds.has(4);
-        if (item.has_any_printing && !isPetTem) {
+        const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
+        let needsPress = isKhongIn ? false : requiredStepIds.has(4);
+        if (item.has_any_printing && !isPetTem && !isKhongIn) {
             needsPress = !!item.has_press_printing;
         }
-        const needsSew = requiredStepIds.has(5);
+        const needsSew = isNoSew ? false : requiredStepIds.has(5);
         const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
 
         const cutDone = !needsCut || item.cut_done;

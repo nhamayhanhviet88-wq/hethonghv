@@ -3280,7 +3280,8 @@ async function _qlxAssignMay(orderId, itemId) {
             hoanthien_remind_choice: res.hoanthien_remind_choice,
             hoanthien_reminders: res.hoanthien_reminders || [],
             is_sewing_done: res.is_sewing_done,
-            is_finishing_done: res.is_finishing_done
+            is_finishing_done: res.is_finishing_done,
+            finishing_expected_date: res.finishing_expected_date
         };
 
         // Render modal
@@ -3320,6 +3321,23 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<div><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:4px">SL CẮT XONG</label>';
         html += '<input type="text" value="' + res.cut_qty + ' cái" readonly style="width:100%;padding:8px 12px;border:1.5px solid #bbf7d0;border-radius:8px;font-size:12px;font-weight:700;color:#15803d;background:#f0fdf4;text-align:center;cursor:not-allowed"></div>';
         html += '</div>';
+
+        // Checkbox KHÔNG MAY
+        var isNoSew = res.item.is_no_sew;
+        html += '<div style="margin-bottom:16px; padding: 12px 16px; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 12px; display: flex; align-items: center; justify-content: space-between;">';
+        html += '  <div style="display: flex; align-items: center; gap: 8px;">';
+        html += '    <span style="font-size: 18px;">🚫</span>';
+        html += '    <div>';
+        html += '      <div style="font-size: 12px; font-weight: 800; color: #9f1239;">ĐƠN HÀNG KHÔNG MAY</div>';
+        html += '      <div style="font-size: 10px; color: #e11d48; font-weight: 600;">Tích chọn nếu đơn hàng này không cần may & QC (chuyển thẳng hoàn thiện)</div>';
+        html += '    </div>';
+        html += '  </div>';
+        html += '  <label style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #be123c; cursor: pointer; margin: 0; background: #ffe4e6; border: 1.5px solid #fda4af; padding: 6px 14px; border-radius: 8px;">';
+        html += '    <input type="checkbox" id="qlx_is_no_sew" ' + (isNoSew ? 'checked' : '') + ' onchange="_qlxToggleNoSewMode(this)" style="accent-color: #e11d48; width: 18px; height: 18px; cursor: pointer; margin: 0;">';
+        html += '    KHÔNG MAY';
+        html += '  </label>';
+        html += '</div>';
+
 
         // Sewing techniques table
         var techniques = [];
@@ -3487,6 +3505,7 @@ async function _qlxAssignMay(orderId, itemId) {
 
 
         // Assignment summary & validation
+        html += '<div id="sewing_assignment_section" style="display: ' + (isNoSew ? 'none' : 'block') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 4px">';
         html += '<label style="font-size:11px;font-weight:800;color:#475569;margin:0">PHÂN BỔ CHI TIẾT</label>';
         html += '<div style="display:flex;align-items:center;gap:8px">';
@@ -3509,14 +3528,13 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '<div id="may_assignment_rows" style="max-height:30vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>';
         html += '</div>';
 
-
-
         // Add button
         html += '<div style="text-align:right;margin-bottom:16px">';
         if (!res.is_sewing_done) {
             html += '<button class="btn btn-secondary" onclick="_qlxAssignMayAddRow()" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:8px;color:#ffffff;background-color:#1e3a8a;border:none">➕ Thêm bên nhận may</button>';
         }
         html += '</div>';
+        html += '</div>'; // close sewing_assignment_section
 
         // Reminders Choices & Lists
         var mayChoice = res.may_remind_choice || '';
@@ -3528,7 +3546,7 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '  <div style="font-size:12px; font-weight:800; color:#1e1b4b; border-bottom:2px solid #e2e8f0; padding-bottom:6px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">🔔 QLX NHẮC NHỞ</div>';
 
         // 1. Phân Tổ May / Kiểm Tra QC
-        html += '  <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px;">';
+        html += '  <div id="sewing_reminders_section" style="display: ' + (isNoSew ? 'none' : 'block') + '; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px;">';
         if (res.is_sewing_done) {
             html += '    <div style="color:#1e293b; font-size:12px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:6px;">🖡 NHẮC NHỞ PHÂN TỔ MAY & KIỂM TRA QC</div>';
             if (mayReminders.length > 0) {
@@ -3825,7 +3843,56 @@ function _qlxAssignMayHandleDateChange(input) {
     }
 }
 
+function _qlxToggleNoSewMode(chk) {
+    var isChecked = chk.checked;
+    var sewingSection = document.getElementById('sewing_assignment_section');
+    var sewingRemindersSection = document.getElementById('sewing_reminders_section');
+    
+    if (isChecked) {
+        if (sewingSection) sewingSection.style.display = 'none';
+        if (sewingRemindersSection) sewingRemindersSection.style.display = 'none';
+    } else {
+        if (sewingSection) sewingSection.style.display = 'block';
+        if (sewingRemindersSection) sewingRemindersSection.style.display = 'block';
+    }
+}
+
 async function _qlxAssignMaySave() {
+    var isNoSew = document.getElementById('qlx_is_no_sew')?.checked;
+    if (isNoSew) {
+        var htRemindChoice = document.querySelector('input[name="qlx_hoanthien_remind_choice"]:checked')?.value;
+        if (!htRemindChoice) {
+            showToast('⚠️ Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Hoàn Thiện!', 'error');
+            return;
+        }
+        var htReminders = [];
+        if (htRemindChoice === 'yes') {
+            var inputs = document.querySelectorAll('#qlx_hoanthien_reminders_list .qlx-reminder-text-input');
+            for (var i = 0; i < inputs.length; i++) {
+                var val = inputs[i].value.trim();
+                if (!val) {
+                    showToast('⚠️ Nội dung nhắc nhở bộ phận hoàn thiện không được để trống!', 'error');
+                    return;
+                }
+                htReminders.push(val);
+            }
+        }
+        
+        try {
+            await apiCall('/api/qlx/sewing-assignment/' + window._qlxMayData.itemId, 'POST', {
+                is_no_sew: true,
+                hoanthien_remind_choice: htRemindChoice,
+                hoanthien_reminders: htReminders
+            });
+            closeModal();
+            showToast('✅ Đã lưu đơn hàng Không May thành công');
+            await _qlxLoadAll();
+        } catch(e) {
+            showToast(e.message, 'error');
+        }
+        return;
+    }
+
     var mayRemindChoice = null;
     var mayReminders = [];
     if (!window._qlxMayData.is_sewing_done) {
