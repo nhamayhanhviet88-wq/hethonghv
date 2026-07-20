@@ -326,6 +326,8 @@ const _PAGE_SCRIPT_MAP = {
     'teams': '/js/pages/teams.js',
     'permissions': '/js/pages/permissions.js',
     'quan-ly-affiliate': '/js/pages/quanlyaffiliate.js',
+    'dashboard-kdoanh': '/js/pages/dashboardkdoanh.js',
+    'dashboardkdoanh': '/js/pages/dashboardkdoanh.js',
     'settings': '/js/pages/settings.js',
     'caidatpancake': '/js/pages/caidatpancake.js',
     'tu-van-khach-aff': '/js/pages/baocaohoahong.js',
@@ -2201,6 +2203,9 @@ async function handleRoute() {
             if (cleanKey === 'trasoatdonhang' || cleanKey === 'lichradonhang') {
                 await _loadScript('/js/pages/trasoat-modal.js');
             }
+            if (cleanKey.startsWith('bangxephang') || cleanKey.startsWith('bxh')) {
+                await _loadScript('/js/pages/bxh-template.js');
+            }
             const scriptPath = _PAGE_SCRIPT_MAP[currentPage] || _PAGE_SCRIPT_MAP[cleanKey];
             if (scriptPath) {
                 await _loadScript(scriptPath);
@@ -2525,6 +2530,8 @@ async function renderDashboardPage(container) {
 // Registry cho các trang có tên hàm KHÔNG theo convention
 // Key = page id (từ MENU_CONFIG), Value = tên hàm init
 var _PAGE_INIT_REGISTRY = {
+    'tong-doanh-so-sale': 'renderTongdoanhsosalePage',
+    'tongdoansosale': 'renderTongdoanhsosalePage',
     'gia-nhap-goc': 'renderGiaNhapGocPage',
     'gianhapgoc': 'renderGiaNhapGocPage',
     'bao-gia-goc': 'renderBaogiagocPage',
@@ -4270,3 +4277,54 @@ async function _abCheckUnblock() {
 
     console.log('[AntiDblClick] ✅ Global double-click prevention active (400ms debounce)');
 })();
+
+// Shared utility to generate options for period select picker across multiple pages (Setup Giai Thuong, Trao Giai Thuong, Leaderboard)
+function _gtBuildPeriodOptions(periodType) {
+    var now = new Date();
+    var y = now.getFullYear(), m = now.getMonth() + 1, d = now.getDate();
+    var html = '';
+    if (periodType === 'daily') {
+        for (var i = 0; i < 30; i++) {
+            var dt = new Date(y, m - 1, d - i);
+            var val = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+            var label = dt.getDate() + '/' + (dt.getMonth()+1) + '/' + dt.getFullYear();
+            if (i === 0) label += ' (Hôm nay)';
+            html += '<option value="' + val + '"' + (i===0?' selected':'') + '>' + label + '</option>';
+        }
+    } else if (periodType === 'weekly') {
+        var today = new Date(y, m - 1, d);
+        var dayOfWeek = today.getDay() || 7;
+        var monday = new Date(today);
+        monday.setDate(today.getDate() - dayOfWeek + 1);
+        for (var i = 0; i < 12; i++) {
+            var wMon = new Date(monday);
+            wMon.setDate(monday.getDate() - i * 7);
+            var wSun = new Date(wMon);
+            wSun.setDate(wMon.getDate() + 6);
+            var tmpDate = new Date(wMon.getTime());
+            tmpDate.setDate(tmpDate.getDate() + 3 - ((tmpDate.getDay() + 6) % 7));
+            var weekYear = tmpDate.getFullYear();
+            var week1 = new Date(weekYear, 0, 4);
+            var weekNum = 1 + Math.round(((tmpDate - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+            var val = weekYear + '-W' + String(weekNum).padStart(2, '0');
+            var label = 'Tuần ' + weekNum + ' (' + wMon.getDate() + '/' + (wMon.getMonth()+1) + ' - ' + wSun.getDate() + '/' + (wSun.getMonth()+1) + ')';
+            html += '<option value="' + val + '"' + (i===0?' selected':'') + '>' + label + '</option>';
+        }
+    } else if (periodType === 'monthly') {
+        for (var i = 0; i < 12; i++) {
+            var mm = m - i, yy = y;
+            if (mm <= 0) { mm += 12; yy--; }
+            var val = yy + '-' + String(mm).padStart(2, '0');
+            html += '<option value="' + val + '"' + (i===0?' selected':'') + '>Tháng ' + mm + '/' + yy + '</option>';
+        }
+    } else if (periodType === 'quarterly') {
+        var curQ = Math.ceil(m / 3);
+        for (var i = 0; i < 8; i++) {
+            var qq = curQ - i, qy = y;
+            while (qq <= 0) { qq += 4; qy--; }
+            var val = qy + '-Q' + qq;
+            html += '<option value="' + val + '"' + (i===0?' selected':'') + '>Quý ' + qq + '/' + qy + '</option>';
+        }
+    }
+    return html;
+}
