@@ -1871,12 +1871,32 @@ async function _dhtAddItem(editIdx) {
                         if (inCb && !inCb.checked) {
                             inCb.checked = true;
                         }
+                    } else if (targetShort === 'MAY') {
+                        var ktclCb = stepsEl.querySelector('input[data-short-name="KTCL"]');
+                        if (ktclCb && !ktclCb.checked) {
+                            ktclCb.checked = true;
+                        }
+                    } else if (targetShort === 'KTCL') {
+                        var mayCb = stepsEl.querySelector('input[data-short-name="MAY"]');
+                        if (mayCb && !mayCb.checked) {
+                            mayCb.checked = true;
+                        }
                     }
                 } else {
                     if (targetShort === 'IN') {
                         var epCb = stepsEl.querySelector('input[data-short-name="ÉP"]');
                         if (epCb && epCb.checked) {
                             epCb.checked = false;
+                        }
+                    } else if (targetShort === 'MAY') {
+                        var ktclCb = stepsEl.querySelector('input[data-short-name="KTCL"]');
+                        if (ktclCb && ktclCb.checked) {
+                            ktclCb.checked = false;
+                        }
+                    } else if (targetShort === 'KTCL') {
+                        var mayCb = stepsEl.querySelector('input[data-short-name="MAY"]');
+                        if (mayCb && mayCb.checked) {
+                            mayCb.checked = false;
                         }
                     }
                 }
