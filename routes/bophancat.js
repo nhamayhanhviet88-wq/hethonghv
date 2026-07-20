@@ -1563,16 +1563,18 @@ module.exports = async function(fastify) {
 
                 COALESCE(p.fabric_arrived, false) AS fabric_arrived,
 
-                EXISTS (
-
-                    SELECT 1 FROM qlx_assignments qa 
-
-                    WHERE qa.dht_order_id = o.id 
-
-                      AND qa.assignment_type = 'in' 
-
-                      AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-
+                (
+                    EXISTS (
+                        SELECT 1 FROM qlx_assignments qa 
+                        WHERE qa.dht_order_id = o.id 
+                          AND qa.assignment_type = 'in' 
+                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                    )
+                    OR EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qopa
+                        WHERE qopa.dht_order_id = o.id
+                          AND qopa.field_id = 9
+                    )
                 ) AS has_pc_in
 
             FROM dht_orders o
@@ -5489,13 +5491,16 @@ module.exports = async function(fastify) {
 
                    COALESCE(p.fabric_arrived, false) AS fabric_arrived,
 
-                   EXISTS(
-
-                       SELECT 1 FROM qlx_assignments qa
-
-                       WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-
-                   ) AS has_pc_in,
+                    (
+                        EXISTS(
+                            SELECT 1 FROM qlx_assignments qa
+                            WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                        )
+                        OR EXISTS(
+                            SELECT 1 FROM qlx_order_print_assignments qopa
+                            WHERE qopa.dht_order_id = o.id AND qopa.field_id = 9
+                        )
+                    ) AS has_pc_in,
 
                    COALESCE(a_in.full_name, pc_in.name) AS nguoi_in,
                    o.is_locked, o.locked_at, u_locked.full_name AS locked_by_name
@@ -5667,16 +5672,18 @@ module.exports = async function(fastify) {
 
                     cc.name AS cutting_category_name,
 
-                    EXISTS(
-
-                        SELECT 1 FROM qlx_assignments qa
-
-                        WHERE qa.assignment_type = 'in'
-
-                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-
-                          AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
-
+                    (
+                        EXISTS(
+                            SELECT 1 FROM qlx_assignments qa
+                            WHERE qa.assignment_type = 'in'
+                              AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                              AND (qa.item_id = doi.id OR (qa.dht_order_id = doi.dht_order_id AND qa.item_id IS NULL))
+                        )
+                        OR EXISTS(
+                            SELECT 1 FROM qlx_order_print_assignments qopa
+                            WHERE qopa.field_id = 9
+                              AND (qopa.item_id = doi.id OR (qopa.dht_order_id = doi.dht_order_id AND qopa.item_id IS NULL))
+                        )
                     ) AS has_pc_in,
 
                     sch.cut_expected_at
@@ -6643,17 +6650,16 @@ module.exports = async function(fastify) {
 
 
             assignments = await db.all(`
-
                 SELECT dht_order_id, item_id
-
                 FROM qlx_assignments
-
                 WHERE assignment_type = 'in'
-
                   AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
-
                   AND dht_order_id = ANY($1)
-
+                UNION
+                SELECT dht_order_id, item_id
+                FROM qlx_order_print_assignments
+                WHERE field_id = 9
+                  AND dht_order_id = ANY($1)
             `, [orderIds]);
 
 
