@@ -1715,6 +1715,7 @@ async function _dhtAddItem(editIdx) {
     window._ppCurrentPhieuIdx = idx;
     var existing = _dhtCreate.phieuItems[idx] || {};
     window._ppCurrentExistingPhieu = existing;
+    window._ppIsInitialWorkflowLoad = true;
     var isOldItem = (editIdx !== undefined) && _dhtCreate.editMode && (editIdx < (_dhtCreate.originalPhieuCount || 0));
     var isCuttingRestricted = isOldItem && !!existing.has_cutting_started;
     var isRestricted = (isOldItem && window._dhtEditRestricted && !!existing.has_fabric_called) || isCuttingRestricted;
@@ -2285,13 +2286,25 @@ async function _dhtProductChange(keepExistingPattern) {
             if(steps.length>0){
                 var colors=['#3b82f6','#059669','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0891b2','#64748b'];
                 var existing = window._ppCurrentExistingPhieu || {};
-                var isCustom = existing.production_steps && Array.isArray(existing.production_steps);
+                var rdCustom = document.getElementById('_pp_wf_custom');
+                var isCustom = false;
+                if (window._ppIsInitialWorkflowLoad) {
+                    isCustom = !!(existing.production_steps && Array.isArray(existing.production_steps));
+                    window._ppIsInitialWorkflowLoad = false;
+                } else if (rdCustom) {
+                    isCustom = rdCustom.checked;
+                } else {
+                    isCustom = !!(existing.production_steps && Array.isArray(existing.production_steps));
+                }
                 
                 stepsEl.innerHTML=steps.map(function(s,i){
                     var bg=colors[i%colors.length];
                     var isChecked = true;
                     if (isCustom) {
-                        isChecked = existing.production_steps.indexOf(Number(s.step_id)) >= 0 || existing.production_steps.indexOf(String(s.step_id)) >= 0;
+                        isChecked = false;
+                        if (existing.production_steps && Array.isArray(existing.production_steps)) {
+                            isChecked = existing.production_steps.indexOf(Number(s.step_id)) >= 0 || existing.production_steps.indexOf(String(s.step_id)) >= 0;
+                        }
                     }
                     var checkedAttr = isChecked ? 'checked' : '';
                     var disabledAttr = isCustom ? '' : 'disabled';
