@@ -1863,6 +1863,21 @@ async function _dhtAddItem(editIdx) {
     if (stepsEl) {
         stepsEl.addEventListener('change', function(e) {
             if (e.target && e.target.type === 'checkbox') {
+                var targetShort = (e.target.getAttribute('data-short-name') || '').toUpperCase();
+                var isChecked = e.target.checked;
+                if (!isChecked) {
+                    if (targetShort === 'IN') {
+                        var epCb = stepsEl.querySelector('input[data-short-name="ÉP"]');
+                        if (epCb && epCb.checked) {
+                            epCb.checked = false;
+                        }
+                    } else if (targetShort === 'ÉP') {
+                        var inCb = stepsEl.querySelector('input[data-short-name="IN"]');
+                        if (inCb && inCb.checked) {
+                            inCb.checked = false;
+                        }
+                    }
+                }
                 if (typeof _ppUpdateCuttingFieldsVisibility === 'function') {
                     _ppUpdateCuttingFieldsVisibility();
                 }
