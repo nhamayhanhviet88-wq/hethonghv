@@ -2730,7 +2730,7 @@ module.exports = async function(fastify) {
                         SELECT 1 FROM qlx_order_print_assignments qopa
                         JOIN printing_fields pf ON qopa.field_id = pf.id
                         WHERE pf.name = 'KHÔNG IN'
-                          AND (qopa.item_id = i.id OR (qopa.dht_order_id = i.dht_order_id AND qopa.item_id IS NULL))
+                          AND (qopa.item_id = i.id OR (qopa.dht_order_id = i.dht_order_id AND qopa.item_id IS NULL AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qopa2 WHERE qopa2.item_id = i.id)))
                     ) AS is_no_print,
 
                    -- Check cutting status
