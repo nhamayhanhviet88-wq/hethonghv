@@ -2219,6 +2219,7 @@ window._ppToggleWorkflowType = function(type) {
             cb.checked = true;
             cb.disabled = true;
         } else {
+            cb.checked = false;
             cb.disabled = false;
         }
     });
