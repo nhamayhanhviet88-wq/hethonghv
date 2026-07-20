@@ -1267,7 +1267,7 @@ module.exports = async function(fastify) {
             items = await db.all(`
                 SELECT doi.dht_order_id, doi.id, doi.description, doi.material_pairs, doi.quantity,
                        doi.material_name, doi.color_name, COALESCE(doi.production_cancelled, false) AS production_cancelled,
-                       doi.is_no_sew,
+                       doi.is_no_sew, COALESCE(doi.is_no_cut, false) AS is_no_cut,
                        cc.name AS cutting_category_name,
                        COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
                        COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived,
@@ -1571,38 +1571,39 @@ module.exports = async function(fastify) {
         return { orders, phoi_fab_status: phoiFabStatus };
     });
 
-    // POST /api/qlx/order/:orderId/no-cut
-    fastify.post('/api/qlx/order/:orderId/no-cut', { preHandler: [authenticate] }, async (request, reply) => {
+    // POST /api/qlx/item/:itemId/no-cut
+    fastify.post('/api/qlx/item/:itemId/no-cut', { preHandler: [authenticate] }, async (request, reply) => {
         const allowed = await isQLXUser(request);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
-        const orderId = Number(request.params.orderId);
+        const itemId = Number(request.params.itemId);
         const { is_no_cut } = request.body || {};
         const { vnNow } = require('../utils/timezone');
         const now = vnNow();
 
-        // Check if order exists
-        const order = await db.get('SELECT id, order_code FROM dht_orders WHERE id = $1', [orderId]);
-        if (!order) return reply.code(404).send({ error: 'Đơn hàng không tồn tại' });
+        // Get order item to get orderId
+        const item = await db.get('SELECT id, dht_order_id, description FROM dht_order_items WHERE id = $1', [itemId]);
+        if (!item) return reply.code(404).send({ error: 'Phiếu không tồn tại' });
+        const orderId = item.dht_order_id;
 
-        // Update is_no_cut on dht_orders
-        await db.run('UPDATE dht_orders SET is_no_cut = $1 WHERE id = $2', [!!is_no_cut, orderId]);
+        // Update is_no_cut on dht_order_items
+        await db.run('UPDATE dht_order_items SET is_no_cut = $1 WHERE id = $2', [!!is_no_cut, itemId]);
 
-        // Ensure prep row exists
-        await ensureOrderPrepRow(orderId);
+        // Ensure item prep row exists
+        await ensureItemPrepRow(orderId, itemId);
 
         if (is_no_cut) {
             // Set fabric_called and fabric_arrived to true
-            await db.run(`UPDATE qlx_preparation SET fabric_called = true, fabric_called_at = $1, fabric_called_by = $2, fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
-                [now, request.user.id, orderId]);
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'toggle_no_cut', 'Đã bật KHÔNG CẮT (bỏ qua gọi vải)', $2, $3)`,
-                [orderId, request.user.id, now]);
+            await db.run(`UPDATE qlx_preparation SET fabric_called = true, fabric_called_at = $1, fabric_called_by = $2, fabric_arrived = true, fabric_arrived_at = $1, fabric_arrived_by = $2, updated_at = $1 WHERE item_id = $3`,
+                [now, request.user.id, itemId]);
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'toggle_no_cut', 'Đã bật KHÔNG CẮT cho Phiếu: ' || $2, $3, $4)`,
+                [orderId, item.description || ('ID ' + itemId), request.user.id, now]);
         } else {
             // Reset fabric_called and fabric_arrived to false
-            await db.run(`UPDATE qlx_preparation SET fabric_called = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
-                [now, orderId]);
-            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'toggle_no_cut', 'Đã tắt KHÔNG CẮT (yêu cầu gọi vải lại)', $2, $3)`,
-                [orderId, request.user.id, now]);
+            await db.run(`UPDATE qlx_preparation SET fabric_called = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived = false, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE item_id = $2`,
+                [now, itemId]);
+            await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'toggle_no_cut', 'Đã tắt KHÔNG CẮT cho Phiếu: ' || $2, $3, $4)`,
+                [orderId, item.description || ('ID ' + itemId), request.user.id, now]);
         }
 
         return { success: true };
@@ -1758,8 +1759,14 @@ module.exports = async function(fastify) {
     });
 
     async function checkSewingPrerequisites(orderId, itemId) {
-        const order = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut FROM dht_orders WHERE id = $1', [orderId]);
-        const isNoCut = order ? !!order.is_no_cut : false;
+        let isNoCut = false;
+        if (itemId) {
+            const item = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut FROM dht_order_items WHERE id = $1', [itemId]);
+            isNoCut = item ? !!item.is_no_cut : false;
+        } else {
+            const order = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut FROM dht_orders WHERE id = $1', [orderId]);
+            isNoCut = order ? !!order.is_no_cut : false;
+        }
 
         let isCutDone = true;
         let isMatDone = true;
@@ -3445,7 +3452,7 @@ module.exports = async function(fastify) {
         console.log("[DEBUG fabric-lookup] orderId:", orderId, "order:", order);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
 
-        const item = await db.get('SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
+        const item = await db.get('SELECT id, description, material_pairs, quantity, COALESCE(is_no_cut, false) AS is_no_cut FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
         if (!item) return reply.code(404).send({ error: 'Item không tồn tại' });
 
         const allItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
@@ -3806,7 +3813,7 @@ module.exports = async function(fastify) {
 
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, is_no_cut: !!order.is_no_cut, sx_print_confirmed: !!order.sx_print_confirmed },
-            item: { id: item.id, description: item.description, quantity: item.quantity, item_index: item.item_index },
+            item: { id: item.id, description: item.description, quantity: item.quantity, item_index: item.item_index, is_no_cut: !!item.is_no_cut },
             phoi: { material_name: phoi.material_name, color_name: phoi.color_name, phoi_index: pi },
             warehouse,
             rolls,

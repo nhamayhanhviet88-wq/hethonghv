@@ -378,6 +378,7 @@ module.exports = async function(fastify) {
                 oi.material_pairs,
                 oi.production_cancelled,
                 oi.is_no_sew,
+                COALESCE(oi.is_no_cut, false) AS is_no_cut,
                 (
                     SELECT string_agg(pp.step_id::text, ',') 
                     FROM dht_product_process pp 
@@ -1520,7 +1521,8 @@ function _processOrderWithItems(o, items, todayStr) {
             has_press_printing: o.has_press_printing,
             has_any_printing: o.has_any_printing,
             is_khong_in: o.is_khong_in,
-            is_no_sew: o.is_no_sew
+            is_no_sew: o.is_no_sew,
+            is_no_cut: o.is_no_cut
         }];
     }
 
@@ -1555,7 +1557,7 @@ function _processOrderWithItems(o, items, todayStr) {
 
         const isKhongIn = !!item.is_khong_in;
         const isNoSew = !!item.is_no_sew;
-        const needsCut = o.is_no_cut ? false : requiredStepIds.has(2);
+        const needsCut = item.is_no_cut ? false : requiredStepIds.has(2);
         const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
         let needsPress = isKhongIn ? false : requiredStepIds.has(4);
         if (item.has_any_printing && !isPetTem && !isKhongIn) {
@@ -1710,6 +1712,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
             oi.material_pairs,
             oi.production_cancelled,
             oi.is_no_sew,
+            COALESCE(oi.is_no_cut, false) AS is_no_cut,
             (
                 SELECT string_agg(pp.step_id::text, ',') 
                 FROM dht_product_process pp 

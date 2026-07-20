@@ -956,6 +956,15 @@ async function start() {
 
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS shipping_payment_id INTEGER`); } catch(e) {}
     try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_no_cut BOOLEAN DEFAULT FALSE`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS is_no_cut BOOLEAN DEFAULT FALSE`); } catch(e) {}
+    try {
+        await db.exec(`
+            UPDATE dht_order_items doi 
+            SET is_no_cut = o.is_no_cut 
+            FROM dht_orders o 
+            WHERE doi.dht_order_id = o.id AND o.is_no_cut = true AND doi.is_no_cut = false
+        `);
+    } catch(e) {}
 
     // Item-level shipping fields in dht_order_items
     try { await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS shipping_status TEXT DEFAULT 'pending'`); } catch(e) {}
