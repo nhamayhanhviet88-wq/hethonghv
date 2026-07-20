@@ -148,16 +148,44 @@ async function _spqtSelectProduct(pid) {
     // === Section 1: Chất Liệu ===
     h += '<div style="margin-bottom:20px">'
         + '<h4 style="font-size:13px;font-weight:800;color:#475569;margin:0 0 8px;padding-bottom:4px;border-bottom:2px solid #e2e8f0">🧶 Chất Liệu được dùng</h4>'
-        + '<div style="display:flex;flex-wrap:wrap;gap:6px" id="_spqtMats">';
+        + '<div id="_spqtMats" style="display:grid;gap:12px">';
     
+    // Group materials by warehouse_name
+    var groups = {};
     _spqt.materials.forEach(function(m) {
-        var checked = assignedMats.indexOf(m.id) >= 0;
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:'+(checked?'#dcfce7':'#f8fafc')+';border:1px solid '+(checked?'#86efac':'#e2e8f0')+'" '
-            + 'onmouseover="this.style.boxShadow=\'0 1px 3px rgba(0,0,0,0.1)\'" onmouseout="this.style.boxShadow=\'none\'">'
-            + '<input type="checkbox" class="_spqtMatCb" value="' + m.id + '"' + (checked ? ' checked' : '') + '> ' + m.name + '</label>';
+        var wName = m.warehouse_name || 'Khác';
+        if (!groups[wName]) {
+            groups[wName] = {
+                unit: m.unit || '',
+                items: []
+            };
+        }
+        groups[wName].items.push(m);
     });
+
+    // Render grouped warehouses in a sorted order
+    Object.keys(groups).sort().forEach(function(wName) {
+        var grp = groups[wName];
+        h += '<div>'
+            + '  <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:6px;display:flex;align-items:center;gap:4px">'
+            + '    <span>🏢 ' + wName + '</span>'
+            + '    <span style="background:#e2e8f0;color:#475569;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">' + grp.unit + '</span>'
+            + '  </div>'
+            + '  <div style="display:flex;flex-wrap:wrap;gap:6px">';
+        
+        grp.items.forEach(function(m) {
+            var checked = assignedMats.indexOf(m.id) >= 0;
+            h += '<label style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:'+(checked?'#dcfce7':'#f8fafc')+';border:1px solid '+(checked?'#86efac':'#e2e8f0')+'" '
+                + 'onmouseover="this.style.boxShadow=\'0 1px 3px rgba(0,0,0,0.1)\'" onmouseout="this.style.boxShadow=\'none\'">'
+                + '<input type="checkbox" class="_spqtMatCb" value="' + m.id + '"' + (checked ? ' checked' : '') + '> ' + m.name + '</label>';
+        });
+        
+        h += '  </div>'
+            + '</div>';
+    });
+
     h += '</div>'
-        + '<button onclick="_spqtSaveMats(' + pid + ')" style="margin-top:8px;background:#059669;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">💾 Lưu Chất Liệu</button></div>';
+        + '<button onclick="_spqtSaveMats(' + pid + ')" style="margin-top:12px;background:#059669;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">💾 Lưu Chất Liệu</button></div>';
 
     // === Tab 2: Quy Trình ===
     h += '<div>'

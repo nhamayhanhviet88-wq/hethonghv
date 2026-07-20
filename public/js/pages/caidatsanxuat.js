@@ -89,7 +89,7 @@ async function switchCdsxTab(tab, el) {
 // ===== SP & QT Tab — reuses all functions from caidatspqt.js =====
 async function _cdsxLoadSpQt(content) {
     if (typeof _loadScript === 'function') {
-        await _loadScript('/js/pages/caidatspqt.js');
+        await _loadScript('/js/pages/caidatspqt.js?v=20260721_spqt_grouping_v1');
     }
     content.innerHTML = '<div style="max-width:1100px;margin:0 auto;padding:16px 0">'
         + '<div style="display:grid;grid-template-columns:350px 1fr;gap:16px" id="_spqtMain">'

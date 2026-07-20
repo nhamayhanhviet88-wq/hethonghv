@@ -467,7 +467,7 @@ const _PAGE_SCRIPT_MAP = {
     'chuyen-so': '/js/pages/chuyenso.js',
     'chuyenso': '/js/pages/chuyenso.js',
     'chuyensosale': '/js/pages/chuyensosale.js',
-    'caidatsanxuat': '/js/pages/caidatsanxuat.js'
+    'caidatsanxuat': '/js/pages/caidatsanxuat.js?v=20260721_spqt_grouping_v1'
 };
 
 const _loadedScripts = new Set();
