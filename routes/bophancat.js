@@ -5579,9 +5579,10 @@ module.exports = async function(fastify) {
             ORDER BY
 
                 CASE WHEN COALESCE(p.fabric_arrived, false) = true
-
-                     AND EXISTS (SELECT 1 FROM qlx_assignments qa2 WHERE qa2.dht_order_id = o.id AND qa2.assignment_type = 'in' AND (qa2.assigned_user_id IS NOT NULL OR qa2.assigned_contractor_id IS NOT NULL))
-
+                     AND (
+                         EXISTS (SELECT 1 FROM qlx_assignments qa2 WHERE qa2.dht_order_id = o.id AND qa2.assignment_type = 'in' AND (qa2.assigned_user_id IS NOT NULL OR qa2.assigned_contractor_id IS NOT NULL))
+                         OR EXISTS (SELECT 1 FROM qlx_order_print_assignments qopa2 WHERE qopa2.dht_order_id = o.id AND qopa2.field_id = 9)
+                     )
                 THEN 0 ELSE 1 END,
 
                 CASE WHEN COALESCE(o.shipping_priority, 'CHUẨN') NOT IN ('GẤP','GỬI') THEN 0
@@ -6123,21 +6124,22 @@ module.exports = async function(fastify) {
 
 
         const hasPcIn = await db.get(`
-
-            SELECT 1 FROM qlx_assignments
-
-            WHERE assignment_type = 'in'
-
-              AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
-
-              AND (
-
-                  (item_id = $1)
-
-                  OR (dht_order_id = $2 AND item_id IS NULL)
-
-              )
-
+            SELECT 1 FROM (
+                SELECT 1 FROM qlx_assignments
+                WHERE assignment_type = 'in'
+                  AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
+                  AND (
+                      (item_id = $1)
+                      OR (dht_order_id = $2 AND item_id IS NULL)
+                  )
+                UNION
+                SELECT 1 FROM qlx_order_print_assignments
+                WHERE field_id = 9
+                  AND (
+                      (item_id = $1)
+                      OR (dht_order_id = $2 AND item_id IS NULL)
+                  )
+            ) AS sub LIMIT 1
         `, [Number(order_item_id), dht_order_id]);
 
         if (!hasPcIn) return reply.code(400).send({ error: 'Chưa Phân Công In — không thể nhận đơn cắt' });
@@ -7328,10 +7330,12 @@ module.exports = async function(fastify) {
             SELECT oi.id AS order_item_id, oi.description, oi.quantity, oi.material_pairs,
                    o.id AS dht_order_id, o.order_code, o.shipping_status,
                    COALESCE(p.fabric_arrived, false) AS order_fabric_arrived,
-                   EXISTS(SELECT 1 FROM qlx_assignments qa
-                          WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
-                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-                   ) AS has_print,
+                   (EXISTS(SELECT 1 FROM qlx_assignments qa
+                           WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
+                           AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                    ) OR EXISTS(SELECT 1 FROM qlx_order_print_assignments qopa
+                                WHERE qopa.dht_order_id = o.id AND qopa.field_id = 9
+                    )) AS has_print,
                    COALESCE(oi.production_cancelled, false) AS production_cancelled
             FROM dht_order_items oi
             JOIN dht_orders o ON o.id = oi.dht_order_id
