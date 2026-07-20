@@ -816,6 +816,22 @@ async function start() {
         `);
     } catch(e) {}
 
+    // Auto-reset any stuck 'sending' emails on startup (e.g. from previous server crash/restart)
+    try {
+        const resetRes = await db.run(`
+            UPDATE dht_orders 
+            SET design_email_status = 'failed', 
+                design_email_error = 'Gửi email bị gián đoạn do hệ thống khởi động lại', 
+                design_email_planned_send_at = NULL 
+            WHERE design_email_status = 'sending'
+        `);
+        if (resetRes && resetRes.changes > 0) {
+            console.log(`[Startup] Cleaned up ${resetRes.changes} stuck sending emails.`);
+        }
+    } catch (resetErr) {
+        console.error('[Startup] Failed to clean up stuck sending emails:', resetErr);
+    }
+
     // Migration: Bảng Giá May (BGM) — Sewing Price Catalog
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS bgm_items (

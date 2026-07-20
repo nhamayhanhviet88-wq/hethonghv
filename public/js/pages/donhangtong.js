@@ -1769,26 +1769,48 @@ async function _dhtShowDetail(id) {
 
         if (o.design_email_recipient) {
             let statusText = '';
+            const resendBtn = `<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); _dhtResendDesignEmail('${o.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:11px;font-weight:600;height:24px;border-radius:4px;line-height:1;margin-left:8px;border:1px solid #cbd5e1;background:#fff;color:#334155;cursor:pointer;">🔄 Gửi lại</button>`;
             
             if (o.design_email_status === 'sent') {
                 const sentTimeStr = o.design_email_sent_at ? fmtDateTimeHM(o.design_email_sent_at) : (o.last_updated_at ? fmtDateTimeHM(o.last_updated_at) : (o.created_at ? fmtDateTimeHM(o.created_at) : '—'));
                 const sentCountVal = o.design_email_sent_count || 1;
                 statusText = `
-                    <span style="color:#15803d;font-weight:700;">✅ Đã gửi thành công</span>
-                    <div style="color:#475569;font-size:11px;margin-top:2px;font-weight:600;">(Gửi lần ${sentCountVal} lúc ${sentTimeStr})</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                        <div>
+                            <span style="color:#15803d;font-weight:700;">✅ Đã gửi thành công</span>
+                            <div style="color:#475569;font-size:11px;margin-top:2px;font-weight:600;">(Gửi lần ${sentCountVal} lúc ${sentTimeStr})</div>
+                        </div>
+                        ${resendBtn}
+                    </div>
                 `;
             } else if (o.design_email_status === 'sending') {
                 statusText = `<span style="color:#d97706;font-weight:700;">⏳ Đang gửi...</span>`;
             } else if (o.design_email_status === 'failed') {
-                statusText = `<span style="color:#dc2626;font-weight:700;">❌ Thất bại</span> <div style="color:#dc2626;font-size:11px;margin-top:4px;font-weight:600;word-break:break-all;">Lỗi: ${escapeHTML(o.design_email_error || 'Không rõ nguyên nhân')}</div>`;
+                statusText = `
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                        <div>
+                            <span style="color:#dc2626;font-weight:700;">❌ Thất bại</span>
+                            <div style="color:#dc2626;font-size:11px;margin-top:4px;font-weight:600;word-break:break-all;">Lỗi: ${escapeHTML(o.design_email_error || 'Không rõ nguyên nhân')}</div>
+                        </div>
+                        ${resendBtn}
+                    </div>
+                `;
             } else {
-                statusText = `<span style="color:#64748b;font-style:italic;">Chưa gửi</span>`;
+                statusText = `
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                        <span style="color:#64748b;font-style:italic;">Chưa gửi</span>
+                        ${resendBtn}
+                    </div>
+                `;
             }
 
             infoHTML += row('Email thiết kế', `
                 <div style="font-size:12px;font-weight:500;">
-                    <div style="margin-bottom:4px;">Gửi tới: <strong>${escapeHTML(o.design_email_recipient)}</strong></div>
-                    <div>Trạng thái: ${statusText}</div>
+                    <div style="margin-bottom:6px;">Gửi tới: <strong>${escapeHTML(o.design_email_recipient)}</strong></div>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-top:4px;">
+                        <div style="font-weight:600;color:#64748b;font-size:11px;margin-bottom:4px;">TRẠNG THÁI GỬI:</div>
+                        ${statusText}
+                    </div>
                 </div>
             `);
         }
@@ -2409,6 +2431,37 @@ async function _dhtShowDetail(id) {
         const titleText = `📦 ${o.order_code} — ${fmt(finRemaining)}đ`;
         const footerHTML = `<button class="btn btn-secondary" onclick="if(window._dhtRestoreModalFn){const r=window._dhtRestoreModalFn;window._dhtRestoreModalFn=null;r();}else{closeModal();}" style="padding:10px 28px">Đóng</button>`;
         openModal(titleText, bodyHTML, footerHTML);
+
+        // Clear any previous email polling
+        if (window._dhtEmailPollInterval) {
+            clearInterval(window._dhtEmailPollInterval);
+            window._dhtEmailPollInterval = null;
+        }
+
+        // If order design email status is 'sending', start polling every 3 seconds to auto-refresh
+        if (o.design_email_recipient && o.design_email_status === 'sending') {
+            window._dhtEmailPollInterval = setInterval(async () => {
+                const modalEl = document.getElementById('modalOverlay');
+                const isModalOpen = modalEl && modalEl.classList.contains('show');
+                if (isModalOpen && window._dhtCurrentOrder && window._dhtCurrentOrder.id === o.id) {
+                    const freshData = await apiCall(`/api/dht/orders/${o.id}/detail`);
+                    if (freshData && freshData.order) {
+                        const freshOrder = freshData.order;
+                        if (freshOrder.design_email_status !== 'sending') {
+                            // Status updated! Clear polling and reload the full detail view
+                            clearInterval(window._dhtEmailPollInterval);
+                            window._dhtEmailPollInterval = null;
+                            await _dhtShowDetail(o.id);
+                            if (typeof _dhtLoadOrders === 'function') await _dhtLoadOrders();
+                        }
+                    }
+                } else {
+                    // Modal was closed or changed
+                    clearInterval(window._dhtEmailPollInterval);
+                    window._dhtEmailPollInterval = null;
+                }
+            }, 3000);
+        }
 
         // Widen modal
         setTimeout(() => {
