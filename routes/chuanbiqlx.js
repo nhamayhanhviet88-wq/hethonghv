@@ -3442,6 +3442,7 @@ module.exports = async function(fastify) {
 
         // Get order + item
         const order = await db.get('SELECT id, order_code, customer_name, COALESCE(sx_print_confirmed, false) AS sx_print_confirmed, COALESCE(is_no_cut, false) AS is_no_cut FROM dht_orders WHERE id = $1', [orderId]);
+        console.log("[DEBUG fabric-lookup] orderId:", orderId, "order:", order);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
 
         const item = await db.get('SELECT id, description, material_pairs, quantity FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);

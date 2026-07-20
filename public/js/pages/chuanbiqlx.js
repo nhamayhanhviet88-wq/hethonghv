@@ -1079,7 +1079,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         }
         html += '</div>';
 
-        var isNoCut = !!o.is_no_cut;
+        var isNoCut = !!(o && o.is_no_cut);
+        console.log("[DEBUG FabricPopup] orderId:", orderId, "isNoCut:", isNoCut, "orderData:", o);
         html += '<div style="margin: 12px 20px 0; padding: 12px 16px; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 12px; display: flex; align-items: center; justify-content: space-between;">';
         html += '  <div style="display: flex; align-items: center; gap: 8px;">';
         html += '    <span style="font-size: 18px;">🚫</span>';
@@ -1490,6 +1491,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
 
 async function _qlxToggleNoCutMode(chk, orderId, itemId, pairIndex) {
     var checked = chk.checked;
+    console.log("[DEBUG ToggleNoCutMode] orderId:", orderId, "checked:", checked);
     
     // Cập nhật giao diện tức thì
     var scheduleContainer = document.getElementById('_qlxCutScheduleContainer');
