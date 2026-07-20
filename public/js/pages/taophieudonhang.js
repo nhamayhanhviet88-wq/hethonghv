@@ -3581,11 +3581,6 @@ function _tpdRenderWorkspace(container) {
                             ✏️ Sửa Thông Tin Đơn (Giá/Cọc)
                         </button>
                     ` : ''}
-                    ${isOrderDraft ? `
-                        <button class="tpd-btn tpd-btn-secondary" onclick="navigate('taophieudonhang')">
-                            ✕ Đóng Workspace
-                        </button>
-                    ` : ''}
                 </div>
             </div>
 
