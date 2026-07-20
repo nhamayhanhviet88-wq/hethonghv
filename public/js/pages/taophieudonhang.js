@@ -3634,11 +3634,9 @@ function _tpdRenderWorkspace(container) {
 
                     <div class="tpd-ws-editor-footer">
                         ${state.hasEditPermission ? `
-                            ${!isOrderDraft ? `
-                                <button class="tpd-btn" data-no-debounce="true" onclick="_tpdDiscardChanges()" style="background: #ef4444; color: white; padding: 10px 24px; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2); border-radius: 8px; margin-right: 10px;">
-                                    🚫 Bỏ qua
-                                </button>
-                            ` : ''}
+                            <button class="tpd-btn" data-no-debounce="true" onclick="_tpdDiscardChanges()" style="background: #ef4444; color: white; padding: 10px 24px; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2); border-radius: 8px; margin-right: 10px;">
+                                🚫 Bỏ qua
+                            </button>
                             <button class="tpd-btn" onclick="_tpdExportSheetAndOrder()" style="background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 10px 24px; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.2); border-radius: 8px;">
                                 ${isOrderDraft ? '📤 Xuất Phiếu & Lên Đơn' : '💾 Lưu Cập Nhật Phiếu'}
                             </button>
