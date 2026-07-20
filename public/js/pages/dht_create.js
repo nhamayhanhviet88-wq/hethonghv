@@ -3700,6 +3700,14 @@ async function _dhtInitializeEditState(id, data) {
             }
             var vatAmt = vatPct > 0 ? Math.round((rawTotal * vatPct) / (100 + vatPct)) : 0;
             var baseTotal = rawTotal - vatAmt;
+            var prodSteps = null;
+            if (it.production_steps !== undefined && it.production_steps !== null) {
+                try {
+                    prodSteps = typeof it.production_steps === 'string' ? JSON.parse(it.production_steps) : it.production_steps;
+                } catch(e) {
+                    prodSteps = null;
+                }
+            }
             return {
                 id: it.id,
                 sale_type: it.sale_type || '',
@@ -3727,7 +3735,8 @@ async function _dhtInitializeEditState(id, data) {
                 size_type: it.size_type || 'Size TT',
                 has_fabric_called: !!it.has_fabric_called,
                 has_print_assignment: !!it.has_print_assignment,
-                has_cutting_started: !!it.has_cutting_started
+                has_cutting_started: !!it.has_cutting_started,
+                production_steps: prodSteps
             };
         });
 
