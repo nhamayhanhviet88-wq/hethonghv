@@ -1263,8 +1263,17 @@ async function _saleOpenConsultModal(customerId) {
         return true;
     });
 
-    // Allow authorized roles to always see 'chot_don' option
+    // Enforce deposit mandatory before chot_don
+    const latestChotDonIdx = consultLogs.findIndex(l => l.log_type === 'chot_don');
+    const hasDeposit = latestChotDonIdx === -1
+        ? consultLogs.some(l => l.log_type === 'dat_coc')
+        : consultLogs.slice(0, latestChotDonIdx).some(l => l.log_type === 'dat_coc');
     const isAdminRole = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser?.role);
+    if (!hasDeposit && !isAdminRole) {
+        allowedTypes = allowedTypes.filter(([k]) => k !== 'chot_don');
+    }
+
+    // Allow authorized roles to always see 'chot_don' option
     if (isAdminRole) {
         if (!allowedTypes.some(([k]) => k === 'chot_don')) {
             allowedTypes.push(['chot_don', _saleConsultTypes['chot_don']]);
