@@ -2300,10 +2300,11 @@ function _ppIsCuttingSelected() {
 function _ppUpdateCuttingFieldsVisibility() {
     var isCutting = _ppIsCuttingSelected();
     
-    // Check if the product has any assigned materials from KHO SẴN
+    // Check if the product has any assigned materials from KHO SẴN or is a ready-made product (name contains "SẴN")
+    var prodName = (document.getElementById('_pp_product')?.value || '').trim().toUpperCase();
     var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
         return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
-    });
+    }) || prodName.indexOf('SẴN') >= 0;
     
     // 1. Loại Size Mặc Định
     var sizeContainer = document.getElementById('_pp_sizeTypeContainer');
@@ -2492,9 +2493,10 @@ async function _dhtProductChange(keepExistingPattern) {
         }
         // Re-render pairs if pattern already selected or if we have KHO SẴN materials
         var patName=document.getElementById('_pp_pattern')?.value;
+        var prodName = (document.getElementById('_pp_product')?.value || '').trim().toUpperCase();
         var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
             return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
-        });
+        }) || prodName.indexOf('SẴN') >= 0;
         if(patName || hasKhoSan) {
             _dhtPatternChange(window._ppCurrentExistingPhieu);
         }
@@ -2511,9 +2513,10 @@ function _dhtPatternChange(existing) {
     var pairsEl = document.getElementById('_pp_matColorPairs');
     var mixInfo = document.getElementById('_pp_mixInfo');
     if (!pairsEl) return;
+    var prodName = (document.getElementById('_pp_product')?.value || '').trim().toUpperCase();
     var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
         return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
-    });
+    }) || prodName.indexOf('SẴN') >= 0;
 
     if (!patName && !hasKhoSan) {
         pairsEl.innerHTML='';
@@ -2572,7 +2575,10 @@ function _dhtPatternChange(existing) {
         mixInfo.style.display = 'block';
     }
     var assignedMats = window._ppAssignedMats || [];
-    var existPairs = (existing && existing.material_pairs) ? existing.material_pairs : [];
+    var existPairs = [];
+    if (existing && existing.material_pairs) {
+        existPairs = typeof existing.material_pairs === 'string' ? JSON.parse(existing.material_pairs) : existing.material_pairs;
+    }
     if (existPairs.length === 0 && existing && existing.material_id) {
         existPairs = [{ material_id: existing.material_id, material_name: existing.material_name, color_id: existing.color_id, color_name: existing.color_name }];
     }
@@ -2864,12 +2870,16 @@ function _dhtSavePhieu(idx) {
     // Collect material/color pairs from searchable inputs
     var matInputs=document.querySelectorAll('[id^="_ppMatVal"]');
     var pairs=[];
+    var prodName = (document.getElementById('_pp_product')?.value || '').trim().toUpperCase();
+    var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
+        return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
+    }) || prodName.indexOf('SẴN') >= 0;
     for(var pi=0;pi<matInputs.length;pi++){
         var mVal=matInputs[pi].value;
         var mName=document.getElementById('_ppMat'+pi)?.value||'';
         var cVal=document.getElementById('_ppColorVal'+pi)?.value||'';
         var cName=document.getElementById('_ppColor'+pi)?.value||'';
-        if (isCutting) {
+        if (isCutting || hasKhoSan) {
             if(!mVal||!mName){showToast('Chọn Chất Liệu '+(pi+1)+' từ danh sách','error');return;}
             if(!cVal||!cName){showToast('Chọn Màu '+(pi+1)+' từ danh sách','error');return;}
         }
@@ -2877,7 +2887,7 @@ function _dhtSavePhieu(idx) {
             pairs.push({material_id:Number(mVal),material_name:mName,color_id:Number(cVal),color_name:cName});
         }
     }
-    if(isCutting && pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
+    if((isCutting || hasKhoSan) && pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
     var qrRows = document.querySelectorAll('#_pp_qtyRows ._ppQR');
     var qtyPairs=[], raw=0, totalQty=0;
     var typedQty = 0;
@@ -2992,10 +3002,10 @@ function _dhtSavePhieu(idx) {
     var nnArr=(_dhtCreate.reminders||[]).slice();
     var acctNotes=nnArr.join(' | ');
     // Backward compat: first pair = main material/color
-    var mainPair = isCutting ? (pairs[0] || null) : null;
+    var mainPair = (isCutting || hasKhoSan) ? (pairs[0] || null) : null;
     // Build display name for color (all pairs)
-    var colorDisplay = isCutting ? (pairs.map(function(p){return p.color_name;}).join('+')) : '';
-    var matDisplay = isCutting ? (pairs.map(function(p){return p.material_name;}).join('+')) : '';
+    var colorDisplay = (isCutting || hasKhoSan) ? (pairs.map(function(p){return p.color_name;}).join('+')) : '';
+    var matDisplay = (isCutting || hasKhoSan) ? (pairs.map(function(p){return p.material_name;}).join('+')) : '';
     var wfType = document.querySelector('input[name="_pp_wf_type"]:checked')?.value || 'full';
     var stepsVal = null;
     if (wfType === 'custom') {
