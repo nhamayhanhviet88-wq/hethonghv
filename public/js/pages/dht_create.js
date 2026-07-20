@@ -2266,6 +2266,20 @@ function _ppUpdateCuttingFieldsVisibility() {
         patternContainer.style.display = isCutting ? 'grid' : 'none';
     }
     
+    // Dependent pattern elements: Kỹ Thuật May, Hình Ảnh Thông Số, Mẫu Đơn
+    var techEl = document.getElementById('_pp_patternSewingTech');
+    var imgEl = document.getElementById('_pp_specImage');
+    var mixInfo = document.getElementById('_pp_mixInfo');
+    if (!isCutting) {
+        if (techEl) techEl.style.display = 'none';
+        if (imgEl) imgEl.style.display = 'none';
+        if (mixInfo) mixInfo.style.display = 'none';
+    } else {
+        if (techEl && techEl.innerHTML.trim() !== '') techEl.style.display = 'block';
+        if (imgEl && imgEl.innerHTML.trim() !== '') imgEl.style.display = 'block';
+        if (mixInfo && mixInfo.innerHTML.trim() !== '') mixInfo.style.display = 'block';
+    }
+    
     // 3. Chất Liệu 1 & Màu 1
     var matColorPairs = document.getElementById('_pp_matColorPairs');
     if (matColorPairs) {
