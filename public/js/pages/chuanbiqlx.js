@@ -2600,6 +2600,44 @@ function _qlxToggleFieldOps(fieldId) {
             opsDiv.style.animation = 'qlxSlideDown 0.2s ease';
         }
         if (card) card.style.borderColor = '#0ea5e9';
+
+        var fieldName = (card.querySelector('span').textContent || '').trim();
+        if (fieldName === 'KHÔNG IN') {
+            // Uncheck all other field checkboxes
+            var allCbs = document.querySelectorAll('.field-checkbox');
+            allCbs.forEach(function(otherCb) {
+                var otherId = Number(otherCb.getAttribute('data-field-id'));
+                if (otherId !== fieldId) {
+                    otherCb.checked = false;
+                    _qlxToggleFieldOps(otherId);
+                }
+            });
+            // Automatically select 'none' for reminders
+            var printNoneRadio = document.querySelector('input[name="qlx_print_remind_choice"][value="none"]');
+            if (printNoneRadio) {
+                printNoneRadio.checked = true;
+                _qlxToggleRemindersArea('in');
+            }
+            var pressNoneRadio = document.querySelector('input[name="qlx_press_remind_choice"][value="none"]');
+            if (pressNoneRadio) {
+                pressNoneRadio.checked = true;
+                _qlxToggleRemindersArea('ep');
+            }
+        } else {
+            // If they check a normal printing field, uncheck "KHÔNG IN"
+            var allCbs = document.querySelectorAll('.field-checkbox');
+            allCbs.forEach(function(otherCb) {
+                var otherId = Number(otherCb.getAttribute('data-field-id'));
+                if (otherId !== fieldId) {
+                    var otherCard = document.getElementById('field_card_' + otherId);
+                    var otherName = (otherCard?.querySelector('span')?.textContent || '').trim();
+                    if (otherName === 'KHÔNG IN') {
+                        otherCb.checked = false;
+                        _qlxToggleFieldOps(otherId);
+                    }
+                }
+            });
+        }
     } else {
         if (opsDiv) opsDiv.style.display = 'none';
         if (card) card.style.borderColor = '#e2e8f0';
@@ -2634,22 +2672,29 @@ async function _qlxPASave() {
         if (fieldCb && fieldCb.checked) {
             var fieldId = Number(fieldCb.getAttribute('data-field-id'));
             var opCbs = card.querySelectorAll('.operator-checkbox:checked');
+            var fieldName = (card.querySelector('span').textContent || 'Lĩnh vực').trim();
             
-            if (opCbs.length === 0) {
-                var fieldName = card.querySelector('span').textContent || 'Lĩnh vực';
-                validationError = 'Vui lòng chọn ít nhất một người thực hiện cho lĩnh vực: ' + fieldName;
-            } else if (opCbs.length > 1) {
-                var fieldName = card.querySelector('span').textContent || 'Lĩnh vực';
-                validationError = 'Mỗi lĩnh vực in chỉ được chọn tối đa 1 người thực hiện! Lĩnh vực đang chọn nhiều hơn 1: ' + fieldName;
-            }
-            
-            opCbs.forEach(function(opCb) {
+            if (fieldName === 'KHÔNG IN') {
                 assignments.push({
                     field_id: fieldId,
-                    operator_type: opCb.getAttribute('data-type'),
-                    operator_id: Number(opCb.getAttribute('data-id'))
+                    operator_type: null,
+                    operator_id: null
                 });
-            });
+            } else {
+                if (opCbs.length === 0) {
+                    validationError = 'Vui lòng chọn ít nhất một người thực hiện cho lĩnh vực: ' + fieldName;
+                } else if (opCbs.length > 1) {
+                    validationError = 'Mỗi lĩnh vực in chỉ được chọn tối đa 1 người thực hiện! Lĩnh vực đang chọn nhiều hơn 1: ' + fieldName;
+                }
+                
+                opCbs.forEach(function(opCb) {
+                    assignments.push({
+                        field_id: fieldId,
+                        operator_type: opCb.getAttribute('data-type'),
+                        operator_id: Number(opCb.getAttribute('data-id'))
+                    });
+                });
+            }
         }
     });
     

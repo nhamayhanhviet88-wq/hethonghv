@@ -461,6 +461,8 @@ module.exports = async function(fastify) {
         // Drop old unique constraint (PostgreSQL auto-truncated the name — try both variants)
         await db.exec(`ALTER TABLE qlx_order_print_assignments DROP CONSTRAINT IF EXISTS qlx_order_print_assignments_dht_order_id_field_id_operat_key`);
         await db.exec(`ALTER TABLE qlx_order_print_assignments DROP CONSTRAINT IF EXISTS qlx_order_print_assignments_dht_order_id_field_id_operator__key`);
+        await db.exec(`ALTER TABLE qlx_order_print_assignments ALTER COLUMN operator_type DROP NOT NULL`);
+        await db.exec(`ALTER TABLE qlx_order_print_assignments ALTER COLUMN operator_id DROP NOT NULL`);
         await db.exec(`DROP INDEX IF EXISTS idx_qlx_print_assign_item_field`);
         await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_print_assign_item_field ON qlx_order_print_assignments(item_id, field_id, operator_type, operator_id)`);
     } catch(e) { console.error('[QLX] migration qlx_order_print_assignments:', e.message); }
@@ -2841,24 +2843,29 @@ module.exports = async function(fastify) {
                 const opType = assign.operator_type;
                 const opId = Number(assign.operator_id);
 
-                if (fieldId && ['user', 'contractor'].includes(opType) && opId) {
+                const field = await db.get(`SELECT name FROM printing_fields WHERE id = $1`, [fieldId]);
+                const fieldName = field ? field.name : '';
+
+                if (fieldId && (fieldName === 'KHÔNG IN' || (['user', 'contractor'].includes(opType) && opId))) {
                     if (itemId) {
                         await db.run(`
                             INSERT INTO qlx_order_print_assignments (dht_order_id, item_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
                             VALUES ($1, $2, $3, $4, $5, $6, $7)
-                        `, [orderId, itemId, fieldId, opType, opId, request.user.id, now]);
+                        `, [orderId, itemId, fieldId, opType || null, opId || null, request.user.id, now]);
                     } else {
                         await db.run(`
                             INSERT INTO qlx_order_print_assignments (dht_order_id, field_id, operator_type, operator_id, assigned_by, assigned_at)
                             VALUES ($1, $2, $3, $4, $5, $6)
-                        `, [orderId, fieldId, opType, opId, request.user.id, now]);
+                        `, [orderId, fieldId, opType || null, opId || null, request.user.id, now]);
                     }
 
-                    if (!firstOp) {
-                        firstOp = { type: opType, id: opId };
-                    } else {
-                        if (!otherOps.some(o => o.type === opType && o.id === opId)) {
-                            otherOps.push({ type: opType, id: opId });
+                    if (fieldName !== 'KHÔNG IN') {
+                        if (!firstOp) {
+                            firstOp = { type: opType, id: opId };
+                        } else {
+                            if (!otherOps.some(o => o.type === opType && o.id === opId)) {
+                                otherOps.push({ type: opType, id: opId });
+                            }
                         }
                     }
                 }
@@ -3033,6 +3040,9 @@ module.exports = async function(fastify) {
                 for (const fid of Object.keys(fieldAssignments)) {
                     const fieldName = fieldNameMap[fid];
                     if (!fieldName) { console.warn('[QLX] fieldNameMap missing for fid:', fid); continue; }
+                    if (fieldName === 'KHÔNG IN') {
+                        continue;
+                    }
                     currentFieldNames.push(fieldName);
 
                     const ops = fieldAssignments[fid];

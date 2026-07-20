@@ -94,8 +94,8 @@ module.exports = async function(fastify) {
             id SERIAL PRIMARY KEY,
             dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
             field_id INTEGER NOT NULL REFERENCES printing_fields(id) ON DELETE CASCADE,
-            operator_type VARCHAR(20) NOT NULL, -- 'user' or 'contractor'
-            operator_id INTEGER NOT NULL,
+            operator_type VARCHAR(20), -- 'user' or 'contractor'
+            operator_id INTEGER,
             assigned_by INTEGER REFERENCES users(id),
             assigned_at TIMESTAMPTZ DEFAULT NOW(),
             UNIQUE(dht_order_id, field_id, operator_type, operator_id)

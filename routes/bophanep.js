@@ -475,6 +475,17 @@ module.exports = async function(fastify) {
     // ========== CREATE ==========
     fastify.post('/api/pressing/records', { preHandler: [authenticate] }, async (req) => {
         const b = req.body || {}, now = vnNow();
+        if (b.dht_order_id) {
+            const khongIn = await db.get(`
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE qa.dht_order_id = $1 AND pf.name = 'KHÔNG IN'
+                LIMIT 1
+            `, [b.dht_order_id]);
+            if (khongIn) {
+                throw new Error('Đơn hàng này được đánh dấu KHÔNG IN. Không thể tạo bản ghi ép!');
+            }
+        }
         const positions = await db.all(`SELECT key_code FROM pressing_positions`);
         const salInfo = await calculatePresserSalary(b.presser_id, b);
 
@@ -1341,6 +1352,18 @@ module.exports = async function(fastify) {
             if (item.production_cancelled) {
                 await client.query('ROLLBACK');
                 return reply.code(400).send({ error: 'Đơn hàng này đã bị HỦY SẢN XUẤT!' });
+            }
+
+            const khongInRes = await client.query(`
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE (qa.item_id = $1 OR (qa.item_id IS NULL AND qa.dht_order_id = $2 AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = $1)))
+                  AND pf.name = 'KHÔNG IN'
+                LIMIT 1
+            `, [order_item_id, dht_order_id]);
+            if (khongInRes.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return reply.code(400).send({ error: 'Đơn hàng này được đánh dấu KHÔNG IN. Không thể nhận đơn ép!' });
             }
 
             if (!item.has_pc_in) {

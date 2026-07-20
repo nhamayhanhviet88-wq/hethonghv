@@ -108,23 +108,36 @@ module.exports = async function(fastify) {
                         JOIN printing_fields pf ON qa.field_id = pf.id
                         WHERE qa.dht_order_id = o.id AND qa.item_id IS NULL
                           AND pf.name IN ('IN PET', 'IN DECAL')
+                          AND pf.name != 'KHÔNG IN'
                     ) OR EXISTS (
                         SELECT 1 FROM printing_records pr
                         WHERE pr.dht_order_id = o.id AND pr.order_item_id IS NULL
                           AND pr.print_field IN ('IN PET', 'IN DECAL')
+                          AND pr.print_field != 'KHÔNG IN'
                           AND COALESCE(pr.is_discarded, false) = false
                     )
                 ) AS has_press_printing,
                 (
                     EXISTS (
                         SELECT 1 FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
                         WHERE qa.dht_order_id = o.id AND qa.item_id IS NULL
+                          AND pf.name != 'KHÔNG IN'
                     ) OR EXISTS (
                         SELECT 1 FROM printing_records pr
                         WHERE pr.dht_order_id = o.id AND pr.order_item_id IS NULL
+                          AND pr.print_field != 'KHÔNG IN'
                           AND COALESCE(pr.is_discarded, false) = false
                     )
                 ) AS has_any_printing,
+                (
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE qa.dht_order_id = o.id AND qa.item_id IS NULL
+                          AND pf.name = 'KHÔNG IN'
+                    )
+                ) AS is_khong_in,
                 COALESCE(
                     CASE 
                         WHEN EXISTS (SELECT 1 FROM cutting_records WHERE dht_order_id = o.id) 
@@ -375,21 +388,34 @@ module.exports = async function(fastify) {
                         JOIN printing_fields pf ON qa.field_id = pf.id
                         WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
                           AND pf.name IN ('IN PET', 'IN DECAL')
+                          AND pf.name != 'KHÔNG IN'
                     ) OR EXISTS (
                         SELECT 1 FROM printing_records pr
                         WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                           AND pr.print_field IN ('IN PET', 'IN DECAL')
+                          AND pr.print_field != 'KHÔNG IN'
                     )
                 ) AS has_press_printing,
                 (
                     EXISTS (
                         SELECT 1 FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
                         WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                          AND pf.name != 'KHÔNG IN'
                     ) OR EXISTS (
                         SELECT 1 FROM printing_records pr
                         WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
+                          AND pr.print_field != 'KHÔNG IN'
                     )
-                ) AS has_any_printing
+                ) AS has_any_printing,
+                (
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qa
+                        JOIN printing_fields pf ON qa.field_id = pf.id
+                        WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                          AND pf.name = 'KHÔNG IN'
+                    )
+                ) AS is_khong_in
             FROM dht_order_items oi
             WHERE oi.dht_order_id = $1
               AND LOWER(COALESCE(oi.product_name, '')) NOT LIKE '%thiết kế%'
@@ -405,17 +431,30 @@ module.exports = async function(fastify) {
                 JOIN printing_fields pf ON qa.field_id = pf.id
                 WHERE qa.dht_order_id = $1 AND qa.item_id IS NULL
                   AND pf.name IN ('IN PET', 'IN DECAL')
+                  AND pf.name != 'KHÔNG IN'
                 LIMIT 1
             `, [orderId]);
             const hasPressPrinting = !!pressPrintAssign || await db.get(`
-                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND print_field IN ('IN PET', 'IN DECAL') AND COALESCE(is_discarded, false) = false LIMIT 1
+                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND print_field IN ('IN PET', 'IN DECAL') AND print_field != 'KHÔNG IN' AND COALESCE(is_discarded, false) = false LIMIT 1
             `, [orderId]);
 
             const anyPrintAssign = await db.get(`
-                SELECT 1 FROM qlx_order_print_assignments qa WHERE qa.dht_order_id = $1 AND qa.item_id IS NULL LIMIT 1
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE qa.dht_order_id = $1 AND qa.item_id IS NULL
+                  AND pf.name != 'KHÔNG IN'
+                LIMIT 1
             `, [orderId]);
             const hasAnyPrinting = !!anyPrintAssign || await db.get(`
-                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false LIMIT 1
+                SELECT 1 FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND print_field != 'KHÔNG IN' AND COALESCE(is_discarded, false) = false LIMIT 1
+            `, [orderId]);
+
+            const khongInAssign = await db.get(`
+                SELECT 1 FROM qlx_order_print_assignments qa
+                JOIN printing_fields pf ON qa.field_id = pf.id
+                WHERE qa.dht_order_id = $1 AND qa.item_id IS NULL
+                  AND pf.name = 'KHÔNG IN'
+                LIMIT 1
             `, [orderId]);
 
             items.push({
@@ -425,7 +464,8 @@ module.exports = async function(fastify) {
                 quantity: order.total_quantity || 0,
                 required_steps: null,
                 has_press_printing: !!hasPressPrinting,
-                has_any_printing: !!hasAnyPrinting
+                has_any_printing: !!hasAnyPrinting,
+                is_khong_in: !!khongInAssign
             });
         }
 
@@ -1473,7 +1513,8 @@ function _processOrderWithItems(o, items, todayStr) {
             sew_done: o.sew_done,
             finish_done: o.finish_done,
             has_press_printing: o.has_press_printing,
-            has_any_printing: o.has_any_printing
+            has_any_printing: o.has_any_printing,
+            is_khong_in: o.is_khong_in
         }];
     }
 
@@ -1506,10 +1547,11 @@ function _processOrderWithItems(o, items, todayStr) {
             }
         }
 
+        const isKhongIn = !!item.is_khong_in;
         const needsCut = requiredStepIds.has(2);
-        const needsPrint = requiredStepIds.has(3);
-        let needsPress = requiredStepIds.has(4);
-        if (item.has_any_printing && !isPetTem) {
+        const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
+        let needsPress = isKhongIn ? false : requiredStepIds.has(4);
+        if (item.has_any_printing && !isPetTem && !isKhongIn) {
             needsPress = !!item.has_press_printing;
         }
         const needsSew = requiredStepIds.has(5);
@@ -1673,21 +1715,34 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                     JOIN printing_fields pf ON qa.field_id = pf.id
                     WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
                       AND pf.name IN ('IN PET', 'IN DECAL')
+                      AND pf.name != 'KHÔNG IN'
                 ) OR EXISTS (
                     SELECT 1 FROM printing_records pr
                         WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
                       AND pr.print_field IN ('IN PET', 'IN DECAL')
+                      AND pr.print_field != 'KHÔNG IN'
                 )
             ) AS has_press_printing,
             (
                 EXISTS (
                     SELECT 1 FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
                     WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                      AND pf.name != 'KHÔNG IN'
                 ) OR EXISTS (
                     SELECT 1 FROM printing_records pr
                         WHERE (pr.order_item_id = oi.id OR (pr.order_item_id IS NULL AND pr.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM printing_records pr2 WHERE pr2.order_item_id = oi.id AND COALESCE(pr2.is_discarded, false) = false))) AND COALESCE(pr.is_discarded, false) = false
+                      AND pr.print_field != 'KHÔNG IN'
                 )
             ) AS has_any_printing,
+            (
+                EXISTS (
+                    SELECT 1 FROM qlx_order_print_assignments qa
+                    JOIN printing_fields pf ON qa.field_id = pf.id
+                    WHERE (qa.item_id = oi.id OR (qa.item_id IS NULL AND qa.dht_order_id = oi.dht_order_id AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qa2 WHERE qa2.item_id = oi.id)))
+                      AND pf.name = 'KHÔNG IN'
+                )
+            ) AS is_khong_in,
             COALESCE(
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM cutting_records WHERE order_item_id = oi.id) THEN
@@ -1861,10 +1916,11 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
         }
     }
 
+    const isKhongIn = !!item.is_khong_in;
     const needsCut = requiredStepIds.has(2);
-    const needsPrint = requiredStepIds.has(3);
-    let needsPress = requiredStepIds.has(4);
-    if (item.has_any_printing && !isPetTem) {
+    const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
+    let needsPress = isKhongIn ? false : requiredStepIds.has(4);
+    if (item.has_any_printing && !isPetTem && !isKhongIn) {
         needsPress = !!item.has_press_printing;
     }
     const needsSew = requiredStepIds.has(5);
