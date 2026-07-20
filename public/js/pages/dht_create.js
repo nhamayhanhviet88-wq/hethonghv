@@ -1815,7 +1815,7 @@ async function _dhtAddItem(editIdx) {
         +'    <div style="font-size:10px;font-weight:800;color:#1d4ed8">⚙️ QUY TRÌNH SẢN XUẤT</div>'
         +'    <div style="display:flex;gap:10px">'
         +'      <label style="font-size:10.5px;font-weight:700;color:#1e40af;cursor:pointer;margin:0;display:flex;align-items:center;gap:2px">'
-        +'        <input type="radio" id="_pp_wf_full" name="_pp_wf_type" value="full" checked onchange="_ppToggleWorkflowType(this.value)"> Đủ QT'
+        +'        <input type="radio" id="_pp_wf_full" name="_pp_wf_type" value="full" onchange="_ppToggleWorkflowType(this.value)"> Đủ QT'
         +'      </label>'
         +'      <label style="font-size:10.5px;font-weight:700;color:#1e40af;cursor:pointer;margin:0;display:flex;align-items:center;gap:2px">'
         +'        <input type="radio" id="_pp_wf_custom" name="_pp_wf_type" value="custom" onchange="_ppToggleWorkflowType(this.value)"> Lược bớt'
@@ -2286,28 +2286,52 @@ async function _dhtProductChange(keepExistingPattern) {
             if(steps.length>0){
                 var colors=['#3b82f6','#059669','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0891b2','#64748b'];
                 var existing = window._ppCurrentExistingPhieu || {};
+                var rdFull = document.getElementById('_pp_wf_full');
                 var rdCustom = document.getElementById('_pp_wf_custom');
                 var isCustom = false;
+                var isFull = false;
                 if (window._ppIsInitialWorkflowLoad) {
-                    isCustom = !!(existing.production_steps && Array.isArray(existing.production_steps));
+                    var isExistingItem = existing.product_name !== undefined;
+                    if (isExistingItem) {
+                        if (existing.production_steps && Array.isArray(existing.production_steps)) {
+                            isCustom = true;
+                        } else {
+                            isFull = true;
+                        }
+                    } else {
+                        isCustom = false;
+                        isFull = false;
+                    }
                     window._ppIsInitialWorkflowLoad = false;
-                } else if (rdCustom) {
-                    isCustom = rdCustom.checked;
+                } else if (rdCustom || rdFull) {
+                    isCustom = !!(rdCustom && rdCustom.checked);
+                    isFull = !!(rdFull && rdFull.checked);
                 } else {
-                    isCustom = !!(existing.production_steps && Array.isArray(existing.production_steps));
+                    var isExistingItem = existing.product_name !== undefined;
+                    if (isExistingItem) {
+                        if (existing.production_steps && Array.isArray(existing.production_steps)) {
+                            isCustom = true;
+                        } else {
+                            isFull = true;
+                        }
+                    }
                 }
                 
                 stepsEl.innerHTML=steps.map(function(s,i){
                     var bg=colors[i%colors.length];
-                    var isChecked = true;
-                    if (isCustom) {
+                    var isChecked = false;
+                    var disabledAttr = 'disabled';
+                    if (isFull) {
+                        isChecked = true;
+                        disabledAttr = 'disabled';
+                    } else if (isCustom) {
                         isChecked = false;
+                        disabledAttr = '';
                         if (existing.production_steps && Array.isArray(existing.production_steps)) {
                             isChecked = existing.production_steps.indexOf(Number(s.step_id)) >= 0 || existing.production_steps.indexOf(String(s.step_id)) >= 0;
                         }
                     }
                     var checkedAttr = isChecked ? 'checked' : '';
-                    var disabledAttr = isCustom ? '' : 'disabled';
                     
                     return '<label style="display:inline-flex;align-items:center;gap:4px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;margin:0;user-select:none">'
                         +'<input type="checkbox" class="_pp_step_cb" data-step-id="'+s.step_id+'" '+checkedAttr+' '+disabledAttr+' style="margin:0;cursor:pointer"> '
@@ -2316,11 +2340,16 @@ async function _dhtProductChange(keepExistingPattern) {
                 }).join('');
                 
                 if (isCustom) {
-                    var rdCustom = document.getElementById('_pp_wf_custom');
-                    if (rdCustom) rdCustom.checked = true;
+                    var rdCustomEl = document.getElementById('_pp_wf_custom');
+                    if (rdCustomEl) rdCustomEl.checked = true;
+                } else if (isFull) {
+                    var rdFullEl = document.getElementById('_pp_wf_full');
+                    if (rdFullEl) rdFullEl.checked = true;
                 } else {
-                    var rdFull = document.getElementById('_pp_wf_full');
-                    if (rdFull) rdFull.checked = true;
+                    var rdCustomEl = document.getElementById('_pp_wf_custom');
+                    var rdFullEl = document.getElementById('_pp_wf_full');
+                    if (rdCustomEl) rdCustomEl.checked = false;
+                    if (rdFullEl) rdFullEl.checked = false;
                 }
                 
                 bar.style.display='block';
@@ -2653,6 +2682,13 @@ function _dhtSavePhieu(idx) {
     if(!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
     if(!prod){showToast('Chọn Sản Phẩm','error');return;}
     if(!pat){showToast('Chọn Thông Số Mẫu Áo','error');return;}
+
+    var rdFullSelected = document.getElementById('_pp_wf_full')?.checked;
+    var rdCustomSelected = document.getElementById('_pp_wf_custom')?.checked;
+    if (!rdFullSelected && !rdCustomSelected) {
+        showToast('Vui lòng chọn Quy trình sản xuất (Đủ QT hoặc Lược bớt)', 'error');
+        return;
+    }
 
     // Validate pattern is associated with product
     var allProds=(po.products||[]);
