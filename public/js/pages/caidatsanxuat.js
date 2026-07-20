@@ -105,7 +105,7 @@ async function _cdsxLoadSpQt(content) {
 // ===== Kho Vải Tab — reuses all functions from caidatkhovai.js =====
 async function _cdsxLoadKhoVai(content) {
     if (typeof _loadScript === 'function') {
-        await _loadScript('/js/pages/caidatkhovai.js');
+        await _loadScript('/js/pages/caidatkhovai.js?v=20260721_infinite_stock_v1');
     }
     // Inject styles if not present
     if (!document.getElementById('cdkStyles')) {

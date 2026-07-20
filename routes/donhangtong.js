@@ -6172,7 +6172,11 @@ module.exports = async function(fastify) {
             WHERE p.is_active = true ORDER BY p.display_order ASC, p.name ASC`);
 
         // Materials from Kho Vải
-        const materials = await db.all(`SELECT id, name FROM kv_materials WHERE is_active = true ORDER BY display_order ASC, name ASC`);
+        const materials = await db.all(`SELECT m.id, m.name, m.inventory_type, m.warehouse_id, w.name as warehouse_name 
+            FROM kv_materials m
+            LEFT JOIN kv_warehouses w ON m.warehouse_id = w.id
+            WHERE m.is_active = true 
+            ORDER BY m.display_order ASC, m.name ASC`);
 
         return {
             sale_types: grouped['sale_type'] || [],
@@ -6200,7 +6204,7 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thiếu material_id hoặc color_id' });
         }
 
-        const mat = await db.get(`SELECT stop_import, name FROM kv_materials WHERE id = $1`, [Number(material_id)]);
+        const mat = await db.get(`SELECT stop_import, name, inventory_type FROM kv_materials WHERE id = $1`, [Number(material_id)]);
         const color = await db.get(`SELECT stop_import, color_name, allowed_slips FROM kv_fabric_colors WHERE id = $1`, [Number(color_id)]);
 
         if (!mat || !color) {
@@ -6289,7 +6293,7 @@ module.exports = async function(fastify) {
         }
 
         const hasAllowedSlip = !!color.stop_import && (Number(color.allowed_slips) >= 1);
-        const isStopped = !!color.stop_import && !hasAllowedSlip;
+        const isStopped = (mat.inventory_type !== 1) && !!color.stop_import && !hasAllowedSlip;
         const limitQty = isStopped ? Math.floor(adjustedRemainingStock * targetRatio) : null;
 
          return {
@@ -6299,6 +6303,7 @@ module.exports = async function(fastify) {
             color_name: color.color_name,
             material_stop_import: !!mat.stop_import,
             color_stop_import: !!color.stop_import,
+            inventory_type: mat.inventory_type,
             is_stopped: isStopped,
             has_allowed_slip: hasAllowedSlip,
             remaining_stock: remainingStock,
@@ -6422,7 +6427,7 @@ module.exports = async function(fastify) {
 
     fastify.get('/api/dht/product-materials/:productId', { preHandler: [authenticate] }, async (request, reply) => {
         const pid = Number(request.params.productId);
-        const rows = await db.all(`SELECT pm.id, pm.material_id, m.name as material_name, m.stop_import, w.name as warehouse_name
+        const rows = await db.all(`SELECT pm.id, pm.material_id, m.name as material_name, m.stop_import, m.inventory_type, w.name as warehouse_name
             FROM dht_product_materials pm 
             JOIN kv_materials m ON m.id = pm.material_id
             JOIN kv_warehouses w ON w.id = m.warehouse_id

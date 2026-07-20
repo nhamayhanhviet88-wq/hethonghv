@@ -106,22 +106,22 @@ module.exports = async function (fastify) {
 
     // POST /api/khovai/materials — Create material
     fastify.post('/api/khovai/materials', { preHandler: [authenticate] }, async (request) => {
-        const { warehouse_id, name, location } = request.body || {};
+        const { warehouse_id, name, location, inventory_type } = request.body || {};
         const wId = Number(warehouse_id);
         if (!warehouse_id || isNaN(wId) || !Number.isInteger(wId)) return { error: 'Vui lòng chọn một kho vải cụ thể' };
         if (!name || !name.trim()) return { error: 'Tên chất liệu không được trống' };
 
         const maxOrder = await db.get('SELECT COALESCE(MAX(display_order),0)+1 AS next FROM kv_materials WHERE warehouse_id=$1', [wId]);
         const row = await db.get(
-            `INSERT INTO kv_materials (warehouse_id, name, display_order, location) VALUES ($1, $2, $3, $4) RETURNING *`,
-            [wId, name.trim(), maxOrder.next, location ? location.trim() : null]
+            `INSERT INTO kv_materials (warehouse_id, name, display_order, location, inventory_type) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [wId, name.trim(), maxOrder.next, location ? location.trim() : null, Number(inventory_type) || 2]
         );
         return { success: true, material: row };
     });
 
     // PUT /api/khovai/materials/:id — Update material
     fastify.put('/api/khovai/materials/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        const { name, display_order, original_tree_threshold, location, stop_import } = request.body || {};
+        const { name, display_order, original_tree_threshold, location, stop_import, inventory_type } = request.body || {};
         if (stop_import !== undefined) {
             if (!isGdOrTrinh(request.user)) {
                 return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền dừng/nhập chất liệu!' });
@@ -133,6 +133,7 @@ module.exports = async function (fastify) {
         if (original_tree_threshold !== undefined) { updates.push(`original_tree_threshold = $${idx++}`); params.push(original_tree_threshold); }
         if (location !== undefined) { updates.push(`location = $${idx++}`); params.push(location ? location.trim() : null); }
         if (stop_import !== undefined) { updates.push(`stop_import = $${idx++}`); params.push(!!stop_import); }
+        if (inventory_type !== undefined) { updates.push(`inventory_type = $${idx++}`); params.push(Number(inventory_type) || 2); }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push('updated_at = NOW()');
         params.push(request.params.id);
@@ -1343,7 +1344,7 @@ module.exports = async function (fastify) {
                    COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
                    fc.notes, fc.material_id, fc.updated_at,
                    fc.stop_import AS color_stop_import, m.stop_import AS material_stop_import,
-                   m.name AS material_name, m.warehouse_id,
+                   m.name AS material_name, m.warehouse_id, m.inventory_type AS material_inventory_type,
                    w.name AS warehouse_name, w.unit,
                    fc.location AS color_location,
                    m.location AS material_location,
@@ -1653,7 +1654,7 @@ module.exports = async function (fastify) {
 
         for (const w of warehouses) {
             w.materials = await db.all(`
-                SELECT m.id, m.name, m.display_order, m.stop_import,
+                SELECT m.id, m.name, m.display_order, m.stop_import, m.inventory_type,
                        COALESCE((
                            SELECT SUM(r.weight)
                            FROM kv_rolls r

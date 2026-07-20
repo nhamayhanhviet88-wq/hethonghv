@@ -2309,7 +2309,7 @@ function _ppUpdateCuttingFieldsVisibility() {
     var prodNameStr = document.getElementById('_pp_product')?.value || '';
     var prodName = prodNameStr.trim().toUpperCase();
     var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
-        return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
+        return m.inventory_type === 1 || (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
     }) || prodName.indexOf('SẴN') >= 0;
     
     var allProds = (_dhtCreate.phieuOpts || {}).products || [];
@@ -2520,7 +2520,7 @@ async function _dhtProductChange(keepExistingPattern) {
         var patName=document.getElementById('_pp_pattern')?.value;
         var prodName = (document.getElementById('_pp_product')?.value || '').trim().toUpperCase();
         var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
-            return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
+            return m.inventory_type === 1 || (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
         }) || prodName.indexOf('SẴN') >= 0;
         if(patName || hasKhoSan) {
             _dhtPatternChange(window._ppCurrentExistingPhieu);
@@ -2540,7 +2540,7 @@ function _dhtPatternChange(existing) {
     if (!pairsEl) return;
     var prodName = (document.getElementById('_pp_product')?.value || '').trim().toUpperCase();
     var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
-        return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
+        return m.inventory_type === 1 || (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
     }) || prodName.indexOf('SẴN') >= 0;
 
     if (!patName && !hasKhoSan) {
@@ -2898,7 +2898,7 @@ function _dhtSavePhieu(idx) {
     var pairs=[];
     var prodName = (document.getElementById('_pp_product')?.value || '').trim().toUpperCase();
     var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
-        return (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
+        return m.inventory_type === 1 || (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
     }) || prodName.indexOf('SẴN') >= 0;
     for(var pi=0;pi<matInputs.length;pi++){
         var mVal=matInputs[pi].value;

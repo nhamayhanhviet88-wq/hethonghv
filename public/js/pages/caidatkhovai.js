@@ -161,6 +161,11 @@ function _cdkRenderCol2() {
         + '<input type="text" id="cdkNewMatLocation" class="form-control" placeholder="Vị trí kho" style="flex:1;padding:8px;font-size:12px">'
         + '<button onclick="_cdkCreateMat()" class="cdk-btn-sm" style="background:#7c3aed;color:#fff;padding:8px 12px">Tạo</button>'
         + '</div>'
+        + '<div style="display:flex;gap:12px;align-items:center;margin-top:2px">'
+        + '<span style="font-size:11px;font-weight:700;color:#5b21b6">Phân loại:</span>'
+        + '<label style="font-size:11px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;margin:0;color:#374151"><input type="radio" name="cdkNewMatInvType" value="2" checked style="cursor:pointer"> 📦 ôm kho (Loại 2)</label>'
+        + '<label style="font-size:11px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;margin:0;color:#1e40af"><input type="radio" name="cdkNewMatInvType" value="1" style="cursor:pointer"> ♾️ vô tận (Loại 1)</label>'
+        + '</div>'
         + '</div></div>';
     h += '<div class="cdk-col-body">';
     if (!_cdk.materials.length) {
@@ -174,6 +179,11 @@ function _cdkRenderCol2() {
             h += '<div class="cdk-item-name" style="align-items:center">';
             h += '<input type="checkbox" ' + (isChk ? 'checked' : '') + ' onclick="event.stopPropagation();_cdkChkMat(' + m.id + ')" style="width:16px;height:16px;cursor:pointer;accent-color:#7c3aed;flex-shrink:0">';
             h += '<span>🧵 ' + m.name + '</span>';
+            if (m.inventory_type === 1) {
+                h += '<span class="cdk-badge" style="background:#dbeafe;color:#1e40af;margin-left:4px;font-weight:700">♾️ Vô tận (Loại 1)</span>';
+            } else {
+                h += '<span class="cdk-badge" style="background:#f3f4f6;color:#374151;margin-left:4px">📦 Ôm kho (Loại 2)</span>';
+            }
             if (m.location) {
                 h += '<span class="cdk-badge" style="background:#e0f2fe;color:#0369a1;margin-left:4px">📍 ' + m.location + '</span>';
             }
@@ -199,12 +209,14 @@ function _cdkRenderCol2() {
 async function _cdkCreateMat() {
     var name = document.getElementById('cdkNewMatName')?.value;
     var location = document.getElementById('cdkNewMatLocation')?.value;
+    var invType = document.querySelector('input[name="cdkNewMatInvType"]:checked')?.value || 2;
     if (!name || !name.trim()) { showToast('Nhập tên chất liệu!', 'error'); return; }
     try {
         var data = await apiCall('/api/khovai/materials', 'POST', {
             warehouse_id: _cdk.selWid,
             name: name.trim(),
-            location: location ? location.trim() : null
+            location: location ? location.trim() : null,
+            inventory_type: Number(invType)
         });
         if (data.success) { showToast('✅ Đã tạo'); await _cdkLoadMaterials(); }
         else showToast(data.error || 'Lỗi', 'error');
@@ -480,6 +492,13 @@ function _cdkEditMat(id) {
         + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Vị trí kho</label><input type="text" id="cdkEditMatLocation" class="form-control" value="' + (m.location||'') + '" style="padding:10px" placeholder="Ví dụ: Kệ A1"></div>'
         + '<div><label style="font-size:11px;font-weight:700;color:#64748b">Ngưỡng cây nguyên (để trống nếu dùng mặc định của kho)</label><input type="number" id="cdkEditMatThreshold" class="form-control" value="' + (m.original_tree_threshold !== null && m.original_tree_threshold !== undefined ? m.original_tree_threshold : '') + '" style="padding:10px" placeholder="Mặc định theo kho"></div>'
         + '<div style="display:flex;align-items:center;gap:8px;margin-top:5px"><input type="checkbox" id="cdkEditMatStopImport" style="width:18px;height:18px;cursor:pointer" ' + (m.stop_import ? 'checked' : '') + '><label for="cdkEditMatStopImport" style="font-size:12px;font-weight:700;color:#dc2626;cursor:pointer;margin:0">⚠️ Dừng nhập chất liệu này</label></div>'
+        + '<div style="margin-top:5px">'
+        + '<label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Phân loại tồn kho</label>'
+        + '<div style="display:flex;gap:15px">'
+        + '<label style="font-size:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="cdkEditMatInvType" value="2" ' + (m.inventory_type !== 1 ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer"> 📦 Loại 2 (Ôm kho - Check tồn)</label>'
+        + '<label style="font-size:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="cdkEditMatInvType" value="1" ' + (m.inventory_type === 1 ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer"> ♾️ Loại 1 (Vô tận - Nhập qua tay)</label>'
+        + '</div>'
+        + '</div>'
         + '</div>';
     openModal('✏️ Sửa Chất Liệu: ' + m.name, body,
         '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
@@ -491,13 +510,15 @@ async function _cdkSaveMat(id) {
     var location = document.getElementById('cdkEditMatLocation')?.value;
     var threshold = document.getElementById('cdkEditMatThreshold')?.value;
     var stop_import = document.getElementById('cdkEditMatStopImport')?.checked;
+    var invType = document.querySelector('input[name="cdkEditMatInvType"]:checked')?.value || 2;
     if (!name || !name.trim()) { showToast('Nhập tên chất liệu!', 'error'); return; }
     try {
         var data = await apiCall('/api/khovai/materials/' + id, 'PUT', {
             name: name.trim(),
             location: location ? location.trim() : null,
             original_tree_threshold: threshold && threshold.trim() !== '' ? Number(threshold) : null,
-            stop_import: !!stop_import
+            stop_import: !!stop_import,
+            inventory_type: Number(invType)
         });
         if (data.success) { showToast('✅ Đã lưu'); closeModal(); await _cdkLoadMaterials(); }
         else showToast(data.error || 'Lỗi', 'error');
