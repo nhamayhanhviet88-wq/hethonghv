@@ -654,8 +654,8 @@ async function _dhtGoStep2() {
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
         +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div>'
         +(isAdminRole
-            ? '<div class="form-group" style="display:flex;align-items:center;margin-top:20px;gap:8px"><input type="checkbox" id="_co_isZeroDeposit" style="width:18px;height:18px;cursor:pointer"><label for="_co_isZeroDeposit" style="margin:0;font-weight:800;color:#dc2626;cursor:pointer">⚠️ Đơn Không Cọc</label></div>'
-            : '<div class="form-group" style="display:flex;align-items:center;margin-top:20px;gap:8px"><input type="checkbox" id="_co_isZeroDeposit" disabled style="width:18px;height:18px;cursor:not-allowed"><label style="margin:0;font-weight:800;color:#94a3b8;cursor:not-allowed">🔒 Đơn Không Cọc</label></div>'
+            ? '<div class="form-group" style="display:none"><input type="checkbox" id="_co_isZeroDeposit"></div>'
+            : '<div class="form-group" style="display:none"><input type="checkbox" id="_co_isZeroDeposit" disabled></div>'
         )
         +'</div></div>'
         // === Vận chuyển: 2 hàng x 2 cột ===
