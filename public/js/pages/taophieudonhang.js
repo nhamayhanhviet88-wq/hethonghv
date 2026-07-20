@@ -502,6 +502,10 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
                     draft.pattern_name = item.pattern_name;
                     draft.sewing_techniques = item.sewing_techniques;
                     draft.tsam_sewing_tech = item.tsam_sewing_tech;
+                    draft.has_fabric_called = !!item.has_fabric_called;
+                    draft.has_print_assignment = !!item.has_print_assignment;
+                    draft.has_cutting_started = !!item.has_cutting_started;
+                    draft.has_qc_completed = !!item.has_qc_completed;
                     
                     // Normalize quantities in draft
                     draft.quantities = _tpdNormalizeItemQuantities(draft, config);
@@ -574,7 +578,8 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
         tsam_sewing_tech: item.tsam_sewing_tech || [],
         has_fabric_called: !!item.has_fabric_called,
         has_print_assignment: !!item.has_print_assignment,
-        has_cutting_started: !!item.has_cutting_started
+        has_cutting_started: !!item.has_cutting_started,
+        has_qc_completed: !!item.has_qc_completed
     };
 }
 
