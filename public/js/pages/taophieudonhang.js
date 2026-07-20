@@ -525,11 +525,11 @@ function _tpdNormalizeItemQuantities(it, config) {
 
         // Check if size is missing or invalid for the current size type config
         const isMismatched = size && !stdSizes.includes(size);
-        if (!size || isMismatched) {
+        if (isMismatched) {
             size = targetSizes[idx] || (stdSizes[idx] || `Size ${idx + 1}`);
         }
 
-        if (qty > 0 || (note && note.trim())) {
+        if (size && (qty > 0 || (note && note.trim()))) {
             mergedQuantities.push({
                 size: size,
                 qty: qty,
