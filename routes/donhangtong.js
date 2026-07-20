@@ -2731,7 +2731,14 @@ module.exports = async function(fastify) {
                        SELECT 1 FROM cutting_records cr
                        WHERE cr.order_item_id = i.id
                          AND (cr.is_cutting = true OR cr.is_cut_done = true)
-                   ) AS has_cutting_started
+                   ) AS has_cutting_started,
+
+                   -- Check QC completed status
+                   EXISTS (
+                       SELECT 1 FROM sewing_records sr
+                       WHERE sr.order_item_id = i.id
+                         AND (sr.done_date IS NOT NULL OR sr.is_reported = true OR sr.checked_techniques IS NOT NULL)
+                   ) AS has_qc_completed
             FROM dht_order_items i
             LEFT JOIN tsam_samples ts ON ts.sample_code = i.pattern_name
             LEFT JOIN dht_carriers cr ON i.actual_carrier_id = cr.id
@@ -3231,6 +3238,38 @@ module.exports = async function(fastify) {
                 return reply.code(400).send({ error: '⚠️ Phiếu đã được xưởng nhận cắt hoặc đã cắt xong. Không thể thay đổi Loại Size hoặc Số lượng.' });
             }
         }
+        
+        // Block custom_layout (sewing techniques) changes if QC is already completed
+        if (b.custom_layout !== undefined) {
+            const oldItem = await db.get('SELECT custom_layout FROM dht_order_items WHERE id = $1', [itemId]);
+            const oldLayoutStr = oldItem?.custom_layout ? (typeof oldItem.custom_layout === 'string' ? oldItem.custom_layout : JSON.stringify(oldItem.custom_layout)) : '{}';
+            const newLayoutStr = typeof b.custom_layout === 'string' ? b.custom_layout : JSON.stringify(b.custom_layout || {});
+            
+            let isLayoutChanged = false;
+            try {
+                const oL = JSON.parse(oldLayoutStr);
+                const nL = JSON.parse(newLayoutStr);
+                if (JSON.stringify(oL.sewing_items || []) !== JSON.stringify(nL.sewing_items || []) || 
+                    (oL.custom_sewing || '') !== (nL.custom_sewing || '')) {
+                    isLayoutChanged = true;
+                }
+            } catch(e) {
+                isLayoutChanged = true;
+            }
+
+            if (isLayoutChanged) {
+                const qcCheck = await db.get(`
+                    SELECT 1 FROM sewing_records sr
+                    WHERE sr.order_item_id = $1
+                      AND (sr.done_date IS NOT NULL OR sr.is_reported = true OR sr.checked_techniques IS NOT NULL)
+                    LIMIT 1
+                `, [itemId]);
+                if (qcCheck) {
+                    return reply.code(400).send({ error: '⚠️ Phiếu đã được kiểm tra chất lượng (QC). Không thể thay đổi Kỹ thuật may.' });
+                }
+            }
+        }
+
         const sets = [];
         const vals = [];
         let idx = 1;

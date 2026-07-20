@@ -4591,6 +4591,23 @@ function _tpdRenderFormInputs() {
     const cuttingLocked = !!it.has_cutting_started;
     const sizeDisabledAttr = cuttingLocked ? 'disabled' : disabledAttr;
 
+    const qcLocked = !!it.has_qc_completed;
+    const sewingDisabledAttr = qcLocked ? 'disabled' : disabledAttr;
+    const sewingEditAllowed = state.hasEditPermission && !qcLocked;
+
+    let qcWarningHtml = '';
+    if (qcLocked) {
+        qcWarningHtml = `
+            <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1.5px solid #fca5a5; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #991b1b;">
+                <span style="font-size: 16px;">🔒</span>
+                <div style="flex: 1; font-weight: 700;">
+                    PHIẾU ĐÃ ĐƯỢC KIỂM TRA CHẤT LƯỢNG (QC)
+                    <span style="font-weight: 500; font-size: 11px; display: block; margin-top: 1px; color: #b91c1c;">Không thể chỉnh sửa kỹ thuật may vì công đoạn kiểm tra chất lượng đã hoàn thành.</span>
+                </div>
+            </div>
+        `;
+    }
+
     let cuttingWarningHtml = '';
     if (cuttingLocked) {
         cuttingWarningHtml = `
@@ -4667,6 +4684,7 @@ function _tpdRenderFormInputs() {
     let html = `
         ${cuttingWarningHtml}
         ${fabricWarningHtml}
+        ${qcWarningHtml}
 
         <div class="tpd-ws-form-group" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
             <input type="checkbox" id="tpdRedSheetCheckbox" ${isRedSheet ? 'checked' : ''} onchange="_tpdChangeLayoutRedSheet(this.checked)" style="width: 18px; height: 18px; cursor: pointer;" ${disabledAttr || isSourceVip ? 'disabled' : ''}>
@@ -4766,22 +4784,22 @@ function _tpdRenderFormInputs() {
             const otherSelected = sewItem.tech === 'Khác' || isCustom ? 'selected' : '';
             const techSelectId = `tpd_sew_tech_${sIdx}`;
             const customInputHtml = (sewItem.tech === 'Khác' || isCustom) ? `
-                <input type="text" placeholder="Nhập kỹ thuật khác..." value="${escapeHTML(isCustom ? sewItem.tech : '')}" onchange="_tpdUpdateSewingItem(${sIdx}, 'tech', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; flex: 1; min-width: 100px; padding: 2px 6px;" ${disabledAttr}>
+                <input type="text" placeholder="Nhập kỹ thuật khác..." value="${escapeHTML(isCustom ? sewItem.tech : '')}" onchange="_tpdUpdateSewingItem(${sIdx}, 'tech', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; flex: 1; min-width: 100px; padding: 2px 6px;" ${sewingDisabledAttr}>
             ` : '';
 
             return `
                 <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px;">
                     <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
                         <div style="display: flex; gap: 6px; align-items: center;">
-                            <select id="${techSelectId}" onchange="_tpdUpdateSewingItem(${sIdx}, 'tech', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; width: 110px; padding: 2px 4px;" ${disabledAttr}>
+                            <select id="${techSelectId}" onchange="_tpdUpdateSewingItem(${sIdx}, 'tech', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; width: 110px; padding: 2px 4px;" ${sewingDisabledAttr}>
                                 ${selectOptions}
                                 <option value="Khác" ${otherSelected}>Kỹ thuật khác...</option>
                             </select>
                             ${customInputHtml}
                         </div>
-                        <input type="text" placeholder="Nhập thông tin chi tiết (Ví dụ: Navy phối 2 sọc trắng, chỉ vàng...)" value="${escapeHTML(sewItem.detail || '')}" onchange="_tpdUpdateSewingItem(${sIdx}, 'detail', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; flex: 1;" ${disabledAttr}>
+                        <input type="text" placeholder="Nhập thông tin chi tiết (Ví dụ: Navy phối 2 sọc trắng, chỉ vàng...)" value="${escapeHTML(sewItem.detail || '')}" onchange="_tpdUpdateSewingItem(${sIdx}, 'detail', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; flex: 1;" ${sewingDisabledAttr}>
                     </div>
-                    ${state.hasEditPermission ? `
+                    ${sewingEditAllowed ? `
                         <button type="button" class="btn-remove-detail" onclick="_tpdRemoveSewingItem(${sIdx})" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; font-size: 14px;" title="Xóa">✕</button>
                     ` : ''}
                 </div>
@@ -4793,14 +4811,16 @@ function _tpdRenderFormInputs() {
         <div class="tpd-ws-form-group" style="margin-top: 10px; margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <label class="tpd-ws-form-label" style="margin-bottom: 0;">Kỹ Thuật May</label>
-                ${state.hasEditPermission ? `
+                ${sewingEditAllowed ? `
                     <div style="display: flex; gap: 6px; align-items: center;">
                         <button type="button" class="btn btn-primary" onclick="_tpdAddSewingItem()" style="padding: 2px 8px; font-size: 11px; height: 24px; border-radius: 4px; font-weight: 700; background: #122546; border: 1px solid #122546; color: white;">+ Thêm</button>
                         ${state.role === 'giam_doc' ? `
                             <button type="button" class="btn btn-secondary" onclick="_tpdOpenSewingTechsConfigModal()" style="padding: 2px 6px; font-size: 12px; height: 24px; border-radius: 4px; font-weight: 700; background: #64748b; border: 1px solid #64748b; color: white;" title="Cấu hình danh sách kỹ thuật may">⚙️</button>
                         ` : ''}
                     </div>
-                ` : ''}
+                ` : `
+                    ${qcLocked ? `<span style="font-size: 11.5px; color: #dc2626; font-weight: 800; background: #fef2f2; padding: 2px 8px; border-radius: 6px; border: 1px dashed #fca5a5;">🔒 QC Đã Kiểm Tra</span>` : ''}
+                `}
             </div>
             <div style="background: #ffffff; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
                 ${sewingListHtml}
@@ -9926,6 +9946,11 @@ function _tpdAddSewingItem() {
     if (!state.hasEditPermission || !state.editingItem) return;
 
     const it = state.editingItem;
+    if (it.has_qc_completed) {
+        showToast('⚠️ Không thể thêm kỹ thuật may vì công đoạn kiểm tra chất lượng (QC) đã hoàn thành!', 'error');
+        return;
+    }
+
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
 
     if (!layout.sewing_items) {
@@ -9988,6 +10013,12 @@ function _tpdUpdateSewingItem(sIdx, field, value) {
     if (!state || !state.editingItem) return;
 
     const it = state.editingItem;
+    if (it.has_qc_completed) {
+        showToast('⚠️ Không thể chỉnh sửa kỹ thuật may vì công đoạn kiểm tra chất lượng (QC) đã hoàn thành!', 'error');
+        _tpdRenderFormInputs();
+        return;
+    }
+
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
 
     if (!layout.sewing_items || !layout.sewing_items[sIdx]) return;
@@ -10045,6 +10076,11 @@ function _tpdUpdateSewingNote(value) {
     if (!state || !state.editingItem) return;
 
     const it = state.editingItem;
+    if (it.has_qc_completed) {
+        showToast('⚠️ Không thể chỉnh sửa kỹ thuật may vì công đoạn kiểm tra chất lượng (QC) đã hoàn thành!', 'error');
+        return;
+    }
+
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
 
     layout.custom_sewing_note = value ? value.trim() : '';
@@ -10059,6 +10095,11 @@ function _tpdRemoveSewingItem(sIdx) {
     if (!state.hasEditPermission || !state.editingItem) return;
 
     const it = state.editingItem;
+    if (it.has_qc_completed) {
+        showToast('⚠️ Không thể xóa kỹ thuật may vì công đoạn kiểm tra chất lượng (QC) đã hoàn thành!', 'error');
+        return;
+    }
+
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
 
     if (!layout.sewing_items || !layout.sewing_items[sIdx]) return;
