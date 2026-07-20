@@ -1829,13 +1829,13 @@ async function _dhtAddItem(editIdx) {
         +'<label style="font-size:11px;font-weight:700;color:#475569">📏 Loại Size Mặc Định *</label>'
         +'<input id="_pp_sizeType" class="form-control" style="font-size:12px;background:#f1f5f9;color:#64748b;cursor:not-allowed;font-weight:700;border:1px solid #cbd5e1" readonly disabled value="">'
         +'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px">'+sfPat+'</div>'
+        +'<div id="_pp_patternContainer" style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px">'+sfPat+'</div>'
         +'<div id="_pp_patternSewingTech" style="display:none;margin-bottom:8px;font-size:11.5px;font-weight:700;color:#334155;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:8px 12px;line-height:1.5"></div>'
         +'<div id="_pp_specImage" style="display:none;margin-bottom:8px"></div>'
         +'<div id="_pp_mixInfo" style="display:none;background:linear-gradient(135deg,#faf5ff,#ede9fe);border:1px solid #c4b5fd;border-radius:8px;padding:6px 12px;margin-bottom:8px;font-size:11px;font-weight:700;color:#7c3aed"></div>'
         +'<div id="_pp_matColorPairs" style="margin-bottom:8px"></div>'
         +'<div id="_pp_stockLimitWarnings" style="display:none;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:11.5px;color:#b45309;line-height:1.5"></div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Chi Tiết May Thêm</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div>'+(isRestricted ? '' : '<button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button>')+'</div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple'+(isRestricted?' disabled':'')+'>'+( extOpts||noOpt)+'</select></div></div>'
+        +'<div id="_pp_sewMatContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">✂️ Chi Tiết May Thêm</label><div id="_ppSewTags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;margin-bottom:4px"></div>'+(isRestricted ? '' : '<button type="button" onclick="_ppOpenBgmPicker()" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">➕ Chọn</button>')+'</div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple'+(isRestricted?' disabled':'')+'>'+( extOpts||noOpt)+'</select></div></div>'
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div>'+(isCuttingRestricted ? '' : '<button type="button" id="_pp_btn_addQtyRow" onclick="_ppAddQtyRow()" style="display:'+(qps.length>=2?'none':'inline-block')+';background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button>')+'</div>'
         +'<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">'
         +'  <div style="display:flex;flex-direction:column;gap:4px;background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #cbd5e1">'
@@ -1857,6 +1857,18 @@ async function _dhtAddItem(editIdx) {
         +'<div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b;margin-bottom:8px">Tổng: <span id="_pp_totalDisplay">0</span>đ</div>'
         +saveBtn+'</div>';
     document.body.appendChild(ov);
+    
+    // Add change event listener to process steps for dynamic show/hide
+    var stepsEl = document.getElementById('_pp_processSteps');
+    if (stepsEl) {
+        stepsEl.addEventListener('change', function(e) {
+            if (e.target && e.target.type === 'checkbox') {
+                if (typeof _ppUpdateCuttingFieldsVisibility === 'function') {
+                    _ppUpdateCuttingFieldsVisibility();
+                }
+            }
+        });
+    }
     
     // Restore existing values / cascade product change
     setTimeout(function() {
@@ -2224,7 +2236,48 @@ window._ppToggleWorkflowType = function(type) {
             cb.disabled = false;
         }
     });
+    if (typeof _ppUpdateCuttingFieldsVisibility === 'function') {
+        _ppUpdateCuttingFieldsVisibility();
+    }
 };
+
+function _ppIsCuttingSelected() {
+    var cb = document.querySelector('#_pp_processSteps input[type="checkbox"][data-step-id="2"]') 
+          || Array.from(document.querySelectorAll('#_pp_processSteps input[type="checkbox"]')).find(function(el) {
+              var txt = el.parentNode ? el.parentNode.textContent || '' : '';
+              return txt.toUpperCase().indexOf('CẮT') >= 0;
+          });
+    if (!cb) return true;
+    return cb.checked;
+}
+
+function _ppUpdateCuttingFieldsVisibility() {
+    var isCutting = _ppIsCuttingSelected();
+    
+    // 1. Loại Size Mặc Định
+    var sizeContainer = document.getElementById('_pp_sizeTypeContainer');
+    if (sizeContainer) {
+        sizeContainer.style.display = isCutting ? 'block' : 'none';
+    }
+    
+    // 2. Thông Số Mẫu Áo
+    var patternContainer = document.getElementById('_pp_patternContainer');
+    if (patternContainer) {
+        patternContainer.style.display = isCutting ? 'grid' : 'none';
+    }
+    
+    // 3. Chất Liệu 1 & Màu 1
+    var matColorPairs = document.getElementById('_pp_matColorPairs');
+    if (matColorPairs) {
+        matColorPairs.style.display = isCutting ? 'block' : 'none';
+    }
+    
+    // 4. Vật Liệu Kèm / Chi Tiết May Thêm container
+    var sewMatContainer = document.getElementById('_pp_sewMatContainer');
+    if (sewMatContainer) {
+        sewMatContainer.style.display = isCutting ? 'grid' : 'none';
+    }
+}
 
 // Cascade: product → show process steps + store assigned materials globally
 async function _dhtProductChange(keepExistingPattern) {
@@ -2353,6 +2406,9 @@ async function _dhtProductChange(keepExistingPattern) {
                 }
                 
                 bar.style.display='block';
+                if (typeof _ppUpdateCuttingFieldsVisibility === 'function') {
+                    _ppUpdateCuttingFieldsVisibility();
+                }
             } else { bar.style.display='none'; }
         }
         // Store assigned materials globally for pair rendering
@@ -2681,7 +2737,11 @@ function _dhtSavePhieu(idx) {
     if(!sale){showToast('Chọn Bán/Quà','error');return;}
     if(!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
     if(!prod){showToast('Chọn Sản Phẩm','error');return;}
-    if(!pat){showToast('Chọn Thông Số Mẫu Áo','error');return;}
+
+    var isCutting = _ppIsCuttingSelected();
+    if (isCutting) {
+        if(!pat){showToast('Chọn Thông Số Mẫu Áo','error');return;}
+    }
 
     var rdFullSelected = document.getElementById('_pp_wf_full')?.checked;
     var rdCustomSelected = document.getElementById('_pp_wf_custom')?.checked;
@@ -2702,16 +2762,19 @@ function _dhtSavePhieu(idx) {
     var allProds=(po.products||[]);
     var selectedProd=allProds.find(function(p){return p.name===prod;});
     if(!selectedProd){showToast('Sản Phẩm không hợp lệ','error');return;}
-    var selectedPat=(window._ppTsamPatterns||[]).find(function(p){return p.name===pat;});
-    if(selectedPat){
-        var pIds = selectedPat.product_ids || [];
-        if (typeof pIds === 'string') {
-            try { pIds = JSON.parse(pIds); } catch(e) { pIds = []; }
-        }
-        var mappedIds = pIds.map(Number);
-        if (mappedIds.indexOf(Number(selectedProd.id)) === -1) {
-            showToast('⚠️ Mẫu "' + pat + '" không phù hợp với Sản Phẩm "' + prod + '"!', 'error');
-            return;
+
+    if (isCutting && pat) {
+        var selectedPat=(window._ppTsamPatterns||[]).find(function(p){ return p.name===pat; });
+        if(selectedPat){
+            var pIds = selectedPat.product_ids || [];
+            if (typeof pIds === 'string') {
+                try { pIds = JSON.parse(pIds); } catch(e) { pIds = []; }
+            }
+            var mappedIds = pIds.map(Number);
+            if (mappedIds.indexOf(Number(selectedProd.id)) === -1) {
+                showToast('⚠️ Mẫu "' + pat + '" không phù hợp với Sản Phẩm "' + prod + '"!', 'error');
+                return;
+            }
         }
     }
     // Collect material/color pairs from searchable inputs
@@ -2722,11 +2785,15 @@ function _dhtSavePhieu(idx) {
         var mName=document.getElementById('_ppMat'+pi)?.value||'';
         var cVal=document.getElementById('_ppColorVal'+pi)?.value||'';
         var cName=document.getElementById('_ppColor'+pi)?.value||'';
-        if(!mVal||!mName){showToast('Chọn Chất Liệu '+(pi+1)+' từ danh sách','error');return;}
-        if(!cVal||!cName){showToast('Chọn Màu '+(pi+1)+' từ danh sách','error');return;}
-        pairs.push({material_id:Number(mVal),material_name:mName,color_id:Number(cVal),color_name:cName});
+        if (isCutting) {
+            if(!mVal||!mName){showToast('Chọn Chất Liệu '+(pi+1)+' từ danh sách','error');return;}
+            if(!cVal||!cName){showToast('Chọn Màu '+(pi+1)+' từ danh sách','error');return;}
+        }
+        if (mVal && mName && cVal && cName) {
+            pairs.push({material_id:Number(mVal),material_name:mName,color_id:Number(cVal),color_name:cName});
+        }
     }
-    if(pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
+    if(isCutting && pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
     var qrRows = document.querySelectorAll('#_pp_qtyRows ._ppQR');
     var qtyPairs=[], raw=0, totalQty=0;
     var typedQty = 0;
@@ -2835,16 +2902,16 @@ function _dhtSavePhieu(idx) {
     }
 
     var va=Math.round(raw*vp/100);
-    var sewArr = (window._ppSewItems || []).slice();
-    var extArr=Array.from(document.getElementById('_pp_extraMat')?.selectedOptions||[]).map(function(o){return o.value;});
+    var sewArr = isCutting ? ((window._ppSewItems || []).slice()) : [];
+    var extArr = isCutting ? (Array.from(document.getElementById('_pp_extraMat')?.selectedOptions||[]).map(function(o){return o.value;})) : [];
     // Nhắc nhở: order-level, get from _dhtCreate.reminders
     var nnArr=(_dhtCreate.reminders||[]).slice();
     var acctNotes=nnArr.join(' | ');
     // Backward compat: first pair = main material/color
-    var mainPair=pairs[0];
+    var mainPair = isCutting ? (pairs[0] || null) : null;
     // Build display name for color (all pairs)
-    var colorDisplay=pairs.map(function(p){return p.color_name;}).join('+');
-    var matDisplay=pairs.map(function(p){return p.material_name;}).join('+');
+    var colorDisplay = isCutting ? (pairs.map(function(p){return p.color_name;}).join('+')) : '';
+    var matDisplay = isCutting ? (pairs.map(function(p){return p.material_name;}).join('+')) : '';
     var wfType = document.querySelector('input[name="_pp_wf_type"]:checked')?.value || 'full';
     var stepsVal = null;
     if (wfType === 'custom') {
@@ -2853,8 +2920,39 @@ function _dhtSavePhieu(idx) {
         });
     }
 
+    var sizeTypeVal = isCutting ? (document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT') : '';
+
     // ★ quantity = typedQty (what user typed) — qtyPairs are now scaled to match
-    _dhtCreate.phieuItems[idx]={id:existing.id||null,sale_type:sale,product_name:prod,size_type:document.getElementById('_pp_sizeType')?.value || existing.size_type || 'Size TT',material_id:mainPair.material_id,material_name:matDisplay,color_id:mainPair.color_id,color_name:colorDisplay,pattern_name:pat,material_pairs:pairs,sewing_techniques:sewArr,reminders:nnArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:typedQty,unit_price:qtyPairs[0]?.price||0,promo_gift_quantity:giftQty,promo_gift_code:giftCode,promo_gift_apply_row_index:selectedRowIdx,has_fabric_called:!!existing.has_fabric_called,has_print_assignment:!!existing.has_print_assignment,has_cutting_started:!!existing.has_cutting_started,production_steps:stepsVal};
+    _dhtCreate.phieuItems[idx]={
+        id:existing.id||null,
+        sale_type:sale,
+        product_name:prod,
+        size_type:sizeTypeVal,
+        material_id:mainPair?mainPair.material_id:null,
+        material_name:matDisplay,
+        color_id:mainPair?mainPair.color_id:null,
+        color_name:colorDisplay,
+        pattern_name:isCutting?pat:'',
+        material_pairs:pairs,
+        sewing_techniques:sewArr,
+        reminders:nnArr,
+        accounting_notes:acctNotes,
+        extra_materials:extArr,
+        quantities:qtyPairs,
+        vat_percent:vp,
+        vat_amount:va,
+        raw_total:raw,
+        item_total:raw+va,
+        quantity:typedQty,
+        unit_price:qtyPairs[0]?.price||0,
+        promo_gift_quantity:giftQty,
+        promo_gift_code:giftCode,
+        promo_gift_apply_row_index:selectedRowIdx,
+        has_fabric_called:!!existing.has_fabric_called,
+        has_print_assignment:!!existing.has_print_assignment,
+        has_cutting_started:!!existing.has_cutting_started,
+        production_steps:stepsVal
+    };
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
@@ -2864,7 +2962,10 @@ function _dhtRenderPhieuRows() {
     var c = document.getElementById('_co_items'); if (!c) return; c.innerHTML='';
     _dhtCreate.phieuItems.forEach(function(p,i){
         if(!p) return;
-        var isFree = !p.material_pairs || p.material_pairs.length === 0;
+        var catSel = document.getElementById('_co_cat');
+        var catName = catSel ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
+        var isOrderCategoryFree = (catName === 'PET' || catName === 'TEM');
+        var isFree = isOrderCategoryFree && (!p.material_pairs || p.material_pairs.length === 0);
         var d=document.createElement('div');
         d.style.cssText='display:grid;grid-template-columns:2fr 70px 100px 50px 100px 30px;gap:6px;margin-bottom:6px;align-items:center;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;font-size:12px;transition:all .15s';
         d.onmouseover=function(){this.style.background='#dbeafe';this.style.borderColor='#3b82f6';};
@@ -2884,9 +2985,15 @@ function _dhtRenderPhieuRows() {
 
         var giftBadgeText = 'Tặng ' + p.promo_gift_quantity + ' áo';
         var giftBadge = p.promo_gift_quantity ? ' <span style="font-size:10px;color:#2563eb;font-weight:bold">(' + giftBadgeText + ')</span>' : '';
+        var infoBadge = '';
+        if (p.material_name || p.color_name) {
+            infoBadge = ' <span style="font-size:10px;color:#6b7280">(' + (p.material_name || '') + '/' + (p.color_name || '') + ')</span>';
+        } else {
+            infoBadge = ' <span style="font-size:10px;color:#ef4444;font-weight:700">(Không Cắt)</span>';
+        }
         var label = isFree
             ? '🐾 Phiếu ' + catName + ' #'+(i+1)+' — '+p.product_name + giftBadge
-            : '📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span>' + giftBadge;
+            : '📋 #'+(i+1)+' '+p.product_name + infoBadge + giftBadge;
         d.innerHTML='<div style="font-weight:700;color:var(--navy)">'+label+'</div>'
             +'<div style="text-align:center;font-weight:700">SL:'+p.quantity+'</div>'
             +'<div style="text-align:right">'+p.raw_total.toLocaleString('vi-VN')+'đ</div>'
