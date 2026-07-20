@@ -275,8 +275,9 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
-    // ========== TREE ==========
     fastify.get('/api/printing/tree', { preHandler: [authenticate] }, async (req) => {
+        const { autoCreateGcPrintingRecords } = require('../utils/gcPrintingHelper');
+        await autoCreateGcPrintingRecords();
         const isManager = await isPrintManager(req);
         let userFilter = '';
         let params = [];
@@ -465,6 +466,8 @@ module.exports = async function(fastify) {
 
     // ========== LIST ==========
     fastify.get('/api/printing/records', { preHandler: [authenticate] }, async (req) => {
+        const { autoCreateGcPrintingRecords } = require('../utils/gcPrintingHelper');
+        await autoCreateGcPrintingRecords();
         const isManager = await isPrintManager(req);
         const { year, status, field, search, month, operator_type, operator_id, include_ids, sort_by } = req.query;
         
@@ -1584,21 +1587,26 @@ module.exports = async function(fastify) {
     fastify.get('/api/printing/gc-config', { preHandler: [authenticate] }, async (req, reply) => {
         const maxDays = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_days'");
         const maxCount = await db.get("SELECT value FROM app_config WHERE key = 'gc_max_extension_count'");
+        const defaultPrinter = await db.get("SELECT value FROM app_config WHERE key = 'default_gc_printer_id'");
         return {
             max_extension_days: Number(maxDays?.value || 1),
-            max_extension_count: Number(maxCount?.value || 3)
+            max_extension_count: Number(maxCount?.value || 3),
+            default_gc_printer_id: defaultPrinter ? Number(defaultPrinter.value) : 68
         };
     });
     
     // POST: Update GC config (GĐ only)
     fastify.post('/api/printing/gc-config', { preHandler: [authenticate] }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
-        const { max_extension_days, max_extension_count } = req.body || {};
+        const { max_extension_days, max_extension_count, default_gc_printer_id } = req.body || {};
         if (max_extension_days !== undefined) {
             await db.run("INSERT INTO app_config (key, value) VALUES ('gc_max_extension_days', $1) ON CONFLICT (key) DO UPDATE SET value = $1", [String(max_extension_days)]);
         }
         if (max_extension_count !== undefined) {
             await db.run("INSERT INTO app_config (key, value) VALUES ('gc_max_extension_count', $1) ON CONFLICT (key) DO UPDATE SET value = $1", [String(max_extension_count)]);
+        }
+        if (default_gc_printer_id !== undefined) {
+            await db.run("INSERT INTO app_config (key, value) VALUES ('default_gc_printer_id', $1) ON CONFLICT (key) DO UPDATE SET value = $1", [String(default_gc_printer_id)]);
         }
         return { success: true };
     });

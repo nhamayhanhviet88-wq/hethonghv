@@ -664,6 +664,8 @@ async function syncLedgerForDate(dateStr) {
     // ★ Skip ngày nghỉ
     if (!isDateOff) {
     try {
+        const { autoCreateGcPrintingRecords } = require('./gcPrintingHelper');
+        await autoCreateGcPrintingRecords();
         const PENALTY_GC = GPC.gc_print_khong_bao_cao || 50000;
 
         // Find GC printing records past deadline, not completed, not discarded

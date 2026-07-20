@@ -139,7 +139,8 @@ function renderBophaninPage(content) {
         +'</div>'
         +'<div id="bpiStats" style="display:flex;gap:10px;flex:1;justify-content:center"></div>'
         +(window._currentUser && window._currentUser.role === 'giam_doc' ? '<button onclick="_bpiManageContractors()" style="padding:6px 14px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">🏭 Quản Lý Gia Công In</button>'
-        +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>' : '')
+        +'<button onclick="_bpiManageFields()" style="padding:6px 14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Quản Lý Lĩnh Vực In</button>'
+        +'<button onclick="_bpiConfigureDefaultGcPrinter()" style="padding:6px 14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;transition:all .2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">⚙️ Cấu hình phân công mặc định</button>' : '')
         +'</div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="bpiTable"><thead><tr style="background:var(--gray-800)">'
         +'<th>STT</th><th>🔍</th><th>🧪</th><th>✅</th><th>⚠️</th><th>Lĩnh Vực</th><th>Ngày In / Bàn Giao</th><th>Tiến Độ</th><th>NV In</th><th>Tên SP/Phối</th><th>Tên Khách</th><th onclick="_bpiToggleSort(\'roll\')" style="cursor:pointer;text-decoration:underline;color:#c4b5fd" title="Sắp xếp theo Cuộn/Mét">Cuộn / Mét In <span id="bpiSortIndicator"></span></th><th>SL Đơn</th><th>CSKH</th><th>Ghi Chú</th><th>Cập Nhật</th>'
@@ -2769,5 +2770,59 @@ function _bpiDoGcExtend(recordId, btn) {
         btn.disabled = false;
         btn.textContent = '📅 Xác nhận rời ngày';
     });
+}
+
+async function _bpiConfigureDefaultGcPrinter() {
+    try {
+        var [staffRes, configRes] = await Promise.all([
+            apiCall('/api/printing/staff'),
+            apiCall('/api/printing/gc-config')
+        ]);
+        var staff = staffRes.staff || [];
+        var defaultId = configRes.default_gc_printer_id || 68;
+
+        var html = '<div style="padding:20px">';
+        html += '<h3 style="margin:0 0 16px;color:#0f172a">⚙️ Cấu Hình Phân Công Mặc Định In Gia Công</h3>';
+        html += '<div style="font-size:12px;color:#64748b;margin-bottom:16px">Chọn nhân viên sẽ tự động nhận các đơn hàng "In Gia Công" mới hoặc chưa được phân công.</div>';
+        
+        html += '<div style="margin-bottom:20px">';
+        html += '<label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px">Nhân viên nhận phân công mặc định:</label>';
+        html += '<select id="_bpiDefaultPrinterSelect" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-weight:600;color:#1e293b">';
+        staff.forEach(function(u) {
+            var selected = Number(u.id) === Number(defaultId) ? 'selected' : '';
+            html += '<option value="' + u.id + '" ' + selected + '>' + u.full_name + ' (' + (u.dept_name || 'Không thuộc bộ phận') + ')</option>';
+        });
+        html += '</select>';
+        html += '</div>';
+
+        html += '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">';
+        html += '<button onclick="document.getElementById(\'_bpiDefaultPrinterOverlay\').remove()" style="padding:8px 16px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">Hủy</button>';
+        html += '<button id="_bpiSaveDefaultPrinterBtn" onclick="_bpiSaveDefaultGcPrinter()" style="padding:8px 20px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 6px rgba(5,150,105,0.3)">Lưu cấu hình</button>';
+        html += '</div>';
+        html += '</div>';
+
+        var old = document.getElementById('_bpiDefaultPrinterOverlay'); if (old) old.remove();
+        var ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:100px;animation:qlxFadeIn .2s;transition:opacity .25s ease';
+        ov.id = '_bpiDefaultPrinterOverlay';
+        ov.innerHTML = '<div style="background:#fff;border-radius:16px;width:450px;max-width:95vw;box-shadow:0 25px 50px rgba(0,0,0,0.25);animation:qlxSlideUp .3s">' + html + '</div>';
+        document.body.appendChild(ov);
+    } catch(e) { showToast('Lỗi tải cấu hình: ' + e.message, 'error'); }
+}
+
+async function _bpiSaveDefaultGcPrinter() {
+    var btn = document.getElementById('_bpiSaveDefaultPrinterBtn');
+    if (btn) btn.disabled = true;
+    try {
+        var defaultId = document.getElementById('_bpiDefaultPrinterSelect').value;
+        await apiCall('/api/printing/gc-config', 'POST', { default_gc_printer_id: Number(defaultId) });
+        showToast('Đã cập nhật nhân viên phân công mặc định!', 'success');
+        var overlay = document.getElementById('_bpiDefaultPrinterOverlay');
+        if (overlay) overlay.remove();
+        _bpiLoadAll();
+    } catch(e) {
+        showToast('Lỗi lưu cấu hình: ' + e.message, 'error');
+        if (btn) btn.disabled = false;
+    }
 }
 

@@ -1556,22 +1556,40 @@ async function _lteSubmitPositionForm(id = null) {
 async function _cdsxLoadGiaCong(container) {
     container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray-400)">Đang tải cấu hình gia công...</div>';
     try {
-        const res = await apiCall('/api/printing/gc-config');
+        const [res, staffRes] = await Promise.all([
+            apiCall('/api/printing/gc-config'),
+            apiCall('/api/printing/staff')
+        ]);
         const maxDays = res.max_extension_days || 1;
         const maxCount = res.max_extension_count || 3;
+        const defaultPrinterId = res.default_gc_printer_id || 68;
+        const staff = staffRes.staff || [];
+
+        let selectHtml = `<select id="_gcDefaultPrinter" class="form-control" style="font-weight:700; color:#1e293b;">`;
+        staff.forEach(u => {
+            const selected = Number(u.id) === Number(defaultPrinterId) ? 'selected' : '';
+            selectHtml += `<option value="${u.id}" ${selected}>${u.full_name} (${u.dept_name || 'Không thuộc bộ phận'})</option>`;
+        });
+        selectHtml += `</select>`;
 
         container.innerHTML = `
             <div style="max-width:600px; margin:20px auto; background:#fff; border-radius:12px; padding:24px; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
                 <div style="border-bottom:1px solid #f1f5f9; padding-bottom:12px; margin-bottom:20px; display:flex; align-items:center; gap:10px;">
                     <span style="font-size:20px;">🖨️</span>
                     <div>
-                        <h4 style="margin:0; font-weight:800; color:#1e293b;">Cấu Hình Hạn Rời Ngày Gia Công</h4>
-                        <div style="font-size:11px; color:#94a3b8; margin-top:2px;">Thiết lập các giới hạn khi nhân viên/quản lý dời tiến độ đơn hàng PET/TEM gia công.</div>
+                        <h4 style="margin:0; font-weight:800; color:#1e293b;">Cấu Hình Cài Đặt Gia Công</h4>
+                        <div style="font-size:11px; color:#94a3b8; margin-top:2px;">Thiết lập giới hạn dời ngày và nhân viên in gia công mặc định.</div>
                     </div>
                 </div>
                 
                 <div style="display:grid; gap:16px;">
                     <div>
+                        <label style="font-weight:700; font-size:13px; color:#374151; display:block; margin-bottom:6px;">Nhân viên in gia công mặc định:</label>
+                        ${selectHtml}
+                        <small style="display:block; color:#94a3b8; margin-top:4px; font-size:11px;">Hệ thống sẽ tự động phân công các đơn hàng "In Gia Công" mới hoặc chưa có lịch phân công cho tài khoản này.</small>
+                    </div>
+
+                    <div style="margin-top:8px;">
                         <label style="font-weight:700; font-size:13px; color:#374151; display:block; margin-bottom:6px;">Số ngày dời tối đa mỗi lần dời:</label>
                         <div style="display:flex; align-items:center; gap:8px;">
                             <input type="number" id="_gcMaxDays" class="form-control" value="${maxDays}" min="1" style="max-width:120px; font-weight:700; text-align:center;">
@@ -1605,6 +1623,7 @@ async function _cdsxLoadGiaCong(container) {
 async function _cdsxSaveGiaCong() {
     const max_extension_days = Number(document.getElementById('_gcMaxDays')?.value || 1);
     const max_extension_count = Number(document.getElementById('_gcMaxCount')?.value || 3);
+    const default_gc_printer_id = Number(document.getElementById('_gcDefaultPrinter')?.value || 68);
 
     if (isNaN(max_extension_days) || max_extension_days < 1) {
         showToast('Số ngày dời tối đa phải từ 1 ngày trở lên', 'error');
@@ -1618,10 +1637,11 @@ async function _cdsxSaveGiaCong() {
     try {
         const res = await apiCall('/api/printing/gc-config', 'POST', {
             max_extension_days,
-            max_extension_count
+            max_extension_count,
+            default_gc_printer_id
         });
         if (res.success !== false) {
-            showToast('✅ Đã lưu cấu hình dời ngày gia công thành công');
+            showToast('✅ Đã lưu cấu hình gia công thành công');
         } else {
             showToast(res.error || 'Lỗi lưu cấu hình', 'error');
         }
