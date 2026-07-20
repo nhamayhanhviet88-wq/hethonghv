@@ -1383,6 +1383,11 @@ function _ppSearchField(id, label, items, curVal, hiddenVal) {
         var txt = it.text||it.name||it, val = it.value!==undefined?it.value:txt;
         h += '<div class="_ppOpt" data-val="'+val+'" data-txt="'+txt+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\''+id+'\',this)">'+txt+'</div>';
     });
+    if (id === '_pp_product') {
+        h += '</div>';
+        h += '<div id="_pp_cutting_category_display" style="font-size:11px;color:#475569;font-weight:700;margin-top:5px;display:none">Sản phẩm cắt: <span id="_pp_cutting_category_text" style="color:#1d4ed8;background:#dbeafe;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800"></span></div>';
+        return h + '</div>';
+    }
     return h + '</div></div>';
 }
 function _ppShowList(id){
@@ -2374,6 +2379,8 @@ async function _dhtProductChange(keepExistingPattern) {
     if(!prodName){
         if(bar)bar.style.display='none';
         if(sContainer) sContainer.style.display = 'none';
+        var ccDisplay = document.getElementById('_pp_cutting_category_display');
+        if (ccDisplay) ccDisplay.style.display = 'none';
         _dhtUpdatePatternList(null);
         return;
     }
@@ -2383,6 +2390,8 @@ async function _dhtProductChange(keepExistingPattern) {
     if(!prod){
         if(bar)bar.style.display='none';
         if(sContainer) sContainer.style.display = 'none';
+        var ccDisplay = document.getElementById('_pp_cutting_category_display');
+        if (ccDisplay) ccDisplay.style.display = 'none';
         _dhtUpdatePatternList(null);
         return;
     }
@@ -2391,6 +2400,14 @@ async function _dhtProductChange(keepExistingPattern) {
     if(sInput && sContainer){
         sInput.value = sizeType;
         sContainer.style.display = 'block';
+    }
+
+    // Update cutting category display
+    var ccDisplay = document.getElementById('_pp_cutting_category_display');
+    var ccText = document.getElementById('_pp_cutting_category_text');
+    if (ccDisplay && ccText) {
+        ccText.textContent = prod.cutting_category_name || 'Chưa gán';
+        ccDisplay.style.display = 'block';
     }
 
     // Cascade pattern list update
