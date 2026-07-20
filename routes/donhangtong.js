@@ -1875,6 +1875,15 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: err.message });
         }
 
+        const isZeroDeposit = b.is_zero_deposit === true || b.is_zero_deposit === 'true';
+        if (isZeroDeposit) {
+            const authorizedRoles = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
+            if (!authorizedRoles.includes(request.user.role)) {
+                return reply.code(403).send({ error: '🔒 Bạn không có quyền tạo đơn hàng không cọc!' });
+            }
+        }
+
+
         // Deduct allowed slips for restricted fabric colors in a client transaction
         let consumedColorIds = [];
         const client = await db.getDB().connect();
@@ -1905,8 +1914,8 @@ module.exports = async function(fastify) {
                 sale_note_for_accountant, department_id, notes, surcharges, free_customer_id,
                 parent_order_id, repair_source_code,
                 created_by, last_updated_by, is_draft, customer_id, draft_name,
-                applied_coupon, promo_discount_amount, promo_gift_info
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34,$35,$36,$37,$38,$39,$40)
+                applied_coupon, promo_discount_amount, promo_gift_info, is_zero_deposit
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34,$35,$36,$37,$38,$39,$40,$41)
             RETURNING *
         `, [
             orderCode,
@@ -1948,7 +1957,8 @@ module.exports = async function(fastify) {
             b.draft_name || null,
             b.applied_coupon || null,
             Number(b.promo_discount_amount) || 0,
-            b.promo_gift_info || null
+            b.promo_gift_info || null,
+            isZeroDeposit
         ]);
 
         // Record consumed slips for this order
@@ -2111,19 +2121,25 @@ module.exports = async function(fastify) {
         // ★ Audit log: Tạo đơn
         if (result) {
             try {
+                const auditChanges = [
+                    { field: 'order_code', label: 'Mã đơn', old: null, new: orderCode },
+                    { field: 'total_amount', label: 'Tổng tiền', old: null, new: String(Number(b.total_amount) || 0) },
+                    { field: 'total_quantity', label: 'Tổng SL', old: null, new: String(Number(b.total_quantity) || 0) },
+                    ...(Number(b.deposit_amount) > 0 ? [{ field: 'deposit', label: 'Tiền cọc', old: null, new: String(Number(b.deposit_amount)) }] : []),
+                    ...(Number(b.discount_amount) > 0 ? [{ field: 'discount', label: 'Giảm giá', old: null, new: String(Number(b.discount_amount)) }] : []),
+                    ...(isZeroDeposit ? [{ field: 'is_zero_deposit', label: 'Đơn không cọc', old: null, new: 'true' }] : [])
+                ];
+                const actionText = isZeroDeposit ? 'create_zero_deposit' : 'create';
+                const summaryText = isZeroDeposit ? `Đã tạo đơn không cọc ${orderCode} (Duyệt bởi ${request.user.full_name})` : `Đã tạo đơn ${orderCode}`;
+
                 await db.run(`INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by) VALUES ($1, $2, $3, $4, $5)`, [
-                    result.id, 'create', 'Đã tạo đơn ' + orderCode,
-                    JSON.stringify([
-                        { field: 'order_code', label: 'Mã đơn', old: null, new: orderCode },
-                        { field: 'total_amount', label: 'Tổng tiền', old: null, new: String(Number(b.total_amount) || 0) },
-                        { field: 'total_quantity', label: 'Tổng SL', old: null, new: String(Number(b.total_quantity) || 0) },
-                        ...(Number(b.deposit_amount) > 0 ? [{ field: 'deposit', label: 'Tiền cọc', old: null, new: String(Number(b.deposit_amount)) }] : []),
-                        ...(Number(b.discount_amount) > 0 ? [{ field: 'discount', label: 'Giảm giá', old: null, new: String(Number(b.discount_amount)) }] : [])
-                    ]),
+                    result.id, actionText, summaryText,
+                    JSON.stringify(auditChanges),
                     request.user.id
                 ]);
             } catch(auditErr) { console.error('[AuditLog] create:', auditErr.message); }
         }
+
 
         // ★ Auto-save free customer for PET/TEM reuse
         if (isFreeOrder && b.customer_name) {
@@ -4818,6 +4834,18 @@ module.exports = async function(fastify) {
             }
         }
 
+        if (b.is_zero_deposit !== undefined) {
+            const newIsZero = b.is_zero_deposit === true || b.is_zero_deposit === 'true';
+            const oldIsZero = !!oldOrder.is_zero_deposit;
+            if (newIsZero !== oldIsZero) {
+                const authorizedRoles = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
+                if (!authorizedRoles.includes(request.user.role)) {
+                    return reply.code(403).send({ error: '🔒 Bạn không có quyền thay đổi trạng thái Đơn Không Cọc!' });
+                }
+            }
+        }
+
+
         // Validate promo code maximum uses limit on PUT
         if (!isDraftNewVal) {
             if (b.applied_coupon) {
@@ -4987,7 +5015,7 @@ module.exports = async function(fastify) {
             'discount_reason',
             'sx_print_confirmed', 'sx_print_confirmed_at', 'sx_print_confirmed_by',
             'draft_name', 'official_save_clicked', 'is_draft',
-            'applied_coupon', 'promo_discount_amount', 'promo_gift_info'
+            'applied_coupon', 'promo_discount_amount', 'promo_gift_info', 'is_zero_deposit'
         ];
 
         const sets = [];
@@ -5872,7 +5900,7 @@ module.exports = async function(fastify) {
     // ========== AVAILABLE ORDER CODES (from CRM, not yet linked to DHT) ==========
     fastify.get('/api/dht/available-order-codes', { preHandler: [authenticate] }, async (request, reply) => {
         const codes = await db.all(`
-            SELECT oc.id, oc.order_code, oc.customer_id, oc.deposit_amount,
+            SELECT oc.id, oc.order_code, oc.customer_id, oc.deposit_amount, oc.is_zero_deposit,
                    c.phone, c.customer_name, c.address, c.province,
                    s.name as source_name
             FROM order_codes oc
@@ -5882,6 +5910,7 @@ module.exports = async function(fastify) {
               AND c.assigned_to_id = $1
               AND oc.status = 'active'
               AND NOT EXISTS (
+
                   SELECT 1 FROM dht_orders d WHERE d.order_code = oc.order_code
               )
             ORDER BY oc.created_at DESC

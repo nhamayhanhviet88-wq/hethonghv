@@ -1094,7 +1094,18 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         const logTypes = await db.all('SELECT DISTINCT log_type FROM consultation_logs WHERE customer_id = ?', [customerId]);
         const doneTypes = logTypes.map(l => l.log_type);
-        if (log_type === 'chot_don' && !doneTypes.includes('dat_coc')) return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
+        const isZeroDepositVal = fields.is_zero_deposit === true || fields.is_zero_deposit === 'true';
+        if (log_type === 'chot_don') {
+            if (isZeroDepositVal) {
+                const authorizedRoles = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
+                if (!authorizedRoles.includes(request.user.role)) {
+                    return reply.code(403).send({ error: '🔒 Bạn không có quyền chốt đơn không cọc!' });
+                }
+            } else if (!doneTypes.includes('dat_coc')) {
+                return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
+            }
+        }
+
 
         // Generate Order Code automatically if chot_don (unified request optimization)
         let generatedOrderCode = null;
@@ -1146,7 +1157,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 }
 
                 const orderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
-                await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [customerId, userId, orderCode]);
+                await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status, is_zero_deposit) VALUES (?, ?, ?, \'active\', ?)', [customerId, userId, orderCode, isZeroDepositVal]);
 
                 // Backfill order_tt_coc on deposit records
                 if (customer.phone) {

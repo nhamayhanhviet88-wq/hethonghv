@@ -562,6 +562,7 @@ async function _dhtGoStep2() {
     _dhtCreate.availableCodes = codesRes.codes || [];
     if (!_dhtCreate.editMode) _dhtCreate.orderCode = '';
     var mi = _dhtCreate.myInfo;
+    var isAdminRole = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].indexOf(mi.role) !== -1;
     var catOpts = _dht.categories.filter(function(c){ return c.name !== 'PET' && c.name !== 'TEM' && c.name !== 'ĐƠN SỬA'; }).map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
     var designers = designRes.designers || [];
     var desOpts = '<option value="">-- Chọn --</option><option value="old_design">🎨 Thiết Kế Cũ</option>'
@@ -650,8 +651,12 @@ async function _dhtGoStep2() {
         +'<div class="form-group"><label>Tổng Sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
         +'<div class="form-group"><label>Đã Cọc</label><input id="_co_deposit" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div>'
         +'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr;gap:10px">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
         +'<div class="form-group"><label>Còn Lại</label><input id="_co_remain" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#dc2626"></div>'
+        +(isAdminRole
+            ? '<div class="form-group" style="display:flex;align-items:center;margin-top:20px;gap:8px"><input type="checkbox" id="_co_isZeroDeposit" style="width:18px;height:18px;cursor:pointer"><label for="_co_isZeroDeposit" style="margin:0;font-weight:800;color:#dc2626;cursor:pointer">⚠️ Đơn Không Cọc</label></div>'
+            : '<div class="form-group" style="display:flex;align-items:center;margin-top:20px;gap:8px"><input type="checkbox" id="_co_isZeroDeposit" disabled style="width:18px;height:18px;cursor:not-allowed"><label style="margin:0;font-weight:800;color:#94a3b8;cursor:not-allowed">🔒 Đơn Không Cọc</label></div>'
+        )
         +'</div></div>'
         // === Vận chuyển: 2 hàng x 2 cột ===
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">'
@@ -753,6 +758,9 @@ async function _dhtGoStep2() {
         document.getElementById('_co_custId').value = o.customer_id || '';
         if (document.getElementById('_co_draftName')) {
             document.getElementById('_co_draftName').value = o.draft_name || '';
+        }
+        if (document.getElementById('_co_isZeroDeposit')) {
+            document.getElementById('_co_isZeroDeposit').checked = !!o.is_zero_deposit;
         }
         document.getElementById('_co_phone').value = o.customer_phone || '';
         document.getElementById('_co_name').value = o.customer_name || '';
@@ -1097,6 +1105,9 @@ async function _dhtPickOrderCode(codeId) {
     if (c.province) {
         document.getElementById('_co_prov').value = c.province;
     }
+    if (document.getElementById('_co_isZeroDeposit')) {
+        document.getElementById('_co_isZeroDeposit').checked = !!c.is_zero_deposit;
+    }
     // Close dropdown
     document.getElementById('_co_codeList').style.display = 'none';
 
@@ -1136,6 +1147,9 @@ function _dhtClearPickedOrderCode() {
     document.getElementById('_co_phone').value = '';
     document.getElementById('_co_name').value = '';
     document.getElementById('_co_src').value = '';
+    if (document.getElementById('_co_isZeroDeposit')) {
+        document.getElementById('_co_isZeroDeposit').checked = false;
+    }
     var clearBtn = document.getElementById('_co_codeClearBtn');
     if (clearBtn) clearBtn.style.display = 'none';
 }
@@ -3203,7 +3217,8 @@ async function _dhtSubmitCreateV2(isDraft) {
         department_id: _dhtCreate.myInfo?.department_id,
         items: items,
         is_draft: !!isDraft,
-        draft_name: draftName || null
+        draft_name: draftName || null,
+        is_zero_deposit: document.getElementById('_co_isZeroDeposit')?.checked || false
     };
     // ★ Normal: send order_code + customer_id
     if (!isFree) {
@@ -4146,7 +4161,8 @@ async function _dhtSubmitEditV2(isDraft) {
         items: items,
         is_draft: finalIsDraft,
         official_save_clicked: officialSaveClicked,
-        draft_name: draftName || null
+        draft_name: draftName || null,
+        is_zero_deposit: document.getElementById('_co_isZeroDeposit')?.checked || false
     };
     if (proofImg !== undefined) payload.standard_proof_image = proofImg;
     

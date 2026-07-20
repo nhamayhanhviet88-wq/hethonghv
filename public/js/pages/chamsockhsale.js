@@ -1263,6 +1263,14 @@ async function _saleOpenConsultModal(customerId) {
         return true;
     });
 
+    // Allow authorized roles to always see 'chot_don' option
+    const isAdminRole = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser?.role);
+    if (isAdminRole) {
+        if (!allowedTypes.some(([k]) => k === 'chot_don')) {
+            allowedTypes.push(['chot_don', _saleConsultTypes['chot_don']]);
+        }
+    }
+
     const effectiveRules = flowRules[effectiveStatus] || [];
     const defaultRule = effectiveRules.find(r => r.is_default);
     let defaultType = defaultRule ? defaultRule.to_type_key : (allowedTypes.length > 0 ? allowedTypes[0][0] : 'goi_dien');
@@ -1297,6 +1305,13 @@ async function _saleOpenConsultModal(customerId) {
             <div id="consultHistoryPanelSale" style="display:none;max-height:300px;overflow-y:auto;padding:10px;background:var(--gray-50);border-radius:0 0 8px 8px;border:1px solid var(--gray-200);border-top:none;">
                 ${_saleBuildGroupedHistoryHTML(consultLogs, { compact: true })}
             </div>
+        </div>
+    ` : '';
+
+        const zeroDepositHtml = isAdminRole ? `
+        <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:12px;margin-bottom:12px;">
+            <input type="checkbox" id="consultIsZeroDepositSale" style="width:18px;height:18px;cursor:pointer;">
+            <label for="consultIsZeroDepositSale" style="margin:0;font-weight:800;color:#dc2626;cursor:pointer;">⚠️ Chốt Đơn Không Cọc (Duyệt bởi Quản lý/GĐ)</label>
         </div>
     ` : '';
 
@@ -1376,6 +1391,7 @@ async function _saleOpenConsultModal(customerId) {
             </div>
         </div>
         <div id="consultOrderGroupSale" style="display:none">
+            ${zeroDepositHtml}
             <div class="form-group" id="consultOrderCodeGroupSale" style="display:none;">
                 <label>Mã Đơn <span style="color:var(--gray-500);font-size:11px;">(Tự động)</span></label>
                 <input type="text" id="consultOrderCodeSale" class="form-control" readonly style="background:var(--gray-100);font-weight:700;color:var(--navy);font-size:16px;cursor:not-allowed;border:2px solid var(--gold);">
@@ -1753,6 +1769,11 @@ async function _saleSubmitConsultLog(customerId) {
         payload.append('province', city);
         if (apptSBH) {
             payload.append('appointment_date', apptSBH);
+        }
+
+        const isZeroDepositCheckbox = document.getElementById('consultIsZeroDepositSale');
+        if (isZeroDepositCheckbox && isZeroDepositCheckbox.checked) {
+            payload.append('is_zero_deposit', 'true');
         }
 
         const items = [];

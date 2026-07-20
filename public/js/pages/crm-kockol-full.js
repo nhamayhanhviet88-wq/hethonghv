@@ -1134,7 +1134,8 @@ async function _kockolOpenConsultModal(customerId) {
 
     // Enforce deposit mandatory before chot_don
     const hasDeposit = consultLogs.some(l => l.log_type === 'dat_coc');
-    if (!hasDeposit) {
+    const isAdminRole = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser?.role);
+    if (!hasDeposit && !isAdminRole) {
         allowedTypes = allowedTypes.filter(([k]) => k !== 'chot_don');
     }
 
@@ -1164,6 +1165,13 @@ async function _kockolOpenConsultModal(customerId) {
             <div id="consultHistoryPanel" style="display:none;max-height:300px;overflow-y:auto;padding:10px;background:var(--gray-50);border-radius:0 0 8px 8px;border:1px solid var(--gray-200);border-top:none;">
                 ${_kockolBuildGroupedHistoryHTML(consultLogs, { compact: true })}
             </div>
+        </div>
+    ` : '';
+
+        const zeroDepositHtml = isAdminRole ? `
+        <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:12px;margin-bottom:12px;">
+            <input type="checkbox" id="consultIsZeroDeposit" style="width:18px;height:18px;cursor:pointer;">
+            <label for="consultIsZeroDeposit" style="margin:0;font-weight:800;color:#dc2626;cursor:pointer;">⚠️ Chốt Đơn Không Cọc (Duyệt bởi Quản lý/GĐ)</label>
         </div>
     ` : '';
 
@@ -1242,6 +1250,7 @@ async function _kockolOpenConsultModal(customerId) {
             <div style="font-size:11px;color:#94a3b8;">Ấn "GHI NHẬN" sẽ nhắc lại cho sếp xử lý. Ngày hẹn tự động đặt sang ngày mai.</div>
         </div>` : ''}
         <div id="consultOrderGroup" style="display:none">
+            ${zeroDepositHtml}
             <div class="form-group" id="consultOrderCodeGroup" style="display:none;">
                 <label>Mã Đơn <span style="color:var(--gray-500);font-size:11px;">(Tự động)</span></label>
                 <input type="text" id="consultOrderCode" class="form-control" readonly style="background:var(--gray-100);font-weight:700;color:var(--navy);font-size:16px;cursor:not-allowed;border:2px solid var(--gold);">
@@ -1978,6 +1987,10 @@ async function _kockolSubmitConsultLog(customerId) {
             formData.append('province', city);
             if (phone) formData.append('phone', phone);
             formData.append('appointment_date', sbhDate);
+            const isZeroDepositCheckbox = document.getElementById('consultIsZeroDeposit');
+            if (isZeroDepositCheckbox && isZeroDepositCheckbox.checked) {
+                formData.append('is_zero_deposit', 'true');
+            }
             const chotDonNextType = document.getElementById('consultChotDonNextType')?.value;
             if (chotDonNextType) formData.append('next_consult_type', chotDonNextType);
             if (window._consultImageBlob) {
