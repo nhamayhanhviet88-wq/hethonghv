@@ -7838,8 +7838,8 @@ module.exports = async function(fastify) {
         }
 
         const isSheetModified = (item, idx) => {
-            // If it is the first time sending (not a revision), send all sheets
-            if (!order.design_email_message_id && editCount === 0) {
+            // If it is a resend or the first time sending (not a revision), send all sheets
+            if (isResend || (!order.design_email_message_id && editCount === 0)) {
                 return true;
             }
 
