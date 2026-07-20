@@ -1871,11 +1871,6 @@ async function _dhtAddItem(editIdx) {
                         if (epCb && epCb.checked) {
                             epCb.checked = false;
                         }
-                    } else if (targetShort === 'ÉP') {
-                        var inCb = stepsEl.querySelector('input[data-short-name="IN"]');
-                        if (inCb && inCb.checked) {
-                            inCb.checked = false;
-                        }
                     }
                 }
                 if (typeof _ppUpdateCuttingFieldsVisibility === 'function') {
