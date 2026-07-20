@@ -504,6 +504,7 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
                     draft.tsam_sewing_tech = item.tsam_sewing_tech;
                     draft.has_fabric_called = !!item.has_fabric_called;
                     draft.has_print_assignment = !!item.has_print_assignment;
+                    draft.is_no_print = !!item.is_no_print;
                     draft.has_cutting_started = !!item.has_cutting_started;
                     draft.has_qc_completed = !!item.has_qc_completed;
                     
@@ -578,6 +579,7 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
         tsam_sewing_tech: item.tsam_sewing_tech || [],
         has_fabric_called: !!item.has_fabric_called,
         has_print_assignment: !!item.has_print_assignment,
+        is_no_print: !!item.is_no_print,
         has_cutting_started: !!item.has_cutting_started,
         has_qc_completed: !!item.has_qc_completed
     };
@@ -4634,15 +4636,25 @@ function _tpdRenderFormInputs() {
     const fabricDisabledAttr = 'disabled';
     const fabricStyle = 'background:#f1f5f9; color:#64748b; cursor:not-allowed; border-color:#e2e8f0;';
 
-    const printLocked = !!it.has_print_assignment;
+    const printLocked = !!it.has_print_assignment || !!it.is_no_print;
     let printWarningHtml = '';
-    if (printLocked) {
+    if (!!it.has_print_assignment) {
         printWarningHtml = `
             <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1.5px solid #fca5a5; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #991b1b;">
                 <span style="font-size: 16px;">🔒</span>
                 <div style="flex: 1; font-weight: 700;">
                     PHIẾU ĐÃ ĐƯỢC PHÂN CÔNG IN
                     <span style="font-weight: 500; font-size: 11px; display: block; margin-top: 1px; color: #b91c1c;">Không thể thêm hoặc chỉnh sửa vị trí in/thêu. Vui lòng liên hệ Quản lý xưởng Hủy phân công in toàn bộ để chỉnh sửa.</span>
+                </div>
+            </div>
+        `;
+    } else if (!!it.is_no_print) {
+        printWarningHtml = `
+            <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1.5px solid #fca5a5; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #991b1b;">
+                <span style="font-size: 16px;">🚫</span>
+                <div style="flex: 1; font-weight: 700;">
+                    ĐƠN HÀNG KHÔNG IN
+                    <span style="font-weight: 500; font-size: 11px; display: block; margin-top: 1px; color: #b91c1c;">Đơn hàng đã được đánh dấu KHÔNG IN. Không thể thêm hoặc chỉnh sửa vị trí in/thêu.</span>
                 </div>
             </div>
         `;
@@ -6057,6 +6069,10 @@ function _tpdAddPosition() {
         showToast('⚠️ Phiếu đã được phân công in, không thể thêm vị trí in/thêu!', 'error');
         return;
     }
+    if (it && it.is_no_print) {
+        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể thêm vị trí in/thêu!', 'error');
+        return;
+    }
 
     let val = select.value;
     if (val === 'Vị Trí Khác') {
@@ -6099,6 +6115,10 @@ function _tpdRemoveDetailZone(idx) {
         showToast('⚠️ Phiếu đã được phân công in, không thể xóa vị trí in/thêu!', 'error');
         return;
     }
+    if (it.is_no_print) {
+        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể xóa vị trí in/thêu!', 'error');
+        return;
+    }
     if (!it.print_details) return;
 
     const removed = it.print_details[idx];
@@ -6121,6 +6141,10 @@ function _tpdUpdateDetailField(idx, field, value) {
     const it = state.editingItem;
     if (it.has_print_assignment) {
         showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        return;
+    }
+    if (it.is_no_print) {
+        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
     if (!it.print_details || !it.print_details[idx]) return;
@@ -6179,6 +6203,10 @@ function _tpdToggleDetailOffset(idx, label, isChecked, offsetIndex) {
         showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
+    if (it.is_no_print) {
+        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        return;
+    }
     if (!it.print_details || !it.print_details[idx]) return;
     const d = it.print_details[idx];
     const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
@@ -6234,6 +6262,10 @@ function _tpdUpdateDetailOffsetLabel(idx, oldLabel, newLabel, offsetIndex) {
         showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
+    if (it.is_no_print) {
+        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        return;
+    }
     if (!it.print_details || !it.print_details[idx]) return;
     const d = it.print_details[idx];
     const posConfig = (_tpd.printPositionsConfig || []).find(p => p.name === d.position);
@@ -6265,6 +6297,10 @@ function _tpdUpdateDetailOffsetVal(idx, label, value, offsetIndex) {
     const it = state.editingItem;
     if (it.has_print_assignment) {
         showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        return;
+    }
+    if (it.is_no_print) {
+        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
     if (!it.print_details || !it.print_details[idx]) return;
@@ -6331,6 +6367,10 @@ function _tpdClearZone(zone) {
         showToast('⚠️ Phiếu đã được phân công in, không thể xóa ảnh vị trí in/thêu!', 'error');
         return;
     }
+    if (zone.startsWith('detail_') && state.editingItem.is_no_print) {
+        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể xóa ảnh vị trí in/thêu!', 'error');
+        return;
+    }
 
     if (zone === 'mockup') {
         state.editingItem.mockup_image = '';
@@ -6358,7 +6398,7 @@ function _tpdSetupPasteZones() {
 
     targets.forEach(t => {
         const zone = t.getAttribute('data-zone') || '';
-        const isPrintLocked = state.editingItem && !!state.editingItem.has_print_assignment;
+        const isPrintLocked = state.editingItem && (!!state.editingItem.has_print_assignment || !!state.editingItem.is_no_print);
         if (zone.startsWith('detail_') && isPrintLocked) {
             t.style.cursor = 'not-allowed';
             t.style.opacity = '0.6';
@@ -6587,9 +6627,9 @@ async function _tpdSaveProductionSheet() {
         return false;
     }
 
-    // Check if print details changed when we have a print assignment
+    // Check if print details changed when we have a print assignment or is_no_print
     const originalItem = state.items[state.activeItemIndex];
-    if (originalItem && originalItem.has_print_assignment) {
+    if (originalItem && (originalItem.has_print_assignment || originalItem.is_no_print)) {
         let originalPrintDetails = [];
         if (originalItem.print_details) {
             try {
@@ -6623,6 +6663,10 @@ async function _tpdSaveProductionSheet() {
         }
 
         if (printDetailsChanged) {
+            if (originalItem.is_no_print) {
+                showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể thay đổi vị trí in/thêu!', 'error');
+                return false;
+            }
             if (!confirm('Cảnh báo: Phiếu này ĐÃ ĐƯỢC PHÂN CÔNG IN.\nNếu bạn thay đổi vị trí in/thêu, phân công in cũ sẽ bị xóa và quản lý xưởng phải phân công lại từ đầu.\n\nBạn có chắc chắn muốn lưu thay đổi?')) {
                 return false;
             }

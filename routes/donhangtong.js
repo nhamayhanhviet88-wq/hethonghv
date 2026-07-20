@@ -2718,13 +2718,20 @@ module.exports = async function(fastify) {
                         )
                     ) AS has_fabric_called,
 
-                   -- Check print assignment status
-                   EXISTS (
-                       SELECT 1 FROM qlx_assignments qa 
-                       WHERE qa.assignment_type = 'in'
-                         AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-                         AND (qa.item_id = i.id OR (qa.dht_order_id = i.dht_order_id AND qa.item_id IS NULL))
-                   ) AS has_print_assignment,
+                    -- Check print assignment status
+                    EXISTS (
+                        SELECT 1 FROM qlx_assignments qa 
+                        WHERE qa.assignment_type = 'in'
+                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                          AND (qa.item_id = i.id OR (qa.dht_order_id = i.dht_order_id AND qa.item_id IS NULL))
+                    ) AS has_print_assignment,
+
+                    EXISTS (
+                        SELECT 1 FROM qlx_order_print_assignments qopa
+                        JOIN printing_fields pf ON qopa.field_id = pf.id
+                        WHERE pf.name = 'KHÔNG IN'
+                          AND (qopa.item_id = i.id OR (qopa.dht_order_id = i.dht_order_id AND qopa.item_id IS NULL))
+                    ) AS is_no_print,
 
                    -- Check cutting status
                    EXISTS (
