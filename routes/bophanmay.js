@@ -381,7 +381,7 @@ module.exports = async function(fastify) {
                    u_cskh.full_name AS cskh_name,
                    (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                    cc.name AS category_name,
-                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.quantity AS order_qty,
+                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.custom_layout, oi.quantity AS order_qty,
                    ts.factory_price AS ts_factory_price, ts.processing_price AS ts_processing_price, ts.sewing_tech AS ts_sewing_tech, ts.spec_image AS ts_spec_image,
                    (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
@@ -421,7 +421,7 @@ module.exports = async function(fastify) {
                    u_cskh.full_name AS cskh_name,
                    (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                    cc.name AS category_name,
-                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.quantity AS order_qty,
+                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.custom_layout, oi.quantity AS order_qty,
                    ts.factory_price AS ts_factory_price, ts.processing_price AS ts_processing_price, ts.sewing_tech AS ts_sewing_tech, ts.spec_image AS ts_spec_image,
                    (SELECT MAX(answered_at) FROM qc_checklist_answers WHERE sewing_record_id = sr.id) AS qc_date,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by
@@ -944,7 +944,7 @@ module.exports = async function(fastify) {
         const rec = await db.get(`
             SELECT sr.*, COALESCE(dt.name, u.full_name, sc.name) AS sewer_name,
                    o.order_code,
-                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques,
+                   oi.material_name, oi.color_name, oi.pattern_name, oi.sewing_techniques, oi.custom_layout,
                    ts.sewing_tech
             FROM sewing_records sr
             LEFT JOIN users u ON sr.sewer_id = u.id
@@ -977,7 +977,51 @@ module.exports = async function(fastify) {
                     try {
                         const t1 = typeof rec.sewing_techniques === 'string' ? JSON.parse(rec.sewing_techniques) : (rec.sewing_techniques || []);
                         const t2 = typeof rec.sewing_tech === 'string' ? JSON.parse(rec.sewing_tech) : (rec.sewing_tech || []);
-                        allTechs = [...t1, ...t2];
+                        let layoutObj = {};
+                        try {
+                            layoutObj = typeof rec.custom_layout === 'string' ? JSON.parse(rec.custom_layout) : (rec.custom_layout || {});
+                        } catch(e){}
+                        const layoutSewItems = (layoutObj && layoutObj.sewing_items) || [];
+                        const seenNames = new Set();
+                        t1.forEach(tech => {
+                            if (tech && tech.name) {
+                                const nameKey = tech.name.trim().toLowerCase();
+                                if (!seenNames.has(nameKey)) {
+                                    seenNames.add(nameKey);
+                                    allTechs.push({
+                                        id: tech.id || ('bgm_' + tech.name),
+                                        name: tech.name
+                                    });
+                                }
+                            }
+                        });
+                        t2.forEach(tech => {
+                            if (tech) {
+                                const techName = typeof tech === 'string' ? tech : (tech.name || tech.tech_name || '');
+                                if (techName) {
+                                    const nameKey = techName.trim().toLowerCase();
+                                    if (!seenNames.has(nameKey)) {
+                                        seenNames.add(nameKey);
+                                        allTechs.push({
+                                            id: tech.id || ('tsam_' + techName),
+                                            name: techName
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                        layoutSewItems.forEach(item => {
+                            if (item && item.tech) {
+                                const nameKey = item.tech.trim().toLowerCase();
+                                if (!seenNames.has(nameKey)) {
+                                    seenNames.add(nameKey);
+                                    allTechs.push({
+                                        id: item.id || ('custom_' + item.tech),
+                                        name: item.tech + (item.detail ? `: ${item.detail}` : '')
+                                    });
+                                }
+                            }
+                        });
                     } catch(e){}
                     
                     const matched = [];

@@ -2370,30 +2370,70 @@
                     document.getElementById('qcSpecImageArea').style.display = 'none';
                 }
                 
-                // Render techniques table
-                let tsamTechs = [];
+                // Parse custom_layout
+                let layoutObj = {};
                 try {
-                    tsamTechs = typeof r.ts_sewing_tech === 'string' ? JSON.parse(r.ts_sewing_tech) : (r.ts_sewing_tech || []);
-                } catch (e) {
-                    tsamTechs = [];
-                }
-                if (!Array.isArray(tsamTechs)) tsamTechs = [];
+                    layoutObj = typeof r.custom_layout === 'string' ? JSON.parse(r.custom_layout) : (r.custom_layout || {});
+                } catch (e) {}
+                const layoutSewItems = (layoutObj && layoutObj.sewing_items) || [];
 
-                let orderTechs = [];
-                try {
-                    orderTechs = typeof r.sewing_techniques === 'string' ? JSON.parse(r.sewing_techniques) : (r.sewing_techniques || []);
-                } catch (e) {
-                    orderTechs = [];
-                }
-                if (!Array.isArray(orderTechs)) orderTechs = [];
-
-                // Combine and de-duplicate by technique ID
                 const techniques = [];
-                const seenIds = new Set();
-                [...tsamTechs, ...orderTechs].forEach(tech => {
-                    if (tech && tech.id && !seenIds.has(tech.id)) {
-                        seenIds.add(tech.id);
-                        techniques.push(tech);
+                const seenNames = new Set();
+
+                // 1. Process orderTechs (predefined techniques with prices)
+                orderTechs.forEach(tech => {
+                    if (tech && tech.name) {
+                        const nameKey = tech.name.trim().toLowerCase();
+                        if (!seenNames.has(nameKey)) {
+                            seenNames.add(nameKey);
+                            techniques.push({
+                                id: tech.id || ('bgm_' + tech.name),
+                                name: tech.name,
+                                qty: tech.qty || 1,
+                                fp: tech.fp || 0,
+                                pp: tech.pp || 0,
+                                has_price: true
+                            });
+                        }
+                    }
+                });
+
+                // 2. Process tsamTechs (standard pattern techs)
+                tsamTechs.forEach(tech => {
+                    if (tech) {
+                        const techName = typeof tech === 'string' ? tech : (tech.name || tech.tech_name || '');
+                        if (techName) {
+                            const nameKey = techName.trim().toLowerCase();
+                            if (!seenNames.has(nameKey)) {
+                                seenNames.add(nameKey);
+                                techniques.push({
+                                    id: tech.id || ('tsam_' + techName),
+                                    name: techName,
+                                    qty: tech.qty || 1,
+                                    fp: tech.fp || 0,
+                                    pp: tech.pp || 0,
+                                    has_price: (tech.fp > 0 || tech.pp > 0)
+                                });
+                            }
+                        }
+                    }
+                });
+
+                // 3. Process layoutSewItems (custom/sales techniques)
+                layoutSewItems.forEach(item => {
+                    if (item && item.tech) {
+                        const nameKey = item.tech.trim().toLowerCase();
+                        if (!seenNames.has(nameKey)) {
+                            seenNames.add(nameKey);
+                            techniques.push({
+                                id: item.id || ('custom_' + item.tech),
+                                name: item.tech + (item.detail ? `: ${item.detail}` : ''),
+                                qty: item.qty || 1,
+                                fp: 0,
+                                pp: 0,
+                                has_price: false
+                            });
+                        }
                     }
                 });
                 
@@ -2414,6 +2454,8 @@
                     techniques.forEach(tech => {
                         const isChecked = isFirstTime || checkedIds.includes(tech.id);
                         const checkedAttr = isChecked ? 'checked' : '';
+                        const fpText = tech.has_price ? `${Number(tech.fp || 0).toLocaleString('vi-VN')}đ` : '—';
+                        const ppText = tech.has_price ? `${Number(tech.pp || 0).toLocaleString('vi-VN')}đ` : '—';
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td style="text-align: center;">
@@ -2421,8 +2463,8 @@
                             </td>
                             <td style="font-weight: 600;">${tech.name || ''}</td>
                             <td style="text-align: center; color: #9ca3af;">${tech.qty || 1}</td>
-                            <td style="text-align: right; color: #10b981; font-weight: 600;">${Number(tech.fp || 0).toLocaleString('vi-VN')}đ</td>
-                            <td style="text-align: right; color: #3b82f6; font-weight: 600;">${Number(tech.pp || 0).toLocaleString('vi-VN')}đ</td>
+                            <td style="text-align: right; color: #10b981; font-weight: 600;">${fpText}</td>
+                            <td style="text-align: right; color: #3b82f6; font-weight: 600;">${ppText}</td>
                         `;
                         tbody.appendChild(row);
                     });
@@ -2486,7 +2528,9 @@
                 if (cb.checked) {
                     totalFP += Number(cb.dataset.fp) || 0;
                     totalPP += Number(cb.dataset.pp) || 0;
-                    checkedIds.push(Number(cb.dataset.id));
+                    const idVal = cb.dataset.id;
+                    const numericId = Number(idVal);
+                    checkedIds.push(isNaN(numericId) ? idVal : numericId);
                 } else {
                     uncheckedNames.push(cb.dataset.name || '');
                 }
@@ -2752,7 +2796,9 @@
             const checkedIds = [];
             checkboxes.forEach(cb => {
                 if (cb.checked) {
-                    checkedIds.push(Number(cb.dataset.id));
+                    const idVal = cb.dataset.id;
+                    const numericId = Number(idVal);
+                    checkedIds.push(isNaN(numericId) ? idVal : numericId);
                 }
             });
             const isAlreadyDone = !!(r && r.done_date);

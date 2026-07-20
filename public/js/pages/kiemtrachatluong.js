@@ -1964,7 +1964,9 @@ function _ktclRecalcTechPrices() {
         if (cb.checked) {
             totalFP += Number(cb.dataset.fp) || 0;
             totalPP += Number(cb.dataset.pp) || 0;
-            checkedIds.push(Number(cb.dataset.id));
+            const idVal = cb.dataset.id;
+            const numericId = Number(idVal);
+            checkedIds.push(isNaN(numericId) ? idVal : numericId);
         } else {
             uncheckedNames.push(cb.dataset.name || '');
         }
@@ -2440,12 +2442,69 @@ async function _ktclOpenQCModal(recordId) {
         } catch (e) { orderTechs = []; }
         if (!Array.isArray(orderTechs)) orderTechs = [];
 
+        let layoutObj = {};
+        try {
+            layoutObj = typeof r.custom_layout === 'string' ? JSON.parse(r.custom_layout) : (r.custom_layout || {});
+        } catch (e) {}
+        const layoutSewItems = (layoutObj && layoutObj.sewing_items) || [];
+
         const techniques = [];
-        const seenIds = new Set();
-        [...tsamTechs, ...orderTechs].forEach(tech => {
-            if (tech && tech.id && !seenIds.has(tech.id)) {
-                seenIds.add(tech.id);
-                techniques.push(tech);
+        const seenNames = new Set();
+
+        // 1. Process orderTechs (predefined techniques with prices)
+        orderTechs.forEach(tech => {
+            if (tech && tech.name) {
+                const nameKey = tech.name.trim().toLowerCase();
+                if (!seenNames.has(nameKey)) {
+                    seenNames.add(nameKey);
+                    techniques.push({
+                        id: tech.id || ('bgm_' + tech.name),
+                        name: tech.name,
+                        qty: tech.qty || 1,
+                        fp: tech.fp || 0,
+                        pp: tech.pp || 0,
+                        has_price: true
+                    });
+                }
+            }
+        });
+
+        // 2. Process tsamTechs (standard pattern techs)
+        tsamTechs.forEach(tech => {
+            if (tech) {
+                const techName = typeof tech === 'string' ? tech : (tech.name || tech.tech_name || '');
+                if (techName) {
+                    const nameKey = techName.trim().toLowerCase();
+                    if (!seenNames.has(nameKey)) {
+                        seenNames.add(nameKey);
+                        techniques.push({
+                            id: tech.id || ('tsam_' + techName),
+                            name: techName,
+                            qty: tech.qty || 1,
+                            fp: tech.fp || 0,
+                            pp: tech.pp || 0,
+                            has_price: (tech.fp > 0 || tech.pp > 0)
+                        });
+                    }
+                }
+            }
+        });
+
+        // 3. Process layoutSewItems (custom/sales techniques)
+        layoutSewItems.forEach(item => {
+            if (item && item.tech) {
+                const nameKey = item.tech.trim().toLowerCase();
+                if (!seenNames.has(nameKey)) {
+                    seenNames.add(nameKey);
+                    techniques.push({
+                        id: item.id || ('custom_' + item.tech),
+                        name: item.tech + (item.detail ? `: ${item.detail}` : ''),
+                        qty: item.qty || 1,
+                        fp: 0,
+                        pp: 0,
+                        has_price: false
+                    });
+                }
             }
         });
 
@@ -2462,6 +2521,8 @@ async function _ktclOpenQCModal(recordId) {
             techniques.forEach(tech => {
                 const isChecked = checkedIds.includes(tech.id);
                 const checkedAttr = isChecked ? 'checked' : '';
+                const fpText = tech.has_price ? `${Number(tech.fp || 0).toLocaleString('vi-VN')}đ` : '—';
+                const ppText = tech.has_price ? `${Number(tech.pp || 0).toLocaleString('vi-VN')}đ` : '—';
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td style="text-align: center;">
@@ -2469,8 +2530,8 @@ async function _ktclOpenQCModal(recordId) {
                     </td>
                     <td style="font-weight: 600; color: #1e293b;">${tech.name || ''}</td>
                     <td style="text-align: center; color: #64748b;">${tech.qty || 1}</td>
-                    <td style="text-align: right; color: #059669; font-weight: 600; padding-right:10px;">${Number(tech.fp || 0).toLocaleString('vi-VN')}đ</td>
-                    <td style="text-align: right; color: #2563eb; font-weight: 600; padding-right:10px;">${Number(tech.pp || 0).toLocaleString('vi-VN')}đ</td>
+                    <td style="text-align: right; color: #059669; font-weight: 600; padding-right:10px;">${fpText}</td>
+                    <td style="text-align: right; color: #2563eb; font-weight: 600; padding-right:10px;">${ppText}</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -2971,7 +3032,9 @@ async function _ktclSubmitQC() {
     const checkedIds = [];
     checkboxes.forEach(cb => {
         if (cb.checked) {
-            checkedIds.push(Number(cb.dataset.id));
+            const idVal = cb.dataset.id;
+            const numericId = Number(idVal);
+            checkedIds.push(isNaN(numericId) ? idVal : numericId);
         }
     });
 
