@@ -426,7 +426,7 @@ const _PAGE_SCRIPT_MAP = {
     'kiemtrachatluong': '/js/pages/kiemtrachatluong.js',
     'kpikdoanh': '/js/pages/kpikdoanh.js',
     'camketcuochop': '/js/pages/camketcuochop.js',
-    'khovai': '/js/pages/khovai.js',
+    'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
     'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',
     'kiemkho': '/js/pages/kiemkho.js',

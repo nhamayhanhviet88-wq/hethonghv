@@ -45,6 +45,7 @@ async function renderKhovaiPage(content) {
             '.kv-badge-nhapkk{background:#0d9488;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
             '.kv-badge-xuatkk{background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
             '.kv-badge-update{background:#6366f1;color:#fff;padding:2px 8px;border-radius:4px;font-weight:800;font-size:10px}',
+            '.kv-badge-inf{background:#7c3aed;color:#fff;padding:2px 6px;border-radius:4px;font-weight:800;font-size:9.5px;display:inline-block;vertical-align:middle;margin-left:4px}',
             '.kv-stat-card{background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:100px;box-shadow:0 2px 8px rgba(0,0,0,0.15)}',
             '.kv-stat-card.ton-kho-highlight{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#451a03;border:2px solid #fef08a;box-shadow:0 0 15px rgba(245,158,11,0.8),inset 0 0 8px rgba(255,255,255,0.4);min-width:120px;padding:6px 18px;transform:scale(1.15);margin:0 10px;transition:all 0.3s}',
             '.kv-stat-card.ton-kho-highlight .kv-stat-label{color:#78350f;font-size:10px;font-weight:900;text-shadow:none}',
@@ -166,8 +167,9 @@ function _kvRenderSidebar() {
                     settingBtn = ' <span onclick="event.stopPropagation();_kvToggleMatStop(' + m.id + ', true)" style="' + btnStyle + 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;" title="Chất liệu đang nhập mới. Bấm để dừng nhập.">📥 Nhập</span>';
                 }
             }
+            var infBadge = m.inventory_type === 1 ? '<span class="kv-badge-inf" title="Nhập qua tay vô tận">♾️ Vô tận</span>' : '';
             h += '<div class="kv-sb-mat' + (isActiveM ? ' active' : '') + '" onclick="_kvFilterMat(' + w.id + ',' + m.id + ')">';
-            h += '<span>🧵 ' + m.name + settingBtn + '</span>';
+            h += '<span>🧵 ' + m.name + infBadge + settingBtn + '</span>';
             h += '<span style="font-weight:700;display:flex;align-items:center;gap:4px;">' +
                  '<span style="color:' + (Number(m.total_balance) >= 0 ? '#15803d' : '#b91c1c') + ';">' + _kvFmt(m.total_balance) + '</span>' +
                  '<span style="color:#2563eb;font-weight:600;font-size:10.5px;">(' + _kvFmt(m.total_rolls || 0) + ' cây)</span></span></div>';
@@ -450,7 +452,8 @@ function _kvRenderTable() {
         h += pendingStopBadgeHtml;
         h += '</div>';
         h += '</td>';
-        h += '<td>' + (r.material_name||'') + '</td>';
+        var matInfBadge = r.material_inventory_type === 1 ? '<span class="kv-badge-inf" title="Nhập qua tay vô tận">♾️ Vô tận</span>' : '';
+        h += '<td>' + (r.material_name||'') + matInfBadge + '</td>';
         h += '<td style="font-size:10px;color:#64748b">' + (r.warehouse_name||'') + '</td>';
         h += '<td style="font-size:11px;font-weight:600;color:#0284c7">' + (r.location||'—') + '</td>';
         h += '<td style="text-align:right;font-weight:700">' + (r.so_cuc||0) + '</td>';
@@ -518,7 +521,7 @@ async function _kvShowDetail(fcid) {
     body += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
     var infoRows = [
         ['LABEL', '<b style="color:#0d9488;font-size:14px">' + label + '</b>'],
-        ['CHẤT LIỆU', r.material_name || ''],
+        ['CHẤT LIỆU', (r.material_name || '') + (r.material_inventory_type === 1 ? ' <span class="kv-badge-inf" title="Nhập qua tay vô tận">♾️ Vô tận</span>' : '')],
         ['MÀU', r.color_name || ''],
         ['ĐƠN VỊ TÍNH', r.unit || 'kg'],
         ['VỊ TRÍ KHO', '<b style="color:#0284c7">' + (r.location || '—') + '</b>' + (r.location ? (r.color_location ? ' <span style="font-weight:normal;font-size:10px;color:#059669">(Riêng của màu)</span>' : (r.material_location ? ' <span style="font-weight:normal;font-size:10px;color:#64748b">(Theo chất liệu)</span>' : '')) : '')],
