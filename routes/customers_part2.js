@@ -1092,8 +1092,6 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run(`UPDATE customers SET ${updates.join(', ')} WHERE id = ?`, params);
         }
 
-        const logTypes = await db.all('SELECT DISTINCT log_type FROM consultation_logs WHERE customer_id = ?', [customerId]);
-        const doneTypes = logTypes.map(l => l.log_type);
         const isZeroDepositVal = fields.is_zero_deposit === true || fields.is_zero_deposit === 'true';
         if (log_type === 'chot_don') {
             if (isZeroDepositVal) {
@@ -1101,8 +1099,37 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 if (!authorizedRoles.includes(request.user.role)) {
                     return reply.code(403).send({ error: '🔒 Bạn không có quyền chốt đơn không cọc!' });
                 }
-            } else if (!doneTypes.includes('dat_coc')) {
-                return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
+            } else {
+                // Find latest chot_don log for this customer
+                const latestChotDon = await db.get(
+                    `SELECT id FROM consultation_logs 
+                     WHERE customer_id = ? AND log_type = 'chot_don' 
+                     ORDER BY id DESC LIMIT 1`,
+                    [customerId]
+                );
+                
+                let hasDepositVal = false;
+                if (latestChotDon) {
+                    const depositAfter = await db.get(
+                        `SELECT id FROM consultation_logs 
+                         WHERE customer_id = ? AND log_type = 'dat_coc' AND id > ? 
+                         LIMIT 1`,
+                        [customerId, latestChotDon.id]
+                    );
+                    hasDepositVal = !!depositAfter;
+                } else {
+                    const anyDeposit = await db.get(
+                        `SELECT id FROM consultation_logs 
+                         WHERE customer_id = ? AND log_type = 'dat_coc' 
+                         LIMIT 1`,
+                        [customerId]
+                    );
+                    hasDepositVal = !!anyDeposit;
+                }
+
+                if (!hasDepositVal) {
+                    return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
+                }
             }
         }
 

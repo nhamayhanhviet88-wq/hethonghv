@@ -1133,7 +1133,10 @@ async function _kockolOpenConsultModal(customerId) {
     }
 
     // Enforce deposit mandatory before chot_don
-    const hasDeposit = consultLogs.some(l => l.log_type === 'dat_coc');
+    const latestChotDonIdx = consultLogs.findIndex(l => l.log_type === 'chot_don');
+    const hasDeposit = latestChotDonIdx === -1
+        ? consultLogs.some(l => l.log_type === 'dat_coc')
+        : consultLogs.slice(0, latestChotDonIdx).some(l => l.log_type === 'dat_coc');
     const isAdminRole = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser?.role);
     if (!hasDeposit && !isAdminRole) {
         allowedTypes = allowedTypes.filter(([k]) => k !== 'chot_don');
