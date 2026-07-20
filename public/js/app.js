@@ -481,7 +481,7 @@ async function _loadScript(src) {
     return new Promise((resolve, reject) => {
         const s = document.createElement('script');
         const ver = window.BUILD_VERSION || Date.now();
-        s.src = src + '?v=' + ver;
+        s.src = src + (src.includes('?') ? '&v=' : '?v=') + ver;
         s.async = true;
         s.onload = () => {
             _loadedScripts.add(src);
