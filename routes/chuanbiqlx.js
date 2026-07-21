@@ -5025,6 +5025,12 @@ module.exports = async function(fastify) {
         if (assignments && !Array.isArray(assignments)) {
             return reply.code(400).send({ error: 'Dữ liệu phân công không hợp lệ' });
         }
+        if (!hoanthien_remind_choice || !['yes', 'none'].includes(hoanthien_remind_choice)) {
+            return reply.code(400).send({ error: '⚠️ Vui lòng chọn Nhắc Nhở Hoàn Thiện, Cắt Chỉ (Có hoặc Không)!' });
+        }
+        if (hoanthien_remind_choice === 'yes' && (!Array.isArray(hoanthien_reminders) || hoanthien_reminders.filter(x => x && x.trim()).length === 0)) {
+            return reply.code(400).send({ error: '⚠️ Vui lòng nhập nội dung nhắc nhở bộ phận hoàn thiện!' });
+        }
 
         const { vnNow, vnDateStr } = require('../utils/timezone');
         const now = vnNow();

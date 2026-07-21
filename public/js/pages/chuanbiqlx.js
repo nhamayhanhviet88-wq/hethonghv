@@ -3945,6 +3945,10 @@ async function _qlxAssignMaySave() {
         var htReminders = [];
         if (htRemindChoice === 'yes') {
             var inputs = document.querySelectorAll('#qlx_hoanthien_reminders_list .qlx-reminder-text-input');
+            if (inputs.length === 0) {
+                showToast('⚠️ Vui lòng nhập nội dung nhắc nhở bộ phận hoàn thiện!', 'error');
+                return;
+            }
             for (var i = 0; i < inputs.length; i++) {
                 var val = inputs[i].value.trim();
                 if (!val) {
@@ -4001,6 +4005,10 @@ async function _qlxAssignMaySave() {
         }
         if (htRemindChoice === 'yes') {
             var inputs = document.querySelectorAll('#qlx_hoanthien_reminders_list .qlx-reminder-text-input');
+            if (inputs.length === 0) {
+                showToast('⚠️ Vui lòng nhập nội dung nhắc nhở bộ phận hoàn thiện!', 'error');
+                return;
+            }
             for (var i = 0; i < inputs.length; i++) {
                 var val = inputs[i].value.trim();
                 if (!val) {

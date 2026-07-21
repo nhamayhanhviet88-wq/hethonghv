@@ -357,28 +357,28 @@ function _bphtRender(){
                 + '</div>'
                 + '</div>';
         }
-        tb.innerHTML=paginated.map(function(r,i){
-        var isSewerAssigned = !!(r.sewer_name && r.sewer_name.trim() && !r.sewer_name.includes('Chưa Phân Công'));
+        var isSewingAssigned = (r.is_sewing_assigned === true || r.is_sewing_assigned === 1 || (r.hoanthien_remind_choice !== null && r.hoanthien_remind_choice !== undefined && r.hoanthien_remind_choice !== ''));
+        var isSewerAssigned = isSewingAssigned && !!(r.sewer_name && r.sewer_name.trim() && !r.sewer_name.includes('Chưa Phân Công'));
         var isQcOk = (r.is_qc_checked !== 0);
         
         var cI=r.is_completed?'✅':'⬜',cC=r.is_completed?' on-ok':'';
         var clickAction = r.is_completed ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
-        var nameClickAction = (r.is_completed || !isSewerAssigned || !isQcOk) ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
+        var nameClickAction = (r.is_completed || !isSewingAssigned || !isSewerAssigned || !isQcOk) ? `_bphtOpenCompleteModal(${r.id}, true)` : `_bphtOpenCompleteModal(${r.id})`;
         var eI=r.error_reported?'⚠️':'⬜',eC=r.error_reported?' on-err':'';
         
-        if (r.is_completed || (isSewerAssigned && isQcOk)) {
+        if (r.is_completed || (isSewingAssigned && isSewerAssigned && isQcOk)) {
             clickHtml = '<button class="bpht-ib'+cC+'" onclick="'+clickAction+'" title="Hoàn thành">'+cI+'</button>';
         } else {
-            const labelText = !isSewerAssigned ? '⚠️ Chưa Phân Công' : '⚠️ Chưa Kiểm Tra Chất Lượng';
+            const labelText = !isSewingAssigned ? '⚠️ Chưa lưu Phân Công May' : (!isSewerAssigned ? '⚠️ Chưa Phân Công' : '⚠️ Chưa Kiểm Tra Chất Lượng');
             clickHtml = '<div style="display:inline-flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; font-size:9px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:not-allowed; text-transform:uppercase;" title="' + labelText + '">' + labelText + '</div>';
         }
         errHtml = r.error_reported 
             ? '<button class="bpht-ib on-err" disabled style="cursor:default;opacity:0.8;transform:none;box-shadow:none" title="Đã báo lỗi">🚨</button>'
             : '<button class="bpht-ib" onclick="_bphtOpenErrorModal(' + r.id + ')" title="Báo lỗi">⚠️</button>';
 
-        var completedTimeHtml = (r.is_completed || (isSewerAssigned && isQcOk)) 
+        var completedTimeHtml = (r.is_completed || (isSewingAssigned && isSewerAssigned && isQcOk)) 
             ? _bphtGetCompletedTime(r) 
-            : (!isSewerAssigned ? '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Phân Công</span>' : '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Kiểm Tra Chất Lượng</span>');
+            : (!isSewingAssigned ? '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa lưu Phân Công May</span>' : (!isSewerAssigned ? '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Phân Công</span>' : '<span style="color:#ef4444;font-weight:700;">⚠️ Chưa Kiểm Tra Chất Lượng</span>'));
 
         var imgs='—';try{var ia=JSON.parse(r.finish_images||'[]');if(ia.length){
             var t = Date.now();

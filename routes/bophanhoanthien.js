@@ -310,10 +310,13 @@ module.exports = async function(fastify) {
                    ) AS cut_product_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
                    (CASE WHEN fr.sewing_record_id IS NOT NULL AND (oi_cancel.production_steps IS NULL OR oi_cancel.production_steps @> '7'::jsonb OR oi_cancel.production_steps @> '[7]'::jsonb) AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = fr.sewing_record_id) THEN 0 ELSE 1 END) AS is_qc_checked,
-                   COALESCE(oi_cancel.production_cancelled, false) AS production_cancelled
+                   COALESCE(oi_cancel.production_cancelled, false) AS production_cancelled,
+                   qp.hoanthien_remind_choice,
+                   (CASE WHEN qp.hoanthien_remind_choice IS NOT NULL OR fr.sewing_record_id IS NOT NULL THEN true ELSE false END) AS is_sewing_assigned
             FROM finishing_records fr 
             LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
             LEFT JOIN dht_order_items oi_cancel ON oi_cancel.id = COALESCE(fr.order_item_id, sr.order_item_id)
+            LEFT JOIN qlx_preparation qp ON qp.item_id = COALESCE(fr.order_item_id, sr.order_item_id)
             LEFT JOIN users u ON fr.finisher_id=u.id
             LEFT JOIN users u_c ON fr.completed_by=u_c.id 
             LEFT JOIN dht_orders o ON fr.dht_order_id=o.id
@@ -356,6 +359,16 @@ module.exports = async function(fastify) {
         if (rec.production_cancelled) return reply.code(403).send({ error: '🚫 Phiếu này đã bị HỦY SẢN XUẤT — không thể thao tác' });
 
         if (action === 'complete') {
+            const itemId = rec.order_item_id || (rec.sewing_record_id ? (await db.get('SELECT order_item_id FROM sewing_records WHERE id = $1', [rec.sewing_record_id]))?.order_item_id : null);
+            if (itemId) {
+                const prep = await db.get('SELECT hoanthien_remind_choice FROM qlx_preparation WHERE item_id = $1', [itemId]);
+                if (!prep || !prep.hoanthien_remind_choice) {
+                    if (!rec.sewing_record_id) {
+                        return reply.code(400).send({ error: '⚠️ Đơn hàng chưa được lưu Phân Công May ở Chuẩn Bị QLX. Vui lòng phân công trước khi hoàn thành!' });
+                    }
+                }
+            }
+
             if (!rec.sewer_name || !rec.sewer_name.trim() || rec.sewer_name.includes('Chưa Phân Công')) {
                 if (rec.order_item_id || !rec.sewing_record_id) {
                     rec.sewer_name = 'ĐƠN KHÔNG MAY';
