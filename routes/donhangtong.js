@@ -1626,7 +1626,7 @@ module.exports = async function(fastify) {
                             needsPress = !!o.has_press_printing;
                         }
                         const needsSew = requiredStepIds.has(5);
-                        const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+                        const needsFinishing = requiredStepIds.has(6);
 
                         const cutOk = !needsCut || o.cut_done;
                         const printOk = !needsPrint || o.is_print_done;

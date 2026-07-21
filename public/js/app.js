@@ -448,7 +448,43 @@ const _PAGE_SCRIPT_MAP = {
     'chuyen-so': '/js/pages/chuyenso.js',
     'chuyenso': '/js/pages/chuyenso.js',
     'chuyensosale': '/js/pages/chuyensosale.js',
-    'caidatsanxuat': '/js/pages/caidatsanxuat.js?v=20260721_spqt_grouping_v1'
+    'caidatsanxuat': '/js/pages/caidatsanxuat.js?v=20260721_spqt_grouping_v1',
+    'don-hang-tong': '/js/pages/donhangtong.js',
+    'donhangtong': '/js/pages/donhangtong.js',
+    'taophieudonhang': '/js/pages/taophieudonhang.js',
+    'tao-phieu-don-hang': '/js/pages/taophieudonhang.js',
+    'xuatvathv': '/js/pages/xuatvathv.js',
+    'xuat-hoa-don-vat': '/js/pages/xuatvathv.js',
+    'don-gui-ao-mau': '/js/pages/donguiaomau.js',
+    'ke-toan-gui-hang': '/js/pages/ketoanguihang.js',
+    'don-hang-chua-thu-tien': '/js/pages/donhangchuathutien.js',
+    'don-hang-thiet-ke': '/js/pages/donhangthietke.js',
+    'don-loi-khach-hang': '/js/pages/donloikhachhang.js',
+    'so-ghi-nhan-tien': '/js/pages/soghinhantien.js',
+    'so-thu-chi': '/js/pages/sothuchi.js',
+    'so-co-phan-may': '/js/pages/socophanmay.js',
+    'bao-gia-goc': '/js/pages/baogiagoc.js',
+    'bao-gia-ctv-hh': '/js/pages/baogiactvhh.js',
+    'gia-nhap-goc': '/js/pages/gianhapgoc.js',
+    'ti-le-cat-goc': '/js/pages/tilecatgoc.js',
+    'luong-san-xuat': '/js/pages/luongsanxuat.js',
+    'kinh-doanh-gui-hang': '/js/pages/kinhdoanhguihang.js',
+    'vat-lieu-tem-pet': '/js/pages/vatlieutempet.js',
+    'kiem-tra-chat-luong': '/js/pages/kiemtrachatluong.js',
+    'bill-nhap-hang': '/js/pages/billnhaphang.js',
+    'nhap-xuat-hoan-vai': '/js/pages/nhapxuathoanvai.js',
+    'bill-vat-lieu': '/js/pages/billvatlieu.js',
+    'nhap-xuat-hoan-vat-lieu': '/js/pages/nhapxuathoanvatlieu.js',
+    'kiem-kho': '/js/pages/kiemkho.js',
+    'kho-vai': '/js/pages/khovai.js',
+    'xuat-vai-cat': '/js/pages/xuatvaicat.js',
+    'kho-vat-lieu': '/js/pages/khovatlieu.js',
+    'thong-so-ao-mau': '/js/pages/thongsoaomau.js',
+    'lich-ra-don-hang': '/js/pages/lichradonhang.js',
+    'tra-soat-don-hang': '/js/pages/trasoatdonhang.js',
+    'khuyenmaigiamgia': '/js/pages/khuyenmaigiamgia.js',
+    'khuyen-mai-giam-gia': '/js/pages/khuyenmaigiamgia.js',
+    'xuatvaicat': '/js/pages/xuatvaicat.js'
 };
 
 const _loadedScripts = new Set();
@@ -2199,9 +2235,13 @@ async function handleRoute() {
             if (cleanKey.startsWith('bangxephang') || cleanKey.startsWith('bxh')) {
                 await _loadScript('/js/pages/bxh-template.js');
             }
-            const scriptPath = _PAGE_SCRIPT_MAP[currentPage] || _PAGE_SCRIPT_MAP[cleanKey];
+            const scriptPath = _PAGE_SCRIPT_MAP[currentPage] || _PAGE_SCRIPT_MAP[cleanKey] || ('/js/pages/' + cleanKey + '.js');
             if (scriptPath) {
-                await _loadScript(scriptPath);
+                try {
+                    await _loadScript(scriptPath);
+                } catch(e) {
+                    console.warn('[LazyLoad] Auto-fallback script load notice:', currentPage, e.message);
+                }
             }
             switch (currentPage) {
                 case 'accounts': renderAccountsPage(content); break;
@@ -2563,6 +2603,11 @@ var _PAGE_INIT_REGISTRY = {
     'xuatvaicat': 'renderXuatvaicatPage',
     'chuanbiqlx': 'renderQuanlyxuongqlxPage',
     'taophieudonhang': 'renderTaophieudonhangPage',
+    'tao-phieu-don-hang': 'renderTaophieudonhangPage',
+    'don-hang-tong': 'renderDonhangtongPage',
+    'donhangtong': 'renderDonhangtongPage',
+    'xuatvathv': 'renderXuatvathvPage',
+    'xuat-hoa-don-vat': 'renderXuatvathvPage',
     'design-draft': 'renderDesignDraftPage',
     'khuyenmaigiamgia': 'renderKhuyenMaiPage',
     'timgrzalovathongke': '_zlInit',

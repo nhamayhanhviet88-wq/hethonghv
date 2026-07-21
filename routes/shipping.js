@@ -152,7 +152,7 @@ async function _getShippingItemsProgress(orderIds) {
                                   WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                               ))
                               OR
-                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
+                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = sr.id
                               ))
@@ -169,7 +169,7 @@ async function _getShippingItemsProgress(orderIds) {
                                   WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                               ))
                               OR
-                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
+                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = sr.id
                               ))
@@ -190,7 +190,7 @@ async function _getShippingItemsProgress(orderIds) {
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
                         WHERE sr.order_item_id = oi.id
                           AND (
-                              ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
+                              ((oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = fr.sewing_record_id
                               ))
@@ -205,7 +205,7 @@ async function _getShippingItemsProgress(orderIds) {
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
                         WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
                           AND (
-                              ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
+                              ((oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = fr.sewing_record_id
                               ))
@@ -224,7 +224,7 @@ async function _getShippingItemsProgress(orderIds) {
                     THEN NOT EXISTS (
                         SELECT 1 FROM sewing_records sr
                         WHERE sr.order_item_id = oi.id
-                          AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb)
+                          AND (oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb)
                           AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id)
                     )
                     WHEN NOT EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = oi.dht_order_id AND order_item_id IS NOT NULL)
@@ -232,7 +232,7 @@ async function _getShippingItemsProgress(orderIds) {
                     THEN NOT EXISTS (
                         SELECT 1 FROM sewing_records sr
                         WHERE sr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
-                          AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb)
+                          AND (oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb)
                           AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers qca WHERE qca.sewing_record_id = sr.id)
                     )
                     ELSE false
@@ -310,7 +310,7 @@ function _processShippingOrderItems(order, itemsList, isPetTem) {
         }
 
         const isKhongIn = !!item.is_khong_in;
-        const isNoSew = !!item.is_no_sew;
+        const isNoSew = !!item.is_no_sew || (Array.isArray(stepsVal) && !stepsVal.includes(5));
         const needsCut = requiredStepIds.has(2);
         const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
         let needsPress = isKhongIn ? false : requiredStepIds.has(4);
@@ -318,9 +318,9 @@ function _processShippingOrderItems(order, itemsList, isPetTem) {
             needsPress = !!item.has_press_printing;
         }
         const needsSew = isNoSew ? false : requiredStepIds.has(5);
-        const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+        const needsFinishing = requiredStepIds.has(6);
 
-        const needsQc = isNoSew ? false : requiredStepIds.has(6);
+        const needsQc = isNoSew ? false : requiredStepIds.has(7);
 
         const cutDone = !needsCut || item.cut_done;
         const printDone = !needsPrint || item.print_done;

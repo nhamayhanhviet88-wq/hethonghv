@@ -593,7 +593,7 @@ async function syncLedgerForDate(dateStr) {
                         needsPress = !!item.has_press_printing;
                     }
                     const needsSew = requiredStepIds.has(5);
-                    const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+                    const needsFinishing = requiredStepIds.has(6);
 
                     const cutDone = !needsCut || item.cut_done;
                     const printDone = !needsPrint || item.print_done;

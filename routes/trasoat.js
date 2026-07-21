@@ -1566,7 +1566,7 @@ function _processOrderWithItems(o, items, todayStr) {
         }
 
         const isKhongIn = !!item.is_khong_in;
-        const isNoSew = !!item.is_no_sew;
+        const isNoSew = !!item.is_no_sew || (Array.isArray(stepsVal) && !stepsVal.includes(5));
         const needsCut = item.is_no_cut ? false : requiredStepIds.has(2);
         const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
         let needsPress = isKhongIn ? false : requiredStepIds.has(4);
@@ -1574,7 +1574,7 @@ function _processOrderWithItems(o, items, todayStr) {
             needsPress = !!item.has_press_printing;
         }
         const needsSew = isNoSew ? false : requiredStepIds.has(5);
-        const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+        const needsFinishing = requiredStepIds.has(6);
 
         const cutDone = !needsCut || item.cut_done;
         const printDone = !needsPrint || item.print_done;
@@ -1816,7 +1816,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                                   WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                               ))
                               OR
-                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
+                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = sr.id
                               ))
@@ -1833,7 +1833,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                                   WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
                               ))
                               OR
-                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
+                              (sr.contractor_id IS NOT NULL AND (oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = sr.id
                               ))
@@ -1854,7 +1854,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
                         WHERE sr.order_item_id = oi.id
                           AND (
-                              ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
+                              ((oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = fr.sewing_record_id
                               ))
@@ -1869,7 +1869,7 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
                         WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
                           AND (
-                              ((oi.production_steps IS NULL OR oi.production_steps @> '6'::jsonb) AND NOT EXISTS (
+                              ((oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
                                   SELECT 1 FROM qc_checklist_answers qca 
                                   WHERE qca.sewing_record_id = fr.sewing_record_id
                               ))
@@ -1951,7 +1951,7 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
     }
 
     const isKhongIn = !!item.is_khong_in;
-    const isNoSew = !!item.is_no_sew;
+    const isNoSew = !!item.is_no_sew || (Array.isArray(stepsVal) && !stepsVal.includes(5));
     const needsCut = order.is_no_cut ? false : requiredStepIds.has(2);
     const needsPrint = isKhongIn ? false : requiredStepIds.has(3);
     let needsPress = isKhongIn ? false : requiredStepIds.has(4);
@@ -1959,7 +1959,7 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
         needsPress = !!item.has_press_printing;
     }
     const needsSew = isNoSew ? false : requiredStepIds.has(5);
-    const needsFinishing = requiredStepIds.has(6) || requiredStepIds.has(7);
+    const needsFinishing = requiredStepIds.has(6);
 
     let timeline;
     if (isPetTem) {
@@ -2058,7 +2058,7 @@ function _buildItemTimeline(item, isShipped, order, itemCutting, itemPrinting, i
         const htDisplayTime = htTotalCount > 0 ? htTime : finRec?.completed_at;
         const htDisplayWorker = htTotalCount > 0 ? htWorker : finRec?.finisher_name;
 
-        const needsQc = isNoSew ? false : requiredStepIds.has(6);
+        const needsQc = isNoSew ? false : requiredStepIds.has(7);
 
         timeline = [];
         if (needsCut) timeline.push({ name: 'Cắt', short: 'CẮT', done: allCutDone, time: cutTime, worker: cutWorker, progress: cutProgress });
