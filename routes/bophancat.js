@@ -5488,7 +5488,12 @@ module.exports = async function(fastify) {
                    COALESCE(p.fabric_arrived, false) AS fabric_arrived,
 
                     (
-                        EXISTS(
+                        NOT EXISTS (
+                            SELECT 1 FROM dht_order_items doi_chk 
+                            WHERE doi_chk.dht_order_id = o.id 
+                              AND (doi_chk.production_steps IS NULL OR doi_chk.production_steps @> '3'::jsonb OR doi_chk.production_steps @> '4'::jsonb)
+                        )
+                        OR EXISTS(
                             SELECT 1 FROM qlx_assignments qa
                             WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in' AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                         )
@@ -5497,6 +5502,13 @@ module.exports = async function(fastify) {
                             WHERE qopa.dht_order_id = o.id AND qopa.field_id = 9
                         )
                     ) AS has_pc_in,
+                    (
+                        NOT EXISTS (
+                            SELECT 1 FROM dht_order_items doi_chk 
+                            WHERE doi_chk.dht_order_id = o.id 
+                              AND (doi_chk.production_steps IS NULL OR doi_chk.production_steps @> '3'::jsonb OR doi_chk.production_steps @> '4'::jsonb)
+                        )
+                    ) AS is_no_print,
 
                    COALESCE(a_in.full_name, pc_in.name) AS nguoi_in,
                    o.is_locked, o.locked_at, u_locked.full_name AS locked_by_name
@@ -5666,8 +5678,10 @@ module.exports = async function(fastify) {
 
                     cc.name AS cutting_category_name,
 
+                    (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb) AS is_no_print,
                     (
-                        EXISTS(
+                        (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb)
+                        OR EXISTS(
                             SELECT 1 FROM qlx_assignments qa
                             WHERE qa.assignment_type = 'in'
                               AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
@@ -5896,6 +5910,7 @@ module.exports = async function(fastify) {
                                 original_cutter_id: originalCutterId,
 
                                 has_pc_in: it.has_pc_in,
+                                is_no_print: it.is_no_print,
 
                                 fabric_arrived: isPhoiFabricArrived,
 
@@ -5974,6 +5989,7 @@ module.exports = async function(fastify) {
                             original_cutter_id: originalCutterId,
 
                             has_pc_in: it.has_pc_in,
+                            is_no_print: it.is_no_print,
 
                             fabric_arrived: isPhoiFabricArrived,
 

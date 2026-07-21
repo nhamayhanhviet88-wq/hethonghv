@@ -904,7 +904,7 @@ function mRenderUncut(items = null, showSectionBadge = false){
             }
             const itemQty = p.item_qty || '';
             const qtyLabel = mFormatOrderQty(itemQty, spName, p.cutting_category_name);
-            const isNoPrint = o.is_no_print || p.is_no_print;
+            const isNoPrint = o.is_no_print === true || o.is_no_print === 1 || o.is_no_print === 't' || p.is_no_print === true || p.is_no_print === 1 || p.is_no_print === 't';
             const pReady = p.fabric_arrived && (o.has_pc_in || isNoPrint);
 
             h+='<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
