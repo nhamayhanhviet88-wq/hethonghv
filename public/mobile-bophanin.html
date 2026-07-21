@@ -375,7 +375,7 @@ async function mTog(id,a){
         } else {
             const inputVal = prompt('Nhập lại số lượng mét in cho đơn hàng này (Nhập 0 nếu bạn muốn HỦY xác nhận in xong):', r.print_meters || 0);
             if (inputVal === null) return;
-            const newMeters = Number(inputVal);
+            const newMeters = parseFloat(String(inputVal || '').replace(',', '.'));
             if (isNaN(newMeters) || newMeters < 0) {
                 toast('Số mét in phải là số không âm!', 'error');
                 return;
@@ -565,7 +565,7 @@ async function mShowDoneModal(r) {
     h += '<input type="text" id="mDone_start_qty" readonly value="0" class="m-modal-input" style="background:rgba(255,255,255,0.02)">';
     h += '</div>';
     h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">Số Mét In (m) <span style="color:#ef4444">*</span></label>';
-    h += '<input type="number" id="mDone_meters" step="any" min="0.01" value="" oninput="mUpdateDoneMeters()" class="m-modal-input" style="color:#ef4444" placeholder="Nhập số mét...">';
+    h += '<input type="text" inputmode="decimal" id="mDone_meters" value="" oninput="mUpdateDoneMeters()" class="m-modal-input" style="color:#ef4444" placeholder="Nhập số mét (VD: 4.5 hoặc 4,5)...">';
     h += '</div>';
     h += '</div>';
     
@@ -736,7 +736,8 @@ function mUpdateDoneMeters() {
     const qtyStart = selectedRoll ? Number(selectedRoll.qty_remaining) : 0;
     startEl.value = qtyStart.toFixed(2);
     
-    const metersVal = Number(metersEl.value) || 0;
+    const rawVal = String(metersEl.value || '').replace(',', '.');
+    const metersVal = parseFloat(rawVal) || 0;
     const qtyEnd = qtyStart - metersVal;
     endEl.value = qtyEnd.toFixed(2);
     
@@ -830,7 +831,7 @@ async function mSubmitDone(id) {
     if (!selectEl || !metersEl || !imgUrlEl) return;
     
     const rollId = selectEl.value;
-    const metersVal = Number(metersEl.value);
+    const metersVal = parseFloat(String(metersEl.value || '').replace(',', '.'));
     const startQty = Number(startEl.value) || 0;
     const endQty = Number(endEl.value) || 0;
     const imageUrl = imgUrlEl.value;

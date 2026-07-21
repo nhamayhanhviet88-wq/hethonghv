@@ -122,6 +122,11 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPI] records:', e.message); }
 
     try {
+        await db.exec(`ALTER TABLE printing_records ALTER COLUMN roll_start_qty TYPE NUMERIC USING roll_start_qty::NUMERIC`);
+        await db.exec(`ALTER TABLE printing_records ALTER COLUMN roll_end_qty TYPE NUMERIC USING roll_end_qty::NUMERIC`);
+    } catch(e) { console.warn('[BPI] roll_start_qty/roll_end_qty numeric migration warning:', e.message); }
+
+    try {
         await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_checked BOOLEAN DEFAULT FALSE`);
         await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_checked_at TIMESTAMPTZ DEFAULT NULL`);
         await db.run(`ALTER TABLE printing_records ADD COLUMN IF NOT EXISTS audit_checked_by INTEGER DEFAULT NULL REFERENCES users(id)`);

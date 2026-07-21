@@ -900,7 +900,7 @@ async function _bpiTog(id, action) {
         } else {
             var inputVal = prompt('Nhập lại số lượng mét in cho đơn hàng này (Nhập 0 nếu bạn muốn HỦY xác nhận in xong):', r.print_meters || 0);
             if (inputVal === null) return;
-            var newMeters = Number(inputVal);
+            var newMeters = parseFloat(String(inputVal || '').replace(',', '.'));
             if (isNaN(newMeters) || newMeters < 0) {
                 showToast('Số mét in phải là số không âm!', 'error');
                 return;
@@ -1141,7 +1141,7 @@ async function _bpiShowDoneModal(r) {
     
     var initMeters = isEditing ? (r.print_meters || '') : '';
     h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Số Mét In (m) <span style="color:#ef4444">*</span></label>';
-    h += '<input type="number" id="bpiDone_meters" step="any" min="0.01" value="' + initMeters + '" oninput="_bpiUpdateDoneMeters()" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#ef4444" placeholder="Nhập số mét...">';
+    h += '<input type="text" inputmode="decimal" id="bpiDone_meters" value="' + initMeters + '" oninput="_bpiUpdateDoneMeters()" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#ef4444" placeholder="Nhập số mét (VD: 4.5 hoặc 4,5)...">';
     h += '</div>';
     h += '</div>';
     
@@ -1280,7 +1280,8 @@ function _bpiUpdateDoneMeters() {
     var qtyStart = selectedRoll ? Number(selectedRoll.qty_remaining) : 0;
     startEl.value = qtyStart.toFixed(2);
     
-    var metersVal = Number(metersEl.value) || 0;
+    var rawVal = String(metersEl.value || '').replace(',', '.');
+    var metersVal = parseFloat(rawVal) || 0;
     var qtyEnd = qtyStart - metersVal;
     endEl.value = qtyEnd.toFixed(2);
     
@@ -1420,7 +1421,7 @@ async function _bpiSubmitDone(id) {
     }
     
     var rollId = selectEl.value;
-    var metersVal = Number(metersEl.value);
+    var metersVal = parseFloat(String(metersEl.value || '').replace(',', '.'));
     var startQty = Number(startEl.value) || 0;
     var endQty = Number(endEl.value) || 0;
     var imageUrl = imgUrlEl.value;
