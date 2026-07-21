@@ -607,6 +607,15 @@ function _bphtGetSubmittedCountingTime(hourId, minId, dateId, r) {
     }
     let dateDmy = '';
     if (dateEl && dateEl.value) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayYmd = `${yyyy}-${mm}-${dd}`;
+        if (dateEl.value > todayYmd) {
+            showToast('⚠️ Không được chọn ngày trong tương lai!', 'error');
+            return null;
+        }
         dateDmy = _formatYmdToDmy(dateEl.value);
     }
     if (!dateDmy) {
@@ -645,6 +654,12 @@ function _bphtRenderCountingTimeBlock(r, readOnly) {
         minOpts += `<option value="${val}" ${sel}>${val} Phút</option>`;
     }
 
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayYmd = `${yyyy}-${mm}-${dd}`;
+
     return `
         <div style="margin-top:10px; background:#ecfdf5; border:1.5px solid #a7f3d0; padding:10px 12px; border-radius:8px;">
             <label style="display:block; font-size:11.5px; font-weight:800; color:#047857; margin-bottom:6px;">
@@ -663,7 +678,7 @@ function _bphtRenderCountingTimeBlock(r, readOnly) {
                     </select>
                 </div>
                 <div style="flex:1.4;">
-                    <input type="date" id="bphtCountingDate" value="${savedDateYmd}" style="border:1.5px solid #059669; color:#0f172a; font-size:13px; font-weight:700; border-radius:6px; padding:6px 8px; width:100%; outline:none; background:#fff; cursor:pointer;" required />
+                    <input type="date" id="bphtCountingDate" value="${savedDateYmd}" max="${todayYmd}" style="border:1.5px solid #059669; color:#0f172a; font-size:13px; font-weight:700; border-radius:6px; padding:6px 8px; width:100%; outline:none; background:#fff; cursor:pointer;" required />
                 </div>
             </div>
             ${readOnly ? `<button type="button" onclick="_bphtQuickSaveCountingTime(${r.id})" style="margin-top:8px; width:100%; background:#059669; color:#fff; font-weight:800; font-size:12.5px; border:none; padding:8px; border-radius:6px; cursor:pointer;">💾 Lưu thời gian đếm</button>` : ''}
