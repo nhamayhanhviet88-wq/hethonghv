@@ -1587,6 +1587,17 @@ module.exports = async function(fastify) {
         if (!item) return reply.code(404).send({ error: 'Phiếu không tồn tại' });
         const orderId = item.dht_order_id;
 
+        if (is_no_cut) {
+            const cutRecord = await db.get(`
+                SELECT id FROM cutting_records
+                WHERE order_item_id = $1 AND (is_cut_done = true OR is_cutting = true)
+                LIMIT 1
+            `, [itemId]);
+            if (cutRecord) {
+                return reply.code(400).send({ error: 'Phiếu/phối này đã cắt xong hoặc đang cắt, không thể chuyển thành Phiếu Không Cắt!' });
+            }
+        }
+
         // Update is_no_cut on dht_order_items
         await db.run('UPDATE dht_order_items SET is_no_cut = $1 WHERE id = $2', [!!is_no_cut, itemId]);
 
