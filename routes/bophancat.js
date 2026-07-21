@@ -6134,6 +6134,12 @@ module.exports = async function(fastify) {
 
         const hasPcIn = await db.get(`
             SELECT 1 FROM (
+                SELECT 1 FROM dht_order_items
+                WHERE id = $1
+                  AND production_steps IS NOT NULL
+                  AND NOT production_steps @> '3'::jsonb
+                  AND NOT production_steps @> '4'::jsonb
+                UNION
                 SELECT 1 FROM qlx_assignments
                 WHERE assignment_type = 'in'
                   AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
@@ -7339,7 +7345,8 @@ module.exports = async function(fastify) {
             SELECT oi.id AS order_item_id, oi.description, oi.quantity, oi.material_pairs,
                    o.id AS dht_order_id, o.order_code, o.shipping_status,
                    COALESCE(p.fabric_arrived, false) AS order_fabric_arrived,
-                   (EXISTS(SELECT 1 FROM qlx_assignments qa
+                   ((oi.production_steps IS NOT NULL AND NOT oi.production_steps @> '3'::jsonb AND NOT oi.production_steps @> '4'::jsonb)
+                    OR EXISTS(SELECT 1 FROM qlx_assignments qa
                            WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
                            AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                     ) OR EXISTS(SELECT 1 FROM qlx_order_print_assignments qopa
