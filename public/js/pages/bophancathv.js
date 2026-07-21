@@ -4026,9 +4026,10 @@ function _mcRenderStep() {
                 var fabBg = c.fabric_arrived ? '#dcfce7' : '#fee2e2';
                 var fabColor = c.fabric_arrived ? '#059669' : '#dc2626';
 
-                var prText = c.has_pc_in ? '✅ Đã PC In' : '❌ Chưa In';
-                var prBg = c.has_pc_in ? '#dcfce7' : '#fee2e2';
-                var prColor = c.has_pc_in ? '#059669' : '#dc2626';
+                var isNoPrint = c.is_no_print === true || c.is_no_print === 1 || c.is_no_print === 't';
+                var prText = isNoPrint ? '🚫 KHÔNG IN' : (c.has_pc_in ? '✅ Đã PC In' : '❌ Chưa In');
+                var prBg = isNoPrint ? '#e0f2fe' : (c.has_pc_in ? '#dcfce7' : '#fee2e2');
+                var prColor = isNoPrint ? '#0369a1' : (c.has_pc_in ? '#059669' : '#dc2626');
 
                 h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">';
                 h += '  <span style="font-size:9px;font-weight:700;color:' + fabColor + ';background:' + fabBg + ';padding:2px 8px;border-radius:6px;white-space:nowrap">' + fabText + '</span>';
