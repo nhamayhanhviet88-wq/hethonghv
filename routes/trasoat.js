@@ -1007,7 +1007,7 @@ module.exports = async function(fastify) {
             `, [orderId, itemId]);
 
             let items = await db.all(`
-                SELECT id, description, quantity FROM dht_order_items 
+                SELECT id, description, quantity, COALESCE(is_no_cut, false) AS is_no_cut, production_steps FROM dht_order_items 
                 WHERE dht_order_id = $1 
                   AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
                   AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
@@ -1023,9 +1023,23 @@ module.exports = async function(fastify) {
             for (const item of items) {
                 const hasPresserClaimed = records.some(r => r.order_item_id === item.id);
 
+                let isNoCut = !!item.is_no_cut || !!order.is_no_cut;
+                let stepsVal = item.production_steps;
+                if (typeof stepsVal === 'string') {
+                    try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
+                }
+                if (Array.isArray(stepsVal) && !stepsVal.includes(2)) {
+                    isNoCut = true;
+                }
+
                 // Check cutting status
-                const cuts = await db.all(`SELECT is_cut_done FROM cutting_records WHERE order_item_id = $1`, [item.id]);
-                const isCutDone = cuts.length > 0 && cuts.every(c => c.is_cut_done);
+                let isCutDone = false;
+                if (isNoCut) {
+                    isCutDone = true;
+                } else {
+                    const cuts = await db.all(`SELECT is_cut_done FROM cutting_records WHERE order_item_id = $1`, [item.id]);
+                    isCutDone = cuts.length > 0 && cuts.every(c => c.is_cut_done);
+                }
 
                 // Check print status
                 const printAssign = await db.get(`
@@ -1055,6 +1069,7 @@ module.exports = async function(fastify) {
                     description: item.description,
                     quantity: item.quantity,
                     is_cut_done: isCutDone,
+                    is_no_cut: isNoCut,
                     is_print_done: isPrintDone,
                     has_print_assignment: hasPrintAssignment,
                     has_presser_claimed: hasPresserClaimed
@@ -1064,8 +1079,14 @@ module.exports = async function(fastify) {
             if (items.length === 0) {
                 const hasPresserClaimed = records.length > 0;
 
-                const cuts = await db.all(`SELECT is_cut_done FROM cutting_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
-                const isCutDone = cuts.length > 0 && cuts.every(c => c.is_cut_done);
+                let isNoCut = !!order.is_no_cut;
+                let isCutDone = false;
+                if (isNoCut) {
+                    isCutDone = true;
+                } else {
+                    const cuts = await db.all(`SELECT is_cut_done FROM cutting_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
+                    isCutDone = cuts.length > 0 && cuts.every(c => c.is_cut_done);
+                }
 
                 const printAssign = await db.get(`
                     SELECT 1 FROM qlx_order_print_assignments qa
@@ -1094,6 +1115,7 @@ module.exports = async function(fastify) {
                     description: order.order_code,
                     quantity: order.total_quantity || 0,
                     is_cut_done: isCutDone,
+                    is_no_cut: isNoCut,
                     is_print_done: isPrintDone,
                     has_print_assignment: hasPrintAssignment,
                     has_presser_claimed: hasPresserClaimed

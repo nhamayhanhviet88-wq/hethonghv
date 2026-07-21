@@ -262,6 +262,7 @@ module.exports = async function(fastify) {
                     oi.id AS item_id,
                     (
                         CASE 
+                            WHEN COALESCE(oi.is_no_cut, false) = true OR COALESCE(o.is_no_cut, false) = true OR (oi.production_steps IS NOT NULL AND NOT oi.production_steps @> '2'::jsonb) THEN true
                             WHEN oi.material_pairs IS NULL OR jsonb_array_length(oi.material_pairs) = 0 THEN (
                                 EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
                                 AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.is_cut_done = false)
@@ -883,6 +884,7 @@ module.exports = async function(fastify) {
                       )
                       AND (
                           CASE 
+                              WHEN COALESCE(oi.is_no_cut, false) = true OR COALESCE(o.is_no_cut, false) = true OR (oi.production_steps IS NOT NULL AND NOT oi.production_steps @> '2'::jsonb) THEN true
                               WHEN oi.material_pairs IS NULL OR jsonb_array_length(oi.material_pairs) = 0 THEN (
                                   EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id)
                                   AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = oi.id AND cr.is_cut_done = false)
@@ -960,6 +962,7 @@ module.exports = async function(fastify) {
                     ) AS real_item_index,
                     (
                         CASE 
+                            WHEN COALESCE(doi.is_no_cut, false) = true OR COALESCE(o.is_no_cut, false) = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '2'::jsonb) THEN true
                             WHEN doi.material_pairs IS NULL OR jsonb_array_length(doi.material_pairs) = 0 THEN (
                                 EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id)
                                 AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false)
@@ -1235,8 +1238,10 @@ module.exports = async function(fastify) {
             // Lock the target dht_order_items row using FOR UPDATE to block concurrent claim requests
             const itemRes = await client.query(`
                 SELECT doi.id, doi.description, doi.material_pairs, doi.quantity, COALESCE(doi.production_cancelled, false) AS production_cancelled,
+                       COALESCE(doi.is_no_cut, false) AS is_no_cut, COALESCE(o.is_no_cut, false) AS is_order_no_cut, doi.production_steps,
                        (
                            CASE 
+                               WHEN COALESCE(doi.is_no_cut, false) = true OR COALESCE(o.is_no_cut, false) = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '2'::jsonb) THEN true
                                WHEN doi.material_pairs IS NULL OR jsonb_array_length(doi.material_pairs) = 0 THEN (
                                    EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id)
                                    AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false)
@@ -1344,6 +1349,7 @@ module.exports = async function(fastify) {
                               )
                        ) AS pending_print_types
                 FROM dht_order_items doi
+                JOIN dht_orders o ON doi.dht_order_id = o.id
                 WHERE doi.id = $1 FOR UPDATE
             `, [order_item_id]);
             const item = itemRes.rows[0];
@@ -1415,7 +1421,16 @@ module.exports = async function(fastify) {
             `, [order_item_id]);
             const cuts = cutsRes.rows;
 
-            if (cuts.length === 0) {
+            let isNoCut = !!item.is_no_cut || !!item.is_order_no_cut;
+            let stepsVal = item.production_steps;
+            if (typeof stepsVal === 'string') {
+                try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
+            }
+            if (Array.isArray(stepsVal) && !stepsVal.includes(2)) {
+                isNoCut = true;
+            }
+
+            if (cuts.length === 0 && !isNoCut) {
                 await client.query('ROLLBACK');
                 return reply.code(400).send({ error: 'Không tìm thấy số lượng cắt hoàn thành' });
             }
@@ -1432,11 +1447,24 @@ module.exports = async function(fastify) {
                 prodName += ` — ${item.description}`;
             }
 
-            const materialName = [...new Set(cuts.map(c => (c.material_name || '').trim()).filter(Boolean))].join(', ');
-            const fabricColor = [...new Set(cuts.map(c => (c.fabric_color || '').trim()).filter(Boolean))].join(', ');
-            
-            const maxCutQty = Math.max(...cuts.map(c => c.cut_qty || 0), 0);
-            const targetQty = maxCutQty > 0 ? maxCutQty : (item.quantity || 0);
+            let materialName = null;
+            let fabricColor = null;
+            let targetQty = item.quantity || 0;
+
+            if (cuts.length > 0) {
+                materialName = [...new Set(cuts.map(c => (c.material_name || '').trim()).filter(Boolean))].join(', ');
+                fabricColor = [...new Set(cuts.map(c => (c.fabric_color || '').trim()).filter(Boolean))].join(', ');
+                const maxCutQty = Math.max(...cuts.map(c => c.cut_qty || 0), 0);
+                if (maxCutQty > 0) targetQty = maxCutQty;
+            } else if (item.material_pairs) {
+                try {
+                    const pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : item.material_pairs;
+                    if (Array.isArray(pairs) && pairs.length > 0) {
+                        materialName = [...new Set(pairs.map(p => (p.material_name || '').trim()).filter(Boolean))].join(', ');
+                        fabricColor = [...new Set(pairs.map(p => (p.color_name || '').trim()).filter(Boolean))].join(', ');
+                    }
+                } catch(e) {}
+            }
 
             const cskhRes = await client.query(`
                 SELECT u.full_name FROM users u LEFT JOIN dht_orders o ON o.cskh_user_id = u.id WHERE o.id = $1

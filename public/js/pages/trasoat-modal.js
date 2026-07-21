@@ -867,6 +867,19 @@ function _tsRenderStepModal(step, d, itemId = null){
                         printStatusStyle = 'background:#f1f5f9;color:#475569';
                     }
 
+                    let cutStatusLabel = '';
+                    let cutStatusStyle = '';
+                    if (item.is_no_cut) {
+                        cutStatusLabel = '⚪ Không yêu cầu cắt';
+                        cutStatusStyle = 'background:#f1f5f9;color:#475569';
+                    } else if (item.is_cut_done) {
+                        cutStatusLabel = '🟢 Đã cắt xong';
+                        cutStatusStyle = 'background:#d1fae5;color:#065f46';
+                    } else {
+                        cutStatusLabel = '🔴 Chưa cắt xong';
+                        cutStatusStyle = 'background:#fee2e2;color:#991b1b';
+                    }
+
                     body += `<div style="border:1.5px solid #e2e8f0;border-radius:14px;background:white;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.02)">
                                 <div style="background:#f8fafc;padding:12px 16px;border-bottom:1.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
                                     <span style="font-weight:800;color:#1e293b;font-size:13px">${itemTitle}</span>
@@ -875,7 +888,7 @@ function _tsRenderStepModal(step, d, itemId = null){
                                 <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
                                     <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600">
                                         <span style="color:#64748b">1. Bộ phận cắt</span>
-                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.is_cut_done ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.is_cut_done ? '🟢 Đã cắt xong' : '🔴 Chưa cắt xong'}</span>
+                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${cutStatusStyle}">${cutStatusLabel}</span>
                                     </div>
                                     <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;border-top:1px solid #f1f5f9;padding-top:10px">
                                         <span style="color:#64748b">2. Bộ phận in (PET/Decal)</span>

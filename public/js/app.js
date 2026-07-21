@@ -439,7 +439,7 @@ const _PAGE_SCRIPT_MAP = {
     'baogiactvhh': '/js/pages/baogiactvhh.js',
     'tilecatgoc': '/js/pages/tilecatgoc.js',
     'luongsanxuat': '/js/pages/luongsanxuat.js',
-    'trasoat-modal': '/js/pages/trasoat-modal.js?v=20260721_counting_fix_v7',
+    'trasoat-modal': '/js/pages/trasoat-modal.js?v=20260721_nocut_ep_v1',
     'donhanghomnayqlx': '/js/pages/donhanghomnayqlx.js?v=20260721_counting_fix_v5',
     'lichradonhang': '/js/pages/lichradonhang.js',
     'nhapxuathoanvatlieu': '/js/pages/nhapxuathoanvatlieu.js',

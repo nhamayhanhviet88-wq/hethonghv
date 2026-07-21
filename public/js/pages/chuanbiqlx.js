@@ -3402,7 +3402,7 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '    KHÔNG MAY';
         html += '  </label>';
         html += '</div>';
-
+        html += '<div id="sewing_assignment_section" style="display: ' + (isNoSew ? 'none' : 'block') + '">';
 
         // Sewing techniques table
         var techniques = [];
@@ -3570,7 +3570,6 @@ async function _qlxAssignMay(orderId, itemId) {
 
 
         // Assignment summary & validation
-        html += '<div id="sewing_assignment_section" style="display: ' + (isNoSew ? 'none' : 'block') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 4px">';
         html += '<label style="font-size:11px;font-weight:800;color:#475569;margin:0">PHÂN BỔ CHI TIẾT</label>';
         html += '<div style="display:flex;align-items:center;gap:8px">';

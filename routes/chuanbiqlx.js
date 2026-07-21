@@ -1267,7 +1267,7 @@ module.exports = async function(fastify) {
             items = await db.all(`
                 SELECT doi.dht_order_id, doi.id, doi.description, doi.material_pairs, doi.quantity,
                        doi.material_name, doi.color_name, COALESCE(doi.production_cancelled, false) AS production_cancelled,
-                       doi.is_no_sew, COALESCE(doi.is_no_cut, false) AS is_no_cut,
+                       (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb)) AS is_no_sew, COALESCE(doi.is_no_cut, false) AS is_no_cut,
                        cc.name AS cutting_category_name,
                        COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
                        COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived,
@@ -1295,7 +1295,7 @@ module.exports = async function(fastify) {
                            a_in_item_u.full_name, pc_in_item.name,
                            COALESCE(a_in_ord_u.full_name, pc_in_ord.name)
                        ) AS nguoi_in,
-                       CASE WHEN doi.is_no_sew = true THEN 'ĐƠN KHÔNG MAY'
+                       CASE WHEN (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb)) THEN 'ĐƠN KHÔNG MAY'
                             ELSE COALESCE(
                                 (SELECT string_agg(COALESCE(c.name, 'May nhà') || ' (' || sr.quantity || ')', ', ')
                                  FROM sewing_records sr
@@ -4836,12 +4836,18 @@ module.exports = async function(fastify) {
 
         // 1. Get order item and order info
         const item = await db.get(`
-            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, doi.material_pairs, doi.is_no_sew, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
+            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, doi.material_pairs, doi.is_no_sew, doi.production_steps, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
             WHERE doi.id = $1
         `, [itemId]);
         if (!item) return reply.code(404).send({ error: 'Không tìm thấy chi tiết sản phẩm' });
+
+        let stepsVal = item.production_steps;
+        if (typeof stepsVal === 'string') {
+            try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
+        }
+        item.is_no_sew = !!item.is_no_sew || (Array.isArray(stepsVal) && !stepsVal.includes(5));
 
         // 2. Get total completed cut quantity
         const cutQtyRow = await db.get(`
