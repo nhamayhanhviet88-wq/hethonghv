@@ -1760,12 +1760,27 @@ module.exports = async function(fastify) {
 
     async function checkSewingPrerequisites(orderId, itemId) {
         let isNoCut = false;
+        let isNoSew = false;
         if (itemId) {
-            const item = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut FROM dht_order_items WHERE id = $1', [itemId]);
-            isNoCut = item ? !!item.is_no_cut : false;
+            const item = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut, COALESCE(is_no_sew, false) AS is_no_sew, production_steps FROM dht_order_items WHERE id = $1', [itemId]);
+            if (item) {
+                let stepsVal = item.production_steps;
+                if (typeof stepsVal === 'string') {
+                    try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
+                }
+                isNoCut = !!item.is_no_cut || (Array.isArray(stepsVal) && !stepsVal.includes(2) && !stepsVal.includes('2'));
+                isNoSew = !!item.is_no_sew || (Array.isArray(stepsVal) && !stepsVal.includes(5) && !stepsVal.includes('5'));
+            }
         } else {
-            const order = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut FROM dht_orders WHERE id = $1', [orderId]);
-            isNoCut = order ? !!order.is_no_cut : false;
+            const order = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut, COALESCE(is_no_sew, false) AS is_no_sew FROM dht_orders WHERE id = $1', [orderId]);
+            if (order) {
+                isNoCut = !!order.is_no_cut;
+                isNoSew = !!order.is_no_sew;
+            }
+        }
+
+        if (isNoSew) {
+            return { isCutDone: true, isMatDone: true };
         }
 
         let isCutDone = true;
