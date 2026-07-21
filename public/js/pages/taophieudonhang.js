@@ -615,6 +615,10 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
                     draft.cutting_category_name = item.cutting_category_name;
                     draft.is_no_sew = !!item.is_no_sew;
                     draft.production_steps = item.production_steps;
+                    draft.has_shipped = !!(item.has_shipped || item.shipping_status === 'shipped' || item.shipped_at || item.actual_ship_datetime);
+                    draft.shipping_status = item.shipping_status;
+                    draft.shipped_at = item.shipped_at;
+                    draft.actual_ship_datetime = item.actual_ship_datetime;
                     
                     // Normalize quantities in draft
                     draft.quantities = _tpdNormalizeItemQuantities(draft, config);
@@ -692,7 +696,11 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
         has_qc_completed: !!item.has_qc_completed,
         cutting_category_name: item.cutting_category_name || '',
         is_no_sew: !!item.is_no_sew,
-        production_steps: item.production_steps || null
+        production_steps: item.production_steps || null,
+        has_shipped: !!(item.has_shipped || item.shipping_status === 'shipped' || item.shipped_at || item.actual_ship_datetime),
+        shipping_status: item.shipping_status || null,
+        shipped_at: item.shipped_at || null,
+        actual_ship_datetime: item.actual_ship_datetime || null
     };
 }
 
