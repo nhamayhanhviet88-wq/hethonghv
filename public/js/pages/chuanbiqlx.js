@@ -195,11 +195,16 @@ function _qlxPatchOrderRows(orderId) {
         var bg = isNew ? '' : 'background:#f0f9ff;';
 
         var fabIcon, fabCls = '', matIcon, matCls = '';
-        var _pfKey = o.id + '_' + (r.item ? r.item.id : 0) + '_' + (r.pairIndex || 0);
-        var _pfs = (_qlx.phoiFabStatus || {})[_pfKey];
-        if (_pfs && _pfs.pending === 0 && _pfs.arrived > 0) { fabIcon = '✅'; fabCls = ' on-fab'; }
-        else if (_pfs && _pfs.total > 0) { fabIcon = '📞'; fabCls = ' on-mat'; }
-        else { fabIcon = '🧵'; }
+        if (r.item && r.item.is_no_cut) {
+            fabIcon = '🚫';
+            fabCls = ' on-fab';
+        } else {
+            var _pfKey = o.id + '_' + (r.item ? r.item.id : 0) + '_' + (r.pairIndex || 0);
+            var _pfs = (_qlx.phoiFabStatus || {})[_pfKey];
+            if (_pfs && _pfs.pending === 0 && _pfs.arrived > 0) { fabIcon = '✅'; fabCls = ' on-fab'; }
+            else if (_pfs && _pfs.total > 0) { fabIcon = '📞'; fabCls = ' on-mat'; }
+            else { fabIcon = '🧵'; }
+        }
 
         var isMatArrived = r.item ? r.item.material_arrived : o.material_arrived;
         var isMatCalled = r.item ? r.item.material_called : o.material_called;

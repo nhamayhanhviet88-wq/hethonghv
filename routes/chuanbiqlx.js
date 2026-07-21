@@ -1267,7 +1267,7 @@ module.exports = async function(fastify) {
             items = await db.all(`
                 SELECT doi.dht_order_id, doi.id, doi.description, doi.material_pairs, doi.quantity,
                        doi.material_name, doi.color_name, COALESCE(doi.production_cancelled, false) AS production_cancelled,
-                       (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb)) AS is_no_sew, COALESCE(doi.is_no_cut, false) AS is_no_cut,
+                       (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb)) AS is_no_sew, (doi.is_no_cut = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '2'::jsonb)) AS is_no_cut,
                        cc.name AS cutting_category_name,
                        COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
                        COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived,
