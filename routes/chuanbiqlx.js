@@ -5010,6 +5010,7 @@ module.exports = async function(fastify) {
         }
 
         const isSewingDone = rawAssignments.length > 0 && rawAssignments.every(a => a.done_date !== null || a.salary_approved === true);
+        const canToggleNoSew = !rawAssignments.some(a => a.done_date !== null || a.salary_approved === true || a.is_reported === true);
         const fRec = await db.get(`SELECT is_completed, expected_date FROM finishing_records WHERE order_item_id = $1 LIMIT 1`, [itemId]);
         const isFinishingDone = fRec ? fRec.is_completed : false;
         const finishingExpectedDate = fRec && fRec.expected_date ? fRec.expected_date : null;
@@ -5033,6 +5034,7 @@ module.exports = async function(fastify) {
                 is_viewed: viewedIds.includes(r.id)
             })),
             is_sewing_done: isSewingDone,
+            can_toggle_no_sew: canToggleNoSew,
             is_finishing_done: isFinishingDone,
             finishing_expected_date: finishingExpectedDate
         };
@@ -5073,10 +5075,10 @@ module.exports = async function(fastify) {
             // Check if there are locked sewing records
             const lockedRecords = await db.all(`
                 SELECT id FROM sewing_records
-                WHERE order_item_id = $1 AND (done_date IS NOT NULL OR COALESCE(salary_approved, false) = true)
+                WHERE order_item_id = $1 AND (done_date IS NOT NULL OR COALESCE(salary_approved, false) = true OR COALESCE(is_reported, false) = true)
             `, [itemId]);
             if (lockedRecords.length > 0) {
-                return reply.code(400).send({ error: 'Sản phẩm đã có bản ghi may đã hoàn thành hoặc duyệt lương, không thể chuyển thành Không May!' });
+                return reply.code(400).send({ error: 'Sản phẩm đã có bản ghi May/QC hoàn thành, không thể chuyển thành Đơn Hàng Không May!' });
             }
 
             // Update is_no_sew status
