@@ -381,8 +381,20 @@ const _PAGE_SCRIPT_MAP = {
     'lichsubaocaocv': '/js/pages/lichsu-baocao.js',
     'khoa-tk-nv': '/js/pages/khoatknv.js',
     'bophanhoanthien': '/js/pages/bophanhoanthienhv.js?v=20260721_counting_fix_v9',
-    'bophaninhv': '/js/pages/bophaninhv.js',
+    'bophanhoanthienhv': '/js/pages/bophanhoanthienhv.js?v=20260721_counting_fix_v9',
+    'bo-phan-hoan-thien': '/js/pages/bophanhoanthienhv.js?v=20260721_counting_fix_v9',
+    'bophaninhv': '/js/pages/bophaninhv.js?v=20260721_bophanin_fix_v1',
+    'bophanin': '/js/pages/bophaninhv.js?v=20260721_bophanin_fix_v1',
+    'bo-phan-in': '/js/pages/bophaninhv.js?v=20260721_bophanin_fix_v1',
+    'bophanephv': '/js/pages/bophanephv.js',
     'bophanep': '/js/pages/bophanephv.js',
+    'bo-phan-ep': '/js/pages/bophanephv.js',
+    'bophancathv': '/js/pages/bophancathv.js',
+    'bophancat': '/js/pages/bophancathv.js',
+    'bo-phan-cat': '/js/pages/bophancathv.js',
+    'bophanmayhv': '/js/pages/bophanmayhv.js',
+    'bophanmay': '/js/pages/bophanmayhv.js',
+    'bo-phan-may': '/js/pages/bophanmayhv.js',
     'donhangthietke': '/js/pages/donhangthietke.js',
     'donguiaomau': '/js/pages/donguiaomau.js',
     'socophanmay': '/js/pages/socophanmay.js',
@@ -2251,6 +2263,11 @@ async function handleRoute() {
                 case 'addcmtdoitackh': content.innerHTML=''; setTimeout(function(){if(typeof _acInit==='function')_acInit();},50); break;
                 case 'timkiemkhachhang': case 'timkiemkhachhanghv': renderTimKiemKhachHang(content); break;
                 case 'xuatvathv': renderXuatvathvPage(content); break;
+                case 'bo-phan-in': case 'bophanin': case 'bophaninhv': renderBophaninPage(content); break;
+                case 'bo-phan-cat': case 'bophancat': case 'bophancathv': renderBophancatPage(content); break;
+                case 'bo-phan-ep': case 'bophanep': case 'bophanephv': renderBophanepPage(content); break;
+                case 'bo-phan-may': case 'bophanmay': case 'bophanmayhv': renderBophanmayPage(content); break;
+                case 'bo-phan-hoan-thien': case 'bophanhoanthien': case 'bophanhoanthienhv': renderBophanhoanthienPage(content); break;
                 default:
                     // ========== CONVENTION-BASED AUTO-RENDER ==========
                     // Try multiple naming patterns to auto-discover page render functions
@@ -2554,6 +2571,21 @@ var _PAGE_INIT_REGISTRY = {
     'chuyen-so': 'renderChuyenSoPage',
     'chuyenso': 'renderChuyenSoPage',
     'chuyensosale': 'renderChuyensosalePage',
+    'bo-phan-in': 'renderBophaninPage',
+    'bophanin': 'renderBophaninPage',
+    'bophaninhv': 'renderBophaninPage',
+    'bo-phan-cat': 'renderBophancatPage',
+    'bophancat': 'renderBophancatPage',
+    'bophancathv': 'renderBophancatPage',
+    'bo-phan-ep': 'renderBophanepPage',
+    'bophanep': 'renderBophanepPage',
+    'bophanephv': 'renderBophanepPage',
+    'bo-phan-may': 'renderBophanmayPage',
+    'bophanmay': 'renderBophanmayPage',
+    'bophanmayhv': 'renderBophanmayPage',
+    'bo-phan-hoan-thien': 'renderBophanhoanthienPage',
+    'bophanhoanthien': 'renderBophanhoanthienPage',
+    'bophanhoanthienhv': 'renderBophanhoanthienPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {
