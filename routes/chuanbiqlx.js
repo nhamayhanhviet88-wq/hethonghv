@@ -3483,7 +3483,7 @@ module.exports = async function(fastify) {
         let pairs = [];
         try { pairs = typeof item.material_pairs === 'string' ? JSON.parse(item.material_pairs) : (item.material_pairs || []); } catch(e) {}
         const phoi = pairs[pi] || null;
-        if (!phoi || !phoi.material_name) return { order, item: { id: item.id, description: item.description, item_index: itemIndex }, phoi: null, rolls: [], warehouse: null, existing: [] };
+        if (!phoi || !phoi.material_name) return { order, item: item, phoi: null, rolls: [], warehouse: null, existing: [] };
 
         const removeAccents = (str) => {
             if (!str) return '';

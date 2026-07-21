@@ -1079,7 +1079,11 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         }
         html += '</div>';
 
-        var isNoCut = !!(it && it.is_no_cut);
+        var stepsVal = it ? it.production_steps : null;
+        if (typeof stepsVal === 'string') {
+            try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
+        }
+        var isNoCut = !!(it && it.is_no_cut) || (Array.isArray(stepsVal) && !stepsVal.includes(2) && !stepsVal.includes('2'));
         console.log("[DEBUG FabricPopup] orderId:", orderId, "isNoCut:", isNoCut, "orderData:", o);
         var disabledAttr = isNoCut ? ' disabled' : '';
         var labelStyle = 'display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #be123c; margin: 0; background: #ffe4e6; border: 1.5px solid #fda4af; padding: 6px 14px; border-radius: 8px;' + (isNoCut ? ' opacity: 0.65; cursor: not-allowed; pointer-events: none;' : ' cursor: pointer;');
