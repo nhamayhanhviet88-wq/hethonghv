@@ -279,7 +279,12 @@ function _qlxPatchOrderRows(orderId) {
                         } else {
                             sewClass = ' qlx-sew-not-ready';
                         }
-                        h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiIn ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\',' + (r.item ? r.item.id : 0) + ')" title="PC In">🖨️</button></td>';
+                        var isNoPrint = r.item ? (r.item.is_no_print === true || r.item.is_no_print === 1 || r.item.is_no_print === 't') : false;
+                        if (isNoPrint) {
+                            h += '<td style="text-align:center"><button class="qlx-icon-btn on-fab" onclick="_qlxNoPrintNotice()" title="KHÔNG IN & ÉP">🚫</button></td>';
+                        } else {
+                            h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiIn ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\',' + (r.item ? r.item.id : 0) + ')" title="PC In">🖨️</button></td>';
+                        }
                         h += '<td style="text-align:center"><button class="qlx-icon-btn' + sewClass + '" onclick="_qlxAssign(' + o.id + ',\'may\',' + (r.item ? r.item.id : 0) + ')" title="PC May">🪡</button></td>';
                     } else {
                         if (isNew) {
@@ -2593,6 +2598,10 @@ function _qlxToggleRemindersArea(dept) {
             _qlxAddReminderInput(dept);
         }
     }
+}
+
+function _qlxNoPrintNotice() {
+    showToast('ℹ️ Đơn hàng KHÔNG IN & ÉP (Đã lược bỏ công đoạn In và Ép trong quy trình sản xuất)');
 }
 
 function _qlxAddReminderInput(dept, val, isDisabled) {

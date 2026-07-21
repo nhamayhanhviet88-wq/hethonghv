@@ -1268,6 +1268,7 @@ module.exports = async function(fastify) {
                 SELECT doi.dht_order_id, doi.id, doi.description, doi.material_pairs, doi.quantity,
                        doi.material_name, doi.color_name, COALESCE(doi.production_cancelled, false) AS production_cancelled,
                        (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb)) AS is_no_sew, (doi.is_no_cut = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '2'::jsonb)) AS is_no_cut,
+                       (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb) AS is_no_print,
                        cc.name AS cutting_category_name,
                        COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
                        COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived,
@@ -2173,8 +2174,17 @@ module.exports = async function(fastify) {
         
         let itemDesc = '';
         if (itemId) {
-            const it = await db.get(`SELECT description, quantity FROM dht_order_items WHERE id = $1`, [itemId]);
-            if (it) itemDesc = (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')';
+            const it = await db.get(`SELECT description, quantity, production_steps FROM dht_order_items WHERE id = $1`, [itemId]);
+            if (it) {
+                let steps = it.production_steps;
+                if (typeof steps === 'string') {
+                    try { steps = JSON.parse(steps); } catch(e) {}
+                }
+                if (Array.isArray(steps) && !steps.includes(3) && !steps.includes('3') && !steps.includes(4) && !steps.includes('4')) {
+                    return reply.code(400).send({ error: '🚫 Đơn hàng không có quy trình In và Ép, không cần phân công in!' });
+                }
+                itemDesc = (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')';
+            }
         } else {
             const items = await db.all(`SELECT id, description, quantity FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [orderId]);
             itemDesc = items.map(it => (it.description || '') + ' (SL: ' + (it.quantity || 0) + ')').filter(Boolean).join(', ');
@@ -2679,6 +2689,19 @@ module.exports = async function(fastify) {
             press_reminders 
         } = request.body || {}; // array of { field_id, operator_type, operator_id }
         const itemId = item_id ? Number(item_id) : null;
+
+        if (itemId) {
+            const it = await db.get(`SELECT production_steps FROM dht_order_items WHERE id = $1`, [itemId]);
+            if (it) {
+                let steps = it.production_steps;
+                if (typeof steps === 'string') {
+                    try { steps = JSON.parse(steps); } catch(e) {}
+                }
+                if (Array.isArray(steps) && !steps.includes(3) && !steps.includes('3') && !steps.includes(4) && !steps.includes('4')) {
+                    return reply.code(400).send({ error: '🚫 Đơn hàng không có quy trình In và Ép, không thể phân công in!' });
+                }
+            }
+        }
 
         // Check if production is completed
         let isProdDone = false;
