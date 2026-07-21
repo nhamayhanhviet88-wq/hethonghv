@@ -290,7 +290,7 @@ module.exports = async function(fastify) {
         else if (status === 'error') where += ` AND fr.error_reported=true`;
         if (search) { where += ` AND (fr.product_name ILIKE $${idx} OR fr.cskh_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
-            SELECT fr.*, u.full_name AS finisher_name, u_c.full_name AS completed_by_name, o.order_code, COALESCE(o.is_draft, false) AS is_draft,
+            SELECT fr.*, COALESCE(NULLIF(fr.quantity, 0), oi_cancel.quantity, 0) AS quantity, u.full_name AS finisher_name, u_c.full_name AS completed_by_name, o.order_code, COALESCE(o.is_draft, false) AS is_draft,
                    o.customer_name, cat.name AS category_name,
                    o.expected_ship_date, o.standard_delivery_time,
                    sr.contractor_id, sr.sewing_team_id, COALESCE(fr.order_item_id, sr.order_item_id) AS order_item_id,

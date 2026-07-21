@@ -4857,7 +4857,7 @@ module.exports = async function(fastify) {
 
         // 1. Get order item and order info
         const item = await db.get(`
-            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, doi.material_pairs, doi.is_no_sew, doi.production_steps, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
+            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, doi.material_pairs, doi.is_no_sew, doi.production_steps, doi.quantity, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
             WHERE doi.id = $1
@@ -4884,7 +4884,7 @@ module.exports = async function(fastify) {
                 numPhois = pairs.length;
             }
         } catch(e) {}
-        const cut_qty = Math.round(rawCutQty / numPhois);
+        const cut_qty = rawCutQty > 0 ? Math.round(rawCutQty / numPhois) : (item.quantity || 0);
 
         // 3. Get existing sewing records
         const rawAssignments = await db.all(`
@@ -5037,7 +5037,7 @@ module.exports = async function(fastify) {
 
         // 1. Fetch item and order info
         const item = await db.get(`
-            SELECT doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.material_pairs, o.order_code, doi.sewing_techniques, o.expected_ship_date, o.shipping_priority
+            SELECT doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.material_pairs, doi.quantity, o.order_code, doi.sewing_techniques, o.expected_ship_date, o.shipping_priority
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
             WHERE doi.id = $1
@@ -5107,7 +5107,7 @@ module.exports = async function(fastify) {
                     numPhois = pairs.length;
                 }
             } catch(e) {}
-            const cut_qty = Math.round(rawCutQty / numPhois) || 0;
+            const cut_qty = rawCutQty > 0 ? Math.round(rawCutQty / numPhois) : (item.quantity || 0);
 
             const shippingStandard = (item.shipping_priority || 'CHUẨN').toLowerCase() === 'gấp' ? 'gap' : 
                                      ((item.shipping_priority || 'CHUẨN').toLowerCase() === 'gửi' ? 'gui' : 'chuan');
