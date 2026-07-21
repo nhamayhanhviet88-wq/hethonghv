@@ -1055,6 +1055,8 @@ async function mQuickSaveCountingTime(recordId) {
     try {
         await api(`/api/finishing/records/${recordId}`, 'PUT', { counting_time: countingTime });
         toast('✅ Đã lưu giờ đếm số lượng: ' + countingTime);
+        const r = mr.find(x => x.id === recordId);
+        if (r) r.counting_time = countingTime;
         await mLoad();
         mOpenCompleteModal(recordId, true);
     } catch(e) {
