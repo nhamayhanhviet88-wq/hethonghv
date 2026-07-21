@@ -430,7 +430,7 @@ function _bphtRender(){
         +'<td>'+_bphtProgress(r.expected_ship_date||r.expected_date, r.done_date)+'</td>'
         +'<td style="font-weight:600;white-space:normal;max-width:250px;word-break:break-word;"><a href="javascript:void(0)" onclick="'+nameClickAction+'" style="color:#2563eb;text-decoration:underline;cursor:pointer">'+_bphtCleanProdName(r)+'</a></td>'
         +'<td style="font-size:10px;color:#2563eb;font-weight:600">'+(r.cskh_name||'—')+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#059669">'+(r.quantity||'—')+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#059669">'+(r.quantity||'—')+(r.counting_time?'<br><span style="color:#d97706;font-weight:700;font-size:10px;">⏰ '+r.counting_time+'</span>':'')+'</td>'
         +'<td style="font-size:10px;color:#059669;font-weight:600">'+(r.finisher_name||'—')+'</td>'
         +'<td style="font-size:10px;color:#6b7280">' + (r.contractor_id ? '<span style="color:#f59e0b;font-weight:700;">[GIA CÔNG]</span> ' : '') + (r.sewer_name || '<span style="color:#ef4444;font-weight:700;">Chưa Phân Công</span>') + '</td>'
         +'<td style="text-align:center;font-size:10px">'+imgs+'</td>'
@@ -544,6 +544,83 @@ function _bphtViewSingleImage(src) {
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
+function _bphtRenderCountingTimeBlock(r, readOnly) {
+    let savedHour = '';
+    let savedMinute = '';
+    if (r.counting_time && r.counting_time.includes(':')) {
+        const parts = r.counting_time.split(':');
+        savedHour = parts[0].padStart(2, '0');
+        savedMinute = parts[1].padStart(2, '0');
+    }
+
+    if (readOnly && r.counting_time && r.counting_time.includes(':')) {
+        return `
+            <div style="margin-top:12px; background:#ecfdf5; border:1.5px solid #a7f3d0; padding:12px; border-radius:10px;">
+                <div style="font-weight:700; font-size:12px; color:#047857; margin-bottom:4px;">⏰ THỜI GIAN ĐẾM SỐ LƯỢNG CHECK CAMERA <span style="color:#ef4444;">*</span></div>
+                <div style="font-size:18px; font-weight:900; color:#d97706;">${savedHour} Giờ ${savedMinute} Phút (${r.counting_time})</div>
+            </div>
+        `;
+    }
+
+    let hourOpts = '<option value="">-- Chọn Giờ --</option>';
+    for (let h = 0; h < 24; h++) {
+        const val = String(h).padStart(2, '0');
+        const sel = val === savedHour ? 'selected' : '';
+        hourOpts += `<option value="${val}" ${sel}>${val} Giờ</option>`;
+    }
+    let minOpts = '<option value="">-- Chọn Phút --</option>';
+    if (savedMinute !== '' && parseInt(savedMinute, 10) % 5 !== 0) {
+        savedMinute = String(Math.round(parseInt(savedMinute, 10) / 5) * 5 % 60).padStart(2, '0');
+    }
+    for (let m = 0; m < 60; m += 5) {
+        const val = String(m).padStart(2, '0');
+        const sel = val === savedMinute ? 'selected' : '';
+        minOpts += `<option value="${val}" ${sel}>${val} Phút</option>`;
+    }
+
+    return `
+        <div style="margin-top:12px; background:#ecfdf5; border:1.5px solid #a7f3d0; padding:12px; border-radius:10px;">
+            <label style="display:block; font-size:12px; font-weight:800; color:#047857; margin-bottom:8px;">
+                ⏰ THỜI GIAN ĐẾM SỐ LƯỢNG CHECK CAMERA <span style="color:#ef4444;">*</span>
+            </label>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div style="flex:1;">
+                    <span style="font-size:10.5px; color:#065f46; font-weight:700; display:block; margin-bottom:3px;">Bắt buộc chọn Giờ (00 - 23):</span>
+                    <select id="bphtCountingHour" style="border:1.5px solid #059669; color:#0f172a; font-size:15px; font-weight:800; border-radius:6px; padding:8px; width:100%; outline:none; background:#fff; cursor:pointer;" required>
+                        ${hourOpts}
+                    </select>
+                </div>
+                <div style="font-size:20px; font-weight:900; color:#059669; margin-top:16px;">:</div>
+                <div style="flex:1;">
+                    <span style="font-size:10.5px; color:#065f46; font-weight:700; display:block; margin-bottom:3px;">Bắt buộc chọn Phút (00 - 59):</span>
+                    <select id="bphtCountingMinute" style="border:1.5px solid #059669; color:#0f172a; font-size:15px; font-weight:800; border-radius:6px; padding:8px; width:100%; outline:none; background:#fff; cursor:pointer;" required>
+                        ${minOpts}
+                    </select>
+                </div>
+            </div>
+            ${readOnly ? `<button type="button" onclick="_bphtQuickSaveCountingTime(${r.id})" style="margin-top:10px; width:100%; background:#059669; color:#fff; font-weight:800; font-size:13px; border:none; padding:10px; border-radius:6px; cursor:pointer;">💾 Lưu giờ đếm số lượng</button>` : `<div style="font-size:11px; color:#065f46; margin-top:6px;">Ví dụ: 15h30 chọn Giờ: 15, Phút: 30 (Không dùng giờ hiện tại).</div>`}
+        </div>
+    `;
+}
+
+async function _bphtQuickSaveCountingTime(recordId) {
+    const hourEl = document.getElementById('bphtCountingHour');
+    const minEl = document.getElementById('bphtCountingMinute');
+    if (!hourEl || !minEl || !hourEl.value || !minEl.value) {
+        showToast('⚠️ Bắt buộc phải chọn đầy đủ Giờ và Phút đếm số lượng!', 'error');
+        return;
+    }
+    const countingTime = `${hourEl.value}:${minEl.value}`;
+    try {
+        await apiCall(`/api/finishing/records/${recordId}`, 'PUT', { counting_time: countingTime });
+        showToast('✅ Đã lưu giờ đếm số lượng: ' + countingTime);
+        await _bphtLoadAll();
+        _bphtOpenCompleteModal(recordId, true);
+    } catch(e) {
+        showToast(e.message || 'Lỗi lưu giờ đếm', 'error');
+    }
+}
+
 // ========== COMPLETING CHECKLIST MODAL (Thợ Hoàn Thiện) ==========
 async function _bphtOpenCompleteModal(recordId, readOnly = false) {
     const r = _bpht.records.find(x => x.id === recordId);
@@ -572,6 +649,9 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
         const res = await apiCall('/api/finishing/checklist/answers/' + recordId);
         templates = res.templates || [];
         answers = res.answers || [];
+        if (res.record && res.record.counting_time) {
+            r.counting_time = res.record.counting_time;
+        }
     } catch(e) {
         console.error('Lỗi tải checklist:', e);
     }
@@ -638,6 +718,13 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
                         ${isPersonQuestion && !readOnly ? `oninput="this.value = this.value.replace(/\\d/g, '')"` : ''}>
                     ${isCountQuestion && !readOnly ? `<div class="bpht-count-error-msg" style="color:#ef4444; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (parseInt(val.replace(/\D/g, ''), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
                 `;
+
+                if (isCountQuestion) {
+                            </div>
+                        `;
+                    }
+                }
+            }
             }
             checklistHtml += '</div>';
         });
@@ -1018,12 +1105,24 @@ async function _bphtSubmitComplete() {
         answersList.push({ template_id: parseInt(qId), answer_value: val });
     }
 
+    const hourEl = document.getElementById('bphtCountingHour');
+    const minEl = document.getElementById('bphtCountingMinute');
+    let countingTime = '';
+    if (hourEl && minEl) {
+        if (!hourEl.value || !minEl.value) {
+            showToast('⚠️ Bắt buộc phải chọn đầy đủ Giờ và Phút đếm số lượng!', 'error');
+            return;
+        }
+        countingTime = `${hourEl.value}:${minEl.value}`;
+    }
+
     try {
-        // 1. Update finishing record fields (finisher_id, shipping_standard, finishing_notes)
+        // 1. Update finishing record fields (finisher_id, shipping_standard, finishing_notes, counting_time)
         await apiCall(`/api/finishing/records/${_bphtState.currentRecordId}`, 'PUT', {
             finisher_id: parseInt(finisherId),
             shipping_standard: shippingStandard,
-            finishing_notes: notes
+            finishing_notes: notes,
+            counting_time: countingTime
         });
 
         // 2. Submit checklist answers (if any)

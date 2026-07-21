@@ -1549,6 +1549,7 @@ function _tsRenderStepModal(step, d, itemId = null){
                             <span style="font-size:11px;color:#64748b">📅 Hạn gửi: ${formattedExpectedDate}</span>
                         </div>
                         ${row('📦 Tiêu chuẩn gửi', r.shipping_standard === 'gap' ? '⚠️ GẤP' : (r.shipping_standard === 'gui' ? '📦 GỬI' : '✅ CHUẨN'))}
+                        ${row('⏰ Giờ đếm số lượng check Camera', '<strong style="color:#059669;font-size:13px;font-weight:900;">' + (r.counting_time || '—') + '</strong>')}
                         `;
 
                     if(r.checklist&&r.checklist.length){

@@ -59,6 +59,10 @@ module.exports = async function(fastify) {
     } catch(e) { console.error('[BPHT] migration finishing_notes:', e.message); }
 
     try {
+        await db.exec(`ALTER TABLE finishing_records ADD COLUMN IF NOT EXISTS counting_time VARCHAR(20)`);
+    } catch(e) { console.error('[BPHT] migration counting_time:', e.message); }
+
+    try {
         await db.exec(`CREATE TABLE IF NOT EXISTS finishing_checklist_templates (
             id SERIAL PRIMARY KEY,
             type VARCHAR(20) DEFAULT 'yes_no',
@@ -251,11 +255,11 @@ module.exports = async function(fastify) {
     fastify.post('/api/finishing/records', { preHandler: [authenticate] }, async (req) => {
         const b = req.body || {}, now = vnNow();
         const r = await db.get(`INSERT INTO finishing_records (dht_order_id,expected_date,done_date,product_name,cskh_name,quantity,
-            finisher_id,sewer_name,finish_images,shipping_standard,notes,created_by,created_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+            finisher_id,sewer_name,finish_images,shipping_standard,notes,created_by,created_at,counting_time)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
             [b.dht_order_id||null, b.expected_date||null, b.done_date||null, b.product_name||null, b.cskh_name||null,
              Number(b.quantity)||0, b.finisher_id||null, b.sewer_name||null, b.finish_images||'[]',
-             b.shipping_standard||'chuan', b.notes||null, req.user.id, now]);
+             b.shipping_standard||'chuan', b.notes||null, req.user.id, now, b.counting_time||null]);
         await db.run(`INSERT INTO finishing_history (finishing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [r.id, 'create', 'Tạo đơn hoàn thiện mới', req.user.id, now]);
         return { success: true, id: r.id };
@@ -369,13 +373,14 @@ module.exports = async function(fastify) {
         const rec = await db.get('SELECT * FROM finishing_records WHERE id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
         await db.run(`UPDATE finishing_records SET expected_date=$1,done_date=$2,product_name=$3,cskh_name=$4,quantity=$5,
-            finisher_id=$6,sewer_name=$7,finish_images=$8,shipping_standard=$9,notes=$10,updated_at=$11,finishing_notes=$12 WHERE id=$13`,
+            finisher_id=$6,sewer_name=$7,finish_images=$8,shipping_standard=$9,notes=$10,updated_at=$11,finishing_notes=$12,counting_time=$13 WHERE id=$14`,
             [b.expected_date!==undefined?b.expected_date:rec.expected_date, b.done_date!==undefined?b.done_date:rec.done_date,
              b.product_name!==undefined?b.product_name:rec.product_name, b.cskh_name!==undefined?b.cskh_name:rec.cskh_name,
              b.quantity!==undefined?Number(b.quantity):rec.quantity, b.finisher_id!==undefined?b.finisher_id:rec.finisher_id,
              b.sewer_name!==undefined?b.sewer_name:rec.sewer_name, b.finish_images!==undefined?b.finish_images:rec.finish_images,
              b.shipping_standard!==undefined?b.shipping_standard:rec.shipping_standard,
-             b.notes!==undefined?b.notes:rec.notes, now, b.finishing_notes!==undefined?b.finishing_notes:rec.finishing_notes, id]);
+             b.notes!==undefined?b.notes:rec.notes, now, b.finishing_notes!==undefined?b.finishing_notes:rec.finishing_notes,
+             b.counting_time!==undefined?b.counting_time:rec.counting_time, id]);
         await db.run(`INSERT INTO finishing_history (finishing_id,action,details,performed_by,performed_at) VALUES ($1,$2,$3,$4,$5)`,
             [id, 'update', 'Cập nhật thông tin hoàn thiện', req.user.id, now]);
         return { success: true };
@@ -584,7 +589,8 @@ module.exports = async function(fastify) {
         const finishingRecordId = parseInt(req.params.finishingRecordId);
         const templates = await db.all(`SELECT * FROM finishing_checklist_templates WHERE is_active = true ORDER BY sort_order, id`);
         const answers = await db.all(`SELECT a.*, u.full_name AS answered_by_name FROM finishing_checklist_answers a LEFT JOIN users u ON a.answered_by = u.id WHERE a.finishing_record_id = $1`, [finishingRecordId]);
-        return { templates, answers };
+        const record = await db.get(`SELECT id, counting_time FROM finishing_records WHERE id = $1`, [finishingRecordId]);
+        return { templates, answers, record };
     });
 
     // 7. POST submit answers for a finishing record
@@ -642,6 +648,7 @@ module.exports = async function(fastify) {
         msg += `👤 <b>Thợ may:</b> ${rec.sewer_name || '—'}\n`;
         msg += `👤 <b>Nhân viên HT:</b> ${rec.finisher_name || '—'}\n`;
         msg += `📦 <b>Số lượng:</b> ${rec.quantity || 0}\n`;
+        msg += `⏰ <b>Giờ đếm số lượng check Camera:</b> ${rec.counting_time || '—'}\n`;
         msg += `🚚 <b>Tiêu chuẩn gửi:</b> ${rec.shipping_standard === 'gap' ? '🔴 GẤP' : (rec.shipping_standard === 'gui' ? '📦 GỬI' : '✅ CHUẨN')}\n`;
         if (rec.notes) {
             msg += `📝 <b>Ghi chú:</b> ${rec.notes}\n`;
