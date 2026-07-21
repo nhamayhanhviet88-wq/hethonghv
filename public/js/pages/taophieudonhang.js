@@ -4704,14 +4704,28 @@ function _tpdRenderFormInputs() {
 
     const layout = _tpdGetCustomLayout(state.activeItemIndex);
 
-    const disabledAttr = state.hasEditPermission ? '' : 'disabled';
-    const cuttingLocked = !!it.has_cutting_started;
-    const sizeDisabledAttr = cuttingLocked ? 'disabled' : disabledAttr;
+    const isSheetShipped = !!(it.has_shipped || it.shipping_status === 'shipped' || it.shipped_at || it.actual_ship_datetime);
+    const disabledAttr = (state.hasEditPermission && !isSheetShipped) ? '' : 'disabled';
+    const cuttingLocked = !!it.has_cutting_started || isSheetShipped;
+    const sizeDisabledAttr = (cuttingLocked || isSheetShipped) ? 'disabled' : disabledAttr;
 
     const isNoSew = !!it.is_no_sew || !_tpdHasSewingStep(it);
-    const qcLocked = !!it.has_qc_completed || isNoSew;
-    const sewingDisabledAttr = qcLocked ? 'disabled' : disabledAttr;
-    const sewingEditAllowed = state.hasEditPermission && !qcLocked;
+    const qcLocked = !!it.has_qc_completed || isNoSew || isSheetShipped;
+    const sewingDisabledAttr = (qcLocked || isSheetShipped) ? 'disabled' : disabledAttr;
+    const sewingEditAllowed = state.hasEditPermission && !qcLocked && !isSheetShipped;
+
+    let shippedWarningHtml = '';
+    if (isSheetShipped) {
+        shippedWarningHtml = `
+            <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1.5px solid #ef4444; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.12);">
+                <span style="font-size: 22px;">🔒</span>
+                <div style="flex: 1;">
+                    <div style="font-size: 13px; font-weight: 800; color: #991b1b; text-transform: uppercase;">PHIẾU ĐÃ ĐƯỢC GỬI HÀNG (KẾ TOÁN ĐÃ GỬI HÀNG)</div>
+                    <div style="font-size: 11px; color: #b91c1c; margin-top: 3px; line-height: 1.4;">Phiếu sản xuất này đã được bộ phận Kế toán / Vận chuyển xuất gửi hàng cho khách. Mọi thao tác chỉnh sửa thông tin sản xuất của phiếu này đã bị khóa.</div>
+                </div>
+            </div>
+        `;
+    }
 
     let qcWarningHtml = '';
     if (qcLocked) {
@@ -4822,6 +4836,7 @@ function _tpdRenderFormInputs() {
 
     // 1. Text Fields (Sản phẩm, Chất liệu vải, Màu sắc phối)
     let html = `
+        ${shippedWarningHtml}
         ${cuttingWarningHtml}
         ${fabricWarningHtml}
         ${qcWarningHtml}
@@ -5558,6 +5573,25 @@ function _tpdRenderFormInputs() {
     }
 
     container.innerHTML = html;
+
+    // Dynamically update footer Save button state based on isSheetShipped
+    const saveBtn = document.querySelector('.tpd-ws-editor-footer .tpd-btn:last-child');
+    if (saveBtn) {
+        if (isSheetShipped) {
+            saveBtn.disabled = true;
+            saveBtn.style.background = '#94a3b8';
+            saveBtn.style.boxShadow = 'none';
+            saveBtn.style.cursor = 'not-allowed';
+            saveBtn.innerHTML = '🔒 Phiếu Đã Gửi Hàng - Không Thể Sửa';
+        } else if (state.hasEditPermission) {
+            const isOrderDraft = state.order && state.order.is_draft;
+            saveBtn.disabled = false;
+            saveBtn.style.background = 'linear-gradient(135deg, #059669, #10b981)';
+            saveBtn.style.boxShadow = '0 4px 10px rgba(5, 150, 105, 0.2)';
+            saveBtn.style.cursor = 'pointer';
+            saveBtn.innerHTML = isOrderDraft ? '📤 Xuất Phiếu & Lên Đơn' : '💾 Lưu Cập Nhật Phiếu';
+        }
+    }
 }
 
 // ★ Giám Đốc override fabric lock
