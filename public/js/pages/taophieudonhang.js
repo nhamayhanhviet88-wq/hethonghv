@@ -363,6 +363,35 @@ async function renderDesignDraftPage(content) {
         if (!details || !details.order) throw new Error('Không lấy được chi tiết đơn hàng');
         const order = details.order;
         const items = details.items || [];
+        const shipments = details.shipments || [];
+
+        // Check shipment history for each sheet/item
+        items.forEach((item, idx) => {
+            const sheetNum = idx + 1;
+            const phieuStr = `phiếu ${sheetNum}`;
+            const itemIdStr = String(item.id);
+
+            const isDirectShipped = item.shipping_status === 'shipped' || !!item.shipped_at || !!item.actual_ship_datetime;
+
+            const isShipmentMatched = shipments.some(s => {
+                if (s.item_ids) {
+                    const idList = String(s.item_ids).split(',').map(x => x.trim());
+                    if (idList.includes(itemIdStr)) return true;
+                }
+                if (s.item_labels) {
+                    try {
+                        const labels = typeof s.item_labels === 'string' ? JSON.parse(s.item_labels) : (s.item_labels || []);
+                        return labels.some(l => {
+                            const lbl = (l.label || '').toLowerCase().trim();
+                            return lbl === phieuStr || lbl.includes(phieuStr);
+                        });
+                    } catch(e) {}
+                }
+                return false;
+            });
+
+            item.has_shipped = isDirectShipped || isShipmentMatched;
+        });
 
         // Clear previous revision notes in-memory on workspace entry so staff must fill a fresh note
         items.forEach(item => {
