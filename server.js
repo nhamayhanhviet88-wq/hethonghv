@@ -1268,6 +1268,12 @@ async function start() {
         try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS responsibility JSONB DEFAULT '[]'`); } catch(e) {}
     } catch(e) { console.error('[Migration v13] Common Errors:', e.message); }
 
+    // Migration: Finishing Records counting_time column
+    try {
+        await db.exec(`ALTER TABLE finishing_records ADD COLUMN IF NOT EXISTS counting_time VARCHAR(20)`);
+        await db.exec(`ALTER TABLE finishing_records ADD COLUMN IF NOT EXISTS finishing_notes TEXT`);
+    } catch(e) { console.error('[Migration] Finishing Records counting_time:', e.message); }
+
     // Migration: Fix handover_status — centralized logic (thanh_toan/tt_sll → chua_bangiao, rest → thu_quy_nhan)
     try {
         const fixTT = await db.run(`UPDATE payment_records SET handover_status = 'chua_bangiao' WHERE payment_type IN ('thanh_toan', 'tt_sll') AND handover_status = 'thu_quy_nhan'`);
