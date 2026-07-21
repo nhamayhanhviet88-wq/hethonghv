@@ -298,7 +298,12 @@ module.exports = async function(fastify) {
 
         let detail = '';
         if (action === 'complete') {
-            await db.run(`UPDATE finishing_records SET is_completed=true, completed_at=$1, completed_by=$2, done_date=COALESCE(done_date,CURRENT_DATE), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
+            const cTime = req.body && req.body.counting_time ? req.body.counting_time : null;
+            if (cTime) {
+                await db.run(`UPDATE finishing_records SET is_completed=true, completed_at=$1, completed_by=$2, done_date=COALESCE(done_date,CURRENT_DATE), counting_time=$3, updated_at=$1 WHERE id=$4`, [now, req.user.id, cTime, id]);
+            } else {
+                await db.run(`UPDATE finishing_records SET is_completed=true, completed_at=$1, completed_by=$2, done_date=COALESCE(done_date,CURRENT_DATE), updated_at=$1 WHERE id=$3`, [now, req.user.id, id]);
+            }
             detail = '✅ Báo cáo hoàn thành';
         } else if (action === 'undo_complete') {
             await db.run(`UPDATE finishing_records SET is_completed=false, completed_at=NULL, completed_by=NULL, done_date=NULL, updated_at=$1 WHERE id=$2`, [now, id]);
@@ -613,6 +618,10 @@ module.exports = async function(fastify) {
                 `, [finishingRecordId, templateId, val, req.user.id, now]);
             }
         }
+        if (req.body && req.body.counting_time) {
+            await db.run(`UPDATE finishing_records SET counting_time = $1 WHERE id = $2`, [req.body.counting_time, finishingRecordId]);
+        }
+
         return { success: true };
     });
 

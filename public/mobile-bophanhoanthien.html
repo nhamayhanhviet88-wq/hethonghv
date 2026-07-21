@@ -1577,10 +1577,12 @@ async function mSubmitComplete() {
         });
 
         if (answersList.length > 0) {
-            await api(`/api/finishing/checklist/answers/${mState.currentRecordId}`, 'POST', { answers: answersList });
+            await api(`/api/finishing/checklist/answers/${mState.currentRecordId}`, 'POST', { answers: answersList, counting_time: countingTime });
         }
 
-        await api(`/api/finishing/toggle/${mState.currentRecordId}`, 'POST', { action: 'complete' });
+        await api(`/api/finishing/toggle/${mState.currentRecordId}`, 'POST', { action: 'complete', counting_time: countingTime });
+
+        if (r) r.counting_time = countingTime;
 
         try {
             await api(`/api/finishing/checklist/notify/${mState.currentRecordId}`, 'POST');

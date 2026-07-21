@@ -1127,11 +1127,13 @@ async function _bphtSubmitComplete() {
 
         // 2. Submit checklist answers (if any)
         if (answersList.length > 0) {
-            await apiCall(`/api/finishing/checklist/answers/${_bphtState.currentRecordId}`, 'POST', { answers: answersList });
+            await apiCall(`/api/finishing/checklist/answers/${_bphtState.currentRecordId}`, 'POST', { answers: answersList, counting_time: countingTime });
         }
 
         // 3. Mark completed (complete action)
-        await apiCall(`/api/finishing/toggle/${_bphtState.currentRecordId}`, 'POST', { action: 'complete' });
+        await apiCall(`/api/finishing/toggle/${_bphtState.currentRecordId}`, 'POST', { action: 'complete', counting_time: countingTime });
+
+        if (r) r.counting_time = countingTime;
 
         // 4. Send Telegram Notification
         try {

@@ -380,7 +380,7 @@ const _PAGE_SCRIPT_MAP = {
     'lich-su-bao-cao': '/js/pages/lichsu-baocao.js',
     'lichsubaocaocv': '/js/pages/lichsu-baocao.js',
     'khoa-tk-nv': '/js/pages/khoatknv.js',
-    'bophanhoanthien': '/js/pages/bophanhoanthienhv.js?v=20260721_counting_fix_v8',
+    'bophanhoanthien': '/js/pages/bophanhoanthienhv.js?v=20260721_counting_fix_v9',
     'bophaninhv': '/js/pages/bophaninhv.js',
     'bophanep': '/js/pages/bophanephv.js',
     'donhangthietke': '/js/pages/donhangthietke.js',
