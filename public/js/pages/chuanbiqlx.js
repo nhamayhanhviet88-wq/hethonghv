@@ -856,7 +856,12 @@ function _qlxRenderRows(paged) {
                         } else {
                             sewClass = ' qlx-sew-not-ready';
                         }
-                        h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiIn ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\',' + (it ? it.id : 0) + ')" title="PC In">🖨️</button></td>';
+                        var isNoPrint = it ? (it.is_no_print === true || it.is_no_print === 1 || it.is_no_print === 't') : false;
+                        if (isNoPrint) {
+                            h += '<td style="text-align:center"><button class="qlx-icon-btn on-fab" onclick="_qlxNoPrintNotice()" title="KHÔNG IN & ÉP">🚫</button></td>';
+                        } else {
+                            h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiIn ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\',' + (it ? it.id : 0) + ')" title="PC In">🖨️</button></td>';
+                        }
                         h += '<td style="text-align:center"><button class="qlx-icon-btn' + sewClass + '" onclick="_qlxAssign(' + o.id + ',\'may\',' + (it ? it.id : 0) + ')" title="PC May">🪡</button></td>';
                     } else {
                         if (isNew) {
