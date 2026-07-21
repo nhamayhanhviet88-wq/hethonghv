@@ -5022,7 +5022,14 @@ module.exports = async function(fastify) {
 
         const isSewingDone = rawAssignments.length > 0 && rawAssignments.every(a => a.done_date !== null || a.salary_approved === true);
         const canToggleNoSew = !rawAssignments.some(a => a.done_date !== null || a.salary_approved === true || a.is_reported === true);
-        const fRec = await db.get(`SELECT is_completed, expected_date FROM finishing_records WHERE order_item_id = $1 LIMIT 1`, [itemId]);
+        const fRec = await db.get(`
+            SELECT fr.is_completed, fr.expected_date 
+            FROM finishing_records fr
+            LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+            WHERE fr.order_item_id = $1 OR sr.order_item_id = $1
+            ORDER BY fr.is_completed DESC, fr.id DESC
+            LIMIT 1
+        `, [itemId]);
         const isFinishingDone = fRec ? fRec.is_completed : false;
         const finishingExpectedDate = fRec && fRec.expected_date ? fRec.expected_date : null;
 
