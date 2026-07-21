@@ -870,3 +870,6 @@ async function _tsChartYear(delta) {
     document.getElementById('tsChartYear').textContent = _tsChartYearVal;
     try { const s = await apiCall('/api/trasoat/stats?year='+_tsChartYearVal); _tsDrawDonut(s); _tsDrawBar(s); } catch(e){}
 }
+
+window._tsRenderTimeline = _tsRenderTimeline;
+

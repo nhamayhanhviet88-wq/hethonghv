@@ -4364,6 +4364,10 @@ async function _dhtShowTraSoatModal(orderId, orderCode) {
     openModal(`🔍 Tra Soát Đơn Hàng — ${orderCode}`, initialBody, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`);
     
     try {
+        if (typeof _tsRenderTimeline !== 'function' && typeof _loadScript === 'function') {
+            await _loadScript('/js/pages/trasoat-modal.js');
+            await _loadScript('/js/pages/trasoatdonhang.js');
+        }
         const res = await apiCall('/api/trasoat/orders/' + orderId + '/detail');
         if (typeof _tsRenderTimeline === 'function') {
             const html = _tsRenderTimeline(res);
