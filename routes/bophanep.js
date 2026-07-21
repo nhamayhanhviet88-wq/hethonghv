@@ -1072,6 +1072,7 @@ module.exports = async function(fastify) {
                           )
                     ) AS pending_print_types
                 FROM dht_order_items doi
+                JOIN dht_orders o ON doi.dht_order_id = o.id
                 LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
                 WHERE doi.dht_order_id = ANY($1)
