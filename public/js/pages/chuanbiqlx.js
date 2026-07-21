@@ -1098,12 +1098,13 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         if (typeof stepsVal === 'string') {
             try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
         }
-        var isNoCut = !!(it && it.is_no_cut) || (Array.isArray(stepsVal) && !stepsVal.includes(2) && !stepsVal.includes('2'));
+        var isNoCutByFlow = Array.isArray(stepsVal) && stepsVal.length > 0 && !stepsVal.includes(2) && !stepsVal.includes('2');
+        var isNoCut = !!(it && it.is_no_cut) || isNoCutByFlow;
         var isLockedNoCut = !!(data && (data.is_production_done || data.is_cut_done || data.is_cut_claimed));
-        var isNoCutDisabled = isNoCut || isLockedNoCut;
+        var isNoCutDisabled = isLockedNoCut || isNoCutByFlow;
         var disabledAttr = isNoCutDisabled ? ' disabled' : '';
         var labelStyle = 'display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #be123c; margin: 0; background: #ffe4e6; border: 1.5px solid #fda4af; padding: 6px 14px; border-radius: 8px;' + (isNoCutDisabled ? ' opacity: 0.55; cursor: not-allowed;' : ' cursor: pointer;');
-        var labelOnClick = isLockedNoCut ? ' onclick="showToast(\'⚠️ Phiếu/phối này đã cắt xong hoặc hoàn thành sản xuất, không thể chọn Phiếu Không Cắt!\', \'error\'); event.preventDefault(); return false;"' : '';
+        var labelOnClick = isLockedNoCut ? ' onclick="showToast(\'⚠️ Phiếu/phối này đã cắt xong hoặc hoàn thành sản xuất, không thể thay đổi cờ Không Cắt!\', \'error\'); event.preventDefault(); return false;"' : (isNoCutByFlow ? ' onclick="showToast(\'⚠️ Quy trình sản xuất của đơn này được đặt mặc định Không Cắt!\', \'error\'); event.preventDefault(); return false;"' : '');
         html += '<div style="margin: 12px 20px 0; padding: 12px 16px; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 12px; display: flex; align-items: center; justify-content: space-between;">';
         html += '  <div style="display: flex; align-items: center; gap: 8px;">';
         html += '    <span style="font-size: 18px;">🚫</span>';
