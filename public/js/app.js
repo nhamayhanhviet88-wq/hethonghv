@@ -408,7 +408,7 @@ const _PAGE_SCRIPT_MAP = {
     'taophieudonhang': '/js/pages/taophieudonhang.js?v=20260721_add_discard_draft_v5',
     'design-draft': '/js/pages/taophieudonhang.js?v=20260721_add_discard_draft_v5',
     'khuyenmaigiamgia': '/js/pages/khuyenmaigiamgia.js',
-    'donhangtong': '/js/pages/donhangtong.js?v=20260721_trasoat_v3',
+    'donhangtong': '/js/pages/donhangtong.js?v=20260721_phieusx_no_img_v1',
     'bophancat': '/js/pages/bophancathv.js',
     'bophanmay': '/js/pages/bophanmayhv.js',
     'bophanhoanthien': '/js/pages/bophanhoanthienhv.js',

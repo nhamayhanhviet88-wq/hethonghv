@@ -3031,16 +3031,14 @@ async function _dhtShowPhieuSX(orderId) {
         const data = await res.json();
         const o = data.order;
         const items = data.items || [];
-        const fmt = n => Number(n || 0).toLocaleString('vi-VN');
 
         // Check confirm permission: GĐ + Phòng Kế Toán
         const deptName = (currentUser && currentUser.department_name) ? currentUser.department_name : '';
         const isKeToan = deptName.toLowerCase().indexOf('kế toán') !== -1 || deptName.toLowerCase().indexOf('ke toan') !== -1;
         const canConfirm = (currentUser && currentUser.role === 'giam_doc') || isKeToan;
 
-        // Build items table
+        // Build items list without preview images
         let itemsHTML = '';
-        window._dhtCurrentOrderItems = items.map(it => it.id);
         const confirmed = o.sx_print_confirmed;
 
         items.forEach((it, idx) => {
@@ -3053,58 +3051,23 @@ async function _dhtShowPhieuSX(orderId) {
                 ? matPairs.map(p => `${p.material || ''}/${p.color || ''}`).join(', ')
                 : `${it.material_name || ''}/${it.color_name || ''}`;
 
-            const suffix = (o.edit_count && o.edit_count > 0) ? ` - Sua lan${o.edit_count}` : '';
-            const sheetImgUrl = `/uploads/sheets/${encodeURIComponent(o.order_code)} - Phieu ${idx + 1}${suffix}.jpeg`;
-            const printKey = `dht_printed_${orderId}_${it.id}`;
-            const isPrinted = confirmed || localStorage.getItem(printKey) === 'true';
-
-            itemsHTML += `<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05),0 2px 4px -1px rgba(0,0,0,0.03)">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:12px">
-                    <span style="font-weight:800;font-size:14px;color:#0f172a">📋 Phiếu sản xuất ${idx + 1}: ${it.product_name || '—'}</span>
+            itemsHTML += `<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 4px rgba(0,0,0,0.03)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1px solid #f1f5f9;padding-bottom:8px">
+                    <span style="font-weight:800;font-size:13.5px;color:#0f172a">📋 Phiếu sản xuất ${idx + 1}: ${it.product_name || '—'}</span>
                     <span style="background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">SL: ${totalQty}</span>
                 </div>
                 
-                <div style="display:grid;grid-template-columns:1fr;gap:16px">
-                    <!-- Sheet Preview Image -->
-                    <div style="text-align:center;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:8px;position:relative">
-                        <img src="${sheetImgUrl}" alt="Phiếu sản xuất ${idx + 1}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="max-height:250px;max-width:100%;object-fit:contain;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:transform 0.2s;cursor:pointer" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='none'" onclick="window._dhtZoomImage('${sheetImgUrl}')">
-                        <div style="display:none;padding:40px 20px;background:#f1f5f9;border-radius:8px;border:1px dashed #cbd5e1">
-                            <span style="font-size:24px;display:block;margin-bottom:8px">📄</span>
-                            <span style="font-size:12px;color:#64748b;font-weight:600">Không tìm thấy tệp ảnh của phiếu sản xuất</span>
-                        </div>
-                        <div style="font-size:10px;color:#64748b;margin-top:6px">🔍 Click vào ảnh để phóng to</div>
-                    </div>
-                    
-                    <!-- Info and Actions -->
-                    <div style="display:flex;flex-direction:column;justify-content:space-between;gap:10px">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:#475569">
-                            <div>🏷️ Loại: <b>${it.sale_type || '—'}</b></div>
-                            <div>📐 Mẫu: <b>${it.pattern_name || '—'}</b></div>
-                            <div>🧵 Chất liệu: <b>${matStr}</b></div>
-                            <div>✂️ CT May Thêm: <b>${sewStr}</b></div>
-                            <div style="grid-column: span 2;display:flex;align-items:center;gap:4px">
-                                📄 Thiết kế: 
-                                ${it.design_pdf_url 
-                                    ? `<a href="${it.design_pdf_url}" download="${o.order_code || 'DONHANG'} - Phieu ${idx + 1}.pdf" target="_blank" style="color:#0284c7;font-weight:800;text-decoration:underline">Mở File PDF</a>`
-                                    : `<span style="color:#ef4444;font-weight:800">Chưa tải lên</span>`
-                                }
-                            </div>
-                        </div>
-                        
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;border-top:1px solid #f1f5f9;padding-top:12px">
-                            <!-- Status indicator -->
-                            <div id="print_status_${idx}" style="font-size:12px;font-weight:700">
-                                ${isPrinted 
-                                    ? `<span style="color:#10b981;display:inline-flex;align-items:center;gap:4px">✅ Đã in phiếu</span>`
-                                    : `<span style="color:#f59e0b;display:inline-flex;align-items:center;gap:4px">⚠️ Chưa in phiếu</span>`
-                                }
-                            </div>
-                            
-                            <!-- Print button -->
-                            <button class="btn" onclick="window._dhtPrintAndMark('${orderId}', '${it.id}', ${idx}, '${sheetImgUrl}', '${o.order_code}')" style="padding:6px 16px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 2px 4px rgba(29,78,216,0.2)">
-                                🖨️ In Phiếu
-                            </button>
-                        </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:12px;color:#475569">
+                    <div>🏷️ Loại: <b>${it.sale_type || '—'}</b></div>
+                    <div>📐 Mẫu: <b>${it.pattern_name || '—'}</b></div>
+                    <div>🧵 Chất liệu: <b>${matStr}</b></div>
+                    <div>✂️ CT May Thêm: <b>${sewStr}</b></div>
+                    <div style="grid-column: span 2;display:flex;align-items:center;gap:6px;margin-top:2px">
+                        📄 File Thiết kế: 
+                        ${it.design_pdf_url 
+                            ? `<a href="${it.design_pdf_url}" download="${o.order_code || 'DONHANG'} - Phieu ${idx + 1}.pdf" target="_blank" style="color:#0284c7;font-weight:800;text-decoration:underline">Mở File PDF</a>`
+                            : `<span style="color:#ef4444;font-weight:800">Chưa tải lên</span>`
+                        }
                     </div>
                 </div>
             </div>`;
@@ -3121,18 +3084,10 @@ async function _dhtShowPhieuSX(orderId) {
 
         var body = `<div style="padding:4px 0">
             <div style="text-align:center;margin-bottom:16px">${statusBadge}</div>
-            <div style="max-height:45vh;overflow-y:auto;padding-right:4px">${itemsHTML}</div>
-            
-            <!-- Warning box if not all printed -->
-            <div id="dht_print_warning_box" style="background:#fef2f2;border:1px solid #fee2e2;border-radius:10px;padding:12px;margin-top:12px;display:${confirmed ? 'none' : 'flex'};align-items:center;gap:8px">
-                <span style="font-size:18px">⚠️</span>
-                <div style="font-size:12px;color:#991b1b;font-weight:600">
-                    Vui lòng bấm nút "In Phiếu" cho tất cả các phiếu ở trên để mở khóa nút Xác Nhận.
-                </div>
-            </div>
+            <div style="max-height:50vh;overflow-y:auto;padding-right:4px">${itemsHTML}</div>
 
-            <div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #7dd3fc;border-radius:10px;padding:10px 14px;margin-top:12px">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
+            <div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #7dd3fc;border-radius:10px;padding:12px 16px;margin-top:12px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:11.5px">
                     <div>📦 Tổng phiếu: <b>${items.length}</b></div>
                     <div>🚚 Ngày gửi: <b>${o.expected_ship_date ? new Date(o.expected_ship_date).toLocaleDateString('vi-VN') : '—'}</b></div>
                     <div>⏰ Giờ ra hàng: <b>${o.standard_delivery_time || '—'}</b></div>
@@ -3143,23 +3098,18 @@ async function _dhtShowPhieuSX(orderId) {
 
         var confirmBtn = '';
         if (canConfirm && !confirmed) {
-            confirmBtn = `<div id="dht_confirm_btn_wrap" style="display:none;float:right">
-                <button class="btn" onclick="_dhtConfirmPhieuSX('${orderId}')" style="padding:8px 24px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-left:8px">✅ Xác Nhận In SX</button>
+            confirmBtn = `<div id="dht_confirm_btn_wrap" style="display:block;float:right">
+                <button class="btn" onclick="_dhtConfirmPhieuSX('${orderId}')" style="padding:9px 24px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;margin-left:8px;box-shadow:0 4px 10px rgba(5,150,105,0.25)">✅ Xác Nhận</button>
             </div>`;
         } else if (canConfirm && confirmed) {
             confirmBtn = `<div id="dht_confirm_btn_wrap" style="display:block;float:right">
-                <button class="btn" disabled style="padding:8px 24px;background:#d1d5db;color:#6b7280;border:none;border-radius:8px;font-weight:800;cursor:not-allowed;margin-left:8px">✅ Đã Xác Nhận</button>
+                <button class="btn" disabled style="padding:9px 24px;background:#d1d5db;color:#6b7280;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:not-allowed;margin-left:8px">✅ Đã Xác Nhận</button>
             </div>`;
         }
-        var footer = `<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail('${orderId}')},200)" style="padding:8px 20px;float:left">← Quay Lại</button>`
+        var footer = `<button class="btn btn-secondary" onclick="closeModal();setTimeout(function(){_dhtShowDetail('${orderId}')},200)" style="padding:9px 20px;float:left;font-weight:700">← Quay Lại</button>`
             + confirmBtn;
 
         openModal(`🏭 Phiếu Sản Xuất — ${o.order_code}`, body, footer);
-
-        // Run check to toggle warning box and confirm button on startup
-        if (!confirmed) {
-            window._dhtCheckAllPrintedAndUnlock(orderId);
-        }
     } catch(e) {
         console.error(e);
         showToast('❌ ' + (e.message || 'Lỗi tải phiếu SX'), 'error');
