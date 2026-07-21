@@ -5610,7 +5610,7 @@ module.exports = async function(fastify) {
 
         if (orderIds.length > 0) {
 
-            let itemsWhere = 'doi.dht_order_id = ANY($1)';
+            let itemsWhere = `doi.dht_order_id = ANY($1) AND (doi.production_steps IS NULL OR doi.production_steps @> '2'::jsonb) AND COALESCE(doi.is_no_cut, false) = false AND COALESCE(doi.production_cancelled, false) = false`;
 
             let itemsParams = [orderIds];
 
