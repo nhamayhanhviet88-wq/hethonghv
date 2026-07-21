@@ -1870,41 +1870,28 @@ async function _dhtAddItem(editIdx) {
             if (e.target && e.target.type === 'checkbox') {
                 var targetShort = (e.target.getAttribute('data-short-name') || '').toUpperCase();
                 var isChecked = e.target.checked;
-                if (isChecked) {
-                    if (targetShort === 'ÉP') {
+                
+                // Trio linking: CẮT <-> MAY <-> KTCL
+                var isTrioStep = (targetShort === 'CẮT' || targetShort === 'CAT' || targetShort === 'MAY' || targetShort === 'KTCL');
+                if (isTrioStep) {
+                    ['CẮT', 'CAT', 'MAY', 'KTCL'].forEach(function(sName) {
+                        var cb = stepsEl.querySelector('input[data-short-name="' + sName + '"]');
+                        if (cb && cb.checked !== isChecked) {
+                            cb.checked = isChecked;
+                        }
+                    });
+                } else if (targetShort === 'ÉP') {
+                    if (isChecked) {
                         var inCb = stepsEl.querySelector('input[data-short-name="IN"]');
-                        if (inCb && !inCb.checked) {
-                            inCb.checked = true;
-                        }
-                    } else if (targetShort === 'MAY') {
-                        var ktclCb = stepsEl.querySelector('input[data-short-name="KTCL"]');
-                        if (ktclCb && !ktclCb.checked) {
-                            ktclCb.checked = true;
-                        }
-                    } else if (targetShort === 'KTCL') {
-                        var mayCb = stepsEl.querySelector('input[data-short-name="MAY"]');
-                        if (mayCb && !mayCb.checked) {
-                            mayCb.checked = true;
-                        }
+                        if (inCb && !inCb.checked) inCb.checked = true;
                     }
-                } else {
-                    if (targetShort === 'IN') {
+                } else if (targetShort === 'IN') {
+                    if (!isChecked) {
                         var epCb = stepsEl.querySelector('input[data-short-name="ÉP"]');
-                        if (epCb && epCb.checked) {
-                            epCb.checked = false;
-                        }
-                    } else if (targetShort === 'MAY') {
-                        var ktclCb = stepsEl.querySelector('input[data-short-name="KTCL"]');
-                        if (ktclCb && ktclCb.checked) {
-                            ktclCb.checked = false;
-                        }
-                    } else if (targetShort === 'KTCL') {
-                        var mayCb = stepsEl.querySelector('input[data-short-name="MAY"]');
-                        if (mayCb && mayCb.checked) {
-                            mayCb.checked = false;
-                        }
+                        if (epCb && epCb.checked) epCb.checked = false;
                     }
                 }
+                
                 if (typeof _ppUpdateCuttingFieldsVisibility === 'function') {
                     _ppUpdateCuttingFieldsVisibility();
                 }

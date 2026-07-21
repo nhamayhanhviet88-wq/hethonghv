@@ -13,7 +13,7 @@ function _dhtFmtCount(n) { return Number(n||0).toLocaleString('vi-VN') + ' đơn
 if (typeof window._dhtShowCreate !== 'function') {
     const wrapper = async function(preselectedOrderCode) {
         if (typeof _loadScript === 'function') {
-            await _loadScript('/js/pages/dht_create.js?v=20260721_show_cut_product_v1');
+            await _loadScript('/js/pages/dht_create.js?v=20260721_link_trio_v1');
         }
         if (typeof window._dhtShowCreate === 'function' && window._dhtShowCreate !== wrapper) {
             return window._dhtShowCreate(preselectedOrderCode);
@@ -25,7 +25,7 @@ if (typeof window._dhtShowCreate !== 'function') {
 if (typeof window._dhtShowCreateFree !== 'function') {
     const wrapper = async function() {
         if (typeof _loadScript === 'function') {
-            await _loadScript('/js/pages/dht_create.js?v=20260721_show_cut_product_v1');
+            await _loadScript('/js/pages/dht_create.js?v=20260721_link_trio_v1');
         }
         if (typeof window._dhtShowCreateFree === 'function' && window._dhtShowCreateFree !== wrapper) {
             return window._dhtShowCreateFree();
@@ -37,7 +37,7 @@ if (typeof window._dhtShowCreateFree !== 'function') {
 if (typeof window._dhtEditOrderFull !== 'function') {
     const wrapper = async function(id) {
         if (typeof _loadScript === 'function') {
-            await _loadScript('/js/pages/dht_create.js?v=20260721_show_cut_product_v1');
+            await _loadScript('/js/pages/dht_create.js?v=20260721_link_trio_v1');
         }
         if (typeof window._dhtEditOrderFull === 'function' && window._dhtEditOrderFull !== wrapper) {
             return window._dhtEditOrderFull(id);
