@@ -2342,6 +2342,14 @@ async function _qlxDoAssign(orderId, type, itemId) {
 async function _qlxAssignIn(orderId, itemId) {
     try {
         var data = await apiCall('/api/qlx/print-assignment/' + orderId + (itemId ? '?item_id=' + itemId : ''));
+        if (data && data.error) {
+            showToast(data.error, 'warning');
+            return;
+        }
+        if (!data || !data.order) {
+            showToast('⚠️ Không tìm thấy thông tin đơn hàng!', 'error');
+            return;
+        }
         var o = data.order;
         var fields = data.fields || [];
         var assignments = data.assignments || [];
