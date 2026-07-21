@@ -614,6 +614,8 @@ async function _bphtQuickSaveCountingTime(recordId) {
     try {
         await apiCall(`/api/finishing/records/${recordId}`, 'PUT', { counting_time: countingTime });
         showToast('✅ Đã lưu giờ đếm số lượng: ' + countingTime);
+        const r = (_bpht.records || []).find(x => x.id === recordId);
+        if (r) r.counting_time = countingTime;
         await _bphtLoadAll();
         _bphtOpenCompleteModal(recordId, true);
     } catch(e) {
