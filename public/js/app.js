@@ -372,6 +372,10 @@ const _PAGE_SCRIPT_MAP = {
     'giaithuonggame': '/js/pages/giaithuonggame.js',
     'trao-giai-thuong': '/js/pages/traogiaithuong.js',
     'traogiaithuong': '/js/pages/traogiaithuong.js',
+    'donloinoibo': '/js/pages/donloinoibo.js',
+    'loithuonggap': '/js/pages/donloinoibo.js',
+    'design-draft': '/js/pages/taophieudonhang.js',
+    'designdraft': '/js/pages/taophieudonhang.js',
     'bangiao-diem-kd': '/js/pages/bangiao-diem.js',
     'bangiaodiem': '/js/pages/bangiao-diem.js',
     'lich-khoa-bieu': '/js/pages/lich-khoabieu.js',
@@ -380,9 +384,9 @@ const _PAGE_SCRIPT_MAP = {
     'lich-su-bao-cao': '/js/pages/lichsu-baocao.js',
     'lichsubaocaocv': '/js/pages/lichsu-baocao.js',
     'khoa-tk-nv': '/js/pages/khoatknv.js',
-    'bophanhoanthien': '/js/pages/bophanhoanthienhv.js?v=20260721_counting_fix_v10',
-    'bophanhoanthienhv': '/js/pages/bophanhoanthienhv.js?v=20260721_counting_fix_v10',
-    'bo-phan-hoan-thien': '/js/pages/bophanhoanthienhv.js?v=20260721_counting_fix_v10',
+    'bophanhoanthien': '/js/pages/bophanhoanthienhv.js?v=20260721_no_sew_wf_v2',
+    'bophanhoanthienhv': '/js/pages/bophanhoanthienhv.js?v=20260721_no_sew_wf_v2',
+    'bo-phan-hoan-thien': '/js/pages/bophanhoanthienhv.js?v=20260721_no_sew_wf_v2',
     'bophaninhv': '/js/pages/bophaninhv.js?v=20260721_bophanin_fix_v1',
     'bophanin': '/js/pages/bophaninhv.js?v=20260721_bophanin_fix_v1',
     'bo-phan-in': '/js/pages/bophaninhv.js?v=20260721_bophanin_fix_v1',
@@ -413,7 +417,7 @@ const _PAGE_SCRIPT_MAP = {
     'kiemkho': '/js/pages/kiemkho.js',
     'nhapxuathoanvai': '/js/pages/nhapxuathoanvai.js',
     'tongdoansosale': '/js/pages/tongdoansosale.js',
-    'trasoatdonhang': '/js/pages/trasoatdonhang.js?v=20260721_counting_fix_v7',
+    'trasoatdonhang': '/js/pages/trasoatdonhang.js?v=20260721_ts_modal_lazy_v2',
     'tulieuxuongvp': '/js/pages/tulieuxuongvp.js',
     'donhangchuathutien': '/js/pages/donhangchuathutien.js?v=20260721_counting_fix_v7',
     'taophieuxulycv': '/js/pages/taophieuxulycv.js',
@@ -439,9 +443,9 @@ const _PAGE_SCRIPT_MAP = {
     'baogiactvhh': '/js/pages/baogiactvhh.js',
     'tilecatgoc': '/js/pages/tilecatgoc.js',
     'luongsanxuat': '/js/pages/luongsanxuat.js',
-    'trasoat-modal': '/js/pages/trasoat-modal.js?v=20260721_nocut_ep_v1',
+    'trasoat-modal': '/js/pages/trasoat-modal.js?v=20260721_no_sew_wf_v2',
     'donhanghomnayqlx': '/js/pages/donhanghomnayqlx.js?v=20260721_counting_fix_v5',
-    'lichradonhang': '/js/pages/lichradonhang.js',
+    'lichradonhang': '/js/pages/lichradonhang.js?v=20260721_ts_modal_lazy_v2',
     'nhapxuathoanvatlieu': '/js/pages/nhapxuathoanvatlieu.js',
     'congviec-qlx': '/js/pages/congviecqlx.js',
     'congviecqlx': '/js/pages/congviecqlx.js',
@@ -480,8 +484,8 @@ const _PAGE_SCRIPT_MAP = {
     'xuat-vai-cat': '/js/pages/xuatvaicat.js',
     'kho-vat-lieu': '/js/pages/khovatlieu.js',
     'thong-so-ao-mau': '/js/pages/thongsoaomau.js',
-    'lich-ra-don-hang': '/js/pages/lichradonhang.js',
-    'tra-soat-don-hang': '/js/pages/trasoatdonhang.js',
+    'lich-ra-don-hang': '/js/pages/lichradonhang.js?v=20260721_ts_modal_lazy_v2',
+    'tra-soat-don-hang': '/js/pages/trasoatdonhang.js?v=20260721_ts_modal_lazy_v2',
     'khuyenmaigiamgia': '/js/pages/khuyenmaigiamgia.js',
     'khuyen-mai-giam-gia': '/js/pages/khuyenmaigiamgia.js',
     'xuatvaicat': '/js/pages/xuatvaicat.js'
@@ -2308,6 +2312,7 @@ async function handleRoute() {
                 case 'bo-phan-ep': case 'bophanep': case 'bophanephv': renderBophanepPage(content); break;
                 case 'bo-phan-may': case 'bophanmay': case 'bophanmayhv': renderBophanmayPage(content); break;
                 case 'bo-phan-hoan-thien': case 'bophanhoanthien': case 'bophanhoanthienhv': renderBophanhoanthienPage(content); break;
+                case 'design-draft': case 'designdraft': renderDesignDraftPage(content); break;
                 default:
                     // ========== CONVENTION-BASED AUTO-RENDER ==========
                     // Try multiple naming patterns to auto-discover page render functions
@@ -4286,6 +4291,8 @@ async function _abCheckUnblock() {
         // Setup modals and pricing preset buttons — safe to click rapidly
         if (el.closest && el.closest('#bgg_setup_modal, .setup-modal, [id*="setup_modal"]')) return true;
         if (el.closest && el.closest('.bgg-btn-calc, .preset-btn, [onclick*="Preset"], [onclick*="Setup"]')) return true;
+        // Step icons and timeline modal openers — exempt from debouncing
+        if (el.closest && el.closest('.ts-step-icon, .order-step-btn, [onclick*="_tsOpenStepModal"], [onclick*="_tsShowRescheduleHistoryModal"]')) return true;
         return false;
     }
 

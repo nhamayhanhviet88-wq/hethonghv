@@ -5,6 +5,16 @@ const { vnNow } = require('../utils/timezone');
 const path = require('path');
 const fs = require('fs');
 
+function _ensureCountingTimeDate(cTime, dateObj) {
+    if (!cTime || typeof cTime !== 'string') return cTime;
+    cTime = cTime.trim();
+    if (!cTime) return null;
+    if (cTime.includes('/') || cTime.includes('-')) return cTime;
+    const d = dateObj || vnNow();
+    const dStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    return `${cTime} - ${dStr}`;
+}
+
 module.exports = async function(fastify) {
 
     fastify.addHook('preHandler', async (request, reply) => {
@@ -53,6 +63,10 @@ module.exports = async function(fastify) {
     try {
         await db.exec(`ALTER TABLE finishing_records ADD COLUMN IF NOT EXISTS sewing_record_id INTEGER REFERENCES sewing_records(id) ON DELETE CASCADE`);
     } catch(e) { console.error('[BPHT] migration sewing_record_id:', e.message); }
+
+    try {
+        await db.exec(`ALTER TABLE finishing_records ADD COLUMN IF NOT EXISTS order_item_id INTEGER REFERENCES dht_order_items(id) ON DELETE CASCADE`);
+    } catch(e) { console.error('[BPHT] migration order_item_id:', e.message); }
 
     try {
         await db.exec(`ALTER TABLE finishing_records ADD COLUMN IF NOT EXISTS finishing_notes TEXT`);
@@ -129,8 +143,76 @@ module.exports = async function(fastify) {
         return false;
     }
 
+    async function ensureFinishingRecordForNoSew(orderItemId, userId) {
+        try {
+            const item = await db.get(`
+                SELECT oi.*, o.order_code, o.shipping_priority, o.expected_ship_date, u_cskh.full_name AS cskh_name
+                FROM dht_order_items oi
+                JOIN dht_orders o ON oi.dht_order_id = o.id
+                LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+                WHERE oi.id = $1
+            `, [orderItemId]);
+            if (!item) return;
+
+            let isNoSew = item.is_no_sew;
+            if (!isNoSew && item.production_steps) {
+                let steps = item.production_steps;
+                if (typeof steps === 'string') {
+                    try { steps = JSON.parse(steps); } catch(e) {}
+                }
+                if (Array.isArray(steps) && !steps.includes(5) && !steps.includes('5')) {
+                    isNoSew = true;
+                }
+            }
+            if (!isNoSew) return;
+
+            const existing = await db.get(`SELECT id FROM finishing_records WHERE order_item_id = $1`, [orderItemId]);
+            if (!existing) {
+                const allItems = await db.all(`SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id`, [item.dht_order_id]);
+                const itemIdx = allItems.findIndex(a => a.id === Number(orderItemId)) + 1;
+                let prodName = item.order_code;
+                if (allItems.length > 1) prodName += ` — Phiếu ${itemIdx}`;
+                if (item.description) prodName += ` — ${item.description}`;
+
+                const shippingStandard = (item.shipping_priority || 'CHUẨN').toLowerCase() === 'gấp' ? 'gap' : 
+                                         ((item.shipping_priority || 'CHUẨN').toLowerCase() === 'gửi' ? 'gui' : 'chuan');
+                
+                const now = vnNow();
+                const r = await db.get(`
+                    INSERT INTO finishing_records (
+                        dht_order_id, order_item_id, expected_date, is_completed, product_name, cskh_name, quantity, sewer_name, shipping_standard, created_by, created_at
+                    ) VALUES ($1, $2, $3, false, $4, $5, $6, 'ĐƠN KHÔNG MAY', $7, $8, $9) RETURNING id
+                `, [item.dht_order_id, orderItemId, item.expected_ship_date || null, prodName, item.cskh_name, item.quantity || 0, shippingStandard, userId || 1, now]);
+
+                await db.run(`INSERT INTO finishing_history (finishing_id, action, details, performed_by, performed_at) VALUES ($1, 'create', 'Tạo tự động cho đơn KHÔNG MAY', $2, $3)`, [r.id, userId || 1, now]);
+            }
+        } catch(e) {
+            console.error('[ensureFinishingRecordForNoSew] Error:', e.message);
+        }
+    }
+
+    async function syncAllMissingNoSew() {
+        try {
+            const missingNoSewItems = await db.all(`
+                SELECT oi.id 
+                FROM dht_order_items oi
+                JOIN dht_orders o ON oi.dht_order_id = o.id
+                WHERE (COALESCE(oi.is_no_sew, false) = true OR (oi.production_steps IS NOT NULL AND NOT oi.production_steps @> '5'::jsonb))
+                  AND COALESCE(o.shipping_status, '') NOT IN ('shipped', 'cancelled')
+                  AND COALESCE(oi.production_cancelled, false) = false
+                  AND NOT EXISTS (SELECT 1 FROM finishing_records fr WHERE fr.order_item_id = oi.id)
+            `);
+            for (const item of missingNoSewItems) {
+                await ensureFinishingRecordForNoSew(item.id, 1);
+            }
+        } catch(e) {
+            console.error('[syncAllMissingNoSew] Error:', e.message);
+        }
+    }
+
     // ========== TREE ==========
     fastify.get('/api/finishing/tree', { preHandler: [authenticate] }, async (req) => {
+        await syncAllMissingNoSew();
         const mgr = await isFinishManager(req);
         let where = '', params = [];
         if (!mgr && !['quan_ly','truong_phong'].includes(req.user.role)) {
@@ -187,6 +269,7 @@ module.exports = async function(fastify) {
 
     // ========== LIST ==========
     fastify.get('/api/finishing/records', { preHandler: [authenticate] }, async (req) => {
+        await syncAllMissingNoSew();
         const mgr = await isFinishManager(req);
         const { year, month, finisher_id, status, search } = req.query;
         let where = 'WHERE 1=1', params = [], idx = 1;
@@ -210,7 +293,7 @@ module.exports = async function(fastify) {
             SELECT fr.*, u.full_name AS finisher_name, u_c.full_name AS completed_by_name, o.order_code, COALESCE(o.is_draft, false) AS is_draft,
                    o.customer_name, cat.name AS category_name,
                    o.expected_ship_date, o.standard_delivery_time,
-                   sr.contractor_id, sr.sewing_team_id, sr.order_item_id,
+                   sr.contractor_id, sr.sewing_team_id, COALESCE(fr.order_item_id, sr.order_item_id) AS order_item_id,
                    (CASE 
                        WHEN sr.contractor_id IS NULL THEN true
                        ELSE EXISTS (
@@ -221,16 +304,16 @@ module.exports = async function(fastify) {
                    (
                        SELECT product_name 
                        FROM cutting_records 
-                       WHERE order_item_id = (SELECT order_item_id FROM sewing_records WHERE id = fr.sewing_record_id) 
+                       WHERE order_item_id = COALESCE(fr.order_item_id, (SELECT order_item_id FROM sewing_records WHERE id = fr.sewing_record_id))
                        ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC 
                        LIMIT 1
                    ) AS cut_product_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
-                   (CASE WHEN fr.sewing_record_id IS NOT NULL AND (oi_cancel.production_steps IS NULL OR oi_cancel.production_steps @> '6'::jsonb) AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = fr.sewing_record_id) THEN 0 ELSE 1 END) AS is_qc_checked,
+                   (CASE WHEN fr.sewing_record_id IS NOT NULL AND (oi_cancel.production_steps IS NULL OR oi_cancel.production_steps @> '7'::jsonb OR oi_cancel.production_steps @> '[7]'::jsonb) AND NOT EXISTS (SELECT 1 FROM qc_checklist_answers WHERE sewing_record_id = fr.sewing_record_id) THEN 0 ELSE 1 END) AS is_qc_checked,
                    COALESCE(oi_cancel.production_cancelled, false) AS production_cancelled
             FROM finishing_records fr 
             LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
-            LEFT JOIN dht_order_items oi_cancel ON oi_cancel.id = sr.order_item_id
+            LEFT JOIN dht_order_items oi_cancel ON oi_cancel.id = COALESCE(fr.order_item_id, sr.order_item_id)
             LEFT JOIN users u ON fr.finisher_id=u.id
             LEFT JOIN users u_c ON fr.completed_by=u_c.id 
             LEFT JOIN dht_orders o ON fr.dht_order_id=o.id
@@ -268,13 +351,18 @@ module.exports = async function(fastify) {
     // ========== TOGGLE ==========
     fastify.post('/api/finishing/toggle/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id), { action } = req.body || {}, now = vnNow();
-        const rec = await db.get('SELECT fr.*, oi.production_steps, COALESCE(oi.production_cancelled, false) AS production_cancelled FROM finishing_records fr LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id LEFT JOIN dht_order_items oi ON oi.id = sr.order_item_id WHERE fr.id=$1', [id]);
+        const rec = await db.get('SELECT fr.*, oi.production_steps, COALESCE(oi.production_cancelled, false) AS production_cancelled FROM finishing_records fr LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id LEFT JOIN dht_order_items oi ON oi.id = COALESCE(fr.order_item_id, sr.order_item_id) WHERE fr.id=$1', [id]);
         if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
         if (rec.production_cancelled) return reply.code(403).send({ error: '🚫 Phiếu này đã bị HỦY SẢN XUẤT — không thể thao tác' });
 
         if (action === 'complete') {
             if (!rec.sewer_name || !rec.sewer_name.trim() || rec.sewer_name.includes('Chưa Phân Công')) {
-                return reply.code(400).send({ error: 'Đơn hàng chưa được phân công. Vui lòng phân công trước khi hoàn thành!' });
+                if (rec.order_item_id || !rec.sewing_record_id) {
+                    rec.sewer_name = 'ĐƠN KHÔNG MAY';
+                    await db.run('UPDATE finishing_records SET sewer_name = $1 WHERE id = $2', [rec.sewer_name, id]);
+                } else {
+                    return reply.code(400).send({ error: 'Đơn hàng chưa được phân công. Vui lòng phân công trước khi hoàn thành!' });
+                }
             }
             if (rec.sewing_record_id) {
                 let isQcRequired = true;
@@ -298,7 +386,7 @@ module.exports = async function(fastify) {
 
         let detail = '';
         if (action === 'complete') {
-            const cTime = req.body && req.body.counting_time ? req.body.counting_time : null;
+            const cTime = req.body && req.body.counting_time ? _ensureCountingTimeDate(req.body.counting_time, now) : null;
             if (cTime) {
                 await db.run(`UPDATE finishing_records SET is_completed=true, completed_at=$1, completed_by=$2, done_date=COALESCE(done_date,CURRENT_DATE), counting_time=$3, updated_at=$1 WHERE id=$4`, [now, req.user.id, cTime, id]);
             } else {
@@ -619,7 +707,8 @@ module.exports = async function(fastify) {
             }
         }
         if (req.body && req.body.counting_time) {
-            await db.run(`UPDATE finishing_records SET counting_time = $1 WHERE id = $2`, [req.body.counting_time, finishingRecordId]);
+            const formattedCTime = _ensureCountingTimeDate(req.body.counting_time, now);
+            await db.run(`UPDATE finishing_records SET counting_time = $1 WHERE id = $2`, [formattedCTime, finishingRecordId]);
         }
 
         return { success: true };

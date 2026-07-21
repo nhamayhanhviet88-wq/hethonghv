@@ -1,5 +1,28 @@
 // ========== LỊCH RA ĐƠN HÀNG — Pages Controller ==========
 
+if (typeof window._tsOpenStepModal !== 'function' || window._tsOpenStepModal._isLazy) {
+    const _lazyTsOpenStepModal = async function(orderId, stepName, itemId = null) {
+        if (typeof _ensureTrasoatModalLoaded === 'function') {
+            await _ensureTrasoatModalLoaded();
+        } else {
+            await new Promise((resolve) => {
+                const existing = document.querySelector('script[src*="trasoat-modal.js"]');
+                if (existing) existing.remove();
+                const s = document.createElement('script');
+                s.src = '/js/pages/trasoat-modal.js?v=20260721_ts_modal_syntax_fix_v3';
+                s.onload = () => resolve(true);
+                s.onerror = () => resolve(false);
+                document.head.appendChild(s);
+            });
+        }
+        if (typeof window._tsOpenStepModal === 'function' && !window._tsOpenStepModal._isLazy) {
+            return window._tsOpenStepModal(orderId, stepName, itemId);
+        }
+    };
+    _lazyTsOpenStepModal._isLazy = true;
+    window._tsOpenStepModal = _lazyTsOpenStepModal;
+}
+
 (function() {
     let selectedYear = vnNow().getFullYear();
     let selectedQuarter = 'all';

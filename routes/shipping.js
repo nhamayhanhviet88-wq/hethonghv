@@ -183,35 +183,20 @@ async function _getShippingItemsProgress(orderIds) {
                 CASE 
                     WHEN oi.is_no_sew = true THEN
                         EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id)
-                        AND NOT EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id AND is_completed = false)
+                        AND NOT EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id AND (is_completed = false AND done_date IS NULL))
                     WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
                     THEN NOT EXISTS (
                         SELECT 1 FROM finishing_records fr 
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
-                        WHERE sr.order_item_id = oi.id
-                          AND (
-                              ((oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
-                                  SELECT 1 FROM qc_checklist_answers qca 
-                                  WHERE qca.sewing_record_id = fr.sewing_record_id
-                              ))
-                              OR
-                              (sr.contractor_id IS NULL AND fr.is_completed = false)
-                          )
+                        WHERE sr.order_item_id = oi.id AND (fr.is_completed = false AND fr.done_date IS NULL)
                     )
-                    WHEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NOT NULL)
-                         AND EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL)
+                    WHEN EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id)
                     THEN NOT EXISTS (
-                        SELECT 1 FROM finishing_records fr 
-                        JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
-                        WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
-                          AND (
-                              ((oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
-                                  SELECT 1 FROM qc_checklist_answers qca 
-                                  WHERE qca.sewing_record_id = fr.sewing_record_id
-                              ))
-                              OR
-                              (sr.contractor_id IS NULL AND fr.is_completed = false)
-                          )
+                        SELECT 1 FROM finishing_records WHERE order_item_id = oi.id AND (is_completed = false AND done_date IS NULL)
+                    )
+                    WHEN EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = oi.dht_order_id)
+                    THEN NOT EXISTS (
+                        SELECT 1 FROM finishing_records WHERE dht_order_id = oi.dht_order_id AND (is_completed = false AND done_date IS NULL)
                     )
                     ELSE false
                 END,

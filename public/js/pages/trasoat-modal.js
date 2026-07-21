@@ -1316,6 +1316,12 @@ function _tsRenderStepModal(step, d, itemId = null){
                         ? `${d.order_code} - Phiếu ${index + 1} — ${item.description}` 
                         : `${d.order_code} - Phiếu ${index + 1}`;
                     
+                    const isSewReq = item.is_sew_required !== false;
+                    const isQcReq = item.is_qc_required !== false;
+                    const isSewReady = !isSewReq || (item.has_sewing_record && item.is_sewing_done);
+                    const isQcReady = !isQcReq || item.is_qc_done;
+                    const isReadyForHT = isSewReady && isQcReady;
+
                     let statusLabel = '';
                     let statusColor = '';
                     let statusBg = '';
@@ -1324,7 +1330,7 @@ function _tsRenderStepModal(step, d, itemId = null){
                         statusLabel = 'Không cần HT';
                         statusColor = '#475569';
                         statusBg = '#f1f5f9';
-                    } else if (item.is_qc_done) {
+                    } else if (isReadyForHT) {
                         statusLabel = 'Chờ hoàn thiện';
                         statusColor = '#1e40af';
                         statusBg = '#dbeafe';
@@ -1334,6 +1340,18 @@ function _tsRenderStepModal(step, d, itemId = null){
                         statusBg = '#fee2e2';
                     }
 
+                    const sewAssignBadge = !isSewReq 
+                        ? '<span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569">⚪ Không yêu cầu may</span>'
+                        : `<span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.has_sewing_record ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.has_sewing_record ? '🟢 Đã phân công' : '🔴 Chưa phân công'}</span>`;
+
+                    const sewProgressBadge = !isSewReq 
+                        ? '<span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569">⚪ Bỏ qua bước may</span>'
+                        : `<span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.is_sewing_done ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.is_sewing_done ? '🟢 Đã may xong' : '🔴 Chưa may xong'}</span>`;
+
+                    const qcBadge = !isQcReq 
+                        ? '<span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569">⚪ Không yêu cầu QC</span>'
+                        : `<span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.is_qc_done ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.is_qc_done ? '🟢 Đã QC' : '🔴 Chưa QC'}</span>`;
+
                     body += `<div style="border:1.5px solid #e2e8f0;border-radius:14px;background:white;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.02)">
                                 <div style="background:#f8fafc;padding:12px 16px;border-bottom:1.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
                                     <span style="font-weight:800;color:#1e293b;font-size:13px">${itemTitle}</span>
@@ -1342,15 +1360,15 @@ function _tsRenderStepModal(step, d, itemId = null){
                                 <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
                                     <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600">
                                         <span style="color:#64748b">1. Phân công may</span>
-                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.has_sewing_record ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.has_sewing_record ? '🟢 Đã phân công' : '🔴 Chưa phân công'}</span>
+                                        ${sewAssignBadge}
                                     </div>
                                     <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;border-top:1px solid #f1f5f9;padding-top:10px">
                                         <span style="color:#64748b">2. Tiến độ may</span>
-                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.is_sewing_done ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.is_sewing_done ? '🟢 Đã may xong' : '🔴 Chưa may xong'}</span>
+                                        ${sewProgressBadge}
                                     </div>
                                     <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;border-top:1px solid #f1f5f9;padding-top:10px">
                                         <span style="color:#64748b">3. Kiểm tra chất lượng (QC)</span>
-                                        <span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;${item.is_qc_done ? 'background:#d1fae5;color:#065f46' : 'background:#fee2e2;color:#991b1b'}">${item.is_qc_done ? '🟢 Đã QC' : '🔴 Chưa QC'}</span>
+                                        ${qcBadge}
                                     </div>
                                     <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;border-top:1px solid #f1f5f9;padding-top:10px">
                                         <span style="color:#64748b">4. Quy trình hoàn thiện</span>
@@ -1362,18 +1380,18 @@ function _tsRenderStepModal(step, d, itemId = null){
                     if (!item.has_ccht) {
                         detailMsg = 'Sản phẩm này không yêu cầu hoàn thiện trong quy trình công nghệ.';
                         detailColor = '#475569';
-                    } else if (item.is_qc_done) {
-                        detailMsg = 'Đã hoàn thành QC. Chờ nhân viên bộ phận Hoàn thiện thực hiện checklist và báo cáo hoàn thành.';
+                    } else if (isReadyForHT) {
+                        detailMsg = 'Đã đủ điều kiện. Chờ nhân viên bộ phận Hoàn thiện thực hiện checklist và báo cáo hoàn thành.';
                         detailColor = '#1e40af';
                     } else {
                         const missing = [];
-                        if (!item.has_sewing_record) {
+                        if (isSewReq && !item.has_sewing_record) {
                             missing.push('Quản Lý Xưởng chưa phân công thợ may / tổ may');
                         } else {
-                            if (!item.is_sewing_done) {
+                            if (isSewReq && !item.is_sewing_done) {
                                 missing.push('chưa may xong');
                             }
-                            if (!item.is_qc_done) {
+                            if (isQcReq && !item.is_qc_done) {
                                 missing.push('chưa kiểm tra QC');
                             }
                         }

@@ -960,9 +960,6 @@ function _dhcttRenderOrderRows(filtered) {
         const lastUpdate = o.last_updated_at ? `${vnFormat(o.last_updated_at)}` : '—';
         const lastUser = o.last_updated_by_name ? `<br><span style="color:var(--info);font-size:10px;">${o.last_updated_by_name}</span>` : '';
 
-        // Delegate row click to existing _dhtShowDetail if it exists globally
-        const clickHandler = window._dhtShowDetail ? `_dhtShowDetail('${o.id}')` : '';
-
         const hasShippedItems = o.shipping_status === 'shipped' || !!o.shipped_at || (o.items && o.items.some(item => item.shipping_status === 'shipped'));
         const phieuCell = hasShippedItems 
             ? `<div onclick="event.stopPropagation(); _dhcttShowShippingDetail('${o.id}')" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #bfdbfe;transition:all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" title="Xem phiếu ship">📄</div>`
@@ -970,7 +967,7 @@ function _dhcttRenderOrderRows(filtered) {
 
         const readyShipBadge = o.is_ready_to_ship ? `<span class="dhctt-ready-ship-badge" title="Đã xong tất cả quy trình sản xuất, chờ kế toán gửi hàng">Chờ Gửi 📤</span>` : '';
 
-        return `<tr data-id="${o.id}" onclick="${clickHandler}" style="cursor:pointer;" title="Xem chi tiết">
+        return `<tr data-id="${o.id}" onclick="_dhcttOpenOrderFullDetail('${o.id}')" style="cursor:pointer;" title="Xem chi tiết đơn hàng">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
             <td style="text-align:center;">${phieuCell}</td>
             <td style="font-weight:600;">${_dhcttGetOrderCarriers(o)}</td>
@@ -1568,3 +1565,18 @@ async function _dhcttShowTraSoatModal(orderId, orderCode) {
         </div>`;
     }
 }
+
+async function _dhcttOpenOrderFullDetail(orderId) {
+    if (typeof _dhtShowDetail !== 'function') {
+        if (typeof _loadScript === 'function') {
+            await _loadScript('/js/pages/donhangtong.js');
+        }
+    }
+    if (typeof _dhtShowDetail === 'function') {
+        window._dhtDetailSource = 'unpaid';
+        _dhtShowDetail(orderId);
+    } else {
+        showToast('⚠️ Không thể tải thông tin chi tiết đơn hàng', 'error');
+    }
+}
+window._dhcttOpenOrderFullDetail = _dhcttOpenOrderFullDetail;

@@ -1,7 +1,35 @@
 // ========== TRA SOÁT ĐƠN HÀNG — Desktop Page ==========
 var _ts = { page: 1, search: '', month: '', year: '', current_step: '', debounce: null, expandedId: null };
 
+function _ensureTrasoatModalLoaded() {
+    if (typeof window._tsOpenStepModal === 'function' && !window._tsOpenStepModal._isLazy) {
+        return Promise.resolve(true);
+    }
+    return new Promise((resolve) => {
+        const ver = '20260721_ts_modal_syntax_fix_v3';
+        const existing = document.querySelector('script[src*="trasoat-modal.js"]');
+        if (existing) existing.remove();
+        const s = document.createElement('script');
+        s.src = '/js/pages/trasoat-modal.js?v=' + ver;
+        s.onload = () => resolve(true);
+        s.onerror = (e) => { console.error('Failed to load trasoat-modal.js:', e); resolve(false); };
+        document.head.appendChild(s);
+    });
+}
+
+if (typeof window._tsOpenStepModal !== 'function' || window._tsOpenStepModal._isLazy) {
+    const _lazyTsOpenStepModal = async function(orderId, stepName, itemId = null) {
+        await _ensureTrasoatModalLoaded();
+        if (typeof window._tsOpenStepModal === 'function' && !window._tsOpenStepModal._isLazy) {
+            return window._tsOpenStepModal(orderId, stepName, itemId);
+        }
+    };
+    _lazyTsOpenStepModal._isLazy = true;
+    window._tsOpenStepModal = _lazyTsOpenStepModal;
+}
+
 function renderTrasoatdonhangPage(content) {
+    _ensureTrasoatModalLoaded().catch(e => console.error('Preload trasoat-modal error:', e));
     const now = vnNow();
     const curMonth = now.getMonth() + 1, curYear = now.getFullYear();
 
@@ -449,6 +477,12 @@ function _tsRenderTimeline(res) {
             .ts-ship-item{font-size:12px;color:#475569}.ts-ship-item b{color:#1e1b4b}
         `;
         document.head.appendChild(style);
+    }
+    if (!res || !res.order) {
+        return `<div style="text-align:center;padding:30px;color:#dc2626;">
+            <span style="font-size:24px;">⚠️</span>
+            <div style="font-weight:700;margin-top:8px;">${(res && res.error) || 'Không tìm thấy thông tin chi tiết đơn hàng'}</div>
+        </div>`;
     }
     const { order: o, items } = res;
     const fmtDT = d => { if (!d) return ''; const dt = new Date(d); return dt.toLocaleString('vi-VN', { timeZone:'Asia/Ho_Chi_Minh', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }); };

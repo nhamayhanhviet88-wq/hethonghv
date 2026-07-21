@@ -1543,38 +1543,9 @@ module.exports = async function(fastify) {
                             WHEN EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = o.id) 
                             THEN NOT EXISTS (
                                 SELECT 1 FROM finishing_records fr 
-                                JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
-                                WHERE fr.dht_order_id = o.id
-                                  AND (
-                                      NOT EXISTS (
-                                          SELECT 1 FROM qc_checklist_answers qca 
-                                          WHERE qca.sewing_record_id = fr.sewing_record_id
-                                      )
-                                      OR
-                                      (sr.contractor_id IS NULL AND fr.is_completed = false)
-                                  )
+                                WHERE fr.dht_order_id = o.id AND (fr.is_completed = false AND fr.done_date IS NULL)
                             )
-                            ELSE (
-                                CASE 
-                                    WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id)
-                                    THEN NOT EXISTS (
-                                        SELECT 1 FROM sewing_records sr
-                                        WHERE sr.dht_order_id = o.id
-                                          AND (
-                                              (sr.contractor_id IS NULL AND NOT EXISTS (
-                                                  SELECT 1 FROM finishing_records fr 
-                                                  WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
-                                              ))
-                                              OR
-                                              (sr.contractor_id IS NOT NULL AND NOT EXISTS (
-                                                  SELECT 1 FROM qc_checklist_answers qca 
-                                                  WHERE qca.sewing_record_id = sr.id
-                                              ))
-                                          )
-                                    )
-                                    ELSE false
-                                END
-                            )
+                            ELSE false
                         END,
                         false
                     ) AS finish_done,
@@ -6461,7 +6432,7 @@ module.exports = async function(fastify) {
         const pid = Number(request.params.productId);
         const rows = await db.all(`SELECT pp.step_id, s.name, s.short_name, s.page_link
             FROM dht_product_process pp JOIN dht_process_steps s ON s.id = pp.step_id
-            WHERE pp.product_id = $1 AND pp.is_active = true ORDER BY s.display_order ASC`, [pid]);
+            WHERE pp.product_id = $1 AND pp.is_active = true AND s.is_active = true ORDER BY s.display_order ASC`, [pid]);
         return { steps: rows };
     });
 

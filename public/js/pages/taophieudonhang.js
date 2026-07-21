@@ -384,8 +384,17 @@ async function renderDesignDraftPage(content) {
         const isAdmin = ['giam_doc', 'quan_ly'].includes(myInfo.role);
         let hasEditPermission = isOwner || isAdmin;
 
-        // If order is locked by another user, revoke edit permission
-        if (details.lock_warning) {
+        // If order has been shipped to customer, revoke edit permission (Read-Only)
+        const isShippedOrder = order.shipping_status === 'shipped' || (Array.isArray(items) && items.length > 0 && items.every(it => it.shipping_status === 'shipped' || it.production_cancelled));
+        if (isShippedOrder) {
+            hasEditPermission = false;
+            details.lock_warning = {
+                is_shipped_lock: true,
+                locked_by_name: 'Hệ thống (Đơn hàng đã được giao gửi toàn bộ phiếu cho khách)',
+                locked_at: order.shipped_at || new Date().toISOString()
+            };
+        } else if (details.lock_warning) {
+            // If order is locked by another user, revoke edit permission
             hasEditPermission = false;
         }
 
@@ -910,6 +919,12 @@ function _tpdRenderList() {
         const isDraft = o.is_draft === true || o.is_draft === 1;
         const badgeClass = isDraft ? 'tpd-badge-draft' : 'tpd-badge-official';
         const badgeLabel = isDraft ? 'Dự Thảo (Nháp)' : 'Chính thức';
+        const isShipped = o.shipping_status === 'shipped' || (Array.isArray(o.items) && o.items.length > 0 && o.items.every(it => it.shipping_status === 'shipped' || it.production_cancelled));
+
+        let shippedBadge = '';
+        if (isShipped) {
+            shippedBadge = `<span class="tpd-badge tpd-shipped-sparkle-badge" title="Đơn hàng đã được giao gửi toàn bộ phiếu cho khách hàng"><span style="font-size:12px;">🚚</span> Đã Gửi Hàng Cho Khách</span>`;
+        }
         
         // Date formats
         const orderDate = _tpdFormatDateWithDayOfWeek(o.order_date);
@@ -951,6 +966,7 @@ function _tpdRenderList() {
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span class="tpd-badge ${badgeClass}">${badgeLabel}</span>
+                        ${shippedBadge}
                         ${emailBadge}
                     </div>
                 </div>
@@ -978,7 +994,7 @@ function _tpdRenderList() {
                 </div>
                 <div class="card-footer">
                     <span class="card-cat">📂 ${escapeHTML(o.category_name || 'Đồng Phục')}</span>
-                    <button class="tpd-card-btn" onclick="event.stopPropagation(); navigate('design-draft?id=${o.id}')">${isDraft ? 'Thiết kế phiếu →' : 'Sửa đơn →'}</button>
+                    <button class="tpd-card-btn" onclick="event.stopPropagation(); navigate('design-draft?id=${o.id}')" style="${isShipped ? 'background:#0284c7;color:#fff;' : ''}">${isDraft ? 'Thiết kế phiếu →' : (isShipped ? '👁️ Xem đơn →' : 'Sửa đơn →')}</button>
                 </div>
             </div>
         `;
@@ -2301,6 +2317,29 @@ function _tpdInjectStyles() {
         .tpd-badge-draft { background: #fef3c7; color: #d97706; }
         .tpd-badge-official { background: #e0e7ff; color: #4f46e5; }
 
+        @keyframes tpdSparkleSweep {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .tpd-shipped-sparkle-badge {
+            background: linear-gradient(110deg, #c2410c 0%, #ea580c 30%, #fdba74 45%, #ffffff 50%, #fdba74 55%, #ea580c 70%, #c2410c 100%) !important;
+            background-size: 250% 100% !important;
+            animation: tpdSparkleSweep 2.2s infinite linear !important;
+            color: #ffffff !important;
+            font-size: 11px !important;
+            font-weight: 900 !important;
+            padding: 3.5px 10px !important;
+            border-radius: 20px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 5px !important;
+            text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.6) !important;
+            box-shadow: 0 3px 12px rgba(234, 88, 12, 0.5), 0 0 12px rgba(251, 146, 60, 0.6) !important;
+            border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+            letter-spacing: 0.2px !important;
+        }
+
         .card-body {
             display: flex;
             flex-direction: column;
@@ -3621,14 +3660,17 @@ function _tpdRenderWorkspace(container) {
             </div>
 
             ${state.lockWarning ? `
-                <div class="tpd-lock-warning-banner no-print" style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #d97706; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; margin: 15px 20px 0 20px; box-shadow: 0 4px 6px rgba(217, 119, 6, 0.05); font-family: 'Inter', system-ui, sans-serif;">
+                <div class="tpd-lock-warning-banner no-print" style="background: ${state.lockWarning.is_shipped_lock ? '#ecfdf5' : '#fffbeb'}; border: 1px solid ${state.lockWarning.is_shipped_lock ? '#a7f3d0' : '#fef3c7'}; border-left: 5px solid ${state.lockWarning.is_shipped_lock ? '#059669' : '#d97706'}; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; margin: 15px 20px 0 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); font-family: 'Inter', system-ui, sans-serif;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">🔒</span>
-                        <span style="font-size: 13px; font-weight: 600; color: #92400e;">
-                            Đơn hàng này đang được chỉnh sửa bởi <strong style="color: #b45309;">${escapeHTML(state.lockWarning.locked_by_name)}</strong> (khóa bắt đầu từ lúc ${new Date(state.lockWarning.locked_at).toLocaleString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh'})}). Bạn không thể chỉnh sửa.
+                        <span style="font-size: 20px;">${state.lockWarning.is_shipped_lock ? '🚚' : '🔒'}</span>
+                        <span style="font-size: 13px; font-weight: 600; color: ${state.lockWarning.is_shipped_lock ? '#065f46' : '#92400e'};">
+                            ${state.lockWarning.is_shipped_lock 
+                                ? `<strong style="color: #047857;">ĐƠN HÀNG ĐÃ GỬI HÀNG CHO KHÁCH:</strong> Đơn hàng đã được xác nhận giao gửi toàn bộ các phiếu cho khách thành công. Chế độ <strong>Chỉ Cho Xem (Read-only)</strong> được kích hoạt.`
+                                : `Đơn hàng này đang được chỉnh sửa bởi <strong style="color: #b45309;">${escapeHTML(state.lockWarning.locked_by_name)}</strong> (khóa bắt đầu từ lúc ${new Date(state.lockWarning.locked_at).toLocaleString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh'})}). Bạn không thể chỉnh sửa.`
+                            }
                         </span>
                     </div>
-                    ${['giam_doc', 'quan_ly'].includes(state.role) ? `
+                    ${(['giam_doc', 'quan_ly'].includes(state.role) && !state.lockWarning.is_shipped_lock) ? `
                         <button class="tpd-btn" onclick="_tpdForceUnlockOrder(${state.orderId})" style="background: #dc2626; color: white; padding: 6px 16px; font-size: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; box-shadow: 0 2px 5px rgba(220, 38, 38, 0.2); transition: all 0.2s;">
                             🔓 Giải phóng Khóa (GĐ/QL)
                         </button>
@@ -4799,11 +4841,11 @@ function _tpdRenderFormInputs() {
         <div class="tpd-ws-grid-2">
             <div class="tpd-ws-form-group">
                 <label class="tpd-ws-form-label">Chất liệu vải <span style="color:#64748b;font-size:10.5px;" title="Chất liệu chỉ được chỉnh sửa ở mục Sửa đơn">🔒 (Sửa ở mục Sửa đơn)</span></label>
-                <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="Cá sấu, thun cotton..." ${fabricDisabledAttr} style="${fabricStyle}">
+                <input type="text" class="tpd-ws-input" value="${it.material_name || ''}" placeholder="---" ${fabricDisabledAttr} style="${fabricStyle}">
             </div>
             <div class="tpd-ws-form-group">
                 <label class="tpd-ws-form-label">Màu sắc phối <span style="color:#64748b;font-size:10.5px;" title="Màu sắc chỉ được chỉnh sửa ở mục Sửa đơn">🔒 (Sửa ở mục Sửa đơn)</span></label>
-                <input type="text" class="tpd-ws-input" value="${escapeHTML(_tpdFormatColorName(it.color_name))}" placeholder="Navy phối vàng, đen..." ${fabricDisabledAttr} style="${fabricStyle}">
+                <input type="text" class="tpd-ws-input" value="${escapeHTML(_tpdFormatColorName(it.color_name))}" placeholder="---" ${fabricDisabledAttr} style="${fabricStyle}">
             </div>
         </div>
     `;

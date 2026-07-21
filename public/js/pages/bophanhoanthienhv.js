@@ -544,77 +544,143 @@ function _bphtViewSingleImage(src) {
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
-function _bphtRenderCountingTimeBlock(r, readOnly) {
+function _formatDmyToYmd(dmy) {
+    if (dmy && typeof dmy === 'string' && dmy.includes('/')) {
+        const parts = dmy.split('/');
+        if (parts.length >= 3) {
+            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+    }
+    return '';
+}
+
+function _formatYmdToDmy(ymd) {
+    if (ymd && typeof ymd === 'string' && ymd.includes('-')) {
+        const parts = ymd.split('-');
+        if (parts.length >= 3) {
+            return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+        }
+    }
+    return ymd || '';
+}
+
+function _bphtParseCountingTime(countingTimeStr, r) {
     let savedHour = '';
     let savedMinute = '';
-    if (r.counting_time && r.counting_time.includes(':')) {
-        const parts = r.counting_time.split(':');
-        savedHour = parts[0].padStart(2, '0');
-        savedMinute = parts[1].padStart(2, '0');
+    let savedDate = '';
+    if (countingTimeStr && typeof countingTimeStr === 'string') {
+        const match = countingTimeStr.match(/(\d{1,2}):(\d{1,2})/);
+        if (match) {
+            savedHour = match[1].padStart(2, '0');
+            savedMinute = match[2].padStart(2, '0');
+        }
+        const dateMatch = countingTimeStr.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+        if (dateMatch) {
+            savedDate = dateMatch[1];
+        }
     }
+    if (!savedDate) {
+        let dateObj = null;
+        if (r && r.completed_at) {
+            dateObj = new Date(r.completed_at);
+        } else if (r && r.done_date) {
+            dateObj = new Date(r.done_date);
+        } else {
+            dateObj = new Date();
+        }
+        if (isNaN(dateObj.getTime())) dateObj = new Date();
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const y = dateObj.getFullYear();
+        savedDate = `${d}/${m}/${y}`;
+    }
+    const savedDateYmd = _formatDmyToYmd(savedDate);
+    return { savedHour, savedMinute, savedDate, savedDateYmd };
+}
 
-    if (readOnly && r.counting_time && r.counting_time.includes(':')) {
+function _bphtGetSubmittedCountingTime(hourId, minId, dateId, r) {
+    const hourEl = document.getElementById(hourId);
+    const minEl = document.getElementById(minId);
+    const dateEl = document.getElementById(dateId);
+    if (!hourEl || !minEl || !hourEl.value || !minEl.value) {
+        return null;
+    }
+    let dateDmy = '';
+    if (dateEl && dateEl.value) {
+        dateDmy = _formatYmdToDmy(dateEl.value);
+    }
+    if (!dateDmy) {
+        const { savedDate } = _bphtParseCountingTime('', r);
+        dateDmy = savedDate;
+    }
+    return `${hourEl.value}:${minEl.value} - ${dateDmy}`;
+}
+
+function _bphtRenderCountingTimeBlock(r, readOnly) {
+    const { savedHour, savedMinute, savedDate, savedDateYmd } = _bphtParseCountingTime(r ? r.counting_time : '', r);
+
+    if (readOnly && r && r.counting_time) {
         return `
-            <div style="margin-top:12px; background:#ecfdf5; border:1.5px solid #a7f3d0; padding:12px; border-radius:10px;">
-                <div style="font-weight:700; font-size:12px; color:#047857; margin-bottom:4px;">⏰ THỜI GIAN ĐẾM SỐ LƯỢNG CHECK CAMERA <span style="color:#ef4444;">*</span></div>
-                <div style="font-size:18px; font-weight:900; color:#d97706;">${savedHour} Giờ ${savedMinute} Phút (${r.counting_time})</div>
+            <div style="margin-top:10px; background:#ecfdf5; border:1.5px solid #a7f3d0; padding:10px 12px; border-radius:8px;">
+                <div style="font-weight:700; font-size:11.5px; color:#047857; margin-bottom:3px;">⏰ THỜI GIAN ĐẾM SỐ LƯỢNG CHECK CAMERA <span style="color:#ef4444;">*</span></div>
+                <div style="font-size:15px; font-weight:900; color:#d97706;">${r.counting_time.includes('/') ? r.counting_time : `${savedHour}:${savedMinute} - ${savedDate}`}</div>
             </div>
         `;
     }
 
-    let hourOpts = '<option value="">-- Chọn Giờ --</option>';
+    let hourOpts = '<option value="">-- Giờ --</option>';
     for (let h = 0; h < 24; h++) {
         const val = String(h).padStart(2, '0');
         const sel = val === savedHour ? 'selected' : '';
         hourOpts += `<option value="${val}" ${sel}>${val} Giờ</option>`;
     }
-    let minOpts = '<option value="">-- Chọn Phút --</option>';
-    if (savedMinute !== '' && parseInt(savedMinute, 10) % 5 !== 0) {
-        savedMinute = String(Math.round(parseInt(savedMinute, 10) / 5) * 5 % 60).padStart(2, '0');
+    let minOpts = '<option value="">-- Phút --</option>';
+    let calcMinute = savedMinute;
+    if (calcMinute !== '' && parseInt(calcMinute, 10) % 5 !== 0) {
+        calcMinute = String(Math.round(parseInt(calcMinute, 10) / 5) * 5 % 60).padStart(2, '0');
     }
     for (let m = 0; m < 60; m += 5) {
         const val = String(m).padStart(2, '0');
-        const sel = val === savedMinute ? 'selected' : '';
+        const sel = val === calcMinute ? 'selected' : '';
         minOpts += `<option value="${val}" ${sel}>${val} Phút</option>`;
     }
 
     return `
-        <div style="margin-top:12px; background:#ecfdf5; border:1.5px solid #a7f3d0; padding:12px; border-radius:10px;">
-            <label style="display:block; font-size:12px; font-weight:800; color:#047857; margin-bottom:8px;">
+        <div style="margin-top:10px; background:#ecfdf5; border:1.5px solid #a7f3d0; padding:10px 12px; border-radius:8px;">
+            <label style="display:block; font-size:11.5px; font-weight:800; color:#047857; margin-bottom:6px;">
                 ⏰ THỜI GIAN ĐẾM SỐ LƯỢNG CHECK CAMERA <span style="color:#ef4444;">*</span>
             </label>
-            <div style="display:flex; gap:10px; align-items:center;">
+            <div style="display:flex; gap:8px; align-items:center;">
                 <div style="flex:1;">
-                    <span style="font-size:10.5px; color:#065f46; font-weight:700; display:block; margin-bottom:3px;">Bắt buộc chọn Giờ (00 - 23):</span>
-                    <select id="bphtCountingHour" style="border:1.5px solid #059669; color:#0f172a; font-size:15px; font-weight:800; border-radius:6px; padding:8px; width:100%; outline:none; background:#fff; cursor:pointer;" required>
+                    <select id="bphtCountingHour" style="border:1.5px solid #059669; color:#0f172a; font-size:14px; font-weight:800; border-radius:6px; padding:6px 8px; width:100%; outline:none; background:#fff; cursor:pointer;" required>
                         ${hourOpts}
                     </select>
                 </div>
-                <div style="font-size:20px; font-weight:900; color:#059669; margin-top:16px;">:</div>
+                <div style="font-size:16px; font-weight:900; color:#059669;">:</div>
                 <div style="flex:1;">
-                    <span style="font-size:10.5px; color:#065f46; font-weight:700; display:block; margin-bottom:3px;">Bắt buộc chọn Phút (00 - 59):</span>
-                    <select id="bphtCountingMinute" style="border:1.5px solid #059669; color:#0f172a; font-size:15px; font-weight:800; border-radius:6px; padding:8px; width:100%; outline:none; background:#fff; cursor:pointer;" required>
+                    <select id="bphtCountingMinute" style="border:1.5px solid #059669; color:#0f172a; font-size:14px; font-weight:800; border-radius:6px; padding:6px 8px; width:100%; outline:none; background:#fff; cursor:pointer;" required>
                         ${minOpts}
                     </select>
                 </div>
+                <div style="flex:1.4;">
+                    <input type="date" id="bphtCountingDate" value="${savedDateYmd}" style="border:1.5px solid #059669; color:#0f172a; font-size:13px; font-weight:700; border-radius:6px; padding:6px 8px; width:100%; outline:none; background:#fff; cursor:pointer;" required />
+                </div>
             </div>
-            ${readOnly ? `<button type="button" onclick="_bphtQuickSaveCountingTime(${r.id})" style="margin-top:10px; width:100%; background:#059669; color:#fff; font-weight:800; font-size:13px; border:none; padding:10px; border-radius:6px; cursor:pointer;">💾 Lưu giờ đếm số lượng</button>` : `<div style="font-size:11px; color:#065f46; margin-top:6px;">Ví dụ: 15h30 chọn Giờ: 15, Phút: 30 (Không dùng giờ hiện tại).</div>`}
+            ${readOnly ? `<button type="button" onclick="_bphtQuickSaveCountingTime(${r.id})" style="margin-top:8px; width:100%; background:#059669; color:#fff; font-weight:800; font-size:12.5px; border:none; padding:8px; border-radius:6px; cursor:pointer;">💾 Lưu thời gian đếm</button>` : ''}
         </div>
     `;
 }
 
 async function _bphtQuickSaveCountingTime(recordId) {
-    const hourEl = document.getElementById('bphtCountingHour');
-    const minEl = document.getElementById('bphtCountingMinute');
-    if (!hourEl || !minEl || !hourEl.value || !minEl.value) {
+    const r = (_bpht.records || []).find(x => x.id === recordId);
+    const countingTime = _bphtGetSubmittedCountingTime('bphtCountingHour', 'bphtCountingMinute', 'bphtCountingDate', r);
+    if (!countingTime) {
         showToast('⚠️ Bắt buộc phải chọn đầy đủ Giờ và Phút đếm số lượng!', 'error');
         return;
     }
-    const countingTime = `${hourEl.value}:${minEl.value}`;
     try {
         await apiCall(`/api/finishing/records/${recordId}`, 'PUT', { counting_time: countingTime });
-        showToast('✅ Đã lưu giờ đếm số lượng: ' + countingTime);
-        const r = (_bpht.records || []).find(x => x.id === recordId);
+        showToast('✅ Đã lưu thời gian đếm: ' + countingTime);
         if (r) r.counting_time = countingTime;
         await _bphtLoadAll();
         _bphtOpenCompleteModal(recordId, true);
@@ -721,12 +787,6 @@ async function _bphtOpenCompleteModal(recordId, readOnly = false) {
                     ${isCountQuestion && !readOnly ? `<div class="bpht-count-error-msg" style="color:#ef4444; font-size:11px; font-weight:700; margin-top:4px; ${val !== '' && (parseInt(val.replace(/\D/g, ''), 10) !== parseInt(r.quantity || 0, 10)) ? 'display:block;' : 'display:none;'}">Bạn đã đếm sai, hãy đếm lại !</div>` : ''}
                 `;
 
-                if (isCountQuestion) {
-                            </div>
-                        `;
-                    }
-                }
-            }
             }
             checklistHtml += '</div>';
         });
@@ -1107,15 +1167,14 @@ async function _bphtSubmitComplete() {
         answersList.push({ template_id: parseInt(qId), answer_value: val });
     }
 
-    const hourEl = document.getElementById('bphtCountingHour');
-    const minEl = document.getElementById('bphtCountingMinute');
     let countingTime = '';
-    if (hourEl && minEl) {
-        if (!hourEl.value || !minEl.value) {
+    const hourEl = document.getElementById('bphtCountingHour');
+    if (hourEl) {
+        countingTime = _bphtGetSubmittedCountingTime('bphtCountingHour', 'bphtCountingMinute', 'bphtCountingDate', r);
+        if (!countingTime) {
             showToast('⚠️ Bắt buộc phải chọn đầy đủ Giờ và Phút đếm số lượng!', 'error');
             return;
         }
-        countingTime = `${hourEl.value}:${minEl.value}`;
     }
 
     try {

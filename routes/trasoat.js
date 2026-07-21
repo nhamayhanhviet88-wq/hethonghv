@@ -191,38 +191,9 @@ module.exports = async function(fastify) {
                         WHEN EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = o.id) 
                         THEN NOT EXISTS (
                             SELECT 1 FROM finishing_records fr 
-                            JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
-                            WHERE fr.dht_order_id = o.id
-                              AND (
-                                  NOT EXISTS (
-                                      SELECT 1 FROM qc_checklist_answers qca 
-                                      WHERE qca.sewing_record_id = fr.sewing_record_id
-                                  )
-                                  OR
-                                  (sr.contractor_id IS NULL AND fr.is_completed = false)
-                              )
+                            WHERE fr.dht_order_id = o.id AND (fr.is_completed = false AND fr.done_date IS NULL)
                         )
-                        ELSE (
-                            CASE 
-                                WHEN EXISTS (SELECT 1 FROM sewing_records WHERE dht_order_id = o.id)
-                                THEN NOT EXISTS (
-                                    SELECT 1 FROM sewing_records sr
-                                    WHERE sr.dht_order_id = o.id
-                                      AND (
-                                          (sr.contractor_id IS NULL AND NOT EXISTS (
-                                              SELECT 1 FROM finishing_records fr 
-                                              WHERE fr.sewing_record_id = sr.id AND fr.is_completed = true
-                                          ))
-                                          OR
-                                          (sr.contractor_id IS NOT NULL AND NOT EXISTS (
-                                              SELECT 1 FROM qc_checklist_answers qca 
-                                              WHERE qca.sewing_record_id = sr.id
-                                          ))
-                                      )
-                                )
-                                ELSE false
-                            END
-                        )
+                        ELSE false
                     END,
                     false
                 ) AS finish_done
@@ -264,7 +235,10 @@ module.exports = async function(fastify) {
 
     // ========== DETAIL — Chi tiết timeline 1 đơn ==========
     fastify.get('/api/trasoat/orders/:id/detail', { preHandler: [authenticate] }, async (request, reply) => {
-        const orderId = Number(request.params.id);
+        const rawId = String(request.params.id || '');
+        const cleanId = rawId.replace(/^sample_/, '');
+        const orderId = Number(cleanId);
+        if (isNaN(orderId)) return reply.code(400).send({ error: 'Mã ID đơn hàng không hợp lệ' });
 
         const order = await db.get(`
             SELECT o.*, c.name AS category_name,
@@ -1336,7 +1310,7 @@ module.exports = async function(fastify) {
             }
 
             let items = await db.all(`
-                SELECT id, description, quantity FROM dht_order_items 
+                SELECT id, description, quantity, COALESCE(is_no_sew, false) AS is_no_sew, production_steps FROM dht_order_items 
                 WHERE dht_order_id = $1 
                   AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%'
                   AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%'
@@ -1360,6 +1334,21 @@ module.exports = async function(fastify) {
                     isQcDone = !!qcAns;
                 }
 
+                let isNoSew = item.is_no_sew;
+                let stepsVal = item.production_steps;
+                if (typeof stepsVal === 'string') {
+                    try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
+                }
+                let isSewStepRequired = true;
+                let isQcStepRequired = true;
+                if (Array.isArray(stepsVal)) {
+                    isSewStepRequired = stepsVal.includes(5) || stepsVal.includes('5');
+                    isQcStepRequired = stepsVal.includes(7) || stepsVal.includes('7');
+                } else if (isNoSew) {
+                    isSewStepRequired = false;
+                    isQcStepRequired = false;
+                }
+
                 // Check if it has CCHT process step
                 const prodName = item.description;
                 const hasCCHT = await db.get(`
@@ -1380,7 +1369,9 @@ module.exports = async function(fastify) {
                     has_sewing_record: hasSewingRecord,
                     is_sewing_done: isSewingDone,
                     is_qc_done: isQcDone,
-                    has_ccht: !!hasCCHT
+                    has_ccht: !!hasCCHT,
+                    is_sew_required: isSewStepRequired,
+                    is_qc_required: isQcStepRequired
                 });
             }
 
@@ -1869,35 +1860,20 @@ async function _getOrdersWithItemsProgress(orders, todayStr) {
                 CASE 
                     WHEN oi.is_no_sew = true THEN
                         EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id)
-                        AND NOT EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id AND is_completed = false)
+                        AND NOT EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id AND (is_completed = false AND done_date IS NULL))
                     WHEN EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE sr.order_item_id = oi.id) 
                     THEN NOT EXISTS (
                         SELECT 1 FROM finishing_records fr 
                         JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
-                        WHERE sr.order_item_id = oi.id
-                          AND (
-                              ((oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
-                                  SELECT 1 FROM qc_checklist_answers qca 
-                                  WHERE qca.sewing_record_id = fr.sewing_record_id
-                              ))
-                              OR
-                              (sr.contractor_id IS NULL AND fr.is_completed = false)
-                          )
+                        WHERE sr.order_item_id = oi.id AND (fr.is_completed = false AND fr.done_date IS NULL)
                     )
-                    WHEN NOT EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NOT NULL)
-                         AND EXISTS (SELECT 1 FROM finishing_records fr JOIN sewing_records sr ON fr.sewing_record_id = sr.id WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL)
+                    WHEN EXISTS (SELECT 1 FROM finishing_records WHERE order_item_id = oi.id)
                     THEN NOT EXISTS (
-                        SELECT 1 FROM finishing_records fr 
-                        JOIN sewing_records sr ON fr.sewing_record_id = sr.id 
-                        WHERE fr.dht_order_id = oi.dht_order_id AND sr.order_item_id IS NULL
-                          AND (
-                              ((oi.production_steps IS NULL OR oi.production_steps @> '7'::jsonb) AND NOT EXISTS (
-                                  SELECT 1 FROM qc_checklist_answers qca 
-                                  WHERE qca.sewing_record_id = fr.sewing_record_id
-                              ))
-                              OR
-                              (sr.contractor_id IS NULL AND fr.is_completed = false)
-                          )
+                        SELECT 1 FROM finishing_records WHERE order_item_id = oi.id AND (is_completed = false AND done_date IS NULL)
+                    )
+                    WHEN EXISTS (SELECT 1 FROM finishing_records WHERE dht_order_id = oi.dht_order_id)
+                    THEN NOT EXISTS (
+                        SELECT 1 FROM finishing_records WHERE dht_order_id = oi.dht_order_id AND (is_completed = false AND done_date IS NULL)
                     )
                     ELSE false
                 END,

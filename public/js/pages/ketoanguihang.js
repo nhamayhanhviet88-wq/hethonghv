@@ -584,13 +584,15 @@ function _shBuildTable(orders) {
 
         // Check pending items and their completions
         const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+        const shippedItemsCount = o.items ? o.items.filter(item => item.shipping_status === 'shipped').length : 0;
         const allPendingCompleted = pendingItems.every(item => item.all_done);
+        const isAllItemsShipped = o.items && o.items.length > 0 && pendingItems.length === 0 && shippedItemsCount > 0;
 
         let orderLevelAction = '';
         const isSample = String(o.id).startsWith('sample_');
         const isSampleNotApproved = isSample && !o.is_hoan_hang && !o.status_duyet;
 
-        if (isKT && o.shipping_status !== 'shipped') {
+        if (!isAllItemsShipped && o.shipping_status !== 'shipped') {
             const isEarlyTab = _shFilter === 'early';
             const rescheduleBtnHtml = isEarlyTab
                 ? `<div class="sh-chongay-blink" style="padding:4px 6px;border:1px solid #d8b4fe;border-radius:6px;font-size:10px;font-weight:900;margin-top:3px;text-align:center;width:100%;box-sizing:border-box;cursor:default;user-select:none;text-transform:uppercase;letter-spacing:0.02em;" onclick="event.stopPropagation();">Chờ ngày xử lý</div>`
@@ -662,7 +664,7 @@ function _shBuildTable(orders) {
             progressBadge = `<span style="color:#94a3b8;font-style:italic">—</span>`;
         }
 
-        html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};cursor:pointer;" onclick="window._dhtDetailSource='shipping';_dhtShowDetail('${o.id}')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'" title="Xem chi tiết đơn hàng">`;
+        html += `<tr style="border-bottom:1px solid #f1f5f9;background:${rowBg};cursor:pointer;" onclick="_shToggleOrderItems('${o.id}')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${rowBg}'" title="Nhấp để xem/đóng danh sách phiếu sản phẩm">`;
         
         // Expander column
         html += `<td style="padding:8px 6px;text-align:center;" onclick="event.stopPropagation();_shToggleOrderItems('${o.id}')">
@@ -737,7 +739,7 @@ function _shBuildTable(orders) {
         html += `<td style="padding:8px 6px;font-weight:800;color:#1e293b;font-size:12px;white-space:nowrap;">
             <div style="display:flex;align-items:center;">
                 ${prioBadgeHtml}
-                <span style="font-size:12px;font-weight:900;color:#1e1b4b;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:4px;">
+                <span onclick="event.stopPropagation(); _shOpenOrderFullDetail('${o.id}')" style="font-size:12px;font-weight:900;color:#1e1b4b;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;text-decoration:underline;" title="Nhấp để xem chi tiết đầy đủ đơn hàng">
                     ${o.is_hoan_hang ? '🔄 <span style="background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe;padding:2.5px 6px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;vertical-align:middle;line-height:1;">Hoàn</span>' : ''}${o.order_code || '—'}
                 </span>
             </div>
@@ -777,6 +779,21 @@ function _shToggleOrderItems(orderId) {
         chevron.innerText = '▶';
     }
 }
+
+async function _shOpenOrderFullDetail(orderId) {
+    if (typeof _dhtShowDetail !== 'function') {
+        if (typeof _loadScript === 'function') {
+            await _loadScript('/js/pages/donhangtong.js');
+        }
+    }
+    if (typeof _dhtShowDetail === 'function') {
+        window._dhtDetailSource = 'shipping';
+        _dhtShowDetail(orderId);
+    } else {
+        showToast('⚠️ Không thể tải thông tin chi tiết đơn hàng', 'error');
+    }
+}
+window._shOpenOrderFullDetail = _shOpenOrderFullDetail;
 
 function _shBuildProgressHTML(item) {
     const steps = [

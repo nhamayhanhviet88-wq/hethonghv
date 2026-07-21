@@ -2418,7 +2418,10 @@ async function _dhtProductChange(keepExistingPattern) {
         window._ppAssignedMats=matRes.materials||[];
         
         // Show process steps
-        var steps=procRes.steps||[];
+        var steps=(procRes.steps||[]).filter(function(s){
+            var sn = (s.short_name||'').toUpperCase();
+            return sn !== 'ĐG' && s.name !== 'Đóng Gói';
+        });
         if(bar&&stepsEl){
             if(steps.length>0){
                 var colors=['#3b82f6','#059669','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0891b2','#64748b'];

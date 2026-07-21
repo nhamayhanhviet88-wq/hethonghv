@@ -681,11 +681,13 @@ function _qlxdhBuildTable(orders) {
         const isKT = o.shipping_status !== 'shipped';
 
         const pendingItems = o.items ? o.items.filter(item => item.shipping_status === 'pending') : [];
+        const shippedItemsCount = o.items ? o.items.filter(item => item.shipping_status === 'shipped').length : 0;
         const allPendingCompleted = pendingItems.every(item => item.all_done);
         const isEligibleToSend = pendingItems.length > 0 && allPendingCompleted;
+        const isAllItemsShipped = o.items && o.items.length > 0 && pendingItems.length === 0 && shippedItemsCount > 0;
 
         let orderLevelAction = '';
-        if (isKT && o.shipping_status !== 'shipped') {
+        if (!isAllItemsShipped && o.shipping_status !== 'shipped') {
             if (isEligibleToSend) {
                 orderLevelAction = `
                     <span style="color:#15803d;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#f0fdf4;border:1px dashed #bbf7d0;border-radius:6px;white-space:nowrap;" title="Tất cả sản phẩm đã sản xuất xong, chờ Kế toán gửi đi"><span style="font-size:12px;">✅</span> Chờ gửi</span>

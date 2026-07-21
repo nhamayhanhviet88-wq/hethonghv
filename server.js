@@ -1140,6 +1140,7 @@ async function start() {
             await db.run(`UPDATE dht_process_steps SET name = 'Cắt Chỉ & Hoàn Thiện', short_name = 'CCHT', display_order = 7, page_link = '/bophanhoanthienhv' WHERE name = 'Hoàn Thiện'`);
             await db.run(`UPDATE dht_process_steps SET display_order = 6, page_link = '/kiemtrachatluong' WHERE name = 'Kiểm Tra Chất Lượng'`);
             await db.run(`UPDATE dht_process_steps SET is_active = false WHERE name = 'Đóng Gói'`);
+            await db.run(`UPDATE dht_product_process SET is_active = false WHERE step_id IN (SELECT id FROM dht_process_steps WHERE is_active = false)`);
         } catch(e) { console.error('[Migration v11b] Rename/reorder:', e.message); }
 
         // Seed 7 default steps (Đóng Gói removed) — runs AFTER rename to avoid conflicts
