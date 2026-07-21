@@ -1081,6 +1081,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
 
         var isNoCut = !!(it && it.is_no_cut);
         console.log("[DEBUG FabricPopup] orderId:", orderId, "isNoCut:", isNoCut, "orderData:", o);
+        var disabledAttr = isNoCut ? ' disabled' : '';
+        var labelStyle = 'display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #be123c; margin: 0; background: #ffe4e6; border: 1.5px solid #fda4af; padding: 6px 14px; border-radius: 8px;' + (isNoCut ? ' opacity: 0.65; cursor: not-allowed; pointer-events: none;' : ' cursor: pointer;');
         html += '<div style="margin: 12px 20px 0; padding: 12px 16px; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 12px; display: flex; align-items: center; justify-content: space-between;">';
         html += '  <div style="display: flex; align-items: center; gap: 8px;">';
         html += '    <span style="font-size: 18px;">🚫</span>';
@@ -1089,8 +1091,8 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         html += '      <div style="font-size: 10px; color: #e11d48; font-weight: 600;">Tích chọn nếu phiếu này không cần cắt vải (bỏ qua gọi vải & cho phép phân công may luôn)</div>';
         html += '    </div>';
         html += '  </div>';
-        html += '  <label style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #be123c; cursor: pointer; margin: 0; background: #ffe4e6; border: 1.5px solid #fda4af; padding: 6px 14px; border-radius: 8px;">';
-        html += '    <input type="checkbox" id="qlx_is_no_cut" ' + (isNoCut ? 'checked' : '') + ' onchange="_qlxToggleNoCutMode(this, ' + orderId + ', ' + itemId + ', ' + pairIndex + ')" style="accent-color: #e11d48; width: 18px; height: 18px; cursor: pointer; margin: 0;">';
+        html += '  <label style="' + labelStyle + '">';
+        html += '    <input type="checkbox" id="qlx_is_no_cut" ' + (isNoCut ? 'checked' : '') + disabledAttr + ' onchange="_qlxToggleNoCutMode(this, ' + orderId + ', ' + itemId + ', ' + pairIndex + ')" style="accent-color: #e11d48; width: 18px; height: 18px; margin: 0;' + (isNoCut ? ' cursor: not-allowed;' : ' cursor: pointer;') + '">';
         html += '    KHÔNG CẮT';
         html += '  </label>';
         html += '</div>';

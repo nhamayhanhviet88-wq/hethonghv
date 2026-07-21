@@ -3467,8 +3467,14 @@ module.exports = async function(fastify) {
         console.log("[DEBUG fabric-lookup] orderId:", orderId, "order:", order);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
 
-        const item = await db.get('SELECT id, description, material_pairs, quantity, COALESCE(is_no_cut, false) AS is_no_cut FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
+        const item = await db.get('SELECT id, description, material_pairs, quantity, COALESCE(is_no_cut, false) AS is_no_cut, production_steps FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
         if (!item) return reply.code(404).send({ error: 'Item không tồn tại' });
+
+        let stepsVal = item.production_steps;
+        if (typeof stepsVal === 'string') {
+            try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
+        }
+        item.is_no_cut = !!item.is_no_cut || (Array.isArray(stepsVal) && !stepsVal.includes(2) && !stepsVal.includes('2'));
 
         const allItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
         const itemIndex = allItems.findIndex(it => it.id === Number(itemId)) + 1;
