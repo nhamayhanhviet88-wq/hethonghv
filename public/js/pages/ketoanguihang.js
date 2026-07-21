@@ -4364,9 +4364,20 @@ async function _dhtShowTraSoatModal(orderId, orderCode) {
     openModal(`🔍 Tra Soát Đơn Hàng — ${orderCode}`, initialBody, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`);
     
     try {
-        if (typeof _tsRenderTimeline !== 'function' && typeof _loadScript === 'function') {
-            await _loadScript('/js/pages/trasoat-modal.js');
-            await _loadScript('/js/pages/trasoatdonhang.js');
+        if (typeof _tsRenderTimeline !== 'function') {
+            if (typeof _loadScript === 'function') {
+                await _loadScript('/js/pages/trasoat-modal.js');
+                await _loadScript('/js/pages/trasoatdonhang.js');
+            }
+            if (typeof _tsRenderTimeline !== 'function') {
+                await new Promise((resolve) => {
+                    const s = document.createElement('script');
+                    s.src = '/js/pages/trasoatdonhang.js?v=' + Date.now();
+                    s.onload = resolve;
+                    s.onerror = resolve;
+                    document.body.appendChild(s);
+                });
+            }
         }
         const res = await apiCall('/api/trasoat/orders/' + orderId + '/detail');
         if (typeof _tsRenderTimeline === 'function') {

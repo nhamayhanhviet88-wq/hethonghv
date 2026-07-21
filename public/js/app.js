@@ -408,7 +408,7 @@ const _PAGE_SCRIPT_MAP = {
     'taophieudonhang': '/js/pages/taophieudonhang.js?v=20260721_add_discard_draft_v5',
     'design-draft': '/js/pages/taophieudonhang.js?v=20260721_add_discard_draft_v5',
     'khuyenmaigiamgia': '/js/pages/khuyenmaigiamgia.js',
-    'donhangtong': '/js/pages/donhangtong.js',
+    'donhangtong': '/js/pages/donhangtong.js?v=20260721_trasoat_v3',
     'bophancat': '/js/pages/bophancathv.js',
     'bophanmay': '/js/pages/bophanmayhv.js',
     'bophanhoanthien': '/js/pages/bophanhoanthienhv.js',
@@ -432,9 +432,9 @@ const _PAGE_SCRIPT_MAP = {
     'kiemkho': '/js/pages/kiemkho.js',
     'nhapxuathoanvai': '/js/pages/nhapxuathoanvai.js',
     'tongdoansosale': '/js/pages/tongdoansosale.js',
-    'trasoatdonhang': '/js/pages/trasoatdonhang.js',
+    'trasoatdonhang': '/js/pages/trasoatdonhang.js?v=20260721_trasoat_v3',
     'tulieuxuongvp': '/js/pages/tulieuxuongvp.js',
-    'donhangchuathutien': '/js/pages/donhangchuathutien.js',
+    'donhangchuathutien': '/js/pages/donhangchuathutien.js?v=20260721_trasoat_v3',
     'taophieuxulycv': '/js/pages/taophieuxulycv.js',
     'tao-phieu-xu-ly-cv': '/js/pages/taophieuxulycv.js',
     'bxh-template': '/js/pages/bxh-template.js',
@@ -447,7 +447,7 @@ const _PAGE_SCRIPT_MAP = {
     'dangbanthansp': '/js/pages/dailylinks.js',
     'tuyendungsvkd': '/js/pages/dailylinks.js',
     'thongsoaomau': '/js/pages/thongsoaomau.js',
-    'ketoanguihang': '/js/pages/ketoanguihang.js',
+    'ketoanguihang': '/js/pages/ketoanguihang.js?v=20260721_trasoat_v3',
     'kinhdoanhguihang': '/js/pages/kinhdoanhguihang.js',
     'fab-import-v4': '/js/pages/fab-import-v4.js',
     'billnhaphang': '/js/pages/billnhaphang.js',
@@ -458,8 +458,8 @@ const _PAGE_SCRIPT_MAP = {
     'baogiactvhh': '/js/pages/baogiactvhh.js',
     'tilecatgoc': '/js/pages/tilecatgoc.js',
     'luongsanxuat': '/js/pages/luongsanxuat.js',
-    'trasoat-modal': '/js/pages/trasoat-modal.js',
-    'donhanghomnayqlx': '/js/pages/donhanghomnayqlx.js',
+    'trasoat-modal': '/js/pages/trasoat-modal.js?v=20260721_trasoat_v3',
+    'donhanghomnayqlx': '/js/pages/donhanghomnayqlx.js?v=20260721_trasoat_v3',
     'lichradonhang': '/js/pages/lichradonhang.js',
     'nhapxuathoanvatlieu': '/js/pages/nhapxuathoanvatlieu.js',
     'congviec-qlx': '/js/pages/congviecqlx.js',
@@ -472,18 +472,21 @@ const _PAGE_SCRIPT_MAP = {
 
 const _loadedScripts = new Set();
 async function _loadScript(src) {
-    if (_loadedScripts.has(src)) return;
-    const existing = document.querySelector(`script[src^="${src}"]`);
+    const cleanSrc = src.split('?')[0];
+    if (_loadedScripts.has(cleanSrc) || _loadedScripts.has(src)) return;
+    const existing = document.querySelector(`script[src^="${cleanSrc}"]`);
     if (existing) {
+        _loadedScripts.add(cleanSrc);
         _loadedScripts.add(src);
         return;
     }
     return new Promise((resolve, reject) => {
         const s = document.createElement('script');
         const ver = window.BUILD_VERSION || Date.now();
-        s.src = src + (src.includes('?') ? '&v=' : '?v=') + ver;
+        s.src = src.includes('?') ? src : (src + '?v=' + ver);
         s.async = true;
         s.onload = () => {
+            _loadedScripts.add(cleanSrc);
             _loadedScripts.add(src);
             resolve();
         };
