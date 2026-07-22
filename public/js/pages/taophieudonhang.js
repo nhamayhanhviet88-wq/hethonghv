@@ -3825,9 +3825,15 @@ function _tpdSetupPreviewScale() {
 // Switch Item Tab, saving current state first
 function _tpdSwitchItemTab(idx) {
     const state = window._tpdWorkspaceState;
+    if (!state) return;
     if (state.activeItemIndex === idx) return;
 
-    // Check if there are unsaved changes (optional prompt, or auto-save)
+    // Save current active item state back into state.items array & draft storage before switching tab
+    if (state.editingItem && Array.isArray(state.items) && state.items[state.activeItemIndex] !== undefined) {
+        state.items[state.activeItemIndex] = _tpdCloneItemState(state.editingItem);
+        if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
+    }
+
     state.activeItemIndex = idx;
     state.editingItem = _tpdCloneItemState(state.items[idx]);
 
@@ -4969,6 +4975,11 @@ function _tpdOnSaleRemindChoiceChange(dept, choice) {
         }
     }
 
+    if (state.items && state.items[state.activeItemIndex]) {
+        state.items[state.activeItemIndex].sale_remind_choices = state.editingItem.sale_remind_choices;
+        state.items[state.activeItemIndex].sale_remind_items = state.editingItem.sale_remind_items;
+    }
+
     const rowEl = document.getElementById('tpd_sale_remind_row_' + dept);
     const boxEl = document.getElementById('tpd_sale_remind_items_box_' + dept);
     const labelYes = document.getElementById('tpd_sale_remind_label_yes_' + dept);
@@ -5011,6 +5022,10 @@ function _tpdAddSaleRemindItem(dept) {
 
     state.editingItem.sale_remind_items[dept].push('');
 
+    if (state.items && state.items[state.activeItemIndex]) {
+        state.items[state.activeItemIndex].sale_remind_items = state.editingItem.sale_remind_items;
+    }
+
     const boxEl = document.getElementById('tpd_sale_remind_items_box_' + dept);
     if (boxEl) {
         const depts = [
@@ -5041,6 +5056,10 @@ function _tpdRemoveSaleRemindItem(dept, idx) {
     if (Array.isArray(list)) {
         list.splice(idx, 1);
 
+        if (state.items && state.items[state.activeItemIndex]) {
+            state.items[state.activeItemIndex].sale_remind_items = state.editingItem.sale_remind_items;
+        }
+
         const boxEl = document.getElementById('tpd_sale_remind_items_box_' + dept);
         if (boxEl) {
             const depts = [
@@ -5062,9 +5081,17 @@ function _tpdRemoveSaleRemindItem(dept, idx) {
 
 function _tpdUpdateSaleRemindItem(dept, idx, value) {
     const state = window._tpdWorkspaceState;
-    if (!state || !state.editingItem || !state.editingItem.sale_remind_items) return;
+    if (!state || !state.editingItem) return;
+    if (!state.editingItem.sale_remind_items) state.editingItem.sale_remind_items = {};
     if (!state.editingItem.sale_remind_items[dept]) state.editingItem.sale_remind_items[dept] = [];
     state.editingItem.sale_remind_items[dept][idx] = value;
+
+    if (state.items && state.items[state.activeItemIndex]) {
+        state.items[state.activeItemIndex].sale_remind_items = state.editingItem.sale_remind_items;
+    }
+
+    if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
+    if (typeof _tpdUpdateLivePreview === 'function') _tpdUpdateLivePreview();
 }
 
 // Generate the Right inputs form editor UI
