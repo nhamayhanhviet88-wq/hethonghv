@@ -3373,6 +3373,8 @@ async function _qlxAssignMay(orderId, itemId) {
         window._qlxMayPendingRows = null;
     }
     window._qlxIsReopeningMay = false;
+
+    try {
         // 1. First, check preconditions
         var checkRes = await apiCall('/api/qlx/assign-check/' + orderId + '?type=may&item_id=' + itemId);
         if (!checkRes.isCutDone || !checkRes.isMatDone) {
