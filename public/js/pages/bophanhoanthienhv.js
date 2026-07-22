@@ -357,6 +357,7 @@ function _bphtRender(){
                 + '</div>'
                 + '</div>';
         }
+        tb.innerHTML = paginated.map(function(r, i) {
         var isSewingAssigned = (r.is_sewing_assigned === true || r.is_sewing_assigned === 1 || (r.hoanthien_remind_choice !== null && r.hoanthien_remind_choice !== undefined && r.hoanthien_remind_choice !== ''));
         var isSewerAssigned = isSewingAssigned && !!(r.sewer_name && r.sewer_name.trim() && !r.sewer_name.includes('Chưa Phân Công'));
         var isQcOk = (r.is_qc_checked !== 0);
