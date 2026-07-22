@@ -9080,6 +9080,29 @@ async function _tpdShowExportSheetsModal() {
                 try {
                     confirmBtn.disabled = true;
                     confirmBtn.innerHTML = 'Đang xử lý...';
+
+                    // Auto-save all workspace items sheet details (including sale reminders) before confirm-export
+                    if (window._tpdWorkspaceState && Array.isArray(window._tpdWorkspaceState.items)) {
+                        for (const it of window._tpdWorkspaceState.items) {
+                            if (it && it.id) {
+                                try {
+                                    await apiCall(`/api/dht/orders/${o.id}/items/${it.id}/sheet`, 'PUT', {
+                                        style_name: it.style_name,
+                                        material_name: it.material_name,
+                                        color_name: it.color_name,
+                                        workshop_note: it.workshop_note,
+                                        mockup_image: it.mockup_image,
+                                        print_details: it.print_details || [],
+                                        quantities: it.quantities,
+                                        size_type: it.size_type || 'Size TT',
+                                        custom_layout: it.custom_layout || {},
+                                        sale_remind_choices: it.sale_remind_choices || {},
+                                        sale_remind_items: it.sale_remind_items || {}
+                                    });
+                                } catch(e) {}
+                            }
+                        }
+                    }
                     
                     const itemDesigns = {};
                     const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${o.id}`);
