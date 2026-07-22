@@ -521,10 +521,12 @@ module.exports = async function(fastify) {
             id SERIAL PRIMARY KEY,
             reminder_id INTEGER NOT NULL,
             user_id INTEGER,
-            record_type VARCHAR(20) NOT NULL,
+            record_type VARCHAR(20) DEFAULT 'qlx',
             record_id INTEGER,
             viewed_at TIMESTAMPTZ DEFAULT NOW()
         )`);
+        await db.exec(`ALTER TABLE sale_reminder_views ADD COLUMN IF NOT EXISTS record_type VARCHAR(20) DEFAULT 'qlx'`);
+        await db.exec(`ALTER TABLE sale_reminder_views ADD COLUMN IF NOT EXISTS record_id INTEGER`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_sale_reminder_views_rem ON sale_reminder_views(reminder_id)`);
     } catch(e) { console.error('[QLX] sale_reminder_views table:', e.message); }
 
