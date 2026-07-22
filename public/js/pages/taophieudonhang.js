@@ -10107,8 +10107,18 @@ function _tpdSaveDraft(it) {
             try {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const k = localStorage.key(i);
-                    if (k && k.startsWith('tpd_draft_') && !candidateKeys.includes(k)) {
-                        localStorage.removeItem(k);
+                    if (k && k.startsWith('tpd_draft_')) {
+                        // Only remove drafts from OTHER orders to free space
+                        const isCurrentOrderKey = candidateKeys.some(cKey => {
+                            const parts = cKey.split('_');
+                            if (parts.length >= 3) {
+                                return k.includes(`_${parts[2]}_`);
+                            }
+                            return false;
+                        });
+                        if (!isCurrentOrderKey) {
+                            localStorage.removeItem(k);
+                        }
                     }
                 }
                 localStorage.setItem(key, jsonStr);
