@@ -2272,7 +2272,7 @@ async function _bpcOpenCutModal(recordId) {
         // Reminders block (Sale)
         if (saleReminders.length > 0) {
             bh += '<div style="margin-top:12px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px 14px;border-radius:12px;">';
-            bh += '  <div style="font-weight:800;color:#92400e;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📣 SALE NHẮC NHỞ:</div>';
+            bh += '  <div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN CẮT:</div>';
             bh += '  <div style="display:flex;flex-direction:column;gap:10px">';
             saleReminders.forEach(function(rem, remIdx) {
                 var remId = saleReminderIds[remIdx] || 0;
