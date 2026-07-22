@@ -1580,7 +1580,7 @@ async function _tpdOnImageFileSelect(e, orderId) {
     }
 }
 
-function _tpdCompressImage(base64Str, maxWidth = 1600, maxHeight = 1600, quality = 0.85) {
+function _tpdCompressImage(base64Str, maxWidth = 1000, maxHeight = 1000, quality = 0.75) {
     return new Promise((resolve) => {
         if (!base64Str || typeof base64Str !== 'string' || !base64Str.startsWith('data:image')) {
             return resolve(base64Str);
@@ -1589,9 +1589,6 @@ function _tpdCompressImage(base64Str, maxWidth = 1600, maxHeight = 1600, quality
         img.onload = () => {
             let width = img.width;
             let height = img.height;
-            if (width <= maxWidth && height <= maxHeight && base64Str.length < 400000) {
-                return resolve(base64Str);
-            }
             if (width > maxWidth) {
                 height = Math.round((height * maxWidth) / width);
                 width = maxWidth;
@@ -1604,9 +1601,10 @@ function _tpdCompressImage(base64Str, maxWidth = 1600, maxHeight = 1600, quality
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
-            const isPng = base64Str.startsWith('data:image/png');
-            const compressed = canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality);
+            const compressed = canvas.toDataURL('image/jpeg', quality);
             resolve(compressed);
         };
         img.onerror = () => resolve(base64Str);
@@ -1623,7 +1621,7 @@ function _tpdOnMockupFileSelect(e) {
     const reader = new FileReader();
     reader.onload = async function(evt) {
         let base64 = evt.target.result;
-        base64 = await _tpdCompressImage(base64, 1600, 1600, 0.85);
+        base64 = await _tpdCompressImage(base64, 1000, 1000, 0.75);
         const state = window._tpdWorkspaceState;
         if (state && state.editingItem) {
             state.editingItem.mockup_image = base64;
@@ -7094,7 +7092,7 @@ function _tpdSetupPasteZones() {
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     let base64 = event.target.result;
-                    base64 = await _tpdCompressImage(base64, 1600, 1600, 0.85);
+                    base64 = await _tpdCompressImage(base64, 1000, 1000, 0.75);
                     if (zone === 'mockup') {
                         state.editingItem.mockup_image = base64;
                         if (state.items && state.items[state.activeItemIndex]) {
