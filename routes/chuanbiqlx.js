@@ -5075,15 +5075,15 @@ module.exports = async function(fastify) {
 
         const isSewingDone = rawAssignments.length > 0 && rawAssignments.every(a => a.done_date !== null || a.salary_approved === true);
         const canToggleNoSew = !rawAssignments.some(a => a.done_date !== null || a.salary_approved === true || a.is_reported === true);
-        const fRec = await db.get(`
+        const finishingRows = await db.all(`
             SELECT fr.is_completed, fr.expected_date 
             FROM finishing_records fr
             LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
             WHERE fr.order_item_id = $1 OR sr.order_item_id = $1
-            ORDER BY fr.is_completed DESC, fr.id DESC
-            LIMIT 1
+            ORDER BY fr.id DESC
         `, [itemId]);
-        const isFinishingDone = fRec ? fRec.is_completed : false;
+        const fRec = finishingRows.length > 0 ? finishingRows[0] : null;
+        const isFinishingDone = finishingRows.length > 0 && finishingRows.every(f => f.is_completed === true);
         const finishingExpectedDate = fRec && fRec.expected_date ? fRec.expected_date : null;
 
         return {
@@ -5130,7 +5130,15 @@ module.exports = async function(fastify) {
             console.log('[SEWING-ASSIGN DEBUG] FAIL: effectiveHtChoice invalid:', effectiveHtChoice);
             return reply.code(400).send({ error: '⚠️ Vui lòng chọn Nhắc Nhở Hoàn Thiện, Cắt Chỉ (Có hoặc Không)!' });
         }
-        if (effectiveHtChoice === 'yes' && hoanthien_reminders && Array.isArray(hoanthien_reminders) && hoanthien_reminders.filter(x => x && x.trim()).length === 0) {
+        // Only validate hoanthien_reminders content if finishing is NOT done
+        // When finishing is done, reminders are read-only and frontend doesn't send them
+        const postFinishingCheck = await db.all(`
+            SELECT fr.is_completed FROM finishing_records fr
+            LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+            WHERE fr.order_item_id = $1 OR sr.order_item_id = $1
+        `, [itemId]);
+        const isPostFinishingDone = postFinishingCheck.length > 0 && postFinishingCheck.every(f => f.is_completed === true);
+        if (!isPostFinishingDone && effectiveHtChoice === 'yes' && hoanthien_reminders && Array.isArray(hoanthien_reminders) && hoanthien_reminders.filter(x => x && x.trim()).length === 0) {
             return reply.code(400).send({ error: '⚠️ Vui lòng nhập nội dung nhắc nhở bộ phận hoàn thiện!' });
         }
 
