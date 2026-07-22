@@ -67,6 +67,53 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
     return parts.join(' , ');
 }
 
+// ========== SALE REMINDERS PERSISTENCE HELPER ==========
+async function saveSaleRemindersForItem(txDb, orderId, itemId, choices, itemsMap, userId) {
+    if (!choices || typeof choices !== 'object') return;
+    const validDepts = ['qlx', 'cat', 'in', 'ep', 'qc', 'hoanthien'];
+    const now = new Date().toISOString();
+
+    try {
+        await txDb.run(
+            `UPDATE dht_order_items SET sale_remind_choices = $1 WHERE id = $2`,
+            [JSON.stringify(choices), itemId]
+        );
+    } catch(e) {}
+
+    for (const dept of validDepts) {
+        const choice = choices[dept];
+        if (!choice) continue;
+
+        try {
+            await txDb.run(
+                `DELETE FROM sale_reminders WHERE item_id = $1 AND dept = $2`,
+                [itemId, dept]
+            );
+        } catch(e) {}
+
+        if (choice === 'yes') {
+            const rawList = itemsMap && Array.isArray(itemsMap[dept]) ? itemsMap[dept] : [];
+            let validContents = rawList.map(x => (x || '').trim()).filter(x => x.length > 0);
+            
+            // Fallback: If choice is 'yes' but text is empty, insert default reminder text so QLX/dept always gets the reminder!
+            if (validContents.length === 0) {
+                const deptLabel = dept === 'qlx' ? 'Quản Lý Xưởng' : dept.toUpperCase();
+                validContents.push(`Có nhắc nhở từ Sale cho ${deptLabel} (Vui lòng kiểm tra chi tiết trên phiếu SX)`);
+            }
+
+            for (const content of validContents) {
+                try {
+                    await txDb.run(
+                        `INSERT INTO sale_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                        [orderId, itemId, dept, content, userId || null, now]
+                    );
+                } catch(e) {}
+            }
+        }
+    }
+}
+
 async function validatePromoCodeForOrder(code, excludeOrderId = null) {
     if (!code) return { valid: true };
     const row = await db.get('SELECT * FROM promotion_codes WHERE UPPER(code) = UPPER($1)', [code.trim()]);
@@ -2017,14 +2064,14 @@ module.exports = async function(fastify) {
             for (const item of b.items) {
                 const prodRow = await db.get('SELECT size_type FROM dht_products WHERE name = $1', [item.product_name || '']);
                 const resolvedSizeType = prodRow?.size_type || item.size_type || 'Size TT';
-                await db.run(`
+                const itemRes = await db.run(`
                     INSERT INTO dht_order_items (dht_order_id, description, quantity, unit_price, total,
                         sale_type, product_name, material_id, material_name,
                         color_id, color_name, pattern_name, sewing_techniques,
                         accounting_notes, extra_materials, quantities,
                         extra_product, extra_price, item_total, material_pairs, size_type, promo_gift_quantity, promo_gift_code, promo_gift_apply_row_index,
-                        production_steps)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+                        production_steps, sale_remind_choices)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
                 `, [
                     result.id,
                     item.product_name || '',
@@ -2050,8 +2097,14 @@ module.exports = async function(fastify) {
                     Number(item.promo_gift_quantity) || 0,
                     item.promo_gift_code || null,
                     item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null,
-                    item.production_steps ? JSON.stringify(item.production_steps) : null
+                    item.production_steps ? JSON.stringify(item.production_steps) : null,
+                    JSON.stringify(item.sale_remind_choices || {})
                 ]);
+
+                const newItemId = itemRes.lastInsertRowid;
+                if (newItemId && (item.sale_remind_choices || item.sale_remind_items)) {
+                    await saveSaleRemindersForItem(db, result.id, newItemId, item.sale_remind_choices, item.sale_remind_items, request.user.id);
+                }
             }
 
             // Auto-link TSAM: create tsam_order_links for each pattern_name
@@ -5549,8 +5602,8 @@ module.exports = async function(fastify) {
                             accounting_notes = $13, extra_materials = $14, quantities = $15,
                             extra_product = $16, extra_price = $17, item_total = $18, material_pairs = $19,
                             size_type = $20, promo_gift_quantity = $21, promo_gift_code = $22, promo_gift_apply_row_index = $23,
-                            production_steps = $24
-                        WHERE id = $25 AND dht_order_id = $26
+                            production_steps = $24, sale_remind_choices = $25
+                        WHERE id = $26 AND dht_order_id = $27
                     `, [
                         item.product_name || '',
                         Number(item.quantity) || 0,
@@ -5576,9 +5629,14 @@ module.exports = async function(fastify) {
                         item.promo_gift_code || null,
                         item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null,
                         item.production_steps ? JSON.stringify(item.production_steps) : null,
+                        JSON.stringify(item.sale_remind_choices || {}),
                         itemId,
                         orderId
                     ]);
+
+                    if (item.sale_remind_choices || item.sale_remind_items) {
+                        await saveSaleRemindersForItem(db, orderId, itemId, item.sale_remind_choices, item.sale_remind_items, request.user.id);
+                    }
 
                     // ★ Two-way sync: DHT sewing_techniques + TSAM pattern techs → TPD custom_layout.sewing_items
                     try {
@@ -5708,14 +5766,14 @@ module.exports = async function(fastify) {
                     // Insert new item
                     const prodRow = await db.get('SELECT size_type FROM dht_products WHERE name = $1', [item.product_name || '']);
                     const resolvedSizeType = prodRow?.size_type || item.size_type || 'Size TT';
-                    await db.run(`
+                    const newItemRes = await db.run(`
                         INSERT INTO dht_order_items (dht_order_id, description, quantity, unit_price, total,
                             sale_type, product_name, material_id, material_name,
                             color_id, color_name, pattern_name, sewing_techniques,
                             accounting_notes, extra_materials, quantities,
                             extra_product, extra_price, item_total, material_pairs, size_type, promo_gift_quantity, promo_gift_code, promo_gift_apply_row_index,
-                            production_steps)
-                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+                            production_steps, sale_remind_choices)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
                     `, [
                         orderId,
                         item.product_name || '',
@@ -5741,8 +5799,14 @@ module.exports = async function(fastify) {
                         Number(item.promo_gift_quantity) || 0,
                         item.promo_gift_code || null,
                         item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null,
-                        item.production_steps ? JSON.stringify(item.production_steps) : null
+                        item.production_steps ? JSON.stringify(item.production_steps) : null,
+                        JSON.stringify(item.sale_remind_choices || {})
                     ]);
+
+                    const newItemId = newItemRes.lastInsertRowid;
+                    if (newItemId && (item.sale_remind_choices || item.sale_remind_items)) {
+                        await saveSaleRemindersForItem(db, orderId, newItemId, item.sale_remind_choices, item.sale_remind_items, request.user.id);
+                    }
                 }
             }
             } catch (dbErr) {
