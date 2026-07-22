@@ -3013,7 +3013,11 @@ async function apiCall(url, method = 'GET', body = null) {
         options.body = JSON.stringify(body);
     }
     const res = await fetch(finalUrl, options);
-    return res.json();
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || data.message || ('Lỗi HTTP ' + res.status));
+    }
+    return data;
 }
 
 // ========== FORMAT HELPERS ==========

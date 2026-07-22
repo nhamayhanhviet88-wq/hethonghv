@@ -5118,13 +5118,16 @@ module.exports = async function(fastify) {
 
         const itemId = Number(request.params.itemId);
         const { is_no_sew, assignments, may_remind_choice, may_reminders, hoanthien_remind_choice, hoanthien_reminders } = request.body || {};
+        console.log('[SEWING-ASSIGN DEBUG] itemId:', itemId, 'body:', JSON.stringify(request.body).substring(0, 500));
         if (assignments && !Array.isArray(assignments)) {
+            console.log('[SEWING-ASSIGN DEBUG] FAIL: assignments not array');
             return reply.code(400).send({ error: 'Dữ liệu phân công không hợp lệ' });
         }
         let existingPrepRow = await db.get(`SELECT may_remind_choice, hoanthien_remind_choice FROM qlx_preparation WHERE item_id = $1`, [itemId]);
         const effectiveHtChoice = hoanthien_remind_choice || (existingPrepRow ? existingPrepRow.hoanthien_remind_choice : 'none');
 
         if (!effectiveHtChoice || !['yes', 'none'].includes(effectiveHtChoice)) {
+            console.log('[SEWING-ASSIGN DEBUG] FAIL: effectiveHtChoice invalid:', effectiveHtChoice);
             return reply.code(400).send({ error: '⚠️ Vui lòng chọn Nhắc Nhở Hoàn Thiện, Cắt Chỉ (Có hoặc Không)!' });
         }
         if (effectiveHtChoice === 'yes' && hoanthien_reminders && Array.isArray(hoanthien_reminders) && hoanthien_reminders.filter(x => x && x.trim()).length === 0) {
@@ -5364,8 +5367,10 @@ module.exports = async function(fastify) {
             }
         } catch(e) {}
         const cut_qty = rawCutQty > 0 ? Math.round(rawCutQty / numPhois) : (item.quantity || 0);
+        console.log('[SEWING-ASSIGN DEBUG] rawCutQty:', rawCutQty, 'numPhois:', numPhois, 'cut_qty:', cut_qty, 'isSewingDone:', isSewingDone);
 
         if (cut_qty <= 0) {
+            console.log('[SEWING-ASSIGN DEBUG] FAIL: cut_qty <= 0');
             return reply.code(400).send({ error: 'Sản phẩm này chưa được cắt xong. Không thể phân công May!' });
         }
 
@@ -5401,7 +5406,9 @@ module.exports = async function(fastify) {
             }
         }
 
+        console.log('[SEWING-ASSIGN DEBUG] totalAssignQty:', totalAssignQty, 'cut_qty:', cut_qty);
         if (assignments.length > 0 && totalAssignQty !== cut_qty) {
+            console.log('[SEWING-ASSIGN DEBUG] FAIL: totalAssignQty !== cut_qty');
             return reply.code(400).send({ error: `Tổng số lượng phân công (${totalAssignQty}) phải khớp chính xác 100% với số lượng đã cắt xong (${cut_qty})!` });
         }
 
@@ -5523,6 +5530,7 @@ module.exports = async function(fastify) {
             VALUES ($1, $2, $3, $4, $5, $6)
         `, [item.dht_order_id, itemId, 'assign_may', historyDetails, request.user.id, now]);
 
+        console.log('[SEWING-ASSIGN DEBUG] ✅ SUCCESS - saved assignments for item', itemId);
         return { success: true };
     });
 
