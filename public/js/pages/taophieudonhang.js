@@ -499,23 +499,24 @@ async function renderDesignDraftPage(content) {
             }
         }
 
-        const clonedItems = items.map(it => _tpdCloneItemState(it));
-
         window._tpdWorkspaceState = {
             orderId: orderId,
             order: order,
-            items: clonedItems,
+            items: [],
             payments: details.payments || [],
             surcharges: details.surcharges || [],
             activeItemIndex: activeIdx,
             hasEditPermission: hasEditPermission,
             role: myInfo.role || '',
             lockWarning: details.lock_warning || null,
-            // Deep copy of active item editing state
-            editingItem: clonedItems.length > 0 ? _tpdCloneItemState(clonedItems[activeIdx]) : null,
-            // Clean database baseline states (normalized but without drafts)
-            dbBaselines: items.length > 0 ? items.map(it => _tpdCloneItemState(it, true)) : []
+            editingItem: null,
+            dbBaselines: []
         };
+
+        const clonedItems = items.map(it => _tpdCloneItemState(it, false, orderId));
+        window._tpdWorkspaceState.items = clonedItems;
+        window._tpdWorkspaceState.editingItem = clonedItems.length > 0 ? _tpdCloneItemState(clonedItems[activeIdx], false, orderId) : null;
+        window._tpdWorkspaceState.dbBaselines = items.length > 0 ? items.map(it => _tpdCloneItemState(it, true, orderId)) : [];
 
         // Render main workspace wrapper
         _tpdRenderWorkspace(content);
@@ -589,7 +590,7 @@ function _tpdNormalizeItemQuantities(it, config) {
 }
 
 // Clone order item to independent workspace editing state
-function _tpdCloneItemState(item, ignoreDraft = false) {
+function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null) {
     if (!item) return null;
 
     const config = _tpd.sizeTypesConfig || {
@@ -599,7 +600,7 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
 
     // Check if there is a draft in localStorage
     const params = new URLSearchParams(window.location.search);
-    const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
+    const orderId = currentOrderId || params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
     if (orderId && item && (item.id !== undefined && item.id !== null) && !ignoreDraft) {
         const key = `tpd_draft_${orderId}_${item.id}`;
         const draftStr = localStorage.getItem(key) || sessionStorage.getItem(key);
