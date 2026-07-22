@@ -712,7 +712,8 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                     draft.shipped_at = item.shipped_at;
                     draft.actual_ship_datetime = item.actual_ship_datetime;
                     
-                    // Normalize quantities in draft
+                    item.sale_remind_choices = draft.sale_remind_choices;
+                    item.sale_remind_items = draft.sale_remind_items;
                     draft.quantities = _tpdNormalizeItemQuantities(draft, config);
                     return draft;
                 }
