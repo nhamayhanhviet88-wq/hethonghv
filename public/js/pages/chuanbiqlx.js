@@ -4049,7 +4049,7 @@ async function _qlxAssignMaySave() {
     var mayRemindChoice = null;
     var mayReminders = [];
     if (!window._qlxMayData.is_sewing_done) {
-        mayRemindChoice = document.querySelector('input[name="qlx_may_remind_choice"]:checked')?.value;
+        mayRemindChoice = document.querySelector('input[name="qlx_may_remind_choice"]:checked')?.value || window._qlxMayData.may_remind_choice || 'none';
         if (!mayRemindChoice) {
             showToast('⚠️ Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận May!', 'error');
             return;
