@@ -295,7 +295,7 @@ function _qlxPatchOrderRows(orderId) {
                     }
                 } else {
                     if (isNew) {
-                        h += '<td colspan="2" style="text-align:center;padding:4px 6px"><button class="qlx-icon-btn" style="width:auto;padding:2px 10px;background:linear-gradient(135deg,#fee2e2,#fecaca);border-color:#ef4444;font-size:9px;font-weight:700;color:#dc2626;white-space:nowrap;animation:qlxPulse 2s infinite;cursor:default" title="Chưa In Phiếu Sản Xuất">🖨️ Chưa In Phiếu SX</button></td>';
+                        h += '<td colspan="2" style="text-align:center;padding:4px 6px"><button class="qlx-icon-btn" onclick="_qlxChecklist(' + o.id + ',\'' + (o.order_code||'') + '\',\'' + (o.customer_name||'').replace(/'/g,'') + '\')" style="width:auto;padding:2px 10px;background:linear-gradient(135deg,#fee2e2,#fecaca);border-color:#ef4444;font-size:9px;font-weight:700;color:#dc2626;white-space:nowrap;animation:qlxPulse 2s infinite;cursor:pointer" title="Click để xem Checklist & Nhắc Nhở Sale QLX">🖨️ Chưa In Phiếu SX</button></td>';
                     } else {
                         h += '<td></td><td></td>';
                     }
