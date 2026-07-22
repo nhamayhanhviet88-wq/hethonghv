@@ -677,6 +677,36 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                     if (!_tpdHasPrintOrPressStep(item) || !_tpdHasPrintOrPressStep(draft)) {
                         draft.print_details = [];
                     }
+                    // Always sync DB sale reminders data into draft
+                    if (item.sale_remind_choices && Object.keys(item.sale_remind_choices || {}).length > 0) {
+                        try {
+                            const dbChoices = typeof item.sale_remind_choices === 'string' ? JSON.parse(item.sale_remind_choices) : item.sale_remind_choices;
+                            if (dbChoices && typeof dbChoices === 'object' && Object.keys(dbChoices).length > 0) {
+                                draft.sale_remind_choices = dbChoices;
+                            }
+                        } catch(e) {}
+                    }
+                    if (item.sale_remind_items) {
+                        try {
+                            const dbItems = typeof item.sale_remind_items === 'string' ? JSON.parse(item.sale_remind_items) : item.sale_remind_items;
+                            if (dbItems && typeof dbItems === 'object' && Object.keys(dbItems).length > 0) {
+                                draft.sale_remind_items = dbItems;
+                            }
+                        } catch(e) {}
+                    }
+                    if (Array.isArray(item.sale_reminders_data) && item.sale_reminders_data.length > 0) {
+                        if (!draft.sale_remind_choices) draft.sale_remind_choices = {};
+                        if (!draft.sale_remind_items) draft.sale_remind_items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
+                        item.sale_reminders_data.forEach(r => {
+                            if (r.dept) {
+                                draft.sale_remind_choices[r.dept] = 'yes';
+                                if (!Array.isArray(draft.sale_remind_items[r.dept])) draft.sale_remind_items[r.dept] = [];
+                                if (r.content && !draft.sale_remind_items[r.dept].includes(r.content)) {
+                                    draft.sale_remind_items[r.dept].push(r.content);
+                                }
+                            }
+                        });
+                    }
                     draft.has_shipped = !!(item.has_shipped || item.shipping_status === 'shipped' || item.shipped_at || item.actual_ship_datetime);
                     draft.shipping_status = item.shipping_status;
                     draft.shipped_at = item.shipped_at;
@@ -768,7 +798,15 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
             if (item.sale_remind_choices) {
                 try { choices = typeof item.sale_remind_choices === 'string' ? JSON.parse(item.sale_remind_choices) : item.sale_remind_choices; } catch(e) {}
             }
-            return choices && typeof choices === 'object' ? choices : {};
+            if (!choices || typeof choices !== 'object') choices = {};
+            if (Array.isArray(item.sale_reminders_data) && item.sale_reminders_data.length > 0) {
+                item.sale_reminders_data.forEach(r => {
+                    if (r.dept && (!choices[r.dept] || choices[r.dept] === 'none')) {
+                        choices[r.dept] = 'yes';
+                    }
+                });
+            }
+            return choices;
         })(),
         sale_remind_items: (() => {
             let items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
