@@ -3075,22 +3075,18 @@ module.exports = async function(fastify) {
             `, [finalPrintChoice, finalPressChoice, now, orderId]);
         }
 
-        // Delete and insert reminders for print/press department if not completed
-        const deptsToDelete = [];
-        if (!isPrintDone) deptsToDelete.push('in');
-        if (!isPressDone) deptsToDelete.push('ep');
-
-        if (deptsToDelete.length > 0) {
-            if (itemId) {
-                await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = ANY($2)`, [itemId, deptsToDelete]);
-            } else {
-                await db.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept = ANY($2)`, [orderId, deptsToDelete]);
-            }
+        // Delete and insert reminders for print/press department
+        const deptsToDelete = ['in', 'ep'];
+        if (itemId) {
+            await db.run(`DELETE FROM qlx_reminders WHERE item_id = $1 AND dept = ANY($2)`, [itemId, deptsToDelete]);
+        } else {
+            await db.run(`DELETE FROM qlx_reminders WHERE dht_order_id = $1 AND item_id IS NULL AND dept = ANY($2)`, [orderId, deptsToDelete]);
         }
 
         // Insert new reminders
-        if (!isPrintDone && print_remind_choice === 'yes' && Array.isArray(print_reminders)) {
+        if (print_remind_choice === 'yes' && Array.isArray(print_reminders)) {
             for (const content of print_reminders) {
+                if (!content || !content.trim()) continue;
                 await db.run(`
                     INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
                     VALUES ($1, $2, 'in', $3, $4, $5)
@@ -3098,8 +3094,9 @@ module.exports = async function(fastify) {
             }
         }
 
-        if (!isPressDone && press_remind_choice === 'yes' && Array.isArray(press_reminders)) {
+        if (press_remind_choice === 'yes' && Array.isArray(press_reminders)) {
             for (const content of press_reminders) {
+                if (!content || !content.trim()) continue;
                 await db.run(`
                     INSERT INTO qlx_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
                     VALUES ($1, $2, 'ep', $3, $4, $5)
