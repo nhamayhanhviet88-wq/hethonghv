@@ -905,7 +905,8 @@ function mRenderUncut(items = null, showSectionBadge = false){
             const itemQty = p.item_qty || '';
             const qtyLabel = mFormatOrderQty(itemQty, spName, p.cutting_category_name);
             const isNoPrint = o.is_no_print === true || o.is_no_print === 1 || o.is_no_print === 't' || p.is_no_print === true || p.is_no_print === 1 || p.is_no_print === 't';
-            const pReady = p.fabric_arrived && (o.has_pc_in || isNoPrint);
+            const hasPcIn = isNoPrint || p.has_pc_in === true || o.has_pc_in === true;
+            const pReady = p.fabric_arrived && hasPcIn;
 
             h+='<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
             h+='<div style="display:flex;justify-content:space-between;align-items:flex-start">';
@@ -925,9 +926,9 @@ function mRenderUncut(items = null, showSectionBadge = false){
             } else if (p.fabric_status === 'chua_ve') {
                 fabText = '❌ Chưa về vải';
             }
-            const printBadgeText = isNoPrint ? '🚫 KHÔNG IN' : (o.has_pc_in ? '✅ Đã PC In' : '❌ Chưa In');
+            const printBadgeText = isNoPrint ? '🚫 KHÔNG IN' : (hasPcIn ? '✅ Đã PC In' : '❌ Chưa In');
             const printBadgeStyle = isNoPrint ? 'style="margin-left:4px;background:rgba(14,165,233,0.15);color:#38bdf8;border:1px solid rgba(14,165,233,0.3)"' : 'style="margin-left:4px"';
-            const printBadgeCls = isNoPrint ? 'm-badge' : (o.has_pc_in ? 'm-badge m-badge-ok' : 'm-badge m-badge-no');
+            const printBadgeCls = isNoPrint ? 'm-badge' : (hasPcIn ? 'm-badge m-badge-ok' : 'm-badge m-badge-no');
 
             h+='<span class="m-badge '+(p.fabric_arrived?'m-badge-ok':'m-badge-no')+'">'+fabText+'</span>';
             h+='<span class="'+printBadgeCls+'" '+printBadgeStyle+'>'+printBadgeText+'</span>';
@@ -946,7 +947,7 @@ function mRenderUncut(items = null, showSectionBadge = false){
                 if (!p.fabric_arrived) {
                     if (p.fabric_status === 'chua_goi') waitText = '🔒 Chưa gọi';
                     else if (p.fabric_status === 'chua_ve') waitText = '🔒 Chưa về';
-                } else if (!o.has_pc_in && !isNoPrint) {
+                } else if (!hasPcIn) {
                     waitText = '🔒 Chờ In';
                 }
                 h+='<button style="border:none;border-radius:8px;color:#94a3b8;background:#334155;font-weight:600;padding:6px 12px;font-size:11px;cursor:not-allowed" disabled>'+waitText+'</button>';
@@ -2465,8 +2466,10 @@ async function mOpenDoneModal(recordId, isRefresh = false){
         sheetHtml+='<label style="display:flex;align-items:center;gap:12px;cursor:pointer">';
         sheetHtml+='<input type="checkbox" class="_mDoneRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#3b82f6">';
         if (imgHtml) sheetHtml += imgHtml;
-        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(idx+1)+'. '+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+calledBadge+'</span>';
-        sheetHtml+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
+        let rollLbl = (rl.label||'Cây '+(idx+1));
+        rollLbl = rollLbl.replace(/(-\s*)(\d+(?:\.\d+)?\s*kg)/gi, '$1<span style="color:#fbbf24;font-weight:900;background:rgba(251,191,36,0.18);padding:1px 6px;border-radius:4px;border:1px solid rgba(251,191,36,0.3)">$2</span>');
+        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(idx+1)+'. '+rollLbl+'</span>'+locBadge+calledBadge+'</span>';
+        sheetHtml+='<span style="font-size:13px;font-weight:900;color:#fbbf24;background:rgba(251,191,36,0.18);border:1px solid rgba(251,191,36,0.4);padding:3px 10px;border-radius:8px;margin-right:8px;white-space:nowrap;display:inline-block;box-shadow:0 1px 4px rgba(0,0,0,0.2)">'+w+'kg</span>';
         sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRoll('+recordId+','+rl.roll_id+')" style="border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
         sheetHtml+=mRenderRollReservations(rl, r.order_code);
         sheetHtml+='<div id="_mDoneRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
@@ -2487,7 +2490,7 @@ async function mOpenDoneModal(recordId, isRefresh = false){
     sheetHtml+='</div></div></div>';
     // Stats
     sheetHtml+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    sheetHtml+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+mFmtKg(r.kg_start||0)+'</div></div>';
+    sheetHtml+='<div style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.4);padding:10px;border-radius:10px;text-align:center"><div style="font-size:10px;font-weight:800;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:20px;font-weight:900;color:#fbbf24">'+mFmtKg(r.kg_start||0)+' kg</div></div>';
     sheetHtml+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ KG CẮT</div><div id="_mDoneKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+mFmtKg(r.kg_start||0)+'</div></div></div>';
     sheetHtml+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">📊 Định Lượng Thực Tế</span><span class="mm-val" id="_mDoneRatio" style="font-size:18px;font-weight:900;color:#10b981">—</span></div>';
     sheetHtml+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">⚖️ Định Lượng Cắt Yêu Cầu</span><span class="mm-val" style="font-size:16px;font-weight:700;color:#fbbf24">' + (r.target_cut_ratio || 0) + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
@@ -2840,8 +2843,10 @@ async function mOpenGroupDoneModal(groupId, isRefresh = false){
         sheetHtml+='<label style="display:flex;align-items:center;gap:12px;cursor:pointer">';
         sheetHtml+='<input type="checkbox" class="_mGRollCb" data-idx="'+idx+'" data-rollid="'+rl.roll_id+'" data-weight="'+w+'" onchange="mGDoneToggleRoll('+idx+')" style="width:22px;height:22px;accent-color:#8b5cf6">';
         if (imgHtml) sheetHtml += imgHtml;
-        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(idx+1)+'. '+(rl.label||'Cây '+(idx+1))+'</span>'+locBadge+'</span>';
-        sheetHtml+='<span style="font-size:12px;font-weight:700;color:#94a3b8;margin-right:8px">'+w+'kg</span>';
+        let rollLbl = (rl.label||'Cây '+(idx+1));
+        rollLbl = rollLbl.replace(/(-\s*)(\d+(?:\.\d+)?\s*kg)/gi, '$1<span style="color:#fbbf24;font-weight:900;background:rgba(251,191,36,0.18);padding:1px 6px;border-radius:4px;border:1px solid rgba(251,191,36,0.3)">$2</span>');
+        sheetHtml+='<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:700;color:#e2e8f0">'+(idx+1)+'. '+rollLbl+'</span>'+locBadge+'</span>';
+        sheetHtml+='<span style="font-size:13px;font-weight:900;color:#fbbf24;background:rgba(251,191,36,0.18);border:1px solid rgba(251,191,36,0.4);padding:3px 10px;border-radius:8px;margin-right:8px;white-space:nowrap;display:inline-block;box-shadow:0 1px 4px rgba(0,0,0,0.2)">'+w+'kg</span>';
         sheetHtml+='<button onclick="event.preventDefault(); event.stopPropagation(); mRemoveRollGroup(\''+groupId+'\','+rl.roll_id+')" style="border:1.5px solid #ef4444;background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
         sheetHtml+=mRenderRollReservations(rl, groupOrderCodes);
         sheetHtml+='<div id="_mGRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
@@ -2862,7 +2867,7 @@ async function mOpenGroupDoneModal(groupId, isRefresh = false){
     sheetHtml+='</div></div></div>';
     // Stats
     sheetHtml+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    sheetHtml+='<div style="background:rgba(251,191,36,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#fbbf24">'+mFmtKg(kgStart)+'</div></div>';
+    sheetHtml+='<div style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.4);padding:10px;border-radius:10px;text-align:center"><div style="font-size:10px;font-weight:800;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:20px;font-weight:900;color:#fbbf24">'+mFmtKg(kgStart)+' kg</div></div>';
     sheetHtml+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ TỔNG KG CẮT</div><div id="_mGKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+mFmtKg(kgStart)+'</div></div></div>';
     // Distribution preview
     sheetHtml+='<div id="_mGDistrib" style="margin-top:8px"></div>';

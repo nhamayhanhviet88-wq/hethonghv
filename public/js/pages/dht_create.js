@@ -3071,7 +3071,12 @@ function _dhtSavePhieu(idx) {
         has_fabric_called:!!existing.has_fabric_called,
         has_print_assignment:!!existing.has_print_assignment,
         has_cutting_started:!!existing.has_cutting_started,
-        production_steps:stepsVal
+        production_steps:stepsVal,
+        print_details: (function() {
+            if (!stepsVal || !Array.isArray(stepsVal)) return existing.print_details || [];
+            var hasInOrEp = stepsVal.some(function(s) { return Number(s) === 3 || Number(s) === 4; });
+            return hasInOrEp ? (existing.print_details || []) : [];
+        })()
     };
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
@@ -4549,6 +4554,13 @@ async function _dhtSubmitEditV2(isDraft) {
                             draft.sewing_techniques = savedItem.sewing_techniques || [];
                             draft.extra_materials = savedItem.extra_materials || [];
                             draft.material_pairs = savedItem.material_pairs || [];
+                            draft.production_steps = savedItem.production_steps || null;
+                            if (savedItem.production_steps && Array.isArray(savedItem.production_steps)) {
+                                var hasInOrEp = savedItem.production_steps.some(function(s) { return Number(s) === 3 || Number(s) === 4; });
+                                if (!hasInOrEp) {
+                                    draft.print_details = [];
+                                }
+                            }
                             localStorage.setItem(draftKey, JSON.stringify(draft));
                         } catch(pe) { /* parse error, skip */ }
                     }

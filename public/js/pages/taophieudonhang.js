@@ -72,6 +72,13 @@ function _tpdHasPrintOrPressStep(it) {
 
     let itemSteps = it.production_steps;
     if (itemSteps === null || itemSteps === undefined) {
+        itemSteps = it.product_process_steps;
+    }
+    if (itemSteps === null || itemSteps === undefined) {
+        const pName = (it.product_name || it.description || '').toLowerCase();
+        if (pName.includes('áo trơn') || pName.includes('ao tron') || pName.includes('gia công') || pName.includes('gia cong')) {
+            return false;
+        }
         return true;
     }
     if (typeof itemSteps === 'string') {
@@ -615,6 +622,10 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
                     draft.cutting_category_name = item.cutting_category_name;
                     draft.is_no_sew = !!item.is_no_sew;
                     draft.production_steps = item.production_steps;
+                    draft.product_process_steps = item.product_process_steps;
+                    if (!_tpdHasPrintOrPressStep(item) || !_tpdHasPrintOrPressStep(draft)) {
+                        draft.print_details = [];
+                    }
                     draft.has_shipped = !!(item.has_shipped || item.shipping_status === 'shipped' || item.shipped_at || item.actual_ship_datetime);
                     draft.shipping_status = item.shipping_status;
                     draft.shipped_at = item.shipped_at;
@@ -638,8 +649,8 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
     }
     if (!Array.isArray(printDetails)) printDetails = [];
 
-    // Backwards-compatibility self-healing & default pre-population
-    if (printDetails.length === 0) {
+    // Backwards-compatibility self-healing & default pre-population (ONLY if item has print/press step)
+    if (_tpdHasPrintOrPressStep(item) && printDetails.length === 0) {
         const defaultPositions = [
             { name: "Ngực", require_offset: false, offset_label: "", offset_placeholder: "" },
             { name: "Lưng", require_offset: true, offset_label: "Gáy xuống", offset_placeholder: "Ví dụ: 10cm" }
@@ -5988,7 +5999,7 @@ function _tpdGetInfoBoxHtml(it, layout, o, hideShippingBanner = false, isCustome
 
     // 4. Print Tech (Kỹ thuật in)
     let defaultPrinting = '—';
-    if (it.print_details && it.print_details.length > 0) {
+    if (_tpdHasPrintOrPressStep(it) && it.print_details && it.print_details.length > 0) {
         try {
             const details = typeof it.print_details === 'string' ? JSON.parse(it.print_details) : it.print_details;
             if (Array.isArray(details) && details.length > 0) {

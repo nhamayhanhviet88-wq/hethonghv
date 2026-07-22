@@ -5490,8 +5490,15 @@ module.exports = async function(fastify) {
                     (
                         NOT EXISTS (
                             SELECT 1 FROM dht_order_items doi_chk 
+                            LEFT JOIN dht_products p_chk ON p_chk.name = TRIM(COALESCE(doi_chk.product_name, doi_chk.description)) AND p_chk.is_active = true
+                            LEFT JOIN dht_settings_options cc_chk ON cc_chk.id = p_chk.cutting_category_id AND cc_chk.category = 'cutting_category'
+                            LEFT JOIN (SELECT pp.product_id, jsonb_agg(pp.step_id::text) AS steps FROM dht_product_process pp WHERE pp.is_active = true GROUP BY pp.product_id) p_proc_chk ON p_proc_chk.product_id = p_chk.id
                             WHERE doi_chk.dht_order_id = o.id 
-                              AND (doi_chk.production_steps IS NULL OR doi_chk.production_steps @> '3'::jsonb OR doi_chk.production_steps @> '4'::jsonb)
+                              AND (
+                                (doi_chk.production_steps IS NOT NULL AND (doi_chk.production_steps @> '3'::jsonb OR doi_chk.production_steps @> '4'::jsonb))
+                                OR (p_proc_chk.steps IS NOT NULL AND (p_proc_chk.steps @> '"3"' OR p_proc_chk.steps @> '3' OR p_proc_chk.steps @> '"4"' OR p_proc_chk.steps @> '4'))
+                                OR (doi_chk.production_steps IS NULL AND p_proc_chk.steps IS NULL AND cc_chk.name != 'May Gia Công' AND UPPER(COALESCE(p_chk.name, doi_chk.product_name, doi_chk.description, '')) NOT LIKE '%ÁO TRƠN%' AND UPPER(COALESCE(p_chk.name, doi_chk.product_name, doi_chk.description, '')) NOT LIKE '%AO TRON%')
+                              )
                         )
                         OR EXISTS(
                             SELECT 1 FROM qlx_assignments qa
@@ -5505,8 +5512,15 @@ module.exports = async function(fastify) {
                     (
                         NOT EXISTS (
                             SELECT 1 FROM dht_order_items doi_chk 
+                            LEFT JOIN dht_products p_chk ON p_chk.name = TRIM(COALESCE(doi_chk.product_name, doi_chk.description)) AND p_chk.is_active = true
+                            LEFT JOIN dht_settings_options cc_chk ON cc_chk.id = p_chk.cutting_category_id AND cc_chk.category = 'cutting_category'
+                            LEFT JOIN (SELECT pp.product_id, jsonb_agg(pp.step_id::text) AS steps FROM dht_product_process pp WHERE pp.is_active = true GROUP BY pp.product_id) p_proc_chk ON p_proc_chk.product_id = p_chk.id
                             WHERE doi_chk.dht_order_id = o.id 
-                              AND (doi_chk.production_steps IS NULL OR doi_chk.production_steps @> '3'::jsonb OR doi_chk.production_steps @> '4'::jsonb)
+                              AND (
+                                (doi_chk.production_steps IS NOT NULL AND (doi_chk.production_steps @> '3'::jsonb OR doi_chk.production_steps @> '4'::jsonb))
+                                OR (p_proc_chk.steps IS NOT NULL AND (p_proc_chk.steps @> '"3"' OR p_proc_chk.steps @> '3' OR p_proc_chk.steps @> '"4"' OR p_proc_chk.steps @> '4'))
+                                OR (doi_chk.production_steps IS NULL AND p_proc_chk.steps IS NULL AND cc_chk.name != 'May Gia Công' AND UPPER(COALESCE(p_chk.name, doi_chk.product_name, doi_chk.description, '')) NOT LIKE '%ÁO TRƠN%' AND UPPER(COALESCE(p_chk.name, doi_chk.product_name, doi_chk.description, '')) NOT LIKE '%AO TRON%')
+                              )
                         )
                     ) AS is_no_print,
 
@@ -5533,8 +5547,16 @@ module.exports = async function(fastify) {
 
             WHERE EXISTS (
                 SELECT 1 FROM dht_order_items oi
+                LEFT JOIN dht_products p_chk ON p_chk.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p_chk.is_active = true
+                LEFT JOIN dht_settings_options cc_chk ON cc_chk.id = p_chk.cutting_category_id AND cc_chk.category = 'cutting_category'
+                LEFT JOIN (SELECT pp.product_id, jsonb_agg(pp.step_id::text) AS steps FROM dht_product_process pp WHERE pp.is_active = true GROUP BY pp.product_id) p_proc_chk ON p_proc_chk.product_id = p_chk.id
                 WHERE oi.dht_order_id = o.id
-                AND (oi.production_steps IS NULL OR oi.production_steps @> '2'::jsonb)
+                AND COALESCE(oi.is_no_cut, false) = false
+                AND (
+                    (oi.production_steps IS NOT NULL AND oi.production_steps @> '2'::jsonb)
+                    OR (p_proc_chk.steps IS NOT NULL AND (p_proc_chk.steps @> '"2"' OR p_proc_chk.steps @> '2'))
+                    OR (oi.production_steps IS NULL AND p_proc_chk.steps IS NULL AND cc_chk.name != 'May Gia Công' AND UPPER(COALESCE(cc_chk.name, '')) NOT LIKE '%GIA CÔNG%' AND cc_chk.name != 'HÀNG SẴN' AND UPPER(COALESCE(cc_chk.name, '')) NOT LIKE '%SẴN%' AND UPPER(COALESCE(oi.product_name, oi.description, '')) NOT LIKE '%GIA CÔNG%')
+                )
                 ${wherePrintCut}
                 AND COALESCE(oi.production_cancelled, false) = false
                 AND (
@@ -5610,7 +5632,7 @@ module.exports = async function(fastify) {
 
         if (orderIds.length > 0) {
 
-            let itemsWhere = `doi.dht_order_id = ANY($1) AND (doi.production_steps IS NULL OR doi.production_steps @> '2'::jsonb) AND COALESCE(doi.is_no_cut, false) = false AND COALESCE(doi.production_cancelled, false) = false`;
+            let itemsWhere = `doi.dht_order_id = ANY($1) AND COALESCE(doi.is_no_cut, false) = false AND COALESCE(doi.production_cancelled, false) = false AND ((doi.production_steps IS NOT NULL AND doi.production_steps @> '2'::jsonb) OR (p_proc.steps IS NOT NULL AND (p_proc.steps @> '"2"' OR p_proc.steps @> '2')) OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND cc.name != 'May Gia Công' AND UPPER(COALESCE(cc.name, '')) NOT LIKE '%GIA CÔNG%' AND cc.name != 'HÀNG SẴN' AND UPPER(COALESCE(cc.name, '')) NOT LIKE '%SẴN%' AND UPPER(COALESCE(doi.product_name, doi.description, '')) NOT LIKE '%GIA CÔNG%'))`;
 
             let itemsParams = [orderIds];
 
@@ -5678,9 +5700,9 @@ module.exports = async function(fastify) {
 
                     cc.name AS cutting_category_name,
 
-                    (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb) AS is_no_print,
+                    ((doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb) OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"3"' AND NOT p_proc.steps @> '3' AND NOT p_proc.steps @> '"4"' AND NOT p_proc.steps @> '4') OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'May Gia Công' OR UPPER(COALESCE(cc.name, '')) LIKE '%GIA CÔNG%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%ÁO TRƠN%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%AO TRON%'))) AS is_no_print,
                     (
-                        (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb)
+                        ((doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb) OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"3"' AND NOT p_proc.steps @> '3' AND NOT p_proc.steps @> '"4"' AND NOT p_proc.steps @> '4') OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'May Gia Công' OR UPPER(COALESCE(cc.name, '')) LIKE '%GIA CÔNG%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%ÁO TRƠN%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%AO TRON%')))
                         OR EXISTS(
                             SELECT 1 FROM qlx_assignments qa
                             WHERE qa.assignment_type = 'in'
@@ -5701,6 +5723,8 @@ module.exports = async function(fastify) {
                 LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
 
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+
+                LEFT JOIN (SELECT pp.product_id, jsonb_agg(pp.step_id::text) AS steps FROM dht_product_process pp WHERE pp.is_active = true GROUP BY pp.product_id) p_proc ON p_proc.product_id = p.id
 
                 LEFT JOIN qlx_item_schedules sch ON sch.order_item_id = doi.id
 
@@ -6134,11 +6158,16 @@ module.exports = async function(fastify) {
 
         const hasPcIn = await db.get(`
             SELECT 1 FROM (
-                SELECT 1 FROM dht_order_items
-                WHERE id = $1
-                  AND production_steps IS NOT NULL
-                  AND NOT production_steps @> '3'::jsonb
-                  AND NOT production_steps @> '4'::jsonb
+                SELECT 1 FROM dht_order_items doi
+                LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+                LEFT JOIN (SELECT pp.product_id, jsonb_agg(pp.step_id::text) AS steps FROM dht_product_process pp WHERE pp.is_active = true GROUP BY pp.product_id) p_proc ON p_proc.product_id = p.id
+                WHERE doi.id = $1
+                  AND (
+                      (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb)
+                      OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"3"' AND NOT p_proc.steps @> '3' AND NOT p_proc.steps @> '"4"' AND NOT p_proc.steps @> '4')
+                      OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'May Gia Công' OR UPPER(COALESCE(cc.name, '')) LIKE '%GIA CÔNG%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%ÁO TRƠN%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%AO TRON%'))
+                  )
                 UNION
                 SELECT 1 FROM qlx_assignments
                 WHERE assignment_type = 'in'
@@ -7346,6 +7375,8 @@ module.exports = async function(fastify) {
                    o.id AS dht_order_id, o.order_code, o.shipping_status,
                    COALESCE(p.fabric_arrived, false) AS order_fabric_arrived,
                    ((oi.production_steps IS NOT NULL AND NOT oi.production_steps @> '3'::jsonb AND NOT oi.production_steps @> '4'::jsonb)
+                    OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"3"' AND NOT p_proc.steps @> '3' AND NOT p_proc.steps @> '"4"' AND NOT p_proc.steps @> '4')
+                    OR (oi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'May Gia Công' OR UPPER(COALESCE(cc.name, '')) LIKE '%GIA CÔNG%' OR UPPER(COALESCE(prod.name, oi.product_name, oi.description, '')) LIKE '%ÁO TRƠN%' OR UPPER(COALESCE(prod.name, oi.product_name, oi.description, '')) LIKE '%AO TRON%'))
                     OR EXISTS(SELECT 1 FROM qlx_assignments qa
                            WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
                            AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
@@ -7356,6 +7387,9 @@ module.exports = async function(fastify) {
             FROM dht_order_items oi
             JOIN dht_orders o ON o.id = oi.dht_order_id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
+            LEFT JOIN dht_products prod ON prod.name = TRIM(COALESCE(oi.product_name, oi.description)) AND prod.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = prod.cutting_category_id AND cc.category = 'cutting_category'
+            LEFT JOIN (SELECT pp.product_id, jsonb_agg(pp.step_id::text) AS steps FROM dht_product_process pp WHERE pp.is_active = true GROUP BY pp.product_id) p_proc ON p_proc.product_id = prod.id
             WHERE oi.id = ANY($1)
         `, [selected_order_item_ids]);
 

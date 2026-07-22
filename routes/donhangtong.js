@@ -2663,6 +2663,7 @@ module.exports = async function(fastify) {
                    pr_ship.payment_code AS shipping_payment_code,
                    pr_ship.amount AS shipping_payment_amount,
                    cf_ship.cashflow_code AS shipping_cashflow_code,
+                   (SELECT json_agg(pp.step_id) FROM dht_product_process pp WHERE pp.product_id = p.id AND pp.is_active = true) AS product_process_steps,
                    
                     -- Check fabric called status
                     (
@@ -3063,7 +3064,16 @@ module.exports = async function(fastify) {
                     back_technique_image: item.back_technique_image || null,
                     workshop_note: item.workshop_note || null,
                     style_name: item.style_name || null,
-                    print_details: typeof item.print_details === 'string' ? item.print_details : JSON.stringify(item.print_details || []),
+                    print_details: (function() {
+                        let pd = item.print_details;
+                        let ps = item.production_steps;
+                        if (typeof ps === 'string') { try { ps = JSON.parse(ps); } catch(e) {} }
+                        if (Array.isArray(ps)) {
+                            let hasInOrEp = ps.some(s => Number(s) === 3 || Number(s) === 4);
+                            if (!hasInOrEp) pd = [];
+                        }
+                        return typeof pd === 'string' ? pd : JSON.stringify(pd || []);
+                    })(),
                     custom_layout: typeof item.custom_layout === 'string' ? item.custom_layout : JSON.stringify(item.custom_layout || {}),
                     design_pdf_url: item.design_pdf_url || null,
                     design_pdf_name: item.design_pdf_name || null
@@ -3415,6 +3425,16 @@ module.exports = async function(fastify) {
         if (b.production_steps !== undefined) {
             sets.push(`production_steps = $${idx++}`);
             vals.push(b.production_steps ? JSON.stringify(b.production_steps) : null);
+
+            let ps = b.production_steps;
+            if (typeof ps === 'string') { try { ps = JSON.parse(ps); } catch(e) {} }
+            if (Array.isArray(ps)) {
+                let hasInOrEp = ps.some(s => Number(s) === 3 || Number(s) === 4);
+                if (!hasInOrEp && b.print_details === undefined) {
+                    sets.push(`print_details = $${idx++}`);
+                    vals.push(JSON.stringify([]));
+                }
+            }
         }
 
         

@@ -1267,8 +1267,9 @@ module.exports = async function(fastify) {
             items = await db.all(`
                 SELECT doi.dht_order_id, doi.id, doi.description, doi.material_pairs, doi.quantity,
                        doi.material_name, doi.color_name, COALESCE(doi.production_cancelled, false) AS production_cancelled,
-                       (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb)) AS is_no_sew, (doi.is_no_cut = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '2'::jsonb)) AS is_no_cut,
-                       (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb) AS is_no_print,
+                       (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb) OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"5"' AND NOT p_proc.steps @> '5') OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'HÀNG SẴN' OR UPPER(COALESCE(cc.name, '')) LIKE '%SẴN%'))) AS is_no_sew,
+                       (doi.is_no_cut = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '2'::jsonb) OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"2"' AND NOT p_proc.steps @> '2') OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'HÀNG SẴN' OR UPPER(COALESCE(cc.name, '')) LIKE '%SẴN%' OR cc.name = 'May Gia Công' OR UPPER(COALESCE(cc.name, '')) LIKE '%GIA CÔNG%' OR UPPER(COALESCE(doi.product_name, doi.description, '')) LIKE '%GIA CÔNG%'))) AS is_no_cut,
+                       ((doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb) OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"3"' AND NOT p_proc.steps @> '3' AND NOT p_proc.steps @> '"4"' AND NOT p_proc.steps @> '4') OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'May Gia Công' OR UPPER(COALESCE(cc.name, '')) LIKE '%GIA CÔNG%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%ÁO TRƠN%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%AO TRON%'))) AS is_no_print,
                        cc.name AS cutting_category_name,
                        COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
                        COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived,
@@ -1296,7 +1297,7 @@ module.exports = async function(fastify) {
                            a_in_item_u.full_name, pc_in_item.name,
                            COALESCE(a_in_ord_u.full_name, pc_in_ord.name)
                        ) AS nguoi_in,
-                       CASE WHEN (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb)) THEN 'ĐƠN KHÔNG MAY'
+                       CASE WHEN (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb) OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"5"' AND NOT p_proc.steps @> '5') OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'HÀNG SẴN' OR UPPER(COALESCE(cc.name, '')) LIKE '%SẴN%'))) THEN 'ĐƠN KHÔNG MAY'
                             ELSE COALESCE(
                                 (SELECT string_agg(COALESCE(c.name, 'May nhà') || ' (' || sr.quantity || ')', ', ')
                                  FROM sewing_records sr
@@ -1327,6 +1328,7 @@ module.exports = async function(fastify) {
                 LEFT JOIN users a_may_ord_u ON qa_may_ord.assigned_user_id = a_may_ord_u.id
                 LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
                 LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+                LEFT JOIN (SELECT pp.product_id, jsonb_agg(pp.step_id::text) AS steps FROM dht_product_process pp WHERE pp.is_active = true GROUP BY pp.product_id) p_proc ON p_proc.product_id = p.id
                 WHERE doi.dht_order_id = ANY($1)
                 ORDER BY doi.dht_order_id, doi.id
             `, [orderIds]);
@@ -1774,14 +1776,55 @@ module.exports = async function(fastify) {
         let isNoCut = false;
         let isNoSew = false;
         if (itemId) {
-            const item = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut, COALESCE(is_no_sew, false) AS is_no_sew, production_steps FROM dht_order_items WHERE id = $1', [itemId]);
+            const item = await db.get(`
+                SELECT doi.id, doi.product_name, doi.description, COALESCE(doi.is_no_cut, false) AS is_no_cut, COALESCE(doi.is_no_sew, false) AS is_no_sew, doi.production_steps, cc.name AS cutting_category_name, p_proc.steps AS p_proc_steps
+                FROM dht_order_items doi
+                LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
+                LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+                LEFT JOIN (SELECT pp.product_id, jsonb_agg(pp.step_id::text) AS steps FROM dht_product_process pp WHERE pp.is_active = true GROUP BY pp.product_id) p_proc ON p_proc.product_id = p.id
+                WHERE doi.id = $1
+            `, [itemId]);
             if (item) {
                 let stepsVal = item.production_steps;
                 if (typeof stepsVal === 'string') {
                     try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
                 }
-                isNoCut = !!item.is_no_cut || (Array.isArray(stepsVal) && !stepsVal.includes(2) && !stepsVal.includes('2'));
-                isNoSew = !!item.is_no_sew || (Array.isArray(stepsVal) && !stepsVal.includes(5) && !stepsVal.includes('5'));
+                let procStepsVal = item.p_proc_steps;
+                if (typeof procStepsVal === 'string') {
+                    try { procStepsVal = JSON.parse(procStepsVal); } catch(e) {}
+                }
+
+                const isGiaCongOrSan = item.cutting_category_name === 'May Gia Công' || item.cutting_category_name === 'HÀNG SẴN' ||
+                    (item.cutting_category_name || '').toUpperCase().includes('GIA CÔNG') ||
+                    (item.cutting_category_name || '').toUpperCase().includes('SẴN') ||
+                    (item.product_name || '').toUpperCase().includes('GIA CÔNG') ||
+                    (item.description || '').toUpperCase().includes('GIA CÔNG');
+
+                const hasCutStepInProd = Array.isArray(stepsVal) ? (stepsVal.includes(2) || stepsVal.includes('2')) : null;
+                const hasCutStepInProc = Array.isArray(procStepsVal) ? (procStepsVal.includes(2) || procStepsVal.includes('2')) : null;
+
+                if (item.is_no_cut) {
+                    isNoCut = true;
+                } else if (hasCutStepInProd !== null) {
+                    isNoCut = !hasCutStepInProd;
+                } else if (hasCutStepInProc !== null) {
+                    isNoCut = !hasCutStepInProc;
+                } else {
+                    isNoCut = isGiaCongOrSan;
+                }
+
+                const hasSewStepInProd = Array.isArray(stepsVal) ? (stepsVal.includes(5) || stepsVal.includes('5')) : null;
+                const hasSewStepInProc = Array.isArray(procStepsVal) ? (procStepsVal.includes(5) || procStepsVal.includes('5')) : null;
+
+                if (item.is_no_sew) {
+                    isNoSew = true;
+                } else if (hasSewStepInProd !== null) {
+                    isNoSew = !hasSewStepInProd;
+                } else if (hasSewStepInProc !== null) {
+                    isNoSew = !hasSewStepInProc;
+                } else {
+                    isNoSew = false;
+                }
             }
         } else {
             const order = await db.get('SELECT COALESCE(is_no_cut, false) AS is_no_cut, COALESCE(is_no_sew, false) AS is_no_sew FROM dht_orders WHERE id = $1', [orderId]);
@@ -1792,7 +1835,7 @@ module.exports = async function(fastify) {
         }
 
         if (isNoSew) {
-            return { isCutDone: true, isMatDone: true };
+            return { isCutDone: true, isMatDone: true, isNoCut: true, isNoSew: true };
         }
 
         let isCutDone = true;
@@ -1851,7 +1894,7 @@ module.exports = async function(fastify) {
             }
         }
 
-        return { isCutDone, isMatDone };
+        return { isCutDone, isMatDone, isNoCut, isNoSew };
     }
 
     fastify.get('/api/qlx/assign-check/:orderId', { preHandler: [authenticate] }, async (request, reply) => {
@@ -3501,14 +3544,21 @@ module.exports = async function(fastify) {
         console.log("[DEBUG fabric-lookup] orderId:", orderId, "order:", order);
         if (!order) return reply.code(404).send({ error: 'Đơn không tồn tại' });
 
-        const item = await db.get('SELECT id, description, material_pairs, quantity, COALESCE(is_no_cut, false) AS is_no_cut, production_steps FROM dht_order_items WHERE id = $1 AND dht_order_id = $2', [itemId, orderId]);
+        const item = await db.get(`
+            SELECT doi.id, doi.description, doi.product_name, doi.material_pairs, doi.quantity, COALESCE(doi.is_no_cut, false) AS is_no_cut, doi.production_steps, cc.name AS cutting_category_name
+            FROM dht_order_items doi
+            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
+            WHERE doi.id = $1 AND doi.dht_order_id = $2
+        `, [itemId, orderId]);
         if (!item) return reply.code(404).send({ error: 'Item không tồn tại' });
 
         let stepsVal = item.production_steps;
         if (typeof stepsVal === 'string') {
             try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
         }
-        item.is_no_cut = !!item.is_no_cut || (Array.isArray(stepsVal) && !stepsVal.includes(2) && !stepsVal.includes('2'));
+        const isReadyStockFabric = item.cutting_category_name === 'HÀNG SẴN' || (item.cutting_category_name || '').toUpperCase().includes('SẴN');
+        item.is_no_cut = !!item.is_no_cut || (Array.isArray(stepsVal) ? (!stepsVal.includes(2) && !stepsVal.includes('2')) : isReadyStockFabric);
 
         const allItems = await db.all('SELECT id FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);
         const itemIndex = allItems.findIndex(it => it.id === Number(itemId)) + 1;
@@ -4891,9 +4941,11 @@ module.exports = async function(fastify) {
 
         // 1. Get order item and order info
         const item = await db.get(`
-            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, doi.material_pairs, doi.is_no_sew, doi.production_steps, doi.quantity, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time
+            SELECT doi.id, doi.dht_order_id, doi.product_name, doi.description, doi.pattern_name, doi.sewing_techniques, doi.material_pairs, doi.is_no_sew, doi.production_steps, doi.quantity, o.order_code, o.expected_ship_date, o.shipping_priority, o.standard_delivery_time, cc.name AS cutting_category_name
             FROM dht_order_items doi
             JOIN dht_orders o ON doi.dht_order_id = o.id
+            LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(doi.product_name, doi.description)) AND p.is_active = true
+            LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
             WHERE doi.id = $1
         `, [itemId]);
         if (!item) return reply.code(404).send({ error: 'Không tìm thấy chi tiết sản phẩm' });
@@ -4902,7 +4954,8 @@ module.exports = async function(fastify) {
         if (typeof stepsVal === 'string') {
             try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
         }
-        item.is_no_sew = !!item.is_no_sew || (Array.isArray(stepsVal) && !stepsVal.includes(5));
+        const isReadyStockSew = item.cutting_category_name === 'HÀNG SẴN' || (item.cutting_category_name || '').toUpperCase().includes('SẴN');
+        item.is_no_sew = !!item.is_no_sew || (Array.isArray(stepsVal) ? (!stepsVal.includes(5) && !stepsVal.includes('5')) : isReadyStockSew);
 
         // 2. Get total completed cut quantity
         const cutQtyRow = await db.get(`
@@ -5307,7 +5360,7 @@ module.exports = async function(fastify) {
                 numPhois = pairs.length;
             }
         } catch(e) {}
-        const cut_qty = Math.round(rawCutQty / numPhois);
+        const cut_qty = rawCutQty > 0 ? Math.round(rawCutQty / numPhois) : (item.quantity || 0);
 
         if (cut_qty <= 0) {
             return reply.code(400).send({ error: 'Sản phẩm này chưa được cắt xong. Không thể phân công May!' });

@@ -2837,8 +2837,10 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
             h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
             h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
             h += '<input type="checkbox" class="_bpcDoneRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#3b82f6">';
-            h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#1e293b">' + (idx+1) + '. ' + (rl.label || 'Cây '+(idx+1)) + '</span>' + locBadge + calledBadge + '</span>';
-            h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
+            var rollLbl = (rl.label || ('Cây ' + (idx + 1)));
+            rollLbl = rollLbl.replace(/(-\s*)(\d+(?:\.\d+)?\s*kg)/gi, '$1<span style="color:#b45309;font-weight:900;background:#fef3c7;padding:1px 5px;border-radius:4px;border:1px solid #fde68a">$2</span>');
+            h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#1e293b">' + (idx+1) + '. ' + rollLbl + '</span>' + locBadge + calledBadge + '</span>';
+            h += '<span style="font-size:12px;font-weight:900;color:#b45309;background:#fef3c7;border:1px solid #fde68a;padding:2px 8px;border-radius:6px;margin-right:8px;white-space:nowrap;display:inline-block">' + w + 'kg</span>';
             h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRoll(' + recordId + ', ' + rl.roll_id + ')" style="border:1.5px solid #dc2626;background:rgba(220,38,38,0.06);color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;line-height:1.2;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
             h += _bpcRenderRollReservations(rl, r.order_code);
             h += '<div id="_bpcDoneRollInput_' + idx + '" style="display:none;margin-top:8px;padding-left:28px">';
@@ -2863,7 +2865,7 @@ async function _bpcOpenDoneModal(recordId, isRefresh = false) {
     h += '</div></div>';
     // Auto-calc stats
     h += '<div style="border-top:2px solid #e2e8f0;margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    h += '<div style="background:#fef3c7;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:16px;font-weight:900;color:#b45309">' + _bpcFmtKg(r.kg_start || 0) + '</div></div>';
+    h += '<div style="background:#fef3c7;border:1px solid #fde68a;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#b45309">' + _bpcFmtKg(r.kg_start || 0) + ' kg</div></div>';
     h += '<div style="background:#fee2e2;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">✂️ TỔNG KG CẮT</div><div id="_bpcDoneKgCut" style="font-size:16px;font-weight:900;color:#dc2626">' + _bpcFmtKg(r.kg_start || 0) + '</div></div>';
     h += '</div>';
     h += '<div class="bpc-modal-row" style="margin-top:6px"><span class="bpc-modal-lbl">📊 Định Lượng Thực Tế</span><span class="bpc-modal-val" id="_bpcDoneRatio" style="font-size:16px;font-weight:900;color:#059669">—</span></div>';
@@ -3437,8 +3439,10 @@ async function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
         h += '<div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px">';
         h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">';
         h += '<input type="checkbox" class="_bpcGRollCb" data-idx="' + idx + '" data-rollid="' + rl.roll_id + '" data-weight="' + w + '" onchange="_bpcGDoneToggleRoll(' + idx + ')" style="width:18px;height:18px;accent-color:#8b5cf6">';
-        h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (idx+1) + '. ' + (rl.label||'Cây '+(idx+1)) + '</span>' + locBadge + '</span>';
-        h += '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:8px">' + w + 'kg</span>';
+        var rollLbl = (rl.label || ('Cây ' + (idx + 1)));
+        rollLbl = rollLbl.replace(/(-\s*)(\d+(?:\.\d+)?\s*kg)/gi, '$1<span style="color:#b45309;font-weight:900;background:#fef3c7;padding:1px 5px;border-radius:4px;border:1px solid #fde68a">$2</span>');
+        h += '<span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (idx+1) + '. ' + rollLbl + '</span>' + locBadge + '</span>';
+        h += '<span style="font-size:12px;font-weight:900;color:#b45309;background:#fef3c7;border:1px solid #fde68a;padding:2px 8px;border-radius:6px;margin-right:8px;white-space:nowrap;display:inline-block">' + w + 'kg</span>';
         h += '<button onclick="event.preventDefault(); event.stopPropagation(); _bpcRemoveRollGroup(\'' + groupId + '\', ' + rl.roll_id + ')" style="border:1.5px solid #dc2626;background:rgba(220,38,38,0.06);color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;line-height:1.2;flex-shrink:0" title="Không cắt cây vải">Không Cắt</button></label>';
         h += _bpcRenderRollReservations(rl, groupOrderCodes);
         h += '<div id="_bpcGRollInp_' + idx + '" style="display:none;margin-top:8px;padding-left:28px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#475569;font-weight:600">Còn:</span>';
@@ -3458,7 +3462,7 @@ async function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
     h += '</div></div></div>';
     // Stats
     h += '<div style="border-top:2px solid #e2e8f0;margin:12px 0;padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    h += '<div style="background:#fef3c7;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:16px;font-weight:900;color:#b45309">' + _bpcFmtKg(kgStart) + '</div></div>';
+    h += '<div style="background:#fef3c7;border:1px solid #fde68a;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#92400e">⚖️ KG ĐẦU</div><div style="font-size:18px;font-weight:900;color:#b45309">' + _bpcFmtKg(kgStart) + ' kg</div></div>';
     h += '<div style="background:#fee2e2;padding:8px;border-radius:8px;text-align:center"><div style="font-size:9px;font-weight:700;color:#991b1b">✂️ TỔNG KG CẮT</div><div id="_bpcGKgCut" style="font-size:16px;font-weight:900;color:#dc2626">' + _bpcFmtKg(kgStart) + '</div></div></div>';
     h += '<div id="_bpcGDistrib" style="margin-top:8px"></div>';
     // Warning Ratio Reason Container

@@ -195,7 +195,7 @@ function _qlxPatchOrderRows(orderId) {
         var bg = isNew ? '' : 'background:#f0f9ff;';
 
         var fabIcon, fabCls = '', matIcon, matCls = '';
-        if (r.item && r.item.is_no_cut) {
+        if (_qlxIsItemNoCut(r.item)) {
             fabIcon = '🚫';
             fabCls = ' on-fab';
         } else {
@@ -279,7 +279,7 @@ function _qlxPatchOrderRows(orderId) {
                         } else {
                             sewClass = ' qlx-sew-not-ready';
                         }
-                        var isNoPrint = r.item ? (r.item.is_no_print === true || r.item.is_no_print === 1 || r.item.is_no_print === 't') : false;
+                        var isNoPrint = _qlxIsItemNoPrint(r.item);
                         if (isNoPrint) {
                             h += '<td style="text-align:center"><button class="qlx-icon-btn on-fab" onclick="_qlxNoPrintNotice()" title="KHÔNG IN & ÉP">🚫</button></td>';
                         } else {
@@ -740,7 +740,7 @@ function _qlxRenderRows(paged) {
 
         var fabIcon, fabCls = '', matIcon, matCls = '';
         // Per-phoi fabric icon
-        if (it && it.is_no_cut) {
+        if (_qlxIsItemNoCut(it)) {
             fabIcon = '🚫';
             fabCls = ' on-fab';
         } else {
@@ -845,7 +845,7 @@ function _qlxRenderRows(paged) {
                     if (receivedPhieu) {
                         var hasNguoiIn = it ? it.nguoi_in : o.nguoi_in;
                         var hasNguoiMay = it ? it.nguoi_may : o.nguoi_may;
-                        var isSewingAllowed = (it && it.is_no_cut) 
+                        var isSewingAllowed = _qlxIsItemNoCut(it) 
                             ? (it ? it.is_material_done : o.is_material_done)
                             : (it ? (it.is_cut_done && it.is_material_done) : (o.is_cut_done && o.is_material_done));
                         var sewClass = '';
@@ -856,7 +856,7 @@ function _qlxRenderRows(paged) {
                         } else {
                             sewClass = ' qlx-sew-not-ready';
                         }
-                        var isNoPrint = it ? (it.is_no_print === true || it.is_no_print === 1 || it.is_no_print === 't') : false;
+                        var isNoPrint = _qlxIsItemNoPrint(it);
                         if (isNoPrint) {
                             h += '<td style="text-align:center"><button class="qlx-icon-btn on-fab" onclick="_qlxNoPrintNotice()" title="KHÔNG IN & ÉP">🚫</button></td>';
                         } else {
@@ -917,7 +917,7 @@ function _qlxRenderRows(paged) {
         h += '<td style="font-size:10px;color:#475569">' + (isNew ? _qlxFmtDate(o.expected_ship_date) : '') + '</td>';
         h += '<td style="text-align:center">' + (isNew ? statusHtml : '') + '</td>';
         
-        var nvCatHtml = showAssignNames ? ((it && it.is_no_cut) ? '<span style="color:#ef4444;font-weight:bold;font-size:9px">KHÔNG CẮT</span>' : ((it && it.nguoi_cat) || o.nguoi_cat || '—')) : '';
+        var nvCatHtml = showAssignNames ? (_qlxIsItemNoCut(it) ? '<span style="color:#ef4444;font-weight:bold;font-size:9px">KHÔNG CẮT</span>' : ((it && it.nguoi_cat) || o.nguoi_cat || '—')) : '';
         h += '<td style="font-size:10px;color:#059669;font-weight:600">' + nvCatHtml + '</td>';
         
         var nvInHtml = showAssignNames ? ((it && it.nguoi_in) || o.nguoi_in || '—') : '';
@@ -1094,14 +1094,10 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         }
         html += '</div>';
 
-        var stepsVal = it ? it.production_steps : null;
-        if (typeof stepsVal === 'string') {
-            try { stepsVal = JSON.parse(stepsVal); } catch(e) {}
-        }
-        var isNoCutByFlow = Array.isArray(stepsVal) && stepsVal.length > 0 && !stepsVal.includes(2) && !stepsVal.includes('2');
-        var isNoCut = !!(it && it.is_no_cut) || isNoCutByFlow;
+        var isNoCut = _qlxIsItemNoCut(it);
+        var isNoCutByFlow = isNoCut;
         var isLockedNoCut = !!(data && (data.is_production_done || data.is_cut_done || data.is_cut_claimed));
-        var isNoCutDisabled = isLockedNoCut || isNoCutByFlow;
+        var isNoCutDisabled = isLockedNoCut || (isNoCutByFlow && !(it && it.is_no_cut));
         var disabledAttr = isNoCutDisabled ? ' disabled' : '';
         var labelStyle = 'display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #be123c; margin: 0; background: #ffe4e6; border: 1.5px solid #fda4af; padding: 6px 14px; border-radius: 8px;' + (isNoCutDisabled ? ' opacity: 0.55; cursor: not-allowed;' : ' cursor: pointer;');
         var labelOnClick = isLockedNoCut ? ' onclick="showToast(\'⚠️ Phiếu/phối này đã cắt xong hoặc hoàn thành sản xuất, không thể thay đổi cờ Không Cắt!\', \'error\'); event.preventDefault(); return false;"' : (isNoCutByFlow ? ' onclick="showToast(\'⚠️ Quy trình sản xuất của đơn này được đặt mặc định Không Cắt!\', \'error\'); event.preventDefault(); return false;"' : '');
@@ -2279,7 +2275,7 @@ async function _qlxAssign(orderId, type, itemId) {
                         + '<div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto;text-align:left">'
                         + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'
                         + '<span>Cắt Đơn:</span>'
-                        + (checkRes.isCutDone ? '<b style="color:#059669">🟢 Đã xong</b>' : '<b style="color:#dc2626">🔴 Chưa xong</b>')
+                        + (checkRes.isNoCut ? '<b style="color:#059669">🟢 Không Cắt</b>' : (checkRes.isCutDone ? '<b style="color:#059669">🟢 Đã xong</b>' : '<b style="color:#dc2626">🔴 Chưa xong</b>'))
                         + '</div>'
                         + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'
                         + '<span>Gọi Vật Liệu:</span>'
@@ -2614,6 +2610,54 @@ function _qlxToggleRemindersArea(dept) {
             _qlxAddReminderInput(dept);
         }
     }
+}
+
+function _qlxIsItemNoCut(item) {
+    if (!item) return false;
+    if (item.is_no_cut === true || item.is_no_cut === 1 || item.is_no_cut === 't') return true;
+
+    let itemSteps = item.production_steps;
+    if (itemSteps === null || itemSteps === undefined) {
+        itemSteps = item.product_process_steps;
+    }
+    if (itemSteps === null || itemSteps === undefined) {
+        const pName = (item.product_name || item.description || '').toLowerCase();
+        if (pName.includes('gia công') || pName.includes('gia cong') || pName.includes('hàng sẵn') || pName.includes('hang san')) {
+            return true;
+        }
+        return false;
+    }
+    if (typeof itemSteps === 'string') {
+        try { itemSteps = JSON.parse(itemSteps); } catch(e) {}
+    }
+    if (Array.isArray(itemSteps) && itemSteps.length > 0) {
+        return !(itemSteps.includes(2) || itemSteps.includes('2'));
+    }
+    return false;
+}
+
+function _qlxIsItemNoPrint(item) {
+    if (!item) return false;
+    if (item.is_no_print === true || item.is_no_print === 1 || item.is_no_print === 't') return true;
+
+    let itemSteps = item.production_steps;
+    if (itemSteps === null || itemSteps === undefined) {
+        itemSteps = item.product_process_steps;
+    }
+    if (itemSteps === null || itemSteps === undefined) {
+        const pName = (item.product_name || item.description || '').toLowerCase();
+        if (pName.includes('áo trơn') || pName.includes('ao tron') || pName.includes('gia công') || pName.includes('gia cong')) {
+            return true;
+        }
+        return false;
+    }
+    if (typeof itemSteps === 'string') {
+        try { itemSteps = JSON.parse(itemSteps); } catch(e) {}
+    }
+    if (Array.isArray(itemSteps)) {
+        return !(itemSteps.includes(3) || itemSteps.includes('3') || itemSteps.includes(4) || itemSteps.includes('4'));
+    }
+    return false;
 }
 
 function _qlxNoPrintNotice() {
@@ -3344,7 +3388,7 @@ async function _qlxAssignMay(orderId, itemId) {
                     + '<div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto;text-align:left">'
                     + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'
                     + '<span>Cắt Đơn:</span>'
-                    + (checkRes.isCutDone ? '<b style="color:#059669">🟢 Đã xong</b>' : '<b style="color:#dc2626">🔴 Chưa xong</b>')
+                    + (checkRes.isNoCut ? '<b style="color:#059669">🟢 Không Cắt</b>' : (checkRes.isCutDone ? '<b style="color:#059669">🟢 Đã xong</b>' : '<b style="color:#dc2626">🔴 Chưa xong</b>'))
                     + '</div>'
                     + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">'
                     + '<span>Gọi Vật Liệu:</span>'

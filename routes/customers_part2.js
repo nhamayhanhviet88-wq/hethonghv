@@ -1309,6 +1309,34 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 } else {
                     consultContent = bindingText;
                 }
+
+                // ★ Tự động gắn order_tt_coc vào payment_records nếu tìm thấy đơn hàng của khách
+                let assocOrderCode = fields.sample_order_code || fields.order_code || null;
+                if (!assocOrderCode) {
+                    const latestOrder = await db.get(
+                        `SELECT order_code FROM dht_orders 
+                         WHERE (customer_id = $1 OR customer_phone = $2) AND is_draft = false 
+                         ORDER BY id DESC LIMIT 1`,
+                        [customerId, customer.phone]
+                    );
+                    if (latestOrder) {
+                        assocOrderCode = latestOrder.order_code;
+                    }
+                }
+
+                await db.run(`
+                    UPDATE payment_records SET
+                        payment_type = 'dat_coc',
+                        order_tt_coc = COALESCE($1, order_tt_coc),
+                        handover_status = 'thu_quy_nhan',
+                        customer_name = COALESCE($2, customer_name),
+                        customer_phone = COALESCE($3, customer_phone),
+                        cskh_user_id = COALESCE($4, cskh_user_id),
+                        locked_by = $4,
+                        locked_at = NOW(),
+                        updated_at = NOW()
+                    WHERE id = $5
+                `, [assocOrderCode, customer.customer_name, customer.phone, request.user.id, payment_record_id]);
             }
         }
 
