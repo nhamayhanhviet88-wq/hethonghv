@@ -481,6 +481,9 @@ async function renderDesignDraftPage(content) {
             } catch(e) {}
         }
 
+        // Purge any stale uncompressed bloated drafts from older versions to free up LocalStorage
+        _tpdPurgeBloatedDrafts();
+
         // Initialize sessionStorage original items baseline if not already present
         const storageKey = `tpd_orig_items_${orderId}`;
         const countKey = `tpd_orig_edit_count_${orderId}`;
@@ -10082,6 +10085,29 @@ async function _tpdSaveSizeConfig() {
     }
 }
 
+function _tpdPurgeBloatedDrafts() {
+    try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('tpd_draft_')) {
+                const val = localStorage.getItem(k);
+                if (val && val.length > 400000) {
+                    localStorage.removeItem(k);
+                }
+            }
+        }
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const k = sessionStorage.key(i);
+            if (k && k.startsWith('tpd_draft_')) {
+                const val = sessionStorage.getItem(k);
+                if (val && val.length > 400000) {
+                    sessionStorage.removeItem(k);
+                }
+            }
+        }
+    } catch(e) {}
+}
+
 // Draft helpers to save/clear editing progress in localStorage on F5 refresh
 function _tpdSaveDraft(it) {
     if (!it) return;
@@ -10102,21 +10128,12 @@ function _tpdSaveDraft(it) {
             localStorage.setItem(key, jsonStr);
         } catch(e) {
             console.warn('LocalStorage quota exceeded or draft save failed:', e);
+            _tpdPurgeBloatedDrafts();
             try {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const k = localStorage.key(i);
-                    if (k && k.startsWith('tpd_draft_')) {
-                        // Only remove drafts from OTHER orders to free space
-                        const isCurrentOrderKey = candidateKeys.some(cKey => {
-                            const parts = cKey.split('_');
-                            if (parts.length >= 3) {
-                                return k.includes(`_${parts[2]}_`);
-                            }
-                            return false;
-                        });
-                        if (!isCurrentOrderKey) {
-                            localStorage.removeItem(k);
-                        }
+                    if (k && k.startsWith('tpd_draft_') && !candidateKeys.includes(k)) {
+                        localStorage.removeItem(k);
                     }
                 }
                 localStorage.setItem(key, jsonStr);
