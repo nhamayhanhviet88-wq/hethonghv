@@ -9157,6 +9157,9 @@ async function _tpdShowExportSheetsModal() {
                         sessionStorage.removeItem(`tpd_orig_items_${o.id}`);
                         sessionStorage.removeItem(`tpd_orig_edit_count_${o.id}`);
                         for (const item of items) {
+                            if (item.custom_layout) {
+                                if (typeof item.custom_layout === 'object') item.custom_layout.sheet_edit_note = '';
+                            }
                             localStorage.removeItem(`tpd_pdf_url_${item.id}`);
                             localStorage.removeItem(`tpd_pdf_filename_${item.id}`);
                             const printDetails = (typeof item.print_details === 'string' ? JSON.parse(item.print_details) : (item.print_details || []));

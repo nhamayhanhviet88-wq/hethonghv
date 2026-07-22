@@ -4309,6 +4309,19 @@ module.exports = async function(fastify) {
             );
         }
 
+        // Auto-clear sheet_edit_note in custom_layout for all items after successful confirm-export
+        for (const item of orderItems) {
+            const freshItem = await db.get('SELECT custom_layout FROM dht_order_items WHERE id = $1', [item.id]);
+            if (freshItem && freshItem.custom_layout) {
+                let layout = {};
+                try { layout = typeof freshItem.custom_layout === 'string' ? JSON.parse(freshItem.custom_layout) : (freshItem.custom_layout || {}); } catch(e){}
+                if (layout.sheet_edit_note) {
+                    layout.sheet_edit_note = '';
+                    await db.run('UPDATE dht_order_items SET custom_layout = $1 WHERE id = $2', [JSON.stringify(layout), item.id]);
+                }
+            }
+        }
+
         // Link deposit child record if deposit_payment_id exists and not already linked (Only for draft promotion)
         if (order.is_draft && order.deposit_payment_id) {
             const depositPrId = Number(order.deposit_payment_id);
