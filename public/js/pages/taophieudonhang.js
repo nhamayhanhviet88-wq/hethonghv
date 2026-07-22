@@ -601,7 +601,8 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
     if (orderId && item.id && !ignoreDraft) {
-        const draftStr = localStorage.getItem(`tpd_draft_${orderId}_${item.id}`);
+        const key = `tpd_draft_${orderId}_${item.id}`;
+        const draftStr = localStorage.getItem(key) || sessionStorage.getItem(key);
         if (draftStr) {
             try {
                 const draft = JSON.parse(draftStr);
@@ -1534,18 +1535,56 @@ async function _tpdOnImageFileSelect(e, orderId) {
     }
 }
 
+function _tpdCompressImage(base64Str, maxWidth = 1600, maxHeight = 1600, quality = 0.85) {
+    return new Promise((resolve) => {
+        if (!base64Str || typeof base64Str !== 'string' || !base64Str.startsWith('data:image')) {
+            return resolve(base64Str);
+        }
+        const img = new Image();
+        img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            if (width <= maxWidth && height <= maxHeight && base64Str.length < 400000) {
+                return resolve(base64Str);
+            }
+            if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+            }
+            if (height > maxHeight) {
+                width = Math.round((width * maxHeight) / height);
+                height = maxHeight;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const isPng = base64Str.startsWith('data:image/png');
+            const compressed = canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality);
+            resolve(compressed);
+        };
+        img.onerror = () => resolve(base64Str);
+        img.src = base64Str;
+    });
+}
+
 // Handle select file for mockup image
 function _tpdOnMockupFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    showToast('⏳ Đang đọc file ảnh mockup...', 'info');
+    showToast('⏳ Đang đọc & tối ưu file ảnh mockup...', 'info');
     const reader = new FileReader();
-    reader.onload = function(evt) {
-        const base64 = evt.target.result;
+    reader.onload = async function(evt) {
+        let base64 = evt.target.result;
+        base64 = await _tpdCompressImage(base64, 1600, 1600, 0.85);
         const state = window._tpdWorkspaceState;
         if (state && state.editingItem) {
             state.editingItem.mockup_image = base64;
+            if (state.items && state.items[state.activeItemIndex]) {
+                state.items[state.activeItemIndex].mockup_image = base64;
+            }
             _tpdSaveDraft(state.editingItem);
             _tpdRenderFormInputs();
             _tpdUpdateLivePreview();
@@ -7008,14 +7047,21 @@ function _tpdSetupPasteZones() {
                 showToast(`⏳ Đang tải ảnh ${zone.toUpperCase()} lên...`);
 
                 const reader = new FileReader();
-                reader.onload = (event) => {
-                    const base64 = event.target.result;
+                reader.onload = async (event) => {
+                    let base64 = event.target.result;
+                    base64 = await _tpdCompressImage(base64, 1600, 1600, 0.85);
                     if (zone === 'mockup') {
                         state.editingItem.mockup_image = base64;
+                        if (state.items && state.items[state.activeItemIndex]) {
+                            state.items[state.activeItemIndex].mockup_image = base64;
+                        }
                     } else if (zone.startsWith('detail_')) {
                         const idx = parseInt(zone.replace('detail_', ''), 10);
                         if (state.editingItem.print_details && state.editingItem.print_details[idx]) {
                             state.editingItem.print_details[idx].image = base64;
+                            if (state.items && state.items[state.activeItemIndex] && state.items[state.activeItemIndex].print_details && state.items[state.activeItemIndex].print_details[idx]) {
+                                state.items[state.activeItemIndex].print_details[idx].image = base64;
+                            }
                         }
                     }
 
@@ -10000,6 +10046,13 @@ function _tpdSaveDraft(it) {
     const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
     if (!orderId) return;
     const key = `tpd_draft_${orderId}_${it.id}`;
+
+    // Sync editingItem changes back into state.items array
+    const state = window._tpdWorkspaceState;
+    if (state && state.editingItem && state.editingItem.id === it.id && Array.isArray(state.items) && state.items[state.activeItemIndex]) {
+        state.items[state.activeItemIndex] = _tpdCloneItemState(it, true);
+    }
+
     try {
         localStorage.setItem(key, JSON.stringify(it));
     } catch(e) {
@@ -10018,6 +10071,11 @@ function _tpdSaveDraft(it) {
             console.error('Failed to save draft even after cleanup:', retryErr);
         }
     }
+
+    // Always mirror draft into sessionStorage for current tab resilience across F5
+    try {
+        sessionStorage.setItem(key, JSON.stringify(it));
+    } catch(sErr) {}
 }
 
 function _tpdClearDraft(it) {
@@ -10026,6 +10084,7 @@ function _tpdClearDraft(it) {
     const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
     if (!orderId) return;
     localStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
+    sessionStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
 }
 
 // Print Positions Configuration Modal and Management
