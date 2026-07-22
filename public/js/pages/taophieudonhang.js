@@ -3955,8 +3955,11 @@ function _tpdSwitchItemTab(idx) {
     if (state.activeItemIndex === idx) return;
 
     // Save current active item state back into state.items array & draft storage before switching tab
-    if (state.editingItem && Array.isArray(state.items) && state.items[state.activeItemIndex] !== undefined) {
-        state.items[state.activeItemIndex] = JSON.parse(JSON.stringify(state.editingItem));
+    if (state.editingItem && state.editingItem.id && Array.isArray(state.items)) {
+        const itemIdx = state.items.findIndex(x => x && String(x.id) === String(state.editingItem.id));
+        if (itemIdx !== -1) {
+            state.items[itemIdx] = JSON.parse(JSON.stringify(state.editingItem));
+        }
         if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
     }
 
@@ -5050,7 +5053,7 @@ function _tpdRenderSaleRemindersSection(it, disabledAttr) {
                     it.sale_remind_choices[d.key] = 'yes';
                 }
                 const remTexts = deptRems.map(r => r.content || '').filter(Boolean);
-                if (remTexts.length > 0 && (!items || items.length === 0)) {
+                if (remTexts.length > 0 && (!items || items.length === 0 || remTexts.length > items.length)) {
                     items = remTexts;
                     if (!it.sale_remind_items) it.sale_remind_items = {};
                     it.sale_remind_items[d.key] = items;
@@ -5126,9 +5129,12 @@ function _tpdOnSaleRemindChoiceChange(dept, choice) {
         }
     }
 
-    if (state.items && state.items[state.activeItemIndex]) {
-        state.items[state.activeItemIndex].sale_remind_choices = state.editingItem.sale_remind_choices;
-        state.items[state.activeItemIndex].sale_remind_items = state.editingItem.sale_remind_items;
+    if (state.items && state.editingItem && state.editingItem.id) {
+        const matchingItem = state.items.find(x => x && String(x.id) === String(state.editingItem.id));
+        if (matchingItem) {
+            matchingItem.sale_remind_choices = state.editingItem.sale_remind_choices;
+            matchingItem.sale_remind_items = state.editingItem.sale_remind_items;
+        }
     }
 
     const rowEl = document.getElementById('tpd_sale_remind_row_' + dept);
@@ -5173,8 +5179,11 @@ function _tpdAddSaleRemindItem(dept) {
 
     state.editingItem.sale_remind_items[dept].push('');
 
-    if (state.items && state.items[state.activeItemIndex]) {
-        state.items[state.activeItemIndex].sale_remind_items = state.editingItem.sale_remind_items;
+    if (state.items && state.editingItem && state.editingItem.id) {
+        const matchingItem = state.items.find(x => x && String(x.id) === String(state.editingItem.id));
+        if (matchingItem) {
+            matchingItem.sale_remind_items = state.editingItem.sale_remind_items;
+        }
     }
 
     const boxEl = document.getElementById('tpd_sale_remind_items_box_' + dept);
@@ -5207,8 +5216,11 @@ function _tpdRemoveSaleRemindItem(dept, idx) {
     if (Array.isArray(list)) {
         list.splice(idx, 1);
 
-        if (state.items && state.items[state.activeItemIndex]) {
-            state.items[state.activeItemIndex].sale_remind_items = state.editingItem.sale_remind_items;
+        if (state.items && state.editingItem && state.editingItem.id) {
+            const matchingItem = state.items.find(x => x && String(x.id) === String(state.editingItem.id));
+            if (matchingItem) {
+                matchingItem.sale_remind_items = state.editingItem.sale_remind_items;
+            }
         }
 
         const boxEl = document.getElementById('tpd_sale_remind_items_box_' + dept);
@@ -5237,8 +5249,11 @@ function _tpdUpdateSaleRemindItem(dept, idx, value) {
     if (!state.editingItem.sale_remind_items[dept]) state.editingItem.sale_remind_items[dept] = [];
     state.editingItem.sale_remind_items[dept][idx] = value;
 
-    if (state.items && state.items[state.activeItemIndex]) {
-        state.items[state.activeItemIndex].sale_remind_items = state.editingItem.sale_remind_items;
+    if (state.items && state.editingItem && state.editingItem.id) {
+        const matchingItem = state.items.find(x => x && String(x.id) === String(state.editingItem.id));
+        if (matchingItem) {
+            matchingItem.sale_remind_items = state.editingItem.sale_remind_items;
+        }
     }
 
     if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
