@@ -724,12 +724,12 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
         })(),
         sale_remind_items: (() => {
             let items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
-            if (Array.isArray(item.sale_reminders_data) && item.sale_reminders_data.length > 0) {
+            if (item.sale_remind_items && typeof item.sale_remind_items === 'object') {
+                try { items = JSON.parse(JSON.stringify(item.sale_remind_items)); } catch(e) {}
+            } else if (Array.isArray(item.sale_reminders_data) && item.sale_reminders_data.length > 0) {
                 item.sale_reminders_data.forEach(r => {
                     if (r.dept && items[r.dept]) items[r.dept].push(r.content || '');
                 });
-            } else if (item.sale_remind_items) {
-                try { items = JSON.parse(JSON.stringify(item.sale_remind_items)); } catch(e) {}
             }
             return items;
         })()
@@ -10041,16 +10041,25 @@ async function _tpdSaveSizeConfig() {
 
 // Draft helpers to save/clear editing progress in localStorage on F5 refresh
 function _tpdSaveDraft(it) {
-    if (!it || !it.id) return;
-    const params = new URLSearchParams(window.location.search);
-    const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
-    if (!orderId) return;
-    const key = `tpd_draft_${orderId}_${it.id}`;
-
-    // Sync editingItem changes back into state.items array
+    if (!it) return;
     const state = window._tpdWorkspaceState;
-    if (state && state.editingItem && state.editingItem.id === it.id && Array.isArray(state.items) && state.items[state.activeItemIndex]) {
-        state.items[state.activeItemIndex] = _tpdCloneItemState(it, true);
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('id') || (state && state.orderId) || '';
+    if (!orderId) return;
+
+    let itemId = it.id;
+    if (!itemId && state && state.items) {
+        const idx = state.items.indexOf(it);
+        if (idx !== -1) itemId = `idx_${idx}`;
+        else if (state.activeItemIndex !== undefined) itemId = `idx_${state.activeItemIndex}`;
+    }
+    if (!itemId) return;
+
+    const key = `tpd_draft_${orderId}_${itemId}`;
+
+    // Sync editingItem changes back into state.items array directly
+    if (state && state.editingItem && Array.isArray(state.items) && state.items[state.activeItemIndex]) {
+        state.items[state.activeItemIndex] = JSON.parse(JSON.stringify(it));
     }
 
     try {
