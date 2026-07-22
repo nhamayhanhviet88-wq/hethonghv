@@ -9086,10 +9086,12 @@ async function _tpdShowExportSheetsModal() {
                     // Auto-save all workspace items sheet details (including sale reminders) before confirm-export
                     if (window._tpdWorkspaceState && Array.isArray(window._tpdWorkspaceState.items)) {
                         const state = window._tpdWorkspaceState;
-                        const activeIdx = state.activeItemIndex || 0;
-                        if (state.editingItem && state.items[activeIdx]) {
-                            state.items[activeIdx].sale_remind_choices = state.editingItem.sale_remind_choices;
-                            state.items[activeIdx].sale_remind_items = state.editingItem.sale_remind_items;
+                        if (state.editingItem && state.editingItem.id) {
+                            const matchingItem = state.items.find(x => x && String(x.id) === String(state.editingItem.id));
+                            if (matchingItem) {
+                                matchingItem.sale_remind_choices = state.editingItem.sale_remind_choices;
+                                matchingItem.sale_remind_items = state.editingItem.sale_remind_items;
+                            }
                         }
                         for (const it of window._tpdWorkspaceState.items) {
                             if (it && it.id) {
