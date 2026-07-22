@@ -5121,10 +5121,13 @@ module.exports = async function(fastify) {
         if (assignments && !Array.isArray(assignments)) {
             return reply.code(400).send({ error: 'Dữ liệu phân công không hợp lệ' });
         }
-        if (!hoanthien_remind_choice || !['yes', 'none'].includes(hoanthien_remind_choice)) {
+        let existingPrepRow = await db.get(`SELECT may_remind_choice, hoanthien_remind_choice FROM qlx_preparation WHERE item_id = $1`, [itemId]);
+        const effectiveHtChoice = hoanthien_remind_choice || (existingPrepRow ? existingPrepRow.hoanthien_remind_choice : 'none');
+
+        if (!effectiveHtChoice || !['yes', 'none'].includes(effectiveHtChoice)) {
             return reply.code(400).send({ error: '⚠️ Vui lòng chọn Nhắc Nhở Hoàn Thiện, Cắt Chỉ (Có hoặc Không)!' });
         }
-        if (hoanthien_remind_choice === 'yes' && (!Array.isArray(hoanthien_reminders) || hoanthien_reminders.filter(x => x && x.trim()).length === 0)) {
+        if (effectiveHtChoice === 'yes' && hoanthien_reminders && Array.isArray(hoanthien_reminders) && hoanthien_reminders.filter(x => x && x.trim()).length === 0) {
             return reply.code(400).send({ error: '⚠️ Vui lòng nhập nội dung nhắc nhở bộ phận hoàn thiện!' });
         }
 

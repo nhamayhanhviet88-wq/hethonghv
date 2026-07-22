@@ -4070,14 +4070,14 @@ async function _qlxAssignMaySave() {
     var htRemindChoice = null;
     var htReminders = [];
     if (!window._qlxMayData.is_finishing_done) {
-        htRemindChoice = document.querySelector('input[name="qlx_hoanthien_remind_choice"]:checked')?.value;
+        htRemindChoice = document.querySelector('input[name="qlx_hoanthien_remind_choice"]:checked')?.value || window._qlxMayData.hoanthien_remind_choice || 'none';
         if (!htRemindChoice) {
             showToast('⚠️ Vui lòng chọn Trạng thái Nhắc Nhở cho Bộ Phận Hoàn Thiện!', 'error');
             return;
         }
         if (htRemindChoice === 'yes') {
             var inputs = document.querySelectorAll('#qlx_hoanthien_reminders_list .qlx-reminder-text-input');
-            if (inputs.length === 0) {
+            if (inputs.length === 0 && (!window._qlxMayData.hoanthien_reminders || window._qlxMayData.hoanthien_reminders.length === 0)) {
                 showToast('⚠️ Vui lòng nhập nội dung nhắc nhở bộ phận hoàn thiện!', 'error');
                 return;
             }
@@ -4090,6 +4090,8 @@ async function _qlxAssignMaySave() {
                 htReminders.push(val);
             }
         }
+    } else {
+        htRemindChoice = window._qlxMayData.hoanthien_remind_choice || 'none';
     }
 
     if (window._qlxMayData.is_sewing_done) {
