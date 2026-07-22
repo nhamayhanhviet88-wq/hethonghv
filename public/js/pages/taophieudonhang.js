@@ -499,10 +499,12 @@ async function renderDesignDraftPage(content) {
             }
         }
 
+        const clonedItems = items.map(it => _tpdCloneItemState(it));
+
         window._tpdWorkspaceState = {
             orderId: orderId,
             order: order,
-            items: items,
+            items: clonedItems,
             payments: details.payments || [],
             surcharges: details.surcharges || [],
             activeItemIndex: activeIdx,
@@ -510,7 +512,7 @@ async function renderDesignDraftPage(content) {
             role: myInfo.role || '',
             lockWarning: details.lock_warning || null,
             // Deep copy of active item editing state
-            editingItem: items.length > 0 ? _tpdCloneItemState(items[activeIdx]) : null,
+            editingItem: clonedItems.length > 0 ? _tpdCloneItemState(clonedItems[activeIdx]) : null,
             // Clean database baseline states (normalized but without drafts)
             dbBaselines: items.length > 0 ? items.map(it => _tpdCloneItemState(it, true)) : []
         };
