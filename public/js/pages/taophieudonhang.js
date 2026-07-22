@@ -10153,8 +10153,15 @@ function _tpdPurgeBloatedDrafts() {
             const k = localStorage.key(i);
             if (k && k.startsWith('tpd_draft_')) {
                 const val = localStorage.getItem(k);
-                if (val && val.length > 400000) {
-                    localStorage.removeItem(k);
+                if (val) {
+                    try {
+                        const parsed = JSON.parse(val);
+                        if (!parsed || !parsed.sale_remind_choices || Object.keys(parsed.sale_remind_choices).length === 0 || val.length > 400000) {
+                            localStorage.removeItem(k);
+                        }
+                    } catch(pe) {
+                        localStorage.removeItem(k);
+                    }
                 }
             }
         }
@@ -10162,8 +10169,15 @@ function _tpdPurgeBloatedDrafts() {
             const k = sessionStorage.key(i);
             if (k && k.startsWith('tpd_draft_')) {
                 const val = sessionStorage.getItem(k);
-                if (val && val.length > 400000) {
-                    sessionStorage.removeItem(k);
+                if (val) {
+                    try {
+                        const parsed = JSON.parse(val);
+                        if (!parsed || !parsed.sale_remind_choices || Object.keys(parsed.sale_remind_choices).length === 0 || val.length > 400000) {
+                            sessionStorage.removeItem(k);
+                        }
+                    } catch(pe) {
+                        sessionStorage.removeItem(k);
+                    }
                 }
             }
         }
