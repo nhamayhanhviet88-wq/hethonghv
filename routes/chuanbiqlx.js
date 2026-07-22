@@ -501,6 +501,31 @@ module.exports = async function(fastify) {
         await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_qlx_reminder_views_unique ON qlx_reminder_views(reminder_id, user_id, record_type, COALESCE(record_id, 0))`);
     } catch(e) { console.error('[QLX] reminders table:', e.message); }
 
+    // Sale Reminders Tables (separate from QLX reminders)
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS sale_reminders (
+            id SERIAL PRIMARY KEY,
+            dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            item_id INTEGER NOT NULL REFERENCES dht_order_items(id) ON DELETE CASCADE,
+            dept VARCHAR(20) NOT NULL,
+            content TEXT NOT NULL,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_sale_reminders_item ON sale_reminders(item_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_sale_reminders_order ON sale_reminders(dht_order_id)`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS sale_reminder_views (
+            id SERIAL PRIMARY KEY,
+            reminder_id INTEGER NOT NULL REFERENCES sale_reminders(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            record_type VARCHAR(20) NOT NULL,
+            record_id INTEGER,
+            viewed_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sale_reminder_views_unique ON sale_reminder_views(reminder_id, user_id, record_type, COALESCE(record_id, 0))`);
+        await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS sale_remind_choices JSONB DEFAULT '{}'`);
+    } catch(e) { console.error('[QLX] sale_reminders tables:', e.message); }
+
     try {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS print_remind_choice VARCHAR(20)`);
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS press_remind_choice VARCHAR(20)`);
@@ -2212,6 +2237,92 @@ module.exports = async function(fastify) {
         }
         
         return { success: true };
+    });
+
+    // ========== MARK SALE REMINDERS AS VIEWED ==========
+    fastify.post('/api/sale-reminders/viewed', { preHandler: [authenticate] }, async (request, reply) => {
+        const { reminder_ids, record_type, record_id } = request.body || {};
+        if (!Array.isArray(reminder_ids) || reminder_ids.length === 0) {
+            return reply.code(400).send({ error: 'Thiếu reminder_ids' });
+        }
+        if (!record_type) {
+            return reply.code(400).send({ error: 'Thiếu record_type' });
+        }
+        
+        const userId = request.user.id;
+        const now = vnNow();
+        
+        for (const remId of reminder_ids) {
+            const rId = record_id ? Number(record_id) : null;
+            await db.run(
+                `INSERT INTO sale_reminder_views (reminder_id, user_id, record_type, record_id, viewed_at)
+                 SELECT $1::integer, $2::integer, $3::text, $4::integer, $5::timestamptz
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM sale_reminder_views
+                     WHERE reminder_id = $1::integer AND user_id = $2::integer AND record_type = $3::text AND COALESCE(record_id, 0) = COALESCE($4::integer, 0)
+                 )`,
+                [Number(remId), userId, record_type, rId, now]
+            );
+        }
+        
+        return { success: true };
+    });
+
+    // ========== GET SALE REMINDERS ==========
+    fastify.get('/api/sale-reminders', { preHandler: [authenticate] }, async (request, reply) => {
+        const { order_id, item_id, dept, record_type, record_id } = request.query || {};
+        if (!order_id) return reply.code(400).send({ error: 'Thiếu order_id' });
+
+        let deptFilter = '';
+        const params = [Number(order_id)];
+        let pIdx = 2;
+
+        if (item_id) {
+            deptFilter += ` AND sr.item_id = $${pIdx++}`;
+            params.push(Number(item_id));
+        }
+        if (dept) {
+            deptFilter += ` AND sr.dept = $${pIdx++}`;
+            params.push(dept);
+        }
+
+        const rows = await db.all(
+            `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr
+             WHERE sr.dht_order_id = $1${deptFilter} ORDER BY sr.id`,
+            params
+        );
+
+        const reminderIds = rows.map(r => r.id);
+        let viewedIds = [];
+        if (reminderIds.length > 0 && record_type) {
+            if (record_id) {
+                const vRows = await db.all(
+                    `SELECT DISTINCT reminder_id FROM sale_reminder_views 
+                     WHERE reminder_id = ANY($1::integer[]) AND record_type = $2 AND COALESCE(record_id, 0) = COALESCE($3::integer, 0)`,
+                    [reminderIds, record_type, Number(record_id)]
+                );
+                viewedIds = vRows.map(v => v.reminder_id);
+            } else {
+                const vRows = await db.all(
+                    `SELECT DISTINCT reminder_id FROM sale_reminder_views WHERE reminder_id = ANY($1::integer[])`,
+                    [reminderIds]
+                );
+                viewedIds = vRows.map(v => v.reminder_id);
+            }
+        }
+
+        return {
+            reminders: rows.map(r => r.content),
+            reminder_ids: reminderIds,
+            viewed_ids: viewedIds,
+            details: rows.map(r => ({
+                id: r.id,
+                content: r.content,
+                dept: r.dept,
+                item_id: r.item_id,
+                is_viewed: viewedIds.indexOf(r.id) >= 0
+            }))
+        };
     });
 
     // ========== PRINT ASSIGNMENT: Combined modal data ==========

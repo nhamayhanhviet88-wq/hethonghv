@@ -1823,13 +1823,21 @@ async function mOpenCutModal(recordId){
         if (rec.order_item_id) remUrl += '&item_id=' + rec.order_item_id;
         const remRes = mApi(remUrl);
 
-        const [rollsData, remData] = await Promise.all([rollsRes, remRes]);
+        let saleRemUrl = '/api/sale-reminders?order_id=' + rec.dht_order_id + '&dept=cat&record_type=cutting&record_id=' + recordId;
+        if (rec.order_item_id) saleRemUrl += '&item_id=' + rec.order_item_id;
+        const saleRemRes = mApi(saleRemUrl).catch(() => ({ reminders: [], reminder_ids: [], viewed_ids: [] }));
+
+        const [rollsData, remData, saleRemData] = await Promise.all([rollsRes, remRes, saleRemRes]);
         const rolls=rollsData.rolls||[];
         mSortRollsForCutting(rolls, rec.order_code);
         window._mAvailableRolls = rolls;
         const cutReminders = remData.reminders || [];
         const cutReminderIds = remData.reminder_ids || [];
         const cutViewedIds = remData.viewed_ids || [];
+
+        const saleReminders = saleRemData.reminders || [];
+        const saleReminderIds = saleRemData.reminder_ids || [];
+        const saleViewedIds = saleRemData.viewed_ids || [];
 
         const bd=document.getElementById('_mmCutBody');
         let b='';
@@ -1844,7 +1852,7 @@ async function mOpenCutModal(recordId){
         } else {
             const reservedUnlockedCount = rolls.filter(r => r.is_reserved_for_this_order && !r.locked).length;
             if (reservedUnlockedCount > 1) {
-                b += '<div style="background:rgba(234,88,12,0.15); border:1px solid #ea580c; color:#ffedd5; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px">';
+                b += '<div style="background:rgba(249,115,22,0.15); border:1px solid rgba(249,115,22,0.3); color:#fdba74; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px">';
                 b += '  <span>⚠️ QLX chỉ định nhiều cây dự phòng. Vui lòng tích chọn đúng cây vải bạn dùng thực tế!</span>';
                 b += '</div>';
             }
@@ -1965,13 +1973,38 @@ function mToggleReminder(btn) {
     mUpdateCutConfirmState();
 }
 
+function mToggleSaleReminder(btn) {
+    const remId = btn.dataset.reminderId;
+    const cb = btn.closest('div').querySelector('.m-sale-reminder-cb');
+    if (!cb) return;
+    const isNowChecked = !cb.checked;
+    cb.checked = isNowChecked;
+    const card = btn.closest('div[style*="display:flex;align-items:center"]');
+    if (isNowChecked) {
+        btn.innerHTML = '✅ Đã Xem và Làm';
+        btn.style.border = '1.5px solid #22c55e';
+        btn.style.background = 'rgba(34,197,94,0.1)';
+        btn.style.color = '#4ade80';
+        btn.style.animation = 'none';
+        if (card) card.style.borderColor = '#22c55e';
+    } else {
+        btn.innerHTML = '👉 Đã Xem và Làm';
+        btn.style.border = '1.5px solid #f59e0b';
+        btn.style.background = 'rgba(245,158,11,0.1)';
+        btn.style.color = '#fde68a';
+        btn.style.animation = 'bpcReminderPulseMobile 2s infinite';
+        if (card) card.style.borderColor = '#f59e0b';
+    }
+    mUpdateCutConfirmState();
+}
+
 function mUpdateCutConfirmState() {
     const confirmBtn = document.getElementById('_mmCutOk');
     if (!confirmBtn) return;
     
     const selectedRolls = document.querySelectorAll('._mRollCb:checked').length;
-    const totalReminders = document.querySelectorAll('.m-reminder-cb').length;
-    const checkedReminders = document.querySelectorAll('.m-reminder-cb:checked').length;
+    const totalReminders = document.querySelectorAll('.m-reminder-cb, .m-sale-reminder-cb').length;
+    const checkedReminders = document.querySelectorAll('.m-reminder-cb:checked, .m-sale-reminder-cb:checked').length;
     const allRemindersChecked = (checkedReminders === totalReminders);
     
     const isValid = (selectedRolls > 0) && allRemindersChecked;
@@ -2007,8 +2040,8 @@ async function mDoCut(recordId){
     if(!cbs.length){mToast('Chọn ít nhất 1 cây vải',false);window._mSubmitBusy=false;return;}
     
     // Check reminders again for safety
-    const totalReminders = document.querySelectorAll('.m-reminder-cb').length;
-    const checkedReminders = document.querySelectorAll('.m-reminder-cb:checked').length;
+    const totalReminders = document.querySelectorAll('.m-reminder-cb, .m-sale-reminder-cb').length;
+    const checkedReminders = document.querySelectorAll('.m-reminder-cb:checked, .m-sale-reminder-cb:checked').length;
     if (checkedReminders < totalReminders) {
         mToast('Vui lòng xác nhận đã xem và làm tất cả nhắc nhở!', false);
         window._mSubmitBusy = false;
@@ -2034,14 +2067,25 @@ async function mDoCut(recordId){
     const btn=document.getElementById('_mmCutOk');
     if(btn){btn.disabled=true;btn.textContent='⏳...';}
     try{
-        // First submit reminders viewed status
-        if (totalReminders > 0) {
+        // QLX reminders viewed
+        const qlxChecked = document.querySelectorAll('.m-reminder-cb:checked');
+        if (qlxChecked.length > 0) {
             const reminderIds = [];
-            document.querySelectorAll('.m-reminder-cb:checked').forEach(cb => {
-                reminderIds.push(Number(cb.dataset.reminderId));
-            });
+            qlxChecked.forEach(cb => reminderIds.push(Number(cb.dataset.reminderId)));
             await mApi('/api/qlx/reminders/viewed', 'POST', {
                 reminder_ids: reminderIds,
+                record_type: 'cutting',
+                record_id: recordId
+            });
+        }
+
+        // Sale reminders viewed
+        const saleChecked = document.querySelectorAll('.m-sale-reminder-cb:checked');
+        if (saleChecked.length > 0) {
+            const saleReminderIds = [];
+            saleChecked.forEach(cb => saleReminderIds.push(Number(cb.dataset.reminderId)));
+            await mApi('/api/sale-reminders/viewed', 'POST', {
+                reminder_ids: saleReminderIds,
                 record_type: 'cutting',
                 record_id: recordId
             });

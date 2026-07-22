@@ -1285,6 +1285,9 @@ async function _bpeOpenReportModal(id) {
     var pressReminders = [];
     var pressReminderIds = [];
     var pressViewedIds = [];
+    var saleReminders = [];
+    var saleReminderIds = [];
+    var saleViewedIds = [];
     try {
         var remUrl = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep&record_type=pressing&record_id=' + r.id;
         if (r.order_item_id) remUrl += '&item_id=' + r.order_item_id;
@@ -1292,6 +1295,13 @@ async function _bpeOpenReportModal(id) {
         pressReminders = remRes.reminders || [];
         pressReminderIds = remRes.reminder_ids || [];
         pressViewedIds = remRes.viewed_ids || [];
+
+        var saleRemUrl = '/api/sale-reminders?order_id=' + r.dht_order_id + '&dept=ep&record_type=pressing&record_id=' + r.id;
+        if (r.order_item_id) saleRemUrl += '&item_id=' + r.order_item_id;
+        var saleRemRes = await apiCall(saleRemUrl).catch(function(){ return { reminders: [], reminder_ids: [], viewed_ids: [] }; });
+        saleReminders = saleRemRes.reminders || [];
+        saleReminderIds = saleRemRes.reminder_ids || [];
+        saleViewedIds = saleRemRes.viewed_ids || [];
     } catch(e) {
         console.error('Lỗi tải nhắc nhở ép:', e);
     }
@@ -1339,6 +1349,28 @@ async function _bpeOpenReportModal(id) {
                 h += '       <button type="button" class="bpe-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpeToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #059669;background:#ecfdf5;color:#059669;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s">✅ Đã Xem và Làm</button>';
             } else {
                 h += '       <button type="button" class="bpe-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpeToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #7c3aed;background:#f3e8ff;color:#7c3aed;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpeReminderPulse 2s infinite">👉 Đã Xem và Làm</button>';
+            }
+            h += '    </div>';
+        });
+        h += '  </div>';
+        h += '</div>';
+    }
+
+    // Sale Reminder for pressing
+    if (saleReminders.length > 0) {
+        h += '<div style="margin-top:16px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px 14px;border-radius:12px;">';
+        h += '  <div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN ÉP:</div>';
+        h += '  <div style="display:flex;flex-direction:column;gap:10px">';
+        saleReminders.forEach(function(rem, remIdx) {
+            var remId = saleReminderIds[remIdx] || 0;
+            var isViewed = saleViewedIds.indexOf(remId) >= 0;
+            h += '    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid ' + (isViewed ? '#059669' : '#fde68a') + ';border-radius:10px;padding:10px 12px;transition:all 0.3s">';
+            h += '       <input type="checkbox" class="bpe-sale-reminder-cb" data-reminder-id="' + remId + '" ' + (isViewed ? 'checked' : '') + ' style="display:none">';
+            h += '       <div style="flex:1;font-size:12px;font-weight:700;color:#92400e;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            if (isViewed) {
+                h += '       <button type="button" class="bpe-sale-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpeToggleSaleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #059669;background:#ecfdf5;color:#059669;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s">✅ Đã Xem và Làm</button>';
+            } else {
+                h += '       <button type="button" class="bpe-sale-reminder-btn" data-reminder-id="' + remId + '" onclick="_bpeToggleSaleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #d97706;background:#fef3c7;color:#d97706;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpeReminderPulse 2s infinite">👉 Đã Xem và Làm</button>';
             }
             h += '    </div>';
         });
@@ -1560,6 +1592,14 @@ async function _bpeSubmitReport(id) {
         return;
     }
 
+    // Check Sale reminders viewed
+    var totalSaleReminders = document.querySelectorAll('.bpe-sale-reminder-cb').length;
+    var checkedSaleReminders = document.querySelectorAll('.bpe-sale-reminder-cb:checked').length;
+    if (checkedSaleReminders < totalSaleReminders) {
+        showToast('Vui lòng bấm "Đã Xem và Làm" tất cả Nhắc Nhở của Sale!', 'error');
+        return;
+    }
+
     var btn = document.getElementById('_bpeReportSubmitBtn');
     if (btn) {
         btn.disabled = true;
@@ -1570,7 +1610,7 @@ async function _bpeSubmitReport(id) {
         await apiCall('/api/pressing/records/' + id, 'PUT', payload);
         await apiCall('/api/pressing/toggle/' + id, 'POST', { action: 'report' });
         
-        // Save viewed reminders
+        // Save viewed QLX reminders
         var viewedReminderIds = [];
         var reminderCbs2 = document.querySelectorAll('.bpe-reminder-cb');
         for (var j = 0; j < reminderCbs2.length; j++) {
@@ -1587,6 +1627,23 @@ async function _bpeSubmitReport(id) {
                     record_id: id
                 });
             } catch(ve) { console.error('Lỗi lưu trạng thái xem nhắc nhở:', ve); }
+        }
+
+        // Save viewed Sale reminders
+        var viewedSaleReminderIds = [];
+        var saleReminderCbs = document.querySelectorAll('.bpe-sale-reminder-cb:checked');
+        for (var k = 0; k < saleReminderCbs.length; k++) {
+            var sRemId = saleReminderCbs[k].getAttribute('data-reminder-id');
+            if (sRemId && sRemId !== '0') viewedSaleReminderIds.push(Number(sRemId));
+        }
+        if (viewedSaleReminderIds.length > 0) {
+            try {
+                await apiCall('/api/sale-reminders/viewed', 'POST', {
+                    reminder_ids: viewedSaleReminderIds,
+                    record_type: 'pressing',
+                    record_id: id
+                });
+            } catch(ve) { console.error('Lỗi lưu trạng thái xem nhắc nhở Sale:', ve); }
         }
         
         showToast('✅ Đã báo cáo thành công');
@@ -1759,4 +1816,52 @@ function _bpeViewImage(url) {
     ov.onclick = function() { ov.remove(); };
     ov.innerHTML = '<img src="' + url + '" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);object-fit:contain">';
     document.body.appendChild(ov);
+}
+
+function _bpeToggleReminder(btn) {
+    var remId = btn.getAttribute('data-reminder-id');
+    var cb = btn.closest('div').querySelector('.bpe-reminder-cb');
+    if (!cb) return;
+    var isNowChecked = !cb.checked;
+    cb.checked = isNowChecked;
+    var card = btn.closest('div[style*="display:flex;align-items:center"]');
+    if (isNowChecked) {
+        btn.innerHTML = '✅ Đã Xem và Làm';
+        btn.style.border = '1.5px solid #059669';
+        btn.style.background = '#ecfdf5';
+        btn.style.color = '#059669';
+        btn.style.animation = 'none';
+        if (card) card.style.borderColor = '#059669';
+    } else {
+        btn.innerHTML = '👉 Đã Xem và Làm';
+        btn.style.border = '1.5px solid #7c3aed';
+        btn.style.background = '#f3e8ff';
+        btn.style.color = '#7c3aed';
+        btn.style.animation = 'bpeReminderPulse 2s infinite';
+        if (card) card.style.borderColor = '#d8b4fe';
+    }
+}
+
+function _bpeToggleSaleReminder(btn) {
+    var remId = btn.getAttribute('data-reminder-id');
+    var cb = btn.closest('div').querySelector('.bpe-sale-reminder-cb');
+    if (!cb) return;
+    var isNowChecked = !cb.checked;
+    cb.checked = isNowChecked;
+    var card = btn.closest('div[style*="display:flex;align-items:center"]');
+    if (isNowChecked) {
+        btn.innerHTML = '✅ Đã Xem và Làm';
+        btn.style.border = '1.5px solid #059669';
+        btn.style.background = '#ecfdf5';
+        btn.style.color = '#059669';
+        btn.style.animation = 'none';
+        if (card) card.style.borderColor = '#059669';
+    } else {
+        btn.innerHTML = '👉 Đã Xem và Làm';
+        btn.style.border = '1.5px solid #d97706';
+        btn.style.background = '#fef3c7';
+        btn.style.color = '#d97706';
+        btn.style.animation = 'bpeReminderPulse 2s infinite';
+        if (card) card.style.borderColor = '#fde68a';
+    }
 }

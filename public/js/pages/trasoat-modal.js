@@ -166,37 +166,67 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
         if (stepKey === 'ep' && res.records && res.records.length > 0) {
             res.records.forEach(function(r) {
                 (async function() {
-                    try {
-                        var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
+                         var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
                         if (r.order_item_id) url += '&item_id=' + r.order_item_id;
                         var remRes = await apiCall(url);
                         var pressReminders = remRes.reminders || [];
                         var pressReminderIds = remRes.reminder_ids || [];
                         var pressViewedIds = remRes.viewed_ids || [];
                         
-                        if (pressReminders.length > 0) {
+                        var saleUrl = '/api/sale-reminders?order_id=' + r.dht_order_id + '&dept=ep';
+                        if (r.order_item_id) saleUrl += '&item_id=' + r.order_item_id;
+                        saleUrl += '&record_type=pressing&record_id=' + r.id;
+                        var saleRemRes = await apiCall(saleUrl).catch(function(){ return { reminders: [], reminder_ids: [], viewed_ids: [] }; });
+                        var saleReminders = saleRemRes.reminders || [];
+                        var saleReminderIds = saleRemRes.reminder_ids || [];
+                        var saleViewedIds = saleRemRes.viewed_ids || [];
+
+                        if (pressReminders.length > 0 || saleReminders.length > 0) {
                             var el = document.getElementById('_tsEpRemindersContainer_' + r.id);
                             if (!el) return;
                             
                             var b = '';
-                            b += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
-                            b += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔥 NHẮC NHỞ BỘ PHẬN ÉP:</div>';
-                            b += '<div style="display:flex; flex-direction:column; gap:8px;">';
-                            pressReminders.forEach(function(rem, remIdx) {
-                                var remId = pressReminderIds[remIdx] || 0;
-                                var isViewed = pressViewedIds.indexOf(remId) >= 0;
-                                
-                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
-                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-                                if (isViewed) {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
-                                } else {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#ef4444; border:1.5px solid #ef4444; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
-                                }
+                            if (pressReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔥 NHẮC NHỞ QLX BỘ PHẬN ÉP:</div>';
+                                b += '<div style="display:flex; flex-direction:column; gap:8px;">';
+                                pressReminders.forEach(function(rem, remIdx) {
+                                    var remId = pressReminderIds[remIdx] || 0;
+                                    var isViewed = pressViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#ef4444; border:1.5px solid #ef4444; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
                                 b += '</div>';
-                            });
-                            b += '</div>';
-                            b += '</div>';
+                                b += '</div>';
+                            }
+
+                            if (saleReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN ÉP:</div>';
+                                b += '<div style="display:flex; flex-direction:column; gap:8px;">';
+                                saleReminders.forEach(function(rem, remIdx) {
+                                    var remId = saleReminderIds[remIdx] || 0;
+                                    var isViewed = saleViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#f59e0b') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#d97706; border:1.5px solid #d97706; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
+                                b += '</div>';
+                                b += '</div>';
+                            }
                             
                             el.innerHTML = b;
                             el.style.display = 'block';
@@ -218,29 +248,60 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
                         var cutReminderIds = remRes.reminder_ids || [];
                         var cutViewedIds = remRes.viewed_ids || [];
                         
-                        if (cutReminders.length > 0) {
+                        var saleUrl = '/api/sale-reminders?order_id=' + r.dht_order_id + '&dept=cat';
+                        if (r.order_item_id) saleUrl += '&item_id=' + r.order_item_id;
+                        saleUrl += '&record_type=cutting&record_id=' + r.id;
+                        var saleRemRes = await apiCall(saleUrl).catch(function(){ return { reminders: [], reminder_ids: [], viewed_ids: [] }; });
+                        var saleReminders = saleRemRes.reminders || [];
+                        var saleReminderIds = saleRemRes.reminder_ids || [];
+                        var saleViewedIds = saleRemRes.viewed_ids || [];
+
+                        if (cutReminders.length > 0 || saleReminders.length > 0) {
                             var el = document.getElementById('_tsCatRemindersContainer_' + r.id);
                             if (!el) return;
                             
                             var b = '';
-                            b += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
-                            b += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN CẮT:</div>';
-                            b += '<div style="display:flex; flex-direction:column; gap:8px;">';
-                            cutReminders.forEach(function(rem, remIdx) {
-                                var remId = cutReminderIds[remIdx] || 0;
-                                var isViewed = cutViewedIds.indexOf(remId) >= 0;
-                                
-                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
-                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-                                if (isViewed) {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
-                                } else {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#ef4444; border:1.5px solid #ef4444; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
-                                }
+                            if (cutReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#fee2e2;border:1.5px solid #fca5a5;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#991b1b;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN CẮT:</div>';
+                                b += '<div style="display:flex; flex-direction:column; gap:8px;">';
+                                cutReminders.forEach(function(rem, remIdx) {
+                                    var remId = cutReminderIds[remIdx] || 0;
+                                    var isViewed = cutViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#ef4444; border:1.5px solid #ef4444; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
                                 b += '</div>';
-                            });
-                            b += '</div>';
-                            b += '</div>';
+                                b += '</div>';
+                            }
+
+                            if (saleReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN CẮT:</div>';
+                                b += '<div style="display:flex; flex-direction:column; gap:8px;">';
+                                saleReminders.forEach(function(rem, remIdx) {
+                                    var remId = saleReminderIds[remIdx] || 0;
+                                    var isViewed = saleViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#f59e0b') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#d97706; border:1.5px solid #d97706; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
+                                b += '</div>';
+                                b += '</div>';
+                            }
                             
                             el.innerHTML = b;
                             el.style.display = 'block';
@@ -385,30 +446,61 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
                         var htReminders = remRes.reminders || [];
                         var htReminderIds = remRes.reminder_ids || [];
                         var htViewedIds = remRes.viewed_ids || [];
-                        
-                        if (htReminders.length > 0) {
+
+                        var saleUrl = '/api/sale-reminders?order_id=' + r.dht_order_id + '&dept=hoanthien';
+                        if (r.order_item_id) saleUrl += '&item_id=' + r.order_item_id;
+                        saleUrl += '&record_type=finishing_records&record_id=' + r.id;
+                        var saleRemRes = await apiCall(saleUrl).catch(function(){ return { reminders: [], reminder_ids: [], viewed_ids: [] }; });
+                        var saleReminders = saleRemRes.reminders || [];
+                        var saleReminderIds = saleRemRes.reminder_ids || [];
+                        var saleViewedIds = saleRemRes.viewed_ids || [];
+
+                        if (htReminders.length > 0 || saleReminders.length > 0) {
                             var el = document.getElementById('_tsHtRemindersContainer_' + r.id);
                             if (!el) return;
                             
                             var b = '';
-                            b += '<div style="margin-top:12px;background:#fff7ed;border:1.5px solid #ffedd5;padding:12px 14px;border-radius:12px;">';
-                            b += '  <div style="font-weight:800;color:#c2410c;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🍊 NHẮC NHỞ QLX HOÀN THIỆN:</div>';
-                            b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
-                            htReminders.forEach(function(rem, remIdx) {
-                                var remId = htReminderIds[remIdx] || 0;
-                                var isViewed = htViewedIds.indexOf(remId) >= 0;
-                                
-                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#f97316') + '; border-radius:10px; background:#fff; gap:10px;">';
-                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-                                if (isViewed) {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
-                                } else {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#f97316; border:1.5px solid #f97316; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
-                                }
+                            if (htReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#fff7ed;border:1.5px solid #ffedd5;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#c2410c;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🍊 NHẮC NHỞ QLX HOÀN THIỆN:</div>';
+                                b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                                htReminders.forEach(function(rem, remIdx) {
+                                    var remId = htReminderIds[remIdx] || 0;
+                                    var isViewed = htViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#f97316') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#f97316; border:1.5px solid #f97316; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
+                                b += '  </div>';
                                 b += '</div>';
-                            });
-                            b += '  </div>';
-                            b += '</div>';
+                            }
+
+                            if (saleReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ HOÀN THIỆN:</div>';
+                                b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                                saleReminders.forEach(function(rem, remIdx) {
+                                    var remId = saleReminderIds[remIdx] || 0;
+                                    var isViewed = saleViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#f59e0b') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#d97706; border:1.5px solid #d97706; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
+                                b += '  </div>';
+                                b += '</div>';
+                            }
                             
                             el.innerHTML = b;
                             el.style.display = 'block';
@@ -478,29 +570,60 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
                         var sewReminderIds = remRes.reminder_ids || [];
                         var sewViewedIds = remRes.viewed_ids || [];
                         
-                        if (sewReminders.length > 0) {
+                        var saleUrl = '/api/sale-reminders?order_id=' + r.dht_order_id + '&dept=qc';
+                        if (r.order_item_id) saleUrl += '&item_id=' + r.order_item_id;
+                        saleUrl += '&record_type=sewing_qc&record_id=' + r.id;
+                        var saleRemRes = await apiCall(saleUrl).catch(function(){ return { reminders: [], reminder_ids: [], viewed_ids: [] }; });
+                        var saleReminders = saleRemRes.reminders || [];
+                        var saleReminderIds = saleRemRes.reminder_ids || [];
+                        var saleViewedIds = saleRemRes.viewed_ids || [];
+
+                        if (sewReminders.length > 0 || saleReminders.length > 0) {
                             var el = document.getElementById('_tsQcSewRemindersContainer_' + r.id);
                             if (!el) return;
                             
                             var b = '';
-                            b += '<div style="margin-top:12px;background:#f5f3ff;border:1.5px solid #ddd6fe;padding:12px 14px;border-radius:12px;">';
-                            b += '  <div style="font-weight:800;color:#6d28d9;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📠 Nhắc Nhở Phân Tổ May / Kiểm Tra QC:</div>';
-                            b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
-                            sewReminders.forEach(function(rem, remIdx) {
-                                var remId = sewReminderIds[remIdx] || 0;
-                                var isViewed = sewViewedIds.indexOf(remId) >= 0;
-                                
-                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
-                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-                                if (isViewed) {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
-                                } else {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#7c3aed; border:1.5px solid #7c3aed; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
-                                }
+                            if (sewReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#f5f3ff;border:1.5px solid #ddd6fe;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#6d28d9;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📠 Nhắc Nhở Phân Tổ May / Kiểm Tra QC:</div>';
+                                b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                                sewReminders.forEach(function(rem, remIdx) {
+                                    var remId = sewReminderIds[remIdx] || 0;
+                                    var isViewed = sewViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#7c3aed; border:1.5px solid #7c3aed; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
+                                b += '  </div>';
                                 b += '</div>';
-                            });
-                            b += '  </div>';
-                            b += '</div>';
+                            }
+
+                            if (saleReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ KIỂM TRA QC:</div>';
+                                b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                                saleReminders.forEach(function(rem, remIdx) {
+                                    var remId = saleReminderIds[remIdx] || 0;
+                                    var isViewed = saleViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#f59e0b') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#d97706; border:1.5px solid #d97706; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
+                                b += '  </div>';
+                                b += '</div>';
+                            }
                             
                             el.innerHTML = b;
                             el.style.display = 'block';

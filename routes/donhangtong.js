@@ -2941,6 +2941,18 @@ module.exports = async function(fastify) {
             }
         }
 
+        // Fetch sale_reminders for all items of this order
+        try {
+            const saleReminders = await db.all(
+                `SELECT id, item_id, dept, content FROM sale_reminders WHERE dht_order_id = $1 ORDER BY id`,
+                [orderId]
+            );
+            for (const it of items) {
+                const itemReminders = saleReminders.filter(r => r.item_id === it.id);
+                it.sale_reminders_data = itemReminders;
+            }
+        } catch(e) { /* sale_reminders table may not exist yet */ }
+
         return {
             order,
             items,
@@ -3697,6 +3709,46 @@ module.exports = async function(fastify) {
             }
         } catch (syncErr) {
             fastify.log.error('Sheet update sync error: ' + syncErr.message);
+        }
+
+        // ========== SALE REMINDERS ==========
+        if (b.sale_remind_choices !== undefined || b.sale_remind_items !== undefined) {
+            const choices = b.sale_remind_choices || {};
+            const items = b.sale_remind_items || {};
+            const validDepts = ['qlx', 'cat', 'in', 'ep', 'qc', 'hoanthien'];
+            const userId = request.user.id;
+            const now = new Date().toISOString();
+
+            // Save choices to the item
+            await db.run(
+                `UPDATE dht_order_items SET sale_remind_choices = $1 WHERE id = $2`,
+                [JSON.stringify(choices), itemId]
+            );
+
+            // For each dept, delete old and insert new (only if dept not completed)
+            for (const dept of validDepts) {
+                const choice = choices[dept];
+                if (!choice) continue; // not set for this dept
+
+                // Delete old sale reminders for this dept+item
+                await db.run(
+                    `DELETE FROM sale_reminders WHERE item_id = $1 AND dept = $2`,
+                    [itemId, dept]
+                );
+
+                // Insert new if choice is 'yes'
+                if (choice === 'yes' && Array.isArray(items[dept])) {
+                    for (const content of items[dept]) {
+                        if (content && content.trim()) {
+                            await db.run(
+                                `INSERT INTO sale_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
+                                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                                [orderId, itemId, dept, content.trim(), userId, now]
+                            );
+                        }
+                    }
+                }
+            }
         }
 
         return { success: true };

@@ -5552,11 +5552,11 @@ module.exports = async function(fastify) {
                 LEFT JOIN (SELECT pp.product_id, jsonb_agg(pp.step_id::text) AS steps FROM dht_product_process pp WHERE pp.is_active = true GROUP BY pp.product_id) p_proc_chk ON p_proc_chk.product_id = p_chk.id
                 WHERE oi.dht_order_id = o.id
                 AND COALESCE(oi.is_no_cut, false) = false
-                AND (
-                    (oi.production_steps IS NOT NULL AND oi.production_steps @> '2'::jsonb)
-                    OR (p_proc_chk.steps IS NOT NULL AND (p_proc_chk.steps @> '"2"' OR p_proc_chk.steps @> '2'))
-                    OR (oi.production_steps IS NULL AND p_proc_chk.steps IS NULL AND cc_chk.name != 'May Gia Công' AND UPPER(COALESCE(cc_chk.name, '')) NOT LIKE '%GIA CÔNG%' AND cc_chk.name != 'HÀNG SẴN' AND UPPER(COALESCE(cc_chk.name, '')) NOT LIKE '%SẴN%' AND UPPER(COALESCE(oi.product_name, oi.description, '')) NOT LIKE '%GIA CÔNG%')
-                )
+                AND CASE
+                    WHEN oi.production_steps IS NOT NULL THEN oi.production_steps @> '2'::jsonb
+                    WHEN p_proc_chk.steps IS NOT NULL THEN (p_proc_chk.steps @> '"2"' OR p_proc_chk.steps @> '2')
+                    ELSE (cc_chk.name != 'May Gia Công' AND UPPER(COALESCE(cc_chk.name, '')) NOT LIKE '%GIA CÔNG%' AND cc_chk.name != 'HÀNG SẴN' AND UPPER(COALESCE(cc_chk.name, '')) NOT LIKE '%SẴN%' AND UPPER(COALESCE(oi.product_name, oi.description, '')) NOT LIKE '%GIA CÔNG%')
+                END
                 ${wherePrintCut}
                 AND COALESCE(oi.production_cancelled, false) = false
                 AND (
@@ -5632,7 +5632,7 @@ module.exports = async function(fastify) {
 
         if (orderIds.length > 0) {
 
-            let itemsWhere = `doi.dht_order_id = ANY($1) AND COALESCE(doi.is_no_cut, false) = false AND COALESCE(doi.production_cancelled, false) = false AND ((doi.production_steps IS NOT NULL AND doi.production_steps @> '2'::jsonb) OR (p_proc.steps IS NOT NULL AND (p_proc.steps @> '"2"' OR p_proc.steps @> '2')) OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND cc.name != 'May Gia Công' AND UPPER(COALESCE(cc.name, '')) NOT LIKE '%GIA CÔNG%' AND cc.name != 'HÀNG SẴN' AND UPPER(COALESCE(cc.name, '')) NOT LIKE '%SẴN%' AND UPPER(COALESCE(doi.product_name, doi.description, '')) NOT LIKE '%GIA CÔNG%'))`;
+            let itemsWhere = `doi.dht_order_id = ANY($1) AND COALESCE(doi.is_no_cut, false) = false AND COALESCE(doi.production_cancelled, false) = false AND CASE WHEN doi.production_steps IS NOT NULL THEN doi.production_steps @> '2'::jsonb WHEN p_proc.steps IS NOT NULL THEN (p_proc.steps @> '"2"' OR p_proc.steps @> '2') ELSE (cc.name != 'May Gia Công' AND UPPER(COALESCE(cc.name, '')) NOT LIKE '%GIA CÔNG%' AND cc.name != 'HÀNG SẴN' AND UPPER(COALESCE(cc.name, '')) NOT LIKE '%SẴN%' AND UPPER(COALESCE(doi.product_name, doi.description, '')) NOT LIKE '%GIA CÔNG%') END`;
 
             let itemsParams = [orderIds];
 

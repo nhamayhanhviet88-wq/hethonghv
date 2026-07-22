@@ -711,7 +711,25 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
         has_shipped: !!(item.has_shipped || item.shipping_status === 'shipped' || item.shipped_at || item.actual_ship_datetime),
         shipping_status: item.shipping_status || null,
         shipped_at: item.shipped_at || null,
-        actual_ship_datetime: item.actual_ship_datetime || null
+        actual_ship_datetime: item.actual_ship_datetime || null,
+        sale_remind_choices: (() => {
+            let choices = {};
+            if (item.sale_remind_choices) {
+                try { choices = typeof item.sale_remind_choices === 'string' ? JSON.parse(item.sale_remind_choices) : item.sale_remind_choices; } catch(e) {}
+            }
+            return choices && typeof choices === 'object' ? choices : {};
+        })(),
+        sale_remind_items: (() => {
+            let items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
+            if (Array.isArray(item.sale_reminders_data) && item.sale_reminders_data.length > 0) {
+                item.sale_reminders_data.forEach(r => {
+                    if (r.dept && items[r.dept]) items[r.dept].push(r.content || '');
+                });
+            } else if (item.sale_remind_items) {
+                try { items = JSON.parse(JSON.stringify(item.sale_remind_items)); } catch(e) {}
+            }
+            return items;
+        })()
     };
 }
 
@@ -4741,6 +4759,314 @@ function _tpdIsPrintDetailComplete(d) {
     return true;
 }
 
+function _tpdIsStepInWorkflow(it, stepId) {
+    if (!it) return true;
+
+    // 0. Quản Lý Xưởng (1) and CCHT - Hoàn Thiện, Cắt Chỉ (6) are ALWAYS MANDATORY steps in all workflows
+    if (stepId === 1 || stepId === 6) return true;
+
+    // 1. Check live modal process steps ONLY if modal popup is currently OPEN & VISIBLE in DOM
+    const popupEl = document.getElementById('_phieuPopup');
+    if (popupEl && (popupEl.offsetWidth > 0 || popupEl.offsetHeight > 0)) {
+        const processStepsBox = document.getElementById('_pp_processSteps');
+        if (processStepsBox) {
+            const cbs = processStepsBox.querySelectorAll('input[type="checkbox"]');
+            if (cbs.length > 0) {
+                let foundStepInModal = false;
+                let isCheckedInModal = false;
+
+                cbs.forEach(cb => {
+                    const sId = cb.getAttribute('data-step-id');
+                    const sShort = (cb.getAttribute('data-short-name') || '').toUpperCase().trim();
+
+                    let matchesThisDept = false;
+                    if (stepId === 2 && (String(sId) === '2' || sShort === 'CẮT' || sShort === 'CAT')) matchesThisDept = true;
+                    else if (stepId === 3 && (String(sId) === '3' || sShort === 'IN')) matchesThisDept = true;
+                    else if (stepId === 4 && (String(sId) === '4' || sShort === 'ÉP' || sShort === 'EP')) matchesThisDept = true;
+                    else if (stepId === 5 && (String(sId) === '5' || sShort === 'MAY')) matchesThisDept = true;
+                    else if (stepId === 6 && (String(sId) === '6' || sShort === 'CCHT' || sShort.includes('HOÀN THIỆN'))) matchesThisDept = true;
+                    else if (stepId === 7 && (String(sId) === '7' || sShort === 'KTCL' || sShort === 'QC')) matchesThisDept = true;
+
+                    if (matchesThisDept) {
+                        foundStepInModal = true;
+                        if (cb.checked) isCheckedInModal = true;
+                    }
+                });
+
+                if (foundStepInModal) {
+                    return isCheckedInModal;
+                }
+            }
+        }
+    }
+
+    // 2. Check item production_steps array property if set
+    let steps = it.production_steps;
+    if (typeof steps === 'string') {
+        try { steps = JSON.parse(steps); } catch(e) {}
+    }
+    if (Array.isArray(steps) && steps.length > 0) {
+        return steps.some(s => Number(s) === Number(stepId) || String(s) === String(stepId));
+    }
+
+    // 3. Fallback product rules when production_steps is null or not provided
+    const prodName = ((it.product_name || it.name || '') + '').toUpperCase();
+    const catName = ((it.cutting_category_name || '') + '').toUpperCase();
+    const isGiaCong = prodName.includes('GIA CÔNG') || catName.includes('GIA CÔNG');
+    const isAoTron = prodName.includes('ÁO TRƠN') || prodName.includes('AO TRON');
+    const isHangSan = prodName.includes('SẴN') || catName.includes('SẴN');
+
+    if (stepId === 2) {
+        // Cắt: Not in workflow if Gia Công, Hàng Sẵn, or is_no_cut flag
+        if (isGiaCong || isHangSan || it.is_no_cut || it.is_no_cutting) return false;
+    }
+    if (stepId === 3 || stepId === 4) {
+        // In (3) & Ép (4): Not in workflow if Gia Công, Áo Trơn, or is_no_print
+        if (isGiaCong || isAoTron || it.is_no_print) return false;
+    }
+    if (stepId === 5) {
+        // May: Not in workflow if is_no_sew / Hàng Sẵn
+        if (isHangSan || it.is_no_sew || it.is_no_sewing) return false;
+    }
+    if (stepId === 7) {
+        // QC (7): Not in workflow if is_no_sew / Hàng Sẵn
+        if (isHangSan || it.is_no_sew || it.is_no_sewing) return false;
+    }
+
+    return true;
+}
+
+// Auto update Sale Reminders section when process steps checkboxes change in modal
+document.addEventListener('change', function(e) {
+    if (e.target && (e.target.closest('#_pp_processSteps') || e.target.name === '_pp_workflow_type')) {
+        const processStepsBox = document.getElementById('_pp_processSteps');
+        if (processStepsBox && window._tpdWorkspaceState) {
+            const checkedCbs = Array.from(processStepsBox.querySelectorAll('input[type="checkbox"]:checked'));
+            const currentSteps = checkedCbs.map(cb => Number(cb.getAttribute('data-step-id'))).filter(Boolean);
+            if (window._tpdWorkspaceState.editingItem) {
+                window._tpdWorkspaceState.editingItem.production_steps = currentSteps;
+            }
+            if (window._tpdWorkspaceState.items && window._tpdWorkspaceState.items[window._tpdWorkspaceState.activeItemIndex]) {
+                window._tpdWorkspaceState.items[window._tpdWorkspaceState.activeItemIndex].production_steps = currentSteps;
+            }
+        }
+        if (typeof _tpdRefreshSaleRemindersSection === 'function') {
+            setTimeout(_tpdRefreshSaleRemindersSection, 10);
+        }
+    }
+});
+
+// Sale Reminders Component and Event Handlers
+function _tpdRenderSaleRemindItemsList(deptKey, deptLabel, items, rowDisabledAttr) {
+    let h = '';
+    const listToRender = items.length > 0 ? items : [''];
+    listToRender.forEach((txt, idx) => {
+        h += `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="text" class="tpd-ws-input" data-dept="${deptKey}" style="font-size:12px; height:32px; flex:1;" placeholder="Nhập nội dung nhắc nhở cho ${deptLabel}..." value="${(txt || '').replace(/"/g, '&quot;')}" oninput="_tpdUpdateSaleRemindItem('${deptKey}', ${idx}, this.value)" ${rowDisabledAttr}>
+                ${!rowDisabledAttr ? `
+                    <button type="button" onclick="_tpdRemoveSaleRemindItem('${deptKey}', ${idx})" style="border:none; background:#fee2e2; color:#dc2626; border-radius:6px; width:28px; height:28px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;" title="Xóa dòng">✕</button>
+                ` : ''}
+            </div>
+        `;
+    });
+    if (!rowDisabledAttr) {
+        h += `
+            <div style="margin-top:4px;">
+                <button type="button" onclick="_tpdAddSaleRemindItem('${deptKey}')" style="background:#fef3c7; border:1px solid #f59e0b; color:#b45309; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">➕ Thêm nhắc nhở</button>
+            </div>
+        `;
+    }
+    return h;
+}
+
+function _tpdRenderSaleRemindersSection(it, disabledAttr) {
+    const depts = [
+        { key: 'qlx', label: 'Quản Lý Xưởng', icon: '🏭', stepId: 1 },
+        { key: 'cat', label: 'Bộ Phận Cắt', icon: '✂️', stepId: 2 },
+        { key: 'in', label: 'Bộ Phận In', icon: '🖨️', stepId: 3 },
+        { key: 'ep', label: 'Bộ Phận Ép', icon: '🔥', stepId: 4 },
+        { key: 'qc', label: 'Kiểm Tra QC', icon: '📋', stepId: 7 },
+        { key: 'hoanthien', label: 'Hoàn Thiện, Cắt Chỉ', icon: '✨', stepId: 6 }
+    ];
+
+    const activeDepts = depts.filter(d => _tpdIsStepInWorkflow(it, d.stepId));
+
+    const choices = it.sale_remind_choices || {};
+    const itemsMap = it.sale_remind_items || {};
+
+    let html = `
+        <div id="tpdSaleRemindersContainer" style="background:#fffbeb; border:1.5px solid #fde68a; border-radius:10px; padding:14px 16px; margin-bottom:20px;">
+            <div style="font-weight:800; color:#b45309; font-size:13px; text-transform:uppercase; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                <span>📢</span>
+                <span>NHẮC NHỞ SALE/KINH DOANH CHO CÁC BỘ PHẬN (Bắt buộc chọn)</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+    `;
+
+    activeDepts.forEach(d => {
+        const choice = choices[d.key] || '';
+        const items = itemsMap[d.key] || [];
+
+        let isDeptLocked = false;
+        if (d.key === 'cat' && it.has_cutting_started) isDeptLocked = true;
+        if ((d.key === 'in' || d.key === 'ep') && it.has_print_assignment) isDeptLocked = true;
+        if (d.key === 'qc' && it.has_qc_completed) isDeptLocked = true;
+        if (d.key === 'hoanthien' && it.has_shipped) isDeptLocked = true;
+
+        const rowDisabledAttr = (disabledAttr || isDeptLocked) ? 'disabled' : '';
+
+        let borderCol = '#fca5a5';
+        if (choice === 'yes') borderCol = '#f59e0b';
+        else if (choice === 'none') borderCol = '#cbd5e1';
+
+        html += `
+            <div id="tpd_sale_remind_row_${d.key}" style="background:#ffffff; border:1px solid ${borderCol}; border-radius:8px; padding:10px 12px; transition:all 0.2s;">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                    <div style="font-size:12px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                        <span>${d.icon}</span>
+                        <span>${d.label}</span>
+                        <span style="color:#ef4444; font-weight:800;">*</span>
+                        ${isDeptLocked ? '<span style="font-size:10px; background:#f1f5f9; color:#64748b; padding:2px 6px; border-radius:4px; margin-left:4px;">🔒 Đã hoàn thành</span>' : ''}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <label id="tpd_sale_remind_label_yes_${d.key}" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer; font-weight:600; color:${choice === 'yes' ? '#d97706' : '#475569'};">
+                            <input type="radio" name="tpd_sale_remind_${d.key}" value="yes" ${choice === 'yes' ? 'checked' : ''} onchange="_tpdOnSaleRemindChoiceChange('${d.key}', 'yes')" ${rowDisabledAttr}>
+                            <span>Có nhắc nhở</span>
+                        </label>
+                        <label id="tpd_sale_remind_label_none_${d.key}" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer; font-weight:600; color:${choice === 'none' ? '#059669' : '#475569'};">
+                            <input type="radio" name="tpd_sale_remind_${d.key}" value="none" ${choice === 'none' ? 'checked' : ''} onchange="_tpdOnSaleRemindChoiceChange('${d.key}', 'none')" ${rowDisabledAttr}>
+                            <span>Không nhắc nhở</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="tpd_sale_remind_items_box_${d.key}" style="margin-top:10px; display:${choice === 'yes' ? 'flex' : 'none'}; flex-direction:column; gap:8px; border-top:1px dashed #fde68a; padding-top:10px;">
+                    ${_tpdRenderSaleRemindItemsList(d.key, d.label, items, rowDisabledAttr)}
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+            </div>
+        </div>
+    `;
+
+    return html;
+}
+
+function _tpdOnSaleRemindChoiceChange(dept, choice) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem) return;
+    if (!state.editingItem.sale_remind_choices) state.editingItem.sale_remind_choices = {};
+    if (!state.editingItem.sale_remind_items) state.editingItem.sale_remind_items = {};
+
+    state.editingItem.sale_remind_choices[dept] = choice;
+    if (choice === 'yes') {
+        if (!state.editingItem.sale_remind_items[dept] || state.editingItem.sale_remind_items[dept].length === 0) {
+            state.editingItem.sale_remind_items[dept] = [''];
+        }
+    }
+
+    const rowEl = document.getElementById('tpd_sale_remind_row_' + dept);
+    const boxEl = document.getElementById('tpd_sale_remind_items_box_' + dept);
+    const labelYes = document.getElementById('tpd_sale_remind_label_yes_' + dept);
+    const labelNone = document.getElementById('tpd_sale_remind_label_none_' + dept);
+
+    if (rowEl) {
+        rowEl.style.borderColor = (choice === 'yes') ? '#f59e0b' : ((choice === 'none') ? '#cbd5e1' : '#fca5a5');
+    }
+    if (labelYes) labelYes.style.color = (choice === 'yes') ? '#d97706' : '#475569';
+    if (labelNone) labelNone.style.color = (choice === 'none') ? '#059669' : '#475569';
+
+    if (boxEl) {
+        if (choice === 'yes') {
+            const depts = [
+                { key: 'qlx', label: 'Quản Lý Xưởng' },
+                { key: 'cat', label: 'Bộ Phận Cắt' },
+                { key: 'in', label: 'Bộ Phận In' },
+                { key: 'ep', label: 'Bộ Phận Ép' },
+                { key: 'qc', label: 'Kiểm Tra QC' },
+                { key: 'hoanthien', label: 'Hoàn Thiện, Cắt Chỉ' }
+            ];
+            const dObj = depts.find(d => d.key === dept) || { label: '' };
+            const items = state.editingItem.sale_remind_items[dept] || [''];
+            boxEl.innerHTML = _tpdRenderSaleRemindItemsList(dept, dObj.label, items, '');
+            boxEl.style.display = 'flex';
+        } else {
+            boxEl.style.display = 'none';
+        }
+    }
+
+    if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
+    if (typeof _tpdUpdateLivePreview === 'function') _tpdUpdateLivePreview();
+}
+
+function _tpdAddSaleRemindItem(dept) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem) return;
+    if (!state.editingItem.sale_remind_items) state.editingItem.sale_remind_items = {};
+    if (!state.editingItem.sale_remind_items[dept]) state.editingItem.sale_remind_items[dept] = [];
+
+    state.editingItem.sale_remind_items[dept].push('');
+
+    const boxEl = document.getElementById('tpd_sale_remind_items_box_' + dept);
+    if (boxEl) {
+        const depts = [
+            { key: 'qlx', label: 'Quản Lý Xưởng' },
+            { key: 'cat', label: 'Bộ Phận Cắt' },
+            { key: 'in', label: 'Bộ Phận In' },
+            { key: 'ep', label: 'Bộ Phận Ép' },
+            { key: 'qc', label: 'Kiểm Tra QC' },
+            { key: 'hoanthien', label: 'Hoàn Thiện, Cắt Chỉ' }
+        ];
+        const dObj = depts.find(d => d.key === dept) || { label: '' };
+        boxEl.innerHTML = _tpdRenderSaleRemindItemsList(dept, dObj.label, state.editingItem.sale_remind_items[dept], '');
+
+        const inputs = boxEl.querySelectorAll('input[type="text"]');
+        if (inputs.length > 0) {
+            inputs[inputs.length - 1].focus({ preventScroll: true });
+        }
+    }
+
+    if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
+    if (typeof _tpdUpdateLivePreview === 'function') _tpdUpdateLivePreview();
+}
+
+function _tpdRemoveSaleRemindItem(dept, idx) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem || !state.editingItem.sale_remind_items) return;
+    const list = state.editingItem.sale_remind_items[dept];
+    if (Array.isArray(list)) {
+        list.splice(idx, 1);
+
+        const boxEl = document.getElementById('tpd_sale_remind_items_box_' + dept);
+        if (boxEl) {
+            const depts = [
+                { key: 'qlx', label: 'Quản Lý Xưởng' },
+                { key: 'cat', label: 'Bộ Phận Cắt' },
+                { key: 'in', label: 'Bộ Phận In' },
+                { key: 'ep', label: 'Bộ Phận Ép' },
+                { key: 'qc', label: 'Kiểm Tra QC' },
+                { key: 'hoanthien', label: 'Hoàn Thiện, Cắt Chỉ' }
+            ];
+            const dObj = depts.find(d => d.key === dept) || { label: '' };
+            boxEl.innerHTML = _tpdRenderSaleRemindItemsList(dept, dObj.label, list, '');
+        }
+
+        if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
+        if (typeof _tpdUpdateLivePreview === 'function') _tpdUpdateLivePreview();
+    }
+}
+
+function _tpdUpdateSaleRemindItem(dept, idx, value) {
+    const state = window._tpdWorkspaceState;
+    if (!state || !state.editingItem || !state.editingItem.sale_remind_items) return;
+    if (!state.editingItem.sale_remind_items[dept]) state.editingItem.sale_remind_items[dept] = [];
+    state.editingItem.sale_remind_items[dept][idx] = value;
+}
+
 // Generate the Right inputs form editor UI
 function _tpdRenderFormInputs() {
     const container = document.getElementById('tpdWorkspaceFormContainer');
@@ -5531,6 +5857,9 @@ function _tpdRenderFormInputs() {
             </div>
         </div>
     `;
+
+    // 4.5. Sale Reminders section
+    html += _tpdRenderSaleRemindersSection(it, disabledAttr);
 
     // 5. Mockup Image upload box
     const mockupSrc = it.mockup_image || '';
@@ -6897,6 +7226,34 @@ async function _tpdSaveProductionSheet() {
         }
     }
 
+    // ★ Validation: Sale Reminders per department
+    const saleDepts = [
+        { key: 'qlx', label: 'Quản Lý Xưởng' },
+        { key: 'cat', label: 'Bộ Phận Cắt' },
+        { key: 'in', label: 'Bộ Phận In' },
+        { key: 'ep', label: 'Bộ Phận Ép' },
+        { key: 'qc', label: 'Kiểm Tra QC' },
+        { key: 'hoanthien', label: 'Hoàn Thiện, Cắt Chỉ' }
+    ];
+    const choices = it.sale_remind_choices || {};
+    const remindItems = it.sale_remind_items || {};
+
+    for (const d of saleDepts) {
+        const choice = choices[d.key];
+        if (!choice || (choice !== 'yes' && choice !== 'none')) {
+            showToast(`⚠️ Vui lòng chọn Có hoặc Không có nhắc nhở cho [${d.label}]!`, 'error');
+            return false;
+        }
+        if (choice === 'yes') {
+            const list = remindItems[d.key] || [];
+            const validList = list.filter(txt => txt && txt.trim());
+            if (validList.length === 0) {
+                showToast(`⚠️ Bạn đã chọn CÓ NHẮC NHỞ cho [${d.label}], bắt buộc phải nhập ít nhất 1 nội dung!`, 'error');
+                return false;
+            }
+        }
+    }
+
     showToast('⏳ Đang lưu thông tin phiếu sản xuất...', 'info');
 
     try {
@@ -6913,7 +7270,9 @@ async function _tpdSaveProductionSheet() {
             back_technique_image: lungDetail ? lungDetail.image : null,
             quantities: it.quantities,
             size_type: it.size_type || 'Size TT',
-            custom_layout: it.custom_layout || {}
+            custom_layout: it.custom_layout || {},
+            sale_remind_choices: it.sale_remind_choices || {},
+            sale_remind_items: it.sale_remind_items || {}
         };
 
         const res = await apiCall(`/api/dht/orders/${state.orderId}/items/${it.id}/sheet`, 'PUT', payload);
@@ -7461,6 +7820,37 @@ function _tpdValidateAllSheets() {
                 const note = (layoutVal.sheet_edit_note || '').trim();
                 if (!note) {
                     showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Bạn bắt buộc phải nhập Nội dung sửa đổi chi tiết cho phiếu này!`, 'error');
+                    _tpdSwitchItemTab(idx);
+                    return false;
+                }
+            }
+        }
+
+        // 6. Validate mandatory Sale Reminders for active departments
+        const deptsCheck = [
+            { key: 'qlx', label: 'Quản Lý Xưởng', stepId: 1 },
+            { key: 'cat', label: 'Bộ Phận Cắt', stepId: 2 },
+            { key: 'in', label: 'Bộ Phận In', stepId: 3 },
+            { key: 'ep', label: 'Bộ Phận Ép', stepId: 4 },
+            { key: 'qc', label: 'Kiểm Tra QC', stepId: 7 },
+            { key: 'hoanthien', label: 'Hoàn Thiện, Cắt Chỉ', stepId: 6 }
+        ];
+        const activeDeptsCheck = deptsCheck.filter(d => _tpdIsStepInWorkflow(it, d.stepId));
+        const choices = it.sale_remind_choices || {};
+        const itemsMap = it.sale_remind_items || {};
+
+        for (const d of activeDeptsCheck) {
+            const ch = choices[d.key];
+            if (!ch) {
+                showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng chọn "Có nhắc nhở" hoặc "Không nhắc nhở" cho ${d.label}!`, 'error');
+                _tpdSwitchItemTab(idx);
+                return false;
+            }
+            if (ch === 'yes') {
+                const list = itemsMap[d.key] || [];
+                const hasValidText = list.some(t => t && t.trim().length > 0);
+                if (!hasValidText) {
+                    showToast(`⚠️ Phiếu ${idx + 1} ("${it.product_name || 'Không tên'}"): Vui lòng nhập nội dung nhắc nhở cho ${d.label}!`, 'error');
                     _tpdSwitchItemTab(idx);
                     return false;
                 }

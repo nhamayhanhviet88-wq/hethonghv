@@ -1555,6 +1555,102 @@ async function _bphtLoadHoanThienReminders(r) {
                 content.appendChild(itemDiv);
             });
         }
+
+        // Fetch Sale Reminders for Hoàn Thiện
+        const saleUrl = `/api/sale-reminders?order_id=${r.dht_order_id}&dept=hoanthien&item_id=${r.order_item_id}&record_type=finishing_records&record_id=${r.id}`;
+        const saleRes = await apiCall(saleUrl).catch(function(){ return { reminders: [], reminder_ids: [], viewed_ids: [] }; });
+        if (saleRes.reminders && saleRes.reminders.length > 0) {
+            area.style.display = 'block';
+            const saleHeader = document.createElement('div');
+            saleHeader.style.fontWeight = '800';
+            saleHeader.style.color = '#b45309';
+            saleHeader.style.fontSize = '12px';
+            saleHeader.style.marginTop = '10px';
+            saleHeader.style.marginBottom = '6px';
+            saleHeader.style.textTransform = 'uppercase';
+            saleHeader.innerHTML = '📢 SALE NHẮC NHỞ HOÀN THIỆN:';
+            content.appendChild(saleHeader);
+
+            saleRes.reminders.forEach((remContent, idx) => {
+                const remId = saleRes.reminder_ids[idx];
+                const isViewed = saleRes.viewed_ids.includes(remId);
+
+                const itemDiv = document.createElement('div');
+                itemDiv.style.display = 'flex';
+                itemDiv.style.alignItems = 'center';
+                itemDiv.style.gap = '10px';
+                itemDiv.style.background = '#fff';
+                itemDiv.style.border = `1.5px solid ${isViewed ? '#10b981' : '#f59e0b'}`;
+                itemDiv.style.borderRadius = '8px';
+                itemDiv.style.padding = '8px 12px';
+                itemDiv.style.marginBottom = '6px';
+                itemDiv.style.transition = 'all 0.3s';
+
+                const text = document.createElement('div');
+                text.style.flex = '1';
+                text.style.fontSize = '12.5px';
+                text.style.fontWeight = '700';
+                text.style.color = isViewed ? '#065f46' : '#92400e';
+                text.textContent = remContent;
+                itemDiv.appendChild(text);
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.style.flexShrink = '0';
+                btn.style.padding = '5px 10px';
+                btn.style.borderRadius = '6px';
+                btn.style.fontSize = '11px';
+                btn.style.fontWeight = '800';
+                btn.style.cursor = 'pointer';
+                btn.style.display = 'flex';
+                btn.style.alignItems = 'center';
+                btn.style.gap = '4px';
+                btn.style.transition = 'all 0.2s';
+                btn.style.width = 'auto';
+                btn.style.height = 'auto';
+
+                if (isViewed) {
+                    btn.style.border = '1.5px solid #10b981';
+                    btn.style.background = '#ecfdf5';
+                    btn.style.color = '#047857';
+                    btn.innerHTML = '✅ Đã Xem và Làm';
+                } else {
+                    btn.className = 'bpht-unviewed-btn';
+                    btn.style.border = '1.5px solid #d97706';
+                    btn.style.background = '#fef3c7';
+                    btn.style.color = '#b45309';
+                    btn.style.animation = 'bptReminderPulse 2s infinite';
+                    btn.innerHTML = '👉 Đã Xem và Làm';
+                }
+
+                btn.onclick = async () => {
+                    if (btn.disabled || !btn.classList.contains('bpht-unviewed-btn')) return;
+                    try {
+                        btn.disabled = true;
+                        await apiCall('/api/sale-reminders/viewed', 'POST', {
+                            reminder_ids: [remId],
+                            record_type: 'finishing_records',
+                            record_id: r.id
+                        });
+                        showToast('Đã xác nhận xem nhắc nhở Sale', 'success');
+                        btn.classList.remove('bpht-unviewed-btn');
+                        btn.style.border = '1.5px solid #10b981';
+                        btn.style.background = '#ecfdf5';
+                        btn.style.color = '#047857';
+                        btn.style.animation = 'none';
+                        btn.innerHTML = '✅ Đã Xem và Làm';
+                        itemDiv.style.borderColor = '#10b981';
+                        itemDiv.style.color = '#065f46';
+                    } catch (err) {
+                        btn.disabled = false;
+                        showToast(err.message || 'Lỗi xác nhận nhắc nhở', 'error');
+                    }
+                };
+
+                itemDiv.appendChild(btn);
+                content.appendChild(itemDiv);
+            });
+        }
     } catch (err) {
         console.error('Error fetching reminders:', err);
     }

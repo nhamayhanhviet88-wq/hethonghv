@@ -963,6 +963,13 @@ module.exports = async function(fastify) {
                     (
                         CASE 
                             WHEN COALESCE(doi.is_no_cut, false) = true OR COALESCE(o.is_no_cut, false) = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '2'::jsonb) THEN true
+                            WHEN doi.production_steps IS NULL AND EXISTS (
+                                SELECT 1 FROM dht_product_process pp2
+                                WHERE pp2.product_id = p.id AND pp2.is_active = true
+                            ) AND NOT EXISTS (
+                                SELECT 1 FROM dht_product_process pp3
+                                WHERE pp3.product_id = p.id AND pp3.is_active = true AND pp3.step_id = 2
+                            ) THEN true
                             WHEN doi.material_pairs IS NULL OR jsonb_array_length(doi.material_pairs) = 0 THEN (
                                 EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id)
                                 AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false)
@@ -1243,6 +1250,15 @@ module.exports = async function(fastify) {
                        (
                            CASE 
                                WHEN COALESCE(doi.is_no_cut, false) = true OR COALESCE(o.is_no_cut, false) = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '2'::jsonb) THEN true
+                               WHEN doi.production_steps IS NULL AND EXISTS (
+                                   SELECT 1 FROM dht_product_process pp2
+                                   JOIN dht_products dp ON dp.id = pp2.product_id AND dp.is_active = true
+                                   WHERE dp.name = TRIM(COALESCE(doi.product_name, doi.description)) AND pp2.is_active = true
+                               ) AND NOT EXISTS (
+                                   SELECT 1 FROM dht_product_process pp3
+                                   JOIN dht_products dp ON dp.id = pp3.product_id AND dp.is_active = true
+                                   WHERE dp.name = TRIM(COALESCE(doi.product_name, doi.description)) AND pp3.is_active = true AND pp3.step_id = 2
+                               ) THEN true
                                WHEN doi.material_pairs IS NULL OR jsonb_array_length(doi.material_pairs) = 0 THEN (
                                    EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id)
                                    AND NOT EXISTS (SELECT 1 FROM cutting_records cr WHERE cr.order_item_id = doi.id AND cr.is_cut_done = false)
@@ -1422,7 +1438,7 @@ module.exports = async function(fastify) {
             `, [order_item_id]);
             const cuts = cutsRes.rows;
 
-            let isNoCut = !!item.is_no_cut || !!item.is_order_no_cut;
+            let isNoCut = !!item.is_no_cut || !!item.is_order_no_cut || !!item.all_cuts_done;
             let stepsVal = item.production_steps;
             if (typeof stepsVal === 'string') {
                 try { stepsVal = JSON.parse(stepsVal); } catch(e) {}

@@ -2280,24 +2280,26 @@ window._ppToggleWorkflowType = function(type) {
 };
 
 function _ppIsCuttingSelected() {
-    var cb = document.querySelector('#_pp_processSteps input[type="checkbox"][data-step-id="2"]') 
-          || Array.from(document.querySelectorAll('#_pp_processSteps input[type="checkbox"]')).find(function(el) {
-              var txt = el.parentNode ? el.parentNode.textContent || '' : '';
-              return txt.toUpperCase().indexOf('CẮT') >= 0;
-          });
-    if (!cb) return true;
+    var processStepsBox = document.getElementById('_pp_processSteps');
+    if (!processStepsBox) return true;
+    var cbs = processStepsBox.querySelectorAll('input[type="checkbox"]');
+    if (!cbs || cbs.length === 0) return true;
+
+    var cb = Array.from(cbs).find(function(el) {
+        var sId = el.getAttribute('data-step-id');
+        var sShort = (el.getAttribute('data-short-name') || '').toUpperCase().trim();
+        return String(sId) === '2' || sShort === 'CẮT' || sShort === 'CAT';
+    });
+    if (!cb) return false;
     return cb.checked;
 }
 
 function _ppUpdateCuttingFieldsVisibility() {
     var isCutting = _ppIsCuttingSelected();
     
-    // Check if the product has any assigned materials from KHO SẴN or is a ready-made product (name contains "SẴN")
+    // Check if product is ready-made product (HÀNG SẴN)
     var prodNameStr = document.getElementById('_pp_product')?.value || '';
     var prodName = prodNameStr.trim().toUpperCase();
-    var hasKhoSan = (window._ppAssignedMats || []).some(function(m) {
-        return m.inventory_type === 1 || (m.warehouse_name || '').trim().toUpperCase() === 'KHO SẴN';
-    }) || prodName.indexOf('SẴN') >= 0;
     
     var allProds = (_dhtCreate.phieuOpts || {}).products || [];
     var prod = allProds.find(function(p) { return p.name === prodNameStr; });
@@ -2309,42 +2311,41 @@ function _ppUpdateCuttingFieldsVisibility() {
     // 1. Loại Size Mặc Định
     var sizeContainer = document.getElementById('_pp_sizeTypeContainer');
     if (sizeContainer) {
-        sizeContainer.style.display = isCutting ? 'block' : 'none';
+        sizeContainer.style.display = 'block';
     }
     
     // 2. Thông Số Mẫu Áo
     var patternContainer = document.getElementById('_pp_patternContainer');
     if (patternContainer) {
-        patternContainer.style.display = (isCutting && !isReadyStockProduct) ? 'grid' : 'none';
+        patternContainer.style.display = isReadyStockProduct ? 'none' : 'grid';
     }
     
-    // Dependent pattern elements: Kỹ Thuật May, Hình Ảnh Thông Số, Mẫu Đơn
+    // Dependent pattern elements: Kỹ Thuật May, Hình Ảnh Thông Số
     var techEl = document.getElementById('_pp_patternSewingTech');
     var imgEl = document.getElementById('_pp_specImage');
     var mixInfo = document.getElementById('_pp_mixInfo');
-    if (!isCutting || isReadyStockProduct) {
+    
+    if (isReadyStockProduct) {
         if (techEl) techEl.style.display = 'none';
         if (imgEl) imgEl.style.display = 'none';
-        // Note: Mix info is shown if we need to display material & color pairs
-        if (mixInfo) {
-            mixInfo.style.display = hasKhoSan ? 'block' : 'none';
-        }
     } else {
         if (techEl && techEl.innerHTML.trim() !== '') techEl.style.display = 'block';
         if (imgEl && imgEl.innerHTML.trim() !== '') imgEl.style.display = 'block';
-        if (mixInfo && mixInfo.innerHTML.trim() !== '') mixInfo.style.display = 'block';
     }
     
-    // 3. Chất Liệu 1 & Màu 1
+    // 3. Chất Liệu 1 & Màu 1 (Chỉ ẩn khi không có công đoạn Cắt)
     var matColorPairs = document.getElementById('_pp_matColorPairs');
     if (matColorPairs) {
-        matColorPairs.style.display = (isCutting || hasKhoSan) ? 'block' : 'none';
+        matColorPairs.style.display = isCutting ? 'block' : 'none';
+    }
+    if (mixInfo) {
+        mixInfo.style.display = isCutting ? 'block' : 'none';
     }
     
     // 4. Vật Liệu Kèm / Chi Tiết May Thêm container
     var sewMatContainer = document.getElementById('_pp_sewMatContainer');
     if (sewMatContainer) {
-        sewMatContainer.style.display = isCutting ? 'grid' : 'none';
+        sewMatContainer.style.display = 'grid';
     }
 }
 
@@ -2895,7 +2896,7 @@ function _dhtSavePhieu(idx) {
         var mName=document.getElementById('_ppMat'+pi)?.value||'';
         var cVal=document.getElementById('_ppColorVal'+pi)?.value||'';
         var cName=document.getElementById('_ppColor'+pi)?.value||'';
-        if (isCutting || hasKhoSan) {
+        if (isCutting) {
             if(!mVal||!mName){showToast('Chọn Chất Liệu '+(pi+1)+' từ danh sách','error');return;}
             if(!cVal||!cName){showToast('Chọn Màu '+(pi+1)+' từ danh sách','error');return;}
         }
@@ -2903,7 +2904,7 @@ function _dhtSavePhieu(idx) {
             pairs.push({material_id:Number(mVal),material_name:mName,color_id:Number(cVal),color_name:cName});
         }
     }
-    if((isCutting || hasKhoSan) && pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
+    if(isCutting && pairs.length===0){showToast('Chọn Chất Liệu và Màu','error');return;}
     var qrRows = document.querySelectorAll('#_pp_qtyRows ._ppQR');
     var qtyPairs=[], raw=0, totalQty=0;
     var typedQty = 0;
@@ -3078,6 +3079,19 @@ function _dhtSavePhieu(idx) {
             return hasInOrEp ? (existing.print_details || []) : [];
         })()
     };
+
+    if (window._tpdWorkspaceState) {
+        if (window._tpdWorkspaceState.items && window._tpdWorkspaceState.items[idx]) {
+            window._tpdWorkspaceState.items[idx].production_steps = stepsVal;
+        }
+        if (window._tpdWorkspaceState.editingItem && (window._tpdWorkspaceState.activeItemIndex === idx || window._tpdWorkspaceState.items.length === 1)) {
+            window._tpdWorkspaceState.editingItem.production_steps = stepsVal;
+        }
+        if (typeof _tpdRefreshSaleRemindersSection === 'function') {
+            _tpdRefreshSaleRemindersSection();
+        }
+    }
+
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
