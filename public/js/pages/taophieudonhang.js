@@ -513,10 +513,10 @@ async function renderDesignDraftPage(content) {
             dbBaselines: []
         };
 
-        const clonedItems = items.map(it => _tpdCloneItemState(it, false, orderId));
+        const clonedItems = items.map((it, idx) => _tpdCloneItemState(it, false, orderId, idx));
         window._tpdWorkspaceState.items = clonedItems;
-        window._tpdWorkspaceState.editingItem = clonedItems.length > 0 ? _tpdCloneItemState(clonedItems[activeIdx], false, orderId) : null;
-        window._tpdWorkspaceState.dbBaselines = items.length > 0 ? items.map(it => _tpdCloneItemState(it, true, orderId)) : [];
+        window._tpdWorkspaceState.editingItem = clonedItems.length > 0 ? _tpdCloneItemState(clonedItems[activeIdx], false, orderId, activeIdx) : null;
+        window._tpdWorkspaceState.dbBaselines = items.length > 0 ? items.map((it, idx) => _tpdCloneItemState(it, true, orderId, idx)) : [];
 
         // Render main workspace wrapper
         _tpdRenderWorkspace(content);
@@ -590,7 +590,7 @@ function _tpdNormalizeItemQuantities(it, config) {
 }
 
 // Clone order item to independent workspace editing state
-function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null) {
+function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, itemIndex = null) {
     if (!item) return null;
 
     const config = _tpd.sizeTypesConfig || {
@@ -601,13 +601,28 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null) {
     // Check if there is a draft in localStorage
     const params = new URLSearchParams(window.location.search);
     const orderId = currentOrderId || params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
-    if (orderId && item && (item.id !== undefined && item.id !== null) && !ignoreDraft) {
-        const key = `tpd_draft_${orderId}_${item.id}`;
-        const draftStr = localStorage.getItem(key) || sessionStorage.getItem(key);
+    if (orderId && item && !ignoreDraft) {
+        let draftStr = null;
+        if (item.id !== undefined && item.id !== null && item.id !== '') {
+            const keyById = `tpd_draft_${orderId}_${item.id}`;
+            draftStr = localStorage.getItem(keyById) || sessionStorage.getItem(keyById);
+        }
+        if (!draftStr && itemIndex !== undefined && itemIndex !== null && itemIndex >= 0) {
+            const keyByIdx = `tpd_draft_${orderId}_idx_${itemIndex}`;
+            draftStr = localStorage.getItem(keyByIdx) || sessionStorage.getItem(keyByIdx);
+        }
+        if (!draftStr && window._tpdWorkspaceState && Array.isArray(window._tpdWorkspaceState.items)) {
+            const computedIdx = window._tpdWorkspaceState.items.indexOf(item);
+            if (computedIdx >= 0) {
+                const keyByCompIdx = `tpd_draft_${orderId}_idx_${computedIdx}`;
+                draftStr = localStorage.getItem(keyByCompIdx) || sessionStorage.getItem(keyByCompIdx);
+            }
+        }
         if (draftStr) {
             try {
                 const draft = JSON.parse(draftStr);
-                if (draft && String(draft.id) === String(item.id)) {
+                if (draft) {
+                    // Sync latest DB values into loaded draft to prevent stale data
                     // Sync latest DB values into loaded draft to prevent stale data
                     draft.quantity = item.quantity;
                     draft.product_name = item.product_name;
@@ -10045,56 +10060,65 @@ function _tpdSaveDraft(it) {
     if (!it) return;
     const state = window._tpdWorkspaceState;
     const params = new URLSearchParams(window.location.search);
-    const orderId = params.get('id') || (state && state.orderId) || '';
+    const orderId = (state && state.orderId) || params.get('id') || '';
     if (!orderId) return;
 
-    let itemId = it.id;
-    if (!itemId && state && state.items) {
-        const idx = state.items.indexOf(it);
-        if (idx !== -1) itemId = `idx_${idx}`;
-        else if (state.activeItemIndex !== undefined) itemId = `idx_${state.activeItemIndex}`;
+    let itemIndex = state && state.items ? state.items.indexOf(it) : -1;
+    if (itemIndex === -1 && state && state.activeItemIndex !== undefined) {
+        itemIndex = state.activeItemIndex;
     }
-    if (!itemId) return;
 
-    const key = `tpd_draft_${orderId}_${itemId}`;
+    const keyById = (it.id !== undefined && it.id !== null && it.id !== '') ? `tpd_draft_${orderId}_${it.id}` : null;
+    const keyByIdx = itemIndex >= 0 ? `tpd_draft_${orderId}_idx_${itemIndex}` : null;
+
+    const keysToSave = [keyById, keyByIdx].filter(Boolean);
+    if (keysToSave.length === 0) return;
 
     // Sync editingItem changes back into state.items array directly
     if (state && state.editingItem && Array.isArray(state.items) && state.items[state.activeItemIndex]) {
         state.items[state.activeItemIndex] = JSON.parse(JSON.stringify(it));
     }
 
-    try {
-        localStorage.setItem(key, JSON.stringify(it));
-    } catch(e) {
-        console.warn('LocalStorage quota exceeded or draft save failed:', e);
-        try {
-            // Clean up other old drafts to free up space
-            for (let i = localStorage.length - 1; i >= 0; i--) {
-                const k = localStorage.key(i);
-                if (k && k.startsWith('tpd_draft_') && !k.startsWith(`tpd_draft_${orderId}_`)) {
-                    localStorage.removeItem(k);
-                }
-            }
-            // Retry saving
-            localStorage.setItem(key, JSON.stringify(it));
-        } catch(retryErr) {
-            console.error('Failed to save draft even after cleanup:', retryErr);
-        }
-    }
+    const jsonStr = JSON.stringify(it);
 
-    // Always mirror draft into sessionStorage for current tab resilience across F5
-    try {
-        sessionStorage.setItem(key, JSON.stringify(it));
-    } catch(sErr) {}
+    keysToSave.forEach(key => {
+        try {
+            localStorage.setItem(key, jsonStr);
+        } catch(e) {
+            console.warn('LocalStorage quota exceeded or draft save failed:', e);
+            try {
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const k = localStorage.key(i);
+                    if (k && k.startsWith('tpd_draft_') && !k.startsWith(`tpd_draft_${orderId}_`)) {
+                        localStorage.removeItem(k);
+                    }
+                }
+                localStorage.setItem(key, jsonStr);
+            } catch(retryErr) {}
+        }
+        try {
+            sessionStorage.setItem(key, jsonStr);
+        } catch(sErr) {}
+    });
 }
 
 function _tpdClearDraft(it) {
-    if (!it || !it.id) return;
+    if (!it) return;
+    const state = window._tpdWorkspaceState;
     const params = new URLSearchParams(window.location.search);
-    const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
+    const orderId = (state && state.orderId) || params.get('id') || '';
     if (!orderId) return;
-    localStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
-    sessionStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
+    if (it.id) {
+        localStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
+        sessionStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
+    }
+    if (state && state.items) {
+        const idx = state.items.indexOf(it);
+        if (idx >= 0) {
+            localStorage.removeItem(`tpd_draft_${orderId}_idx_${idx}`);
+            sessionStorage.removeItem(`tpd_draft_${orderId}_idx_${idx}`);
+        }
+    }
 }
 
 // Print Positions Configuration Modal and Management
