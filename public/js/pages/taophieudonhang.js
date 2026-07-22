@@ -5036,8 +5036,32 @@ function _tpdRenderSaleRemindersSection(it, disabledAttr) {
     `;
 
     activeDepts.forEach(d => {
-        const choice = choices[d.key] || '';
-        const items = itemsMap[d.key] || [];
+        let choice = (choices && choices[d.key]) ? choices[d.key] : '';
+        let items = (itemsMap && Array.isArray(itemsMap[d.key])) ? itemsMap[d.key] : [];
+
+        // Smart self-healing: Check if DB returned sale_reminders_data for this department
+        if (Array.isArray(it.sale_reminders_data) && it.sale_reminders_data.length > 0) {
+            const deptRems = it.sale_reminders_data.filter(r => r.dept === d.key);
+            if (deptRems.length > 0) {
+                choice = 'yes';
+                if (!it.sale_remind_choices) it.sale_remind_choices = {};
+                it.sale_remind_choices[d.key] = 'yes';
+                
+                const remTexts = deptRems.map(r => r.content || '').filter(Boolean);
+                if (remTexts.length > 0) {
+                    items = remTexts;
+                    if (!it.sale_remind_items) it.sale_remind_items = {};
+                    it.sale_remind_items[d.key] = items;
+                }
+            }
+        }
+
+        // If items has valid text, force choice = 'yes'
+        if ((!choice || choice === 'none') && Array.isArray(items) && items.some(t => t && t.trim())) {
+            choice = 'yes';
+            if (!it.sale_remind_choices) it.sale_remind_choices = {};
+            it.sale_remind_choices[d.key] = 'yes';
+        }
 
         let isDeptLocked = false;
         if (d.key === 'cat' && it.has_cutting_started) isDeptLocked = true;
