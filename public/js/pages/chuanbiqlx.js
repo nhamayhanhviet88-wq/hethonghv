@@ -3224,15 +3224,29 @@ async function _qlxChecklist(orderId, orderCode, customerName) {
         responses.forEach(function(r) { respMap[r.template_id] = r; });
         var notes = templates.filter(function(t) { return t.type === 'note'; });
 
+        var saleRemRes = await apiCall('/api/sale-reminders?order_id=' + orderId).catch(function(){ return { details: [] }; });
+        var qlxReminders = (saleRemRes && saleRemRes.details) ? saleRemRes.details.filter(function(r){ return r.dept === 'qlx' || r.dept === '1' || r.dept === 'quan_ly_xuong'; }) : [];
+
         var overlay = document.createElement('div');
         overlay.className = 'qlx-cl-overlay';
         overlay.id = '_qlxClOverlay';
         overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
         var html = '<div class="qlx-cl-popup">';
-        html += '<div class="qlx-cl-header"><h3>\ud83d\udccb KI\u1ec2M TRA TR\u01af\u1edaC KHI CHU\u1ea8N B\u1eca</h3>';
-        html += '<p>\u0110\u01a1n: <strong>' + orderCode + '</strong> \u2014 ' + customerName + '</p></div>';
+        html += '<div class="qlx-cl-header"><h3>📋 KIỂM TRA TRƯỚC KHI CHUẨN BỊ</h3>';
+        html += '<p>Đơn: <strong>' + orderCode + '</strong> — ' + customerName + '</p></div>';
         html += '<div class="qlx-cl-body">';
+
+        if (qlxReminders.length > 0) {
+            html += '<div style="margin-bottom:16px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px 14px;border-radius:12px;">';
+            html += '  <div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ QUẢN LÝ XƯỞNG:</div>';
+            html += '  <div style="display:flex; flex-direction:column; gap:6px;">';
+            qlxReminders.forEach(function(rem) {
+                html += '    <div style="font-size:12px;font-weight:700;color:#92400e;background:#fff;padding:8px 12px;border-radius:8px;border:1px solid #fcd34d;display:flex;align-items:center;gap:6px">📢 ' + (rem.content || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+            });
+            html += '  </div>';
+            html += '</div>';
+        }
 
         if (reviewed) {
             html += '<div class="qlx-cl-reviewed"><h4>\u2705 \u0110\u00e3 Ki\u1ec3m Tra & X\u00e1c Nh\u1eadn</h4>';
