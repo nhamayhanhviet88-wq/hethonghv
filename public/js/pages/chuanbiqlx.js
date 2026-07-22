@@ -255,7 +255,7 @@ function _qlxPatchOrderRows(orderId) {
         // Column 1.5: 📢 Nhắc Nhở Sale (Trước icon Cắt/Vải 🧵)
         var itemReminders = (o.qlx_sale_reminders || []).filter(function(rem) {
             if (!rem.item_id || rem.item_id === 0) return true;
-            return r.item && rem.item_id === r.item.id;
+            return r.item && String(rem.item_id) === String(r.item.id);
         });
         var itemRemTotal = itemReminders.length;
         var itemRemUnread = itemReminders.filter(function(rem) { return !rem.is_viewed; }).length;
@@ -833,7 +833,7 @@ function _qlxRenderRows(paged) {
         // Column 1.5: 📢 Nhắc Nhở Sale (Trước icon Cắt/Vải 🧵)
         var itemReminders = (o.qlx_sale_reminders || []).filter(function(rem) {
             if (!rem.item_id || rem.item_id === 0) return true;
-            return it && rem.item_id === it.id;
+            return it && String(rem.item_id) === String(it.id);
         });
         var itemRemTotal = itemReminders.length;
         var itemRemUnread = itemReminders.filter(function(rem) { return !rem.is_viewed; }).length;
@@ -3373,7 +3373,7 @@ function _qlxCheckActionLock(orderId, itemId) {
     var unreadRems = rems.filter(function(r) {
         if (r.is_viewed) return false;
         if (!itemId || !r.item_id || r.item_id === 0) return true;
-        return r.item_id === itemId;
+        return String(r.item_id) === String(itemId);
     });
 
     if (unreadRems.length > 0) {
@@ -3390,7 +3390,7 @@ async function _qlxOpenSaleRemindersModal(orderId, filterItemId) {
     var allRems = o.qlx_sale_reminders || [];
     var rems = allRems;
     if (filterItemId && filterItemId > 0) {
-        var itemRems = allRems.filter(function(r) { return !r.item_id || r.item_id === filterItemId; });
+        var itemRems = allRems.filter(function(r) { return !r.item_id || String(r.item_id) === String(filterItemId); });
         if (itemRems.length > 0) rems = itemRems;
     }
     if (rems.length === 0) {
