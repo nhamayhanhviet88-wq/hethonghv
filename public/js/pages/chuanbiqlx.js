@@ -84,7 +84,7 @@ function renderQuanlyxuongqlxPage(content) {
         +'</div>'
         +'<div id="qlxPaginationTop" style="margin:8px 0"></div>'
         +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:11px;white-space:nowrap" id="qlxTable"><thead><tr style="background:var(--gray-800)">'
-        +'<th>STT</th><th>🧵</th><th>🔩</th><th>🖨️</th><th>🪡</th>'
+        +'<th>STT</th><th style="color:#d97706;text-align:center" title="Nhắc Nhở Sale cho Quản Lý Xưởng">📢 Nhắc Nhở</th><th>🧵</th><th>🔩</th><th>🖨️</th><th>🪡</th>'
         +'<th>Tên KH</th><th>CSKH</th><th>Tiến Độ</th>'
         +'<th>Tên SP / Phối</th><th>Chất Liệu</th><th>Màu</th>'
         +'<th>SL</th><th>Ngày Dự Kiến</th>'
@@ -92,7 +92,7 @@ function renderQuanlyxuongqlxPage(content) {
         +'<th>NV Cắt</th><th>NV In</th><th>NV Ép</th><th>NV May</th>'
         +'<th>KTCL</th><th>Hoàn Thiện</th>'
         +'<th>Lĩnh Vực</th><th>Cập Nhật</th>'
-        +'</tr></thead><tbody id="qlxTbody"><tr><td colspan="22" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+        +'</tr></thead><tbody id="qlxTbody"><tr><td colspan="23" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
         +'<div id="qlxPaginationBottom" style="margin:8px 0"></div>'
         +'</div></div>';
     _qlx.search = '';
@@ -252,6 +252,25 @@ function _qlxPatchOrderRows(orderId) {
             h += '<td style="text-align:center;font-weight:700;color:#94a3b8"></td>';
         }
 
+        // Column 1.5: 📢 Nhắc Nhở Sale (Trước icon Cắt/Vải 🧵)
+        var remTotal = o.qlx_reminders_total || 0;
+        var remUnread = o.qlx_reminders_unread || 0;
+        var hasUnreadReminders = (remUnread > 0);
+
+        if (isNew) {
+            if (remTotal > 0) {
+                if (hasUnreadReminders) {
+                    h += '<td style="text-align:center;padding:4px 4px"><button class="qlx-icon-btn" onclick="_qlxOpenSaleRemindersModal(' + o.id + ')" style="width:auto;padding:2px 8px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#f59e0b;font-size:10px;font-weight:800;color:#b45309;animation:qlxPulse 2s infinite;cursor:pointer" title="CÓ NHẮC NHỞ SALE TỪ PHIẾU! Bấm để xem & xác nhận">📢 Xem ' + remUnread + '/' + remTotal + '</button></td>';
+                } else {
+                    h += '<td style="text-align:center;padding:4px 4px"><button class="qlx-icon-btn" onclick="_qlxOpenSaleRemindersModal(' + o.id + ')" style="width:auto;padding:2px 8px;background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-color:#22c55e;font-size:10px;font-weight:800;color:#15803d;cursor:pointer" title="Đã xem & xác nhận tất cả nhắc nhở Sale">✅ Đã Xem (' + remTotal + ')</button></td>';
+                }
+            } else {
+                h += '<td style="text-align:center;color:#cbd5e1;font-size:10px">—</td>';
+            }
+        } else {
+            h += '<td></td>';
+        }
+
         // Columns 2 to 5 (Preparation & Assignments)
         if (isLocked) {
             if (isNew) {
@@ -262,8 +281,8 @@ function _qlxPatchOrderRows(orderId) {
             }
         } else if (o.qlx_reviewed) {
             if (r.phoiInItem === 1) {
-                h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabricPopup(' + o.id + ',' + (r.item ? r.item.id : 0) + ',' + (r.pairIndex || 0) + ')" title="Vải">' + fabIcon + '</button></td>';
-                h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="_qlxMaterial(' + o.id + ',\'' + matAct + '\',' + (r.item ? r.item.id : 0) + ')" title="VL">' + matIcon + '</button></td>';
+                h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="if(_qlxCheckActionLock(' + o.id + '))return;_qlxFabricPopup(' + o.id + ',' + (r.item ? r.item.id : 0) + ',' + (r.pairIndex || 0) + ')" title="Vải">' + fabIcon + '</button></td>';
+                h += '<td style="text-align:center"><button class="qlx-icon-btn' + matCls + '" onclick="if(_qlxCheckActionLock(' + o.id + '))return;_qlxMaterial(' + o.id + ',\'' + matAct + '\',' + (r.item ? r.item.id : 0) + ')" title="VL">' + matIcon + '</button></td>';
                 
                 if (o.sx_print_confirmed) {
                     var receivedPhieu = o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1';
@@ -283,9 +302,9 @@ function _qlxPatchOrderRows(orderId) {
                         if (isNoPrint) {
                             h += '<td style="text-align:center"><button class="qlx-icon-btn on-fab" onclick="_qlxNoPrintNotice()" title="KHÔNG IN & ÉP">🚫</button></td>';
                         } else {
-                            h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiIn ? ' on-pri' : '') + '" onclick="_qlxAssign(' + o.id + ',\'in\',' + (r.item ? r.item.id : 0) + ')" title="PC In">🖨️</button></td>';
+                            h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiIn ? ' on-pri' : '') + '" onclick="if(_qlxCheckActionLock(' + o.id + '))return;_qlxAssign(' + o.id + ',\'in\',' + (r.item ? r.item.id : 0) + ')" title="PC In">🖨️</button></td>';
                         }
-                        h += '<td style="text-align:center"><button class="qlx-icon-btn' + sewClass + '" onclick="_qlxAssign(' + o.id + ',\'may\',' + (r.item ? r.item.id : 0) + ')" title="PC May">🪡</button></td>';
+                        h += '<td style="text-align:center"><button class="qlx-icon-btn' + sewClass + '" onclick="if(_qlxCheckActionLock(' + o.id + '))return;_qlxAssign(' + o.id + ',\'may\',' + (r.item ? r.item.id : 0) + ')" title="PC May">🪡</button></td>';
                     } else {
                         if (isNew) {
                             h += '<td colspan="2" style="text-align:center;padding:4px 6px"><button class="qlx-icon-btn" onclick="_qlxReceivePhieu(' + o.id + ')" style="width:auto;padding:2px 10px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-color:#3b82f6;font-size:9px;font-weight:700;color:#1e40af;white-space:nowrap;animation:qlxPulse 2s infinite" title="Xác nhận đã nhận Phiếu SX từ KT">📋 Nhận Phiếu SX</button></td>';
@@ -301,7 +320,7 @@ function _qlxPatchOrderRows(orderId) {
                     }
                 }
             } else {
-                h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="_qlxFabricPopup(' + o.id + ',' + (r.item ? r.item.id : 0) + ',' + (r.pairIndex || 0) + ')" title="Vải" style="font-size:10px">' + fabIcon + '</button></td>';
+                h += '<td style="text-align:center"><button class="qlx-icon-btn' + fabCls + '" onclick="if(_qlxCheckActionLock(' + o.id + '))return;_qlxFabricPopup(' + o.id + ',' + (r.item ? r.item.id : 0) + ',' + (r.pairIndex || 0) + ')" title="Vải" style="font-size:10px">' + fabIcon + '</button></td>';
                 h += '<td></td><td></td><td></td>';
             }
         } else {
@@ -3327,7 +3346,117 @@ async function _qlxClReset(orderId) {
     } catch(e) { showToast('L\u1ed7i: ' + e.message, 'error'); }
 }
 
-// ========== CHECKLIST SETUP (Gi\u00e1m \u0110\u1ed1c) ==========
+// ========== SALE REMINDERS FOR QLX LOCK & CONFIRMATION MODAL ==========
+function _qlxCheckActionLock(orderId) {
+    var o = (_qlx.orders || []).find(function(x) { return x.id === orderId; });
+    if (o && (o.qlx_reminders_unread > 0)) {
+        showToast('⚠️ Đơn hàng này có Nhắc Nhở từ Sale cho Quản Lý Xưởng! Bạn BẮT BUỘC phải nhấn vào nút "📢 Xem..." (trước icon Cắt) để xác nhận đã đọc hết nhắc nhở của Sale trước khi được phép Gọi vải/vật liệu hoặc Phân công In/May!', 'warning');
+        _qlxOpenSaleRemindersModal(orderId);
+        return true;
+    }
+    return false;
+}
+
+async function _qlxOpenSaleRemindersModal(orderId) {
+    var o = (_qlx.orders || []).find(function(x) { return x.id === orderId; });
+    if (!o) return;
+    var rems = o.qlx_sale_reminders || [];
+    if (rems.length === 0) {
+        showToast('Đơn hàng này không có nhắc nhở nào từ Sale dành cho Quản Lý Xưởng.', 'info');
+        return;
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'qlx-cl-overlay';
+    overlay.id = '_qlxSaleRemOverlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var html = '<div class="qlx-cl-popup" style="width:580px;max-width:92vw">';
+    html += '<div class="qlx-cl-header" style="background:linear-gradient(135deg,#7c2d12,#9a3412,#c2410c)">';
+    html += '<h3>📢 XÁC NHẬN BỘ PHẬN QUẢN LÝ XƯỞNG ĐÃ ĐỌC NHẮC NHỞ SALE</h3>';
+    html += '<p style="margin-top:4px">Đơn: <strong>' + (o.order_code||'') + '</strong> — ' + (o.customer_name||'') + '</p></div>';
+    html += '<div class="qlx-cl-body" style="padding:16px">';
+
+    html += '<div style="margin-bottom:14px;font-size:12px;color:#78350f;background:#fffbeb;border:1.5px solid #fde68a;padding:10px 14px;border-radius:10px;font-weight:600;line-height:1.5">';
+    html += '⚠️ <strong>QUẢN LÝ XƯỞNG LƯU Ý:</strong> Vui lòng nhấn vào từng câu nhắc nhở bên dưới để đánh dấu <strong style="color:#059669">"Đã đọc"</strong>, sau đó nhấn nút <strong style="color:#d97706">"Xác Nhận Đã Xem Hết"</strong> để mở khóa các chức năng Gọi vải, Gọi vật liệu và Phân công In/May.';
+    html += '</div>';
+
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    html += '<div class="qlx-cl-section-title" style="font-size:12px;font-weight:800;color:#9a3412">📋 DANH SÁCH NHẮC NHỞ SALE CHO QUẢN LÝ XƯỞNG</div>';
+    html += '<span id="_qlxRemCount" style="font-size:12px;font-weight:800;color:#c2410c">0/' + rems.length + '</span></div>';
+    html += '<div class="qlx-cl-progress" style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-bottom:14px"><div class="qlx-cl-progress-bar" id="_qlxRemBar" style="height:100%;width:0%;background:linear-gradient(90deg,#f59e0b,#22c55e);transition:width .3s"></div></div>';
+
+    html += '<div class="qlx-cl-section" style="display:flex;flex-direction:column;gap:8px">';
+    rems.forEach(function(rem) {
+        var isChecked = !!rem.is_viewed;
+        html += '<div class="qlx-cl-item' + (isChecked ? ' checked' : '') + '" data-rem-id="' + rem.id + '" onclick="_qlxToggleSaleRemItem(this)" style="padding:10px 12px;border-radius:8px;border:1px solid ' + (isChecked ? '#86efac' : '#cbd5e1') + ';background:' + (isChecked ? '#f0fdf4' : '#fff') + ';cursor:pointer;display:flex;align-items:flex-start;gap:10px;transition:all .2s">';
+        html += '  <div class="qlx-cl-check" style="width:20px;height:20px;border-radius:4px;border:2px solid ' + (isChecked ? '#16a34a' : '#94a3b8') + ';background:' + (isChecked ? '#16a34a' : '#fff') + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;flex-shrink:0;margin-top:2px">' + (isChecked ? '✓' : '') + '</div>';
+        html += '  <div class="qlx-cl-label" style="flex:1">';
+        if (rem.item_name) html += '<span style="font-size:10px;font-weight:800;color:#0284c7;display:block;margin-bottom:2px">📌 ' + (rem.item_name || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>';
+        html += '    <span style="font-size:12px;font-weight:700;color:#1e293b;line-height:1.4">' + (rem.content || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>';
+        html += '  </div>';
+        html += '</div>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="qlx-cl-footer" style="padding:12px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px">';
+    html += '<button class="qlx-cl-btn close" onclick="document.getElementById(\'_qlxSaleRemOverlay\').remove()" style="padding:8px 16px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-weight:700;cursor:pointer">✕ Đóng</button>';
+    html += '<button class="qlx-cl-btn confirm" id="_qlxConfirmSaleRemBtn" disabled onclick="_qlxConfirmSaleReminders(' + orderId + ')" style="padding:8px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-weight:800;cursor:pointer;opacity:0.5" onmouseover="this.style.opacity=this.disabled?0.5:0.9" onmouseout="this.style.opacity=this.disabled?0.5:1">✅ Xác Nhận Đã Xem Hết Nhắc Nhở</button>';
+    html += '</div></div>';
+
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+    _qlxUpdateRemCountProgress();
+}
+
+function _qlxToggleSaleRemItem(el) {
+    el.classList.toggle('checked');
+    var isC = el.classList.contains('checked');
+    el.style.borderColor = isC ? '#86efac' : '#cbd5e1';
+    el.style.background = isC ? '#f0fdf4' : '#fff';
+    var chk = el.querySelector('.qlx-cl-check');
+    if (chk) {
+        chk.style.borderColor = isC ? '#16a34a' : '#94a3b8';
+        chk.style.background = isC ? '#16a34a' : '#fff';
+        chk.innerHTML = isC ? '✓' : '';
+    }
+    _qlxUpdateRemCountProgress();
+}
+
+function _qlxUpdateRemCountProgress() {
+    var total = document.querySelectorAll('.qlx-cl-item[data-rem-id]').length;
+    var checked = document.querySelectorAll('.qlx-cl-item.checked[data-rem-id]').length;
+    var c = document.getElementById('_qlxRemCount'), b = document.getElementById('_qlxRemBar'), btn = document.getElementById('_qlxConfirmSaleRemBtn');
+    if (c) c.textContent = checked + '/' + total;
+    if (b) b.style.width = (total ? (checked / total * 100) : 0) + '%';
+    if (btn) {
+        btn.disabled = checked < total;
+        btn.style.opacity = (checked >= total) ? '1' : '0.5';
+        btn.style.cursor = (checked >= total) ? 'pointer' : 'not-allowed';
+    }
+}
+
+async function _qlxConfirmSaleReminders(orderId) {
+    var checkedEls = document.querySelectorAll('.qlx-cl-item.checked[data-rem-id]');
+    var remIds = Array.from(checkedEls).map(function(el){ return Number(el.getAttribute('data-rem-id')); }).filter(Boolean);
+    if (remIds.length === 0) return;
+
+    try {
+        var res = await apiCall('/api/sale-reminders/viewed', 'POST', {
+            reminder_ids: remIds,
+            record_type: 'qlx_preparation'
+        });
+        if (res && res.error) {
+            return showToast('Lỗi: ' + res.error, 'error');
+        }
+        var ov = document.getElementById('_qlxSaleRemOverlay');
+        if (ov) ov.remove();
+        showToast('✅ Đã xác nhận xem hết tất cả nhắc nhở Sale của Quản Lý Xưởng!', 'success');
+        await _qlxLoadAll();
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ========== CHECKLIST SETUP (Giám Đốc) ==========
 async function _qlxChecklistSetup() {
     try {
         var data = await apiCall('/api/qlx/checklist/templates/all');

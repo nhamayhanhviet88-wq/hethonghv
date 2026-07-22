@@ -1384,9 +1384,42 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Attach items to orders
+        let qlxSaleReminders = [];
+        if (orderIds.length > 0) {
+            qlxSaleReminders = await db.all(`
+                SELECT sr.id, sr.dht_order_id, sr.item_id, sr.content, sr.dept,
+                       COALESCE(oi.product_name, oi.description, '') AS item_name,
+                       COALESCE((
+                           SELECT COUNT(*)::int FROM sale_reminder_views srv 
+                           WHERE srv.reminder_id = sr.id AND srv.record_type = 'qlx_preparation'
+                       ), 0) AS view_count
+                FROM sale_reminders sr
+                LEFT JOIN dht_order_items oi ON sr.item_id = oi.id
+                WHERE sr.dht_order_id = ANY($1)
+                  AND sr.dept IN ('qlx', '1', 'quan_ly_xuong')
+                ORDER BY sr.dht_order_id, sr.id
+            `, [orderIds]);
+        }
+
+        const remMap = {};
+        for (const rem of qlxSaleReminders) {
+            if (!remMap[rem.dht_order_id]) remMap[rem.dht_order_id] = [];
+            remMap[rem.dht_order_id].push({
+                id: rem.id,
+                content: rem.content,
+                item_id: rem.item_id,
+                item_name: rem.item_name || '',
+                is_viewed: rem.view_count > 0
+            });
+        }
+
+        // Attach items and sale reminders to orders
         for (const o of orders) {
             o.items = itemMap[o.id] || [];
+            const rems = remMap[o.id] || [];
+            o.qlx_sale_reminders = rems;
+            o.qlx_reminders_total = rems.length;
+            o.qlx_reminders_unread = rems.filter(r => !r.is_viewed).length;
         }
 
         // Fetch per-phoi fabric reservation statuses
