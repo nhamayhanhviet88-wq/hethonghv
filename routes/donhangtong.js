@@ -3583,6 +3583,10 @@ module.exports = async function(fastify) {
         vals.push(itemId);
         await db.run(`UPDATE dht_order_items SET ${sets.join(', ')} WHERE id = $${idx}`, vals);
 
+        if (b.sale_remind_choices !== undefined || b.sale_remind_items !== undefined) {
+            await saveSaleRemindersForItem(db, orderId, itemId, b.sale_remind_choices, b.sale_remind_items, request.user.id);
+        }
+
         if (shouldResetPrint) {
             await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
             await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
