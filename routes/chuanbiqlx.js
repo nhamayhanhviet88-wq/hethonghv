@@ -2319,24 +2319,42 @@ module.exports = async function(fastify) {
         const { order_id, item_id, dept, record_type, record_id } = request.query || {};
         if (!order_id) return reply.code(400).send({ error: 'Thiếu order_id' });
 
-        let deptFilter = '';
-        const params = [Number(order_id)];
-        let pIdx = 2;
-
+        let rows = [];
         if (item_id) {
-            deptFilter += ` AND sr.item_id = $${pIdx++}`;
-            params.push(Number(item_id));
+            const params = [Number(order_id), Number(item_id)];
+            let sql = `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr WHERE sr.dht_order_id = $1 AND sr.item_id = $2`;
+            if (dept) {
+                sql += ` AND sr.dept = $3`;
+                params.push(dept);
+            }
+            rows = await db.all(sql + ` ORDER BY sr.id`, params);
+            if (rows.length === 0) {
+                const fbParams = [Number(order_id)];
+                let fbSql = `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr WHERE sr.dht_order_id = $1 AND sr.item_id IS NULL`;
+                if (dept) {
+                    fbSql += ` AND sr.dept = $2`;
+                    fbParams.push(dept);
+                }
+                rows = await db.all(fbSql + ` ORDER BY sr.id`, fbParams);
+            }
+        } else {
+            const params = [Number(order_id)];
+            let sql = `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr WHERE sr.dht_order_id = $1 AND sr.item_id IS NULL`;
+            if (dept) {
+                sql += ` AND sr.dept = $2`;
+                params.push(dept);
+            }
+            rows = await db.all(sql + ` ORDER BY sr.id`, params);
+            if (rows.length === 0) {
+                const fbParams = [Number(order_id)];
+                let fbSql = `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr WHERE sr.dht_order_id = $1`;
+                if (dept) {
+                    fbSql += ` AND sr.dept = $2`;
+                    fbParams.push(dept);
+                }
+                rows = await db.all(fbSql + ` ORDER BY sr.id`, fbParams);
+            }
         }
-        if (dept) {
-            deptFilter += ` AND sr.dept = $${pIdx++}`;
-            params.push(dept);
-        }
-
-        const rows = await db.all(
-            `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr
-             WHERE sr.dht_order_id = $1${deptFilter} ORDER BY sr.id`,
-            params
-        );
 
         const reminderIds = rows.map(r => r.id);
         let viewedIds = [];
