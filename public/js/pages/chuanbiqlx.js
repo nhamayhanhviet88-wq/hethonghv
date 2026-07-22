@@ -3369,7 +3369,10 @@ async function _qlxAssignMay(orderId, itemId) {
         return;
     }
 
-    try {
+    if (!window._qlxIsReopeningMay) {
+        window._qlxMayPendingRows = null;
+    }
+    window._qlxIsReopeningMay = false;
         // 1. First, check preconditions
         var checkRes = await apiCall('/api/qlx/assign-check/' + orderId + '?type=may&item_id=' + itemId);
         if (!checkRes.isCutDone || !checkRes.isMatDone) {
@@ -4270,6 +4273,7 @@ async function _qlxAssignMaySave() {
             hoanthien_remind_choice: htRemindChoice,
             hoanthien_reminders: htReminders
         });
+        window._qlxMayPendingRows = null;
         closeModal();
         showToast('✅ Đã lưu phân công May & Bàn giao');
         await _qlxLoadAll();
@@ -4279,6 +4283,7 @@ async function _qlxAssignMaySave() {
 }
 
 function _qlxAssignMayReopen() {
+    window._qlxIsReopeningMay = true;
     closeModal();
     if (window._qlxMayData) {
         _qlxAssignMay(window._qlxMayData.orderId, window._qlxMayData.itemId);
