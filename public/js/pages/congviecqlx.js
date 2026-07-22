@@ -91,7 +91,7 @@ function _cvqlxRenderActiveTab() {
             break;
 
         case 'chuanbi':
-            _loadScript('/js/pages/chuanbiqlx.js?v=20260722_qlx_reminders_v8').then(() => {
+            _loadScript('/js/pages/chuanbiqlx.js?v=20260722_qlx_reminders_v29').then(() => {
                 if (typeof renderQuanlyxuongqlxPage === 'function') {
                     renderQuanlyxuongqlxPage(container);
                 } else {
