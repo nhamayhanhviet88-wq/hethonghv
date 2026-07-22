@@ -694,9 +694,9 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                             }
                         } catch(e) {}
                     }
-                    if (Array.isArray(item.sale_reminders_data) && item.sale_reminders_data.length > 0) {
+                    if (Array.isArray(item.sale_reminders_data)) {
                         if (!draft.sale_remind_choices) draft.sale_remind_choices = {};
-                        if (!draft.sale_remind_items) draft.sale_remind_items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
+                        draft.sale_remind_items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
                         item.sale_reminders_data.forEach(r => {
                             if (r.dept) {
                                 draft.sale_remind_choices[r.dept] = 'yes';
