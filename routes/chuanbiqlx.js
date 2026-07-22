@@ -505,26 +505,32 @@ module.exports = async function(fastify) {
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS sale_reminders (
             id SERIAL PRIMARY KEY,
-            dht_order_id INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
-            item_id INTEGER NOT NULL REFERENCES dht_order_items(id) ON DELETE CASCADE,
+            dht_order_id INTEGER NOT NULL,
+            item_id INTEGER,
             dept VARCHAR(20) NOT NULL,
             content TEXT NOT NULL,
-            created_by INTEGER REFERENCES users(id),
+            created_by INTEGER,
             created_at TIMESTAMPTZ DEFAULT NOW()
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_sale_reminders_item ON sale_reminders(item_id)`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_sale_reminders_order ON sale_reminders(dht_order_id)`);
+    } catch(e) { console.error('[QLX] sale_reminders table:', e.message); }
+
+    try {
         await db.exec(`CREATE TABLE IF NOT EXISTS sale_reminder_views (
             id SERIAL PRIMARY KEY,
-            reminder_id INTEGER NOT NULL REFERENCES sale_reminders(id) ON DELETE CASCADE,
-            user_id INTEGER NOT NULL REFERENCES users(id),
+            reminder_id INTEGER NOT NULL,
+            user_id INTEGER,
             record_type VARCHAR(20) NOT NULL,
             record_id INTEGER,
             viewed_at TIMESTAMPTZ DEFAULT NOW()
         )`);
-        await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sale_reminder_views_unique ON sale_reminder_views(reminder_id, user_id, record_type, COALESCE(record_id, 0))`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_sale_reminder_views_rem ON sale_reminder_views(reminder_id)`);
+    } catch(e) { console.error('[QLX] sale_reminder_views table:', e.message); }
+
+    try {
         await db.exec(`ALTER TABLE dht_order_items ADD COLUMN IF NOT EXISTS sale_remind_choices JSONB DEFAULT '{}'`);
-    } catch(e) { console.error('[QLX] sale_reminders tables:', e.message); }
+    } catch(e) { console.error('[QLX] sale_remind_choices column:', e.message); }
 
     try {
         await db.exec(`ALTER TABLE qlx_preparation ADD COLUMN IF NOT EXISTS print_remind_choice VARCHAR(20)`);
@@ -1386,19 +1392,23 @@ module.exports = async function(fastify) {
 
         let qlxSaleReminders = [];
         if (orderIds.length > 0) {
-            qlxSaleReminders = await db.all(`
-                SELECT sr.id, sr.dht_order_id, sr.item_id, sr.content, sr.dept,
-                       COALESCE(oi.product_name, oi.description, '') AS item_name,
-                       COALESCE((
-                           SELECT COUNT(*)::int FROM sale_reminder_views srv 
-                           WHERE srv.reminder_id = sr.id AND srv.record_type = 'qlx_preparation'
-                       ), 0) AS view_count
-                FROM sale_reminders sr
-                LEFT JOIN dht_order_items oi ON sr.item_id = oi.id
-                WHERE sr.dht_order_id = ANY($1)
-                  AND sr.dept IN ('qlx', '1', 'quan_ly_xuong')
-                ORDER BY sr.dht_order_id, sr.id
-            `, [orderIds]);
+            try {
+                qlxSaleReminders = await db.all(`
+                    SELECT sr.id, sr.dht_order_id, sr.item_id, sr.content, sr.dept,
+                           COALESCE(oi.product_name, oi.description, '') AS item_name,
+                           COALESCE((
+                               SELECT COUNT(*)::int FROM sale_reminder_views srv 
+                               WHERE srv.reminder_id = sr.id AND srv.record_type = 'qlx_preparation'
+                           ), 0) AS view_count
+                    FROM sale_reminders sr
+                    LEFT JOIN dht_order_items oi ON sr.item_id = oi.id
+                    WHERE sr.dht_order_id = ANY($1)
+                      AND sr.dept IN ('qlx', '1', 'quan_ly_xuong')
+                    ORDER BY sr.dht_order_id, sr.id
+                `, [orderIds]);
+            } catch(remErr) {
+                console.error('[QLX] fetch qlxSaleReminders error:', remErr.message);
+            }
         }
 
         const remMap = {};
