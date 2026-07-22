@@ -600,13 +600,13 @@ function _tpdCloneItemState(item, ignoreDraft = false) {
     // Check if there is a draft in localStorage
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
-    if (orderId && item.id && !ignoreDraft) {
+    if (orderId && item && (item.id !== undefined && item.id !== null) && !ignoreDraft) {
         const key = `tpd_draft_${orderId}_${item.id}`;
         const draftStr = localStorage.getItem(key) || sessionStorage.getItem(key);
         if (draftStr) {
             try {
                 const draft = JSON.parse(draftStr);
-                if (draft && draft.id === item.id) {
+                if (draft && String(draft.id) === String(item.id)) {
                     // Sync latest DB values into loaded draft to prevent stale data
                     draft.quantity = item.quantity;
                     draft.product_name = item.product_name;
