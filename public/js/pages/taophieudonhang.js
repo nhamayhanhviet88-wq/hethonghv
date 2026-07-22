@@ -515,7 +515,7 @@ async function renderDesignDraftPage(content) {
 
         const clonedItems = items.map((it, idx) => _tpdCloneItemState(it, false, orderId, idx));
         window._tpdWorkspaceState.items = clonedItems;
-        window._tpdWorkspaceState.editingItem = clonedItems.length > 0 ? _tpdCloneItemState(clonedItems[activeIdx], false, orderId, activeIdx) : null;
+        window._tpdWorkspaceState.editingItem = clonedItems.length > 0 ? JSON.parse(JSON.stringify(clonedItems[activeIdx])) : null;
         window._tpdWorkspaceState.dbBaselines = items.length > 0 ? items.map((it, idx) => _tpdCloneItemState(it, true, orderId, idx)) : [];
 
         // Render main workspace wrapper
@@ -3916,12 +3916,12 @@ function _tpdSwitchItemTab(idx) {
 
     // Save current active item state back into state.items array & draft storage before switching tab
     if (state.editingItem && Array.isArray(state.items) && state.items[state.activeItemIndex] !== undefined) {
-        state.items[state.activeItemIndex] = _tpdCloneItemState(state.editingItem);
+        state.items[state.activeItemIndex] = JSON.parse(JSON.stringify(state.editingItem));
         if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
     }
 
     state.activeItemIndex = idx;
-    state.editingItem = _tpdCloneItemState(state.items[idx]);
+    state.editingItem = JSON.parse(JSON.stringify(state.items[idx]));
 
     // Update URL query parameter without reload
     try {
