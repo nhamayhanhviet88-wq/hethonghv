@@ -5044,12 +5044,13 @@ function _tpdRenderSaleRemindersSection(it, disabledAttr) {
         if (Array.isArray(it.sale_reminders_data) && it.sale_reminders_data.length > 0) {
             const deptRems = it.sale_reminders_data.filter(r => r.dept === d.key);
             if (deptRems.length > 0) {
-                choice = 'yes';
-                if (!it.sale_remind_choices) it.sale_remind_choices = {};
-                it.sale_remind_choices[d.key] = 'yes';
-                
+                if (!choice) {
+                    choice = 'yes';
+                    if (!it.sale_remind_choices) it.sale_remind_choices = {};
+                    it.sale_remind_choices[d.key] = 'yes';
+                }
                 const remTexts = deptRems.map(r => r.content || '').filter(Boolean);
-                if (remTexts.length > 0) {
+                if (remTexts.length > 0 && (!items || items.length === 0)) {
                     items = remTexts;
                     if (!it.sale_remind_items) it.sale_remind_items = {};
                     it.sale_remind_items[d.key] = items;
