@@ -2997,11 +2997,20 @@ module.exports = async function(fastify) {
         // Fetch sale_reminders for all items of this order
         try {
             const saleReminders = await db.all(
-                `SELECT id, item_id, dept, content FROM sale_reminders WHERE dht_order_id = $1 ORDER BY id`,
+                `SELECT sr.id, sr.item_id, sr.dept, sr.content,
+                        COALESCE((
+                            SELECT COUNT(*)::int FROM sale_reminder_views srv 
+                            WHERE srv.reminder_id = sr.id
+                        ), 0) AS view_count
+                 FROM sale_reminders sr 
+                 WHERE sr.dht_order_id = $1 ORDER BY sr.id`,
                 [orderId]
             );
             for (const it of items) {
-                const itemReminders = saleReminders.filter(r => r.item_id === it.id);
+                const itemReminders = saleReminders.filter(r => r.item_id === it.id).map(r => ({
+                    ...r,
+                    is_viewed: Number(r.view_count) > 0
+                }));
                 it.sale_reminders_data = itemReminders;
             }
         } catch(e) { /* sale_reminders table may not exist yet */ }

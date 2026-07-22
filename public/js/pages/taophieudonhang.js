@@ -5069,6 +5069,14 @@ function _tpdRenderSaleRemindersSection(it, disabledAttr) {
         }
 
         let isDeptLocked = false;
+        if (d.key === 'qlx') {
+            if (Array.isArray(it.sale_reminders_data) && it.sale_reminders_data.length > 0) {
+                const qlxRems = it.sale_reminders_data.filter(r => r.dept === 'qlx' || r.dept === '1' || r.dept === 'quan_ly_xuong');
+                if (qlxRems.length > 0 && qlxRems.every(r => r.is_viewed || Number(r.view_count) > 0)) {
+                    isDeptLocked = true;
+                }
+            }
+        }
         if (d.key === 'cat' && it.has_cutting_started) isDeptLocked = true;
         if ((d.key === 'in' || d.key === 'ep') && it.has_print_assignment) isDeptLocked = true;
         if (d.key === 'qc' && it.has_qc_completed) isDeptLocked = true;
