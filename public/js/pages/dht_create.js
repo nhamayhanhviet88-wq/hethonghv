@@ -2294,8 +2294,25 @@ function _ppIsCuttingSelected() {
     return cb.checked;
 }
 
+function _ppIsSewingSelected() {
+    var processStepsBox = document.getElementById('_pp_processSteps');
+    if (!processStepsBox) return true;
+    var cbs = processStepsBox.querySelectorAll('input[type="checkbox"]');
+    if (!cbs || cbs.length === 0) return true;
+
+    var cb = Array.from(cbs).find(function(el) {
+        var sId = el.getAttribute('data-step-id');
+        var sShort = (el.getAttribute('data-short-name') || '').toUpperCase().trim();
+        return String(sId) === '5' || sShort === 'MAY';
+    });
+    if (!cb) return false;
+    return cb.checked;
+}
+
 function _ppUpdateCuttingFieldsVisibility() {
     var isCutting = _ppIsCuttingSelected();
+    var isSewing = _ppIsSewingSelected();
+    var isCuttingOrSewing = isCutting || isSewing;
     
     // Check if product is ready-made product (HÀNG SẴN)
     var prodNameStr = document.getElementById('_pp_product')?.value || '';
@@ -2314,10 +2331,11 @@ function _ppUpdateCuttingFieldsVisibility() {
         sizeContainer.style.display = 'block';
     }
     
-    // 2. Thông Số Mẫu Áo
+    // 2. Thông Số Mẫu Áo (chỉ hiển thị khi có công đoạn Cắt hoặc May, và không phải HÀNG SẴN)
     var patternContainer = document.getElementById('_pp_patternContainer');
+    var showPattern = isCuttingOrSewing && !isReadyStockProduct;
     if (patternContainer) {
-        patternContainer.style.display = isReadyStockProduct ? 'none' : 'grid';
+        patternContainer.style.display = showPattern ? 'grid' : 'none';
     }
     
     // Dependent pattern elements: Kỹ Thuật May, Hình Ảnh Thông Số
@@ -2325,7 +2343,7 @@ function _ppUpdateCuttingFieldsVisibility() {
     var imgEl = document.getElementById('_pp_specImage');
     var mixInfo = document.getElementById('_pp_mixInfo');
     
-    if (isReadyStockProduct) {
+    if (!showPattern) {
         if (techEl) techEl.style.display = 'none';
         if (imgEl) imgEl.style.display = 'none';
     } else {
@@ -2851,7 +2869,10 @@ function _dhtSavePhieu(idx) {
     var isReadyStockProduct = (selectedProd && (selectedProd.cutting_category_name || '').trim().toUpperCase() === 'HÀNG SẴN');
 
     var isCutting = _ppIsCuttingSelected();
-    if (isCutting && !isReadyStockProduct) {
+    var isSewing = _ppIsSewingSelected();
+    var isCuttingOrSewing = isCutting || isSewing;
+
+    if (isCuttingOrSewing && !isReadyStockProduct) {
         if(!pat){showToast('Chọn Thông Số Mẫu Áo','error');return;}
     }
 
@@ -2870,7 +2891,7 @@ function _dhtSavePhieu(idx) {
         }
     }
 
-    if (isCutting && pat && !isReadyStockProduct) {
+    if (isCuttingOrSewing && pat && !isReadyStockProduct) {
         var selectedPat=(window._ppTsamPatterns||[]).find(function(p){ return p.name===pat; });
         if(selectedPat){
             var pIds = selectedPat.product_ids || [];
