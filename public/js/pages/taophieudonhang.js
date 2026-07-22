@@ -506,6 +506,7 @@ async function renderDesignDraftPage(content) {
             orderId: orderId,
             order: order,
             items: [],
+            rawDbItems: details.items || items || [],
             payments: details.payments || [],
             surcharges: details.surcharges || [],
             activeItemIndex: activeIdx,
@@ -656,6 +657,7 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                 const draft = JSON.parse(draftStr);
                 if (draft) {
                     // Sync latest DB values into loaded draft to prevent stale data
+                    draft.sale_reminders_data = item.sale_reminders_data || [];
                     draft.quantity = item.quantity;
                     draft.product_name = item.product_name;
                     draft.material_name = item.material_name;
@@ -5073,10 +5075,17 @@ function _tpdRenderSaleRemindersSection(it, disabledAttr) {
         let isDeptLocked = false;
         if (d.key === 'qlx') {
             let remsData = it.sale_reminders_data;
-            if ((!remsData || remsData.length === 0) && window._tpdWorkspaceState && Array.isArray(window._tpdWorkspaceState.items)) {
-                const matchItem = window._tpdWorkspaceState.items.find(x => x && (String(x.id) === String(it.id) || String(x.id) === String(it.item_id)));
-                if (matchItem && Array.isArray(matchItem.sale_reminders_data)) {
-                    remsData = matchItem.sale_reminders_data;
+            if ((!remsData || remsData.length === 0) && window._tpdWorkspaceState) {
+                const state = window._tpdWorkspaceState;
+                const candidateLists = [state.rawDbItems, state.dbBaselines, state.items];
+                for (const list of candidateLists) {
+                    if (Array.isArray(list)) {
+                        const matchItem = list.find(x => x && (String(x.id) === String(it.id) || String(x.id) === String(it.item_id)));
+                        if (matchItem && Array.isArray(matchItem.sale_reminders_data) && matchItem.sale_reminders_data.length > 0) {
+                            remsData = matchItem.sale_reminders_data;
+                            break;
+                        }
+                    }
                 }
             }
             if (Array.isArray(remsData) && remsData.length > 0) {
