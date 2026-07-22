@@ -695,6 +695,7 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                         } catch(e) {}
                     }
                     if (Array.isArray(item.sale_reminders_data)) {
+                        draft.sale_reminders_data = item.sale_reminders_data;
                         if (!draft.sale_remind_choices) draft.sale_remind_choices = {};
                         draft.sale_remind_items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
                         item.sale_reminders_data.forEach(r => {
@@ -819,7 +820,8 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                 });
             }
             return items;
-        })()
+        })(),
+        sale_reminders_data: item.sale_reminders_data || []
     };
 }
 
@@ -5070,8 +5072,15 @@ function _tpdRenderSaleRemindersSection(it, disabledAttr) {
 
         let isDeptLocked = false;
         if (d.key === 'qlx') {
-            if (Array.isArray(it.sale_reminders_data) && it.sale_reminders_data.length > 0) {
-                const qlxRems = it.sale_reminders_data.filter(r => r.dept === 'qlx' || r.dept === '1' || r.dept === 'quan_ly_xuong');
+            let remsData = it.sale_reminders_data;
+            if ((!remsData || remsData.length === 0) && window._tpdWorkspaceState && Array.isArray(window._tpdWorkspaceState.items)) {
+                const matchItem = window._tpdWorkspaceState.items.find(x => x && (String(x.id) === String(it.id) || String(x.id) === String(it.item_id)));
+                if (matchItem && Array.isArray(matchItem.sale_reminders_data)) {
+                    remsData = matchItem.sale_reminders_data;
+                }
+            }
+            if (Array.isArray(remsData) && remsData.length > 0) {
+                const qlxRems = remsData.filter(r => r.dept === 'qlx' || r.dept === '1' || r.dept === 'quan_ly_xuong');
                 if (qlxRems.length > 0 && qlxRems.every(r => r.is_viewed || Number(r.view_count) > 0)) {
                     isDeptLocked = true;
                 }
