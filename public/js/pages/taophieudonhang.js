@@ -589,6 +589,48 @@ function _tpdNormalizeItemQuantities(it, config) {
     return mergedQuantities;
 }
 
+function _tpdGetCandidateDraftKeys(item, currentOrderId = null, itemIndex = null) {
+    const state = window._tpdWorkspaceState;
+    const params = new URLSearchParams(window.location.search);
+    
+    const rawOrderIds = [
+        currentOrderId,
+        state && state.orderId,
+        state && state.order && state.order.id,
+        state && state.order && state.order.order_code,
+        params.get('id')
+    ];
+    const orderIds = Array.from(new Set(rawOrderIds.filter(v => v !== undefined && v !== null && String(v).trim() !== '').map(v => String(v).trim())));
+
+    if (orderIds.length === 0) return [];
+
+    let computedIndex = itemIndex;
+    if ((computedIndex === undefined || computedIndex === null || computedIndex < 0) && state) {
+        if (state.editingItem === item || (item && state.editingItem && String(item.id) === String(state.editingItem.id))) {
+            computedIndex = state.activeItemIndex;
+        } else if (Array.isArray(state.items) && item) {
+            const idx = state.items.indexOf(item);
+            if (idx >= 0) computedIndex = idx;
+        }
+    }
+
+    const rawItemIds = [
+        item && item.id !== undefined && item.id !== null && String(item.id).trim() !== '' ? String(item.id).trim() : null,
+        (computedIndex !== undefined && computedIndex !== null && computedIndex >= 0) ? `idx_${computedIndex}` : null
+    ];
+    const itemIds = Array.from(new Set(rawItemIds.filter(Boolean)));
+
+    if (itemIds.length === 0) return [];
+
+    const keys = [];
+    orderIds.forEach(oId => {
+        itemIds.forEach(iId => {
+            keys.push(`tpd_draft_${oId}_${iId}`);
+        });
+    });
+    return keys;
+}
+
 // Clone order item to independent workspace editing state
 function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, itemIndex = null) {
     if (!item) return null;
@@ -599,30 +641,17 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
     };
 
     // Check if there is a draft in localStorage
-    const params = new URLSearchParams(window.location.search);
-    const orderId = currentOrderId || params.get('id') || (window._tpdWorkspaceState && window._tpdWorkspaceState.orderId) || '';
-    if (orderId && item && !ignoreDraft) {
+    if (!ignoreDraft) {
+        const candidateKeys = _tpdGetCandidateDraftKeys(item, currentOrderId, itemIndex);
         let draftStr = null;
-        if (item.id !== undefined && item.id !== null && item.id !== '') {
-            const keyById = `tpd_draft_${orderId}_${item.id}`;
-            draftStr = localStorage.getItem(keyById) || sessionStorage.getItem(keyById);
-        }
-        if (!draftStr && itemIndex !== undefined && itemIndex !== null && itemIndex >= 0) {
-            const keyByIdx = `tpd_draft_${orderId}_idx_${itemIndex}`;
-            draftStr = localStorage.getItem(keyByIdx) || sessionStorage.getItem(keyByIdx);
-        }
-        if (!draftStr && window._tpdWorkspaceState && Array.isArray(window._tpdWorkspaceState.items)) {
-            const computedIdx = window._tpdWorkspaceState.items.indexOf(item);
-            if (computedIdx >= 0) {
-                const keyByCompIdx = `tpd_draft_${orderId}_idx_${computedIdx}`;
-                draftStr = localStorage.getItem(keyByCompIdx) || sessionStorage.getItem(keyByCompIdx);
-            }
+        for (const key of candidateKeys) {
+            draftStr = localStorage.getItem(key) || sessionStorage.getItem(key);
+            if (draftStr) break;
         }
         if (draftStr) {
             try {
                 const draft = JSON.parse(draftStr);
                 if (draft) {
-                    // Sync latest DB values into loaded draft to prevent stale data
                     // Sync latest DB values into loaded draft to prevent stale data
                     draft.quantity = item.quantity;
                     draft.product_name = item.product_name;
@@ -10059,29 +10088,18 @@ async function _tpdSaveSizeConfig() {
 function _tpdSaveDraft(it) {
     if (!it) return;
     const state = window._tpdWorkspaceState;
-    const params = new URLSearchParams(window.location.search);
-    const orderId = (state && state.orderId) || params.get('id') || '';
-    if (!orderId) return;
-
-    let itemIndex = state && state.items ? state.items.indexOf(it) : -1;
-    if (itemIndex === -1 && state && state.activeItemIndex !== undefined) {
-        itemIndex = state.activeItemIndex;
-    }
-
-    const keyById = (it.id !== undefined && it.id !== null && it.id !== '') ? `tpd_draft_${orderId}_${it.id}` : null;
-    const keyByIdx = itemIndex >= 0 ? `tpd_draft_${orderId}_idx_${itemIndex}` : null;
-
-    const keysToSave = [keyById, keyByIdx].filter(Boolean);
-    if (keysToSave.length === 0) return;
 
     // Sync editingItem changes back into state.items array directly
     if (state && state.editingItem && Array.isArray(state.items) && state.items[state.activeItemIndex]) {
         state.items[state.activeItemIndex] = JSON.parse(JSON.stringify(it));
     }
 
+    const candidateKeys = _tpdGetCandidateDraftKeys(it);
+    if (candidateKeys.length === 0) return;
+
     const jsonStr = JSON.stringify(it);
 
-    keysToSave.forEach(key => {
+    candidateKeys.forEach(key => {
         try {
             localStorage.setItem(key, jsonStr);
         } catch(e) {
@@ -10089,7 +10107,7 @@ function _tpdSaveDraft(it) {
             try {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const k = localStorage.key(i);
-                    if (k && k.startsWith('tpd_draft_') && !k.startsWith(`tpd_draft_${orderId}_`)) {
+                    if (k && k.startsWith('tpd_draft_') && !candidateKeys.includes(k)) {
                         localStorage.removeItem(k);
                     }
                 }
@@ -10104,21 +10122,11 @@ function _tpdSaveDraft(it) {
 
 function _tpdClearDraft(it) {
     if (!it) return;
-    const state = window._tpdWorkspaceState;
-    const params = new URLSearchParams(window.location.search);
-    const orderId = (state && state.orderId) || params.get('id') || '';
-    if (!orderId) return;
-    if (it.id) {
-        localStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
-        sessionStorage.removeItem(`tpd_draft_${orderId}_${it.id}`);
-    }
-    if (state && state.items) {
-        const idx = state.items.indexOf(it);
-        if (idx >= 0) {
-            localStorage.removeItem(`tpd_draft_${orderId}_idx_${idx}`);
-            sessionStorage.removeItem(`tpd_draft_${orderId}_idx_${idx}`);
-        }
-    }
+    const candidateKeys = _tpdGetCandidateDraftKeys(it);
+    candidateKeys.forEach(key => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+    });
 }
 
 // Print Positions Configuration Modal and Management
