@@ -44,7 +44,8 @@ module.exports = async function(fastify) {
     const TYPES = ['PET','TEM','DECAL'];
     const LABELS = {PET:'PET',TEM:'Tem',DECAL:'Decal'};
     function calcRemaining(imp,waste,err,printed) {
-        return (Number(imp)||0) - (Number(waste)||0) - (Number(err)||0) - (Number(printed)||0);
+        const val = (Number(imp)||0) - (Number(waste)||0) - (Number(err)||0) - (Number(printed)||0);
+        return Math.round(val * 100) / 100;
     }
     async function syncPettemRollMeters(rollId) {
         if (!rollId) return;
@@ -54,11 +55,11 @@ module.exports = async function(fastify) {
                 FROM printing_records
                 WHERE pettem_roll_id = $1
             `, [Number(rollId)]);
-            const totalPrinted = Number(sumRow.total_printed) || 0;
+            const totalPrinted = Math.round((Number(sumRow.total_printed) || 0) * 100) / 100;
 
             const roll = await db.get(`SELECT qty_imported, qty_waste, qty_error FROM pettem_rolls WHERE id = $1`, [Number(rollId)]);
             if (roll) {
-                const rem = Number(roll.qty_imported) - Number(roll.qty_waste) - Number(roll.qty_error) - totalPrinted;
+                const rem = Math.round(((Number(roll.qty_imported) - Number(roll.qty_waste) - Number(roll.qty_error) - totalPrinted)) * 100) / 100;
                 await db.run(`
                     UPDATE pettem_rolls
                     SET qty_printed = $1, qty_remaining = $2, updated_at = NOW()

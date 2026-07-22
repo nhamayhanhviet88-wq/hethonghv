@@ -171,11 +171,11 @@ module.exports = async function(fastify) {
                 FROM printing_records
                 WHERE pettem_roll_id = $1
             `, [Number(rollId)]);
-            const totalPrinted = Number(sumRow.total_printed) || 0;
+            const totalPrinted = Math.round((Number(sumRow.total_printed) || 0) * 100) / 100;
 
             const roll = await db.get(`SELECT qty_imported, qty_waste, qty_error FROM pettem_rolls WHERE id = $1`, [Number(rollId)]);
             if (roll) {
-                const rem = Number(roll.qty_imported) - Number(roll.qty_waste) - Number(roll.qty_error) - totalPrinted;
+                const rem = Math.round((Number(roll.qty_imported) - Number(roll.qty_waste) - Number(roll.qty_error) - totalPrinted) * 100) / 100;
                 await db.run(`
                     UPDATE pettem_rolls
                     SET qty_printed = $1, qty_remaining = $2, updated_at = NOW()
@@ -991,12 +991,13 @@ module.exports = async function(fastify) {
                 const roll = await db.get(`SELECT qty_remaining, roll_type FROM pettem_rolls WHERE id = $1`, [Number(pettem_roll_id)]);
                 if (!roll) return reply.code(400).send({ error: 'Cây in không tồn tại' });
 
-                let currentRollQty = Number(roll.qty_remaining);
+                let currentRollQty = Math.round(Number(roll.qty_remaining) * 100) / 100;
                 if (rec.is_print_done && Number(rec.pettem_roll_id) === Number(pettem_roll_id)) {
-                    currentRollQty += Number(rec.print_meters || 0);
+                    currentRollQty = Math.round((currentRollQty + Number(rec.print_meters || 0)) * 100) / 100;
                 }
 
-                const calculatedEndQty = currentRollQty - Number(print_meters);
+                const printMetersNum = Math.round(Number(print_meters) * 100) / 100;
+                const calculatedEndQty = Math.round((currentRollQty - printMetersNum) * 100) / 100;
                 if (calculatedEndQty < 0) {
                     return reply.code(400).send({ error: 'Số lượng cuối cuộn bị âm. Vui lòng chọn cây in khác hoặc nhập thêm vật liệu.' });
                 }
@@ -1023,7 +1024,7 @@ module.exports = async function(fastify) {
                     printer_id=COALESCE(printer_id,$2),
                     material_tx_id=$9
                     WHERE id=$8`, 
-                    [now, req.user.id, Number(pettem_roll_id), currentRollQty, Number(print_meters), calculatedEndQty, image_url, id, txIdToSet]);
+                    [now, req.user.id, Number(pettem_roll_id), currentRollQty, printMetersNum, calculatedEndQty, image_url, id, txIdToSet]);
 
                 await syncPettemRollMeters(pettem_roll_id);
                 if (rec.pettem_roll_id && Number(rec.pettem_roll_id) !== Number(pettem_roll_id)) {

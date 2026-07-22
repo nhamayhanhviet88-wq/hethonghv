@@ -20,6 +20,14 @@ function _bpiFindRecord(id) {
     return _bpi.records.find(function(x) { return String(x.id) === idStr; });
 }
 
+function _bpiFmtMeter(val) {
+    if (val === null || val === undefined || val === '') return '0';
+    var num = Number(val);
+    if (isNaN(num)) return String(val);
+    var rounded = Math.round(num * 100) / 100;
+    return String(rounded);
+}
+
 function _bpiSaveUrlState() {
     var f = _bpi.filter;
     var params = new URLSearchParams();
@@ -674,9 +682,9 @@ function _bpiRender() {
         var notesMergedCell = '';
         
         if (r.id) {
-            var meterVal = r.print_meters || '0';
-            var startVal = r.roll_start_qty || '0';
-            var endVal = r.roll_end_qty || '0';
+            var meterVal = _bpiFmtMeter(r.print_meters);
+            var startVal = _bpiFmtMeter(r.roll_start_qty);
+            var endVal = _bpiFmtMeter(r.roll_end_qty);
             var rollClickAttr = '';
             if (!r.material_tx_id && !r.pettem_roll_id) {
                 rollClickAttr = ' style="cursor:pointer;text-decoration:underline dashed #cbd5e1" onclick="_bpiEditRollCell(this,\''+r.id+'\',\''+(r.print_field||'')+'\',\''+(r.pettem_roll_id||'')+'\')"';
@@ -1160,7 +1168,7 @@ async function _bpiShowDoneModal(r) {
     activeRolls.forEach(function(roll) {
         var selectedStr = String(roll.id) === String(defaultSelectId) ? ' selected' : '';
         var typeLabel = roll.roll_type ? roll.roll_type.toUpperCase() : 'PET';
-        h += '<option value="' + roll.id + '"' + selectedStr + '>Cây ' + typeLabel + ' #' + roll.id + ' (Tồn: ' + Number(roll.qty_remaining).toFixed(2) + 'm)</option>';
+        h += '<option value="' + roll.id + '"' + selectedStr + '>Cây ' + typeLabel + ' #' + roll.id + ' (Tồn: ' + _bpiFmtMeter(roll.qty_remaining) + 'm)</option>';
     });
     h += '</select></div>';
     
@@ -1170,7 +1178,7 @@ async function _bpiShowDoneModal(r) {
     h += '<input type="text" id="bpiDone_start_qty" readonly value="0" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f1f5f9;font-weight:700">';
     h += '</div>';
     
-    var initMeters = isEditing ? (r.print_meters || '') : '';
+    var initMeters = isEditing ? _bpiFmtMeter(r.print_meters) : '';
     h += '<div><label style="display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:4px">Số Mét In (m) <span style="color:#ef4444">*</span></label>';
     h += '<input type="text" inputmode="decimal" id="bpiDone_meters" value="' + initMeters + '" oninput="_bpiUpdateDoneMeters()" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#ef4444" placeholder="Nhập số mét (VD: 4.5 hoặc 4,5)...">';
     h += '</div>';
@@ -1309,12 +1317,12 @@ function _bpiUpdateDoneMeters() {
     
     var selectedRoll = (window._bpiActiveRolls || []).find(function(x) { return String(x.id) === String(rollId); });
     var qtyStart = selectedRoll ? Number(selectedRoll.qty_remaining) : 0;
-    startEl.value = qtyStart.toFixed(2);
+    startEl.value = _bpiFmtMeter(qtyStart);
     
     var rawVal = String(metersEl.value || '').replace(',', '.');
     var metersVal = parseFloat(rawVal) || 0;
-    var qtyEnd = qtyStart - metersVal;
-    endEl.value = qtyEnd.toFixed(2);
+    var qtyEnd = Math.round((qtyStart - metersVal) * 100) / 100;
+    endEl.value = _bpiFmtMeter(qtyEnd);
     
     var warnEl = document.getElementById('bpiDone_warning');
     if (qtyEnd < 0) {
@@ -1452,9 +1460,9 @@ async function _bpiSubmitDone(id) {
     }
     
     var rollId = selectEl.value;
-    var metersVal = parseFloat(String(metersEl.value || '').replace(',', '.'));
-    var startQty = Number(startEl.value) || 0;
-    var endQty = Number(endEl.value) || 0;
+    var metersVal = Math.round((parseFloat(String(metersEl.value || '').replace(',', '.')) || 0) * 100) / 100;
+    var startQty = Math.round((Number(startEl.value) || 0) * 100) / 100;
+    var endQty = Math.round((Number(endEl.value) || 0) * 100) / 100;
     var imageUrl = imgUrlEl.value;
     
     if (!rollId) {
