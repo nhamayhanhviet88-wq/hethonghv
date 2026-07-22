@@ -3436,12 +3436,19 @@ async function _qlxOpenSaleRemindersModal(orderId, filterItemId) {
     html += '<button class="qlx-cl-btn confirm" id="_qlxConfirmSaleRemBtn" disabled onclick="_qlxConfirmSaleReminders(' + orderId + ')" style="padding:8px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-weight:800;cursor:pointer;opacity:0.5" onmouseover="this.style.opacity=this.disabled?0.5:0.9" onmouseout="this.style.opacity=this.disabled?0.5:1">✅ Xác Nhận Đã Xem Hết Nhắc Nhở</button>';
     html += '</div></div>';
 
+    var allAlreadyViewed = (rems.length > 0 && rems.every(function(rem) { return !!rem.is_viewed; }));
+    if (allAlreadyViewed) {
+        overlay.setAttribute('data-already-viewed', '1');
+    }
+
     overlay.innerHTML = html;
     document.body.appendChild(overlay);
     _qlxUpdateRemCountProgress();
 }
 
 function _qlxToggleSaleRemItem(el) {
+    var ov = document.getElementById('_qlxSaleRemOverlay');
+    if (ov && ov.getAttribute('data-already-viewed') === '1') return; // Cannot toggle if already confirmed
     el.classList.toggle('checked');
     var isC = el.classList.contains('checked');
     el.style.borderColor = isC ? '#86efac' : '#cbd5e1';
@@ -3456,19 +3463,35 @@ function _qlxToggleSaleRemItem(el) {
 }
 
 function _qlxUpdateRemCountProgress() {
+    var ov = document.getElementById('_qlxSaleRemOverlay');
+    var isAlreadyViewed = ov && ov.getAttribute('data-already-viewed') === '1';
     var total = document.querySelectorAll('.qlx-cl-item[data-rem-id]').length;
     var checked = document.querySelectorAll('.qlx-cl-item.checked[data-rem-id]').length;
     var c = document.getElementById('_qlxRemCount'), b = document.getElementById('_qlxRemBar'), btn = document.getElementById('_qlxConfirmSaleRemBtn');
     if (c) c.textContent = checked + '/' + total;
     if (b) b.style.width = (total ? (checked / total * 100) : 0) + '%';
     if (btn) {
-        btn.disabled = checked < total;
-        btn.style.opacity = (checked >= total) ? '1' : '0.5';
-        btn.style.cursor = (checked >= total) ? 'pointer' : 'not-allowed';
+        if (isAlreadyViewed) {
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            btn.style.cursor = 'not-allowed';
+            btn.style.background = '#64748b';
+            btn.innerHTML = '🔒 Đã Xác Nhận Xem Hết (Không Thể Ấn Lại)';
+            btn.onclick = null;
+        } else {
+            btn.disabled = checked < total;
+            btn.style.opacity = (checked >= total) ? '1' : '0.5';
+            btn.style.cursor = (checked >= total) ? 'pointer' : 'not-allowed';
+            btn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+            btn.innerHTML = '✅ Xác Nhận Đã Xem Hết Nhắc Nhở';
+        }
     }
 }
 
 async function _qlxConfirmSaleReminders(orderId) {
+    var ov = document.getElementById('_qlxSaleRemOverlay');
+    if (ov && ov.getAttribute('data-already-viewed') === '1') return;
+
     var checkedEls = document.querySelectorAll('.qlx-cl-item.checked[data-rem-id]');
     var remIds = Array.from(checkedEls).map(function(el){ return Number(el.getAttribute('data-rem-id')); }).filter(Boolean);
     if (remIds.length === 0) return;
@@ -3481,9 +3504,14 @@ async function _qlxConfirmSaleReminders(orderId) {
         if (res && res.error) {
             return showToast('Lỗi: ' + res.error, 'error');
         }
-        var ov = document.getElementById('_qlxSaleRemOverlay');
-        if (ov) ov.remove();
+        if (ov) {
+            ov.setAttribute('data-already-viewed', '1');
+        }
+        _qlxUpdateRemCountProgress();
         showToast('✅ Đã xác nhận xem hết tất cả nhắc nhở Sale của Quản Lý Xưởng!', 'success');
+        setTimeout(function() {
+            if (ov) ov.remove();
+        }, 1000);
         await _qlxLoadAll();
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
