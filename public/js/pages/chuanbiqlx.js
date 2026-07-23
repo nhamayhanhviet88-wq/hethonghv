@@ -1176,6 +1176,28 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             html += '</div>';
         }
 
+        // Render Sale Reminders for Cutting right at the top of the fabric modal
+        var topSaleCatReminders = data.sale_reminders_cat || [];
+        if (topSaleCatReminders.length > 0) {
+            html += '<div style="margin: 12px 20px 0; background:#fffbeb; border:1.5px solid #fde68a; padding:12px 14px; border-radius:12px;">';
+            html += '  <div style="font-weight:800; color:#b45309; font-size:12px; margin-bottom:8px; text-transform:uppercase; display:flex; align-items:center; gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN CẮT:</div>';
+            html += '  <div style="display:flex; flex-direction:column; gap:6px">';
+            topSaleCatReminders.forEach(function(rem) {
+                var remText = (typeof rem === 'string' ? rem : (rem.content || ''));
+                var isViewed = (typeof rem === 'object' && rem.is_viewed);
+                html += '    <div style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:#92400e; background:#fff; border:1px solid #fde68a; border-radius:8px; padding:6px 10px">';
+                html += '      <span>📌 ' + remText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                if (isViewed) {
+                    html += '      <span style="font-size:10px; font-weight:800; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; padding:2px 6px; border-radius:4px">✅ BPC đã xem</span>';
+                } else {
+                    html += '      <span style="font-size:10px; font-weight:800; color:#b45309; background:#fffbeb; border:1px solid #fde68a; padding:2px 6px; border-radius:4px">⏳ BPC chưa xem</span>';
+                }
+                html += '    </div>';
+            });
+            html += '  </div>';
+            html += '</div>';
+        }
+
         if (!ph || !ph.material_name) {
             html += '<div style="padding:30px;text-align:center;color:#94a3b8">⚠️ Phối này chưa có thông tin chất liệu/màu</div>';
         } else if (!wh) {
