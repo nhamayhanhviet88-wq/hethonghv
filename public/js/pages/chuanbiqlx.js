@@ -1495,7 +1495,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             // === Call new section (always visible) ===
             var callDisplay = isNoCut ? 'none' : 'block';
             html += '<div id="_qlxSecCall" style="display: ' + callDisplay + ';">';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed, isNoCut);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed, isNoCut, data.sale_reminders_cat);
             html += '</div>';
         }
 
@@ -1585,7 +1585,7 @@ async function _qlxToggleNoCutMode(chk, orderId, itemId, pairIndex) {
     }
 }
 
-function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule, primaryIndex, isCutClaimed, isNoCut) {
+function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cutChoice, cutReminders, isProductionDone, isCutDone, cutSchedule, primaryIndex, isCutClaimed, isNoCut, saleRemindersCat) {
     cutChoice = cutChoice || '';
     var isLocked = isProductionDone || isCutDone || isCutClaimed;
     var isScheduleLocked = isLocked || (primaryIndex !== null && primaryIndex !== undefined && pairIndex !== primaryIndex);
@@ -1609,7 +1609,7 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
     html += '<div id="_qlxCutScheduleContainer" style="background:#fff; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:12px; margin-top:12px; display: ' + cutScheduleDisplay + ';">';
     
     // Sale Reminders for Cutting
-    var saleCatReminders = data.sale_reminders_cat || [];
+    var saleCatReminders = saleRemindersCat || [];
     if (saleCatReminders.length > 0) {
         html += '  <div style="background:#fffbeb; border:1.5px solid #fde68a; border-radius:10px; padding:10px 12px; margin-bottom:12px;">';
         html += '    <div style="font-weight:800; color:#b45309; font-size:11px; margin-bottom:6px; text-transform:uppercase; display:flex; align-items:center; gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN CẮT:</div>';
