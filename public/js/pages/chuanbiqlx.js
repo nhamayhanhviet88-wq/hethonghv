@@ -1676,9 +1676,9 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
                 ? '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>'
                 : '<span style="font-size:10px; font-weight:800; color:#dc2626; background:#fee2e2; border:1px solid #fca5a5; padding:2px 8px; border-radius:6px">❌ QLX CHƯA ĐỌC (Bấm để đọc)</span>';
 
-            html += '      <div onclick="_qlxToggleFabSaleCatRem(' + remId + ',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:' + textColor + '; background:' + itemBg + '; border:1.5px solid ' + itemBorder + '; border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.2s">';
+            html += '      <div id="_qlx_cat_rem_item_' + remId + '" class="qlx-cat-rem-item" data-rem-id="' + remId + '" onclick="_qlxToggleFabSaleCatRem(' + remId + ')" style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:' + textColor + '; background:' + itemBg + '; border:1.5px solid ' + itemBorder + '; border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.2s">';
             html += '        <span>📌 ' + remText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-            html += '        ' + badgeHtml;
+            html += '        <span id="_qlx_cat_rem_badge_' + remId + '">' + badgeHtml + '</span>';
             html += '      </div>';
         });
         html += '    </div>';
@@ -1797,9 +1797,8 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
         var fabBtnStyle = isFabCallDisabled
             ? 'padding:10px 16px;background:#94a3b8;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:not-allowed;width:100%;opacity:0.65;'
             : 'padding:10px 16px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;width:100%;';
-        if (qlxUnviewedCount > 0) {
-            html += '<div id="_qlxFabCallRemWarn" style="margin-bottom:8px; background:#fef2f2; border:1.5px solid #fca5a5; border-radius:8px; padding:10px 12px; font-size:11px; color:#b91c1c; font-weight:700; text-align:center; line-height:1.4;">⚠️ Bạn còn ' + qlxUnviewedCount + ' câu Nhắc Nhở của Sale dành cho Bộ Phận Cắt chưa đọc. Vui lòng bấm nhấp vào từng câu để chuyển thành "QLX ĐÃ ĐỌC" để mở khóa nút Gọi Vải!</div>';
-        }
+        var warnStyle = qlxUnviewedCount > 0 ? 'display:block;' : 'display:none;';
+        html += '<div id="_qlxFabCallRemWarn" style="' + warnStyle + ' margin-bottom:8px; background:#fef2f2; border:1.5px solid #fca5a5; border-radius:8px; padding:10px 12px; font-size:11px; color:#b91c1c; font-weight:700; text-align:center; line-height:1.4;">⚠️ Bạn còn ' + qlxUnviewedCount + ' câu Nhắc Nhở của Sale dành cho Bộ Phận Cắt chưa đọc. Vui lòng bấm nhấp vào từng câu để chuyển thành "QLX ĐÃ ĐỌC" để mở khóa nút Gọi Vải!</div>';
         html += '<button id="_qlxFabCallBtn" ' + (isFabCallDisabled ? 'disabled' : '') + ' onclick="_qlxFabCallSubmit(\'' + mat + '\',\'' + col + '\',\'' + unit + '\',' + orderId + ',' + itemId + ',' + pairIndex + ')" style="' + fabBtnStyle + '">💾 Xác Nhận Gọi Vải</button>';
     }
     html += '<div id="_qlxFabCallResult" style="margin-top:8px"></div>';
@@ -1809,11 +1808,62 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
 
 window._qlxFabSaleCatRemsChecked = window._qlxFabSaleCatRemsChecked || {};
 
-function _qlxToggleFabSaleCatRem(remId, orderId, itemId, pairIndex) {
+function _qlxToggleFabSaleCatRem(remId) {
     if (!remId) return;
     window._qlxFabSaleCatRemsChecked = window._qlxFabSaleCatRemsChecked || {};
     window._qlxFabSaleCatRemsChecked[remId] = !window._qlxFabSaleCatRemsChecked[remId];
-    _qlxFabricPopup(orderId, itemId, pairIndex, true);
+    
+    var isViewed = !!window._qlxFabSaleCatRemsChecked[remId];
+    var itemEl = document.getElementById('_qlx_cat_rem_item_' + remId);
+    var badgeEl = document.getElementById('_qlx_cat_rem_badge_' + remId);
+    
+    if (itemEl) {
+        itemEl.style.background = isViewed ? '#f0fdf4' : '#fff';
+        itemEl.style.borderColor = isViewed ? '#86efac' : '#fde68a';
+        itemEl.style.color = isViewed ? '#166534' : '#92400e';
+    }
+    if (badgeEl) {
+        badgeEl.innerHTML = isViewed
+            ? '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>'
+            : '<span style="font-size:10px; font-weight:800; color:#dc2626; background:#fee2e2; border:1px solid #fca5a5; padding:2px 8px; border-radius:6px">❌ QLX CHƯA ĐỌC (Bấm để đọc)</span>';
+    }
+
+    _qlxCheckFabCallLockStatus();
+}
+
+function _qlxCheckFabCallLockStatus() {
+    var items = document.querySelectorAll('.qlx-cat-rem-item');
+    var unviewedCount = 0;
+    items.forEach(function(el) {
+        var rId = el.getAttribute('data-rem-id');
+        if (rId && !window._qlxFabSaleCatRemsChecked[rId]) {
+            unviewedCount++;
+        }
+    });
+
+    var warnEl = document.getElementById('_qlxFabCallRemWarn');
+    var btn = document.getElementById('_qlxFabCallBtn');
+
+    if (unviewedCount > 0) {
+        if (warnEl) {
+            warnEl.style.display = 'block';
+            warnEl.innerHTML = '⚠️ Bạn còn ' + unviewedCount + ' câu Nhắc Nhở của Sale dành cho Bộ Phận Cắt chưa đọc. Vui lòng bấm nhấp vào từng câu để chuyển thành "QLX ĐÃ ĐỌC" để mở khóa nút Gọi Vải!';
+        }
+        if (btn) {
+            btn.disabled = true;
+            btn.style.background = '#94a3b8';
+            btn.style.cursor = 'not-allowed';
+            btn.style.opacity = '0.65';
+        }
+    } else {
+        if (warnEl) warnEl.style.display = 'none';
+        if (btn) {
+            btn.disabled = false;
+            btn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+            btn.style.cursor = 'pointer';
+            btn.style.opacity = '1';
+        }
+    }
 }
 
 
