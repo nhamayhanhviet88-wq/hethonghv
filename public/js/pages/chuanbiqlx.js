@@ -1676,7 +1676,7 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
                 ? '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>'
                 : '<span style="font-size:10px; font-weight:800; color:#dc2626; background:#fee2e2; border:1px solid #fca5a5; padding:2px 8px; border-radius:6px">❌ QLX CHƯA ĐỌC (Bấm để đọc)</span>';
 
-            html += '      <div id="_qlx_cat_rem_item_' + remId + '" class="qlx-cat-rem-item" data-rem-id="' + remId + '" onclick="_qlxToggleFabSaleCatRem(' + remId + ')" style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:' + textColor + '; background:' + itemBg + '; border:1.5px solid ' + itemBorder + '; border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.2s">';
+            html += '      <div id="_qlx_cat_rem_item_' + remId + '" class="qlx-cat-rem-item" data-rem-id="' + remId + '" onclick="_qlxToggleFabSaleCatRem(' + remId + ',' + itemId + ')" style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:' + textColor + '; background:' + itemBg + '; border:1.5px solid ' + itemBorder + '; border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.2s">';
             html += '        <span>📌 ' + remText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             html += '        <span id="_qlx_cat_rem_badge_' + remId + '">' + badgeHtml + '</span>';
             html += '      </div>';
@@ -1808,7 +1808,7 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
 
 window._qlxFabSaleCatRemsChecked = window._qlxFabSaleCatRemsChecked || {};
 
-function _qlxToggleFabSaleCatRem(remId) {
+async function _qlxToggleFabSaleCatRem(remId, itemId) {
     if (!remId) return;
     window._qlxFabSaleCatRemsChecked = window._qlxFabSaleCatRemsChecked || {};
     window._qlxFabSaleCatRemsChecked[remId] = !window._qlxFabSaleCatRemsChecked[remId];
