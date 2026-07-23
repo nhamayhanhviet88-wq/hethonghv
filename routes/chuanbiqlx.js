@@ -4093,7 +4093,11 @@ module.exports = async function(fastify) {
                     COALESCE((
                         SELECT COUNT(*)::int FROM sale_reminder_views srv 
                         WHERE srv.reminder_id = sr.id AND srv.record_type = 'cutting'
-                    ), 0) AS view_count
+                    ), 0) AS bpc_view_count,
+                    COALESCE((
+                        SELECT COUNT(*)::int FROM sale_reminder_views srv 
+                        WHERE srv.reminder_id = sr.id AND srv.record_type IN ('qlx_fabric_call', 'qlx_preparation')
+                    ), 0) AS qlx_view_count
              FROM sale_reminders sr 
              WHERE sr.dht_order_id = $1 AND (sr.item_id = $2 OR sr.item_id IS NULL) AND sr.dept = 'cat' 
              ORDER BY sr.id`,
@@ -4118,7 +4122,9 @@ module.exports = async function(fastify) {
             sale_reminders_cat: catSaleReminders.map(r => ({
                 id: r.id,
                 content: r.content,
-                is_viewed: Number(r.view_count) > 0
+                is_viewed: Number(r.bpc_view_count) > 0,
+                bpc_is_viewed: Number(r.bpc_view_count) > 0,
+                qlx_is_viewed: Number(r.qlx_view_count) > 0
             })),
             cut_schedule: cutSchedule,
             primary_index: primaryIndex,
