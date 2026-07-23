@@ -1181,7 +1181,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         } else if (!wh) {
             // No match in kho
             html += '<div style="padding:16px 20px"><div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px;font-size:12px;color:#92400e;font-weight:600">⚠️ Kho không có chất liệu <b>' + ph.material_name + '</b> màu <b>' + ph.color_name + '</b></div></div>';
-            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed, isNoCut);
+            html += _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, data.cut_remind_choice, data.cut_reminders, data.is_production_done, data.is_cut_done, data.cut_schedule, data.primary_index, data.is_cut_claimed, isNoCut, data.sale_reminders_cat);
         } else {
             // Determine which type already chosen
             var isLocked = data.is_production_done || data.is_cut_done || data.is_cut_claimed;
