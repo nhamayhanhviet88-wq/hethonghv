@@ -4096,7 +4096,7 @@ module.exports = async function(fastify) {
                     ), 0) AS bpc_view_count,
                     COALESCE((
                         SELECT COUNT(*)::int FROM sale_reminder_views srv 
-                        WHERE srv.reminder_id = sr.id AND srv.record_type IN ('qlx_fabric_call', 'qlx_preparation')
+                        WHERE srv.reminder_id = sr.id AND (srv.record_type LIKE 'qlx%' OR srv.record_type = 'cutting_qlx')
                     ), 0) AS qlx_view_count
              FROM sale_reminders sr 
              WHERE sr.dht_order_id = $1 AND (sr.item_id = $2 OR sr.item_id IS NULL) AND sr.dept = 'cat' 

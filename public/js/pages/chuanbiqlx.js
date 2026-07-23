@@ -1829,6 +1829,17 @@ async function _qlxToggleFabSaleCatRem(remId, itemId) {
     }
 
     _qlxCheckFabCallLockStatus();
+
+    // Persist viewed status permanently to database immediately when checked
+    if (isViewed) {
+        try {
+            await apiCall('/api/sale-reminders/viewed', 'POST', {
+                reminder_ids: [Number(remId)],
+                record_type: 'qlx_fabric_call',
+                record_id: itemId ? Number(itemId) : null
+            });
+        } catch(e) {}
+    }
 }
 
 function _qlxCheckFabCallLockStatus() {
