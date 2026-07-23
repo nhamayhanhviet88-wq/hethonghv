@@ -1823,14 +1823,12 @@ async function _qlxToggleFabSaleCatRem(remId, itemId) {
     var badgeEl = document.getElementById('_qlx_cat_rem_badge_' + remId);
     
     if (itemEl) {
-        itemEl.style.background = isViewed ? '#f0fdf4' : '#fff';
-        itemEl.style.borderColor = isViewed ? '#86efac' : '#fde68a';
-        itemEl.style.color = isViewed ? '#166534' : '#92400e';
+        itemEl.style.background = '#f0fdf4';
+        itemEl.style.borderColor = '#86efac';
+        itemEl.style.color = '#166534';
     }
     if (badgeEl) {
-        badgeEl.innerHTML = isViewed
-            ? '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>'
-            : '<span style="font-size:10px; font-weight:800; color:#dc2626; background:#fee2e2; border:1px solid #fca5a5; padding:2px 8px; border-radius:6px">❌ QLX CHƯA ĐỌC (Bấm để đọc)</span>';
+        badgeEl.innerHTML = '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>';
     }
 
     _qlxCheckFabCallLockStatus();
@@ -1876,6 +1874,77 @@ function _qlxCheckFabCallLockStatus() {
         if (btn) {
             btn.disabled = false;
             btn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+            btn.style.cursor = 'pointer';
+            btn.style.opacity = '1';
+        }
+    }
+}
+
+window._qlxInEpRemsChecked = window._qlxInEpRemsChecked || {};
+
+async function _qlxToggleInEpSaleRem(remId, itemId) {
+    if (!remId) return;
+    window._qlxInEpRemsChecked = window._qlxInEpRemsChecked || {};
+    
+    // Once read, DO NOT allow un-reading
+    if (window._qlxInEpRemsChecked[remId]) return;
+
+    window._qlxInEpRemsChecked[remId] = true;
+    
+    var itemEl = document.getElementById('_qlx_inep_rem_item_' + remId);
+    var badgeEl = document.getElementById('_qlx_inep_rem_badge_' + remId);
+    
+    if (itemEl) {
+        itemEl.style.background = '#f0fdf4';
+        itemEl.style.borderColor = '#86efac';
+        itemEl.style.color = '#166534';
+        itemEl.style.cursor = 'default';
+        itemEl.removeAttribute('onclick');
+    }
+    if (badgeEl) {
+        badgeEl.innerHTML = '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>';
+    }
+
+    _qlxCheckInEpLockStatus();
+
+    // Persist viewed status permanently to database immediately when checked
+    try {
+        await apiCall('/api/sale-reminders/viewed', 'POST', {
+            reminder_ids: [Number(remId)],
+            record_type: 'qlx_printing_assignment',
+            record_id: itemId ? Number(itemId) : null
+        });
+    } catch(e) {}
+}
+
+function _qlxCheckInEpLockStatus() {
+    var items = document.querySelectorAll('.qlx-inep-rem-item');
+    var unviewedCount = 0;
+    items.forEach(function(el) {
+        var rId = el.getAttribute('data-rem-id');
+        if (rId && !window._qlxInEpRemsChecked[rId]) {
+            unviewedCount++;
+        }
+    });
+
+    var warnEl = document.getElementById('_qlxInEpRemWarn');
+    var btn = document.getElementById('_qlxPASaveBtn');
+
+    if (warnEl) {
+        warnEl.style.display = unviewedCount > 0 ? 'block' : 'none';
+        warnEl.innerHTML = '⚠️ Bạn còn ' + unviewedCount + ' câu Nhắc Nhở của Sale dành cho Bộ Phận In & Ép chưa đọc. Vui lòng bấm nhấp vào từng câu để chuyển thành "QLX ĐÃ ĐỌC" để mở khóa nút Lưu Phân Công!';
+    }
+    if (btn) {
+        if (unviewedCount > 0) {
+            btn.setAttribute('disabled', 'disabled');
+            btn.style.background = '#94a3b8';
+            btn.style.color = '#fff';
+            btn.style.cursor = 'not-allowed';
+            btn.style.opacity = '0.65';
+        } else {
+            btn.removeAttribute('disabled');
+            btn.style.background = 'linear-gradient(135deg,#0f172a,#1e3a5f)';
+            btn.style.color = '#fff';
             btn.style.cursor = 'pointer';
             btn.style.opacity = '1';
         }
@@ -2592,6 +2661,47 @@ async function _qlxAssignIn(orderId, itemId) {
         html += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:6px">SẢN PHẨM</label>';
         html += '<input type="text" value="' + spLabel.replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed"></div>';
 
+        // SALE NHẮC NHỞ BỘ PHẬN IN & ÉP (QLX BẮT BUỘC ĐỌC)
+        var saleInEpRems = data.sale_reminders_in_ep || [];
+        var inEpUnviewedCount = 0;
+        if (saleInEpRems.length > 0) {
+            html += '<div style="margin-bottom:16px; background:#fffbeb; border:1.5px solid #fef3c7; border-radius:12px; padding:12px 14px;">';
+            html += '  <div style="font-size:12px; font-weight:800; color:#b45309; margin-bottom:8px; display:flex; align-items:center; gap:6px;">📢 SALE NHẮC NHỞ BỘ PHẬN IN & ÉP (QLX BẮT BUỘC ĐỌC):</div>';
+            html += '  <div style="font-size:11px; color:#d97706; margin-bottom:8px; font-weight:600;">⚠️ Vui lòng nhấp vào từng thẻ nhắc nhở bên dưới để đánh dấu <b style="color:#059669">"QLX Đã Đọc"</b>. Nút <b>Lưu Phân Công</b> chỉ mở khóa khi QLX đã đọc hết.</div>';
+            html += '  <div style="display:flex; flex-direction:column; gap:6px">';
+            
+            saleInEpRems.forEach(function(rem) {
+                var remId = rem.id;
+                var deptName = rem.dept === 'in' ? '🖨️ In' : (rem.dept === 'ep' ? '🔥 Ép' : '📌');
+                var remText = rem.content || '';
+                
+                var isQlxViewed = !!rem.qlx_is_viewed || (window._qlxInEpRemsChecked && !!window._qlxInEpRemsChecked[remId]);
+                if (isQlxViewed) {
+                    window._qlxInEpRemsChecked = window._qlxInEpRemsChecked || {};
+                    window._qlxInEpRemsChecked[remId] = true;
+                } else {
+                    inEpUnviewedCount++;
+                }
+
+                var itemBg = isQlxViewed ? '#f0fdf4' : '#fff';
+                var itemBorder = isQlxViewed ? '#86efac' : '#fde68a';
+                var textColor = isQlxViewed ? '#166534' : '#92400e';
+                var badgeHtml = isQlxViewed
+                    ? '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>'
+                    : '<span style="font-size:10px; font-weight:800; color:#dc2626; background:#fee2e2; border:1px solid #fca5a5; padding:2px 8px; border-radius:6px">❌ QLX CHƯA ĐỌC (Bấm để đọc)</span>';
+
+                var onclickAttr = isQlxViewed ? '' : 'onclick="_qlxToggleInEpSaleRem(' + remId + ',' + itemId + ')"';
+                var cursorStyle = isQlxViewed ? 'cursor:default;' : 'cursor:pointer;';
+
+                html += '    <div id="_qlx_inep_rem_item_' + remId + '" class="qlx-inep-rem-item" data-rem-id="' + remId + '" ' + onclickAttr + ' style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:' + textColor + '; background:' + itemBg + '; border:1.5px solid ' + itemBorder + '; border-radius:8px; padding:8px 12px; ' + cursorStyle + ' transition:all 0.2s">';
+                html += '      <span>' + deptName + ': ' + remText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                html += '      <span id="_qlx_inep_rem_badge_' + remId + '">' + badgeHtml + '</span>';
+                html += '    </div>';
+            });
+            html += '  </div>';
+            html += '</div>';
+        }
+
         // LĨNH VỰC IN
         html += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:6px">LĨNH VỰC IN & PHÂN CÔNG <span style="color:#dc2626">*</span></label>';
         
@@ -2754,13 +2864,28 @@ async function _qlxAssignIn(orderId, itemId) {
         html += '</div>'; // close main padding container
 
         // Footer
-        html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;border-radius:0 0 16px 16px">';
-        if (!data.is_production_done && !(data.is_print_done && data.is_press_done) && assignments && assignments.length > 0) {
-            html += '<button onclick="_qlxPACancelAll()" style="padding:10px 24px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(220,38,38,0.15);margin-right:auto">🗑️ Hủy phân công in toàn bộ</button>';
-        }
-        html += '<button onclick="document.getElementById(\'_qlxPAOverlay\').remove()" style="padding:10px 24px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:#475569;transition:all 0.15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'">Hủy bỏ</button>';
+        html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;background:#f8fafc;border-radius:0 0 16px 16px">';
         if (!data.is_production_done && !(data.is_print_done && data.is_press_done)) {
-            html += '<button onclick="_qlxPASave()" style="padding:10px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(15,23,42,0.15)">💾 Lưu Phân Công</button>';
+            var isSaveDisabled = inEpUnviewedCount > 0;
+            var saveBtnStyle = isSaveDisabled
+                ? 'padding:10px 24px;background:#94a3b8;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:not-allowed;opacity:0.65;'
+                : 'padding:10px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(15,23,42,0.15);';
+            var warnStyle = inEpUnviewedCount > 0 ? 'display:block;' : 'display:none;';
+            
+            html += '<div style="display:flex; flex-direction:column; width:100%; gap:8px;">';
+            html += '  <div id="_qlxInEpRemWarn" style="' + warnStyle + ' background:#fef2f2; border:1.5px solid #fca5a5; border-radius:8px; padding:8px 12px; font-size:11px; color:#b91c1c; font-weight:700; text-align:center; line-height:1.4;">⚠️ Bạn còn ' + inEpUnviewedCount + ' câu Nhắc Nhở của Sale dành cho Bộ Phận In & Ép chưa đọc. Vui lòng bấm nhấp vào từng câu để chuyển thành "QLX ĐÃ ĐỌC" để mở khóa nút Lưu Phân Công!</div>';
+            html += '  <div style="display:flex; justify-content:flex-end; gap:10px; width:100%; border-top:1px solid #f1f5f9; padding-top:8px;">';
+            if (assignments && assignments.length > 0) {
+                html += '<button onclick="_qlxPACancelAll()" style="padding:10px 24px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(220,38,38,0.15);margin-right:auto">🗑️ Hủy phân công in toàn bộ</button>';
+            }
+            html += '<button onclick="document.getElementById(\'_qlxPAOverlay\').remove()" style="padding:10px 24px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:#475569;transition:all 0.15s" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'">Hủy bỏ</button>';
+            html += '<button id="_qlxPASaveBtn" ' + (isSaveDisabled ? 'disabled' : '') + ' onclick="_qlxPASave()" style="' + saveBtnStyle + '">💾 Lưu Phân Công</button>';
+            html += '  </div>';
+            html += '</div>';
+        } else {
+            html += '<div style="display:flex; justify-content:flex-end; gap:10px; width:100%;">';
+            html += '<button onclick="document.getElementById(\'_qlxPAOverlay\').remove()" style="padding:10px 24px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:#475569;transition:all 0.15s">Hủy bỏ</button>';
+            html += '</div>';
         }
         html += '</div></div>';
 

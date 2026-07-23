@@ -2554,12 +2554,30 @@ module.exports = async function(fastify) {
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
         }
 
+        const inEpSaleReminders = await db.all(
+            `SELECT sr.id, sr.dept, sr.content,
+                    COALESCE((
+                        SELECT COUNT(*)::int FROM sale_reminder_views srv 
+                        WHERE srv.reminder_id = sr.id AND (srv.record_type LIKE 'qlx%' OR srv.record_type = 'printing_assignment_qlx')
+                    ), 0) AS qlx_view_count
+             FROM sale_reminders sr 
+             WHERE sr.dht_order_id = $1 AND (sr.item_id = $2 OR sr.item_id IS NULL) AND sr.dept IN ('in', 'ep') 
+             ORDER BY sr.dept, sr.id`,
+            [Number(orderId), itemId ? Number(itemId) : null]
+        );
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, items_desc: itemDesc },
             fields: fieldsWithOps,
             assignments: currentAssigns,
             print_remind_choice: printChoice,
             press_remind_choice: pressChoice,
+            sale_reminders_in_ep: inEpSaleReminders.map(r => ({
+                id: r.id,
+                dept: r.dept,
+                content: r.content,
+                qlx_is_viewed: Number(r.qlx_view_count) > 0
+            })),
             reminders: reminders.map(r => ({
                 id: r.id,
                 dept: r.dept,
