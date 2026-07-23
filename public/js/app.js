@@ -451,6 +451,8 @@ const _PAGE_SCRIPT_MAP = {
     'nhapxuathoanvatlieu': '/js/pages/nhapxuathoanvatlieu.js',
     'congviec-qlx': '/js/pages/congviecqlx.js?v=20260722_qlx_reminders_v29',
     'congviecqlx': '/js/pages/congviecqlx.js?v=20260722_qlx_reminders_v29',
+    'chuanbiqlx': '/js/pages/chuanbiqlx.js?v=20260723_call_fab_cat_reminders_v1',
+    'quanlyxuongqlx': '/js/pages/chuanbiqlx.js?v=20260723_call_fab_cat_reminders_v1',
     'chuyen-so': '/js/pages/chuyenso.js',
     'chuyenso': '/js/pages/chuyenso.js',
     'chuyensosale': '/js/pages/chuyensosale.js',

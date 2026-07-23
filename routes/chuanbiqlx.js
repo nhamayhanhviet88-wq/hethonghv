@@ -4088,6 +4088,18 @@ module.exports = async function(fastify) {
         `, [itemId, pi]);
         const isPhoiCutClaimed = !!hasClaimedCut;
 
+        const catSaleReminders = await db.all(
+            `SELECT sr.id, sr.content,
+                    COALESCE((
+                        SELECT COUNT(*)::int FROM sale_reminder_views srv 
+                        WHERE srv.reminder_id = sr.id AND srv.record_type = 'cutting'
+                    ), 0) AS view_count
+             FROM sale_reminders sr 
+             WHERE sr.dht_order_id = $1 AND (sr.item_id = $2 OR sr.item_id IS NULL) AND sr.dept = 'cat' 
+             ORDER BY sr.id`,
+            [orderId, itemId]
+        );
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, is_no_cut: !!order.is_no_cut, sx_print_confirmed: !!order.sx_print_confirmed },
             item: { id: item.id, description: item.description, quantity: item.quantity, item_index: item.item_index, is_no_cut: !!item.is_no_cut },
@@ -4102,6 +4114,11 @@ module.exports = async function(fastify) {
                 id: r.id,
                 content: r.content,
                 is_viewed: viewedIds.includes(r.id)
+            })),
+            sale_reminders_cat: catSaleReminders.map(r => ({
+                id: r.id,
+                content: r.content,
+                is_viewed: Number(r.view_count) > 0
             })),
             cut_schedule: cutSchedule,
             primary_index: primaryIndex,
