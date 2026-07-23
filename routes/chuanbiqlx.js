@@ -4097,7 +4097,7 @@ module.exports = async function(fastify) {
              FROM sale_reminders sr 
              WHERE sr.dht_order_id = $1 AND (sr.item_id = $2 OR sr.item_id IS NULL) AND sr.dept = 'cat' 
              ORDER BY sr.id`,
-            [orderId, itemId]
+            [Number(orderId), Number(itemId)]
         );
 
         return {

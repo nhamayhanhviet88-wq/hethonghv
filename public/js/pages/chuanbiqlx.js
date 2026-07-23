@@ -1178,6 +1178,20 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
 
         // Render Sale Reminders for Cutting right at the top of the fabric modal
         var topSaleCatReminders = data.sale_reminders_cat || [];
+        if ((!topSaleCatReminders || topSaleCatReminders.length === 0) && orderId) {
+            try {
+                var catRemRes = await apiCall('/api/sale-reminders?order_id=' + orderId + (itemId ? '&item_id=' + itemId : '') + '&dept=cat');
+                if (catRemRes) {
+                    if (Array.isArray(catRemRes.reminder_details)) {
+                        topSaleCatReminders = catRemRes.reminder_details;
+                    } else if (Array.isArray(catRemRes.reminders)) {
+                        topSaleCatReminders = catRemRes.reminders;
+                    } else if (Array.isArray(catRemRes)) {
+                        topSaleCatReminders = catRemRes;
+                    }
+                }
+            } catch(e) {}
+        }
         if (topSaleCatReminders.length > 0) {
             html += '<div style="margin: 12px 20px 0; background:#fffbeb; border:1.5px solid #fde68a; padding:12px 14px; border-radius:12px;">';
             html += '  <div style="font-weight:800; color:#b45309; font-size:12px; margin-bottom:8px; text-transform:uppercase; display:flex; align-items:center; gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN CẮT:</div>';
