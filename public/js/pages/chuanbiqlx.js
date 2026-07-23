@@ -1659,10 +1659,12 @@ function _qlxFabCallSection(ph, unit, unitLabel, orderId, itemId, pairIndex, cut
             var remText = typeof rem === 'string' ? rem : (rem.content || '');
             if (remId) qlxAllRemIds.push(remId);
 
-            var isQlxViewed = typeof rem === 'object' && (rem.qlx_is_viewed || rem.is_viewed);
+            var dbQlxViewed = typeof rem === 'object' && (rem.qlx_is_viewed || rem.is_viewed);
+            var isQlxViewed = !!dbQlxViewed;
             if (window._qlxFabSaleCatRemsChecked && window._qlxFabSaleCatRemsChecked[remId] !== undefined) {
-                isQlxViewed = !!window._qlxFabSaleCatRemsChecked[remId];
-            } else if (isQlxViewed) {
+                isQlxViewed = dbQlxViewed || !!window._qlxFabSaleCatRemsChecked[remId];
+            }
+            if (isQlxViewed) {
                 window._qlxFabSaleCatRemsChecked = window._qlxFabSaleCatRemsChecked || {};
                 window._qlxFabSaleCatRemsChecked[remId] = true;
             }
