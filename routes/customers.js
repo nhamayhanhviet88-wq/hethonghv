@@ -820,16 +820,19 @@ async function customersRoutes(fastify, options) {
     }
 
     fastify.get('/api/order-codes/next', { preHandler: [authenticate] }, async (request, reply) => {
-        const { customer_id } = request.query;
-        if (customer_id) {
+        const { customer_id, mode } = request.query;
+        if (customer_id && mode !== 'new_deposit' && mode !== 'new') {
             const cust = await db.get('SELECT phone FROM customers WHERE id = ?', [Number(customer_id)]);
             if (cust?.phone) {
                 const existingDeposit = await db.get(`
-                    SELECT order_tt_coc FROM payment_records 
-                    WHERE customer_phone = ? 
-                      AND payment_type = 'dat_coc' 
-                      AND order_tt_coc IS NOT NULL AND order_tt_coc != ''
-                    ORDER BY id DESC LIMIT 1
+                    SELECT pr.order_tt_coc 
+                    FROM payment_records pr
+                    LEFT JOIN order_codes oc ON oc.order_code = pr.order_tt_coc
+                    WHERE pr.customer_phone = ? 
+                      AND pr.payment_type = 'dat_coc' 
+                      AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''
+                      AND (oc.id IS NULL OR oc.status != 'completed')
+                    ORDER BY pr.id DESC LIMIT 1
                 `, [cust.phone]);
                 if (existingDeposit?.order_tt_coc) {
                     return { order_code: existingDeposit.order_tt_coc, existing: true };

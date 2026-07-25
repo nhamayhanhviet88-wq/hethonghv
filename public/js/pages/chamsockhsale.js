@@ -1148,7 +1148,7 @@ async function _saleOpenConsultModal(customerId) {
             apiCall(`/api/customers/${customerId}`).catch(() => ({})),
             apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({})),
             apiCall(`/api/customers/${customerId}/next-followup`).catch(() => ({})),
-            apiCall(`/api/order-codes/next?customer_id=${customerId}`).catch(() => ({}))
+            apiCall(`/api/order-codes/next?customer_id=${customerId}&mode=new_deposit`).catch(() => ({}))
         ]);
         if (pendingData.hasPending) pendingEmergency = pendingData.emergency;
         const ROLE_LABELS_H = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng' };
@@ -1709,7 +1709,7 @@ function _saleOnConsultTypeChange() {
         if (codeInput && !codeInput.value) {
             codeInput.value = 'Đang tạo...';
             const custId = window._currentConsultCustomerId;
-            apiCall(`/api/order-codes/next${custId ? '?customer_id=' + custId : ''}`).then(res => {
+            apiCall(`/api/order-codes/next?mode=new_deposit${custId ? '&customer_id=' + custId : ''}`).then(res => {
                 if (res.order_code) codeInput.value = res.order_code;
             });
         }
