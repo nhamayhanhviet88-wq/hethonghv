@@ -281,13 +281,14 @@ module.exports = async function(fastify) {
         }
         const counts = await db.get(`
             SELECT 
-                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab1,
-                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab2,
-                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL)::int AS tab3,
-                COUNT(*) FILTER (WHERE sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date)))::int AS tab4,
-                COUNT(*) FILTER (WHERE sr.error_reported = true)::int AS tab5
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND COALESCE(oi.production_cancelled, false) = false AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab1,
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.done_date IS NULL AND COALESCE(oi.production_cancelled, false) = false AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1))::int AS tab2,
+                COUNT(*) FILTER (WHERE sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL AND COALESCE(oi.production_cancelled, false) = false)::int AS tab3,
+                COUNT(*) FILTER (WHERE sr.done_date IS NULL AND COALESCE(oi.production_cancelled, false) = false AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date)))::int AS tab4,
+                COUNT(*) FILTER (WHERE sr.error_reported = true AND COALESCE(oi.production_cancelled, false) = false)::int AS tab5
             FROM sewing_records sr
             LEFT JOIN dht_orders o ON sr.dht_order_id = o.id
+            LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
             ${where}
         `, params);
         return counts || { tab1: 0, tab2: 0, tab3: 0, tab4: 0, tab5: 0 };
@@ -316,16 +317,16 @@ module.exports = async function(fastify) {
         if (sewing_team_id) { where += ` AND sr.sewing_team_id=$${idx++}`; params.push(Number(sewing_team_id)); }
         
         if (tab === '1') {
-            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
+            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND COALESCE(oi.production_cancelled, false) = false AND sr.expected_date <= (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
         } else if (tab === '2') {
-            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
+            where += ` AND sr.contractor_id IS NULL AND sr.done_date IS NULL AND COALESCE(oi.production_cancelled, false) = false AND sr.expected_date > (timezone('Asia/Ho_Chi_Minh', now())::date + 1)`;
         } else if (tab === '3') {
-            where += ` AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL`;
+            where += ` AND sr.contractor_id IS NULL AND sr.sewing_team_id IS NULL AND sr.done_date IS NULL AND COALESCE(oi.production_cancelled, false) = false`;
         } else if (tab === '4') {
             if (status === 'done_today') {
-                where += ` AND sr.done_date::date = (timezone('Asia/Ho_Chi_Minh', now())::date)`;
+                where += ` AND sr.done_date::date = (timezone('Asia/Ho_Chi_Minh', now())::date) AND COALESCE(oi.production_cancelled, false) = false`;
             } else if (status === 'done_all') {
-                where += ` AND sr.done_date IS NOT NULL`;
+                where += ` AND sr.done_date IS NOT NULL AND COALESCE(oi.production_cancelled, false) = false`;
                 if (req.query.done_date) {
                     where += ` AND sr.done_date::date = $${idx++}`;
                     params.push(req.query.done_date);
@@ -339,7 +340,7 @@ module.exports = async function(fastify) {
                     params.push(Number(req.query.done_year));
                 }
             } else if (status === 'undone_past_today') {
-                where += ` AND sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date))`;
+                where += ` AND sr.done_date IS NULL AND COALESCE(oi.production_cancelled, false) = false AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date))`;
             } else if (status === 'all') {
                 // Return all orders (no done_date conditions)
             } else if (status === 'cancelled') {
@@ -348,7 +349,7 @@ module.exports = async function(fastify) {
                 where += ` AND sr.done_date IS NULL`;
             }
         } else if (tab === '5') {
-            where += ` AND sr.error_reported = true`;
+            where += ` AND sr.error_reported = true AND COALESCE(oi.production_cancelled, false) = false`;
         } else {
             if (status==='progress') where += ` AND sr.is_reported=true AND sr.done_date IS NULL`;
             else if (status==='done') where += ` AND sr.done_date IS NOT NULL`;
