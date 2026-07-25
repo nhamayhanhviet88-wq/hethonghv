@@ -2896,7 +2896,7 @@ async function _ktclUploadQCImages(event) {
         
     } catch(err) {
         showToast(err.message || 'Lỗi tải lên', 'error');
-        if (statusEl) statusEl.textContent = 'Lỗi tải ảnh!';
+        if (statusEl) statusEl.textContent = (err.message || 'Lỗi tải ảnh!');
     }
 }
 
