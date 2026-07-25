@@ -1205,8 +1205,26 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         // It will be backfilled in POST /api/order-codes when the order code is created
         if (log_type === 'dat_coc' && fields.payment_record_id) {
             const prId = Number(fields.payment_record_id);
-            const latestOrder = await db.get("SELECT order_code FROM order_codes WHERE customer_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1", [customerId]);
-            const targetOrderCode = latestOrder?.order_code || null;
+            
+            // Calculate NEXT predicted order code for this Sale user
+            const userId = request.user.id;
+            const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
+            const prefix = userRow?.order_code_prefix || 'SVTS';
+            
+            const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
+            let nextNum = 1;
+            if (lastCode) {
+                const match = lastCode.order_code.match(/(\d{4})$/);
+                if (match) nextNum = parseInt(match[1]) + 1;
+            }
+
+            const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
+            let crmPrefix = '';
+            if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
+                crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
+            }
+
+            const targetOrderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
 
             const lockResult = await db.run(`
                 UPDATE payment_records SET
@@ -1215,12 +1233,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     customer_name = $1,
                     customer_phone = $2,
                     cskh_user_id = $3,
-                    order_tt_coc = COALESCE(order_tt_coc, $5),
+                    order_tt_coc = $5,
                     locked_by = $3,
                     locked_at = NOW(),
                     updated_at = NOW()
                 WHERE id = $4
-                  AND (payment_type IS NULL OR payment_type != 'dat_coc')
             `, [customer.customer_name, customer.phone, request.user.id, prId, targetOrderCode]);
             if (lockResult.changes === 0) {
                 return reply.code(409).send({ error: 'Mã tiền này đã được nhận bởi người khác!' });
