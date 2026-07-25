@@ -41,7 +41,12 @@ function _kockolPickDeposit(prId) {
     document.getElementById('consultPaymentRecordId').value = d.id;
     document.getElementById('consultDepositAmount').value = d.amount;
     var l=document.getElementById('consultDepositLabel'); if(l) l.textContent=d.payment_code+' — '+(d.payment_method||'');
-    var a=document.getElementById('consultDepositAmountDisplay'); if(a) a.textContent='Số tiền: '+Number(d.amount).toLocaleString('vi-VN')+'đ';
+    var a=document.getElementById('consultDepositAmountDisplay');
+    var predictedCode = window._nextOrderCodeForConsult || '---';
+    if(a) {
+        a.innerHTML = 'Số tiền: ' + Number(d.amount).toLocaleString('vi-VN') + ' VNĐ' +
+            '<div style="font-size:13px;color:#1d4ed8;font-weight:700;margin-top:2px;">📦 Mã đơn sẽ nhận: ' + predictedCode + '</div>';
+    }
     var s=document.getElementById('consultDepositSelected'); if(s) s.style.display='block';
     var sr=document.getElementById('consultDepositSearch'); if(sr){sr.value=d.payment_code;sr.style.background='#f0fdf4';sr.style.fontWeight='700';}
     document.getElementById('consultDepositDropdown').style.display='none';
@@ -1028,11 +1033,12 @@ async function _kockolOpenConsultModal(customerId) {
     let consultLogs = [];
     try {
         // Load all data in parallel
-        const [pendingData, hData, custData, logData] = await Promise.all([
+        const [pendingData, hData, custData, logData, nextCodeData] = await Promise.all([
             apiCall(`/api/emergencies/pending/${customerId}`).catch(() => ({})),
             apiCall('/api/emergencies/handlers').catch(() => ({})),
             apiCall(`/api/customers/${customerId}`).catch(() => ({})),
-            apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({}))
+            apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({})),
+            apiCall(`/api/order-codes/next?customer_id=${customerId}&mode=new_deposit`).catch(() => ({}))
         ]);
         if (pendingData.hasPending) pendingEmergency = pendingData.emergency;
         const ROLE_LABELS_H = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng' };
@@ -1043,6 +1049,7 @@ async function _kockolOpenConsultModal(customerId) {
         existingItems = custData.items || [];
         window._currentConsultCustomerPinned = !!customerInfo.is_pinned;
         consultLogs = logData.logs || [];
+        window._nextOrderCodeForConsult = nextCodeData?.order_code || '---';
     } catch(e) {}
     const grandTotal = existingItems.reduce((s, i) => s + (i.total || 0), 0);
 

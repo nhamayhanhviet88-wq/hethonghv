@@ -212,7 +212,11 @@ function _ncPickDeposit(prId) {
     var lbl = document.getElementById('consultDepositLabel');
     if (lbl) lbl.textContent = d.payment_code + ' — ' + (d.payment_method||'');
     var amtEl = document.getElementById('consultDepositAmountDisplay');
-    if (amtEl) amtEl.textContent = 'Số tiền: ' + Number(d.amount).toLocaleString('vi-VN') + 'đ';
+    var predictedCode = window._nextOrderCodeForConsult || '---';
+    if (amtEl) {
+        amtEl.innerHTML = 'Số tiền: ' + Number(d.amount).toLocaleString('vi-VN') + ' VNĐ' +
+            '<div style="font-size:13px;color:#1d4ed8;font-weight:700;margin-top:2px;">📦 Mã đơn sẽ nhận: ' + predictedCode + '</div>';
+    }
     var sel = document.getElementById('consultDepositSelected');
     if (sel) sel.style.display = 'block';
     var search = document.getElementById('consultDepositSearch');
@@ -1261,11 +1265,12 @@ async function openConsultModal(customerId) {
     let consultLogs = [];
     try {
         // Load all data in parallel
-        const [pendingData, hData, custData, logData] = await Promise.all([
+        const [pendingData, hData, custData, logData, nextCodeData] = await Promise.all([
             apiCall(`/api/emergencies/pending/${customerId}`).catch(() => ({})),
             apiCall('/api/emergencies/handlers').catch(() => ({})),
             apiCall(`/api/customers/${customerId}`).catch(() => ({})),
-            apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({}))
+            apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({})),
+            apiCall(`/api/order-codes/next?customer_id=${customerId}&mode=new_deposit`).catch(() => ({}))
         ]);
         if (pendingData.hasPending) pendingEmergency = pendingData.emergency;
         const ROLE_LABELS_H = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng' };
@@ -1276,6 +1281,7 @@ async function openConsultModal(customerId) {
         existingItems = custData.items || [];
         window._currentConsultCustomerPinned = !!customerInfo.is_pinned;
         consultLogs = logData.logs || [];
+        window._nextOrderCodeForConsult = nextCodeData?.order_code || '---';
 
         const isMoiChuyen = _crmIsMoiChuyenClientSide(customerInfo, consultLogs) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role);
         if (isMoiChuyen) {
