@@ -1140,6 +1140,7 @@ async function _saleOpenConsultModal(customerId) {
     let customerInfo = {};
     let existingItems = [];
     let consultLogs = [];
+    let predictedOrderCode = '---';
     try {
         const [pendingData, hData, custData, logData, followupData, nextCodeData] = await Promise.all([
             apiCall(`/api/emergencies/pending/${customerId}`).catch(() => ({})),
@@ -1159,7 +1160,7 @@ async function _saleOpenConsultModal(customerId) {
         window._currentConsultCustomerPinned = !!customerInfo.is_pinned;
         consultLogs = logData.logs || [];
 
-        const predictedOrderCode = nextCodeData?.order_code || '---';
+        predictedOrderCode = nextCodeData?.order_code || '---';
         window._nextOrderCodeForConsult = predictedOrderCode;
 
         let currentCycleLogs = consultLogs;
