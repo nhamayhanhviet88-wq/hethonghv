@@ -1228,7 +1228,14 @@ function _ktclRenderTable() {
     const body = document.getElementById('ktclTableBody');
     if (!body) return;
     
-    let filtered = _ktclState.originalRecords.slice();
+    let filtered = _ktclState.originalRecords.slice().filter(r => {
+        if (r.production_cancelled) {
+            if (_ktclState.activeTab !== '4') return false;
+            const timeVal = _ktclState.timeFilterVal || 'undone_past_today';
+            if (timeVal !== 'cancelled' && timeVal !== 'all') return false;
+        }
+        return true;
+    });
     
     // Apply search filter
     if (_ktclState.search) {

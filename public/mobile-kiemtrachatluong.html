@@ -1706,6 +1706,11 @@
             const onlyMissingTech = activeTab === '4' && missingTechFilter && missingTechFilter.checked;
 
             filteredRecords = originalRecords.filter(r => {
+                if (r.production_cancelled) {
+                    if (activeTab !== '4') return false;
+                    const timeVal = document.getElementById('filterTime')?.value || 'undone_past_today';
+                    if (timeVal !== 'cancelled' && timeVal !== 'all') return false;
+                }
                 // Search filter
                 const nameMatch = (r.product_name || '').toLowerCase().includes(search) || 
                                   (r.cut_product_name || '').toLowerCase().includes(search) || 
