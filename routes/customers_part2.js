@@ -1230,15 +1230,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 UPDATE payment_records SET
                     payment_type = 'dat_coc',
                     handover_status = 'thu_quy_nhan',
-                    customer_name = $1,
-                    customer_phone = $2,
-                    cskh_user_id = $3,
-                    order_tt_coc = $5,
-                    locked_by = $3,
+                    customer_name = ?,
+                    customer_phone = ?,
+                    cskh_user_id = ?,
+                    order_tt_coc = ?,
+                    locked_by = ?,
                     locked_at = NOW(),
                     updated_at = NOW()
-                WHERE id = $4
-            `, [customer.customer_name, customer.phone, request.user.id, prId, targetOrderCode]);
+                WHERE id = ?
+            `, [customer.customer_name, customer.phone, request.user.id, targetOrderCode, request.user.id, prId]);
             if (lockResult.changes === 0) {
                 return reply.code(409).send({ error: 'Mã tiền này đã được nhận bởi người khác!' });
             }
