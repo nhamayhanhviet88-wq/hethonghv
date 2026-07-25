@@ -1207,25 +1207,29 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         if (log_type === 'dat_coc' && fields.payment_record_id) {
             const prId = Number(fields.payment_record_id);
             
-            // Calculate NEXT predicted order code for this Sale user
-            const userId = request.user.id;
-            const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
-            const prefix = userRow?.order_code_prefix || 'SVTS';
-            
-            const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
-            let nextNum = 1;
-            if (lastCode) {
-                const match = lastCode.order_code.match(/(\d{4})$/);
-                if (match) nextNum = parseInt(match[1]) + 1;
-            }
+            let targetOrderCode = fields.target_order_code ? String(fields.target_order_code).trim() : null;
 
-            const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
-            let crmPrefix = '';
-            if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
-                crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
-            }
+            if (!targetOrderCode || targetOrderCode === '---') {
+                // Calculate NEXT predicted order code for this Sale user (use customer assigned_to_id or request.user.id)
+                const userId = customer.assigned_to_id || request.user.id;
+                const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
+                const prefix = userRow?.order_code_prefix || 'SVTS';
+                
+                const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
+                let nextNum = 1;
+                if (lastCode) {
+                    const match = lastCode.order_code.match(/(\d{4})$/);
+                    if (match) nextNum = parseInt(match[1]) + 1;
+                }
 
-            const targetOrderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
+                const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
+                let crmPrefix = '';
+                if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
+                    crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
+                }
+
+                targetOrderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
+            }
 
             const lockResult = await db.run(`
                 UPDATE payment_records SET

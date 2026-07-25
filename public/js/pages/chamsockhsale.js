@@ -1818,6 +1818,10 @@ async function _saleSubmitConsultLog(customerId) {
         const recordId = document.getElementById('consultPaymentRecordIdSale')?.value;
         if (!recordId) { showToast('Vui lòng chọn mã tiền đặt cọc', 'error'); return; }
         payload.append('payment_record_id', recordId);
+        const targetCode = document.getElementById('consultDepositTargetOrderCodeValSale')?.textContent?.trim();
+        if (targetCode && targetCode !== '---') {
+            payload.append('target_order_code', targetCode);
+        }
     }
 
     const submitBtn = document.getElementById('consultSubmitBtnSale');
