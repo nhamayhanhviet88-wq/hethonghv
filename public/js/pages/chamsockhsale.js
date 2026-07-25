@@ -2212,7 +2212,7 @@ function _saleSelectDeposit(id, code, amount) {
     if (amountDisp) amountDisp.textContent = `Số tiền cọc: ${formatCurrency(amount)} VNĐ`;
 
     const targetDisp = document.getElementById('consultDepositTargetOrderCodeValSale');
-    if (targetDisp) targetDisp.textContent = window._nextOrderCodeForConsult || '---';
+    if (targetDisp && window._nextOrderCodeForConsult) targetDisp.textContent = window._nextOrderCodeForConsult;
 
     const searchInput = document.getElementById('consultDepositSearchSale');
     if (searchInput) searchInput.style.display = 'none';

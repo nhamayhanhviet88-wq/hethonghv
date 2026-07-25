@@ -1346,7 +1346,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 await db.run(`
                     UPDATE payment_records SET
                         payment_type = 'dat_coc',
-                        order_tt_coc = COALESCE($1, order_tt_coc),
+                        order_tt_coc = COALESCE(order_tt_coc, $1),
                         handover_status = 'thu_quy_nhan',
                         customer_name = COALESCE($2, customer_name),
                         customer_phone = COALESCE($3, customer_phone),
