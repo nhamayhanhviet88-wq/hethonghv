@@ -757,6 +757,7 @@
                 <option value="custom_date">📅 Xong ngày khác...</option>
                 <option value="custom_month">🗓️ Xong tháng/năm...</option>
                 <option value="done_all">📁 Xong tất cả</option>
+                <option value="cancelled">🚫 Đơn hủy</option>
                 <option value="all">📦 Tất cả</option>
             </select>
         </div>
@@ -1538,6 +1539,8 @@
                         }
                     } else if (timeVal === 'done_all') {
                         q += `&status=done_all`;
+                    } else if (timeVal === 'cancelled') {
+                        q += `&status=cancelled`;
                     } else if (timeVal === 'all') {
                         q += `&status=all`;
                     } else if (timeVal === 'undone') {

@@ -342,6 +342,8 @@ module.exports = async function(fastify) {
                 where += ` AND sr.done_date IS NULL AND (COALESCE(o.expected_ship_date, o.shipping_date) IS NULL OR COALESCE(o.expected_ship_date, o.shipping_date) <= (timezone('Asia/Ho_Chi_Minh', now())::date))`;
             } else if (status === 'all') {
                 // Return all orders (no done_date conditions)
+            } else if (status === 'cancelled') {
+                where += ` AND (COALESCE(oi.production_cancelled, false) = true OR sr.notes LIKE '%[HỦY BỎ - BÙ PHÍ]%' OR sr.notes LIKE '%[ĐÃ HỦY - BÙ PHÍ]%')`;
             } else {
                 where += ` AND sr.done_date IS NULL`;
             }

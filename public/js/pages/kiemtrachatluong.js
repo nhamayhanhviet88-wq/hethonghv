@@ -952,6 +952,7 @@ function renderKiemtrachatluongPage(content) {
                                 <option value="custom_date">📅 Xong ngày khác...</option>
                                 <option value="custom_month">🗓️ Xong tháng/năm...</option>
                                 <option value="done_all">📁 Xong tất cả</option>
+                                <option value="cancelled">🚫 Đơn hủy</option>
                                 <option value="all">📦 Tất cả</option>
                             </select>
                             <div id="ktclCustomDateContainer" style="display: ${_ktclState.activeTab === '4' && _ktclState.timeFilterVal === 'custom_date' ? 'flex' : 'none'}; align-items: center; gap: 6px;">
@@ -1136,6 +1137,8 @@ async function _ktclLoadData() {
                 }
             } else if (timeVal === 'done_all') {
                 url += `&status=done_all`;
+            } else if (timeVal === 'cancelled') {
+                url += `&status=cancelled`;
             } else if (timeVal === 'all') {
                 url += `&status=all`;
             } else if (timeVal === 'undone') {
