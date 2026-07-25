@@ -1191,6 +1191,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                         updated_at = NOW()
                     WHERE customer_phone = $2
                       AND payment_type = 'dat_coc'
+                      AND (order_tt_coc IS NULL OR order_tt_coc = '' OR order_tt_coc = $1)
                 `, [orderCode, customer.phone]);
             }
             generatedOrderCode = orderCode;
