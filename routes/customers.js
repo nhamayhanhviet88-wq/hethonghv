@@ -820,12 +820,28 @@ async function customersRoutes(fastify, options) {
     }
 
     fastify.get('/api/order-codes/next', { preHandler: [authenticate] }, async (request, reply) => {
+        const { customer_id } = request.query;
+        if (customer_id) {
+            const cust = await db.get('SELECT phone FROM customers WHERE id = ?', [Number(customer_id)]);
+            if (cust?.phone) {
+                const existingDeposit = await db.get(`
+                    SELECT order_tt_coc FROM payment_records 
+                    WHERE customer_phone = ? 
+                      AND payment_type = 'dat_coc' 
+                      AND order_tt_coc IS NOT NULL AND order_tt_coc != ''
+                    ORDER BY id DESC LIMIT 1
+                `, [cust.phone]);
+                if (existingDeposit?.order_tt_coc) {
+                    return { order_code: existingDeposit.order_tt_coc, existing: true };
+                }
+            }
+        }
+
         const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [request.user.id]);
         const prefix = userRow?.order_code_prefix;
         if (!prefix) return { order_code: null, error: 'Chưa cài đặt mã đơn cho nhân viên này' };
 
         const nextNum = await getNextOrderNumber(request.user.id);
-        const { customer_id } = request.query;
         const crmPrefix = await getCrmOrderPrefix(customer_id);
 
         return { order_code: crmPrefix + prefix + String(nextNum).padStart(4, '0'), prefix, crmPrefix, existing: false };
