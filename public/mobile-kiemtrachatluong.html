@@ -2678,7 +2678,13 @@
                 if (r) r.finish_images = JSON.stringify(data.images);
             } catch(err) {
                 toast(err.message, 'error');
-                document.getElementById('uploadStatus').textContent = 'Tải ảnh thất bại!';
+                const stEl = document.getElementById('uploadStatus');
+                if (stEl) {
+                    stEl.textContent = '❌ ' + (err.message || 'Tải ảnh thất bại!');
+                    stEl.style.color = '#ef4444';
+                    stEl.style.fontWeight = 'bold';
+                }
+                alert('⚠️ THÔNG BÁO: ' + (err.message || 'Tải ảnh thất bại!'));
             }
         }
 
@@ -2720,7 +2726,13 @@
                 if (r) r.qc_evidence_images = JSON.stringify(data.images);
             } catch(err) {
                 toast(err.message, 'error');
-                document.getElementById('evidenceUploadStatus').textContent = 'Tải ảnh thất bại!';
+                const stEl = document.getElementById('evidenceUploadStatus');
+                if (stEl) {
+                    stEl.textContent = '❌ ' + (err.message || 'Tải ảnh thất bại!');
+                    stEl.style.color = '#ef4444';
+                    stEl.style.fontWeight = 'bold';
+                }
+                alert('⚠️ THÔNG BÁO: ' + (err.message || 'Tải ảnh thất bại!'));
             }
         }
 
@@ -2777,7 +2789,13 @@
                 if (r) r.qc_missing_price_images = JSON.stringify(data.images);
             } catch(err) {
                 toast(err.message, 'error');
-                document.getElementById('missingPriceEvidenceUploadStatus').textContent = 'Tải ảnh thất bại!';
+                const stEl = document.getElementById('missingPriceEvidenceUploadStatus');
+                if (stEl) {
+                    stEl.textContent = '❌ ' + (err.message || 'Tải ảnh thất bại!');
+                    stEl.style.color = '#ef4444';
+                    stEl.style.fontWeight = 'bold';
+                }
+                alert('⚠️ THÔNG BÁO: ' + (err.message || 'Tải ảnh thất bại!'));
             }
         }
 
@@ -3031,6 +3049,7 @@
                 await loadData();
             } catch(err) {
                 toast(err.message, 'error');
+                alert('⚠️ THÔNG BÁO: ' + (err.message || 'Thao tác thất bại!'));
             } finally {
                 showLoading(false);
             }
