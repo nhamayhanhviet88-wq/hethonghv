@@ -580,8 +580,9 @@ function _bpeRenderRows(paged) {
             }
         }).join('');
 
-        if (r.is_draft) {
-            var warnBanner = '<td colspan="2" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
+        if (r.is_draft || r.edit_lock_by) {
+            var lockText = r.is_draft ? '⚠️ Đơn đang sửa, chờ cập nhật' : ('⚠️ Đơn đang mở sửa bởi ' + (r.edit_lock_by || 'người khác'));
+            var warnBanner = '<td colspan="2" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">' + lockText + '</span></td>';
             return '<tr style="opacity:0.5; pointer-events:none;">'
                 +'<td class="bpe-col-stt" style="font-weight:700;color:#94a3b8">'+(globalIndex+1)+'</td>'
                 +warnBanner
@@ -795,13 +796,22 @@ function _bpeRenderStats(count, arr) {
 
 async function _bpeClaimOrder(orderId, itemId, orderCode) {
     var pressReminders = [];
+    var saleReminders = [];
     try {
         var url = '/api/qlx/reminders?order_id=' + orderId + '&dept=ep';
         if (itemId) url += '&item_id=' + itemId;
         var remRes = await apiCall(url);
         pressReminders = remRes.reminders || [];
     } catch(e) {
-        console.error('Lỗi tải nhắc nhở:', e);
+        console.error('Lỗi tải nhắc nhở QLX:', e);
+    }
+    try {
+        var saleUrl = '/api/sale-reminders?order_id=' + orderId + '&dept=ep';
+        if (itemId) saleUrl += '&item_id=' + itemId;
+        var saleRes = await apiCall(saleUrl);
+        saleReminders = (saleRes.details || []).map(function(r) { return r.content; });
+    } catch(e) {
+        console.error('Lỗi tải nhắc nhở Sale:', e);
     }
 
     var groupKey = orderId + '_' + (itemId || 0);
@@ -854,6 +864,21 @@ async function _bpeClaimOrder(orderId, itemId, orderCode) {
         h += '</div>';
     }
 
+    if (saleReminders.length > 0) {
+        h += '<div style="margin-top:12px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px 14px;border-radius:12px;">';
+        h += '  <div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN ÉP:</div>';
+        h += '  <div style="display:flex;flex-direction:column;gap:10px">';
+        saleReminders.forEach(function(rem, remIdx) {
+            h += '    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #fde68a;border-radius:10px;padding:10px 12px;transition:all 0.3s">';
+            h += '       <input type="checkbox" class="bpe-reminder-cb" style="display:none">';
+            h += '       <div style="flex:1;font-size:12px;font-weight:700;color:#92400e;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            h += '       <button type="button" class="bpe-reminder-btn" onclick="_bpeToggleReminder(this)" style="flex-shrink:0;padding:6px 14px;border-radius:8px;border:1.5px solid #f59e0b;background:#fef3c7;color:#b45309;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpeReminderPulse 2s infinite">👉 Đã Xem và Làm</button>';
+            h += '    </div>';
+        });
+        h += '  </div>';
+        h += '</div>';
+    }
+
     if (pressReminders.length > 0) {
         h += '<div style="margin-top:12px;background:#f3e8ff;border:1.5px solid #d8b4fe;padding:12px 14px;border-radius:12px;">';
         h += '  <div style="font-weight:800;color:#6b21a8;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN ÉP:</div>';
@@ -872,7 +897,7 @@ async function _bpeClaimOrder(orderId, itemId, orderCode) {
     h += '</div>';
     h += '<div class="bpc-modal-actions">';
     h += '<button class="bpc-modal-btn cancel" onclick="_bpeCloseModal()">Hủy</button>';
-    var hasReminders = pressReminders.length > 0;
+    var hasReminders = (pressReminders.length > 0) || (saleReminders.length > 0);
     var btnStyle = hasReminders ? 'background:linear-gradient(135deg,#7c3aed,#4f46e5);opacity:0.5' : 'background:linear-gradient(135deg,#7c3aed,#4f46e5)';
     h += '<button class="bpc-modal-btn confirm" id="_bpeConfirmBtn" ' + (hasReminders ? 'disabled' : '') + ' style="' + btnStyle + '" onclick="_bpeDoClaimOrder(' + orderId + ',' + (itemId || 'null') + ',\'' + orderCode + '\')">🔥 XÁC NHẬN NHẬN</button>';
     h += '</div></div></div>';

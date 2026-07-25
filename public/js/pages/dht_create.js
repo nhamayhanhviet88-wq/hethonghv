@@ -2212,15 +2212,20 @@ function _dhtUpdatePatternList(prodId) {
     var patList = document.getElementById('_pp_pattern_list');
     if (!patInp || !patList) return;
 
+    var existingPattern = (window._ppCurrentExistingPhieu && window._ppCurrentExistingPhieu.pattern_name) || '';
+    var savedVal = (patInp.value || existingPattern || '').trim();
+
     if (!prodId) {
-        patInp.value = '';
-        if (patVal) patVal.value = '';
-        patInp.disabled = true;
-        patInp.placeholder = '← Chọn Sản Phẩm trước';
-        patInp.style.background = '#f1f5f9';
-        patInp.style.cursor = 'not-allowed';
-        patList.innerHTML = '';
-        return;
+        if (!savedVal) {
+            patInp.value = '';
+            if (patVal) patVal.value = '';
+            patInp.disabled = true;
+            patInp.placeholder = '← Chọn Sản Phẩm trước';
+            patInp.style.background = '#f1f5f9';
+            patInp.style.cursor = 'not-allowed';
+            patList.innerHTML = '';
+            return;
+        }
     }
 
     var allPats = window._ppTsamPatterns || [];
@@ -2229,25 +2234,38 @@ function _dhtUpdatePatternList(prodId) {
         if (typeof pIds === 'string') {
             try { pIds = JSON.parse(pIds); } catch(e) { pIds = []; }
         }
-        return Array.isArray(pIds) && pIds.map(Number).indexOf(Number(prodId)) >= 0;
+        return Array.isArray(pIds) && pIds.length > 0 && pIds.map(Number).indexOf(Number(prodId)) >= 0;
     });
+
+    // Fallback: If product has no specifically restricted patterns in TSAM (e.g. May Gia Công), allow ALL patterns
+    if (filtered.length === 0) {
+        filtered = allPats;
+    }
 
     var items = filtered.map(function(p) { return { text: p.name, value: p.name }; });
     if (items.length === 0) {
-        patInp.value = '';
-        if (patVal) patVal.value = '';
-        patInp.disabled = true;
-        patInp.placeholder = '⚠️ Không có mẫu tương ứng';
-        patInp.style.background = '#f8fafc';
-        patInp.style.cursor = 'not-allowed';
-        patList.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px;text-align:center">⚠️ Không có mẫu tương ứng sản phẩm này</div>';
-        return;
+        if (!savedVal) {
+            patInp.value = '';
+            if (patVal) patVal.value = '';
+            patInp.disabled = true;
+            patInp.placeholder = '⚠️ Không có mẫu tương ứng';
+            patInp.style.background = '#f8fafc';
+            patInp.style.cursor = 'not-allowed';
+            patList.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px;text-align:center">⚠️ Không có mẫu tương ứng sản phẩm này</div>';
+            return;
+        }
     }
 
     patInp.disabled = false;
     patInp.placeholder = 'Chọn thông số mẫu...';
     patInp.style.background = '';
     patInp.style.cursor = 'pointer';
+
+    // Preserve and restore saved pattern value
+    if (savedVal) {
+        patInp.value = savedVal;
+        if (patVal) patVal.value = savedVal;
+    }
 
     patList.innerHTML = items.map(function(it) {
         return '<div class="_ppOpt" data-val="'+it.value+'" data-txt="'+it.text+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'_pp_pattern\',this)">'+it.text+'</div>';
@@ -3074,7 +3092,7 @@ function _dhtSavePhieu(idx) {
         material_name:matDisplay,
         color_id:mainPair?mainPair.color_id:null,
         color_name:colorDisplay,
-        pattern_name:(isCutting && !isReadyStockProduct)?pat:'',
+        pattern_name: (isCuttingOrSewing && !isReadyStockProduct) ? pat : (pat || ''),
         material_pairs:pairs,
         sewing_techniques:sewArr,
         reminders:nnArr,

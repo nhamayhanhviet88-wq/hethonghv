@@ -1863,6 +1863,12 @@
 
                 const errorBadge = r.error_reported ? `<span style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;">⚠️ LỖI</span>` : '';
                 const missingTechBadge = (r.notes && r.notes.startsWith('[THIẾU GIÁ CHI TIẾT]')) ? `<span style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center;">⚠️ THIẾU KỸ THUẬT</span>` : '';
+                const lockBanner = r.edit_lock_by ? `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px;font-weight:700;color:#dc2626;text-align:center;">⚠️ Đơn đang mở sửa bởi ${r.edit_lock_by}</div>` : '';
+                
+                if (r.edit_lock_by) {
+                    actionButtons = `<button style="width:100%;padding:12px;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:not-allowed;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;" disabled>⚠️ ĐƠN ĐANG ĐƯỢC SỬA BỞI ${r.edit_lock_by.toUpperCase()}</button>`;
+                }
+
                 return `<div class="card">
                     <div class="card-header">
                         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; max-width:80%;">
@@ -1874,6 +1880,7 @@
                         <span class="card-client">${r.cskh_name || 'Sale'}</span>
                     </div>
                     <div class="card-body">
+                        ${lockBanner}
                         ${urgentBadge}
                         ${r.done_date ? `<div style="font-size:12px; color:#10b981; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
                             <span>✅ Đã xong:</span>
@@ -2133,6 +2140,10 @@
             currentRecordId = recordId;
             const r = originalRecords.find(x => x.id === recordId);
             if (!r) return;
+            if (r.edit_lock_by) {
+                toast(`⚠️ Đơn đang được mở sửa bởi ${r.edit_lock_by}, không thể thao tác!`, 'error');
+                return;
+            }
 
             document.getElementById('hlOrderInfo').textContent = `Mã Đơn: ${r.order_code || ''} — SL: ${r.quantity}`;
             document.getElementById('hlProductInfo').textContent = `Sản phẩm: ${cleanProdName(r)}`;
@@ -2302,6 +2313,10 @@
             currentRecordId = recordId;
             const r = originalRecords.find(x => x.id === recordId);
             if (!r) return;
+            if (r.edit_lock_by) {
+                toast(`⚠️ Đơn đang được mở sửa bởi ${r.edit_lock_by}, không thể thao tác QC!`, 'error');
+                return;
+            }
 
             const assignee = r.contractor_id ? r.contractor_name : r.sewer_name;
             document.getElementById('qcOrderInfo').textContent = `Đơn: ${r.order_code || ''} — SL: ${r.quantity} — Thợ: ${assignee}`;
@@ -3278,10 +3293,119 @@
             content.innerHTML = '';
             
             try {
-                const url = `/api/qlx/reminders?order_id=${r.dht_order_id}&dept=may&item_id=${r.order_item_id}&record_type=sewing_phan_to&record_id=${r.id}`;
-                const res = await callApi(url);
-                if (res.reminders && res.reminders.length > 0) {
+                let hasAnyRem = false;
+
+                // 1. Fetch Sale Reminders for QC (independent record_type: sewing_phan_to_sale)
+                const saleUrl = `/api/sale-reminders?order_id=${r.dht_order_id}&dept=qc&item_id=${r.order_item_id}&record_type=sewing_phan_to_sale&record_id=${r.id}`;
+                const saleRes = await callApi(saleUrl).catch(() => ({ reminders: [], reminder_ids: [], viewed_ids: [] }));
+                if (saleRes.reminders && saleRes.reminders.length > 0) {
+                    hasAnyRem = true;
                     area.style.display = 'block';
+                    const saleHeader = document.createElement('div');
+                    saleHeader.style.fontWeight = '800';
+                    saleHeader.style.color = '#fde68a';
+                    saleHeader.style.fontSize = '11px';
+                    saleHeader.style.marginTop = '4px';
+                    saleHeader.style.marginBottom = '6px';
+                    saleHeader.style.textTransform = 'uppercase';
+                    saleHeader.innerHTML = '📢 SALE NHẮC NHỞ KIỂM TRA QC:';
+                    content.appendChild(saleHeader);
+
+                    saleRes.reminders.forEach((remContent, idx) => {
+                        const remId = saleRes.reminder_ids[idx];
+                        const isViewed = saleRes.viewed_ids.includes(remId);
+
+                        const itemDiv = document.createElement('div');
+                        itemDiv.style.display = 'flex';
+                        itemDiv.style.alignItems = 'center';
+                        itemDiv.style.gap = '10px';
+                        itemDiv.style.background = 'rgba(255,255,255,0.02)';
+                        itemDiv.style.border = `1.5px solid ${isViewed ? '#10b981' : '#f59e0b'}`;
+                        itemDiv.style.borderRadius = '10px';
+                        itemDiv.style.padding = '10px 12px';
+                        itemDiv.style.marginBottom = '8px';
+                        itemDiv.style.transition = 'all 0.3s';
+
+                        const text = document.createElement('div');
+                        text.style.flex = '1';
+                        text.style.fontSize = '12px';
+                        text.style.fontWeight = '700';
+                        text.style.color = '#fff';
+                        text.style.lineHeight = '1.4';
+                        text.textContent = remContent;
+                        itemDiv.appendChild(text);
+
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.style.flexShrink = '0';
+                        btn.style.padding = '5px 8px';
+                        btn.style.borderRadius = '8px';
+                        btn.style.fontSize = '9.5px';
+                        btn.style.fontWeight = '800';
+                        btn.style.cursor = 'pointer';
+                        btn.style.display = 'flex';
+                        btn.style.alignItems = 'center';
+                        btn.style.gap = '4px';
+                        btn.style.transition = 'all 0.2s';
+
+                        if (isViewed) {
+                            btn.style.border = '1.5px solid #10b981';
+                            btn.style.background = 'rgba(16,185,129,0.1)';
+                            btn.style.color = '#34d399';
+                            btn.innerHTML = '✅ Đã Xem và Làm';
+                        } else {
+                            btn.className = 'm-unviewed-btn';
+                            btn.style.border = '1.5px solid #f59e0b';
+                            btn.style.background = 'rgba(245,158,11,0.1)';
+                            btn.style.color = '#fde68a';
+                            btn.style.animation = 'bptReminderPulseMobile 2s infinite';
+                            btn.innerHTML = '👉 Đã Xem và Làm';
+                        }
+
+                        btn.onclick = async () => {
+                            if (btn.disabled || !btn.classList.contains('m-unviewed-btn')) return;
+                            try {
+                                btn.disabled = true;
+                                await callApi('/api/sale-reminders/viewed', 'POST', {
+                                    reminder_ids: [remId],
+                                    record_type: 'sewing_phan_to_sale',
+                                    record_id: r.id
+                                });
+                                toast('Đã xác nhận xem nhắc nhở Sale', 'success');
+                                btn.classList.remove('m-unviewed-btn');
+                                btn.style.border = '1.5px solid #10b981';
+                                btn.style.background = 'rgba(16,185,129,0.1)';
+                                btn.style.color = '#34d399';
+                                btn.style.animation = 'none';
+                                btn.innerHTML = '✅ Đã Xem và Làm';
+                                itemDiv.style.borderColor = '#10b981';
+                            } catch (err) {
+                                btn.disabled = false;
+                                toast(err.message, 'error');
+                            }
+                        };
+
+                        itemDiv.appendChild(btn);
+                        content.appendChild(itemDiv);
+                    });
+                }
+
+                // 2. Fetch QLX Reminders for May / QC
+                const qlxUrl = `/api/qlx/reminders?order_id=${r.dht_order_id}&dept=may&item_id=${r.order_item_id}&record_type=sewing_phan_to&record_id=${r.id}`;
+                const res = await callApi(qlxUrl).catch(() => ({ reminders: [], reminder_ids: [], viewed_ids: [] }));
+                if (res.reminders && res.reminders.length > 0) {
+                    hasAnyRem = true;
+                    area.style.display = 'block';
+                    const qlxHeader = document.createElement('div');
+                    qlxHeader.style.fontWeight = '800';
+                    qlxHeader.style.color = '#fbbf24';
+                    qlxHeader.style.fontSize = '11px';
+                    qlxHeader.style.marginTop = '10px';
+                    qlxHeader.style.marginBottom = '6px';
+                    qlxHeader.style.textTransform = 'uppercase';
+                    qlxHeader.innerHTML = '🔔 QLX NHẮC NHỞ MAY / KIỂM TRA QC:';
+                    content.appendChild(qlxHeader);
+
                     res.reminders.forEach((remContent, idx) => {
                         const remId = res.reminder_ids[idx];
                         const isViewed = res.viewed_ids.includes(remId);
@@ -3342,7 +3466,7 @@
                                     record_type: 'sewing_phan_to',
                                     record_id: r.id
                                 });
-                                toast('Đã xác nhận xem nhắc nhở', 'success');
+                                toast('Đã xác nhận xem nhắc nhở QLX', 'success');
                                 btn.classList.remove('m-unviewed-btn');
                                 btn.style.border = '1.5px solid #10b981';
                                 btn.style.background = 'rgba(16,185,129,0.1)';
@@ -3361,7 +3485,7 @@
                     });
                 }
             } catch (err) {
-                console.error('Error fetching reminders:', err);
+                console.error('Error fetching reminders for PhanTo:', err);
             }
         }
 

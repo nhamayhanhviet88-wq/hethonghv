@@ -810,6 +810,7 @@
                         item_index: r.item_index,
                         item_qty: r.item_qty,
                         ready: r.ready,
+                        edit_lock_by: r.edit_lock_by,
                         warning_msg: r.warning_msg,
                         print_types: r.print_types,
                         pending_print_types: r.pending_print_types,
@@ -855,12 +856,18 @@
 
                 let statusBadge = '';
                 let claimBtn = '';
-                if (item.ready) {
+                let lockBanner = '';
+                if (item.edit_lock_by) {
+                    statusBadge = `<span class="m-badge m-badge-no" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5">⚠️ Đơn đang mở sửa bởi ${item.edit_lock_by}</span>`;
+                    lockBanner = `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px;font-weight:700;color:#dc2626;text-align:center;">⚠️ Đơn đang mở sửa bởi ${item.edit_lock_by}</div>`;
+                    claimBtn = `<button style="width:100%;padding:12px;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:not-allowed;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;" disabled>⚠️ ĐƠN ĐANG ĐƯỢC SỬA BỞI ${String(item.edit_lock_by).toUpperCase()}</button>`;
+                } else if (item.ready) {
                     statusBadge = '<span class="m-badge m-badge-ok">✅ Đủ điều kiện ép</span>';
                     claimBtn = `<button class="m-btn-claim ready" onclick="mConfirmClaim(${item.id}, ${item.item_id})">🔥 NHẬN ÉP HÀNG</button>`;
                 } else {
-                    statusBadge = `<span class="m-badge m-badge-no">⚠️ Locked: ${item.warning_msg}</span>`;
-                    claimBtn = `<button class="m-btn-claim locked" disabled>🔒 ${item.warning_msg}</button>`;
+                    const msg = item.warning_msg || 'Chưa đủ điều kiện';
+                    statusBadge = `<span class="m-badge m-badge-no">⚠️ ${msg}</span>`;
+                    claimBtn = `<button class="m-btn-claim locked" disabled>🔒 ${msg}</button>`;
                 }
 
                 return `
@@ -871,6 +878,7 @@
                             <span class="m-pri ${priClass}">${priority}</span>
                         </div>
                         <div class="m-card-body">
+                            ${lockBanner}
                             <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val">${item.customer_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#60a5fa">${item.cskh_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(item) || '—'}</span></div>
@@ -934,6 +942,26 @@
                     return `<div style="background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:6px; cursor:pointer" title="${pos.display_name}" onclick="showToast('Vị trí: ' + this.title)">${pos.short_name || pos.display_name}: <b>${val}</b></div>`;
                 }).join('');
 
+                const lockBanner = r.edit_lock_by ? `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px;font-weight:700;color:#dc2626;text-align:center;">⚠️ Đơn đang mở sửa bởi ${r.edit_lock_by}</div>` : '';
+                const cardActions = r.edit_lock_by
+                    ? `<div style="padding:8px 12px"><button style="width:100%;padding:12px;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:not-allowed;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;" disabled>⚠️ ĐƠN ĐANG ĐƯỢC SỬA BỞI ${r.edit_lock_by.toUpperCase()}</button></div>`
+                    : `<div class="m-card-actions" style="grid-template-columns:repeat(2,1fr)">
+                            <button class="m-act" style="border-color:#10b981; background:rgba(16,185,129,0.05)" onclick="mOpenReport(${r.id})">
+                                <span class="m-act-i">✅</span>
+                                <span class="m-act-l" style="color:#4ade80">BÁO CÁO</span>
+                            </button>
+                            ${r.error_reported 
+                                ? `<button class="m-act" style="border-color:#ef4444; background:rgba(239,68,68,0.05)" disabled>
+                                       <span class="m-act-i">🚨</span>
+                                       <span class="m-act-l" style="color:#f87171">ĐÃ BÁO LỖI</span>
+                                   </button>`
+                                : `<button class="m-act" style="border-color:#e2e8f0" onclick="mOpenErrorModal(${r.id})">
+                                       <span class="m-act-i">⚠️</span>
+                                       <span class="m-act-l">BÁO LỖI</span>
+                                   </button>`
+                            }
+                        </div>`;
+
                 return `
                     <div class="m-card">
                         <div class="m-card-top" style="border-bottom-color: rgba(249,115,22,0.15)">
@@ -942,6 +970,7 @@
                             <div class="m-card-code">${r.order_code || ''}</div>
                         </div>
                         <div class="m-card-body">
+                            ${lockBanner}
                             <div class="m-row"><span class="m-lbl">Khách hàng</span><span class="m-val" style="color:#60a5fa">${r.customer_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">CSKH</span><span class="m-val" style="color:#22d3ee">${r.cskh_name || '—'}</span></div>
                             <div class="m-row"><span class="m-lbl">Trạng thái in</span><span class="m-val" style="display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end;">${getPrintStatusHtml(r) || '—'}</span></div>
@@ -958,22 +987,7 @@
                             </div>
                             ${imagesHtml}
                         </div>
-                        <div class="m-card-actions" style="grid-template-columns:repeat(2,1fr)">
-                            <button class="m-act" style="border-color:#10b981; background:rgba(16,185,129,0.05)" onclick="mOpenReport(${r.id})">
-                                <span class="m-act-i">✅</span>
-                                <span class="m-act-l" style="color:#4ade80">BÁO CÁO</span>
-                            </button>
-                            ${r.error_reported 
-                                ? `<button class="m-act" style="border-color:#ef4444; background:rgba(239,68,68,0.05)" disabled>
-                                       <span class="m-act-i">🚨</span>
-                                       <span class="m-act-l" style="color:#f87171">ĐÃ BÁO LỖI</span>
-                                   </button>`
-                                : `<button class="m-act" style="border-color:#e2e8f0" onclick="mOpenErrorModal(${r.id})">
-                                       <span class="m-act-i">⚠️</span>
-                                       <span class="m-act-l">BÁO LỖI</span>
-                                   </button>`
-                            }
-                        </div>
+                        ${cardActions}
                     </div>
                 `;
             }).join('');
@@ -1111,6 +1125,7 @@
             // Fetch reminders for Ep
             let pressReminders = [];
             let pressReminderIds = [];
+            let saleReminders = [];
             try {
                 let url = '/api/qlx/reminders?order_id=' + orderId + '&dept=ep';
                 if (itemId) url += '&item_id=' + itemId;
@@ -1118,26 +1133,50 @@
                 pressReminders = remRes.reminders || [];
                 pressReminderIds = remRes.reminder_ids || [];
             } catch(e) {
-                console.error('Lỗi tải nhắc nhở:', e);
+                console.error('Lỗi tải nhắc nhở QLX:', e);
+            }
+            try {
+                let saleUrl = '/api/sale-reminders?order_id=' + orderId + '&dept=ep';
+                if (itemId) saleUrl += '&item_id=' + itemId;
+                const saleRes = await apiCall(saleUrl);
+                saleReminders = (saleRes.details || []).map(function(r) { return r.content; });
+            } catch(e) {
+                console.error('Lỗi tải nhắc nhở Sale:', e);
             }
 
             const remContainer = document.getElementById('mClaimRemindersContainer');
-            if (pressReminders.length > 0) {
+            if (pressReminders.length > 0 || saleReminders.length > 0) {
                 remContainer.style.display = 'block';
                 let b = '';
-                b += '<div style="margin-top:12px;background:rgba(124,58,237,0.15);border:1.5px solid rgba(124,58,237,0.3);padding:12px 14px;border-radius:12px;">';
-                b += '  <div style="font-weight:800;color:#d8b4fe;font-size:11px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN ÉP:</div>';
-                b += '  <div style="display:flex;flex-direction:column;gap:10px">';
-                pressReminders.forEach(function(rem, remIdx) {
-                    var remId = pressReminderIds[remIdx] || 0;
-                    b += '    <div style="display:flex;align-items:center;gap:10px;background:#1e293b;border:1.5px solid #7c3aed;border-radius:10px;padding:10px 12px;transition:all 0.3s">';
-                    b += '       <input type="checkbox" class="m-reminder-cb" data-reminder-id="' + remId + '" style="display:none">';
-                    b += '       <div style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
-                    b += '       <button type="button" class="m-reminder-btn" data-reminder-id="' + remId + '" onclick="mToggleReminder(this)" style="flex-shrink:0;padding:5px 8px;border-radius:8px;border:1.5px solid #7c3aed;background:rgba(124,58,237,0.1);color:#c084fc;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpeReminderPulseMobile 2s infinite">👉 Đã Xem và Làm</button>';
-                    b += '    </div>';
-                });
-                b += '  </div>';
-                b += '</div>';
+                if (saleReminders.length > 0) {
+                    b += '<div style="margin-top:12px;background:rgba(245,158,11,0.15);border:1.5px solid rgba(245,158,11,0.3);padding:12px 14px;border-radius:12px;margin-bottom:10px">';
+                    b += '  <div style="font-weight:800;color:#fcd34d;font-size:11px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN ÉP:</div>';
+                    b += '  <div style="display:flex;flex-direction:column;gap:10px">';
+                    saleReminders.forEach(function(rem) {
+                        b += '    <div style="display:flex;align-items:center;gap:10px;background:#1e293b;border:1.5px solid #f59e0b;border-radius:10px;padding:10px 12px;transition:all 0.3s">';
+                        b += '       <input type="checkbox" class="m-reminder-cb" style="display:none">';
+                        b += '       <div style="flex:1;font-size:12px;font-weight:700;color:#fef3c7;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                        b += '       <button type="button" class="m-reminder-btn" onclick="mToggleReminder(this)" style="flex-shrink:0;padding:5px 8px;border-radius:8px;border:1.5px solid #f59e0b;background:rgba(245,158,11,0.1);color:#fcd34d;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpeReminderPulseMobile 2s infinite">👉 Đã Xem và Làm</button>';
+                        b += '    </div>';
+                    });
+                    b += '  </div>';
+                    b += '</div>';
+                }
+                if (pressReminders.length > 0) {
+                    b += '<div style="margin-top:12px;background:rgba(124,58,237,0.15);border:1.5px solid rgba(124,58,237,0.3);padding:12px 14px;border-radius:12px;">';
+                    b += '  <div style="font-weight:800;color:#d8b4fe;font-size:11px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">🔔 QLX NHẮC NHỞ BỘ PHẬN ÉP:</div>';
+                    b += '  <div style="display:flex;flex-direction:column;gap:10px">';
+                    pressReminders.forEach(function(rem, remIdx) {
+                        var remId = pressReminderIds[remIdx] || 0;
+                        b += '    <div style="display:flex;align-items:center;gap:10px;background:#1e293b;border:1.5px solid #7c3aed;border-radius:10px;padding:10px 12px;transition:all 0.3s">';
+                        b += '       <input type="checkbox" class="m-reminder-cb" data-reminder-id="' + remId + '" style="display:none">';
+                        b += '       <div style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.4">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                        b += '       <button type="button" class="m-reminder-btn" data-reminder-id="' + remId + '" onclick="mToggleReminder(this)" style="flex-shrink:0;padding:5px 8px;border-radius:8px;border:1.5px solid #7c3aed;background:rgba(124,58,237,0.1);color:#c084fc;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;animation:bpeReminderPulseMobile 2s infinite">👉 Đã Xem và Làm</button>';
+                        b += '    </div>';
+                    });
+                    b += '  </div>';
+                    b += '</div>';
+                }
                 remContainer.innerHTML = b;
             } else {
                 remContainer.style.display = 'none';

@@ -5073,26 +5073,27 @@ function _tpdRenderSaleRemindersSection(it, disabledAttr) {
         }
 
         let isDeptLocked = false;
-        if (d.key === 'qlx') {
-            let remsData = it.sale_reminders_data;
-            if ((!remsData || remsData.length === 0) && window._tpdWorkspaceState) {
-                const state = window._tpdWorkspaceState;
-                const candidateLists = [state.rawDbItems, state.dbBaselines, state.items];
-                for (const list of candidateLists) {
-                    if (Array.isArray(list)) {
-                        const matchItem = list.find(x => x && (String(x.id) === String(it.id) || String(x.id) === String(it.item_id)));
-                        if (matchItem && Array.isArray(matchItem.sale_reminders_data) && matchItem.sale_reminders_data.length > 0) {
-                            remsData = matchItem.sale_reminders_data;
-                            break;
-                        }
+        let remsData = it.sale_reminders_data;
+        if ((!remsData || remsData.length === 0) && window._tpdWorkspaceState) {
+            const state = window._tpdWorkspaceState;
+            const candidateLists = [state.rawDbItems, state.dbBaselines, state.items];
+            for (const list of candidateLists) {
+                if (Array.isArray(list)) {
+                    const matchItem = list.find(x => x && (String(x.id) === String(it.id) || String(x.id) === String(it.item_id)));
+                    if (matchItem && Array.isArray(matchItem.sale_reminders_data) && matchItem.sale_reminders_data.length > 0) {
+                        remsData = matchItem.sale_reminders_data;
+                        break;
                     }
                 }
             }
-            if (Array.isArray(remsData) && remsData.length > 0) {
-                const qlxRems = remsData.filter(r => r.dept === 'qlx' || r.dept === '1' || r.dept === 'quan_ly_xuong');
-                if (qlxRems.length > 0 && qlxRems.every(r => r.is_viewed || Number(r.view_count) > 0)) {
-                    isDeptLocked = true;
-                }
+        }
+        if (Array.isArray(remsData) && remsData.length > 0) {
+            const deptRems = remsData.filter(r => {
+                if (d.key === 'qlx') return r.dept === 'qlx' || r.dept === '1' || r.dept === 'quan_ly_xuong';
+                return r.dept === d.key;
+            });
+            if (deptRems.length > 0 && deptRems.every(r => r.is_viewed || Number(r.view_count) > 0)) {
+                isDeptLocked = true;
             }
         }
         if (d.key === 'cat' && it.has_cutting_started) isDeptLocked = true;

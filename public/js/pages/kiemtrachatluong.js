@@ -1556,17 +1556,20 @@ function _ktclRenderTable() {
                     <button class="ktcl-btn-sm" style="background: rgba(239, 68, 68, 0.08); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); opacity: 0.6; cursor: default; pointer-events: none; white-space: nowrap; gap: 4px; display: inline-flex; align-items: center; justify-content: center;">🚨 Đã Báo Lỗi</button>
                 `;
             }
-            
-            // Add audit history button to all rows
-            actionsHtml += `
-                <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHistory(${r.id})" style="justify-content:center; white-space:nowrap;">
-                    📜 Lịch Sử
-                </button>
-            `;
         }
         
-        // Wrap everything in a nowrap flex container
-        actionsHtml = `<div style="display:flex; gap:6px; align-items:center; justify-content:center; white-space:nowrap;">${actionsHtml}</div>`;
+        // Add audit history button to all rows
+        actionsHtml += `
+            <button class="ktcl-btn-sm ktcl-btn-outline" onclick="_ktclOpenHistory(${r.id})" style="justify-content:center; white-space:nowrap;">
+                📜 Lịch Sử
+            </button>
+        `;
+        if (r.edit_lock_by) {
+            actionsHtml = `<span style="background:#fee2e2;color:#dc2626;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:bold;white-space:nowrap;display:inline-block;">⚠️ Đơn đang mở sửa bởi ${r.edit_lock_by}</span>`;
+        } else {
+            // Wrap everything in a nowrap flex container
+            actionsHtml = `<div style="display:flex; gap:6px; align-items:center; justify-content:center; white-space:nowrap;">${actionsHtml}</div>`;
+        }
         
         // Order Info
         const priority = (r.shipping_priority || 'CHUẨN').toUpperCase();

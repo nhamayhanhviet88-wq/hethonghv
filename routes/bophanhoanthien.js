@@ -36,9 +36,24 @@ module.exports = async function(fastify) {
             if (rec) dhtOrderId = rec.dht_order_id;
         }
         if (dhtOrderId) {
-            const order = await db.get('SELECT is_draft FROM dht_orders WHERE id = $1', [dhtOrderId]);
-            if (order && order.is_draft) {
-                return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
+            const lock = await db.get(`
+                SELECT o.id, o.order_code, o.is_draft, o.is_locked, o.locked_at, u.full_name AS locked_by_name
+                FROM dht_orders o
+                LEFT JOIN users u ON o.locked_by = u.id
+                WHERE o.id = $1
+            `, [dhtOrderId]);
+            if (lock) {
+                if (lock.is_draft) {
+                    return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
+                }
+                if (lock.is_locked && lock.locked_at) {
+                    const lockedAt = new Date(lock.locked_at);
+                    const now = new Date();
+                    const diffMinutes = (now - lockedAt) / (1000 * 60);
+                    if (diffMinutes < 5) {
+                        return reply.code(423).send({ error: `⚠️ Đơn đang được sửa bởi ${lock.locked_by_name || 'sale'}` });
+                    }
+                }
             }
         }
     });
@@ -291,6 +306,7 @@ module.exports = async function(fastify) {
         if (search) { where += ` AND (fr.product_name ILIKE $${idx} OR fr.cskh_name ILIKE $${idx} OR o.order_code ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
         const records = await db.all(`
             SELECT fr.*, COALESCE(NULLIF(fr.quantity, 0), oi_cancel.quantity, 0) AS quantity, u.full_name AS finisher_name, u_c.full_name AS completed_by_name, o.order_code, COALESCE(o.is_draft, false) AS is_draft,
+                   o.is_locked, o.locked_at, u_locked.full_name AS locked_by_name,
                    o.customer_name, cat.name AS category_name,
                    o.expected_ship_date, o.standard_delivery_time,
                    sr.contractor_id, sr.sewing_team_id, COALESCE(fr.order_item_id, sr.order_item_id) AS order_item_id,
@@ -320,6 +336,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u ON fr.finisher_id=u.id
             LEFT JOIN users u_c ON fr.completed_by=u_c.id 
             LEFT JOIN dht_orders o ON fr.dht_order_id=o.id
+            LEFT JOIN users u_locked ON o.locked_by = u_locked.id
             LEFT JOIN dht_categories cat ON o.category_id=cat.id
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM finishing_history h WHERE h.finishing_id=fr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
@@ -334,7 +351,24 @@ module.exports = async function(fastify) {
                   )
               )
             ORDER BY o.order_code DESC NULLS LAST, fr.product_name ASC, fr.expected_date DESC NULLS LAST, fr.created_at DESC`, params);
-        return { records };
+
+        const formattedRecords = records.map(r => {
+            let editLockBy = null;
+            if (r.is_locked && r.locked_at) {
+                const lockedAt = new Date(r.locked_at);
+                const now = new Date();
+                const diffMinutes = (now - lockedAt) / (1000 * 60);
+                if (diffMinutes < 5) {
+                    editLockBy = r.locked_by_name || 'sale';
+                }
+            }
+            if (r.is_draft && !editLockBy) {
+                editLockBy = r.locked_by_name || 'sale';
+            }
+            return { ...r, edit_lock_by: editLockBy };
+        });
+
+        return { records: formattedRecords };
     });
 
     // ========== CREATE ==========

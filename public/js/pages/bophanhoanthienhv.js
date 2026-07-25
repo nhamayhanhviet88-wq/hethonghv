@@ -407,8 +407,9 @@ function _bphtRender(){
             +'<td style="font-size:9px;color:#6b7280">'+upd+'</td></tr>';
         }
 
-        if (r.is_draft) {
-            var warnBanner = '<td colspan="2" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">⚠️ Đơn đang sửa, chờ cập nhật</span></td>';
+        if (r.is_draft || r.edit_lock_by) {
+            var lockText = r.is_draft ? '⚠️ Đơn đang sửa, chờ cập nhật' : ('⚠️ Đơn đang mở sửa bởi ' + (r.edit_lock_by || 'người khác'));
+            var warnBanner = '<td colspan="2" style="text-align:center;vertical-align:middle;padding:4px 6px"><span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:bold;white-space:nowrap;display:inline-block;animation:draftLockPulse 1s infinite">' + lockText + '</span></td>';
             return '<tr style="opacity:0.5; pointer-events:none;"><td style="text-align:center;font-weight:700;color:#94a3b8">'+(startIdx+i+1)+'</td>'
             + warnBanner
             +'<td style="font-size:10px">'+_bphtGetRaDukien(r)+'</td>'
@@ -580,22 +581,7 @@ function _bphtParseCountingTime(countingTimeStr, r) {
             savedDate = dateMatch[1];
         }
     }
-    if (!savedDate) {
-        let dateObj = null;
-        if (r && r.completed_at) {
-            dateObj = new Date(r.completed_at);
-        } else if (r && r.done_date) {
-            dateObj = new Date(r.done_date);
-        } else {
-            dateObj = new Date();
-        }
-        if (isNaN(dateObj.getTime())) dateObj = new Date();
-        const d = String(dateObj.getDate()).padStart(2, '0');
-        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const y = dateObj.getFullYear();
-        savedDate = `${d}/${m}/${y}`;
-    }
-    const savedDateYmd = _formatDmyToYmd(savedDate);
+    const savedDateYmd = savedDate ? _formatDmyToYmd(savedDate) : '';
     return { savedHour, savedMinute, savedDate, savedDateYmd };
 }
 
@@ -606,23 +592,20 @@ function _bphtGetSubmittedCountingTime(hourId, minId, dateId, r) {
     if (!hourEl || !minEl || !hourEl.value || !minEl.value) {
         return null;
     }
-    let dateDmy = '';
-    if (dateEl && dateEl.value) {
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        const todayYmd = `${yyyy}-${mm}-${dd}`;
-        if (dateEl.value > todayYmd) {
-            showToast('⚠️ Không được chọn ngày trong tương lai!', 'error');
-            return null;
-        }
-        dateDmy = _formatYmdToDmy(dateEl.value);
+    if (!dateEl || !dateEl.value) {
+        showToast('⚠️ Vui lòng chọn Ngày/Tháng/Năm đếm số lượng check camera!', 'error');
+        return null;
     }
-    if (!dateDmy) {
-        const { savedDate } = _bphtParseCountingTime('', r);
-        dateDmy = savedDate;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayYmd = `${yyyy}-${mm}-${dd}`;
+    if (dateEl.value > todayYmd) {
+        showToast('⚠️ Không được chọn ngày trong tương lai!', 'error');
+        return null;
     }
+    const dateDmy = _formatYmdToDmy(dateEl.value);
     return `${hourEl.value}:${minEl.value} - ${dateDmy}`;
 }
 
@@ -632,7 +615,7 @@ function _bphtRenderCountingTimeBlock(r, readOnly) {
     if (readOnly && r && r.counting_time) {
         return `
             <div style="margin-top:10px; background:#ecfdf5; border:1.5px solid #a7f3d0; padding:10px 12px; border-radius:8px;">
-                <div style="font-weight:700; font-size:11.5px; color:#047857; margin-bottom:3px;">⏰ THỜI GIAN ĐẾM SỐ LƯỢNG CHECK CAMERA <span style="color:#ef4444;">*</span></div>
+                <div style="font-weight:700; font-size:11.5px; color:#047857; margin-bottom:3px;">⏰ THỜI GIAN ĐẾM SỐ LƯỢNG <span style="color:#b45309; font-weight:900; background:#fef3c7; padding:2px 7px; border-radius:6px; border:1px solid #fcd34d;">CHECK CAMERA</span> <span style="color:#ef4444;">*</span></div>
                 <div style="font-size:15px; font-weight:900; color:#d97706;">${r.counting_time.includes('/') ? r.counting_time : `${savedHour}:${savedMinute} - ${savedDate}`}</div>
             </div>
         `;
@@ -664,7 +647,7 @@ function _bphtRenderCountingTimeBlock(r, readOnly) {
     return `
         <div style="margin-top:10px; background:#ecfdf5; border:1.5px solid #a7f3d0; padding:10px 12px; border-radius:8px;">
             <label style="display:block; font-size:11.5px; font-weight:800; color:#047857; margin-bottom:6px;">
-                ⏰ THỜI GIAN ĐẾM SỐ LƯỢNG CHECK CAMERA <span style="color:#ef4444;">*</span>
+                ⏰ THỜI GIAN ĐẾM SỐ LƯỢNG <span style="color:#b45309; font-weight:900; background:#fef3c7; padding:2px 7px; border-radius:6px; border:1px solid #fcd34d;">CHECK CAMERA</span> <span style="color:#ef4444;">*</span>
             </label>
             <div style="display:flex; gap:8px; align-items:center;">
                 <div style="flex:1;">

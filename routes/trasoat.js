@@ -453,6 +453,14 @@ module.exports = async function(fastify) {
         const hasItemSpecificPressing = pressing.some(p => p.order_item_id !== null);
         const hasItemSpecificSewing = sewing.some(s => s.order_item_id !== null);
 
+        const saleQlxReminders = await db.all(`
+            SELECT sr.id, sr.content, sr.item_id,
+                   EXISTS (SELECT 1 FROM sale_reminder_views srv WHERE srv.reminder_id = sr.id) AS is_viewed
+            FROM sale_reminders sr
+            WHERE sr.dht_order_id = $1 AND sr.dept = 'qlx'
+            ORDER BY sr.id ASC
+        `, [orderId]);
+
         const itemsTimeline = items.map((item, idx) => {
             const isFirst = idx === 0;
             const itemCutting = cutting.filter(c => c.order_item_id === item.id || (c.order_item_id === null && isFirst && !hasItemSpecificCutting));
@@ -471,6 +479,16 @@ module.exports = async function(fastify) {
                 prodSteps, itemSchedule, itemReports
             );
 
+            const itemSaleRems = saleQlxReminders.filter(r => r.item_id === item.id || (r.item_id === null && isFirst));
+            const totalRems = itemSaleRems.length;
+            const viewedRems = itemSaleRems.filter(r => r.is_viewed).length;
+            const saleQlxInfo = totalRems > 0 ? {
+                total_count: totalRems,
+                viewed_count: viewedRems,
+                all_viewed: viewedRems >= totalRems,
+                reminders: itemSaleRems
+            } : null;
+
             return {
                 id: item.id,
                 product_name: item.product_name,
@@ -479,7 +497,8 @@ module.exports = async function(fastify) {
                 production_cancelled: !!item.production_cancelled,
                 timeline,
                 qlx_schedule: itemSchedule || null,
-                qlx_reports: itemReports || []
+                qlx_reports: itemReports || [],
+                sale_qlx_reminders: saleQlxInfo
             };
         });
 
@@ -1273,7 +1292,7 @@ module.exports = async function(fastify) {
                     COALESCE(u_sew.full_name, c.name, dt.name) AS sewer_name,
                     sr.contractor_id,
                     sr.handover_date,
-                    sr.order_item_id,
+                    COALESCE(sr.order_item_id, fr.order_item_id) AS order_item_id,
                     o.expected_ship_date AS order_expected_ship_date,
                     o.standard_delivery_time AS order_standard_delivery_time,
                     (SELECT COUNT(*)::int FROM qc_checklist_answers qca WHERE qca.sewing_record_id = fr.sewing_record_id) AS qc_count,
@@ -1290,10 +1309,11 @@ module.exports = async function(fastify) {
                   AND (
                       $2::int IS NULL 
                       OR sr.order_item_id = $2 
+                      OR fr.order_item_id = $2
                       OR (
-                          sr.order_item_id IS NULL 
+                          sr.order_item_id IS NULL AND fr.order_item_id IS NULL
                           AND $2 = (SELECT MIN(id) FROM dht_order_items WHERE dht_order_id = $1 AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(product_name, '')) NOT LIKE '%thiet ke%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiết kế%' AND LOWER(COALESCE(description, '')) NOT LIKE '%thiet ke%')
-                          AND NOT EXISTS (SELECT 1 FROM finishing_records fr2 JOIN sewing_records sr2 ON fr2.sewing_record_id = sr2.id WHERE fr2.dht_order_id = $1 AND sr2.order_item_id IS NOT NULL)
+                          AND NOT EXISTS (SELECT 1 FROM finishing_records fr2 LEFT JOIN sewing_records sr2 ON fr2.sewing_record_id = sr2.id WHERE fr2.dht_order_id = $1 AND (sr2.order_item_id IS NOT NULL OR fr2.order_item_id IS NOT NULL))
                       )
                   )
                 ORDER BY fr.id ASC

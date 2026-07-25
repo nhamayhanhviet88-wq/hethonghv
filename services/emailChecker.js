@@ -61,8 +61,12 @@ async function checkEmails() {
             port: 993,
             secure: true,
             auth: { user: config.gmail_user, pass: password },
-            logger: false
+            logger: false,
+            clientInfo: { name: 'HV-App' },
+            tls: { rejectUnauthorized: false }
         });
+
+        client.on('error', err => console.error('[EmailChecker] 🔴 IMAP socket error:', err.message));
 
         await client.connect();
         console.log('[EmailChecker] ✅ IMAP connected');
@@ -101,9 +105,9 @@ async function checkEmails() {
                 let searchCriteria;
                 try {
                     searchCriteria = { from: filter };
-                    // Also limit to last 90 days to avoid processing ancient emails
+                    // Limit to last 7 days for fast IMAP search
                     const since = new Date();
-                    since.setDate(since.getDate() - 90);
+                    since.setDate(since.getDate() - 7);
                     searchCriteria.since = since;
                 } catch(e) {
                     searchCriteria = { from: filter };
@@ -111,20 +115,21 @@ async function checkEmails() {
 
                 const messages = client.fetch(searchCriteria, {
                     envelope: true,
-                    source: true,
-                    uid: true
+                    uid: true,
+                    source: true
                 });
 
                 for await (const msg of messages) {
                     checkedCount++;
-                    const msgId = msg.envelope.messageId || `uid-${msg.uid}`;
+                    const msgId = (msg.envelope && msg.envelope.messageId) || `uid-${msg.uid}`;
                     const refHash = crypto.createHash('md5').update(msgId).digest('hex');
 
                     // Check duplicate by message ID hash FIRST (fast skip)
                     if (existingRefsSet.has(refHash)) { skippedDup++; continue; }
 
+                    let rawSource = msg.source ? msg.source.toString('utf-8') : '';
+
                     // Parse email body
-                    const rawSource = msg.source ? msg.source.toString('utf-8') : '';
                     const parsed = parseEmailBody(rawSource, bank);
 
                     if (!parsed) { continue; }
@@ -223,8 +228,9 @@ async function checkEmails() {
         try {
             await db.run('UPDATE email_import_config SET last_error = $1, last_check_at = NOW() WHERE id = 1', [err.message]);
         } catch {}
+    } finally {
+        isRunning = false;
     }
-    isRunning = false;
 }
 
 // ========== PARSE EMAIL BODY ==========
@@ -352,7 +358,7 @@ function parseEmailBody(rawSource, bank) {
         } else {
             // Sacombank: "Nội dung / Description PHAN THI HANH chuyen tien..."
             const descPatterns = [
-                /(?:N[^\s]*i\s*dung|Description)\s*(?:\/\s*Description)?\s*([A-Z][^\r\n]{3,300})/i,
+                /(?:N[^\s]*i\s*dung|Description)\s*(?:\/\s*Description)?\s*([A-Za-z0-9][^\r\n]{3,300})/i,
                 /(?:N[^\s]*i\s*dung|Description)\s*[^:]*:\s*([^\n<]{3,300})/i
             ];
             for (const pat of descPatterns) {

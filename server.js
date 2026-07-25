@@ -1949,7 +1949,7 @@ async function start() {
         taskPointRoutes._syncTelesaleFromTemplates().catch(e => console.error('[Startup] Telesale sync error:', e.message));
     }
 
-    // Start email checker cron — auto-import bank emails
+    // Start email checker cron — auto-import bank emails (re-trigger)
     const { startCron: startEmailCron } = require('./services/emailChecker');
     startEmailCron().catch(e => console.error('[Startup] Email checker error:', e.message));
 

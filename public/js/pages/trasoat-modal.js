@@ -166,7 +166,8 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
         if (stepKey === 'ep' && res.records && res.records.length > 0) {
             res.records.forEach(function(r) {
                 (async function() {
-                         var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
+                    try {
+                        var url = '/api/qlx/reminders?order_id=' + r.dht_order_id + '&dept=ep';
                         if (r.order_item_id) url += '&item_id=' + r.order_item_id;
                         var remRes = await apiCall(url);
                         var pressReminders = remRes.reminders || [];
@@ -524,29 +525,59 @@ async function _tsOpenStepModal(orderId, stepName, itemId = null){
                         var sewReminderIds = remRes.reminder_ids || [];
                         var sewViewedIds = remRes.viewed_ids || [];
                         
-                        if (sewReminders.length > 0) {
+                        var saleUrl = '/api/sale-reminders?order_id=' + r.dht_order_id + '&dept=qc';
+                        if (r.order_item_id) saleUrl += '&item_id=' + r.order_item_id;
+                        var saleRemRes = await apiCall(saleUrl).catch(function(){ return { reminders: [], reminder_ids: [], viewed_ids: [] }; });
+                        var saleReminders = saleRemRes.reminders || [];
+                        var saleReminderIds = saleRemRes.reminder_ids || [];
+                        var saleViewedIds = saleRemRes.viewed_ids || [];
+
+                        if (sewReminders.length > 0 || saleReminders.length > 0) {
                             var el = document.getElementById('_tsSewRemindersContainer_' + r.id);
                             if (!el) return;
                             
                             var b = '';
-                            b += '<div style="margin-top:12px;background:#f5f3ff;border:1.5px solid #ddd6fe;padding:12px 14px;border-radius:12px;">';
-                            b += '  <div style="font-weight:800;color:#6d28d9;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📠 Nhắc Nhở Phân Tổ May / Kiểm Tra QC:</div>';
-                            b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
-                            sewReminders.forEach(function(rem, remIdx) {
-                                var remId = sewReminderIds[remIdx] || 0;
-                                var isViewed = sewViewedIds.indexOf(remId) >= 0;
-                                
-                                b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
-                                b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-                                if (isViewed) {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
-                                } else {
-                                    b += '  <span style="font-size:10px; font-weight:800; color:#7c3aed; border:1.5px solid #7c3aed; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
-                                }
+                            if (sewReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#f5f3ff;border:1.5px solid #ddd6fe;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#6d28d9;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📠 Nhắc Nhở Phân Tổ May / Kiểm Tra QC:</div>';
+                                b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                                sewReminders.forEach(function(rem, remIdx) {
+                                    var remId = sewReminderIds[remIdx] || 0;
+                                    var isViewed = sewViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#7c3aed') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#7c3aed; border:1.5px solid #7c3aed; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
+                                b += '  </div>';
                                 b += '</div>';
-                            });
-                            b += '  </div>';
-                            b += '</div>';
+                            }
+
+                            if (saleReminders.length > 0) {
+                                b += '<div style="margin-top:12px;background:#fffbeb;border:1.5px solid #fde68a;padding:12px 14px;border-radius:12px;">';
+                                b += '  <div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px">📢 SALE NHẮC NHỞ KIỂM TRA QC:</div>';
+                                b += '  <div style="display:flex; flex-direction:column; gap:8px;">';
+                                saleReminders.forEach(function(rem, remIdx) {
+                                    var remId = saleReminderIds[remIdx] || 0;
+                                    var isViewed = saleViewedIds.indexOf(remId) >= 0;
+                                    
+                                    b += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1.5px solid ' + (isViewed ? '#10b981' : '#f59e0b') + '; border-radius:10px; background:#fff; gap:10px;">';
+                                    b += '  <span style="font-weight:700; font-size:13px; color:#1e293b; flex:1; text-align:left;">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                                    if (isViewed) {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#10b981; border:1.5px solid #10b981; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">✅ Đã Xem và Làm</span>';
+                                    } else {
+                                        b += '  <span style="font-size:10px; font-weight:800; color:#d97706; border:1.5px solid #d97706; padding:4px 8px; border-radius:6px; background:#fff; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">👉 Chưa Xem</span>';
+                                    }
+                                    b += '</div>';
+                                });
+                                b += '  </div>';
+                                b += '</div>';
+                            }
                             
                             el.innerHTML = b;
                             el.style.display = 'block';
@@ -1573,8 +1604,12 @@ function _tsRenderStepModal(step, d, itemId = null){
 
             groups.forEach((g, i) => {
                 const isHtCompleted = r => {
+                    const isNoSew = r.sewer_name === 'ĐƠN KHÔNG MAY' || !r.sewing_record_id;
                     const isQcDone = r.qc_count > 0;
                     const isOutsourced = r.contractor_id !== null;
+                    if (isNoSew) {
+                        return !!r.is_completed;
+                    }
                     if (d.is_order_shipped) {
                         return !!r.is_completed;
                     } else {
@@ -1604,19 +1639,7 @@ function _tsRenderStepModal(step, d, itemId = null){
                 const title = '🔧 ' + d.order_code + ' — Phiếu ' + (i+1) + (g.item_description ? ' — ' + g.item_description : '');
                 
                 // Determine if all are completed
-                const allCompleted = g.assignments.every(r => {
-                    const isQcDone = r.qc_count > 0;
-                    const isOutsourced = r.contractor_id !== null;
-                    if (d.is_order_shipped) {
-                        return r.is_completed;
-                    } else {
-                        if (isOutsourced) {
-                            return isQcDone;
-                        } else {
-                            return isQcDone && r.is_completed;
-                        }
-                    }
-                });
+                const allCompleted = g.assignments.every(r => isHtCompleted(r));
 
                 let overallStatusText = allCompleted ? '✅ Đã hoàn thiện' : '⏳ Đang hoàn thiện';
                 let overallBadgeBg = allCompleted ? '#d1fae5' : '#fef3c7';
@@ -1633,7 +1656,8 @@ function _tsRenderStepModal(step, d, itemId = null){
 
                 body+=section('📋', 'TIẾN ĐỘ HOÀN THIỆN THEO TỪNG NHÀ MAY / TỔ MAY');
                 g.assignments.forEach((r, idxAss) => {
-                    const sewerDisplay = r.sewer_name ? '🏭 ' + r.sewer_name : '<span style="color:#ef4444;font-weight:800">Chưa rõ nhà may</span>';
+                    const isNoSew = r.sewer_name === 'ĐƠN KHÔNG MAY' || !r.sewing_record_id;
+                    const sewerDisplay = isNoSew ? '⚡ ĐƠN KHÔNG MAY' : (r.sewer_name ? '🏭 ' + r.sewer_name : '<span style="color:#ef4444;font-weight:800">Chưa rõ nhà may</span>');
                     
                     const isQcDone = r.qc_count > 0;
                     const isOutsourced = r.contractor_id !== null;
@@ -1643,7 +1667,13 @@ function _tsRenderStepModal(step, d, itemId = null){
                     let badgeBg = '#fef3c7';
                     let badgeColor = '#92400e';
 
-                    if (d.is_order_shipped) {
+                    if (isNoSew) {
+                        if (r.is_completed) {
+                            statusText = '✅ Đã hoàn thiện' + timeSuffix;
+                            badgeBg = '#d1fae5';
+                            badgeColor = '#065f46';
+                        }
+                    } else if (d.is_order_shipped) {
                         if (r.is_completed) {
                             statusText = '✅ Đã hoàn thiện' + timeSuffix;
                             badgeBg = '#d1fae5';
@@ -2455,3 +2485,89 @@ async function _tsShowRescheduleHistoryModal(id, code) {
         m.addEventListener('click', e => { if (e.target === m) { m.remove(); _tsUpdateBodyScroll(); } });
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
+
+window._tsOpenSaleQlxSummaryModal = async function(orderId, itemId) {
+    try {
+        var oldModal = document.getElementById('tsSaleQlxSummaryModal');
+        if (oldModal) oldModal.remove();
+
+        var url = '/api/sale-reminders?order_id=' + orderId + '&dept=qlx';
+        if (itemId) url += '&item_id=' + itemId;
+        
+        var res = await apiCall(url);
+        var reminders = res.reminders || [];
+        var reminderIds = res.reminder_ids || [];
+        var viewedIds = res.viewed_ids || [];
+        
+        var totalCount = reminders.length;
+        var viewedCount = 0;
+        reminders.forEach(function(r, idx) {
+            var rId = reminderIds[idx] || 0;
+            if (viewedIds.indexOf(rId) >= 0) viewedCount++;
+        });
+        var isAllViewed = totalCount > 0 && viewedCount >= totalCount;
+
+        var m = document.createElement('div');
+        m.id = 'tsSaleQlxSummaryModal';
+        m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);';
+
+        var b = '';
+        b += '<div style="background:#fff;border-radius:18px;width:100%;max-width:620px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;animation:tsSlide 0.25s ease;">';
+        
+        b += '  <div style="background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;">';
+        b += '      <div>';
+        b += '          <div style="font-size:16px;font-weight:900;letter-spacing:-0.2px;display:flex;align-items:center;gap:8px">📢 SALE NHẮC NHỞ QUẢN LÝ XƯỞNG</div>';
+        b += '          <div style="font-size:12px;opacity:0.9;margin-top:2px">Báo cáo trạng thái đọc và xác nhận của QLX</div>';
+        b += '      </div>';
+        b += '      <button onclick="document.getElementById(\'tsSaleQlxSummaryModal\')?.remove(); _tsUpdateBodyScroll();" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>';
+        b += '  </div>';
+
+        b += '  <div style="padding:16px 24px 0;">';
+        b += '      <div style="padding:12px 16px;border-radius:12px;background:' + (isAllViewed ? '#f0fdf4' : '#fffbeb') + ';border:1.5px solid ' + (isAllViewed ? '#bbf7d0' : '#fde68a') + ';display:flex;align-items:center;justify-content:space-between;">';
+        b += '          <div style="display:flex;align-items:center;gap:10px;">';
+        b += '              <span style="font-size:24px">' + (isAllViewed ? '✅' : '⏳') + '</span>';
+        b += '              <div>';
+        b += '                  <div style="font-weight:800;font-size:13px;color:' + (isAllViewed ? '#166534' : '#92400e') + '">' + (isAllViewed ? 'Quản Lý Xưởng ĐÃ XEM VÀ XÁC NHẬN HẾT' : 'Quản Lý Xưởng CHƯA BẤM XÁC NHẬN HẾT') + '</div>';
+        b += '                  <div style="font-size:11px;color:' + (isAllViewed ? '#15803d' : '#b45309') + '">Đã đọc ' + viewedCount + '/' + totalCount + ' câu dặn dò từ Sale</div>';
+        b += '              </div>';
+        b += '          </div>';
+        b += '          <span style="font-weight:900;font-size:14px;padding:4px 10px;border-radius:20px;background:#fff;color:' + (isAllViewed ? '#166534' : '#b45309') + ';border:1px solid ' + (isAllViewed ? '#86efac' : '#fcd34d') + '">' + viewedCount + '/' + totalCount + '</span>';
+        b += '      </div>';
+        b += '  </div>';
+
+        b += '  <div style="padding:20px 24px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;">';
+        if (reminders.length === 0) {
+            b += '      <div style="text-align:center;padding:30px;color:#94a3b8;font-weight:600">Không tìm thấy nhắc nhở nào từ Sale dành cho QLX</div>';
+        } else {
+            reminders.forEach(function(rem, remIdx) {
+                var remId = reminderIds[remIdx] || 0;
+                var isViewed = viewedIds.indexOf(remId) >= 0;
+
+                b += '      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1.5px solid ' + (isViewed ? '#10b981' : '#f59e0b') + ';border-radius:12px;background:#fff;gap:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02);">';
+                b += '          <div style="flex:1;">';
+                b += '              <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:2px">Nội dung Sale dặn #' + (remIdx + 1) + ':</div>';
+                b += '              <div style="font-weight:700;font-size:14px;color:#1e293b">' + rem.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                b += '          </div>';
+                if (isViewed) {
+                    b += '          <span style="font-size:11px;font-weight:800;color:#10b981;border:1.5px solid #10b981;padding:6px 12px;border-radius:8px;background:#f0fdf4;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">✅ QLX Đã Xem & Xác Nhận</span>';
+                } else {
+                    b += '          <span style="font-size:11px;font-weight:800;color:#d97706;border:1.5px solid #d97706;padding:6px 12px;border-radius:8px;background:#fffbeb;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">👉 QLX Chưa Xem</span>';
+                }
+                b += '      </div>';
+            });
+        }
+        b += '  </div>';
+
+        b += '  <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:right;">';
+        b += '      <button onclick="document.getElementById(\'tsSaleQlxSummaryModal\')?.remove(); _tsUpdateBodyScroll();" style="padding:8px 20px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#475569;cursor:pointer;font-weight:700;font-size:13px;">Đóng</button>';
+        b += '  </div>';
+        b += '</div>';
+
+        m.innerHTML = b;
+        document.body.appendChild(m);
+        _tsUpdateBodyScroll();
+        m.addEventListener('click', function(e) { if (e.target === m) { m.remove(); _tsUpdateBodyScroll(); } });
+    } catch(e) {
+        alert('Lỗi tải báo cáo QLX nhắc nhở: ' + e.message);
+    }
+};

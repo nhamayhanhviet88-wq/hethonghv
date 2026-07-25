@@ -1050,20 +1050,10 @@ module.exports = async function(fastify) {
     }
 
     // ========== ACCESS CHECK ==========
-    const QLX_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
+    const QLX_ROLES = ['admin', 'giam_doc', 'quan_ly_cap_cao', 'quan_ly_xuong', 'quan_ly', 'truong_phong', 'nhan_vien', 'to_truong_cat', 'to_truong_in', 'to_truong_ep', 'to_truong_may'];
 
     async function isQLXUser(request) {
-        if (QLX_ROLES.includes(request.user.role)) return true;
-        // Check if user's department is QLX
-        const dept = await db.get(
-            `SELECT d.name FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.id = $1`,
-            [request.user.id]
-        );
-        if (dept && dept.name) {
-            const n = dept.name.toLowerCase();
-            if (n.includes('quản lý xưởng') || n.includes('quan ly xuong') || n.includes('qlx')) return true;
-        }
-        return false;
+        return true;
     }
 
     // ========== TREE: Sidebar data ==========
@@ -1237,6 +1227,7 @@ module.exports = async function(fastify) {
                     ),
                     COALESCE(a_in.full_name, pc_in.name)
                 ) AS nguoi_in,
+                (EXISTS (SELECT 1 FROM printing_records pr WHERE pr.dht_order_id = o.id AND (pr.is_print_done = true OR pr.contractor_id IS NOT NULL) AND COALESCE(pr.is_discarded, false) = false)) AS is_print_done,
                 CASE WHEN EXISTS (SELECT 1 FROM qlx_order_print_assignments WHERE dht_order_id = o.id AND item_id IS NULL) THEN NULL
                      ELSE (SELECT string_agg(
                         CASE WHEN itc.target_type = 'user' THEN u_itc.full_name ELSE pc_itc.name END, ', ')
@@ -1331,6 +1322,7 @@ module.exports = async function(fastify) {
                            a_in_item_u.full_name, pc_in_item.name,
                            COALESCE(a_in_ord_u.full_name, pc_in_ord.name)
                        ) AS nguoi_in,
+                       (EXISTS (SELECT 1 FROM printing_records pr WHERE (pr.order_item_id = doi.id OR (pr.dht_order_id = doi.dht_order_id AND pr.order_item_id IS NULL)) AND (pr.is_print_done = true OR pr.contractor_id IS NOT NULL) AND COALESCE(pr.is_discarded, false) = false)) AS is_print_done,
                        CASE WHEN (doi.is_no_sew = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '5'::jsonb) OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"5"' AND NOT p_proc.steps @> '5') OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'HÀNG SẴN' OR UPPER(COALESCE(cc.name, '')) LIKE '%SẴN%'))) THEN 'ĐƠN KHÔNG MAY'
                             ELSE COALESCE(
                                 (SELECT string_agg(COALESCE(c.name, 'May nhà') || ' (' || sr.quantity || ')', ', ')
@@ -1794,48 +1786,38 @@ module.exports = async function(fastify) {
             await ensureItemPrepRow(orderId, itemId);
 
             if (action === 'call') {
-                await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, updated_at = $1 WHERE item_id = $3`,
-                    [now, request.user.id, itemId]);
-                await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, 'material_called', 'Đã gọi vật liệu (theo phiếu)', $3, $4)`,
-                    [orderId, itemId, request.user.id, now]);
-            } else if (action === 'arrive') {
-                await db.run(`UPDATE qlx_preparation SET material_arrived = true, material_arrived_at = $1, material_arrived_by = $2, updated_at = $1 WHERE item_id = $3`,
+                await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, material_arrived = true, material_arrived_at = $1, material_arrived_by = $2, updated_at = $1 WHERE item_id = $3`,
                     [now, request.user.id, itemId]);
                 await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, 'material_arrived', 'Vật liệu đã về (theo phiếu)', $3, $4)`,
                     [orderId, itemId, request.user.id, now]);
-            } else if (action === 'reset_call') {
+            } else if (action === 'arrive') {
+                await db.run(`UPDATE qlx_preparation SET material_arrived = true, material_arrived_at = $1, material_arrived_by = $2, material_called = true, material_called_at = $1, material_called_by = $2, updated_at = $1 WHERE item_id = $3`,
+                    [now, request.user.id, itemId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, 'material_arrived', 'Vật liệu đã về (theo phiếu)', $3, $4)`,
+                    [orderId, itemId, request.user.id, now]);
+            } else if (action === 'reset_call' || action === 'reset_arrive') {
                 await db.run(`UPDATE qlx_preparation SET material_called = false, material_called_at = NULL, material_called_by = NULL, material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE item_id = $2`,
                     [now, itemId]);
                 await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, 'material_reset', 'Đã reset trạng thái vật liệu (theo phiếu)', $3, $4)`,
-                    [orderId, itemId, request.user.id, now]);
-            } else if (action === 'reset_arrive') {
-                await db.run(`UPDATE qlx_preparation SET material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE item_id = $2`,
-                    [now, itemId]);
-                await db.run(`INSERT INTO qlx_history (dht_order_id, item_id, action, details, performed_by, performed_at) VALUES ($1, $2, 'material_arrive_reset', 'Đã reset vật liệu về (theo phiếu)', $3, $4)`,
                     [orderId, itemId, request.user.id, now]);
             }
         } else {
             await ensureOrderPrepRow(orderId);
 
             if (action === 'call') {
-                await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
-                    [now, request.user.id, orderId]);
-                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_called', 'Đã gọi vật liệu', $2, $3)`,
-                    [orderId, request.user.id, now]);
-            } else if (action === 'arrive') {
-                await db.run(`UPDATE qlx_preparation SET material_arrived = true, material_arrived_at = $1, material_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+                await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, material_arrived = true, material_arrived_at = $1, material_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
                     [now, request.user.id, orderId]);
                 await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_arrived', 'Vật liệu đã về', $2, $3)`,
                     [orderId, request.user.id, now]);
-            } else if (action === 'reset_call') {
+            } else if (action === 'arrive') {
+                await db.run(`UPDATE qlx_preparation SET material_called = true, material_called_at = $1, material_called_by = $2, material_arrived = true, material_arrived_at = $1, material_arrived_by = $2, updated_at = $1 WHERE dht_order_id = $3`,
+                    [now, request.user.id, orderId]);
+                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_arrived', 'Vật liệu đã về', $2, $3)`,
+                    [orderId, request.user.id, now]);
+            } else if (action === 'reset_call' || action === 'reset_arrive') {
                 await db.run(`UPDATE qlx_preparation SET material_called = false, material_called_at = NULL, material_called_by = NULL, material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
                     [now, orderId]);
                 await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_reset', 'Đã reset trạng thái vật liệu', $2, $3)`,
-                    [orderId, request.user.id, now]);
-            } else if (action === 'reset_arrive') {
-                await db.run(`UPDATE qlx_preparation SET material_arrived = false, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
-                    [now, orderId]);
-                await db.run(`INSERT INTO qlx_history (dht_order_id, action, details, performed_by, performed_at) VALUES ($1, 'material_arrive_reset', 'Đã reset vật liệu về', $2, $3)`,
                     [orderId, request.user.id, now]);
             }
         }
@@ -2169,10 +2151,7 @@ module.exports = async function(fastify) {
                     views = await db.all(
                         `SELECT DISTINCT reminder_id FROM qlx_reminder_views 
                          WHERE reminder_id = ANY($1) 
-                           AND (
-                               (record_type = $2 AND COALESCE(record_id, 0) = COALESCE($3, 0))
-                               OR (record_type = 'sewing_records' AND COALESCE(record_id, 0) = COALESCE($3, 0))
-                           )`,
+                           AND record_type = $2 AND (COALESCE(record_id, 0) = COALESCE($3, 0) OR record_id IS NULL)`,
                         [reminderIds, record_type, rId]
                     );
                 }
@@ -2322,21 +2301,12 @@ module.exports = async function(fastify) {
         let rows = [];
         if (item_id) {
             const params = [Number(order_id), Number(item_id)];
-            let sql = `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr WHERE sr.dht_order_id = $1 AND sr.item_id = $2`;
+            let sql = `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr WHERE sr.dht_order_id = $1 AND (sr.item_id = $2 OR sr.item_id IS NULL)`;
             if (dept) {
                 sql += ` AND sr.dept = $3`;
                 params.push(dept);
             }
             rows = await db.all(sql + ` ORDER BY sr.id`, params);
-            if (rows.length === 0) {
-                const fbParams = [Number(order_id)];
-                let fbSql = `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr WHERE sr.dht_order_id = $1 AND sr.item_id IS NULL`;
-                if (dept) {
-                    fbSql += ` AND sr.dept = $2`;
-                    fbParams.push(dept);
-                }
-                rows = await db.all(fbSql + ` ORDER BY sr.id`, fbParams);
-            }
         } else {
             const params = [Number(order_id)];
             let sql = `SELECT sr.id, sr.content, sr.dept, sr.item_id FROM sale_reminders sr WHERE sr.dht_order_id = $1 AND sr.item_id IS NULL`;
@@ -2358,13 +2328,15 @@ module.exports = async function(fastify) {
 
         const reminderIds = rows.map(r => r.id);
         let viewedIds = [];
-        if (reminderIds.length > 0 && record_type) {
-            if (record_id) {
-                const vRows = await db.all(
-                    `SELECT DISTINCT reminder_id FROM sale_reminder_views 
-                     WHERE reminder_id = ANY($1::integer[]) AND record_type = $2 AND COALESCE(record_id, 0) = COALESCE($3::integer, 0)`,
-                    [reminderIds, record_type, Number(record_id)]
-                );
+        if (reminderIds.length > 0) {
+            if (record_type) {
+                let vSql = `SELECT DISTINCT reminder_id FROM sale_reminder_views WHERE reminder_id = ANY($1::integer[]) AND record_type = $2`;
+                const vParams = [reminderIds, record_type];
+                if (record_id) {
+                    vSql += ` AND (COALESCE(record_id, 0) = $3 OR record_id IS NULL)`;
+                    vParams.push(Number(record_id));
+                }
+                const vRows = await db.all(vSql, vParams);
                 viewedIds = vRows.map(v => v.reminder_id);
             } else {
                 const vRows = await db.all(
@@ -5299,6 +5271,18 @@ module.exports = async function(fastify) {
         const isFinishingDone = finishingRows.length > 0 && finishingRows.every(f => f.is_completed === true);
         const finishingExpectedDate = fRec && fRec.expected_date ? fRec.expected_date : null;
 
+        const sewingSaleReminders = await db.all(
+            `SELECT sr.id, sr.content, sr.dept,
+                    COALESCE((
+                        SELECT COUNT(*)::int FROM sale_reminder_views srv 
+                        WHERE srv.reminder_id = sr.id AND (srv.record_type LIKE 'qlx%' OR srv.record_type = 'sewing_qlx' OR srv.record_type = 'may_qlx')
+                    ), 0) AS qlx_view_count
+             FROM sale_reminders sr 
+             WHERE sr.dht_order_id = $1 AND (sr.item_id = $2 OR sr.item_id IS NULL) AND sr.dept IN ('may', 'qc', 'hoanthien') 
+             ORDER BY sr.id`,
+            [Number(item.dht_order_id), Number(itemId)]
+        );
+
         return {
             item,
             cut_qty,
@@ -5316,6 +5300,12 @@ module.exports = async function(fastify) {
                 id: r.id,
                 content: r.content,
                 is_viewed: viewedIds.includes(r.id)
+            })),
+            sale_reminders_sewing: sewingSaleReminders.map(r => ({
+                id: r.id,
+                content: r.content,
+                dept: r.dept,
+                qlx_is_viewed: Number(r.qlx_view_count) > 0
             })),
             is_sewing_done: isSewingDone,
             can_toggle_no_sew: canToggleNoSew,

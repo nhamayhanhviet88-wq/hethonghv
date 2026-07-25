@@ -374,8 +374,8 @@ const _PAGE_SCRIPT_MAP = {
     'traogiaithuong': '/js/pages/traogiaithuong.js',
     'donloinoibo': '/js/pages/donloinoibo.js',
     'loithuonggap': '/js/pages/donloinoibo.js',
-    'design-draft': '/js/pages/taophieudonhang.js?v=20260722_lock_qlx_rems_v3',
-    'designdraft': '/js/pages/taophieudonhang.js?v=20260722_lock_qlx_rems_v3',
+    'design-draft': '/js/pages/taophieudonhang.js?v=20260723_lock_viewed_dept_rems_v29',
+    'designdraft': '/js/pages/taophieudonhang.js?v=20260723_lock_viewed_dept_rems_v29',
     'bangiao-diem-kd': '/js/pages/bangiao-diem.js',
     'bangiaodiem': '/js/pages/bangiao-diem.js',
     'lich-khoa-bieu': '/js/pages/lich-khoabieu.js',
@@ -449,18 +449,18 @@ const _PAGE_SCRIPT_MAP = {
     'donhanghomnayqlx': '/js/pages/donhanghomnayqlx.js?v=20260721_counting_fix_v5',
     'lichradonhang': '/js/pages/lichradonhang.js?v=20260721_ts_modal_lazy_v2',
     'nhapxuathoanvatlieu': '/js/pages/nhapxuathoanvatlieu.js',
-    'congviec-qlx': '/js/pages/congviecqlx.js?v=20260723_qlx_reminders_v42',
-    'congviecqlx': '/js/pages/congviecqlx.js?v=20260723_qlx_reminders_v42',
-    'chuanbiqlx': '/js/pages/chuanbiqlx.js?v=20260723_call_fab_cat_reminders_v13',
-    'quanlyxuongqlx': '/js/pages/chuanbiqlx.js?v=20260723_call_fab_cat_reminders_v13',
+    'congviec-qlx': '/js/pages/congviecqlx.js?v=20260725_qlx_v103',
+    'congviecqlx': '/js/pages/congviecqlx.js?v=20260725_qlx_v103',
+    'chuanbiqlx': '/js/pages/chuanbiqlx.js?v=20260725_qlx_v103',
+    'quanlyxuongqlx': '/js/pages/chuanbiqlx.js?v=20260725_qlx_v103',
     'chuyen-so': '/js/pages/chuyenso.js',
     'chuyenso': '/js/pages/chuyenso.js',
     'chuyensosale': '/js/pages/chuyensosale.js',
     'caidatsanxuat': '/js/pages/caidatsanxuat.js?v=20260721_spqt_grouping_v1',
     'don-hang-tong': '/js/pages/donhangtong.js',
     'donhangtong': '/js/pages/donhangtong.js',
-    'taophieudonhang': '/js/pages/taophieudonhang.js?v=20260722_draft_purge_v28',
-    'tao-phieu-don-hang': '/js/pages/taophieudonhang.js?v=20260722_draft_purge_v28',
+    'taophieudonhang': '/js/pages/taophieudonhang.js?v=20260723_lock_viewed_dept_rems_v29',
+    'tao-phieu-don-hang': '/js/pages/taophieudonhang.js?v=20260723_lock_viewed_dept_rems_v29',
     'xuatvathv': '/js/pages/xuatvathv.js',
     'xuat-hoa-don-vat': '/js/pages/xuatvathv.js',
     'don-gui-ao-mau': '/js/pages/donguiaomau.js',
@@ -2316,6 +2316,7 @@ async function handleRoute() {
                 case 'bo-phan-ep': case 'bophanep': case 'bophanephv': renderBophanepPage(content); break;
                 case 'bo-phan-may': case 'bophanmay': case 'bophanmayhv': renderBophanmayPage(content); break;
                 case 'bo-phan-hoan-thien': case 'bophanhoanthien': case 'bophanhoanthienhv': renderBophanhoanthienPage(content); break;
+                case 'kiem-tra-chat-luong': case 'kiemtrachatluong': renderKiemtrachatluongPage(content); break;
                 case 'design-draft': case 'designdraft': renderDesignDraftPage(content); break;
                 default:
                     // ========== CONVENTION-BASED AUTO-RENDER ==========

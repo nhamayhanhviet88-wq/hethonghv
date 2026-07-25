@@ -22,9 +22,24 @@ module.exports = async function(fastify) {
             }
         }
         if (dhtOrderId) {
-            const order = await db.get('SELECT is_draft FROM dht_orders WHERE id = $1', [dhtOrderId]);
-            if (order && order.is_draft) {
-                return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
+            const lock = await db.get(`
+                SELECT o.id, o.order_code, o.is_draft, o.is_locked, o.locked_at, u.full_name AS locked_by_name
+                FROM dht_orders o
+                LEFT JOIN users u ON o.locked_by = u.id
+                WHERE o.id = $1
+            `, [dhtOrderId]);
+            if (lock) {
+                if (lock.is_draft) {
+                    return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
+                }
+                if (lock.is_locked && lock.locked_at) {
+                    const lockedAt = new Date(lock.locked_at);
+                    const now = new Date();
+                    const diffMinutes = (now - lockedAt) / (1000 * 60);
+                    if (diffMinutes < 5) {
+                        return reply.code(423).send({ error: `⚠️ Đơn đang được sửa bởi ${lock.locked_by_name || 'sale'}` });
+                    }
+                }
             }
         }
     });
@@ -378,6 +393,7 @@ module.exports = async function(fastify) {
         const records = await db.all(`
             SELECT pr.*, u.full_name AS presser_name, u_rpt.full_name AS reported_by_name,
                    u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority, COALESCE(o.is_draft, false) AS is_draft,
+                   o.is_locked, o.locked_at, u_locked.full_name AS locked_by_name,
                    o.customer_name, cc.name AS category_name,
                    (SELECT product_name FROM cutting_records WHERE order_item_id = pr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                    lh.details AS last_update_detail, lh.performed_at AS last_update_at, lhu.full_name AS last_update_by,
@@ -428,16 +444,33 @@ module.exports = async function(fastify) {
             FROM pressing_records pr LEFT JOIN users u ON pr.presser_id=u.id
             LEFT JOIN users u_rpt ON pr.reported_by=u_rpt.id LEFT JOIN users u_sal ON pr.salary_approved_by=u_sal.id
             LEFT JOIN dht_orders o ON pr.dht_order_id=o.id
+            LEFT JOIN users u_locked ON o.locked_by = u_locked.id
             LEFT JOIN dht_order_items oi ON pr.order_item_id = oi.id
             LEFT JOIN dht_products p ON p.name = TRIM(COALESCE(oi.product_name, oi.description)) AND p.is_active = true
             LEFT JOIN dht_settings_options cc ON cc.id = p.cutting_category_id AND cc.category = 'cutting_category'
             LEFT JOIN LATERAL (SELECT h.details, h.performed_at, h.performed_by FROM pressing_history h WHERE h.pressing_id=pr.id ORDER BY h.performed_at DESC LIMIT 1) lh ON true
             LEFT JOIN users lhu ON lh.performed_by=lhu.id
             ${where} ORDER BY pr.press_date DESC NULLS LAST, pr.created_at DESC`, params);
-        const formattedRecords = records.map(r => ({
-            ...r,
-            product_name: r.cut_product_name || r.product_name
-        }));
+
+        const formattedRecords = records.map(r => {
+            let editLockBy = null;
+            if (r.is_locked && r.locked_at) {
+                const lockedAt = new Date(r.locked_at);
+                const now = new Date();
+                const diffMinutes = (now - lockedAt) / (1000 * 60);
+                if (diffMinutes < 5) {
+                    editLockBy = r.locked_by_name || 'sale';
+                }
+            }
+            if (r.is_draft && !editLockBy) {
+                editLockBy = r.locked_by_name || 'sale';
+            }
+            return {
+                ...r,
+                product_name: r.cut_product_name || r.product_name,
+                edit_lock_by: editLockBy
+            };
+        });
         return { records: formattedRecords };
     });
 
@@ -828,9 +861,11 @@ module.exports = async function(fastify) {
 
     // ========== UNASSIGNED: Đơn chưa ép (pool) ==========
     fastify.get('/api/pressing/unassigned', { preHandler: [authenticate] }, async (request, reply) => {
+        const now = new Date();
         const orders = await db.all(`
             SELECT o.id, o.order_code, o.customer_name, o.customer_phone,
                    o.total_quantity, o.order_date, o.expected_ship_date, o.shipping_priority, COALESCE(o.is_draft, false) AS is_draft,
+                   o.is_locked, o.locked_at, u_locked.full_name AS locked_by_name,
                    c.name AS category_name,
                    u_cskh.full_name AS cskh_name,
                    u_created.full_name AS created_by_name
@@ -838,6 +873,7 @@ module.exports = async function(fastify) {
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON o.created_by = u_created.id
+            LEFT JOIN users u_locked ON o.locked_by = u_locked.id
             WHERE EXISTS (
                 SELECT 1 FROM dht_order_items oi
                 WHERE oi.dht_order_id = o.id
@@ -1185,6 +1221,17 @@ module.exports = async function(fastify) {
                 const maxCutQty = itemCuts.length > 0 ? Math.max(...itemCuts.map(c => c.cut_qty || 0), 0) : 0;
                 const displayCutQty = maxCutQty > 0 ? maxCutQty : it.quantity;
 
+                let editLockBy = null;
+                if (o.is_draft) {
+                    editLockBy = o.cskh_name || o.created_by_name || 'Sale';
+                } else if (o.is_locked && o.locked_at) {
+                    const lockedAt = new Date(o.locked_at);
+                    const diffMinutes = (now - lockedAt) / (1000 * 60);
+                    if (diffMinutes < 5) {
+                        editLockBy = o.locked_by_name || 'người khác';
+                    }
+                }
+
                 rows.push({
                     ...o,
                     category_name: it.category_name,
@@ -1203,7 +1250,8 @@ module.exports = async function(fastify) {
                     print_types: it.print_types || null,
                     pending_print_types: it.pending_print_types || null,
                     warning_msg: warningMsg,
-                    ready: ready,
+                    ready: editLockBy ? false : ready,
+                    edit_lock_by: editLockBy,
                     phoi: phoiList,
                     cut_product_name: it.cut_product_name || null,
                     production_cancelled: it.production_cancelled
@@ -1219,7 +1267,7 @@ module.exports = async function(fastify) {
         const { dht_order_id, order_item_id } = request.body || {};
         if (!dht_order_id || !order_item_id) return reply.code(400).send({ error: 'Thiếu mã đơn hoặc mã phiếu' });
 
-        const now = vnNow();
+        const now = new Date();
         const userId = request.user.id;
 
         const pool = db.getDB();
@@ -1227,8 +1275,9 @@ module.exports = async function(fastify) {
         try {
             await client.query('BEGIN');
             const orderRes = await client.query(`
-                SELECT o.id, o.order_code, o.shipping_status
+                SELECT o.id, o.order_code, o.shipping_status, COALESCE(o.is_draft, false) AS is_draft, o.is_locked, o.locked_at, u_locked.full_name AS locked_by_name
                 FROM dht_orders o
+                LEFT JOIN users u_locked ON o.locked_by = u_locked.id
                 WHERE o.id = $1
             `, [dht_order_id]);
             const order = orderRes.rows[0];
@@ -1240,6 +1289,24 @@ module.exports = async function(fastify) {
                 await client.query('ROLLBACK');
                 return reply.code(400).send({
                     error: `Đơn hàng đã ${order.shipping_status === 'shipped' ? 'gửi đi' : 'bị hủy'} — không thể nhận đơn ép!`
+                });
+            }
+
+            let lockUser = null;
+            if (order.is_draft) {
+                lockUser = 'bản nháp / chờ sale cập nhật';
+            } else if (order.is_locked && order.locked_at) {
+                const lockedAt = new Date(order.locked_at);
+                const diffMinutes = (now - lockedAt) / (1000 * 60);
+                if (diffMinutes < 5) {
+                    lockUser = order.locked_by_name || 'người khác';
+                }
+            }
+
+            if (lockUser) {
+                await client.query('ROLLBACK');
+                return reply.code(400).send({
+                    error: `⚠️ Đơn hàng đang được mở sửa bởi ${lockUser} — tạm thời không thể nhận ép hàng!`
                 });
             }
 

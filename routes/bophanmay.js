@@ -40,9 +40,24 @@ module.exports = async function(fastify) {
         }
 
         if (dhtOrderId) {
-            const order = await db.get('SELECT is_draft FROM dht_orders WHERE id = $1', [dhtOrderId]);
-            if (order && order.is_draft) {
-                return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
+            const lock = await db.get(`
+                SELECT o.id, o.order_code, o.is_draft, o.is_locked, o.locked_at, u.full_name AS locked_by_name
+                FROM dht_orders o
+                LEFT JOIN users u ON o.locked_by = u.id
+                WHERE o.id = $1
+            `, [dhtOrderId]);
+            if (lock) {
+                if (lock.is_draft) {
+                    return reply.code(400).send({ error: 'Đơn hàng đang trong trạng thái sửa đổi (nháp), không thể thực hiện thao tác sản xuất!' });
+                }
+                if (lock.is_locked && lock.locked_at) {
+                    const lockedAt = new Date(lock.locked_at);
+                    const now = new Date();
+                    const diffMinutes = (now - lockedAt) / (1000 * 60);
+                    if (diffMinutes < 5) {
+                        return reply.code(423).send({ error: `⚠️ Đơn đang được sửa bởi ${lock.locked_by_name || 'sale'}` });
+                    }
+                }
             }
         }
     });
@@ -377,6 +392,7 @@ module.exports = async function(fastify) {
         let queryStr = `
             SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
                    u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority, COALESCE(o.is_draft, false) AS is_draft,
+                   o.is_locked, o.locked_at, u_locked.full_name AS locked_by_name,
                    o.expected_ship_date, o.shipping_date, o.standard_delivery_time,
                    u_cskh.full_name AS cskh_name,
                    (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
@@ -393,6 +409,7 @@ module.exports = async function(fastify) {
             LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
             LEFT JOIN users u_rpt ON sr.reported_by=u_rpt.id LEFT JOIN users u_sal ON sr.salary_approved_by=u_sal.id
             LEFT JOIN dht_orders o ON sr.dht_order_id=o.id
+            LEFT JOIN users u_locked ON o.locked_by = u_locked.id
             LEFT JOIN users u_cskh ON o.cskh_user_id=u_cskh.id
             LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
             LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
@@ -409,7 +426,24 @@ module.exports = async function(fastify) {
 
         const records = await db.all(queryStr, params);
         const totalCount = records.length > 0 ? Number(records[0].total_count) : 0;
-        return { records, totalCount };
+
+        const formattedRecords = records.map(r => {
+            let editLockBy = null;
+            if (r.is_locked && r.locked_at) {
+                const lockedAt = new Date(r.locked_at);
+                const now = new Date();
+                const diffMinutes = (now - lockedAt) / (1000 * 60);
+                if (diffMinutes < 5) {
+                    editLockBy = r.locked_by_name || 'sale';
+                }
+            }
+            if (r.is_draft && !editLockBy) {
+                editLockBy = r.locked_by_name || 'sale';
+            }
+            return { ...r, edit_lock_by: editLockBy };
+        });
+
+        return { records: formattedRecords, totalCount };
     });
 
     fastify.get('/api/sewing/records/:id', { preHandler: [authenticate] }, async (req, reply) => {
@@ -417,6 +451,7 @@ module.exports = async function(fastify) {
         const record = await db.get(`
             SELECT sr.*, COALESCE(dt.name, u.full_name) AS sewer_name, c.name AS contractor_name,
                    u_rpt.full_name AS reported_by_name, u_sal.full_name AS salary_by_name, o.order_code, o.shipping_priority, COALESCE(o.is_draft, false) AS is_draft,
+                   o.is_locked, o.locked_at, u_locked.full_name AS locked_by_name,
                    o.expected_ship_date, o.shipping_date, o.standard_delivery_time,
                    u_cskh.full_name AS cskh_name,
                    (SELECT product_name FROM cutting_records WHERE order_item_id = sr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
@@ -431,6 +466,7 @@ module.exports = async function(fastify) {
             LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
             LEFT JOIN users u_rpt ON sr.reported_by=u_rpt.id LEFT JOIN users u_sal ON sr.salary_approved_by=u_sal.id
             LEFT JOIN dht_orders o ON sr.dht_order_id=o.id
+            LEFT JOIN users u_locked ON o.locked_by = u_locked.id
             LEFT JOIN users u_cskh ON o.cskh_user_id=u_cskh.id
             LEFT JOIN dht_order_items oi ON sr.order_item_id = oi.id
             LEFT JOIN tsam_samples ts ON oi.pattern_name = ts.sample_code AND ts.is_active = true
@@ -441,6 +477,21 @@ module.exports = async function(fastify) {
             WHERE sr.id = $1
         `, [id]);
         if (!record) return reply.code(404).send({ error: 'Không tìm thấy phiếu may' });
+
+        let editLockBy = null;
+        if (record.is_locked && record.locked_at) {
+            const lockedAt = new Date(record.locked_at);
+            const now = new Date();
+            const diffMinutes = (now - lockedAt) / (1000 * 60);
+            if (diffMinutes < 5) {
+                editLockBy = record.locked_by_name || 'sale';
+            }
+        }
+        if (record.is_draft && !editLockBy) {
+            editLockBy = record.locked_by_name || 'sale';
+        }
+        record.edit_lock_by = editLockBy;
+
         return { record };
     });
 

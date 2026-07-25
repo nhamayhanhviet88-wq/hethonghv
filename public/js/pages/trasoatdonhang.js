@@ -508,10 +508,24 @@ function _tsRenderTimeline(res) {
             </div>`;
             
             html += '<div class="ts-timeline">';
-            const timeline = item.timeline || [];
-            timeline.forEach((s, i) => {
-                let cls = s.done ? 'done' : (i > 0 && timeline[i-1].done && !s.done) ? 'active' : (i === 0 && !s.done) ? 'active' : 'pending';
-                let icon = s.done ? '✓' : cls === 'active' ? '⏳' : (i+1);
+            let fullTimeline = (item.timeline || []).slice();
+            if (item.sale_qlx_reminders && item.sale_qlx_reminders.total_count > 0) {
+                const isAll = item.sale_qlx_reminders.all_viewed;
+                fullTimeline.unshift({
+                    name: 'Sale Dặn QLX',
+                    short: 'Sale Dặn QLX',
+                    is_sale_qlx: true,
+                    done: isAll,
+                    progress: isAll ? `${item.sale_qlx_reminders.total_count}/${item.sale_qlx_reminders.total_count} xem` : `Chưa xem (${item.sale_qlx_reminders.viewed_count}/${item.sale_qlx_reminders.total_count})`,
+                    icon: '📢',
+                    custom_cls: isAll ? 'done' : 'active'
+                });
+            }
+
+            fullTimeline.forEach((s, i) => {
+                let cls = s.done ? 'done' : (i > 0 && fullTimeline[i-1].done && !s.done) ? 'active' : (i === 0 && !s.done) ? 'active' : 'pending';
+                if (s.is_sale_qlx) cls = s.custom_cls;
+                let icon = s.is_sale_qlx ? '📢' : s.done ? '✓' : cls === 'active' ? '⏳' : (i + (item.sale_qlx_reminders && item.sale_qlx_reminders.total_count > 0 ? 0 : 1));
                 
                 if (isItemCancelled && !s.done) {
                     cls = 'cancelled';
@@ -521,12 +535,15 @@ function _tsRenderTimeline(res) {
                 const lineCls = s.done ? 'done' : '';
                 const lineStyle = isItemCancelled && !s.done ? 'border-top: 3px dashed #d1d5db; background: transparent; height: 0;' : '';
                 const stepNameStyle = isItemCancelled && !s.done ? 'text-decoration: line-through; color: #9ca3af;' : '';
+                const clickHandler = s.is_sale_qlx 
+                    ? `_tsOpenSaleQlxSummaryModal(${o.id}, ${item.id})`
+                    : `_tsOpenStepModal(${o.id},'${s.name}',${item.id})`;
 
                 html += `<div class="ts-step">`;
-                if (i < timeline.length - 1) html += `<div class="ts-step-line ${lineCls}" style="${lineStyle}"></div>`;
-                html += `<div class="ts-step-icon ${cls}" onclick="event.stopPropagation();_tsOpenStepModal(${o.id},'${s.name}',${item.id})" style="cursor:pointer" title="Xem báo cáo ${s.name}">${icon}</div>
+                if (i < fullTimeline.length - 1) html += `<div class="ts-step-line ${lineCls}" style="${lineStyle}"></div>`;
+                html += `<div class="ts-step-icon ${cls}" onclick="event.stopPropagation();${clickHandler}" style="cursor:pointer" title="Xem ${s.name}">${icon}</div>
                     <div class="ts-step-name" style="${stepNameStyle}">${s.short || s.name}</div>
-                    ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress} xong</div>` : ''}
+                    ${s.progress ? `<div style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;margin:2px 0;background:${s.done ? '#d1fae5':'#fef3c7'};color:${s.done ? '#065f46':'#b45309'}">${s.progress}</div>` : ''}
                     <div class="ts-step-time">${s.time ? fmtDT(s.time) : ''}</div>
                     <div class="ts-step-time">${s.worker || ''}</div>
                     ${s.extra ? `<div style="font-size:9px;font-weight:700;color:#7c3aed;margin-top:2px">${s.extra}</div>` : ''}

@@ -206,13 +206,11 @@ function _qlxPatchOrderRows(orderId) {
             else { fabIcon = '🧵'; }
         }
 
-        var isMatArrived = r.item ? r.item.material_arrived : o.material_arrived;
-        var isMatCalled = r.item ? r.item.material_called : o.material_called;
+        var isMatArrived = r.item ? (r.item.material_arrived || r.item.material_called) : (o.material_arrived || o.material_called);
         if (isMatArrived) { matIcon = '✅'; matCls = ' on-fab'; } 
-        else if (isMatCalled) { matIcon = '📥'; matCls = ' on-mat'; } 
-        else { matIcon = '🔩'; }
+        else { matIcon = '🔩'; matCls = ''; }
 
-        var matAct = isMatArrived ? 'reset_arrive' : isMatCalled ? 'arrive' : 'call';
+        var matAct = isMatArrived ? 'reset_call' : 'call';
         var itemDesc = r.item ? (r.item.description || '') : '';
         var priority = (o.shipping_priority || 'CHUẨN').toUpperCase();
         var priBadge = '';
@@ -288,6 +286,8 @@ function _qlxPatchOrderRows(orderId) {
                     var receivedPhieu = o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1';
                     if (receivedPhieu) {
                         var hasNguoiIn = r.item ? r.item.nguoi_in : o.nguoi_in;
+                        var isPrintDone = r.item ? (r.item.is_print_done === true || r.item.is_print_done === 't' || r.item.is_print_done === 1) : (o.is_print_done === true || o.is_print_done === 't' || o.is_print_done === 1);
+                        var priClass = isPrintDone ? ' on-fab' : (hasNguoiIn ? ' on-pri' : '');
                         var hasNguoiMay = r.item ? r.item.nguoi_may : o.nguoi_may;
                         var isSewingAllowed = r.item ? (r.item.is_cut_done && r.item.is_material_done) : (o.is_cut_done && o.is_material_done);
                         var sewClass = '';
@@ -302,7 +302,7 @@ function _qlxPatchOrderRows(orderId) {
                         if (isNoPrint) {
                             h += '<td style="text-align:center"><button class="qlx-icon-btn on-fab" onclick="_qlxNoPrintNotice()" title="KHÔNG IN & ÉP">🚫</button></td>';
                         } else {
-                            h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiIn ? ' on-pri' : '') + '" onclick="if(_qlxCheckActionLock(' + o.id + '))return;_qlxAssign(' + o.id + ',\'in\',' + (r.item ? r.item.id : 0) + ')" title="PC In">🖨️</button></td>';
+                            h += '<td style="text-align:center"><button class="qlx-icon-btn' + priClass + '" onclick="if(_qlxCheckActionLock(' + o.id + '))return;_qlxAssign(' + o.id + ',\'in\',' + (r.item ? r.item.id : 0) + ')" title="PC In">🖨️</button></td>';
                         }
                         h += '<td style="text-align:center"><button class="qlx-icon-btn' + sewClass + '" onclick="if(_qlxCheckActionLock(' + o.id + '))return;_qlxAssign(' + o.id + ',\'may\',' + (r.item ? r.item.id : 0) + ')" title="PC May">🪡</button></td>';
                     } else {
@@ -770,13 +770,11 @@ function _qlxRenderRows(paged) {
             else { fabIcon = '🧵'; }
         }
         // Material called/arrived status per-ticket
-        var isMatArrived = it ? it.material_arrived : o.material_arrived;
-        var isMatCalled = it ? it.material_called : o.material_called;
+        var isMatArrived = it ? (it.material_arrived || it.material_called) : (o.material_arrived || o.material_called);
         if (isMatArrived) { matIcon = '✅'; matCls = ' on-fab'; } 
-        else if (isMatCalled) { matIcon = '📥'; matCls = ' on-mat'; } 
-        else { matIcon = '🔩'; }
+        else { matIcon = '🔩'; matCls = ''; }
 
-        var matAct = isMatArrived ? 'reset_arrive' : isMatCalled ? 'arrive' : 'call';
+        var matAct = isMatArrived ? 'reset_call' : 'call';
 
         var isCancelled = it && it.production_cancelled;
         var cancelBadge = isCancelled ? '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">HỦY SX</span>' : '';
@@ -802,7 +800,8 @@ function _qlxRenderRows(paged) {
         var matName = p ? (p.material_name || '') : (it ? (it.material_name || '') : '');
         var colorName = p ? (p.color_name || '') : (it ? (it.color_name || '') : '');
 
-        var priColor = o.shipping_priority === 'GẤP' ? 'background:#dc2626;color:#fff' : o.shipping_priority === 'GỬI' ? 'background:#f59e0b;color:#fff' : 'background:#e2e8f0;color:#334155';
+        var isMatArrived = it ? !!it.material_arrived : !!o.material_arrived;
+        var isMatCalled = it ? !!it.material_called : !!o.material_called;
 
         var statusHtml = '<div class="qlx-status-bar">'
             + '<div class="qlx-status-dot" style="background:' + (o.fabric_arrived ? '#059669' : o.fabric_called ? '#f59e0b' : '#e2e8f0') + '" title="Vải"></div>'
@@ -882,6 +881,8 @@ function _qlxRenderRows(paged) {
                     var receivedPhieu = o.qlx_received_phieu === true || o.qlx_received_phieu === 't' || o.qlx_received_phieu === 1 || o.qlx_received_phieu === '1';
                     if (receivedPhieu) {
                         var hasNguoiIn = it ? it.nguoi_in : o.nguoi_in;
+                        var isPrintDone = it ? (it.is_print_done === true || it.is_print_done === 't' || it.is_print_done === 1) : (o.is_print_done === true || o.is_print_done === 't' || o.is_print_done === 1);
+                        var priClass = isPrintDone ? ' on-fab' : (hasNguoiIn ? ' on-pri' : '');
                         var hasNguoiMay = it ? it.nguoi_may : o.nguoi_may;
                         var isSewingAllowed = _qlxIsItemNoCut(it) 
                             ? (it ? it.is_material_done : o.is_material_done)
@@ -898,7 +899,7 @@ function _qlxRenderRows(paged) {
                         if (isNoPrint) {
                             h += '<td style="text-align:center"><button class="qlx-icon-btn on-fab" onclick="_qlxNoPrintNotice()" title="KHÔNG IN & ÉP">🚫</button></td>';
                         } else {
-                            h += '<td style="text-align:center"><button class="qlx-icon-btn' + (hasNguoiIn ? ' on-pri' : '') + '" onclick="if(_qlxCheckActionLock(' + o.id + ',' + (it ? it.id : 0) + '))return;_qlxAssign(' + o.id + ',\'in\',' + (it ? it.id : 0) + ')" title="PC In">🖨️</button></td>';
+                            h += '<td style="text-align:center"><button class="qlx-icon-btn' + priClass + '" onclick="if(_qlxCheckActionLock(' + o.id + ',' + (it ? it.id : 0) + '))return;_qlxAssign(' + o.id + ',\'in\',' + (it ? it.id : 0) + ')" title="PC In">🖨️</button></td>';
                         }
                         h += '<td style="text-align:center"><button class="qlx-icon-btn' + sewClass + '" onclick="if(_qlxCheckActionLock(' + o.id + ',' + (it ? it.id : 0) + '))return;_qlxAssign(' + o.id + ',\'may\',' + (it ? it.id : 0) + ')" title="PC May">🪡</button></td>';
                     } else {
@@ -1176,41 +1177,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             html += '</div>';
         }
 
-        // Render Sale Reminders for Cutting right at the top of the fabric modal
-        var topSaleCatReminders = data.sale_reminders_cat || [];
-        if ((!topSaleCatReminders || topSaleCatReminders.length === 0) && orderId) {
-            try {
-                var catRemRes = await apiCall('/api/sale-reminders?order_id=' + orderId + (itemId ? '&item_id=' + itemId : '') + '&dept=cat');
-                if (catRemRes) {
-                    if (Array.isArray(catRemRes.reminder_details)) {
-                        topSaleCatReminders = catRemRes.reminder_details;
-                    } else if (Array.isArray(catRemRes.reminders)) {
-                        topSaleCatReminders = catRemRes.reminders;
-                    } else if (Array.isArray(catRemRes)) {
-                        topSaleCatReminders = catRemRes;
-                    }
-                }
-            } catch(e) {}
-        }
-        if (topSaleCatReminders.length > 0) {
-            html += '<div style="margin: 12px 20px 0; background:#fffbeb; border:1.5px solid #fde68a; padding:12px 14px; border-radius:12px;">';
-            html += '  <div style="font-weight:800; color:#b45309; font-size:12px; margin-bottom:8px; text-transform:uppercase; display:flex; align-items:center; gap:6px">📢 SALE NHẮC NHỞ BỘ PHẬN CẮT:</div>';
-            html += '  <div style="display:flex; flex-direction:column; gap:6px">';
-            topSaleCatReminders.forEach(function(rem) {
-                var remText = (typeof rem === 'string' ? rem : (rem.content || ''));
-                var isViewed = (typeof rem === 'object' && rem.is_viewed);
-                html += '    <div style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:#92400e; background:#fff; border:1px solid #fde68a; border-radius:8px; padding:6px 10px">';
-                html += '      <span>📌 ' + remText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-                if (isViewed) {
-                    html += '      <span style="font-size:10px; font-weight:800; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; padding:2px 6px; border-radius:4px">✅ BPC đã xem</span>';
-                } else {
-                    html += '      <span style="font-size:10px; font-weight:800; color:#b45309; background:#fffbeb; border:1px solid #fde68a; padding:2px 6px; border-radius:4px">⏳ BPC chưa xem</span>';
-                }
-                html += '    </div>';
-            });
-            html += '  </div>';
-            html += '</div>';
-        }
+        // Top Sale Reminders block for BPC removed per user request
 
         if (!ph || !ph.material_name) {
             html += '<div style="padding:30px;text-align:center;color:#94a3b8">⚠️ Phối này chưa có thông tin chất liệu/màu</div>';
@@ -1834,15 +1801,13 @@ async function _qlxToggleFabSaleCatRem(remId, itemId) {
     _qlxCheckFabCallLockStatus();
 
     // Persist viewed status permanently to database immediately when checked
-    if (isViewed) {
-        try {
-            await apiCall('/api/sale-reminders/viewed', 'POST', {
-                reminder_ids: [Number(remId)],
-                record_type: 'qlx_fabric_call',
-                record_id: itemId ? Number(itemId) : null
-            });
-        } catch(e) {}
-    }
+    try {
+        await apiCall('/api/sale-reminders/viewed', 'POST', {
+            reminder_ids: [Number(remId)],
+            record_type: 'qlx_fabric_call',
+            record_id: itemId ? Number(itemId) : null
+        });
+    } catch(e) {}
 }
 
 function _qlxCheckFabCallLockStatus() {
@@ -1944,6 +1909,77 @@ function _qlxCheckInEpLockStatus() {
         } else {
             btn.removeAttribute('disabled');
             btn.style.background = 'linear-gradient(135deg,#0f172a,#1e3a5f)';
+            btn.style.color = '#fff';
+            btn.style.cursor = 'pointer';
+            btn.style.opacity = '1';
+        }
+    }
+}
+
+window._qlxSewingRemsChecked = window._qlxSewingRemsChecked || {};
+
+async function _qlxToggleSewingSaleRem(remId, itemId) {
+    if (!remId) return;
+    window._qlxSewingRemsChecked = window._qlxSewingRemsChecked || {};
+    
+    // Once read, DO NOT allow un-reading
+    if (window._qlxSewingRemsChecked[remId]) return;
+
+    window._qlxSewingRemsChecked[remId] = true;
+    
+    var itemEl = document.getElementById('_qlx_sewing_rem_item_' + remId);
+    var badgeEl = document.getElementById('_qlx_sewing_rem_badge_' + remId);
+    
+    if (itemEl) {
+        itemEl.style.background = '#f0fdf4';
+        itemEl.style.borderColor = '#86efac';
+        itemEl.style.color = '#166534';
+        itemEl.style.cursor = 'default';
+        itemEl.removeAttribute('onclick');
+    }
+    if (badgeEl) {
+        badgeEl.innerHTML = '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>';
+    }
+
+    _qlxCheckSewingLockStatus();
+
+    // Persist viewed status permanently to database immediately when checked
+    try {
+        await apiCall('/api/sale-reminders/viewed', 'POST', {
+            reminder_ids: [Number(remId)],
+            record_type: 'sewing_qlx',
+            record_id: itemId ? Number(itemId) : null
+        });
+    } catch(e) {}
+}
+
+function _qlxCheckSewingLockStatus() {
+    var items = document.querySelectorAll('.qlx-sewing-rem-item');
+    var unviewedCount = 0;
+    items.forEach(function(el) {
+        var rId = el.getAttribute('data-rem-id');
+        if (rId && !window._qlxSewingRemsChecked[rId]) {
+            unviewedCount++;
+        }
+    });
+
+    var warnEl = document.getElementById('_qlxSewingRemWarn');
+    var btn = document.getElementById('may_assign_save_btn');
+
+    if (warnEl) {
+        warnEl.style.display = unviewedCount > 0 ? 'block' : 'none';
+        warnEl.innerHTML = '⚠️ Bạn còn ' + unviewedCount + ' câu Nhắc Nhở của Sale dành cho Bộ Phận May, QC & Hoàn Thiện chưa đọc. Vui lòng bấm nhấp vào từng câu để chuyển thành "QLX ĐÃ ĐỌC" để mở khóa nút Lưu Phân Công!';
+    }
+    if (btn) {
+        if (unviewedCount > 0) {
+            btn.setAttribute('disabled', 'disabled');
+            btn.style.background = '#94a3b8';
+            btn.style.color = '#fff';
+            btn.style.cursor = 'not-allowed';
+            btn.style.opacity = '0.65';
+        } else {
+            btn.removeAttribute('disabled');
+            btn.style.background = 'linear-gradient(135deg,#701a75,#4a044e)';
             btn.style.color = '#fff';
             btn.style.cursor = 'pointer';
             btn.style.opacity = '1';
@@ -2661,47 +2697,6 @@ async function _qlxAssignIn(orderId, itemId) {
         html += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:6px">SẢN PHẨM</label>';
         html += '<input type="text" value="' + spLabel.replace(/"/g, '&quot;') + '" readonly style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:not-allowed"></div>';
 
-        // SALE NHẮC NHỞ BỘ PHẬN IN & ÉP (QLX BẮT BUỘC ĐỌC)
-        var saleInEpRems = data.sale_reminders_in_ep || [];
-        var inEpUnviewedCount = 0;
-        if (saleInEpRems.length > 0) {
-            html += '<div style="margin-bottom:16px; background:#fffbeb; border:1.5px solid #fef3c7; border-radius:12px; padding:12px 14px;">';
-            html += '  <div style="font-size:12px; font-weight:800; color:#b45309; margin-bottom:8px; display:flex; align-items:center; gap:6px;">📢 SALE NHẮC NHỞ BỘ PHẬN IN & ÉP (QLX BẮT BUỘC ĐỌC):</div>';
-            html += '  <div style="font-size:11px; color:#d97706; margin-bottom:8px; font-weight:600;">⚠️ Vui lòng nhấp vào từng thẻ nhắc nhở bên dưới để đánh dấu <b style="color:#059669">"QLX Đã Đọc"</b>. Nút <b>Lưu Phân Công</b> chỉ mở khóa khi QLX đã đọc hết.</div>';
-            html += '  <div style="display:flex; flex-direction:column; gap:6px">';
-            
-            saleInEpRems.forEach(function(rem) {
-                var remId = rem.id;
-                var deptName = rem.dept === 'in' ? '🖨️ In' : (rem.dept === 'ep' ? '🔥 Ép' : '📌');
-                var remText = rem.content || '';
-                
-                var isQlxViewed = !!rem.qlx_is_viewed || (window._qlxInEpRemsChecked && !!window._qlxInEpRemsChecked[remId]);
-                if (isQlxViewed) {
-                    window._qlxInEpRemsChecked = window._qlxInEpRemsChecked || {};
-                    window._qlxInEpRemsChecked[remId] = true;
-                } else {
-                    inEpUnviewedCount++;
-                }
-
-                var itemBg = isQlxViewed ? '#f0fdf4' : '#fff';
-                var itemBorder = isQlxViewed ? '#86efac' : '#fde68a';
-                var textColor = isQlxViewed ? '#166534' : '#92400e';
-                var badgeHtml = isQlxViewed
-                    ? '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>'
-                    : '<span style="font-size:10px; font-weight:800; color:#dc2626; background:#fee2e2; border:1px solid #fca5a5; padding:2px 8px; border-radius:6px">❌ QLX CHƯA ĐỌC (Bấm để đọc)</span>';
-
-                var onclickAttr = isQlxViewed ? '' : 'onclick="_qlxToggleInEpSaleRem(' + remId + ',' + itemId + ')"';
-                var cursorStyle = isQlxViewed ? 'cursor:default;' : 'cursor:pointer;';
-
-                html += '    <div id="_qlx_inep_rem_item_' + remId + '" class="qlx-inep-rem-item" data-rem-id="' + remId + '" ' + onclickAttr + ' style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:' + textColor + '; background:' + itemBg + '; border:1.5px solid ' + itemBorder + '; border-radius:8px; padding:8px 12px; ' + cursorStyle + ' transition:all 0.2s">';
-                html += '      <span>' + deptName + ': ' + remText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-                html += '      <span id="_qlx_inep_rem_badge_' + remId + '">' + badgeHtml + '</span>';
-                html += '    </div>';
-            });
-            html += '  </div>';
-            html += '</div>';
-        }
-
         // LĨNH VỰC IN
         html += '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:800;color:#475569;display:block;margin-bottom:6px">LĨNH VỰC IN & PHÂN CÔNG <span style="color:#dc2626">*</span></label>';
         
@@ -2763,6 +2758,47 @@ async function _qlxAssignIn(orderId, itemId) {
         }
         
         html += '</div>'; // close Lĩnh Vực In container
+
+        // SALE NHẮC NHỞ BỘ PHẬN IN & ÉP (QLX BẮT BUỘC ĐỌC)
+        var saleInEpRems = data.sale_reminders_in_ep || [];
+        var inEpUnviewedCount = 0;
+        if (saleInEpRems.length > 0) {
+            html += '<div style="margin-bottom:16px; background:#fffbeb; border:1.5px solid #fef3c7; border-radius:12px; padding:12px 14px;">';
+            html += '  <div style="font-size:12px; font-weight:800; color:#b45309; margin-bottom:8px; display:flex; align-items:center; gap:6px;">📢 SALE NHẮC NHỞ BỘ PHẬN IN & ÉP (QLX BẮT BUỘC ĐỌC):</div>';
+            html += '  <div style="font-size:11px; color:#d97706; margin-bottom:8px; font-weight:600;">⚠️ Vui lòng nhấp vào từng thẻ nhắc nhở bên dưới để đánh dấu <b style="color:#059669">"QLX Đã Đọc"</b>. Nút <b>Lưu Phân Công</b> chỉ mở khóa khi QLX đã đọc hết.</div>';
+            html += '  <div style="display:flex; flex-direction:column; gap:6px">';
+            
+            saleInEpRems.forEach(function(rem) {
+                var remId = rem.id;
+                var deptName = rem.dept === 'in' ? '🖨️ In' : (rem.dept === 'ep' ? '🔥 Ép' : '📌');
+                var remText = rem.content || '';
+                
+                var isQlxViewed = !!rem.qlx_is_viewed || (window._qlxInEpRemsChecked && !!window._qlxInEpRemsChecked[remId]);
+                if (isQlxViewed) {
+                    window._qlxInEpRemsChecked = window._qlxInEpRemsChecked || {};
+                    window._qlxInEpRemsChecked[remId] = true;
+                } else {
+                    inEpUnviewedCount++;
+                }
+
+                var itemBg = isQlxViewed ? '#f0fdf4' : '#fff';
+                var itemBorder = isQlxViewed ? '#86efac' : '#fde68a';
+                var textColor = isQlxViewed ? '#166534' : '#92400e';
+                var badgeHtml = isQlxViewed
+                    ? '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>'
+                    : '<span style="font-size:10px; font-weight:800; color:#dc2626; background:#fee2e2; border:1px solid #fca5a5; padding:2px 8px; border-radius:6px">❌ QLX CHƯA ĐỌC (Bấm để đọc)</span>';
+
+                var onclickAttr = isQlxViewed ? '' : 'onclick="_qlxToggleInEpSaleRem(' + remId + ',' + itemId + ')"';
+                var cursorStyle = isQlxViewed ? 'cursor:default;' : 'cursor:pointer;';
+
+                html += '    <div id="_qlx_inep_rem_item_' + remId + '" class="qlx-inep-rem-item" data-rem-id="' + remId + '" ' + onclickAttr + ' style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:' + textColor + '; background:' + itemBg + '; border:1.5px solid ' + itemBorder + '; border-radius:8px; padding:8px 12px; ' + cursorStyle + ' transition:all 0.2s">';
+                html += '      <span>' + deptName + ': ' + remText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                html += '      <span id="_qlx_inep_rem_badge_' + remId + '">' + badgeHtml + '</span>';
+                html += '    </div>';
+            });
+            html += '  </div>';
+            html += '</div>';
+        }
 
         var printChoice = data.print_remind_choice;
         var pressChoice = data.press_remind_choice;
@@ -4195,6 +4231,47 @@ async function _qlxAssignMay(orderId, itemId) {
         var htChoice = res.hoanthien_remind_choice || '';
         var htReminders = res.hoanthien_reminders || [];
 
+        // SALE NHẮC NHỞ BỘ PHẬN MAY, QC & HOÀN THIỆN (QLX BẮT BUỘC ĐỌC)
+        var saleSewingRems = res.sale_reminders_sewing || [];
+        var sewingUnviewedCount = 0;
+        if (saleSewingRems.length > 0) {
+            html += '<div style="margin-top:16px; background:#fffbeb; border:1.5px solid #fef3c7; border-radius:12px; padding:12px 14px;">';
+            html += '  <div style="font-size:12px; font-weight:800; color:#b45309; margin-bottom:8px; display:flex; align-items:center; gap:6px;">📢 SALE NHẮC NHỞ BỘ PHẬN MAY, QC & HOÀN THIỆN (QLX BẮT BUỘC ĐỌC):</div>';
+            html += '  <div style="font-size:11px; color:#d97706; margin-bottom:8px; font-weight:600;">⚠️ Vui lòng nhấp vào từng thẻ nhắc nhở bên dưới để đánh dấu <b style="color:#059669">"QLX Đã Đọc"</b>. Nút <b>Lưu Phân Công</b> chỉ mở khóa khi QLX đã đọc hết.</div>';
+            html += '  <div style="display:flex; flex-direction:column; gap:6px">';
+            
+            saleSewingRems.forEach(function(rem) {
+                var remId = rem.id;
+                var deptName = rem.dept === 'qc' ? '🔍 QC' : (rem.dept === 'hoanthien' ? '✂️ Hoàn Thiện' : '🪡 May');
+                var remText = rem.content || '';
+                
+                var isQlxViewed = !!rem.qlx_is_viewed || (window._qlxSewingRemsChecked && !!window._qlxSewingRemsChecked[remId]);
+                if (isQlxViewed) {
+                    window._qlxSewingRemsChecked = window._qlxSewingRemsChecked || {};
+                    window._qlxSewingRemsChecked[remId] = true;
+                } else {
+                    sewingUnviewedCount++;
+                }
+
+                var itemBg = isQlxViewed ? '#f0fdf4' : '#fff';
+                var itemBorder = isQlxViewed ? '#86efac' : '#fde68a';
+                var textColor = isQlxViewed ? '#166534' : '#92400e';
+                var badgeHtml = isQlxViewed
+                    ? '<span style="font-size:10px; font-weight:800; color:#16a34a; background:#dcfce7; border:1px solid #86efac; padding:2px 8px; border-radius:6px">✅ QLX ĐÃ ĐỌC</span>'
+                    : '<span style="font-size:10px; font-weight:800; color:#dc2626; background:#fee2e2; border:1px solid #fca5a5; padding:2px 8px; border-radius:6px">❌ QLX CHƯA ĐỌC (Bấm để đọc)</span>';
+
+                var onclickAttr = isQlxViewed ? '' : 'onclick="_qlxToggleSewingSaleRem(' + remId + ',' + itemId + ')"';
+                var cursorStyle = isQlxViewed ? 'cursor:default;' : 'cursor:pointer;';
+
+                html += '    <div id="_qlx_sewing_rem_item_' + remId + '" class="qlx-sewing-rem-item" data-rem-id="' + remId + '" ' + onclickAttr + ' style="display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; color:' + textColor + '; background:' + itemBg + '; border:1.5px solid ' + itemBorder + '; border-radius:8px; padding:8px 12px; ' + cursorStyle + ' transition:all 0.2s">';
+                html += '      <span>' + deptName + ': ' + remText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                html += '      <span id="_qlx_sewing_rem_badge_' + remId + '">' + badgeHtml + '</span>';
+                html += '    </div>';
+            });
+            html += '  </div>';
+            html += '</div>';
+        }
+
         html += '<div style="margin-top:20px; display:flex; flex-direction:column; gap:16px;">';
         html += '  <div style="font-size:12px; font-weight:800; color:#1e1b4b; border-bottom:2px solid #e2e8f0; padding-bottom:6px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">🔔 QLX NHẮC NHỞ</div>';
 
@@ -4282,10 +4359,25 @@ async function _qlxAssignMay(orderId, itemId) {
         html += '</div>'; // padding-24
 
         // Footer
-        html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:12px;background:#f8fafc;border-radius:0 0 16px 16px">';
-        html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#ffffff;background-color:#1e3a8a;border:none;padding:8px 24px;border-radius:8px;font-weight:700">Hủy</button>';
+        html += '<div style="padding:16px 24px;border-top:1px solid #e2e8f0;background:#f8fafc;border-radius:0 0 16px 16px">';
         if (!res.is_sewing_done || !res.is_finishing_done) {
-            html += '<button id="may_assign_save_btn" class="btn" onclick="_qlxAssignMaySave()" style="background:linear-gradient(135deg,#701a75,#4a044e);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700">💾 Lưu Phân Công</button>';
+            var isSaveDisabled = sewingUnviewedCount > 0;
+            var saveBtnStyle = isSaveDisabled
+                ? 'background:#94a3b8;color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700;cursor:not-allowed;opacity:0.65;'
+                : 'background:linear-gradient(135deg,#701a75,#4a044e);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:700;cursor:pointer;opacity:1;';
+            var warnStyle = sewingUnviewedCount > 0 ? 'display:block;' : 'display:none;';
+            
+            html += '<div style="display:flex; flex-direction:column; width:100%; gap:8px;">';
+            html += '  <div id="_qlxSewingRemWarn" style="' + warnStyle + ' background:#fef2f2; border:1.5px solid #fca5a5; border-radius:8px; padding:8px 12px; font-size:11px; color:#b91c1c; font-weight:700; text-align:center; line-height:1.4;">⚠️ Bạn còn ' + sewingUnviewedCount + ' câu Nhắc Nhở của Sale dành cho Bộ Phận May, QC & Hoàn Thiện chưa đọc. Vui lòng bấm nhấp vào từng câu để chuyển thành "QLX ĐÃ ĐỌC" để mở khóa nút Lưu Phân Công!</div>';
+            html += '  <div style="display:flex; justify-content:flex-end; gap:12px; width:100%; border-top:1px solid #f1f5f9; padding-top:8px;">';
+            html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#ffffff;background-color:#1e3a8a;border:none;padding:8px 24px;border-radius:8px;font-weight:700">Hủy</button>';
+            html += '<button id="may_assign_save_btn" ' + (isSaveDisabled ? 'disabled' : '') + ' class="btn" onclick="_qlxAssignMaySave()" style="' + saveBtnStyle + '">💾 Lưu Phân Công</button>';
+            html += '  </div>';
+            html += '</div>';
+        } else {
+            html += '<div style="display:flex; justify-content:flex-end; gap:12px; width:100%;">';
+            html += '<button class="btn btn-secondary" onclick="closeModal()" style="color:#ffffff;background-color:#1e3a8a;border:none;padding:8px 24px;border-radius:8px;font-weight:700">Hủy</button>';
+            html += '</div>';
         }
         html += '</div>';
         html += '</div>';
