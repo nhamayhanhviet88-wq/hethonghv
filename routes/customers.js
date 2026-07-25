@@ -798,14 +798,25 @@ async function customersRoutes(fastify, options) {
     }
 
     async function getNextOrderNumber(userId) {
+        let maxNum = 0;
         const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
-        let nextNum = 1;
         if (lastCode) {
-            // ★ Chỉ lấy 4 chữ số cuối (padStart(4, '0')) — tránh bắt nhầm số trong prefix
             const match = lastCode.order_code.match(/(\d{4})$/);
-            if (match) nextNum = parseInt(match[1]) + 1;
+            if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
         }
-        return nextNum;
+
+        const lastDepositCode = await db.get(`
+            SELECT order_tt_coc FROM payment_records 
+            WHERE (cskh_user_id = ? OR locked_by = ?) 
+              AND order_tt_coc IS NOT NULL AND order_tt_coc != ''
+            ORDER BY order_tt_coc DESC LIMIT 1
+        `, [userId, userId]);
+        if (lastDepositCode && lastDepositCode.order_tt_coc) {
+            const match = lastDepositCode.order_tt_coc.match(/(\d{4})$/);
+            if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+        }
+
+        return maxNum + 1;
     }
 
     fastify.get('/api/order-codes/next', { preHandler: [authenticate] }, async (request, reply) => {

@@ -336,7 +336,7 @@ const _PAGE_SCRIPT_MAP = {
     'baocaohoahong': '/js/pages/baocaohoahong.js',
     'crm-nhu-cau': '/js/pages/crm-nhucau.js',
     'crm-ctv': '/js/pages/crm-ctv-full.js',
-    'chamsockhsale': '/js/pages/chamsockhsale.js?v=20260725_dat_coc_v8',
+    'chamsockhsale': '/js/pages/chamsockhsale.js?v=20260725_dat_coc_v9',
     'sokhachsale': '/js/pages/sokhachsale.js',
     'cham-soc-affiliate': '/js/pages/crm-affiliate-full.js',
     'chamsocaffiliate': '/js/pages/crm-affiliate-full.js',

@@ -1215,12 +1215,23 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
                 const prefix = userRow?.order_code_prefix || 'SVTS';
                 
+                let maxNum = 0;
                 const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
-                let nextNum = 1;
                 if (lastCode) {
                     const match = lastCode.order_code.match(/(\d{4})$/);
-                    if (match) nextNum = parseInt(match[1]) + 1;
+                    if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
                 }
+                const lastDepositCode = await db.get(`
+                    SELECT order_tt_coc FROM payment_records 
+                    WHERE (cskh_user_id = ? OR locked_by = ?) 
+                      AND order_tt_coc IS NOT NULL AND order_tt_coc != ''
+                    ORDER BY order_tt_coc DESC LIMIT 1
+                `, [userId, userId]);
+                if (lastDepositCode && lastDepositCode.order_tt_coc) {
+                    const match = lastDepositCode.order_tt_coc.match(/(\d{4})$/);
+                    if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+                }
+                const nextNum = maxNum + 1;
 
                 const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
                 let crmPrefix = '';
