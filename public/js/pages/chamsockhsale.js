@@ -1134,6 +1134,7 @@ function _saleSelectSidebarUser(userId) {
 
 async function _saleOpenConsultModal(customerId) {
     window._currentConsultCustomerId = customerId;
+    _salePaymentRecords = [];
     let pendingEmergency = null;
     let handlerOptions = '';
     let customerInfo = {};
@@ -1494,15 +1495,6 @@ async function _saleOpenConsultModal(customerId) {
                 minDate: _tomorrowStr
             });
         }
-        if (nextFollowUp) {
-            const d = new Date(nextFollowUp);
-            const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-            const disp = document.getElementById('autoFollowUpDateTextSale');
-            if (disp) disp.textContent = `${days[d.getDay()]} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()}`;
-        } else {
-            const disp = document.getElementById('autoFollowUpDateTextSale');
-            if (disp) disp.textContent = 'Chưa có lịch hẹn';
-        }
         _saleOnConsultTypeChange();
     }, 100);
 }
@@ -1716,6 +1708,24 @@ function _saleOnConsultTypeChange() {
             });
         }
     }
+
+    const custId = window._currentConsultCustomerId;
+    if (custId) {
+        apiCall(`/api/customers/${custId}/next-followup?log_type=${type}`).then(res => {
+            if (res && res.nextFollowUp) {
+                const parts = String(res.nextFollowUp).split('T')[0].split('-');
+                if (parts.length === 3) {
+                    const y = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10) - 1;
+                    const dayNum = parseInt(parts[2], 10);
+                    const d = new Date(y, m, dayNum);
+                    const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                    const disp = document.getElementById('autoFollowUpDateTextSale');
+                    if (disp) disp.textContent = `${days[d.getDay()]} - ${dayNum.toString().padStart(2, '0')}/${(m+1).toString().padStart(2, '0')}/${y}`;
+                }
+            }
+        }).catch(() => {});
+    }
 }
 
 async function _saleSubmitConsultLog(customerId) {
@@ -1816,6 +1826,7 @@ async function _saleSubmitConsultLog(customerId) {
                 showToast('Ghi nhận tư vấn thành công!');
             }
             closeModal();
+            _salePaymentRecords = [];
             _saleLoadData();
         } else {
             showToast(res.error || 'Lỗi ghi nhận!', 'error');
