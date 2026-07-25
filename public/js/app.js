@@ -411,7 +411,7 @@ const _PAGE_SCRIPT_MAP = {
     'loithuonggap': '/js/pages/donloinoibo.js',
     'loi-thuong-gap': '/js/pages/donloinoibo.js',
     'kiemkho': '/js/pages/kiemkho.js',
-    'kiemtrachatluong': '/js/pages/kiemtrachatluong.js',
+    'kiemtrachatluong': '/js/pages/kiemtrachatluong.js?v=20260725_ktcl_v2',
     'kpikdoanh': '/js/pages/kpikdoanh.js',
     'camketcuochop': '/js/pages/camketcuochop.js',
     'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
@@ -478,7 +478,7 @@ const _PAGE_SCRIPT_MAP = {
     'luong-san-xuat': '/js/pages/luongsanxuat.js',
     'kinh-doanh-gui-hang': '/js/pages/kinhdoanhguihang.js',
     'vat-lieu-tem-pet': '/js/pages/vatlieutempet.js',
-    'kiem-tra-chat-luong': '/js/pages/kiemtrachatluong.js',
+    'kiem-tra-chat-luong': '/js/pages/kiemtrachatluong.js?v=20260725_ktcl_v2',
     'bill-nhap-hang': '/js/pages/billnhaphang.js',
     'nhap-xuat-hoan-vai': '/js/pages/nhapxuathoanvai.js',
     'bill-vat-lieu': '/js/pages/billvatlieu.js',
@@ -498,12 +498,12 @@ const _PAGE_SCRIPT_MAP = {
 const _loadedScripts = new Set();
 async function _loadScript(src) {
     const cleanSrc = src.split('?')[0];
-    if (_loadedScripts.has(cleanSrc) || _loadedScripts.has(src)) return;
     const existing = document.querySelector(`script[src^="${cleanSrc}"]`);
+    if (_loadedScripts.has(src) && _loadedScripts.has(cleanSrc) && existing) return;
     if (existing) {
-        _loadedScripts.add(cleanSrc);
-        _loadedScripts.add(src);
-        return;
+        existing.remove();
+        _loadedScripts.delete(cleanSrc);
+        _loadedScripts.delete(src);
     }
     return new Promise((resolve, reject) => {
         const s = document.createElement('script');
@@ -513,6 +513,7 @@ async function _loadScript(src) {
         s.onload = () => {
             _loadedScripts.add(cleanSrc);
             _loadedScripts.add(src);
+            _loadedScripts.add(s.src);
             resolve();
         };
         s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
