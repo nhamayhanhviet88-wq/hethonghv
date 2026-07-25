@@ -1921,7 +1921,9 @@ function _ktclCleanProdName(r) {
     if (!r) return 'Sản phẩm';
     var name = r.cut_product_name || r.product_name || '';
     if (!name) return 'Sản phẩm';
-    var parts = name.split(/—/).map(function(p) { return p.trim(); }).filter(Boolean);
+    var parts = name.split(/—|-/).map(function(p) { return p.trim(); }).filter(Boolean);
+    parts.forEach(function(p, i) { if (/Sua lan|Sửa lần|\.pdf/i.test(p)) parts[i] = ''; });
+    parts = parts.filter(Boolean);
     var orderCode = r.order_code || '';
     var ticketPart = '';
     var prodNamePart = '';
