@@ -1141,12 +1141,13 @@ async function _saleOpenConsultModal(customerId) {
     let existingItems = [];
     let consultLogs = [];
     try {
-        const [pendingData, hData, custData, logData, followupData] = await Promise.all([
+        const [pendingData, hData, custData, logData, followupData, nextCodeData] = await Promise.all([
             apiCall(`/api/emergencies/pending/${customerId}`).catch(() => ({})),
             apiCall('/api/emergencies/handlers').catch(() => ({})),
             apiCall(`/api/customers/${customerId}`).catch(() => ({})),
             apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({})),
-            apiCall(`/api/customers/${customerId}/next-followup`).catch(() => ({}))
+            apiCall(`/api/customers/${customerId}/next-followup`).catch(() => ({})),
+            apiCall(`/api/order-codes/next?customer_id=${customerId}`).catch(() => ({}))
         ]);
         if (pendingData.hasPending) pendingEmergency = pendingData.emergency;
         const ROLE_LABELS_H = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng' };
@@ -1157,6 +1158,9 @@ async function _saleOpenConsultModal(customerId) {
         existingItems = custData.items || [];
         window._currentConsultCustomerPinned = !!customerInfo.is_pinned;
         consultLogs = logData.logs || [];
+
+        const predictedOrderCode = nextCodeData?.order_code || '---';
+        window._nextOrderCodeForConsult = predictedOrderCode;
 
         let currentCycleLogs = consultLogs;
         const isCancelled = ['duyet_huy', 'cho_duyet_huy'].includes(customerInfo.order_status);
@@ -1343,6 +1347,7 @@ async function _saleOpenConsultModal(customerId) {
             <div id="consultDepositSelectedSale" style="display:none;background:#f0fdf4;border:1px solid #059669;border-radius:8px;padding:10px 14px;margin-top:6px;position:relative;">
                 <span style="font-weight:800;color:#059669">✅ Đã chọn: </span><span id="consultDepositLabelSale" style="font-weight:700;color:#1e293b"></span>
                 <div style="margin-top:4px;font-size:13px;font-weight:800;color:#e65100" id="consultDepositAmountDisplaySale"></div>
+                <div style="margin-top:4px;font-size:13px;font-weight:800;color:#2563eb;" id="consultDepositTargetOrderCodeSale">📦 Mã đơn sẽ nhận: <span id="consultDepositTargetOrderCodeValSale" style="color:#1d4ed8;font-weight:800">${predictedOrderCode}</span></div>
                 <button type="button" onclick="_saleClearSelectedDeposit()" style="position:absolute;top:8px;right:8px;background:none;border:none;color:#ef4444;font-size:16px;font-weight:800;cursor:pointer;padding:2px 6px;" title="Xóa chọn">✕</button>
             </div>
             <input type="hidden" id="consultDepositAmountSale" value="0">
@@ -2200,6 +2205,9 @@ function _saleSelectDeposit(id, code, amount) {
     
     const amountDisp = document.getElementById('consultDepositAmountDisplaySale');
     if (amountDisp) amountDisp.textContent = `Số tiền cọc: ${formatCurrency(amount)} VNĐ`;
+
+    const targetDisp = document.getElementById('consultDepositTargetOrderCodeValSale');
+    if (targetDisp) targetDisp.textContent = window._nextOrderCodeForConsult || '---';
 
     const searchInput = document.getElementById('consultDepositSearchSale');
     if (searchInput) searchInput.style.display = 'none';
