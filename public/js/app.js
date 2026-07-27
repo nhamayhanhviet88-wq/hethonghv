@@ -3048,7 +3048,12 @@ async function apiCall(url, method = 'GET', body = null) {
         options.body = JSON.stringify(body);
     }
     const res = await fetch(finalUrl, options);
-    const data = await res.json();
+    let data = {};
+    try {
+        data = await res.json();
+    } catch (jsonErr) {
+        throw new Error('Lỗi phản hồi máy chủ. Vui lòng bấm Thử lại.');
+    }
     if (!res.ok) {
         throw new Error(data.error || data.message || ('Lỗi HTTP ' + res.status));
     }
