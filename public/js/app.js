@@ -334,7 +334,7 @@ const _PAGE_SCRIPT_MAP = {
     'dashboard-kdoanh': '/js/pages/dashboardkdoanh.js',
     'dashboardkdoanh': '/js/pages/dashboardkdoanh.js',
     'settings': '/js/pages/settings.js',
-    'caidatpancake': '/js/pages/caidatpancake.js?v=20260726_v380',
+    'caidatpancake': '/js/pages/caidatpancake.js?v=20260727_v382',
     'tu-van-khach-aff': '/js/pages/baocaohoahong.js',
     'theo-doi-tu-van-aff': '/js/pages/baocaohoahong.js',
     'bao-cao-hoa-hong': '/js/pages/baocaohoahong.js',
