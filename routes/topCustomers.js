@@ -63,9 +63,11 @@ module.exports = async function(fastify, options) {
             // 2. Build SQL conditions
             const whereConditions = [
                 `COALESCE(c.cancel_approved, 0) != 1`,
-                `COALESCE(oc.status, 'active') != 'cancelled'`,
-                prodSQL ? prodSQL.replace(/^AND\s+/i, '') : `1=1`
+                `COALESCE(oc.status, 'active') != 'cancelled'`
             ];
+            if (prodSQL) {
+                whereConditions.push(`(${prodSQL.replace(/^\s*AND\s+/i, '')})`);
+            }
             const params = [];
 
             if (startDate && endDate) {
