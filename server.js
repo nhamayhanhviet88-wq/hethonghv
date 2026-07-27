@@ -1877,7 +1877,7 @@ async function start() {
 
         // Build script tags for MISSING files only (inject before </body>)
         const buildVer = Date.now(); // Cache-bust: mỗi lần server restart = version mới
-        const allowedGlobalInjects = new Set(['notifications.js', 'emergency.js']);
+        const allowedGlobalInjects = new Set(['notifications.js', 'emergency.js', 'topkhachhang.js', 'kpimarketing.js']);
         const missingScripts = pageFiles
             .filter(f => !alreadyIncluded.has(f) && allowedGlobalInjects.has(f))
             .map(f => {

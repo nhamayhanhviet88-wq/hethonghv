@@ -223,7 +223,11 @@ async function loadTopCustData() {
         });
 
         const res = await apiCall(`/api/reports/top-customers?${queryParams.toString()}`);
-        if (!res) return;
+        if (!res || !res.customers) {
+            const tbody = document.getElementById('topCustTbody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="center" style="padding:30px;color:#ef4444">⚠️ Không thể tải dữ liệu. <button onclick="loadTopCustData()" style="padding:4px 10px;background:#3b82f6;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;margin-left:8px">🔄 Thử lại</button></td></tr>`;
+            return;
+        }
 
         _topCustState.data = res;
 
