@@ -181,6 +181,24 @@ async function start() {
         )`);
     } catch(e) { /* exists */ }
 
+    // Migration: KPI Marketing targets — chỉ tiêu Marketing
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS mkt_kpi_targets (
+            id SERIAL PRIMARY KEY,
+            ads_handler_name VARCHAR(255) NOT NULL,
+            period_value VARCHAR(10) NOT NULL,
+            target_budget NUMERIC DEFAULT 0,
+            target_leads INT DEFAULT 0,
+            target_revenue NUMERIC DEFAULT 0,
+            target_cpl NUMERIC DEFAULT 0,
+            target_roas NUMERIC DEFAULT 0,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(ads_handler_name, period_value)
+        )`);
+    } catch(e) { /* exists */ }
+
     // Migration: Access Block — chặn truy cập thay vì khóa TK
     try { await db.exec('ALTER TABLE users ADD COLUMN access_blocked BOOLEAN DEFAULT false'); } catch(e) { /* exists */ }
     try { await db.exec('ALTER TABLE users ADD COLUMN access_blocked_at TIMESTAMP'); } catch(e) { /* exists */ }
@@ -1594,6 +1612,7 @@ async function start() {
     fastify.register(require('./routes/kpiTargets'));
     fastify.register(require('./routes/kpiKdoanh'));
     fastify.register(require('./routes/kpiSale'));
+    fastify.register(require('./routes/kpiMarketing'));
     fastify.register(require('./routes/meetingCommitments'));
     fastify.register(require('./routes/telegram'));
     fastify.register(require('./routes/paymentRecords'));
