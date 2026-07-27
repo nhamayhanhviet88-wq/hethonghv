@@ -859,7 +859,7 @@ function showPageConfigModal(index = null) {
     const modalBody = `
         <div style="display: grid; gap: 16px;">
             <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; padding: 12px 14px; border-radius: 12px; font-size: 12.5px; color: #1e40af; line-height: 1.5;">
-                📌 <strong>Lưu Ý Quan Trọng:</strong> Bạn phải truy cập và tạo Webhook từ đường link <a href="https://pos.pancake.vn/shop/5798720/setting/general" target="_blank" style="color: #2563eb; font-weight: 800; text-decoration: underline;">https://pos.pancake.vn/shop/5798720/setting/general</a> <strong>TRƯỚC KHI lấy Page Access Token</strong>!
+                📌 <strong>Lưu Ý Quan Trọng:</strong> Bạn phải truy cập vào Facebook <a href="https://www.facebook.com/profile.php?id=100056249326382" target="_blank" style="color: #2563eb; font-weight: 800; text-decoration: underline;">Trương Tùng Dương</a> và tạo Webhook từ đường link <a href="https://pos.pancake.vn/shop/5798720/setting/general" target="_blank" style="color: #2563eb; font-weight: 800; text-decoration: underline;">https://pos.pancake.vn/shop/5798720/setting/general</a> <strong>TRƯỚC KHI lấy Page Access Token</strong>!
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                 <div>
