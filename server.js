@@ -1609,6 +1609,7 @@ async function start() {
     fastify.register(require('./routes/partnerRegistration'));
     fastify.register(require('./routes/accessBlock'));
     fastify.register(require('./routes/customerRetention'));
+    fastify.register(require('./routes/topCustomers'));
     fastify.register(require('./routes/kpiTargets'));
     fastify.register(require('./routes/kpiKdoanh'));
     fastify.register(require('./routes/kpiSale'));

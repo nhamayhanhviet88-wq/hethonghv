@@ -95,6 +95,7 @@ const CRM_LABELS = {
 
 const MENU_CONFIG = [
     { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', permKey: 'tong_quan' },
+    { id: 'topkhachhang', label: 'Top Khách Hàng', icon: '👑', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/topkhachhang', permKey: 'top_khach_hang' },
     { id: 'kpikdoanh', label: 'KPI P.Kinh Doanh', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpikdoanh', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_kdoanh' },
     { id: 'kpisale', label: 'KPI P.Sale', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpisale', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_sale' },
     { id: 'kpimarketing', label: 'KPI Marketing', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/kpimarketing', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_marketing' },
@@ -421,6 +422,8 @@ const _PAGE_SCRIPT_MAP = {
     'loi-thuong-gap': '/js/pages/donloinoibo.js',
     'kiemkho': '/js/pages/kiemkho.js',
     'kiemtrachatluong': '/js/pages/kiemtrachatluong.js?v=20260725_ktcl_v5',
+    'topkhachhang': '/js/pages/topkhachhang.js?v=20260727_v100',
+    'top-khach-hang': '/js/pages/topkhachhang.js?v=20260727_v100',
     'kpikdoanh': '/js/pages/kpikdoanh.js',
     'kpisale': '/js/pages/kpisale.js?v=20260727_v430',
     'kpi-sale': '/js/pages/kpisale.js?v=20260727_v430',

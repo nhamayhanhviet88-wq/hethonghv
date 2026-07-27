@@ -3,6 +3,7 @@
 const PERM_FEATURES = [
     // ===== TỔNG QUAN =====
     { key: 'tong_quan', label: 'Các Chỉ Số Tổng Quan', perms: ['view'], section: 'TỔNG QUAN' },
+    { key: 'top_khach_hang', label: 'Top Khách Hàng', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'dashboard_kdoanh', label: 'Dashboard P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'kpi_kdoanh', label: 'KPI P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'kpi_sale', label: 'KPI P.Sale', perms: ['view'], section: 'TỔNG QUAN' },
