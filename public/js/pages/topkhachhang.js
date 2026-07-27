@@ -1,9 +1,10 @@
 /**
  * Page: /topkhachhang — renderTopkhachhangPage(container)
- * Báo cáo & Thống kê Top Khách Hàng Doanh Số / Số Đơn nhiều nhất
+ * Báo cáo & Thống kê 👑 Top Khách & Sale KD (Doanh Số / Số Đơn nhiều nhất)
  */
 
 var _topCustState = {
+    tab: 'customers', // 'customers' | 'staff'
     period_type: 'month',
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -32,6 +33,11 @@ async function renderTopkhachhangPage(container) {
             .top-cust-hdr { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; margin-bottom: 20px; }
             .top-cust-title { font-size: 22px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
             
+            .top-cust-tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+            .top-cust-tab-btn { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 800; color: #475569; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+            .top-cust-tab-btn:hover { background: #e2e8f0; color: #0f172a; }
+            .top-cust-tab-btn.active { background: #3b82f6; color: #fff; border-color: #2563eb; box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
+
             .top-cust-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
             .top-cust-filter-group { display: flex; align-items: center; gap: 6px; }
             .top-cust-label { font-size: 13px; font-weight: 700; color: #475569; }
@@ -74,7 +80,17 @@ async function renderTopkhachhangPage(container) {
     container.innerHTML = `
         <div class="top-cust-wrap">
             <div class="top-cust-hdr">
-                <div class="top-cust-title">👑 TOP KHÁCH HÀNG THÂN THIẾT & DOANH SỐ LỚN</div>
+                <div class="top-cust-title">👑 TOP KHÁCH HÀNG & SALE KINH DOANH</div>
+
+                <!-- MAIN TAB BUTTONS -->
+                <div class="top-cust-tabs">
+                    <button class="top-cust-tab-btn ${_topCustState.tab === 'customers' ? 'active' : ''}" id="topTabCustBtn" onclick="topCustSwitchTab('customers')">
+                        👑 TOP KHÁCH HÀNG VIP
+                    </button>
+                    <button class="top-cust-tab-btn ${_topCustState.tab === 'staff' ? 'active' : ''}" id="topTabStaffBtn" onclick="topCustSwitchTab('staff')">
+                        🏆 TOP SALE & KINH DOANH
+                    </button>
+                </div>
                 
                 <div class="top-cust-filters">
                     <!-- PERIOD TYPE -->
@@ -133,7 +149,7 @@ async function renderTopkhachhangPage(container) {
 
                     <!-- SEARCH INPUT -->
                     <div class="top-cust-filter-group">
-                        <input type="text" class="top-cust-input" id="topCustSearch" placeholder="🔍 Tìm tên KH / SĐT..." onkeyup="topCustOnSearchKey(event)">
+                        <input type="text" class="top-cust-input" id="topCustSearch" placeholder="🔍 Tìm tên / SĐT..." onkeyup="topCustOnSearchKey(event)">
                     </div>
 
                     <button class="top-cust-export-btn" onclick="topCustExportCsv()">📥 Xuất File Excel/CSV</button>
@@ -143,22 +159,22 @@ async function renderTopkhachhangPage(container) {
             <!-- SUMMARY CARDS -->
             <div class="top-cust-summary" id="topCustSummaryCards">
                 <div class="top-cust-card">
-                    <div class="top-cust-card-title"><span>TỔNG DOANH SỐ TOP KH</span> <span>💰</span></div>
+                    <div class="top-cust-card-title"><span id="topSumCard1Title">TỔNG DOANH SỐ TOP KH</span> <span>💰</span></div>
                     <div class="top-cust-card-val" id="topCustValTotalRev">—</div>
-                    <div class="top-cust-card-sub" id="topCustSubCustCount">Khách hàng: —</div>
+                    <div class="top-cust-card-sub" id="topCustSubCustCount">Tổng số: —</div>
                 </div>
                 <div class="top-cust-card">
-                    <div class="top-cust-card-title"><span>TỔNG SỐ ĐƠN CHỐT</span> <span>📦</span></div>
+                    <div class="top-cust-card-title"><span id="topSumCard2Title">TỔNG SỐ ĐƠN CHỐT</span> <span>📦</span></div>
                     <div class="top-cust-card-val" id="topCustValTotalOrds">—</div>
-                    <div class="top-cust-card-sub" id="topCustSubAvgAov">AOV trung bình: —</div>
+                    <div class="top-cust-card-sub" id="topCustSubAvgAov">Trung bình: —</div>
                 </div>
                 <div class="top-cust-card">
-                    <div class="top-cust-card-title"><span>QUÁN QUÂN DOANH SỐ</span> <span>🥇</span></div>
+                    <div class="top-cust-card-title"><span id="topSumCard3Title">QUÁN QUÂN DOANH SỐ</span> <span>🥇</span></div>
                     <div class="top-cust-card-val" style="font-size:18px;color:#d97706" id="topCustValChampRev">—</div>
                     <div class="top-cust-card-sub" id="topCustSubChampRevVal">Doanh số: —</div>
                 </div>
                 <div class="top-cust-card">
-                    <div class="top-cust-card-title"><span>QUÁN QUÂN ĐẶT ĐƠN</span> <span>⚡</span></div>
+                    <div class="top-cust-card-title"><span id="topSumCard4Title">QUÁN QUÂN ĐẶT ĐƠN</span> <span>⚡</span></div>
                     <div class="top-cust-card-val" style="font-size:18px;color:#2563eb" id="topCustValChampOrds">—</div>
                     <div class="top-cust-card-sub" id="topCustSubChampOrdsVal">Số đơn: —</div>
                 </div>
@@ -167,12 +183,12 @@ async function renderTopkhachhangPage(container) {
             <!-- MAIN TABLE PANEL -->
             <div class="top-cust-panel">
                 <div class="top-cust-panel-hdr">
-                    <span>👑 DANH SÁCH BẢNG VINH DANH TOP KHÁCH HÀNG VIP</span>
+                    <span id="topPanelTitle">👑 DANH SÁCH BẢNG VINH DANH TOP KHÁCH HÀNG VIP</span>
                     <span style="font-size:13px;font-weight:600;color:#64748b" id="topCustPeriodBadge">...</span>
                 </div>
                 <div class="top-cust-tbl-wrap">
                     <table class="top-cust-tbl" id="topCustMainTable">
-                        <thead>
+                        <thead id="topCustThead">
                             <tr>
                                 <th class="center" style="width:60px">HẠNG</th>
                                 <th>Khách Hàng</th>
@@ -187,7 +203,7 @@ async function renderTopkhachhangPage(container) {
                             </tr>
                         </thead>
                         <tbody id="topCustTbody">
-                            <tr><td colspan="10" class="center" style="padding:30px;color:#94a3b8">Đang tải dữ liệu Top Khách Hàng...</td></tr>
+                            <tr><td colspan="10" class="center" style="padding:30px;color:#94a3b8">Đang tải dữ liệu Bảng Vinh Danh...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -229,7 +245,7 @@ async function loadTopCustData() {
         });
 
         const res = await apiCall(`/api/reports/top-customers?${queryParams.toString()}`);
-        if (!res || !res.customers) {
+        if (!res) {
             const tbody = document.getElementById('topCustTbody');
             if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="center" style="padding:30px;color:#ef4444">⚠️ Không thể tải dữ liệu. <button onclick="loadTopCustData()" style="padding:4px 10px;background:#3b82f6;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;margin-left:8px">🔄 Thử lại</button></td></tr>`;
             return;
@@ -243,37 +259,102 @@ async function loadTopCustData() {
             periodBadge.innerText = `${res.filter.period_label} — Lọc: ${field === 'tem_pet' ? 'PET TEM' : (field === 'dong_phuc' ? 'ĐỒNG PHỤC' : 'Tất cả')}`;
         }
 
-        // Render Summary Cards
-        const s = res.summary || {};
-        document.getElementById('topCustValTotalRev').innerText = formatVnd(s.total_revenue || 0);
-        document.getElementById('topCustSubCustCount').innerText = `Tổng Top: ${s.total_customers || 0} khách hàng VIP`;
-
-        document.getElementById('topCustValTotalOrds').innerText = (s.total_orders || 0).toLocaleString('vi-VN') + ' đơn';
-        document.getElementById('topCustSubAvgAov').innerText = `AOV TB: ${formatVnd(s.avg_revenue_per_cust || 0)}`;
-
-        if (s.champion_revenue) {
-            document.getElementById('topCustValChampRev').innerText = `🥇 ${s.champion_revenue.customer_name || 'N/A'}`;
-            document.getElementById('topCustSubChampRevVal').innerText = `Doanh số: ${formatVnd(s.champion_revenue.revenue || 0)}`;
-        } else {
-            document.getElementById('topCustValChampRev').innerText = '—';
-            document.getElementById('topCustSubChampRevVal').innerText = 'Chưa có dữ liệu';
-        }
-
-        if (s.champion_orders) {
-            document.getElementById('topCustValChampOrds').innerText = `⚡ ${s.champion_orders.customer_name || 'N/A'}`;
-            document.getElementById('topCustSubChampOrdsVal').innerText = `Đã chốt: ${s.champion_orders.orders || 0} đơn`;
-        } else {
-            document.getElementById('topCustValChampOrds').innerText = '—';
-            document.getElementById('topCustSubChampOrdsVal').innerText = 'Chưa có dữ liệu';
-        }
-
-        // Render Table Rows
-        renderTopCustTable(res.customers || []);
+        // Render Content based on current active tab
+        renderCurrentTabUI();
 
     } catch (e) {
         console.error('Error loading top customers:', e);
         const tbody = document.getElementById('topCustTbody');
         if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="center" style="padding:30px;color:#ef4444">⚠️ Lỗi: ${e.message || 'Không thể tải dữ liệu.'} <button onclick="loadTopCustData()" style="padding:4px 10px;background:#3b82f6;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;margin-left:8px">🔄 Thử lại</button></td></tr>`;
+    }
+}
+
+function topCustSwitchTab(tabName) {
+    _topCustState.tab = tabName;
+    
+    document.getElementById('topTabCustBtn')?.classList.toggle('active', tabName === 'customers');
+    document.getElementById('topTabStaffBtn')?.classList.toggle('active', tabName === 'staff');
+
+    renderCurrentTabUI();
+}
+
+function renderCurrentTabUI() {
+    const res = _topCustState.data;
+    if (!res) return;
+
+    const isCustTab = _topCustState.tab === 'customers';
+    const s = isCustTab ? (res.summary?.customers || {}) : (res.summary?.staff || {});
+
+    // Update Titles & Summary Cards
+    document.getElementById('topPanelTitle').innerText = isCustTab
+        ? '👑 DANH SÁCH BẢNG VINH DANH TOP KHÁCH HÀNG VIP'
+        : '🏆 BẢNG XẾP HẠNG TOP SALE & KINH DOANH CHỐT ĐƠN';
+
+    document.getElementById('topSumCard1Title').innerText = isCustTab ? 'TỔNG DOANH SỐ TOP KH' : 'TỔNG DOANH SỐ SALE KD';
+    document.getElementById('topCustValTotalRev').innerText = formatVnd(s.total_revenue || 0);
+    document.getElementById('topCustSubCustCount').innerText = isCustTab 
+        ? `Tổng Top: ${s.total_customers || 0} khách hàng VIP`
+        : `Số nhân sự đạt Top: ${s.total_staff || 0} nhân viên`;
+
+    document.getElementById('topSumCard2Title').innerText = isCustTab ? 'TỔNG SỐ ĐƠN CHỐT KH' : 'TỔNG SỐ ĐƠN SALE CHỐT';
+    document.getElementById('topCustValTotalOrds').innerText = (s.total_orders || 0).toLocaleString('vi-VN') + ' đơn';
+    document.getElementById('topCustSubAvgAov').innerText = isCustTab 
+        ? `AOV TB: ${formatVnd(s.avg_revenue_per_cust || 0)}`
+        : `Doanh số TB / Sale: ${formatVnd(s.avg_revenue_per_staff || 0)}`;
+
+    if (s.champion_revenue) {
+        document.getElementById('topCustValChampRev').innerText = `🥇 ${s.champion_revenue.customer_name || s.champion_revenue.staff_name || 'N/A'}`;
+        document.getElementById('topCustSubChampRevVal').innerText = `Doanh số: ${formatVnd(s.champion_revenue.revenue || 0)}`;
+    } else {
+        document.getElementById('topCustValChampRev').innerText = '—';
+        document.getElementById('topCustSubChampRevVal').innerText = 'Chưa có dữ liệu';
+    }
+
+    if (s.champion_orders) {
+        document.getElementById('topCustValChampOrds').innerText = `⚡ ${s.champion_orders.customer_name || s.champion_orders.staff_name || 'N/A'}`;
+        document.getElementById('topCustSubChampOrdsVal').innerText = `Đã chốt: ${s.champion_orders.orders || 0} đơn`;
+    } else {
+        document.getElementById('topCustValChampOrds').innerText = '—';
+        document.getElementById('topCustSubChampOrdsVal').innerText = 'Chưa có dữ liệu';
+    }
+
+    // Render Table Header & Body
+    const thead = document.getElementById('topCustThead');
+    if (isCustTab) {
+        if (thead) {
+            thead.innerHTML = `
+                <tr>
+                    <th class="center" style="width:60px">HẠNG</th>
+                    <th>Khách Hàng</th>
+                    <th>Số Điện Thoại</th>
+                    <th class="center">Lĩnh Vực</th>
+                    <th>NV Phụ Trách</th>
+                    <th class="num">Số Đơn</th>
+                    <th class="num">Tổng Doanh Số (đ)</th>
+                    <th class="num">AOV Đơn TB (đ)</th>
+                    <th class="center">Đơn Gần Nhất</th>
+                    <th class="center" style="width:90px">Thao Tác</th>
+                </tr>
+            `;
+        }
+        renderTopCustTable(res.customers || []);
+    } else {
+        if (thead) {
+            thead.innerHTML = `
+                <tr>
+                    <th class="center" style="width:60px">HẠNG</th>
+                    <th>Nhân Viên Sale / KD</th>
+                    <th>Tài Khoản</th>
+                    <th class="center">Phòng Ban / Vị Trí</th>
+                    <th class="num">Số KH Phụ Trách</th>
+                    <th class="num">Số Đơn Chốt</th>
+                    <th class="num">Tổng Doanh Số (đ)</th>
+                    <th class="num">Doanh Số TB / Đơn</th>
+                    <th class="center">Đơn Gần Nhất</th>
+                </tr>
+            `;
+        }
+        renderTopStaffTable(res.sales_staff || []);
     }
 }
 
@@ -320,6 +401,48 @@ function renderTopCustTable(customers) {
                 <td class="center">
                     <button style="padding:4px 10px;background:#3b82f6;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer" onclick="topCustOpenDetail(${c.customer_id})">🤝 Xem KH</button>
                 </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = h;
+}
+
+function renderTopStaffTable(staffList) {
+    const tbody = document.getElementById('topCustTbody');
+    if (!tbody) return;
+
+    if (!staffList || staffList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="center" style="padding:30px;color:#64748b">Không tìm thấy nhân viên Sale & KD nào theo bộ lọc lựa chọn.</td></tr>`;
+        return;
+    }
+
+    let h = '';
+    staffList.forEach((s, idx) => {
+        let rankBadge = `<span class="top-rank-badge rank-other">${idx + 1}</span>`;
+        if (idx === 0) rankBadge = `<span class="top-rank-badge rank-1" title="Quán quân Top 1 Sale KD">🥇</span>`;
+        else if (idx === 1) rankBadge = `<span class="top-rank-badge rank-2" title="Á quân Top 2 Sale KD">🥈</span>`;
+        else if (idx === 2) rankBadge = `<span class="top-rank-badge rank-3" title="Hạng 3 Top 3 Sale KD">🥉</span>`;
+
+        const lastDateStr = s.last_order_at ? new Date(s.last_order_at).toLocaleDateString('vi-VN') : '—';
+
+        h += `
+            <tr>
+                <td class="center">${rankBadge}</td>
+                <td>
+                    <strong style="color:#0f172a;font-size:14px">👤 ${s.staff_name}</strong>
+                </td>
+                <td>
+                    <span style="font-weight:600;color:#64748b">@${s.username || 'n/a'}</span>
+                </td>
+                <td class="center">
+                    <span class="field-tag tag-dongphuc">${s.department_name || 'Khối Sale KD'}</span>
+                </td>
+                <td class="num" style="font-weight:700;color:#475569">${s.customer_count.toLocaleString('vi-VN')} KH</td>
+                <td class="num" style="font-weight:800;color:#1e293b">${s.order_count.toLocaleString('vi-VN')} đơn</td>
+                <td class="num" style="font-weight:800;color:#059669;font-size:14px">${formatVnd(s.total_revenue)}</td>
+                <td class="num" style="color:#64748b">${formatVnd(s.avg_order_value)}</td>
+                <td class="center" style="font-size:12px;color:#64748b">${lastDateStr}</td>
             </tr>
         `;
     });
@@ -374,30 +497,49 @@ function topCustOpenDetail(custId) {
 }
 
 function topCustExportCsv() {
-    if (!_topCustState.data || !_topCustState.data.customers || _topCustState.data.customers.length === 0) {
+    if (!_topCustState.data) {
         alert('Chưa có dữ liệu để xuất file!');
         return;
     }
 
-    const customers = _topCustState.data.customers;
+    const isCustTab = _topCustState.tab === 'customers';
     let csv = '\uFEFF'; // UTF-8 BOM for Excel
-    csv += 'Hạng,Tên Khách Hàng,Số Điện Thoại,Lĩnh Vực,NV Phụ Trách,Số Đơn Hàng,Tổng Doanh Số (đ),AOV Đơn Trung Bình (đ),Đơn Gần Nhất\n';
 
-    customers.forEach(c => {
-        const name = `"${(c.customer_name || '').replace(/"/g, '""')}"`;
-        const phone = `"${c.phone || ''}"`;
-        const field = `"${c.field_label || ''}"`;
-        const staff = `"${(c.assigned_to_name || '').replace(/"/g, '""')}"`;
-        const lastDate = c.last_order_at ? new Date(c.last_order_at).toLocaleDateString('vi-VN') : '';
+    if (isCustTab) {
+        const customers = _topCustState.data.customers || [];
+        if (customers.length === 0) { alert('Không có dữ liệu Top Khách Hàng!'); return; }
 
-        csv += `${c.rank},${name},${phone},${field},${staff},${c.order_count},${c.total_revenue},${c.avg_order_value},"${lastDate}"\n`;
-    });
+        csv += 'Hạng,Tên Khách Hàng,Số Điện Thoại,Lĩnh Vực,NV Phụ Trách,Số Đơn Hàng,Tổng Doanh Số (đ),AOV Đơn Trung Bình (đ),Đơn Gần Nhất\n';
+        customers.forEach(c => {
+            const name = `"${(c.customer_name || '').replace(/"/g, '""')}"`;
+            const phone = `"${c.phone || ''}"`;
+            const field = `"${c.field_label || ''}"`;
+            const staff = `"${(c.assigned_to_name || '').replace(/"/g, '""')}"`;
+            const lastDate = c.last_order_at ? new Date(c.last_order_at).toLocaleDateString('vi-VN') : '';
 
+            csv += `${c.rank},${name},${phone},${field},${staff},${c.order_count},${c.total_revenue},${c.avg_order_value},"${lastDate}"\n`;
+        });
+    } else {
+        const staff = _topCustState.data.sales_staff || [];
+        if (staff.length === 0) { alert('Không có dữ liệu Top Sale KD!'); return; }
+
+        csv += 'Hạng,Tên Nhân Viên,Tài Khoản,Phòng Ban,Số KH Phụ Trách,Số Đơn Chốt,Tổng Doanh Số (đ),Doanh Số TB / Đơn,Đơn Gần Nhất\n';
+        staff.forEach(s => {
+            const name = `"${(s.staff_name || '').replace(/"/g, '""')}"`;
+            const username = `"${s.username || ''}"`;
+            const dept = `"${(s.department_name || '').replace(/"/g, '""')}"`;
+            const lastDate = s.last_order_at ? new Date(s.last_order_at).toLocaleDateString('vi-VN') : '';
+
+            csv += `${s.rank},${name},${username},${dept},${s.customer_count},${s.order_count},${s.total_revenue},${s.avg_order_value},"${lastDate}"\n`;
+        });
+    }
+
+    const filename = isCustTab ? `Top_Khach_Hang_${_topCustState.period_type}` : `Top_Sale_KD_${_topCustState.period_type}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Top_Khach_Hang_${_topCustState.period_type}_${new Date().getTime()}.csv`);
+    link.setAttribute('download', `${filename}_${new Date().getTime()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

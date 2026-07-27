@@ -6,7 +6,7 @@ module.exports = async function (fastify, opts) {
 
     /**
      * GET /api/reports/top-customers
-     * Báo cáo thống kê Top Khách Hàng VIP (doanh số, số lượng đơn)
+     * Báo cáo thống kê 👑 Top Khách Hàng & Sale KD (doanh số, số lượng đơn)
      * Filters:
      *   - period_type: 'month', 'quarter', 'year', 'all'
      *   - year: YYYY (e.g. 2026)
@@ -14,12 +14,11 @@ module.exports = async function (fastify, opts) {
      *   - quarter: 1-4
      *   - field: 'all', 'tem_pet', 'dong_phuc'
      *   - sort_by: 'revenue' | 'order_count'
-     *   - search: string (tên / SĐT)
+     *   - search: string (tên KH / SĐT / Tên Sale)
      *   - limit: number (default 100)
      */
     fastify.get('/api/reports/top-customers', { preHandler: [authenticate] }, async (request, reply) => {
         try {
-            console.log('[TopCustomers API] Handling request by user:', request.user?.username, 'query:', request.query);
             const {
                 period_type = 'month',
                 year = new Date().getFullYear(),
@@ -70,47 +69,47 @@ module.exports = async function (fastify, opts) {
             const testIds = await getTestAccountIds();
             const prodSQL = buildProductionFilter(cutoff, testIds, 'c.created_at', 'c.created_by');
 
-            // 2. Build SQL conditions
-            const whereConditions = [
+            // 2. Build SQL conditions for Customers
+            const custWhereConditions = [
                 `COALESCE(c.cancel_approved, 0) != 1`,
                 `COALESCE(o.is_draft, false) = false`,
                 `o.parent_order_id IS NULL`
             ];
             if (prodSQL) {
-                whereConditions.push(`(${prodSQL.replace(/^\s*AND\s+/i, '')})`);
+                custWhereConditions.push(`(${prodSQL.replace(/^\s*AND\s+/i, '')})`);
             }
-            const params = [];
+            const custParams = [];
 
             if (startDate && endDate) {
-                params.push(startDate, endDate);
-                whereConditions.push(`o.created_at >= $1::timestamp`);
-                whereConditions.push(`o.created_at < $2::timestamp`);
+                custParams.push(startDate, endDate);
+                custWhereConditions.push(`o.created_at >= $1::timestamp`);
+                custWhereConditions.push(`o.created_at < $2::timestamp`);
             }
 
             // Field Filter: tem_pet vs dong_phuc
             if (field === 'tem_pet') {
-                whereConditions.push(`c.crm_type = 'tem_pet'`);
+                custWhereConditions.push(`c.crm_type = 'tem_pet'`);
             } else if (field === 'dong_phuc') {
-                whereConditions.push(`c.crm_type != 'tem_pet'`);
+                custWhereConditions.push(`c.crm_type != 'tem_pet'`);
             }
 
             // Search Filter
             if (search && search.trim()) {
-                params.push(`%${search.trim()}%`);
-                whereConditions.push(`(c.customer_name ILIKE $${params.length} OR c.phone ILIKE $${params.length})`);
+                custParams.push(`%${search.trim()}%`);
+                custWhereConditions.push(`(c.customer_name ILIKE $${custParams.length} OR c.phone ILIKE $${custParams.length})`);
             }
 
-            const whereSQL = whereConditions.join(' AND ');
+            const custWhereSQL = custWhereConditions.join(' AND ');
 
-            // Sort clause
-            const orderBySQL = sort_by === 'order_count' 
+            // Sort clause for Customers
+            const custOrderBySQL = sort_by === 'order_count' 
                 ? `COUNT(DISTINCT o.id) DESC, SUM(COALESCE(oi_sum.item_total, 0) - COALESCE(o.discount_amount, 0) - COALESCE(o.vat_amount, 0)) DESC`
                 : `SUM(COALESCE(oi_sum.item_total, 0) - COALESCE(o.discount_amount, 0) - COALESCE(o.vat_amount, 0)) DESC, COUNT(DISTINCT o.id) DESC`;
 
-            params.push(lim);
-            const limitParamIdx = params.length;
+            custParams.push(lim);
+            const custLimitIdx = custParams.length;
 
-            const querySQL = `
+            const custQuerySQL = `
                 SELECT
                     c.id AS customer_id,
                     c.customer_name,
@@ -132,27 +131,95 @@ module.exports = async function (fastify, opts) {
                     SELECT COALESCE(SUM(di.item_total), 0) AS item_total
                     FROM dht_order_items di WHERE di.dht_order_id = o.id
                 ) oi_sum ON true
-                WHERE ${whereSQL}
+                WHERE ${custWhereSQL}
                 GROUP BY c.id, c.customer_name, c.phone, c.crm_type, c.province, c.assigned_to_id, u.full_name, u.role
-                ORDER BY ${orderBySQL}
-                LIMIT $${limitParamIdx}
+                ORDER BY ${custOrderBySQL}
+                LIMIT $${custLimitIdx}
             `;
 
-            const rows = await db.all(querySQL, params);
+            // 3. Build SQL conditions for Sales Staff
+            const staffWhereConditions = [
+                `COALESCE(c.cancel_approved, 0) != 1`,
+                `COALESCE(o.is_draft, false) = false`,
+                `o.parent_order_id IS NULL`,
+                `u.id IS NOT NULL`
+            ];
+            if (prodSQL) {
+                staffWhereConditions.push(`(${prodSQL.replace(/^\s*AND\s+/i, '')})`);
+            }
+            const staffParams = [];
 
-            // Calculate overall summary for top list
-            let totalRevenue = 0;
-            let totalOrders = 0;
-            let champRevenue = null;
-            let champOrders = null;
+            if (startDate && endDate) {
+                staffParams.push(startDate, endDate);
+                staffWhereConditions.push(`o.created_at >= $1::timestamp`);
+                staffWhereConditions.push(`o.created_at < $2::timestamp`);
+            }
 
-            const formattedCustomers = (rows || []).map((row, idx) => {
+            if (field === 'tem_pet') {
+                staffWhereConditions.push(`c.crm_type = 'tem_pet'`);
+            } else if (field === 'dong_phuc') {
+                staffWhereConditions.push(`c.crm_type != 'tem_pet'`);
+            }
+
+            if (search && search.trim()) {
+                staffParams.push(`%${search.trim()}%`);
+                staffWhereConditions.push(`(u.full_name ILIKE $${staffParams.length} OR u.username ILIKE $${staffParams.length})`);
+            }
+
+            const staffWhereSQL = staffWhereConditions.join(' AND ');
+
+            const staffOrderBySQL = sort_by === 'order_count'
+                ? `COUNT(DISTINCT o.id) DESC, SUM(COALESCE(oi_sum.item_total, 0) - COALESCE(o.discount_amount, 0) - COALESCE(o.vat_amount, 0)) DESC`
+                : `SUM(COALESCE(oi_sum.item_total, 0) - COALESCE(o.discount_amount, 0) - COALESCE(o.vat_amount, 0)) DESC, COUNT(DISTINCT o.id) DESC`;
+
+            staffParams.push(lim);
+            const staffLimitIdx = staffParams.length;
+
+            const staffQuerySQL = `
+                SELECT
+                    u.id AS user_id,
+                    u.full_name AS staff_name,
+                    u.username,
+                    u.role AS staff_role,
+                    d.name AS department_name,
+                    COUNT(DISTINCT o.id) AS order_count,
+                    COUNT(DISTINCT c.id) AS customer_count,
+                    COALESCE(SUM(
+                        GREATEST(0, COALESCE(oi_sum.item_total, 0) - COALESCE(o.discount_amount, 0) - COALESCE(o.vat_amount, 0))
+                    ), 0) AS total_revenue,
+                    MAX(o.created_at) AS last_order_at
+                FROM dht_orders o
+                JOIN customers c ON c.id = o.customer_id
+                JOIN users u ON u.id = COALESCE(o.created_by, c.assigned_to_id)
+                LEFT JOIN departments d ON d.id = u.department_id
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(di.item_total), 0) AS item_total
+                    FROM dht_order_items di WHERE di.dht_order_id = o.id
+                ) oi_sum ON true
+                WHERE ${staffWhereSQL}
+                GROUP BY u.id, u.full_name, u.username, u.role, d.name
+                ORDER BY ${staffOrderBySQL}
+                LIMIT $${staffLimitIdx}
+            `;
+
+            const [custRows, staffRows] = await Promise.all([
+                db.all(custQuerySQL, custParams),
+                db.all(staffQuerySQL, staffParams)
+            ]);
+
+            // Calculate overall summary for Top Customers
+            let custTotalRevenue = 0;
+            let custTotalOrders = 0;
+            let champCustRevenue = null;
+            let champCustOrders = null;
+
+            const formattedCustomers = (custRows || []).map((row, idx) => {
                 const rev = parseFloat(row.total_revenue || 0);
                 const ords = parseInt(row.order_count || 0);
                 const aov = ords > 0 ? Math.round(rev / ords) : 0;
 
-                totalRevenue += rev;
-                totalOrders += ords;
+                custTotalRevenue += rev;
+                custTotalOrders += ords;
 
                 const custObj = {
                     rank: idx + 1,
@@ -170,10 +237,45 @@ module.exports = async function (fastify, opts) {
                     last_order_at: row.last_order_at
                 };
 
-                if (idx === 0) champRevenue = custObj;
-                if (!champOrders || ords > champOrders.order_count) champOrders = custObj;
+                if (idx === 0) champCustRevenue = custObj;
+                if (!champCustOrders || ords > champCustOrders.order_count) champCustOrders = custObj;
 
                 return custObj;
+            });
+
+            // Calculate overall summary for Top Sale KD
+            let staffTotalRevenue = 0;
+            let staffTotalOrders = 0;
+            let champStaffRevenue = null;
+            let champStaffOrders = null;
+
+            const formattedStaff = (staffRows || []).map((row, idx) => {
+                const rev = parseFloat(row.total_revenue || 0);
+                const ords = parseInt(row.order_count || 0);
+                const custs = parseInt(row.customer_count || 0);
+                const aov = ords > 0 ? Math.round(rev / ords) : 0;
+
+                staffTotalRevenue += rev;
+                staffTotalOrders += ords;
+
+                const staffObj = {
+                    rank: idx + 1,
+                    user_id: row.user_id,
+                    staff_name: row.staff_name || row.username || 'N/A',
+                    username: row.username,
+                    staff_role: row.staff_role,
+                    department_name: row.department_name || 'Khối KD & Sale',
+                    order_count: ords,
+                    customer_count: custs,
+                    total_revenue: rev,
+                    avg_order_value: aov,
+                    last_order_at: row.last_order_at
+                };
+
+                if (idx === 0) champStaffRevenue = staffObj;
+                if (!champStaffOrders || ords > champStaffOrders.order_count) champStaffOrders = staffObj;
+
+                return staffObj;
             });
 
             return reply.send({
@@ -188,27 +290,46 @@ module.exports = async function (fastify, opts) {
                     period_label: periodLabel
                 },
                 summary: {
-                    total_customers: formattedCustomers.length,
-                    total_revenue: totalRevenue,
-                    total_orders: totalOrders,
-                    avg_revenue_per_cust: formattedCustomers.length > 0 ? Math.round(totalRevenue / formattedCustomers.length) : 0,
-                    champion_revenue: champRevenue ? {
-                        customer_name: champRevenue.customer_name,
-                        phone: champRevenue.phone,
-                        revenue: champRevenue.total_revenue
-                    } : null,
-                    champion_orders: champOrders ? {
-                        customer_name: champOrders.customer_name,
-                        phone: champOrders.phone,
-                        orders: champOrders.order_count
-                    } : null
+                    customers: {
+                        total_customers: formattedCustomers.length,
+                        total_revenue: custTotalRevenue,
+                        total_orders: custTotalOrders,
+                        avg_revenue_per_cust: formattedCustomers.length > 0 ? Math.round(custTotalRevenue / formattedCustomers.length) : 0,
+                        champion_revenue: champCustRevenue ? {
+                            customer_name: champCustRevenue.customer_name,
+                            phone: champCustRevenue.phone,
+                            revenue: champCustRevenue.total_revenue
+                        } : null,
+                        champion_orders: champCustOrders ? {
+                            customer_name: champCustOrders.customer_name,
+                            phone: champCustOrders.phone,
+                            orders: champCustOrders.order_count
+                        } : null
+                    },
+                    staff: {
+                        total_staff: formattedStaff.length,
+                        total_revenue: staffTotalRevenue,
+                        total_orders: staffTotalOrders,
+                        avg_revenue_per_staff: formattedStaff.length > 0 ? Math.round(staffTotalRevenue / formattedStaff.length) : 0,
+                        champion_revenue: champStaffRevenue ? {
+                            staff_name: champStaffRevenue.staff_name,
+                            department_name: champStaffRevenue.department_name,
+                            revenue: champStaffRevenue.total_revenue
+                        } : null,
+                        champion_orders: champStaffOrders ? {
+                            staff_name: champStaffOrders.staff_name,
+                            department_name: champStaffOrders.department_name,
+                            orders: champStaffOrders.order_count
+                        } : null
+                    }
                 },
-                customers: formattedCustomers
+                customers: formattedCustomers,
+                sales_staff: formattedStaff
             });
 
         } catch (error) {
             request.log.error(error);
-            return reply.status(500).send({ error: 'Lỗi tải dữ liệu Top Khách Hàng', detail: error.message });
+            return reply.status(500).send({ error: 'Lỗi tải dữ liệu Top Khách & Sale KD', detail: error.message });
         }
     });
 };
