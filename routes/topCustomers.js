@@ -1,35 +1,44 @@
-/**
- * Route: Top Khách Hàng — Thống kê khách hàng lớn/VIP theo thời gian & lĩnh vực
- */
+const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
-const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
-module.exports = async function(fastify, options) {
+module.exports = async function (fastify, opts) {
 
-    // ===== GET /api/reports/top-customers =====
+    /**
+     * GET /api/reports/top-customers
+     * Báo cáo thống kê Top Khách Hàng VIP (doanh số, số lượng đơn)
+     * Filters:
+     *   - period_type: 'month', 'quarter', 'year', 'all'
+     *   - year: YYYY (e.g. 2026)
+     *   - month: 1-12
+     *   - quarter: 1-4
+     *   - field: 'all', 'tem_pet', 'dong_phuc'
+     *   - sort_by: 'revenue' | 'order_count'
+     *   - search: string (tên / SĐT)
+     *   - limit: number (default 100)
+     */
     fastify.get('/api/reports/top-customers', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             const {
                 period_type = 'month',
                 year = new Date().getFullYear(),
                 month = new Date().getMonth() + 1,
-                quarter = 1,
+                quarter = Math.ceil((new Date().getMonth() + 1) / 3),
                 field = 'all',
                 sort_by = 'revenue',
-                limit = 100,
-                search = ''
+                search = '',
+                limit = 100
             } = request.query;
 
-            const yr = Number(year) || new Date().getFullYear();
-            const mo = Number(month) || (new Date().getMonth() + 1);
-            const qt = Number(quarter) || 1;
-            const lim = Math.min(Math.max(Number(limit) || 50, 1), 500);
+            const yr = parseInt(year) || new Date().getFullYear();
+            const mo = parseInt(month) || (new Date().getMonth() + 1);
+            const qt = parseInt(quarter) || 1;
+            const lim = Math.min(parseInt(limit) || 100, 500);
 
-            // 1. Build date range filter
+            // 1. Determine Date Range
             let startDate = null;
             let endDate = null;
-            let periodLabel = '';
+            let periodLabel = 'Tất Cả Thời Gian';
 
             if (period_type === 'month') {
                 startDate = `${yr}-${String(mo).padStart(2, '0')}-01 00:00:00`;
@@ -39,7 +48,7 @@ module.exports = async function(fastify, options) {
                 periodLabel = `Tháng ${mo}/${yr}`;
             } else if (period_type === 'quarter') {
                 const qStartMo = (qt - 1) * 3 + 1;
-                const qEndMo = qStartMo + 3;
+                const qEndMo = qt * 3 + 1;
                 startDate = `${yr}-${String(qStartMo).padStart(2, '0')}-01 00:00:00`;
                 if (qEndMo > 12) {
                     endDate = `${yr + 1}-01-01 00:00:00`;
@@ -63,7 +72,8 @@ module.exports = async function(fastify, options) {
             // 2. Build SQL conditions
             const whereConditions = [
                 `COALESCE(c.cancel_approved, 0) != 1`,
-                `COALESCE(oc.status, 'active') != 'cancelled'`
+                `COALESCE(o.is_draft, false) = false`,
+                `o.parent_order_id IS NULL`
             ];
             if (prodSQL) {
                 whereConditions.push(`(${prodSQL.replace(/^\s*AND\s+/i, '')})`);
@@ -72,8 +82,8 @@ module.exports = async function(fastify, options) {
 
             if (startDate && endDate) {
                 params.push(startDate, endDate);
-                whereConditions.push(`oc.created_at >= $${params.length - 1}::timestamp`);
-                whereConditions.push(`oc.created_at < $${params.length}::timestamp`);
+                whereConditions.push(`o.created_at >= $1::timestamp`);
+                whereConditions.push(`o.created_at < $2::timestamp`);
             }
 
             // Field Filter: tem_pet vs dong_phuc
@@ -93,8 +103,8 @@ module.exports = async function(fastify, options) {
 
             // Sort clause
             const orderBySQL = sort_by === 'order_count' 
-                ? `COUNT(DISTINCT oc.order_code) DESC, SUM(COALESCE(oi_sum.revenue, 0)) DESC`
-                : `SUM(COALESCE(oi_sum.revenue, 0)) DESC, COUNT(DISTINCT oc.order_code) DESC`;
+                ? `COUNT(DISTINCT o.id) DESC, SUM(COALESCE(oi_sum.item_total, 0) - COALESCE(o.discount_amount, 0) - COALESCE(o.vat_amount, 0)) DESC`
+                : `SUM(COALESCE(oi_sum.item_total, 0) - COALESCE(o.discount_amount, 0) - COALESCE(o.vat_amount, 0)) DESC, COUNT(DISTINCT o.id) DESC`;
 
             params.push(lim);
             const limitParamIdx = params.length;
@@ -109,18 +119,17 @@ module.exports = async function(fastify, options) {
                     c.assigned_to_id,
                     u.full_name AS assigned_to_name,
                     u.role AS assigned_to_role,
-                    COUNT(DISTINCT oc.order_code) AS order_count,
-                    COALESCE(SUM(oi_sum.revenue - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0)), 0) AS total_revenue,
-                    MAX(oc.created_at) AS last_order_at
-                FROM order_codes oc
-                JOIN customers c ON c.id = oc.customer_id
+                    COUNT(DISTINCT o.id) AS order_count,
+                    COALESCE(SUM(
+                        GREATEST(0, COALESCE(oi_sum.item_total, 0) - COALESCE(o.discount_amount, 0) - COALESCE(o.vat_amount, 0))
+                    ), 0) AS total_revenue,
+                    MAX(o.created_at) AS last_order_at
+                FROM dht_orders o
+                JOIN customers c ON c.id = o.customer_id
                 LEFT JOIN users u ON u.id = c.assigned_to_id
                 LEFT JOIN LATERAL (
-                    SELECT COALESCE(
-                        (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
-                        (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
-                        0
-                    ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) AS revenue
+                    SELECT COALESCE(SUM(di.item_total), 0) AS item_total
+                    FROM dht_order_items di WHERE di.dht_order_id = o.id
                 ) oi_sum ON true
                 WHERE ${whereSQL}
                 GROUP BY c.id, c.customer_name, c.phone, c.crm_type, c.province, c.assigned_to_id, u.full_name, u.role
@@ -144,32 +153,30 @@ module.exports = async function(fastify, options) {
                 totalRevenue += rev;
                 totalOrders += ords;
 
-                if (!champRevenue || rev > champRevenue.revenue) {
-                    champRevenue = { customer_name: row.customer_name, phone: row.phone, revenue: rev };
-                }
-                if (!champOrders || ords > champOrders.orders) {
-                    champOrders = { customer_name: row.customer_name, phone: row.phone, orders: ords };
-                }
-
-                return {
+                const custObj = {
                     rank: idx + 1,
                     customer_id: row.customer_id,
-                    customer_name: row.customer_name || 'Khách Hàng',
+                    customer_name: row.customer_name || 'Khách Hàng Chưa Đặt Tên',
                     phone: row.phone || '',
                     crm_type: row.crm_type,
-                    field_label: row.crm_type === 'tem_pet' ? 'PET TEM' : 'ĐỒNG PHỤC',
+                    field_label: row.crm_type === 'tem_pet' ? 'PET TEM' : 'Đồng Phục',
                     province: row.province || '',
                     assigned_to_id: row.assigned_to_id,
-                    assigned_to_name: row.assigned_to_name || 'Chưa phân công',
-                    assigned_to_role: row.assigned_to_role || '',
+                    assigned_to_name: row.assigned_to_name || 'Chưa Phân Công',
                     order_count: ords,
                     total_revenue: rev,
                     avg_order_value: aov,
                     last_order_at: row.last_order_at
                 };
+
+                if (idx === 0) champRevenue = custObj;
+                if (!champOrders || ords > champOrders.order_count) champOrders = custObj;
+
+                return custObj;
             });
 
             reply.send({
+                success: true,
                 filter: {
                     period_type,
                     year: yr,
@@ -184,16 +191,23 @@ module.exports = async function(fastify, options) {
                     total_revenue: totalRevenue,
                     total_orders: totalOrders,
                     avg_revenue_per_cust: formattedCustomers.length > 0 ? Math.round(totalRevenue / formattedCustomers.length) : 0,
-                    champion_revenue: champRevenue,
-                    champion_orders: champOrders
+                    champion_revenue: champRevenue ? {
+                        customer_name: champRevenue.customer_name,
+                        phone: champRevenue.phone,
+                        revenue: champRevenue.total_revenue
+                    } : null,
+                    champion_orders: champOrders ? {
+                        customer_name: champOrders.customer_name,
+                        phone: champOrders.phone,
+                        orders: champOrders.order_count
+                    } : null
                 },
                 customers: formattedCustomers
             });
 
-        } catch (err) {
-            fastify.log.error(err);
-            reply.status(500).send({ error: 'Internal Server Error', message: err.message });
+        } catch (error) {
+            request.log.error(error);
+            reply.status(500).send({ error: 'Lỗi tải dữ liệu Top Khách Hàng', detail: error.message });
         }
     });
-
 };
