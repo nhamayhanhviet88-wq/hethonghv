@@ -19,6 +19,7 @@ module.exports = async function (fastify, opts) {
      */
     fastify.get('/api/reports/top-customers', { preHandler: [authenticate] }, async (request, reply) => {
         try {
+            console.log('[TopCustomers API] Handling request by user:', request.user?.username, 'query:', request.query);
             const {
                 period_type = 'month',
                 year = new Date().getFullYear(),
@@ -175,7 +176,7 @@ module.exports = async function (fastify, opts) {
                 return custObj;
             });
 
-            reply.send({
+            return reply.send({
                 success: true,
                 filter: {
                     period_type,
@@ -207,7 +208,7 @@ module.exports = async function (fastify, opts) {
 
         } catch (error) {
             request.log.error(error);
-            reply.status(500).send({ error: 'Lỗi tải dữ liệu Top Khách Hàng', detail: error.message });
+            return reply.status(500).send({ error: 'Lỗi tải dữ liệu Top Khách Hàng', detail: error.message });
         }
     });
 };
