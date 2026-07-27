@@ -117,117 +117,142 @@ async function pancakeRoutes(fastify, options) {
             virtualDateStr = vnDateStr(tomorrow);
         }
 
-        const virtualDate = new Date(virtualDateStr);
-        const dayOfWeek = virtualDate.getDay();
+        // 2. Roster filtering with auto roll-forward to next working day if no staff on targetDate
+        let eligibleUsers = [];
+        let staffMap = {};
 
-        // 2. Roster filtering
-        const eligibleUsers = [];
-        const staffMap = {};
+        const initialDateObj = new Date(virtualDateStr);
+        for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+            const checkDateObj = new Date(initialDateObj);
+            checkDateObj.setDate(checkDateObj.getDate() + dayOffset);
+            const checkDateStr = vnDateStr(checkDateObj);
+            const checkDayOfWeek = checkDateObj.getDay();
 
-        if (page.staff_assignments && Array.isArray(page.staff_assignments)) {
-            for (const sa of page.staff_assignments) {
-                const userId = sa.crm_user_id;
-                if (!userId) continue;
+            const currentEligible = [];
+            const currentStaffMap = {};
 
-                // Check active status in users table
-                const userRow = await db.get("SELECT status, role, department_id, source_crm_type FROM users WHERE id = $1", [userId]);
-                if (!userRow || userRow.status !== 'active') continue;
+            if (page.staff_assignments && Array.isArray(page.staff_assignments)) {
+                for (const sa of page.staff_assignments) {
+                    const userId = sa.crm_user_id;
+                    if (!userId) continue;
 
-                // Determine user CRM type
-                let userCrmType = 'nhu_cau';
-                if (userRow.source_crm_type === 'sale') {
-                    userCrmType = 'sale';
-                } else if (userRow.department_id) {
-                    const parentDeptRow = await db.get(`
-                        WITH RECURSIVE dept_path AS (
-                            SELECT id, parent_id FROM departments WHERE id = $1
-                            UNION ALL
-                            SELECT d.id, d.parent_id FROM departments d
-                            INNER JOIN dept_path dp ON d.id = dp.parent_id
-                        )
-                        SELECT 1 FROM dept_path WHERE id = 4 LIMIT 1
-                    `, [userRow.department_id]);
-                    if (parentDeptRow) {
+                    // Check active status in users table
+                    const userRow = await db.get("SELECT status, role, department_id, source_crm_type FROM users WHERE id = $1", [userId]);
+                    if (!userRow || userRow.status !== 'active') continue;
+
+                    // Determine user CRM type
+                    let userCrmType = 'nhu_cau';
+                    if (userRow.source_crm_type === 'sale') {
                         userCrmType = 'sale';
-                    }
-                }
-
-                sa.userCrmType = userCrmType;
-
-                const targetCrmType = page.crm_type === 'ca_hai' ? userCrmType : (page.crm_type || 'nhu_cau');
-                const tamRow = await db.get(
-                    "SELECT is_active FROM telesale_active_members WHERE user_id = $1 AND crm_type = $2",
-                    [userId, targetCrmType]
-                );
-                if (tamRow && !tamRow.is_active) continue;
-
-                // Exception checks
-                let isOff = false;
-                let isForce = false;
-                const exceptions = sa.exceptions || [];
-                const matchException = exceptions.find(e => e.date === virtualDateStr);
-                if (matchException) {
-                    if (matchException.type === 'all_day') {
-                        isOff = true;
-                    } else if (matchException.type === 'morning_off') {
-                        if (now.getHours() < 14) isOff = true;
-                    } else if (matchException.type === 'afternoon_off') {
-                        if (now.getHours() >= 11) isOff = true;
-                    } else if (matchException.type === 'force_receive') {
-                        isForce = true;
-                    }
-                }
-
-                if (!isForce && !isOff) {
-                    if (dayOfWeek === 0) {
-                        const schedule = config.sunday_duty_schedule || {};
-                        const assignedUsers = schedule[virtualDateStr] || [];
-                        if (!assignedUsers.includes(Number(userId))) {
-                            isOff = true;
-                        }
-                    } else {
-                        const globalWorkingDays = config.global_working_days || {};
-                        const workingDays = globalWorkingDays[userId] !== undefined 
-                            ? globalWorkingDays[userId].map(Number).filter(d => d !== 0)
-                            : (sa.working_days ? sa.working_days.map(Number).filter(d => d !== 0) : [1, 2, 3, 4, 5, 6]);
-                        if (!workingDays.includes(dayOfWeek)) {
-                            isOff = true;
+                    } else if (userRow.department_id) {
+                        const parentDeptRow = await db.get(`
+                            WITH RECURSIVE dept_path AS (
+                                SELECT id, parent_id FROM departments WHERE id = $1
+                                UNION ALL
+                                SELECT d.id, d.parent_id FROM departments d
+                                INNER JOIN dept_path dp ON d.id = dp.parent_id
+                            )
+                            SELECT 1 FROM dept_path WHERE id = 4 LIMIT 1
+                        `, [userRow.department_id]);
+                        if (parentDeptRow) {
+                            userCrmType = 'sale';
                         }
                     }
 
-                    const holidayRow = await db.get(
-                        "SELECT id FROM holidays WHERE holiday_date::text = $1",
-                        [virtualDateStr]
+                    sa.userCrmType = userCrmType;
+
+                    const targetCrmType = page.crm_type === 'tem_pet' ? 'tem_pet' : (page.crm_type === 'ca_hai' ? userCrmType : (page.crm_type || 'nhu_cau'));
+                    const tamRow = await db.get(
+                        "SELECT is_active FROM telesale_active_members WHERE user_id = $1 AND crm_type = $2",
+                        [userId, targetCrmType]
                     );
-                    if (holidayRow) {
-                        isOff = true;
-                    }
-                }
+                    if (tamRow && !tamRow.is_active) continue;
 
-                if (isOff) continue;
-
-                // Quota limit check
-                if (sa.daily_limit && sa.daily_limit > 0) {
-                    const [hour, min] = cutoff.split(':').map(Number);
-                    const totalCutoffMinutes = hour * 60 + min;
-                    const dayMinutes = 24 * 60;
-                    const shiftMinutes = dayMinutes - totalCutoffMinutes;
-
-                    const assignedCountRow = await db.get(
-                        `SELECT COUNT(*) as cnt FROM customers 
-                         WHERE assigned_to_id = $1 
-                           AND source_id = $2 
-                           AND ((created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') + ($3 || ' minutes')::interval)::date = $4::date`,
-                        [userId, page.source_id, String(shiftMinutes), virtualDateStr]
+                    // Check global override in staff_off_dates
+                    let isOff = false;
+                    let isForce = false;
+                    const override = await db.get(
+                        "SELECT type FROM staff_off_dates WHERE user_id = $1 AND off_date = $2",
+                        [Number(userId), checkDateStr]
                     );
-                    const assignedCount = assignedCountRow ? parseInt(assignedCountRow.cnt) : 0;
-                    if (assignedCount >= sa.daily_limit) {
-                        continue; 
+                    if (override) {
+                        if (override.type === 'work') isForce = true;
+                        else if (override.type === 'off') isOff = true;
                     }
-                }
 
-                eligibleUsers.push(userId);
-                staffMap[userId] = sa;
+                    // Exception checks
+                    const exceptions = sa.exceptions || [];
+                    const matchException = exceptions.find(e => e.date === checkDateStr);
+                    if (matchException) {
+                        if (matchException.type === 'all_day') {
+                            isOff = true;
+                        } else if (matchException.type === 'morning_off') {
+                            if (now.getHours() < 14) isOff = true;
+                        } else if (matchException.type === 'afternoon_off') {
+                            if (now.getHours() >= 11) isOff = true;
+                        } else if (matchException.type === 'force_receive') {
+                            isForce = true;
+                        }
+                    }
+
+                    if (!isForce && !isOff) {
+                        if (checkDayOfWeek === 0) {
+                            const schedule = config.sunday_duty_schedule || {};
+                            const assignedUsers = schedule[checkDateStr] || [];
+                            if (!assignedUsers.includes(Number(userId))) {
+                                isOff = true;
+                            }
+                        } else {
+                            const globalWorkingDays = config.global_working_days || {};
+                            const workingDays = globalWorkingDays[userId] !== undefined 
+                                ? globalWorkingDays[userId].map(Number).filter(d => d !== 0)
+                                : (sa.working_days ? sa.working_days.map(Number).filter(d => d !== 0) : [1, 2, 3, 4, 5, 6]);
+                            if (!workingDays.includes(checkDayOfWeek)) {
+                                isOff = true;
+                            }
+                        }
+
+                        const holidayRow = await db.get(
+                            "SELECT id FROM holidays WHERE holiday_date::text = $1",
+                            [checkDateStr]
+                        );
+                        if (holidayRow) {
+                            isOff = true;
+                        }
+                    }
+
+                    if (isOff) continue;
+
+                    // Quota limit check
+                    if (sa.daily_limit && sa.daily_limit > 0) {
+                        const [hour, min] = cutoff.split(':').map(Number);
+                        const totalCutoffMinutes = hour * 60 + min;
+                        const dayMinutes = 24 * 60;
+                        const shiftMinutes = dayMinutes - totalCutoffMinutes;
+
+                        const assignedCountRow = await db.get(
+                            `SELECT COUNT(*) as cnt FROM customers 
+                             WHERE assigned_to_id = $1 
+                               AND source_id = $2 
+                               AND ((created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') + ($3 || ' minutes')::interval)::date = $4::date`,
+                            [userId, page.source_id, String(shiftMinutes), checkDateStr]
+                        );
+                        const assignedCount = assignedCountRow ? parseInt(assignedCountRow.cnt) : 0;
+                        if (assignedCount >= sa.daily_limit) {
+                            continue; 
+                        }
+                    }
+
+                    currentEligible.push(userId);
+                    currentStaffMap[userId] = sa;
+                }
+            }
+
+            if (currentEligible.length > 0) {
+                eligibleUsers = currentEligible;
+                staffMap = currentStaffMap;
+                virtualDateStr = checkDateStr; // Roll forward to working day!
+                break;
             }
         }
 
@@ -291,7 +316,7 @@ async function pancakeRoutes(fastify, options) {
                     [virtualDateStr, assignedUserId]
                 );
                 dailyNum = (maxNum?.mx || 0) + 1;
-                const leadCrmType = staffMap[assignedUserId]?.userCrmType || 'nhu_cau';
+                const leadCrmType = (page.crm_type === 'tem_pet') ? 'tem_pet' : (staffMap[assignedUserId]?.userCrmType || 'nhu_cau');
                 try {
                     custResult = await db.get(
                         `INSERT INTO customers (
@@ -373,7 +398,7 @@ async function pancakeRoutes(fastify, options) {
                 const sourceName = sourceRow?.name || page.name;
                 const sourceDisplay = sourceName.startsWith('📍') ? sourceName : `📍${sourceName}`;
 
-                const d = vnNow();
+                const d = new Date(virtualDateStr);
                 const day = d.getDate();
                 const month = d.getMonth() + 1;
                 const yearTwoDigits = String(d.getFullYear()).slice(-2);
@@ -386,7 +411,9 @@ async function pancakeRoutes(fastify, options) {
             return true;
         } else {
             let leadCrmType = 'nhu_cau';
-            if (page.crm_type === 'ca_hai') {
+            if (page.crm_type === 'tem_pet') {
+                leadCrmType = 'tem_pet';
+            } else if (page.crm_type === 'ca_hai') {
                 const srcRow = await db.get("SELECT crm_type FROM settings_sources WHERE id = $1", [page.source_id]);
                 if (srcRow && srcRow.crm_type) {
                     leadCrmType = srcRow.crm_type;
@@ -608,7 +635,7 @@ async function pancakeRoutes(fastify, options) {
 
                         await db.run(
                             `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
-                             VALUES ($1, 'goi_dien', $2, NULL, NOW())`,
+                             VALUES ($1, 'pancake_update', $2, NULL, NOW())`,
                             [existingCust.id, `Cập nhật số điện thoại tự động từ Pancake: ${phone}`]
                         );
 

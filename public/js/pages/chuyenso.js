@@ -156,6 +156,7 @@ async function renderChuyenSoPage(container) {
                                 <option value="">-- Chọn CRM --</option>
                                 <option value="nhu_cau">Chăm Sóc KH Nhu Cầu</option>
                                 <option value="ctv_hoa_hong">Chăm Sóc Affiliate</option>
+                                <option value="tem_pet">Chăm Sóc Khách TEM/PET</option>
                             </select>
                             `}
                         </div>
@@ -353,7 +354,7 @@ async function renderChuyenSoPage(container) {
                 showToast(data.error || data.message || 'Lỗi', 'error');
             }
         } catch (err) {
-            showToast('Lỗi kết nối', 'error');
+            showToast(err.message || 'Lỗi kết nối', 'error');
         }
     });
 

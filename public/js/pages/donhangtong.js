@@ -134,7 +134,12 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
         return totalQuantity || 0;
     }
 
-    return parts.join(' , ');
+    const chunkSize = 3;
+    const rows = [];
+    for (let i = 0; i < parts.length; i += chunkSize) {
+        rows.push(parts.slice(i, i + chunkSize).join(' , '));
+    }
+    return rows.join('<br/>');
 }
 
 function formatCurrentStep(stepName, doneCount, totalCount, orderCode, categoryName, isShipped) {
@@ -597,7 +602,7 @@ async function renderDonhangtongPage(content) {
         + '<div class="card" style="opacity:0.6">'
         + '<div class="card-body" style="overflow-x:auto;padding:8px">'
         + '<table class="table" style="font-size:12px;white-space:nowrap">'
-        + '<thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead>'
+        + '<thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th style="text-align:center">Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead>'
         + '<tbody><tr><td colspan="16" style="text-align:center;padding:100px 0;"><div class="spa-spinner" style="margin:0 auto 12px"></div><div style="color:var(--gray-400);font-weight:600">Đang tải danh sách đơn hàng...</div></td></tr></tbody>'
         + '</table>'
         + '</div>'
@@ -638,7 +643,7 @@ async function renderDonhangtongPage(content) {
                 +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
                 +'</div>'
                 +'<div id="dhtPaginationTop" style="margin:8px 0"></div>'
-                +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th>Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+                +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th style="text-align:center">Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
                 +'<div id="dhtPaginationBottom" style="margin:8px 0"></div>'
                 +'</div></div>';
 
@@ -1040,7 +1045,7 @@ function _dhtRenderOrderRows(filtered) {
             <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
             <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${emailBadge}${badgeRow}</td>
             <td>${o.customer_name || '—'}</td>
-            <td>${o.customer_phone ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
+            <td>${(o.customer_phone && !o.customer_phone.startsWith('pancake_')) ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
             <td>${o.province || '—'}</td>
             <td>${o.cskh_name || '—'}</td>
             <td style="text-align:center;font-weight:800;">${formatDetailedQuantity(o.items, o.total_quantity, o.order_code)}</td>

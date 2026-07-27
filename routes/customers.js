@@ -273,7 +273,7 @@ async function customersRoutes(fastify, options) {
         // Thông báo gửi lại chỉ qua Telegram
 
         // Gửi Telegram
-        const crmLabels = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL Tiktok', sale: 'Sale' };
+        const crmLabels = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL Tiktok', sale: 'Sale', tem_pet: 'TEM/PET' };
         const tgMessage = `🔄 <b>GỬI LẠI SỐ</b>\n` +
             `📱 <b>${originalCode || '?'}</b> : <code>${customer.customer_name}</code> - ${customer.phone}\n` +
             `🏷️ CRM: ${crmLabels[customer.crm_type] || customer.crm_type}\n` +
@@ -819,6 +819,39 @@ async function customersRoutes(fastify, options) {
         return maxNum + 1;
     }
 
+    // API get next TEM/PET order code using postgres sequences (gctem_seq / gcpet_seq)
+    fastify.get('/api/order-codes/next-gc', { preHandler: [authenticate] }, async (request, reply) => {
+        const { category } = request.query;
+        const cat = (category || 'tem').toLowerCase();
+        const seqName = cat === 'pet' ? 'gcpet_seq' : 'gctem_seq';
+        const prefix = cat === 'pet' ? 'GCPET' : 'GCTEM';
+
+        try {
+            await db.run(`CREATE SEQUENCE IF NOT EXISTS ${seqName}`);
+            
+            let maxNum = 0;
+            const maxOrder = await db.get('SELECT order_code FROM dht_orders WHERE order_code LIKE ? ORDER BY id DESC LIMIT 1', [prefix + '%']);
+            const maxCode = await db.get('SELECT order_code FROM order_codes WHERE order_code LIKE ? ORDER BY id DESC LIMIT 1', [prefix + '%']);
+            const maxDep = await db.get('SELECT order_tt_coc FROM payment_records WHERE order_tt_coc LIKE ? ORDER BY id DESC LIMIT 1', [prefix + '%']);
+            
+            [maxOrder?.order_code, maxCode?.order_code, maxDep?.order_tt_coc].forEach(c => {
+                if (c) {
+                    const m = c.match(/(\d+)$/);
+                    if (m) maxNum = Math.max(maxNum, parseInt(m[1]));
+                }
+            });
+
+            const nextNum = maxNum + 1;
+            const numStr = String(nextNum);
+            const padLen = Math.max(4, numStr.length);
+            const order_code = `${prefix}${numStr.padStart(padLen, '0')}`;
+
+            return { order_code, category: cat, next_num: nextNum };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     fastify.get('/api/order-codes/next', { preHandler: [authenticate] }, async (request, reply) => {
         const { customer_id, mode } = request.query;
         if (customer_id && mode !== 'new_deposit' && mode !== 'new') {
@@ -831,7 +864,7 @@ async function customersRoutes(fastify, options) {
                     WHERE pr.customer_phone = ? 
                       AND pr.payment_type = 'dat_coc' 
                       AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''
-                      AND (oc.id IS NULL OR oc.status != 'completed')
+                      AND oc.id IS NULL
                     ORDER BY pr.id DESC LIMIT 1
                 `, [cust.phone]);
                 if (existingDeposit?.order_tt_coc) {
@@ -851,8 +884,88 @@ async function customersRoutes(fastify, options) {
     });
 
     fastify.post('/api/order-codes', { preHandler: [authenticate] }, async (request, reply) => {
-        const { customer_id } = request.body || {};
+        const { customer_id, gc_category, deposit_amount } = request.body || {};
         const userId = request.user.id;
+
+        if (gc_category) {
+            const cat = gc_category.toLowerCase();
+            const seqName = cat === 'pet' ? 'gcpet_seq' : 'gctem_seq';
+            const prefix = cat === 'pet' ? 'GCPET' : 'GCTEM';
+            const catId = cat === 'pet' ? 8 : 9;
+
+            try {
+                await db.run(`CREATE SEQUENCE IF NOT EXISTS ${seqName}`);
+                const seqRes = await db.get(`SELECT nextval('${seqName}') as num`);
+                let nextNum = parseInt(seqRes.num);
+
+                let maxNum = 0;
+                const maxOrder = await db.get('SELECT order_code FROM dht_orders WHERE order_code LIKE ? ORDER BY id DESC LIMIT 1', [prefix + '%']);
+                const maxCode = await db.get('SELECT order_code FROM order_codes WHERE order_code LIKE ? ORDER BY id DESC LIMIT 1', [prefix + '%']);
+                const maxDep = await db.get('SELECT order_tt_coc FROM payment_records WHERE order_tt_coc LIKE ? ORDER BY id DESC LIMIT 1', [prefix + '%']);
+                [maxOrder?.order_code, maxCode?.order_code, maxDep?.order_tt_coc].forEach(c => {
+                    if (c) {
+                        const m = c.match(/(\d+)$/);
+                        if (m) maxNum = Math.max(maxNum, parseInt(m[1]));
+                    }
+                });
+
+                if (nextNum <= maxNum) {
+                    nextNum = maxNum + 1;
+                    await db.run(`SELECT setval('${seqName}', $1)`, [nextNum]);
+                }
+
+                const numStr = String(nextNum);
+                const padLen = Math.max(4, numStr.length);
+                const orderCode = `${prefix}${numStr.padStart(padLen, '0')}`;
+
+                const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
+
+                const cust = await db.get('SELECT id, customer_name, phone, province, address FROM customers WHERE id = ?', [Number(customer_id)]);
+                if (cust?.phone) {
+                    await db.run(`
+                        UPDATE payment_records SET
+                            order_tt_coc = $1,
+                            updated_at = NOW()
+                        WHERE customer_phone = $2
+                          AND payment_type = 'dat_coc'
+                          AND (order_tt_coc IS NULL OR order_tt_coc = '')
+                    `, [orderCode, cust.phone]);
+                }
+
+                // ★ Auto-create entry on Đơn Hàng Tổng (dht_orders) immediately
+                if (cust) {
+                    const existingDht = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [orderCode]);
+                    if (!existingDht) {
+                        await db.run(`
+                            INSERT INTO dht_orders (
+                                order_code, order_date, category_id,
+                                customer_name, customer_phone, province, address,
+                                cskh_user_id, created_by, last_updated_by, is_draft, customer_id,
+                                deposit_amount_cache
+                            ) VALUES (
+                                $1, NOW(), $2,
+                                $3, $4, $5, $6,
+                                $7, $7, $7, false, $8,
+                                $9
+                            )
+                        `, [
+                            orderCode, catId,
+                            cust.customer_name, cust.phone, cust.province || null, cust.address || null,
+                            userId, cust.id,
+                            Number(deposit_amount) || 0
+                        ]);
+                    }
+                }
+
+                return { success: true, order_code: orderCode, order_id: result?.lastID };
+            } catch (err) {
+                if (err.code === '23505' || (err.message && err.message.includes('unique'))) {
+                    return reply.code(409).send({ error: 'Mã đơn trùng lặp. Vui lòng bấm lưu lại để tự động lấy mã mới!' });
+                }
+                return reply.code(500).send({ error: err.message });
+            }
+        }
+
         const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
         const prefix = userRow?.order_code_prefix;
         if (!prefix) return reply.code(400).send({ error: 'Chưa cài đặt mã đơn cho nhân viên này' });
@@ -864,8 +977,6 @@ async function customersRoutes(fastify, options) {
         const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
 
         // ★ V4.1: Backfill order_tt_coc on deposit payment records for this customer
-        // At dat_coc time, order_code didn't exist yet → order_tt_coc was NULL
-        // Now that order_code is created, link it to the deposit records
         const cust = await db.get('SELECT phone FROM customers WHERE id = ?', [Number(customer_id)]);
         if (cust?.phone) {
             await db.run(`

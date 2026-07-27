@@ -64,7 +64,12 @@ function formatDetailedQuantity(items, totalQuantity, orderCode) {
         return totalQuantity || 0;
     }
 
-    return parts.join(' , ');
+    const chunkSize = 3;
+    const rows = [];
+    for (let i = 0; i < parts.length; i += chunkSize) {
+        rows.push(parts.slice(i, i + chunkSize).join(' , '));
+    }
+    return rows.join('\n');
 }
 
 // ========== SALE REMINDERS PERSISTENCE HELPER ==========
@@ -1409,7 +1414,11 @@ module.exports = async function(fastify) {
         const orders = await db.all(`
             SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count, COALESCE(o.is_edited, FALSE) AS is_edited,
                 COALESCE(o.customer_name, cust.customer_name) AS customer_name,
-                COALESCE(o.customer_phone, cust.phone) AS customer_phone,
+                CASE 
+                    WHEN o.customer_phone IS NOT NULL AND o.customer_phone != '' AND o.customer_phone NOT LIKE 'pancake_%' THEN o.customer_phone
+                    WHEN cust.phone IS NOT NULL AND cust.phone != '' AND cust.phone NOT LIKE 'pancake_%' THEN cust.phone
+                    ELSE NULL 
+                END AS customer_phone,
                 COALESCE(o.source, src.name) AS source,
                 CASE 
                     WHEN o.tracking_code IS NOT NULL AND o.tracking_code != '' AND EXISTS (
@@ -1744,6 +1753,7 @@ module.exports = async function(fastify) {
         const isFreeOrder = !!FREE_CAT_MAP[catId];
         const isRepairOrder = b.is_repair === true;
         const isDraftOrder = b.is_draft === true || b.is_draft === 'true';
+        const isLinkedPetTem = isFreeOrder && b.linked_dht_order_id ? Number(b.linked_dht_order_id) : null;
 
         // ★ REPAIR orders: auto-generate code, skip prefix check
         if (isRepairOrder) {
@@ -1823,6 +1833,11 @@ module.exports = async function(fastify) {
                 }
             }
             orderCode = repairCode;
+        } else if (isLinkedPetTem) {
+            // Linked PET/TEM: use existing order code from CRM
+            const linkedOrder = await db.get('SELECT id, order_code FROM dht_orders WHERE id = $1 AND cskh_user_id = $2', [isLinkedPetTem, request.user.id]);
+            if (!linkedOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng liên kết!' });
+            orderCode = linkedOrder.order_code;
         } else if (isFreeOrder) {
             const cfg = FREE_CAT_MAP[catId];
             const seqRow = await db.get(`SELECT nextval('${cfg.seq}') as seq`);
@@ -1862,9 +1877,11 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Check duplicate (safety net — sequence should prevent this)
-        const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [orderCode]);
-        if (existing) return reply.code(409).send({ error: `Mã đơn "${orderCode}" đã tồn tại!` });
+        // Check duplicate (safety net — sequence should prevent this, skip for linked PET/TEM)
+        if (!isLinkedPetTem) {
+            const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [orderCode]);
+            if (existing) return reply.code(409).send({ error: `Mã đơn "${orderCode}" đã tồn tại!` });
+        }
 
         // Validate promo code maximum uses limit on POST
         if (!isDraftOrder) {
@@ -1921,6 +1938,81 @@ module.exports = async function(fastify) {
 
         let result;
         try {
+        if (isLinkedPetTem) {
+            // ★ LINKED PET/TEM: UPDATE existing order instead of INSERT
+            const inputPhone = (b.customer_phone || '').trim();
+            const validPhone = (inputPhone && !inputPhone.toLowerCase().startsWith('pancake_')) ? inputPhone : null;
+            result = await db.get(`
+                UPDATE dht_orders SET
+                    customer_name = COALESCE(NULLIF($1, ''), customer_name),
+                    customer_phone = COALESCE($2, customer_phone),
+                    address = COALESCE(NULLIF($3, ''), address),
+                    province = COALESCE(NULLIF($4, ''), province),
+                    total_quantity = $5, total_amount = $6, discount_amount = $7,
+                    has_vat = $8, vat_amount = $9, additional_vat_amount = $10,
+                    deposit_payment_id = $11, deposit_amount_cache = GREATEST(deposit_amount_cache, $12),
+                    designer_user_id = $13, designer_type = $14,
+                    carrier_id = $15, carrier_extra = $16,
+                    expected_ship_date = $17, shipping_priority = $18,
+                    standard_proof_image = COALESCE($19, standard_proof_image),
+                    standard_delivery_time = $20,
+                    zalo_oa_sent = $21, sale_note_for_accountant = $22,
+                    department_id = $23, notes = $24, surcharges = $25,
+                    last_updated_by = $26, last_updated_at = NOW(),
+                    source = COALESCE(source, $27),
+                    applied_coupon = $28, promo_discount_amount = $29, promo_gift_info = $30
+                WHERE id = $31
+                RETURNING *
+            `, [
+                (b.customer_name || '').trim(),
+                validPhone,
+                (b.address || '').trim(),
+                (b.province || '').trim(),
+                Number(b.total_quantity) || 0,
+                Number(b.total_amount) || 0,
+                Number(b.discount_amount) || 0,
+                b.has_vat === true || b.has_vat === 'true',
+                Number(b.vat_amount) || 0,
+                Number(b.additional_vat_amount) || 0,
+                b.deposit_payment_id ? Number(b.deposit_payment_id) : null,
+                Number(b.deposit_amount) || 0,
+                b.designer_user_id ? Number(b.designer_user_id) : null,
+                b.designer_type || 'staff',
+                b.carrier_id ? Number(b.carrier_id) : null,
+                b.carrier_extra ? JSON.stringify(b.carrier_extra) : null,
+                b.expected_ship_date || null,
+                b.shipping_priority || 'GẤP',
+                proofPath,
+                b.standard_delivery_time || null,
+                b.zalo_oa_sent === true || b.zalo_oa_sent === 'true',
+                b.sale_note_for_accountant || null,
+                b.department_id ? Number(b.department_id) : null,
+                b.notes || null,
+                JSON.stringify(b.surcharges || []),
+                request.user.id,
+                b.source || null,
+                b.applied_coupon || null,
+                Number(b.promo_discount_amount) || 0,
+                b.promo_gift_info || null,
+                isLinkedPetTem
+            ]);
+
+            // Sync updated customer phone/address/province back to customers table if customer_id is present
+            if (result && result.customer_id) {
+                try {
+                    const syncFields = [];
+                    const syncVals = [];
+                    let idx = 1;
+                    if (validPhone) { syncFields.push(`phone = $${idx++}`); syncVals.push(validPhone); }
+                    if (b.address) { syncFields.push(`address = $${idx++}`); syncVals.push(b.address.trim()); }
+                    if (b.province) { syncFields.push(`province = $${idx++}`); syncVals.push(b.province.trim()); }
+                    if (syncFields.length > 0) {
+                        syncVals.push(result.customer_id);
+                        await db.run(`UPDATE customers SET ${syncFields.join(', ')}, updated_at = NOW() WHERE id = $${idx}`, syncVals);
+                    }
+                } catch(syncErr) { console.error('[CustSync] error:', syncErr.message); }
+            }
+        } else {
             result = await db.get(`
                 INSERT INTO dht_orders (
                 order_code, order_date, category_id,
@@ -1978,6 +2070,7 @@ module.exports = async function(fastify) {
             b.promo_gift_info || null,
             isZeroDeposit
         ]);
+        }
 
         // Record consumed slips for this order
         if (consumedColorIds && consumedColorIds.length > 0) {
@@ -2642,7 +2735,11 @@ module.exports = async function(fastify) {
         const order = await db.get(`
             SELECT o.*,
                 COALESCE(o.customer_name, cust.customer_name) AS customer_name,
-                COALESCE(o.customer_phone, cust.phone) AS customer_phone,
+                CASE 
+                    WHEN o.customer_phone IS NOT NULL AND o.customer_phone != '' AND o.customer_phone NOT LIKE 'pancake_%' THEN o.customer_phone
+                    WHEN cust.phone IS NOT NULL AND cust.phone != '' AND cust.phone NOT LIKE 'pancake_%' THEN cust.phone
+                    ELSE NULL 
+                END AS customer_phone,
                 COALESCE(o.source, src.name) AS source,
                 c.name AS category_name,
                 u_cskh.full_name AS cskh_name,
@@ -4409,10 +4506,25 @@ module.exports = async function(fastify) {
         }
 
         if (recipientEmailStr && savedSheetPaths.length > 0) {
+            // Check if Sale / CSKH has personal SMTP credentials configured
+            const targetUserId = request.user.id || order.cskh_user_id || order.created_by;
+            let userSmtp = null;
+            if (targetUserId) {
+                userSmtp = await db.get('SELECT smtp_email, smtp_password FROM users WHERE id = $1', [targetUserId]);
+            }
+            if (!userSmtp || !userSmtp.smtp_email || !userSmtp.smtp_password) {
+                const errMsg = 'Tài khoản Sale/CSKH phụ trách chưa cài đặt Email Gmail gửi đi (SMTP)! Vui lòng cài đặt email gửi đi trong cấu hình trước khi gửi đơn.';
+                await db.run(
+                    `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
+                    [errMsg, orderId]
+                );
+                return reply.code(400).send({ error: errMsg });
+            }
+
             // Run in background to keep UI snappy, letting the rate-limiter handle spacing in the background
             (async () => {
                 try {
-                    await sendDesignEmail(orderId, recipientEmailStr, savedSheetPaths, null, false, item_designs);
+                    await sendDesignEmail(orderId, recipientEmailStr, savedSheetPaths, null, false, item_designs, request.user.id);
                 } catch (emailErr) {
                     console.error('[ConfirmExport] Background sendDesignEmail failed:', emailErr);
                 }
@@ -6147,6 +6259,50 @@ module.exports = async function(fastify) {
         return { codes, count: codes.length };
     });
 
+    // ========== AVAILABLE PET/TEM CODES (from CRM chamsockhtempet, already on dht_orders but no items yet) ==========
+    fastify.get('/api/dht/available-pet-tem-codes', { preHandler: [authenticate] }, async (request, reply) => {
+        const { category } = request.query; // 'PET' or 'TEM'
+        if (!category || !['PET', 'TEM'].includes(category.toUpperCase())) {
+            return reply.code(400).send({ error: 'Category must be PET or TEM' });
+        }
+        const prefix = category.toUpperCase() === 'PET' ? 'GCPET' : 'GCTEM';
+        const codes = await db.all(`
+            SELECT o.id, o.order_code,
+                   COALESCE(NULLIF(TRIM(o.customer_name), ''), c.customer_name) AS customer_name,
+                   CASE
+                       WHEN o.customer_phone IS NOT NULL AND o.customer_phone != '' AND o.customer_phone NOT LIKE 'pancake_%' THEN o.customer_phone
+                       WHEN c.phone IS NOT NULL AND c.phone != '' AND c.phone NOT LIKE 'pancake_%' THEN c.phone
+                       ELSE o.customer_phone
+                   END AS customer_phone,
+                   COALESCE(NULLIF(TRIM(o.address), ''), c.address) AS address,
+                   COALESCE(NULLIF(TRIM(o.province), ''), c.province) AS province,
+                   COALESCE(NULLIF(TRIM(o.source), ''), s.name) AS source,
+                   GREATEST(COALESCE(o.deposit_amount_cache, 0), COALESCE(pr.amount, 0)) AS deposit_amount,
+                   pr.payment_code AS deposit_code,
+                   pr.id AS deposit_payment_id,
+                   o.created_at, o.customer_id,
+                   c.source_id, s.name as source_name
+            FROM dht_orders o
+            LEFT JOIN customers c ON c.id = o.customer_id
+            LEFT JOIN settings_sources s ON c.source_id = s.id
+            LEFT JOIN LATERAL (
+                SELECT id, payment_code, amount
+                FROM payment_records
+                WHERE (order_tt_coc = o.order_code OR total_order_codes ILIKE '%' || o.order_code || '%')
+                  AND payment_type = 'dat_coc'
+                ORDER BY id DESC LIMIT 1
+            ) pr ON true
+            WHERE o.order_code LIKE ?
+              AND o.is_draft = false
+              AND (o.cskh_user_id = ? OR o.created_by = ?)
+              AND NOT EXISTS (
+                  SELECT 1 FROM dht_order_items oi WHERE oi.dht_order_id = o.id
+              )
+            ORDER BY o.created_at DESC
+        `, [prefix + '%', request.user.id, request.user.id]);
+        return { codes, count: codes.length };
+    });
+
     // ========== CUSTOMER SEARCH (from customers table) ==========
     fastify.get('/api/dht/customer-search', { preHandler: [authenticate] }, async (request, reply) => {
         const { q } = request.query;
@@ -7347,6 +7503,20 @@ module.exports = async function(fastify) {
         });
 
         try {
+            const targetUserId = request.user.id || order.cskh_user_id || order.created_by;
+            let userSmtp = null;
+            if (targetUserId) {
+                userSmtp = await db.get('SELECT smtp_email, smtp_password FROM users WHERE id = $1', [targetUserId]);
+            }
+            if (!userSmtp || !userSmtp.smtp_email || !userSmtp.smtp_password) {
+                const errMsg = 'Tài khoản Sale/CSKH phụ trách chưa cài đặt Email Gmail gửi đi (SMTP)! Vui lòng cài đặt email gửi đi trong cấu hình trước khi gửi đơn.';
+                await db.run(
+                    `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
+                    [errMsg, orderId]
+                );
+                return reply.code(400).send({ error: errMsg });
+            }
+
             // Update status and allocate queue slot synchronously so frontend displays countdown immediately
             await db.run(
                 `UPDATE dht_orders SET design_email_status = 'sending', design_email_error = NULL, design_email_planned_send_at = NULL WHERE id = $1`,
@@ -7361,7 +7531,7 @@ module.exports = async function(fastify) {
             // Execute the SMTP dispatch task in the background
             (async () => {
                 try {
-                    await sendDesignEmail(orderId, recipientEmail, savedSheetPaths, targetTime, true);
+                    await sendDesignEmail(orderId, recipientEmail, savedSheetPaths, targetTime, true, null, request.user.id);
                 } catch (emailErr) {
                     console.error('[ResendEmail] Background sendDesignEmail failed:', emailErr);
                 }
@@ -7849,7 +8019,7 @@ module.exports = async function(fastify) {
             .replace(/'/g, '&#039;');
     }
 
-    async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths, preAllocatedTargetTime, isResend = false, itemDesigns = null) {
+    async function sendDesignEmail(orderId, recipientEmail, savedSheetPaths, preAllocatedTargetTime, isResend = false, itemDesigns = null, sendingUserId = null) {
         const nodemailer = require('nodemailer');
         const { decrypt } = require('../services/emailChecker');
         
@@ -7881,48 +8051,40 @@ module.exports = async function(fastify) {
         }
         
         try {
-            // 1. Fetch Custom Sender or Fallback Config
+            // 1. Fetch full order details first
+            const order = await db.get(`
+                SELECT o.*,
+                       u_cskh.full_name AS cskh_name,
+                       u_designer.full_name AS designer_name,
+                       cr.name AS carrier_name
+                FROM dht_orders o
+                LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
+                LEFT JOIN users u_designer ON o.designer_user_id = u_designer.id
+                LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
+                WHERE o.id = $1
+            `, [orderId]);
+            if (!order) return;
+
+            // 2. Fetch Per-User Sender SMTP Config (CSKH / Creator / Sender User)
             let senderEmail = '';
             let decryptedPassword = '';
-        
-        const customEmailRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_email'");
-        const customPassRow = await db.get("SELECT value FROM app_config WHERE key = 'dht_design_sender_password'");
-        
-        if (customEmailRow && customEmailRow.value && customPassRow && customPassRow.value) {
-            senderEmail = customEmailRow.value.trim();
-            decryptedPassword = decrypt(customPassRow.value);
-        }
-        
-        if (!senderEmail || !decryptedPassword) {
-            const config = await db.get('SELECT * FROM email_import_config WHERE id = 1');
-            if (config && config.is_active && config.gmail_user && config.gmail_pass) {
-                senderEmail = config.gmail_user.trim();
-                decryptedPassword = decrypt(config.gmail_pass);
+            const targetUserId = sendingUserId || order.cskh_user_id || order.created_by;
+            if (targetUserId) {
+                const userRow = await db.get("SELECT smtp_email, smtp_password FROM users WHERE id = $1", [targetUserId]);
+                if (userRow && userRow.smtp_email && userRow.smtp_password) {
+                    senderEmail = userRow.smtp_email.trim();
+                    decryptedPassword = decrypt(userRow.smtp_password);
+                }
             }
-        }
-        
-        if (!senderEmail || !decryptedPassword) {
-            const errMsg = 'Chưa cấu hình tài khoản Gmail gửi đi (trong Cấu hình thiết kế hoặc Sổ ghi nhận tiền).';
-            await db.run(
-                `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
-                [errMsg, orderId]
-            );
-            return;
-        }
 
-        // 2. Fetch full order details
-        const order = await db.get(`
-            SELECT o.*,
-                   u_cskh.full_name AS cskh_name,
-                   u_designer.full_name AS designer_name,
-                   cr.name AS carrier_name
-            FROM dht_orders o
-            LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
-            LEFT JOIN users u_designer ON o.designer_user_id = u_designer.id
-            LEFT JOIN dht_carriers cr ON o.carrier_id = cr.id
-            WHERE o.id = $1
-        `, [orderId]);
-        if (!order) return;
+            if (!senderEmail || !decryptedPassword) {
+                const errMsg = 'Tài khoản Sale/CSKH phụ trách chưa cài đặt Email Gmail gửi đi (SMTP)! Vui lòng cài đặt email gửi đi trong cấu hình trước khi gửi đơn.';
+                await db.run(
+                    `UPDATE dht_orders SET design_email_status = 'failed', design_email_error = $1 WHERE id = $2`,
+                    [errMsg, orderId]
+                );
+                return;
+            }
 
         // 3. Fetch items, surcharges, and payments
         const items = await db.all('SELECT * FROM dht_order_items WHERE dht_order_id = $1 ORDER BY id ASC', [orderId]);

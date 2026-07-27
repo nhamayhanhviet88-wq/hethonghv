@@ -57,20 +57,30 @@ async function _saleSyncConsultTypes() {
         const data = await apiCall('/api/consult-types?crm_menu=sale');
         if (data.types && Array.isArray(data.types)) {
             for (const t of data.types) {
-                if (!t.key || !t.is_active) continue;
-                _saleConsultTypes[t.key] = {
-                    label: t.label || t.key,
-                    icon: t.icon || '📋',
-                    color: t.color || '#6b7280',
-                    textColor: t.text_color || 'white',
-                    maxAppointmentDays: t.max_appointment_days || 0
-                };
+                if (!t.key) continue;
+                const mDays = typeof t.max_appointment_days === 'number' ? t.max_appointment_days : (parseInt(t.max_appointment_days) || 0);
+                if (_saleConsultTypes[t.key]) {
+                    _saleConsultTypes[t.key].label = t.label || _saleConsultTypes[t.key].label;
+                    _saleConsultTypes[t.key].icon = t.icon || _saleConsultTypes[t.key].icon;
+                    _saleConsultTypes[t.key].color = t.color || _saleConsultTypes[t.key].color;
+                    _saleConsultTypes[t.key].textColor = t.text_color || _saleConsultTypes[t.key].textColor;
+                    _saleConsultTypes[t.key].maxAppointmentDays = mDays;
+                } else {
+                    _saleConsultTypes[t.key] = {
+                        label: t.label || t.key,
+                        icon: t.icon || '📋',
+                        color: t.color || '#6b7280',
+                        textColor: t.text_color || 'white',
+                        maxAppointmentDays: mDays
+                    };
+                }
             }
         }
     } catch(e) {}
 }
 
 async function renderChamsockhsalePage(container) {
+    await _saleSyncConsultTypes();
     window._saleReloadCurrentPage = () => _saleLoadData();
     window._saleRenderCurrentTable = () => _saleRenderFilteredTable();
     _saleIsManager = ['giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong'].includes(currentUser.role);
@@ -274,9 +284,9 @@ function _saleGetCategory(c, stats) {
     let consultedToday = c.consulted_today || false;
     if (!consultedToday && stats) {
         const s = stats[c.id] || {};
-        if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm' && s.lastLog.log_type !== 'tao_tk_affiliate' && s.lastLog.log_type !== 'gui_lai_so') {
+        if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm' && s.lastLog.log_type !== 'tao_tk_affiliate' && s.lastLog.log_type !== 'gui_lai_so' && s.lastLog.log_type !== 'pancake_update') {
             const content = s.lastLog.content || '';
-            const isAutoPancakeLog = (s.lastLog.logged_by === null || !s.lastLog.logged_by) && (content.includes('Pancake') || content.includes('Đồng bộ'));
+            const isAutoPancakeLog = content.includes('Pancake') || content.includes('Đồng bộ') || content.includes('Cập nhật');
             if (!isAutoPancakeLog) {
                 const logDate = new Date(s.lastLog.created_at);
                 const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
@@ -303,33 +313,29 @@ function _saleGetCategory(c, stats) {
         createdToday = (cStr === todayStr);
     }
 
-    // 1. Anniversary/Appointment Today -> Phải xử lý hôm nay
-    if (appointIsToday || isBirthdayToday) {
-        if (consultedToday) return 'da_xu_ly';
-        return 'phai_xu_ly';
-    }
+    // 1. Processed Today -> Đã xử lý hôm nay
+    if (consultedToday) return 'da_xu_ly';
 
-    // 2. Overdue Appointment -> Xử lý trễ
-    if (c.appointment_date && !appointIsToday && !appointIsFuture) {
-        if (consultedToday) return 'da_xu_ly';
-        return 'xu_ly_tre';
-    }
+    // 2. New lead today -> Mới chuyển (cần xử lý qua Telegram trước khi mở khóa)
+    if (createdToday) return 'moi_chuyen';
 
-    // 3. Successful Order -> Đã chốt đơn
+    // 3. Anniversary/Appointment Today -> Phải xử lý hôm nay
+    if (appointIsToday || isBirthdayToday) return 'phai_xu_ly';
+
+    // 4. Overdue Appointment -> Xử lý trễ
+    if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
+
+    // 5. Successful Order -> Đã chốt đơn
     if (['chot_don', 'hoan_thanh', 'sau_ban_hang'].includes(c.order_status)) {
         if (!c.appointment_date || appointIsFuture) {
             return 'gui_hang_hoan_thanh';
         }
     }
 
-    // 4. Processed Today -> Đã xử lý hôm nay
-    if (consultedToday) return 'da_xu_ly';
-
-    // 5. New lead today -> Mới chuyển
-    if (createdToday) return 'moi_chuyen';
-
     // 6. Future Appointment -> Chờ xử lý
     if (appointIsFuture) return 'cho_xu_ly';
+
+    return 'cho_xu_ly';
 
     return 'cho_xu_ly';
 }
@@ -624,7 +630,7 @@ function _saleGoToPage(page) {
 
 function _saleRenderCustomerRow(c, stats, stt) {
     const s = stats[c.id] || { consultCount: 0, chotDonCount: 0, lastLog: null, revenue: 0 };
-    const OVERRIDE_STATUSES = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy'];
+    const OVERRIDE_STATUSES = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy', 'chot_don', 'hoan_thanh', 'sau_ban_hang', 'dang_san_xuat'];
     let lastType = s.lastLog ? _saleConsultTypes[s.lastLog.log_type] : null;
     if (OVERRIDE_STATUSES.includes(c.order_status) && _saleConsultTypes[c.order_status]) {
         lastType = _saleConsultTypes[c.order_status];
@@ -660,22 +666,23 @@ function _saleRenderCustomerRow(c, stats, stt) {
         <td style="text-align:right;font-size:12px;vertical-align:middle;">
             <div style="font-weight:800;color:${s.revenue > 0 ? 'var(--success)' : '#475569'};font-size:13px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</div>
             ${(() => {
-                if (!s.chotDonCount || s.chotDonCount === 0) {
+                const orderCount = s.chotDonCount || (['chot_don', 'hoan_thanh', 'sau_ban_hang', 'dang_san_xuat'].includes(c.order_status) ? 1 : 0);
+                if (!orderCount || orderCount === 0) {
                     return `<div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">(0 lần đặt)</div>`;
                 }
                 let bg = 'rgba(217, 119, 6, 0.12)';
                 let color = '#d97706';
                 let border = 'rgba(217, 119, 6, 0.25)';
-                if (s.chotDonCount >= 5) {
+                if (orderCount >= 5) {
                     bg = 'rgba(219, 39, 119, 0.12)';
                     color = '#db2777';
                     border = 'rgba(219, 39, 119, 0.25)';
-                } else if (s.chotDonCount >= 2) {
+                } else if (orderCount >= 2) {
                     bg = 'rgba(37, 99, 235, 0.12)';
                     color = '#2563eb';
                     border = 'rgba(37, 99, 235, 0.25)';
                 }
-                return `<div style="margin-top:4px;"><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap;">${s.chotDonCount} lần đặt</span></div>`;
+                return `<div style="margin-top:4px;"><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap;">${orderCount} lần đặt</span></div>`;
             })()}
         </td>
         <!-- Column 5: Nút Tư Vấn -->
@@ -701,7 +708,7 @@ function _saleRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
-            `) : (_saleGetCategory(c, stats) === 'moi_chuyen' && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role)) ? `
+            `) : (!(['chot_don', 'hoan_thanh', 'sau_ban_hang', 'dang_san_xuat'].includes(c.order_status) || ['chot_don', 'hoan_thanh', 'sau_ban_hang', 'dang_san_xuat'].includes(c.last_consult_type)) && (_saleGetCategory(c, stats) === 'moi_chuyen' || (s.consultCount || 0) === 0) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser?.role)) ? `
                 <button class="btn btn-sm consult-btn" onclick="_saleShowTelegramOnlyMessage(${c.id})" 
                     style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg, #cbd5e1, #94a3b8);color:white;cursor:pointer;">
                     🔒 Báo Telegram
@@ -1134,6 +1141,7 @@ function _saleSelectSidebarUser(userId) {
 
 async function _saleOpenConsultModal(customerId) {
     window._currentConsultCustomerId = customerId;
+    await _saleSyncConsultTypes();
     _salePaymentRecords = [];
     let pendingEmergency = null;
     let handlerOptions = '';
@@ -1188,8 +1196,6 @@ async function _saleOpenConsultModal(customerId) {
     } catch(e) {}
     const grandTotal = existingItems.reduce((s, i) => s + (i.total || 0), 0);
 
-    let flowRules = {};
-    let maxDaysPerStatus = {};
     try {
         const frData = await apiCall('/api/consult-flow-rules?crm_menu=sale');
         flowRules = frData.rules || {};
@@ -1286,6 +1292,12 @@ async function _saleOpenConsultModal(customerId) {
         }
     }
 
+    // Ensure 'huy' option is present in allowedTypes whenever careCount >= 5 or for authorized role
+    const isCareCountEnoughForHuy = (typeof window._currentCustomerCareCount === 'number' && window._currentCustomerCareCount >= 5) || ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser?.role);
+    if (isCareCountEnoughForHuy && !allowedTypes.some(([k]) => k === 'huy') && _saleConsultTypes['huy']) {
+        allowedTypes.push(['huy', _saleConsultTypes['huy']]);
+    }
+
     const effectiveRules = flowRules[effectiveStatus] || [];
     const defaultRule = effectiveRules.find(r => r.is_default);
     let defaultType = defaultRule ? defaultRule.to_type_key : (allowedTypes.length > 0 ? allowedTypes[0][0] : 'goi_dien');
@@ -1337,13 +1349,26 @@ async function _saleOpenConsultModal(customerId) {
             <select id="consultTypeSale" class="form-control" onchange="_saleOnConsultTypeChange()">
                 ${typeOptions}
             </select>
+        <div class="form-group" id="consultGcCategoryGroupSale" style="display:none;margin-bottom:14px;background:#f8fafc;border:2px solid #cbd5e1;border-radius:12px;padding:12px 16px;transition:all .25s ease;">
+            <label style="font-weight:900;color:#334155;font-size:13px;display:flex;align-items:center;gap:6px;">
+                🏷️ LĨNH VỰC ĐƠN HÀNG (TEM / PET) <span style="color:var(--danger)">*</span>
+            </label>
+            <select id="consultGcCategorySale" class="form-control" onchange="_saleOnGcCategoryChange()" style="font-weight:800;font-size:15px;border:2px solid #94a3b8;color:#64748b;background:white;margin-top:6px;transition:all .25s ease;">
+                <option value="">-- Chọn Lĩnh Vực (TEM / PET) --</option>
+                <option value="tem" style="font-weight:800;color:#b45309;background:#fffbe6;">🏷️ Lĩnh Vực TEM</option>
+                <option value="pet" style="font-weight:800;color:#7e22ce;background:#f3e8ff;">🐾 Lĩnh Vực PET</option>
+            </select>
+            <div style="font-size:14px;font-weight:900;margin-top:12px;background:#ffffff;border:2px dashed #cbd5e1;border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.06);transition:all .25s ease;" id="consultGcCodePreviewSale">
+                <span id="consultGcCodeTitleSale" style="color:#64748b;font-size:13px;font-weight:800;">✨ MÃ SẼ NHẬN CHÍNH THỨC:</span>
+                <span id="consultGcCodeValSale" style="color:#ef4444;font-size:14px;font-weight:900;letter-spacing:1px;background:#fef2f2;padding:4px 16px;border-radius:8px;border:1.5px solid #fca5a5;transition:all .25s ease;">⚡ Vui lòng chọn Lĩnh Vực</span>
+            </div>
         </div>
-        <div class="form-group" id="consultDepositGroupSale" style="display:none;">
-            <label>Chọn Mã Tiền Đặt Cọc <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#b8860b;font-weight:600">(từ Sổ Ghi Nhận Tiền)</span></label>
+        <div class="form-group" id="consultDepositGroupSale" style="display:none;position:relative;">
+            <label>Chọn Mã Tiền Đặt Cọc <span style="font-size:10px;color:#b8860b;font-weight:600">(từ Sổ Ghi Nhận Tiền - Không bắt buộc)</span></label>
             <input type="text" id="consultDepositSearchSale" class="form-control" placeholder="🔍 Gõ mã tiền, số tiền, nội dung CK..." 
-                autocomplete="off" oninput="_saleFilterDepositList()" onfocus="_saleFilterDepositList()"
-                style="font-size:13px;border:2px solid #daa520;">
-            <div id="consultDepositDropdownSale" style="display:none;position:relative;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:220px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div>
+                autocomplete="off" oninput="_saleFilterDepositList()" onfocus="_saleFilterDepositList()" onclick="_saleFilterDepositList()"
+                style="font-size:13px;border:2px solid #daa520;cursor:pointer;">
+            <div id="consultDepositDropdownSale" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:#fff;border:2px solid #daa520;border-radius:8px;max-height:240px;overflow-y:auto;box-shadow:0 10px 25px rgba(0,0,0,0.2);margin-top:2px"></div>
             <input type="hidden" id="consultPaymentRecordIdSale">
             <div id="consultDepositSelectedSale" style="display:none;background:#f0fdf4;border:1px solid #059669;border-radius:8px;padding:10px 14px;margin-top:6px;position:relative;">
                 <span style="font-weight:800;color:#059669">✅ Đã chọn: </span><span id="consultDepositLabelSale" style="font-weight:700;color:#1e293b"></span>
@@ -1413,7 +1438,7 @@ async function _saleOpenConsultModal(customerId) {
                 <input type="text" id="consultOrderCodeSale" class="form-control" readonly style="background:var(--gray-100);font-weight:700;color:var(--navy);font-size:16px;cursor:not-allowed;border:2px solid var(--gold);">
             </div>
             <div class="form-group">
-                <label>SĐT Khách Hàng</label>
+                <label>SĐT Khách Hàng <span style="color:var(--danger)">*</span></label>
                 <input type="text" id="consultPhoneSale" class="form-control" value="${(customerInfo.phone && !customerInfo.phone.startsWith('pancake_')) ? customerInfo.phone : ''}" maxlength="10" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" placeholder="10 chữ số">
             </div>
             <div class="form-group">
@@ -1500,6 +1525,14 @@ async function _saleOpenConsultModal(customerId) {
                 hiddenInputId: 'consultSBHDateSale',
                 minDate: _tomorrowStr
             });
+            if (typeof clearHolidayCalendar === 'function') {
+                clearHolidayCalendar('consultCalendarContainerSale');
+                clearHolidayCalendar('consultSBHCalendarContainerSale');
+            }
+            const apptInput = document.getElementById('consultAppointmentSale');
+            if (apptInput) apptInput.value = '';
+            const sbhInput = document.getElementById('consultSBHDateSale');
+            if (sbhInput) sbhInput.value = '';
         }
         _saleOnConsultTypeChange();
     }, 100);
@@ -1641,6 +1674,9 @@ function _saleOnConsultTypeChange() {
     const socGroup = document.getElementById('consultSampleOrderCodeGroupSale');
     if (socGroup) socGroup.style.display = 'none';
 
+    const gcGroup = document.getElementById('consultGcCategoryGroupSale');
+    if (gcGroup) gcGroup.style.display = 'none';
+
     if (cancelGroup) cancelGroup.style.display = 'none';
     if (handlerGroup) handlerGroup.style.display = 'none';
     if (orderGroup) orderGroup.style.display = 'none';
@@ -1654,19 +1690,24 @@ function _saleOnConsultTypeChange() {
     const _tmr = new Date(today); _tmr.setDate(_tmr.getDate() + 1);
     const tomorrowStr = _tmr.getFullYear() + '-' + String(_tmr.getMonth()+1).padStart(2,'0') + '-' + String(_tmr.getDate()).padStart(2,'0');
 
+    const sbhLabelEl = document.getElementById('consultChotDonApptLabelSale');
     if (maxDays > 0) {
         const maxDate = new Date();
         maxDate.setDate(maxDate.getDate() + maxDays);
         const maxDateStr = maxDate.getFullYear() + '-' + String(maxDate.getMonth()+1).padStart(2,'0') + '-' + String(maxDate.getDate()).padStart(2,'0');
         if (typeof updateHolidayCalendarMinMax === 'function') {
             updateHolidayCalendarMinMax('consultCalendarContainerSale', tomorrowStr, maxDateStr);
+            updateHolidayCalendarMinMax('consultSBHCalendarContainerSale', tomorrowStr, maxDateStr);
         }
         const apptLabelEl = appointmentGroup?.querySelector('label');
         if (apptLabelEl) apptLabelEl.innerHTML = `Ngày Hẹn Tiếp Theo <span style="font-size:10px;color:#f59e0b;font-weight:600;">(tối đa ${maxDays} ngày)</span>`;
+        if (sbhLabelEl) sbhLabelEl.innerHTML = `Ngày Hẹn Làm Việc Khách <span style="font-size:11px;color:#f59e0b;font-weight:600;">(Tối đa ${maxDays} ngày - Tự động nếu để trống)</span>`;
     } else {
         if (typeof updateHolidayCalendarMinMax === 'function') {
             updateHolidayCalendarMinMax('consultCalendarContainerSale', tomorrowStr, null);
+            updateHolidayCalendarMinMax('consultSBHCalendarContainerSale', tomorrowStr, null);
         }
+        if (sbhLabelEl) sbhLabelEl.innerHTML = `Ngày Hẹn Làm Việc Khách <span style="color:var(--gray-500);font-size:11px;">(Tự động nếu để trống)</span>`;
     }
 
     if (type === 'huy') {
@@ -1676,6 +1717,11 @@ function _saleOnConsultTypeChange() {
         if (handlerGroup) handlerGroup.style.display = 'block';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
     } else if (type === 'chot_don') {
+        const sbhInput = document.getElementById('consultSBHDateSale');
+        if (sbhInput) sbhInput.value = '';
+        if (typeof clearHolidayCalendar === 'function') {
+            clearHolidayCalendar('consultSBHCalendarContainerSale');
+        }
         if (orderGroup) orderGroup.style.display = 'block';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
         if (contentGroup) contentGroup.style.display = 'none';
@@ -1686,11 +1732,36 @@ function _saleOnConsultTypeChange() {
 
         _saleCalcConsultOrderTotal();
         const codeInput = document.getElementById('consultOrderCodeSale');
-        if (codeInput && !codeInput.value) {
-            codeInput.value = 'Đang tạo...';
+        if (codeInput) {
+            codeInput.value = 'Đang tải...';
             const custId = window._currentConsultCustomerId;
-            apiCall(`/api/order-codes/next${custId ? '?customer_id=' + custId : ''}`).then(res => {
-                if (res.order_code) codeInput.value = res.order_code;
+            const isTemPet = window._currentCrmMenu === 'tem_pet' || window._currentIsTemPetMenu || location.pathname.includes('chamsockhtempet') || location.hash.includes('chamsockhtempet');
+
+            apiCall(`/api/customers/${custId}/order-codes`).then(res => {
+                const codes = res.codes || [];
+                const existingGcCode = codes.find(c => c.order_code && (c.order_code.startsWith('GCTEM') || c.order_code.startsWith('GCPET')));
+                
+                if (isTemPet && existingGcCode && existingGcCode.order_code) {
+                    codeInput.value = existingGcCode.order_code;
+                } else if (isTemPet) {
+                    apiCall('/api/order-codes/next-gc?category=tem').then(gcRes => {
+                        if (gcRes && gcRes.order_code) codeInput.value = gcRes.order_code;
+                    });
+                } else {
+                    apiCall(`/api/order-codes/next${custId ? '?customer_id=' + custId : ''}`).then(res => {
+                        if (res.order_code) codeInput.value = res.order_code;
+                    });
+                }
+            }).catch(() => {
+                if (isTemPet) {
+                    apiCall('/api/order-codes/next-gc?category=tem').then(gcRes => {
+                        if (gcRes && gcRes.order_code) codeInput.value = gcRes.order_code;
+                    });
+                } else {
+                    apiCall(`/api/order-codes/next${custId ? '?customer_id=' + custId : ''}`).then(res => {
+                        if (res.order_code) codeInput.value = res.order_code;
+                    });
+                }
             });
         }
     } else if (type === 'gui_mau') {
@@ -1705,13 +1776,47 @@ function _saleOnConsultTypeChange() {
     } else if (type === 'dat_coc') {
         if (depositGroup) depositGroup.style.display = 'block';
         if (ocGroup) ocGroup.style.display = 'block';
-        const codeInput = document.getElementById('consultOrderCodeSale');
-        if (codeInput && !codeInput.value) {
-            codeInput.value = 'Đang tạo...';
-            const custId = window._currentConsultCustomerId;
-            apiCall(`/api/order-codes/next?mode=new_deposit${custId ? '&customer_id=' + custId : ''}`).then(res => {
-                if (res.order_code) codeInput.value = res.order_code;
-            });
+        const isTemPet = window._currentCrmMenu === 'tem_pet' || window._currentIsTemPetMenu || location.pathname.includes('chamsockhtempet') || location.hash.includes('chamsockhtempet');
+        const depositLabel = depositGroup?.querySelector('label');
+        if (depositLabel) {
+            if (isTemPet) {
+                depositLabel.innerHTML = `Chọn Mã Tiền Đặt Cọc <span style="font-size:11px;color:#64748b;font-weight:600">(từ Sổ Ghi Nhận Tiền - Không bắt buộc)</span>`;
+            } else {
+                depositLabel.innerHTML = `Chọn Mã Tiền Đặt Cọc <span style="font-size:11px;color:#ef4444;font-weight:700">* (từ Sổ Ghi Nhận Tiền - Bắt buộc)</span>`;
+            }
+        }
+        const gcGroup = document.getElementById('consultGcCategoryGroupSale');
+        if (isTemPet) {
+            if (gcGroup) gcGroup.style.display = 'block';
+            _saleOnGcCategoryChange();
+        } else {
+            if (gcGroup) gcGroup.style.display = 'none';
+            const codeInput = document.getElementById('consultOrderCodeSale');
+            if (codeInput && !codeInput.value) {
+                codeInput.value = 'Đang tạo...';
+                const custId = window._currentConsultCustomerId;
+                apiCall(`/api/order-codes/next?mode=new_deposit${custId ? '&customer_id=' + custId : ''}`).then(res => {
+                    if (res.order_code) codeInput.value = res.order_code;
+                });
+            }
+        }
+    }
+    const calContainer = document.getElementById('consultCalendarContainerSale');
+    const autoNote = document.getElementById('autoFollowUpNoteSale');
+
+    if (type === 'dat_coc') {
+        if (calContainer) calContainer.style.display = 'none';
+        if (autoNote) {
+            autoNote.style.background = '#f0fdf4';
+            autoNote.style.border = '1.5px solid #16a34a';
+            autoNote.innerHTML = '🔒 <b>Tự động hẹn Ngày Làm Việc Tiếp Theo (Ngày Mai):</b> <span id="autoFollowUpDateTextSale" style="font-weight:900;color:#15803d;font-size:13px;text-decoration:underline;">Đang tính...</span>';
+        }
+    } else {
+        if (calContainer) calContainer.style.display = 'block';
+        if (autoNote) {
+            autoNote.style.background = 'rgba(34,197,94,0.06)';
+            autoNote.style.border = '1px dashed rgba(34,197,94,0.3)';
+            autoNote.innerHTML = '<span>💡</span><div>Nếu không chọn ngày bên dưới, khách sẽ tự động hẹn vào: <span id="autoFollowUpDateTextSale" style="font-weight:800;text-decoration:underline;color:#16a34a;">Đang tính...</span></div>';
         }
     }
 
@@ -1728,9 +1833,108 @@ function _saleOnConsultTypeChange() {
                     const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
                     const disp = document.getElementById('autoFollowUpDateTextSale');
                     if (disp) disp.textContent = `${days[d.getDay()]} - ${dayNum.toString().padStart(2, '0')}/${(m+1).toString().padStart(2, '0')}/${y}`;
+                    const inputEl = document.getElementById('consultAppointmentSale');
+                    if (type === 'dat_coc') {
+                        if (inputEl) inputEl.value = ''; // Force server auto-calculation
+                    } else {
+                        if (inputEl) inputEl.value = String(res.nextFollowUp).split('T')[0];
+                    }
                 }
             }
         }).catch(() => {});
+    }
+}
+
+async function _saleOnGcCategoryChange() {
+    const cat = document.getElementById('consultGcCategorySale')?.value;
+    const previewGroupEl = document.getElementById('consultGcCategoryGroupSale');
+    const previewBoxEl = document.getElementById('consultGcCodePreviewSale');
+    const previewEl = document.getElementById('consultGcCodeValSale');
+    const previewTitleEl = document.getElementById('consultGcCodeTitleSale');
+    const targetCodeEl = document.getElementById('consultDepositTargetOrderCodeValSale');
+    const gcSelect = document.getElementById('consultGcCategorySale');
+
+    if (!cat) {
+        if (previewGroupEl) {
+            previewGroupEl.style.background = '#f8fafc';
+            previewGroupEl.style.borderColor = '#cbd5e1';
+        }
+        if (gcSelect) {
+            gcSelect.style.borderColor = '#94a3b8';
+            gcSelect.style.color = '#64748b';
+            gcSelect.style.boxShadow = 'none';
+        }
+        if (previewBoxEl) {
+            previewBoxEl.style.borderColor = '#cbd5e1';
+        }
+        if (previewTitleEl) previewTitleEl.style.color = '#64748b';
+        if (previewEl) {
+            previewEl.textContent = '⚡ Vui lòng chọn Lĩnh Vực';
+            previewEl.style.fontSize = '14px';
+            previewEl.style.color = '#ef4444';
+            previewEl.style.background = '#fef2f2';
+            previewEl.style.borderColor = '#fca5a5';
+        }
+        if (targetCodeEl) targetCodeEl.textContent = '---';
+        window._nextOrderCodeForConsult = null;
+        return;
+    }
+
+    if (cat === 'tem') {
+        // 🏷️ LĨNH VỰC TEM: Amber Gold Theme (#d97706 / #b45309)
+        if (previewGroupEl) {
+            previewGroupEl.style.background = '#fffbe6';
+            previewGroupEl.style.borderColor = '#f59e0b';
+        }
+        if (gcSelect) {
+            gcSelect.style.borderColor = '#d97706';
+            gcSelect.style.color = '#b45309';
+            gcSelect.style.boxShadow = '0 0 0 3px rgba(245,158,11,0.2)';
+        }
+        if (previewBoxEl) {
+            previewBoxEl.style.borderColor = '#f59e0b';
+        }
+        if (previewTitleEl) previewTitleEl.style.color = '#b45309';
+        if (previewEl) {
+            previewEl.textContent = 'Đang tải...';
+            previewEl.style.fontSize = '22px';
+            previewEl.style.color = '#b45309';
+            previewEl.style.background = '#fef3c7';
+            previewEl.style.borderColor = '#d97706';
+        }
+    } else if (cat === 'pet') {
+        // 🐾 LĨNH VỰC PET: Royal Purple Theme (#9333ea / #6b21a8)
+        if (previewGroupEl) {
+            previewGroupEl.style.background = '#f3e8ff';
+            previewGroupEl.style.borderColor = '#a855f7';
+        }
+        if (gcSelect) {
+            gcSelect.style.borderColor = '#9333ea';
+            gcSelect.style.color = '#7e22ce';
+            gcSelect.style.boxShadow = '0 0 0 3px rgba(168,85,247,0.2)';
+        }
+        if (previewBoxEl) {
+            previewBoxEl.style.borderColor = '#a855f7';
+        }
+        if (previewTitleEl) previewTitleEl.style.color = '#7e22ce';
+        if (previewEl) {
+            previewEl.textContent = 'Đang tải...';
+            previewEl.style.fontSize = '22px';
+            previewEl.style.color = '#6b21a8';
+            previewEl.style.background = '#fae8ff';
+            previewEl.style.borderColor = '#a855f7';
+        }
+    }
+
+    try {
+        const res = await apiCall(`/api/order-codes/next-gc?category=${cat}`);
+        if (res && res.order_code) {
+            if (previewEl) previewEl.textContent = res.order_code;
+            if (targetCodeEl) targetCodeEl.textContent = res.order_code;
+            window._nextOrderCodeForConsult = res.order_code;
+        }
+    } catch(e) {
+        if (previewEl) previewEl.textContent = cat === 'pet' ? 'GCPET...' : 'GCTEM...';
     }
 }
 
@@ -1749,7 +1953,9 @@ async function _saleSubmitConsultLog(customerId) {
     const payload = new FormData();
     payload.append('log_type', type);
     payload.append('content', content || '');
-    if (appt) payload.append('appointment_date', appt);
+    if (type !== 'chot_don' && appt && appt.trim()) {
+        payload.append('appointment_date', appt.trim());
+    }
 
     if (window._saleImageBlob) {
         payload.append('image', window._saleImageBlob, 'paste_image.png');
@@ -1766,7 +1972,11 @@ async function _saleSubmitConsultLog(customerId) {
             if (res.success) {
                 showToast('✅ ' + res.message);
                 closeModal();
-                _saleLoadData();
+                if (typeof _tempetLoadData === 'function' && (location.pathname.includes('chamsockhtempet') || window._currentCrmMenu === 'tem_pet' || window._currentIsTemPetMenu)) {
+                    _tempetLoadData();
+                } else if (typeof _saleLoadData === 'function') {
+                    _saleLoadData();
+                }
             } else {
                 showToast(res.error || 'Lỗi gửi yêu cầu!', 'error');
             }
@@ -1786,14 +1996,25 @@ async function _saleSubmitConsultLog(customerId) {
         const city = document.getElementById('consultCitySale')?.value;
         const apptSBH = document.getElementById('consultSBHDateSale')?.value;
 
+        if (!phone || !/^0\d{9}$/.test(phone)) {
+            showToast('⚠️ SĐT Khách Hàng là bắt buộc, phải đủ 10 số và bắt đầu bằng số 0!', 'error');
+            const phoneInput = document.getElementById('consultPhoneSale');
+            if (phoneInput) {
+                phoneInput.focus();
+                phoneInput.style.borderColor = '#ef4444';
+                phoneInput.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.25)';
+            }
+            return;
+        }
+
         if (!address) { showToast('Vui lòng nhập địa chỉ cụ thể', 'error'); return; }
         if (!city) { showToast('Vui lòng chọn tỉnh/thành', 'error'); return; }
 
         payload.append('phone', phone);
         payload.append('address', address);
         payload.append('province', city);
-        if (apptSBH) {
-            payload.append('appointment_date', apptSBH);
+        if (apptSBH && apptSBH.trim()) {
+            payload.append('appointment_date', apptSBH.trim());
         }
 
         const isZeroDepositCheckbox = document.getElementById('consultIsZeroDepositSale');
@@ -1815,12 +2036,58 @@ async function _saleSubmitConsultLog(customerId) {
             payload.append('items', JSON.stringify(items));
         }
     } else if (type === 'dat_coc') {
+        const isTemPet = location.pathname.includes('chamsockhtempet') || window._currentCrmMenu === 'tem_pet' || window._currentIsTemPetMenu;
+        const gcCat = document.getElementById('consultGcCategorySale')?.value;
+
+        if (isTemPet && !gcCat) {
+            showToast('⚠️ Vui lòng chọn Lĩnh Vực đơn hàng (TEM hoặc PET)!', 'error');
+            const gcSelect = document.getElementById('consultGcCategorySale');
+            if (gcSelect) {
+                gcSelect.focus();
+                gcSelect.style.borderColor = '#ef4444';
+                gcSelect.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.25)';
+            }
+            return;
+        }
+
         const recordId = document.getElementById('consultPaymentRecordIdSale')?.value;
-        if (!recordId) { showToast('Vui lòng chọn mã tiền đặt cọc', 'error'); return; }
-        payload.append('payment_record_id', recordId);
+        if (!isTemPet && !recordId) {
+            showToast('⚠️ Vui lòng chọn Mã Tiền Đặt Cọc từ Sổ Ghi Nhận Tiền!', 'error');
+            const searchInput = document.getElementById('consultDepositSearchSale');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.style.borderColor = '#ef4444';
+                searchInput.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.25)';
+            }
+            return;
+        }
+
+        if (recordId) {
+            payload.append('payment_record_id', recordId);
+        }
+        if (gcCat) {
+            payload.append('gc_category', gcCat);
+        }
         const targetCode = document.getElementById('consultDepositTargetOrderCodeValSale')?.textContent?.trim();
-        if (targetCode && targetCode !== '---') {
+        if (targetCode && targetCode !== '---' && targetCode !== 'Đang tải...') {
+            payload.append('gc_order_code', targetCode);
             payload.append('target_order_code', targetCode);
+        }
+
+        if (isTemPet && gcCat) {
+            try {
+                const codeRes = await apiCall('/api/order-codes', 'POST', { customer_id: customerId, gc_category: gcCat });
+                if (codeRes && codeRes.order_code) {
+                    payload.set('gc_order_code', codeRes.order_code);
+                    payload.set('target_order_code', codeRes.order_code);
+                }
+            } catch(codeErr) {
+                if (codeErr.status === 409 || (codeErr.message && codeErr.message.includes('trùng'))) {
+                    showToast('⚠️ Mã đơn trùng lặp do nhân viên khác khởi tạo trước 1 giây. Đang tự cấp mã mới...', 'warning');
+                    _saleOnGcCategoryChange();
+                    return;
+                }
+            }
         }
     }
 
@@ -1837,7 +2104,11 @@ async function _saleSubmitConsultLog(customerId) {
             }
             closeModal();
             _salePaymentRecords = [];
-            _saleLoadData();
+            if (typeof _tempetLoadData === 'function' && (location.pathname.includes('chamsockhtempet') || window._currentCrmMenu === 'tem_pet' || window._currentIsTemPetMenu)) {
+                _tempetLoadData();
+            } else if (typeof _saleLoadData === 'function') {
+                _saleLoadData();
+            }
         } else {
             showToast(res.error || 'Lỗi ghi nhận!', 'error');
         }
@@ -1926,7 +2197,7 @@ async function _saleOpenCustomerDetail(customerId) {
                     </div>
                     <div style="padding:12px 14px;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">💼 Công việc</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.job || '—'}</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${(c.pancake_customer_id || c.pancake_conversation_id || (c.phone && c.phone.startsWith('pancake_'))) ? '—' : (c.job || '—')}</div>
                     </div>
                 </div>
             </div>
@@ -1939,7 +2210,11 @@ async function _saleOpenCustomerDetail(customerId) {
         </div>
     `;
 
-    const saleOrderCodes = orderCodesData.codes || [];
+    let saleOrderCodes = orderCodesData.codes || [];
+    const isTemPetMenu = window._currentCrmMenu === 'tem_pet' || window._currentIsTemPetMenu || location.pathname.includes('chamsockhtempet') || location.hash.includes('chamsockhtempet');
+    if (isTemPetMenu) {
+        saleOrderCodes = saleOrderCodes.filter(o => o.order_code && (o.order_code.startsWith('GCTEM') || o.order_code.startsWith('GCPET')));
+    }
     const orderTab = `
         <div style="max-height:350px;overflow-y:auto;">
             <table class="table" style="font-size:12px;">
@@ -2013,11 +2288,12 @@ function _saleBuildGroupedHistoryHTML(logs, opts = {}) {
     
     return logs.map(l => {
         const type = _saleConsultTypes[l.log_type] || { label: l.log_type, icon: '📝', color: '#64748b' };
+        const hasContent = l.content && l.content !== 'null' && String(l.content).trim() !== '' && String(l.content).trim() !== 'null';
         return `
             <div style="border-left:2px solid ${type.color};padding-left:12px;margin-bottom:12px;position:relative;">
                 <div style="font-size:11px;color:#94a3b8;font-weight:600;">${formatDateTime(l.created_at)} · ${l.created_by_name || '—'}</div>
                 <div style="font-weight:700;font-size:12px;color:#1e293b;margin:2px 0;">${type.icon} ${type.label}</div>
-                <div style="font-size:12px;color:#475569;white-space:pre-wrap;">${l.content}</div>
+                ${hasContent ? `<div style="font-size:12px;color:#475569;white-space:pre-wrap;">${l.content}</div>` : ''}
                 ${l.image_url ? `<img src="${l.image_url}" style="max-width:100%;max-height:120px;border-radius:6px;margin-top:6px;display:block;cursor:pointer;" onclick="window.open('${l.image_url}')">` : ''}
             </div>
         `;
@@ -2049,7 +2325,7 @@ async function _saleOpenCustomerInfo(customerId) {
             </div>
             <div class="form-group">
                 <label>Lĩnh Vực / Công Việc</label>
-                <input type="text" id="editCustJobSale" class="form-control" value="${c.job || ''}">
+                <input type="text" id="editCustJobSale" class="form-control" value="${(c.pancake_customer_id || c.pancake_conversation_id || (c.phone && c.phone.startsWith('pancake_'))) ? '' : (c.job || '')}">
             </div>
         `;
 
@@ -2160,12 +2436,12 @@ async function _saleFilterDepositList() {
     if (_salePaymentRecords.length === 0) {
         dropdown.innerHTML = '<div style="padding:10px;color:#94a3b8;font-size:12px;">⏳ Đang tải danh sách tiền...</div>';
         try {
-            const data = await apiCall('/api/dht/available-deposits');
+            const data = await apiCall('/api/dht/unclaimed-deposits');
             _salePaymentRecords = (data.deposits || []).map(r => ({
                 id: r.id,
                 code: r.payment_code,
                 amount: Number(r.amount),
-                content: r.description
+                content: (r.transfer_note || '') + (r.customer_name ? ' - ' + r.customer_name : '')
             }));
         } catch(e) {
             dropdown.innerHTML = '<div style="padding:10px;color:#ef4444;font-size:12px;">❌ Lỗi tải danh sách tiền</div>';
@@ -2252,9 +2528,10 @@ function _saleIsMoiChuyenClientSide(c, logs) {
     const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
 
     let consultedToday = false;
+    let manualLog = null;
     if (logs && logs.length > 0) {
         // Find manual logs today
-        const manualLog = logs.find(log => 
+        manualLog = logs.find(log => 
             log.log_type !== 'chuyen_doi_crm' && 
             log.log_type !== 'tao_tk_affiliate' && 
             log.log_type !== 'gui_lai_so' &&
@@ -2278,6 +2555,7 @@ function _saleIsMoiChuyenClientSide(c, logs) {
         createdToday = (cStr === todayStr);
     }
 
+    if (!manualLog) return true;
     return createdToday;
 }
 
@@ -2359,6 +2637,9 @@ async function _saleSaveRescheduleConfig() {
 
 window._saleShowRescheduleConfigModal = _saleShowRescheduleConfigModal;
 window._saleSaveRescheduleConfig = _saleSaveRescheduleConfig;
+window._saleFilterDepositList = _saleFilterDepositList;
+window._saleSelectDeposit = _saleSelectDeposit;
+window._saleClearSelectedDeposit = _saleClearSelectedDeposit;
 
 document.addEventListener('click', function(e) {
     const dd = document.getElementById('consultDepositDropdownSale');

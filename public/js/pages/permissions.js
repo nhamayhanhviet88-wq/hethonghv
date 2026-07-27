@@ -5,6 +5,7 @@ const PERM_FEATURES = [
     { key: 'tong_quan', label: 'Các Chỉ Số Tổng Quan', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'dashboard_kdoanh', label: 'Dashboard P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'kpi_kdoanh', label: 'KPI P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
+    { key: 'ngan_sach_mkt', label: 'Ngân Sách Marketing', perms: ['view','create','edit','delete'], section: 'TỔNG QUAN' },
     { key: 'tim_kiem_kh', label: 'Tìm Kiếm Khách Hàng', perms: ['view'], section: 'TỔNG QUAN' },
 
     // ===== CÔNG VIỆC NV KINH DOANH =====
@@ -23,6 +24,7 @@ const PERM_FEATURES = [
 
     // ===== BỘ PHẬN SALE =====
     { key: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
+    { key: 'chamsockhtempet', label: 'Chăm Sóc Khách TEM/PET', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
     { key: 'sokhachsale', label: 'Sổ Khách Sale', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
 
     // ===== KINH DOANH CHĂM SÓC =====

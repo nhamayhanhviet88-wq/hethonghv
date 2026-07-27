@@ -75,6 +75,8 @@ CREATE TABLE IF NOT EXISTS users (
     source_crm_type TEXT,
     department_id INTEGER,
     birth_date TEXT,
+    smtp_email TEXT,
+    smtp_password TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );

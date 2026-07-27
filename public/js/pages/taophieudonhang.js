@@ -696,10 +696,10 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                             }
                         } catch(e) {}
                     }
-                    if (Array.isArray(item.sale_reminders_data)) {
+                    if (Array.isArray(item.sale_reminders_data) && item.sale_reminders_data.length > 0) {
                         draft.sale_reminders_data = item.sale_reminders_data;
                         if (!draft.sale_remind_choices) draft.sale_remind_choices = {};
-                        draft.sale_remind_items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
+                        if (!draft.sale_remind_items) draft.sale_remind_items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
                         item.sale_reminders_data.forEach(r => {
                             if (r.dept) {
                                 draft.sale_remind_choices[r.dept] = 'yes';
@@ -814,11 +814,18 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
         })(),
         sale_remind_items: (() => {
             let items = { qlx: [], cat: [], in: [], ep: [], qc: [], hoanthien: [] };
-            if (item.sale_remind_items && typeof item.sale_remind_items === 'object') {
-                try { items = JSON.parse(JSON.stringify(item.sale_remind_items)); } catch(e) {}
-            } else if (Array.isArray(item.sale_reminders_data) && item.sale_reminders_data.length > 0) {
+            if (item.sale_remind_items) {
+                try {
+                    const parsed = typeof item.sale_remind_items === 'string' ? JSON.parse(item.sale_remind_items) : item.sale_remind_items;
+                    if (parsed && typeof parsed === 'object') items = parsed;
+                } catch(e) {}
+            }
+            if (Array.isArray(item.sale_reminders_data) && item.sale_reminders_data.length > 0) {
                 item.sale_reminders_data.forEach(r => {
-                    if (r.dept && items[r.dept]) items[r.dept].push(r.content || '');
+                    if (r.dept) {
+                        if (!Array.isArray(items[r.dept])) items[r.dept] = [];
+                        if (r.content && !items[r.dept].includes(r.content)) items[r.dept].push(r.content);
+                    }
                 });
             }
             return items;
@@ -3959,10 +3966,13 @@ function _tpdSwitchItemTab(idx) {
     if (state.activeItemIndex === idx) return;
 
     // Save current active item state back into state.items array & draft storage before switching tab
-    if (state.editingItem && state.editingItem.id && Array.isArray(state.items)) {
-        const itemIdx = state.items.findIndex(x => x && String(x.id) === String(state.editingItem.id));
-        if (itemIdx !== -1) {
-            state.items[itemIdx] = JSON.parse(JSON.stringify(state.editingItem));
+    if (state.editingItem && Array.isArray(state.items)) {
+        const itemIdx = (state.editingItem.id) 
+            ? state.items.findIndex(x => x && String(x.id) === String(state.editingItem.id))
+            : state.activeItemIndex;
+        const targetIdx = (itemIdx !== -1) ? itemIdx : state.activeItemIndex;
+        if (targetIdx >= 0 && targetIdx < state.items.length) {
+            state.items[targetIdx] = JSON.parse(JSON.stringify(state.editingItem));
         }
         if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
     }
@@ -5031,8 +5041,14 @@ function _tpdRenderSaleRemindersSection(it, disabledAttr) {
 
     const activeDepts = depts.filter(d => _tpdIsStepInWorkflow(it, d.stepId));
 
-    const choices = it.sale_remind_choices || {};
-    const itemsMap = it.sale_remind_items || {};
+    let choices = it.sale_remind_choices || {};
+    if (typeof choices === 'string') {
+        try { choices = JSON.parse(choices); } catch(e) { choices = {}; }
+    }
+    let itemsMap = it.sale_remind_items || {};
+    if (typeof itemsMap === 'string') {
+        try { itemsMap = JSON.parse(itemsMap); } catch(e) { itemsMap = {}; }
+    }
 
     let html = `
         <div id="tpdSaleRemindersContainer" style="background:#fffbeb; border:1.5px solid #fde68a; border-radius:10px; padding:14px 16px; margin-bottom:20px;">
@@ -8063,8 +8079,14 @@ function _tpdValidateAllSheets() {
             { key: 'hoanthien', label: 'Hoàn Thiện, Cắt Chỉ', stepId: 6 }
         ];
         const activeDeptsCheck = deptsCheck.filter(d => _tpdIsStepInWorkflow(it, d.stepId));
-        const choices = it.sale_remind_choices || {};
-        const itemsMap = it.sale_remind_items || {};
+        let choices = it.sale_remind_choices || {};
+        if (typeof choices === 'string') {
+            try { choices = JSON.parse(choices); } catch(e) { choices = {}; }
+        }
+        let itemsMap = it.sale_remind_items || {};
+        if (typeof itemsMap === 'string') {
+            try { itemsMap = JSON.parse(itemsMap); } catch(e) { itemsMap = {}; }
+        }
 
         for (const d of activeDeptsCheck) {
             const ch = choices[d.key];
@@ -8098,6 +8120,17 @@ async function _tpdExportSheetAndOrder() {
         return;
     }
 
+    // Sync current editingItem into items array first before validating
+    if (state.editingItem && Array.isArray(state.items)) {
+        const itemIdx = (state.editingItem.id) 
+            ? state.items.findIndex(x => x && String(x.id) === String(state.editingItem.id))
+            : state.activeItemIndex;
+        if (itemIdx >= 0 && itemIdx < state.items.length) {
+            state.items[itemIdx] = JSON.parse(JSON.stringify(state.editingItem));
+        }
+        if (typeof _tpdSaveDraft === 'function') _tpdSaveDraft(state.editingItem);
+    }
+
     // Condition 2: Validate all sheets in order
     const allValid = _tpdValidateAllSheets();
     if (!allValid) return;
@@ -8125,7 +8158,9 @@ async function _tpdExportSheetAndOrder() {
             back_technique_image: lungDetail ? lungDetail.image : null,
             quantities: it.quantities,
             size_type: it.size_type || 'Size TT',
-            custom_layout: it.custom_layout || {}
+            custom_layout: it.custom_layout || {},
+            sale_remind_choices: it.sale_remind_choices || {},
+            sale_remind_items: it.sale_remind_items || {}
         };
 
         try {
@@ -11414,24 +11449,30 @@ function escapeHTML(str) {
 }
 
 window._tpdOpenEmailSettingsModal = async function() {
-    // 1. Fetch current config
-    let currentEmail = '';
-    let senderEmail = '';
-    let hasSenderPassword = false;
+    const curUser = window.currentUser || window._currentUser;
+    let currentEmail = 'xuongmay.vt@gmail.com';
     let spacingSeconds = 15;
+    let allUsersSmtp = [];
+
     try {
         const res = await apiCall('/api/dht/config/design-email-recipient');
         if (res) {
-            currentEmail = res.email || '';
-            senderEmail = res.senderEmail || '';
-            hasSenderPassword = !!res.hasSenderPassword;
+            currentEmail = res.email || 'xuongmay.vt@gmail.com';
             spacingSeconds = res.spacingSeconds !== undefined ? res.spacingSeconds : 15;
         }
     } catch (e) {
         console.error('Failed to fetch default design email:', e);
     }
 
-    // 2. Create modal overlay
+    try {
+        const listRes = await apiCall('/api/users/smtp-list');
+        if (listRes && listRes.users) {
+            allUsersSmtp = listRes.users;
+        }
+    } catch(e) {
+        console.error('Failed to fetch users smtp list:', e);
+    }
+
     let overlay = document.getElementById('tpdEmailSettingsOverlay');
     if (overlay) overlay.remove();
 
@@ -11450,54 +11491,76 @@ window._tpdOpenEmailSettingsModal = async function() {
     overlay.style.zIndex = '9999';
     overlay.style.fontFamily = "'Inter', system-ui, sans-serif";
 
+    const usersRowsHtml = allUsersSmtp.map(u => `
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="font-weight: 800; font-size: 13px; color: #0f172a;">${escapeHTML(u.full_name || u.username)}</span>
+                    <span style="font-weight: 500; color: #64748b; font-size: 11px; margin-left: 6px;">(@${escapeHTML(u.username)}) ${u.department_name ? '• ' + escapeHTML(u.department_name) : ''}</span>
+                </div>
+                <span id="tpdUserSmtpStatus_${u.id}">
+                    ${u.smtp_email && u.has_smtp_password ? '<span style="color:#059669;background:#ecfdf5;padding:2px 8px;border-radius:99px;font-weight:800;font-size:11px">✅ Đã cài Gmail</span>' : (u.smtp_email ? '<span style="color:#ca8a04;background:#fefce8;padding:2px 8px;border-radius:99px;font-weight:700;font-size:11px">⚠️ Thiếu AppPass</span>' : '<span style="color:#dc2626;background:#fef2f2;padding:2px 8px;border-radius:99px;font-weight:700;font-size:11px">❌ Chưa cài</span>')}
+                </span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="email" id="tpdUserSmtpEmail_${u.id}" value="${escapeHTML(u.smtp_email || '')}" placeholder="Gmail gửi đi riêng của Sale/Kinh doanh" style="flex: 1.2; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none;">
+                <input type="password" id="tpdUserSmtpPass_${u.id}" placeholder="${u.has_smtp_password ? '●●●● (giữ nguyên)' : 'App Password 16 ký tự'}" style="flex: 1; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none;">
+                <button id="tpdUserSmtpBtn_${u.id}" onclick="_tpdSaveUserSmtp(${u.id})" style="background: #2563eb; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap; transition: all 0.2s;">💾 Lưu</button>
+            </div>
+        </div>
+    `).join('');
+
     overlay.innerHTML = `
-        <div style="background: #ffffff; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 500px; max-width: 90%; display: flex; flex-direction: column; overflow: hidden; animation: tpdFadeIn 0.3s ease;">
+        <div style="background: #ffffff; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 680px; max-width: 95%; display: flex; flex-direction: column; overflow: hidden; animation: tpdFadeIn 0.3s ease;">
             <!-- Header -->
-            <div style="padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; background: #122546; color: white;">
-                <h3 style="margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">⚙️ Cấu hình Email Xưởng & Gửi Đơn</h3>
+            <div style="padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; background: #122546; color: white;">
+                <h3 style="margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">👑 Cấu hình Email Gửi Đơn Của Nhân Viên (Giám Đốc)</h3>
                 <button onclick="document.getElementById('tpdEmailSettingsOverlay').remove()" style="background: none; border: none; color: #ffffff; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
             </div>
             <!-- Body -->
-            <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-                <div style="font-size: 13px; color: #475569; line-height: 1.6;">
-                    Là Giám Đốc, anh có thể cấu hình riêng biệt email nhận đơn của xưởng và thông tin tài khoản Gmail gửi đơn đi dưới đây.
-                </div>
-                <!-- Recipient Email -->
-                <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">📧 Email nhận đơn (mặc định của Xưởng):</label>
-                    <input type="email" id="tpdGlobalEmailInput" value="${escapeHTML(currentEmail)}" placeholder="Nhập địa chỉ email (VD: xuongmay@gmail.com)" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
-                </div>
+            <div style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; max-height: 80vh; overflow-y: auto;">
                 
-                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 8px 0;">
-                
-                <!-- Sender Email -->
-                <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">📤 Gmail gửi đơn đi (SMTP):</label>
-                    <input type="email" id="tpdSenderEmailInput" value="${escapeHTML(senderEmail)}" placeholder="Nhập Gmail gửi đi (VD: user@gmail.com)" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
+                <!-- RECIPIENT EMAIL SECTION -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                    <div style="font-size: 13px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                        📥 EMAIL NHẬN ĐƠN MẶC ĐỊNH CỦA XƯỞNG
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: flex-end;">
+                        <div style="flex: 2; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; font-weight: 700; color: #475569;">Địa chỉ Email nhận đơn tại Xưởng:</label>
+                            <input type="email" id="tpdGlobalEmailInput" value="${escapeHTML(currentEmail)}" placeholder="xuongmay.vt@gmail.com" style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; box-sizing: border-box;">
+                        </div>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; font-weight: 700; color: #475569;">Giãn cách gửi (giây):</label>
+                            <input type="number" id="tpdEmailSpacingInput" value="${spacingSeconds}" min="1" max="3600" placeholder="30" style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; box-sizing: border-box;">
+                        </div>
+                        <button id="tpdSaveGlobalEmailBtn" style="border: none; border-radius: 8px; background: linear-gradient(135deg, #059669, #047857); color: white; padding: 9px 18px; font-size: 12px; font-weight: 800; cursor: pointer; height: 37px; white-space: nowrap;" onclick="_tpdSaveGlobalEmail()">
+                            💾 Lưu Email Xưởng
+                        </button>
+                    </div>
                 </div>
-                <!-- Sender Password -->
-                <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">🔑 App Password Gmail gửi đi ${hasSenderPassword ? '<span style="color:#059669;font-size:11px">(đã lưu)</span>' : ''}:</label>
-                    <input type="password" id="tpdSenderPasswordInput" placeholder="${hasSenderPassword ? '●●●● (để trống = giữ nguyên mật khẩu cũ)' : 'Nhập mật khẩu ứng dụng Gmail (16 ký tự)'}" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
+
+                <!-- STAFF SMTP MANAGEMENT SECTION -->
+                <div style="background: #fefce8; border: 1.5px solid #fef08a; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="font-size: 13px; font-weight: 800; color: #854d0e; display: flex; align-items: center; justify-content: space-between;">
+                        <span>📤 CÀI ĐẶT GMAIL GỬI ĐI CHO TỪNG NHÂN VIÊN SALE & KINH DOANH (${allUsersSmtp.length})</span>
+                    </div>
+                    <div style="font-size: 12px; color: #713f12; line-height: 1.4;">
+                        Mỗi nhân viên sẽ gửi đơn hàng bằng tài khoản Gmail riêng do Giám Đốc cài đặt bên dưới. Đơn hàng sẽ gửi từ Gmail này đến Email Xưởng (<code>${escapeHTML(currentEmail)}</code>).
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow-y: auto; padding-right: 4px;">
+                        ${usersRowsHtml || '<div style="color:#854d0e;text-align:center;padding:20px">Không tìm thấy tài khoản nhân viên nào.</div>'}
+                    </div>
                 </div>
-                
-                <!-- Email Spacing -->
-                <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <label style="font-size: 13px; font-weight: 700; color: #1e293b;">⏱️ Giãn cách gửi email tối thiểu (giây):</label>
-                    <input type="number" id="tpdEmailSpacingInput" value="${spacingSeconds}" min="1" max="3600" placeholder="VD: 15" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; box-sizing: border-box;">
-                </div>
-                
+
                 <div style="font-size: 11px; color: #64748b; font-style: italic; line-height: 1.4;">
-                    * Lưu ý: Nếu để trống cấu hình gửi đi, hệ thống sẽ tự động dùng tài khoản Gmail trong Sổ ghi nhận tiền (check bank) để bắn đơn. Mật khẩu ứng dụng Gmail phải là mật khẩu 16 ký tự được cấp từ Tài khoản Google -> Bảo mật -> Mật khẩu ứng dụng.
+                    * Lưu ý: Mật khẩu ứng dụng Gmail (App Password) gồm 16 ký tự được tạo trong Tài khoản Google nhân viên -> Bảo mật -> Mật khẩu ứng dụng.
                 </div>
             </div>
             <!-- Footer -->
-            <div style="padding: 16px 24px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc;">
-                <button onclick="document.getElementById('tpdEmailSettingsOverlay').remove()" style="border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #475569; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
-                    Hủy bỏ
-                </button>
-                <button id="tpdSaveGlobalEmailBtn" style="border: none; border-radius: 8px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 8px 24px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);" onclick="_tpdSaveGlobalEmail()">
-                    Lưu cấu hình
+            <div style="padding: 14px 24px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; background: #f8fafc;">
+                <button onclick="document.getElementById('tpdEmailSettingsOverlay').remove()" style="border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #475569; padding: 8px 20px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                    Đóng
                 </button>
             </div>
         </div>
@@ -11506,29 +11569,59 @@ window._tpdOpenEmailSettingsModal = async function() {
     document.body.appendChild(overlay);
 };
 
+window._tpdSaveUserSmtp = async function(userId) {
+    const emailInput = document.getElementById(`tpdUserSmtpEmail_${userId}`);
+    const passInput = document.getElementById(`tpdUserSmtpPass_${userId}`);
+    const btn = document.getElementById(`tpdUserSmtpBtn_${userId}`);
+    if (!emailInput || !btn) return;
+
+    const smtp_email = emailInput.value.trim();
+    const smtp_password = passInput ? passInput.value : '';
+
+    if (smtp_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(smtp_email)) {
+        showToast('⚠️ Địa chỉ Gmail không hợp lệ!', 'error');
+        return;
+    }
+
+    try {
+        btn.disabled = true;
+        btn.innerHTML = '⏳...';
+        const res = await apiCall(`/api/users/${userId}/smtp-config`, 'PUT', { smtp_email, smtp_password });
+        if (res && res.success) {
+            showToast('✅ Đã lưu cấu hình Gmail cho nhân viên!', 'success');
+            if (passInput && smtp_password) passInput.value = '';
+            const statusSpan = document.getElementById(`tpdUserSmtpStatus_${userId}`);
+            if (statusSpan) {
+                if (smtp_email) {
+                    statusSpan.innerHTML = '<span style="color:#059669;background:#ecfdf5;padding:2px 8px;border-radius:99px;font-weight:800;font-size:11px">✅ Đã cài Gmail</span>';
+                } else {
+                    statusSpan.innerHTML = '<span style="color:#dc2626;background:#fef2f2;padding:2px 8px;border-radius:99px;font-weight:700;font-size:11px">❌ Chưa cài</span>';
+                }
+            }
+        } else {
+            showToast('❌ ' + (res?.error || 'Không thể lưu'), 'error');
+        }
+    } catch(e) {
+        showToast('❌ Lỗi: ' + e.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '💾 Lưu';
+        }
+    }
+};
+
 window._tpdSaveGlobalEmail = async function() {
     const input = document.getElementById('tpdGlobalEmailInput');
-    const senderInput = document.getElementById('tpdSenderEmailInput');
-    const senderPassInput = document.getElementById('tpdSenderPasswordInput');
     const spacingInput = document.getElementById('tpdEmailSpacingInput');
     const btn = document.getElementById('tpdSaveGlobalEmailBtn');
-    if (!input || !senderInput || !senderPassInput || !spacingInput || !btn) return;
+    if (!input || !spacingInput || !btn) return;
     
     const email = input.value.trim();
-    const senderEmail = senderInput.value.trim();
-    const senderPassword = senderPassInput.value;
     const spacingSeconds = parseInt(spacingInput.value, 10) || 15;
     
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         showToast('⚠️ Địa chỉ email nhận không hợp lệ!', 'error');
-        return;
-    }
-    if (senderEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail)) {
-        showToast('⚠️ Địa chỉ Gmail gửi đi không hợp lệ!', 'error');
-        return;
-    }
-    if (spacingSeconds < 1) {
-        showToast('⚠️ Giãn cách gửi email tối thiểu phải lớn hơn hoặc bằng 1 giây!', 'error');
         return;
     }
 
@@ -11537,22 +11630,20 @@ window._tpdSaveGlobalEmail = async function() {
         btn.innerHTML = 'Đang lưu...';
         const res = await apiCall('/api/dht/config/design-email-recipient', 'PUT', { 
             email,
-            senderEmail,
-            senderPassword,
-            spacingSeconds
+            spacingSeconds 
         });
         if (res && res.success) {
-            showToast('🎉 Lưu cấu hình email thành công!', 'success');
-            document.getElementById('tpdEmailSettingsOverlay').remove();
+            showToast('🎉 Lưu Email nhận đơn Xưởng thành công!', 'success');
         } else {
-            showToast('⚠️ Lỗi: ' + (res.error || 'Không thể lưu'), 'error');
-            btn.disabled = false;
-            btn.innerHTML = 'Lưu cấu hình';
+            showToast('⚠️ Lỗi: ' + (res?.error || 'Không thể lưu'), 'error');
         }
     } catch (e) {
         showToast('⚠️ Lỗi kết nối: ' + e.message, 'error');
-        btn.disabled = false;
-        btn.innerHTML = 'Lưu cấu hình';
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '💾 Lưu Email Xưởng';
+        }
     }
 };
 

@@ -10,6 +10,89 @@ const path = require('path');
 const fs = require('fs');
 
 async function usersRoutes(fastify, options) {
+    // GET /api/users/me/smtp-config — Lấy cấu hình SMTP cá nhân của người dùng đang đăng nhập
+    fastify.get('/api/users/me/smtp-config', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const user = await db.get('SELECT smtp_email, smtp_password FROM users WHERE id = $1', [userId]);
+        return {
+            smtp_email: user && user.smtp_email ? user.smtp_email : '',
+            hasSmtpPassword: !!(user && user.smtp_password)
+        };
+    });
+
+    // PUT /api/users/me/smtp-config — Cập nhật cấu hình SMTP cá nhân
+    fastify.put('/api/users/me/smtp-config', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const { smtp_email, smtp_password } = request.body || {};
+        const { encrypt } = require('../services/emailChecker');
+
+        const cleanedEmail = (smtp_email || '').trim();
+        if (cleanedEmail && !cleanedEmail.includes('@')) {
+            return reply.code(400).send({ error: 'Địa chỉ Email Gmail gửi đi không hợp lệ!' });
+        }
+
+        if (smtp_password && smtp_password.trim()) {
+            const encryptedPass = encrypt(smtp_password.trim());
+            await db.run('UPDATE users SET smtp_email = $1, smtp_password = $2, updated_at = NOW() WHERE id = $3', [cleanedEmail, encryptedPass, userId]);
+        } else {
+            await db.run('UPDATE users SET smtp_email = $1, updated_at = NOW() WHERE id = $2', [cleanedEmail, userId]);
+        }
+
+        return { success: true };
+    });
+
+    // GET /api/users/smtp-list — Lấy danh sách cấu hình SMTP của nhân viên PHÒNG SALE & PHÒNG KINH DOANH (cho Giám đốc / Quản lý)
+    fastify.get('/api/users/smtp-list', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
+        try {
+            const users = await db.all(`
+                SELECT u.id, u.username, u.full_name, u.role, u.department_id, d.name as department_name,
+                       u.smtp_email,
+                       CASE WHEN u.smtp_password IS NOT NULL AND u.smtp_password != '' THEN true ELSE false END as has_smtp_password
+                FROM users u
+                LEFT JOIN departments d ON (
+                    CASE WHEN u.department_id IS NOT NULL AND u.department_id::text ~ '^[0-9]+$' 
+                         THEN u.department_id::integer 
+                         ELSE NULL 
+                    END = d.id
+                )
+                WHERE u.status = 'active' 
+                  AND u.role NOT IN ('giam_doc', 'tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien')
+                  AND (
+                      UPPER(d.name) LIKE '%SALE%' 
+                   OR UPPER(d.name) LIKE '%KINH DOANH%' 
+                   OR d.parent_id IN (SELECT id FROM departments WHERE UPPER(name) LIKE '%SALE%' OR UPPER(name) LIKE '%KINH DOANH%')
+                   OR u.role IN ('sale', 'kinh_doanh', 'cskh')
+                  )
+                ORDER BY d.name ASC, u.full_name ASC
+            `);
+            return { users };
+        } catch (err) {
+            console.error('Error in /api/users/smtp-list:', err);
+            return reply.code(500).send({ error: err.message });
+        }
+    });
+
+    // PUT /api/users/:id/smtp-config — Cập nhật SMTP cho 1 nhân viên (cho Giám đốc / Quản lý)
+    fastify.put('/api/users/:id/smtp-config', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
+        const userId = Number(request.params.id);
+        const { smtp_email, smtp_password } = request.body || {};
+        const { encrypt } = require('../services/emailChecker');
+
+        const cleanedEmail = (smtp_email || '').trim();
+        if (cleanedEmail && !cleanedEmail.includes('@')) {
+            return reply.code(400).send({ error: 'Địa chỉ Email Gmail gửi đi không hợp lệ!' });
+        }
+
+        if (smtp_password && smtp_password.trim()) {
+            const encryptedPass = encrypt(smtp_password.trim());
+            await db.run('UPDATE users SET smtp_email = $1, smtp_password = $2, updated_at = NOW() WHERE id = $3', [cleanedEmail, encryptedPass, userId]);
+        } else {
+            await db.run('UPDATE users SET smtp_email = $1, updated_at = NOW() WHERE id = $2', [cleanedEmail, userId]);
+        }
+
+        return { success: true };
+    });
+
     // Danh sách users
     fastify.get('/api/users', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { role, status } = request.query;
@@ -18,7 +101,8 @@ async function usersRoutes(fastify, options) {
                      u.telegram_group_id, u.commission_tier_id, u.assigned_to_user_id, u.managed_by_user_id,
                      u.balance, u.bank_name, u.bank_account, u.bank_holder, u.order_code_prefix,
                      u.contract_file, u.rules_file, u.source_crm_type, u.position_id, u.department_id,
-                     u.probation_end_date, u.probation_days, u.probation_contract_file,
+                     u.probation_end_date, u.probation_days, u.probation_contract_file, u.smtp_email,
+                     (u.smtp_password IS NOT NULL AND u.smtp_password != '') as has_smtp_password,
                      p.name as position_name,
                      u.created_at, u.updated_at,
                      ct.name as tier_name, ct.percentage as tier_percentage, ct.parent_percentage as tier_parent_percentage,
@@ -250,7 +334,8 @@ async function usersRoutes(fastify, options) {
         const { full_name, phone, address, role, status, contract_info,
                 start_date, telegram_group_id, commission_tier_id, assigned_to_user_id,
                 bank_name, bank_account, bank_holder, order_code_prefix, department_id, birth_date,
-                managed_by_user_id, source_customer_id, source_crm_type, province, position_id } = request.body || {};
+                managed_by_user_id, source_customer_id, source_crm_type, province, position_id,
+                smtp_email, smtp_password } = request.body || {};
 
         const userId = Number(request.params.id);
         const target = await db.get('SELECT role FROM users WHERE id = ?', [userId]);
@@ -322,6 +407,14 @@ async function usersRoutes(fastify, options) {
              deptChanged,
              userId]
         );
+
+        if (smtp_email !== undefined) {
+            await db.run('UPDATE users SET smtp_email = $1 WHERE id = $2', [(smtp_email || '').trim() || null, userId]);
+        }
+        if (smtp_password && smtp_password.trim()) {
+            const { encrypt } = require('../services/emailChecker');
+            await db.run('UPDATE users SET smtp_password = $1 WHERE id = $2', [encrypt(smtp_password.trim()), userId]);
+        }
 
         // Track department history if changed
         if (deptChanged) {

@@ -274,11 +274,16 @@ function renderPagesTable() {
     }
 
     tbody.innerHTML = pages.map((page, index) => {
-        const crmLabel = page.crm_type === 'ca_hai'
-            ? '<span style="background: rgba(147, 51, 234, 0.08); color: #7c3aed; border: 1.5px solid rgba(147, 51, 234, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #7c3aed;"></span> Cả 2 phòng</span>'
-            : (page.crm_type === 'sale' 
-                ? '<span style="background: rgba(37, 99, 235, 0.08); color: #2563eb; border: 1.5px solid rgba(37, 99, 235, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #2563eb;"></span> Phòng Sale</span>'
-                : '<span style="background: rgba(217, 119, 6, 0.08); color: #d97706; border: 1.5px solid rgba(217, 119, 6, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #d97706;"></span> Kinh Doanh</span>');
+        let crmLabel = '';
+        if (page.crm_type === 'ca_hai') {
+            crmLabel = '<span style="background: rgba(147, 51, 234, 0.08); color: #7c3aed; border: 1.5px solid rgba(147, 51, 234, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #7c3aed;"></span> Cả 2 phòng</span>';
+        } else if (page.crm_type === 'sale') {
+            crmLabel = '<span style="background: rgba(37, 99, 235, 0.08); color: #2563eb; border: 1.5px solid rgba(37, 99, 235, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #2563eb;"></span> Phòng Sale</span>';
+        } else if (page.crm_type === 'tem_pet') {
+            crmLabel = '<span style="background: rgba(249, 115, 22, 0.08); color: #f97316; border: 1.5px solid rgba(249, 115, 22, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #f97316;"></span> Khách TEM/PET</span>';
+        } else {
+            crmLabel = '<span style="background: rgba(217, 119, 6, 0.08); color: #d97706; border: 1.5px solid rgba(217, 119, 6, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #d97706;"></span> Kinh Doanh</span>';
+        }
         
         const statusLabel = page.is_active
             ? '<span style="background: rgba(16, 185, 129, 0.08); color: #059669; border: 1.5px solid rgba(16, 185, 129, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span> Hoạt động</span>'
@@ -287,7 +292,7 @@ function renderPagesTable() {
         // Find source name
         let sourceName = '—';
         const srcId = Number(page.source_id);
-        const sourceList = page.crm_type === 'ca_hai'
+        const sourceList = (page.crm_type === 'ca_hai' || page.crm_type === 'tem_pet')
             ? [..._kdSources, ..._saleSources]
             : (page.crm_type === 'sale' ? _saleSources : _kdSources);
         const matchedSrc = sourceList.find(s => s.id === srcId);
@@ -853,6 +858,9 @@ function showPageConfigModal(index = null) {
 
     const modalBody = `
         <div style="display: grid; gap: 16px;">
+            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; padding: 12px 14px; border-radius: 12px; font-size: 12.5px; color: #1e40af; line-height: 1.5;">
+                📌 <strong>Lưu Ý Quan Trọng:</strong> Bạn phải truy cập và tạo Webhook từ đường link <a href="https://pos.pancake.vn/shop/5798720/setting/general" target="_blank" style="color: #2563eb; font-weight: 800; text-decoration: underline;">https://pos.pancake.vn/shop/5798720/setting/general</a> <strong>TRƯỚC KHI lấy Page Access Token</strong>!
+            </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                 <div>
                     <label style="display: block; font-weight: 700; font-size: 12px; color: var(--gray-700); margin-bottom: 6px;">Pancake Page ID *</label>
@@ -897,6 +905,7 @@ function showPageConfigModal(index = null) {
                         <option value="nhu_cau" ${pageData.crm_type === 'nhu_cau' ? 'selected' : ''}>🏢 Phòng Kinh Doanh (nhu_cau)</option>
                         <option value="sale" ${pageData.crm_type === 'sale' ? 'selected' : ''}>💼 Phòng Sale (sale)</option>
                         <option value="ca_hai" ${pageData.crm_type === 'ca_hai' ? 'selected' : ''}>🏢💼 Cả 2 phòng (ca_hai)</option>
+                        <option value="tem_pet" ${pageData.crm_type === 'tem_pet' ? 'selected' : ''}>🏷️ Khách TEM/PET (tem_pet)</option>
                     </select>
                 </div>
                 <div>
@@ -926,7 +935,7 @@ function onCrmTypeChange(crmType, selectedSourceId = null) {
     const select = document.getElementById('modalPageSourceId');
     if (!select) return;
 
-    const sourceList = crmType === 'ca_hai'
+    const sourceList = (crmType === 'ca_hai' || crmType === 'tem_pet')
         ? [..._kdSources, ..._saleSources]
         : (crmType === 'sale' ? _saleSources : _kdSources);
     

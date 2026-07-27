@@ -785,8 +785,13 @@ function _kockolRenderCustomerRow(c, stats, stt) {
         <!-- Column 10: Liên Hệ (SĐT + Link + Địa chỉ) -->
         <td style="font-size:12px;vertical-align:middle;">
             <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
-                ${c.readonly ? `<span style="color:var(--gray-400)">${c.phone}</span>` : `<a href="tel:${c.phone}" style="color:var(--info);font-weight:600;">${c.phone}</a>`}
-                ${c.phone && !c.readonly ? `<span onclick="event.stopPropagation();_crmCopyText('${c.phone}',this,'SĐT')" style="cursor:pointer;font-size:11px;color:#94a3b8;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy SĐT">📋</span>` : ''}
+                ${(() => {
+                    const hasRealPhone = c.phone && !c.phone.startsWith('pancake_');
+                    if (!hasRealPhone) return '';
+                    const copyBtn = !c.readonly ? `<span onclick="event.stopPropagation();_crmCopyText('${c.phone}',this,'SĐT')" style="cursor:pointer;font-size:11px;color:#94a3b8;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy SĐT">📋</span>` : '';
+                    const phoneEl = c.readonly ? `<span style="color:var(--gray-400)">${c.phone}</span>` : `<a href="tel:${c.phone}" style="color:var(--info);font-weight:600;">${c.phone}</a>`;
+                    return phoneEl + copyBtn;
+                })()}
                 ${c.facebook_link ? `<a href="${c.facebook_link}" target="_blank" style="margin-left:6px;color:#1877F2;font-weight:700;font-size:11px;" title="${c.facebook_link}">🔗 FB</a>` : ''}
             </div>
             ${c.address ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">📍 ${c.address}</div>` : ''}
@@ -819,7 +824,8 @@ function _kockolRenderCustomerRow(c, stats, stt) {
         </td>
         <!-- Column 13: Lĩnh Vực -->
         <td style="font-size:12px;font-weight:600;color:#122546;vertical-align:middle;">
-            ${c.job || '<span style="color:var(--gray-600)">—</span>'}
+            ${(c.pancake_customer_id || c.pancake_conversation_id || (c.phone && c.phone.startsWith('pancake_'))) ? '<span style="color:var(--gray-600)">—</span>' : (c.job || '<span style="color:var(--gray-600)">—</span>')}
+        </td>
     </tr>`;
 }
 
@@ -1266,7 +1272,7 @@ async function _kockolOpenConsultModal(customerId) {
                 <input type="text" id="consultOrderCode" class="form-control" readonly style="background:var(--gray-100);font-weight:700;color:var(--navy);font-size:16px;cursor:not-allowed;border:2px solid var(--gold);">
             </div>
             <div class="form-group">
-                <label>SĐT Khách Hàng</label>
+                <label>SĐT Khách Hàng <span style="color:var(--danger)">*</span></label>
                 <input type="text" id="consultPhone" class="form-control" value="${customerInfo.phone || ''}" maxlength="10" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" placeholder="10 chữ số">
             </div>
             <div class="form-group">
@@ -1984,8 +1990,16 @@ async function _kockolSubmitConsultLog(customerId) {
         if (!sbhDate) { showToast('Vui lòng chọn ngày hẹn sau bán hàng!', 'error'); _kockolEnableSubmitBtn(); return; }
 
         // Phone validate
-        if (phone && !/^\d{10}$/.test(phone)) {
-            showToast('SĐT phải đúng 10 chữ số', 'error'); _kockolEnableSubmitBtn(); return;
+        if (!phone || !/^0\d{9}$/.test(phone)) {
+            showToast('⚠️ SĐT Khách Hàng là bắt buộc, phải đủ 10 số và bắt đầu bằng số 0!', 'error');
+            const phoneInput = document.getElementById('consultPhone');
+            if (phoneInput) {
+                phoneInput.focus();
+                phoneInput.style.borderColor = '#ef4444';
+                phoneInput.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.25)';
+            }
+            _kockolEnableSubmitBtn();
+            return;
         }
 
         try {
@@ -2069,7 +2083,7 @@ async function _kockolOpenConsultHistory(customerId) {
                 <div><strong>Mã:</strong> <span style="color:var(--gold)">${getCustomerCode(c)}</span> ${getCustomerUidBadge(c, {size:'11px'})}</div>
                 <div><strong>Trạng thái:</strong> ${getStatusBadge(c.order_status)}</div>
                 <div><strong>Khách hàng:</strong> ${c.customer_name}</div>
-                <div><strong>SĐT:</strong> ${c.readonly ? '<span style="color:var(--gray-400)">' + (c.phone || '—') + '</span>' : '<a href="tel:' + c.phone + '">' + c.phone + '</a>'}</div>
+                <div><strong>SĐT:</strong> ${(c.phone && !c.phone.startsWith('pancake_')) ? (c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '">' + c.phone + '</a>') : '—'}</div>
                 <div><strong>Nguồn:</strong> ${c.source_name || '—'}</div>
                 <div><strong>Ngày bàn giao:</strong> ${formatDate(c.handover_date)}</div>
                 <div><strong>Địa chỉ:</strong> ${c.address || '—'}</div>
@@ -2173,7 +2187,7 @@ function _kockolRenderReferrerList(customerId, customers) {
                 onmouseover="this.style.borderColor='#fad24c';this.style.background='#fefce8'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white'">
                 <div>
                     <div style="font-weight:600;color:#122546;">${c.customer_name}</div>
-                    <div style="font-size:12px;color:#6b7280;">${c.phone || '—'}</div>
+                    <div style="font-size:12px;color:#6b7280;">${(c.phone && !c.phone.startsWith('pancake_')) ? c.phone : '—'}</div>
                 </div>
                 <span style="font-size:11px;padding:3px 8px;border-radius:12px;background:${typeColor}20;color:${typeColor};font-weight:600;">${typeLabel}</span>
             </div>
@@ -2259,7 +2273,7 @@ async function _kockolOpenCustomerInfo(customerId) {
         </div>
         <div class="form-group">
             <label>Số Điện Thoại</label>
-            <input type="text" id="ciPhone" class="form-control" value="${c.phone || ''}" maxlength="10" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+            <input type="text" id="ciPhone" class="form-control" value="${(c.phone && !c.phone.startsWith('pancake_')) ? c.phone : ''}" maxlength="10" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div class="form-group">
@@ -2275,8 +2289,8 @@ async function _kockolOpenCustomerInfo(customerId) {
             </div>
         </div>
         <div class="form-group">
-            <label>Công Việc</label>
-            <input type="text" id="ciJob" class="form-control" value="${c.job || ''}" placeholder="VD: Giám đốc công ty ABC">
+            <label>Lĩnh Vực / Nghề Nghiệp</label>
+            <input type="text" id="ciJob" class="form-control" value="${(c.pancake_customer_id || c.pancake_conversation_id || (c.phone && c.phone.startsWith('pancake_'))) ? '' : (c.job || '')}" placeholder="VD: Giám đốc công ty ABC">
         </div>
         <div class="form-group">
             <label>Ngày Sinh Nhật</label>
@@ -2453,9 +2467,7 @@ async function _kockolOpenCustomerDetail(customerId) {
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📞 SĐT</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.readonly ? '<span style="color:#94a3b8">' + (c.phone || '—') + '</span>' : '<a href="tel:' + c.phone + '" style="color:#3b82f6;text-decoration:none;">' + c.phone + '</a>'}</div>
-                    </div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.readonly ? '<span style="color:#94a3b8">' + (c.phone || '—') + '</span>' : '<a href="tel:' + c.phone + '" style="color:#3b82f6;text-decoration:none;">' + c.phone + '</a>'}</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${(c.phone && !c.phone.startsWith('pancake_')) ? (c.readonly ? '<span style="color:#94a3b8">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:#3b82f6;text-decoration:none;">' + c.phone + '</a>') : '—'}</div>
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">🏠 Địa chỉ</div>
@@ -2475,7 +2487,7 @@ async function _kockolOpenCustomerDetail(customerId) {
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">💼 Công việc</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.job || '—'}</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${(c.pancake_customer_id || c.pancake_conversation_id || (c.phone && c.phone.startsWith('pancake_'))) ? '—' : (c.job || '—')}</div>
                     </div>
                     <div style="padding:12px 14px;border-right:1px solid #e2e8f0;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">👤 NV phụ trách</div>

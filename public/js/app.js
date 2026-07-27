@@ -95,12 +95,15 @@ const CRM_LABELS = {
 
 const MENU_CONFIG = [
     { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', permKey: 'tong_quan' },
-    { id: 'dashboard-kdoanh', label: 'Dashboard P.Kinh Doanh', icon: '📈', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/dashboardkdoanh', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'dashboard_kdoanh' },
     { id: 'kpikdoanh', label: 'KPI P.Kinh Doanh', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpikdoanh', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_kdoanh' },
-    { id: 'tong-doanh-so-sale', label: 'Tổng Doanh Số Sale KD', icon: '📊', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/tongdoansosale', permKey: 'tong_doanh_so_sale' },
+    { id: 'kpisale', label: 'KPI P.Sale', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpisale', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_sale' },
     { id: 'camketcuochop', label: 'Cam Kết Cuộc Họp', icon: '📝', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/camketcuochop', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'cam_ket_cuoc_hop' },
+    { id: 'ngansachmkt', label: 'Ngân Sách Marketing', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/ngansachmkt', mobileHref: '/m/ngansachmkt', permKey: 'ngan_sach_mkt' },
     { id: 'timkiemkhachhang', label: 'Tìm Kiếm Khách Hàng', icon: '🔍', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/timkiemkhachhanghv', permKey: 'tim_kiem_kh' },
+    { id: 'dashboard-kdoanh', label: 'Dashboard P.Kinh Doanh', icon: '📈', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/dashboardkdoanh', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'dashboard_kdoanh' },
+    { id: 'tong-doanh-so-sale', label: 'Tổng Doanh Số Sale KD', icon: '📊', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/tongdoansosale', permKey: 'tong_doanh_so_sale' },
     { id: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/chamsockhsale', permKey: 'chamsockhsale' },
+    { id: 'chamsockhtempet', label: 'Chăm Sóc Khách TEM/PET', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/chamsockhtempet', permKey: 'chamsockhtempet' },
     { id: 'sokhachsale', label: 'Sổ Khách Sale', icon: '📖', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/sokhachsale', permKey: 'sokhachsale' },
     { id: 'goidien', label: 'Gọi Điện Telesale', icon: '📞', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/goidien', permKey: 'goi_dien' },
     { id: 'hethonggoidien', label: 'Hệ Thống Phân Chia Gọi Điện', icon: '📡', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/hethonggoidien', permKey: 'he_thong_goi_dien' },
@@ -324,28 +327,33 @@ function startHeartbeatSystem() {
 const _PAGE_SCRIPT_MAP = {
     'accounts': '/js/pages/accounts.js',
     'teams': '/js/pages/teams.js',
-    'permissions': '/js/pages/permissions.js',
+    'permissions': '/js/pages/permissions.js?v=20260726_v381',
     'quan-ly-affiliate': '/js/pages/quanlyaffiliate.js',
     'dashboard-kdoanh': '/js/pages/dashboardkdoanh.js',
     'dashboardkdoanh': '/js/pages/dashboardkdoanh.js',
     'settings': '/js/pages/settings.js',
-    'caidatpancake': '/js/pages/caidatpancake.js',
+    'caidatpancake': '/js/pages/caidatpancake.js?v=20260726_v380',
     'tu-van-khach-aff': '/js/pages/baocaohoahong.js',
     'theo-doi-tu-van-aff': '/js/pages/baocaohoahong.js',
     'bao-cao-hoa-hong': '/js/pages/baocaohoahong.js',
     'baocaohoahong': '/js/pages/baocaohoahong.js',
-    'crm-nhu-cau': '/js/pages/crm-nhucau.js?v=20260725_dat_coc_v1',
-    'crm-ctv': '/js/pages/crm-ctv-full.js?v=20260725_dat_coc_v1',
-    'chamsockhsale': '/js/pages/chamsockhsale.js?v=20260725_dat_coc_v10',
+    'crm-nhu-cau': '/js/pages/crm-nhucau.js?v=20260725_v308',
+    'crm-ctv': '/js/pages/crm-ctv-full.js?v=20260725_v308',
+    'chamsockhsale': '/js/pages/chamsockhsale.js?v=20260726_v355',
+    'chamsockhtempet': '/js/pages/chamsockhtempet.js?v=20260726_v355',
+    'quytacnuttuvancrmsale': '/js/pages/quytac-tuvan-sale.js?v=20260725_v351',
+    'quytacnuttuvancrmtempet': '/js/pages/quytac-tuvan-sale.js?v=20260725_v351',
     'sokhachsale': '/js/pages/sokhachsale.js',
-    'cham-soc-affiliate': '/js/pages/crm-affiliate-full.js?v=20260725_dat_coc_v1',
-    'chamsocaffiliate': '/js/pages/crm-affiliate-full.js?v=20260725_dat_coc_v1',
+    'cham-soc-affiliate': '/js/pages/crm-affiliate-full.js?v=20260725_v308',
+    'chamsocaffiliate': '/js/pages/crm-affiliate-full.js?v=20260725_v308',
     'cham-soc-koc-kol': '/js/pages/crm-kockol-full.js?v=20260725_dat_coc_v1',
     'chamsockockol': '/js/pages/crm-kockol-full.js?v=20260725_dat_coc_v1',
     'chap-nhan-ctv-affiliate': '/js/pages/chapnhanctvaffliate.js',
     'chapnhanctvaffliate': '/js/pages/chapnhanctvaffliate.js',
     'cap-cuu-sep': '/js/pages/emergency.js',
     'huy-khach': '/js/pages/emergency.js',
+    'huy-khach-hang': '/js/pages/emergency.js',
+    'huykhachhang': '/js/pages/emergency.js',
     'tai-khoan-affiliate': '/js/pages/taikhoanaffiliate.js',
     'my-customers': '/js/pages/hoahong.js',
     'withdraw': '/js/pages/hoahong.js',
@@ -374,8 +382,8 @@ const _PAGE_SCRIPT_MAP = {
     'traogiaithuong': '/js/pages/traogiaithuong.js',
     'donloinoibo': '/js/pages/donloinoibo.js',
     'loithuonggap': '/js/pages/donloinoibo.js',
-    'design-draft': '/js/pages/taophieudonhang.js?v=20260723_lock_viewed_dept_rems_v29',
-    'designdraft': '/js/pages/taophieudonhang.js?v=20260723_lock_viewed_dept_rems_v29',
+    'design-draft': '/js/pages/taophieudonhang.js?v=20260725_per_user_smtp_v70',
+    'designdraft': '/js/pages/taophieudonhang.js?v=20260725_per_user_smtp_v70',
     'bangiao-diem-kd': '/js/pages/bangiao-diem.js',
     'bangiaodiem': '/js/pages/bangiao-diem.js',
     'lich-khoa-bieu': '/js/pages/lich-khoabieu.js',
@@ -413,12 +421,20 @@ const _PAGE_SCRIPT_MAP = {
     'kiemkho': '/js/pages/kiemkho.js',
     'kiemtrachatluong': '/js/pages/kiemtrachatluong.js?v=20260725_ktcl_v5',
     'kpikdoanh': '/js/pages/kpikdoanh.js',
+    'kpisale': '/js/pages/kpisale.js?v=20260727_v430',
+    'kpi-sale': '/js/pages/kpisale.js?v=20260727_v430',
     'camketcuochop': '/js/pages/camketcuochop.js',
     'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
     'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',
     'nhapxuathoanvai': '/js/pages/nhapxuathoanvai.js',
-    'tongdoansosale': '/js/pages/tongdoansosale.js',
+    'tong-doanh-so-sale': '/js/pages/tongdoansosale.js?v=20260726_v356',
+    'tongdoansosale': '/js/pages/tongdoansosale.js?v=20260726_v356',
+    'tongdoanhsosale': '/js/pages/tongdoansosale.js?v=20260726_v356',
+    'ngansachmkt': '/js/pages/ngansachmkt.js?v=20260726_v427',
+    'ngan-sach-mkt': '/js/pages/ngansachmkt.js?v=20260726_v427',
+    'timkiemkhachhang': '/js/pages/timkiem-khachhang.js?v=20260726_v356',
+    'timkiemkhachhanghv': '/js/pages/timkiem-khachhang.js?v=20260726_v356',
     'trasoatdonhang': '/js/pages/trasoatdonhang.js?v=20260721_ts_modal_lazy_v2',
     'tulieuxuongvp': '/js/pages/tulieuxuongvp.js',
     'donhangchuathutien': '/js/pages/donhangchuathutien.js?v=20260721_counting_fix_v7',
@@ -459,8 +475,8 @@ const _PAGE_SCRIPT_MAP = {
     'caidatsanxuat': '/js/pages/caidatsanxuat.js?v=20260721_spqt_grouping_v1',
     'don-hang-tong': '/js/pages/donhangtong.js',
     'donhangtong': '/js/pages/donhangtong.js',
-    'taophieudonhang': '/js/pages/taophieudonhang.js?v=20260723_lock_viewed_dept_rems_v29',
-    'tao-phieu-don-hang': '/js/pages/taophieudonhang.js?v=20260723_lock_viewed_dept_rems_v29',
+    'taophieudonhang': '/js/pages/taophieudonhang.js?v=20260725_per_user_smtp_v70',
+    'tao-phieu-don-hang': '/js/pages/taophieudonhang.js?v=20260725_per_user_smtp_v70',
     'xuatvathv': '/js/pages/xuatvathv.js',
     'xuat-hoa-don-vat': '/js/pages/xuatvathv.js',
     'don-gui-ao-mau': '/js/pages/donguiaomau.js',
@@ -2024,7 +2040,8 @@ function findPermissionMenuItem(pageId) {
         'quytacnuttuvancrmctv': 'crm-ctv',
         'quytacnuttuvancrmaffiliate': 'cham-soc-affiliate',
         'quytacnuttuvancrmkockol': 'cham-soc-koc-kol',
-        'quytacnuttuvancrmsale': 'chamsockhsale'
+        'quytacnuttuvancrmsale': 'chamsockhsale',
+        'quytacnuttuvancrmtempet': 'chamsockhtempet'
     };
 
     var targetId = aliasMap[pageId] || pageId;
@@ -2268,12 +2285,13 @@ async function handleRoute() {
                 case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
                 case 'crm-ctv': renderCRMCtvPage(content); break;
                 case 'chamsockhsale': renderChamsockhsalePage(content); break;
+                case 'chamsockhtempet': renderChamsockhtempetPage(content); break;
                 case 'sokhachsale': renderSokhachsalePage(content); break;
                 case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;
                 case 'cham-soc-koc-kol': case 'chamsockockol': renderCRMKocKolPage(content); break;
                 case 'chap-nhan-ctv-affiliate': case 'chapnhanctvaffliate': renderChapNhanCTVAffiliatePage(content); break;
                 case 'cap-cuu-sep': renderEmergencyPage(content); break;
-                case 'huy-khach': renderCancelPage(content); break;
+                case 'huy-khach': case 'huy-khach-hang': case 'huykhachhang': renderCancelPage(content); break;
                 case 'tai-khoan-affiliate': renderTaiKhoanAffiliatePage(content); break;
                 case 'my-customers': renderMyCustomersPage(content); break;
                 case 'withdraw': renderWithdrawPage(content); break;
@@ -2305,12 +2323,13 @@ async function handleRoute() {
                 case 'quytacnuttuvancrmctv': renderQuyTacTuVanCtvPage(content); break;
                 case 'quytacnuttuvancrmaffiliate': renderQuyTacTuVanAffPage(content); break;
                 case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
-                case 'quytacnuttuvancrmsale': renderQuyTacTuVanSalePage(content); break;
+                case 'quytacnuttuvancrmsale': case 'quytacnuttuvancrmtempet': renderQuyTacTuVanSalePage(content); break;
                 case 'dailylinks': renderDailyLinksPage(content); break;
                 case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _dlInit==='function')_dlInit();},50); break;
                 case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;
                 case 'addcmtdoitackh': content.innerHTML=''; setTimeout(function(){if(typeof _acInit==='function')_acInit();},50); break;
                 case 'timkiemkhachhang': case 'timkiemkhachhanghv': renderTimKiemKhachHang(content); break;
+                case 'ngansachmkt': case 'ngan-sach-mkt': renderNgansachmktPage(content); break;
                 case 'xuatvathv': renderXuatvathvPage(content); break;
                 case 'bo-phan-in': case 'bophanin': case 'bophaninhv': renderBophaninPage(content); break;
                 case 'bo-phan-cat': case 'bophancat': case 'bophancathv': renderBophancatPage(content); break;
@@ -2581,6 +2600,8 @@ async function renderDashboardPage(container) {
 var _PAGE_INIT_REGISTRY = {
     'tong-doanh-so-sale': 'renderTongdoanhsosalePage',
     'tongdoansosale': 'renderTongdoanhsosalePage',
+    'ngansachmkt': 'renderNgansachmktPage',
+    'ngan-sach-mkt': 'renderNgansachmktPage',
     'gia-nhap-goc': 'renderGiaNhapGocPage',
     'gianhapgoc': 'renderGiaNhapGocPage',
     'bao-gia-goc': 'renderBaogiagocPage',
@@ -3003,9 +3024,13 @@ if (typeof window.escapeHTML !== 'function') {
 
 // ========== API HELPER ==========
 async function apiCall(url, method = 'GET', body = null) {
+    if (typeof method === 'object' && method !== null) {
+        body = method.body || null;
+        method = method.method || 'GET';
+    }
     console.log("[apiCall LOG] url:", url, "body:", body, "typeof body:", typeof body, "isFormData:", body && (body instanceof FormData), "hasAppend:", body && typeof body.append);
     let finalUrl = url;
-    if (method.toUpperCase() === 'GET') {
+    if (String(method).toUpperCase() === 'GET') {
         const separator = url.includes('?') ? '&' : '?';
         finalUrl = url + separator + '_=' + Date.now();
     }
@@ -4293,7 +4318,7 @@ async function _abCheckUnblock() {
         if (el.closest && el.closest('[role="tab"], [data-toggle], .tab-btn, .nav-tab')) return true;
         // Close buttons (modals, popups) — always allow
         var txt = (el.textContent || '').trim();
-        if (txt === '✕' || txt === '×' || txt === 'X' || txt === '✕ Đóng' || txt.indexOf('Bỏ qua') >= 0) return true;
+        if (txt === '✕' || txt === '×' || txt === 'X' || txt === '✕ Đóng' || txt.indexOf('Bỏ qua') >= 0 || txt.indexOf('Hủy') >= 0 || txt.indexOf('Huy') >= 0) return true;
         // Elements explicitly marked as safe
         if (el.dataset && el.dataset.noDebounce) return true;
         // Copy buttons — safe to click multiple times

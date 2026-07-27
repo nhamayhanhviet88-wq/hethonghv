@@ -206,6 +206,7 @@ async function renderChuyensosalePage(container) {
                             <label>CRM <span style="color:var(--danger)">*</span></label>
                             <select id="csoSaleCrm" class="form-control" required>
                                 <option value="sale" selected>Chăm Sóc Khách Sale</option>
+                                <option value="tem_pet">Chăm Sóc Khách TEM/PET</option>
                             </select>
                         </div>
                         ${isAffiliate ? `
@@ -407,7 +408,7 @@ async function renderChuyensosalePage(container) {
                 showToast(data.error || data.message || 'Lỗi', 'error');
             }
         } catch (err) {
-            showToast('Lỗi kết nối', 'error');
+            showToast(err.message || 'Lỗi kết nối', 'error');
         }
     });
 

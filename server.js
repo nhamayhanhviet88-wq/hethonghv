@@ -1593,6 +1593,7 @@ async function start() {
     fastify.register(require('./routes/customerRetention'));
     fastify.register(require('./routes/kpiTargets'));
     fastify.register(require('./routes/kpiKdoanh'));
+    fastify.register(require('./routes/kpiSale'));
     fastify.register(require('./routes/meetingCommitments'));
     fastify.register(require('./routes/telegram'));
     fastify.register(require('./routes/paymentRecords'));
@@ -1631,6 +1632,7 @@ async function start() {
     fastify.register(require('./routes/ctv-quotations'));
     fastify.register(require('./routes/pancake'));
     fastify.register(require('./routes/khuyenmaigiamgia'));
+    fastify.register(require('./routes/ngansachmkt'));
 
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
@@ -1819,6 +1821,11 @@ async function start() {
         return reply.sendFile('mobile-vatlieutempet.html');
     });
 
+    // Mobile Ngân Sách Marketing — standalone touch-optimized page
+    fastify.get('/m/ngansachmkt', async (request, reply) => {
+        return reply.sendFile('mobile-ngansachmkt.html');
+    });
+
     // Đối Tác — public standalone page (no auth required)
     fastify.get('/doitac', async (request, reply) => {
         return reply.type('text/html').sendFile('doitac.html');
@@ -1909,19 +1916,11 @@ async function start() {
             return reply.type('text/html').sendFile('doitac-dashboard.html');
         } else {
             // Serve auto-injected dashboard HTML (disable caching to force script updates)
-            if (process.env.NODE_ENV !== 'production') {
-                reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-                     .header('Pragma', 'no-cache')
-                     .header('Expires', '0')
-                     .type('text/html')
-                     .send(buildDashboardHtml());
-            } else {
-                reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-                     .header('Pragma', 'no-cache')
-                     .header('Expires', '0')
-                     .type('text/html')
-                     .send(_cachedDashboardHtml || buildDashboardHtml());
-            }
+            reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+                 .header('Pragma', 'no-cache')
+                 .header('Expires', '0')
+                 .type('text/html')
+                 .send(buildDashboardHtml());
         }
     });
 

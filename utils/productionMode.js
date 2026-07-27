@@ -101,10 +101,10 @@ function buildProductionFilter(cutoff, testIds, dateCol = 'created_at', createdB
     // Ẩn dữ liệu do TK test tạo RA HOẶC được gán CHO TK test
     if (testIds && testIds.length > 0) {
         const idList = testIds.map(id => parseInt(id)).join(',');
-        sql += ` AND ${createdByCol} NOT IN (${idList})`;
+        sql += ` AND (${createdByCol} IS NULL OR ${createdByCol} NOT IN (${idList}))`;
         // ★ Also hide customers ASSIGNED TO test accounts
         const assignedCol = opts.assignedToCol || (createdByCol.includes('.') ? createdByCol.replace(/\.[^.]+$/, '.assigned_to_id') : 'assigned_to_id');
-        sql += ` AND ${assignedCol} NOT IN (${idList})`;
+        sql += ` AND (${assignedCol} IS NULL OR ${assignedCol} NOT IN (${idList}))`;
     }
 
     return sql;

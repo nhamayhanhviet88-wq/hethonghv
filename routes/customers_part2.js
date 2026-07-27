@@ -13,8 +13,8 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const customer = await db.get('SELECT * FROM customers WHERE id = ?', [custId]);
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
-        // Enforce min 5 consultation logs for Sale CRM (skip for Director/Senior Manager)
-        if (customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
+        // Enforce min 5 consultation logs for Sale & TEM/PET CRM (skip for Director/Senior Manager)
+        if (['sale', 'tem_pet'].includes(customer.crm_type) && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
             const countRow = await db.get(`
                 WITH last_boundary AS (
                     SELECT cl.customer_id, MAX(cl.id) as id
@@ -98,7 +98,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         // REPEAT cancel: auto-reverted (cancel_approved = -2), NV pressing Hủy Khách again
         if (customer.cancel_approved === -2 && customer.cancel_requested === 1) {
-            if (customer.crm_type === 'sale') {
+            if (['sale', 'tem_pet'].includes(customer.crm_type)) {
                 return _directCancel();
             }
 
@@ -141,8 +141,8 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             return { success: true, message: msg || 'Yêu cầu hủy đã được gửi. Chờ duyệt.' };
         };
 
-        // ★ Sale CRM → tự động hủy luôn, không cần chờ duyệt
-        if (customer.crm_type === 'sale') {
+        // ★ Sale CRM & TEM/PET CRM → tự động hủy luôn, không cần chờ duyệt
+        if (['sale', 'tem_pet'].includes(customer.crm_type)) {
             return _directCancel();
         }
 
@@ -958,7 +958,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         content = fields.content;
         if (!log_type) return reply.code(400).send({ error: 'Vui lòng chọn loại tư vấn' });
 
-        if (log_type === 'huy' && customer.crm_type === 'sale' && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
+        if (log_type === 'huy' && ['sale', 'tem_pet'].includes(customer.crm_type) && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
             const countRow = await db.get(`
                 WITH last_boundary AS (
                     SELECT cl.customer_id, MAX(cl.id) as id
@@ -1094,6 +1094,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         const isZeroDepositVal = fields.is_zero_deposit === true || fields.is_zero_deposit === 'true';
         if (log_type === 'chot_don') {
+            const { normalizePhone } = require('../utils/phoneCheck');
+            const checkPhone = fields.phone ? normalizePhone(fields.phone) : customer.phone;
+            if (!checkPhone || !/^0\d{9}$/.test(checkPhone)) {
+                return reply.code(400).send({ error: '⚠️ SĐT Khách Hàng là bắt buộc khi Chốt Đơn, phải đủ 10 số và bắt đầu bằng số 0!' });
+            }
             if (isZeroDepositVal) {
                 const authorizedRoles = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
                 if (!authorizedRoles.includes(request.user.role)) {
@@ -1142,46 +1147,55 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             const prefix = userRow?.order_code_prefix;
             if (!prefix) return reply.code(400).send({ error: 'Chưa cài đặt mã đơn cho nhân viên này. Vui lòng liên hệ Admin để cài đặt prefix.' });
 
-            // Generate next order number
-            const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
-            let nextNum = 1;
-            if (lastCode) {
-                const match = lastCode.order_code.match(/(\d{4})$/);
-                if (match) nextNum = parseInt(match[1]) + 1;
-            }
-
-            // Determine CRM prefix
-            const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
-            let crmPrefix = '';
-            if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
-                crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
-            } else if (customer.referrer_customer_id) {
-                const refCustomer = await db.get('SELECT crm_type FROM customers WHERE id = ?', [customer.referrer_customer_id]);
-                if (refCustomer && refCustomer.crm_type && refCustomer.crm_type !== 'nhu_cau') {
-                    crmPrefix = CRM_ORDER_PREFIX[refCustomer.crm_type] || '';
-                }
-            } else if (customer.referrer_id) {
-                const referrer = await db.get('SELECT source_customer_id, role, source_crm_type FROM users WHERE id = ?', [customer.referrer_id]);
-                if (referrer) {
-                    if (referrer.source_customer_id) {
-                        const srcCust = await db.get('SELECT crm_type FROM customers WHERE id = ?', [referrer.source_customer_id]);
-                        if (srcCust && srcCust.crm_type && srcCust.crm_type !== 'nhu_cau') {
-                            crmPrefix = CRM_ORDER_PREFIX[srcCust.crm_type] || '';
-                        }
-                    } else {
-                        const ROLE_TO_CRM = { hoa_hong: 'ctv_hoa_hong', ctv: 'ctv', tkaffiliate: 'ctv_hoa_hong' };
-                        const mappedCrm = ROLE_TO_CRM[referrer.role];
-                        if (mappedCrm) {
-                            crmPrefix = CRM_ORDER_PREFIX[mappedCrm] || '';
-                        } else if (referrer.source_crm_type) {
-                            crmPrefix = CRM_ORDER_PREFIX[referrer.source_crm_type] || '';
-                        }
-                    }
+            // Check if there is a pending deposit order code for this customer
+            let targetCode = null;
+            if (customer.phone) {
+                const existingDeposit = await db.get(`
+                    SELECT pr.order_tt_coc 
+                    FROM payment_records pr
+                    LEFT JOIN order_codes oc ON oc.order_code = pr.order_tt_coc
+                    WHERE pr.customer_phone = ? 
+                      AND pr.payment_type = 'dat_coc' 
+                      AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''
+                      AND oc.id IS NULL
+                    ORDER BY pr.id DESC LIMIT 1
+                `, [customer.phone]);
+                if (existingDeposit?.order_tt_coc) {
+                    targetCode = existingDeposit.order_tt_coc;
                 }
             }
 
-            const orderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
-            await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status, is_zero_deposit) VALUES (?, ?, ?, \'active\', ?)', [customerId, userId, orderCode, isZeroDepositVal]);
+            if (!targetCode) {
+                const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
+                let nextNum = 1;
+                if (lastCode) {
+                    const match = lastCode.order_code.match(/(\d{4})$/);
+                    if (match) nextNum = parseInt(match[1]) + 1;
+                }
+                const lastDepositCode = await db.get(`
+                    SELECT order_tt_coc FROM payment_records 
+                    WHERE (cskh_user_id = ? OR locked_by = ?) 
+                      AND order_tt_coc IS NOT NULL AND order_tt_coc != ''
+                    ORDER BY order_tt_coc DESC LIMIT 1
+                `, [userId, userId]);
+                if (lastDepositCode && lastDepositCode.order_tt_coc) {
+                    const match = lastDepositCode.order_tt_coc.match(/(\d{4})$/);
+                    if (match) nextNum = Math.max(nextNum, parseInt(match[1]) + 1);
+                }
+
+                const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
+                let crmPrefix = '';
+                if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
+                    crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
+                }
+                targetCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
+            }
+
+            const existingCodeRow = await db.get('SELECT id FROM order_codes WHERE order_code = ?', [targetCode]);
+            if (!existingCodeRow) {
+                await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status, is_zero_deposit) VALUES (?, ?, ?, \'active\', ?)', [customerId, userId, targetCode, isZeroDepositVal]);
+            }
+            generatedOrderCode = targetCode;
 
             // Backfill/update order_tt_coc on deposit records for this customer
             if (customer.phone) {
@@ -1192,9 +1206,8 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     WHERE customer_phone = $2
                       AND payment_type = 'dat_coc'
                       AND (order_tt_coc IS NULL OR order_tt_coc = '' OR order_tt_coc = $1)
-                `, [orderCode, customer.phone]);
+                `, [generatedOrderCode, customer.phone]);
             }
-            generatedOrderCode = orderCode;
         }
 
         // NOTE: Items validation removed — products are now entered in DHT, not CRM
@@ -1326,8 +1339,14 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
         }
 
-        // Create a binding text inside content for deposit record selection
         let consultContent = content || '';
+        if (!consultContent || !consultContent.trim()) {
+            if (log_type === 'dat_coc') consultContent = 'Ghi nhận đặt cọc';
+            else if (log_type === 'chot_don') consultContent = 'Ghi nhận chốt đơn thành công';
+            else if (log_type === 'dang_san_xuat') consultContent = 'Đơn đang sản xuất';
+            else if (log_type === 'hoan_thanh') consultContent = 'Hoàn thành đơn hàng';
+            else if (log_type === 'sau_ban_hang') consultContent = 'Chăm sóc sau bán hàng';
+        }
         const payment_record_id = fields.payment_record_id ? Number(fields.payment_record_id) : null;
         if (payment_record_id) {
             const pr = await db.get('SELECT payment_code, amount FROM payment_records WHERE id = $1', [payment_record_id]);
@@ -1345,7 +1364,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 if (!assocOrderCode) {
                     const latestOrder = await db.get(
                         `SELECT order_code FROM dht_orders 
-                         WHERE (customer_id = $1 OR customer_phone = $2) AND is_draft = false 
+                         WHERE (customer_id = $1 OR customer_phone = $2)
                          ORDER BY id DESC LIMIT 1`,
                         [customerId, customer.phone]
                     );
@@ -1357,7 +1376,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 await db.run(`
                     UPDATE payment_records SET
                         payment_type = 'dat_coc',
-                        order_tt_coc = COALESCE(order_tt_coc, $1),
+                        order_tt_coc = COALESCE($1, order_tt_coc),
                         handover_status = 'thu_quy_nhan',
                         customer_name = COALESCE($2, customer_name),
                         customer_phone = COALESCE($3, customer_phone),
@@ -1377,6 +1396,34 @@ module.exports = function(fastify, db, getManagedDeptIds) {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
             [customerId, log_type, consultContent || null, imagePath, request.user.id, deposit_amount, next_consult_type, payment_record_id]
         );
+
+        // ★ Auto-create order on Đơn Hàng Tổng (dht_orders) if gc_order_code or TEM/PET deposit is logged
+        const gcOrderCode = fields.gc_order_code || fields.order_code;
+        if (gcOrderCode && (gcOrderCode.includes('GCTEM') || gcOrderCode.includes('GCPET'))) {
+            const cat = gcOrderCode.includes('GCPET') ? 'pet' : 'tem';
+            const catId = cat === 'pet' ? 8 : 9;
+            const existingDht = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [gcOrderCode]);
+            if (!existingDht) {
+                await db.run(`
+                    INSERT INTO dht_orders (
+                        order_code, order_date, category_id,
+                        customer_name, customer_phone, province, address,
+                        cskh_user_id, created_by, last_updated_by, is_draft, customer_id,
+                        deposit_amount_cache
+                    ) VALUES (
+                        $1, NOW(), $2,
+                        $3, $4, $5, $6,
+                        $7, $7, $7, false, $8,
+                        $9
+                    )
+                `, [
+                    gcOrderCode, catId,
+                    customer.customer_name, customer.phone, customer.province || null, customer.address || null,
+                    request.user.id, customerId,
+                    Number(deposit_amount) || 0
+                ]);
+            }
+        }
 
         // ★ Thông báo ĐÃ XỬ LÝ SỐ — lần tư vấn đầu cho số chuyển/gửi lại hôm nay
         if (log_type !== 'khong_xu_ly' && customer.assigned_to_id) {
@@ -1408,11 +1455,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             } catch (e) { console.error('[ĐÃ XỬ LÝ SỐ]', e.message); }
         }
 
-        // Pinned customers: always set appointment to next working day (ignore user input)
+        console.log('[CONSULT DEBUG]', { customerId, log_type, crm_type: customer.crm_type, is_pinned: customer.is_pinned, appt_date: fields.appointment_date });
         if (customer.is_pinned) {
             const nextWorkDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay, customerId]);
-        } else if (fields.appointment_date) {
+        } else if (fields.appointment_date && fields.appointment_date.trim() !== '') {
             // ★ VALIDATE: appointment_date must be AFTER today (never today or past)
             const vnToday = getVNToday();
             if (fields.appointment_date <= vnToday) {
@@ -1432,13 +1479,14 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             const rawTargetStr = toDateStr(targetDate);
             const finalApptDate = await getEffectiveWorkingDay(rawTargetStr, customer.assigned_to_id, holidays);
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [finalApptDate, customerId]);
-        } else if (customer.crm_type === 'sale' && !['huy', 'cap_cuu_sep', 'chot_don'].includes(log_type)) {
-            // SALE CRM: auto-calculate next follow-up date based on rotation cycle (fallback)
-            // Đặt cọc (dat_coc): luôn hẹn Ngày Mai (hoặc ngày đi làm sớm nhất)
-            const nextFollowUp = log_type === 'dat_coc'
-                ? await getNextWorkingDay(new Date(), customer.assigned_to_id)
-                : await getNextFollowUpDate(new Date(), customer.assigned_to_id);
-            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextFollowUp, customerId]);
+        } else if (log_type === 'dat_coc' || ['tem_pet', 'sale'].includes(customer.crm_type)) {
+            if (!['huy', 'cap_cuu_sep', 'chot_don'].includes(log_type)) {
+                // Đặt cọc (dat_coc) hoặc CRM TEM/PET: luôn hẹn Ngày Làm Việc Tiếp Theo (bỏ qua CN, lễ, nghỉ NV)
+                const nextFollowUp = (log_type === 'dat_coc' || customer.crm_type === 'tem_pet')
+                    ? await getNextWorkingDay(new Date(), customer.assigned_to_id)
+                    : await getNextFollowUpDate(new Date(), customer.assigned_to_id);
+                await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextFollowUp, customerId]);
+            }
         }
 
         // Auto-set appointment to next business day for 'Hoàn thành cấp cứu'
@@ -1567,7 +1615,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
     });
 
     fastify.get('/api/customers/consult-stats', { preHandler: [authenticate] }, async (request, reply) => {
-        const { customer_ids } = request.query;
+        const { customer_ids, crm_type } = request.query;
         if (!customer_ids) return { stats: {} };
         const ids = customer_ids.split(',').map(Number).filter(n => !isNaN(n));
         if (ids.length === 0) return { stats: {} };
@@ -1580,6 +1628,10 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const placeholders = ids.map(() => '?').join(',');
 
         try {
+            const orderCodeWhere = crm_type === 'tem_pet' 
+                ? " AND (order_code LIKE 'GCTEM%' OR order_code LIKE 'GCPET%')" 
+                : "";
+
             const [consultCounts, chotDons, lastLogs, revenues, latestOrderCodes] = await Promise.all([
                 db.all(`
                     WITH last_boundary AS (
@@ -1609,7 +1661,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 db.all(`
                     SELECT customer_id, COUNT(*)::int as cnt
                     FROM order_codes
-                    WHERE customer_id IN (${placeholders}) AND status != 'cancelled'
+                    WHERE customer_id IN (${placeholders}) AND status != 'cancelled' ${orderCodeWhere}
                     GROUP BY customer_id
                 `, ids),
 
@@ -1625,7 +1677,9 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                                 ORDER BY created_at DESC, CASE WHEN log_type = 'hoan_thanh_cap_cuu' THEN 0 ELSE 1 END, id DESC
                             ) as rn
                         FROM consultation_logs
-                        WHERE log_type != 'khong_xu_ly' AND customer_id IN (${placeholders})
+                        WHERE log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'pancake_update')
+                          AND (content IS NULL OR (content NOT LIKE '%Pancake%' AND content NOT LIKE '%Đồng bộ%' AND content NOT LIKE '%Cập nhật%'))
+                          AND customer_id IN (${placeholders})
                     )
                     SELECT customer_id, log_type, content, created_at
                     FROM ranked_logs
@@ -1659,7 +1713,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                             order_code,
                             ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY id DESC) as rn
                         FROM order_codes
-                        WHERE customer_id IN (${placeholders})
+                        WHERE customer_id IN (${placeholders}) ${orderCodeWhere}
                     )
                     SELECT customer_id, order_code
                     FROM ranked_orders
@@ -1891,7 +1945,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         const nextFollowUp = await getNextFollowUpDate(new Date(), customer.assigned_to_id || user.id);
 
-        const isSaleCrm = customer.crm_type === 'sale';
+        const isSaleCrm = ['sale', 'tem_pet'].includes(customer.crm_type);
         let targetLogType = 'lam_quen_tuong_tac';
         let finalOrderStatus = 'lam_quen_tuong_tac';
         if (isSaleCrm) {

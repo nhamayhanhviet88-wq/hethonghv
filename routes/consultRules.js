@@ -11,19 +11,19 @@ module.exports = async function (fastify) {
         );
         if (rows.length === 0) {
             const defaults = await db.all(
-                `SELECT * FROM consult_type_configs WHERE crm_menu = 'nhu_cau' ORDER BY sort_order`
+                `SELECT * FROM consult_type_configs WHERE crm_menu = 'sale' ORDER BY sort_order`
             );
             if (defaults.length > 0) {
                 for (const d of defaults) {
                     await db.run(
-                        `INSERT INTO consult_type_configs (key, label, icon, color, text_color, sort_order, is_active, stage, rule_phase, section_order, section_group, section_group_label, crm_menu)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                        `INSERT INTO consult_type_configs (key, label, icon, color, text_color, sort_order, is_active, stage, rule_phase, section_order, section_group, section_group_label, max_appointment_days, crm_menu)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                          ON CONFLICT (key, crm_menu) DO NOTHING`,
-                        [d.key, d.label, d.icon, d.color, d.text_color, d.sort_order, d.is_active, d.stage, d.rule_phase, d.section_order, d.section_group, d.section_group_label, crmMenu]
+                        [d.key, d.label, d.icon, d.color, d.text_color, d.sort_order, d.is_active, d.stage, d.rule_phase, d.section_order, d.section_group, d.section_group_label, d.max_appointment_days || 0, crmMenu]
                     );
                 }
                 const flowDefaults = await db.all(
-                    `SELECT * FROM consult_flow_rules WHERE crm_menu = 'nhu_cau'`
+                    `SELECT * FROM consult_flow_rules WHERE crm_menu = 'sale'`
                 );
                 for (const f of flowDefaults) {
                     await db.run(

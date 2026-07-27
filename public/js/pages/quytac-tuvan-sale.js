@@ -51,12 +51,17 @@ let _qtSaleSortDebounce = null;
 // ========== MAIN ENTRY ==========
 async function renderQuyTacTuVanSalePage(container) {
     _qtSaleIsGD = currentUser && currentUser.role === 'giam_doc';
+    const isTemPet = (typeof currentPage !== 'undefined' && currentPage === 'quytacnuttuvancrmtempet') || location.pathname.includes('tempet') || location.hash.includes('tempet');
+    const backHref = isTemPet ? '/chamsockhtempet' : '/chamsockhsale';
+    const backNav = isTemPet ? 'chamsockhtempet' : 'chamsockhsale';
+    const backLabel = isTemPet ? '← Quay lại Chăm Sóc Khách TEM/PET' : '← Quay lại Chăm Sóc Khách Sale';
+    const pageTitle = isTemPet ? '⚙️ Quy Tắc Nút Tư Vấn (TEM/PET)' : '⚙️ Quy Tắc Nút Tư Vấn (Sale)';
 
     container.innerHTML = `
         <div class="qt-page">
-            <a class="qt-back" href="/chamsockhsale" onclick="event.preventDefault();navigate('chamsockhsale')">← Quay lại Chăm Sóc Khách Sale</a>
+            <a class="qt-back" href="${backHref}" onclick="event.preventDefault();navigate('${backNav}')">${backLabel}</a>
             <div class="qt-header">
-                <h2 class="qt-header-title">⚙️ Quy Tắc Nút Tư Vấn (Sale)</h2>
+                <h2 class="qt-header-title">${pageTitle}</h2>
                 <span class="qt-header-badge">
                     ${_qtSaleIsGD ? '🔓 Chế độ chỉnh sửa' : '👁️ Chế độ xem'}
                 </span>
@@ -78,13 +83,18 @@ function _qtSaleRenderSkeleton() {
     return `<div class="qt-btn-grid qt-skeleton">${cards}</div>`;
 }
 
+function _qtSaleGetCrmMenu() {
+    return 'sale';
+}
+
 // ========== DATA LOADING ==========
 async function _qtSaleLoadData() {
+    const menu = _qtSaleGetCrmMenu();
     const [typesData, rulesData, stagesData, sectionsData, phasesData] = await Promise.all([
-        apiCall('/api/consult-types?crm_menu=sale'),
-        apiCall('/api/consult-flow-rules?crm_menu=sale'),
+        apiCall(`/api/consult-types?crm_menu=${menu}`),
+        apiCall(`/api/consult-flow-rules?crm_menu=${menu}`),
         apiCall('/api/consult-stages'),
-        apiCall('/api/consult-sections?crm_menu=sale'),
+        apiCall(`/api/consult-sections?crm_menu=${menu}`),
         apiCall('/api/consult-rule-phases')
     ]);
     _qtSaleAllTypes = typesData.types || [];
@@ -413,7 +423,7 @@ async function _qtSaleDeleteStage(stageId) {
 
     const orders = _qtSaleAllTypes.filter(t => t.stage === stageId).map((t, i) => ({ key: t.key, sort_order: 999 + i, stage: null }));
     if (orders.length > 0) {
-        await apiCall('/api/consult-types/batch/sort-order', 'PATCH', { orders, crm_menu: 'sale' });
+        await apiCall('/api/consult-types/batch/sort-order', 'PATCH', { orders, crm_menu: _qtSaleGetCrmMenu() });
     }
 
     showToast('✅ Đã xóa giai đoạn!', 'success');
@@ -436,7 +446,7 @@ async function _qtSaleToggleActive(key, cardEl) {
     try {
         await apiCall(`/api/consult-types/${key}`, 'PUT', {
             label: t.label, icon: t.icon, color: t.color, text_color: t.text_color,
-            is_active: newActive, stage: t.stage || null, crm_menu: 'sale'
+            is_active: newActive, stage: t.stage || null, crm_menu: _qtSaleGetCrmMenu()
         });
         t.is_active = newActive;
         showToast(newActive ? `✅ Đã bật: ${t.icon} ${t.label}` : `🔴 Đã tắt: ${t.icon} ${t.label}`, newActive ? 'success' : 'warning');
@@ -463,7 +473,7 @@ async function _qtSaleToggleSection_Active(key, toggleWrapEl) {
     try {
         await apiCall(`/api/consult-types/${key}`, 'PUT', {
             label: t.label, icon: t.icon, color: t.color, text_color: t.text_color,
-            is_active: newActive, stage: t.stage || null, crm_menu: 'sale'
+            is_active: newActive, stage: t.stage || null, crm_menu: _qtSaleGetCrmMenu()
         });
         t.is_active = newActive;
         showToast(newActive ? `✅ Đã bật: ${t.icon} ${t.label}` : `🔴 Đã tắt: ${t.icon} ${t.label}`, newActive ? 'success' : 'warning');
@@ -482,7 +492,7 @@ async function _qtSaleDeleteType(key) {
     if (!confirm(`🗑️ Xóa nút "${t.icon} ${t.label}"?\n\nKey: ${t.key}\n⚠️ Hành động này không thể hoàn tác!`)) return;
 
     try {
-        await apiCall(`/api/consult-types/${key}?crm_menu=sale`, 'DELETE');
+        await apiCall(`/api/consult-types/${key}?crm_menu=${_qtSaleGetCrmMenu()}`, 'DELETE');
         showToast('✅ Đã xóa nút!', 'success');
         await _qtSaleLoadData();
     } catch(e) {
@@ -583,7 +593,7 @@ async function _qtSaleSaveType(key) {
         is_active: document.getElementById('qtEditActive').checked,
         stage: document.getElementById('qtEditStage').value || null
     };
-    await apiCall(`/api/consult-types/${key}`, 'PUT', {...data, crm_menu: 'sale'});
+    await apiCall(`/api/consult-types/${key}`, 'PUT', {...data, crm_menu: _qtSaleGetCrmMenu()});
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã lưu thay đổi!', 'success');
     await _qtSaleLoadData();
@@ -644,7 +654,7 @@ async function _qtSaleAddType() {
         color: document.getElementById('qtNewColor').value,
         stage: document.getElementById('qtNewStage').value || null
     };
-    await apiCall('/api/consult-types', 'POST', {...data, crm_menu: 'sale'});
+    await apiCall('/api/consult-types', 'POST', {...data, crm_menu: _qtSaleGetCrmMenu()});
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã thêm nút mới!', 'success');
     await _qtSaleLoadData();
@@ -885,7 +895,7 @@ async function _qtSaleSaveMaxDays(key) {
     if (isNaN(val) || val < 0) return showToast('Số ngày không hợp lệ', 'error');
 
     try {
-        await apiCall(`/api/consult-types/${key}/max-appointment-days`, 'PATCH', { max_appointment_days: val, crm_menu: 'sale' });
+        await apiCall(`/api/consult-types/${key}/max-appointment-days`, 'PATCH', { max_appointment_days: val, crm_menu: _qtSaleGetCrmMenu() });
         showToast(`✅ Đã cập nhật giới hạn: ${val > 0 ? val + ' ngày' : 'Không giới hạn'}`, 'success');
         document.querySelector('.qt-modal-overlay')?.remove();
         await _qtSaleLoadData();
@@ -938,8 +948,8 @@ function _qtSaleShowChangePhaseDropdown(key, btnEl) {
 async function _qtSaleChangePhase(key, phaseId) {
     document.querySelectorAll('.qt-phase-dropdown').forEach(d => d.remove());
     try {
-        await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: phaseId || null, crm_menu: 'sale' });
-        await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'sale' });
+        await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: phaseId || null, crm_menu: _qtSaleGetCrmMenu() });
+        await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: _qtSaleGetCrmMenu() });
         showToast('✅ Đã đổi phần thành công!', 'success');
         await _qtSaleLoadData();
     } catch(e) { showToast('❌ Lỗi: ' + (e.message || ''), 'error'); }
@@ -1023,7 +1033,7 @@ async function _qtSaleAddPhase() {
     items.forEach(item => {
         if (item.querySelector('.qt-ri-check').checked) updates.push({ key: item.dataset.key, rule_phase: id });
     });
-    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates, crm_menu: 'sale' });
+    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates, crm_menu: _qtSaleGetCrmMenu() });
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã thêm phần!', 'success');
@@ -1100,7 +1110,7 @@ async function _qtSaleSavePhase(phaseId) {
             updates.push({ key, rule_phase: null });
         }
     });
-    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates, crm_menu: 'sale' });
+    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates, crm_menu: _qtSaleGetCrmMenu() });
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã lưu phần!', 'success');
@@ -1115,7 +1125,7 @@ async function _qtSaleDeletePhase(phaseId) {
     if (!confirm(`🗑️ Xóa phần "${phase.icon} ${phase.title}"?\n${count > 0 ? `⚠️ ${count} loại sẽ chuyển về "Chưa phân phần"` : ''}`)) return;
 
     const updates = _qtSaleSections.filter(s => s.rule_phase === phaseId).map(s => ({ key: s.key, rule_phase: null }));
-    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates, crm_menu: 'sale' });
+    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates, crm_menu: _qtSaleGetCrmMenu() });
 
     _qtSaleRulePhases = _qtSaleRulePhases.filter(p => p.id !== phaseId);
     await apiCall('/api/consult-rule-phases', 'PUT', { phases: _qtSaleRulePhases });
@@ -1174,15 +1184,15 @@ async function _qtSaleAddSections() {
 
     for (const key of selected) {
         await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
-            rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: 'sale'
+            rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: _qtSaleGetCrmMenu()
         });
-        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'sale' });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: _qtSaleGetCrmMenu() });
         startOrder++;
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${selected.length} loại!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'sale' });
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: _qtSaleGetCrmMenu() });
     await _qtSaleLoadData();
     _qtSaleSwitchTab('rules');
 }
@@ -1231,17 +1241,17 @@ async function _qtSaleSaveSectionEdit(key, oldOrder) {
 
     const promises = [];
     if (newOrder !== oldOrder) {
-        promises.push(apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: newOrder, crm_menu: 'sale' }));
+        promises.push(apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: newOrder, crm_menu: _qtSaleGetCrmMenu() }));
     }
     const sec = _qtSaleSections.find(s => s.key === key);
     if (!sec || sec.rule_phase !== (newPhase || null)) {
-        promises.push(apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: newPhase || null, crm_menu: 'sale' }));
+        promises.push(apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: newPhase || null, crm_menu: _qtSaleGetCrmMenu() }));
     }
     if (promises.length > 0) await Promise.all(promises);
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã cập nhật!', 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'sale' });
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: _qtSaleGetCrmMenu() });
     await _qtSaleLoadData();
     _qtSaleSwitchTab('rules');
 }
@@ -1258,14 +1268,14 @@ async function _qtSaleDeleteSection(key) {
 
     try {
         for (const k of groupKeys) {
-            await apiCall(`/api/consult-flow-rules/${k}?crm_menu=sale`, 'DELETE');
-            await apiCall(`/api/consult-types/${k}/section-order`, 'PATCH', { section_order: 0, crm_menu: 'sale' });
-            await apiCall(`/api/consult-types/${k}/rule-phase`, 'PATCH', { rule_phase: null, crm_menu: 'sale' });
-            await apiCall(`/api/consult-types/${k}`, 'PATCH', { section_group: null, section_group_label: null, crm_menu: 'sale' });
+            await apiCall(`/api/consult-flow-rules/${k}?crm_menu=${_qtSaleGetCrmMenu()}`, 'DELETE');
+            await apiCall(`/api/consult-types/${k}/section-order`, 'PATCH', { section_order: 0, crm_menu: _qtSaleGetCrmMenu() });
+            await apiCall(`/api/consult-types/${k}/rule-phase`, 'PATCH', { rule_phase: null, crm_menu: _qtSaleGetCrmMenu() });
+            await apiCall(`/api/consult-types/${k}`, 'PATCH', { section_group: null, section_group_label: null, crm_menu: _qtSaleGetCrmMenu() });
         }
 
         showToast('✅ Đã xóa loại hoàn toàn!', 'success');
-        await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'sale' });
+        await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: _qtSaleGetCrmMenu() });
         await _qtSaleLoadData();
         _qtSaleSwitchTab('rules');
     } catch(e) {
@@ -1551,7 +1561,7 @@ async function _qtSaleSaveRules(fromStatus) {
     const sec = _qtSaleSections.find(s => s.key === fromStatus);
     const groupKeys = (sec && sec.section_group) ? _qtSaleGetGroupKeys(sec.section_group) : [fromStatus];
     for (const key of groupKeys) {
-        await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', { rules, crm_menu: 'sale' });
+        await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', { rules, crm_menu: _qtSaleGetCrmMenu() });
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
@@ -1642,28 +1652,28 @@ async function _qtSaleAddRuleGroup() {
         const leaderKey = selected[0];
         for (const key of selected) {
             await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
-                rules: [{ to_type_key: key, is_default: key === leaderKey, delay_days: 0, sort_order: selected.indexOf(key) + 1 }], crm_menu: 'sale'
+                rules: [{ to_type_key: key, is_default: key === leaderKey, delay_days: 0, sort_order: selected.indexOf(key) + 1 }], crm_menu: _qtSaleGetCrmMenu()
             });
             await apiCall(`/api/consult-types/${key}`, 'PATCH', {
                 section_group: groupId,
                 section_group_label: key === leaderKey ? groupName : null,
-                crm_menu: 'sale'
+                crm_menu: _qtSaleGetCrmMenu()
             });
         }
-        await apiCall(`/api/consult-types/${leaderKey}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'sale' });
-        if (selectedPhase) await apiCall(`/api/consult-types/${leaderKey}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: 'sale' });
+        await apiCall(`/api/consult-types/${leaderKey}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: _qtSaleGetCrmMenu() });
+        if (selectedPhase) await apiCall(`/api/consult-types/${leaderKey}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: _qtSaleGetCrmMenu() });
     } else {
         const key = selected[0];
         await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
-            rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: 'sale'
+            rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: _qtSaleGetCrmMenu()
         });
-        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'sale' });
-        if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: 'sale' });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: _qtSaleGetCrmMenu() });
+        if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: _qtSaleGetCrmMenu() });
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${isGroup ? `nhóm "${groupName}" (${selected.length} nút)` : '1 loại'}!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'sale' });
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: _qtSaleGetCrmMenu() });
     await _qtSaleLoadData();
     _qtSaleSwitchTab('rules');
 
@@ -1760,7 +1770,7 @@ async function _qtSaleMergeIntoGroup(sectionKey) {
         await apiCall(`/api/consult-types/${leaderKey}`, 'PATCH', {
             section_group: groupId,
             section_group_label: groupName,
-            crm_menu: 'sale'
+            crm_menu: _qtSaleGetCrmMenu()
         });
     }
 
@@ -1770,13 +1780,13 @@ async function _qtSaleMergeIntoGroup(sectionKey) {
         await apiCall(`/api/consult-types/${key}`, 'PATCH', {
             section_group: groupId,
             section_group_label: null,
-            crm_menu: 'sale'
+            crm_menu: _qtSaleGetCrmMenu()
         });
-        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0, crm_menu: 'sale' });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0, crm_menu: _qtSaleGetCrmMenu() });
         if (leaderRules.length > 0) {
             await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
                 rules: leaderRules.map(r => ({ to_type_key: r.to_type_key, is_default: r.is_default, delay_days: r.delay_days, sort_order: r.sort_order })),
-                crm_menu: 'sale'
+                crm_menu: _qtSaleGetCrmMenu()
             });
         }
     }
@@ -1822,9 +1832,9 @@ async function _qtSaleUngroupSelected(sectionKey) {
     const groupKeys = _qtSaleGetGroupKeys(sec.section_group);
     const toRemove = []; document.querySelectorAll('#qtUngroupList .qt-rule-item').forEach(item => { const cb = item.querySelector('.qt-ri-check'); if (cb && cb.checked) toRemove.push(item.dataset.key); });
     if (toRemove.length === 0) return showToast('❌ Chọn ít nhất 1 nút!', 'error');
-    for (const key of toRemove) { await apiCall(`/api/consult-types/${key}`, 'PATCH', { section_group: null, section_group_label: null, crm_menu: 'sale' }); await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0, crm_menu: 'sale' }); }
+    for (const key of toRemove) { await apiCall(`/api/consult-types/${key}`, 'PATCH', { section_group: null, section_group_label: null, crm_menu: _qtSaleGetCrmMenu() }); await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0, crm_menu: _qtSaleGetCrmMenu() }); }
     const remaining = groupKeys.filter(k => !toRemove.includes(k));
-    if (remaining.length <= 1 && remaining[0] === sec.key) { await apiCall(`/api/consult-types/${sec.key}`, 'PATCH', { section_group: null, section_group_label: null, crm_menu: 'sale' }); }
+    if (remaining.length <= 1 && remaining[0] === sec.key) { await apiCall(`/api/consult-types/${sec.key}`, 'PATCH', { section_group: null, section_group_label: null, crm_menu: _qtSaleGetCrmMenu() }); }
     document.querySelector('.qt-modal-overlay')?.remove(); showToast(`✅ Đã bỏ ${toRemove.length} nút ra khỏi nhóm!`, 'success'); await _qtSaleLoadData(); _qtSaleSwitchTab('rules');
 }
 

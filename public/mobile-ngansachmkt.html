@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>💰 Ngân Sách Marketing — Đồng Phục HV</title>
+    <meta name="description" content="Quản lý ngân sách marketing trên điện thoại">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f1f5f9; min-height: 100vh; color: #1e293b;
+        }
+
+        /* Header */
+        .m-header {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .m-header h1 { font-size: 15px; font-weight: 800; color: #fbbf24; flex: 1; display: flex; align-items: center; gap: 6px; }
+        .m-back-btn {
+            background: rgba(255,255,255,0.1); border: none; color: white; width: 34px; height: 34px;
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; cursor: pointer;
+        }
+
+        /* Toast */
+        .m-toast-container { position: fixed; top: 60px; left: 8px; right: 8px; z-index: 999; }
+        .m-toast {
+            padding: 12px 16px; border-radius: 10px; color: white; font-size: 14px; font-weight: 600;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25); animation: mSlideIn .3s ease; margin-bottom: 6px;
+        }
+        .m-toast-success { background: linear-gradient(135deg, #10b981, #059669); }
+        .m-toast-error { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        @keyframes mSlideIn { from { opacity:0; transform:translateY(-15px); } to { opacity:1; transform:translateY(0); } }
+
+        /* Container */
+        .m-container { padding: 14px; max-width: 600px; margin: 0 auto; padding-bottom: 90px; }
+
+        /* Multi Filter Strip */
+        .m-filter-card {
+            background: white; border-radius: 16px; padding: 14px; margin-bottom: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.04); display: flex; flex-direction: column; gap: 10px;
+        }
+        .m-row-flex { display: flex; gap: 8px; }
+        .m-input, .m-select {
+            width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px;
+            font-size: 13.5px; font-family: inherit; background: white; outline: none;
+        }
+        .m-input:focus, .m-select:focus { border-color: #2563eb; }
+
+        /* KPI Grid */
+        .m-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+        .m-kpi {
+            background: white; border-radius: 14px; padding: 12px; text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-top: 3.5px solid #2563eb;
+        }
+        .m-kpi-val { font-size: 18px; font-weight: 900; line-height: 1.2; margin-top: 4px; }
+        .m-kpi-lbl { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; }
+
+        /* Cards List */
+        .m-card {
+            background: white; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;
+        }
+        .m-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .m-channel-badge {
+            background: #eff6ff; color: #1d4ed8; padding: 3px 8px; border-radius: 8px;
+            font-weight: 800; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;
+        }
+        .m-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+        .m-row-lbl { color: #64748b; font-size: 12px; }
+        .m-row-val { font-weight: 700; color: #0f172a; }
+
+        /* Floating Action Buttons */
+        .m-fab-group {
+            position: fixed; bottom: 20px; right: 16px; left: 16px;
+            display: flex; gap: 10px; z-index: 90; max-width: 560px; margin: 0 auto;
+        }
+        .m-fab {
+            flex: 1; padding: 14px; border-radius: 30px; font-size: 13.5px; font-weight: 800;
+            border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+        }
+        .m-fab-primary { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; }
+        .m-fab-secondary { background: white; color: #1e40af; border: 1.5px solid #93c5fd; }
+
+        /* Bottom Sheet Form */
+        .m-sheet-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15,23,42,0.6); z-index: 999; display: flex; align-items: flex-end;
+            backdrop-filter: blur(4px);
+        }
+        .m-sheet {
+            background: white; border-radius: 20px 20px 0 0; width: 100%; max-height: 90vh;
+            overflow-y: auto; padding: 20px; animation: mSheetUp .25s ease;
+        }
+        @keyframes mSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .m-sheet-title { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 14px; }
+        .m-form-group { margin-bottom: 12px; }
+        .m-form-group label { font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="m-header">
+        <button class="m-back-btn" onclick="location.href='/'">←</button>
+        <h1>💰 Ngân Sách Marketing</h1>
+    </header>
+
+    <div class="m-toast-container" id="mToastContainer"></div>
+
+    <div class="m-container">
+        <!-- Multi Filter Strip -->
+        <div class="m-filter-card">
+            <div class="m-row-flex">
+                <select id="mYearFilter" class="m-select" style="font-weight:800;color:#1e40af;" onchange="loadMobileBudgets()">
+                    <option value="2024">Năm 2024</option>
+                    <option value="2025">Năm 2025</option>
+                    <option value="2026" selected>Năm 2026</option>
+                    <option value="2027">Năm 2027</option>
+                    <option value="2028">Năm 2028</option>
+                </select>
+                <select id="mMonthFilter" class="m-select" style="font-weight:800;" onchange="loadMobileBudgets()">
+                    ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => `<option value="${m}">Tháng ${m}</option>`).join('')}
+                </select>
+            </div>
+            <div class="m-row-flex">
+                <select id="mGroupFilter" class="m-select" onchange="onGroupFilterChange()">
+                    <option value="all">🌐 tất cả MKT (Online + Offline)</option>
+                    <option value="online">🌐 MKT Online</option>
+                    <option value="offline">🏢 MKT Offline</option>
+                </select>
+                <select id="mCatFilter" class="m-select" onchange="loadMobileBudgets()">
+                    <option value="all">📌 Tất cả Kênh</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="m-kpis">
+            <div class="m-kpi" style="border-color:#2563eb;">
+                <div class="m-kpi-lbl">NGÂN SÁCH</div>
+                <div class="m-kpi-val" id="mKpiBudget" style="color:#2563eb;">0đ</div>
+            </div>
+            <div class="m-kpi" style="border-color:#059669;">
+                <div class="m-kpi-lbl">THỰC CHI</div>
+                <div class="m-kpi-val" id="mKpiSpent" style="color:#059669;">0đ</div>
+            </div>
+            <div class="m-kpi" style="border-color:#d97706;">
+                <div class="m-kpi-lbl">SỐ LEAD</div>
+                <div class="m-kpi-val" id="mKpiLeads" style="color:#d97706;">0</div>
+            </div>
+            <div class="m-kpi" style="border-color:#7c3aed;">
+                <div class="m-kpi-lbl">CPL (GIÁ/LEAD)</div>
+                <div class="m-kpi-val" id="mKpiCpl" style="color:#7c3aed;">0đ</div>
+            </div>
+        </div>
+
+        <!-- Cards List -->
+        <div id="mBudgetList">
+            <div style="text-align:center;padding:40px;color:#94a3b8;">⏳ Đang tải dữ liệu...</div>
+        </div>
+    </div>
+
+    <!-- Floating Action Buttons -->
+    <div class="m-fab-group">
+        <button class="m-fab m-fab-secondary" onclick="openCatModal()">➕ Tạo Mục MKT</button>
+        <button class="m-fab m-fab-primary" onclick="openFormModal()">➕ Nhập Chi Phí</button>
+    </div>
+
+    <!-- Bottom Sheet Form: Cost -->
+    <div id="mFormOverlay" class="m-sheet-overlay" style="display:none;" onclick="if(event.target===this)closeFormModal()">
+        <div class="m-sheet">
+            <h3 class="m-sheet-title" id="mFormTitle">➕ Nhập Chi Phí Marketing</h3>
+            <form onsubmit="saveMobileCost(event)">
+                <input type="hidden" id="mFormId">
+                <div class="m-row-flex" style="margin-bottom:12px;">
+                    <div style="flex:1;">
+                        <label class="m-form-group" style="font-size:12px;font-weight:700;">Năm *</label>
+                        <input type="number" id="mFormYear" class="m-input" required min="2020" max="2035">
+                    </div>
+                    <div style="flex:1;">
+                        <label class="m-form-group" style="font-size:12px;font-weight:700;">Tháng *</label>
+                        <select id="mFormMonth" class="m-input" required>
+                            ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => `<option value="${m}">Tháng ${m}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="m-form-group">
+                    <label>Kênh Marketing *</label>
+                    <select id="mFormCategory" class="m-input" required onchange="onMobileCategoryChange(this.value)"></select>
+                </div>
+
+                <!-- FANPAGE SELECTION -->
+                <div id="mMobilePageSection" style="background:#eff6ff;padding:12px;border-radius:10px;margin-bottom:12px;border:1px solid #bfdbfe;">
+                    <label style="font-size:12px;font-weight:800;color:#1e40af;">📄 Chọn Fanpage Quảng Cáo *</label>
+                    <select id="mFormPage" class="m-input" onchange="onMobilePageSelect(this.value)"></select>
+                    <div style="font-size:11px;color:#1e40af;margin-top:6px;background:white;padding:6px;border-radius:6px;">
+                        🔗 Nguồn: <strong id="mPageSourceDisp">—</strong> | 👤 Cầm Ads: <strong id="mPageHandlerDisp">—</strong>
+                    </div>
+                </div>
+
+                <div class="m-form-group">
+                    <label>Ngân Sách Dự Kiến (VNĐ)</label>
+                    <input type="number" id="mFormBudget" class="m-input" placeholder="0" min="0">
+                </div>
+                <div class="m-form-group">
+                    <label>Chi Phí Thực Tế (VNĐ) *</label>
+                    <input type="number" id="mFormSpent" class="m-input" required placeholder="0" min="0">
+                </div>
+                <div class="m-form-group">
+                    <label>Số Lead Nhận Được</label>
+                    <input type="number" id="mFormLead" class="m-input" placeholder="0" min="0">
+                </div>
+                <div class="m-form-group">
+                    <label>Doanh Số Mang Về (VNĐ)</label>
+                    <input type="number" id="mFormRevenue" class="m-input" placeholder="0" min="0">
+                </div>
+                <div class="m-form-group">
+                    <label>Ghi Chú / Tên Chiến Dịch</label>
+                    <input type="text" id="mFormNotes" class="m-input" placeholder="Nhập tên chiến dịch...">
+                </div>
+                <div style="display:flex;gap:10px;margin-top:16px;">
+                    <button type="button" class="m-input" style="background:#f1f5f9;color:#475569;" onclick="closeFormModal()">Hủy</button>
+                    <button type="submit" class="m-input" style="background:linear-gradient(135deg, #2563eb, #1d4ed8);color:white;font-weight:800;">💾 Lưu Chi Phí</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bottom Sheet Form: New Category -->
+    <div id="mCatOverlay" class="m-sheet-overlay" style="display:none;" onclick="if(event.target===this)closeCatModal()">
+        <div class="m-sheet">
+            <h3 class="m-sheet-title">➕ Tạo Mục Kênh MKT Mới</h3>
+            <form onsubmit="saveMobileCategory(event)">
+                <div class="m-form-group">
+                    <label>Phân Nhóm MKT *</label>
+                    <select id="mCatGroup" class="m-input" required onchange="onMobileCatGroupChange(this.value)">
+                        <option value="online">🌐 MKT Online</option>
+                        <option value="offline">🏢 MKT Offline</option>
+                    </select>
+                </div>
+                <div class="m-form-group" style="background:#eff6ff;padding:10px;border-radius:10px;border:1px solid #bfdbfe;">
+                    <label style="color:#1e40af;font-weight:800;">📂 Chọn Mục Cha (Tùy chọn)</label>
+                    <select id="mCatParentSelect" class="m-input"></select>
+                </div>
+                <div class="m-form-group" style="background:#f0fdf4;padding:10px;border-radius:10px;border:1px solid #86efac;">
+                    <label style="color:#166534;font-weight:800;">📄 Chọn Page Từ Pancake (Ảnh 3)</label>
+                    <select id="mCatPancakeSelect" class="m-input" onchange="onMobileCatPancakeSelect(this.value)"></select>
+                </div>
+                <div class="m-form-group">
+                    <label>Tên Kênh Mới *</label>
+                    <input type="text" id="mCatName" class="m-input" required placeholder="Vd: Page Đồng Phục Công Ty...">
+                </div>
+                <div class="m-form-group">
+                    <label>Icon (Tùy chọn)</label>
+                    <input type="text" id="mCatIcon" class="m-input" placeholder="Vd: 📄, 🌐, 🎯">
+                </div>
+                <div class="m-form-group" style="background:#f8fafc;padding:10px;border-radius:10px;border:1px solid #cbd5e1;">
+                    <label style="color:#0284c7;font-weight:800;">🔗 Gắn Nguồn Khách Cố Định (Ảnh 3, 4)</label>
+                    <select id="mCatSourceSelect" class="m-input"></select>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:16px;">
+                    <button type="button" class="m-input" style="background:#f1f5f9;color:#475569;" onclick="closeCatModal()">Hủy</button>
+                    <button type="submit" class="m-input" style="background:linear-gradient(135deg, #2563eb, #1d4ed8);color:white;font-weight:800;">➕ Tạo Mục</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/mobile-nav.js"></script>
+    <script>
+        let mobileCategories = [];
+        let mobileBudgets = [];
+        let mobileSources = { nhu_cau: [], sale: [] };
+        let mobilePages = [];
+
+        function showMobileToast(msg, type = 'success') {
+            const container = document.getElementById('mToastContainer');
+            const el = document.createElement('div');
+            el.className = `m-toast m-toast-${type}`;
+            el.textContent = msg;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+
+        function fmtMoney(v) {
+            if (!v || v === 0) return '0đ';
+            return Number(v).toLocaleString('vi-VN') + 'đ';
+        }
+
+        async function initMobile() {
+            const now = new Date();
+            document.getElementById('mMonthFilter').value = now.getMonth() + 1;
+            document.getElementById('mYearFilter').value = now.getFullYear();
+
+            await loadMobileSourcesAndPages();
+            await loadMobileCategories();
+            await loadMobileBudgets();
+        }
+
+        async function loadMobileSourcesAndPages() {
+            try {
+                const res = await fetch('/api/marketing-sources-and-pages', {
+                    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+                }).then(r => r.json());
+                if (res.success) {
+                    mobileSources = res.sources || { nhu_cau: [], sale: [] };
+                    mobilePages = res.pages || [];
+                }
+            } catch(e) { console.error('Error loading sources & pages:', e); }
+        }
+
+        async function loadMobileCategories() {
+            try {
+                const res = await fetch('/api/marketing-categories', {
+                    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+                }).then(r => r.json());
+                if (res.success) {
+                    mobileCategories = res.data || [];
+                    populateCategoryDropdowns();
+                }
+            } catch(e) { console.error('Error loading categories:', e); }
+        }
+
+        function populateCategoryDropdowns() {
+            const groupVal = document.getElementById('mGroupFilter').value;
+            const filterCatEl = document.getElementById('mCatFilter');
+            const formCatEl = document.getElementById('mFormCategory');
+
+            let filtered = mobileCategories;
+            if (groupVal !== 'all') {
+                filtered = mobileCategories.filter(c => c.group_type === groupVal);
+            }
+
+            let catHtml = '<option value="all">📌 Tất cả Kênh</option>';
+            filtered.forEach(c => {
+                const prefix = c.parent_id ? '  └── ' : '[Mục] ';
+                catHtml += `<option value="${c.id}">${prefix}${c.icon || '📌'} ${c.name}</option>`;
+            });
+            filterCatEl.innerHTML = catHtml;
+
+            let formCatHtml = '';
+            mobileCategories.forEach(c => {
+                const prefix = c.parent_id ? '  └── ' : '';
+                formCatHtml += `<option value="${c.id}">${c.group_type === 'online' ? '[🌐 Online]' : '[🏢 Offline]'} ${prefix}${c.icon || '📌'} ${c.name}</option>`;
+            });
+            formCatEl.innerHTML = formCatHtml;
+
+            // Populate Page dropdown
+            const formPageEl = document.getElementById('mFormPage');
+            formPageEl.innerHTML = '<option value="">-- Chọn Fanpage Quảng Cáo --</option>' + mobilePages.map(p => `
+                <option value="${p.id}">📄 ${p.name}</option>
+            `).join('');
+
+            // Populate Direct Pancake Page dropdown for category creation
+            const catPancakeEl = document.getElementById('mCatPancakeSelect');
+            catPancakeEl.innerHTML = '<option value="">-- Chọn Page Pancake để tự động nhập Tên --</option>' + mobilePages.map(p => `
+                <option value="${p.id}">📄 ${p.name}</option>
+            `).join('');
+
+            // Populate Source binding dropdown
+            const sourceSelect = document.getElementById('mCatSourceSelect');
+            let html = '<option value="">-- Không gắn Nguồn cố định --</option>';
+            html += '<optgroup label="📌 Nguồn Khách NV Kinh Doanh (Ảnh 3)">';
+            (mobileSources.nhu_cau || []).forEach(s => { html += `<option value="nhu_cau:${s.name}">NV KD - ${s.name}</option>`; });
+            html += '</optgroup><optgroup label="📌 Nguồn Khách Sale (Ảnh 4)">';
+            (mobileSources.sale || []).forEach(s => { html += `<option value="sale:${s.name}">Sale - ${s.name}</option>`; });
+            html += '</optgroup>';
+            sourceSelect.innerHTML = html;
+
+            onMobileCatGroupChange(document.getElementById('mCatGroup').value);
+        }
+
+        function onMobileCatGroupChange(groupType) {
+            const parentSelect = document.getElementById('mCatParentSelect');
+            const topCats = mobileCategories.filter(c => c.group_type === groupType && !c.parent_id);
+            let parentHtml = '<option value="">-- Không chọn (Mục Chính Cấp 1) --</option>';
+            topCats.forEach(p => {
+                parentHtml += `<option value="${p.id}">📂 ${p.name}</option>`;
+            });
+            parentSelect.innerHTML = parentHtml;
+        }
+
+        function onMobileCatPancakeSelect(pageId) {
+            const page = mobilePages.find(p => String(p.id) === String(pageId));
+            const nameEl = document.getElementById('mCatName');
+            const sourceSelect = document.getElementById('mCatSourceSelect');
+
+            if (page) {
+                if (nameEl) {
+                    nameEl.value = page.name;
+                    nameEl.readOnly = true;
+                    nameEl.style.background = '#f1f5f9';
+                    nameEl.style.fontWeight = '700';
+                }
+                if (sourceSelect && page.default_source) {
+                    for (let i = 0; i < sourceSelect.options.length; i++) {
+                        if (sourceSelect.options[i].text.includes(page.default_source) || sourceSelect.options[i].value.includes(page.default_source)) {
+                            sourceSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
+                    sourceSelect.disabled = true;
+                    sourceSelect.style.background = '#f1f5f9';
+                    sourceSelect.style.fontWeight = '700';
+                }
+            } else {
+                if (nameEl) {
+                    nameEl.readOnly = false;
+                    nameEl.style.background = 'white';
+                    nameEl.style.fontWeight = 'normal';
+                }
+                if (sourceSelect) {
+                    sourceSelect.disabled = false;
+                    sourceSelect.style.background = 'white';
+                    sourceSelect.style.fontWeight = 'normal';
+                }
+            }
+        }
+
+        function onGroupFilterChange() {
+            populateCategoryDropdowns();
+            loadMobileBudgets();
+        }
+
+        function onMobileCategoryChange(catId) {
+            const pageSec = document.getElementById('mMobilePageSection');
+            const pageSelect = document.getElementById('mFormPage');
+            const cat = mobileCategories.find(c => Number(c.id) === Number(catId));
+
+            if (pageSec) {
+                if (cat && (cat.group_type === 'online' || cat.name.toLowerCase().includes('facebook'))) {
+                    pageSec.style.display = 'block';
+                    if (cat.pancake_page_id && pageSelect) {
+                        pageSelect.value = cat.pancake_page_id;
+                        onMobilePageSelect(cat.pancake_page_id);
+                    }
+                } else {
+                    pageSec.style.display = 'none';
+                }
+            }
+        }
+
+        function onMobilePageSelect(pageId) {
+            const page = mobilePages.find(p => String(p.id) === String(pageId));
+            document.getElementById('mPageSourceDisp').textContent = page ? (page.default_source || '—') : '—';
+            document.getElementById('mPageHandlerDisp').textContent = page ? (page.ads_handler || '—') : '—';
+        }
+
+        async function loadMobileBudgets() {
+            const yearVal = document.getElementById('mYearFilter').value;
+            const monthVal = document.getElementById('mMonthFilter').value;
+            const groupVal = document.getElementById('mGroupFilter').value;
+            const catVal = document.getElementById('mCatFilter').value;
+
+            const listEl = document.getElementById('mBudgetList');
+            listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">⏳ Đang tải dữ liệu...</div>';
+
+            try {
+                let url = `/api/marketing-budgets?year=${yearVal}&month=${monthVal}`;
+                if (groupVal !== 'all') url += `&group_type=${groupVal}`;
+                if (catVal !== 'all') url += `&category_id=${catVal}`;
+
+                const res = await fetch(url, {
+                    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+                }).then(r => r.json());
+
+                if (res.success) {
+                    mobileBudgets = res.data || [];
+                    const s = res.summary || {};
+                    document.getElementById('mKpiBudget').textContent = fmtMoney(s.totalBudget);
+                    document.getElementById('mKpiSpent').textContent = fmtMoney(s.totalSpent);
+                    document.getElementById('mKpiLeads').textContent = (s.totalLeads || 0).toLocaleString('vi-VN');
+                    document.getElementById('mKpiCpl').textContent = fmtMoney(s.avgCpl);
+
+                    if (mobileBudgets.length === 0) {
+                        listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">📭 Chưa có chi phí nào</div>';
+                        return;
+                    }
+
+                    listEl.innerHTML = mobileBudgets.map(item => {
+                        const spent = Number(item.spent_amount || 0);
+                        const leads = Number(item.lead_count || 0);
+                        const cpl = leads > 0 ? Math.round(spent / leads) : 0;
+                        const groupLabel = item.group_type === 'online' ? '🌐 Online' : '🏢 Offline';
+
+                        return `
+                            <div class="m-card">
+                                <div class="m-card-top">
+                                    <span class="m-channel-badge">${item.cat_icon || '📌'} ${item.channel_name}</span>
+                                    <span style="font-size:11px;color:#64748b;font-weight:700;">${groupLabel}</span>
+                                </div>
+                                ${item.pancake_page_name ? `<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:4px;">📄 Page: ${item.pancake_page_name}</div>` : ''}
+                                ${item.ads_handler_name ? `<div style="font-size:11px;color:#7c3aed;margin-bottom:6px;">👤 Cầm Ads: ${item.ads_handler_name}</div>` : ''}
+                                <div class="m-row">
+                                    <span class="m-row-lbl">Ngân sách / Thực chi:</span>
+                                    <span class="m-row-val">${fmtMoney(item.budget_amount)} / <strong style="color:#059669">${fmtMoney(spent)}</strong></span>
+                                </div>
+                                <div class="m-row">
+                                    <span class="m-row-lbl">Số Lead / CPL:</span>
+                                    <span class="m-row-val">${leads} khách • <strong style="color:#7c3aed">${fmtMoney(cpl)}/lead</strong></span>
+                                </div>
+                                ${item.notes ? `<div style="font-size:12px;color:#64748b;margin-top:6px;background:#f8fafc;padding:6px 10px;border-radius:8px;">📝 ${item.notes}</div>` : ''}
+                                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+                                    <button onclick="editMobileCost(${item.id})" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;background:white;font-size:12px;font-weight:700;">✏️ Sửa</button>
+                                    <button onclick="deleteMobileCost(${item.id})" style="padding:6px 12px;border-radius:8px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;font-size:12px;font-weight:700;">🗑️ Xóa</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch(e) {
+                listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;">❌ Lỗi nạp dữ liệu</div>';
+            }
+        }
+
+        function openFormModal(item = null) {
+            const overlay = document.getElementById('mFormOverlay');
+            const yearVal = document.getElementById('mYearFilter').value;
+            const monthVal = document.getElementById('mMonthFilter').value;
+
+            if (item) {
+                document.getElementById('mFormTitle').textContent = '✏️ Sửa Chi Phí MKT';
+                document.getElementById('mFormId').value = item.id;
+                document.getElementById('mFormYear').value = item.budget_year || yearVal;
+                document.getElementById('mFormMonth').value = item.budget_month || monthVal;
+                document.getElementById('mFormCategory').value = item.category_id || (mobileCategories[0] ? mobileCategories[0].id : '');
+                document.getElementById('mFormBudget').value = item.budget_amount || '';
+                document.getElementById('mFormSpent').value = item.spent_amount || '';
+                document.getElementById('mFormLead').value = item.lead_count || '';
+                document.getElementById('mFormRevenue').value = item.revenue_amount || '';
+                document.getElementById('mFormNotes').value = item.notes || '';
+                document.getElementById('mFormPage').value = item.pancake_page_id || '';
+            } else {
+                document.getElementById('mFormTitle').textContent = '➕ Nhập Chi Phí MKT';
+                document.getElementById('mFormId').value = '';
+                document.getElementById('mFormYear').value = yearVal;
+                document.getElementById('mFormMonth').value = monthVal;
+                document.getElementById('mFormBudget').value = '';
+                document.getElementById('mFormSpent').value = '';
+                document.getElementById('mFormLead').value = '';
+                document.getElementById('mFormRevenue').value = '';
+                document.getElementById('mFormNotes').value = '';
+                document.getElementById('mFormPage').value = '';
+            }
+            onMobileCategoryChange(document.getElementById('mFormCategory').value);
+            onMobilePageSelect(document.getElementById('mFormPage').value);
+            overlay.style.display = 'flex';
+        }
+
+        function closeFormModal() { document.getElementById('mFormOverlay').style.display = 'none'; }
+        function openCatModal() { document.getElementById('mCatOverlay').style.display = 'flex'; }
+        function closeCatModal() { document.getElementById('mCatOverlay').style.display = 'none'; }
+
+        function editMobileCost(id) {
+            const item = mobileBudgets.find(d => Number(d.id) === Number(id));
+            if (item) openFormModal(item);
+        }
+
+        async function deleteMobileCost(id) {
+            if (!confirm('Xóa bản ghi chi phí này?')) return;
+            try {
+                const res = await fetch(`/api/marketing-budgets/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+                }).then(r => r.json());
+                if (res.success) {
+                    showMobileToast('✅ Đã xóa!');
+                    loadMobileBudgets();
+                }
+            } catch(e) { showMobileToast('❌ Lỗi xóa', 'error'); }
+        }
+
+        async function saveMobileCost(e) {
+            e.preventDefault();
+            const id = document.getElementById('mFormId').value;
+            const catId = document.getElementById('mFormCategory').value;
+            const catObj = mobileCategories.find(c => Number(c.id) === Number(catId));
+            const pageId = document.getElementById('mFormPage').value;
+            const pageObj = mobilePages.find(p => String(p.id) === String(pageId));
+
+            const payload = {
+                category_id: catId,
+                group_type: catObj ? catObj.group_type : 'online',
+                channel_name: catObj ? catObj.name : 'Khác',
+                budget_year: document.getElementById('mFormYear').value,
+                budget_month: document.getElementById('mFormMonth').value,
+                budget_amount: document.getElementById('mFormBudget').value || 0,
+                spent_amount: document.getElementById('mFormSpent').value || 0,
+                lead_count: document.getElementById('mFormLead').value || 0,
+                revenue_amount: document.getElementById('mFormRevenue').value || 0,
+                notes: document.getElementById('mFormNotes').value || '',
+                pancake_page_id: pageObj ? pageObj.id : (catObj ? catObj.pancake_page_id : null),
+                pancake_page_name: pageObj ? pageObj.name : (catObj ? catObj.pancake_page_name : null),
+                linked_source_name: pageObj ? pageObj.default_source : (catObj ? catObj.linked_source_name : null),
+                ads_handler_name: pageObj ? pageObj.ads_handler : (catObj ? catObj.ads_handler_name : null)
+            };
+
+            try {
+                const url = id ? `/api/marketing-budgets/${id}` : '/api/marketing-budgets';
+                const method = id ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                    },
+                    body: JSON.stringify(payload)
+                }).then(r => r.json());
+
+                if (res.success) {
+                    showMobileToast('✅ Đã lưu chi phí!');
+                    closeFormModal();
+                    loadMobileBudgets();
+                }
+            } catch(e) { showMobileToast('❌ Lỗi lưu chi phí', 'error'); }
+        }
+
+        async function saveMobileCategory(e) {
+            e.preventDefault();
+            const group_type = document.getElementById('mCatGroup').value;
+            const parent_id = document.getElementById('mCatParentSelect').value;
+            const pancake_page_id = document.getElementById('mCatPancakeSelect').value;
+            const name = document.getElementById('mCatName').value;
+            const icon = document.getElementById('mCatIcon').value;
+            const sourceVal = document.getElementById('mCatSourceSelect').value;
+
+            const pageObj = mobilePages.find(p => String(p.id) === String(pancake_page_id));
+
+            let linked_source_type = null;
+            let linked_source_name = null;
+            if (sourceVal && sourceVal.includes(':')) {
+                const parts = sourceVal.split(':');
+                linked_source_type = parts[0];
+                linked_source_name = parts.slice(1).join(':');
+            } else if (pageObj && pageObj.default_source) {
+                linked_source_type = 'sale';
+                linked_source_name = pageObj.default_source;
+            }
+
+            try {
+                const res = await fetch('/api/marketing-categories', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                    },
+                    body: JSON.stringify({
+                        group_type,
+                        parent_id: parent_id || null,
+                        name,
+                        icon,
+                        linked_source_type,
+                        linked_source_name,
+                        pancake_page_id: pageObj ? pageObj.id : null,
+                        pancake_page_name: pageObj ? pageObj.name : null,
+                        ads_handler_name: pageObj ? pageObj.ads_handler : null
+                    })
+                }).then(r => r.json());
+
+                if (res.success) {
+                    showMobileToast('✅ Đã tạo mục mới!');
+                    closeCatModal();
+                    await loadMobileCategories();
+                    loadMobileBudgets();
+                }
+            } catch(e) { showMobileToast('❌ Lỗi tạo mục', 'error'); }
+        }
+
+        document.addEventListener('DOMContentLoaded', initMobile);
+    </script>
+</body>
+</html>
