@@ -202,35 +202,6 @@ async function renderKpikdoanhPage(container) {
             <div id="kpiTeamCompare"></div>
             <div id="kpiMeetingCommit"></div>
         </div>
-
-        <!-- Order Details Modal -->
-        <div class="kpi-modal-overlay" id="kpiOrdersModal" style="display:none">
-            <div class="kpi-modal" style="width:920px">
-                <div class="kpi-modal-hdr">
-                    <div class="kpi-modal-title">📦 Chi Tiết Đơn Hàng — <span id="kpiOrdersModalTitle"></span></div>
-                    <button class="kpi-modal-close" onclick="kpiCloseOrdersModal()">✕</button>
-                </div>
-                <div id="kpiOrdersModalSummary" style="background:#f8fafc;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;flex-wrap:wrap"></div>
-                <div style="max-height:60vh;overflow-y:auto">
-                    <table class="kpi-tbl" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th>STT</th>
-                                <th>Mã đơn</th>
-                                <th>Khách hàng</th>
-                                <th>SĐT</th>
-                                <th>NV Sale</th>
-                                <th>Loại khách</th>
-                                <th>Nguồn</th>
-                                <th>Doanh số</th>
-                                <th>Ngày chốt</th>
-                            </tr>
-                        </thead>
-                        <tbody id="kpiOrdersModalBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
     `;
     // Fire ALL APIs in parallel for maximum speed
     kpiLoadAll();
@@ -3284,40 +3255,41 @@ function _kpiCleanPhone(phone) {
 
 function _kpiEnsureOrdersModal() {
     let modal = document.getElementById('kpiOrdersModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.className = 'kpi-modal-overlay';
-        modal.id = 'kpiOrdersModal';
-        modal.style.display = 'none';
-        modal.innerHTML = `
-            <div class="kpi-modal" style="width:920px">
-                <div class="kpi-modal-hdr">
-                    <div class="kpi-modal-title">📦 Chi Tiết Đơn Hàng — <span id="kpiOrdersModalTitle"></span></div>
-                    <button class="kpi-modal-close" onclick="kpiCloseOrdersModal()">✕</button>
-                </div>
-                <div id="kpiOrdersModalSummary" style="background:#f8fafc;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;flex-wrap:wrap"></div>
-                <div style="max-height:60vh;overflow-y:auto">
-                    <table class="kpi-tbl" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th>STT</th>
-                                <th>Mã đơn</th>
-                                <th>Khách hàng</th>
-                                <th>SĐT</th>
-                                <th>NV Sale</th>
-                                <th>Loại khách</th>
-                                <th>Nguồn</th>
-                                <th>Doanh số</th>
-                                <th>Ngày chốt</th>
-                            </tr>
-                        </thead>
-                        <tbody id="kpiOrdersModalBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
+    if (modal) {
+        modal.remove(); // Re-create to ensure latest styled layout
     }
+    modal = document.createElement('div');
+    modal.className = 'kpi-modal-overlay';
+    modal.id = 'kpiOrdersModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:99999!important;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px';
+    modal.innerHTML = `
+        <div class="kpi-modal" style="background:#fff;border-radius:20px;width:920px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);display:flex;flex-direction:column;padding:24px;color:#1e293b">
+            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:14px;margin-bottom:14px">
+                <h3 style="font-size:16px;font-weight:800;color:#1e293b;margin:0;display:flex;align-items:center;gap:8px">📦 Chi Tiết Đơn Hàng — <span id="kpiOrdersModalTitle"></span></h3>
+                <button type="button" onclick="kpiCloseOrdersModal()" style="background:#f1f5f9;border:none;color:#64748b;font-size:18px;font-weight:800;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .2s;flex-shrink:0" onmouseenter="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
+            </div>
+            <div id="kpiOrdersModalSummary" style="background:#f8fafc;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;flex-wrap:wrap"></div>
+            <div style="max-height:60vh;overflow-y:auto">
+                <table class="kpi-tbl" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Mã đơn</th>
+                            <th>Khách hàng</th>
+                            <th>SĐT</th>
+                            <th>NV Sale</th>
+                            <th>Loại khách</th>
+                            <th>Nguồn</th>
+                            <th>Doanh số</th>
+                            <th>Ngày chốt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpiOrdersModalBody"></tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
     return modal;
 }
 
