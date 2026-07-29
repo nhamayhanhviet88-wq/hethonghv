@@ -882,7 +882,7 @@ module.exports = async function(fastify) {
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND COALESCE(d.is_draft, false) = false
                   AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND d.created_at >= ${pStart}::timestamp AND d.created_at < ${pEnd}::timestamp
+                  AND d.created_at >= $${pStart}::timestamp AND d.created_at < $${pEnd}::timestamp
                   ${_pCutoff}
             ),
             ranked AS (
@@ -979,7 +979,7 @@ module.exports = async function(fastify) {
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND oc.created_at >= ${pStart}::timestamp AND oc.created_at < ${pEnd}::timestamp
+                  AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
                   AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
                   ${_pCutoff}
             ),
