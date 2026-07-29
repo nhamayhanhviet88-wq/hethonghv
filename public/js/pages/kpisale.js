@@ -824,40 +824,270 @@ function renderKpiSaleLeaderboard(advData) {
     container.innerHTML = html;
 }
 
-// SECTION 4: 📊 So Sánh Team
+// SECTION 4: 📊 So Sánh Team (PHÒNG SALE)
+var _kpiSaleTcSort = 'revenue';
+var _kpiSaleTcAdvData = null;
+var _kpiSaleTcMainData = null;
+var _kpiSaleTcFilter = 'this_month';
+var _kpiSaleTcCustomStart = '';
+var _kpiSaleTcCustomEnd = '';
+var _kpiSaleTcMonth = '';
+var _kpiSaleTcCollapsed = false;
+
+window._kpiSaleToggleTc = function() {
+    _kpiSaleTcCollapsed = !_kpiSaleTcCollapsed;
+    var body = document.getElementById('kpiSaleTcBody');
+    var icon = document.getElementById('kpiSaleTcIcon');
+    if (body) body.style.display = _kpiSaleTcCollapsed ? 'none' : 'block';
+    if (icon) {
+        icon.style.transform = 'rotate(' + (_kpiSaleTcCollapsed ? '-90deg' : '0') + ')';
+        icon.textContent = _kpiSaleTcCollapsed ? '▶' : '▼';
+    }
+};
+
+function kpiSaleTcBuildUrl() {
+    var base = '/api/reports/customer-retention/advanced';
+    var now = typeof vnNow === 'function' ? vnNow() : new Date();
+    var fmtD = function(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+    if (_kpiSaleTcFilter === 'today') {
+        return base + '?period=day&date=' + fmtD(now);
+    } else if (_kpiSaleTcFilter === 'yesterday') {
+        var yd = new Date(now.getTime()); yd.setDate(yd.getDate() - 1);
+        return base + '?period=day&date=' + fmtD(yd);
+    } else if (_kpiSaleTcFilter === '7days') {
+        var s7 = new Date(now.getTime()); s7.setDate(s7.getDate() - 6);
+        return base + '?period=custom&startDate=' + fmtD(s7) + '&endDate=' + fmtD(now);
+    } else if (_kpiSaleTcFilter === 'this_month') {
+        var tm = _kpiSale.month || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+        return base + '?period=month&date=' + tm;
+    } else if (_kpiSaleTcFilter === 'last_month') {
+        var lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        var lmStr = lm.getFullYear() + '-' + String(lm.getMonth()+1).padStart(2,'0');
+        return base + '?period=month&date=' + lmStr;
+    } else if (_kpiSaleTcFilter === 'all') {
+        return base + '?period=year&date=' + now.getFullYear();
+    } else if (_kpiSaleTcFilter === 'stage1' || _kpiSaleTcFilter === 'stage2' || _kpiSaleTcFilter === 'stage3') {
+        var refMonth = _kpiSaleTcMonth || _kpiSale.month || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+        var parts = refMonth.split('-').map(Number);
+        var y = parts[0], m = parts[1];
+        var dim = new Date(y, m, 0).getDate();
+        var sd, ed;
+        if (_kpiSaleTcFilter === 'stage1') { sd = '01'; ed = '10'; }
+        else if (_kpiSaleTcFilter === 'stage2') { sd = '11'; ed = '20'; }
+        else { sd = '21'; ed = String(dim); }
+        return base + '?period=custom&startDate=' + y + '-' + String(m).padStart(2,'0') + '-' + sd + '&endDate=' + y + '-' + String(m).padStart(2,'0') + '-' + ed;
+    } else if (_kpiSaleTcFilter === 'pick_month' && _kpiSaleTcMonth) {
+        return base + '?period=month&date=' + _kpiSaleTcMonth;
+    } else if (_kpiSaleTcFilter === 'custom' && _kpiSaleTcCustomStart && _kpiSaleTcCustomEnd) {
+        return base + '?period=custom&startDate=' + _kpiSaleTcCustomStart + '&endDate=' + _kpiSaleTcCustomEnd;
+    }
+    var fallback = _kpiSale.month || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+    return base + '?period=month&date=' + fallback;
+}
+
+window.kpiSaleTcSetFilter = async function(filter) {
+    _kpiSaleTcFilter = filter;
+    if (filter === 'custom') {
+        var container = document.getElementById('kpiSaleTeamCompare');
+        if (container && window._kpiSaleTcAdvData) renderKpiSaleTeamCompare(window._kpiSaleTcMainData, window._kpiSaleTcAdvData);
+        return;
+    }
+    await kpiSaleTcRefetch();
+};
+
+window.kpiSaleTcApplyCustom = async function() {
+    var sd = document.getElementById('kpiSaleTcStartDate');
+    var ed = document.getElementById('kpiSaleTcEndDate');
+    if (!sd || !ed || !sd.value || !ed.value) { alert('Vui lòng chọn ngày bắt đầu và kết thúc'); return; }
+    _kpiSaleTcCustomStart = sd.value;
+    _kpiSaleTcCustomEnd = ed.value;
+    _kpiSaleTcFilter = 'custom';
+    await kpiSaleTcRefetch();
+};
+
+window.kpiSaleTcPickMonth = async function(val) {
+    if (!val) return;
+    _kpiSaleTcMonth = val;
+    _kpiSaleTcFilter = 'pick_month';
+    await kpiSaleTcRefetch();
+};
+
+async function kpiSaleTcRefetch() {
+    var container = document.getElementById('kpiSaleTeamCompare');
+    if (!container) return;
+    container.innerHTML = '<div class="kpi-lb-section"><div class="kpi-lb-header">📊 So Sánh Team (PHÒNG SALE)</div><div style="padding:40px;text-align:center;color:#9ca3af">⏳ Đang tải...</div></div>';
+    try {
+        var url = kpiSaleTcBuildUrl();
+        var retUrl = '/api/reports/customer-retention?period=month&date=' + _kpiSale.month;
+        var results = await Promise.all([apiCall(url), apiCall(retUrl)]);
+        renderKpiSaleTeamCompare(results[1], results[0]);
+    } catch(e) {
+        console.error('Sale TC refetch error:', e);
+        container.innerHTML = '<div class="kpi-lb-section"><div style="padding:20px;color:#ef4444;text-align:center">⚠️ Lỗi: ' + (e.message||'') + '</div></div>';
+    }
+}
+
+window.kpiSaleTcSort = function(metric) {
+    _kpiSaleTcSort = metric;
+    var container = document.getElementById('kpiSaleTeamCompare');
+    if (container && window._kpiSaleTcAdvData) renderKpiSaleTeamCompare(window._kpiSaleTcMainData, window._kpiSaleTcAdvData);
+};
+
+function kpiSaleTrend(cur, prev) {
+    if (prev == null || prev === 0) return cur > 0 ? '<span style="color:#fff;font-size:10px;font-weight:700;background:#10b981;padding:1px 6px;border-radius:4px">Mới</span>' : '';
+    var diff = cur - prev;
+    if (diff === 0) return '<span style="color:#94a3b8;font-size:10px">→0%</span>';
+    var pct = Math.round(100 * diff / prev);
+    if (diff > 0) return '<span style="color:#10b981;font-size:10px;font-weight:700">▲+' + pct + '%</span>';
+    return '<span style="color:#ef4444;font-size:10px;font-weight:700">▼' + pct + '%</span>';
+}
+
+function kpiSaleCompactVND(n) {
+    if (!n) return '0';
+    if (typeof compactVND === 'function') return compactVND(n);
+    if (typeof formatVND === 'function') return formatVND(n);
+    return Number(n).toLocaleString('vi-VN') + 'đ';
+}
+
 function renderKpiSaleTeamCompare(mainData, advData) {
     const container = document.getElementById('kpiSaleTeamCompare');
-    if (!container || !_kpiSale.data || !_kpiSale.data.teams) { if (container) container.innerHTML = ''; return; }
+    if (!container) return;
 
-    const teams = _kpiSale.data.teams;
-    let html = `
-        <div class="kpi-lb-section">
-            <div class="kpi-lb-header">
-                📊 So Sánh Team (PHÒNG SALE)
-            </div>
-            <div class="kpi-tc-grid">
-    `;
+    window._kpiSaleTcAdvData = advData;
+    window._kpiSaleTcMainData = mainData;
 
-    teams.forEach(team => {
-        html += `
-            <div class="kpi-tc-card">
-                <div class="kpi-tc-name">🏠 ${team.dept_name} (${(team.employees || []).length} NV)</div>
-                <div class="kpi-tc-stats">
-                    <div class="kpi-tc-stat">
-                        <div class="kpi-tc-stat-val" style="color:#d97706">${compactVND(team.actual)}</div>
-                        <div class="kpi-tc-stat-label">Doanh Số</div>
-                    </div>
-                    <div class="kpi-tc-stat">
-                        <div class="kpi-tc-stat-val" style="color:#2563eb">${team.rate_1}%</div>
-                        <div class="kpi-tc-stat-label">Tỷ Lệ Đạt</div>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
+    let teams = (advData && advData.teamComparison) ? advData.teamComparison : [];
 
-    html += `</div></div>`;
-    container.innerHTML = html;
+    // Filter to Sale teams if possible, or fallback to all teams if empty
+    if (_kpiSale.data && _kpiSale.data.teams && _kpiSale.data.teams.length > 0) {
+        const saleDeptIds = _kpiSale.data.teams.map(t => t.dept_id || t.id).filter(Boolean);
+        const saleDeptNames = _kpiSale.data.teams.map(t => (t.dept_name || t.name || '').toLowerCase()).filter(Boolean);
+
+        const filtered = teams.filter(t => {
+            if (saleDeptIds.includes(t.id)) return true;
+            if (saleDeptNames.some(n => (t.name || '').toLowerCase().includes(n) || n.includes((t.name || '').toLowerCase()))) return true;
+            if (t.parent_id === 4 || t.id === 4 || (t.name && t.name.toLowerCase().includes('sale'))) return true;
+            return false;
+        });
+        if (filtered.length > 0) teams = filtered;
+    }
+
+    if (!teams || teams.length === 0) {
+        container.innerHTML = '<div class="kpi-lb-section"><div class="kpi-lb-header">📊 So Sánh Team (PHÒNG SALE)</div><div style="padding:20px;text-align:center;color:#94a3b8">📭 Chưa có dữ liệu so sánh team</div></div>';
+        return;
+    }
+
+    // Sort teams by selected metric
+    var sorted = [].concat(teams);
+    if (_kpiSaleTcSort === 'revenue') sorted.sort((a,b) => (b.revenue||0) - (a.revenue||0));
+    else if (_kpiSaleTcSort === 'orders') sorted.sort((a,b) => (b.total_orders||0) - (a.total_orders||0));
+    else if (_kpiSaleTcSort === 'affiliate') sorted.sort((a,b) => (b.affiliate_new||0) - (a.affiliate_new||0));
+    else if (_kpiSaleTcSort === 'retention') sorted.sort((a,b) => (b.rate||0) - (a.rate||0));
+
+    var tabs = [
+        {key:'revenue',icon:'💰',label:'Doanh Số'},
+        {key:'orders',icon:'📦',label:'Đơn Hàng'},
+        {key:'affiliate',icon:'🤝',label:'TK Affiliate'},
+        {key:'retention',icon:'🔁',label:'KH Cũ Quay Lại'}
+    ];
+
+    var tcFilterRow1 = [
+        { key: 'today', icon: '📅', label: 'Hôm nay' },
+        { key: 'yesterday', icon: '📅', label: 'Hôm qua' },
+        { key: '7days', icon: '📅', label: '7 ngày' },
+        { key: 'this_month', icon: '📅', label: 'Tháng này' },
+        { key: 'last_month', icon: '📅', label: 'Tháng trước' },
+        { key: 'all', icon: '📅', label: 'Tất cả' },
+        { key: 'custom', icon: '📅', label: 'Tùy chọn' }
+    ];
+
+    var tcFilterRow2 = [
+        { key: 'stage1', icon: '🔥', label: 'GĐ 1 (1-10)' },
+        { key: 'stage2', icon: '⚡', label: 'GĐ 2 (11-20)' },
+        { key: 'stage3', icon: '🎯', label: 'GĐ 3 (21-31)' }
+    ];
+
+    var h = '<div class="kpi-lb-section">';
+    h += '<div class="kpi-lb-header" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="_kpiSaleToggleTc()">';
+    h += '<span>📊 So Sánh Team (PHÒNG SALE)</span>';
+    h += '<span id="kpiSaleTcIcon" style="font-size:18px;transition:transform .3s;transform:rotate(' + (_kpiSaleTcCollapsed ? '-90deg' : '0') + ')">' + (_kpiSaleTcCollapsed ? '▶' : '▼') + '</span>';
+    h += '</div>';
+
+    var tcPeriodInfo = advData && advData.period;
+    if (tcPeriodInfo && tcPeriodInfo.start) {
+        h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + tcPeriodInfo.start + ' → ' + tcPeriodInfo.end + ' (' + (tcPeriodInfo.label || '') + ')</div>';
+    }
+
+    h += '<div id="kpiSaleTcBody" style="' + (_kpiSaleTcCollapsed ? 'display:none' : '') + '">';
+
+    // FILTER BAR ROW 1
+    h += '<div class="kpi-lb-filter-bar" style="display:flex;align-items:center;gap:6px;padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">';
+    h += '<span style="font-size:12px;font-weight:700;color:#475569;margin-right:4px">📊</span>';
+    for (var fi = 0; fi < tcFilterRow1.length; fi++) {
+        var fp = tcFilterRow1[fi];
+        var isActive = _kpiSaleTcFilter === fp.key;
+        var btnStyle = isActive
+            ? 'background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;border:none;box-shadow:0 2px 8px rgba(67,56,202,.3)'
+            : 'background:#fff;color:#374151;border:1px solid #d1d5db';
+        h += '<button onclick="kpiSaleTcSetFilter(\'' + fp.key + '\')" style="' + btnStyle + ';padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap">';
+        h += fp.icon + ' ' + fp.label + '</button>';
+    }
+    h += '</div>';
+
+    // FILTER BAR ROW 2: Stages + Month Picker
+    h += '<div style="display:flex;align-items:center;gap:6px;padding:8px 24px;background:#fefce8;border-bottom:1px solid #fde68a;flex-wrap:wrap">';
+    for (var si = 0; si < tcFilterRow2.length; si++) {
+        var sp = tcFilterRow2[si];
+        var isStageActive = _kpiSaleTcFilter === sp.key;
+        var sBtnStyle = isStageActive
+            ? 'background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border:none;box-shadow:0 2px 8px rgba(217,119,6,.3)'
+            : 'background:#fff;color:#78350f;border:1px solid #fcd34d';
+        h += '<button onclick="kpiSaleTcSetFilter(\'' + sp.key + '\')" style="' + sBtnStyle + ';padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap">';
+        h += sp.icon + ' ' + sp.label + '</button>';
+    }
+    h += '<span style="width:1px;height:24px;background:#d1d5db;margin:0 6px"></span>';
+    var isTcMonthActive = _kpiSaleTcFilter === 'pick_month';
+    h += '<span style="font-size:12px;font-weight:700;color:#78350f">📆 CHỌN THÁNG</span>';
+    h += '<input type="month" id="kpiSaleTcMonthPicker" value="' + (_kpiSaleTcMonth || '') + '" onchange="kpiSaleTcPickMonth(this.value)" style="padding:5px 10px;border:1px solid ' + (isTcMonthActive ? '#4338ca' : '#d1d5db') + ';border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:' + (isTcMonthActive ? '#eef2ff' : '#fff') + '">';
+    h += '</div>';
+
+    // Custom date pickers
+    if (_kpiSaleTcFilter === 'custom') {
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 24px;background:#eef2ff;border-bottom:1px solid #c7d2fe;flex-wrap:wrap">';
+        h += '<span style="font-size:12px;font-weight:600;color:#4338ca">Từ:</span>';
+        h += '<input type="date" id="kpiSaleTcStartDate" value="' + (_kpiSaleTcCustomStart || '') + '" style="padding:6px 10px;border:1px solid #c7d2fe;border-radius:8px;font-size:12px">';
+        h += '<span style="font-size:12px;font-weight:600;color:#4338ca">Đến:</span>';
+        h += '<input type="date" id="kpiSaleTcEndDate" value="' + (_kpiSaleTcCustomEnd || '') + '" style="padding:6px 10px;border:1px solid #c7d2fe;border-radius:8px;font-size:12px">';
+        h += '<button onclick="kpiSaleTcApplyCustom()" style="padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer">🔍 Áp dụng</button>';
+        h += '</div>';
+    }
+
+    // SORT TABS
+    h += '<div class="kpi-lb-tabs">';
+    for (var ti = 0; ti < tabs.length; ti++) {
+        var t = tabs[ti];
+        h += '<button class="kpi-lb-tab ' + (_kpiSaleTcSort === t.key ? 'active' : '') + '" onclick="kpiSaleTcSort(\'' + t.key + '\')">' + t.icon + ' ' + t.label + '</button>';
+    }
+    h += '</div>';
+    h += '<div class="kpi-tc-grid">';
+
+    for (var i = 0; i < sorted.length; i++) {
+        var team = sorted[i];
+        var prev = team.prev || {};
+        var hb = team.total_orders > 0;
+        h += '<div class="kpi-tc-card"' + (hb ? ' style="border-color:#f59e0b;border-width:2px"' : '') + '>';
+        h += '<div class="kpi-tc-name">🏠 ' + team.name + ' <span style="font-size:12px;font-weight:500;color:#6b7280">(' + (team.employee_count || 0) + ' NV)</span></div>';
+        h += '<div class="kpi-tc-stats">';
+        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#3b82f6">' + kpiSaleCompactVND(team.revenue || 0) + '</div><div class="kpi-tc-stat-label">💰 Doanh Số</div><div style="margin-top:4px">' + kpiSaleTrend(team.revenue || 0, prev.revenue || 0) + '</div></div>';
+        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#4338ca">' + (team.total_orders || 0) + '</div><div class="kpi-tc-stat-label">📦 Tổng Đơn</div><div style="margin-top:4px">' + kpiSaleTrend(team.total_orders || 0, prev.total_orders || 0) + '</div></div>';
+        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#7c3aed">' + (team.rate || 0) + '%</div><div class="kpi-tc-stat-label">🔁 TỈ LỆ KH CỦ</div><div style="margin-top:4px">' + kpiSaleTrend(team.rate || 0, prev.rate || 0) + '</div></div>';
+        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#059669">' + (team.affiliate_new || 0) + '</div><div class="kpi-tc-stat-label">🤝 TẠO TK AFF</div><div style="margin-top:4px">' + kpiSaleTrend(team.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
+        h += '</div></div>';
+    }
+    h += '</div>';
+    h += '</div>'; // close kpiSaleTcBody
+    h += '</div>'; // close kpi-lb-section
+    container.innerHTML = h;
 }
 
 // SECTION 5: ▶ 📝 Cam Kết Cuộc Họp : KPI P.Sale
