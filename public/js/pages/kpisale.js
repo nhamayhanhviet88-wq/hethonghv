@@ -1531,6 +1531,54 @@ async function kpiSaleSaveTargets() {
 }
 
 // Order Details Modal
+var _kpiSaleModalOrders = [];
+var _kpiSaleModalFilter = 'all';
+
+function _kpiSaleCleanPhone(phone) {
+    if (!phone || phone.startsWith('pancake_')) return '—';
+    return phone;
+}
+
+window.kpiSaleFilterModalOrders = function(filterType) {
+    _kpiSaleModalFilter = filterType;
+    const tbody = document.getElementById('kpiSaleOrdersModalBody');
+    if (!tbody || !_kpiSaleModalOrders) return;
+
+    const tabs = document.querySelectorAll('.kpi-sale-ord-filter-btn');
+    tabs.forEach(btn => {
+        if (btn.getAttribute('data-filter') === filterType) {
+            btn.style.outline = '2px solid #2563eb';
+            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.2)';
+        } else {
+            btn.style.outline = 'none';
+            btn.style.boxShadow = 'none';
+        }
+    });
+
+    let filtered = _kpiSaleModalOrders;
+    if (filterType === 'moi') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'moi');
+    else if (filterType === 'cu') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'cu');
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">📭 Không có đơn hàng nào khớp bộ lọc này</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map((o, idx) => `
+        <tr>
+            <td style="text-align:center">${idx + 1}</td>
+            <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
+            <td>${o.customer_name || '—'}</td>
+            <td>${_kpiSaleCleanPhone(o.customer_phone)}</td>
+            <td style="font-weight:600;color:#4f46e5">${o.sale_name || '—'}</td>
+            <td style="text-align:center"><span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:${o.customer_type === 'moi' ? '#dcfce7' : '#fef3c7'};color:${o.customer_type === 'moi' ? '#15803d' : '#b45309'}">${o.customer_type === 'moi' ? 'Khách Mới' : 'Khách Cũ'}</span></td>
+            <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
+            <td style="font-weight:800;color:#059669">${formatVND(o.revenue || 0)}</td>
+            <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
+        </tr>
+    `).join('');
+};
+
 async function kpiSaleShowOrders(userId, userName) {
     const modal = document.getElementById('kpiSaleOrdersModal');
     const title = document.getElementById('kpiSaleOrdersModalTitle');
@@ -1545,36 +1593,20 @@ async function kpiSaleShowOrders(userId, userName) {
 
     try {
         const res = await apiCall(`/api/kpi-sale/employee-orders?user_id=${userId}&month=${_kpiSale.month}`);
+        _kpiSaleModalOrders = res.orders || [];
+        _kpiSaleModalFilter = 'all';
+
         if (summary) {
             const s = res.summary || {};
             summary.innerHTML = `
-                <span>Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></span>
-                <span>Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></span>
-                <span>Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></span>
-                <span>Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="all" onclick="kpiSaleFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="moi" onclick="kpiSaleFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu" onclick="kpiSaleFilterModalOrders('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></button>
+                <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
             `;
         }
 
-        if (tbody) {
-            if (!res.orders || res.orders.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">📭 Không có đơn hàng chốt trong tháng này</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = res.orders.map((o, idx) => `
-                <tr>
-                    <td style="text-align:center">${idx + 1}</td>
-                    <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
-                    <td>${o.customer_name || '—'}</td>
-                    <td>${o.customer_phone || '—'}</td>
-                    <td style="font-weight:600;color:#4f46e5">${o.sale_name || '—'}</td>
-                    <td style="text-align:center"><span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:${o.customer_type === 'moi' ? '#dcfce7' : '#fef3c7'};color:${o.customer_type === 'moi' ? '#15803d' : '#b45309'}">${o.customer_type === 'moi' ? 'Khách Mới' : 'Khách Cũ'}</span></td>
-                    <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
-                    <td style="font-weight:800;color:#059669">${formatVND(o.revenue || 0)}</td>
-                    <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
-                </tr>
-            `).join('');
-        }
+        kpiSaleFilterModalOrders('all');
     } catch(err) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
     }
@@ -1594,36 +1626,20 @@ async function kpiSaleShowTeamOrders(deptId, deptName) {
 
     try {
         const res = await apiCall(`/api/kpi-sale/team-orders?dept_id=${deptId}&month=${_kpiSale.month}`);
+        _kpiSaleModalOrders = res.orders || [];
+        _kpiSaleModalFilter = 'all';
+
         if (summary) {
             const s = res.summary || {};
             summary.innerHTML = `
-                <span>Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></span>
-                <span>Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></span>
-                <span>Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></span>
-                <span>Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="all" onclick="kpiSaleFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="moi" onclick="kpiSaleFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu" onclick="kpiSaleFilterModalOrders('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></button>
+                <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
             `;
         }
 
-        if (tbody) {
-            if (!res.orders || res.orders.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">📭 Không có đơn hàng chốt trong tháng này</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = res.orders.map((o, idx) => `
-                <tr>
-                    <td style="text-align:center">${idx + 1}</td>
-                    <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
-                    <td>${o.customer_name || '—'}</td>
-                    <td>${o.customer_phone || '—'}</td>
-                    <td style="font-weight:600;color:#4f46e5">${o.sale_name || '—'}</td>
-                    <td style="text-align:center"><span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:${o.customer_type === 'moi' ? '#dcfce7' : '#fef3c7'};color:${o.customer_type === 'moi' ? '#15803d' : '#b45309'}">${o.customer_type === 'moi' ? 'Khách Mới' : 'Khách Cũ'}</span></td>
-                    <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
-                    <td style="font-weight:800;color:#059669">${formatVND(o.revenue || 0)}</td>
-                    <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
-                </tr>
-            `).join('');
-        }
+        kpiSaleFilterModalOrders('all');
     } catch(err) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
     }
