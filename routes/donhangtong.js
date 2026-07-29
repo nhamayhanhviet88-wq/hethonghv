@@ -1429,11 +1429,12 @@ module.exports = async function(fastify) {
                     WHEN (
                         SELECT COUNT(*) FROM dht_orders o2 
                         WHERE (
-                            (o.customer_id IS NOT NULL AND o2.customer_id = o.customer_id)
+                            (o.customer_id IS NOT NULL AND o.customer_id > 0 AND o2.customer_id = o.customer_id)
                             OR (o.customer_phone IS NOT NULL AND o.customer_phone != '' AND o2.customer_phone = o.customer_phone)
+                            OR (cust.phone IS NOT NULL AND cust.phone != '' AND o2.customer_phone = cust.phone)
                         )
                         AND COALESCE(o2.is_draft, FALSE) = FALSE
-                        AND o2.id < o.id
+                        AND (o2.created_at < o.created_at OR (o2.created_at = o.created_at AND o2.id < o.id))
                     ) > 0 THEN 'cu'
                     ELSE 'moi'
                 END AS customer_type,
@@ -1502,7 +1503,10 @@ module.exports = async function(fastify) {
                     )
                 ) AS has_any_printing
             FROM dht_orders o
-            LEFT JOIN customers cust ON o.customer_id = cust.id
+            LEFT JOIN customers cust ON (
+                (o.customer_id IS NOT NULL AND o.customer_id > 0 AND cust.id = o.customer_id)
+                OR ((o.customer_id IS NULL OR o.customer_id = 0) AND o.customer_phone IS NOT NULL AND o.customer_phone != '' AND cust.phone = o.customer_phone)
+            )
             LEFT JOIN settings_sources src ON cust.source_id = src.id
             LEFT JOIN dht_categories c ON o.category_id = c.id
             LEFT JOIN users u_cskh ON o.cskh_user_id = u_cskh.id
