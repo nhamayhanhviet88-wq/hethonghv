@@ -388,7 +388,7 @@ module.exports = async function(fastify) {
             JOIN customers c ON oc.customer_id = c.id
             LEFT JOIN users u ON u.id = c.assigned_to_id
             LEFT JOIN settings_sources s ON s.id = c.source_id
-            LEFT JOIN categories cat ON cat.id = d.category_id
+            LEFT JOIN dht_categories cat ON cat.id = d.category_id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
