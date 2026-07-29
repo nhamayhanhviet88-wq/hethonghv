@@ -328,7 +328,7 @@ async function renderNgansachmktPage(container) {
                     </div>
 
                     <!-- PARENT CATEGORY SELECTOR -->
-                    <div class="mkt-fg" style="background:#eff6ff;padding:12px;border-radius:10px;border:1px solid #bfdbfe;">
+                    <div id="mktCatParentBox" class="mkt-fg" style="background:#eff6ff;padding:12px;border-radius:10px;border:1px solid #bfdbfe;">
                         <label style="color:#1e40af;font-weight:800;">📂 Chọn Mục Cha (Tùy chọn)</label>
                         <select id="mktCatParentSelect" class="mkt-select" onchange="_mktOnParentCategoryChange(this.value)">
                             <!-- Populated dynamically -->
@@ -376,11 +376,14 @@ async function renderNgansachmktPage(container) {
                     </div>
 
                     <!-- FIXED SOURCE BINDING SELECTOR -->
-                    <div class="mkt-fg" style="background:#f8fafc;padding:12px;border-radius:10px;border:1px solid #e2e8f0;">
+                    <div id="mktCatSourceBox" class="mkt-fg" style="background:#f8fafc;padding:12px;border-radius:10px;border:1px solid #e2e8f0;">
                         <label style="color:#0369a1;font-weight:800;">🔗 Gắn Nguồn Khách Cố Định</label>
                         <select id="mktCatSourceSelect" class="mkt-select">
                             <!-- Populated dynamically -->
                         </select>
+                        <div id="mktCatSourceNote" style="font-size:11px;color:#d97706;margin-top:6px;display:none;font-weight:700;">
+                            🔒 <strong>Mục Lớn (Cấp Cha):</strong> Không chọn nguồn trực tiếp. Chỉ số Mục Lớn sẽ tự động bằng <strong>TỔNG CỦA CÁC MỤC CON</strong>.
+                        </div>
                     </div>
 
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;">
@@ -603,6 +606,19 @@ async function _mktInitData() {
         if (spRes.success) {
             _mktNavState.sources = spRes.sources || { nhu_cau: [], sale: [] };
             _mktNavState.pages = spRes.pages || [];
+        }
+
+        // Auto silent sync Meta Ads insights in background if Director
+        if (_mktIsGiamDoc()) {
+            apiCall('/api/marketing-budgets/sync-facebook-insights', 'POST', {
+                year: _mktNavState.selectedYear,
+                month: _mktNavState.selectedMonth,
+                category_id: 'all'
+            }).then(r => {
+                if (r && r.success) {
+                    _mktLoadBudgets();
+                }
+            }).catch(() => {});
         }
     } catch(e) {
         console.error('Error fetching MKT categories/sources/pages:', e);
@@ -843,6 +859,9 @@ function _mktUpdateBreadcrumb() {
             } else {
                 catLabel = ` > <span class="mkt-crumb-tag active" onclick="_mktSelectNav('${_mktNavState.selectedGroup}', ${cat.id})" title="Đang xem toàn bộ dữ liệu thuộc ${cat.name}">${cat.icon || '📌'} ${cat.name}</span>`;
             }
+            if (cat.parent_id && !cat.linked_source_name) {
+                catLabel += ` <span style="font-size:11px;color:#d97706;background:#fffbeb;padding:2px 8px;border-radius:6px;font-weight:700;border:1px solid #fde68a;" title="Mục con này chưa cài đặt Nguồn Quảng Cáo liên kết (Nhấn ✏️ để cài đặt)">⚠️ Chưa cài Nguồn Liên Kết</span>`;
+            }
         }
     }
 
@@ -870,13 +889,19 @@ function _mktRenderKpiCards(s) {
         <div style="display:flex;flex-direction:column;gap:14px;grid-column:1/-1;">
             <!-- HÀNG 1: 4 Ô THỐNG KÊ (Đơn Hàng | Doanh Số | ROAS | Giá/Đơn) -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;">
-                <div class="mkt-kpi-card" style="border-top-color:#2563eb;background:linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);">
-                    <div class="mkt-kpi-lbl">📦 TỔNG SỐ ĐƠN HÀNG</div>
+                <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" style="border-top-color:#2563eb;background:linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;" title="Click để xem danh sách chi tiết các đơn hàng chốt thành công">
+                    <div class="mkt-kpi-lbl" style="display:flex;justify-content:space-between;align-items:center;">
+                        <span>📦 TỔNG SỐ ĐƠN HÀNG</span>
+                        <span style="font-size:10px;color:#2563eb;background:#dbeafe;padding:1px 6px;border-radius:4px;font-weight:700;">Xem chi tiết 🔍</span>
+                    </div>
                     <div class="mkt-kpi-val" style="color:#2563eb;">${totalOrders.toLocaleString('vi-VN')} <span style="font-size:13px;font-weight:600">đơn</span></div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Phát sinh trong ${periodText}</div>
                 </div>
-                <div class="mkt-kpi-card" style="border-top-color:#0284c7;background:linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);">
-                    <div class="mkt-kpi-lbl">💰 DOANH SỐ MKT</div>
+                <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" style="border-top-color:#0284c7;background:linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;" title="Click để xem danh sách chi tiết các đơn hàng chốt thành công">
+                    <div class="mkt-kpi-lbl" style="display:flex;justify-content:space-between;align-items:center;">
+                        <span>💰 DOANH SỐ MKT</span>
+                        <span style="font-size:10px;color:#0284c7;background:#e0f2fe;padding:1px 6px;border-radius:4px;font-weight:700;">Xem chi tiết 🔍</span>
+                    </div>
                     <div class="mkt-kpi-val" style="color:#0284c7;">${_mktFmt(totalRevenue)}</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Doanh số thu về</div>
                 </div>
@@ -913,6 +938,126 @@ function _mktRenderKpiCards(s) {
         </div>
     `;
 }
+
+window._mktOpenOrdersModal = async function() {
+    let modal = document.getElementById('mktOrdersModalOverlay');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'mktOrdersModalOverlay';
+        modal.className = 'mkt-modal-overlay';
+        modal.style.zIndex = '99999';
+        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+        modal.innerHTML = `
+            <div class="mkt-modal" style="width:1100px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:18px;box-shadow:0 25px 60px rgba(0,0,0,0.3);">
+                <div style="background:linear-gradient(135deg, #1e40af, #2563eb);color:white;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                        <h3 style="margin:0;color:white;font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;">
+                            <span>📦 DANH SÁCH ĐƠN HÀNG MARKETING (FIRST-TOUCH)</span>
+                        </h3>
+                        <div id="mktOrdersModalSub" style="font-size:12px;color:#bfdbfe;margin-top:2px;">⏳ Đang tải dữ liệu...</div>
+                    </div>
+                    <button type="button" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;font-weight:bold;" onclick="document.getElementById('mktOrdersModalOverlay').style.display='none'">✕</button>
+                </div>
+                <div style="padding:14px 22px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+                    <div style="font-size:13px;color:#334155;font-weight:700;" id="mktOrdersSummaryStats">
+                        <!-- Summary metrics -->
+                    </div>
+                    <button type="button" class="mkt-btn mkt-btn-secondary" style="font-size:12px;padding:5px 12px;background:#white;border:1px solid #cbd5e1;" onclick="_mktOpenOrdersModal()">🔄 Tải lại dữ liệu</button>
+                </div>
+                <div style="flex:1;overflow-y:auto;padding:16px 22px 22px 22px;">
+                    <div id="mktOrdersTableContainer">
+                        ⏳ Đang truy vấn danh sách đơn hàng...
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const subEl = modal.querySelector('#mktOrdersModalSub');
+    const statsEl = modal.querySelector('#mktOrdersSummaryStats');
+    const tableEl = modal.querySelector('#mktOrdersTableContainer');
+
+    modal.style.setProperty('display', 'flex', 'important');
+    if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;font-weight:700;">⏳ Đang tải danh sách đơn hàng chốt thành công từ Quảng Cáo...</div>';
+
+    try {
+        let url = `/api/marketing-budgets/first-touch-orders?year=${_mktNavState.selectedYear}`;
+        if (_mktNavState.selectedMonth !== 'all') url += `&month=${_mktNavState.selectedMonth}`;
+        if (_mktNavState.selectedGroup !== 'all') url += `&group_type=${_mktNavState.selectedGroup}`;
+        if (_mktNavState.selectedCatId !== 'all') url += `&category_id=${_mktNavState.selectedCatId}`;
+
+        const res = await apiCall(url);
+        if (res.success && Array.isArray(res.orders)) {
+            const orders = res.orders;
+            const sum = res.summary || {};
+
+            const periodTxt = _mktNavState.selectedMonth === 'all' 
+                ? `Cả Năm ${_mktNavState.selectedYear}` 
+                : `Tháng ${_mktNavState.selectedMonth}/${_mktNavState.selectedYear}`;
+
+            if (subEl) subEl.textContent = `Báo cáo Đơn hàng First-Touch • ${periodTxt}`;
+            if (statsEl) {
+                statsEl.innerHTML = `
+                    <span style="color:#2563eb;margin-right:16px;background:#eff6ff;padding:4px 10px;border-radius:8px;border:1px solid #bfdbfe;">📦 Tổng đơn: <b>${sum.totalOrders || 0} đơn</b></span>
+                    <span style="color:#059669;margin-right:16px;background:#f0fdf4;padding:4px 10px;border-radius:8px;border:1px solid #bbf7d0;">👔 Tổng SL: <b>${(sum.totalQuantity || 0).toLocaleString('vi-VN')} sp</b></span>
+                    <span style="color:#d97706;margin-right:16px;background:#fffbeb;padding:4px 10px;border-radius:8px;border:1px solid #fde68a;">💵 Tổng cọc: <b>${_mktFmt(sum.totalDeposit || 0)}</b></span>
+                    <span style="color:#7c3aed;background:#f3e8ff;padding:4px 10px;border-radius:8px;border:1px solid #ddd6fe;">💰 Doanh số MKT: <b>${_mktFmt(sum.totalRevenue || 0)}</b></span>
+                `;
+            }
+
+            if (orders.length === 0) {
+                if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;font-weight:600;">📭 Chưa có đơn hàng Marketing nào được ghi nhận cho bộ lọc đang chọn.</div>';
+                return;
+            }
+
+            let rowsHtml = orders.map((o, idx) => `
+                <tr style="border-bottom:1px solid #e2e8f0;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                    <td style="padding:11px 12px;text-align:center;font-weight:700;color:#64748b;font-size:12px;">${idx + 1}</td>
+                    <td style="padding:11px 12px;font-weight:700;color:#334155;font-size:12.5px;white-space:nowrap;">🕒 ${o.order_time_str || o.dt_str}</td>
+                    <td style="padding:11px 12px;font-weight:800;color:#2563eb;font-family:monospace;font-size:13px;white-space:nowrap;">
+                        <span style="background:#eff6ff;padding:3px 8px;border-radius:6px;border:1px solid #bfdbfe;">${o.order_code}</span>
+                    </td>
+                    <td style="padding:11px 12px;font-weight:800;color:#0f172a;font-size:13px;">${o.customer_name}</td>
+                    <td style="padding:11px 12px;font-weight:700;color:#475569;font-size:12.5px;">👤 ${o.sale_name}</td>
+                    <td style="padding:11px 12px;font-size:12px;">
+                        <span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;font-weight:700;border:1px solid #bae6fd;white-space:nowrap;">📍 ${o.source}</span>
+                    </td>
+                    <td style="padding:11px 12px;text-align:center;font-weight:800;color:#059669;font-size:13px;">${Number(o.total_quantity || 0).toLocaleString('vi-VN')}</td>
+                    <td style="padding:11px 12px;text-align:right;font-weight:800;color:#d97706;font-size:13px;">${Number(o.deposit_amount) > 0 ? _mktFmt(o.deposit_amount) : '—'}</td>
+                    <td style="padding:11px 12px;text-align:right;font-weight:900;color:#2563eb;font-size:14px;">${_mktFmt(o.total_amount)}</td>
+                </tr>
+            `).join('');
+
+            if (tableEl) {
+                tableEl.innerHTML = `
+                    <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+                        <table class="mkt-table" style="width:100%;border-collapse:collapse;background:white;">
+                            <thead>
+                                <tr style="background:#f8fafc;border-bottom:2px solid #cbd5e1;">
+                                    <th style="padding:12px;text-align:center;width:40px;color:#475569;">#</th>
+                                    <th style="padding:12px;color:#475569;">Thời Gian Chốt</th>
+                                    <th style="padding:12px;color:#475569;">Mã Đơn</th>
+                                    <th style="padding:12px;color:#475569;">Tên Khách Hàng</th>
+                                    <th style="padding:12px;color:#475569;">NVKD / Sale</th>
+                                    <th style="padding:12px;color:#475569;">Nguồn Quảng Cáo</th>
+                                    <th style="padding:12px;text-align:center;color:#475569;">Tổng SL</th>
+                                    <th style="padding:12px;text-align:right;color:#475569;">Đặt Cọc</th>
+                                    <th style="padding:12px;text-align:right;color:#475569;">Doanh Số</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+        }
+    } catch(e) {
+        if (tableEl) tableEl.innerHTML = `<div style="text-align:center;padding:30px;color:#ef4444;font-weight:700;">❌ Lỗi nạp danh sách đơn hàng: ${e.message}</div>`;
+    }
+};
 
 // Helper formatting date to: "Thứ 4 - 01/07/26"
 function _mktFmtDateWithDay(dateStr) {
@@ -1260,7 +1405,10 @@ function _mktRenderTable(data) {
     _mktRenderCostTable(data);
 
     // 2. Render Analytics Table Panel (EXCLUDE manual cost entries created from "➕ Nhập Chi Phí Marketing")
-    const analyticsData = (data || []).filter(item => (!item.notes || item.notes.trim() === '') && !item.image_url && !item.report_link);
+    let analyticsData = (data || []).filter(item => (!item.notes || item.notes.trim() === '') && !item.image_url && !item.report_link);
+
+    // Sort analyticsData by budget_date DESC
+    analyticsData.sort((a, b) => (b.budget_date || '').localeCompare(a.budget_date || ''));
 
     const tbody = document.getElementById('mktTableBody');
     const countTag = document.getElementById('mktRecordCount');
@@ -2261,8 +2409,43 @@ async function _mktPopulateAdsHandlerUsers(selectedHandler = 'Giám Đốc', sel
             </label>
         `;
     });
-    reportersBox.innerHTML = multiHtml;
+    if (reportersBox) reportersBox.innerHTML = multiHtml;
 }
+
+window._mktOnParentCategoryChange = function(parentVal) {
+    const sourceSelect = document.getElementById('mktCatSourceSelect');
+    const sourceNote = document.getElementById('mktCatSourceNote');
+    const sourceBox = document.getElementById('mktCatSourceBox');
+
+    if (!parentVal) {
+        if (sourceSelect) {
+            sourceSelect.value = '';
+            sourceSelect.disabled = true;
+            sourceSelect.style.background = '#f1f5f9';
+            sourceSelect.style.cursor = 'not-allowed';
+        }
+        if (sourceBox) {
+            sourceBox.style.background = '#fffbeb';
+            sourceBox.style.border = '1.5px solid #fde68a';
+        }
+        if (sourceNote) {
+            sourceNote.style.display = 'block';
+        }
+    } else {
+        if (sourceSelect) {
+            sourceSelect.disabled = false;
+            sourceSelect.style.background = 'white';
+            sourceSelect.style.cursor = 'pointer';
+        }
+        if (sourceBox) {
+            sourceBox.style.background = '#f8fafc';
+            sourceBox.style.border = '1px solid #e2e8f0';
+        }
+        if (sourceNote) {
+            sourceNote.style.display = 'none';
+        }
+    }
+};
 
 async function _mktOpenCatModal(groupType, defaultParentId = null) {
     if (!_mktIsGiamDoc()) {
@@ -2282,6 +2465,9 @@ async function _mktOpenCatModal(groupType, defaultParentId = null) {
     const iconEl = document.getElementById('mktCatIcon');
     const sourceSelect = document.getElementById('mktCatSourceSelect');
     const deleteBtn = document.getElementById('mktCatDeleteBtn');
+
+    const parentBox = document.getElementById('mktCatParentBox');
+    if (parentBox) parentBox.style.display = 'block';
 
     if (!modal) return;
     if (catIdEl) catIdEl.value = '';
@@ -2368,6 +2554,18 @@ async function _mktOpenEditCatModal(catId) {
     if (sourceSelect && cat.linked_source_name) {
         const targetVal = `${cat.linked_source_type || 'sale'}:${cat.linked_source_name}`;
         sourceSelect.value = targetVal;
+    }
+
+    _mktOnParentCategoryChange(cat.parent_id);
+
+    // Hide Parent Category selection box if editing an existing Parent Category
+    const parentBox = document.getElementById('mktCatParentBox');
+    if (parentBox) {
+        if (!cat.parent_id) {
+            parentBox.style.display = 'none';
+        } else {
+            parentBox.style.display = 'block';
+        }
     }
 
     // Hide Pancake Page selection box when editing an existing category

@@ -426,6 +426,26 @@ function renderKpiSaleUI(data) {
         `;
 
         (team.employees || []).forEach(emp => {
+            const empStages = emp.stages || (function() {
+                const daysInMonth = month.days_in_month || 30;
+                const s1Days = 10, s2Days = 10, s3Days = daysInMonth - 20;
+                let s1Actual = 0, s2Actual = 0, s3Actual = 0;
+                const dailyArr = emp.daily || [];
+                for (let i = 0; i < daysInMonth; i++) {
+                    if (i < 10) s1Actual += dailyArr[i] || 0;
+                    else if (i < 20) s2Actual += dailyArr[i] || 0;
+                    else s3Actual += dailyArr[i] || 0;
+                }
+                const s1Target = emp.target > 0 ? Math.round(emp.target * s1Days / daysInMonth) : 0;
+                const s2Target = emp.target > 0 ? Math.round(emp.target * s2Days / daysInMonth) : 0;
+                const s3Target = emp.target > 0 ? emp.target - s1Target - s2Target : 0;
+                return {
+                    stage1: { target: s1Target, actual: s1Actual, avg_per_day: s1Days > 0 ? Math.round(s1Actual / s1Days) : 0, missing: s1Target - s1Actual },
+                    stage2: { target: s2Target, actual: s2Actual, avg_per_day: s2Days > 0 ? Math.round(s2Actual / s2Days) : 0, missing: s2Target - s2Actual },
+                    stage3: { target: s3Target, actual: s3Actual, avg_per_day: s3Days > 0 ? Math.round(s3Actual / s3Days) : 0, missing: s3Target - s3Actual }
+                };
+            })();
+
             html += `
                 <tr>
                     <td></td>
@@ -443,7 +463,21 @@ function renderKpiSaleUI(data) {
                     <td class="${(Math.round(emp.target * 1.2) - emp.actual) <= 0 ? 'pos' : 'neg'}">
                         ${(Math.round(emp.target * 1.2) - emp.actual) <= 0 ? 'Đạt' : formatVND(Math.round(emp.target * 1.2) - emp.actual)}
                     </td>
-                    <td colspan="12" style="text-align:center;color:#94a3b8;font-style:italic">— chi tiết cá nhân ở bảng doanh thu theo ngày —</td>
+                    <!-- GĐ1 -->
+                    <td>${formatVND(empStages.stage1.target)}</td>
+                    <td>${formatVND(empStages.stage1.actual)}</td>
+                    <td>${formatVND(empStages.stage1.avg_per_day)}</td>
+                    <td class="${empStages.stage1.missing <= 0 ? 'pos' : 'neg'}">${empStages.stage1.missing <= 0 ? 'Đạt' : formatVND(empStages.stage1.missing)}</td>
+                    <!-- GĐ2 -->
+                    <td>${formatVND(empStages.stage2.target)}</td>
+                    <td>${formatVND(empStages.stage2.actual)}</td>
+                    <td>${formatVND(empStages.stage2.avg_per_day)}</td>
+                    <td class="${empStages.stage2.missing <= 0 ? 'pos' : 'neg'}">${empStages.stage2.missing <= 0 ? 'Đạt' : formatVND(empStages.stage2.missing)}</td>
+                    <!-- GĐ3 -->
+                    <td>${formatVND(empStages.stage3.target)}</td>
+                    <td>${formatVND(empStages.stage3.actual)}</td>
+                    <td>${formatVND(empStages.stage3.avg_per_day)}</td>
+                    <td class="${empStages.stage3.missing <= 0 ? 'pos' : 'neg'}">${empStages.stage3.missing <= 0 ? 'Đạt' : formatVND(empStages.stage3.missing)}</td>
                 </tr>
             `;
         });

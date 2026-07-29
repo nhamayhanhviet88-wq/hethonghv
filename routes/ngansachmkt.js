@@ -8,6 +8,16 @@ function isGiamDoc(user) {
     return false;
 }
 
+function normalizeSourceKey(val) {
+    if (!val) return '';
+    return String(val)
+        .normalize('NFKC')
+        .toLowerCase()
+        .trim()
+        .replace(/\s*\/\s*/g, '/')
+        .replace(/\s+/g, ' ');
+}
+
 async function nganSachMktRoutes(fastify, options) {
 
     // Ensure tables and columns exist
@@ -500,7 +510,7 @@ async function nganSachMktRoutes(fastify, options) {
                     const adAccName = cat.fb_ad_account_name || null;
                     const adAccLink = cat.fb_ad_account_link || null;
 
-                    const fbUrl = `https://graph.facebook.com/v20.0/${adAccId}/insights?fields=spend,actions&time_range=${encodeURIComponent(JSON.stringify({ since: sinceDate, until: untilDate }))}&time_increment=1&access_token=${encodeURIComponent(token)}`;
+                    const fbUrl = `https://graph.facebook.com/v20.0/${adAccId}/insights?fields=spend,actions&time_range=${encodeURIComponent(JSON.stringify({ since: sinceDate, until: untilDate }))}&time_increment=1&limit=100&access_token=${encodeURIComponent(token)}`;
 
                     const resp = await fetch(fbUrl);
                     const json = await resp.json();
@@ -667,6 +677,9 @@ async function nganSachMktRoutes(fastify, options) {
 
             const reportersVal = allowed_reporter_names !== undefined ? (typeof allowed_reporter_names === 'string' ? allowed_reporter_names : JSON.stringify(allowed_reporter_names)) : null;
 
+            const finalLinkedType = parentIdNum ? (linked_source_type || null) : null;
+            const finalLinkedName = parentIdNum ? (linked_source_name || null) : null;
+
             const res = await db.get(`
                 INSERT INTO mkt_categories (parent_id, group_type, name, icon, sort_order, linked_source_type, linked_source_name, pancake_page_id, pancake_page_name, ads_handler_name, allowed_reporter_names, fb_ad_account_id, fb_access_token, fb_ad_account_name, fb_ad_account_link)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -677,8 +690,8 @@ async function nganSachMktRoutes(fastify, options) {
                 name.trim(),
                 icon || (group_type === 'online' ? '🌐' : '🏢'),
                 nextOrder,
-                linked_source_type || null,
-                linked_source_name || null,
+                finalLinkedType,
+                finalLinkedName,
                 pancake_page_id || null,
                 pancake_page_name || null,
                 ads_handler_name || null,
@@ -729,6 +742,9 @@ async function nganSachMktRoutes(fastify, options) {
 
             const reportersVal = allowed_reporter_names !== undefined ? (typeof allowed_reporter_names === 'string' ? allowed_reporter_names : JSON.stringify(allowed_reporter_names)) : existing.allowed_reporter_names;
 
+            const isParentCat = !existing.parent_id;
+            const finalLinkedName = isParentCat ? null : (linked_source_name !== undefined ? linked_source_name : existing.linked_source_name);
+
             await db.run(`
                 UPDATE mkt_categories SET
                     name = ?,
@@ -745,7 +761,7 @@ async function nganSachMktRoutes(fastify, options) {
             `, [
                 name !== undefined ? name.trim() : existing.name,
                 icon !== undefined ? icon : existing.icon,
-                linked_source_name !== undefined ? linked_source_name : existing.linked_source_name,
+                finalLinkedName,
                 ads_handler_name !== undefined ? ads_handler_name : existing.ads_handler_name,
                 reportersVal,
                 pancake_page_id !== undefined ? pancake_page_id : existing.pancake_page_id,
@@ -823,39 +839,148 @@ async function nganSachMktRoutes(fastify, options) {
             const rows = await db.all(sql, params);
 
             const orderStats = await db.all(`
-                SELECT order_date::date as dt_str, source, COUNT(*)::int as cnt, SUM(total_amount)::numeric as rev
-                FROM dht_orders
-                WHERE order_date IS NOT NULL
-                GROUP BY order_date::date, source
+                WITH ActiveSources AS (
+                    SELECT DISTINCT 
+                        LOWER(TRIM(REGEXP_REPLACE(unnest(string_to_array(linked_source_name, ',')), '\\s*\\/\\s*', '/', 'g'))) as clean_src
+                    FROM mkt_categories 
+                    WHERE is_active = TRUE AND NULLIF(TRIM(linked_source_name), '') IS NOT NULL
+                ),
+                NormalizedOrders AS (
+                    SELECT 
+                        o.id,
+                        o.order_code,
+                        TO_CHAR(o.order_date, 'YYYY-MM-DD') as dt_str,
+                        TRIM(o.source) as source,
+                        LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) as clean_source_key,
+                        o.total_amount,
+                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone
+                    FROM dht_orders o
+                    LEFT JOIN customers c ON c.id = o.customer_id OR (
+                        RIGHT(REGEXP_REPLACE(c.phone, '\\D', '', 'g'), 9) = RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9)
+                        AND RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9) <> ''
+                    )
+                    WHERE o.order_date IS NOT NULL 
+                      AND COALESCE(o.is_draft, false) = false
+                      AND NULLIF(TRIM(o.source), '') IS NOT NULL
+                      AND LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) IN (SELECT clean_src FROM ActiveSources)
+                ),
+                RankedOrders AS (
+                    SELECT 
+                        *,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY norm_phone 
+                            ORDER BY dt_str ASC, id ASC
+                        ) as rn
+                    FROM NormalizedOrders
+                )
+                SELECT 
+                    dt_str, 
+                    source, 
+                    clean_source_key,
+                    COUNT(*)::int as cnt, 
+                    SUM(total_amount)::numeric as rev
+                FROM RankedOrders
+                WHERE rn = 1
+                GROUP BY dt_str, source, clean_source_key
             `);
 
             const orderMap = new Map();
             (orderStats || []).forEach(o => {
                 if (o.dt_str) {
-                    const dateKey = new Date(o.dt_str).toISOString().split('T')[0];
-                    const srcKey = o.source ? o.source.toLowerCase().trim() : '';
-                    orderMap.set(`${dateKey}|${srcKey}`, {
-                        cnt: Number(o.cnt || 0),
-                        rev: Number(o.rev || 0)
-                    });
+                    const dateKey = o.dt_str.trim();
+                    const srcKey = normalizeSourceKey(o.source);
+                    const cleanKey = normalizeSourceKey(o.clean_source_key) || srcKey;
+                    
+                    const item = orderMap.get(`${dateKey}|${srcKey}`) || { cnt: 0, rev: 0 };
+                    item.cnt += Number(o.cnt || 0);
+                    item.rev += Number(o.rev || 0);
+                    
+                    orderMap.set(`${dateKey}|${srcKey}`, item);
+                    orderMap.set(`${dateKey}|${cleanKey}`, item);
                 }
             });
 
             rows.forEach(r => {
                 const dtKey = r.budget_date ? r.budget_date.trim() : '';
                 const srcName = r.linked_source_name || r.cat_linked_source || r.channel_name || '';
-                const srcKey = srcName.toLowerCase().trim();
+                const srcKey = normalizeSourceKey(srcName);
 
                 const matchedOrder = orderMap.get(`${dtKey}|${srcKey}`);
                 if (matchedOrder) {
                     r.order_count = matchedOrder.cnt;
-                    if (Number(r.revenue_amount || 0) === 0 && matchedOrder.rev > 0) {
-                        r.revenue_amount = matchedOrder.rev;
-                    }
+                    r.revenue_amount = matchedOrder.rev;
                 } else {
                     r.order_count = Number(r.order_count || 0);
                 }
             });
+
+            // Target linked sources filter
+            let isCategorySelected = category_id && category_id !== 'all';
+            let targetLinkedSources = new Set();
+
+            if (isCategorySelected) {
+                const targetCatId = Number(category_id);
+                const cats = await db.all('SELECT id, linked_source_name FROM mkt_categories WHERE (id = ? OR parent_id = ?) AND is_active = TRUE', [targetCatId, targetCatId]);
+                cats.forEach(c => {
+                    if (c.linked_source_name) {
+                        c.linked_source_name.split(/[,;|\n]+/).forEach(s => {
+                            if (s.trim()) targetLinkedSources.add(normalizeSourceKey(s));
+                        });
+                    }
+                });
+            } else {
+                const allActiveCats = await db.all("SELECT DISTINCT linked_source_name FROM mkt_categories WHERE is_active = TRUE AND NULLIF(TRIM(linked_source_name), '') IS NOT NULL");
+                allActiveCats.forEach(c => {
+                    if (c.linked_source_name) {
+                        c.linked_source_name.split(/[,;|\n]+/).forEach(s => {
+                            if (s.trim()) targetLinkedSources.add(normalizeSourceKey(s));
+                        });
+                    }
+                });
+            }
+
+            let filteredOrderStats = orderStats || [];
+            if (targetLinkedSources.size === 0) {
+                filteredOrderStats = [];
+            } else {
+                filteredOrderStats = filteredOrderStats.filter(o => targetLinkedSources.has(normalizeSourceKey(o.source)) || targetLinkedSources.has(normalizeSourceKey(o.clean_source_key)));
+            }
+
+            if (year && month && month !== 'all') {
+                const prefix = `${year}-${String(month).padStart(2, '0')}`;
+                filteredOrderStats = filteredOrderStats.filter(o => o.dt_str && o.dt_str.startsWith(prefix));
+            } else if (year) {
+                const prefix = `${year}-`;
+                filteredOrderStats = filteredOrderStats.filter(o => o.dt_str && o.dt_str.startsWith(prefix));
+            }
+
+            // Append synthetic rows for orderStats dates that aren't present in marketing_budgets yet (e.g. today 29th)
+            if (view_type === 'daily' && month && month !== 'all') {
+                const existingDates = new Set(rows.map(r => r.budget_date));
+                const defaultCat = (await db.all('SELECT * FROM mkt_categories WHERE is_active = TRUE'))[0] || {};
+                
+                filteredOrderStats.forEach(o => {
+                    if (o.dt_str && !existingDates.has(o.dt_str)) {
+                        rows.push({
+                            id: 'auto_order_' + o.dt_str + '_' + (o.clean_source_key || 'src'),
+                            budget_date: o.dt_str,
+                            budget_year: Number(o.dt_str.split('-')[0]),
+                            budget_month: Number(o.dt_str.split('-')[1]),
+                            channel_name: o.source,
+                            cat_icon: '📦',
+                            linked_source_name: o.source,
+                            ads_handler_name: defaultCat.ads_handler_name || 'Giám Đốc',
+                            spent_amount: 0,
+                            lead_count: 0,
+                            order_count: Number(o.cnt || 0),
+                            revenue_amount: Number(o.rev || 0)
+                        });
+                        existingDates.add(o.dt_str);
+                    }
+                });
+
+                rows.sort((a, b) => (b.budget_date || '').localeCompare(a.budget_date || ''));
+            }
 
             let totalBudget = 0;
             let totalSpent = 0;
@@ -867,8 +992,11 @@ async function nganSachMktRoutes(fastify, options) {
                 totalBudget += Number(r.budget_amount || 0);
                 totalSpent += Number(r.spent_amount || 0);
                 totalLeads += Number(r.lead_count || 0);
-                totalOrders += Number(r.order_count || 0);
-                totalRevenue += Number(r.revenue_amount || 0);
+            });
+
+            filteredOrderStats.forEach(o => {
+                totalOrders += Number(o.cnt || 0);
+                totalRevenue += Number(o.rev || 0);
             });
 
             const avgCpl = totalLeads > 0 ? Math.round(totalSpent / totalLeads) : 0;
@@ -890,6 +1018,122 @@ async function nganSachMktRoutes(fastify, options) {
         } catch(err) {
             console.error('Error fetching marketing budgets:', err);
             return reply.code(500).send({ error: 'Lỗi máy chủ khi lấy dữ liệu ngân sách' });
+        }
+    });
+
+    // GET /api/marketing-budgets/first-touch-orders
+    fastify.get('/api/marketing-budgets/first-touch-orders', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const { year, month, group_type, category_id } = request.query;
+
+            const orderDetails = await db.all(`
+                WITH ActiveSources AS (
+                    SELECT DISTINCT 
+                        LOWER(TRIM(REGEXP_REPLACE(unnest(string_to_array(linked_source_name, ',')), '\\s*\\/\\s*', '/', 'g'))) as clean_src
+                    FROM mkt_categories 
+                    WHERE is_active = TRUE AND NULLIF(TRIM(linked_source_name), '') IS NOT NULL
+                ),
+                NormalizedOrders AS (
+                    SELECT 
+                        o.id,
+                        o.order_code,
+                        TO_CHAR(o.order_date, 'YYYY-MM-DD HH24:MI') as order_time_str,
+                        TO_CHAR(o.order_date, 'YYYY-MM-DD') as dt_str,
+                        TRIM(o.source) as source,
+                        LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) as clean_source_key,
+                        COALESCE(c.customer_name, o.customer_name, 'Khách hàng') as customer_name,
+                        COALESCE(u.full_name, '—') as sale_name,
+                        COALESCE(o.total_quantity, 0) as total_quantity,
+                        COALESCE(o.deposit_amount_cache, 0) as deposit_amount,
+                        o.total_amount,
+                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone
+                    FROM dht_orders o
+                    LEFT JOIN customers c ON c.id = o.customer_id OR (
+                        RIGHT(REGEXP_REPLACE(c.phone, '\\D', '', 'g'), 9) = RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9)
+                        AND RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9) <> ''
+                    )
+                    LEFT JOIN users u ON u.id = o.created_by
+                    WHERE o.order_date IS NOT NULL 
+                      AND COALESCE(o.is_draft, false) = false
+                      AND NULLIF(TRIM(o.source), '') IS NOT NULL
+                      AND LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) IN (SELECT clean_src FROM ActiveSources)
+                ),
+                RankedOrders AS (
+                    SELECT 
+                        *,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY norm_phone 
+                            ORDER BY dt_str ASC, id ASC
+                        ) as rn
+                    FROM NormalizedOrders
+                )
+                SELECT * FROM RankedOrders 
+                WHERE rn = 1
+                ORDER BY order_time_str DESC, id DESC
+            `);
+
+            let isCategorySelected = category_id && category_id !== 'all';
+            let targetLinkedSources = new Set();
+
+            if (isCategorySelected) {
+                const targetCatId = Number(category_id);
+                const cats = await db.all('SELECT id, linked_source_name FROM mkt_categories WHERE (id = ? OR parent_id = ?) AND is_active = TRUE', [targetCatId, targetCatId]);
+                cats.forEach(c => {
+                    if (c.linked_source_name) {
+                        c.linked_source_name.split(/[,;|\n]+/).forEach(s => {
+                            if (s.trim()) targetLinkedSources.add(normalizeSourceKey(s));
+                        });
+                    }
+                });
+            } else {
+                const allActiveCats = await db.all("SELECT DISTINCT linked_source_name FROM mkt_categories WHERE is_active = TRUE AND NULLIF(TRIM(linked_source_name), '') IS NOT NULL");
+                allActiveCats.forEach(c => {
+                    if (c.linked_source_name) {
+                        c.linked_source_name.split(/[,;|\n]+/).forEach(s => {
+                            if (s.trim()) targetLinkedSources.add(normalizeSourceKey(s));
+                        });
+                    }
+                });
+            }
+
+            let filteredOrders = orderDetails || [];
+            if (targetLinkedSources.size === 0) {
+                filteredOrders = [];
+            } else {
+                filteredOrders = filteredOrders.filter(o => targetLinkedSources.has(normalizeSourceKey(o.source)) || targetLinkedSources.has(normalizeSourceKey(o.clean_source_key)));
+            }
+
+            if (year && month && month !== 'all') {
+                const prefix = `${year}-${String(month).padStart(2, '0')}`;
+                filteredOrders = filteredOrders.filter(o => o.dt_str && o.dt_str.startsWith(prefix));
+            } else if (year) {
+                const prefix = `${year}-`;
+                filteredOrders = filteredOrders.filter(o => o.dt_str && o.dt_str.startsWith(prefix));
+            }
+
+            let totalQty = 0;
+            let totalDeposit = 0;
+            let totalRev = 0;
+
+            filteredOrders.forEach(o => {
+                totalQty += Number(o.total_quantity || 0);
+                totalDeposit += Number(o.deposit_amount || 0);
+                totalRev += Number(o.total_amount || 0);
+            });
+
+            return {
+                success: true,
+                orders: filteredOrders,
+                summary: {
+                    totalOrders: filteredOrders.length,
+                    totalQuantity: totalQty,
+                    totalDeposit: totalDeposit,
+                    totalRevenue: totalRev
+                }
+            };
+        } catch(err) {
+            console.error('Error fetching first-touch order details:', err);
+            return reply.code(500).send({ error: 'Lỗi máy chủ khi lấy danh sách đơn hàng Marketing' });
         }
     });
 
@@ -1256,4 +1500,98 @@ async function nganSachMktRoutes(fastify, options) {
     });
 }
 
+async function syncMetaInsightsInternal(targetYear, targetMonth) {
+    try {
+        const now = new Date();
+        const year = targetYear || now.getFullYear();
+        const month = targetMonth || (now.getMonth() + 1);
+
+        const sinceDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const untilDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        const targetCats = await db.all("SELECT * FROM mkt_categories WHERE is_active = TRUE AND fb_ad_account_id IS NOT NULL AND fb_access_token IS NOT NULL");
+        if (!targetCats || targetCats.length === 0) return { success: false, message: 'No cats' };
+
+        for (const cat of targetCats) {
+            try {
+                const adAccId = cat.fb_ad_account_id;
+                const token = cat.fb_access_token;
+                const adAccName = cat.fb_ad_account_name || null;
+                const adAccLink = cat.fb_ad_account_link || null;
+
+                const fbUrl = `https://graph.facebook.com/v20.0/${adAccId}/insights?fields=spend,actions&time_range=${encodeURIComponent(JSON.stringify({ since: sinceDate, until: untilDate }))}&time_increment=1&limit=100&access_token=${encodeURIComponent(token)}`;
+                const resp = await fetch(fbUrl);
+                const json = await resp.json();
+                if (!json.data) continue;
+
+                for (const dayObj of json.data) {
+                    const dayDate = dayObj.date_start;
+                    const daySpent = Number(dayObj.spend || 0);
+                    let dayMsgs = 0;
+
+                    if (Array.isArray(dayObj.actions)) {
+                        const msgStartedAct = dayObj.actions.find(a => 
+                            a.action_type === 'onsite_conversion.messaging_conversation_started_7d' || 
+                            a.action_type === 'messaging_conversation_started_7d' ||
+                            a.action_type === 'messaging_conversation_started'
+                        );
+
+                        if (msgStartedAct) {
+                            dayMsgs = Number(msgStartedAct.value || 0);
+                        } else {
+                            const totalConnAct = dayObj.actions.find(a => a.action_type === 'onsite_conversion.total_messaging_connection');
+                            const leadAct = dayObj.actions.find(a => a.action_type === 'lead');
+                            if (totalConnAct) dayMsgs = Number(totalConnAct.value || 0);
+                            else if (leadAct) dayMsgs = Number(leadAct.value || 0);
+                        }
+                    }
+
+                    const existingRecord = await db.get("SELECT id FROM marketing_budgets WHERE category_id = ? AND budget_date = ? AND (notes IS NULL OR notes = '') AND image_url IS NULL", [cat.id, dayDate]);
+
+                    if (existingRecord) {
+                        await db.run(`
+                            UPDATE marketing_budgets SET
+                                spent_amount = ?,
+                                lead_count = ?,
+                                fb_ad_account_id = ?,
+                                fb_ad_account_name = ?,
+                                fb_ad_account_link = ?,
+                                updated_at = NOW()
+                            WHERE id = ?
+                        `, [daySpent, dayMsgs, adAccId, adAccName, adAccLink, existingRecord.id]);
+                    } else {
+                        await db.run(`
+                            INSERT INTO marketing_budgets 
+                            (category_id, group_type, channel, channel_name, budget_year, budget_month, budget_date, budget_amount, spent_amount, lead_count, pancake_page_id, pancake_page_name, linked_source_name, ads_handler_name, fb_ad_account_id, fb_ad_account_name, fb_ad_account_link, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                        `, [
+                            cat.id,
+                            cat.group_type,
+                            cat.name,
+                            cat.name,
+                            year,
+                            month,
+                            dayDate,
+                            daySpent,
+                            dayMsgs,
+                            cat.pancake_page_id,
+                            cat.pancake_page_name,
+                            cat.linked_source_name,
+                            cat.ads_handler_name,
+                            adAccId,
+                            adAccName,
+                            adAccLink
+                        ]);
+                    }
+                }
+            } catch(e) {}
+        }
+        return { success: true };
+    } catch(e) {
+        return { success: false, error: e.message };
+    }
+}
+
+nganSachMktRoutes.syncMetaInsightsInternal = syncMetaInsightsInternal;
 module.exports = nganSachMktRoutes;

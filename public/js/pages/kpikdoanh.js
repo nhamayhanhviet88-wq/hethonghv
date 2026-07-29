@@ -1649,7 +1649,7 @@ function kpiRenderMeetingCommit(el) {
             }
 
             h += '<div style="margin-top:16px">';
-            h += '<div style="font-size:13px;font-weight:800;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏠 Tổng Kết Theo Team <span style="font-size:12px;font-weight:500;color:#8b5cf6">Tháng ' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span></div>';
+            h += '<div style="font-size:13px;font-weight:800;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏠 Tổng Kết Theo Team <span style="font-size:12px;font-weight:500;color:#8b5cf6">Tháng ' + selMonth + '/' + selYear + '</span></div>';
             h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
             for (var tsi2 = 0; tsi2 < teamSummaryArr.length; tsi2++) {
                 var ts2 = teamSummaryArr[tsi2];

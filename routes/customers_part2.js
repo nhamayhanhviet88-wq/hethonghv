@@ -1149,65 +1149,90 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
             // Check if there is a pending deposit order code for this customer
             let targetCode = null;
-            if (customer.phone) {
-                const existingDeposit = await db.get(`
-                    SELECT pr.order_tt_coc 
-                    FROM payment_records pr
-                    LEFT JOIN order_codes oc ON oc.order_code = pr.order_tt_coc
-                    WHERE pr.customer_phone = ? 
-                      AND pr.payment_type = 'dat_coc' 
-                      AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''
-                      AND oc.id IS NULL
-                    ORDER BY pr.id DESC LIMIT 1
-                `, [customer.phone]);
-                if (existingDeposit?.order_tt_coc) {
-                    targetCode = existingDeposit.order_tt_coc;
-                }
+            const existingDeposit = await db.get(`
+                SELECT pr.order_tt_coc 
+                FROM payment_records pr
+                LEFT JOIN order_codes oc ON oc.order_code = pr.order_tt_coc
+                WHERE (
+                    pr.customer_id = $1
+                    OR (pr.customer_phone IS NOT NULL AND pr.customer_phone != '' AND pr.customer_phone = $2)
+                  )
+                  AND pr.payment_type = 'dat_coc' 
+                  AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''
+                  AND oc.id IS NULL
+                ORDER BY pr.id DESC LIMIT 1
+            `, [customer.id, customer.phone || '']);
+            if (existingDeposit?.order_tt_coc) {
+                targetCode = existingDeposit.order_tt_coc;
+            }
+
+            const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
+            let crmPrefix = '';
+            if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
+                crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
             }
 
             if (!targetCode) {
-                const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
-                let nextNum = 1;
-                if (lastCode) {
-                    const match = lastCode.order_code.match(/(\d{4})$/);
-                    if (match) nextNum = parseInt(match[1]) + 1;
-                }
-                const lastDepositCode = await db.get(`
-                    SELECT order_tt_coc FROM payment_records 
-                    WHERE (cskh_user_id = ? OR locked_by = ?) 
-                      AND order_tt_coc IS NOT NULL AND order_tt_coc != ''
-                    ORDER BY order_tt_coc DESC LIMIT 1
-                `, [userId, userId]);
-                if (lastDepositCode && lastDepositCode.order_tt_coc) {
-                    const match = lastDepositCode.order_tt_coc.match(/(\d{4})$/);
-                    if (match) nextNum = Math.max(nextNum, parseInt(match[1]) + 1);
-                }
-
-                const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
-                let crmPrefix = '';
-                if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
-                    crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
-                }
+                const maxSeqRow = await db.get(`
+                    SELECT COALESCE(MAX(seq), 0)::int as max_seq FROM (
+                        SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                        FROM dht_orders
+                        WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                        UNION ALL
+                        SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                        FROM order_codes
+                        WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                        UNION ALL
+                        SELECT CAST(SUBSTRING(order_tt_coc FROM '(\\d+)$') AS INTEGER) as seq
+                        FROM payment_records
+                        WHERE order_tt_coc LIKE $1 AND order_tt_coc ~ '^.*[0-9]+$'
+                    ) sub
+                `, [prefix + '%']);
+                let nextNum = (maxSeqRow?.max_seq || 0) + 1;
                 targetCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
-            }
 
-            const existingCodeRow = await db.get('SELECT id FROM order_codes WHERE order_code = ?', [targetCode]);
-            if (!existingCodeRow) {
-                await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status, is_zero_deposit) VALUES (?, ?, ?, \'active\', ?)', [customerId, userId, targetCode, isZeroDepositVal]);
+                // Concurrency retry loop with UNIQUE constraint protection
+                let inserted = false;
+                let attempts = 0;
+                while (!inserted && attempts < 5) {
+                    attempts++;
+                    try {
+                        const existingCodeRow = await db.get('SELECT id FROM order_codes WHERE order_code = ?', [targetCode]);
+                        if (!existingCodeRow) {
+                            await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status, is_zero_deposit) VALUES (?, ?, ?, \'active\', ?)', [customerId, userId, targetCode, isZeroDepositVal]);
+                        }
+                        inserted = true;
+                    } catch (err) {
+                        if (err.code === '23505' || (err.message && err.message.includes('unique'))) {
+                            nextNum++;
+                            targetCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
+                        } else {
+                            throw err;
+                        }
+                    }
+                }
+            } else {
+                const existingCodeRow = await db.get('SELECT id FROM order_codes WHERE order_code = ?', [targetCode]);
+                if (!existingCodeRow) {
+                    await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status, is_zero_deposit) VALUES (?, ?, ?, \'active\', ?)', [customerId, userId, targetCode, isZeroDepositVal]);
+                }
             }
             generatedOrderCode = targetCode;
 
-            // Backfill/update order_tt_coc on deposit records for this customer
-            if (customer.phone) {
-                await db.run(`
-                    UPDATE payment_records SET
-                        order_tt_coc = $1,
-                        updated_at = NOW()
-                    WHERE customer_phone = $2
-                      AND payment_type = 'dat_coc'
-                      AND (order_tt_coc IS NULL OR order_tt_coc = '' OR order_tt_coc = $1)
-                `, [generatedOrderCode, customer.phone]);
-            }
+            // Backfill/update order_tt_coc and sync customer_id/phone on deposit records for this customer
+            await db.run(`
+                UPDATE payment_records SET
+                    order_tt_coc = $1,
+                    customer_id = COALESCE(customer_id, $2),
+                    customer_phone = COALESCE(NULLIF($3, ''), customer_phone),
+                    updated_at = NOW()
+                WHERE (
+                    customer_id = $2
+                    OR (customer_phone IS NOT NULL AND customer_phone != '' AND customer_phone = $3)
+                  )
+                  AND payment_type = 'dat_coc'
+                  AND (order_tt_coc IS NULL OR order_tt_coc = '' OR order_tt_coc = $1)
+            `, [generatedOrderCode, customer.id, customer.phone || '']);
         }
 
         // NOTE: Items validation removed — products are now entered in DHT, not CRM
@@ -1228,23 +1253,22 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
                 const prefix = userRow?.order_code_prefix || 'SVTS';
                 
-                let maxNum = 0;
-                const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
-                if (lastCode) {
-                    const match = lastCode.order_code.match(/(\d{4})$/);
-                    if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-                }
-                const lastDepositCode = await db.get(`
-                    SELECT order_tt_coc FROM payment_records 
-                    WHERE (cskh_user_id = ? OR locked_by = ?) 
-                      AND order_tt_coc IS NOT NULL AND order_tt_coc != ''
-                    ORDER BY order_tt_coc DESC LIMIT 1
-                `, [userId, userId]);
-                if (lastDepositCode && lastDepositCode.order_tt_coc) {
-                    const match = lastDepositCode.order_tt_coc.match(/(\d{4})$/);
-                    if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-                }
-                const nextNum = maxNum + 1;
+                const maxSeqRow = await db.get(`
+                    SELECT COALESCE(MAX(seq), 0)::int as max_seq FROM (
+                        SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                        FROM dht_orders
+                        WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                        UNION ALL
+                        SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                        FROM order_codes
+                        WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                        UNION ALL
+                        SELECT CAST(SUBSTRING(order_tt_coc FROM '(\\d+)$') AS INTEGER) as seq
+                        FROM payment_records
+                        WHERE order_tt_coc LIKE $1 AND order_tt_coc ~ '^.*[0-9]+$'
+                    ) sub
+                `, [prefix + '%']);
+                const nextNum = (maxSeqRow?.max_seq || 0) + 1;
 
                 const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
                 let crmPrefix = '';
@@ -1261,13 +1285,14 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     handover_status = 'thu_quy_nhan',
                     customer_name = ?,
                     customer_phone = ?,
+                    customer_id = ?,
                     cskh_user_id = ?,
                     order_tt_coc = ?,
                     locked_by = ?,
                     locked_at = NOW(),
                     updated_at = NOW()
                 WHERE id = ?
-            `, [customer.customer_name, customer.phone, request.user.id, targetOrderCode, request.user.id, prId]);
+            `, [customer.customer_name, customer.phone, customer.id, request.user.id, targetOrderCode, request.user.id, prId]);
             if (lockResult.changes === 0) {
                 return reply.code(409).send({ error: 'Mã tiền này đã được nhận bởi người khác!' });
             }

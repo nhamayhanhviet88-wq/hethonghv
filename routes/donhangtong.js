@@ -4294,20 +4294,25 @@ module.exports = async function(fastify) {
             const dbUrl = item.design_pdf_url;
             const isReusingDbPdf = dbUrl && (urlStr.trim() === dbUrl.trim());
 
-            // Enforce file upload with the correct suffix if it is a revision/edit session
-            if (!order.is_draft) {
-                if (isModifiedInput || !isReusingDbPdf) {
-                    const nextEditCount = (Number(order.edit_count) || 0) + 1;
-                    const requiredSuffix = ` - Sua lan ${nextEditCount}.pdf`;
-                    if (!filename || !filename.toLowerCase().endsWith(requiredSuffix.toLowerCase())) {
-                        return reply.code(400).send({
-                            error: `Vui lòng tải lại FILE THIẾT KẾ (PDF BẮT BUỘC) cho [${item.product_name || 'Phiếu'}] để đảm bảo file có tên theo định dạng mới "${order.order_code} - Phieu X - Sua lan ${nextEditCount}.pdf"!`
-                        });
-                    }
+            // Backend automatically generates standardized PDF filenames based on successfulSendCount (No manual user renaming needed!)
+        }
+
+        // Backend Validation: Require sheet_edit_note ONLY if order email was sent to factory successfully before
+        const successfulSendCount = Number(order.design_email_sent_count || 0);
+        const hasSuccessfulFactoryEmail = successfulSendCount > 0 || Boolean(order.design_email_sent_at);
+
+        if (hasSuccessfulFactoryEmail) {
+            for (const item of orderItems) {
+                const freshItem = await db.get('SELECT custom_layout FROM dht_order_items WHERE id = $1', [item.id]);
+                let layout = {};
+                try { layout = typeof freshItem?.custom_layout === 'string' ? JSON.parse(freshItem.custom_layout) : (freshItem?.custom_layout || {}); } catch(e){}
+                const note = String(layout.sheet_edit_note || '').trim();
+                if (!note) {
+                    return reply.code(400).send({
+                        error: `Vui lòng nhập "Nội dung sửa đổi chi tiết" cho [${item.product_name || 'Phiếu'}] trước khi gửi đơn sửa cho Xưởng!`
+                    });
                 }
             }
-
-            // Validate mandatory embroidery PNGs (Disabled)
         }
 
         // Only run draft-to-official promoting validations if the order is currently a draft
@@ -4368,18 +4373,24 @@ module.exports = async function(fastify) {
             ]
         );
 
-        for (const item of orderItems) {
+        const nextRevisionNumber = successfulSendCount;
+
+        for (let idx = 0; idx < orderItems.length; idx++) {
+            const item = orderItems[idx];
             const designVal = item_designs[item.id];
             let pdfUrl = '';
-            let pdfName = '';
             if (designVal) {
                 if (typeof designVal === 'object') {
                     pdfUrl = designVal.url || '';
-                    pdfName = designVal.filename || '';
                 } else {
                     pdfUrl = designVal || '';
                 }
             }
+
+            // Automatically format PDF filename according to standard convention
+            const pdfName = hasSuccessfulFactoryEmail
+                ? `${order.order_code} - Phieu ${idx + 1} - Sua lan ${nextRevisionNumber}.pdf`
+                : `${order.order_code} - Phieu ${idx + 1}.pdf`;
 
             let printDetails = [];
             try {
@@ -4488,9 +4499,9 @@ module.exports = async function(fastify) {
                         const ext = matches[1].split('/')[1] || 'jpeg';
                         const buffer = Buffer.from(matches[2], 'base64');
                         let suffix = '';
-                        if (!order.is_draft) {
-                            const nextEditCount = (Number(order.edit_count) || 0) + 1;
-                            suffix = ` - Sua lan${nextEditCount}`;
+                        if (hasSuccessfulFactoryEmail) {
+                            const nextRevisionNumber = successfulSendCount;
+                            suffix = ` - Sua lan ${nextRevisionNumber}`;
                         }
                         const filename = `${order.order_code || 'order'} - Phieu ${idx + 1}${suffix}.${ext}`;
                         const filepath = path.join(uploadsDir, filename);
@@ -6329,16 +6340,20 @@ module.exports = async function(fastify) {
         if (!prefix) {
             return { hasPrefix: false, error: 'Tài khoản chưa được cấp Mã Đơn KD. Liên hệ quản lý để được cấp mã.' };
         }
-        const lastOrder = await db.get(
-            "SELECT order_code FROM dht_orders WHERE order_code LIKE $1 ORDER BY id DESC LIMIT 1",
-            [prefix + '%']
-        );
-        let nextSeq = 1;
-        if (lastOrder && lastOrder.order_code) {
-            const match = lastOrder.order_code.match(/(\d+)$/);
-            if (match) nextSeq = parseInt(match[1]) + 1;
-        }
-        return { hasPrefix: true, code: prefix + nextSeq, prefix, seq: nextSeq };
+        let maxSeq = 0;
+        const lastOrder = await db.get("SELECT order_code FROM dht_orders WHERE order_code LIKE $1 ORDER BY id DESC LIMIT 1", [prefix + '%']);
+        const lastCode = await db.get("SELECT order_code FROM order_codes WHERE order_code LIKE $1 ORDER BY id DESC LIMIT 1", [prefix + '%']);
+        const lastDep = await db.get("SELECT order_tt_coc FROM payment_records WHERE order_tt_coc LIKE $1 ORDER BY id DESC LIMIT 1", [prefix + '%']);
+
+        [lastOrder?.order_code, lastCode?.order_code, lastDep?.order_tt_coc].forEach(c => {
+            if (c) {
+                const match = c.match(/(\d+)$/);
+                if (match) maxSeq = Math.max(maxSeq, parseInt(match[1]));
+            }
+        });
+
+        const nextSeq = maxSeq + 1;
+        return { hasPrefix: true, code: prefix + String(nextSeq).padStart(4, '0'), prefix, seq: nextSeq };
     });
 
     // ========== DESIGNERS (filter by department/position 'Thiết Kế') ==========

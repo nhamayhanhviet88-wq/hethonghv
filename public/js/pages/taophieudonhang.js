@@ -4471,7 +4471,9 @@ function _tpdChangeLayoutHeight(val) {
 
 function _tpdUpdateEditNoteStyle() {
     const state = window._tpdWorkspaceState;
-    if (!state || !state.order || state.order.is_draft || !state.editingItem) return;
+    if (!state || !state.order || !state.editingItem) return;
+    const isSentToFactory = Boolean(state.order) && ((Number(state.order.design_email_sent_count || 0) > 0) || Boolean(state.order.design_email_sent_at));
+    if (!isSentToFactory) return;
 
     const label = document.getElementById('tpd_edit_note_label');
     const textarea = document.getElementById('tpd_edit_note_textarea');
@@ -6116,16 +6118,16 @@ function _tpdRenderFormInputs() {
         </div>
     `;
 
-    // 5.5. Edit Note field (mandatory for official orders)
+    // 5.5. Edit Note field (mandatory ONLY for orders that have actually been sent to factory via email)
     const editNote = (layout && layout.sheet_edit_note) || '';
-    const isOrderOfficial = state.order && !state.order.is_draft;
+    const isOrderSentToFactory = Boolean(state.order) && ((Number(state.order.design_email_sent_count || 0) > 0) || Boolean(state.order.design_email_sent_at));
     const isNoteEmpty = !editNote.trim();
-    const showRequiredStyle = isOrderOfficial && isNoteEmpty;
+    const showRequiredStyle = isOrderSentToFactory && isNoteEmpty;
 
     html += `
         <div class="tpd-ws-form-group" style="margin-bottom: 20px;">
             <label id="tpd_edit_note_label" class="tpd-ws-form-label" style="font-weight: 700; ${showRequiredStyle ? 'color: #ef4444;' : 'color: #1e293b;'}">
-                📝 NỘI DUNG SỬA ĐỔI CHI TIẾT ${isOrderOfficial ? `<span id="tpd_edit_note_required_text" style="color: #ef4444;">(BẮT BUỘC)</span>` : ''}
+                📝 NỘI DUNG SỬA ĐỔI CHI TIẾT ${isOrderSentToFactory ? `<span id="tpd_edit_note_required_text" style="color: #ef4444;">(BẮT BUỘC)</span>` : ''}
             </label>
             <textarea id="tpd_edit_note_textarea" class="tpd-ws-input" style="width: 100%; border: 1.5px solid ${showRequiredStyle ? '#ef4444' : '#cbd5e1'}; border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; box-sizing: border-box; background: white;" 
                 placeholder="Nhập lý do và chi tiết các thay đổi của phiếu này (ví dụ: Đổi kiểu cổ bẻ dệt, thêm in ngực 10cm)..." 
@@ -7276,9 +7278,9 @@ async function _tpdSaveProductionSheet() {
         return false;
     }
 
-    // Check if editing an official order and sheet is modified
-    const isOrderDraft = state.order && (state.order.is_draft === true || state.order.is_draft === 'true' || state.order.is_draft === 1 || String(state.order.is_draft) === 'true');
-    if (!isOrderDraft) {
+    // Check if editing an official order and email has been sent to factory successfully previously
+    const hasSuccessfulFactoryEmail = Boolean(state.order) && ((Number(state.order.design_email_sent_count || 0) > 0) || Boolean(state.order.design_email_sent_at));
+    if (hasSuccessfulFactoryEmail) {
         const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${state.orderId}`);
         let isModified = false;
         let origItem = null;
@@ -7869,7 +7871,7 @@ function _tpdValidateAllSheets() {
     const state = window._tpdWorkspaceState;
     if (!state) return false;
 
-    const isOrderDraft = state.order && (state.order.is_draft === true || state.order.is_draft === 'true' || state.order.is_draft === 1 || String(state.order.is_draft) === 'true');
+    const hasSuccessfulFactoryEmail = Boolean(state.order) && ((Number(state.order.design_email_sent_count || 0) > 0) || Boolean(state.order.design_email_sent_at));
 
     // First, gather and validate quantity checks for all sheets at once
     const missingSheets = [];
@@ -8021,7 +8023,7 @@ function _tpdValidateAllSheets() {
         }
 
         // 5. Enforce Mockup upload check when editing an official order and sheet is modified
-        if (!isOrderDraft) {
+        if (hasSuccessfulFactoryEmail) {
             const origItemsJson = sessionStorage.getItem(`tpd_orig_items_${state.orderId}`);
             let isModified = false;
             let origItem = null;
@@ -8198,37 +8200,29 @@ async function _tpdExportSheetAndOrder() {
 async function _tpdWaitForImages(container) {
     const imgs = container.querySelectorAll('img');
     const promises = Array.from(imgs).map(img => {
-        const loadPromise = new Promise(resolve => {
+        return new Promise(resolve => {
             if (img.complete) {
+                if (typeof _tpdAdjustMockupWidth === 'function' && img.closest('.tpd-a4-img-body')) {
+                    try { _tpdAdjustMockupWidth(img); } catch(e) {}
+                }
                 resolve();
             } else {
-                img.onload = resolve;
-                img.onerror = resolve; // Continue even if load fails
+                img.onload = () => {
+                    if (typeof _tpdAdjustMockupWidth === 'function' && img.closest('.tpd-a4-img-body')) {
+                        try { _tpdAdjustMockupWidth(img); } catch(e) {}
+                    }
+                    resolve();
+                };
+                img.onerror = resolve;
+                setTimeout(resolve, 1500); // Fast 1.5s fallback timeout
             }
         });
-
-        // If it's a mockup image inside .tpd-a4-img-body, also wait for layout width adjustment
-        const isMockup = img.closest('.tpd-a4-img-body');
-        if (isMockup) {
-            return loadPromise.then(() => {
-                return new Promise(resolve => {
-                    let retries = 0;
-                    const check = () => {
-                        if (img.dataset.widthAdjusted === "true" || retries > 40) {
-                            resolve();
-                        } else {
-                            retries++;
-                            setTimeout(check, 25);
-                        }
-                    };
-                    check();
-                });
-            });
-        }
-
-        return loadPromise;
     });
-    await Promise.all(promises);
+    // Max 2.5 seconds overall timeout for image loading to prevent hanging
+    await Promise.race([
+        Promise.all(promises),
+        new Promise(resolve => setTimeout(resolve, 2500))
+    ]);
 }
 
 // Generate confirmation text to send to customers based on current setup
@@ -8960,34 +8954,30 @@ async function _tpdShowExportSheetsModal() {
     });
     const generatedImages = new Array(items.length).fill(null);
 
-    // Generate canvas for each page sequentially
-    for (let idx = 0; idx < items.length; idx++) {
+    // Generate canvas for each page in parallel for maximum speed!
+    await Promise.all(items.map(async (item, idx) => {
         const custPageEl = document.getElementById(`tempExportPage_cust_${idx}`);
         const prodPageEl = document.getElementById(`tempExportPage_prod_${idx}`);
-        if (!custPageEl || !prodPageEl) continue;
+        if (!custPageEl || !prodPageEl) return;
 
         try {
-            // Render customer version (no shipping banner)
-            const canvasCust = await html2canvas(custPageEl, {
-                scale: 2,
+            const canvasOpts = {
+                scale: 1.5,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
                 windowWidth: 1200,
                 windowHeight: 900
-            });
-            const imgUrlCust = canvasCust.toDataURL('image/jpeg', 0.8);
+            };
 
-            // Render production version (has shipping banner)
-            const canvasProd = await html2canvas(prodPageEl, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff',
-                windowWidth: 1200,
-                windowHeight: 900
-            });
-            const imgUrlProd = canvasProd.toDataURL('image/jpeg', 0.8);
+            // Render customer version and production version in parallel
+            const [canvasCust, canvasProd] = await Promise.all([
+                html2canvas(custPageEl, canvasOpts),
+                html2canvas(prodPageEl, canvasOpts)
+            ]);
+
+            const imgUrlCust = canvasCust.toDataURL('image/jpeg', 0.85);
+            const imgUrlProd = canvasProd.toDataURL('image/jpeg', 0.85);
 
             // Stored to send in confirm-export email payload
             generatedImages[idx] = imgUrlProd;
@@ -9060,7 +9050,7 @@ async function _tpdShowExportSheetsModal() {
                 thumbContainer.innerHTML = `<span style="font-size: 11px; color: #ef4444; font-weight: 500;">⚠️ Lỗi render hình ảnh</span>`;
             }
         }
-    }
+    }));
 
     // Update banner status when complete
     const mainStatus = document.getElementById('tpdExportMainStatus');
@@ -11504,7 +11494,7 @@ window._tpdOpenEmailSettingsModal = async function() {
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
                 <input type="email" id="tpdUserSmtpEmail_${u.id}" value="${escapeHTML(u.smtp_email || '')}" placeholder="Gmail gửi đi riêng của Sale/Kinh doanh" style="flex: 1.2; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none;">
-                <input type="password" id="tpdUserSmtpPass_${u.id}" placeholder="${u.has_smtp_password ? '●●●● (giữ nguyên)' : 'App Password 16 ký tự'}" style="flex: 1; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none;">
+                <input type="password" id="tpdUserSmtpPass_${u.id}" placeholder="${u.has_smtp_password ? '•••••••• (Đã bảo mật & lưu)' : 'App Password 16 ký tự'}" style="flex: 1; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none;">
                 <button id="tpdUserSmtpBtn_${u.id}" onclick="_tpdSaveUserSmtp(${u.id})" style="background: #2563eb; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap; transition: all 0.2s;">💾 Lưu</button>
             </div>
         </div>
@@ -11589,7 +11579,12 @@ window._tpdSaveUserSmtp = async function(userId) {
         const res = await apiCall(`/api/users/${userId}/smtp-config`, 'PUT', { smtp_email, smtp_password });
         if (res && res.success) {
             showToast('✅ Đã lưu cấu hình Gmail cho nhân viên!', 'success');
-            if (passInput && smtp_password) passInput.value = '';
+            if (passInput) {
+                passInput.value = '';
+                if (smtp_password) {
+                    passInput.placeholder = '•••••••• (Đã bảo mật & lưu)';
+                }
+            }
             const statusSpan = document.getElementById(`tpdUserSmtpStatus_${userId}`);
             if (statusSpan) {
                 if (smtp_email) {

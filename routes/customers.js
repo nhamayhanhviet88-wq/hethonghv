@@ -798,25 +798,25 @@ async function customersRoutes(fastify, options) {
     }
 
     async function getNextOrderNumber(userId) {
-        let maxNum = 0;
-        const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
-        if (lastCode) {
-            const match = lastCode.order_code.match(/(\d{4})$/);
-            if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-        }
+        const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
+        const prefix = userRow?.order_code_prefix || 'SVTS';
 
-        const lastDepositCode = await db.get(`
-            SELECT order_tt_coc FROM payment_records 
-            WHERE (cskh_user_id = ? OR locked_by = ?) 
-              AND order_tt_coc IS NOT NULL AND order_tt_coc != ''
-            ORDER BY order_tt_coc DESC LIMIT 1
-        `, [userId, userId]);
-        if (lastDepositCode && lastDepositCode.order_tt_coc) {
-            const match = lastDepositCode.order_tt_coc.match(/(\d{4})$/);
-            if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-        }
-
-        return maxNum + 1;
+        const maxSeqRow = await db.get(`
+            SELECT COALESCE(MAX(seq), 0)::int as max_seq FROM (
+                SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                FROM dht_orders
+                WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                UNION ALL
+                SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                FROM order_codes
+                WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                UNION ALL
+                SELECT CAST(SUBSTRING(order_tt_coc FROM '(\\d+)$') AS INTEGER) as seq
+                FROM payment_records
+                WHERE order_tt_coc LIKE $1 AND order_tt_coc ~ '^.*[0-9]+$'
+            ) sub
+        `, [prefix + '%']);
+        return (maxSeqRow?.max_seq || 0) + 1;
     }
 
     // API get next TEM/PET order code using postgres sequences (gctem_seq / gcpet_seq)
@@ -829,19 +829,23 @@ async function customersRoutes(fastify, options) {
         try {
             await db.run(`CREATE SEQUENCE IF NOT EXISTS ${seqName}`);
             
-            let maxNum = 0;
-            const maxOrder = await db.get('SELECT order_code FROM dht_orders WHERE order_code LIKE ? ORDER BY id DESC LIMIT 1', [prefix + '%']);
-            const maxCode = await db.get('SELECT order_code FROM order_codes WHERE order_code LIKE ? ORDER BY id DESC LIMIT 1', [prefix + '%']);
-            const maxDep = await db.get('SELECT order_tt_coc FROM payment_records WHERE order_tt_coc LIKE ? ORDER BY id DESC LIMIT 1', [prefix + '%']);
-            
-            [maxOrder?.order_code, maxCode?.order_code, maxDep?.order_tt_coc].forEach(c => {
-                if (c) {
-                    const m = c.match(/(\d+)$/);
-                    if (m) maxNum = Math.max(maxNum, parseInt(m[1]));
-                }
-            });
+            const maxSeqRow = await db.get(`
+                SELECT COALESCE(MAX(seq), 0)::int as max_seq FROM (
+                    SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                    FROM dht_orders
+                    WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                    UNION ALL
+                    SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                    FROM order_codes
+                    WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                    UNION ALL
+                    SELECT CAST(SUBSTRING(order_tt_coc FROM '(\\d+)$') AS INTEGER) as seq
+                    FROM payment_records
+                    WHERE order_tt_coc LIKE $1 AND order_tt_coc ~ '^.*[0-9]+$'
+                ) sub
+            `, [prefix + '%']);
 
-            const nextNum = maxNum + 1;
+            const nextNum = (maxSeqRow?.max_seq || 0) + 1;
             const numStr = String(nextNum);
             const padLen = Math.max(4, numStr.length);
             const order_code = `${prefix}${numStr.padStart(padLen, '0')}`;
@@ -855,18 +859,21 @@ async function customersRoutes(fastify, options) {
     fastify.get('/api/order-codes/next', { preHandler: [authenticate] }, async (request, reply) => {
         const { customer_id, mode } = request.query;
         if (customer_id && mode !== 'new_deposit' && mode !== 'new') {
-            const cust = await db.get('SELECT phone FROM customers WHERE id = ?', [Number(customer_id)]);
-            if (cust?.phone) {
+            const cust = await db.get('SELECT id, customer_name, phone, assigned_to_id FROM customers WHERE id = ?', [Number(customer_id)]);
+            if (cust) {
                 const existingDeposit = await db.get(`
                     SELECT pr.order_tt_coc 
                     FROM payment_records pr
                     LEFT JOIN order_codes oc ON oc.order_code = pr.order_tt_coc
-                    WHERE pr.customer_phone = ? 
+                    WHERE (
+                        pr.customer_id = $1
+                        OR (pr.customer_phone IS NOT NULL AND pr.customer_phone != '' AND pr.customer_phone = $2)
+                      )
                       AND pr.payment_type = 'dat_coc' 
                       AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''
                       AND oc.id IS NULL
                     ORDER BY pr.id DESC LIMIT 1
-                `, [cust.phone]);
+                `, [cust.id, cust.phone || '']);
                 if (existingDeposit?.order_tt_coc) {
                     return { order_code: existingDeposit.order_tt_coc, existing: true };
                 }
@@ -977,16 +984,20 @@ async function customersRoutes(fastify, options) {
         const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
 
         // ★ V4.1: Backfill order_tt_coc on deposit payment records for this customer
-        const cust = await db.get('SELECT phone FROM customers WHERE id = ?', [Number(customer_id)]);
-        if (cust?.phone) {
+        const cust = await db.get('SELECT customer_name, phone FROM customers WHERE id = ?', [Number(customer_id)]);
+        if (cust) {
             await db.run(`
                 UPDATE payment_records SET
                     order_tt_coc = $1,
+                    customer_phone = COALESCE(NULLIF($2, ''), customer_phone),
                     updated_at = NOW()
-                WHERE customer_phone = $2
+                WHERE (
+                    (customer_phone IS NOT NULL AND customer_phone != '' AND customer_phone = $2)
+                    OR (customer_name IS NOT NULL AND customer_name != '' AND customer_name = $3 AND (cskh_user_id = $4 OR locked_by = $4))
+                  )
                   AND payment_type = 'dat_coc'
                   AND (order_tt_coc IS NULL OR order_tt_coc = '')
-            `, [orderCode, cust.phone]);
+            `, [orderCode, cust.phone || '', cust.customer_name || '', userId]);
         }
 
         return { success: true, order_code: orderCode, order_id: result?.lastID };

@@ -181,7 +181,8 @@ module.exports = async function(fastify) {
                     actual,
                     rate: target > 0 ? Math.round(1000 * actual / target) / 10 : 0,
                     missing: target - actual,
-                    daily
+                    daily,
+                    stages: buildStages(daily, target, daysInMonth)
                 };
             });
             const teamDaily = sumDailyArrays(empData.map(e => e.daily));
@@ -228,7 +229,8 @@ module.exports = async function(fastify) {
                     actual,
                     rate: target > 0 ? Math.round(1000 * actual / target) / 10 : 0,
                     missing: target - actual,
-                    daily
+                    daily,
+                    stages: buildStages(daily, target, daysInMonth)
                 };
             });
 

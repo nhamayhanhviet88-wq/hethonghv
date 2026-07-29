@@ -579,6 +579,13 @@ async function pancakeRoutes(fastify, options) {
                                  String(event.from_id || '') === pageId || 
                                  String(event.message?.from?.id || '') === pageId;
 
+            // Check if customer has any tags attached on Pancake
+            const hasTags = (Array.isArray(event.tags) && event.tags.length > 0) || 
+                            (Array.isArray(event.customer?.tags) && event.customer.tags.length > 0) || 
+                            (Array.isArray(event.page_customer?.tags) && event.page_customer.tags.length > 0) || 
+                            (Array.isArray(event.conversation?.tags) && event.conversation.tags.length > 0) || 
+                            (Number(event.tags_count || 0) > 0);
+
             // Only extract phone number from message content if it was NOT sent by the page/bot/staff
             if (!isPageSender && event.message) {
                 if (typeof event.message === 'string') {
@@ -604,74 +611,39 @@ async function pancakeRoutes(fastify, options) {
                 }
             }
 
+            // Check if customer is ALREADY in CRM database (no time limit)
+            const existingCust = await db.get(
+                `SELECT id, assigned_to_id, phone, customer_name, created_at 
+                 FROM customers 
+                 WHERE (pancake_customer_id = $1 OR pancake_conversation_id = $2 OR (phone = $3 AND phone IS NOT NULL AND phone != '' AND NOT phone LIKE 'pancake_%'))
+                 ORDER BY id DESC LIMIT 1`,
+                [customerId, conversationId, phone || '---']
+            );
+
+            // If customer ALREADY exists in CRM OR ALREADY has tags on Pancake OR event is from Page/Bot:
+            // DO NOT assign as a new lead!
+            if (existingCust || hasTags || isPageSender) {
+                if (existingCust && phone) {
+                    const isTempPhone = existingCust.phone && existingCust.phone.startsWith('pancake_');
+                    if (existingCust.phone !== phone && isTempPhone) {
+                        await db.run(`UPDATE customers SET phone = $1, updated_at = NOW() WHERE id = $2`, [phone, existingCust.id]);
+                        await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) VALUES ($1, 'pancake_update', $2, NULL, NOW())`, [existingCust.id, `Cập nhật số điện thoại tự động từ Pancake: ${phone}`]);
+                    }
+                }
+                // Cancel any pending lead queue items
+                await db.run(
+                    `UPDATE pancake_pending_leads SET status = 'processed_skipped' 
+                     WHERE (customer_id = $1 OR conversation_id = $2) AND status = 'pending'`,
+                    [customerId, conversationId]
+                );
+                skippedCount++;
+                continue;
+            }
+
             if (phone) {
                 // --- CASE 1: Webhook contains a phone number ---
                 
-                // A. Check if this customer is already in the database
-                // Default to 1440 minutes (24 hours) to prevent duplicates when customers reply late
-                const duplicateCheckMin = 1440; // 24 hours duplicate check window
-                const existingCust = await db.get(
-                    `SELECT id, assigned_to_id, phone, customer_name, created_at 
-                     FROM customers 
-                     WHERE (pancake_customer_id = $1 OR pancake_conversation_id = $2) 
-                       AND created_at >= NOW() - ($3 || ' minutes')::interval
-                     ORDER BY id DESC LIMIT 1`,
-                    [customerId, conversationId, String(duplicateCheckMin)]
-                );
-
-                if (existingCust) {
-                    const isTempPhone = existingCust.phone && existingCust.phone.startsWith('pancake_');
-                    const timeDiffMinutes = (Date.now() - new Date(existingCust.created_at).getTime()) / (60 * 1000);
-                    const updateLimitMin = config.update_phone_limit_minutes || 1440;
-                    
-                    const shouldUpdatePhone = existingCust.phone !== phone && (isTempPhone || timeDiffMinutes <= updateLimitMin);
-
-                    // Only update and notify if the phone number has changed (different from existing) and is allowed
-                    if (shouldUpdatePhone) {
-                        await db.run(
-                            `UPDATE customers SET phone = $1, updated_at = NOW() WHERE id = $2`,
-                            [phone, existingCust.id]
-                        );
-
-                        await db.run(
-                            `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
-                             VALUES ($1, 'pancake_update', $2, NULL, NOW())`,
-                            [existingCust.id, `Cập nhật số điện thoại tự động từ Pancake: ${phone}`]
-                        );
-
-                        // Notify assigned salesperson via Telegram
-                        if (existingCust.assigned_to_id) {
-                            const staffChatIdRow = await db.get(
-                                `SELECT chat_id FROM telegram_notifications WHERE user_id = $1 AND event_type = 'chuyen_so' AND enabled = true`,
-                                [existingCust.assigned_to_id]
-                            );
-                            const staffChatId = staffChatIdRow?.chat_id || (await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [existingCust.assigned_to_id]))?.telegram_group_id;
-
-                            if (staffChatId) {
-                                const sourceRow = await db.get("SELECT name FROM settings_sources WHERE id = $1", [page.source_id]);
-                                const sourceName = sourceRow?.name || page.name;
-                                const sourceDisplay = sourceName.startsWith('📍') ? sourceName : `📍${sourceName}`;
-
-                                const updateMsg = `🥞 <b>Cập nhật SĐT : </b><code>${customerName}</code><b> - </b><code>${phone}</code><b> - ${sourceDisplay}</b>`;
-                                await sendTelegramMessage(staffChatId, updateMsg, page.bot_tele);
-                            }
-                        }
-                    }
-
-                    // Update status in pending list if any
-                    await db.run(
-                        `UPDATE pancake_pending_leads SET status = 'processed_with_phone' 
-                         WHERE (customer_id = $1 OR conversation_id = $2) AND status = 'pending'`,
-                        [customerId, conversationId]
-                    );
-
-                    processedCount++;
-                    continue;
-                }
-
-                // B. If no temporary customer card was recently created, process as a new lead
-                
-                // Deduplication (30 minutes window)
+                // Deduplication check (30 minutes window for identical phone number)
                 const duplicateRow = await db.get(
                     `SELECT id FROM customers 
                      WHERE phone = $1 
@@ -696,16 +668,6 @@ async function pancakeRoutes(fastify, options) {
                 processedCount++;
             } else {
                 // --- CASE 2: Webhook does NOT contain a phone number ---
-                
-                // Check if customer already exists in CRM
-                const exists = await db.get(
-                    "SELECT id FROM customers WHERE pancake_customer_id = $1 OR pancake_conversation_id = $2",
-                    [customerId, conversationId]
-                );
-                if (exists) {
-                    skippedCount++;
-                    continue;
-                }
 
                 // Check if already in pending leads queue
                 const pendingExists = await db.get(

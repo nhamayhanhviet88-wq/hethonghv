@@ -2064,6 +2064,24 @@ async function start() {
     // Catch-up on startup (in case server restarted after scheduled time)
     setTimeout(_drCheckAndSend, 5000);
     console.log('[DailyReport] ✅ Cron tổng kết hàng ngày đã khởi động (mỗi 1 phút)');
+
+    // Start Meta Ads Insights Auto-Sync Cron (4 khung giờ vàng: 01:00, 08:00, 13:00, 19:00)
+    const nganSachMktRoutes = require('./routes/ngansachmkt');
+    if (nganSachMktRoutes.syncMetaInsightsInternal) {
+        let _metaLastSyncedHour = -1;
+        setInterval(() => {
+            const now = vnNow();
+            const hour = now.getHours();
+            const min = now.getMinutes();
+            if ([1, 8, 13, 19].includes(hour) && min < 5 && _metaLastSyncedHour !== hour) {
+                _metaLastSyncedHour = hour;
+                nganSachMktRoutes.syncMetaInsightsInternal().catch(e => console.error('[Meta Ads Cron] Sync error:', e.message));
+                console.log(`[Meta Ads Cron] ✅ Auto-synced Meta Ads insights at ${hour}:00`);
+            }
+            if (min >= 10) _metaLastSyncedHour = -1;
+        }, 60 * 1000);
+        console.log('[Meta Ads Cron] ✅ Lịch 4 khung giờ vàng (01:00, 08:00, 13:00, 19:00) đã khởi động!');
+    }
 }
 
 if (require.main === module) {
