@@ -1218,6 +1218,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 }
             }
             generatedOrderCode = targetCode;
+            await db.run("UPDATE customers SET customer_type = 'cu' WHERE id = ?", [customerId]);
 
             // Backfill/update order_tt_coc and sync customer_id/phone on deposit records for this customer
             await db.run(`

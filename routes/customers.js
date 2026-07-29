@@ -311,6 +311,15 @@ async function customersRoutes(fastify, options) {
                 year, month, day, employee_id } = request.query;
 
         let query = `SELECT c.*, c.customer_uid,
+            CASE 
+                WHEN c.customer_type = 'cu' THEN 'cu'
+                WHEN (
+                    SELECT COUNT(*) FROM order_codes oc 
+                    WHERE oc.customer_id = c.id 
+                    AND (oc.status IS NULL OR oc.status != 'cancelled')
+                ) > 0 THEN 'cu'
+                ELSE 'moi'
+            END as customer_type,
             s.name as source_name, p.name as promotion_name, i.name as industry_name,
             r.full_name as receiver_name, a.full_name as assigned_to_name,
             cb.full_name as created_by_name, ref.full_name as referrer_name, COALESCE((SELECT sc.crm_type FROM customers sc WHERE sc.id = ref.source_customer_id), CASE ref.role WHEN 'hoa_hong' THEN 'ctv_hoa_hong' WHEN 'tkaffiliate' THEN 'ctv_hoa_hong' WHEN 'ctv' THEN 'ctv' ELSE ref.source_crm_type END) as referrer_user_crm_type,
@@ -542,6 +551,15 @@ async function customersRoutes(fastify, options) {
     fastify.get('/api/customers/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const customer = await db.get(
             `SELECT c.*,
+             CASE 
+                 WHEN c.customer_type = 'cu' THEN 'cu'
+                 WHEN (
+                     SELECT COUNT(*) FROM order_codes oc 
+                     WHERE oc.customer_id = c.id 
+                     AND (oc.status IS NULL OR oc.status != 'cancelled')
+                 ) > 0 THEN 'cu'
+                 ELSE 'moi'
+             END as customer_type,
              s.name as source_name, p.name as promotion_name, i.name as industry_name,
              r.full_name as receiver_name, a.full_name as assigned_to_name,
              cb.full_name as created_by_name, ref.full_name as referrer_name, COALESCE((SELECT sc.crm_type FROM customers sc WHERE sc.id = ref.source_customer_id), CASE ref.role WHEN 'hoa_hong' THEN 'ctv_hoa_hong' WHEN 'tkaffiliate' THEN 'ctv_hoa_hong' WHEN 'ctv' THEN 'ctv' ELSE ref.source_crm_type END) as referrer_user_crm_type,
@@ -932,6 +950,7 @@ async function customersRoutes(fastify, options) {
                 const orderCode = `${prefix}${numStr.padStart(padLen, '0')}`;
 
                 const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
+                await db.run("UPDATE customers SET customer_type = 'cu' WHERE id = ?", [Number(customer_id)]);
 
                 const cust = await db.get('SELECT id, customer_name, phone, province, address FROM customers WHERE id = ?', [Number(customer_id)]);
                 if (cust?.phone) {
@@ -988,6 +1007,7 @@ async function customersRoutes(fastify, options) {
         const orderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
 
         const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
+        await db.run("UPDATE customers SET customer_type = 'cu' WHERE id = ?", [Number(customer_id)]);
 
         // ★ V4.1: Backfill order_tt_coc on deposit payment records for this customer
         const cust = await db.get('SELECT customer_name, phone FROM customers WHERE id = ?', [Number(customer_id)]);
