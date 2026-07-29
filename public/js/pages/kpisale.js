@@ -460,7 +460,7 @@ function renderKpiSaleUI(data) {
                 <tr>
                     <td></td>
                     <td class="name" style="padding-left:24px;cursor:pointer;color:#2563eb" onclick="kpiSaleShowOrders(${emp.user_id}, '${emp.full_name.replace(/'/g, "\\'")}')">
-                        👤 ${emp.full_name} ${emp.role === 'truong_phong' ? '⭐' : ''}
+                        ${['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || emp.username === 'truongphongsale' ? '⭐' : '👤'} ${emp.full_name}
                     </td>
                     <td>${formatVND(emp.target)}</td>
                     <td>${formatVND(Math.round(emp.target * 1.2))}</td>
@@ -595,7 +595,7 @@ function renderKpiSaleDailyTable(data) {
                     <td style="text-align:center">${empIdx++}</td>
                     <td style="font-weight:700;color:#64748b">${emp.username || '—'}</td>
                     <td class="name" style="cursor:pointer;color:#2563eb" onclick="kpiSaleShowOrders(${emp.user_id}, '${emp.full_name.replace(/'/g, "\\'")}')">
-                        👤 ${emp.full_name}
+                        ${['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || emp.username === 'truongphongsale' ? '⭐' : '👤'} ${emp.full_name}
                     </td>
                     <td>${compactVND(emp.target)}</td>
                     <td style="font-weight:800;color:#059669">${compactVND(emp.actual)}</td>
@@ -663,9 +663,8 @@ function renderKpiSaleAchievementUI(el, currentMo) {
         var under = Math.round((100 - rate) * 10) / 10;
         return '<span style="color:#dc2626;font-weight:800;font-size:12px">-' + under + '%</span>';
     }
-    function roleIcon(role) {
-        if (role === 'quan_ly' || role === 'quan_ly_cap_cao') return '👔';
-        if (role === 'truong_phong') return '🏷️';
+    function roleIcon(role, username) {
+        if (['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(role) || username === 'truongphongsale') return '⭐';
         return '👤';
     }
     function roleName(role) {
@@ -728,7 +727,7 @@ function renderKpiSaleAchievementUI(el, currentMo) {
             var medalI = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
             h += '<tr style="background:' + rowBg + '">';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-weight:700;font-size:' + (i < 3 ? '18px' : '12px') + ';color:#94a3b8">' + (medalI || (i+1)) + '</td>';
-            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(u.role) + ' <span style="font-weight:700;color:#1e293b">' + u.full_name + '</span><span style="font-size:10px;color:#94a3b8">(' + roleName(u.role) + ')</span></div></td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(u.role, u.username) + ' <span style="font-weight:700;color:#1e293b">' + u.full_name + '</span><span style="font-size:10px;color:#94a3b8">(' + roleName(u.role) + ')</span></div></td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;color:#475569">' + fmtMoney(md.target) + '</td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:800;color:' + rateColor(md.rate) + '">' + fmtMoney(md.actual) + '</td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right">' + diffBadge(md.missing, md.rate) + '</td>';
@@ -799,7 +798,7 @@ function renderKpiSaleAchievementUI(el, currentMo) {
             var medalYI = yi === 0 ? '🥇' : yi === 1 ? '🥈' : yi === 2 ? '🥉' : '';
             h += '<tr style="background:' + rowBgY + '">';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-weight:700;font-size:' + (yi < 3 ? '18px' : '12px') + ';color:#94a3b8">' + (medalYI || (yi+1)) + '</td>';
-            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(uy.role) + ' <span style="font-weight:700;color:#1e293b">' + uy.full_name + '</span></div></td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(uy.role, uy.username) + ' <span style="font-weight:700;color:#1e293b">' + uy.full_name + '</span></div></td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;color:#475569">' + fmtMoney(yy.target) + '</td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:800;color:' + rateColor(yy.rate) + '">' + fmtMoney(yy.actual) + '</td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right">' + diffBadge(yy.missing, yy.rate) + '</td>';
@@ -1103,7 +1102,8 @@ function renderKpiSaleLeaderboard(data) {
             var prev = emp.prev || {};
             h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiSaleShowOrders(' + emp.user_id + ',\'' + (emp.name || emp.full_name || '').replace(/'/g, "\\'") + '\')">';
             h += '<div class="kpi-lb-rank">' + rank + '</div>';
-            h += '<div><div class="kpi-lb-name">' + (emp.name || emp.full_name || '?') + '</div><div class="kpi-lb-team">' + (emp.team || 'PHÒNG SALE') + '</div></div>';
+            var empIcon = (['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || emp.username === 'truongphongsale' || emp.user_id === 77) ? '⭐' : '👤';
+            h += '<div><div class="kpi-lb-name">' + empIcon + ' ' + (emp.name || emp.full_name || '?') + '</div><div class="kpi-lb-team">' + (emp.team || 'PHÒNG SALE') + '</div></div>';
             h += '<div class="kpi-lb-val" style="color:#4338ca">' + (emp.total_orders || 0) + ' đơn<div>' + kpiSaleTrend(emp.total_orders || 0, prev.total_orders || 0) + '</div></div>';
             h += '<div class="kpi-lb-val" style="color:#059669">' + kpiSaleCompactVND(emp.revenue || 0) + '<div>' + kpiSaleTrend(emp.revenue || 0, prev.revenue || 0) + '</div></div>';
             h += '<div class="kpi-lb-val" style="color:' + cColor + ';font-size:12px">' + cRate + '<div>' + kpiSaleTrend(conv.rate || 0, prev.conversion_rate || 0) + '</div></div>';
