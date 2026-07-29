@@ -6319,7 +6319,7 @@ module.exports = async function(fastify) {
                    s.name as source_name,
                    CASE
                        WHEN c.customer_type = 'cu' THEN 'cu'
-                       WHEN (SELECT COUNT(*) FROM dht_orders d_cnt WHERE d_cnt.customer_id = c.id) >= 1 THEN 'cu'
+                       WHEN (SELECT COUNT(*) FROM dht_orders d_cnt WHERE (d_cnt.customer_id = c.id OR (d_cnt.customer_phone IS NOT NULL AND d_cnt.customer_phone != '' AND d_cnt.customer_phone NOT LIKE 'pancake_%' AND d_cnt.customer_phone = c.phone))) >= 1 THEN 'cu'
                        ELSE 'moi'
                    END AS customer_type
             FROM order_codes oc
