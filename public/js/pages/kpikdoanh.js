@@ -156,8 +156,8 @@ async function renderKpikdoanhPage(container) {
             .kpi-mc-remove{width:24px;height:24px;border-radius:50%;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
 
             /* === ORDER DETAIL MODAL === */
-            .kpi-od-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:9998;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-            .kpi-od-modal{background:#1e293b;border-radius:20px;width:750px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);animation:kpiMcSlideUp .3s ease;display:flex;flex-direction:column}
+            .kpi-modal-overlay,.kpi-od-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:99999!important;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+            .kpi-modal,.kpi-od-modal{background:#fff;border-radius:20px;width:920px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);animation:kpiMcSlideUp .3s ease;display:flex;flex-direction:column;padding:24px;color:#1e293b}
             .kpi-od-head{padding:18px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1)}
             .kpi-od-head h3{font-size:16px;font-weight:800;color:#fff;margin:0}
             .kpi-od-close{background:rgba(255,255,255,.1);border:none;color:#94a3b8;font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -803,9 +803,9 @@ function kpiRenderContent(data) {
             const empMissing120 = empTarget120 - (emp.actual || 0);
             const empIcon = (['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || (emp.role_name && emp.role_name.includes('Trưởng'))) ? '⭐' : '👤';
 
-            html += `<tr style="cursor:pointer" onclick="kpiShowOrders(${emp.user_id}, '${(emp.full_name || emp.name || '').replace(/'/g, "\\'")}')">
+            html += `<tr style="cursor:pointer" onclick="kpiShowEmpOrders(${emp.user_id}, '${(emp.full_name || emp.name || '').replace(/'/g, "\\'")}')">
                 <td></td>
-                <td class="name" style="padding-left:24px;cursor:pointer;color:#2563eb" onclick="kpiShowEmpOrders(${emp.user_id}, '${(emp.full_name || emp.name || '').replace(/'/g, "\\'")}')">
+                <td class="name" style="padding-left:24px;cursor:pointer;color:#2563eb">
                     ${empIcon} ${emp.full_name || emp.name}
                 </td>
                 <td>${kpiFmtFull(emp.target)}</td>
@@ -3282,6 +3282,45 @@ function _kpiCleanPhone(phone) {
     return phone;
 }
 
+function _kpiEnsureOrdersModal() {
+    let modal = document.getElementById('kpiOrdersModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.className = 'kpi-modal-overlay';
+        modal.id = 'kpiOrdersModal';
+        modal.style.display = 'none';
+        modal.innerHTML = `
+            <div class="kpi-modal" style="width:920px">
+                <div class="kpi-modal-hdr">
+                    <div class="kpi-modal-title">📦 Chi Tiết Đơn Hàng — <span id="kpiOrdersModalTitle"></span></div>
+                    <button class="kpi-modal-close" onclick="kpiCloseOrdersModal()">✕</button>
+                </div>
+                <div id="kpiOrdersModalSummary" style="background:#f8fafc;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;flex-wrap:wrap"></div>
+                <div style="max-height:60vh;overflow-y:auto">
+                    <table class="kpi-tbl" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Mã đơn</th>
+                                <th>Khách hàng</th>
+                                <th>SĐT</th>
+                                <th>NV Sale</th>
+                                <th>Loại khách</th>
+                                <th>Nguồn</th>
+                                <th>Doanh số</th>
+                                <th>Ngày chốt</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kpiOrdersModalBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    return modal;
+}
+
 window.kpiFilterModalOrders = function(filterType) {
     _kpiModalFilter = filterType;
     const tbody = document.getElementById('kpiOrdersModalBody');
@@ -3323,12 +3362,10 @@ window.kpiFilterModalOrders = function(filterType) {
 };
 
 async function kpiShowOrders(userId, userName) {
-    const modal = document.getElementById('kpiOrdersModal');
+    const modal = _kpiEnsureOrdersModal();
     const title = document.getElementById('kpiOrdersModalTitle');
     const summary = document.getElementById('kpiOrdersModalSummary');
     const tbody = document.getElementById('kpiOrdersModalBody');
-
-    if (!modal) return;
 
     if (title) title.textContent = `NV ${userName} — Tháng ${_kpi.month}`;
     if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng...</td></tr>';
@@ -3356,12 +3393,10 @@ async function kpiShowOrders(userId, userName) {
 }
 
 async function kpiShowTeamOrders(deptId, deptName) {
-    const modal = document.getElementById('kpiOrdersModal');
+    const modal = _kpiEnsureOrdersModal();
     const title = document.getElementById('kpiOrdersModalTitle');
     const summary = document.getElementById('kpiOrdersModalSummary');
     const tbody = document.getElementById('kpiOrdersModalBody');
-
-    if (!modal) return;
 
     if (title) title.textContent = `Team ${deptName} — Tháng ${_kpi.month}`;
     if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng của Team...</td></tr>';

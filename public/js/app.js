@@ -424,7 +424,7 @@ const _PAGE_SCRIPT_MAP = {
     'kiemtrachatluong': '/js/pages/kiemtrachatluong.js?v=20260725_ktcl_v5',
     'topkhachhang': '/js/pages/topkhachhang.js?v=20260727_v100',
     'top-khach-hang': '/js/pages/topkhachhang.js?v=20260727_v100',
-    'kpikdoanh': '/js/pages/kpikdoanh.js?v=20260729_kdoanh_orders_modal_v9',
+    'kpikdoanh': '/js/pages/kpikdoanh.js?v=20260729_kdoanh_orders_modal_v10',
     'kpisale': '/js/pages/kpisale.js?v=20260729_ach_lb_rowclick_v13',
     'kpi-sale': '/js/pages/kpisale.js?v=20260729_ach_lb_rowclick_v13',
     'kpimarketing': '/js/pages/kpimarketing.js?v=20260727_v100',
@@ -4339,6 +4339,8 @@ async function _abCheckUnblock() {
         if (el.closest && el.closest('.bgg-btn-calc, .preset-btn, [onclick*="Preset"], [onclick*="Setup"]')) return true;
         // Step icons and timeline modal openers — exempt from debouncing
         if (el.closest && el.closest('.ts-step-icon, .order-step-btn, [onclick*="_tsOpenStepModal"], [onclick*="_tsShowRescheduleHistoryModal"]')) return true;
+        // KPI table rows, team cards, and order modal triggers — safe to click
+        if (el.closest && el.closest('.kpi-tbl, .kpi-lb-row, .kpi-tc-card, .kpi-modal, [onclick*="kpiShow"], [onclick*="kpiFilter"], [onclick*="kpiClose"]')) return true;
         return false;
     }
 
