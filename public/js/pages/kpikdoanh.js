@@ -2899,7 +2899,7 @@ function odRenderTable() {
         var o = pageItems[i];
         var dateStr = new Date(o.created_at).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' });
         var typeClass = o.customer_type === 'moi' ? 'kpi-od-type-moi' : 'kpi-od-type-cu';
-        var typeLabel = o.customer_type === 'moi' ? '🆕 Mới' : '🔄 Cũ';
+        var typeLabel = o.customer_type === 'moi' ? '🟢 Mới' : '🟧 Cũ';
         var rev = parseFloat(o.revenue || 0);
         var revStr = Number(rev).toLocaleString('vi-VN');
         var affName = o.referrer_name ? '<span style="color:#8b5cf6;font-weight:600;font-size:11px" title="' + o.referrer_name + '">🤝 ' + o.referrer_name + '</span>' : '<span style="color:#94a3b8;font-size:10px">—</span>';

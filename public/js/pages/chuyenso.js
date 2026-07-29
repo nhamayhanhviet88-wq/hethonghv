@@ -234,8 +234,8 @@ async function renderChuyenSoPage(container) {
                         <div class="form-group">
                             <label>Loại Khách <span style="color:var(--danger)">*</span></label>
                             <select id="csoCustomerType" class="form-control" ${!isGdOrTrinh ? 'disabled style="background:#f1f5f9;cursor:not-allowed;font-weight:700;color:#122546;"' : 'style="font-weight:700;color:#122546;"'}>
-                                <option value="moi" selected>🆕 Khách Mới</option>
-                                <option value="cu">🔄 Khách Cũ</option>
+                                <option value="moi" selected style="color:#15803d;font-weight:700;">🟢 Khách Mới</option>
+                                <option value="cu" style="color:#b45309;font-weight:700;">🟧 Khách Cũ</option>
                             </select>
                             <small style="color:#6b7280;font-size:10px;">${!isGdOrTrinh ? 'Mặc định Khách Mới (Chỉ GĐ/QL Lê Việt Trinh được sửa)' : 'Quyền GĐ/QL Lê Việt Trinh: Có thể chọn Khách Cũ'}</small>
                         </div>

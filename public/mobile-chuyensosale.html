@@ -352,8 +352,8 @@
                     <div class="m-form-group">
                         <label>Loại Khách <span class="req">*</span></label>
                         <select id="mCustomerType" class="m-select" ${!(currentUser.role === 'giam_doc' || ['trinh', 'leviettrinh', 'trinh.lvt'].includes((currentUser.username || '').toLowerCase()) || (currentUser.full_name && (currentUser.full_name.includes('Lê Việt Trinh') || currentUser.full_name.includes('Le Viet Trinh')))) ? 'disabled style="background:#f1f5f9;opacity:0.8;font-weight:700;"' : 'style="font-weight:700;"'}>
-                            <option value="moi" selected>🆕 Khách Mới</option>
-                            <option value="cu">🔄 Khách Cũ</option>
+                            <option value="moi" selected style="color:#15803d;font-weight:700;">🟢 Khách Mới</option>
+                            <option value="cu" style="color:#b45309;font-weight:700;">🟧 Khách Cũ</option>
                         </select>
                     </div>
 
