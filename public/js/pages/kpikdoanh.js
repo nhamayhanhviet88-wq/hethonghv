@@ -734,7 +734,7 @@ function kpiRenderContent(data) {
     html += '</tr></thead><tbody>';
 
     data.teams.forEach((t, idx) => {
-        html += `<tr>
+        html += `<tr class="team-row">
             <td>${idx+1}</td><td class="name">${t.dept_name}</td>
             <td>${kpiFmtFull(t.target_1)}</td><td>${kpiFmtFull(t.target_120)}</td>
             <td style="font-weight:700">${kpiFmtFull(t.actual)}</td>
@@ -747,6 +747,51 @@ function kpiRenderContent(data) {
             html += `<td>${kpiFmtFull(st.target)}</td><td>${kpiFmtFull(st.actual)}</td><td>${kpiFmtFull(st.avg_per_day)}</td><td class="${st.missing<=0?'pos':'neg'}">${kpiSignFmtFull(st.missing)}</td>`;
         });
         html += '</tr>';
+
+        (t.employees || []).forEach(emp => {
+            const empStages = emp.stages || (function() {
+                const daysInMonth = dim || 30;
+                const s1Days = 10, s2Days = 10, s3Days = daysInMonth - 20;
+                let s1Actual = 0, s2Actual = 0, s3Actual = 0;
+                const dailyArr = emp.daily || [];
+                for (let i = 0; i < daysInMonth; i++) {
+                    if (i < 10) s1Actual += dailyArr[i] || 0;
+                    else if (i < 20) s2Actual += dailyArr[i] || 0;
+                    else s3Actual += dailyArr[i] || 0;
+                }
+                const s1Target = emp.target > 0 ? Math.round(emp.target * s1Days / daysInMonth) : 0;
+                const s2Target = emp.target > 0 ? Math.round(emp.target * s2Days / daysInMonth) : 0;
+                const s3Target = emp.target > 0 ? emp.target - s1Target - s2Target : 0;
+                return {
+                    stage1: { target: s1Target, actual: s1Actual, avg_per_day: s1Days > 0 ? Math.round(s1Actual / s1Days) : 0, missing: s1Target - s1Actual },
+                    stage2: { target: s2Target, actual: s2Actual, avg_per_day: s2Days > 0 ? Math.round(s2Actual / s2Days) : 0, missing: s2Target - s2Actual },
+                    stage3: { target: s3Target, actual: s3Actual, avg_per_day: s3Days > 0 ? Math.round(s3Actual / s3Days) : 0, missing: s3Target - s3Actual }
+                };
+            })();
+
+            const empTarget120 = Math.round((emp.target || 0) * 1.2);
+            const empRate120 = emp.target > 0 ? Math.round(1000 * (emp.actual || 0) / empTarget120) / 10 : 0;
+            const empMissing120 = empTarget120 - (emp.actual || 0);
+            const empIcon = (['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || (emp.role_name && emp.role_name.includes('Trưởng'))) ? '⭐' : '👤';
+
+            html += `<tr>
+                <td></td>
+                <td class="name" style="padding-left:24px;cursor:pointer;color:#2563eb" onclick="kpiShowEmpOrders(${emp.user_id}, '${(emp.full_name || emp.name || '').replace(/'/g, "\\'")}')">
+                    ${empIcon} ${emp.full_name || emp.name}
+                </td>
+                <td>${kpiFmtFull(emp.target)}</td>
+                <td>${kpiFmtFull(empTarget120)}</td>
+                <td style="font-weight:700">${kpiFmtFull(emp.actual)}</td>
+                <td class="pct-cell ${emp.rate>=100?'pos':'neg'}">${emp.rate || 0}%</td>
+                <td class="pct-cell ${empRate120>=100?'pos':'neg'}">${empRate120}%</td>
+                <td class="${(emp.missing || 0)<=0?'pos':'neg'}">${kpiSignFmtFull(emp.missing || 0)}</td>
+                <td class="${empMissing120<=0?'pos':'neg'}">${kpiSignFmtFull(empMissing120)}</td>`;
+            ['stage1','stage2','stage3'].forEach(sk => {
+                const st = empStages[sk];
+                html += `<td>${kpiFmtFull(st.target)}</td><td>${kpiFmtFull(st.actual)}</td><td>${kpiFmtFull(st.avg_per_day)}</td><td class="${st.missing<=0?'pos':'neg'}">${kpiSignFmtFull(st.missing)}</td>`;
+            });
+            html += '</tr>';
+        });
     });
 
     // TỔNG row
