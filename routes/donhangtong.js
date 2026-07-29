@@ -1756,6 +1756,37 @@ module.exports = async function(fastify) {
             });
         }
 
+        // ★ Post-processing to guarantee 100% accurate customer_type per order:
+        // Only the earliest order of a customer displays 'moi' (unless customer_type='cu' in DB)
+        // All subsequent orders (2nd, 3rd...) display 'cu'.
+        const earldistCache = new Map();
+        for (const o of allOrders) {
+            if (o.customer_type === 'cu') continue;
+            const custIdVal = Number(o.customer_id) || 0;
+            const phoneVal = (o.customer_phone || '').trim();
+            if (!custIdVal && !phoneVal) continue;
+            const key = `${custIdVal}_${phoneVal}`;
+            
+            let earliestId = earldistCache.get(key);
+            if (earliestId === undefined) {
+                const earliest = await db.get(`
+                    SELECT id FROM dht_orders 
+                    WHERE (
+                        ($1 > 0 AND customer_id = $1)
+                        OR ($2 != '' AND customer_phone = $2)
+                    )
+                    AND COALESCE(is_draft, FALSE) = FALSE
+                    ORDER BY COALESCE(order_date, created_at) ASC, id ASC LIMIT 1
+                `, [custIdVal, phoneVal]);
+                earliestId = earliest ? String(earliest.id) : null;
+                earldistCache.set(key, earliestId);
+            }
+
+            if (earliestId && String(earliestId) !== String(o.id)) {
+                o.customer_type = 'cu';
+            }
+        }
+
         return { orders: allOrders, serverTime: Date.now() };
     });
 
