@@ -1567,14 +1567,9 @@ window.kpiSaleFilterModalOrders = function(filterType) {
     }
 
     tbody.innerHTML = filtered.map((o, idx) => {
-        let badgeHtml = '';
-        if (o.customer_type === 'moi') {
-            badgeHtml = '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">🟢 Khách Mới</span>';
-        } else if (o.is_pet_tem) {
-            badgeHtml = '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#faf5ff;color:#7c3aed;border:1px solid #e9d5ff">🟧 Khách Cũ PET/TEM</span>';
-        } else {
-            badgeHtml = '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a">🟧 Khách Cũ Đồng Phục</span>';
-        }
+        let badgeHtml = o.customer_type === 'moi'
+            ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">🟢 Khách Mới</span>'
+            : '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a">🟧 Khách Cũ</span>';
 
         return `
         <tr>
