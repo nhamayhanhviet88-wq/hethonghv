@@ -809,28 +809,7 @@ function kpiRenderContent(data) {
     });
     html += '</tr></tbody></table></div>';
 
-    // ===== SECTION 2: Doanh Thu Theo Ngày (Team) =====
-    html += '<div class="kpi-section-title">📅 DOANH THU THEO NGÀY</div>';
-    html += '<div class="kpi-tbl-wrap"><table class="kpi-tbl"><thead><tr><th>STT</th><th>Cơ sở</th>';
-    for (let d = 1; d <= dim; d++) {
-        const isTdy = (d === todayDay);
-        html += `<th class="sub${isTdy?' kpi-today-hdr':''}">${d}/${data.month.month}${isTdy?' 📍':''}</th>`;
-    }
-    html += '</tr></thead><tbody>';
 
-    data.teams.forEach((t, idx) => {
-        html += `<tr><td>${idx+1}</td><td class="name">${t.dept_name}</td>`;
-        t.daily.forEach(v => {
-            html += `<td class="day-cell ${v>0?'has-val':'zero-val'}">${v>0?kpiFmt(v):'-'}</td>`;
-        });
-        html += '</tr>';
-    });
-    // TỔNG
-    html += `<tr class="total-row"><td></td><td class="name">TỔNG</td>`;
-    s.daily.forEach(v => {
-        html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="font-weight:900">${v>0?kpiFmt(v):'-'}</td>`;
-    });
-    html += '</tr></tbody></table></div>';
 
     // ===== SECTION 3: Doanh Thu Và Target Nhân Sự =====
     html += '<div class="kpi-section-title">👥 DOANH THU VÀ TARGET NHÂN SỰ</div>';
