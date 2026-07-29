@@ -319,7 +319,7 @@ async function customersRoutes(fastify, options) {
                     AND (oc.status IS NULL OR oc.status != 'cancelled')
                 ) > 0 THEN 'cu'
                 ELSE 'moi'
-            END as customer_type,
+            END as computed_customer_type,
             s.name as source_name, p.name as promotion_name, i.name as industry_name,
             r.full_name as receiver_name, a.full_name as assigned_to_name,
             cb.full_name as created_by_name, ref.full_name as referrer_name, COALESCE((SELECT sc.crm_type FROM customers sc WHERE sc.id = ref.source_customer_id), CASE ref.role WHEN 'hoa_hong' THEN 'ctv_hoa_hong' WHEN 'tkaffiliate' THEN 'ctv_hoa_hong' WHEN 'ctv' THEN 'ctv' ELSE ref.source_crm_type END) as referrer_user_crm_type,
@@ -421,6 +421,9 @@ async function customersRoutes(fastify, options) {
 
         query += ' ORDER BY c.is_pinned DESC NULLS LAST, c.created_at ASC';
         const customers = await db.all(query, params);
+        customers.forEach(c => {
+            if (c.computed_customer_type) c.customer_type = c.computed_customer_type;
+        });
 
         if (user.role === 'quan_ly' || user.role === 'truong_phong') {
             for (const c of customers) {
@@ -559,7 +562,7 @@ async function customersRoutes(fastify, options) {
                      AND (oc.status IS NULL OR oc.status != 'cancelled')
                  ) > 0 THEN 'cu'
                  ELSE 'moi'
-             END as customer_type,
+             END as computed_customer_type,
              s.name as source_name, p.name as promotion_name, i.name as industry_name,
              r.full_name as receiver_name, a.full_name as assigned_to_name,
              cb.full_name as created_by_name, ref.full_name as referrer_name, COALESCE((SELECT sc.crm_type FROM customers sc WHERE sc.id = ref.source_customer_id), CASE ref.role WHEN 'hoa_hong' THEN 'ctv_hoa_hong' WHEN 'tkaffiliate' THEN 'ctv_hoa_hong' WHEN 'ctv' THEN 'ctv' ELSE ref.source_crm_type END) as referrer_user_crm_type,
@@ -577,6 +580,7 @@ async function customersRoutes(fastify, options) {
             [Number(request.params.id)]
         );
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
+        if (customer.computed_customer_type) customer.customer_type = customer.computed_customer_type;
 
         const user = request.user;
         if ((user.role === 'quan_ly' || user.role === 'truong_phong') && customer.assigned_to_id !== user.id) {
