@@ -171,6 +171,11 @@ async function renderChamsockhtempetPage(container) {
             <select id="tempetFilterConsultType" class="form-control" style="width:auto;min-width:200px;" onchange="_tempetRenderFilteredTable()">
                 <option value="">Tất cả trạng thái</option>
             </select>
+            <select id="tempetFilterCustomerType" class="form-control" style="width:auto;min-width:160px;font-weight:600;" onchange="_tempetRenderFilteredTable()">
+                <option value="">Tất cả loại khách</option>
+                <option value="moi" style="color:#15803d;font-weight:700;">🟢 Khách Mới</option>
+                <option value="cu" style="color:#b45309;font-weight:700;">🟧 Khách Cũ</option>
+            </select>
             <input type="text" id="tempetSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:200px;">
         </div>
 
@@ -509,6 +514,16 @@ async function _tempetRenderFilteredTable() {
         }
     }
 
+    // Apply customer type filter
+    const custTypeVal = document.getElementById('tempetFilterCustomerType')?.value;
+    if (custTypeVal) {
+        if (custTypeVal === 'cu') {
+            filtered = filtered.filter(c => c.customer_type === 'cu');
+        } else if (custTypeVal === 'moi') {
+            filtered = filtered.filter(c => c.customer_type !== 'cu');
+        }
+    }
+
     filtered = [...filtered].sort((a, b) => {
         const pinA = a.is_pinned ? 1 : 0;
         const pinB = b.is_pinned ? 1 : 0;
@@ -795,7 +810,12 @@ function _tempetRenderCustomerRow(c, stats, stt) {
                     </span>
                     <span onclick="event.stopPropagation();_crmCopyText('${nameStr}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>
                 </div>
-                <div style="font-size:11px;color:#64748b;margin-top:2px;">Mã: <strong style="color:#e65100">${codeStr}</strong></div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                    <span>Mã: <strong style="color:#e65100">${codeStr}</strong></span>
+                    ${(c.customer_type === 'cu')
+                        ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
+                        : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
+                </div>
                 `;
             })()}
         </td>

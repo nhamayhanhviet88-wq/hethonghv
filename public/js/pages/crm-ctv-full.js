@@ -282,6 +282,11 @@ async function renderCRMCtvPage(container) {
             <select id="crmFilterConsultType" class="form-control" style="width:auto;min-width:200px;" onchange="_ctvRenderFilteredTable()">
                 <option value="">Tất cả trạng thái</option>
             </select>
+            <select id="crmFilterCustomerType" class="form-control" style="width:auto;min-width:160px;font-weight:600;" onchange="_ctvRenderFilteredTable()">
+                <option value="">Tất cả loại khách</option>
+                <option value="moi" style="color:#15803d;font-weight:700;">🟢 Khách Mới</option>
+                <option value="cu" style="color:#b45309;font-weight:700;">🟧 Khách Cũ</option>
+            </select>
             <input type="text" id="crmSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:200px;">
 
         </div>
@@ -532,6 +537,16 @@ function _ctvRenderFilteredTable() {
                 const s = stats[c.id] || {};
                 return s.lastLog && s.lastLog.log_type === consultTypeVal;
             });
+        }
+    }
+
+    // Apply customer type filter
+    const custTypeVal = document.getElementById('crmFilterCustomerType')?.value;
+    if (custTypeVal) {
+        if (custTypeVal === 'cu') {
+            filtered = filtered.filter(c => c.customer_type === 'cu');
+        } else if (custTypeVal === 'moi') {
+            filtered = filtered.filter(c => c.customer_type !== 'cu');
         }
     }
 
@@ -790,7 +805,12 @@ function _ctvRenderCustomerRow(c, stats, stt) {
                     </span>
                     <span onclick="event.stopPropagation();_crmCopyText('${c.customer_name.replace(/'/g, "\\'")}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>
                 </div>
-                <div style="font-size:11px;color:#64748b;margin-top:2px;">Mã: <strong style="color:#e65100">${getCustomerCode(c)}</strong></div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                    <span>Mã: <strong style="color:#e65100">${getCustomerCode(c)}</strong></span>
+                    ${(c.customer_type === 'cu')
+                        ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
+                        : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
+                </div>
                 <div style="margin-top:2px;">${getCustomerUidBadge(c)}</div>
                 `;
             })()}
@@ -2443,6 +2463,9 @@ async function _ctvOpenCustomerDetail(customerId) {
                         <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:3px;">${c.customer_name}</div>
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <span style="font-size:13px;color:#fad24c;font-weight:700;font-family:'Courier New',monospace;letter-spacing:0.5px;background:rgba(250,210,76,0.12);padding:2px 8px;border-radius:6px;">${getCustomerCode(c)}</span>
+                            ${(c.customer_type === 'cu')
+                                ? `<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;">🟧 Khách Cũ</span>`
+                                : `<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;">🟢 Khách Mới</span>`}
                             ${(c.cancel_requested === 1 && c.cancel_approved === 0)
                                 ? `<span style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:600;background:var(--gray-700);color:var(--gray-400);">⏳ Chờ Duyệt Hủy</span>`
                                 : (c.cancel_approved === -1)
