@@ -826,7 +826,7 @@ function kpiRenderContent(data) {
         html += `<tr class="team-row"><td></td><td></td><td class="name">${team.dept_name}</td>`;
         html += `<td style="font-weight:700">${kpiFmtFull(team.target_1)}</td>`;
         html += `<td style="font-weight:800;color:#d97706">${kpiFmtFull(team.actual)}</td>`;
-        html += `<td class="pct-cell ${team.rate_1>=100?'pos':'neg'}">${team.rate_1}%</td>`;
+        html += `<td style="font-weight:700;color:#1e293b">${team.rate_1}%</td>`;
         html += `<td class="${team.missing_1<=0?'pos':'neg'}">${kpiSignFmtFull(team.missing_1)}</td>`;
         team.daily.forEach(v => {
             html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="font-weight:800">${v>0?kpiFmt(v):'-'}</td>`;
@@ -839,7 +839,7 @@ function kpiRenderContent(data) {
             + `<td>${ei+1}</td><td>${emp.username||''}</td><td class="name">${roleIcon}${emp.full_name}</td>`;
             html += `<td>${kpiFmtFull(emp.target)}</td>`;
             html += `<td style="font-weight:800;color:${emp.actual > 0 ? '#059669' : '#475569'}">${kpiFmtFull(emp.actual)}</td>`;
-            html += `<td class="pct-cell ${emp.rate>=100?'pos':'neg'}">${emp.rate}%</td>`;
+            html += `<td style="font-weight:700;color:#1e293b">${emp.rate}%</td>`;
             html += `<td class="${emp.missing<=0?'pos':'neg'}">${kpiSignFmtFull(emp.missing)}</td>`;
             emp.daily.forEach(v => {
                 html += `<td class="day-cell ${v>0?'has-val':'zero-val'}">${v>0?kpiFmt(v):'-'}</td>`;
