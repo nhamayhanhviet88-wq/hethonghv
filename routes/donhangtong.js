@@ -6359,7 +6359,12 @@ module.exports = async function(fastify) {
                    pr.payment_code AS deposit_code,
                    pr.id AS deposit_payment_id,
                    o.created_at, o.customer_id,
-                   c.source_id, s.name as source_name
+                   c.source_id, s.name as source_name,
+                   CASE
+                       WHEN c.customer_type = 'cu' THEN 'cu'
+                       WHEN (SELECT COUNT(*) FROM dht_orders d_cnt WHERE (d_cnt.customer_id = o.customer_id OR (c.phone IS NOT NULL AND c.phone != '' AND c.phone NOT LIKE 'pancake_%' AND d_cnt.customer_phone = c.phone)) AND d_cnt.id != o.id) >= 1 THEN 'cu'
+                       ELSE 'moi'
+                   END AS customer_type
             FROM dht_orders o
             LEFT JOIN customers c ON c.id = o.customer_id
             LEFT JOIN settings_sources s ON c.source_id = s.id
