@@ -520,10 +520,10 @@ module.exports = async function(fastify) {
         });
 
         const teamList = [];
-        const mgrUsers = userResults.filter(u => ['quan_ly', 'quan_ly_cap_cao', 'truong_phong'].includes(u.role));
-        const rootNonMgr = userResults.filter(u => u.department_id === rootDept.id && !['quan_ly', 'quan_ly_cap_cao', 'truong_phong'].includes(u.role));
+        const mgrUsers = userResults.filter(u => ['quan_ly', 'quan_ly_cap_cao'].includes(u.role));
+        const rootNonMgr = userResults.filter(u => u.department_id === rootDept.id && !['quan_ly', 'quan_ly_cap_cao'].includes(u.role));
         const qlGroup = [...mgrUsers, ...rootNonMgr];
-        if (qlGroup.length > 0) teamList.push(buildTeamAgg('TRƯỞNG PHÒNG SALE', rootDept.id, qlGroup, currentMonth));
+        if (qlGroup.length > 0) teamList.push(buildTeamAgg('QUẢN LÝ SALE', rootDept.id, qlGroup, currentMonth));
 
         for (const dept of childDepts) {
             const deptUsers = userResults.filter(u => u.department_id === dept.id && !mgrUsers.find(m => m.user_id === u.user_id));
