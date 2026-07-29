@@ -774,58 +774,251 @@ window._kpiSaleAchPickMonth = function(m) {
     if (el) renderKpiSaleAchievementUI(el);
 };
 
-// SECTION 3: 🏆 Bảng Xếp Hạng Nhân Viên
-function renderKpiSaleLeaderboard(advData) {
-    const container = document.getElementById('kpiSaleLeaderboard');
-    if (!container || !advData || !advData.leaderboard) { if (container) container.innerHTML = ''; return; }
+// SECTION 3: 🏆 Bảng Xếp Hạng Nhân Viên (PHÒNG SALE)
+var _kpiSaleLbSort = 'revenue';
+var _kpiSaleLbFilter = 'this_month';
+var _kpiSaleLbCustomStart = '';
+var _kpiSaleLbCustomEnd = '';
+var _kpiSaleLbMonth = '';
+var _kpiSaleLbCollapsed = false;
+var _kpiSaleAdvData = null;
 
-    const lb = advData.leaderboard.all_time || advData.leaderboard.this_month || [];
-    // Filter leaderboard to Sale employees
-    const saleEmps = [];
-    (_kpiSale.data?.teams || []).forEach(t => {
-        (t.employees || []).forEach(e => saleEmps.push(e.user_id));
-    });
-    const filteredLb = saleEmps.length > 0 ? lb.filter(item => saleEmps.includes(item.user_id)) : lb;
+window._kpiSaleToggleLb = function() {
+    _kpiSaleLbCollapsed = !_kpiSaleLbCollapsed;
+    var body = document.getElementById('kpiSaleLbBody');
+    var icon = document.getElementById('kpiSaleLbIcon');
+    if (body) body.style.display = _kpiSaleLbCollapsed ? 'none' : 'block';
+    if (icon) {
+        icon.style.transform = 'rotate(' + (_kpiSaleLbCollapsed ? '-90deg' : '0') + ')';
+        icon.textContent = _kpiSaleLbCollapsed ? '▶' : '▼';
+    }
+};
 
-    let html = `
-        <div class="kpi-lb-section">
-            <div class="kpi-lb-header">
-                🏆 Bảng Xếp Hạng Nhân Viên (PHÒNG SALE)
-            </div>
-            <div style="padding:16px 24px">
-                <div class="kpi-tbl-wrap">
-                    <table class="kpi-tbl" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th style="width:50px">#</th>
-                                <th style="text-align:left">Nhân viên</th>
-                                <th>Tổng Đơn</th>
-                                <th>Doanh Số</th>
-                                <th>Tỷ Lệ Đạt</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-    `;
+function kpiSaleLbBuildUrl() {
+    var base = '/api/reports/customer-retention/advanced?dept_id=4';
+    var now = typeof vnNow === 'function' ? vnNow() : new Date();
+    var fmtD = function(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+    if (_kpiSaleLbFilter === 'today') {
+        return base + '&period=day&date=' + fmtD(now);
+    } else if (_kpiSaleLbFilter === 'yesterday') {
+        var yd = new Date(now.getTime()); yd.setDate(yd.getDate() - 1);
+        return base + '&period=day&date=' + fmtD(yd);
+    } else if (_kpiSaleLbFilter === '7days') {
+        var s7 = new Date(now.getTime()); s7.setDate(s7.getDate() - 6);
+        return base + '&period=custom&startDate=' + fmtD(s7) + '&endDate=' + fmtD(now);
+    } else if (_kpiSaleLbFilter === 'this_month') {
+        var tm = _kpiSale.month || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+        return base + '&period=month&date=' + tm;
+    } else if (_kpiSaleLbFilter === 'last_month') {
+        var lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        var lmStr = lm.getFullYear() + '-' + String(lm.getMonth()+1).padStart(2,'0');
+        return base + '&period=month&date=' + lmStr;
+    } else if (_kpiSaleLbFilter === 'all') {
+        return base + '&period=year&date=' + now.getFullYear();
+    } else if (_kpiSaleLbFilter === 'stage1' || _kpiSaleLbFilter === 'stage2' || _kpiSaleLbFilter === 'stage3') {
+        var refMonth = _kpiSaleLbMonth || _kpiSale.month || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+        var parts = refMonth.split('-').map(Number);
+        var y = parts[0], m = parts[1];
+        var dim = new Date(y, m, 0).getDate();
+        var sd, ed;
+        if (_kpiSaleLbFilter === 'stage1') { sd = '01'; ed = '10'; }
+        else if (_kpiSaleLbFilter === 'stage2') { sd = '11'; ed = '20'; }
+        else { sd = '21'; ed = String(dim); }
+        return base + '&period=custom&startDate=' + y + '-' + String(m).padStart(2,'0') + '-' + sd + '&endDate=' + y + '-' + String(m).padStart(2,'0') + '-' + ed;
+    } else if (_kpiSaleLbFilter === 'pick_month' && _kpiSaleLbMonth) {
+        return base + '&period=month&date=' + _kpiSaleLbMonth;
+    } else if (_kpiSaleLbFilter === 'custom' && _kpiSaleLbCustomStart && _kpiSaleLbCustomEnd) {
+        return base + '&period=custom&startDate=' + _kpiSaleLbCustomStart + '&endDate=' + _kpiSaleLbCustomEnd;
+    }
+    var fallback = _kpiSale.month || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+    return base + '&period=month&date=' + fallback;
+}
 
-    if (filteredLb.length === 0) {
-        html += `<tr><td colspan="5" style="text-align:center;padding:20px;color:#94a3b8">📭 Chưa có xếp hạng trong kỳ này</td></tr>`;
+window.kpiSaleLbSetFilter = async function(filter) {
+    _kpiSaleLbFilter = filter;
+    if (filter === 'custom') {
+        var container = document.getElementById('kpiSaleLeaderboard');
+        if (container && window._kpiSaleAdvData) renderKpiSaleLeaderboard(window._kpiSaleAdvData);
+        return;
+    }
+    await kpiSaleLbRefetch();
+};
+
+window.kpiSaleLbApplyCustom = async function() {
+    var sd = document.getElementById('kpiSaleLbStartDate');
+    var ed = document.getElementById('kpiSaleLbEndDate');
+    if (!sd || !ed || !sd.value || !ed.value) { alert('Vui lòng chọn ngày bắt đầu và kết thúc'); return; }
+    _kpiSaleLbCustomStart = sd.value;
+    _kpiSaleLbCustomEnd = ed.value;
+    _kpiSaleLbFilter = 'custom';
+    await kpiSaleLbRefetch();
+};
+
+window.kpiSaleLbPickMonth = async function(val) {
+    if (!val) return;
+    _kpiSaleLbMonth = val;
+    _kpiSaleLbFilter = 'pick_month';
+    await kpiSaleLbRefetch();
+};
+
+async function kpiSaleLbRefetch() {
+    var container = document.getElementById('kpiSaleLeaderboard');
+    if (!container) return;
+    container.innerHTML = '<div class="kpi-lb-section"><div class="kpi-lb-header">🏆 Bảng Xếp Hạng Nhân Viên (PHÒNG SALE)</div><div style="padding:40px;text-align:center;color:#9ca3af">⏳ Đang tải...</div></div>';
+    try {
+        var url = kpiSaleLbBuildUrl();
+        var advData = await apiCall(url);
+        renderKpiSaleLeaderboard(advData);
+    } catch(e) {
+        console.error('Sale LB refetch error:', e);
+        container.innerHTML = '<div class="kpi-lb-section"><div style="padding:20px;color:#ef4444;text-align:center">⚠️ Lỗi: ' + (e.message||'') + '</div></div>';
+    }
+}
+
+window.kpiSaleLbSort = function(metric) {
+    _kpiSaleLbSort = metric;
+    var container = document.getElementById('kpiSaleLeaderboard');
+    if (container && window._kpiSaleAdvData) renderKpiSaleLeaderboard(window._kpiSaleAdvData);
+};
+
+function renderKpiSaleLeaderboard(data) {
+    var el = document.getElementById('kpiSaleLeaderboard');
+    if (!el) return;
+
+    window._kpiSaleAdvData = data;
+    var lbObj = data && data.leaderboard;
+    var allEmp = data && data.allEmployees;
+    var convMap = (data && data.conversionMap) || {};
+
+    var lb;
+    if (lbObj) {
+        if (_kpiSaleLbSort === 'orders') lb = lbObj.by_orders || allEmp || [];
+        else if (_kpiSaleLbSort === 'affiliate') lb = lbObj.by_affiliate || allEmp || [];
+        else if (_kpiSaleLbSort === 'retention') lb = lbObj.by_retention || allEmp || [];
+        else lb = lbObj.by_revenue || allEmp || [];
     } else {
-        filteredLb.forEach((item, idx) => {
-            const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1);
-            html += `
-                <tr>
-                    <td style="text-align:center;font-size:16px;font-weight:900">${medal}</td>
-                    <td class="name">👤 ${item.full_name || item.name || 'Sale'}</td>
-                    <td style="text-align:center;font-weight:700">${item.order_count || item.orders || 0} đơn</td>
-                    <td style="font-weight:900;color:#d97706">${formatVND(item.revenue || item.total_revenue || 0)}</td>
-                    <td class="pct-cell pos">${item.conversion_rate || 100}%</td>
-                </tr>
-            `;
-        });
+        lb = Array.isArray(allEmp) ? [].concat(allEmp) : (Array.isArray(data) ? data : []);
     }
 
-    html += `</tbody></table></div></div></div>`;
-    container.innerHTML = html;
+    var medals = ['🥇','🥈','🥉'];
+
+    var tabs = [
+        { key: 'revenue', icon: '💰', label: 'Doanh Số' },
+        { key: 'orders', icon: '📦', label: 'Đơn Hàng' },
+        { key: 'affiliate', icon: '🤝', label: 'TK Affiliate' },
+        { key: 'retention', icon: '🔁', label: 'KH Cũ Quay Lại' }
+    ];
+
+    var filterRow1 = [
+        { key: 'today', icon: '📅', label: 'Hôm nay' },
+        { key: 'yesterday', icon: '📅', label: 'Hôm qua' },
+        { key: '7days', icon: '📅', label: '7 ngày' },
+        { key: 'this_month', icon: '📅', label: 'Tháng này' },
+        { key: 'last_month', icon: '📅', label: 'Tháng trước' },
+        { key: 'all', icon: '📅', label: 'Tất cả' },
+        { key: 'custom', icon: '📅', label: 'Tùy chọn' }
+    ];
+
+    var filterRow2 = [
+        { key: 'stage1', icon: '🔥', label: 'GĐ 1 (1-10)' },
+        { key: 'stage2', icon: '⚡', label: 'GĐ 2 (11-20)' },
+        { key: 'stage3', icon: '🎯', label: 'GĐ 3 (21-31)' }
+    ];
+
+    var h = '<div class="kpi-lb-section">';
+    h += '<div class="kpi-lb-header" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="_kpiSaleToggleLb()">';
+    h += '<span>🏆 Bảng Xếp Hạng Nhân Viên (PHÒNG SALE)</span>';
+    h += '<span id="kpiSaleLbIcon" style="font-size:18px;transition:transform .3s;transform:rotate(' + (_kpiSaleLbCollapsed ? '-90deg' : '0') + ')">' + (_kpiSaleLbCollapsed ? '▶' : '▼') + '</span>';
+    h += '</div>';
+
+    var periodInfo = data && data.period;
+    if (periodInfo && periodInfo.start) {
+        h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + periodInfo.start + ' → ' + periodInfo.end + ' (' + (periodInfo.label || '') + ')</div>';
+    }
+
+    h += '<div id="kpiSaleLbBody" style="' + (_kpiSaleLbCollapsed ? 'display:none' : '') + '">';
+
+    // FILTER BAR ROW 1
+    h += '<div class="kpi-lb-filter-bar" style="display:flex;align-items:center;gap:6px;padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">';
+    h += '<span style="font-size:12px;font-weight:700;color:#475569;margin-right:4px">📊</span>';
+    for (var fi = 0; fi < filterRow1.length; fi++) {
+        var fp = filterRow1[fi];
+        var isActive = _kpiSaleLbFilter === fp.key;
+        var btnStyle = isActive
+            ? 'background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;border:none;box-shadow:0 2px 8px rgba(67,56,202,.3)'
+            : 'background:#fff;color:#374151;border:1px solid #d1d5db';
+        h += '<button onclick="kpiSaleLbSetFilter(\'' + fp.key + '\')" style="' + btnStyle + ';padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap">';
+        h += fp.icon + ' ' + fp.label + '</button>';
+    }
+    h += '</div>';
+
+    // FILTER BAR ROW 2: Stages + Month Picker
+    h += '<div style="display:flex;align-items:center;gap:6px;padding:8px 24px;background:#fefce8;border-bottom:1px solid #fde68a;flex-wrap:wrap">';
+    for (var si = 0; si < filterRow2.length; si++) {
+        var sp = filterRow2[si];
+        var isStageActive = _kpiSaleLbFilter === sp.key;
+        var sBtnStyle = isStageActive
+            ? 'background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border:none;box-shadow:0 2px 8px rgba(217,119,6,.3)'
+            : 'background:#fff;color:#78350f;border:1px solid #fcd34d';
+        h += '<button onclick="kpiSaleLbSetFilter(\'' + sp.key + '\')" style="' + sBtnStyle + ';padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap">';
+        h += sp.icon + ' ' + sp.label + '</button>';
+    }
+    h += '<span style="width:1px;height:24px;background:#d1d5db;margin:0 6px"></span>';
+    var isLbMonthActive = _kpiSaleLbFilter === 'pick_month';
+    h += '<span style="font-size:12px;font-weight:700;color:#78350f">📆 CHỌN THÁNG</span>';
+    h += '<input type="month" id="kpiSaleLbMonthPicker" value="' + (_kpiSaleLbMonth || '') + '" onchange="kpiSaleLbPickMonth(this.value)" style="padding:5px 10px;border:1px solid ' + (isLbMonthActive ? '#4338ca' : '#d1d5db') + ';border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:' + (isLbMonthActive ? '#eef2ff' : '#fff') + '">';
+    h += '</div>';
+
+    // Custom date pickers
+    if (_kpiSaleLbFilter === 'custom') {
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 24px;background:#eef2ff;border-bottom:1px solid #c7d2fe;flex-wrap:wrap">';
+        h += '<span style="font-size:12px;font-weight:600;color:#4338ca">Từ:</span>';
+        h += '<input type="date" id="kpiSaleLbStartDate" value="' + (_kpiSaleLbCustomStart || '') + '" style="padding:6px 10px;border:1px solid #c7d2fe;border-radius:8px;font-size:12px">';
+        h += '<span style="font-size:12px;font-weight:600;color:#4338ca">Đến:</span>';
+        h += '<input type="date" id="kpiSaleLbEndDate" value="' + (_kpiSaleLbCustomEnd || '') + '" style="padding:6px 10px;border:1px solid #c7d2fe;border-radius:8px;font-size:12px">';
+        h += '<button onclick="kpiSaleLbApplyCustom()" style="padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer">🔍 Áp dụng</button>';
+        h += '</div>';
+    }
+
+    // SORT TABS
+    h += '<div class="kpi-lb-tabs">';
+    for (var ti = 0; ti < tabs.length; ti++) {
+        var t = tabs[ti];
+        h += '<button class="kpi-lb-tab ' + (_kpiSaleLbSort === t.key ? 'active' : '') + '" onclick="kpiSaleLbSort(\'' + t.key + '\')">' + t.icon + ' ' + t.label + '</button>';
+    }
+    h += '</div>';
+
+    // TABLE HEADERS
+    h += '<div>';
+    h += '<div class="kpi-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569">';
+    h += '<div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right">📊 CĐ</div><div style="text-align:right">TK Aff</div><div style="text-align:right">KH cũ %</div>';
+    h += '</div>';
+
+    if (!lb || lb.length === 0) {
+        h += '<div style="padding:30px;text-align:center;color:#94a3b8">📭 Chưa có xếp hạng nhân viên trong kỳ này</div>';
+    } else {
+        for (var i = 0; i < lb.length; i++) {
+            var emp = lb[i];
+            var rank = i < 3 ? medals[i] : (i + 1);
+            var conv = convMap[emp.user_id] || {};
+            var cRate = conv.rate != null ? conv.rate + '%' : '—';
+            var cColor = conv.rate >= 70 ? '#10b981' : conv.rate >= 40 ? '#f59e0b' : '#ef4444';
+            var prev = emp.prev || {};
+            h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiSaleShowOrders(' + emp.user_id + ',\'' + (emp.name || emp.full_name || '').replace(/'/g, "\\'") + '\')">';
+            h += '<div class="kpi-lb-rank">' + rank + '</div>';
+            h += '<div><div class="kpi-lb-name">' + (emp.name || emp.full_name || '?') + '</div><div class="kpi-lb-team">' + (emp.team || 'PHÒNG SALE') + '</div></div>';
+            h += '<div class="kpi-lb-val" style="color:#4338ca">' + (emp.total_orders || 0) + ' đơn<div>' + kpiSaleTrend(emp.total_orders || 0, prev.total_orders || 0) + '</div></div>';
+            h += '<div class="kpi-lb-val" style="color:#059669">' + kpiSaleCompactVND(emp.revenue || 0) + '<div>' + kpiSaleTrend(emp.revenue || 0, prev.revenue || 0) + '</div></div>';
+            h += '<div class="kpi-lb-val" style="color:' + cColor + ';font-size:12px">' + cRate + '<div>' + kpiSaleTrend(conv.rate || 0, prev.conversion_rate || 0) + '</div></div>';
+            h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.affiliate_new || 0) + '<div>' + kpiSaleTrend(emp.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
+            h += '<div class="kpi-lb-val" style="color:#c2410c">' + (emp.rate || 0) + '%<div>' + kpiSaleTrend(emp.rate || 0, prev.rate || 0) + '</div></div>';
+            h += '</div>';
+        }
+    }
+    h += '</div>';
+    h += '</div>'; // close kpiSaleLbBody
+    h += '</div>'; // close kpi-lb-section
+    el.innerHTML = h;
 }
 
 // SECTION 4: 📊 So Sánh Team (PHÒNG SALE)
