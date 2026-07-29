@@ -1047,7 +1047,6 @@ function _dhtRenderOrderRows(filtered) {
             <td>
                 <div>
                     ${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${emailBadge}
-                    ${canDo('dht_sua_don', 'view') ? (((o.is_draft === true || o.is_draft === 'true') || ((Number(o.remaining_amount) || 0) > 0 && !o.shipped_at && o.shipping_status !== 'shipped')) ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull('${o.id}')" title="Sửa" style="padding:1px 4px;font-size:10px;margin-left:4px;">✏️</button>` : '') : ''}
                 </div>
                 ${badgeRow}
             </td>
