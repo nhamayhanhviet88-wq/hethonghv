@@ -602,8 +602,8 @@ async function renderDonhangtongPage(content) {
         + '<div class="card" style="opacity:0.6">'
         + '<div class="card-body" style="overflow-x:auto;padding:8px">'
         + '<table class="table" style="font-size:12px;white-space:nowrap">'
-        + '<thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th style="text-align:center">Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead>'
-        + '<tbody><tr><td colspan="16" style="text-align:center;padding:100px 0;"><div class="spa-spinner" style="margin:0 auto 12px"></div><div style="color:var(--gray-400);font-weight:600">Đang tải danh sách đơn hàng...</div></td></tr></tbody>'
+        + '<thead><tr style="background:var(--gray-800);color:#fff"><th>Lĩnh Vực</th><th>Thời Gian</th><th>Tiến Độ</th><th>Tài Chính</th><th>Mã Đơn & Nguồn</th><th>Khách Hàng & Liên Hệ</th><th>CSKH & Cập Nhật</th><th style="text-align:center">Tổng SL</th><th>Thao Tác</th></tr></thead>'
+        + '<tbody><tr><td colspan="9" style="text-align:center;padding:100px 0;"><div class="spa-spinner" style="margin:0 auto 12px"></div><div style="color:var(--gray-400);font-weight:600">Đang tải danh sách đơn hàng...</div></td></tr></tbody>'
         + '</table>'
         + '</div>'
         + '</div>'
@@ -643,7 +643,7 @@ async function renderDonhangtongPage(content) {
                 +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
                 +'</div>'
                 +'<div id="dhtPaginationTop" style="margin:8px 0"></div>'
-                +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800)"><th>Lĩnh Vực</th><th>Ngày LĐ</th><th>Ngày Gửi</th><th>Tiến Độ</th><th>Còn Lại</th><th>Mã Đơn</th><th>Tên Khách</th><th>SĐT</th><th>Thành Phố</th><th>CSKH</th><th style="text-align:center">Tổng SL</th><th>Đặt Cọc</th><th>Ưu Đãi</th><th>Nguồn</th><th>Lịch Sử CN</th><th></th></tr></thead><tbody id="dhtTbody"><tr><td colspan="16" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+                +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800);color:#fff"><th>Lĩnh Vực</th><th>Thời Gian</th><th>Tiến Độ</th><th>Tài Chính</th><th>Mã Đơn & Nguồn</th><th>Khách Hàng & Liên Hệ</th><th>CSKH & Cập Nhật</th><th style="text-align:center">Tổng SL</th><th>Thao Tác</th></tr></thead><tbody id="dhtTbody"><tr><td colspan="9" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
                 +'<div id="dhtPaginationBottom" style="margin:8px 0"></div>'
                 +'</div></div>';
 
@@ -865,7 +865,7 @@ function _dhtRenderOrderRows(filtered) {
     if (!tbody) return;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="16"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có đơn hàng</h3></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có đơn hàng</h3></div></td></tr>';
         _dhtUpdateInfo(0, []); return;
     }
 
@@ -1039,28 +1039,40 @@ function _dhtRenderOrderRows(filtered) {
 
         return `<tr data-id="${o.id}" onclick="_dhtShowDetail('${o.id}')" style="cursor:pointer;${(o.is_draft === true || o.is_draft === 'true') ? 'background-color:#fffbeb;' : ''}" title="Xem chi tiết">
             <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;color:${_catColor};background:${_catBg};border:1px solid ${_catColor}22;white-space:nowrap">${o.category_name || '—'}</span></td>
-            <td>${_dhtFmtOrderDate(o.order_date, o.created_at)}</td>
-            <td style="font-weight:600;">${shipDateFmt}</td>
+            <td style="font-size:11px;">
+                <div style="font-weight:700;color:var(--gray-800);">${_dhtFmtOrderDate(o.order_date, o.created_at)}</div>
+                <div style="font-size:10px;color:#64748b;margin-top:2px;">🚚 ${shipDateFmt}</div>
+            </td>
             <td ${tienDoClick}>${tienDo}</td>
-            <td style="font-weight:700;color:${remColor};">${fmt(remaining)}</td>
-            <td>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${emailBadge}${badgeRow}</td>
-            <td>${o.customer_name || '—'}</td>
-            <td>${(o.customer_phone && !o.customer_phone.startsWith('pancake_')) ? '<a href="tel:'+o.customer_phone+'" style="color:var(--info);" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : '—'}</td>
-            <td>${o.province || '—'}</td>
-            <td>${o.cskh_name || '—'}</td>
-            <td style="text-align:center;font-weight:800;">${formatDetailedQuantity(o.items, o.total_quantity, o.order_code)}</td>
-            <td style="color:var(--success);font-weight:800;">${fmt(o.deposit_amount)}</td>
-            <td style="color:var(--warning);font-weight:800;">${fmt(o.discount_amount)}</td>
+            <td style="font-size:11px;">
+                <div style="font-weight:800;color:${remColor};">Còn: ${fmt(remaining)}</div>
+                <div style="font-size:10px;color:#64748b;margin-top:2px;">
+                    Cọc: <span style="color:var(--success);font-weight:700;">${fmt(o.deposit_amount)}</span>
+                    ${Number(o.discount_amount) > 0 ? ` | GG: <span style="color:var(--warning);font-weight:700;">${fmt(o.discount_amount)}</span>` : ''}
+                </div>
+            </td>
             <td>
-                <div>${o.source || '—'}</div>
-                <div style="margin-top:2px;">
+                <div>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${emailBadge}${badgeRow}</div>
+                <div style="margin-top:3px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                    <span style="font-size:11px;color:#475569;font-weight:600;">${o.source || '—'}</span>
                     ${(o.customer_type === 'cu')
                         ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
                         : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
                 </div>
             </td>
-            <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
+                <div style="font-weight:700;color:var(--gray-900);font-size:12px;">${o.customer_name || '—'}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">
+                    ${(o.customer_phone && !o.customer_phone.startsWith('pancake_')) ? '📞 <a href="tel:'+o.customer_phone+'" style="color:var(--info);font-weight:600;" onclick="event.stopPropagation()">'+o.customer_phone+'</a>' : ''}
+                    ${o.province ? ` <span style="color:#cbd5e1;">•</span> 📍 ${o.province}` : ''}
+                </div>
+            </td>
+            <td style="font-size:11px;">
+                <div style="font-weight:700;color:#334155;">👤 ${o.cskh_name || '—'}</div>
+                <div style="font-size:10px;color:#64748b;margin-top:2px;">🕒 ${lastUpdate}${lastUser}</div>
+            </td>
+            <td style="text-align:center;font-weight:800;">${formatDetailedQuantity(o.items, o.total_quantity, o.order_code)}</td>
+            <td style="white-space:nowrap;">
                 ${vatBtnHtml}
                 ${canDo('dht_sua_don', 'view') ? (((o.is_draft === true || o.is_draft === 'true') || (Number(o.remaining_amount) || 0) > 0) ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull('${o.id}')" title="Sửa">✏️</button>` : `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>`) : ''}
             </td>
