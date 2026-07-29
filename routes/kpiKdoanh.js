@@ -105,6 +105,7 @@ module.exports = async function(fastify) {
                   AND oc.created_at >= $${cPS}::timestamp
                   AND oc.created_at < $${cPE}::timestamp
                   AND COALESCE(oc.status, 'active') != 'cancelled'
+                  AND COALESCE((SELECT d.is_draft FROM dht_orders d WHERE d.order_code = oc.order_code LIMIT 1), false) = false
                 GROUP BY c.assigned_to_id, day_num
                 ORDER BY uid, day_num
             `, [...custIds, monthStart, monthEnd]);
@@ -404,6 +405,7 @@ module.exports = async function(fastify) {
               AND oc.created_at >= $2::timestamptz
               AND oc.created_at < $3::timestamptz
               AND COALESCE(oc.status, 'active') != 'cancelled'
+              AND COALESCE((SELECT d.is_draft FROM dht_orders d WHERE d.order_code = oc.order_code LIMIT 1), false) = false
               ${buildProductionFilter(await getProductionCutoff(), await getTestAccountIds(), 'c.created_at', 'c.created_by')}
             ORDER BY oc.created_at DESC
         `, [parseInt(user_id), monthStart, monthEnd]);
@@ -496,6 +498,7 @@ module.exports = async function(fastify) {
               AND oc.created_at >= $${empIds.length + 1}::timestamp
               AND oc.created_at < $${empIds.length + 2}::timestamp
               AND COALESCE(oc.status, 'active') != 'cancelled'
+              AND COALESCE((SELECT d.is_draft FROM dht_orders d WHERE d.order_code = oc.order_code LIMIT 1), false) = false
               ${buildProductionFilter(await getProductionCutoff(), await getTestAccountIds(), 'c.created_at', 'c.created_by')}
             GROUP BY c.assigned_to_id, mo
         `, [...empIds, yearStart, yearEnd]);
