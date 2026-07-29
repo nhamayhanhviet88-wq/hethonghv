@@ -69,48 +69,33 @@ module.exports = async function(fastify) {
         const _testIds = await getTestAccountIds();
         const _prodSQL = buildProductionFilter(_cutoff, _testIds, 'c.created_at', 'c.created_by');
 
-        // Step 3a: Get customer IDs that have chot_don log
-        const chotDonCusts = await db.all(`
-            SELECT DISTINCT cl.customer_id
-            FROM consultation_logs cl
-            JOIN customers c ON c.id = cl.customer_id
-            WHERE cl.log_type = 'chot_don'
-              AND c.assigned_to_id IN (${empPh})
+        const cPS = empIds.length + 1;
+        const cPE = empIds.length + 2;
+
+        const dailyRows = await db.all(`
+            SELECT
+                c.assigned_to_id AS uid,
+                EXTRACT(DAY FROM d.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS day_num,
+                COALESCE(SUM(oi_sum.revenue - COALESCE(d.discount_amount, 0)), 0) AS daily_rev
+            FROM dht_orders d
+            JOIN order_codes oc ON oc.order_code = d.order_code
+            JOIN customers c ON oc.customer_id = c.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(
+                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
+                    0
+                ) - COALESCE(d.vat_amount, 0) AS revenue
+            ) oi_sum ON true
+            WHERE c.assigned_to_id IN (${empPh})
               AND COALESCE(c.cancel_approved, 0) != 1
+              AND COALESCE(d.is_draft, false) = false
+              AND d.created_at >= $${cPS}::timestamp
+              AND d.created_at < $${cPE}::timestamp
+              AND COALESCE(oc.status, 'active') != 'cancelled'
               ${_prodSQL}
-        `, empIds);
-
-        let dailyRows = [];
-        if (chotDonCusts.length > 0) {
-            const custIds = chotDonCusts.map(r => r.customer_id);
-            const custPh = custIds.map((_, i) => `$${i + 1}`).join(',');
-            const cPS = custIds.length + 1;
-            const cPE = custIds.length + 2;
-
-            // Step 3b: Get daily revenue for those customers
-            dailyRows = await db.all(`
-                SELECT
-                    c.assigned_to_id AS uid,
-                    EXTRACT(DAY FROM oc.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS day_num,
-                    COALESCE(SUM(oi_sum.revenue - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0)), 0) AS daily_rev
-                FROM order_codes oc
-                JOIN customers c ON oc.customer_id = c.id
-                LEFT JOIN LATERAL (
-                    SELECT COALESCE(
-                        (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
-                        (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
-                        0
-                    ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) AS revenue
-                ) oi_sum ON true
-                WHERE oc.customer_id IN (${custPh})
-                  AND oc.created_at >= $${cPS}::timestamp
-                  AND oc.created_at < $${cPE}::timestamp
-                  AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND COALESCE((SELECT d.is_draft FROM dht_orders d WHERE d.order_code = oc.order_code LIMIT 1), false) = false
-                GROUP BY c.assigned_to_id, day_num
-                ORDER BY uid, day_num
-            `, [...custIds, monthStart, monthEnd]);
-        }
+            GROUP BY c.assigned_to_id, day_num
+            ORDER BY uid, day_num
+        `, [...empIds, monthStart, monthEnd]);
 
         // Build daily map: uid -> { 1: revenue, 2: revenue, ... }
         const dailyMap = {};
@@ -370,42 +355,43 @@ module.exports = async function(fastify) {
 
         const orders = await db.all(`
             SELECT
-                oc.id AS order_id,
-                oc.order_code,
-                c.customer_name AS customer_name,
-                c.phone AS customer_phone,
-                COALESCE(oi_sum.revenue, 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) AS revenue,
-                oc.created_at,
+                d.id AS order_id,
+                d.order_code,
+                d.customer_name AS customer_name,
+                d.customer_phone AS customer_phone,
+                COALESCE(oi_sum.revenue, 0) - COALESCE(d.discount_amount, 0) AS revenue,
+                d.created_at,
                 ref.full_name AS referrer_name,
-                (SELECT COUNT(*) FROM order_codes oc2
+                (SELECT COUNT(*) FROM dht_orders d2 JOIN order_codes oc2 ON oc2.order_code = d2.order_code
                  WHERE oc2.customer_id = c.id
-                   AND oc2.created_at < oc.created_at) + 1 AS order_count,
+                   AND COALESCE(d2.is_draft, false) = false
+                   AND d2.created_at < d.created_at) + 1 AS order_count,
                 CASE
-                    WHEN (SELECT COUNT(*) FROM order_codes oc3
+                    WHEN (SELECT COUNT(*) FROM dht_orders d3 JOIN order_codes oc3 ON oc3.order_code = d3.order_code
                           WHERE oc3.customer_id = c.id
-                            AND oc3.created_at < oc.created_at) > 0
+                            AND COALESCE(d3.is_draft, false) = false
+                            AND d3.created_at < d.created_at) > 0
                     THEN 'cu'
                     ELSE 'moi'
                 END AS customer_type
-            FROM order_codes oc
+            FROM dht_orders d
+            JOIN order_codes oc ON oc.order_code = d.order_code
             JOIN customers c ON oc.customer_id = c.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(
-                    (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
-                    (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
-                ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) AS revenue
+                ) - COALESCE(d.vat_amount, 0) AS revenue
             ) oi_sum ON true
             LEFT JOIN users ref ON ref.id = c.referrer_id AND ref.role = 'tkaffiliate'
             WHERE c.assigned_to_id = $1
               AND COALESCE(c.cancel_approved, 0) != 1
-              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
-              AND oc.created_at >= $2::timestamptz
-              AND oc.created_at < $3::timestamptz
+              AND COALESCE(d.is_draft, false) = false
+              AND d.created_at >= $2::timestamptz
+              AND d.created_at < $3::timestamptz
               AND COALESCE(oc.status, 'active') != 'cancelled'
-              AND COALESCE((SELECT d.is_draft FROM dht_orders d WHERE d.order_code = oc.order_code LIMIT 1), false) = false
               ${buildProductionFilter(await getProductionCutoff(), await getTestAccountIds(), 'c.created_at', 'c.created_by')}
-            ORDER BY oc.created_at DESC
+            ORDER BY d.created_at DESC
         `, [parseInt(user_id), monthStart, monthEnd]);
 
         const { maskPhone: _kpiMaskPhone } = require('../utils/dataMasking');
@@ -478,24 +464,23 @@ module.exports = async function(fastify) {
         const monthlyRevRows = await db.all(`
             SELECT
                 c.assigned_to_id AS uid,
-                EXTRACT(MONTH FROM oc.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS mo,
-                COALESCE(SUM(oi_sum.revenue - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0)), 0) AS revenue
-            FROM order_codes oc
+                EXTRACT(MONTH FROM d.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS mo,
+                COALESCE(SUM(oi_sum.revenue - COALESCE(d.discount_amount, 0)), 0) AS revenue
+            FROM dht_orders d
+            JOIN order_codes oc ON oc.order_code = d.order_code
             JOIN customers c ON oc.customer_id = c.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(
-                    (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
-                    (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
-                ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) AS revenue
+                ) - COALESCE(d.vat_amount, 0) AS revenue
             ) oi_sum ON true
             WHERE c.assigned_to_id IN (${empPh})
               AND COALESCE(c.cancel_approved, 0) != 1
-              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
-              AND oc.created_at >= $${empIds.length + 1}::timestamp
-              AND oc.created_at < $${empIds.length + 2}::timestamp
+              AND COALESCE(d.is_draft, false) = false
+              AND d.created_at >= $${empIds.length + 1}::timestamp
+              AND d.created_at < $${empIds.length + 2}::timestamp
               AND COALESCE(oc.status, 'active') != 'cancelled'
-              AND COALESCE((SELECT d.is_draft FROM dht_orders d WHERE d.order_code = oc.order_code LIMIT 1), false) = false
               ${buildProductionFilter(await getProductionCutoff(), await getTestAccountIds(), 'c.created_at', 'c.created_by')}
             GROUP BY c.assigned_to_id, mo
         `, [...empIds, yearStart, yearEnd]);
