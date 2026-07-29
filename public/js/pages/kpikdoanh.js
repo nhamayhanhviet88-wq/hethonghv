@@ -3356,8 +3356,9 @@ async function kpiShowOrders(userId, userName) {
             const s = res.summary || {};
             summary.innerHTML = `
                 <button type="button" class="kpi-ord-filter-btn" data-filter="all" onclick="kpiFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
-                <button type="button" class="kpi-ord-filter-btn" data-filter="moi" onclick="kpiFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
-                <button type="button" class="kpi-ord-filter-btn" data-filter="cu" onclick="kpiFilterModalOrders('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="moi" onclick="kpiFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Khách Mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="cu_dp" onclick="kpiFilterModalOrders('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Khách Cũ Đồng Phục: <strong style="color:#d97706">${s.old_orders_dp || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="cu_pettem" onclick="kpiFilterModalOrders('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700">Khách Cũ PET/TEM: <strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong></button>
                 <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${kpiFmtFull(s.total_revenue || 0)}đ</strong></span>
             `;
         }
@@ -3387,8 +3388,9 @@ async function kpiShowTeamOrders(deptId, deptName) {
             const s = res.summary || {};
             summary.innerHTML = `
                 <button type="button" class="kpi-ord-filter-btn" data-filter="all" onclick="kpiFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
-                <button type="button" class="kpi-ord-filter-btn" data-filter="moi" onclick="kpiFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
-                <button type="button" class="kpi-ord-filter-btn" data-filter="cu" onclick="kpiFilterModalOrders('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="moi" onclick="kpiFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Khách Mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="cu_dp" onclick="kpiFilterModalOrders('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Khách Cũ Đồng Phục: <strong style="color:#d97706">${s.old_orders_dp || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="cu_pettem" onclick="kpiFilterModalOrders('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700">Khách Cũ PET/TEM: <strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong></button>
                 <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${kpiFmtFull(s.total_revenue || 0)}đ</strong></span>
             `;
         }
