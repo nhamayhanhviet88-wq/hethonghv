@@ -202,6 +202,35 @@ async function renderKpikdoanhPage(container) {
             <div id="kpiTeamCompare"></div>
             <div id="kpiMeetingCommit"></div>
         </div>
+
+        <!-- Order Details Modal -->
+        <div class="kpi-modal-overlay" id="kpiOrdersModal" style="display:none">
+            <div class="kpi-modal" style="width:920px">
+                <div class="kpi-modal-hdr">
+                    <div class="kpi-modal-title">📦 Chi Tiết Đơn Hàng — <span id="kpiOrdersModalTitle"></span></div>
+                    <button class="kpi-modal-close" onclick="kpiCloseOrdersModal()">✕</button>
+                </div>
+                <div id="kpiOrdersModalSummary" style="background:#f8fafc;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;flex-wrap:wrap"></div>
+                <div style="max-height:60vh;overflow-y:auto">
+                    <table class="kpi-tbl" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Mã đơn</th>
+                                <th>Khách hàng</th>
+                                <th>SĐT</th>
+                                <th>NV Sale</th>
+                                <th>Loại khách</th>
+                                <th>Nguồn</th>
+                                <th>Doanh số</th>
+                                <th>Ngày chốt</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kpiOrdersModalBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     `;
     // Fire ALL APIs in parallel for maximum speed
     kpiLoadAll();
@@ -734,7 +763,7 @@ function kpiRenderContent(data) {
     html += '</tr></thead><tbody>';
 
     data.teams.forEach((t, idx) => {
-        html += `<tr class="team-row">
+        html += `<tr class="team-row" style="cursor:pointer" onclick="kpiShowTeamOrders(${t.dept_id}, '${(t.dept_name || '').replace(/'/g, "\\'")}')">
             <td>${idx+1}</td><td class="name">${t.dept_name}</td>
             <td>${kpiFmtFull(t.target_1)}</td><td>${kpiFmtFull(t.target_120)}</td>
             <td style="font-weight:700">${kpiFmtFull(t.actual)}</td>
@@ -774,7 +803,7 @@ function kpiRenderContent(data) {
             const empMissing120 = empTarget120 - (emp.actual || 0);
             const empIcon = (['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || (emp.role_name && emp.role_name.includes('Trưởng'))) ? '⭐' : '👤';
 
-            html += `<tr>
+            html += `<tr style="cursor:pointer" onclick="kpiShowOrders(${emp.user_id}, '${(emp.full_name || emp.name || '').replace(/'/g, "\\'")}')">
                 <td></td>
                 <td class="name" style="padding-left:24px;cursor:pointer;color:#2563eb" onclick="kpiShowEmpOrders(${emp.user_id}, '${(emp.full_name || emp.name || '').replace(/'/g, "\\'")}')">
                     ${empIcon} ${emp.full_name || emp.name}
@@ -823,7 +852,7 @@ function kpiRenderContent(data) {
 
     data.teams.forEach(team => {
         // Team total row — on top
-        html += `<tr class="team-row"><td></td><td></td><td class="name">${team.dept_name}</td>`;
+        html += `<tr class="team-row" style="cursor:pointer" onclick="kpiShowTeamOrders(${team.dept_id}, '${(team.dept_name || '').replace(/'/g, "\\'")}')"><td></td><td></td><td class="name">${team.dept_name}</td>`;
         html += `<td style="font-weight:700">${kpiFmtFull(team.target_1)}</td>`;
         html += `<td style="font-weight:800;color:#d97706">${kpiFmtFull(team.actual)}</td>`;
         html += `<td style="font-weight:700;color:#1e293b">${team.rate_1}%</td>`;
@@ -835,7 +864,7 @@ function kpiRenderContent(data) {
         // Employee rows — below
         team.employees.forEach((emp, ei) => {
             const roleIcon = emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao' ? '👑 ' : emp.role === 'truong_phong' ? '⭐ ' : '';
-            html += `<tr style="cursor:pointer" onclick="kpiShowEmpOrders(${emp.user_id},'${emp.full_name.replace(/'/g, "\\'")}')">`
+            html += `<tr style="cursor:pointer" onclick="kpiShowOrders(${emp.user_id},'${(emp.full_name || emp.name || '').replace(/'/g, "\\'")}')">`
             + `<td>${ei+1}</td><td>${emp.username||''}</td><td class="name">${roleIcon}${emp.full_name}</td>`;
             html += `<td>${kpiFmtFull(emp.target)}</td>`;
             html += `<td style="font-weight:800;color:#059669">${kpiFmtFull(emp.actual)}</td>`;
@@ -1184,7 +1213,7 @@ function kpiRenderLeaderboard(el, data) {
         var cRate = conv.rate != null ? conv.rate + '%' : '—';
         var cColor = conv.rate >= 70 ? '#10b981' : conv.rate >= 40 ? '#f59e0b' : '#ef4444';
         var prev = emp.prev || {};
-        h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiShowEmpOrders(' + emp.user_id + ',\'' + emp.name.replace(/'/g, "\\'") + '\')">';
+        h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiShowOrders(' + (emp.user_id || emp.id) + ',\'' + (emp.name || emp.full_name || '').replace(/'/g, "\\'") + '\')">';
         h += '<div class="kpi-lb-rank">' + rank + '</div>';
         h += '<div><div class="kpi-lb-name">' + emp.name + '</div><div class="kpi-lb-team">' + (emp.team || '') + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#4338ca">' + emp.total_orders + ' đơn<div>' + kpiTrend(emp.total_orders, prev.total_orders) + '</div></div>';
@@ -1434,7 +1463,7 @@ function kpiRenderTeamCompare(el, data, advData) {
         var team = sorted[i];
         var prev = team.prev || {};
         var hb = team.total_orders > 0;
-        h += '<div class="kpi-tc-card"' + (hb ? ' style="border-color:#f59e0b;border-width:2px"' : '') + '>';
+        h += '<div class="kpi-tc-card" style="cursor:pointer' + (hb ? ';border-color:#f59e0b;border-width:2px' : '') + '" onclick="kpiShowTeamOrders(' + (team.team_id || team.id || team.dept_id) + ',\'' + (team.name || team.dept_name || '').replace(/'/g, "\\'") + '\')">';
         h += '<div class="kpi-tc-name">🏠 ' + team.name + ' <span style="font-size:12px;font-weight:500;color:#6b7280">(' + (team.employee_count || 0) + ' NV)</span></div>';
         h += '<div class="kpi-tc-stats">';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#3b82f6">' + kpiDashFmtVND(team.revenue || 0) + '</div><div class="kpi-tc-stat-label">💰 Doanh Số</div><div style="margin-top:4px">' + kpiTrend(team.revenue || 0, prev.revenue || 0) + '</div></div>';
@@ -3097,7 +3126,7 @@ function kpiRenderAchievement(el) {
             var u = sortedUsers[i];
             var md = u.months[mo] || { target:0, actual:0, rate:0, missing:0 };
             var rowBg = md.rate >= 100 ? '#f0fdf4' : (i % 2 === 0 ? 'white' : '#fafbff');
-            h += '<tr style="background:' + rowBg + ';transition:background .2s" onmouseenter="this.style.background=\'#eef2ff\'" onmouseleave="this.style.background=\'' + rowBg + '\'">';
+            h += '<tr style="background:' + rowBg + ';transition:background .2s;cursor:pointer" onclick="kpiShowOrders(' + (u.user_id || u.id) + ',\'' + (u.full_name || '').replace(/'/g, "\\'") + '\')" onmouseenter="this.style.background=\'#eef2ff\'" onmouseleave="this.style.background=\'' + rowBg + '\'">';
             var medalI = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-weight:700;font-size:' + (i < 3 ? '18px' : '12px') + ';color:#94a3b8">' + (medalI || (i+1)) + '</td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(u.role) + ' <span style="font-weight:700;color:#1e293b">' + u.full_name + '</span><span style="font-size:10px;color:#94a3b8">' + roleName(u.role) + '</span></div></td>';
@@ -3133,7 +3162,7 @@ function kpiRenderAchievement(el) {
             var t = sortedTeams[ti];
             var td = t.months[mo] || { target:0, actual:0, rate:0, missing:0 };
             var trBg = td.rate >= 100 ? '#f0fdf4' : (ti % 2 === 0 ? '#fffbeb' : 'white');
-            h += '<tr style="background:' + trBg + '">';
+            h += '<tr style="background:' + trBg + ';cursor:pointer" onclick="kpiShowTeamOrders(' + t.dept_id + ',\'' + (t.dept_name || '').replace(/'/g, "\\'") + '\')">';
             var medalT = ti === 0 ? '🥇' : ti === 1 ? '🥈' : ti === 2 ? '🥉' : '🏢';
             h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;font-weight:800;color:#1e293b">' + medalT + ' ' + t.dept_name + '</td>';
             h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center;font-weight:700;color:#6b7280">' + t.member_count + '</td>';
@@ -3169,7 +3198,7 @@ function kpiRenderAchievement(el) {
             var yy = uy.yearly;
             var rowBgY = yy.rate >= 100 ? '#f0fdf4' : (yi % 2 === 0 ? 'white' : '#fafbff');
             var ratioColor = yy.months_achieved === yy.months_total && yy.months_total > 0 ? '#059669' : '#dc2626';
-            h += '<tr style="background:' + rowBgY + '">';
+            h += '<tr style="background:' + rowBgY + ';cursor:pointer" onclick="kpiShowOrders(' + (uy.user_id || uy.id) + ',\'' + (uy.full_name || '').replace(/'/g, "\\'") + '\')">';
             var medalYI = yi === 0 ? '🥇' : yi === 1 ? '🥈' : yi === 2 ? '🥉' : '';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-weight:700;font-size:' + (yi < 3 ? '18px' : '12px') + ';color:#94a3b8">' + (medalYI || (yi+1)) + '</td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(uy.role) + ' <span style="font-weight:700;color:#1e293b">' + uy.full_name + '</span></div></td>';
@@ -3243,3 +3272,127 @@ window._kpiAchPickMonth = function(m) {
     var el = document.getElementById('kpiAchievement');
     if (el) kpiRenderAchievement(el);
 };
+
+// ===== ORDER DETAILS MODAL FOR KPI KINH DOANH =====
+var _kpiModalOrders = [];
+var _kpiModalFilter = 'all';
+
+function _kpiCleanPhone(phone) {
+    if (!phone || phone.startsWith('pancake_')) return '—';
+    return phone;
+}
+
+window.kpiFilterModalOrders = function(filterType) {
+    _kpiModalFilter = filterType;
+    const tbody = document.getElementById('kpiOrdersModalBody');
+    if (!tbody || !_kpiModalOrders) return;
+
+    const tabs = document.querySelectorAll('.kpi-ord-filter-btn');
+    tabs.forEach(btn => {
+        if (btn.getAttribute('data-filter') === filterType) {
+            btn.style.outline = '2px solid #2563eb';
+            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.2)';
+        } else {
+            btn.style.outline = 'none';
+            btn.style.boxShadow = 'none';
+        }
+    });
+
+    let filtered = _kpiModalOrders;
+    if (filterType === 'moi') filtered = _kpiModalOrders.filter(o => o.customer_type === 'moi');
+    else if (filterType === 'cu') filtered = _kpiModalOrders.filter(o => o.customer_type === 'cu');
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">📭 Không có đơn hàng nào khớp bộ lọc này</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map((o, idx) => `
+        <tr>
+            <td style="text-align:center">${idx + 1}</td>
+            <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
+            <td>${o.customer_name || '—'}</td>
+            <td>${_kpiCleanPhone(o.customer_phone)}</td>
+            <td style="font-weight:800;color:#1e1b4b">${o.sale_name || '—'}</td>
+            <td style="text-align:center"><span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:${o.customer_type === 'moi' ? '#dcfce7' : '#fef3c7'};color:${o.customer_type === 'moi' ? '#15803d' : '#b45309'}">${o.customer_type === 'moi' ? 'Khách Mới' : 'Khách Cũ'}</span></td>
+            <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
+            <td style="font-weight:800;color:#059669">${kpiFmtFull(o.revenue || 0)}đ</td>
+            <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
+        </tr>
+    `).join('');
+};
+
+async function kpiShowOrders(userId, userName) {
+    const modal = document.getElementById('kpiOrdersModal');
+    const title = document.getElementById('kpiOrdersModalTitle');
+    const summary = document.getElementById('kpiOrdersModalSummary');
+    const tbody = document.getElementById('kpiOrdersModalBody');
+
+    if (!modal) return;
+
+    if (title) title.textContent = `NV ${userName} — Tháng ${_kpi.month}`;
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng...</td></tr>';
+    modal.style.display = 'flex';
+
+    try {
+        const res = await apiCall(`/api/kpi-kdoanh/employee-orders?user_id=${userId}&month=${_kpi.month}`);
+        _kpiModalOrders = res.orders || [];
+        _kpiModalFilter = 'all';
+
+        if (summary) {
+            const s = res.summary || {};
+            summary.innerHTML = `
+                <button type="button" class="kpi-ord-filter-btn" data-filter="all" onclick="kpiFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="moi" onclick="kpiFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="cu" onclick="kpiFilterModalOrders('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></button>
+                <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${kpiFmtFull(s.total_revenue || 0)}đ</strong></span>
+            `;
+        }
+
+        kpiFilterModalOrders('all');
+    } catch(err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
+    }
+}
+
+async function kpiShowTeamOrders(deptId, deptName) {
+    const modal = document.getElementById('kpiOrdersModal');
+    const title = document.getElementById('kpiOrdersModalTitle');
+    const summary = document.getElementById('kpiOrdersModalSummary');
+    const tbody = document.getElementById('kpiOrdersModalBody');
+
+    if (!modal) return;
+
+    if (title) title.textContent = `Team ${deptName} — Tháng ${_kpi.month}`;
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng của Team...</td></tr>';
+    modal.style.display = 'flex';
+
+    try {
+        const res = await apiCall(`/api/kpi-kdoanh/team-orders?dept_id=${deptId}&month=${_kpi.month}`);
+        _kpiModalOrders = res.orders || [];
+        _kpiModalFilter = 'all';
+
+        if (summary) {
+            const s = res.summary || {};
+            summary.innerHTML = `
+                <button type="button" class="kpi-ord-filter-btn" data-filter="all" onclick="kpiFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="moi" onclick="kpiFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="cu" onclick="kpiFilterModalOrders('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></button>
+                <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${kpiFmtFull(s.total_revenue || 0)}đ</strong></span>
+            `;
+        }
+
+        kpiFilterModalOrders('all');
+    } catch(err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
+    }
+}
+
+window.kpiShowEmpOrders = kpiShowOrders;
+window.kpiShowOrders = kpiShowOrders;
+window.kpiShowTeamOrders = kpiShowTeamOrders;
+
+function kpiCloseOrdersModal() {
+    const modal = document.getElementById('kpiOrdersModal');
+    if (modal) modal.style.display = 'none';
+}
