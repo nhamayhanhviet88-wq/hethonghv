@@ -1776,7 +1776,7 @@ module.exports = async function(fastify) {
                         OR ($2 != '' AND customer_phone = $2)
                     )
                     AND COALESCE(is_draft, FALSE) = FALSE
-                    ORDER BY COALESCE(order_date, created_at) ASC, id ASC LIMIT 1
+                    ORDER BY created_at ASC, id ASC LIMIT 1
                 `, [custIdVal, phoneVal]);
                 earliestId = earliest ? String(earliest.id) : null;
                 earldistCache.set(key, earliestId);
