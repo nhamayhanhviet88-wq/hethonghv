@@ -1371,7 +1371,7 @@ function renderKpiSaleTeamCompare(mainData, advData) {
         var team = sorted[i];
         var prev = team.prev || {};
         var hb = team.total_orders > 0;
-        h += '<div class="kpi-tc-card"' + (hb ? ' style="border-color:#f59e0b;border-width:2px"' : '') + '>';
+        h += '<div class="kpi-tc-card" style="cursor:pointer' + (hb ? ';border-color:#f59e0b;border-width:2px' : '') + '" onclick="kpiSaleShowTeamOrders(' + (team.team_id || team.id || team.dept_id) + ',\'' + (team.name || team.dept_name || '').replace(/'/g, "\\'") + '\')">';
         h += '<div class="kpi-tc-name">🏠 ' + team.name + ' <span style="font-size:12px;font-weight:500;color:#6b7280">(' + (team.employee_count || 0) + ' NV)</span></div>';
         h += '<div class="kpi-tc-stats">';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#3b82f6">' + kpiSaleCompactVND(team.revenue || 0) + '</div><div class="kpi-tc-stat-label">💰 Doanh Số</div><div style="margin-top:4px">' + kpiSaleTrend(team.revenue || 0, prev.revenue || 0) + '</div></div>';
@@ -1579,13 +1579,51 @@ window.kpiSaleFilterModalOrders = function(filterType) {
     `).join('');
 };
 
+function _kpiSaleEnsureOrdersModal() {
+    let modal = document.getElementById('kpiSaleOrdersModal');
+    if (modal) {
+        modal.remove(); // Re-create to ensure latest styled layout
+    }
+    modal = document.createElement('div');
+    modal.className = 'kpi-modal-overlay';
+    modal.id = 'kpiSaleOrdersModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:99999!important;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px';
+    modal.innerHTML = `
+        <div class="kpi-modal" style="background:#fff;border-radius:20px;width:920px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);display:flex;flex-direction:column;padding:24px;color:#1e293b">
+            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:14px;margin-bottom:14px">
+                <h3 style="font-size:16px;font-weight:800;color:#1e293b;margin:0;display:flex;align-items:center;gap:8px">📦 Chi Tiết Đơn Hàng — <span id="kpiSaleOrdersModalTitle"></span></h3>
+                <button type="button" onclick="kpiSaleCloseOrdersModal()" style="background:#f1f5f9;border:none;color:#64748b;font-size:18px;font-weight:800;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .2s;flex-shrink:0" onmouseenter="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
+            </div>
+            <div id="kpiSaleOrdersModalSummary" style="background:#f8fafc;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;flex-wrap:wrap"></div>
+            <div style="max-height:60vh;overflow-y:auto">
+                <table class="kpi-tbl" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Mã đơn</th>
+                            <th>Khách hàng</th>
+                            <th>SĐT</th>
+                            <th>NV Sale</th>
+                            <th>Loại khách</th>
+                            <th>Nguồn</th>
+                            <th>Doanh số</th>
+                            <th>Ngày chốt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpiSaleOrdersModalBody"></tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+}
+
 async function kpiSaleShowOrders(userId, userName) {
-    const modal = document.getElementById('kpiSaleOrdersModal');
+    const modal = _kpiSaleEnsureOrdersModal();
     const title = document.getElementById('kpiSaleOrdersModalTitle');
     const summary = document.getElementById('kpiSaleOrdersModalSummary');
     const tbody = document.getElementById('kpiSaleOrdersModalBody');
-
-    if (!modal) return;
 
     if (title) title.textContent = `NV ${userName} — Tháng ${_kpiSale.month}`;
     if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng...</td></tr>';
@@ -1613,12 +1651,10 @@ async function kpiSaleShowOrders(userId, userName) {
 }
 
 async function kpiSaleShowTeamOrders(deptId, deptName) {
-    const modal = document.getElementById('kpiSaleOrdersModal');
+    const modal = _kpiSaleEnsureOrdersModal();
     const title = document.getElementById('kpiSaleOrdersModalTitle');
     const summary = document.getElementById('kpiSaleOrdersModalSummary');
     const tbody = document.getElementById('kpiSaleOrdersModalBody');
-
-    if (!modal) return;
 
     if (title) title.textContent = `Team ${deptName} — Tháng ${_kpiSale.month}`;
     if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng của Team...</td></tr>';
