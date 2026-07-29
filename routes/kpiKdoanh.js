@@ -360,8 +360,8 @@ module.exports = async function(fastify) {
                 d.order_code,
                 COALESCE(NULLIF(c.customer_name, ''), d.customer_name) AS customer_name,
                 CASE
-                    WHEN c.customer_phone IS NOT NULL AND c.customer_phone NOT LIKE 'pancake_%' AND c.customer_phone != ''
-                    THEN c.customer_phone
+                    WHEN c.phone IS NOT NULL AND c.phone NOT LIKE 'pancake_%' AND c.phone != ''
+                    THEN c.phone
                     ELSE d.customer_phone
                 END AS customer_phone,
                 COALESCE(oi_sum.revenue, 0) - COALESCE(d.discount_amount, 0) AS revenue,
