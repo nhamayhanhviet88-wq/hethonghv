@@ -1051,7 +1051,14 @@ function _dhtRenderOrderRows(filtered) {
             <td style="text-align:center;font-weight:800;">${formatDetailedQuantity(o.items, o.total_quantity, o.order_code)}</td>
             <td style="color:var(--success);font-weight:800;">${fmt(o.deposit_amount)}</td>
             <td style="color:var(--warning);font-weight:800;">${fmt(o.discount_amount)}</td>
-            <td>${o.source || '—'}</td>
+            <td>
+                <div>${o.source || '—'}</div>
+                <div style="margin-top:2px;">
+                    ${(o.customer_type === 'cu')
+                        ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
+                        : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
+                </div>
+            </td>
             <td style="font-size:10px;">${lastUpdate}${lastUser}</td>
             <td>
                 ${vatBtnHtml}

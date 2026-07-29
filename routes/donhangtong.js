@@ -1323,8 +1323,18 @@ module.exports = async function(fastify) {
                             WHERE pr.reconciled_waybills LIKE '%"' || d.tracking_code || '"%' 
                                OR (pr.transfer_note ILIKE '%MVD%' AND pr.transfer_note LIKE '%' || d.tracking_code || '%')
                                OR (pr.transfer_note ILIKE '%MVĐ%' AND pr.transfer_note LIKE '%' || d.tracking_code || '%')
-                        ) THEN true ELSE false END AS is_reconciled
+                        ) THEN true ELSE false END AS is_reconciled,
+                    CASE 
+                        WHEN cust.customer_type = 'cu' THEN 'cu'
+                        WHEN (
+                            SELECT COUNT(*) FROM dht_orders o2 
+                            WHERE (cust.phone IS NOT NULL AND cust.phone != '' AND o2.customer_phone = cust.phone)
+                            AND COALESCE(o2.is_draft, FALSE) = FALSE
+                        ) > 0 THEN 'cu'
+                        ELSE 'moi'
+                    END AS customer_type
                 FROM don_gui_ao_mau d
+                LEFT JOIN customers cust ON (d.customer_phone IS NOT NULL AND d.customer_phone != '' AND d.customer_phone = cust.phone)
                 LEFT JOIN users u_created ON d.created_by = u_created.id
                 LEFT JOIN users u_updated ON d.updated_by = u_updated.id
                 LEFT JOIN LATERAL (
@@ -1406,13 +1416,27 @@ module.exports = async function(fastify) {
                     cskh_name: row.cskh_name,
                     created_by_name: row.created_by_name,
                     last_updated_by_name: row.last_updated_by_name,
-                    vat_exported_by_name: null
+                    vat_exported_by_name: null,
+                    customer_type: row.customer_type || 'moi'
                 };
             });
         }
 
         const orders = await db.all(`
             SELECT o.*, COALESCE(o.ship_count, 0) AS ship_count, COALESCE(o.is_edited, FALSE) AS is_edited,
+                CASE 
+                    WHEN cust.customer_type = 'cu' THEN 'cu'
+                    WHEN (
+                        SELECT COUNT(*) FROM dht_orders o2 
+                        WHERE (
+                            (o.customer_id IS NOT NULL AND o2.customer_id = o.customer_id)
+                            OR (o.customer_phone IS NOT NULL AND o.customer_phone != '' AND o2.customer_phone = o.customer_phone)
+                        )
+                        AND COALESCE(o2.is_draft, FALSE) = FALSE
+                        AND o2.id < o.id
+                    ) > 0 THEN 'cu'
+                    ELSE 'moi'
+                END AS customer_type,
                 COALESCE(o.customer_name, cust.customer_name) AS customer_name,
                 CASE 
                     WHEN o.customer_phone IS NOT NULL AND o.customer_phone != '' AND o.customer_phone NOT LIKE 'pancake_%' THEN o.customer_phone
