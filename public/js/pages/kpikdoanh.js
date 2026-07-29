@@ -43,7 +43,7 @@ async function renderKpikdoanhPage(container) {
             .kpi-tbl td{padding:7px 10px;border-bottom:1px solid #f1f5f9;text-align:right}
             .kpi-tbl td.name{text-align:left;font-weight:600;color:#1e1b4b;position:sticky;left:0;background:#fff;z-index:1;min-width:120px}
             .kpi-tbl tr.team-row{background:#fef9c3!important}
-            .kpi-tbl tr.team-row td{font-weight:800;border-top:2px solid #f59e0b;border-bottom:2px solid #f59e0b}
+            .kpi-tbl tr.team-row td{font-weight:800;border-top:2px solid #f59e0b;border-bottom:1px solid #fcd34d}
             .kpi-tbl tr.team-row td.name{background:#fef9c3}
             .kpi-tbl tr.total-row{background:#fde68a!important}
             .kpi-tbl tr.total-row td{font-weight:900;border-top:3px solid #d97706;font-size:13px}
