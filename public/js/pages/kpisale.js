@@ -300,7 +300,9 @@ async function renderKpisalePage(container) {
                                 <th>Mã đơn</th>
                                 <th>Khách hàng</th>
                                 <th>SĐT</th>
+                                <th>NV Sale</th>
                                 <th>Loại khách</th>
+                                <th>Nguồn</th>
                                 <th>Doanh số</th>
                                 <th>Ngày chốt</th>
                             </tr>
@@ -407,7 +409,7 @@ function renderKpiSaleUI(data) {
     (teams || []).forEach(team => {
         const { stages } = team;
         html += `
-            <tr class="team-row">
+            <tr class="team-row" style="cursor:pointer" onclick="kpiSaleShowTeamOrders(${team.dept_id}, '${team.dept_name.replace(/'/g, "\\'")}')">
                 <td style="text-align:center">${stt++}</td>
                 <td class="name">👥 ${team.dept_name}</td>
                 <td>${formatVND(team.target_1)}</td>
@@ -457,7 +459,7 @@ function renderKpiSaleUI(data) {
             })();
 
             html += `
-                <tr>
+                <tr style="cursor:pointer" onclick="kpiSaleShowOrders(${emp.user_id}, '${emp.full_name.replace(/'/g, "\\'")}')">
                     <td></td>
                     <td class="name" style="padding-left:24px;cursor:pointer;color:#2563eb" onclick="kpiSaleShowOrders(${emp.user_id}, '${emp.full_name.replace(/'/g, "\\'")}')">
                         ${['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || emp.username === 'truongphongsale' ? '⭐' : '👤'} ${emp.full_name}
@@ -570,7 +572,7 @@ function renderKpiSaleDailyTable(data) {
         const teamMissing = team.missing_1 || 0;
 
         html += `
-            <tr class="team-row">
+            <tr class="team-row" style="cursor:pointer" onclick="kpiSaleShowTeamOrders(${team.dept_id}, '${team.dept_name.replace(/'/g, "\\'")}')">
                 <td></td>
                 <td colspan="2" class="name">👥 ${team.dept_name}</td>
                 <td>${compactVND(teamTarget)}</td>
@@ -591,7 +593,7 @@ function renderKpiSaleDailyTable(data) {
             const rate = emp.rate || 0;
             const missing = emp.missing || 0;
             html += `
-                <tr>
+                <tr style="cursor:pointer" onclick="kpiSaleShowOrders(${emp.user_id}, '${emp.full_name.replace(/'/g, "\\'")}')">
                     <td style="text-align:center">${empIdx++}</td>
                     <td style="font-weight:700;color:#64748b">${emp.username || '—'}</td>
                     <td class="name" style="cursor:pointer;color:#2563eb" onclick="kpiSaleShowOrders(${emp.user_id}, '${emp.full_name.replace(/'/g, "\\'")}')">
@@ -1538,7 +1540,7 @@ async function kpiSaleShowOrders(userId, userName) {
     if (!modal) return;
 
     if (title) title.textContent = `NV ${userName} — Tháng ${_kpiSale.month}`;
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng...</td></tr>';
     modal.style.display = 'flex';
 
     try {
@@ -1555,7 +1557,7 @@ async function kpiSaleShowOrders(userId, userName) {
 
         if (tbody) {
             if (!res.orders || res.orders.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">📭 Không có đơn hàng chốt trong tháng này</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">📭 Không có đơn hàng chốt trong tháng này</td></tr>';
                 return;
             }
 
@@ -1565,16 +1567,70 @@ async function kpiSaleShowOrders(userId, userName) {
                     <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
                     <td>${o.customer_name || '—'}</td>
                     <td>${o.customer_phone || '—'}</td>
+                    <td style="font-weight:600;color:#4f46e5">${o.sale_name || '—'}</td>
                     <td style="text-align:center"><span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:${o.customer_type === 'moi' ? '#dcfce7' : '#fef3c7'};color:${o.customer_type === 'moi' ? '#15803d' : '#b45309'}">${o.customer_type === 'moi' ? 'Khách Mới' : 'Khách Cũ'}</span></td>
+                    <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
                     <td style="font-weight:800;color:#059669">${formatVND(o.revenue || 0)}</td>
                     <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
                 </tr>
             `).join('');
         }
     } catch(err) {
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
     }
 }
+
+async function kpiSaleShowTeamOrders(deptId, deptName) {
+    const modal = document.getElementById('kpiSaleOrdersModal');
+    const title = document.getElementById('kpiSaleOrdersModalTitle');
+    const summary = document.getElementById('kpiSaleOrdersModalSummary');
+    const tbody = document.getElementById('kpiSaleOrdersModalBody');
+
+    if (!modal) return;
+
+    if (title) title.textContent = `Team ${deptName} — Tháng ${_kpiSale.month}`;
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng của Team...</td></tr>';
+    modal.style.display = 'flex';
+
+    try {
+        const res = await apiCall(`/api/kpi-sale/team-orders?dept_id=${deptId}&month=${_kpiSale.month}`);
+        if (summary) {
+            const s = res.summary || {};
+            summary.innerHTML = `
+                <span>Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></span>
+                <span>Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></span>
+                <span>Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></span>
+                <span>Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
+            `;
+        }
+
+        if (tbody) {
+            if (!res.orders || res.orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">📭 Không có đơn hàng chốt trong tháng này</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = res.orders.map((o, idx) => `
+                <tr>
+                    <td style="text-align:center">${idx + 1}</td>
+                    <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
+                    <td>${o.customer_name || '—'}</td>
+                    <td>${o.customer_phone || '—'}</td>
+                    <td style="font-weight:600;color:#4f46e5">${o.sale_name || '—'}</td>
+                    <td style="text-align:center"><span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:${o.customer_type === 'moi' ? '#dcfce7' : '#fef3c7'};color:${o.customer_type === 'moi' ? '#15803d' : '#b45309'}">${o.customer_type === 'moi' ? 'Khách Mới' : 'Khách Cũ'}</span></td>
+                    <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
+                    <td style="font-weight:800;color:#059669">${formatVND(o.revenue || 0)}</td>
+                    <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
+                </tr>
+            `).join('');
+        }
+    } catch(err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
+    }
+}
+
+window.kpiSaleShowOrders = kpiSaleShowOrders;
+window.kpiSaleShowTeamOrders = kpiSaleShowTeamOrders;
 
 function kpiSaleCloseOrdersModal() {
     const modal = document.getElementById('kpiSaleOrdersModal');

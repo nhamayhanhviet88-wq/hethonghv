@@ -359,6 +359,8 @@ module.exports = async function(fastify) {
                 d.order_code,
                 d.customer_name AS customer_name,
                 d.customer_phone AS customer_phone,
+                u.full_name AS sale_name,
+                s.name AS source_name,
                 COALESCE(oi_sum.revenue, 0) - COALESCE(d.discount_amount, 0) AS revenue,
                 d.created_at,
                 ref.full_name AS referrer_name,
@@ -377,6 +379,8 @@ module.exports = async function(fastify) {
             FROM dht_orders d
             JOIN order_codes oc ON oc.order_code = d.order_code
             JOIN customers c ON oc.customer_id = c.id
+            LEFT JOIN users u ON u.id = c.assigned_to_id
+            LEFT JOIN settings_sources s ON s.id = c.source_id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
@@ -408,6 +412,106 @@ module.exports = async function(fastify) {
 
         return {
             employee: emp,
+            month: month,
+            periodLabel: periodLabel,
+            orders: maskedOrders,
+            summary: {
+                total: maskedOrders.length,
+                new_orders: totalNew,
+                old_orders: totalOld,
+                total_revenue: maskedOrders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
+            }
+        };
+    });
+
+    // ===== GET /api/kpi-sale/team-orders =====
+    fastify.get('/api/kpi-sale/team-orders', { preHandler: [authenticate] }, async (request, reply) => {
+        const { dept_id, month, startDate, endDate } = request.query;
+        if (!dept_id) return reply.code(400).send({ error: 'Thiếu dept_id' });
+
+        let monthStart, monthEnd, periodLabel;
+
+        if (startDate && endDate) {
+            monthStart = startDate + ' 00:00:00+07';
+            const endD = new Date(endDate + 'T00:00:00');
+            endD.setDate(endD.getDate() + 1);
+            monthEnd = `${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,'0')}-${String(endD.getDate()).padStart(2,'0')} 00:00:00+07`;
+            periodLabel = startDate + ' → ' + endDate;
+        } else if (month) {
+            const [year, mo] = month.split('-').map(Number);
+            monthStart = `${year}-${String(mo).padStart(2,'0')}-01 00:00:00+07`;
+            const nextMo = mo === 12 ? 1 : mo + 1;
+            const nextYear = mo === 12 ? year + 1 : year;
+            monthEnd = `${nextYear}-${String(nextMo).padStart(2,'0')}-01 00:00:00+07`;
+            periodLabel = `T${mo}/${year}`;
+        } else {
+            return reply.code(400).send({ error: 'Thiếu month hoặc startDate/endDate' });
+        }
+
+        const dept = await db.get('SELECT id, name FROM departments WHERE id = $1', [dept_id]);
+        if (!dept) return reply.code(404).send({ error: 'Không tìm thấy phòng/team' });
+
+        const isDirector = request.user.role === 'giam_doc' || request.user.role === 'admin' || request.user.role === 'quan_ly_cap_cao';
+
+        const orders = await db.all(`
+            SELECT
+                d.id AS order_id,
+                d.order_code,
+                d.customer_name AS customer_name,
+                d.customer_phone AS customer_phone,
+                u.full_name AS sale_name,
+                s.name AS source_name,
+                COALESCE(oi_sum.revenue, 0) - COALESCE(d.discount_amount, 0) AS revenue,
+                d.created_at,
+                ref.full_name AS referrer_name,
+                (SELECT COUNT(*) FROM dht_orders d2 JOIN order_codes oc2 ON oc2.order_code = d2.order_code
+                 WHERE oc2.customer_id = c.id
+                   AND COALESCE(d2.is_draft, false) = false
+                   AND d2.created_at < d.created_at) + 1 AS order_count,
+                CASE
+                    WHEN (SELECT COUNT(*) FROM dht_orders d3 JOIN order_codes oc3 ON oc3.order_code = d3.order_code
+                          WHERE oc3.customer_id = c.id
+                            AND COALESCE(d3.is_draft, false) = false
+                            AND d3.created_at < d.created_at) > 0
+                    THEN 'cu'
+                    ELSE 'moi'
+                END AS customer_type
+            FROM dht_orders d
+            JOIN order_codes oc ON oc.order_code = d.order_code
+            JOIN customers c ON oc.customer_id = c.id
+            LEFT JOIN users u ON u.id = c.assigned_to_id
+            LEFT JOIN settings_sources s ON s.id = c.source_id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(
+                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
+                    0
+                ) - COALESCE(d.vat_amount, 0) AS revenue
+            ) oi_sum ON true
+            LEFT JOIN users ref ON ref.id = c.referrer_id AND ref.role = 'tkaffiliate'
+            WHERE (c.assigned_to_id IN (SELECT id FROM users WHERE (department_id = $1 OR department_id IN (SELECT id FROM departments WHERE parent_id = $1)) AND status = 'active'))
+              AND COALESCE(c.cancel_approved, 0) != 1
+              AND COALESCE(d.is_draft, false) = false
+              AND d.created_at >= $2::timestamptz
+              AND d.created_at < $3::timestamptz
+              AND COALESCE(oc.status, 'active') != 'cancelled'
+              ${buildProductionFilter(await getProductionCutoff(), await getTestAccountIds(), 'c.created_at', 'c.created_by')}
+            ORDER BY d.created_at DESC
+        `, [parseInt(dept_id), monthStart, monthEnd]);
+
+        const { maskPhone: _kpiMaskPhone } = require('../utils/dataMasking');
+        const maskedOrders = orders.map(o => {
+            if (isDirector) {
+                return o;
+            } else {
+                return { ...o, customer_phone: _kpiMaskPhone(o.customer_phone) };
+            }
+        });
+
+        const totalNew = maskedOrders.filter(o => o.customer_type === 'moi').length;
+        const totalOld = maskedOrders.filter(o => o.customer_type === 'cu').length;
+
+        return {
+            dept: dept,
             month: month,
             periodLabel: periodLabel,
             orders: maskedOrders,
