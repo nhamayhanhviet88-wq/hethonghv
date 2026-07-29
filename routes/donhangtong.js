@@ -5204,6 +5204,9 @@ module.exports = async function(fastify) {
         // Fetch old data for audit log diff and draft logic
         const oldOrder = await db.get('SELECT * FROM dht_orders WHERE id = $1', [orderId]);
         if (!oldOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn' });
+        if (oldOrder.shipped_at || oldOrder.shipping_status === 'shipped') {
+            return reply.code(400).send({ error: '⚠️ Đơn hàng đã được gửi đi — không thể sửa đơn!' });
+        }
 
         // Check if order is locked by another user
         if (oldOrder.is_locked && oldOrder.locked_by !== request.user.id) {

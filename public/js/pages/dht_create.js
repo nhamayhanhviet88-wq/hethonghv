@@ -4098,8 +4098,12 @@ async function _dhtEditOrderFull(id) {
     try {
         showToast('⏳ Đang tải dữ liệu...');
         var data = await apiCall('/api/dht/orders/' + id + '/detail');
-        if (!data.order) { showToast('Không tìm thấy đơn hàng', 'error'); return; }
         var o = data.order;
+        var items = data.items || [];
+        if (o.shipped_at || o.shipping_status === 'shipped' || (items.length > 0 && items.every(it => it.shipping_status === 'shipped'))) {
+            alert('⚠️ Đơn hàng đã được gửi đi — không thể sửa đơn!');
+            return;
+        }
         if (o.is_draft) {
             // It's a draft! Let's navigate to the dedicated design page
             navigate('design-draft?id=' + id);

@@ -1047,7 +1047,7 @@ function _dhtRenderOrderRows(filtered) {
             <td>
                 <div>
                     ${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${emailBadge}
-                    ${canDo('dht_sua_don', 'view') ? (((o.is_draft === true || o.is_draft === 'true') || (Number(o.remaining_amount) || 0) > 0) ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull('${o.id}')" title="Sửa" style="padding:1px 4px;font-size:10px;margin-left:4px;">✏️</button>` : '') : ''}
+                    ${canDo('dht_sua_don', 'view') ? (((o.is_draft === true || o.is_draft === 'true') || ((Number(o.remaining_amount) || 0) > 0 && !o.shipped_at && o.shipping_status !== 'shipped')) ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull('${o.id}')" title="Sửa" style="padding:1px 4px;font-size:10px;margin-left:4px;">✏️</button>` : '') : ''}
                 </div>
                 ${badgeRow}
             </td>
@@ -1410,10 +1410,13 @@ async function _dhtShowDetail(id) {
         const _canCancelProd = isGD || _isTrinh;
         const _hasCancelledItems = items.some(it => it.production_cancelled);
         const _allItemsCancelled = items.every(it => it.production_cancelled);
+        const _isShippedOrder = !!(o.shipped_at || o.shipping_status === 'shipped' || (items && items.length > 0 && items.every(it => it.shipping_status === 'shipped')));
         const _isFullyPaid = remaining <= 0 && !isGD;
+        const _isCannotEdit = _isShippedOrder || _isFullyPaid;
+        const _editDisabledTitle = _isShippedOrder ? '⚠️ Đơn hàng đã được gửi đi — không thể sửa đơn!' : 'Đã thu đủ tiền — không thể sửa đơn (chỉ Giám đốc mới được sửa)';
         const _isOrderAlreadyCancelled = o.order_code_status === 'cancelled';
         const actionBtns = [
-            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view'), disabled: _isFullyPaid, disabledTitle: 'Đã thu đủ tiền — không thể sửa đơn (chỉ Giám đốc mới được sửa)' },
+            { icon: '✏️', label: 'Sửa đơn', color: '#3b82f6', bg: '#dbeafe', fn: `closeModal();_dhtEditOrderFull(${id})`, perm: canDo('dht_sua_don', 'view'), disabled: _isCannotEdit, disabledTitle: _editDisabledTitle },
             { icon: '🗑️', label: 'Xóa đơn', color: '#dc2626', bg: '#fee2e2', fn: `closeModal();_dhtDeleteOrder(${id})`, perm: canDo('dht_xoa_don', 'view') },
             { icon: '🚨', label: 'Báo đơn lỗi', color: '#ea580c', bg: '#ffedd5', fn: `_dhtReportError()`, perm: canDo('dht_bao_loi', 'view') },
             { icon: '🏷️', label: 'Giảm Giá', color: '#059669', bg: '#d1fae5', fn: `_dhtApplyDiscount(${id})`, perm: canDo('dht_giam_gia', 'view') },
