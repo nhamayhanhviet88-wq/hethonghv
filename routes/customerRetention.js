@@ -148,20 +148,22 @@ module.exports = async function(fastify) {
 
     // ===== Main API =====
     fastify.get('/api/reports/customer-retention', { preHandler: [authenticate] }, async (request, reply) => {
-        const { period = 'month', date } = request.query;
+        const { period = 'month', date, dept_id, department_id } = request.query;
+        const targetDeptId = parseInt(dept_id || department_id || 1);
         const { current, previous, type } = parsePeriod(period, date);
 
-        // ===== 1. Get KD department tree =====
-        // Root = P.Kinh Doanh (id=1), Children = Team departments (parent_id=1)
+        // ===== 1. Get department tree =====
         const allDepts = await db.all(
-            "SELECT id, name, parent_id, head_user_id, display_order FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id"
+            "SELECT id, name, parent_id, head_user_id, display_order FROM departments WHERE (id = $1 OR parent_id = $1) AND status = 'active' ORDER BY display_order, id",
+            [targetDeptId]
         );
         if (allDepts.length === 0) {
             return { period: { type, ...current }, previous, summary: { current: { total: 0, new: 0, returning: 0, rate: 0 }, previous: { total: 0, new: 0, returning: 0, rate: 0 }, trend: { total: 0, new: 0, returning: 0, rate: 0 } }, groups: [] };
         }
 
-        const rootDept = allDepts.find(d => d.id === 1) || allDepts[0];
-        const childDepts = allDepts.filter(d => d.parent_id === rootDept.id); // These are "teams"
+        const rootDept = allDepts.find(d => d.id === targetDeptId) || allDepts[0];
+        let childDepts = allDepts.filter(d => d.parent_id === rootDept.id); // These are "teams"
+        if (childDepts.length === 0) childDepts = [rootDept];
         const allDeptIds = allDepts.map(d => d.id);
         const kdPh = allDeptIds.map((_, i) => `$${i + 1}`).join(',');
 
@@ -833,16 +835,19 @@ module.exports = async function(fastify) {
 
     // ===== Dashboard Advanced API: Leaderboard, Alerts, Conversion, Cancel, Processing Time, Top Customers =====
     fastify.get('/api/reports/customer-retention/advanced', { preHandler: [authenticate] }, async (request, reply) => {
-        const { period = 'month', date, startDate, endDate } = request.query;
+        const { period = 'month', date, startDate, endDate, dept_id, department_id } = request.query;
+        const targetDeptId = parseInt(dept_id || department_id || 1);
         const { current, previous } = parsePeriod(period, date, { startDate, endDate });
         const _pCutoff = await _getCutoffSQL();
 
-        // Get KD hierarchy
+        // Get department hierarchy
         const allDepts = await db.all(
-            "SELECT id, name, parent_id FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id"
+            "SELECT id, name, parent_id FROM departments WHERE (id = $1 OR parent_id = $1) AND status = 'active' ORDER BY display_order, id",
+            [targetDeptId]
         );
-        const rootDept = allDepts.find(d => d.id === 1) || allDepts[0];
-        const childDepts = allDepts.filter(d => d.parent_id === rootDept?.id);
+        const rootDept = allDepts.find(d => d.id === targetDeptId) || allDepts[0];
+        let childDepts = allDepts.filter(d => d.parent_id === rootDept?.id);
+        if (childDepts.length === 0) childDepts = [rootDept];
         const allDeptIds = allDepts.map(d => d.id);
 
         const users = allDeptIds.length > 0 ? await db.all(
@@ -856,26 +861,26 @@ module.exports = async function(fastify) {
         const pStart = userIds.length + 1;
         const pEnd = userIds.length + 2;
 
-        console.log('[ADV-API] period:', period, '| current.start:', current.start, '| current.end:', current.end, '| startDate:', startDate, '| endDate:', endDate);
+        console.log('[ADV-API] period:', period, '| current.start:', current.start, '| current.end:', current.end, '| targetDeptId:', targetDeptId);
 
         // === 1. LEADERBOARD: Top NV by revenue, orders, retention ===
         const leaderRows = await db.all(`
             WITH completed AS (
-                SELECT oc.id AS order_id, oc.created_at, c.phone, c.assigned_to_id,
-                    COALESCE(oi.rev, 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) AS revenue
-                FROM order_codes oc
+                SELECT oc.id AS order_id, d.created_at, c.phone, c.assigned_to_id,
+                    COALESCE(oi.rev, 0) - COALESCE(d.discount_amount, 0) AS revenue
+                FROM dht_orders d
+                JOIN order_codes oc ON oc.order_code = d.order_code
                 JOIN customers c ON oc.customer_id = c.id
                 LEFT JOIN LATERAL (SELECT COALESCE(
-                    (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
-                    (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
+                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
-                ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) AS rev) oi ON true
+                ) - COALESCE(d.vat_amount, 0) AS rev) oi ON true
                 WHERE c.assigned_to_id IN (${ph})
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
+                  AND COALESCE(d.is_draft, false) = false
                   AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
-                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
+                  AND d.created_at >= $${pStart}::timestamp AND d.created_at < $${pEnd}::timestamp
                   ${_pCutoff}
             ),
             ranked AS (

@@ -320,8 +320,8 @@ async function loadKpiSaleData() {
             apiCall(`/api/reports/kpi-sale?month=${_kpiSale.month}`),
             apiCall('/api/meeting-commitments/employees'),
             apiCall(`/api/meeting-commitments/monthly?month=${kpiMo}&year=${kpiYear}`),
-            apiCall(`/api/reports/customer-retention/advanced?period=month&date=${_kpiSale.month}`),
-            apiCall(`/api/reports/customer-retention?period=month&date=${_kpiSale.month}`)
+            apiCall(`/api/reports/customer-retention/advanced?period=month&date=${_kpiSale.month}&dept_id=4`),
+            apiCall(`/api/reports/customer-retention?period=month&date=${_kpiSale.month}&dept_id=4`)
         ]);
 
         const res = results[0];
@@ -846,26 +846,26 @@ window._kpiSaleToggleTc = function() {
 };
 
 function kpiSaleTcBuildUrl() {
-    var base = '/api/reports/customer-retention/advanced';
+    var base = '/api/reports/customer-retention/advanced?dept_id=4';
     var now = typeof vnNow === 'function' ? vnNow() : new Date();
     var fmtD = function(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
     if (_kpiSaleTcFilter === 'today') {
-        return base + '?period=day&date=' + fmtD(now);
+        return base + '&period=day&date=' + fmtD(now);
     } else if (_kpiSaleTcFilter === 'yesterday') {
         var yd = new Date(now.getTime()); yd.setDate(yd.getDate() - 1);
-        return base + '?period=day&date=' + fmtD(yd);
+        return base + '&period=day&date=' + fmtD(yd);
     } else if (_kpiSaleTcFilter === '7days') {
         var s7 = new Date(now.getTime()); s7.setDate(s7.getDate() - 6);
-        return base + '?period=custom&startDate=' + fmtD(s7) + '&endDate=' + fmtD(now);
+        return base + '&period=custom&startDate=' + fmtD(s7) + '&endDate=' + fmtD(now);
     } else if (_kpiSaleTcFilter === 'this_month') {
         var tm = _kpiSale.month || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
-        return base + '?period=month&date=' + tm;
+        return base + '&period=month&date=' + tm;
     } else if (_kpiSaleTcFilter === 'last_month') {
         var lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         var lmStr = lm.getFullYear() + '-' + String(lm.getMonth()+1).padStart(2,'0');
-        return base + '?period=month&date=' + lmStr;
+        return base + '&period=month&date=' + lmStr;
     } else if (_kpiSaleTcFilter === 'all') {
-        return base + '?period=year&date=' + now.getFullYear();
+        return base + '&period=year&date=' + now.getFullYear();
     } else if (_kpiSaleTcFilter === 'stage1' || _kpiSaleTcFilter === 'stage2' || _kpiSaleTcFilter === 'stage3') {
         var refMonth = _kpiSaleTcMonth || _kpiSale.month || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
         var parts = refMonth.split('-').map(Number);
@@ -875,14 +875,14 @@ function kpiSaleTcBuildUrl() {
         if (_kpiSaleTcFilter === 'stage1') { sd = '01'; ed = '10'; }
         else if (_kpiSaleTcFilter === 'stage2') { sd = '11'; ed = '20'; }
         else { sd = '21'; ed = String(dim); }
-        return base + '?period=custom&startDate=' + y + '-' + String(m).padStart(2,'0') + '-' + sd + '&endDate=' + y + '-' + String(m).padStart(2,'0') + '-' + ed;
+        return base + '&period=custom&startDate=' + y + '-' + String(m).padStart(2,'0') + '-' + sd + '&endDate=' + y + '-' + String(m).padStart(2,'0') + '-' + ed;
     } else if (_kpiSaleTcFilter === 'pick_month' && _kpiSaleTcMonth) {
-        return base + '?period=month&date=' + _kpiSaleTcMonth;
+        return base + '&period=month&date=' + _kpiSaleTcMonth;
     } else if (_kpiSaleTcFilter === 'custom' && _kpiSaleTcCustomStart && _kpiSaleTcCustomEnd) {
-        return base + '?period=custom&startDate=' + _kpiSaleTcCustomStart + '&endDate=' + _kpiSaleTcCustomEnd;
+        return base + '&period=custom&startDate=' + _kpiSaleTcCustomStart + '&endDate=' + _kpiSaleTcCustomEnd;
     }
     var fallback = _kpiSale.month || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
-    return base + '?period=month&date=' + fallback;
+    return base + '&period=month&date=' + fallback;
 }
 
 window.kpiSaleTcSetFilter = async function(filter) {
@@ -918,7 +918,7 @@ async function kpiSaleTcRefetch() {
     container.innerHTML = '<div class="kpi-lb-section"><div class="kpi-lb-header">📊 So Sánh Team (PHÒNG SALE)</div><div style="padding:40px;text-align:center;color:#9ca3af">⏳ Đang tải...</div></div>';
     try {
         var url = kpiSaleTcBuildUrl();
-        var retUrl = '/api/reports/customer-retention?period=month&date=' + _kpiSale.month;
+        var retUrl = '/api/reports/customer-retention?period=month&date=' + _kpiSale.month + '&dept_id=4';
         var results = await Promise.all([apiCall(url), apiCall(retUrl)]);
         renderKpiSaleTeamCompare(results[1], results[0]);
     } catch(e) {
