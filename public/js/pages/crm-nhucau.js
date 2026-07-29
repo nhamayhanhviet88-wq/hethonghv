@@ -992,8 +992,10 @@ function _crmRenderCustomerRow(c, stats, stt) {
                     return `<span onclick="openCustomerDetail(${c.id})" title="${c.customer_name}" style="cursor:pointer;display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span><span onclick="event.stopPropagation();_crmCopyText('${c.customer_name.replace(/'/g, "\\'")}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;vertical-align:middle;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>`;
                 })()}
             </div>
-            <div style="font-size:11px;color:#64748b;margin-bottom:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
-                <span>Mã: <strong style="color:#e65100">${getCustomerCode(c)}</strong></span>
+            <div style="font-size:11px;color:#64748b;margin-bottom:2px;">
+                Mã: <strong style="color:#e65100">${getCustomerCode(c)}</strong>
+            </div>
+            <div style="margin-top:2px;margin-bottom:2px;">
                 ${(c.customer_type === 'cu')
                     ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
                     : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
