@@ -115,6 +115,12 @@ async function renderKpisalePage(container) {
             .kpi-lb-tab{padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;background:none;border:none;color:#6b7280;border-bottom:3px solid transparent;transition:all .2s}
             .kpi-lb-tab.active{color:#4338ca;border-bottom-color:#4338ca}
             .kpi-lb-tab:hover{color:#4338ca}
+            .kpi-lb-row{display:grid;grid-template-columns:50px 1fr 80px 90px 70px 80px 70px;padding:14px 24px;border-bottom:1px solid #f8fafc;align-items:center;gap:8px;transition:background .2s}
+            .kpi-lb-row:hover{background:#fefce8}
+            .kpi-lb-rank{font-size:20px;font-weight:900;text-align:center}
+            .kpi-lb-name{font-weight:700;color:#1e1b4b}
+            .kpi-lb-team{font-size:11px;color:#6b7280;margin-top:2px}
+            .kpi-lb-val{text-align:right;font-weight:800;font-size:14px}
             .kpi-tc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;padding:20px 24px}
             .kpi-tc-card{border-radius:14px;padding:20px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #e0e7ff;transition:transform .2s,box-shadow .2s}
             .kpi-tc-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(67,56,202,.12)}
