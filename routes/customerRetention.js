@@ -867,10 +867,12 @@ module.exports = async function(fastify) {
         const leaderRows = await db.all(`
             WITH completed AS (
                 SELECT oc.id AS order_id, d.created_at, c.phone, c.assigned_to_id,
+                    d.category_id, cat.name AS category_name, d.order_code,
                     COALESCE(oi.rev, 0) - COALESCE(d.discount_amount, 0) AS revenue
                 FROM dht_orders d
                 JOIN order_codes oc ON oc.order_code = d.order_code
                 JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN dht_categories cat ON cat.id = d.category_id
                 LEFT JOIN LATERAL (SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
@@ -880,17 +882,27 @@ module.exports = async function(fastify) {
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND COALESCE(d.is_draft, false) = false
                   AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND d.created_at >= $${pStart}::timestamp AND d.created_at < $${pEnd}::timestamp
+                  AND d.created_at >= ${pStart}::timestamp AND d.created_at < ${pEnd}::timestamp
                   ${_pCutoff}
             ),
             ranked AS (
-                SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn,
+                    CASE
+                        WHEN UPPER(COALESCE(category_name, '')) IN ('PET', 'TEM')
+                          OR UPPER(COALESCE(order_code, '')) LIKE 'GCPET%'
+                          OR UPPER(COALESCE(order_code, '')) LIKE 'GCTEM%'
+                          OR category_id IN (8, 9)
+                        THEN 'pettem'
+                        ELSE 'dp'
+                    END AS cat_type
                 FROM completed
             )
             SELECT assigned_to_id AS uid,
                 COUNT(*) AS total_orders,
                 SUM(CASE WHEN pn = 1 THEN 1 ELSE 0 END) AS new_orders,
                 SUM(CASE WHEN pn > 1 THEN 1 ELSE 0 END) AS returning_orders,
+                SUM(CASE WHEN pn > 1 AND cat_type = 'dp' THEN 1 ELSE 0 END) AS returning_orders_dp,
+                SUM(CASE WHEN pn > 1 AND cat_type = 'pettem' THEN 1 ELSE 0 END) AS returning_orders_pettem,
                 COALESCE(SUM(revenue), 0) AS total_revenue
             FROM ranked
             GROUP BY assigned_to_id
@@ -901,6 +913,8 @@ module.exports = async function(fastify) {
             const dept = childDepts.find(d => d.id === u?.department_id);
             const total = parseInt(r.total_orders);
             const ret = parseInt(r.returning_orders);
+            const retDp = parseInt(r.returning_orders_dp || 0);
+            const retPetTem = parseInt(r.returning_orders_pettem || 0);
             return {
                 user_id: r.uid,
                 name: u?.full_name || '?',
@@ -908,7 +922,11 @@ module.exports = async function(fastify) {
                 total_orders: total,
                 new_orders: parseInt(r.new_orders),
                 returning_orders: ret,
+                returning_orders_dp: retDp,
+                returning_orders_pettem: retPetTem,
                 rate: total > 0 ? Math.round(1000 * ret / total) / 10 : 0,
+                rate_dp: total > 0 ? Math.round(1000 * retDp / total) / 10 : 0,
+                rate_pettem: total > 0 ? Math.round(1000 * retPetTem / total) / 10 : 0,
                 revenue: parseFloat(r.total_revenue)
             };
         });
@@ -922,8 +940,8 @@ module.exports = async function(fastify) {
                     user_id: u.id,
                     name: u.full_name || '?',
                     team: dept?.name || '',
-                    total_orders: 0, new_orders: 0, returning_orders: 0,
-                    rate: 0, revenue: 0
+                    total_orders: 0, new_orders: 0, returning_orders: 0, returning_orders_dp: 0, returning_orders_pettem: 0,
+                    rate: 0, rate_dp: 0, rate_pettem: 0, revenue: 0
                 });
             }
         });
@@ -946,29 +964,42 @@ module.exports = async function(fastify) {
         const prevLeaderRows = await db.all(`
             WITH completed AS (
                 SELECT oc.id AS order_id, oc.created_at, c.phone, c.assigned_to_id,
-                    COALESCE(oi.rev, 0) - COALESCE((SELECT d3.discount_amount FROM dht_orders d3 WHERE d3.order_code = oc.order_code), 0) AS revenue
+                    d.category_id, cat.name AS category_name, oc.order_code,
+                    COALESCE(oi.rev, 0) - COALESCE(d.discount_amount, 0) AS revenue
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN dht_orders d ON d.order_code = oc.order_code
+                LEFT JOIN dht_categories cat ON cat.id = d.category_id
                 LEFT JOIN LATERAL (SELECT COALESCE(
-                    (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
+                    (SELECT SUM(di.item_total) FROM dht_orders d2 JOIN dht_order_items di ON di.dht_order_id = d2.id WHERE d2.order_code = oc.order_code),
                     (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
                     0
-                ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) AS rev) oi ON true
+                ) - COALESCE(d.vat_amount, 0) AS rev) oi ON true
                 WHERE c.assigned_to_id IN (${ph})
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
+                  AND oc.created_at >= ${pStart}::timestamp AND oc.created_at < ${pEnd}::timestamp
                   AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
                   ${_pCutoff}
             ),
             ranked AS (
-                SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn,
+                    CASE
+                        WHEN UPPER(COALESCE(category_name, '')) IN ('PET', 'TEM')
+                          OR UPPER(COALESCE(order_code, '')) LIKE 'GCPET%'
+                          OR UPPER(COALESCE(order_code, '')) LIKE 'GCTEM%'
+                          OR category_id IN (8, 9)
+                        THEN 'pettem'
+                        ELSE 'dp'
+                    END AS cat_type
                 FROM completed
             )
             SELECT assigned_to_id AS uid,
                 COUNT(*) AS total_orders,
                 SUM(CASE WHEN pn > 1 THEN 1 ELSE 0 END) AS returning_orders,
+                SUM(CASE WHEN pn > 1 AND cat_type = 'dp' THEN 1 ELSE 0 END) AS returning_orders_dp,
+                SUM(CASE WHEN pn > 1 AND cat_type = 'pettem' THEN 1 ELSE 0 END) AS returning_orders_pettem,
                 COALESCE(SUM(revenue), 0) AS total_revenue
             FROM ranked
             GROUP BY assigned_to_id
@@ -988,10 +1019,14 @@ module.exports = async function(fastify) {
         prevLeaderRows.forEach(r => {
             const total = parseInt(r.total_orders);
             const ret = parseInt(r.returning_orders);
+            const retDp = parseInt(r.returning_orders_dp || 0);
+            const retPetTem = parseInt(r.returning_orders_pettem || 0);
             prevMap[r.uid] = {
                 total_orders: total,
                 revenue: parseFloat(r.total_revenue),
-                rate: total > 0 ? Math.round(1000 * ret / total) / 10 : 0
+                rate: total > 0 ? Math.round(1000 * ret / total) / 10 : 0,
+                rate_dp: total > 0 ? Math.round(1000 * retDp / total) / 10 : 0,
+                rate_pettem: total > 0 ? Math.round(1000 * retPetTem / total) / 10 : 0
             };
         });
         const prevAffMap = {};
@@ -999,12 +1034,14 @@ module.exports = async function(fastify) {
 
         // Merge previous data into leaderboard
         leaderboard.forEach(l => {
-            const prev = prevMap[l.user_id] || { total_orders: 0, revenue: 0, rate: 0 };
+            const prev = prevMap[l.user_id] || { total_orders: 0, revenue: 0, rate: 0, rate_dp: 0, rate_pettem: 0 };
             const prevAff = prevAffMap[l.user_id] || 0;
             l.prev = {
                 total_orders: prev.total_orders,
                 revenue: prev.revenue,
                 rate: prev.rate,
+                rate_dp: prev.rate_dp || 0,
+                rate_pettem: prev.rate_pettem || 0,
                 affiliate_new: prevAff
             };
         });

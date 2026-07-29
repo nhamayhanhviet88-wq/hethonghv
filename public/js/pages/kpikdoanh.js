@@ -103,7 +103,7 @@ async function renderKpikdoanhPage(container) {
             .kpi-lb-tab{padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;background:none;border:none;color:#6b7280;border-bottom:3px solid transparent;transition:all .2s}
             .kpi-lb-tab.active{color:#4338ca;border-bottom-color:#4338ca}
             .kpi-lb-tab:hover{color:#4338ca}
-            .kpi-lb-row{display:grid;grid-template-columns:50px 1fr 80px 90px 70px 80px 70px;padding:14px 24px;border-bottom:1px solid #f8fafc;align-items:center;gap:8px;transition:background .2s}
+            .kpi-lb-row{display:grid;grid-template-columns:36px 1fr 70px 85px 55px 55px 75px 85px;padding:14px 16px;border-bottom:1px solid #f8fafc;align-items:center;gap:6px;transition:background .2s}
             .kpi-lb-row:hover{background:#fefce8}
             .kpi-lb-rank{font-size:20px;font-weight:900;text-align:center}
             .kpi-lb-name{font-weight:700;color:#1e1b4b}
@@ -1174,7 +1174,7 @@ function kpiRenderLeaderboard(el, data) {
     }
     h += '</div><div>';
     h += '<div class="kpi-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569">';
-    h += '<div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right">📊 CĐ</div><div style="text-align:right">TK Aff</div><div style="text-align:right">KH cũ %</div>';
+    h += '<div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right">📊 CĐ</div><div style="text-align:right">TK Aff</div><div style="text-align:right;color:#d97706">KH cũ ĐP %</div><div style="text-align:right;color:#7c3aed">KH cũ PET/TEM %</div>';
     h += '</div>';
 
     for (var i = 0; i < lb.length; i++) {
@@ -1191,7 +1191,8 @@ function kpiRenderLeaderboard(el, data) {
         h += '<div class="kpi-lb-val" style="color:#059669">' + kpiDashFmtVND(emp.revenue) + '<div>' + kpiTrend(emp.revenue, prev.revenue) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:' + cColor + ';font-size:12px">' + cRate + '<div>' + kpiTrend(conv.rate || 0, prev.conversion_rate || 0) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.affiliate_new || 0) + '<div>' + kpiTrend(emp.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
-        h += '<div class="kpi-lb-val" style="color:#c2410c">' + (emp.rate || 0) + '%<div>' + kpiTrend(emp.rate || 0, prev.rate || 0) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:#d97706">' + (emp.rate_dp || 0) + '%<div>' + kpiTrend(emp.rate_dp || 0, prev.rate_dp || 0) + '</div></div>';
+            h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.rate_pettem || 0) + '%<div>' + kpiTrend(emp.rate_pettem || 0, prev.rate_pettem || 0) + '</div></div>';
         h += '</div>';
     }
     h += '</div>';
