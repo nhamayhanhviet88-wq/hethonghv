@@ -1570,7 +1570,7 @@ window.kpiSaleFilterModalOrders = function(filterType) {
             <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${_kpiSaleCleanPhone(o.customer_phone)}</td>
-            <td style="font-weight:600;color:#4f46e5">${o.sale_name || '—'}</td>
+            <td style="font-weight:800;color:#1e1b4b">${o.sale_name || '—'}</td>
             <td style="text-align:center"><span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:${o.customer_type === 'moi' ? '#dcfce7' : '#fef3c7'};color:${o.customer_type === 'moi' ? '#15803d' : '#b45309'}">${o.customer_type === 'moi' ? 'Khách Mới' : 'Khách Cũ'}</span></td>
             <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
             <td style="font-weight:800;color:#059669">${formatVND(o.revenue || 0)}</td>
