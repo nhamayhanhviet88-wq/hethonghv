@@ -838,7 +838,7 @@ function kpiRenderContent(data) {
             html += `<tr style="cursor:pointer" onclick="kpiShowEmpOrders(${emp.user_id},'${emp.full_name.replace(/'/g, "\\'")}')">`
             + `<td>${ei+1}</td><td>${emp.username||''}</td><td class="name">${roleIcon}${emp.full_name}</td>`;
             html += `<td>${kpiFmtFull(emp.target)}</td>`;
-            html += `<td style="font-weight:800;color:${emp.actual > 0 ? '#059669' : '#475569'}">${kpiFmtFull(emp.actual)}</td>`;
+            html += `<td style="font-weight:800;color:#059669">${kpiFmtFull(emp.actual)}</td>`;
             html += `<td style="font-weight:700;color:#1e293b">${emp.rate}%</td>`;
             html += `<td class="${emp.missing<=0?'pos':'neg'}">${kpiSignFmtFull(emp.missing)}</td>`;
             emp.daily.forEach(v => {
