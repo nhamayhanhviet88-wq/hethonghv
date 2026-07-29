@@ -358,11 +358,11 @@ var _dhtSortDefs = [
     { key: 'order_date',       label: 'Thời Gian',            type: 'date' },
     { key: null,               label: 'Tiến Độ',              type: 'none' },
     { key: 'remaining_amount', label: 'Tài Chính',            type: 'num' },
-    { key: 'order_code',       label: 'Mã Đơn & Nguồn',       type: 'text' },
+    { key: 'order_code',       label: 'Mã Đơn',               type: 'text' },
     { key: 'customer_name',    label: 'Khách Hàng & Liên Hệ', type: 'text' },
     { key: 'cskh_name',        label: 'CSKH & Cập Nhật',      type: 'text' },
     { key: 'total_quantity',   label: 'Tổng SL',              type: 'num', align: 'center' },
-    { key: null,               label: 'Thao Tác',             type: 'none' }
+    { key: 'source',           label: 'Nguồn',                type: 'text' }
 ];
 
 function _dhtSortCol(key) {
@@ -595,7 +595,7 @@ async function renderDonhangtongPage(content) {
         + '<div class="card" style="opacity:0.6">'
         + '<div class="card-body" style="overflow-x:auto;padding:8px">'
         + '<table class="table" style="font-size:12px;white-space:nowrap">'
-        + '<thead><tr style="background:var(--gray-800);color:#fff"><th>Lĩnh Vực</th><th>Thời Gian</th><th>Tiến Độ</th><th>Tài Chính</th><th>Mã Đơn & Nguồn</th><th>Khách Hàng & Liên Hệ</th><th>CSKH & Cập Nhật</th><th style="text-align:center">Tổng SL</th><th>Thao Tác</th></tr></thead>'
+        + '<thead><tr style="background:var(--gray-800);color:#fff"><th>Lĩnh Vực</th><th>Thời Gian</th><th>Tiến Độ</th><th>Tài Chính</th><th>Mã Đơn</th><th>Khách Hàng & Liên Hệ</th><th>CSKH & Cập Nhật</th><th style="text-align:center">Tổng SL</th><th>Nguồn</th></tr></thead>'
         + '<tbody><tr><td colspan="9" style="text-align:center;padding:100px 0;"><div class="spa-spinner" style="margin:0 auto 12px"></div><div style="color:var(--gray-400);font-weight:600">Đang tải danh sách đơn hàng...</div></td></tr></tbody>'
         + '</table>'
         + '</div>'
@@ -636,7 +636,7 @@ async function renderDonhangtongPage(content) {
                 +'<button onclick="_dhtDateFilterClear()" style="background:none;border:1px solid #93c5fd;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer" title="Xóa lọc">✕ Xóa</button>'
                 +'</div>'
                 +'<div id="dhtPaginationTop" style="margin:8px 0"></div>'
-                +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800);color:#fff"><th>Lĩnh Vực</th><th>Thời Gian</th><th>Tiến Độ</th><th>Tài Chính</th><th>Mã Đơn & Nguồn</th><th>Khách Hàng & Liên Hệ</th><th>CSKH & Cập Nhật</th><th style="text-align:center">Tổng SL</th><th>Thao Tác</th></tr></thead><tbody id="dhtTbody"><tr><td colspan="9" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
+                +'<div class="card"><div class="card-body" style="overflow-x:auto;padding:8px"><table class="table" style="font-size:12px;white-space:nowrap" id="dhtTable"><thead><tr style="background:var(--gray-800);color:#fff"><th>Lĩnh Vực</th><th>Thời Gian</th><th>Tiến Độ</th><th>Tài Chính</th><th>Mã Đơn</th><th>Khách Hàng & Liên Hệ</th><th>CSKH & Cập Nhật</th><th style="text-align:center">Tổng SL</th><th>Nguồn</th></tr></thead><tbody id="dhtTbody"><tr><td colspan="9" style="text-align:center;padding:40px">⏳</td></tr></tbody></table></div></div>'
                 +'<div id="dhtPaginationBottom" style="margin:8px 0"></div>'
                 +'</div></div>';
 
@@ -1045,13 +1045,11 @@ function _dhtRenderOrderRows(filtered) {
                 </div>
             </td>
             <td>
-                <div>${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${emailBadge}${badgeRow}</div>
-                <div style="margin-top:3px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
-                    <span style="font-size:11px;color:#475569;font-weight:600;">${o.source || '—'}</span>
-                    ${(o.customer_type === 'cu')
-                        ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
-                        : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
+                <div>
+                    ${o.has_error ? '<span class="dht-error-icon" title="Đơn báo lỗi">!</span>' : ''}${priBadge}<strong style="color:${remaining > 0 ? '#c2410c' : '#0f766e'};">${o.order_code}</strong>${(o.is_draft === true || o.is_draft === 'true') ? `<span style="background:#d97706;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:950;margin-left:6px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,0.1)">📝 NHÁP${o.draft_name ? ': ' + escapeHTML(o.draft_name) : ''}</span>` : ''}${emailBadge}
+                    ${canDo('dht_sua_don', 'view') ? (((o.is_draft === true || o.is_draft === 'true') || (Number(o.remaining_amount) || 0) > 0) ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull('${o.id}')" title="Sửa" style="padding:1px 4px;font-size:10px;margin-left:4px;">✏️</button>` : '') : ''}
                 </div>
+                ${badgeRow}
             </td>
             <td>
                 <div style="font-weight:700;color:var(--gray-900);font-size:12px;">${o.customer_name || '—'}</div>
@@ -1065,9 +1063,13 @@ function _dhtRenderOrderRows(filtered) {
                 <div style="font-size:10px;color:#64748b;margin-top:2px;">🕒 ${lastUpdate}${lastUser}</div>
             </td>
             <td style="text-align:center;font-weight:800;">${formatDetailedQuantity(o.items, o.total_quantity, o.order_code)}</td>
-            <td style="white-space:nowrap;">
-                ${vatBtnHtml}
-                ${canDo('dht_sua_don', 'view') ? (((o.is_draft === true || o.is_draft === 'true') || (Number(o.remaining_amount) || 0) > 0) ? `<button class="btn btn-sm" onclick="event.stopPropagation();_dhtEditOrderFull('${o.id}')" title="Sửa">✏️</button>` : `<button class="btn btn-sm" disabled title="Đã thu đủ tiền — không thể sửa đơn" style="opacity:0.35;cursor:not-allowed">✏️</button>`) : ''}
+            <td>
+                <div style="font-weight:600;color:var(--gray-800);font-size:11px;">${o.source || '—'}</div>
+                <div style="margin-top:2px;">
+                    ${(o.customer_type === 'cu')
+                        ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
+                        : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
+                </div>
             </td>
         </tr>`;
     }).join('');
