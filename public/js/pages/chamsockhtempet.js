@@ -813,15 +813,18 @@ function _tempetRenderCustomerRow(c, stats, stt) {
                 <div style="font-size:11px;color:#64748b;margin-top:2px;">
                     Mã: <strong style="color:#e65100">${codeStr}</strong>
                 </div>
-                <div style="margin-top:2px;margin-bottom:2px;">
-                    ${(c.customer_type === 'cu' || (s && (s.chotDonCount > 0 || s.revenue > 0)))
-                        ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
-                        : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
-                </div>
                 `;
             })()}
         </td>
-        <td style="font-size:12px;">${phoneDisplay}</td>
+        <td style="font-size:12px;">
+            <div>${phoneDisplay}${c.facebook_link ? `<a href="${c.facebook_link}" target="_blank" style="margin-left:6px;color:#1877F2;font-weight:700;font-size:11px;" title="${c.facebook_link}">🔗 FB</a>` : ''}</div>
+            ${c.address ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">📍 ${c.address}</div>` : ''}
+            <div style="margin-top:4px;">
+                ${(c.customer_type === 'cu' || (s && (s.chotDonCount > 0 || s.revenue > 0)))
+                    ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
+                    : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
+            </div>
+        </td>
         <td style="font-size:12px;color:#475569;">
             ${c.source_name || '—'}
         </td>

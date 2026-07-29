@@ -995,15 +995,10 @@ function _crmRenderCustomerRow(c, stats, stt) {
             <div style="font-size:11px;color:#64748b;margin-bottom:2px;">
                 Mã: <strong style="color:#e65100">${getCustomerCode(c)}</strong>
             </div>
-            <div style="margin-top:2px;margin-bottom:2px;">
-                ${(c.customer_type === 'cu' || (s && (s.chotDonCount > 0 || s.revenue > 0)))
-                    ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
-                    : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
-            </div>
             ${getCustomerUidBadge(c) ? `<div style="margin-top:2px;">${getCustomerUidBadge(c)}</div>` : ''}
         </td>
 
-        <!-- Column 9: Liên Hệ (SĐT + Link FB/Zalo + Địa Chỉ) -->
+        <!-- Column 9: Liên Hệ (SĐT + Link FB/Zalo + Địa Chỉ + Loại Khách) -->
         <td style="font-size:12px;">
             <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
                 ${(() => {
@@ -1016,6 +1011,11 @@ function _crmRenderCustomerRow(c, stats, stt) {
                 ${c.facebook_link ? `<a href="${c.facebook_link}" target="_blank" style="margin-left:6px;color:#1877F2;font-weight:700;font-size:11px;" title="${c.facebook_link}">🔗 FB</a>` : ''}
             </div>
             ${c.address ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">📍 ${c.address}</div>` : ''}
+            <div style="margin-top:4px;">
+                ${(c.customer_type === 'cu' || (s && (s.chotDonCount > 0 || s.revenue > 0)))
+                    ? `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:2px;">🟧 Khách Cũ</span>`
+                    : `<span style="padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:2px;">🟢 Khách Mới</span>`}
+            </div>
         </td>
 
 
