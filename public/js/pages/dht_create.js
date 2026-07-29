@@ -108,6 +108,7 @@ async function _dhtShowCreateFree(selectedOrderCode) {
         +'<div id="_co_provList" style="display:none"></div></div>'
         // Nguồn PET/TEM (dropdown, Khóa read-only khi chọn từ CRM)
         +'<div class="form-group"><label>Nguồn <span style="color:red">*</span> 🔒</label><select id="_co_srcFreeSelect" class="form-control" disabled style="background:#f1f5f9;color:#334155;font-weight:700;cursor:not-allowed"><option value="">-- Chọn nguồn --</option></select></div>'
+        +'<div class="form-group"><label>Loại Khách 🔒</label><input id="_co_custTypeDisplayPet" class="form-control" disabled placeholder="← Tự điền từ mã đơn" style="background:#f1f5f9;color:#334155;font-weight:700;cursor:not-allowed"></div>'
         // Thiết kế
         +'<div class="form-group" style="grid-column:span 2"><label>Thiết Kế <span style="font-size:10px;color:#64748b;font-weight:600">(tùy chọn)</span></label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
         // Phiếu Đơn Hàng (Full width)
@@ -316,6 +317,8 @@ function _dhtOnLinkedOrderPick() {
     var srcEl = document.getElementById('_co_srcFreeSelect');
     var codeLabel = document.getElementById('_co_codeFreeLabel');
 
+    // Update customer type badge
+    _dhtUpdateCustTypeDisplay(order.customer_type || 'moi');
     if (codeLabel) codeLabel.value = order.order_code;
 
     var lockStyle = 'background:#f1f5f9;color:#334155;font-weight:700;cursor:not-allowed;border:1px solid #cbd5e1';
@@ -444,6 +447,7 @@ function _dhtResetFreeCustFields() {
     if (addrEl) { addrEl.value = ''; addrEl.disabled = true; addrEl.style.cssText = lockStyle; }
     if (provEl) { provEl.value = ''; provEl.disabled = true; provEl.style.cssText = lockStyle; }
     if (srcEl) { srcEl.value = ''; srcEl.disabled = true; srcEl.style.cssText = lockStyle; }
+    _dhtUpdateCustTypeDisplay(null);
 }
 
 // ★ STEP 1: Name autocomplete — gõ tên, gợi ý KH cũ
@@ -795,6 +799,7 @@ async function _dhtGoStep2() {
         // Row 6: Nguồn (normal=readonly, free=dropdown)
         +'<div id="_co_srcNormal" class="form-group"><label>Nguồn 🔒</label><input id="_co_src" class="form-control" disabled placeholder="← Tự điền từ mã đơn" style="'+_dis+'"></div>'
         +'<div id="_co_srcFree" class="form-group" style="display:none"><label>Nguồn <span style="color:red">*</span></label><select id="_co_srcFreeSelect" class="form-control"><option value="">-- Chọn nguồn --</option></select></div>'
+        +'<div class="form-group"><label>Loại Khách 🔒</label><input id="_co_custTypeDisplay" class="form-control" disabled placeholder="← Tự điền từ mã đơn" style="'+_dis+'"></div>'
         // Row 6: Thiết kế (bắt buộc)
         +'<div class="form-group"><label>Thiết Kế <span style="color:red">*</span></label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
         +'</div>'
@@ -1263,6 +1268,34 @@ function _dhtSearchOrderCode() {
     }, 200);
 }
 
+function _dhtUpdateCustTypeDisplay(type) {
+    var ids = ['_co_custTypeDisplay', '_co_custTypeDisplayPet'];
+    ids.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (type === 'cu') {
+            el.value = '🟧 Khách Cũ';
+            el.style.background = '#fef3c7';
+            el.style.color = '#b45309';
+            el.style.border = '1px solid #fde68a';
+            el.style.fontWeight = '800';
+        } else if (type === 'moi') {
+            el.value = '🟢 Khách Mới';
+            el.style.background = '#dcfce7';
+            el.style.color = '#15803d';
+            el.style.border = '1px solid #bbf7d0';
+            el.style.fontWeight = '800';
+        } else {
+            el.value = '';
+            el.placeholder = '← Tự điền từ mã đơn';
+            el.style.background = '#f1f5f9';
+            el.style.color = '#334155';
+            el.style.border = '1px solid #cbd5e1';
+            el.style.fontWeight = '700';
+        }
+    });
+}
+
 async function _dhtPickOrderCode(codeId) {
     var codes = _dhtCreate.availableCodes || [];
     var c = codes.find(function(x) { return x.id === codeId; });
@@ -1286,6 +1319,7 @@ async function _dhtPickOrderCode(codeId) {
     document.getElementById('_co_name').value = c.customer_name || '';
     // Source (readonly)
     document.getElementById('_co_src').value = c.source_name || '';
+    _dhtUpdateCustTypeDisplay(c.customer_type || 'moi');
     // Address (editable, pre-fill)
     document.getElementById('_co_addr').value = c.address || '';
     // Province (editable, pre-fill)
@@ -1334,6 +1368,7 @@ function _dhtClearPickedOrderCode() {
     document.getElementById('_co_phone').value = '';
     document.getElementById('_co_name').value = '';
     document.getElementById('_co_src').value = '';
+    _dhtUpdateCustTypeDisplay(null);
     if (document.getElementById('_co_isZeroDeposit')) {
         document.getElementById('_co_isZeroDeposit').checked = false;
     }
@@ -1360,6 +1395,7 @@ function _dhtPickCustomerForDraft(cStr) {
         document.getElementById('_co_phone').value = c.phone || '';
         document.getElementById('_co_name').value = c.customer_name || '';
         document.getElementById('_co_src').value = c.source_name || '';
+        _dhtUpdateCustTypeDisplay(c.customer_type || 'moi');
         document.getElementById('_co_addr').value = c.address || '';
         if (c.province) {
             document.getElementById('_co_prov').value = c.province;

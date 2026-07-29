@@ -6316,7 +6316,12 @@ module.exports = async function(fastify) {
         const codes = await db.all(`
             SELECT oc.id, oc.order_code, oc.customer_id, oc.deposit_amount, oc.is_zero_deposit,
                    c.phone, c.customer_name, c.address, c.province,
-                   s.name as source_name
+                   s.name as source_name,
+                   CASE
+                       WHEN c.customer_type = 'cu' THEN 'cu'
+                       WHEN (SELECT COUNT(*) FROM dht_orders d_cnt WHERE d_cnt.customer_id = c.id) >= 1 THEN 'cu'
+                       ELSE 'moi'
+                   END AS customer_type
             FROM order_codes oc
             JOIN customers c ON c.id = oc.customer_id
             LEFT JOIN settings_sources s ON c.source_id = s.id
@@ -6383,7 +6388,12 @@ module.exports = async function(fastify) {
         const like = `%${q}%`;
         const rows = await db.all(`
             SELECT c.id, c.phone, c.customer_name, c.address, c.province,
-                   s.name as source_name
+                   s.name as source_name,
+                   CASE
+                       WHEN c.customer_type = 'cu' THEN 'cu'
+                       WHEN (SELECT COUNT(*) FROM dht_orders d_cnt WHERE d_cnt.customer_id = c.id) >= 1 THEN 'cu'
+                       ELSE 'moi'
+                   END AS customer_type
             FROM customers c
             LEFT JOIN settings_sources s ON c.source_id = s.id
             WHERE (c.phone ILIKE $1 OR c.customer_name ILIKE $1)
