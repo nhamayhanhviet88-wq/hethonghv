@@ -2877,7 +2877,11 @@ var _odPerPage = 25;
 function odRenderTable() {
     var wrap = document.getElementById('odTableWrap');
     if (!wrap) return;
-    var filtered = _odFilter === 'all' ? _odOrders : _odOrders.filter(function(o) { return o.customer_type === _odFilter; });
+    var filtered = _odOrders;
+    if (_odFilter === 'moi') filtered = _odOrders.filter(function(o) { return o.customer_type === 'moi'; });
+    else if (_odFilter === 'cu_dp') filtered = _odOrders.filter(function(o) { return o.customer_type === 'cu' && !o.is_pet_tem; });
+    else if (_odFilter === 'cu_pettem') filtered = _odOrders.filter(function(o) { return o.customer_type === 'cu' && o.is_pet_tem; });
+    else if (_odFilter === 'cu') filtered = _odOrders.filter(function(o) { return o.customer_type === 'cu'; });
 
     if (filtered.length === 0) {
         wrap.innerHTML = '<div class="kpi-od-empty">Không có đơn hàng</div>';

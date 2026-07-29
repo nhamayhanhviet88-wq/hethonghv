@@ -357,6 +357,8 @@ module.exports = async function(fastify) {
         const orders = await db.all(`
             SELECT
                 d.id AS order_id,
+                d.category_id,
+                cat.name AS category_name,
                 d.order_code,
                 COALESCE(NULLIF(c.customer_name, ''), d.customer_name) AS customer_name,
                 CASE
@@ -386,6 +388,7 @@ module.exports = async function(fastify) {
             JOIN customers c ON oc.customer_id = c.id
             LEFT JOIN users u ON u.id = c.assigned_to_id
             LEFT JOIN settings_sources s ON s.id = c.source_id
+            LEFT JOIN categories cat ON cat.id = d.category_id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
@@ -413,19 +416,28 @@ module.exports = async function(fastify) {
             }
         });
 
-        const totalNew = maskedOrders.filter(o => o.customer_type === 'moi').length;
-        const totalOld = maskedOrders.filter(o => o.customer_type === 'cu').length;
+        const _isPetTem = (o) => {
+            const cat = (o.category_name || '').toUpperCase();
+            const code = (o.order_code || '').toUpperCase();
+            return cat === 'PET' || cat === 'TEM' || code.startsWith('GCPET') || code.startsWith('GCTEM') || [8, 9].includes(Number(o.category_id));
+        };
+        const enrichedOrders = maskedOrders.map(o => ({ ...o, is_pet_tem: _isPetTem(o) }));
+        const totalNew = enrichedOrders.filter(o => o.customer_type === 'moi').length;
+        const totalOldDp = enrichedOrders.filter(o => o.customer_type === 'cu' && !o.is_pet_tem).length;
+        const totalOldPetTem = enrichedOrders.filter(o => o.customer_type === 'cu' && o.is_pet_tem).length;
 
         return {
             employee: emp,
             month: month,
             periodLabel: periodLabel,
-            orders: maskedOrders,
+            orders: enrichedOrders,
             summary: {
-                total: maskedOrders.length,
+                total: enrichedOrders.length,
                 new_orders: totalNew,
-                old_orders: totalOld,
-                total_revenue: maskedOrders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
+                old_orders_dp: totalOldDp,
+                old_orders_pettem: totalOldPetTem,
+                old_orders: totalOldDp + totalOldPetTem,
+                total_revenue: enrichedOrders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
             }
         };
     });
@@ -517,19 +529,28 @@ module.exports = async function(fastify) {
             }
         });
 
-        const totalNew = maskedOrders.filter(o => o.customer_type === 'moi').length;
-        const totalOld = maskedOrders.filter(o => o.customer_type === 'cu').length;
+        const _isPetTem = (o) => {
+            const cat = (o.category_name || '').toUpperCase();
+            const code = (o.order_code || '').toUpperCase();
+            return cat === 'PET' || cat === 'TEM' || code.startsWith('GCPET') || code.startsWith('GCTEM') || [8, 9].includes(Number(o.category_id));
+        };
+        const enrichedOrders = maskedOrders.map(o => ({ ...o, is_pet_tem: _isPetTem(o) }));
+        const totalNew = enrichedOrders.filter(o => o.customer_type === 'moi').length;
+        const totalOldDp = enrichedOrders.filter(o => o.customer_type === 'cu' && !o.is_pet_tem).length;
+        const totalOldPetTem = enrichedOrders.filter(o => o.customer_type === 'cu' && o.is_pet_tem).length;
 
         return {
             dept: dept,
             month: month,
             periodLabel: periodLabel,
-            orders: maskedOrders,
+            orders: enrichedOrders,
             summary: {
-                total: maskedOrders.length,
+                total: enrichedOrders.length,
                 new_orders: totalNew,
-                old_orders: totalOld,
-                total_revenue: maskedOrders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
+                old_orders_dp: totalOldDp,
+                old_orders_pettem: totalOldPetTem,
+                old_orders: totalOldDp + totalOldPetTem,
+                total_revenue: enrichedOrders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
             }
         };
     });

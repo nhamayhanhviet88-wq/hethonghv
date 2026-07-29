@@ -1557,6 +1557,8 @@ window.kpiSaleFilterModalOrders = function(filterType) {
 
     let filtered = _kpiSaleModalOrders;
     if (filterType === 'moi') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'moi');
+    else if (filterType === 'cu_dp') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'cu' && !o.is_pet_tem);
+    else if (filterType === 'cu_pettem') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'cu' && o.is_pet_tem);
     else if (filterType === 'cu') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'cu');
 
     if (filtered.length === 0) {
@@ -1564,19 +1566,29 @@ window.kpiSaleFilterModalOrders = function(filterType) {
         return;
     }
 
-    tbody.innerHTML = filtered.map((o, idx) => `
+    tbody.innerHTML = filtered.map((o, idx) => {
+        let badgeHtml = '';
+        if (o.customer_type === 'moi') {
+            badgeHtml = '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">🟢 Khách Mới</span>';
+        } else if (o.is_pet_tem) {
+            badgeHtml = '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#faf5ff;color:#7c3aed;border:1px solid #e9d5ff">🟧 Khách Cũ PET/TEM</span>';
+        } else {
+            badgeHtml = '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a">🟧 Khách Cũ Đồng Phục</span>';
+        }
+
+        return `
         <tr>
             <td style="text-align:center">${idx + 1}</td>
             <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${_kpiSaleCleanPhone(o.customer_phone)}</td>
             <td style="font-weight:800;color:#1e1b4b">${o.sale_name || '—'}</td>
-            <td style="text-align:center"><span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:${o.customer_type === 'moi' ? '#dcfce7' : '#fef3c7'};color:${o.customer_type === 'moi' ? '#15803d' : '#b45309'}">${o.customer_type === 'moi' ? 'Khách Mới' : 'Khách Cũ'}</span></td>
+            <td style="text-align:center">${badgeHtml}</td>
             <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
             <td style="font-weight:800;color:#059669">${formatVND(o.revenue || 0)}</td>
             <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
         </tr>
-    `).join('');
+    `}).join('');
 };
 
 function _kpiSaleEnsureOrdersModal() {
@@ -1638,8 +1650,9 @@ async function kpiSaleShowOrders(userId, userName) {
             const s = res.summary || {};
             summary.innerHTML = `
                 <button type="button" class="kpi-sale-ord-filter-btn" data-filter="all" onclick="kpiSaleFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="moi" onclick="kpiSaleFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu" onclick="kpiSaleFilterModalOrders('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="moi" onclick="kpiSaleFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Khách Mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu_dp" onclick="kpiSaleFilterModalOrders('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Khách Cũ Đồng Phục: <strong style="color:#d97706">${s.old_orders_dp || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu_pettem" onclick="kpiSaleFilterModalOrders('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700">Khách Cũ PET/TEM: <strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong></button>
                 <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
             `;
         }
@@ -1669,8 +1682,9 @@ async function kpiSaleShowTeamOrders(deptId, deptName) {
             const s = res.summary || {};
             summary.innerHTML = `
                 <button type="button" class="kpi-sale-ord-filter-btn" data-filter="all" onclick="kpiSaleFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="moi" onclick="kpiSaleFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Đơn mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu" onclick="kpiSaleFilterModalOrders('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Đơn cũ: <strong style="color:#d97706">${s.old_orders || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="moi" onclick="kpiSaleFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Khách Mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu_dp" onclick="kpiSaleFilterModalOrders('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Khách Cũ Đồng Phục: <strong style="color:#d97706">${s.old_orders_dp || 0}</strong></button>
+                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu_pettem" onclick="kpiSaleFilterModalOrders('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700">Khách Cũ PET/TEM: <strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong></button>
                 <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
             `;
         }
