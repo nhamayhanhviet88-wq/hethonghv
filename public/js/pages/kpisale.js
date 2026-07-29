@@ -727,7 +727,7 @@ function renderKpiSaleAchievementUI(el, currentMo) {
             var md = u.months[mo] || { target:0, actual:0, rate:0, missing:0 };
             var rowBg = md.rate >= 100 ? '#f0fdf4' : (i % 2 === 0 ? 'white' : '#fafbff');
             var medalI = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
-            h += '<tr style="background:' + rowBg + '">';
+            h += '<tr style="background:' + rowBg + ';cursor:pointer" onclick="kpiSaleShowOrders(' + (u.user_id || u.id) + ',\'' + (u.full_name || '').replace(/'/g, "\\'") + '\')">';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-weight:700;font-size:' + (i < 3 ? '18px' : '12px') + ';color:#94a3b8">' + (medalI || (i+1)) + '</td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(u.role, u.username) + ' <span style="font-weight:700;color:#1e293b">' + u.full_name + '</span><span style="font-size:10px;color:#94a3b8">(' + roleName(u.role) + ')</span></div></td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;color:#475569">' + fmtMoney(md.target) + '</td>';
@@ -763,7 +763,7 @@ function renderKpiSaleAchievementUI(el, currentMo) {
             var td = t.months[mo] || { target:0, actual:0, rate:0, missing:0 };
             var trBg = td.rate >= 100 ? '#f0fdf4' : (ti % 2 === 0 ? '#fffbeb' : 'white');
             var medalT = ti === 0 ? '🥇' : ti === 1 ? '🥈' : ti === 2 ? '🥉' : '🏢';
-            h += '<tr style="background:' + trBg + '">';
+            h += '<tr style="background:' + trBg + ';cursor:pointer" onclick="kpiSaleShowTeamOrders(' + t.dept_id + ',\'' + (t.dept_name || '').replace(/'/g, "\\'") + '\')">';
             h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;font-weight:800;color:#1e293b">' + medalT + ' ' + t.dept_name + '</td>';
             h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center;font-weight:700;color:#6b7280">' + t.member_count + '</td>';
             h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:right;font-weight:700;color:#475569">' + fmtMoney(td.target) + '</td>';
@@ -798,7 +798,7 @@ function renderKpiSaleAchievementUI(el, currentMo) {
             var rowBgY = yy.rate >= 100 ? '#f0fdf4' : (yi % 2 === 0 ? 'white' : '#fafbff');
             var ratioColor = yy.months_achieved === yy.months_total && yy.months_total > 0 ? '#059669' : '#dc2626';
             var medalYI = yi === 0 ? '🥇' : yi === 1 ? '🥈' : yi === 2 ? '🥉' : '';
-            h += '<tr style="background:' + rowBgY + '">';
+            h += '<tr style="background:' + rowBgY + ';cursor:pointer" onclick="kpiSaleShowOrders(' + (uy.user_id || uy.id) + ',\'' + (uy.full_name || '').replace(/'/g, "\\'") + '\')">';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-weight:700;font-size:' + (yi < 3 ? '18px' : '12px') + ';color:#94a3b8">' + (medalYI || (yi+1)) + '</td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(uy.role, uy.username) + ' <span style="font-weight:700;color:#1e293b">' + uy.full_name + '</span></div></td>';
             h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;color:#475569">' + fmtMoney(yy.target) + '</td>';
@@ -833,7 +833,7 @@ function renderKpiSaleAchievementUI(el, currentMo) {
             var trBgY = tyy.rate >= 100 ? '#f0fdf4' : (tyi % 2 === 0 ? '#fffbeb' : 'white');
             var tRatioColor = tyy.months_achieved === tyy.months_total && tyy.months_total > 0 ? '#059669' : '#dc2626';
             var medalTY = tyi === 0 ? '🥇' : tyi === 1 ? '🥈' : tyi === 2 ? '🥉' : '🏢';
-            h += '<tr style="background:' + trBgY + '">';
+            h += '<tr style="background:' + trBgY + ';cursor:pointer" onclick="kpiSaleShowTeamOrders(' + tt.dept_id + ',\'' + (tt.dept_name || '').replace(/'/g, "\\'") + '\')">';
             h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;font-weight:800;color:#1e293b">' + medalTY + ' ' + tt.dept_name + '</td>';
             h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center;font-weight:700;color:#6b7280">' + tt.member_count + '</td>';
             h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:right;font-weight:700;color:#475569">' + fmtMoney(tyy.target) + '</td>';
@@ -1102,7 +1102,7 @@ function renderKpiSaleLeaderboard(data) {
             var cRate = conv.rate != null ? conv.rate + '%' : '—';
             var cColor = conv.rate >= 70 ? '#10b981' : conv.rate >= 40 ? '#f59e0b' : '#ef4444';
             var prev = emp.prev || {};
-            h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiSaleShowOrders(' + emp.user_id + ',\'' + (emp.name || emp.full_name || '').replace(/'/g, "\\'") + '\')">';
+            h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiSaleShowOrders(' + (emp.user_id || emp.id) + ',\'' + (emp.name || emp.full_name || '').replace(/'/g, "\\'") + '\')">';
             h += '<div class="kpi-lb-rank">' + rank + '</div>';
             var empIcon = (['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || emp.username === 'truongphongsale' || emp.user_id === 77) ? '⭐' : '👤';
             h += '<div><div class="kpi-lb-name">' + empIcon + ' ' + (emp.name || emp.full_name || '?') + '</div><div class="kpi-lb-team">' + (emp.team || 'PHÒNG SALE') + '</div></div>';
