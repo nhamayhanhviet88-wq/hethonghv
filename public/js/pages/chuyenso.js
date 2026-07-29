@@ -118,6 +118,9 @@ async function renderChuyenSoPage(container) {
     const isGD = currentUser.role === 'giam_doc';
     const isExecutive = ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role);
     const isAffiliate = currentUser.role === 'tkaffiliate';
+    const isGdOrTrinh = isGD ||
+        ['trinh', 'leviettrinh', 'trinh.lvt'].includes((currentUser.username || '').toLowerCase()) ||
+        (currentUser.full_name && (currentUser.full_name.includes('Lê Việt Trinh') || currentUser.full_name.includes('Le Viet Trinh')));
     const settingsBtn = isGD
         ? `<button onclick="csoOpenSettings()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:6px 12px;font-size:13px;border-radius:8px;" title="Cài đặt đơn vị nhận số">⚙️ Cài đặt</button>`
         : '';
@@ -228,7 +231,14 @@ async function renderChuyenSoPage(container) {
                             <input type="text" id="csoFacebook" class="form-control" placeholder="https://facebook.com, instagram.com, tiktok.com..." oninput="_csoToggleRequired()" autocomplete="one-time-code">
                             <small id="csoFbHint" style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link MXH (ít nhất 1)</small>
                         </div>
-                        <div></div>
+                        <div class="form-group">
+                            <label>Loại Khách <span style="color:var(--danger)">*</span></label>
+                            <select id="csoCustomerType" class="form-control" ${!isGdOrTrinh ? 'disabled style="background:#f1f5f9;cursor:not-allowed;font-weight:700;color:#122546;"' : 'style="font-weight:700;color:#122546;"'}>
+                                <option value="moi" selected>🆕 Khách Mới</option>
+                                <option value="cu">🔄 Khách Cũ</option>
+                            </select>
+                            <small style="color:#6b7280;font-size:10px;">${!isGdOrTrinh ? 'Mặc định Khách Mới (Chỉ GĐ/QL Lê Việt Trinh được sửa)' : 'Quyền GĐ/QL Lê Việt Trinh: Có thể chọn Khách Cũ'}</small>
+                        </div>
                     </div>
                     ${!isAffiliate ? `
                     <div style="display:grid; grid-template-columns: ${isExecutive ? '1fr 1fr' : '1fr'}; gap: 16px;">
@@ -320,7 +330,8 @@ async function renderChuyenSoPage(container) {
             affiliate_user_id: document.getElementById('csoAffiliate')?.value || null,
             job: document.getElementById('csoJobTitle')?.value || document.getElementById('csoLinhVuc')?.value || null,
             facebook_link: document.getElementById('csoFacebook')?.value?.trim() || null,
-            cong_viec: document.getElementById('csoCongViec')?.value || 'Mặc Định'
+            cong_viec: document.getElementById('csoCongViec')?.value || 'Mặc Định',
+            customer_type: document.getElementById('csoCustomerType')?.value || 'moi'
         };
         console.log('[CSO] Body:', JSON.stringify(body));
 

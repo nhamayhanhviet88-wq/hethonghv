@@ -132,6 +132,7 @@ async function start() {
     // Migration: add phone2 column to customers
     try { await db.exec('ALTER TABLE customers ADD COLUMN phone2 TEXT'); } catch(e) { /* exists */ }
     try { await db.exec('ALTER TABLE customers ADD COLUMN cong_viec TEXT'); } catch(e) { /* exists */ }
+    try { await db.exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_type TEXT DEFAULT 'moi'"); } catch(e) { /* exists */ }
     // Migration: effective_date — ngày hiệu lực (cutoff time logic)
     try { await db.exec('ALTER TABLE customers ADD COLUMN effective_date DATE'); } catch(e) { /* exists */ }
     try { await db.exec("UPDATE customers SET effective_date = (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date WHERE effective_date IS NULL AND daily_order_number > 0"); } catch(e) { /* already backfilled */ }

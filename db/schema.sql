@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS customers (
     job TEXT,
     customer_holidays TEXT,
     province TEXT,
+    customer_type TEXT DEFAULT 'moi',
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );

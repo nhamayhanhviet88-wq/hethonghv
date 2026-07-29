@@ -58,9 +58,15 @@ async function customersRoutes(fastify, options) {
 
     fastify.post('/api/customers', { preHandler: [authenticate] }, async (request, reply) => {
         const { crm_type, customer_name, phone, phone2, source_id, source_name, promotion_id, industry_id,
-                receiver_id, notes, affiliate_user_id, job, facebook_link, cong_viec, force_create } = request.body || {};
+                receiver_id, notes, affiliate_user_id, job, facebook_link, cong_viec, customer_type, force_create } = request.body || {};
         if (!crm_type) return reply.code(400).send({ error: 'Vui lòng chọn CRM' });
         if (!phone && !facebook_link) return reply.code(400).send({ error: 'Vui lòng nhập SĐT hoặc Link Facebook' });
+
+        // ★ Phân quyền bảo mật customer_type: Chỉ GĐ và QL Lê Việt Trinh được chọn Khách Cũ
+        const isGdOrTrinh = request.user.role === 'giam_doc' ||
+            ['trinh', 'leviettrinh', 'trinh.lvt'].includes((request.user.username || '').toLowerCase()) ||
+            (request.user.full_name && (request.user.full_name.includes('Lê Việt Trinh') || request.user.full_name.includes('Le Viet Trinh')));
+        const finalCustomerType = (isGdOrTrinh && customer_type === 'cu') ? 'cu' : 'moi';
 
         const normalizedPhone = phone ? normalizePhone(phone) : null;
         if (phone && (!normalizedPhone || !/^0\d{9}$/.test(normalizedPhone))) {
@@ -191,13 +197,13 @@ async function customersRoutes(fastify, options) {
             try {
                 result = await db.run(
                     `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, phone2, source_id, promotion_id,
-                     industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec, effective_date, appointment_date)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                     industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec, effective_date, appointment_date, customer_type)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
                     [customerUid, crm_type, customer_name || null, normalizedPhone || null, phone2 || null,
                      resolvedSourceId, promotion_id ? Number(promotion_id) : null,
                      industry_id ? Number(industry_id) : null,
                      actualReceiverId, actualReceiverId, notes || null, dailyNum,
-                     request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null, effectiveDate, effectiveDate]
+                     request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null, effectiveDate, effectiveDate, finalCustomerType]
                 );
                 break;
             } catch (err) {
