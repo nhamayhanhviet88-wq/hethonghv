@@ -354,22 +354,15 @@ function _dhtPopulateCskhDropdown() {
 }
 
 var _dhtSortDefs = [
-    { key: 'category_name',    label: 'Lĩnh Vực',      type: 'text' },
-    { key: 'order_date',       label: 'Ngày LĐ',       type: 'date' },
-    { key: 'shipped_at',       label: 'Ngày Gửi',    type: 'date' },
-    { key: null,               label: 'Tiến Độ',        type: 'none' },
-    { key: 'remaining_amount', label: 'Còn Lại',        type: 'num' },
-    { key: 'order_code',       label: 'Mã Đơn',        type: 'text' },
-    { key: 'customer_name',    label: 'Tên Khách',      type: 'text' },
-    { key: 'customer_phone',   label: 'SĐT',            type: 'text' },
-    { key: 'province',         label: 'Thành Phố',      type: 'text' },
-    { key: 'cskh_name',        label: 'CSKH',           type: 'text' },
-    { key: 'total_quantity',   label: 'Tổng SL',        type: 'num' },
-    { key: 'deposit_amount',   label: 'Đặt Cọc',       type: 'num' },
-    { key: 'discount_amount',  label: 'Ưu Đãi',        type: 'num' },
-    { key: 'source',           label: 'Nguồn',          type: 'text' },
-    { key: 'last_updated_at',  label: 'Lịch Sử CN',    type: 'date' },
-    { key: null,               label: '',                type: 'none' }
+    { key: 'category_name',    label: 'Lĩnh Vực',            type: 'text' },
+    { key: 'order_date',       label: 'Thời Gian',            type: 'date' },
+    { key: null,               label: 'Tiến Độ',              type: 'none' },
+    { key: 'remaining_amount', label: 'Tài Chính',            type: 'num' },
+    { key: 'order_code',       label: 'Mã Đơn & Nguồn',       type: 'text' },
+    { key: 'customer_name',    label: 'Khách Hàng & Liên Hệ', type: 'text' },
+    { key: 'cskh_name',        label: 'CSKH & Cập Nhật',      type: 'text' },
+    { key: 'total_quantity',   label: 'Tổng SL',              type: 'num', align: 'center' },
+    { key: null,               label: 'Thao Tác',             type: 'none' }
 ];
 
 function _dhtSortCol(key) {
