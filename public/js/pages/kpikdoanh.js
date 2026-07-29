@@ -814,7 +814,7 @@ function kpiRenderContent(data) {
     // ===== SECTION 3: Doanh Thu Và Target Nhân Sự =====
     html += '<div class="kpi-section-title">👥 DOANH THU VÀ TARGET NHÂN SỰ</div>';
     html += '<div class="kpi-tbl-wrap"><table class="kpi-tbl"><thead><tr>';
-    html += '<th>STT</th><th>Mã NV</th><th>TVV</th><th>Target</th><th>DTTT</th><th>Tỷ lệ HT</th><th>Còn thiếu</th>';
+    html += '<th>STT</th><th>Mã NV</th><th>TVV</th><th style="background:#2563eb;color:#fff">Target</th><th style="background:#d97706;color:#fff">DTTT</th><th style="background:#7c3aed;color:#fff">Tỷ lệ HT</th><th style="background:#dc2626;color:#fff">Còn thiếu</th>';
     for (let d = 1; d <= dim; d++) {
         const isTdy = (d === todayDay);
         html += `<th class="sub${isTdy?' kpi-today-hdr':''}">${d}/${data.month.month}${isTdy?' 📍':''}</th>`;
@@ -824,8 +824,8 @@ function kpiRenderContent(data) {
     data.teams.forEach(team => {
         // Team total row — on top
         html += `<tr class="team-row"><td></td><td></td><td class="name">${team.dept_name}</td>`;
-        html += `<td>${kpiFmtFull(team.target_1)}</td>`;
-        html += `<td>${kpiFmtFull(team.actual)}</td>`;
+        html += `<td style="font-weight:700">${kpiFmtFull(team.target_1)}</td>`;
+        html += `<td style="font-weight:800;color:#d97706">${kpiFmtFull(team.actual)}</td>`;
         html += `<td class="pct-cell ${team.rate_1>=100?'pos':'neg'}">${team.rate_1}%</td>`;
         html += `<td class="${team.missing_1<=0?'pos':'neg'}">${kpiSignFmtFull(team.missing_1)}</td>`;
         team.daily.forEach(v => {
@@ -838,7 +838,7 @@ function kpiRenderContent(data) {
             html += `<tr style="cursor:pointer" onclick="kpiShowEmpOrders(${emp.user_id},'${emp.full_name.replace(/'/g, "\\'")}')">`
             + `<td>${ei+1}</td><td>${emp.username||''}</td><td class="name">${roleIcon}${emp.full_name}</td>`;
             html += `<td>${kpiFmtFull(emp.target)}</td>`;
-            html += `<td style="font-weight:700">${kpiFmtFull(emp.actual)}</td>`;
+            html += `<td style="font-weight:800;color:${emp.actual > 0 ? '#059669' : '#475569'}">${kpiFmtFull(emp.actual)}</td>`;
             html += `<td class="pct-cell ${emp.rate>=100?'pos':'neg'}">${emp.rate}%</td>`;
             html += `<td class="${emp.missing<=0?'pos':'neg'}">${kpiSignFmtFull(emp.missing)}</td>`;
             emp.daily.forEach(v => {
