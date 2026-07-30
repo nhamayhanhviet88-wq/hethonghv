@@ -290,37 +290,36 @@ module.exports = async function(fastify) {
                       AND COALESCE(d.is_draft, false) = false
                       AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
                 ),
-                old_pool AS (
-                    SELECT DISTINCT uid, business_area, customer_key 
-                    FROM valid_orders 
+                prior_cust AS (
+                    SELECT DISTINCT uid, business_area, customer_key
+                    FROM valid_orders
                     WHERE created_at < $${pStartIdx}::timestamp 
                        OR customer_created_at < $${pStartIdx}::timestamp 
                        OR cust_table_type = 'cu'
                 ),
-                current_period_cust AS (
-                    SELECT DISTINCT uid, business_area, customer_key FROM valid_orders WHERE created_at >= $${pStartIdx}::timestamp AND created_at < $${pEndIdx}::timestamp
+                current_orders AS (
+                    SELECT uid, business_area, customer_key, COUNT(DISTINCT order_id) AS order_cnt
+                    FROM valid_orders
+                    WHERE created_at >= $${pStartIdx}::timestamp AND created_at < $${pEndIdx}::timestamp
+                    GROUP BY uid, business_area, customer_key
                 ),
-                retention_stats AS (
-                    SELECT
-                        p.uid, p.business_area,
-                        COUNT(DISTINCT p.customer_key) AS old_customer_total,
-                        COUNT(DISTINCT CASE WHEN c.customer_key IS NOT NULL THEN p.customer_key END) AS returning_customer_total
-                    FROM old_pool p
-                    LEFT JOIN current_period_cust c
-                        ON c.customer_key = p.customer_key
-                       AND c.business_area = p.business_area
-                       AND c.uid = p.uid
-                    GROUP BY p.uid, p.business_area
+                old_pool AS (
+                    SELECT uid, business_area, customer_key FROM prior_cust
+                    UNION
+                    SELECT uid, business_area, customer_key FROM current_orders WHERE order_cnt >= 2
+                ),
+                returning_cust AS (
+                    SELECT DISTINCT c.uid, c.business_area, c.customer_key
+                    FROM current_orders c
+                    JOIN old_pool p ON p.uid = c.uid AND p.customer_key = c.customer_key AND p.business_area = c.business_area
                 )
                 SELECT 
                     u.id AS uid,
-                    COALESCE(rs_dp.old_customer_total, 0) AS old_dp_total,
-                    COALESCE(rs_dp.returning_customer_total, 0) AS ret_dp_cust,
-                    COALESCE(rs_pettem.old_customer_total, 0) AS old_pettem_total,
-                    COALESCE(rs_pettem.returning_customer_total, 0) AS ret_pettem_cust
+                    COALESCE((SELECT COUNT(DISTINCT customer_key) FROM old_pool WHERE uid = u.id AND business_area = 'dp'), 0) AS old_dp_total,
+                    COALESCE((SELECT COUNT(DISTINCT customer_key) FROM returning_cust WHERE uid = u.id AND business_area = 'dp'), 0) AS ret_dp_cust,
+                    COALESCE((SELECT COUNT(DISTINCT customer_key) FROM old_pool WHERE uid = u.id AND business_area = 'pettem'), 0) AS old_pettem_total,
+                    COALESCE((SELECT COUNT(DISTINCT customer_key) FROM returning_cust WHERE uid = u.id AND business_area = 'pettem'), 0) AS ret_pettem_cust
                 FROM (SELECT unnest(ARRAY[${ph}]::int[]) AS id) u
-                LEFT JOIN retention_stats rs_dp ON rs_dp.uid = u.id AND rs_dp.business_area = 'dp'
-                LEFT JOIN retention_stats rs_pettem ON rs_pettem.uid = u.id AND rs_pettem.business_area = 'pettem'
             `;
 
             const retRows = await db.all(retSql, [...uIds, monthStartStr, monthEndStr]);
@@ -536,6 +535,8 @@ module.exports = async function(fastify) {
                 SELECT 
                     d.id AS order_id, d.created_at,
                     COALESCE(c.id::text, REGEXP_REPLACE(c.phone, '[^0-9]', '', 'g')) AS customer_key,
+                    c.customer_type AS cust_table_type,
+                    c.created_at AS customer_created_at,
                     CASE 
                         WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
                           OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
@@ -554,17 +555,34 @@ module.exports = async function(fastify) {
                   AND COALESCE(d.is_draft, false) = false
                   AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
             ),
-            old_pool AS (
-                SELECT DISTINCT business_area, customer_key FROM valid_orders WHERE created_at < $2::timestamp
+            prior_cust AS (
+                SELECT DISTINCT business_area, customer_key
+                FROM valid_orders
+                WHERE created_at < $2::timestamp
+                   OR customer_created_at < $2::timestamp
+                   OR cust_table_type = 'cu'
             ),
-            current_period_cust AS (
-                SELECT DISTINCT business_area, customer_key FROM valid_orders WHERE created_at >= $2::timestamp AND created_at < $3::timestamp
+            current_orders AS (
+                SELECT business_area, customer_key, COUNT(DISTINCT order_id) AS order_cnt
+                FROM valid_orders
+                WHERE created_at >= $2::timestamp AND created_at < $3::timestamp
+                GROUP BY business_area, customer_key
+            ),
+            old_pool AS (
+                SELECT business_area, customer_key FROM prior_cust
+                UNION
+                SELECT business_area, customer_key FROM current_orders WHERE order_cnt >= 2
+            ),
+            returning_cust AS (
+                SELECT DISTINCT c.business_area, c.customer_key
+                FROM current_orders c
+                JOIN old_pool p ON p.customer_key = c.customer_key AND p.business_area = c.business_area
             )
             SELECT
                 (SELECT COUNT(DISTINCT customer_key) FROM old_pool WHERE business_area = 'dp') AS old_dp_total,
-                (SELECT COUNT(DISTINCT p.customer_key) FROM old_pool p JOIN current_period_cust c ON c.customer_key = p.customer_key AND c.business_area = p.business_area WHERE p.business_area = 'dp') AS ret_dp_cust,
+                (SELECT COUNT(DISTINCT customer_key) FROM returning_cust WHERE business_area = 'dp') AS ret_dp_cust,
                 (SELECT COUNT(DISTINCT customer_key) FROM old_pool WHERE business_area = 'pettem') AS old_pettem_total,
-                (SELECT COUNT(DISTINCT p.customer_key) FROM old_pool p JOIN current_period_cust c ON c.customer_key = p.customer_key AND c.business_area = p.business_area WHERE p.business_area = 'pettem') AS ret_pettem_cust
+                (SELECT COUNT(DISTINCT customer_key) FROM returning_cust WHERE business_area = 'pettem') AS ret_pettem_cust
         `, [parseInt(user_id), monthStart, monthEnd]);
 
         const oldDpTotal = parseInt(retentionRow?.old_dp_total || 0);

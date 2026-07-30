@@ -537,6 +537,8 @@ module.exports = async function(fastify) {
                 SELECT 
                     d.id AS order_id, d.created_at,
                     COALESCE(c.id::text, REGEXP_REPLACE(c.phone, '[^0-9]', '', 'g')) AS customer_key,
+                    c.customer_type AS cust_table_type,
+                    c.created_at AS customer_created_at,
                     CASE 
                         WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
                           OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
