@@ -1688,6 +1688,23 @@ function kpiSaleApplyModalFilters() {
         }
     });
 
+    // Compute orders for selected Lĩnh Vực
+    let lvOrders = _kpiSaleModalOrders;
+    if (_kpiSaleModalFilterLv === 'dp') {
+        lvOrders = _kpiSaleModalOrders.filter(o => !o.is_pet_tem);
+    } else if (_kpiSaleModalFilterLv === 'pettem') {
+        lvOrders = _kpiSaleModalOrders.filter(o => o.is_pet_tem);
+    }
+
+    // Dynamically update Row 2 button counts based on current Lĩnh Vực!
+    const countMoi = lvOrders.filter(o => o.customer_type === 'moi').length;
+    const countCu = lvOrders.filter(o => o.customer_type === 'cu').length;
+
+    const btnMoi = document.querySelector('.kpi-sale-cust-btn[data-cust="moi"]');
+    const btnCu = document.querySelector('.kpi-sale-cust-btn[data-cust="cu"]');
+    if (btnMoi) btnMoi.innerHTML = `🟢 Khách Mới (<strong style="color:#16a34a">${countMoi}</strong>)`;
+    if (btnCu) btnCu.innerHTML = `🟧 Khách Cũ (<strong style="color:#b45309">${countCu}</strong>)`;
+
     document.querySelectorAll('.kpi-sale-cust-btn').forEach(btn => {
         if (btn.getAttribute('data-cust') === _kpiSaleModalFilterCust) {
             btn.style.outline = '2px solid #2563eb';
@@ -1702,23 +1719,16 @@ function kpiSaleApplyModalFilters() {
         }
     });
 
-    let filtered = _kpiSaleModalOrders;
-
-    if (_kpiSaleModalFilterLv === 'dp') {
-        filtered = filtered.filter(o => !o.is_pet_tem);
-    } else if (_kpiSaleModalFilterLv === 'pettem') {
-        filtered = filtered.filter(o => o.is_pet_tem);
-    }
-
+    let filtered = lvOrders;
     if (_kpiSaleModalFilterCust === 'moi') {
         filtered = filtered.filter(o => o.customer_type === 'moi');
     } else if (_kpiSaleModalFilterCust === 'cu') {
         filtered = filtered.filter(o => o.customer_type === 'cu');
-    } else if (_kpiSaleModalFilterCust === 'cu_dp') {
-        filtered = filtered.filter(o => o.customer_type === 'cu' && !o.is_pet_tem);
-    } else if (_kpiSaleModalFilterCust === 'cu_pettem') {
-        filtered = filtered.filter(o => o.customer_type === 'cu' && o.is_pet_tem);
     }
+
+    const currentRevenue = filtered.reduce((acc, o) => acc + (Number(o.revenue) || 0), 0);
+    const revEl = document.getElementById('kpiSaleModalTotalRevenue');
+    if (revEl) revEl.textContent = formatVND(currentRevenue);
 
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#94a3b8;font-weight:600">📭 Không có đơn hàng nào khớp bộ lọc đã chọn</td></tr>';
@@ -1758,7 +1768,7 @@ function kpiSaleBuildModalSummaryHtml(s) {
             <button type="button" class="kpi-sale-lv-btn" data-lv="pettem" onclick="kpiSaleFilterModalLv('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700;color:#be185d">🏷️ LV PET/TEM (<strong style="color:#be185d">${s.total_lv_pettem || 0}</strong>)</button>
         </div>
 
-        <!-- Hàng 2: Chọn Loại Khách Hàng -->
+        <!-- Hàng 2: Chọn Loại Khách Hàng (Tự động nhảy số theo Lĩnh Vực) -->
         <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;flex-wrap:wrap">
             <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
                 👥 <strong>Loại Khách:</strong>
@@ -1767,7 +1777,7 @@ function kpiSaleBuildModalSummaryHtml(s) {
             <button type="button" class="kpi-sale-cust-btn" data-cust="moi" onclick="kpiSaleFilterModalCust('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700;color:#16a34a">🟢 Khách Mới (<strong style="color:#16a34a">${s.new_orders || 0}</strong>)</button>
             <button type="button" class="kpi-sale-cust-btn" data-cust="cu" onclick="kpiSaleFilterModalCust('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fde68a;background:#fffbeb;cursor:pointer;font-weight:700;color:#b45309">🟧 Khách Cũ (<strong style="color:#b45309">${s.old_orders || 0}</strong>)</button>
 
-            <span style="margin-left:auto;font-size:13px;font-weight:800">Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
+            <span style="margin-left:auto;font-size:13px;font-weight:800">Tổng doanh số: <strong id="kpiSaleModalTotalRevenue" style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
         </div>
     </div>
     `;
