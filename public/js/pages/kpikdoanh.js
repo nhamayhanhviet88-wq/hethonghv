@@ -855,6 +855,110 @@ function kpiRenderContent(data) {
     el.innerHTML = html;
 }
 
+// BẢNG THỐNG KÊ TỶ LỆ KHÁCH HÀNG CŨ QUAY LẠI THEO NHÂN SỰ & TEAM
+function renderRetentionTableSection(data) {
+    if (!data || !data.teams) return '';
+
+    var h = '<div style="margin-top:20px;border:2px solid #fed7aa;border-radius:16px;overflow:hidden;background:#fff8f1">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(135deg,#c2410c,#ea580c)">';
+    h += '<div style="display:flex;align-items:center;gap:10px">';
+    h += '<span style="font-size:16px;font-weight:900;letter-spacing:0.5px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.3)">🔄 TỶ LỆ KHÁCH HÀNG CŨ QUAY LẠI THEO NHÂN SỰ & TEAM</span>';
+    h += '</div>';
+    h += '<span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.9)">Đã đóng băng mẫu số đầu kỳ & lọc giao tử số</span>';
+    h += '</div>';
+
+    h += '<div style="padding:16px 20px;overflow-x:auto">';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);border:1px solid #fed7aa">';
+    h += '<thead>';
+    h += '<tr style="background:#7c2d12;color:#fff">';
+    h += '<th rowspan="2" style="padding:10px 8px;border:1px solid #9a3412;width:40px">STT</th>';
+    h += '<th rowspan="2" style="padding:10px;border:1px solid #9a3412;text-align:left">Mã NV</th>';
+    h += '<th rowspan="2" style="padding:10px;border:1px solid #9a3412;text-align:left">Thành Viên / Team</th>';
+    h += '<th colspan="3" style="padding:10px;border:1px solid #9a3412;background:#9a3412;color:#ffedd5;text-align:center;font-size:13px">👔 LĨNH VỰC ĐỒNG PHỤC</th>';
+    h += '<th colspan="3" style="padding:10px;border:1px solid #9a3412;background:#831843;color:#fce7f3;text-align:center;font-size:13px">🏷️ LĨNH VỰC PET / TEM</th>';
+    h += '</tr>';
+    h += '<tr style="background:#9a3412;color:#fff">';
+    h += '<th style="padding:8px;border:1px solid #7c2d12;text-align:center">KH Cũ Đầu Kỳ</th>';
+    h += '<th style="padding:8px;border:1px solid #7c2d12;text-align:center">KH Quay Lại</th>';
+    h += '<th style="padding:8px;border:1px solid #7c2d12;text-align:center">Tỷ Lệ %</th>';
+    h += '<th style="padding:8px;border:1px solid #831843;text-align:center;background:#9d174d">KH Cũ Đầu Kỳ</th>';
+    h += '<th style="padding:8px;border:1px solid #831843;text-align:center;background:#9d174d">KH Quay Lại</th>';
+    h += '<th style="padding:8px;border:1px solid #831843;text-align:center;background:#9d174d">Tỷ Lệ %</th>';
+    h += '</tr>';
+    h += '</thead>';
+    h += '<tbody>';
+
+    data.teams.forEach(function(team, ti) {
+        var teamHeaderBg = '#ffedd5';
+        var teamName = team.dept_name || ('Team ' + (ti + 1));
+        var teamEmps = team.employees || [];
+
+        h += '<tr style="background:' + teamHeaderBg + ';font-weight:800;color:#9a3412">';
+        h += '<td style="padding:10px;border:1px solid #fed7aa;text-align:center">' + (ti + 1) + '</td>';
+        h += '<td style="padding:10px;border:1px solid #fed7aa" colspan="2">🏢 ' + teamName.toUpperCase() + ' (' + teamEmps.length + ' nhân sự)</td>';
+
+        var tDpText = team.rate_dp != null ? (team.rate_dp + '%') : '—';
+        var tPetText = team.rate_pettem != null ? (team.rate_pettem + '%') : '—';
+
+        h += '<td style="padding:10px;border:1px solid #fed7aa;text-align:center;color:#c2410c;font-size:13px">' + (team.old_dp_total || 0) + '</td>';
+        h += '<td style="padding:10px;border:1px solid #fed7aa;text-align:center;color:#047857;font-size:13px">' + (team.ret_dp_cust || 0) + '</td>';
+        h += '<td style="padding:10px;border:1px solid #fed7aa;text-align:center;color:#b45309;font-size:14px;font-weight:900">' + tDpText + '</td>';
+
+        h += '<td style="padding:10px;border:1px solid #fed7aa;text-align:center;color:#be185d;font-size:13px">' + (team.old_pettem_total || 0) + '</td>';
+        h += '<td style="padding:10px;border:1px solid #fed7aa;text-align:center;color:#047857;font-size:13px">' + (team.ret_pettem_cust || 0) + '</td>';
+        h += '<td style="padding:10px;border:1px solid #fed7aa;text-align:center;color:#9d174d;font-size:14px;font-weight:900">' + tPetText + '</td>';
+        h += '</tr>';
+
+        teamEmps.forEach(function(emp, ei) {
+            var isLeader = ['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || emp.username === 'truongphongsale';
+            var empIcon = isLeader ? '⭐' : '👤';
+            var rowBg = ei % 2 === 0 ? '#ffffff' : '#fffbf7';
+
+            var eDpText = emp.rate_dp != null ? (emp.rate_dp + '%') : '—';
+            var eDpTooltip = emp.old_dp_total > 0 ? (emp.ret_dp_cust + '/' + emp.old_dp_total + ' KH cũ quay lại') : 'Chưa có tập KH cũ đầu kỳ';
+
+            var ePetText = emp.rate_pettem != null ? (emp.rate_pettem + '%') : '—';
+            var ePetTooltip = emp.old_pettem_total > 0 ? (emp.ret_pettem_cust + '/' + emp.old_pettem_total + ' KH cũ quay lại') : 'Chưa có tập KH cũ đầu kỳ';
+
+            var fnEsc = (emp.full_name || emp.name || '').replace(/'/g, "\\'");
+            var showFn = 'kpiShowOrders' in window ? ('kpiShowOrders(' + (emp.user_id || emp.id) + ',\'' + fnEsc + '\')') : ('kpiSaleShowOrders(' + (emp.user_id || emp.id) + ',\'' + fnEsc + '\')');
+
+            h += '<tr style="background:' + rowBg + ';cursor:pointer" onclick="' + showFn + '">';
+            h += '<td style="padding:8px 10px;border:1px solid #fed7aa;text-align:center;color:#94a3b8">' + (ti + 1) + '.' + (ei + 1) + '</td>';
+            h += '<td style="padding:8px 10px;border:1px solid #fed7aa;font-weight:700;color:#64748b">' + (emp.username || emp.user_id) + '</td>';
+            h += '<td style="padding:8px 10px;border:1px solid #fed7aa;font-weight:700;color:#1e293b">' + empIcon + ' ' + (emp.full_name || emp.name) + '</td>';
+
+            h += '<td style="padding:8px 10px;border:1px solid #fed7aa;text-align:center;font-weight:700;color:#475569">' + (emp.old_dp_total || 0) + '</td>';
+            h += '<td style="padding:8px 10px;border:1px solid #fed7aa;text-align:center;font-weight:800;color:#059669">' + (emp.ret_dp_cust || 0) + '</td>';
+            h += '<td style="padding:8px 10px;border:1px solid #fed7aa;text-align:center;font-weight:900;color:#c2410c" title="' + eDpTooltip + '">' + eDpText + '</td>';
+
+            h += '<td style="padding:8px 10px;border:1px solid #fed7aa;text-align:center;font-weight:700;color:#475569">' + (emp.old_pettem_total || 0) + '</td>';
+            h += '<td style="padding:8px 10px;border:1px solid #fed7aa;text-align:center;font-weight:800;color:#059669">' + (emp.ret_pettem_cust || 0) + '</td>';
+            h += '<td style="padding:8px 10px;border:1px solid #fed7aa;text-align:center;font-weight:900;color:#be185d" title="' + ePetTooltip + '">' + ePetText + '</td>';
+            h += '</tr>';
+        });
+    });
+
+    var s = data.summary || {};
+    var sDpText = s.rate_dp != null ? (s.rate_dp + '%') : '—';
+    var sPetText = s.rate_pettem != null ? (s.rate_pettem + '%') : '—';
+
+    h += '<tr style="background:#7c2d12;color:#fff;font-weight:900;font-size:13px">';
+    h += '<td style="padding:12px 10px;border:1px solid #9a3412;text-align:center" colspan="3">Σ TỔNG CỘNG TOÀN PHÒNG</td>';
+    h += '<td style="padding:12px 10px;border:1px solid #9a3412;text-align:center;color:#ffedd5">' + (s.old_dp_total || 0) + '</td>';
+    h += '<td style="padding:12px 10px;border:1px solid #9a3412;text-align:center;color:#34d399">' + (s.ret_dp_cust || 0) + '</td>';
+    h += '<td style="padding:12px 10px;border:1px solid #9a3412;text-align:center;color:#fbbf24;font-size:14px">' + sDpText + '</td>';
+
+    h += '<td style="padding:12px 10px;border:1px solid #9a3412;text-align:center;color:#fce7f3">' + (s.old_pettem_total || 0) + '</td>';
+    h += '<td style="padding:12px 10px;border:1px solid #9a3412;text-align:center;color:#34d399">' + (s.ret_pettem_cust || 0) + '</td>';
+    h += '<td style="padding:12px 10px;border:1px solid #9a3412;text-align:center;color:#f472b6;font-size:14px">' + sPetText + '</td>';
+    h += '</tr>';
+
+    h += '</tbody></table>';
+    h += '</div></div>';
+    return h;
+}
+
 // ===== Set KPI Modal =====
 function kpiOpenSetTargets() {
     if (!_kpi.data || !_kpi.data.teams) return;
