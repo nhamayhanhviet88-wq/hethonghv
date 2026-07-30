@@ -4,7 +4,7 @@ const ROLE_LABELS_CSO_SALE = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quả
 async function renderChuyensosalePage(container) {
     // Load dropdowns + departments + allowed depts config
     const [sourcesAll, sourcesCSO, promotions, industries, users, deptData, configData, pancakeSettingsData] = await Promise.all([
-        apiCall('/api/settings/sources?crm_type=sale'),
+        apiCall('/api/settings/sources-sale-active'),
         apiCall('/api/settings/sources-chuyensale'),
         apiCall('/api/settings/promotions'),
         apiCall('/api/settings/industries'),

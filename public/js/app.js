@@ -333,7 +333,7 @@ const _PAGE_SCRIPT_MAP = {
     'quan-ly-affiliate': '/js/pages/quanlyaffiliate.js',
     'dashboard-kdoanh': '/js/pages/dashboardkdoanh.js',
     'dashboardkdoanh': '/js/pages/dashboardkdoanh.js',
-    'settings': '/js/pages/settings.js',
+    'settings': '/js/pages/settings.js?v=20260730_v1',
     'caidatpancake': '/js/pages/caidatpancake.js?v=20260727_v382',
     'tu-van-khach-aff': '/js/pages/baocaohoahong.js',
     'theo-doi-tu-van-aff': '/js/pages/baocaohoahong.js',

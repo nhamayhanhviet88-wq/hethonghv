@@ -157,10 +157,10 @@ async function renderCaidatpancakePage(container) {
 async function loadPancakeData() {
     try {
         // Load sources first
-        const kdRes = await apiCall('/api/settings/sources');
+        const kdRes = await apiCall('/api/settings/sources-kdoanh');
         _kdSources = kdRes.items || [];
         
-        const saleRes = await apiCall('/api/settings/sources-sale');
+        const saleRes = await apiCall('/api/settings/sources-sale-active');
         _saleSources = saleRes.items || [];
 
         // Load active users list

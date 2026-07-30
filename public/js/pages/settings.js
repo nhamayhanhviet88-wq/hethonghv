@@ -11,8 +11,7 @@ async function renderSettingsPage(container) {
             <div class="card-body">
                 <div class="tabs" style="flex-wrap:wrap;">
                     <div class="tab active" data-tab="commission-tiers" onclick="switchSettingTab('commission-tiers', this)">💰 Tầng Hoa Hồng</div>
-                    <div class="tab" data-tab="sources" onclick="switchSettingTab('sources', this)">📍 Nguồn Khách NV Kinh Doanh</div>
-                    <div class="tab" data-tab="sources-sale" onclick="switchSettingTab('sources-sale', this)">📍 Nguồn Khách Sale</div>
+                    <div class="tab" data-tab="sources" onclick="switchSettingTab('sources', this)">📍 Nguồn Khách Hệ Thống</div>
                     <div class="tab" data-tab="promotions" onclick="switchSettingTab('promotions', this)">🎁 Khuyến Mãi</div>
                     <div class="tab" data-tab="industries" onclick="switchSettingTab('industries', this)">🏭 Lĩnh Vực</div>
                     <div class="tab" data-tab="dht-carriers" onclick="switchSettingTab('dht-carriers', this)">🚚 Nhà Vận Chuyển</div>
@@ -101,7 +100,9 @@ async function loadSettingsTab(type) {
                     </div>
                     <div class="item-actions" style="display:flex;gap:4px;align-items:center;">
                         ${isSources ? `
-                            <button class="btn btn-xs" onclick="toggleChuyenSo(${item.id})" style="background:${item.show_in_chuyenso ? '#dbeafe' : '#f3f4f6'};color:${item.show_in_chuyenso ? '#1e40af' : '#9ca3af'};border:1px solid ${item.show_in_chuyenso ? '#93c5fd' : '#e5e7eb'};padding:3px 7px;font-size:11px;cursor:pointer;" title="${item.show_in_chuyenso ? 'Đang hiện ở Chuyển Số — Bấm để ẩn' : 'Đang ẩn ở Chuyển Số — Bấm để hiện'}">📱${item.show_in_chuyenso ? '✅' : ''}</button>
+                            <button class="btn btn-xs" onclick="toggleSourceKdoanh(${item.id})" style="background:${item.show_in_kdoanh ? '#d1fae5' : '#f3f4f6'};color:${item.show_in_kdoanh ? '#065f46' : '#9ca3af'};border:1px solid ${item.show_in_kdoanh ? '#6ee7b7' : '#e5e7eb'};padding:3px 7px;font-size:11px;cursor:pointer;font-weight:700;" title="${item.show_in_kdoanh ? 'Đang bật ở CRM Kinh Doanh — Bấm để tắt' : 'Đang tắt ở CRM Kinh Doanh — Bấm để bật'}">⚙️ KD ${item.show_in_kdoanh ? '✅' : '❌'}</button>
+                            <button class="btn btn-xs" onclick="toggleSourceSale(${item.id})" style="background:${item.show_in_sale ? '#f3e8ff' : '#f3f4f6'};color:${item.show_in_sale ? '#6b21a8' : '#9ca3af'};border:1px solid ${item.show_in_sale ? '#c084fc' : '#e5e7eb'};padding:3px 7px;font-size:11px;cursor:pointer;font-weight:700;" title="${item.show_in_sale ? 'Đang bật ở CRM Sale — Bấm để tắt' : 'Đang tắt ở CRM Sale — Bấm để bật'}">🛍️ Sale ${item.show_in_sale ? '✅' : '❌'}</button>
+                            <button class="btn btn-xs" onclick="toggleChuyenSo(${item.id})" style="background:${item.show_in_chuyenso ? '#dbeafe' : '#f3f4f6'};color:${item.show_in_chuyenso ? '#1e40af' : '#9ca3af'};border:1px solid ${item.show_in_chuyenso ? '#93c5fd' : '#e5e7eb'};padding:3px 7px;font-size:11px;cursor:pointer;font-weight:700;" title="${item.show_in_chuyenso ? 'Đang hiện ở Chuyển Số — Bấm để ẩn' : 'Đang ẩn ở Chuyển Số — Bấm để hiện'}">📱 CS ${item.show_in_chuyenso ? '✅' : '❌'}</button>
                             <button class="btn btn-xs" onclick="reorderSettingItem('${type}', ${item.id}, 'up')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:3px 7px;font-size:13px;${isFirst ? 'opacity:0.3;pointer-events:none;' : 'cursor:pointer;'}" title="Di chuyển lên">⬆️</button>
                             <button class="btn btn-xs" onclick="reorderSettingItem('${type}', ${item.id}, 'down')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:3px 7px;font-size:13px;${isLast ? 'opacity:0.3;pointer-events:none;' : 'cursor:pointer;'}" title="Di chuyển xuống">⬇️</button>
                         ` : ''}
