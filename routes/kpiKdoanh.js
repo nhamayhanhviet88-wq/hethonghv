@@ -715,11 +715,15 @@ module.exports = async function(fastify) {
         const allCusts = Object.values(custMap);
         
         const prior_old_customers = allCusts.filter(c => {
-            return c.prior_orders_cnt > 0 || (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart));
+            return c.prior_orders_cnt > 0 || 
+                   (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart)) ||
+                   c.customer_type === 'cu';
         });
 
         const returning_old_customers = allCusts.filter(c => {
-            const isPriorOld = c.prior_orders_cnt > 0 || (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart));
+            const isPriorOld = c.prior_orders_cnt > 0 || 
+                               (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart)) ||
+                               c.customer_type === 'cu';
             if (isPriorOld) {
                 return c.month_orders_cnt > 0;
             } else {
@@ -728,8 +732,10 @@ module.exports = async function(fastify) {
         });
 
         const new_customers = allCusts.filter(c => {
-            const isNewCust = (!c.customer_created_at || new Date(c.customer_created_at) >= new Date(monthStart)) && c.prior_orders_cnt === 0;
-            return isNewCust && c.month_orders_cnt > 0;
+            const isPriorOld = c.prior_orders_cnt > 0 || 
+                               (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart)) ||
+                               c.customer_type === 'cu';
+            return (!isPriorOld) && c.month_orders_cnt > 0;
         });
 
         return {
