@@ -6,6 +6,26 @@ const { clearProductionCutoffCache } = require('../utils/productionMode');
 const appConfigCache = new Map();
 const CACHE_TTL_MS = 30000; // 30 seconds
 
+
+async function getPancakeLinkedSourceIds() {
+    const linkedIds = new Set();
+    try {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'pancake_settings'");
+        if (row && row.value) {
+            const config = JSON.parse(row.value);
+            const pages = config.pages || [];
+            pages.forEach(p => {
+                if (p.source_id) {
+                    linkedIds.add(Number(p.source_id));
+                }
+            });
+        }
+    } catch(e) {
+        console.error('[getPancakeLinkedSourceIds] Error:', e.message);
+    }
+    return linkedIds;
+}
+
 async function settingsRoutes(fastify, options) {
     // Migration: add sort_order + show_in_chuyenso columns if missing
     try {
@@ -61,6 +81,10 @@ async function settingsRoutes(fastify, options) {
         let items;
         if (config.table === 'settings_sources') {
             items = await db.all(`SELECT * FROM settings_sources ORDER BY sort_order ASC, id ASC`);
+            const pancakeLinkedIds = await getPancakeLinkedSourceIds();
+            items.forEach(item => {
+                item.is_pancake_linked = pancakeLinkedIds.has(Number(item.id));
+            });
         } else {
             const orderCol = 'id ASC';
             items = await db.all(`SELECT * FROM ${config.table} ORDER BY ${orderCol}`);
@@ -108,6 +132,14 @@ async function settingsRoutes(fastify, options) {
     fastify.put('/api/settings/:type/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const config = tables[request.params.type];
         if (!config) return reply.code(404).send({ error: 'Loại cài đặt không tồn tại' });
+        const id = Number(request.params.id);
+
+        if (config.table === 'settings_sources') {
+            const pancakeLinkedIds = await getPancakeLinkedSourceIds();
+            if (pancakeLinkedIds.has(id)) {
+                return reply.code(400).send({ error: 'Nguồn này đang liên kết Pancake — Không thể chỉnh sửa!' });
+            }
+        }
 
         const body = request.body || {};
         const sets = config.fields.map(f => `${f} = ?`).join(', ');
@@ -122,6 +154,14 @@ async function settingsRoutes(fastify, options) {
     fastify.delete('/api/settings/:type/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const config = tables[request.params.type];
         if (!config) return reply.code(404).send({ error: 'Loại cài đặt không tồn tại' });
+        const id = Number(request.params.id);
+
+        if (config.table === 'settings_sources') {
+            const pancakeLinkedIds = await getPancakeLinkedSourceIds();
+            if (pancakeLinkedIds.has(id)) {
+                return reply.code(400).send({ error: 'Nguồn này đang liên kết Pancake — Không thể xóa!' });
+            }
+        }
 
         await db.run(`DELETE FROM ${config.table} WHERE id = ?`, [Number(request.params.id)]);
         return { success: true, message: `Xóa ${config.label} thành công` };

@@ -96,6 +96,7 @@ async function loadSettingsTab(type) {
                     <div class="item-info" style="flex:1;display:flex;align-items:center;gap:8px;">
                         ${isSources ? `<span style="color:#9ca3af;font-size:11px;font-weight:700;min-width:22px;">#${idx+1}</span>` : ''}
                         <span class="fw-600">${item.name}</span>
+                        ${item.is_pancake_linked ? `<span style="background:#ede9fe;color:#6d28d9;border:1px solid #ddd6fe;font-weight:700;padding:2px 8px;border-radius:6px;font-size:11px;margin-left:6px;display:inline-flex;align-items:center;gap:4px;" title="Nguồn này đang kết nối với Trang Fanpage Pancake">🥞 Liên kết Pancake</span>` : ''}
                         ${isCommission ? `<span class="badge badge-info" style="margin-left: 8px;">TT: ${item.percentage}%</span><span class="badge" style="margin-left: 4px;background:#d1fae5;color:#065f46;">CT: ${item.parent_percentage || 0}%</span>` : ''}
                     </div>
                     <div class="item-actions" style="display:flex;gap:4px;align-items:center;">
@@ -108,8 +109,13 @@ async function loadSettingsTab(type) {
                             <button class="btn btn-xs" onclick="reorderSettingItem('${type}', ${item.id}, 'up')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:3px 7px;font-size:13px;${isFirst ? 'opacity:0.3;pointer-events:none;' : 'cursor:pointer;'}" title="Di chuyển lên">⬆️</button>
                             <button class="btn btn-xs" onclick="reorderSettingItem('${type}', ${item.id}, 'down')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:3px 7px;font-size:13px;${isLast ? 'opacity:0.3;pointer-events:none;' : 'cursor:pointer;'}" title="Di chuyển xuống">⬇️</button>
                         ` : ''}
-                        <button class="btn btn-xs btn-secondary" onclick="editSettingItem('${type}', ${item.id}, '${item.name.replace(/'/g, "\\'")}', ${isCommission ? item.percentage : 0}, ${isCommission ? (item.parent_percentage || 0) : 0})">✏️</button>
-                        <button class="btn btn-xs btn-danger" onclick="deleteSettingItem('${type}', ${item.id}, '${item.name.replace(/'/g, "\\'")}')">🗑️</button>
+                        ${item.is_pancake_linked ? `
+                            <button class="btn btn-xs btn-secondary" disabled style="opacity:0.35;cursor:not-allowed;" title="Nguồn này đã liên kết Pancake — Không thể chỉnh sửa">✏️</button>
+                            <button class="btn btn-xs btn-danger" disabled style="opacity:0.35;cursor:not-allowed;" title="Nguồn này đã liên kết Pancake — Không thể xóa">🗑️</button>
+                        ` : `
+                            <button class="btn btn-xs btn-secondary" onclick="editSettingItem('${type}', ${item.id}, '${item.name.replace(/'/g, "\\'")}', ${isCommission ? item.percentage : 0}, ${isCommission ? (item.parent_percentage || 0) : 0})">✏️</button>
+                            <button class="btn btn-xs btn-danger" onclick="deleteSettingItem('${type}', ${item.id}, '${item.name.replace(/'/g, "\\'")}')">🗑️</button>
+                        `}
                     </div>
                 </li>
             `;
