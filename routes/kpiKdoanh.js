@@ -263,6 +263,8 @@ module.exports = async function(fastify) {
                         d.id AS order_id, d.created_at,
                         c.assigned_to_id AS uid,
                         COALESCE(c.id::text, REGEXP_REPLACE(c.phone, '[^0-9]', '', 'g')) AS customer_key,
+                        c.customer_type AS cust_table_type,
+                        c.created_at AS customer_created_at,
                         CASE 
                             WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
                               OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
@@ -282,7 +284,11 @@ module.exports = async function(fastify) {
                       AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
                 ),
                 old_pool AS (
-                    SELECT DISTINCT uid, business_area, customer_key FROM valid_orders WHERE created_at < $${pStartIdx}::timestamp
+                    SELECT DISTINCT uid, business_area, customer_key 
+                    FROM valid_orders 
+                    WHERE created_at < $${pStartIdx}::timestamp 
+                       OR customer_created_at < $${pStartIdx}::timestamp 
+                       OR cust_table_type = 'cu'
                 ),
                 current_period_cust AS (
                     SELECT DISTINCT uid, business_area, customer_key FROM valid_orders WHERE created_at >= $${pStartIdx}::timestamp AND created_at < $${pEndIdx}::timestamp
