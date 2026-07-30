@@ -174,8 +174,8 @@ async function renderChuyenSoPage(container) {
                         ` : `
                         <div class="form-group">
                             <label>Nguồn Khách NV Kinh Doanh <span style="color:var(--danger)">*</span></label>
-                            <select id="csoSource" class="form-control" required>
-                                <option value="">-- Chọn nguồn --</option>
+                            <select id="csoSource" class="form-control" required disabled>
+                                <option value="">-- Vui lòng chọn CRM trước --</option>
                             </select>
                         </div>
                         `}
@@ -396,10 +396,18 @@ async function renderChuyenSoPage(container) {
     }
 
     function updateCsoSourceOptions() {
-        const crmVal = document.getElementById('csoCrm')?.value || 'nhu_cau';
+        const crmVal = document.getElementById('csoCrm')?.value || '';
         const sourceSel = document.getElementById('csoSource');
         if (!sourceSel) return;
 
+        if (!crmVal) {
+            sourceSel.disabled = true;
+            sourceSel.innerHTML = '<option value="">-- Vui lòng chọn CRM trước --</option>';
+            sourceSel.value = '';
+            return;
+        }
+
+        sourceSel.disabled = false;
         const csoSources = sources.chuyensoItems || [];
         let filtered = csoSources;
 

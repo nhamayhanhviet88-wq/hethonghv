@@ -208,7 +208,8 @@ async function renderChuyensosalePage(container) {
                         <div class="form-group">
                             <label>CRM <span style="color:var(--danger)">*</span></label>
                             <select id="csoSaleCrm" class="form-control" required>
-                                <option value="sale" selected>Chăm Sóc Khách Sale</option>
+                                <option value="" selected>-- Chọn CRM --</option>
+                                <option value="sale">Chăm Sóc Khách Sale</option>
                                 <option value="tem_pet">Chăm Sóc Khách TEM/PET</option>
                             </select>
                         </div>
@@ -223,8 +224,8 @@ async function renderChuyensosalePage(container) {
                         ` : `
                         <div class="form-group">
                             <label>Nguồn Khách Sale <span style="color:var(--danger)">*</span></label>
-                            <select id="csoSaleSource" class="form-control" required>
-                                <option value="">-- Chọn nguồn --</option>
+                            <select id="csoSaleSource" class="form-control" required disabled>
+                                <option value="">-- Vui lòng chọn CRM trước --</option>
                             </select>
                         </div>
                         `}
@@ -450,10 +451,18 @@ async function renderChuyensosalePage(container) {
     }
 
     function updateCsoSaleSourceOptions() {
-        const crmVal = document.getElementById('csoSaleCrm')?.value || 'sale';
+        const crmVal = document.getElementById('csoSaleCrm')?.value || '';
         const sourceSel = document.getElementById('csoSaleSource');
         if (!sourceSel) return;
 
+        if (!crmVal) {
+            sourceSel.disabled = true;
+            sourceSel.innerHTML = '<option value="">-- Vui lòng chọn CRM trước --</option>';
+            sourceSel.value = '';
+            return;
+        }
+
+        sourceSel.disabled = false;
         const csoSources = sources.chuyensoItems || [];
         let filtered = csoSources;
 
