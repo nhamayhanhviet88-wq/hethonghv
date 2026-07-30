@@ -871,6 +871,8 @@ module.exports = async function(fastify) {
                     d.created_at,
                     c.assigned_to_id AS uid,
                     COALESCE(c.id::text, REGEXP_REPLACE(c.phone, '[^0-9]', '', 'g')) AS customer_key,
+                    c.customer_type AS cust_table_type,
+                    c.created_at AS customer_created_at,
                     CASE 
                         WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
                           OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
@@ -904,41 +906,39 @@ module.exports = async function(fastify) {
                 WHERE created_at >= $${pStart}::timestamp AND created_at < $${pEnd}::timestamp
                 GROUP BY uid
             ),
-            old_pool AS (
+            prior_cust AS (
                 SELECT DISTINCT uid, business_area, customer_key
                 FROM valid_orders
-                WHERE created_at < $${pStart}::timestamp
+                WHERE created_at < $${pStart}::timestamp 
+                   OR customer_created_at < $${pStart}::timestamp 
+                   OR cust_table_type = 'cu'
             ),
-            current_period_cust AS (
-                SELECT DISTINCT uid, business_area, customer_key
+            current_orders AS (
+                SELECT uid, business_area, customer_key, COUNT(DISTINCT order_id) AS order_cnt
                 FROM valid_orders
                 WHERE created_at >= $${pStart}::timestamp AND created_at < $${pEnd}::timestamp
+                GROUP BY uid, business_area, customer_key
             ),
-            retention_stats AS (
-                SELECT
-                    p.uid,
-                    p.business_area,
-                    COUNT(DISTINCT p.customer_key) AS old_customer_total,
-                    COUNT(DISTINCT CASE WHEN c.customer_key IS NOT NULL THEN p.customer_key END) AS returning_customer_total
-                FROM old_pool p
-                LEFT JOIN current_period_cust c
-                    ON c.customer_key = p.customer_key
-                   AND c.business_area = p.business_area
-                   AND c.uid = p.uid
-                GROUP BY p.uid, p.business_area
+            old_pool AS (
+                SELECT uid, business_area, customer_key FROM prior_cust
+                UNION
+                SELECT uid, business_area, customer_key FROM current_orders WHERE order_cnt >= 2
+            ),
+            returning_cust AS (
+                SELECT DISTINCT c.uid, c.business_area, c.customer_key
+                FROM current_orders c
+                JOIN old_pool p ON p.uid = c.uid AND p.customer_key = c.customer_key AND p.business_area = c.business_area
             )
             SELECT 
                 u.id AS uid,
                 COALESCE(po.total_orders, 0) AS total_orders,
                 COALESCE(po.total_revenue, 0) AS total_revenue,
-                COALESCE(rs_dp.old_customer_total, 0) AS old_dp_total,
-                COALESCE(rs_dp.returning_customer_total, 0) AS ret_dp_cust,
-                COALESCE(rs_pettem.old_customer_total, 0) AS old_pettem_total,
-                COALESCE(rs_pettem.returning_customer_total, 0) AS ret_pettem_cust
+                COALESCE((SELECT COUNT(DISTINCT customer_key) FROM old_pool WHERE uid = u.id AND business_area = 'dp'), 0) AS old_dp_total,
+                COALESCE((SELECT COUNT(DISTINCT customer_key) FROM returning_cust WHERE uid = u.id AND business_area = 'dp'), 0) AS ret_dp_cust,
+                COALESCE((SELECT COUNT(DISTINCT customer_key) FROM old_pool WHERE uid = u.id AND business_area = 'pettem'), 0) AS old_pettem_total,
+                COALESCE((SELECT COUNT(DISTINCT customer_key) FROM returning_cust WHERE uid = u.id AND business_area = 'pettem'), 0) AS ret_pettem_cust
             FROM (SELECT unnest(ARRAY[${ph}]::int[]) AS id) u
             LEFT JOIN period_orders po ON po.uid = u.id
-            LEFT JOIN retention_stats rs_dp ON rs_dp.uid = u.id AND rs_dp.business_area = 'dp'
-            LEFT JOIN retention_stats rs_pettem ON rs_pettem.uid = u.id AND rs_pettem.business_area = 'pettem'
         `, [...userIds, current.start, current.end]);
 
         const leaderboard = leaderRows.map(r => {
