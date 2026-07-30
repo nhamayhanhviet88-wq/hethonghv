@@ -13,6 +13,8 @@ async function settingsRoutes(fastify, options) {
         await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS show_in_chuyenso BOOLEAN DEFAULT false`);
         await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS show_in_kdoanh BOOLEAN DEFAULT true`);
         await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS show_in_sale BOOLEAN DEFAULT true`);
+        await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS show_in_dp BOOLEAN DEFAULT true`);
+        await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS show_in_pettem BOOLEAN DEFAULT true`);
         // Initialize sort_order for existing rows that have 0
         const rows = await db.all('SELECT id FROM settings_sources WHERE sort_order = 0 OR sort_order IS NULL ORDER BY id ASC');
         for (let i = 0; i < rows.length; i++) {
@@ -86,7 +88,7 @@ async function settingsRoutes(fastify, options) {
             const nextOrder = (maxRow?.mx || 0) + 1;
             
             const result = await db.run(
-                `INSERT INTO settings_sources (name, sort_order, show_in_kdoanh, show_in_sale, show_in_chuyenso) VALUES ($1, $2, true, true, false)`,
+                `INSERT INTO settings_sources (name, sort_order, show_in_kdoanh, show_in_sale, show_in_dp, show_in_pettem, show_in_chuyenso) VALUES ($1, $2, true, true, true, true, false)`,
                 [body.name, nextOrder]
             );
             const item = await db.get(`SELECT * FROM settings_sources WHERE id = $1`, [result.lastInsertRowid]);
@@ -160,6 +162,38 @@ async function settingsRoutes(fastify, options) {
         const newVal = !row.show_in_chuyenso;
         await db.run('UPDATE settings_sources SET show_in_chuyenso = $1 WHERE id = $2', [newVal, id]);
         return { success: true, show_in_chuyenso: newVal, message: newVal ? 'Đã hiện ở Chuyển Số' : 'Đã ẩn khỏi Chuyển Số' };
+    });
+
+    // ===== Toggle show_in_dp =====
+    fastify.put('/api/source-dp-toggle/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const row = await db.get('SELECT show_in_dp FROM settings_sources WHERE id = $1', [id]);
+        if (!row) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const newVal = !row.show_in_dp;
+        await db.run('UPDATE settings_sources SET show_in_dp = $1 WHERE id = $2', [newVal, id]);
+        return { success: true, show_in_dp: newVal, message: newVal ? 'Đã bật ở Lĩnh Vực Đồng Phục' : 'Đã tắt khỏi Lĩnh Vực Đồng Phục' };
+    });
+
+    // ===== Toggle show_in_pettem =====
+    fastify.put('/api/source-pettem-toggle/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const row = await db.get('SELECT show_in_pettem FROM settings_sources WHERE id = $1', [id]);
+        if (!row) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const newVal = !row.show_in_pettem;
+        await db.run('UPDATE settings_sources SET show_in_pettem = $1 WHERE id = $2', [newVal, id]);
+        return { success: true, show_in_pettem: newVal, message: newVal ? 'Đã bật ở Lĩnh Vực PET/TEM' : 'Đã tắt khỏi Lĩnh Vực PET/TEM' };
+    });
+
+    // ===== Get sources visible in Lĩnh Vực Đồng Phục =====
+    fastify.get('/api/settings/sources-dp', { preHandler: [authenticate] }, async (request, reply) => {
+        const items = await db.all("SELECT * FROM settings_sources WHERE show_in_dp = true ORDER BY sort_order ASC, id ASC");
+        return { items };
+    });
+
+    // ===== Get sources visible in Lĩnh Vực PET/TEM =====
+    fastify.get('/api/settings/sources-pettem', { preHandler: [authenticate] }, async (request, reply) => {
+        const items = await db.all("SELECT * FROM settings_sources WHERE show_in_pettem = true ORDER BY sort_order ASC, id ASC");
+        return { items };
     });
 
     // ===== Toggle show_in_kdoanh =====

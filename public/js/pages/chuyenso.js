@@ -4,7 +4,7 @@ const ROLE_LABELS_CSO = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý
 async function renderChuyenSoPage(container) {
     // Load dropdowns + departments + allowed depts config
     const [sourcesAll, sourcesCSO, promotions, industries, users, deptData, configData] = await Promise.all([
-        apiCall('/api/settings/sources'),
+        apiCall('/api/settings/sources-dp'),
         apiCall('/api/settings/sources-chuyenso'),
         apiCall('/api/settings/promotions'),
         apiCall('/api/settings/industries'),
