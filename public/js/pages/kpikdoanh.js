@@ -3,6 +3,17 @@
 
 var _kpi = { month: '', data: null };
 
+if (typeof window.formatVND !== 'function') {
+    window.formatVND = function(val) {
+        if (val == null || isNaN(val)) return '0đ';
+        return Math.round(val).toLocaleString('vi-VN') + 'đ';
+    };
+}
+function formatVND(val) {
+    if (val == null || isNaN(val)) return '0đ';
+    return Math.round(val).toLocaleString('vi-VN') + 'đ';
+}
+
 async function renderKpikdoanhPage(container) {
     if (!_kpi.month) {
         const now = vnNow();

@@ -21,6 +21,7 @@ function formatVND(val) {
     if (!val || isNaN(val)) return '0đ';
     return Number(val).toLocaleString('vi-VN') + 'đ';
 }
+window.formatVND = formatVND;
 
 function compactVND(val) {
     var n = Math.abs(Number(val));
