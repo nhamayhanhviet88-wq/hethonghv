@@ -3418,7 +3418,7 @@ window.kpiFilterModalOrders = function(filterType) {
     tabs.forEach(btn => {
         if (btn.getAttribute('data-filter') === filterType) {
             btn.style.outline = '2px solid #2563eb';
-            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.2)';
+            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.3)';
         } else {
             btn.style.outline = 'none';
             btn.style.boxShadow = 'none';
@@ -3427,26 +3427,37 @@ window.kpiFilterModalOrders = function(filterType) {
 
     let filtered = _kpiModalOrders;
     if (filterType === 'moi') filtered = _kpiModalOrders.filter(o => o.customer_type === 'moi');
+    else if (filterType === 'cu_dp') filtered = _kpiModalOrders.filter(o => o.customer_type === 'cu' && !o.is_pet_tem);
+    else if (filterType === 'cu_pettem') filtered = _kpiModalOrders.filter(o => o.customer_type === 'cu' && o.is_pet_tem);
     else if (filterType === 'cu') filtered = _kpiModalOrders.filter(o => o.customer_type === 'cu');
+    else if (filterType === 'dp') filtered = _kpiModalOrders.filter(o => !o.is_pet_tem);
+    else if (filterType === 'pettem') filtered = _kpiModalOrders.filter(o => o.is_pet_tem);
 
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">📭 Không có đơn hàng nào khớp bộ lọc này</td></tr>';
         return;
     }
 
-    tbody.innerHTML = filtered.map((o, idx) => `
+    tbody.innerHTML = filtered.map((o, idx) => {
+        let badgeHtml = o.customer_type === 'moi'
+            ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">🟢 Khách Mới</span>'
+            : (o.is_pet_tem 
+                ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#faf5ff;color:#7c3aed;border:1px solid #e9d5ff">🏷️ Khách Cũ PET/TEM</span>'
+                : '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a">👔 Khách Cũ Đ.Phục</span>');
+
+        return `
         <tr>
             <td style="text-align:center">${idx + 1}</td>
             <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
             <td>${o.customer_name || '—'}</td>
             <td>${_kpiCleanPhone(o.customer_phone)}</td>
             <td style="font-weight:800;color:#1e1b4b">${o.sale_name || '—'}</td>
-            <td style="text-align:center"><span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:${o.customer_type === 'moi' ? '#dcfce7' : '#fef3c7'};color:${o.customer_type === 'moi' ? '#15803d' : '#b45309'}">${o.customer_type === 'moi' ? 'Khách Mới' : 'Khách Cũ'}</span></td>
+            <td style="text-align:center">${badgeHtml}</td>
             <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
             <td style="font-weight:800;color:#059669">${kpiFmtFull(o.revenue || 0)}đ</td>
             <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
         </tr>
-    `).join('');
+    `}).join('');
 };
 
 async function kpiShowOrders(userId, userName) {
@@ -3467,10 +3478,12 @@ async function kpiShowOrders(userId, userName) {
         if (summary) {
             const s = res.summary || {};
             summary.innerHTML = `
-                <button type="button" class="kpi-ord-filter-btn" data-filter="all" onclick="kpiFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="all" onclick="kpiFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
                 <button type="button" class="kpi-ord-filter-btn" data-filter="moi" onclick="kpiFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Khách Mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
                 <button type="button" class="kpi-ord-filter-btn" data-filter="cu_dp" onclick="kpiFilterModalOrders('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Khách Cũ Đồng Phục: <strong style="color:#d97706">${s.old_orders_dp || 0}</strong></button>
                 <button type="button" class="kpi-ord-filter-btn" data-filter="cu_pettem" onclick="kpiFilterModalOrders('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700">Khách Cũ PET/TEM: <strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="dp" onclick="kpiFilterModalOrders('dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;cursor:pointer;font-weight:700">👔 LV Đồng Phục: <strong style="color:#c2410c">${s.total_lv_dp || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="pettem" onclick="kpiFilterModalOrders('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700">🏷️ LV PET/TEM: <strong style="color:#be185d">${s.total_lv_pettem || 0}</strong></button>
                 <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${kpiFmtFull(s.total_revenue || 0)}đ</strong></span>
             `;
         }
@@ -3499,10 +3512,12 @@ async function kpiShowTeamOrders(deptId, deptName) {
         if (summary) {
             const s = res.summary || {};
             summary.innerHTML = `
-                <button type="button" class="kpi-ord-filter-btn" data-filter="all" onclick="kpiFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;outline:2px solid #2563eb;box-shadow:0 2px 8px rgba(37,99,235,0.2)">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="all" onclick="kpiFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
                 <button type="button" class="kpi-ord-filter-btn" data-filter="moi" onclick="kpiFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Khách Mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
                 <button type="button" class="kpi-ord-filter-btn" data-filter="cu_dp" onclick="kpiFilterModalOrders('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Khách Cũ Đồng Phục: <strong style="color:#d97706">${s.old_orders_dp || 0}</strong></button>
                 <button type="button" class="kpi-ord-filter-btn" data-filter="cu_pettem" onclick="kpiFilterModalOrders('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700">Khách Cũ PET/TEM: <strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="dp" onclick="kpiFilterModalOrders('dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;cursor:pointer;font-weight:700">👔 LV Đồng Phục: <strong style="color:#c2410c">${s.total_lv_dp || 0}</strong></button>
+                <button type="button" class="kpi-ord-filter-btn" data-filter="pettem" onclick="kpiFilterModalOrders('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700">🏷️ LV PET/TEM: <strong style="color:#be185d">${s.total_lv_pettem || 0}</strong></button>
                 <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${kpiFmtFull(s.total_revenue || 0)}đ</strong></span>
             `;
         }
