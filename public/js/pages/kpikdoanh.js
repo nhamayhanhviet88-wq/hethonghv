@@ -3480,9 +3480,7 @@ function kpiApplyModalFilters() {
     tbody.innerHTML = filtered.map((o, idx) => {
         let badgeHtml = o.customer_type === 'moi'
             ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">🟢 Khách Mới</span>'
-            : (o.is_pet_tem 
-                ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;background:#faf5ff;color:#7c3aed;border:1px solid #e9d5ff">🏷️ Khách Cũ PET/TEM</span>'
-                : '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;background:#fef3c7;color:#b45309;border:1px solid #fde68a">👔 Khách Cũ Đ.Phục</span>');
+            : '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;background:#fef3c7;color:#b45309;border:1px solid #fde68a">🟧 Khách Cũ</span>';
 
         return `
         <tr>
