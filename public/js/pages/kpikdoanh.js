@@ -921,7 +921,7 @@ function renderRetentionTableSection(data) {
             var ePetTooltip = emp.old_pettem_total > 0 ? (emp.ret_pettem_cust + '/' + emp.old_pettem_total + ' KH cũ quay lại') : 'Chưa có tập KH cũ đầu kỳ';
 
             var fnEsc = (emp.full_name || emp.name || '').replace(/'/g, "\\'");
-            var showFn = 'kpiShowOrders' in window ? ('kpiShowOrders(' + (emp.user_id || emp.id) + ',\'' + fnEsc + '\')') : ('kpiSaleShowOrders(' + (emp.user_id || emp.id) + ',\'' + fnEsc + '\')');
+            var showFn = 'kpiShowRetentionDetail(' + (emp.user_id || emp.id) + ',\'' + fnEsc + '\')';
 
             h += '<tr style="background:' + rowBg + ';cursor:pointer" onclick="' + showFn + '">';
             h += '<td style="padding:8px 10px;border:1px solid #fed7aa;text-align:center;color:#94a3b8">' + (ti + 1) + '.' + (ei + 1) + '</td>';
@@ -3595,3 +3595,212 @@ function kpiCloseOrdersModal() {
     const modal = document.getElementById('kpiOrdersModal');
     if (modal) modal.style.display = 'none';
 }
+
+// ========== NEW RETENTION DETAIL MODAL (BẢNG 2) ==========
+let _retentionDetailData = null;
+let _retentionFilterLv = 'all'; // 'all', 'dp', 'pettem'
+let _retentionTabGroup = 'returning'; // 'returning', 'prior_old', 'new'
+
+window.kpiShowRetentionDetail = async function(userId, empName) {
+    const modal = _kpiEnsureRetentionModal();
+    const title = document.getElementById('kpiRetentionModalTitle');
+    const container = document.getElementById('kpiRetentionModalContent');
+
+    const monthStr = (window._kpi && window._kpi.month) || (window._kpiSale && window._kpiSale.month) || '2026-07';
+    if (title) title.textContent = `📊 Thống Kê Phân Loại Khách Hàng — NV ${empName} — Tháng ${monthStr}`;
+    if (container) container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;font-weight:700">⏳ Đang tải dữ liệu phân loại khách hàng...</div>';
+    modal.style.display = 'flex';
+
+    try {
+        const apiUrl = `/api/kpi-kdoanh/employee-retention-detail?user_id=${userId}&month=${monthStr}`;
+        const res = await apiCall(apiUrl);
+        _retentionDetailData = res;
+        _retentionFilterLv = 'all';
+        _retentionTabGroup = 'returning';
+        
+        kpiRenderRetentionModalUI();
+    } catch(err) {
+        if (container) container.innerHTML = `<div style="text-align:center;padding:30px;color:#ef4444;font-weight:700">❌ Lỗi: ${err.message}</div>`;
+    }
+};
+
+function _kpiEnsureRetentionModal() {
+    let modal = document.getElementById('kpiRetentionModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'kpiRetentionModal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px';
+        modal.innerHTML = `
+            <div style="background:#fff;border-radius:20px;width:100%;max-width:1050px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;font-family:inherit">
+                <!-- Header -->
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+                    <h3 id="kpiRetentionModalTitle" style="margin:0;font-size:16px;font-weight:800;color:#1e293b;display:flex;align-items:center;gap:8px">
+                        📊 Thống Kê Phân Loại Khách Hàng
+                    </h3>
+                    <button type="button" onclick="kpiCloseRetentionModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#64748b;padding:4px;border-radius:50%;line-height:1">✕</button>
+                </div>
+                <!-- Content -->
+                <div id="kpiRetentionModalContent" style="padding:20px 24px;overflow-y:auto;flex:1"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) kpiCloseRetentionModal();
+        });
+    }
+    return modal;
+}
+
+window.kpiCloseRetentionModal = function() {
+    const modal = document.getElementById('kpiRetentionModal');
+    if (modal) modal.style.display = 'none';
+};
+
+function kpiRenderRetentionModalUI() {
+    const container = document.getElementById('kpiRetentionModalContent');
+    if (!container || !_retentionDetailData) return;
+
+    const data = _retentionDetailData;
+    const filterLv = _retentionFilterLv;
+
+    const filterByArea = (list) => {
+        if (filterLv === 'all') return list;
+        return list.filter(c => c.business_area === filterLv);
+    };
+
+    const priorList = filterByArea(data.prior_old_customers || []);
+    const returningList = filterByArea(data.returning_old_customers || []);
+    const newList = filterByArea(data.new_customers || []);
+
+    const priorTotalRev = priorList.reduce((s, c) => s + (c.month_revenue || 0), 0);
+    const returningTotalRev = returningList.reduce((s, c) => s + (c.month_revenue || 0), 0);
+    const newTotalRev = newList.reduce((s, c) => s + (c.month_revenue || 0), 0);
+
+    let html = `
+    <div style="display:flex;flex-direction:column;gap:16px">
+        <!-- Hàng 1: Chọn Lĩnh Vực -->
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;flex-wrap:wrap">
+            <span style="color:#475569;min-width:100px;display:flex;align-items:center;gap:4px">
+                🏢 <strong>Lĩnh Vực:</strong>
+            </span>
+            <button type="button" onclick="kpiFilterRetentionLv('all')" style="padding:6px 14px;border-radius:10px;border:1px solid ${filterLv==='all'?'#2563eb':'#cbd5e1'};background:${filterLv==='all'?'#eff6ff':'#fff'};cursor:pointer;font-weight:800;font-size:12px;font-family:inherit;color:${filterLv==='all'?'#1d4ed8':'#475569'}">Tất cả lĩnh vực</button>
+            <button type="button" onclick="kpiFilterRetentionLv('dp')" style="padding:6px 14px;border-radius:10px;border:1px solid ${filterLv==='dp'?'#c2410c':'#fed7aa'};background:${filterLv==='dp'?'#fff7ed':'#fff'};cursor:pointer;font-weight:800;font-size:12px;font-family:inherit;color:${filterLv==='dp'?'#c2410c':'#475569'}">👔 LV Đồng Phục</button>
+            <button type="button" onclick="kpiFilterRetentionLv('pettem')" style="padding:6px 14px;border-radius:10px;border:1px solid ${filterLv==='pettem'?'#be185d':'#fbcfe8'};background:${filterLv==='pettem'?'#fdf2f8':'#fff'};cursor:pointer;font-weight:800;font-size:12px;font-family:inherit;color:${filterLv==='pettem'?'#be185d':'#475569'}">🏷️ LV PET/TEM</button>
+        </div>
+
+        <!-- Hàng 2: 3 Cards Thống Kê Tổng Quan -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px">
+            <!-- Card 1: KH Cũ Trước Tháng -->
+            <div onclick="kpiSelectRetentionTab('prior_old')" style="padding:14px 18px;border-radius:14px;background:${_retentionTabGroup==='prior_old'?'#eff6ff':'#f8fafc'};border:2px solid ${_retentionTabGroup==='prior_old'?'#3b82f6':'#cbd5e1'};cursor:pointer;transition:all 0.2s">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font-size:13px;font-weight:800;color:#334155">👥 KH Cũ Trước Tháng</span>
+                    <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:#e2e8f0;color:#475569">Tệp Tích Lũy</span>
+                </div>
+                <div style="font-size:24px;font-weight:900;color:#1e293b;margin-top:6px">${priorList.length} <span style="font-size:13px;font-weight:700;color:#64748b">Khách hàng</span></div>
+                <div style="font-size:12px;font-weight:700;color:#64748b;margin-top:4px">Doanh số tháng: <strong style="color:#0284c7">${formatVND(priorTotalRev)}</strong></div>
+            </div>
+
+            <!-- Card 2: KH Cũ Chốt Trong Tháng -->
+            <div onclick="kpiSelectRetentionTab('returning')" style="padding:14px 18px;border-radius:14px;background:${_retentionTabGroup==='returning'?'#fffbeb':'#fff7ed'};border:2px solid ${_retentionTabGroup==='returning'?'#f59e0b':'#fde68a'};cursor:pointer;transition:all 0.2s">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font-size:13px;font-weight:800;color:#b45309">🔄 KH Cũ Chốt Trong Tháng</span>
+                    <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:#fef3c7;color:#b45309">KH Quay Lại</span>
+                </div>
+                <div style="font-size:24px;font-weight:900;color:#d97706;margin-top:6px">${returningList.length} <span style="font-size:13px;font-weight:700;color:#b45309">Khách hàng</span></div>
+                <div style="font-size:12px;font-weight:700;color:#b45309;margin-top:4px">Doanh số quay lại: <strong style="color:#dc2626">${formatVND(returningTotalRev)}</strong></div>
+            </div>
+
+            <!-- Card 3: KH Mới Chốt Trong Tháng -->
+            <div onclick="kpiSelectRetentionTab('new')" style="padding:14px 18px;border-radius:14px;background:${_retentionTabGroup==='new'?'#f0fdf4':'#f8fafc'};border:2px solid ${_retentionTabGroup==='new'?'#22c55e':'#bbf7d0'};cursor:pointer;transition:all 0.2s">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font-size:13px;font-weight:800;color:#15803d">🟢 KH Mới Chốt Trong Tháng</span>
+                    <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:#dcfce7;color:#15803d">Khách Mới</span>
+                </div>
+                <div style="font-size:24px;font-weight:900;color:#16a34a;margin-top:6px">${newList.length} <span style="font-size:13px;font-weight:700;color:#15803d">Khách hàng</span></div>
+                <div style="font-size:12px;font-weight:700;color:#15803d;margin-top:4px">Doanh số mới: <strong style="color:#16a34a">${formatVND(newTotalRev)}</strong></div>
+            </div>
+        </div>
+
+        <!-- Hàng 3: Danh sách Chi Tiết Khách Hàng -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+            <h4 style="margin:0;font-size:14px;font-weight:800;color:#1e293b;display:flex;align-items:center;gap:6px">
+                📋 Danh Sách: ${
+                    _retentionTabGroup === 'returning' ? '🔄 Khách Hàng Cũ Chốt Đơn Trong Tháng' :
+                    _retentionTabGroup === 'prior_old' ? '👥 Tất Cả Khách Hàng Cũ Trước Tháng' :
+                    '🟢 Khách Hàng Mới Chốt Đơn Trong Tháng'
+                }
+            </h4>
+        </div>
+
+        <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead>
+                    <tr style="background:#f1f5f9;color:#334155;font-weight:800">
+                        <th style="padding:10px;border-bottom:1px solid #cbd5e1;text-align:center;width:40px">STT</th>
+                        <th style="padding:10px;border-bottom:1px solid #cbd5e1;text-align:left">Tên Khách Hàng</th>
+                        <th style="padding:10px;border-bottom:1px solid #cbd5e1;text-align:left">Số Điện Thoại</th>
+                        <th style="padding:10px;border-bottom:1px solid #cbd5e1;text-align:center">Lĩnh Vực</th>
+                        <th style="padding:10px;border-bottom:1px solid #cbd5e1;text-align:center">Đơn Đầu Tiên</th>
+                        <th style="padding:10px;border-bottom:1px solid #cbd5e1;text-align:center">Số Đơn Tháng Này</th>
+                        <th style="padding:10px;border-bottom:1px solid #cbd5e1;text-align:right">Doanh Số Tháng Này</th>
+                        <th style="padding:10px;border-bottom:1px solid #cbd5e1;text-align:center">Trạng Thái</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    let targetList = [];
+    if (_retentionTabGroup === 'returning') targetList = returningList;
+    else if (_retentionTabGroup === 'prior_old') targetList = priorList;
+    else if (_retentionTabGroup === 'new') targetList = newList;
+
+    if (targetList.length === 0) {
+        html += `<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">Không có khách hàng nào trong nhóm này</td></tr>`;
+    } else {
+        targetList.forEach((c, idx) => {
+            const firstDateStr = c.first_order_date ? new Date(c.first_order_date).toLocaleDateString('vi-VN') : '—';
+            const areaBadge = c.business_area === 'pettem' ?
+                '<span style="padding:2px 8px;border-radius:6px;background:#fdf2f8;color:#be185d;font-weight:800">🏷️ PET/TEM</span>' :
+                '<span style="padding:2px 8px;border-radius:6px;background:#fff7ed;color:#c2410c;font-weight:800">👔 Đồng Phục</span>';
+
+            const statusBadge = _retentionTabGroup === 'new' ?
+                '<span style="padding:2px 8px;border-radius:6px;background:#f0fdf4;color:#16a34a;font-weight:800">🟢 Khách Mới</span>' :
+                (c.month_orders_cnt > 0 ?
+                    '<span style="padding:2px 8px;border-radius:6px;background:#fffbeb;color:#b45309;font-weight:800">🟧 Khách Cũ Quay Lại</span>' :
+                    '<span style="padding:2px 8px;border-radius:6px;background:#f1f5f9;color:#64748b;font-weight:700">⚪ Khách Cũ Chưa Mua</span>');
+
+            html += `
+                <tr style="border-bottom:1px solid #f1f5f9;background:${idx%2===0?'#ffffff':'#f8fafc'}">
+                    <td style="padding:10px;text-align:center;color:#64748b;font-weight:700">${idx + 1}</td>
+                    <td style="padding:10px;font-weight:800;color:#1e293b">${c.customer_name || 'Khách hàng'}</td>
+                    <td style="padding:10px;font-weight:700;color:#475569">${c.customer_phone || '—'}</td>
+                    <td style="padding:10px;text-align:center">${areaBadge}</td>
+                    <td style="padding:10px;text-align:center;color:#64748b">${firstDateStr}</td>
+                    <td style="padding:10px;text-align:center;font-weight:800;color:#0284c7">${c.month_orders_cnt} đơn</td>
+                    <td style="padding:10px;text-align:right;font-weight:900;color:#dc2626">${formatVND(c.month_revenue)}</td>
+                    <td style="padding:10px;text-align:center">${statusBadge}</td>
+                </tr>
+            `;
+        });
+    }
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+window.kpiFilterRetentionLv = function(lv) {
+    _retentionFilterLv = lv;
+    kpiRenderRetentionModalUI();
+};
+
+window.kpiSelectRetentionTab = function(group) {
+    _retentionTabGroup = group;
+    kpiRenderRetentionModalUI();
+};

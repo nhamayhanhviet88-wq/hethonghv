@@ -614,6 +614,131 @@ module.exports = async function(fastify) {
         };
     });
 
+    // ===== GET /api/kpi-sale/employee-retention-detail =====
+    fastify.get('/api/kpi-sale/employee-retention-detail', { preHandler: [authenticate] }, async (request, reply) => {
+        const { user_id, month, startDate, endDate } = request.query;
+        if (!user_id) return reply.code(400).send({ error: 'Thiếu user_id' });
+
+        let monthStart, monthEnd, periodLabel;
+        if (startDate && endDate) {
+            monthStart = startDate + ' 00:00:00+07';
+            const endD = new Date(endDate + 'T00:00:00');
+            endD.setDate(endD.getDate() + 1);
+            monthEnd = `${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,'0')}-${String(endD.getDate()).padStart(2,'0')} 00:00:00+07`;
+            periodLabel = startDate + ' → ' + endDate;
+        } else if (month) {
+            const [year, mo] = month.split('-').map(Number);
+            monthStart = `${year}-${String(mo).padStart(2,'0')}-01 00:00:00+07`;
+            const nextMo = mo === 12 ? 1 : mo + 1;
+            const nextYear = mo === 12 ? year + 1 : year;
+            monthEnd = `${nextYear}-${String(nextMo).padStart(2,'0')}-01 00:00:00+07`;
+            periodLabel = `T${mo}/${year}`;
+        } else {
+            return reply.code(400).send({ error: 'Thiếu month hoặc startDate/endDate' });
+        }
+
+        const emp = await db.get('SELECT id, full_name FROM users WHERE id = $1', [user_id]);
+        if (!emp) return reply.code(404).send({ error: 'Không tìm thấy NV' });
+
+        const isDirector = request.user.role === 'giam_doc';
+        const isOwner = request.user.id === parseInt(user_id);
+        const canSeePhone = isDirector || isOwner || request.user.role === 'quan_ly_cap_cao';
+        const { maskPhone } = require('../utils/dataMasking');
+
+        const orders = await db.all(`
+            SELECT 
+                d.id AS order_id, d.order_code, d.created_at,
+                c.id AS customer_id,
+                COALESCE(NULLIF(c.customer_name, ''), d.customer_name) AS customer_name,
+                COALESCE(NULLIF(c.phone, ''), d.customer_phone) AS customer_phone,
+                c.customer_type,
+                c.created_at AS customer_created_at,
+                CASE 
+                    WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
+                      OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
+                      OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCTEM%'
+                      OR d.category_id IN (8, 9)
+                    THEN 'pettem'
+                    ELSE 'dp'
+                END AS business_area,
+                COALESCE(oi_sum.revenue, 0) AS revenue
+            FROM dht_orders d
+            JOIN order_codes oc ON oc.order_code = d.order_code
+            JOIN customers c ON oc.customer_id = c.id
+            LEFT JOIN dht_categories cat ON cat.id = d.category_id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(
+                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
+                    0
+                ) - COALESCE(d.vat_amount, 0) AS revenue
+            ) oi_sum ON true
+            WHERE c.assigned_to_id = $1
+              AND COALESCE(c.cancel_approved, 0) != 1
+              AND COALESCE(d.is_draft, false) = false
+              AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
+              AND d.created_at < $2::timestamptz
+            ORDER BY d.created_at ASC
+        `, [parseInt(user_id), monthEnd]);
+
+        const custMap = {};
+        for (const o of orders) {
+            const key = `${o.customer_id}_${o.business_area}`;
+            if (!custMap[key]) {
+                custMap[key] = {
+                    customer_id: o.customer_id,
+                    customer_name: o.customer_name,
+                    customer_phone: canSeePhone ? o.customer_phone : maskPhone(o.customer_phone),
+                    business_area: o.business_area,
+                    customer_created_at: o.customer_created_at,
+                    first_order_date: o.created_at,
+                    prior_orders_cnt: 0,
+                    month_orders_cnt: 0,
+                    month_revenue: 0,
+                    total_orders_cnt: 0
+                };
+            }
+            custMap[key].total_orders_cnt++;
+            const isPrior = new Date(o.created_at) < new Date(monthStart);
+            const isMonth = new Date(o.created_at) >= new Date(monthStart) && new Date(o.created_at) < new Date(monthEnd);
+
+            if (isPrior) {
+                custMap[key].prior_orders_cnt++;
+            }
+            if (isMonth) {
+                custMap[key].month_orders_cnt++;
+                custMap[key].month_revenue += parseFloat(o.revenue || 0);
+            }
+        }
+
+        const allCusts = Object.values(custMap);
+        
+        const prior_old_customers = allCusts.filter(c => {
+            return c.prior_orders_cnt > 0 || (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart));
+        });
+
+        const returning_old_customers = allCusts.filter(c => {
+            const isPriorOld = c.prior_orders_cnt > 0 || (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart));
+            if (isPriorOld) {
+                return c.month_orders_cnt > 0;
+            } else {
+                return c.month_orders_cnt >= 2;
+            }
+        });
+
+        const new_customers = allCusts.filter(c => {
+            const isNewCust = (!c.customer_created_at || new Date(c.customer_created_at) >= new Date(monthStart)) && c.prior_orders_cnt === 0;
+            return isNewCust && c.month_orders_cnt > 0;
+        });
+
+        return {
+            employee: emp,
+            periodLabel: periodLabel,
+            prior_old_customers,
+            returning_old_customers,
+            new_customers
+        };
+    });
+
     // ===== GET /api/kpi-sale/team-orders =====
     fastify.get('/api/kpi-sale/team-orders', { preHandler: [authenticate] }, async (request, reply) => {
         const { dept_id, month, startDate, endDate } = request.query;
