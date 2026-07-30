@@ -372,12 +372,16 @@ async function renderChuyenSoPage(container) {
             const row = document.getElementById('csoAffiliateRow');
             const jobRow = document.getElementById('csoJobTitleRow');
             const jobSel = document.getElementById('csoJobTitle');
-            if (isGD) {
+            if (this.value === 'tem_pet') {
+                row.style.display = 'none';
+                if (document.getElementById('csoAffiliate')) document.getElementById('csoAffiliate').value = '';
+                if (document.getElementById('csoAffiliateCrm')) document.getElementById('csoAffiliateCrm').value = '';
+            } else if (isGD) {
                 row.style.display = 'grid';
             } else {
                 row.style.display = 'none';
-                document.getElementById('csoAffiliate').value = '';
-                document.getElementById('csoAffiliateCrm').value = '';
+                if (document.getElementById('csoAffiliate')) document.getElementById('csoAffiliate').value = '';
+                if (document.getElementById('csoAffiliateCrm')) document.getElementById('csoAffiliateCrm').value = '';
             }
             // Load job titles for selected CRM
             const crmTypesWithJobs = [];
