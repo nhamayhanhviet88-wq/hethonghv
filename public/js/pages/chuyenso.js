@@ -176,10 +176,6 @@ async function renderChuyenSoPage(container) {
                             <label>Nguồn Khách NV Kinh Doanh <span style="color:var(--danger)">*</span></label>
                             <select id="csoSource" class="form-control" required>
                                 <option value="">-- Chọn nguồn --</option>
-                                ${(() => {
-                                    const csoSources = sources.chuyensoItems || [];
-                                    return csoSources.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-                                })()}
                             </select>
                         </div>
                         `}
@@ -394,7 +390,34 @@ async function renderChuyenSoPage(container) {
                 jobRow.style.display = 'none';
                 jobSel.innerHTML = '<option value="">-- Chọn Lĩnh Vực --</option>';
             }
+            updateCsoSourceOptions();
         });
+        updateCsoSourceOptions();
+    }
+
+    function updateCsoSourceOptions() {
+        const crmVal = document.getElementById('csoCrm')?.value || 'nhu_cau';
+        const sourceSel = document.getElementById('csoSource');
+        if (!sourceSel) return;
+
+        const csoSources = sources.chuyensoItems || [];
+        let filtered = csoSources;
+
+        if (crmVal === 'tem_pet') {
+            filtered = csoSources.filter(s => s.show_in_pettem === true || s.show_in_pettem === 'true' || s.show_in_pettem === 1);
+        } else {
+            filtered = csoSources.filter(s => s.show_in_dp === true || s.show_in_dp === 'true' || s.show_in_dp === 1);
+        }
+
+        const currentVal = sourceSel.value;
+        sourceSel.innerHTML = '<option value="">-- Chọn nguồn --</option>' +
+            filtered.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+        if (currentVal && filtered.some(s => String(s.id) === String(currentVal))) {
+            sourceSel.value = currentVal;
+        } else {
+            sourceSel.value = '';
+        }
     }
 
     // Auto-fill CRM TK when affiliate is selected
