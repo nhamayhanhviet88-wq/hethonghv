@@ -1657,32 +1657,80 @@ window.kpiSaleFilterModalOrders = function(filterType) {
     const tbody = document.getElementById('kpiSaleOrdersModalBody');
     if (!tbody || !_kpiSaleModalOrders) return;
 
-    const tabs = document.querySelectorAll('.kpi-sale-ord-filter-btn');
-    tabs.forEach(btn => {
-        if (btn.getAttribute('data-filter') === filterType) {
+let _kpiSaleModalFilterLv = 'all';
+let _kpiSaleModalFilterCust = 'all';
+
+window.kpiSaleFilterModalLv = function(lvType) {
+    _kpiSaleModalFilterLv = lvType;
+    kpiSaleApplyModalFilters();
+};
+
+window.kpiSaleFilterModalCust = function(custType) {
+    _kpiSaleModalFilterCust = custType;
+    kpiSaleApplyModalFilters();
+};
+
+function kpiSaleApplyModalFilters() {
+    const tbody = document.getElementById('kpiSaleOrdersModalBody');
+    if (!tbody || !_kpiSaleModalOrders) return;
+
+    document.querySelectorAll('.kpi-sale-lv-btn').forEach(btn => {
+        if (btn.getAttribute('data-lv') === _kpiSaleModalFilterLv) {
             btn.style.outline = '2px solid #2563eb';
-            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.2)';
+            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.3)';
+            btn.style.fontWeight = '800';
+            btn.style.opacity = '1';
         } else {
             btn.style.outline = 'none';
             btn.style.boxShadow = 'none';
+            btn.style.fontWeight = '600';
+            btn.style.opacity = '0.75';
+        }
+    });
+
+    document.querySelectorAll('.kpi-sale-cust-btn').forEach(btn => {
+        if (btn.getAttribute('data-cust') === _kpiSaleModalFilterCust) {
+            btn.style.outline = '2px solid #2563eb';
+            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.3)';
+            btn.style.fontWeight = '800';
+            btn.style.opacity = '1';
+        } else {
+            btn.style.outline = 'none';
+            btn.style.boxShadow = 'none';
+            btn.style.fontWeight = '600';
+            btn.style.opacity = '0.75';
         }
     });
 
     let filtered = _kpiSaleModalOrders;
-    if (filterType === 'moi') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'moi');
-    else if (filterType === 'cu_dp') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'cu' && !o.is_pet_tem);
-    else if (filterType === 'cu_pettem') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'cu' && o.is_pet_tem);
-    else if (filterType === 'cu') filtered = _kpiSaleModalOrders.filter(o => o.customer_type === 'cu');
+
+    if (_kpiSaleModalFilterLv === 'dp') {
+        filtered = filtered.filter(o => !o.is_pet_tem);
+    } else if (_kpiSaleModalFilterLv === 'pettem') {
+        filtered = filtered.filter(o => o.is_pet_tem);
+    }
+
+    if (_kpiSaleModalFilterCust === 'moi') {
+        filtered = filtered.filter(o => o.customer_type === 'moi');
+    } else if (_kpiSaleModalFilterCust === 'cu') {
+        filtered = filtered.filter(o => o.customer_type === 'cu');
+    } else if (_kpiSaleModalFilterCust === 'cu_dp') {
+        filtered = filtered.filter(o => o.customer_type === 'cu' && !o.is_pet_tem);
+    } else if (_kpiSaleModalFilterCust === 'cu_pettem') {
+        filtered = filtered.filter(o => o.customer_type === 'cu' && o.is_pet_tem);
+    }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">📭 Không có đơn hàng nào khớp bộ lọc này</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#94a3b8;font-weight:600">📭 Không có đơn hàng nào khớp bộ lọc đã chọn</td></tr>';
         return;
     }
 
     tbody.innerHTML = filtered.map((o, idx) => {
         let badgeHtml = o.customer_type === 'moi'
-            ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">🟢 Khách Mới</span>'
-            : '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fde68a">🟧 Khách Cũ</span>';
+            ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">🟢 Khách Mới</span>'
+            : (o.is_pet_tem 
+                ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;background:#faf5ff;color:#7c3aed;border:1px solid #e9d5ff">🏷️ Khách Cũ PET/TEM</span>'
+                : '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;background:#fef3c7;color:#b45309;border:1px solid #fde68a">👔 Khách Cũ Đ.Phục</span>');
 
         return `
         <tr>
@@ -1697,46 +1745,36 @@ window.kpiSaleFilterModalOrders = function(filterType) {
             <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
         </tr>
     `}).join('');
-};
+}
 
-function _kpiSaleEnsureOrdersModal() {
-    let modal = document.getElementById('kpiSaleOrdersModal');
-    if (modal) {
-        modal.remove(); // Re-create to ensure latest styled layout
-    }
-    modal = document.createElement('div');
-    modal.className = 'kpi-modal-overlay';
-    modal.id = 'kpiSaleOrdersModal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:99999!important;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px';
-    modal.innerHTML = `
-        <div class="kpi-modal" style="background:#fff;border-radius:20px;width:920px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);display:flex;flex-direction:column;padding:24px;color:#1e293b">
-            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:14px;margin-bottom:14px">
-                <h3 style="font-size:16px;font-weight:800;color:#1e293b;margin:0;display:flex;align-items:center;gap:8px">📦 Chi Tiết Đơn Hàng — <span id="kpiSaleOrdersModalTitle"></span></h3>
-                <button type="button" onclick="kpiSaleCloseOrdersModal()" style="background:#f1f5f9;border:none;color:#64748b;font-size:18px;font-weight:800;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .2s;flex-shrink:0" onmouseenter="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
-            </div>
-            <div id="kpiSaleOrdersModalSummary" style="background:#f8fafc;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;flex-wrap:wrap"></div>
-            <div style="max-height:60vh;overflow-y:auto">
-                <table class="kpi-tbl" style="width:100%">
-                    <thead>
-                        <tr>
-                            <th>STT</th>
-                            <th>Mã đơn</th>
-                            <th>Khách hàng</th>
-                            <th>SĐT</th>
-                            <th>NV Sale</th>
-                            <th>Loại khách</th>
-                            <th>Nguồn</th>
-                            <th>Doanh số</th>
-                            <th>Ngày chốt</th>
-                        </tr>
-                    </thead>
-                    <tbody id="kpiSaleOrdersModalBody"></tbody>
-                </table>
-            </div>
+function kpiSaleBuildModalSummaryHtml(s) {
+    return `
+    <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+        <!-- Hàng 1: Chọn Lĩnh Vực -->
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;flex-wrap:wrap">
+            <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
+                🏢 <strong>Lĩnh Vực:</strong>
+            </span>
+            <button type="button" class="kpi-sale-lv-btn" data-lv="all" onclick="kpiSaleFilterModalLv('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;color:#1e293b">Tất cả lĩnh vực (<strong style="color:#2563eb">${s.total || 0}</strong>)</button>
+            <button type="button" class="kpi-sale-lv-btn" data-lv="dp" onclick="kpiSaleFilterModalLv('dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;cursor:pointer;font-weight:700;color:#c2410c">👔 LV Đồng Phục (<strong style="color:#c2410c">${s.total_lv_dp || 0}</strong>)</button>
+            <button type="button" class="kpi-sale-lv-btn" data-lv="pettem" onclick="kpiSaleFilterModalLv('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700;color:#be185d">🏷️ LV PET/TEM (<strong style="color:#be185d">${s.total_lv_pettem || 0}</strong>)</button>
         </div>
+
+        <!-- Hàng 2: Chọn Loại Khách Hàng -->
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;flex-wrap:wrap">
+            <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
+                👥 <strong>Loại Khách:</strong>
+            </span>
+            <button type="button" class="kpi-sale-cust-btn" data-cust="all" onclick="kpiSaleFilterModalCust('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;color:#1e293b">Tất cả khách</button>
+            <button type="button" class="kpi-sale-cust-btn" data-cust="moi" onclick="kpiSaleFilterModalCust('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700;color:#16a34a">🟢 Khách Mới (<strong style="color:#16a34a">${s.new_orders || 0}</strong>)</button>
+            <button type="button" class="kpi-sale-cust-btn" data-cust="cu" onclick="kpiSaleFilterModalCust('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fde68a;background:#fffbeb;cursor:pointer;font-weight:700;color:#b45309">🟧 Khách Cũ T.Cộng (<strong style="color:#b45309">${s.old_orders || 0}</strong>)</button>
+            <button type="button" class="kpi-sale-cust-btn" data-cust="cu_dp" onclick="kpiSaleFilterModalCust('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700;color:#d97706">👔 Khách Cũ Đồng Phục (<strong style="color:#d97706">${s.old_orders_dp || 0}</strong>)</button>
+            <button type="button" class="kpi-sale-cust-btn" data-cust="cu_pettem" onclick="kpiSaleFilterModalCust('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700;color:#7c3aed">🏷️ Khách Cũ PET/TEM (<strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong>)</button>
+
+            <span style="margin-left:auto;font-size:13px;font-weight:800">Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
+        </div>
+    </div>
     `;
-    document.body.appendChild(modal);
-    return modal;
 }
 
 async function kpiSaleShowOrders(userId, userName) {
@@ -1752,22 +1790,14 @@ async function kpiSaleShowOrders(userId, userName) {
     try {
         const res = await apiCall(`/api/kpi-sale/employee-orders?user_id=${userId}&month=${_kpiSale.month}`);
         _kpiSaleModalOrders = res.orders || [];
-        _kpiSaleModalFilter = 'all';
+        _kpiSaleModalFilterLv = 'all';
+        _kpiSaleModalFilterCust = 'all';
 
         if (summary) {
-            const s = res.summary || {};
-            summary.innerHTML = `
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="all" onclick="kpiSaleFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="moi" onclick="kpiSaleFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Khách Mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu_dp" onclick="kpiSaleFilterModalOrders('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Khách Cũ Đồng Phục: <strong style="color:#d97706">${s.old_orders_dp || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu_pettem" onclick="kpiSaleFilterModalOrders('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700">Khách Cũ PET/TEM: <strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="dp" onclick="kpiSaleFilterModalOrders('dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;cursor:pointer;font-weight:700">👔 LV Đồng Phục: <strong style="color:#c2410c">${s.total_lv_dp || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="pettem" onclick="kpiSaleFilterModalOrders('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700">🏷️ LV PET/TEM: <strong style="color:#be185d">${s.total_lv_pettem || 0}</strong></button>
-                <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
-            `;
+            summary.innerHTML = kpiSaleBuildModalSummaryHtml(res.summary || {});
         }
 
-        kpiSaleFilterModalOrders('all');
+        kpiSaleApplyModalFilters();
     } catch(err) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
     }
@@ -1786,20 +1816,18 @@ async function kpiSaleShowTeamOrders(deptId, deptName) {
     try {
         const res = await apiCall(`/api/kpi-sale/team-orders?dept_id=${deptId}&month=${_kpiSale.month}`);
         _kpiSaleModalOrders = res.orders || [];
-        _kpiSaleModalFilter = 'all';
+        _kpiSaleModalFilterLv = 'all';
+        _kpiSaleModalFilterCust = 'all';
 
         if (summary) {
-            const s = res.summary || {};
-            summary.innerHTML = `
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="all" onclick="kpiSaleFilterModalOrders('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">Tổng đơn: <strong style="color:#2563eb">${s.total || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="moi" onclick="kpiSaleFilterModalOrders('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700">Khách Mới: <strong style="color:#16a34a">${s.new_orders || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu_dp" onclick="kpiSaleFilterModalOrders('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700">Khách Cũ Đồng Phục: <strong style="color:#d97706">${s.old_orders_dp || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="cu_pettem" onclick="kpiSaleFilterModalOrders('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700">Khách Cũ PET/TEM: <strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="dp" onclick="kpiSaleFilterModalOrders('dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;cursor:pointer;font-weight:700">👔 LV Đồng Phục: <strong style="color:#c2410c">${s.total_lv_dp || 0}</strong></button>
-                <button type="button" class="kpi-sale-ord-filter-btn" data-filter="pettem" onclick="kpiSaleFilterModalOrders('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700">🏷️ LV PET/TEM: <strong style="color:#be185d">${s.total_lv_pettem || 0}</strong></button>
-                <span style="margin-left:auto">Tổng doanh số: <strong style="color:#dc2626">${formatVND(s.total_revenue || 0)}</strong></span>
-            `;
+            summary.innerHTML = kpiSaleBuildModalSummaryHtml(res.summary || {});
         }
+
+        kpiSaleApplyModalFilters();
+    } catch(err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
+    }
+}
 
         kpiSaleFilterModalOrders('all');
     } catch(err) {
