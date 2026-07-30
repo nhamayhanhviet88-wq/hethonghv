@@ -163,8 +163,8 @@ async function nganSachMktRoutes(fastify, options) {
     // GET /api/marketing-sources-and-pages
     fastify.get('/api/marketing-sources-and-pages', { preHandler: [authenticate] }, async (request, reply) => {
         try {
-            const sourcesNhuCau = await db.all("SELECT id, name FROM settings_sources WHERE crm_type = 'nhu_cau' ORDER BY sort_order ASC, id ASC");
-            const sourcesSale = await db.all("SELECT id, name FROM settings_sources WHERE crm_type = 'sale' ORDER BY sort_order ASC, id ASC");
+            const sourcesNhuCau = await db.all("SELECT id, name FROM settings_sources WHERE show_in_kdoanh = true ORDER BY sort_order ASC, id ASC");
+            const sourcesSale = await db.all("SELECT id, name FROM settings_sources WHERE show_in_sale = true ORDER BY sort_order ASC, id ASC");
 
             const allSources = await db.all("SELECT id, name FROM settings_sources");
             const sourceMap = new Map((allSources || []).map(s => [Number(s.id), s.name]));
