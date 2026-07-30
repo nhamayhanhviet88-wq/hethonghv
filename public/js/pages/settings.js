@@ -144,15 +144,40 @@ async function reorderSettingItem(type, id, direction) {
     await loadSettingsTab(type);
 }
 
-async function toggleChuyenSo(id) {
+window.toggleSourceDp = async function(id) {
+    const res = await apiCall(`/api/source-dp-toggle/${id}`, 'PUT');
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast(res.message);
+    await loadSettingsTab(currentSettingTab);
+};
+
+window.toggleSourcePetTem = async function(id) {
+    const res = await apiCall(`/api/source-pettem-toggle/${id}`, 'PUT');
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast(res.message);
+    await loadSettingsTab(currentSettingTab);
+};
+
+window.toggleSourceKdoanh = async function(id) {
+    const res = await apiCall(`/api/source-kdoanh-toggle/${id}`, 'PUT');
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast(res.message);
+    await loadSettingsTab(currentSettingTab);
+};
+
+window.toggleSourceSale = async function(id) {
+    const res = await apiCall(`/api/source-sale-toggle/${id}`, 'PUT');
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast(res.message);
+    await loadSettingsTab(currentSettingTab);
+};
+
+window.toggleChuyenSo = async function(id) {
     const res = await apiCall(`/api/source-chuyenso-toggle/${id}`, 'PUT');
-    if (res.success) {
-        showToast(res.message);
-        await loadSettingsTab(currentSettingTab);
-    } else {
-        showToast(res.error || 'Lỗi', 'error');
-    }
-}
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast(res.message);
+    await loadSettingsTab(currentSettingTab);
+};
 
 async function addSettingItem(type) {
     const nameInput = document.getElementById('newSettingName');
