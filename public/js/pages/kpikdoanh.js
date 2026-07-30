@@ -3515,9 +3515,9 @@ function kpiBuildModalSummaryHtml(s) {
             <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
                 🏢 <strong>Lĩnh Vực:</strong>
             </span>
-            <button type="button" class="kpi-lv-btn" data-lv="all" onclick="kpiFilterModalLv('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;color:#1e293b">Tất cả lĩnh vực (<strong style="color:#2563eb">${s.total || 0}</strong>)</button>
-            <button type="button" class="kpi-lv-btn" data-lv="dp" onclick="kpiFilterModalLv('dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;cursor:pointer;font-weight:700;color:#c2410c">👔 LV Đồng Phục (<strong style="color:#c2410c">${s.total_lv_dp || 0}</strong>)</button>
-            <button type="button" class="kpi-lv-btn" data-lv="pettem" onclick="kpiFilterModalLv('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700;color:#be185d">🏷️ LV PET/TEM (<strong style="color:#be185d">${s.total_lv_pettem || 0}</strong>)</button>
+            <button type="button" class="kpi-lv-btn" data-lv="all" onclick="kpiFilterModalLv('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#1e293b">Tất cả lĩnh vực (<strong style="color:#2563eb">${s.total || 0}</strong>)</button>
+            <button type="button" class="kpi-lv-btn" data-lv="dp" onclick="kpiFilterModalLv('dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#c2410c">👔 LV Đồng Phục (<strong style="color:#c2410c">${s.total_lv_dp || 0}</strong>)</button>
+            <button type="button" class="kpi-lv-btn" data-lv="pettem" onclick="kpiFilterModalLv('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#be185d">🏷️ LV PET/TEM (<strong style="color:#be185d">${s.total_lv_pettem || 0}</strong>)</button>
         </div>
 
         <!-- Hàng 2: Chọn Loại Khách Hàng (Tự động nhảy số theo Lĩnh Vực) -->
@@ -3525,9 +3525,9 @@ function kpiBuildModalSummaryHtml(s) {
             <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
                 👥 <strong>Loại Khách:</strong>
             </span>
-            <button type="button" class="kpi-cust-btn" data-cust="all" onclick="kpiFilterModalCust('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;color:#1e293b">Tất cả khách</button>
-            <button type="button" class="kpi-cust-btn" data-cust="moi" onclick="kpiFilterModalCust('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700;color:#16a34a">🟢 Khách Mới (<strong style="color:#16a34a">${s.new_orders || 0}</strong>)</button>
-            <button type="button" class="kpi-cust-btn" data-cust="cu" onclick="kpiFilterModalCust('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fde68a;background:#fffbeb;cursor:pointer;font-weight:700;color:#b45309">🟧 Khách Cũ (<strong style="color:#b45309">${s.old_orders || 0}</strong>)</button>
+            <button type="button" class="kpi-cust-btn" data-cust="all" onclick="kpiFilterModalCust('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#1e293b">Tất cả khách</button>
+            <button type="button" class="kpi-cust-btn" data-cust="moi" onclick="kpiFilterModalCust('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#16a34a">🟢 Khách Mới (<strong style="color:#16a34a">${s.new_orders || 0}</strong>)</button>
+            <button type="button" class="kpi-cust-btn" data-cust="cu" onclick="kpiFilterModalCust('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fde68a;background:#fffbeb;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#b45309">🟧 Khách Cũ (<strong style="color:#b45309">${s.old_orders || 0}</strong>)</button>
 
             <span style="margin-left:auto;font-size:13px;font-weight:800">Tổng doanh số: <strong id="kpiModalTotalRevenue" style="color:#dc2626">${kpiFmtFull(s.total_revenue || 0)}đ</strong></span>
         </div>
