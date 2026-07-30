@@ -3519,9 +3519,7 @@ function kpiBuildModalSummaryHtml(s) {
             </span>
             <button type="button" class="kpi-cust-btn" data-cust="all" onclick="kpiFilterModalCust('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;color:#1e293b">Tất cả khách</button>
             <button type="button" class="kpi-cust-btn" data-cust="moi" onclick="kpiFilterModalCust('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700;color:#16a34a">🟢 Khách Mới (<strong style="color:#16a34a">${s.new_orders || 0}</strong>)</button>
-            <button type="button" class="kpi-cust-btn" data-cust="cu" onclick="kpiFilterModalCust('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fde68a;background:#fffbeb;cursor:pointer;font-weight:700;color:#b45309">🟧 Khách Cũ T.Cộng (<strong style="color:#b45309">${s.old_orders || 0}</strong>)</button>
-            <button type="button" class="kpi-cust-btn" data-cust="cu_dp" onclick="kpiFilterModalCust('cu_dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fef08a;background:#fffbeb;cursor:pointer;font-weight:700;color:#d97706">👔 Khách Cũ Đồng Phục (<strong style="color:#d97706">${s.old_orders_dp || 0}</strong>)</button>
-            <button type="button" class="kpi-cust-btn" data-cust="cu_pettem" onclick="kpiFilterModalCust('cu_pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #e9d5ff;background:#faf5ff;cursor:pointer;font-weight:700;color:#7c3aed">🏷️ Khách Cũ PET/TEM (<strong style="color:#7c3aed">${s.old_orders_pettem || 0}</strong>)</button>
+            <button type="button" class="kpi-cust-btn" data-cust="cu" onclick="kpiFilterModalCust('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fde68a;background:#fffbeb;cursor:pointer;font-weight:700;color:#b45309">🟧 Khách Cũ (<strong style="color:#b45309">${s.old_orders || 0}</strong>)</button>
 
             <span style="margin-left:auto;font-size:13px;font-weight:800">Tổng doanh số: <strong style="color:#dc2626">${kpiFmtFull(s.total_revenue || 0)}đ</strong></span>
         </div>
