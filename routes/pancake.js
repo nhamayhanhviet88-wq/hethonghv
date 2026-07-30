@@ -579,12 +579,26 @@ async function pancakeRoutes(fastify, options) {
                                  String(event.from_id || '') === pageId || 
                                  String(event.message?.from?.id || '') === pageId;
 
-            // Check if customer has any tags attached on Pancake
+            // Check if customer has any tags attached on Pancake (supports tags objects, tag_ids strings/numbers, tags_count)
             const hasTags = (Array.isArray(event.tags) && event.tags.length > 0) || 
+                            (Array.isArray(event.tag_ids) && event.tag_ids.length > 0) || 
                             (Array.isArray(event.customer?.tags) && event.customer.tags.length > 0) || 
+                            (Array.isArray(event.customer?.tag_ids) && event.customer.tag_ids.length > 0) || 
                             (Array.isArray(event.page_customer?.tags) && event.page_customer.tags.length > 0) || 
+                            (Array.isArray(event.page_customer?.tag_ids) && event.page_customer.tag_ids.length > 0) || 
                             (Array.isArray(event.conversation?.tags) && event.conversation.tags.length > 0) || 
-                            (Number(event.tags_count || 0) > 0);
+                            (Array.isArray(event.conversation?.tag_ids) && event.conversation.tag_ids.length > 0) || 
+                            (Number(event.tags_count || 0) > 0) || 
+                            (Number(event.conversation?.tags_count || 0) > 0);
+
+            // Check if customer ALREADY has staff assigned on Pancake
+            const hasAssignee = (Array.isArray(event.assignee_ids) && event.assignee_ids.length > 0) || 
+                                (Array.isArray(event.assignees) && event.assignees.length > 0) || 
+                                (Array.isArray(event.conversation?.assignee_ids) && event.conversation.assignee_ids.length > 0) || 
+                                (Array.isArray(event.conversation?.assignees) && event.conversation.assignees.length > 0) || 
+                                (Array.isArray(event.page_customer?.assignee_ids) && event.page_customer.assignee_ids.length > 0) || 
+                                (Array.isArray(event.customer?.assignee_ids) && event.customer.assignee_ids.length > 0) || 
+                                !!event.assignee || !!event.conversation?.assignee || !!event.page_customer?.assignee;
 
             // Only extract phone number from message content if it was NOT sent by the page/bot/staff
             if (!isPageSender && event.message) {
@@ -620,9 +634,9 @@ async function pancakeRoutes(fastify, options) {
                 [customerId, conversationId, phone || '---']
             );
 
-            // If customer ALREADY exists in CRM OR ALREADY has tags on Pancake OR event is from Page/Bot:
+            // If customer ALREADY exists in CRM OR ALREADY has tags on Pancake OR ALREADY has assignee on Pancake OR event is from Page/Bot:
             // DO NOT assign as a new lead!
-            if (existingCust || hasTags || isPageSender) {
+            if (existingCust || hasTags || hasAssignee || isPageSender) {
                 if (existingCust && phone) {
                     const isTempPhone = existingCust.phone && existingCust.phone.startsWith('pancake_');
                     if (existingCust.phone !== phone && isTempPhone) {
