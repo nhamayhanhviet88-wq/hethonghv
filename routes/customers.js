@@ -954,7 +954,7 @@ async function customersRoutes(fastify, options) {
                 const orderCode = `${prefix}${numStr.padStart(padLen, '0')}`;
 
                 const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
-                await db.run("UPDATE customers SET customer_type = 'cu' WHERE id = ?", [Number(customer_id)]);
+                // Preserve original customer_type from Chuyển Số (do not overwrite with 'cu')
 
                 const cust = await db.get('SELECT id, customer_name, phone, province, address FROM customers WHERE id = ?', [Number(customer_id)]);
                 if (cust?.phone) {
@@ -1011,7 +1011,7 @@ async function customersRoutes(fastify, options) {
         const orderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
 
         const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
-        await db.run("UPDATE customers SET customer_type = 'cu' WHERE id = ?", [Number(customer_id)]);
+        // Preserve original customer_type from Chuyển Số (do not overwrite with 'cu')
 
         // ★ V4.1: Backfill order_tt_coc on deposit payment records for this customer
         const cust = await db.get('SELECT customer_name, phone FROM customers WHERE id = ?', [Number(customer_id)]);

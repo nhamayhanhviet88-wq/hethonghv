@@ -1,3 +1,4 @@
+const { getCustomerTypeSql } = require('../utils/customerTypeHelper');
 /**
  * Tổng Doanh Số Sale KD — API endpoint
  * All revenue from dht_orders (Đồng phục + PET + TEM + ...) grouped by employee & category
@@ -487,16 +488,7 @@ module.exports = async function(fastify) {
                 u.full_name AS employee_name,
                 cat.name AS category_name,
                 -- Determine new/old: check if same phone has prior orders
-                CASE
-                    WHEN o.customer_phone IS NOT NULL AND o.customer_phone != '' AND EXISTS (
-                        SELECT 1 FROM dht_orders prev
-                        WHERE prev.customer_phone = o.customer_phone
-                          AND prev.id != o.id
-                          AND prev.order_date < o.order_date
-                          AND prev.parent_order_id IS NULL
-                    ) THEN 'cu'
-                    ELSE 'moi'
-                END AS customer_type,
+                ${getCustomerTypeSql('o', 'c')},
                 -- Order number for this customer phone
                 (SELECT COUNT(*) FROM dht_orders prev2
                  WHERE prev2.customer_phone = o.customer_phone

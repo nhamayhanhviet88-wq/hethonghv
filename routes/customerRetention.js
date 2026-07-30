@@ -865,9 +865,20 @@ module.exports = async function(fastify) {
 
         // === 1. LEADERBOARD: Top NV by revenue, orders, retention ===
         const leaderRows = await db.all(`
-            WITH completed AS (
-                SELECT oc.id AS order_id, d.created_at, c.phone, c.assigned_to_id,
-                    d.category_id, cat.name AS category_name, d.order_code,
+            WITH valid_orders AS (
+                SELECT 
+                    d.id AS order_id,
+                    d.created_at,
+                    c.assigned_to_id AS uid,
+                    COALESCE(c.id::text, REGEXP_REPLACE(c.phone, '[^0-9]', '', 'g')) AS customer_key,
+                    CASE 
+                        WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
+                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
+                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCTEM%'
+                          OR d.category_id IN (8, 9)
+                        THEN 'pettem'
+                        ELSE 'dp'
+                    END AS business_area,
                     COALESCE(oi.rev, 0) - COALESCE(d.discount_amount, 0) AS revenue
                 FROM dht_orders d
                 JOIN order_codes oc ON oc.order_code = d.order_code
@@ -881,53 +892,79 @@ module.exports = async function(fastify) {
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND COALESCE(d.is_draft, false) = false
-                  AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND d.created_at >= $${pStart}::timestamp AND d.created_at < $${pEnd}::timestamp
+                  AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
                   ${_pCutoff}
             ),
-            ranked AS (
-                SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn,
-                    CASE
-                        WHEN UPPER(COALESCE(category_name, '')) IN ('PET', 'TEM')
-                          OR UPPER(COALESCE(order_code, '')) LIKE 'GCPET%'
-                          OR UPPER(COALESCE(order_code, '')) LIKE 'GCTEM%'
-                          OR category_id IN (8, 9)
-                        THEN 'pettem'
-                        ELSE 'dp'
-                    END AS cat_type
-                FROM completed
+            period_orders AS (
+                SELECT 
+                    uid,
+                    COUNT(*) AS total_orders,
+                    COALESCE(SUM(revenue), 0) AS total_revenue
+                FROM valid_orders
+                WHERE created_at >= $${pStart}::timestamp AND created_at < $${pEnd}::timestamp
+                GROUP BY uid
+            ),
+            old_pool AS (
+                SELECT DISTINCT uid, business_area, customer_key
+                FROM valid_orders
+                WHERE created_at < $${pStart}::timestamp
+            ),
+            current_period_cust AS (
+                SELECT DISTINCT uid, business_area, customer_key
+                FROM valid_orders
+                WHERE created_at >= $${pStart}::timestamp AND created_at < $${pEnd}::timestamp
+            ),
+            retention_stats AS (
+                SELECT
+                    p.uid,
+                    p.business_area,
+                    COUNT(DISTINCT p.customer_key) AS old_customer_total,
+                    COUNT(DISTINCT CASE WHEN c.customer_key IS NOT NULL THEN p.customer_key END) AS returning_customer_total
+                FROM old_pool p
+                LEFT JOIN current_period_cust c
+                    ON c.customer_key = p.customer_key
+                   AND c.business_area = p.business_area
+                   AND c.uid = p.uid
+                GROUP BY p.uid, p.business_area
             )
-            SELECT assigned_to_id AS uid,
-                COUNT(*) AS total_orders,
-                SUM(CASE WHEN pn = 1 THEN 1 ELSE 0 END) AS new_orders,
-                SUM(CASE WHEN pn > 1 THEN 1 ELSE 0 END) AS returning_orders,
-                SUM(CASE WHEN pn > 1 AND cat_type = 'dp' THEN 1 ELSE 0 END) AS returning_orders_dp,
-                SUM(CASE WHEN pn > 1 AND cat_type = 'pettem' THEN 1 ELSE 0 END) AS returning_orders_pettem,
-                COALESCE(SUM(revenue), 0) AS total_revenue
-            FROM ranked
-            GROUP BY assigned_to_id
+            SELECT 
+                u.id AS uid,
+                COALESCE(po.total_orders, 0) AS total_orders,
+                COALESCE(po.total_revenue, 0) AS total_revenue,
+                COALESCE(rs_dp.old_customer_total, 0) AS old_dp_total,
+                COALESCE(rs_dp.returning_customer_total, 0) AS ret_dp_cust,
+                COALESCE(rs_pettem.old_customer_total, 0) AS old_pettem_total,
+                COALESCE(rs_pettem.returning_customer_total, 0) AS ret_pettem_cust
+            FROM (SELECT unnest(ARRAY[${ph}]::int[]) AS id) u
+            LEFT JOIN period_orders po ON po.uid = u.id
+            LEFT JOIN retention_stats rs_dp ON rs_dp.uid = u.id AND rs_dp.business_area = 'dp'
+            LEFT JOIN retention_stats rs_pettem ON rs_pettem.uid = u.id AND rs_pettem.business_area = 'pettem'
         `, [...userIds, current.start, current.end]);
 
         const leaderboard = leaderRows.map(r => {
-            const u = users.find(u2 => u2.id === r.uid);
+            const u = users.find(u2 => u2.id === Number(r.uid));
             const dept = childDepts.find(d => d.id === u?.department_id);
-            const total = parseInt(r.total_orders);
-            const ret = parseInt(r.returning_orders);
-            const retDp = parseInt(r.returning_orders_dp || 0);
-            const retPetTem = parseInt(r.returning_orders_pettem || 0);
+            const total = parseInt(r.total_orders || 0);
+            const oldDp = parseInt(r.old_dp_total || 0);
+            const retDp = parseInt(r.ret_dp_cust || 0);
+            const oldPetTem = parseInt(r.old_pettem_total || 0);
+            const retPetTem = parseInt(r.ret_pettem_cust || 0);
+
+            const rateDp = oldDp > 0 ? Math.round(1000 * retDp / oldDp) / 10 : null;
+            const ratePetTem = oldPetTem > 0 ? Math.round(1000 * retPetTem / oldPetTem) / 10 : null;
+
             return {
-                user_id: r.uid,
+                user_id: Number(r.uid),
                 name: u?.full_name || '?',
                 team: dept?.name || '',
                 total_orders: total,
-                new_orders: parseInt(r.new_orders),
-                returning_orders: ret,
-                returning_orders_dp: retDp,
-                returning_orders_pettem: retPetTem,
-                rate: total > 0 ? Math.round(1000 * ret / total) / 10 : 0,
-                rate_dp: total > 0 ? Math.round(1000 * retDp / total) / 10 : 0,
-                rate_pettem: total > 0 ? Math.round(1000 * retPetTem / total) / 10 : 0,
-                revenue: parseFloat(r.total_revenue)
+                old_dp_total: oldDp,
+                ret_dp_cust: retDp,
+                old_pettem_total: oldPetTem,
+                ret_pettem_cust: retPetTem,
+                rate_dp: rateDp,
+                rate_pettem: ratePetTem,
+                revenue: parseFloat(r.total_revenue || 0)
             };
         });
 
@@ -940,8 +977,10 @@ module.exports = async function(fastify) {
                     user_id: u.id,
                     name: u.full_name || '?',
                     team: dept?.name || '',
-                    total_orders: 0, new_orders: 0, returning_orders: 0, returning_orders_dp: 0, returning_orders_pettem: 0,
-                    rate: 0, rate_dp: 0, rate_pettem: 0, revenue: 0
+                    total_orders: 0, 
+                    old_dp_total: 0, ret_dp_cust: 0,
+                    old_pettem_total: 0, ret_pettem_cust: 0,
+                    rate_dp: null, rate_pettem: null, revenue: 0
                 });
             }
         });

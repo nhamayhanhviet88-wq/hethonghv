@@ -851,6 +851,7 @@ function kpiRenderContent(data) {
     });
 
     html += '</tbody></table></div>';
+    html += renderRetentionTableSection(data);
     el.innerHTML = html;
 }
 
@@ -1174,7 +1175,7 @@ function kpiRenderLeaderboard(el, data) {
     }
     h += '</div><div>';
     h += '<div class="kpi-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569">';
-    h += '<div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right">📊 CĐ</div><div style="text-align:right">TK Aff</div><div style="text-align:right;color:#d97706">KH cũ ĐP %</div><div style="text-align:right;color:#7c3aed">KH cũ PET/TEM %</div>';
+    h += '<div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right">📊 CĐ</div><div style="text-align:right">TK Aff</div><div style="text-align:right;color:#d97706" title="Số khách cũ đầu kỳ có mua lại trong kỳ ÷ Tổng khách cũ thuộc nhân viên tại đầu kỳ">Tỷ lệ KH cũ quay lại – Đồng Phục</div><div style="text-align:right;color:#7c3aed" title="Số khách cũ đầu kỳ có mua lại trong kỳ ÷ Tổng khách cũ thuộc nhân viên tại đầu kỳ">Tỷ lệ KH cũ quay lại – PET/TEM</div>';
     h += '</div>';
 
     for (var i = 0; i < lb.length; i++) {
@@ -1184,6 +1185,12 @@ function kpiRenderLeaderboard(el, data) {
         var cRate = conv.rate != null ? conv.rate + '%' : '—';
         var cColor = conv.rate >= 70 ? '#10b981' : conv.rate >= 40 ? '#f59e0b' : '#ef4444';
         var prev = emp.prev || {};
+
+        var dpText = emp.rate_dp != null ? (emp.rate_dp + '%') : '—';
+        var dpTooltip = emp.old_dp_total > 0 ? (emp.ret_dp_cust + '/' + emp.old_dp_total + ' KH cũ đầu kỳ quay lại') : 'Chưa có tập khách cũ đầu kỳ';
+        var petText = emp.rate_pettem != null ? (emp.rate_pettem + '%') : '—';
+        var petTooltip = emp.old_pettem_total > 0 ? (emp.ret_pettem_cust + '/' + emp.old_pettem_total + ' KH cũ đầu kỳ quay lại') : 'Chưa có tập khách cũ đầu kỳ';
+
         h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiShowOrders(' + (emp.user_id || emp.id) + ',\'' + (emp.name || emp.full_name || '').replace(/'/g, "\\'") + '\')">';
         h += '<div class="kpi-lb-rank">' + rank + '</div>';
         h += '<div><div class="kpi-lb-name">' + emp.name + '</div><div class="kpi-lb-team">' + (emp.team || '') + '</div></div>';
@@ -1191,8 +1198,8 @@ function kpiRenderLeaderboard(el, data) {
         h += '<div class="kpi-lb-val" style="color:#059669">' + kpiDashFmtVND(emp.revenue) + '<div>' + kpiTrend(emp.revenue, prev.revenue) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:' + cColor + ';font-size:12px">' + cRate + '<div>' + kpiTrend(conv.rate || 0, prev.conversion_rate || 0) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.affiliate_new || 0) + '<div>' + kpiTrend(emp.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
-        h += '<div class="kpi-lb-val" style="color:#d97706">' + (emp.rate_dp || 0) + '%<div>' + kpiTrend(emp.rate_dp || 0, prev.rate_dp || 0) + '</div></div>';
-            h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.rate_pettem || 0) + '%<div>' + kpiTrend(emp.rate_pettem || 0, prev.rate_pettem || 0) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:#d97706" title="' + dpTooltip + '">' + dpText + '<div>' + kpiTrend(emp.rate_dp || 0, prev.rate_dp || 0) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:#7c3aed" title="' + petTooltip + '">' + petText + '<div>' + kpiTrend(emp.rate_pettem || 0, prev.rate_pettem || 0) + '</div></div>';
         h += '</div>';
     }
     h += '</div>';

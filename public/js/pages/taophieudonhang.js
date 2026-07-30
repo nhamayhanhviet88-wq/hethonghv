@@ -5161,7 +5161,24 @@ function _tpdRenderSaleRemindersSection(it, disabledAttr) {
     return html;
 }
 
+function _tpdCommitActiveInput() {
+    const active = document.activeElement;
+    if (!active || active === document.body) return;
+    const tag = active.tagName.toLowerCase();
+    const type = (active.type || '').toLowerCase();
+    if (tag === 'textarea' || (tag === 'input' && ['text', 'number', 'search', 'tel', 'url'].includes(type))) {
+        try {
+            active.dispatchEvent(new Event('input', { bubbles: true }));
+            active.dispatchEvent(new Event('change', { bubbles: true }));
+            active.blur();
+        } catch(err) {
+            console.warn('[TPD] Commit active input warning:', err);
+        }
+    }
+}
+
 function _tpdOnSaleRemindChoiceChange(dept, choice) {
+    _tpdCommitActiveInput();
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
     if (!state.editingItem.sale_remind_choices) state.editingItem.sale_remind_choices = {};
@@ -5217,6 +5234,7 @@ function _tpdOnSaleRemindChoiceChange(dept, choice) {
 }
 
 function _tpdAddSaleRemindItem(dept) {
+    _tpdCommitActiveInput();
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
     if (!state.editingItem.sale_remind_items) state.editingItem.sale_remind_items = {};
@@ -5255,6 +5273,7 @@ function _tpdAddSaleRemindItem(dept) {
 }
 
 function _tpdRemoveSaleRemindItem(dept, idx) {
+    _tpdCommitActiveInput();
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem || !state.editingItem.sale_remind_items) return;
     const list = state.editingItem.sale_remind_items[dept];
@@ -5570,7 +5589,7 @@ function _tpdRenderFormInputs() {
                             </select>
                             ${customInputHtml}
                         </div>
-                        <input type="text" placeholder="Nhập thông tin chi tiết (Ví dụ: Navy phối 2 sọc trắng, chỉ vàng...)" value="${escapeHTML(sewItem.detail || '')}" onchange="_tpdUpdateSewingItem(${sIdx}, 'detail', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; flex: 1;" ${sewingDisabledAttr}>
+                        <input type="text" placeholder="Nhập thông tin chi tiết (Ví dụ: Navy phối 2 sọc trắng, chỉ vàng...)" value="${escapeHTML(sewItem.detail || '')}" oninput="_tpdUpdateSewingItem(${sIdx}, 'detail', this.value)" onchange="_tpdUpdateSewingItem(${sIdx}, 'detail', this.value)" class="tpd-ws-input" style="font-size: 11px; height: 26px; flex: 1;" ${sewingDisabledAttr}>
                     </div>
                     ${sewingEditAllowed ? `
                         <button type="button" class="btn-remove-detail" onclick="_tpdRemoveSewingItem(${sIdx})" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; font-size: 14px;" title="Xóa">✕</button>
@@ -5725,9 +5744,9 @@ function _tpdRenderFormInputs() {
                     ` : `
                         <div style="display: flex; gap: 4px; align-items: center;">
                             <span style="font-size: 9px; color: #64748b; font-weight: 700;">Ngang:</span>
-                            <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="document.getElementById('tpd_height_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="${widthStyle}" ${disabledAttr || (valHeight ? 'disabled' : '') || printLocked ? 'disabled' : ''}>
+                            <input id="tpd_width_${idx}" type="text" placeholder="8cm" value="${valWidth}" oninput="document.getElementById('tpd_height_${idx}').disabled = !!this.value.trim(); _tpdUpdateDetailField(${idx}, 'width', this.value, true);" onchange="_tpdUpdateDetailField(${idx}, 'width', this.value)" class="tpd-ws-input" style="${widthStyle}" ${disabledAttr || (valHeight ? 'disabled' : '') || printLocked ? 'disabled' : ''}>
                             <span style="font-size: 9px; color: #64748b; font-weight: 700; margin-left: 2px;">Cao:</span>
-                            <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim()" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '') || printLocked ? 'disabled' : ''}>
+                            <input id="tpd_height_${idx}" type="text" placeholder="10cm" value="${valHeight}" oninput="document.getElementById('tpd_width_${idx}').disabled = !!this.value.trim(); _tpdUpdateDetailField(${idx}, 'height', this.value, true);" onchange="_tpdUpdateDetailField(${idx}, 'height', this.value)" class="tpd-ws-input" style="${heightStyle}" ${disabledAttr || (valWidth ? 'disabled' : '') || printLocked ? 'disabled' : ''}>
                         </div>
                     `}
 
@@ -5751,7 +5770,7 @@ function _tpdRenderFormInputs() {
                                             <input type="checkbox" ${item.isChecked ? 'checked' : ''} onchange="_tpdToggleDetailOffset(${idx}, '${item.configLabel}', this.checked, ${oIdx})" style="width: 12px; height: 12px; margin: 0; cursor: pointer;" ${disabledAttr || printLocked ? 'disabled' : ''}>
                                             <span>${item.label}:</span>
                                         </label>
-                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '${item.configLabel}', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr || printLocked ? 'disabled' : ''} ${item.isChecked && !printLocked ? '' : 'disabled'}>
+                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" oninput="_tpdUpdateDetailOffsetVal(${idx}, '${item.configLabel}', this.value, ${oIdx}, true)" onchange="_tpdUpdateDetailOffsetVal(${idx}, '${item.configLabel}', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr || printLocked ? 'disabled' : ''} ${item.isChecked && !printLocked ? '' : 'disabled'}>
                                     </div>
                                 `;
                             } else {
@@ -5765,8 +5784,8 @@ function _tpdRenderFormInputs() {
                                 return `
                                     <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
                                         <input type="checkbox" checked disabled style="width: 12px; height: 12px; margin: 0; cursor: not-allowed;">
-                                        <input type="text" placeholder="Tên khoảng cách..." value="${displayLabel}" onchange="_tpdUpdateDetailOffsetLabel(${idx}, '${item.label}', this.value, ${oIdx})" style="width: 75px; font-size: 9px; font-weight: 700; color: #475569; padding: 2px 4px; height: 18px; outline: none; border-radius: 4px; ${labelBorderStyle}" ${disabledAttr || printLocked ? 'disabled' : ''}>
-                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" onchange="_tpdUpdateDetailOffsetVal(${idx}, '', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr || printLocked ? 'disabled' : ''}>
+                                        <input type="text" placeholder="Tên khoảng cách..." value="${displayLabel}" oninput="_tpdUpdateDetailOffsetLabel(${idx}, '${item.label}', this.value, ${oIdx}, true)" onchange="_tpdUpdateDetailOffsetLabel(${idx}, '${item.label}', this.value, ${oIdx})" style="width: 75px; font-size: 9px; font-weight: 700; color: #475569; padding: 2px 4px; height: 18px; outline: none; border-radius: 4px; ${labelBorderStyle}" ${disabledAttr || printLocked ? 'disabled' : ''}>
+                                        <input type="text" placeholder="${inputPlaceholder}" value="${item.value}" oninput="_tpdUpdateDetailOffsetVal(${idx}, '', this.value, ${oIdx}, true)" onchange="_tpdUpdateDetailOffsetVal(${idx}, '', this.value, ${oIdx})" class="tpd-ws-input" style="flex: 1; min-width: 0; padding: 2px 4px; font-size: 9px; height: 18px; border-radius: 4px; outline: none; ${borderBgStyle}" ${disabledAttr || printLocked ? 'disabled' : ''}>
                                     </div>
                                 `;
                             }
@@ -6922,23 +6941,23 @@ function _tpdRemoveDetailZone(idx) {
 }
 
 // Update detail print/embroidery type or dimension
-function _tpdUpdateDetailField(idx, field, value) {
+function _tpdUpdateDetailField(idx, field, value, skipRender = false) {
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
 
     const it = state.editingItem;
     if (it.has_print_assignment) {
-        showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        if (!skipRender) showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
     if (it.is_no_print) {
-        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        if (!skipRender) showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
     if (!it.print_details || !it.print_details[idx]) return;
 
     let cleanVal = value ? value.trim() : '';
-    if (['width', 'height', 'gay_xuong', 'co_xuong', 'offset_value'].includes(field)) {
+    if (!skipRender && ['width', 'height', 'gay_xuong', 'co_xuong', 'offset_value'].includes(field)) {
         if (cleanVal) {
             // If it is a number (integer or float), automatically append 'cm'
             if (/^\d+(\.\d+)?$/.test(cleanVal)) {
@@ -6977,9 +6996,10 @@ function _tpdUpdateDetailField(idx, field, value) {
 
     _tpdSaveDraft(it);
     
-    // Re-render inputs to reflect format (e.g. 10 -> 10cm) and toggle disabled states
-    _tpdRenderFormInputs();
-    _tpdSetupPasteZones();
+    if (!skipRender) {
+        _tpdRenderFormInputs();
+        _tpdSetupPasteZones();
+    }
     _tpdUpdateLivePreview();
 }
 
@@ -7042,16 +7062,16 @@ function _tpdToggleDetailOffset(idx, label, isChecked, offsetIndex) {
     _tpdUpdateLivePreview();
 }
 
-function _tpdUpdateDetailOffsetLabel(idx, oldLabel, newLabel, offsetIndex) {
+function _tpdUpdateDetailOffsetLabel(idx, oldLabel, newLabel, offsetIndex, skipRender = false) {
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
     const it = state.editingItem;
     if (it.has_print_assignment) {
-        showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        if (!skipRender) showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
     if (it.is_no_print) {
-        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        if (!skipRender) showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
     if (!it.print_details || !it.print_details[idx]) return;
@@ -7074,21 +7094,23 @@ function _tpdUpdateDetailOffsetLabel(idx, oldLabel, newLabel, offsetIndex) {
     _tpdSyncLegacyOffsets(d, selectedOffsets);
     
     _tpdSaveDraft(it);
-    _tpdRenderFormInputs();
-    _tpdSetupPasteZones();
+    if (!skipRender) {
+        _tpdRenderFormInputs();
+        _tpdSetupPasteZones();
+    }
     _tpdUpdateLivePreview();
 }
 
-function _tpdUpdateDetailOffsetVal(idx, label, value, offsetIndex) {
+function _tpdUpdateDetailOffsetVal(idx, label, value, offsetIndex, skipRender = false) {
     const state = window._tpdWorkspaceState;
     if (!state || !state.editingItem) return;
     const it = state.editingItem;
     if (it.has_print_assignment) {
-        showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        if (!skipRender) showToast('⚠️ Phiếu đã được phân công in, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
     if (it.is_no_print) {
-        showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
+        if (!skipRender) showToast('⚠️ Đơn hàng đã được đánh dấu KHÔNG IN, không thể chỉnh sửa vị trí in/thêu!', 'error');
         return;
     }
     if (!it.print_details || !it.print_details[idx]) return;
@@ -7097,7 +7119,7 @@ function _tpdUpdateDetailOffsetVal(idx, label, value, offsetIndex) {
     const selectedOffsets = _tpdNormalizePrintDetailOffsets(d, posConfig);
     
     let cleanVal = value ? value.trim() : '';
-    if (cleanVal) {
+    if (!skipRender && cleanVal) {
         if (/^\d+(\.\d+)?$/.test(cleanVal)) {
             cleanVal = cleanVal + 'cm';
         }
@@ -7118,8 +7140,10 @@ function _tpdUpdateDetailOffsetVal(idx, label, value, offsetIndex) {
     _tpdSyncLegacyOffsets(d, selectedOffsets);
     
     _tpdSaveDraft(it);
-    _tpdRenderFormInputs();
-    _tpdSetupPasteZones();
+    if (!skipRender) {
+        _tpdRenderFormInputs();
+        _tpdSetupPasteZones();
+    }
     _tpdUpdateLivePreview();
 }
 
@@ -7868,6 +7892,9 @@ function _tpdIsSheetModified(it, dbItem) {
 
 // Validate all sheets of the order to ensure they are fully filled
 function _tpdValidateAllSheets() {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        try { document.activeElement.blur(); } catch(e) {}
+    }
     const state = window._tpdWorkspaceState;
     if (!state) return false;
 

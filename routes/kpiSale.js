@@ -1,3 +1,4 @@
+const { getCustomerTypeSql } = require('../utils/customerTypeHelper');
 /**
  * KPI Phòng Sale — API endpoint
  * Revenue from chốt đơn, daily breakdown, KPI targets with 2 milestones for PHÒNG SALE (Dept ID = 4)
@@ -249,11 +250,122 @@ module.exports = async function(fastify) {
             });
         }
 
+        // Calculate retention data for all employees & teams
+        const monthStartStr = `${year}-${String(mo).padStart(2, '0')}-01 00:00:00+07`;
+        const nextM = mo === 12 ? 1 : mo + 1;
+        const nextY = mo === 12 ? year + 1 : year;
+        const monthEndStr = `${nextY}-${String(nextM).padStart(2, '0')}-01 00:00:00+07`;
+
+        const allEmps = [];
+        teams.forEach(t => (t.employees || []).forEach(e => allEmps.push(e)));
+        if (allEmps.length > 0) {
+            const uIds = allEmps.map(e => e.user_id);
+            const ph = uIds.map((_, i) => `$${i + 1}`).join(',');
+            const pStartIdx = uIds.length + 1;
+            const pEndIdx = uIds.length + 2;
+
+            const retSql = `
+                WITH valid_orders AS (
+                    SELECT 
+                        d.id AS order_id, d.created_at,
+                        c.assigned_to_id AS uid,
+                        COALESCE(c.id::text, REGEXP_REPLACE(c.phone, '[^0-9]', '', 'g')) AS customer_key,
+                        CASE 
+                            WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
+                              OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
+                              OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCTEM%'
+                              OR d.category_id IN (8, 9)
+                            THEN 'pettem'
+                            ELSE 'dp'
+                        END AS business_area
+                    FROM dht_orders d
+                    JOIN order_codes oc ON oc.order_code = d.order_code
+                    JOIN customers c ON oc.customer_id = c.id
+                    LEFT JOIN dht_categories cat ON cat.id = d.category_id
+                    WHERE c.assigned_to_id IN (${ph})
+                      AND c.phone IS NOT NULL AND c.phone != ''
+                      AND COALESCE(c.cancel_approved, 0) != 1
+                      AND COALESCE(d.is_draft, false) = false
+                      AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
+                ),
+                old_pool AS (
+                    SELECT DISTINCT uid, business_area, customer_key FROM valid_orders WHERE created_at < $${pStartIdx}::timestamp
+                ),
+                current_period_cust AS (
+                    SELECT DISTINCT uid, business_area, customer_key FROM valid_orders WHERE created_at >= $${pStartIdx}::timestamp AND created_at < $${pEndIdx}::timestamp
+                ),
+                retention_stats AS (
+                    SELECT
+                        p.uid, p.business_area,
+                        COUNT(DISTINCT p.customer_key) AS old_customer_total,
+                        COUNT(DISTINCT CASE WHEN c.customer_key IS NOT NULL THEN p.customer_key END) AS returning_customer_total
+                    FROM old_pool p
+                    LEFT JOIN current_period_cust c
+                        ON c.customer_key = p.customer_key
+                       AND c.business_area = p.business_area
+                       AND c.uid = p.uid
+                    GROUP BY p.uid, p.business_area
+                )
+                SELECT 
+                    u.id AS uid,
+                    COALESCE(rs_dp.old_customer_total, 0) AS old_dp_total,
+                    COALESCE(rs_dp.returning_customer_total, 0) AS ret_dp_cust,
+                    COALESCE(rs_pettem.old_customer_total, 0) AS old_pettem_total,
+                    COALESCE(rs_pettem.returning_customer_total, 0) AS ret_pettem_cust
+                FROM (SELECT unnest(ARRAY[${ph}]::int[]) AS id) u
+                LEFT JOIN retention_stats rs_dp ON rs_dp.uid = u.id AND rs_dp.business_area = 'dp'
+                LEFT JOIN retention_stats rs_pettem ON rs_pettem.uid = u.id AND rs_pettem.business_area = 'pettem'
+            `;
+
+            const retRows = await db.all(retSql, [...uIds, monthStartStr, monthEndStr]);
+            const rowMap = {};
+            retRows.forEach(r => {
+                rowMap[Number(r.uid)] = {
+                    old_dp_total: parseInt(r.old_dp_total || 0),
+                    ret_dp_cust: parseInt(r.ret_dp_cust || 0),
+                    old_pettem_total: parseInt(r.old_pettem_total || 0),
+                    ret_pettem_cust: parseInt(r.ret_pettem_cust || 0)
+                };
+            });
+
+            teams.forEach(team => {
+                let teamOldDp = 0, teamRetDp = 0, teamOldPetTem = 0, teamRetPetTem = 0;
+                (team.employees || []).forEach(emp => {
+                    const st = rowMap[emp.user_id] || { old_dp_total: 0, ret_dp_cust: 0, old_pettem_total: 0, ret_pettem_cust: 0 };
+                    emp.old_dp_total = st.old_dp_total;
+                    emp.ret_dp_cust = st.ret_dp_cust;
+                    emp.rate_dp = emp.old_dp_total > 0 ? Math.round(1000 * emp.ret_dp_cust / emp.old_dp_total) / 10 : null;
+
+                    emp.old_pettem_total = st.old_pettem_total;
+                    emp.ret_pettem_cust = st.ret_pettem_cust;
+                    emp.rate_pettem = emp.old_pettem_total > 0 ? Math.round(1000 * emp.ret_pettem_cust / emp.old_pettem_total) / 10 : null;
+
+                    teamOldDp += emp.old_dp_total;
+                    teamRetDp += emp.ret_dp_cust;
+                    teamOldPetTem += emp.old_pettem_total;
+                    teamRetPetTem += emp.ret_pettem_cust;
+                });
+
+                team.old_dp_total = teamOldDp;
+                team.ret_dp_cust = teamRetDp;
+                team.rate_dp = teamOldDp > 0 ? Math.round(1000 * teamRetDp / teamOldDp) / 10 : null;
+
+                team.old_pettem_total = teamOldPetTem;
+                team.ret_pettem_cust = teamRetPetTem;
+                team.rate_pettem = teamOldPetTem > 0 ? Math.round(1000 * teamRetPetTem / teamOldPetTem) / 10 : null;
+            });
+        }
+
         // Summary (TỔNG)
         const totalTarget = teams.reduce((s, t) => s + t.target_1, 0);
         const totalTarget120 = Math.round(totalTarget * 1.2);
         const totalActual = teams.reduce((s, t) => s + t.actual, 0);
         const totalDaily = sumDailyArrays(teams.map(t => t.daily));
+
+        const sumOldDp = teams.reduce((s, t) => s + (t.old_dp_total || 0), 0);
+        const sumRetDp = teams.reduce((s, t) => s + (t.ret_dp_cust || 0), 0);
+        const sumOldPetTem = teams.reduce((s, t) => s + (t.old_pettem_total || 0), 0);
+        const sumRetPetTem = teams.reduce((s, t) => s + (t.ret_pettem_cust || 0), 0);
 
         return {
             month: { year, month: mo, label: periodLabel, days_in_month: daysInMonth, days_left: daysLeft },
@@ -266,7 +378,13 @@ module.exports = async function(fastify) {
                 missing_1: totalTarget - totalActual,
                 missing_120: totalTarget120 - totalActual,
                 stages: buildStages(totalDaily, totalTarget, daysInMonth),
-                daily: totalDaily
+                daily: totalDaily,
+                old_dp_total: sumOldDp,
+                ret_dp_cust: sumRetDp,
+                rate_dp: sumOldDp > 0 ? Math.round(1000 * sumRetDp / sumOldDp) / 10 : null,
+                old_pettem_total: sumOldPetTem,
+                ret_pettem_cust: sumRetPetTem,
+                rate_pettem: sumOldPetTem > 0 ? Math.round(1000 * sumRetPetTem / sumOldPetTem) / 10 : null
             },
             teams
         };
@@ -360,28 +478,12 @@ module.exports = async function(fastify) {
                 cat.name AS category_name,
                 d.order_code,
                 COALESCE(NULLIF(c.customer_name, ''), d.customer_name) AS customer_name,
-                CASE
-                    WHEN c.phone IS NOT NULL AND c.phone NOT LIKE 'pancake_%' AND c.phone != ''
-                    THEN c.phone
-                    ELSE d.customer_phone
-                END AS customer_phone,
+                COALESCE(NULLIF(c.phone, ''), d.customer_phone) AS customer_phone,
                 u.full_name AS sale_name,
                 s.name AS source_name,
-                COALESCE(oi_sum.revenue, 0) - COALESCE(d.discount_amount, 0) AS revenue,
+                COALESCE(oi_sum.revenue, 0) AS revenue,
                 d.created_at,
-                ref.full_name AS referrer_name,
-                (SELECT COUNT(*) FROM dht_orders d2 JOIN order_codes oc2 ON oc2.order_code = d2.order_code
-                 WHERE oc2.customer_id = c.id
-                   AND COALESCE(d2.is_draft, false) = false
-                   AND d2.created_at < d.created_at) + 1 AS order_count,
-                CASE
-                    WHEN (SELECT COUNT(*) FROM dht_orders d3 JOIN order_codes oc3 ON oc3.order_code = d3.order_code
-                          WHERE oc3.customer_id = c.id
-                            AND COALESCE(d3.is_draft, false) = false
-                            AND d3.created_at < d.created_at) > 0
-                    THEN 'cu'
-                    ELSE 'moi'
-                END AS customer_type
+                ${getCustomerTypeSql('d', 'c')}
             FROM dht_orders d
             JOIN order_codes oc ON oc.order_code = d.order_code
             JOIN customers c ON oc.customer_id = c.id
@@ -423,6 +525,46 @@ module.exports = async function(fastify) {
         const totalNew = enrichedOrders.filter(o => o.customer_type === 'moi').length;
         const totalOldDp = enrichedOrders.filter(o => o.customer_type === 'cu' && !o.is_pet_tem).length;
         const totalOldPetTem = enrichedOrders.filter(o => o.customer_type === 'cu' && o.is_pet_tem).length;
+        const retentionRow = await db.get(`
+            WITH valid_orders AS (
+                SELECT 
+                    d.id AS order_id, d.created_at,
+                    COALESCE(c.id::text, REGEXP_REPLACE(c.phone, '[^0-9]', '', 'g')) AS customer_key,
+                    CASE 
+                        WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
+                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
+                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCTEM%'
+                          OR d.category_id IN (8, 9)
+                        THEN 'pettem'
+                        ELSE 'dp'
+                    END AS business_area
+                FROM dht_orders d
+                JOIN order_codes oc ON oc.order_code = d.order_code
+                JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN dht_categories cat ON cat.id = d.category_id
+                WHERE c.assigned_to_id = $1
+                  AND c.phone IS NOT NULL AND c.phone != ''
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  AND COALESCE(d.is_draft, false) = false
+                  AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
+            ),
+            old_pool AS (
+                SELECT DISTINCT business_area, customer_key FROM valid_orders WHERE created_at < $2::timestamp
+            ),
+            current_period_cust AS (
+                SELECT DISTINCT business_area, customer_key FROM valid_orders WHERE created_at >= $2::timestamp AND created_at < $3::timestamp
+            )
+            SELECT
+                (SELECT COUNT(DISTINCT customer_key) FROM old_pool WHERE business_area = 'dp') AS old_dp_total,
+                (SELECT COUNT(DISTINCT p.customer_key) FROM old_pool p JOIN current_period_cust c ON c.customer_key = p.customer_key AND c.business_area = p.business_area WHERE p.business_area = 'dp') AS ret_dp_cust,
+                (SELECT COUNT(DISTINCT customer_key) FROM old_pool WHERE business_area = 'pettem') AS old_pettem_total,
+                (SELECT COUNT(DISTINCT p.customer_key) FROM old_pool p JOIN current_period_cust c ON c.customer_key = p.customer_key AND c.business_area = p.business_area WHERE p.business_area = 'pettem') AS ret_pettem_cust
+        `, [parseInt(user_id), monthStart, monthEnd]);
+
+        const oldDpTotal = parseInt(retentionRow?.old_dp_total || 0);
+        const retDpCust = parseInt(retentionRow?.ret_dp_cust || 0);
+        const oldPetTemTotal = parseInt(retentionRow?.old_pettem_total || 0);
+        const retPetTemCust = parseInt(retentionRow?.ret_pettem_cust || 0);
 
         return {
             employee: emp,
@@ -434,7 +576,15 @@ module.exports = async function(fastify) {
                 new_orders: totalNew,
                 old_orders_dp: totalOldDp,
                 old_orders_pettem: totalOldPetTem,
+                total_lv_dp: enrichedOrders.filter(o => !o.is_pet_tem).length,
+                total_lv_pettem: enrichedOrders.filter(o => o.is_pet_tem).length,
                 old_orders: totalOldDp + totalOldPetTem,
+                old_dp_total: oldDpTotal,
+                ret_dp_cust: retDpCust,
+                old_pettem_total: oldPetTemTotal,
+                ret_pettem_cust: retPetTemCust,
+                rate_dp: oldDpTotal > 0 ? Math.round(1000 * retDpCust / oldDpTotal) / 10 : null,
+                rate_pettem: oldPetTemTotal > 0 ? Math.round(1000 * retPetTemCust / oldPetTemTotal) / 10 : null,
                 total_revenue: enrichedOrders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
             }
         };
@@ -472,35 +622,22 @@ module.exports = async function(fastify) {
         const orders = await db.all(`
             SELECT
                 d.id AS order_id,
+                d.category_id,
+                cat.name AS category_name,
                 d.order_code,
                 COALESCE(NULLIF(c.customer_name, ''), d.customer_name) AS customer_name,
-                CASE
-                    WHEN c.phone IS NOT NULL AND c.phone NOT LIKE 'pancake_%' AND c.phone != ''
-                    THEN c.phone
-                    ELSE d.customer_phone
-                END AS customer_phone,
+                COALESCE(NULLIF(c.phone, ''), d.customer_phone) AS customer_phone,
                 u.full_name AS sale_name,
                 s.name AS source_name,
-                COALESCE(oi_sum.revenue, 0) - COALESCE(d.discount_amount, 0) AS revenue,
+                COALESCE(oi_sum.revenue, 0) AS revenue,
                 d.created_at,
-                ref.full_name AS referrer_name,
-                (SELECT COUNT(*) FROM dht_orders d2 JOIN order_codes oc2 ON oc2.order_code = d2.order_code
-                 WHERE oc2.customer_id = c.id
-                   AND COALESCE(d2.is_draft, false) = false
-                   AND d2.created_at < d.created_at) + 1 AS order_count,
-                CASE
-                    WHEN (SELECT COUNT(*) FROM dht_orders d3 JOIN order_codes oc3 ON oc3.order_code = d3.order_code
-                          WHERE oc3.customer_id = c.id
-                            AND COALESCE(d3.is_draft, false) = false
-                            AND d3.created_at < d.created_at) > 0
-                    THEN 'cu'
-                    ELSE 'moi'
-                END AS customer_type
+                ${getCustomerTypeSql('d', 'c')}
             FROM dht_orders d
             JOIN order_codes oc ON oc.order_code = d.order_code
             JOIN customers c ON oc.customer_id = c.id
             LEFT JOIN users u ON u.id = c.assigned_to_id
             LEFT JOIN settings_sources s ON s.id = c.source_id
+            LEFT JOIN dht_categories cat ON cat.id = d.category_id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
@@ -547,6 +684,8 @@ module.exports = async function(fastify) {
                 new_orders: totalNew,
                 old_orders_dp: totalOldDp,
                 old_orders_pettem: totalOldPetTem,
+                total_lv_dp: enrichedOrders.filter(o => !o.is_pet_tem).length,
+                total_lv_pettem: enrichedOrders.filter(o => o.is_pet_tem).length,
                 old_orders: totalOldDp + totalOldPetTem,
                 total_revenue: enrichedOrders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
             }
