@@ -26,6 +26,7 @@ async function pancakeRoutes(fastify, options) {
             
             ALTER TABLE customers ADD COLUMN IF NOT EXISTS pancake_customer_id TEXT;
             ALTER TABLE customers ADD COLUMN IF NOT EXISTS pancake_conversation_id TEXT;
+            ALTER TABLE pancake_pending_leads ADD COLUMN IF NOT EXISTS skip_reason TEXT;
 
             CREATE INDEX IF NOT EXISTS idx_customers_pancake_cust ON customers(pancake_customer_id) WHERE pancake_customer_id IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_customers_pancake_conv ON customers(pancake_conversation_id) WHERE pancake_conversation_id IS NOT NULL;
@@ -572,33 +573,66 @@ async function pancakeRoutes(fastify, options) {
                 });
             }
             let textToParse = '';
-            const isPageSender = event.is_page_sender === true || 
+            const senderId = event.sender?.id || event.message?.from?.id || event.from?.id || event.sender_id || event.from_id;
+            const isPageSender = (Boolean(senderId && pageId) && String(senderId) === String(pageId)) ||
+                                 event.is_page_sender === true || 
                                  event.message?.is_page_sender === true || 
-                                 event.message?.is_echo === true || 
-                                 String(event.sender_id || '') === pageId || 
-                                 String(event.from_id || '') === pageId || 
-                                 String(event.message?.from?.id || '') === pageId;
+                                 event.message?.is_echo === true;
 
-            // Check if customer has any tags attached on Pancake (supports tags objects, tag_ids strings/numbers, tags_count)
-            const hasTags = (Array.isArray(event.tags) && event.tags.length > 0) || 
-                            (Array.isArray(event.tag_ids) && event.tag_ids.length > 0) || 
-                            (Array.isArray(event.customer?.tags) && event.customer.tags.length > 0) || 
-                            (Array.isArray(event.customer?.tag_ids) && event.customer.tag_ids.length > 0) || 
-                            (Array.isArray(event.page_customer?.tags) && event.page_customer.tags.length > 0) || 
-                            (Array.isArray(event.page_customer?.tag_ids) && event.page_customer.tag_ids.length > 0) || 
-                            (Array.isArray(event.conversation?.tags) && event.conversation.tags.length > 0) || 
-                            (Array.isArray(event.conversation?.tag_ids) && event.conversation.tag_ids.length > 0) || 
-                            (Number(event.tags_count || 0) > 0) || 
-                            (Number(event.conversation?.tags_count || 0) > 0);
+            // Helper: Check if a value contains meaningful tags/values (handles strings, arrays, objects, numbers)
+            function hasMeaningfulValues(value) {
+                if (value === null || value === undefined) return false;
+                if (typeof value === 'number') return value > 0;
+                if (typeof value === 'string') return value.trim() !== '' && value.trim() !== '[]' && value.trim() !== '{}';
+                if (Array.isArray(value)) {
+                    return value.some(item => item !== null && item !== undefined && String(typeof item === 'object' ? (item.id ?? item.tag_id ?? item.name ?? '') : item).trim() !== '');
+                }
+                if (typeof value === 'object') {
+                    return Object.keys(value).length > 0;
+                }
+                return false;
+            }
 
-            // Check if customer ALREADY has staff assigned on Pancake
-            const hasAssignee = (Array.isArray(event.assignee_ids) && event.assignee_ids.length > 0) || 
-                                (Array.isArray(event.assignees) && event.assignees.length > 0) || 
-                                (Array.isArray(event.conversation?.assignee_ids) && event.conversation.assignee_ids.length > 0) || 
-                                (Array.isArray(event.conversation?.assignees) && event.conversation.assignees.length > 0) || 
-                                (Array.isArray(event.page_customer?.assignee_ids) && event.page_customer.assignee_ids.length > 0) || 
-                                (Array.isArray(event.customer?.assignee_ids) && event.customer.assignee_ids.length > 0) || 
-                                !!event.assignee || !!event.conversation?.assignee || !!event.page_customer?.assignee;
+            // Helper: Check if a value represents a valid assigned staff on Pancake
+            function hasValidAssignee(value) {
+                if (value === null || value === undefined) return false;
+                if (Array.isArray(value)) return value.some(hasValidAssignee);
+                if (typeof value === 'object') {
+                    if (Object.keys(value).length === 0) return false;
+                    return Boolean(value.id || value.user_id || value.assignee_id || value.assigned_to_id || value.username || value.name);
+                }
+                return String(value).trim() !== '' && String(value).trim() !== '0' && String(value).trim() !== 'null';
+            }
+
+            // Check if customer has any tags attached on Pancake (robust multi-type inspection)
+            const hasTags = [
+                event.tags,
+                event.tag_ids,
+                event.customer?.tags,
+                event.customer?.tag_ids,
+                event.page_customer?.tags,
+                event.page_customer?.tag_ids,
+                event.conversation?.tags,
+                event.conversation?.tag_ids
+            ].some(hasMeaningfulValues) || Number(event.tags_count || 0) > 0 || Number(event.conversation?.tags_count || 0) > 0;
+
+            // Check if customer ALREADY has staff assigned on Pancake (robust multi-type inspection)
+            const hasAssignee = [
+                event.assignee_ids,
+                event.assignees,
+                event.assigned_user_id,
+                event.assigned_to,
+                event.owner_id,
+                event.assignee,
+                event.conversation?.assignee_ids,
+                event.conversation?.assignees,
+                event.conversation?.assigned_user_id,
+                event.conversation?.assignee,
+                event.page_customer?.assignee_ids,
+                event.page_customer?.assignees,
+                event.page_customer?.assignee,
+                event.customer?.assignee_ids
+            ].some(hasValidAssignee);
 
             // Only extract phone number from message content if it was NOT sent by the page/bot/staff
             if (!isPageSender && event.message) {
@@ -634,6 +668,13 @@ async function pancakeRoutes(fastify, options) {
                 [customerId, conversationId, phone || '---']
             );
 
+            // Determine explicit reasons to skip
+            const skipReasons = [];
+            if (existingCust) skipReasons.push('existing_customer');
+            if (hasTags) skipReasons.push('has_tags');
+            if (hasAssignee) skipReasons.push('has_assignee');
+            if (isPageSender) skipReasons.push('page_sender');
+
             // If customer ALREADY exists in CRM OR ALREADY has tags on Pancake OR ALREADY has assignee on Pancake OR event is from Page/Bot:
             // DO NOT assign as a new lead!
             if (existingCust || hasTags || hasAssignee || isPageSender) {
@@ -644,11 +685,12 @@ async function pancakeRoutes(fastify, options) {
                         await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) VALUES ($1, 'pancake_update', $2, NULL, NOW())`, [existingCust.id, `Cập nhật số điện thoại tự động từ Pancake: ${phone}`]);
                     }
                 }
-                // Cancel any pending lead queue items
+                // Cancel any pending lead queue items for this page & conversation
+                const skipReasonStr = skipReasons.join(',') || 'skipped';
                 await db.run(
-                    `UPDATE pancake_pending_leads SET status = 'processed_skipped' 
-                     WHERE (customer_id = $1 OR conversation_id = $2) AND status = 'pending'`,
-                    [customerId, conversationId]
+                    `UPDATE pancake_pending_leads SET status = 'processed_skipped', skip_reason = $1 
+                     WHERE page_id = $2 AND (conversation_id = $3 OR customer_id = $4) AND status = 'pending'`,
+                    [skipReasonStr, pageId, conversationId, customerId]
                 );
                 skippedCount++;
                 continue;
