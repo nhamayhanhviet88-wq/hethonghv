@@ -1914,6 +1914,7 @@ function kpiRenderMeetingCommit(el) {
 
             // Render teams for this session
             var myRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+            var isGD = myRole === 'giam_doc';
             for (var ti = 0; ti < _mcTeams.length; ti++) {
                 var team = _mcTeams[ti];
                 if (!team.members || team.members.length === 0) continue;
