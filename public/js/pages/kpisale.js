@@ -1684,7 +1684,7 @@ function renderKpiSaleMeetingCommit(el) {
             h += '</div>';
             h += '<div style="display:flex;align-items:center;gap:8px">';
             if (sessCommits.length > 0) {
-                var pctAll = Math.round(sessCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / sessCommits.length);
+                var pctAll = (Math.round(sessCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / sessCommits.length * 10) / 10).toString().replace('.', ',');
                 h += '<span class="kpi-mc-badge ' + (totalDone === sessCommits.length ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending') + '">' + totalDone + '/' + sessCommits.length + ' — ' + pctAll + '%</span>';
             }
             if (isNewest) h += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:' + pal.newestBg + ';color:#fff;font-weight:700">Mới nhất</span>';
@@ -1703,7 +1703,7 @@ function renderKpiSaleMeetingCommit(el) {
                 });
                 var teamOwnCommits = sessCommits.filter(function(c) { return c.team_dept_id === team.id; });
                 var teamDone = teamOwnCommits.filter(function(c) { return c.is_completed; }).length;
-                var teamPct = teamOwnCommits.length > 0 ? Math.round(teamOwnCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / teamOwnCommits.length) : 0;
+                var teamPct = teamOwnCommits.length > 0 ? (Math.round(teamOwnCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / teamOwnCommits.length * 10) / 10).toString().replace('.', ',') : '0';
 
                 h += '<div class="kpi-mc-team" style="background:' + pal.teamBg + ';border-left:4px solid ' + pal.teamBorder + ';border-color:' + pal.teamBorder + '">';
                 h += '<div class="kpi-mc-team-name" style="justify-content:space-between;background:' + pal.teamNameBg + ';color:' + pal.teamNameColor + '">';
@@ -1733,7 +1733,7 @@ function renderKpiSaleMeetingCommit(el) {
                     var empCommits = sessCommits.filter(function(c) { return c.user_id === emp.id && !c.team_dept_id; });
                     var totalItems = empCommits.length;
                     var doneItems = empCommits.filter(function(c) { return c.is_completed; }).length;
-                    var avgPct = totalItems > 0 ? Math.round(empCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / totalItems) : 0;
+                    var avgPct = totalItems > 0 ? (Math.round(empCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / totalItems * 10) / 10).toString().replace('.', ',') : '0';
 
                     var roleLabel = '';
                     if (emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao') roleLabel = 'Quản Lý';
