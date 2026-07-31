@@ -294,9 +294,11 @@ async function meetingCommitmentsRoutes(fastify, options) {
         if (!Array.isArray(reviews)) return reply.code(400).send({ error: 'Thiếu reviews' });
 
         for (const r of reviews) {
+            const row = await db.get('SELECT target_revenue FROM meeting_commitments WHERE id = ?', [r.id]);
+            const targetRev = row ? (parseFloat(row.target_revenue) || 0) : 0;
             const pct = parseInt(r.completion_pct) || 0;
-            if (pct <= 0) {
-                return reply.code(400).send({ error: '⚠️ Tiến độ không được bằng 0%! Vui lòng điều chỉnh tiến độ lớn hơn 0% trước khi lưu review.' });
+            if (targetRev <= 0 && pct <= 0) {
+                return reply.code(400).send({ error: '⚠️ Vui lòng điều chỉnh thanh tiến độ (không được để 0%) trước khi lưu review.' });
             }
         }
 

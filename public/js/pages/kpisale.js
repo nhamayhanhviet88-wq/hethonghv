@@ -2229,29 +2229,33 @@ window.mcSaleSaveReview = async function() {
         el.style.border = '';
         el.style.boxShadow = '';
         var actualInput = el.querySelector('.rv-actual');
+        var pctInput = el.querySelector('.rv-pct');
+        var pct = pctInput ? (parseInt(pctInput.value) || 0) : 0;
+
         if (actualInput) {
             actualInput.style.borderColor = '';
             actualInput.style.boxShadow = '';
             if (!actualInput.value.trim()) {
                 actualInput.style.borderColor = '#ef4444';
                 actualInput.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
+                el.style.border = '2px solid #ef4444';
+                el.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
                 hasError = true;
             }
-        }
-        var pctInput = el.querySelector('.rv-pct');
-        var pct = pctInput ? (parseInt(pctInput.value) || 0) : 0;
-        if (pct <= 0) {
-            zeroPctError = true;
-            el.style.border = '2px solid #ef4444';
-            el.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
+        } else {
+            if (pct <= 0) {
+                zeroPctError = true;
+                el.style.border = '2px solid #ef4444';
+                el.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
+            }
         }
     }
 
     if (hasError) {
-        return alert('⚠️ Vui lòng nhập đầy đủ số liệu "Đã đạt" cho tất cả các cam kết!');
+        return alert('⚠️ Vui lòng nhập đầy đủ số liệu "Đã đạt" cho tất cả các cam kết có mục tiêu!');
     }
     if (zeroPctError) {
-        return alert('⚠️ Tiến độ không được bằng 0%! Vui lòng điều chỉnh tiến độ (kéo thanh tiến độ hoặc nhập số liệu đã đạt) lớn hơn 0% trước khi lưu review.');
+        return alert('⚠️ Vui lòng điều chỉnh thanh tiến độ (không được để 0%) cho tất cả các cam kết!');
     }
 
     for (var i = 0; i < items.length; i++) {
@@ -2517,29 +2521,33 @@ window.mcSaleSaveTeamReview = async function() {
         el.style.border = '';
         el.style.boxShadow = '';
         var actualInput = el.querySelector('.rv-actual');
+        var pctInput = el.querySelector('.rv-pct');
+        var pct = pctInput ? (parseInt(pctInput.value) || 0) : 0;
+
         if (actualInput) {
             actualInput.style.borderColor = '';
             actualInput.style.boxShadow = '';
             if (!actualInput.value.trim()) {
                 actualInput.style.borderColor = '#ef4444';
                 actualInput.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
+                el.style.border = '2px solid #ef4444';
+                el.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
                 hasError = true;
             }
-        }
-        var pctInput = el.querySelector('.rv-pct');
-        var pct = pctInput ? (parseInt(pctInput.value) || 0) : 0;
-        if (pct <= 0) {
-            zeroPctError = true;
-            el.style.border = '2px solid #ef4444';
-            el.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
+        } else {
+            if (pct <= 0) {
+                zeroPctError = true;
+                el.style.border = '2px solid #ef4444';
+                el.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
+            }
         }
     }
 
     if (hasError) {
-        return alert('⚠️ Vui lòng nhập đầy đủ số liệu "Đã đạt" cho tất cả các cam kết team!');
+        return alert('⚠️ Vui lòng nhập đầy đủ số liệu "Đã đạt" cho tất cả các cam kết team có mục tiêu!');
     }
     if (zeroPctError) {
-        return alert('⚠️ Tiến độ không được bằng 0%! Vui lòng điều chỉnh tiến độ (kéo thanh tiến độ hoặc nhập số liệu đã đạt) lớn hơn 0% trước khi lưu review.');
+        return alert('⚠️ Vui lòng điều chỉnh thanh tiến độ (không được để 0%) cho tất cả các cam kết team!');
     }
 
     for (var i = 0; i < items.length; i++) {
