@@ -1629,6 +1629,8 @@ function _mcKdHasPerm(permType) {
 }
 
 function kpiRenderMeetingCommit(el) {
+    var myRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    var isGD = myRole === 'giam_doc';
     var canCreate = _mcKdHasPerm('create_session');
     var canSetupPersonal = _mcKdHasPerm('setup_personal');
     var canSetupTeam = _mcKdHasPerm('setup_team');
