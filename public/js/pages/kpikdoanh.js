@@ -2739,6 +2739,12 @@ window.mcReviewUser = async function(userId, userName, readOnly) {
     var userCommits = _mcCommitments.filter(function(c) { return c.user_id === userId; });
     if (userCommits.length === 0) return alert('Chưa có cam kết');
 
+    var tplList = [];
+    try {
+        var tplRes = await apiCall('/api/meeting-commitments/templates?page_key=kpikdoanh');
+        tplList = tplRes.templates || [];
+    } catch(e) {}
+
     var overlay = document.createElement('div');
     overlay.className = 'kpi-mc-modal-overlay';
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
@@ -2750,7 +2756,10 @@ window.mcReviewUser = async function(userId, userName, readOnly) {
 
     for (var i = 0; i < userCommits.length; i++) {
         var c = userCommits[i];
-        var hasTarget = c.target_revenue > 0;
+        var parsed = mcParseContent(c.content);
+        var qText = parsed.question || c.content;
+        var matchedTpl = tplList.find(function(t) { return t.question_content === qText; }) || tplList[i];
+        var hasTarget = (c.target_revenue > 0) || !!(matchedTpl && matchedTpl.has_revenue_target);
 
         // Parse content: split ❓ question and ✅ answer (multi-line safe)
         var contentHtml = '';
