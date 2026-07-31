@@ -54,14 +54,18 @@ function _tpdHasSewingStep(it) {
         }
     }
     if (Array.isArray(itemSteps)) {
+        if (itemSteps.length === 0) return true; // Empty array = no data yet, default to has sewing
         const stepsList = (_tpd.activeOrderDetails && _tpd.activeOrderDetails.steps) || [];
         const stepMay = stepsList.find(s => (s.short_name || '').toUpperCase() === 'MAY' || (s.name || '').toUpperCase() === 'MAY');
-        if (stepMay) {
-            const mayId = stepMay.step_id;
-            return itemSteps.includes(mayId) || itemSteps.includes(String(mayId)) || itemSteps.includes(Number(mayId));
-        } else {
-            return itemSteps.includes(5) || itemSteps.includes('5');
-        }
+        const mayId = stepMay ? stepMay.step_id : null;
+
+        return itemSteps.some(st => {
+            if (st === 5 || st === '5' || st === 8 || st === '8' || st === 11 || st === '11') return true;
+            if (mayId !== null && (st == mayId)) return true;
+            if (typeof st === 'string' && st.trim().toUpperCase() === 'MAY') return true;
+            if (typeof st === 'object' && st && ((st.short_name || '').toUpperCase() === 'MAY' || (st.name || '').toUpperCase() === 'MAY' || st.step_id == 5 || st.step_id == mayId)) return true;
+            return false;
+        });
     }
     return true;
 }
@@ -89,22 +93,29 @@ function _tpdHasPrintOrPressStep(it) {
         }
     }
     if (Array.isArray(itemSteps)) {
+        if (itemSteps.length === 0) return true; // Empty array = no data yet, default to has print/press
         const stepsList = (_tpd.activeOrderDetails && _tpd.activeOrderDetails.steps) || [];
         const targetSteps = stepsList.filter(s => {
             const short = (s.short_name || '').toUpperCase();
             const name = (s.name || '').toUpperCase();
             return short === 'IN' || name === 'IN' || short === 'ÉP' || name === 'ÉP' || short === 'EP' || name === 'EP';
         });
+        const targetIds = targetSteps.map(s => s.step_id);
 
-        if (targetSteps.length > 0) {
-            return targetSteps.some(s => {
-                const stepId = s.step_id;
-                return itemSteps.includes(stepId) || itemSteps.includes(String(stepId)) || itemSteps.includes(Number(stepId));
-            });
-        } else {
-            // Default step IDs fallback: 3 is In, 4 is Ép
-            return itemSteps.includes(3) || itemSteps.includes('3') || itemSteps.includes(4) || itemSteps.includes('4');
-        }
+        return itemSteps.some(st => {
+            if (st === 3 || st === '3' || st === 4 || st === '4') return true;
+            if (targetIds.some(id => st == id)) return true;
+            if (typeof st === 'string') {
+                const upper = st.trim().toUpperCase();
+                if (upper === 'IN' || upper === 'ÉP' || upper === 'EP') return true;
+            }
+            if (typeof st === 'object' && st) {
+                const short = (st.short_name || '').toUpperCase();
+                const name = (st.name || '').toUpperCase();
+                if (short === 'IN' || name === 'IN' || short === 'ÉP' || name === 'ÉP' || short === 'EP' || name === 'EP' || st.step_id == 3 || st.step_id == 4) return true;
+            }
+            return false;
+        });
     }
     return true;
 }
@@ -593,6 +604,59 @@ function _tpdNormalizeItemQuantities(it, config) {
     return mergedQuantities;
 }
 
+function _tpdDeepClone(val) {
+    if (val == null) return val;
+    if (typeof structuredClone === 'function') {
+        try { return structuredClone(val); } catch(e) {}
+    }
+    try { return JSON.parse(JSON.stringify(val)); } catch(e) { return val; }
+}
+
+function _tpdPreferDraftArray(draftVal, savedVal) {
+    if (Array.isArray(draftVal) && draftVal.length > 0) {
+        return _tpdDeepClone(draftVal);
+    }
+    if (Array.isArray(savedVal) && savedVal.length > 0) {
+        return _tpdDeepClone(savedVal);
+    }
+    return [];
+}
+
+function _tpdMergeSewingTechniques(draftItems = [], savedItems = []) {
+    const dArr = Array.isArray(draftItems) ? draftItems : [];
+    const sArr = Array.isArray(savedItems) ? savedItems : [];
+    if (dArr.length === 0) return _tpdDeepClone(sArr);
+    if (sArr.length === 0) return _tpdDeepClone(dArr);
+
+    const savedMap = new Map();
+    sArr.forEach((item, idx) => {
+        const itemKey = typeof item === 'object' && item ? (item.id ?? item.key ?? item.name ?? item.tech) : item;
+        const key = String(itemKey ?? idx);
+        savedMap.set(key, item);
+    });
+
+    return dArr.map((dItem, idx) => {
+        const dKey = typeof dItem === 'object' && dItem ? (dItem.id ?? dItem.key ?? dItem.name ?? dItem.tech) : dItem;
+        const key = String(dKey ?? idx);
+        const sItem = savedMap.get(key) || {};
+
+        if (typeof dItem === 'string') {
+            return typeof sItem === 'object' ? { ..._tpdDeepClone(sItem), tech: dItem } : dItem;
+        }
+
+        const baseSItem = typeof sItem === 'object' ? _tpdDeepClone(sItem) : {};
+        const baseDItem = typeof dItem === 'object' ? _tpdDeepClone(dItem) : {};
+
+        return {
+            ...baseSItem,
+            ...baseDItem,
+            detail: (dItem.detail !== undefined && dItem.detail !== null) ? dItem.detail : (baseSItem.detail ?? ''),
+            notes: (dItem.notes !== undefined && dItem.notes !== null) ? dItem.notes : (baseSItem.notes ?? ''),
+            tech: dItem.tech ?? baseSItem.tech ?? ''
+        };
+    });
+}
+
 function _tpdGetCandidateDraftKeys(item, currentOrderId = null, itemIndex = null) {
     const state = window._tpdWorkspaceState;
     const params = new URLSearchParams(window.location.search);
@@ -665,7 +729,11 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                     draft.size_type = item.size_type;
                     draft.unit_price = item.unit_price;
                     draft.pattern_name = item.pattern_name;
-                    draft.sewing_techniques = item.sewing_techniques;
+                    draft.sewing_techniques = _tpdMergeSewingTechniques(draft.sewing_techniques, item.sewing_techniques);
+                    draft.extra_materials = _tpdPreferDraftArray(draft.extra_materials, item.extra_materials);
+                    draft.material_pairs = _tpdPreferDraftArray(draft.material_pairs, item.material_pairs);
+                    draft.production_steps = _tpdPreferDraftArray(draft.production_steps, item.production_steps);
+                    draft.print_details = _tpdPreferDraftArray(draft.print_details, item.print_details);
                     draft.tsam_sewing_tech = item.tsam_sewing_tech;
                     draft.has_fabric_called = !!item.has_fabric_called;
                     draft.has_print_assignment = !!item.has_print_assignment;
@@ -674,11 +742,7 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                     draft.has_qc_completed = !!item.has_qc_completed;
                     draft.cutting_category_name = item.cutting_category_name;
                     draft.is_no_sew = !!item.is_no_sew;
-                    draft.production_steps = item.production_steps;
                     draft.product_process_steps = item.product_process_steps;
-                    if (!_tpdHasPrintOrPressStep(item) || !_tpdHasPrintOrPressStep(draft)) {
-                        draft.print_details = [];
-                    }
                     // Always sync DB sale reminders data into draft
                     if (item.sale_remind_choices && Object.keys(item.sale_remind_choices || {}).length > 0) {
                         try {
@@ -10286,7 +10350,7 @@ function _tpdPurgeBloatedDrafts() {
                 if (val) {
                     try {
                         const parsed = JSON.parse(val);
-                        if (!parsed || !parsed.sale_remind_choices || Object.keys(parsed.sale_remind_choices).length === 0 || val.length > 400000) {
+                        if (!parsed || val.length > 400000) {
                             localStorage.removeItem(k);
                         }
                     } catch(pe) {
@@ -10302,7 +10366,7 @@ function _tpdPurgeBloatedDrafts() {
                 if (val) {
                     try {
                         const parsed = JSON.parse(val);
-                        if (!parsed || !parsed.sale_remind_choices || Object.keys(parsed.sale_remind_choices).length === 0 || val.length > 400000) {
+                        if (!parsed || val.length > 400000) {
                             sessionStorage.removeItem(k);
                         }
                     } catch(pe) {

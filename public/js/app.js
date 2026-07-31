@@ -384,8 +384,8 @@ const _PAGE_SCRIPT_MAP = {
     'traogiaithuong': '/js/pages/traogiaithuong.js',
     'donloinoibo': '/js/pages/donloinoibo.js',
     'loithuonggap': '/js/pages/donloinoibo.js',
-    'design-draft': '/js/pages/taophieudonhang.js?v=20260729_fast_export_v100',
-    'designdraft': '/js/pages/taophieudonhang.js?v=20260729_fast_export_v100',
+    'design-draft': '/js/pages/taophieudonhang.js?v=20260731_v301',
+    'designdraft': '/js/pages/taophieudonhang.js?v=20260731_v301',
     'bangiao-diem-kd': '/js/pages/bangiao-diem.js',
     'bangiaodiem': '/js/pages/bangiao-diem.js',
     'lich-khoa-bieu': '/js/pages/lich-khoabieu.js',
@@ -424,12 +424,12 @@ const _PAGE_SCRIPT_MAP = {
     'kiemtrachatluong': '/js/pages/kiemtrachatluong.js?v=20260725_ktcl_v5',
     'topkhachhang': '/js/pages/topkhachhang.js?v=20260727_v100',
     'top-khach-hang': '/js/pages/topkhachhang.js?v=20260727_v100',
-    'kpikdoanh': '/js/pages/kpikdoanh.js?v=20260730_v120',
-    'kpisale': '/js/pages/kpisale.js?v=20260730_v120',
-    'kpi-sale': '/js/pages/kpisale.js?v=20260730_v120',
+    'kpikdoanh': '/js/pages/kpikdoanh.js?v=20260731_v139',
+    'kpisale': '/js/pages/kpisale.js?v=20260731_v139',
+    'kpi-sale': '/js/pages/kpisale.js?v=20260731_v139',
     'kpimarketing': '/js/pages/kpimarketing.js?v=20260727_v100',
     'kpi-marketing': '/js/pages/kpimarketing.js?v=20260727_v100',
-    'camketcuochop': '/js/pages/camketcuochop.js',
+    'camketcuochop': '/js/pages/camketcuochop.js?v=20260731_v122',
     'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
     'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',
@@ -481,8 +481,8 @@ const _PAGE_SCRIPT_MAP = {
     'caidatsanxuat': '/js/pages/caidatsanxuat.js?v=20260721_spqt_grouping_v1',
     'don-hang-tong': '/js/pages/donhangtong.js',
     'donhangtong': '/js/pages/donhangtong.js',
-    'taophieudonhang': '/js/pages/taophieudonhang.js?v=20260729_fast_export_v107',
-    'tao-phieu-don-hang': '/js/pages/taophieudonhang.js?v=20260729_fast_export_v107',
+    'taophieudonhang': '/js/pages/taophieudonhang.js?v=20260731_v301',
+    'tao-phieu-don-hang': '/js/pages/taophieudonhang.js?v=20260731_v301',
     'xuatvathv': '/js/pages/xuatvathv.js',
     'xuat-hoa-don-vat': '/js/pages/xuatvathv.js',
     'don-gui-ao-mau': '/js/pages/donguiaomau.js',
@@ -2342,7 +2342,8 @@ async function handleRoute() {
                 case 'bo-phan-ep': case 'bophanep': case 'bophanephv': renderBophanepPage(content); break;
                 case 'bo-phan-may': case 'bophanmay': case 'bophanmayhv': renderBophanmayPage(content); break;
                 case 'bo-phan-hoan-thien': case 'bophanhoanthien': case 'bophanhoanthienhv': renderBophanhoanthienPage(content); break;
-                case 'kiem-tra-chat-luong': case 'kiemtrachatluong': renderKiemtrachatluongPage(content); break;
+                case 'kpikdoanh': case 'kpi-kdoanh': renderKpikdoanhPage(content); break;
+                case 'kpisale': case 'kpi-sale': renderKpisalePage(content); break;
                 case 'design-draft': case 'designdraft': renderDesignDraftPage(content); break;
                 default:
                     // ========== CONVENTION-BASED AUTO-RENDER ==========
@@ -4341,6 +4342,9 @@ async function _abCheckUnblock() {
         if (el.closest && el.closest('.ts-step-icon, .order-step-btn, [onclick*="_tsOpenStepModal"], [onclick*="_tsShowRescheduleHistoryModal"]')) return true;
         // KPI table rows, team cards, and order modal triggers — safe to click
         if (el.closest && el.closest('.kpi-tbl, .kpi-lb-row, .kpi-tc-card, .kpi-modal, [onclick*="kpiShow"], [onclick*="kpiFilter"], [onclick*="kpiClose"]')) return true;
+        // Meeting commitment buttons — Tạo Cuộc Họp, Mẫu, etc.
+        if (el.classList && (el.classList.contains('kpi-mc-btn') || el.classList.contains('kpi-mc-btn-primary') || el.classList.contains('kpi-mc-btn-ghost'))) return true;
+        if (el.closest && el.closest('.kpi-mc-modal, .kpi-mc-modal-overlay, .kpi-mc-section')) return true;
         return false;
     }
 

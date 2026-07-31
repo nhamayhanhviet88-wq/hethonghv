@@ -559,7 +559,7 @@ async function kpiLoadAll() {
             apiCall('/api/reports/customer-retention?period=month&date=' + _kpi.month),
             apiCall('/api/reports/customer-retention/advanced?period=month&date=' + _kpi.month),
             apiCall('/api/meeting-commitments/employees'),
-            apiCall('/api/meeting-commitments/monthly?month=' + kpiMo + '&year=' + kpiYear)
+            apiCall('/api/meeting-commitments/monthly?month=' + kpiMo + '&year=' + kpiYear + '&source=kpikdoanh')
         ]);
 
         // ★ Apply NV / TP filtering
@@ -612,7 +612,7 @@ async function kpiLoadData() {
             apiCall('/api/reports/customer-retention?period=month&date=' + _kpi.month),
             apiCall('/api/reports/customer-retention/advanced?period=month&date=' + _kpi.month),
             apiCall('/api/meeting-commitments/employees'),
-            apiCall('/api/meeting-commitments/monthly?month=' + kpiM2 + '&year=' + kpiY2)
+            apiCall('/api/meeting-commitments/monthly?month=' + kpiM2 + '&year=' + kpiY2 + '&source=kpikdoanh')
         ]);
 
         // ★ Apply NV / TP filtering
@@ -1583,6 +1583,7 @@ var _mcCollapsed = false;    // main section collapsed
 var _mcYearlyData = null;    // yearly summary data
 var _mcMonthlyCollapsed = false; // monthly summary collapsed (default open)
 var _mcActiveSessionId = null; // track which session is currently expanded
+var _mcKdPerms = []; // meeting permissions from DB
 
 async function kpiLoadMeetingCommit() {
     var el = document.getElementById('kpiMeetingCommit');
@@ -1596,11 +1597,13 @@ async function kpiLoadMeetingCommit() {
         }
         var mcParts = _kpi.month.split('-').map(Number);
         var mcYear = mcParts[0], mcMo = mcParts[1];
-        var monthlyData = await apiCall('/api/meeting-commitments/monthly?month=' + mcMo + '&year=' + mcYear);
+        var monthlyData = await apiCall('/api/meeting-commitments/monthly?month=' + mcMo + '&year=' + mcYear + '&source=kpikdoanh');
         _mcSessions = monthlyData.sessions || [];
         _mcAllCommitments = monthlyData.allCommitments || [];
         // Load yearly data
         try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + mcYear); } catch(e) { _mcYearlyData = null; }
+        // Load permissions
+        try { var permRes = await apiCall('/api/meeting-commitments/permissions'); _mcKdPerms = permRes.permissions || []; } catch(e) { _mcKdPerms = []; }
         // Set active session to latest (last in array since sorted ASC)
         if (_mcSessions.length > 0) {
             _mcSession = _mcSessions[_mcSessions.length - 1];
@@ -1616,8 +1619,19 @@ async function kpiLoadMeetingCommit() {
     }
 }
 
+function _mcKdHasPerm(permType) {
+    var user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null;
+    if (!user) return false;
+    if (user.role === 'giam_doc') return true; // GĐ luôn có quyền
+    var perm = _mcKdPerms.find(function(p) { return p.source === 'kpikdoanh' && p.permission_type === permType; });
+    if (!perm) return false;
+    return perm.allowed_roles.split(',').indexOf(user.role) >= 0;
+}
+
 function kpiRenderMeetingCommit(el) {
-    var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+    var canCreate = _mcKdHasPerm('create_session');
+    var canSetupPersonal = _mcKdHasPerm('setup_personal');
+    var canSetupTeam = _mcKdHasPerm('setup_team');
     var h = '<div class="kpi-mc-section">';
 
     // Header with title + collapse toggle
@@ -1632,9 +1646,13 @@ function kpiRenderMeetingCommit(el) {
     h += ' <span style="font-size:13px;font-weight:500;color:#6366f1;margin-left:4px">— ' + monthNames[selMonth] + '/' + selYear + ' (' + _mcSessions.length + ' cuộc họp)</span>';
     h += '</div>';
     h += '<div style="display:flex;gap:8px">';
-    if (isGD) {
+    if (canCreate) {
         h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcCreateSession()">➕ Tạo Cuộc Họp</button>';
+    }
+    if (canSetupPersonal) {
         h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSetupTemplates(\'kpikdoanh\',\'Cá Nhân\')" title="Câu hỏi mẫu cá nhân">⚙️ Mẫu Cá Nhân</button>';
+    }
+    if (canSetupTeam) {
         h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSetupTemplates(\'kpikdoanh_team\',\'Team\')" title="Câu hỏi mẫu team">⚙️ Mẫu Team</button>';
     }
     h += '<a href="/camketcuochop" class="kpi-mc-btn kpi-mc-btn-ghost" style="text-decoration:none">📋 Xem Lịch Sử</a>';
@@ -2477,7 +2495,7 @@ window.mcSaveSession = async function() {
     if (!title) return alert('Vui lòng nhập tiêu đề');
     if (!date) return alert('Vui lòng chọn ngày');
     try {
-        await apiCall('/api/meeting-commitments/sessions', 'POST', { title: title, meeting_date: date });
+        await apiCall('/api/meeting-commitments/sessions', 'POST', { title: title, meeting_date: date, source: 'kpikdoanh' });
         document.querySelector('.kpi-mc-modal-overlay').remove();
         kpiLoadMeetingCommit();
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
@@ -2768,9 +2786,10 @@ window.mcReviewUser = async function(userId, userName, readOnly) {
         if (hasTarget) {
             var currentPct = c.completion_pct || 0;
             var currentActual = hasTarget && currentPct > 0 ? Math.round(c.target_revenue * currentPct / 100) : '';
+            var currentActualStr = currentActual ? Number(currentActual).toLocaleString('vi-VN') : '';
             h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
             h += '<span style="font-size:12px;font-weight:700;color:#7c3aed;white-space:nowrap">📊 Đã đạt:</span>';
-            h += '<input class="kpi-mc-input rv-actual" type="number" placeholder="Nhập số liệu hoàn thành..." value="' + currentActual + '" style="flex:1;border-color:#c4b5fd;font-weight:700" oninput="mcCalcPct(this)"' + (readOnly ? ' disabled' : '') + '>';
+            h += '<input class="kpi-mc-input rv-actual" type="text" inputmode="numeric" placeholder="Nhập số liệu hoàn thành..." value="' + currentActualStr + '" style="flex:1;border-color:#c4b5fd;font-weight:700" oninput="mcCalcPct(this)"' + (readOnly ? ' disabled' : '') + '>';
             h += '<span class="rv-pct-display" style="font-size:14px;font-weight:800;color:#4338ca;min-width:50px;text-align:right">' + currentPct + '%</span>';
             h += '</div>';
             h += '<input type="hidden" class="rv-pct" value="' + currentPct + '">';
@@ -2800,36 +2819,80 @@ window.mcReviewUser = async function(userId, userName, readOnly) {
 // Auto-calculate completion % from actual vs target
 window.mcCalcPct = function(input) {
     var item = input.closest('[data-review-id]');
+    if (!item) return;
     var target = parseFloat(item.getAttribute('data-target')) || 0;
-    var actual = parseFloat(input.value) || 0;
+
+    var rawDigits = (input.value || '').toString().replace(/\D/g, '');
+    if (rawDigits) {
+        var formatted = Number(rawDigits).toLocaleString('vi-VN');
+        if (input.value !== formatted) {
+            input.value = formatted;
+        }
+    } else {
+        input.value = '';
+    }
+
+    var actual = parseFloat(rawDigits) || 0;
     var pct = target > 0 ? Math.min(Math.round(100 * actual / target), 999) : 0;
-    item.querySelector('.rv-pct').value = pct;
-    item.querySelector('.rv-pct-display').textContent = pct + '%';
-    // Color coding
+    var hiddenPct = item.querySelector('.rv-pct');
+    if (hiddenPct) hiddenPct.value = pct;
     var display = item.querySelector('.rv-pct-display');
-    if (pct >= 100) display.style.color = '#059669';
-    else if (pct >= 50) display.style.color = '#f59e0b';
-    else display.style.color = '#ef4444';
+    if (display) {
+        display.textContent = pct + '%';
+        if (pct >= 100) display.style.color = '#059669';
+        else if (pct >= 50) display.style.color = '#f59e0b';
+        else display.style.color = '#ef4444';
+    }
 };
 
 window.mcSaveReview = async function() {
     var items = document.querySelectorAll('[data-review-id]');
     var reviews = [];
+    var hasError = false;
+    var zeroPctError = false;
+
     for (var i = 0; i < items.length; i++) {
         var el = items[i];
-        var pct = parseInt(el.querySelector('.rv-pct').value) || 0;
-        var hasTarget = el.getAttribute('data-has-target') === '1';
+        var actualInput = el.querySelector('.rv-actual');
+        if (actualInput) {
+            actualInput.style.borderColor = '';
+            actualInput.style.boxShadow = '';
+            if (!actualInput.value.trim()) {
+                actualInput.style.borderColor = '#ef4444';
+                actualInput.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
+                hasError = true;
+            }
+        }
+        var pctInput = el.querySelector('.rv-pct');
+        var pct = pctInput ? (parseInt(pctInput.value) || 0) : 0;
+        if (pct <= 0) {
+            zeroPctError = true;
+        }
+    }
+
+    if (hasError) {
+        return alert('⚠️ Vui lòng nhập đầy đủ số liệu "Đã đạt" cho tất cả các cam kết!');
+    }
+    if (zeroPctError) {
+        return alert('⚠️ Tiến độ không được bằng 0%! Vui lòng điều chỉnh tiến độ (kéo thanh tiến độ hoặc nhập số liệu đã đạt) lớn hơn 0% trước khi lưu review.');
+    }
+
+    for (var i = 0; i < items.length; i++) {
+        var el = items[i];
+        var pctInput = el.querySelector('.rv-pct');
+        var pct = pctInput ? (parseInt(pctInput.value) || 0) : 0;
         reviews.push({
             id: parseInt(el.getAttribute('data-review-id')),
             is_completed: pct >= 100,
             completion_pct: pct,
-            review_note: el.querySelector('.rv-note').value
+            review_note: el.querySelector('.rv-note') ? el.querySelector('.rv-note').value.trim() : ''
         });
     }
     try {
         await apiCall('/api/meeting-commitments/batch-review', 'PUT', { reviews: reviews });
         document.querySelector('.kpi-mc-modal-overlay').remove();
         kpiLoadMeetingCommit();
+        if (window.showToast) showToast('✅ Đã lưu Review cam kết thành công!', 'success');
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
 };
 
@@ -3705,7 +3768,7 @@ function kpiRenderRetentionModalUI() {
             <!-- Card 1: KH Cũ Trước Tháng -->
             <div onclick="kpiSelectRetentionTab('prior_old')" style="padding:14px 18px;border-radius:14px;background:${_retentionTabGroup==='prior_old'?'#eff6ff':'#f8fafc'};border:2px solid ${_retentionTabGroup==='prior_old'?'#3b82f6':'#cbd5e1'};cursor:pointer;transition:all 0.2s">
                 <div style="display:flex;align-items:center;justify-content:space-between">
-                    <span style="font-size:13px;font-weight:800;color:#334155">👥 KH Cũ Trước Tháng</span>
+                    <span style="font-size:13px;font-weight:800;color:#334155">👥 Tệp KH Cũ Tích Lũy</span>
                     <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:#e2e8f0;color:#475569">Tệp Tích Lũy</span>
                 </div>
                 <div style="font-size:24px;font-weight:900;color:#1e293b;margin-top:6px">${priorList.length} <span style="font-size:13px;font-weight:700;color:#64748b">Khách hàng</span></div>
@@ -3766,10 +3829,31 @@ function kpiRenderRetentionModalUI() {
     else if (_retentionTabGroup === 'prior_old') targetList = priorList;
     else if (_retentionTabGroup === 'new') targetList = newList;
 
+    targetList.sort((a, b) => {
+        const revA = Number(a.month_revenue) || 0;
+        const revB = Number(b.month_revenue) || 0;
+        if (revB !== revA) {
+            return revB - revA;
+        }
+        const dateA = a.first_order_date ? new Date(a.first_order_date).getTime() : Infinity;
+        const dateB = b.first_order_date ? new Date(b.first_order_date).getTime() : Infinity;
+        return dateA - dateB;
+    });
+
+    const PAGE_SIZE = 50;
+    const totalItems = targetList.length;
+    const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+    if (typeof _retentionPage === 'undefined' || !_retentionPage || _retentionPage < 1) _retentionPage = 1;
+    if (_retentionPage > totalPages) _retentionPage = totalPages;
+
+    const startIndex = (_retentionPage - 1) * PAGE_SIZE;
+    const pageItems = targetList.slice(startIndex, startIndex + PAGE_SIZE);
+
     if (targetList.length === 0) {
         html += `<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">Không có khách hàng nào trong nhóm này</td></tr>`;
     } else {
-        targetList.forEach((c, idx) => {
+        pageItems.forEach((c, idx) => {
+            const rowIdx = startIndex + idx + 1;
             const firstDateStr = c.first_order_date ? new Date(c.first_order_date).toLocaleDateString('vi-VN') : '—';
             const areaBadge = c.business_area === 'pettem' ?
                 '<span style="padding:2px 8px;border-radius:6px;background:#fdf2f8;color:#be185d;font-weight:800">🏷️ PET/TEM</span>' :
@@ -3783,7 +3867,7 @@ function kpiRenderRetentionModalUI() {
 
             html += `
                 <tr style="border-bottom:1px solid #f1f5f9;background:${idx%2===0?'#ffffff':'#f8fafc'}">
-                    <td style="padding:10px;text-align:center;color:#64748b;font-weight:700">${idx + 1}</td>
+                    <td style="padding:10px;text-align:center;color:#64748b;font-weight:700">${rowIdx}</td>
                     <td style="padding:10px;font-weight:800;color:#1e293b">${c.customer_name || 'Khách hàng'}</td>
                     <td style="padding:10px;font-weight:700;color:#475569">${c.customer_phone || '—'}</td>
                     <td style="padding:10px;text-align:center">${areaBadge}</td>
@@ -3800,18 +3884,60 @@ function kpiRenderRetentionModalUI() {
                 </tbody>
             </table>
         </div>
-    </div>
     `;
+
+    if (totalItems > 0) {
+        const endItem = Math.min(startIndex + PAGE_SIZE, totalItems);
+        let paginationBtnsHtml = '';
+
+        if (totalPages > 1) {
+            const prevDisabled = _retentionPage === 1 ? 'disabled' : '';
+            const prevStyle = _retentionPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : 'cursor:pointer;';
+            paginationBtnsHtml += `<button type="button" onclick="kpiChangeRetentionPage(${_retentionPage - 1})" ${prevDisabled} style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-weight:700;font-size:12px;color:#334155;${prevStyle}">‹ Trước</button>`;
+
+            for (let p = 1; p <= totalPages; p++) {
+                const isActive = p === _retentionPage;
+                const btnStyle = isActive 
+                    ? 'background:#2563eb;color:#fff;border:1px solid #2563eb;font-weight:800;' 
+                    : 'background:#fff;color:#334155;border:1px solid #cbd5e1;font-weight:700;cursor:pointer;';
+                paginationBtnsHtml += `<button type="button" onclick="kpiChangeRetentionPage(${p})" style="padding:6px 12px;border-radius:8px;font-size:12px;${btnStyle}">${p}</button>`;
+            }
+
+            const nextDisabled = _retentionPage === totalPages ? 'disabled' : '';
+            const nextStyle = _retentionPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : 'cursor:pointer;';
+            paginationBtnsHtml += `<button type="button" onclick="kpiChangeRetentionPage(${_retentionPage + 1})" ${nextDisabled} style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-weight:700;font-size:12px;color:#334155;${nextStyle}">Sau ›</button>`;
+        }
+
+        html += `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:8px 4px;font-size:12px;font-weight:700;color:#64748b;flex-wrap:wrap;gap:10px">
+            <div>Hiển thị <strong style="color:#1e293b">${startIndex + 1} - ${endItem}</strong> trên tổng số <strong style="color:#2563eb">${totalItems}</strong> khách hàng</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-left:auto">${paginationBtnsHtml}</div>
+        </div>
+        `;
+    }
+
+    html += `</div>`;
 
     container.innerHTML = html;
 }
 
+var _retentionPage = 1;
+
 window.kpiFilterRetentionLv = function(lv) {
     _retentionFilterLv = lv;
+    _retentionPage = 1;
     kpiRenderRetentionModalUI();
 };
 
 window.kpiSelectRetentionTab = function(group) {
     _retentionTabGroup = group;
+    _retentionPage = 1;
     kpiRenderRetentionModalUI();
+};
+
+window.kpiChangeRetentionPage = function(page) {
+    _retentionPage = page;
+    kpiRenderRetentionModalUI();
+    const modalContent = document.getElementById('kpiRetentionModalContent');
+    if (modalContent) modalContent.scrollTop = 300;
 };

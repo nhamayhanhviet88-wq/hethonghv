@@ -4624,6 +4624,19 @@ async function _dhtEditOrderFree(o) {
 
 // === Submit Edit V2 (PUT with items) ===
 async function _dhtSubmitEditV2(isDraft) {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        try { document.activeElement.blur(); } catch(e) {}
+    }
+
+    if (window.location.href.includes('design-draft') && window._tpdWorkspaceState && window._tpdWorkspaceState.editingItem && typeof _tpdSaveDraft === 'function') {
+        try {
+            await Promise.resolve(_tpdSaveDraft(window._tpdWorkspaceState.editingItem));
+        } catch(err) {
+            console.error('[DHT] Không thể lưu dữ liệu phiếu sản xuất trước khi submit:', err);
+            showToast('❌ Không thể lưu thông tin sản xuất. Vui lòng thử lại!', 'error');
+            return;
+        }
+    }
     var id = _dhtCreate.editOrderId;
     if (!id) { showToast('Lỗi: không có ID đơn', 'error'); return; }
     var isDraftOrder = _dhtCreate.editData && _dhtCreate.editData.order && (_dhtCreate.editData.order.is_draft === true || _dhtCreate.editData.order.is_draft === 'true');
@@ -4812,6 +4825,32 @@ async function _dhtSubmitEditV2(isDraft) {
         payload.order_code = orderCodeVal;
     }
 
+    // Attach custom_layout and print_details from TPD draft workspace to payload.items
+    if (window.location.href.includes('design-draft') && Array.isArray(payload.items)) {
+        var wsState = window._tpdWorkspaceState;
+        payload.items = payload.items.map(function(pItem) {
+            var editingIt = (wsState && wsState.editingItem && (String(wsState.editingItem.id) === String(pItem.id) || String(wsState.editingItem.dht_order_id) === String(id))) ? wsState.editingItem : null;
+            if (!editingIt && wsState && Array.isArray(wsState.items)) {
+                editingIt = wsState.items.find(function(x) { return String(x.id) === String(pItem.id); });
+            }
+            var candidateKeys = typeof _tpdGetCandidateDraftKeys === 'function' ? _tpdGetCandidateDraftKeys(pItem) : [];
+            var draftObj = null;
+            for (var k = 0; k < candidateKeys.length; k++) {
+                var str = localStorage.getItem(candidateKeys[k]);
+                if (str) { try { draftObj = JSON.parse(str); break; } catch(e){} }
+            }
+            var sourceObj = editingIt || draftObj;
+            if (sourceObj) {
+                if (sourceObj.custom_layout) pItem.custom_layout = sourceObj.custom_layout;
+                if (sourceObj.print_details) pItem.print_details = sourceObj.print_details;
+                if (Array.isArray(sourceObj.production_steps) && sourceObj.production_steps.length > 0) {
+                    pItem.production_steps = sourceObj.production_steps;
+                }
+            }
+            return pItem;
+        });
+    }
+
     var data = await apiCall('/api/dht/orders/' + id, 'PUT', payload);
     if (data.success) {
         showToast('✅ Đã cập nhật đơn hàng!');
@@ -4842,15 +4881,15 @@ async function _dhtSubmitEditV2(isDraft) {
                             draft.quantity = Number(savedItem.quantity) || 0;
                             draft.unit_price = Number(savedItem.unit_price) || 0;
                             draft.item_total = Number(savedItem.item_total) || 0;
-                            draft.sewing_techniques = savedItem.sewing_techniques || [];
-                            draft.extra_materials = savedItem.extra_materials || [];
-                            draft.material_pairs = savedItem.material_pairs || [];
-                            draft.production_steps = savedItem.production_steps || null;
-                            if (savedItem.production_steps && Array.isArray(savedItem.production_steps)) {
-                                var hasInOrEp = savedItem.production_steps.some(function(s) { return Number(s) === 3 || Number(s) === 4; });
-                                if (!hasInOrEp) {
-                                    draft.print_details = [];
-                                }
+                            if (typeof _tpdMergeSewingTechniques === 'function') {
+                                draft.sewing_techniques = _tpdMergeSewingTechniques(draft.sewing_techniques, savedItem.sewing_techniques);
+                            }
+                            if (typeof _tpdPreferDraftArray === 'function') {
+                                draft.extra_materials = _tpdPreferDraftArray(draft.extra_materials, savedItem.extra_materials);
+                                draft.material_pairs = _tpdPreferDraftArray(draft.material_pairs, savedItem.material_pairs);
+                                // ★ DO NOT overwrite production_steps, print_details from savedItem
+                                // because savedItem comes from DHT popup which doesn't manage these fields
+                                // → keeps draft values intact
                             }
                             localStorage.setItem(draftKey, JSON.stringify(draft));
                         } catch(pe) { /* parse error, skip */ }

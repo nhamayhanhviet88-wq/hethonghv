@@ -5770,17 +5770,16 @@ module.exports = async function(fastify) {
 
                     // Update existing item — quantities is included for DHT to persist SL/price changes.
                     // TPD-format size breakdown is protected via frontend smart merge (localStorage draft).
-                    await db.run(`
-                        UPDATE dht_order_items
-                        SET description = $1, quantity = $2, unit_price = $3, total = $4,
-                            sale_type = $5, product_name = $6, material_id = $7, material_name = $8,
-                            color_id = $9, color_name = $10, pattern_name = $11, sewing_techniques = $12,
-                            accounting_notes = $13, extra_materials = $14, quantities = $15,
-                            extra_product = $16, extra_price = $17, item_total = $18, material_pairs = $19,
-                            size_type = $20, promo_gift_quantity = $21, promo_gift_code = $22, promo_gift_apply_row_index = $23,
-                            production_steps = $24, sale_remind_choices = $25
-                        WHERE id = $26 AND dht_order_id = $27
-                    `, [
+                    let updateSets = [
+                        'description = $1', 'quantity = $2', 'unit_price = $3', 'total = $4',
+                        'sale_type = $5', 'product_name = $6', 'material_id = $7', 'material_name = $8',
+                        'color_id = $9', 'color_name = $10', 'pattern_name = $11', 'sewing_techniques = $12',
+                        'accounting_notes = $13', 'extra_materials = $14', 'quantities = $15',
+                        'extra_product = $16', 'extra_price = $17', 'item_total = $18', 'material_pairs = $19',
+                        'size_type = $20', 'promo_gift_quantity = $21', 'promo_gift_code = $22', 'promo_gift_apply_row_index = $23',
+                        'sale_remind_choices = $24'
+                    ];
+                    let updateParams = [
                         item.product_name || '',
                         Number(item.quantity) || 0,
                         Number(item.unit_price) || 0,
@@ -5804,11 +5803,28 @@ module.exports = async function(fastify) {
                         Number(item.promo_gift_quantity) || 0,
                         item.promo_gift_code || null,
                         item.promo_gift_apply_row_index !== undefined ? Number(item.promo_gift_apply_row_index) : null,
-                        item.production_steps ? JSON.stringify(item.production_steps) : null,
-                        JSON.stringify(item.sale_remind_choices || {}),
-                        itemId,
-                        orderId
-                    ]);
+                        JSON.stringify(item.sale_remind_choices || {})
+                    ];
+                    let pIdx = 25;
+                    // Optional fields: only update if frontend explicitly sends them
+                    if (item.production_steps !== undefined && item.production_steps !== null) {
+                        updateSets.push(`production_steps = $${pIdx++}`);
+                        updateParams.push(JSON.stringify(item.production_steps));
+                    }
+                    if (item.custom_layout !== undefined) {
+                        updateSets.push(`custom_layout = $${pIdx++}`);
+                        updateParams.push(typeof item.custom_layout === 'string' ? item.custom_layout : JSON.stringify(item.custom_layout || {}));
+                    }
+                    if (item.print_details !== undefined) {
+                        updateSets.push(`print_details = $${pIdx++}`);
+                        updateParams.push(typeof item.print_details === 'string' ? item.print_details : JSON.stringify(item.print_details || []));
+                    }
+                    updateParams.push(itemId, orderId);
+                    await db.run(`
+                        UPDATE dht_order_items
+                        SET ${updateSets.join(', ')}
+                        WHERE id = $${pIdx++} AND dht_order_id = $${pIdx++}
+                    `, updateParams);
 
                     if (item.sale_remind_choices || item.sale_remind_items) {
                         await saveSaleRemindersForItem(db, orderId, itemId, item.sale_remind_choices, item.sale_remind_items, request.user.id);

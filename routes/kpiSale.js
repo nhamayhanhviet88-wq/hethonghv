@@ -689,6 +689,7 @@ module.exports = async function(fastify) {
                     customer_name: o.customer_name,
                     customer_phone: canSeePhone ? o.customer_phone : maskPhone(o.customer_phone),
                     business_area: o.business_area,
+                    customer_type: o.customer_type,
                     customer_created_at: o.customer_created_at,
                     first_order_date: o.created_at,
                     prior_orders_cnt: 0,
@@ -715,7 +716,8 @@ module.exports = async function(fastify) {
         const prior_old_customers = allCusts.filter(c => {
             return c.prior_orders_cnt > 0 || 
                    (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart)) ||
-                   c.customer_type === 'cu';
+                   c.customer_type === 'cu' ||
+                   c.month_orders_cnt >= 2;
         });
 
         const returning_old_customers = allCusts.filter(c => {

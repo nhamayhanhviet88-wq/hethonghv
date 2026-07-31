@@ -96,6 +96,7 @@ async function renderCamketcuochopPage(content) {
 <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
 <select class="ckch-filter" id="ckchMonth"></select>
 <select class="ckch-filter" id="ckchYear"></select>
+<button class="ckch-filter" id="ckchPermBtn" style="display:none;cursor:pointer;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;color:#fff;font-weight:700" onclick="_ckchOpenPermissions()">⚙️ Cài Đặt Quyền</button>
 </div>
 </div>
 <div class="ckch-content" id="ckchContent"><div class="ckch-empty">⏳ Đang tải...</div></div>
@@ -632,3 +633,128 @@ document.addEventListener('click', function(e){
         if(dd) dd.style.display = 'none';
     }
 });
+
+// ===== PERMISSION SETTINGS MODAL =====
+var _ckchPermData = [];
+var _ckchAllRoles = [
+    { value: 'giam_doc', label: 'Giám Đốc' },
+    { value: 'quan_ly_cap_cao', label: 'Quản Lý Cấp Cao' },
+    { value: 'quan_ly', label: 'Quản Lý' },
+    { value: 'truong_phong', label: 'Trưởng Phòng' },
+    { value: 'nhan_vien', label: 'Nhân Viên' },
+    { value: 'thu_viec', label: 'Thử Việc' }
+];
+var _ckchSources = [
+    { value: 'kpikdoanh', label: 'KPI P.Kinh Doanh' },
+    { value: 'kpisale', label: 'KPI P.Sale' }
+];
+var _ckchPermTypes = [
+    { value: 'create_session', label: '➕ Tạo Cuộc Họp', icon: '📋' },
+    { value: 'setup_personal', label: '⚙️ Mẫu Cá Nhân', icon: '👤' },
+    { value: 'setup_team', label: '⚙️ Mẫu Team', icon: '👥' }
+];
+
+// Show/hide button based on role
+function _ckchCheckPermBtn() {
+    var user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null;
+    var btn = document.getElementById('ckchPermBtn');
+    if (btn && user && user.role === 'giam_doc') btn.style.display = '';
+}
+setTimeout(_ckchCheckPermBtn, 500);
+setTimeout(_ckchCheckPermBtn, 2000);
+
+async function _ckchOpenPermissions() {
+    try {
+        var res = await apiCall('/api/meeting-commitments/permissions');
+        _ckchPermData = res.permissions || [];
+    } catch(e) { _ckchPermData = []; }
+
+    var overlay = document.createElement('div');
+    overlay.id = 'ckchPermOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var html = '<div style="background:#fff;border-radius:16px;width:700px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">';
+    html += '<div style="padding:20px 24px;background:linear-gradient(135deg,#1e293b,#334155);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:between">';
+    html += '<div style="flex:1"><h3 style="margin:0;color:#fff;font-size:18px;font-weight:900">⚙️ Cài Đặt Quyền Cuộc Họp</h3><div style="color:#94a3b8;font-size:12px;margin-top:4px">Chọn role được phép thực hiện từng chức năng</div></div>';
+    html += '<button onclick="document.getElementById(\'ckchPermOverlay\').remove()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px">✕</button>';
+    html += '</div>';
+    html += '<div style="padding:24px">';
+
+    // For each source
+    for (var s = 0; s < _ckchSources.length; s++) {
+        var src = _ckchSources[s];
+        html += '<div style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">';
+        html += '<div style="padding:12px 16px;background:linear-gradient(135deg,' + (s===0?'#4338ca,#6366f1':'#0891b2,#06b6d4') + ');color:#fff;font-size:14px;font-weight:800">' + src.label + '</div>';
+
+        for (var p = 0; p < _ckchPermTypes.length; p++) {
+            var pt = _ckchPermTypes[p];
+            var perm = _ckchPermData.find(function(x) { return x.source === src.value && x.permission_type === pt.value; });
+            var activeRoles = perm ? perm.allowed_roles.split(',') : ['giam_doc'];
+
+            html += '<div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
+            html += '<div style="min-width:140px;font-size:13px;font-weight:700;color:#1e293b">' + pt.icon + ' ' + pt.label + '</div>';
+            html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+
+            for (var r = 0; r < _ckchAllRoles.length; r++) {
+                var role = _ckchAllRoles[r];
+                var checked = activeRoles.indexOf(role.value) >= 0;
+                var checkId = 'perm_' + src.value + '_' + pt.value + '_' + role.value;
+                html += '<label style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;border:1px solid ' + (checked ? '#6366f1' : '#e5e7eb') + ';background:' + (checked ? '#eef2ff' : '#fff') + ';cursor:pointer;font-size:11px;font-weight:600;color:' + (checked ? '#4338ca' : '#6b7280') + ';transition:all .15s">';
+                html += '<input type="checkbox" id="' + checkId + '" ' + (checked ? 'checked' : '') + ' style="accent-color:#6366f1" onchange="_ckchToggleRoleStyle(this)">';
+                html += role.label + '</label>';
+            }
+
+            html += '</div></div>';
+        }
+        html += '</div>';
+    }
+
+    html += '</div>';
+    html += '<div style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px">';
+    html += '<button onclick="document.getElementById(\'ckchPermOverlay\').remove()" style="padding:10px 20px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;color:#374151;font-size:13px;font-weight:700;cursor:pointer">Hủy</button>';
+    html += '<button onclick="_ckchSavePermissions()" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.3)">💾 Lưu Cài Đặt</button>';
+    html += '</div></div>';
+
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+}
+
+window._ckchToggleRoleStyle = function(cb) {
+    var lbl = cb.parentElement;
+    if (cb.checked) {
+        lbl.style.borderColor = '#6366f1';
+        lbl.style.background = '#eef2ff';
+        lbl.style.color = '#4338ca';
+    } else {
+        lbl.style.borderColor = '#e5e7eb';
+        lbl.style.background = '#fff';
+        lbl.style.color = '#6b7280';
+    }
+};
+
+window._ckchSavePermissions = async function() {
+    var perms = [];
+    for (var s = 0; s < _ckchSources.length; s++) {
+        var src = _ckchSources[s];
+        for (var p = 0; p < _ckchPermTypes.length; p++) {
+            var pt = _ckchPermTypes[p];
+            var roles = [];
+            for (var r = 0; r < _ckchAllRoles.length; r++) {
+                var role = _ckchAllRoles[r];
+                var cb = document.getElementById('perm_' + src.value + '_' + pt.value + '_' + role.value);
+                if (cb && cb.checked) roles.push(role.value);
+            }
+            if (roles.length === 0) roles = ['giam_doc']; // Minimum: GĐ always has access
+            perms.push({ source: src.value, permission_type: pt.value, allowed_roles: roles.join(',') });
+        }
+    }
+    try {
+        await apiCall('/api/meeting-commitments/permissions', 'PUT', { permissions: perms });
+        showToast('✅ Đã lưu cài đặt quyền thành công!', 'success');
+        var overlay = document.getElementById('ckchPermOverlay');
+        if (overlay) overlay.remove();
+    } catch(e) {
+        alert('Lỗi: ' + (e.message || ''));
+    }
+};
