@@ -294,6 +294,13 @@ async function meetingCommitmentsRoutes(fastify, options) {
         if (!Array.isArray(reviews)) return reply.code(400).send({ error: 'Thiếu reviews' });
 
         for (const r of reviews) {
+            const pct = parseInt(r.completion_pct) || 0;
+            if (pct <= 0) {
+                return reply.code(400).send({ error: '⚠️ Tiến độ không được bằng 0%! Vui lòng điều chỉnh tiến độ lớn hơn 0% trước khi lưu review.' });
+            }
+        }
+
+        for (const r of reviews) {
             await db.run(
                 `UPDATE meeting_commitments
                  SET is_completed = ?, completion_pct = ?, review_note = ?,

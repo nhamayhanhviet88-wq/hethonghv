@@ -2226,6 +2226,8 @@ window.mcSaleSaveReview = async function() {
 
     for (var i = 0; i < items.length; i++) {
         var el = items[i];
+        el.style.border = '';
+        el.style.boxShadow = '';
         var actualInput = el.querySelector('.rv-actual');
         if (actualInput) {
             actualInput.style.borderColor = '';
@@ -2240,6 +2242,8 @@ window.mcSaleSaveReview = async function() {
         var pct = pctInput ? (parseInt(pctInput.value) || 0) : 0;
         if (pct <= 0) {
             zeroPctError = true;
+            el.style.border = '2px solid #ef4444';
+            el.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
         }
     }
 
@@ -2510,6 +2514,8 @@ window.mcSaleSaveTeamReview = async function() {
 
     for (var i = 0; i < items.length; i++) {
         var el = items[i];
+        el.style.border = '';
+        el.style.boxShadow = '';
         var actualInput = el.querySelector('.rv-actual');
         if (actualInput) {
             actualInput.style.borderColor = '';
@@ -2524,6 +2530,8 @@ window.mcSaleSaveTeamReview = async function() {
         var pct = pctInput ? (parseInt(pctInput.value) || 0) : 0;
         if (pct <= 0) {
             zeroPctError = true;
+            el.style.border = '2px solid #ef4444';
+            el.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
         }
     }
 
