@@ -583,7 +583,7 @@ async function kpiLoadAll() {
             _mcTeams = _mcTeams.filter(function(t) { return t.id === currentUser.department_id; });
         }
         // Load yearly data
-        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + kpiYear); } catch(e) { _mcYearlyData = null; }
+        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + kpiYear + '&source=kpikdoanh'); } catch(e) { _mcYearlyData = null; }
         if (_mcSessions.length > 0) {
             _mcSession = _mcSessions[_mcSessions.length - 1];
             _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === _mcSession.id; });
@@ -635,7 +635,7 @@ async function kpiLoadData() {
         if (_kpiIsTP() && currentUser && currentUser.department_id) {
             _mcTeams = _mcTeams.filter(function(t) { return t.id === currentUser.department_id; });
         }
-        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + kpiY2); } catch(e) { _mcYearlyData = null; }
+        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + kpiY2 + '&source=kpikdoanh'); } catch(e) { _mcYearlyData = null; }
         if (_mcSessions.length > 0) {
             _mcSession = _mcSessions[_mcSessions.length - 1];
             _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === _mcSession.id; });

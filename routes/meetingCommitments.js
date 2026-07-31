@@ -463,14 +463,19 @@ async function meetingCommitmentsRoutes(fastify, options) {
     // ===== YEARLY SUMMARY =====
     fastify.get('/api/meeting-commitments/yearly-summary', { preHandler: [authenticate] }, async (request, reply) => {
         const year = parseInt(request.query.year) || new Date().getFullYear();
+        const source = request.query.source || null;
 
-        const sessions = await db.all(
-            `SELECT id, meeting_date, title, EXTRACT(MONTH FROM meeting_date)::int AS month_num
+        let sessQuery = `SELECT id, meeting_date, title, EXTRACT(MONTH FROM meeting_date)::int AS month_num
              FROM meeting_sessions
-             WHERE EXTRACT(YEAR FROM meeting_date) = ?
-             ORDER BY meeting_date ASC`,
-            [year]
-        );
+             WHERE EXTRACT(YEAR FROM meeting_date) = ?`;
+        const sessParams = [year];
+        if (source) {
+            sessQuery += ` AND source = ?`;
+            sessParams.push(source);
+        }
+        sessQuery += ` ORDER BY meeting_date ASC`;
+
+        const sessions = await db.all(sessQuery, sessParams);
 
         if (sessions.length === 0) return { year, sessions: [], allCommitments: [] };
 
