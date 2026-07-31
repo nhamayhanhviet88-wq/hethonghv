@@ -1904,7 +1904,7 @@ function kpiRenderMeetingCommit(el) {
                     }
                 }
                 if (_sessBadgeCommits.length > 0) {
-                    var pctAll = Math.round(_sessBadgeCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / _sessBadgeCommits.length);
+                    var pctAll = (Math.round((_sessBadgeCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / _sessBadgeCommits.length) * 10) / 10).toString().replace('.', ',');
                     h += '<span class="kpi-mc-badge ' + (_sessBadgeDone === _sessBadgeCommits.length ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending') + '">' + _sessBadgeDone + '/' + _sessBadgeCommits.length + ' — ' + pctAll + '%</span>';
                 }
             }
@@ -1931,7 +1931,7 @@ function kpiRenderMeetingCommit(el) {
                 // Team-level commits (department_id set) — used for team badge
                 var teamOwnCommits = sessCommits.filter(function(c) { return c.team_dept_id === team.id; });
                 var teamDone = teamOwnCommits.filter(function(c) { return c.is_completed; }).length;
-                var teamPct = teamOwnCommits.length > 0 ? Math.round(teamOwnCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / teamOwnCommits.length) : 0;
+                var teamPct = teamOwnCommits.length > 0 ? (Math.round(teamOwnCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / teamOwnCommits.length * 10) / 10).toString().replace('.', ',') : '0';
                 var teamBadgeClass = teamDone === teamOwnCommits.length && teamOwnCommits.length > 0 ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending';
 
                 h += '<div class="kpi-mc-team" style="background:' + pal.teamBg + ';border-left:4px solid ' + pal.teamBorder + ';border-color:' + pal.teamBorder + '">';
@@ -1977,7 +1977,7 @@ function kpiRenderMeetingCommit(el) {
                     var empCommits = sessCommits.filter(function(c) { return c.user_id === emp.id; });
                     var totalItems = empCommits.length;
                     var doneItems = empCommits.filter(function(c) { return c.is_completed; }).length;
-                    var avgPct = totalItems > 0 ? Math.round(empCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / totalItems) : 0;
+                    var avgPct = totalItems > 0 ? (Math.round(empCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / totalItems * 10) / 10).toString().replace('.', ',') : '0';
 
                     var roleLabel = '';
                     if (emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao') roleLabel = 'Quản Lý';
