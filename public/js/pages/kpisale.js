@@ -1655,6 +1655,9 @@ function renderKpiSaleMeetingCommit(el) {
         h += '</div>';
         h += '</div></div>'; // close monthly summary
 
+        // ===== YEARLY SUMMARY (collapsible, gold theme) =====
+        h += mcSaleRenderYearlySummary();
+
         // ===== SESSION ACCORDION =====
         var _mcSalePalette = [
             { bg:'#f5f3ff', border:'#c4b5fd', headerBg:'linear-gradient(135deg,#ede9fe,#ddd6fe)', accent:'#7c3aed', text:'#4c1d95', teamBg:'linear-gradient(135deg,#f5f3ff,#ede9fe,#f5f3ff)', teamBorder:'#8b5cf6', teamNameBg:'linear-gradient(90deg,#ede9fe,#ddd6fe)', teamNameColor:'#4c1d95', newestBg:'#4338ca', icon:'#7c3aed' },
@@ -1780,8 +1783,6 @@ function renderKpiSaleMeetingCommit(el) {
         }
     }
 
-    // ===== YEARLY SUMMARY (collapsible, gold theme) =====
-    h += mcSaleRenderYearlySummary();
 
     h += `</div></div>`;
     el.innerHTML = h;
