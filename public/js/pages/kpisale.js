@@ -1655,6 +1655,66 @@ function renderKpiSaleMeetingCommit(el) {
         h += '</div>';
         h += '</div></div>'; // close monthly summary
 
+        // ===== TEAM SUMMARY CARDS (team-own commits only, per-session averaging) =====
+        if (_mcSaleTeams && _mcSaleTeams.length > 0) {
+            var teamSummaryArr = [];
+            for (var tsi = 0; tsi < _mcSaleTeams.length; tsi++) {
+                var tteam = _mcSaleTeams[tsi];
+                if (!tteam.members || tteam.members.length === 0) continue;
+                var teamOwnAll = _mcSaleAllCommitments.filter(function(c) { return c.team_dept_id === tteam.id; });
+                var tTotal = teamOwnAll.length;
+                var tDone = teamOwnAll.filter(function(c) { return c.is_completed; }).length;
+
+                var tSessionMap = {};
+                for (var tci = 0; tci < teamOwnAll.length; tci++) {
+                    var tc = teamOwnAll[tci];
+                    if (!tSessionMap[tc.session_id]) tSessionMap[tc.session_id] = { sum: 0, count: 0 };
+                    tSessionMap[tc.session_id].sum += (tc.completion_pct || 0);
+                    tSessionMap[tc.session_id].count++;
+                }
+                var tSessKeys = Object.keys(tSessionMap);
+                var tAvgPct = 0;
+                if (tSessKeys.length > 0) {
+                    var tSessSum = 0;
+                    for (var tsk = 0; tsk < tSessKeys.length; tsk++) {
+                        var tsm = tSessionMap[tSessKeys[tsk]];
+                        tSessSum += (tsm.sum / tsm.count);
+                    }
+                    tAvgPct = Math.round((tSessSum / tSessKeys.length) * 10) / 10;
+                }
+                teamSummaryArr.push({ team: tteam, total: tTotal, done: tDone, avgPct: tAvgPct, sessCount: tSessKeys.length });
+            }
+            teamSummaryArr.sort(function(a, b) { return b.avgPct - a.avgPct; });
+
+            h += '<div style="margin-top:16px">';
+            h += '<div style="font-size:13px;font-weight:800;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏠 Tổng Kết Theo Team <span style="font-size:12px;font-weight:500;color:#8b5cf6">Tháng ' + selMonth + '/' + selYear + '</span></div>';
+            h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+            for (var tsi2 = 0; tsi2 < teamSummaryArr.length; tsi2++) {
+                var ts2 = teamSummaryArr[tsi2];
+                var tPctDisplay = mcSFmtPct(ts2.avgPct);
+                var tColor = ts2.avgPct >= 80 ? '#059669' : (ts2.avgPct >= 50 ? '#d97706' : '#dc2626');
+                var tGrad = ts2.avgPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (ts2.avgPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
+
+                h += '<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:10px;padding:12px 14px;border:1px solid #c4b5fd;border-left:4px solid #8b5cf6;transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(139,92,246,.15)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">';
+                h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+                h += '<div style="display:flex;align-items:center;gap:6px">';
+                h += '<span style="font-size:16px">🏠</span>';
+                h += '<div><div style="font-size:13px;font-weight:800;color:#4c1d95">' + ts2.team.name + '</div>';
+                h += '<div style="font-size:10px;color:#7c3aed;font-weight:500">' + ts2.team.members.length + ' thành viên</div></div>';
+                h += '</div>';
+                h += '<div style="font-size:18px;font-weight:900;color:' + tColor + '">' + tPctDisplay + '%</div>';
+                h += '</div>';
+                h += '<div style="height:6px;background:#ddd6fe;border-radius:3px;overflow:hidden;margin-bottom:6px">';
+                h += '<div style="height:100%;width:' + ts2.avgPct + '%;background:' + tGrad + ';border-radius:3px;transition:width .5s ease"></div>';
+                h += '</div>';
+                h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#6d28d9;font-weight:600">';
+                h += '<span>Hoàn thành: ' + ts2.done + '/' + ts2.total + '</span>';
+                h += '<span>' + ts2.sessCount + ' cuộc họp</span>';
+                h += '</div></div>';
+            }
+            h += '</div></div>';
+        }
+
         // ===== YEARLY SUMMARY (collapsible, gold theme) =====
         h += mcSaleRenderYearlySummary();
 
