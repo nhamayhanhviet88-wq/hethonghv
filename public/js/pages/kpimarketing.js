@@ -717,7 +717,7 @@ function kpiMktOpenAddCatModal() {
     const pageSelect = document.getElementById('kpiAddCatPageSelect');
     if (pageSelect) {
         const availPages = (_kpiMkt.data && _kpiMkt.data.available_pages) ? _kpiMkt.data.available_pages : [];
-        const pageSet = new Set(['Page Công Ty 2', 'Page TEMVN', 'Seo Web HV.VN']);
+        const pageSet = new Set(['Page Công Ty 2', 'Page TEMVN', 'Seo Web HV.VN', 'Zalo OA/APP', 'KHÁCH NHẮN ZALO TỔNG', 'Spam Zalo', 'Tiktok Ads 1']);
         availPages.forEach(p => { if (p) pageSet.add(p); });
 
         let pageHtml = '';
@@ -880,8 +880,12 @@ function kpiMktOnSubCatSelectChange(val) {
             pageName = 'Page Công Ty 2';
         } else if (valLower.includes('seo web')) {
             pageName = 'Seo Web HV.VN';
+        } else if (valLower.includes('zalo')) {
+            pageName = 'Zalo OA/APP';
+        } else if (valLower.includes('tiktok')) {
+            pageName = 'Tiktok Ads 1';
         } else {
-            pageName = 'Page TEMVN';
+            pageName = '';
         }
     }
 
