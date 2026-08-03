@@ -680,7 +680,7 @@ function kpiMktOpenAddCatModal() {
     const modal = document.getElementById('kpiMktAddCatModal');
     if (!modal) return;
 
-    const categories = (_kpiMkt.data && _kpiMkt.data.categories) ? _kpiMkt.data.categories : [];
+    const categories = (_kpiMkt.data && (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories)) ? (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories) : [];
     const rootCats = categories.filter(c => c.parent_id === null || c.parent_id === undefined);
 
     // 1. Populate Channel (Parent) Dropdown
@@ -771,7 +771,7 @@ function kpiMktOnChannelChange(parentId) {
     const subSelect = document.getElementById('kpiAddCatSubSelect');
     if (!subSelect) return;
 
-    const categories = (_kpiMkt.data && _kpiMkt.data.categories) ? _kpiMkt.data.categories : [];
+    const categories = (_kpiMkt.data && (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories)) ? (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories) : [];
     const renderedNames = new Set(
         (_kpiMkt.data && _kpiMkt.data.renderedCategories) ? _kpiMkt.data.renderedCategories.map(n => String(n).trim().toLowerCase()) : []
     );
@@ -866,7 +866,7 @@ function kpiMktOnSubCatSelectChange(val) {
     }
 
     // Look up matched category in database (synced with /ngansachmkt)
-    const categories = (_kpiMkt.data && _kpiMkt.data.categories) ? _kpiMkt.data.categories : [];
+    const categories = (_kpiMkt.data && (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories)) ? (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories) : [];
     const matchedCat = categories.find(c => c.name && c.name.trim().toLowerCase() === String(val).trim().toLowerCase());
 
     let pageName = matchedCat ? (matchedCat.linked_source_name || matchedCat.pancake_page_name || '') : '';

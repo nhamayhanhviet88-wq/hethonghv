@@ -660,7 +660,8 @@ module.exports = async function(fastify, options) {
                     },
                     stages: summaryStages
                 },
-                categories: allSystemCats || [],
+                categories: allCats || [],
+                all_system_categories: allSystemCats || [],
                 handlers,
                 available_pages: availablePages,
                 available_handlers: sortedHandlerNames
@@ -749,9 +750,9 @@ module.exports = async function(fastify, options) {
             if (!id) return reply.status(400).send({ error: 'ID không hợp lệ' });
 
             const catId = Number(id);
-            if (isNaN(catId)) {
-                // If passed string name instead of numeric ID
-                await db.run('UPDATE mkt_categories SET show_in_kpi_mkt = FALSE WHERE LOWER(name) = LOWER(?)', [id.trim()]);
+            if (isNaN(catId) || catId === 0) {
+                const rawName = decodeURIComponent(id).trim();
+                await db.run('UPDATE mkt_categories SET show_in_kpi_mkt = FALSE WHERE LOWER(name) = LOWER(?) OR LOWER(name) LIKE ?', [rawName, `%${rawName.toLowerCase()}%`]);
             } else {
                 await db.run('UPDATE mkt_categories SET show_in_kpi_mkt = FALSE WHERE id = ? OR parent_id = ?', [catId, catId]);
             }
