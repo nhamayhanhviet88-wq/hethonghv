@@ -1452,6 +1452,13 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
+
+        // Spacer / Divider Row between employee blocks
+        html += `
+            <tr class="kpi-employee-spacer-row">
+                <td colspan="12" style="height:18px;background:#f1f5f9 !important;border-top:2px solid #cbd5e1 !important;border-bottom:2px solid #cbd5e1 !important;padding:0 !important;"></td>
+            </tr>
+        `;
     });
 
     tbody.innerHTML = html;
