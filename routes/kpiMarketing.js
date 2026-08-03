@@ -18,6 +18,14 @@ module.exports = async function(fastify, options) {
         await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_cpo NUMERIC DEFAULT 0');
         await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_cost_ratio NUMERIC DEFAULT 0');
         await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_close_rate NUMERIC DEFAULT 0');
+        await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS show_in_kpi_mkt BOOLEAN DEFAULT FALSE');
+
+        // Initial default: enable show_in_kpi_mkt for existing core initial categories (excluding newly added ones like 'Tờ Rơi')
+        await db.run(`
+            UPDATE mkt_categories 
+            SET show_in_kpi_mkt = TRUE 
+            WHERE show_in_kpi_mkt IS NULL OR (is_active = TRUE AND parent_id IS NOT NULL AND LOWER(name) IN ('đồng phục hv - đồng phục công ty, nhà hàng', 'xưởng in hv - xưởng in pet , in tem eco gia công', 'seo web', 'tiktok test'))
+        `);
     } catch(e) {
         console.error('Migration mkt_kpi_targets error:', e.message);
     }
@@ -52,12 +60,16 @@ module.exports = async function(fastify, options) {
             else if (currentDay <= 20) currentPhase = 2;
             else currentPhase = 3;
 
-            // 1. Get all categories tree from mkt_categories
-            const allCats = await db.all(`
-                SELECT id, parent_id, group_type, name, icon, ads_handler_name, linked_source_name, pancake_page_id, pancake_page_name
+            // 1. Get all active system categories tree from mkt_categories
+            const allSystemCats = await db.all(`
+                SELECT id, parent_id, group_type, name, icon, ads_handler_name, linked_source_name, pancake_page_id, pancake_page_name, show_in_kpi_mkt
                 FROM mkt_categories
+                WHERE is_active = TRUE
                 ORDER BY CASE WHEN group_type = 'online' THEN 1 ELSE 2 END ASC, parent_id ASC NULLS FIRST, sort_order ASC, id ASC
             `);
+
+            // Filter allCats for KPI Marketing Ads: must have show_in_kpi_mkt = TRUE or be a parent category
+            const allCats = (allSystemCats || []).filter(c => c.show_in_kpi_mkt === true || c.show_in_kpi_mkt === 'true' || c.parent_id === null || c.parent_id === undefined);
 
             const catMap = new Map();
             (allCats || []).forEach(c => catMap.set(c.id, c));
@@ -648,7 +660,7 @@ module.exports = async function(fastify, options) {
                     },
                     stages: summaryStages
                 },
-                categories: allCats || [],
+                categories: allSystemCats || [],
                 handlers,
                 available_pages: availablePages,
                 available_handlers: sortedHandlerNames
@@ -692,11 +704,26 @@ module.exports = async function(fastify, options) {
             const maxOrderRow = await db.get('SELECT COALESCE(MAX(sort_order), 0) as max_order FROM mkt_categories WHERE parent_id = ?', [realParentId]);
             const sort_order = (maxOrderRow?.max_order || 0) + 1;
 
+            const existingCat = await db.get('SELECT * FROM mkt_categories WHERE LOWER(name) = LOWER(?) AND is_active = TRUE', [name.trim()]);
+            if (existingCat) {
+                await db.run(`
+                    UPDATE mkt_categories 
+                    SET show_in_kpi_mkt = TRUE,
+                        parent_id = COALESCE(?, parent_id),
+                        pancake_page_name = CASE WHEN ? != '' THEN ? ELSE pancake_page_name END,
+                        linked_source_name = CASE WHEN ? != '' THEN ? ELSE linked_source_name END,
+                        ads_handler_name = CASE WHEN ? != '' THEN ? ELSE ads_handler_name END
+                    WHERE id = ?
+                `, [realParentId, pancake_page_name || '', pancake_page_name || '', linked_source_name || pancake_page_name || '', linked_source_name || pancake_page_name || '', ads_handler_name || '', ads_handler_name || '', existingCat.id]);
+
+                return reply.send({ success: true, message: 'Đã thêm mục Marketing vào KPI Marketing Ads thành công!', id: existingCat.id });
+            }
+
             const res = await db.run(`
                 INSERT INTO mkt_categories 
-                    (parent_id, group_type, name, icon, sort_order, linked_source_type, linked_source_name, pancake_page_name, ads_handler_name, is_active)
+                    (parent_id, group_type, name, icon, sort_order, linked_source_type, linked_source_name, pancake_page_name, ads_handler_name, is_active, show_in_kpi_mkt)
                 VALUES 
-                    (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE)
             `, [realParentId, group_type, name.trim(), icon, sort_order, 'facebook', linked_source_name || '', pancake_page_name || '', ads_handler_name || 'Giám Đốc']);
 
             reply.send({ success: true, message: 'Đã tạo mục Marketing mới thành công!', id: res.lastInsertRowid });
@@ -708,7 +735,7 @@ module.exports = async function(fastify, options) {
 
     fastify.post('/api/reports/kpi-marketing/categories', { preHandler: [authenticate] }, saveCategoryHandler);
 
-    // ===== DELETE /api/reports/kpi-marketing/categories/:id ===== (Chỉ Giám Đốc được Xóa / Ẩn mục con)
+    // ===== DELETE /api/reports/kpi-marketing/categories/:id ===== (Chỉ Giám Đốc được Xóa / Ẩn mục con khỏi KPI Marketing Ads)
     fastify.delete('/api/reports/kpi-marketing/categories/:id', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             const user = request.user || {};
@@ -724,9 +751,9 @@ module.exports = async function(fastify, options) {
             const catId = Number(id);
             if (isNaN(catId)) {
                 // If passed string name instead of numeric ID
-                await db.run('UPDATE mkt_categories SET is_active = FALSE WHERE LOWER(name) = LOWER(?)', [id.trim()]);
+                await db.run('UPDATE mkt_categories SET show_in_kpi_mkt = FALSE WHERE LOWER(name) = LOWER(?)', [id.trim()]);
             } else {
-                await db.run('UPDATE mkt_categories SET is_active = FALSE WHERE id = ? OR parent_id = ?', [catId, catId]);
+                await db.run('UPDATE mkt_categories SET show_in_kpi_mkt = FALSE WHERE id = ? OR parent_id = ?', [catId, catId]);
             }
 
             return reply.send({ success: true, message: 'Đã xóa mục con thành công!' });
