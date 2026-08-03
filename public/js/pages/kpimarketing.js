@@ -675,7 +675,17 @@ function kpiMktOnChannelChange(parentId) {
                 { name: 'Seo Web', page: 'Seo Web HV.VN', handler: 'Giám Đốc' }
             ]
         };
-        const fallbacks = realFallbackMap[String(parentId)] || realFallbackMap['1'] || [];
+        
+        const matchedParentCat = categories.find(c => String(c.id) === String(parentId));
+        const parentName = matchedParentCat ? matchedParentCat.name.toLowerCase() : '';
+
+        let fallbacks = realFallbackMap[String(parentId)] || [];
+        if (fallbacks.length === 0 && (parentName.includes('facebook') || parentId === '1')) {
+            fallbacks = realFallbackMap['1'];
+        } else if (fallbacks.length === 0 && (parentName.includes('google') || parentId === '3')) {
+            fallbacks = realFallbackMap['3'];
+        }
+
         fallbacks.forEach(item => {
             if (!addedNames.has(item.name)) {
                 addedNames.add(item.name);
@@ -684,6 +694,7 @@ function kpiMktOnChannelChange(parentId) {
         });
     }
 
+    subHtml += `<option value="__NEW__">➕ Nhập Mục Con / Mã Nguồn Mới...</option>`;
     subSelect.innerHTML = subHtml;
 
     // Pre-select first sub-category option if present
