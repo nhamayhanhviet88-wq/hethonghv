@@ -869,45 +869,52 @@ function kpiMktOnSubCatSelectChange(val) {
     const categories = (_kpiMkt.data && (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories)) ? (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories) : [];
     const matchedCat = categories.find(c => c.name && c.name.trim().toLowerCase() === String(val).trim().toLowerCase());
 
-    let pageName = matchedCat ? (matchedCat.linked_source_name || matchedCat.pancake_page_name || '') : '';
+    let pageName = matchedCat ? (matchedCat.linked_source_name || matchedCat.pancake_page_name || '').trim() : '';
     let handlerName = matchedCat ? (matchedCat.ads_handler_name || 'Giám Đốc') : 'Giám Đốc';
 
-    if (!pageName) {
-        const valLower = String(val).toLowerCase();
-        if (valLower.includes('xưởng in')) {
-            pageName = 'Page TEMVN';
-        } else if (valLower.includes('đồng phục hv') || valLower.includes('đồng phục công ty')) {
-            pageName = 'Page Công Ty 2';
-        } else if (valLower.includes('seo web')) {
-            pageName = 'Seo Web HV.VN';
-        } else if (valLower.includes('zalo')) {
-            pageName = 'Zalo OA/APP';
-        } else if (valLower.includes('tiktok')) {
-            pageName = 'Tiktok Ads 1';
-        } else {
-            pageName = '';
-        }
-    }
+    const saveBtn = document.querySelector('#kpiMktAddCatModal button[onclick*="kpiMktSaveNewCategory"]');
 
-    // ALWAYS STRICTLY LOCK Page Pancake field (cannot be edited)
     if (pageSelect) {
-        let existingOptIndex = Array.from(pageSelect.options).findIndex(o => o.value === pageName);
-        if (existingOptIndex >= 0) {
-            pageSelect.selectedIndex = existingOptIndex;
-        } else if (pageName) {
-            const opt = document.createElement('option');
-            opt.value = pageName;
-            opt.textContent = `🔗 ${pageName}`;
-            pageSelect.insertBefore(opt, pageSelect.firstChild);
-            pageSelect.selectedIndex = 0;
+        if (!pageName || pageName === '-' || pageName === 'null') {
+            pageName = '-';
+            pageSelect.innerHTML = `<option value="-">🔗 -</option>`;
+            pageSelect.value = '-';
+            pageSelect.disabled = true;
+            pageSelect.style.backgroundColor = '#f1f5f9';
+            pageSelect.style.color = '#94a3b8';
+            pageSelect.style.cursor = 'not-allowed';
+
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.setAttribute('disabled', 'disabled');
+                saveBtn.style.opacity = '0.45';
+                saveBtn.style.cursor = 'not-allowed';
+                saveBtn.title = 'Mục con này chưa cài đặt Nguồn Quảng Cáo liên kết';
+            }
+        } else {
+            let existingOptIndex = Array.from(pageSelect.options).findIndex(o => o.value === pageName);
+            if (existingOptIndex >= 0) {
+                pageSelect.selectedIndex = existingOptIndex;
+            } else {
+                const opt = document.createElement('option');
+                opt.value = pageName;
+                opt.textContent = `🔗 ${pageName}`;
+                pageSelect.insertBefore(opt, pageSelect.firstChild);
+                pageSelect.selectedIndex = 0;
+            }
+            pageSelect.disabled = true;
+            pageSelect.style.backgroundColor = '#e2e8f0';
+            pageSelect.style.color = '#475569';
+            pageSelect.style.cursor = 'not-allowed';
+
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.removeAttribute('disabled');
+                saveBtn.style.opacity = '1';
+                saveBtn.style.cursor = 'pointer';
+                saveBtn.title = 'Lưu Mục Marketing Mới';
+            }
         }
-        pageSelect.disabled = true;
-        pageSelect.setAttribute('disabled', 'disabled');
-        pageSelect.style.backgroundColor = '#e2e8f0';
-        pageSelect.style.color = '#475569';
-        pageSelect.style.cursor = 'not-allowed';
-        pageSelect.style.pointerEvents = 'none';
-        pageSelect.style.opacity = '0.75';
         if (pageInput) pageInput.style.display = 'none';
     }
 
@@ -982,6 +989,11 @@ async function kpiMktSaveNewCategory() {
 
     if (!name || !name.trim()) {
         alert('Vui lòng chọn hoặc nhập tên Mục Con / Sản Phẩm (Mã Nguồn)!');
+        return;
+    }
+
+    if (!page || page.trim() === '-' || page.trim() === '') {
+        alert('⚠️ Mục con này chưa được cài đặt Nguồn Quảng Cáo liên kết!\n\nVui lòng sang trang Ngân Sách Marketing và bấm biểu tượng ✏️ bên cạnh mục con để cài đặt Nguồn Liên Kết trước.');
         return;
     }
 
