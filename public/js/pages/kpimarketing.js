@@ -1260,7 +1260,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
         });
 
         const displayItems = assignedItems.length > 0 ? assignedItems : (h.items || []);
-        const totalRowsForHandler = Math.max(1, displayItems.length) + 1 + 3; // +1 for Employee Total row, +3 for KPI Target rows
+        const totalRowsForHandler = Math.max(1, displayItems.length) + 1 + 5; // +1 for Employee Total row, +5 for KPI Target rows
 
         let totSpent = 0, totLeads = 0, totOrders = 0, totRevenue = 0;
 
@@ -1432,6 +1432,40 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
                 <td><span class="kpi-pill kpi-pill-orange">-</span></td>
                 <td style="font-weight:700;color:#047857">-</td>
+                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+            </tr>
+        `;
+
+        // Row 3: Mốc 1 - Còn Thiếu
+        html += `
+            <tr style="background:#fff7ed !important;">
+                <td style="text-align:left;font-weight:800;color:#c2410c">
+                    <span style="margin-left:24px">🚩 Mốc 1 - Còn Thiếu</span>
+                </td>
+                <td style="font-weight:700;color:#ea580c">-</td>
+                <td style="font-weight:700;color:#ea580c">-</td>
+                <td style="font-weight:700;color:#ea580c">-</td>
+                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
+                <td style="font-weight:700;color:#ea580c">-</td>
+                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+            </tr>
+        `;
+
+        // Row 4: Mốc 1 - Tỉ Lệ Hoàn Thành
+        html += `
+            <tr style="background:#f0fdfa !important;">
+                <td style="text-align:left;font-weight:800;color:#0f766e">
+                    <span style="margin-left:24px">🚩 Mốc 1 - Tỉ Lệ Hoàn Thành</span>
+                </td>
+                <td style="font-weight:700;color:#0d9488">-</td>
+                <td style="font-weight:700;color:#0d9488">-</td>
+                <td style="font-weight:700;color:#0d9488">-</td>
+                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
+                <td style="font-weight:700;color:#0d9488">-</td>
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
