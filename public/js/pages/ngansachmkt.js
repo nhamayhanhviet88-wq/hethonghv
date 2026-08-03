@@ -1011,32 +1011,31 @@ function _mktRenderKpiCards(s) {
 }
 
 window._mktOpenOrdersModal = async function() {
-    let modal = document.getElementById('mktOrdersModalOverlay');
+    let modal = document.getElementById('mktOrdersModal');
     if (!modal) {
         modal = document.createElement('div');
-        modal.id = 'mktOrdersModalOverlay';
+        modal.id = 'mktOrdersModal';
         modal.className = 'mkt-modal-overlay';
         modal.style.zIndex = '99999';
-        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
         modal.innerHTML = `
-            <div class="mkt-modal" style="width:1100px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:18px;box-shadow:0 25px 60px rgba(0,0,0,0.3);">
-                <div style="background:linear-gradient(135deg, #1e40af, #2563eb);color:white;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;">
+            <div class="mkt-modal" style="width:1100px;max-width:96vw;max-height:92vh;padding:24px;">
+                <div class="mkt-modal-hdr" style="border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
                     <div>
-                        <h3 style="margin:0;color:white;font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;">
-                            <span>📦 DANH SÁCH ĐƠN HÀNG MARKETING (FIRST-TOUCH)</span>
-                        </h3>
-                        <div id="mktOrdersModalSub" style="font-size:12px;color:#bfdbfe;margin-top:2px;">⏳ Đang tải dữ liệu...</div>
+                        <h3 style="font-size:18px;color:#0f172a;margin:0;display:flex;align-items:center;gap:8px;">📦 Danh Sách Đơn Hàng Marketing (First-Touch)</h3>
+                        <div id="mktOrdersModalSub" style="font-size:12px;color:#64748b;margin-top:2px;font-weight:600;"></div>
                     </div>
-                    <button type="button" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;font-weight:bold;" onclick="document.getElementById('mktOrdersModalOverlay').style.display='none'">✕</button>
+                    <button class="mkt-btn mkt-btn-secondary" style="padding:4px 10px;font-size:16px;border-radius:8px;cursor:pointer;" onclick="document.getElementById('mktOrdersModal').style.display='none'">✕</button>
                 </div>
-                <div style="padding:14px 22px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
-                    <div style="font-size:13px;color:#334155;font-weight:700;" id="mktOrdersSummaryStats">
-                        <!-- Summary metrics -->
-                    </div>
-                    <button type="button" class="mkt-btn mkt-btn-secondary" style="font-size:12px;padding:5px 12px;background:#white;border:1px solid #cbd5e1;" onclick="_mktOpenOrdersModal()">🔄 Tải lại dữ liệu</button>
+
+                <!-- Control & Filter Bar -->
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                    <div id="mktOrdersSummaryStats" style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:700;flex-wrap:wrap;"></div>
+                    <div id="mktOrdersFilterContainer" style="display:flex;align-items:center;gap:8px;"></div>
                 </div>
-                <div style="flex:1;overflow-y:auto;padding:16px 22px 22px 22px;">
-                    <div id="mktOrdersTableContainer">
+
+                <!-- Table Scroll Wrap -->
+                <div id="mktOrdersTableContainer" style="overflow-y:auto;max-height:60vh;border-radius:12px;">
+                    <div style="text-align:center;padding:40px;color:#64748b;font-weight:700;">
                         ⏳ Đang truy vấn danh sách đơn hàng...
                     </div>
                 </div>
@@ -1047,6 +1046,7 @@ window._mktOpenOrdersModal = async function() {
 
     const subEl = modal.querySelector('#mktOrdersModalSub');
     const statsEl = modal.querySelector('#mktOrdersSummaryStats');
+    const filterEl = modal.querySelector('#mktOrdersFilterContainer');
     const tableEl = modal.querySelector('#mktOrdersTableContainer');
 
     modal.style.setProperty('display', 'flex', 'important');
@@ -1060,72 +1060,109 @@ window._mktOpenOrdersModal = async function() {
 
         const res = await apiCall(url);
         if (res.success && Array.isArray(res.orders)) {
-            const orders = res.orders;
-            const sum = res.summary || {};
-
+            const allOrders = res.orders;
             const periodTxt = _mktNavState.selectedMonth === 'all' 
                 ? `Cả Năm ${_mktNavState.selectedYear}` 
                 : `Tháng ${_mktNavState.selectedMonth}/${_mktNavState.selectedYear}`;
 
             if (subEl) subEl.textContent = `Báo cáo Đơn hàng First-Touch • ${periodTxt}`;
-            if (statsEl) {
-                statsEl.innerHTML = `
-                    <span style="color:#2563eb;margin-right:16px;background:#eff6ff;padding:4px 10px;border-radius:8px;border:1px solid #bfdbfe;">📦 Tổng đơn: <b>${sum.totalOrders || 0} đơn</b></span>
-                    <span style="color:#059669;margin-right:16px;background:#f0fdf4;padding:4px 10px;border-radius:8px;border:1px solid #bbf7d0;">👔 Tổng SL: <b>${(sum.totalQuantity || 0).toLocaleString('vi-VN')} sp</b></span>
-                    <span style="color:#d97706;margin-right:16px;background:#fffbeb;padding:4px 10px;border-radius:8px;border:1px solid #fde68a;">💵 Tổng cọc: <b>${_mktFmt(sum.totalDeposit || 0)}</b></span>
-                    <span style="color:#7c3aed;background:#f3e8ff;padding:4px 10px;border-radius:8px;border:1px solid #ddd6fe;">💰 Doanh số MKT: <b>${_mktFmt(sum.totalRevenue || 0)}</b></span>
-                `;
-            }
 
-            if (orders.length === 0) {
+            if (allOrders.length === 0) {
+                if (statsEl) statsEl.innerHTML = '';
+                if (filterEl) filterEl.innerHTML = '';
                 if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;font-weight:600;">📭 Chưa có đơn hàng Marketing nào được ghi nhận cho bộ lọc đang chọn.</div>';
                 return;
             }
 
-            let rowsHtml = orders.map((o, idx) => {
-                const timeDisp = (o.order_time_str || o.dt_str || '').replace(' 00:00', '');
-                return `
-                <tr style="border-bottom:1px solid #e2e8f0;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
-                    <td style="padding:11px 12px;text-align:center;font-weight:700;color:#64748b;font-size:12px;">${idx + 1}</td>
-                    <td style="padding:11px 12px;font-weight:700;color:#334155;font-size:12.5px;white-space:nowrap;">🕒 ${timeDisp}</td>
-                    <td style="padding:11px 12px;font-weight:800;color:#2563eb;font-family:monospace;font-size:13px;white-space:nowrap;">
-                        <span style="background:#eff6ff;padding:3px 8px;border-radius:6px;border:1px solid #bfdbfe;">${o.order_code}</span>
-                    </td>
-                    <td style="padding:11px 12px;font-weight:800;color:#0f172a;font-size:13px;">${o.customer_name}</td>
-                    <td style="padding:11px 12px;font-weight:700;color:#475569;font-size:12.5px;">👤 ${o.sale_name}</td>
-                    <td style="padding:11px 12px;font-size:12px;">
-                        <span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;font-weight:700;border:1px solid #bae6fd;white-space:nowrap;">📍 ${o.source}</span>
-                    </td>
-                    <td style="padding:11px 12px;text-align:center;font-weight:800;color:#059669;font-size:13px;">${Number(o.total_quantity || 0).toLocaleString('vi-VN')}</td>
-                    <td style="padding:11px 12px;text-align:right;font-weight:800;color:#d97706;font-size:13px;">${Number(o.deposit_amount) > 0 ? _mktFmt(o.deposit_amount) : '—'}</td>
-                    <td style="padding:11px 12px;text-align:right;font-weight:900;color:#2563eb;font-size:14px;">${_mktFmt(o.total_amount)}</td>
-                </tr>
-            `}).join('');
+            // Extract unique sources for filter dropdown
+            const uniqueSources = Array.from(new Set(allOrders.map(o => (o.source || '').trim()).filter(Boolean))).sort();
 
-            if (tableEl) {
-                tableEl.innerHTML = `
-                    <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.03);">
-                        <table class="mkt-table" style="width:100%;border-collapse:collapse;background:white;">
-                            <thead>
-                                <tr style="background:#f8fafc;border-bottom:2px solid #cbd5e1;">
-                                    <th style="padding:12px;text-align:center;width:40px;color:#475569;">#</th>
-                                    <th style="padding:12px;color:#475569;">Thời Gian Chốt</th>
-                                    <th style="padding:12px;color:#475569;">Mã Đơn</th>
-                                    <th style="padding:12px;color:#475569;">Tên Khách Hàng</th>
-                                    <th style="padding:12px;color:#475569;">NVKD / Sale</th>
-                                    <th style="padding:12px;color:#475569;">Nguồn Quảng Cáo</th>
-                                    <th style="padding:12px;text-align:center;color:#475569;">Tổng SL</th>
-                                    <th style="padding:12px;text-align:right;color:#475569;">Đặt Cọc</th>
-                                    <th style="padding:12px;text-align:right;color:#475569;">Doanh Số</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${rowsHtml}
-                            </tbody>
-                        </table>
-                    </div>
+            if (filterEl) {
+                filterEl.innerHTML = `
+                    <label style="font-size:12.5px;font-weight:800;color:#334155;white-space:nowrap;display:flex;align-items:center;gap:4px;">🎯 Lọc Nguồn Quảng Cáo:</label>
+                    <select id="mktOrdersSourceSelect" style="padding:6px 12px;border-radius:8px;border:1.5px solid #cbd5e1;font-weight:700;font-size:12.5px;color:#0f172a;background:white;cursor:pointer;outline:none;box-shadow:0 2px 5px rgba(0,0,0,0.04);">
+                        <option value="all">🌐 Tất cả nguồn (${allOrders.length} đơn)</option>
+                        ${uniqueSources.map(s => `<option value="${escapeHtml(s)}">📍 ${escapeHtml(s)}</option>`).join('')}
+                    </select>
                 `;
+
+                const selectEl = filterEl.querySelector('#mktOrdersSourceSelect');
+                if (selectEl) {
+                    selectEl.onchange = (e) => renderFilteredOrders(e.target.value);
+                }
             }
+
+            function renderFilteredOrders(selectedSource) {
+                const filtered = selectedSource && selectedSource !== 'all'
+                    ? allOrders.filter(o => (o.source || '').trim() === selectedSource)
+                    : allOrders;
+
+                const totalOrdersCount = filtered.length;
+                const totalQty = filtered.reduce((acc, o) => acc + Number(o.total_quantity || 0), 0);
+                const totalDep = filtered.reduce((acc, o) => acc + Number(o.deposit_amount || 0), 0);
+                const totalRev = filtered.reduce((acc, o) => acc + Number(o.total_amount || 0), 0);
+
+                if (statsEl) {
+                    statsEl.innerHTML = `
+                        <span style="color:#2563eb;background:#eff6ff;padding:4px 10px;border-radius:8px;border:1px solid #bfdbfe;">📦 Tổng đơn: <b>${totalOrdersCount} đơn</b></span>
+                        <span style="color:#059669;background:#f0fdf4;padding:4px 10px;border-radius:8px;border:1px solid #bbf7d0;">👔 Tổng SL: <b>${totalQty.toLocaleString('vi-VN')} sp</b></span>
+                        <span style="color:#d97706;background:#fffbeb;padding:4px 10px;border-radius:8px;border:1px solid #fde68a;">💵 Tổng cọc: <b>${_mktFmt(totalDep)}</b></span>
+                        <span style="color:#7c3aed;background:#f3e8ff;padding:4px 10px;border-radius:8px;border:1px solid #ddd6fe;">💰 Doanh số MKT: <b>${_mktFmt(totalRev)}</b></span>
+                    `;
+                }
+
+                if (filtered.length === 0) {
+                    if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;font-weight:600;">📭 Không tìm thấy đơn hàng nào thuộc nguồn đã chọn.</div>';
+                    return;
+                }
+
+                let rowsHtml = filtered.map((o, idx) => {
+                    const timeDisp = (o.order_time_str || o.dt_str || '').replace(' 00:00', '');
+                    return `
+                    <tr style="border-bottom:1px solid #e2e8f0;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                        <td style="padding:11px 12px;text-align:center;font-weight:700;color:#64748b;font-size:12px;">${idx + 1}</td>
+                        <td style="padding:11px 12px;font-weight:700;color:#334155;font-size:12.5px;white-space:nowrap;">🕒 ${timeDisp}</td>
+                        <td style="padding:11px 12px;font-weight:800;color:#2563eb;font-family:monospace;font-size:13px;white-space:nowrap;">
+                            <span style="background:#eff6ff;padding:3px 8px;border-radius:6px;border:1px solid #bfdbfe;">${o.order_code}</span>
+                        </td>
+                        <td style="padding:11px 12px;font-weight:800;color:#0f172a;font-size:13px;">${escapeHtml(o.customer_name)}</td>
+                        <td style="padding:11px 12px;font-weight:700;color:#475569;font-size:12.5px;">👤 ${escapeHtml(o.sale_name)}</td>
+                        <td style="padding:11px 12px;font-size:12px;">
+                            <span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;font-weight:700;border:1px solid #bae6fd;white-space:nowrap;">📍 ${escapeHtml(o.source)}</span>
+                        </td>
+                        <td style="padding:11px 12px;text-align:center;font-weight:800;color:#059669;font-size:13px;">${Number(o.total_quantity || 0).toLocaleString('vi-VN')}</td>
+                        <td style="padding:11px 12px;text-align:right;font-weight:800;color:#d97706;font-size:13px;">${Number(o.deposit_amount) > 0 ? _mktFmt(o.deposit_amount) : '—'}</td>
+                        <td style="padding:11px 12px;text-align:right;font-weight:900;color:#2563eb;font-size:14px;">${_mktFmt(o.total_amount)}</td>
+                    </tr>
+                `}).join('');
+
+                if (tableEl) {
+                    tableEl.innerHTML = `
+                        <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+                            <table class="mkt-table" style="width:100%;border-collapse:collapse;background:white;">
+                                <thead>
+                                    <tr style="background:#1e293b;border-bottom:2px solid #0f172a;">
+                                        <th style="padding:12px;text-align:center;width:40px;color:#ffffff;font-weight:800;font-size:13px;">#</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Thời Gian Chốt</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Mã Đơn</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Tên Khách Hàng</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">NVKD / Sale</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Nguồn Quảng Cáo</th>
+                                        <th style="padding:12px;text-align:center;color:#ffffff;font-weight:800;font-size:13px;">Tổng SL</th>
+                                        <th style="padding:12px;text-align:right;color:#ffffff;font-weight:800;font-size:13px;">Đặt Cọc</th>
+                                        <th style="padding:12px;text-align:right;color:#ffffff;font-weight:800;font-size:13px;">Doanh Số</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+            }
+
+            renderFilteredOrders('all');
         }
     } catch(e) {
         if (tableEl) tableEl.innerHTML = `<div style="text-align:center;padding:30px;color:#ef4444;font-weight:700;">❌ Lỗi nạp danh sách đơn hàng: ${e.message}</div>`;

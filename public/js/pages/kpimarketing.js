@@ -1037,17 +1037,20 @@ async function kpiMktOpenOrdersModal() {
         modal.id = 'kpiMktOrdersModal';
         modal.className = 'kpi-v2-modal-overlay';
         modal.innerHTML = `
-            <div class="kpi-v2-modal" style="width:1050px;max-width:96vw;max-height:92vh;padding:24px;">
-                <div class="kpi-v2-modal-hdr" style="border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:16px;">
+            <div class="kpi-v2-modal" style="width:1100px;max-width:96vw;max-height:92vh;padding:24px;">
+                <div class="kpi-v2-modal-hdr" style="border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
                     <div>
-                        <div class="kpi-v2-modal-title" style="font-size:18px;color:#0f172a;">📦 Danh Sách Đơn Hàng Marketing (First-Touch)</div>
+                        <div class="kpi-v2-modal-title" style="font-size:18px;color:#0f172a;font-weight:800;">📦 Danh Sách Đơn Hàng Marketing (First-Touch)</div>
                         <div id="kpiMktOrdersModalSub" style="font-size:12px;color:#64748b;margin-top:2px;font-weight:600;"></div>
                     </div>
-                    <button class="kpi-v2-modal-close" onclick="document.getElementById('kpiMktOrdersModal').style.display='none'">✕</button>
+                    <button class="kpi-v2-modal-close" style="cursor:pointer;" onclick="document.getElementById('kpiMktOrdersModal').style.display='none'">✕</button>
                 </div>
 
-                <!-- Summary Bar -->
-                <div id="kpiMktOrdersSummaryStats" style="display:flex;gap:12px;align-items:center;margin-bottom:16px;font-size:13px;font-weight:700;flex-wrap:wrap;"></div>
+                <!-- Control & Filter Bar -->
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                    <div id="kpiMktOrdersSummaryStats" style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:700;flex-wrap:wrap;"></div>
+                    <div id="kpiMktOrdersFilterContainer" style="display:flex;align-items:center;gap:8px;"></div>
+                </div>
 
                 <!-- Table Scroll Wrap -->
                 <div id="kpiMktOrdersTableContainer" style="overflow-y:auto;max-height:60vh;border-radius:12px;">
@@ -1062,6 +1065,7 @@ async function kpiMktOpenOrdersModal() {
 
     const subEl = modal.querySelector('#kpiMktOrdersModalSub');
     const statsEl = modal.querySelector('#kpiMktOrdersSummaryStats');
+    const filterEl = modal.querySelector('#kpiMktOrdersFilterContainer');
     const tableEl = modal.querySelector('#kpiMktOrdersTableContainer');
 
     modal.style.setProperty('display', 'flex', 'important');
@@ -1074,69 +1078,107 @@ async function kpiMktOpenOrdersModal() {
 
         const res = await kpiMktApiCall(url);
         if (res.success && Array.isArray(res.orders)) {
-            const orders = res.orders;
-            const sum = res.summary || {};
+            const allOrders = res.orders;
             const periodTxt = yStr && mStr ? `Tháng ${parseInt(mStr, 10)}/${yStr}` : 'Tháng';
 
             if (subEl) subEl.textContent = `Báo cáo Đơn hàng First-Touch • ${periodTxt}`;
-            if (statsEl) {
-                statsEl.innerHTML = `
-                    <span style="color:#2563eb;margin-right:16px;background:#eff6ff;padding:4px 10px;border-radius:8px;border:1px solid #bfdbfe;">📦 Tổng đơn: <b>${sum.totalOrders || 0} đơn</b></span>
-                    <span style="color:#059669;margin-right:16px;background:#f0fdf4;padding:4px 10px;border-radius:8px;border:1px solid #bbf7d0;">👔 Tổng SL: <b>${(sum.totalQuantity || 0).toLocaleString('vi-VN')} sp</b></span>
-                    <span style="color:#d97706;margin-right:16px;background:#fffbeb;padding:4px 10px;border-radius:8px;border:1px solid #fde68a;">💵 Tổng cọc: <b>${formatVND(sum.totalDeposit || 0)}</b></span>
-                    <span style="color:#7c3aed;background:#f3e8ff;padding:4px 10px;border-radius:8px;border:1px solid #ddd6fe;">💰 Doanh số MKT: <b>${formatVND(sum.totalRevenue || 0)}</b></span>
-                `;
-            }
 
-            if (orders.length === 0) {
+            if (allOrders.length === 0) {
+                if (statsEl) statsEl.innerHTML = '';
+                if (filterEl) filterEl.innerHTML = '';
                 if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;font-weight:600;">📭 Chưa có đơn hàng Marketing nào được ghi nhận cho tháng đang chọn.</div>';
                 return;
             }
 
-            let rowsHtml = orders.map((o, idx) => {
-                const timeDisp = (o.order_time_str || o.dt_str || '').replace(' 00:00', '');
-                return `
-                <tr style="border-bottom:1px solid #e2e8f0;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
-                    <td style="padding:11px 12px;text-align:center;font-weight:700;color:#64748b;font-size:12px;">${idx + 1}</td>
-                    <td style="padding:11px 12px;font-weight:700;color:#334155;font-size:12.5px;white-space:nowrap;">🕒 ${timeDisp}</td>
-                    <td style="padding:11px 12px;font-weight:800;color:#2563eb;font-family:monospace;font-size:13px;white-space:nowrap;">
-                        <span style="background:#eff6ff;padding:3px 8px;border-radius:6px;border:1px solid #bfdbfe;">${o.order_code}</span>
-                    </td>
-                    <td style="padding:11px 12px;font-weight:800;color:#0f172a;font-size:13px;">${escapeHtml(o.customer_name)}</td>
-                    <td style="padding:11px 12px;font-weight:700;color:#475569;font-size:12.5px;">👤 ${escapeHtml(o.sale_name)}</td>
-                    <td style="padding:11px 12px;font-size:12px;">
-                        <span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;font-weight:700;border:1px solid #bae6fd;white-space:nowrap;">📍 ${escapeHtml(o.source)}</span>
-                    </td>
-                    <td style="padding:11px 12px;text-align:center;font-weight:800;color:#059669;font-size:13px;">${Number(o.total_quantity || 0).toLocaleString('vi-VN')}</td>
-                    <td style="padding:11px 12px;text-align:right;font-weight:800;color:#d97706;font-size:13px;">${Number(o.deposit_amount) > 0 ? formatVND(o.deposit_amount) : '—'}</td>
-                    <td style="padding:11px 12px;text-align:right;font-weight:900;color:#2563eb;font-size:14px;">${formatVND(o.total_amount)}</td>
-                </tr>
-            `}).join('');
+            // Extract unique sources for filter dropdown
+            const uniqueSources = Array.from(new Set(allOrders.map(o => (o.source || '').trim()).filter(Boolean))).sort();
 
-            if (tableEl) {
-                tableEl.innerHTML = `
-                    <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.03);">
-                        <table class="kpi-v2-tbl" style="width:100%;border-collapse:collapse;background:white;">
-                            <thead>
-                                <tr style="background:#f8fafc;border-bottom:2px solid #cbd5e1;">
-                                    <th style="padding:12px;text-align:center;width:40px;color:#475569;">#</th>
-                                    <th style="padding:12px;color:#475569;">Thời Gian Chốt</th>
-                                    <th style="padding:12px;color:#475569;">Mã Đơn</th>
-                                    <th style="padding:12px;color:#475569;">Tên Khách Hàng</th>
-                                    <th style="padding:12px;color:#475569;">NVKD / Sale</th>
-                                    <th style="padding:12px;color:#475569;">Nguồn Quảng Cáo</th>
-                                    <th style="padding:12px;text-align:center;color:#475569;">Tổng SL</th>
-                                    <th style="padding:12px;text-align:right;color:#475569;">Đặt Cọc</th>
-                                    <th style="padding:12px;text-align:right;color:#475569;">Doanh Số</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${rowsHtml}
-                            </tbody>
-                        </table>
-                    </div>
+            if (filterEl) {
+                filterEl.innerHTML = `
+                    <label style="font-size:12.5px;font-weight:800;color:#334155;white-space:nowrap;display:flex;align-items:center;gap:4px;">🎯 Lọc Nguồn Quảng Cáo:</label>
+                    <select id="kpiMktOrdersSourceSelect" style="padding:6px 12px;border-radius:8px;border:1.5px solid #cbd5e1;font-weight:700;font-size:12.5px;color:#0f172a;background:white;cursor:pointer;outline:none;box-shadow:0 2px 5px rgba(0,0,0,0.04);">
+                        <option value="all">🌐 Tất cả nguồn (${allOrders.length} đơn)</option>
+                        ${uniqueSources.map(s => `<option value="${escapeHtml(s)}">📍 ${escapeHtml(s)}</option>`).join('')}
+                    </select>
                 `;
+
+                const selectEl = filterEl.querySelector('#kpiMktOrdersSourceSelect');
+                if (selectEl) {
+                    selectEl.onchange = (e) => renderFilteredOrders(e.target.value);
+                }
             }
+
+            function renderFilteredOrders(selectedSource) {
+                const filtered = selectedSource && selectedSource !== 'all'
+                    ? allOrders.filter(o => (o.source || '').trim() === selectedSource)
+                    : allOrders;
+
+                const totalOrdersCount = filtered.length;
+                const totalQty = filtered.reduce((acc, o) => acc + Number(o.total_quantity || 0), 0);
+                const totalDep = filtered.reduce((acc, o) => acc + Number(o.deposit_amount || 0), 0);
+                const totalRev = filtered.reduce((acc, o) => acc + Number(o.total_amount || 0), 0);
+
+                if (statsEl) {
+                    statsEl.innerHTML = `
+                        <span style="color:#2563eb;background:#eff6ff;padding:4px 10px;border-radius:8px;border:1px solid #bfdbfe;">📦 Tổng đơn: <b>${totalOrdersCount} đơn</b></span>
+                        <span style="color:#059669;background:#f0fdf4;padding:4px 10px;border-radius:8px;border:1px solid #bbf7d0;">👔 Tổng SL: <b>${totalQty.toLocaleString('vi-VN')} sp</b></span>
+                        <span style="color:#d97706;background:#fffbeb;padding:4px 10px;border-radius:8px;border:1px solid #fde68a;">💵 Tổng cọc: <b>${formatVND(totalDep)}</b></span>
+                        <span style="color:#7c3aed;background:#f3e8ff;padding:4px 10px;border-radius:8px;border:1px solid #ddd6fe;">💰 Doanh số MKT: <b>${formatVND(totalRev)}</b></span>
+                    `;
+                }
+
+                if (filtered.length === 0) {
+                    if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;font-weight:600;">📭 Không tìm thấy đơn hàng nào thuộc nguồn đã chọn.</div>';
+                    return;
+                }
+
+                let rowsHtml = filtered.map((o, idx) => {
+                    const timeDisp = (o.order_time_str || o.dt_str || '').replace(' 00:00', '');
+                    return `
+                    <tr style="border-bottom:1px solid #e2e8f0;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                        <td style="padding:11px 12px;text-align:center;font-weight:700;color:#64748b;font-size:12px;">${idx + 1}</td>
+                        <td style="padding:11px 12px;font-weight:700;color:#334155;font-size:12.5px;white-space:nowrap;">🕒 ${timeDisp}</td>
+                        <td style="padding:11px 12px;font-weight:800;color:#2563eb;font-family:monospace;font-size:13px;white-space:nowrap;">
+                            <span style="background:#eff6ff;padding:3px 8px;border-radius:6px;border:1px solid #bfdbfe;">${o.order_code}</span>
+                        </td>
+                        <td style="padding:11px 12px;font-weight:800;color:#0f172a;font-size:13px;">${escapeHtml(o.customer_name)}</td>
+                        <td style="padding:11px 12px;font-weight:700;color:#475569;font-size:12.5px;">👤 ${escapeHtml(o.sale_name)}</td>
+                        <td style="padding:11px 12px;font-size:12px;">
+                            <span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;font-weight:700;border:1px solid #bae6fd;white-space:nowrap;">📍 ${escapeHtml(o.source)}</span>
+                        </td>
+                        <td style="padding:11px 12px;text-align:center;font-weight:800;color:#059669;font-size:13px;">${Number(o.total_quantity || 0).toLocaleString('vi-VN')}</td>
+                        <td style="padding:11px 12px;text-align:right;font-weight:800;color:#d97706;font-size:13px;">${Number(o.deposit_amount) > 0 ? formatVND(o.deposit_amount) : '—'}</td>
+                        <td style="padding:11px 12px;text-align:right;font-weight:900;color:#2563eb;font-size:14px;">${formatVND(o.total_amount)}</td>
+                    </tr>
+                `}).join('');
+
+                if (tableEl) {
+                    tableEl.innerHTML = `
+                        <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+                            <table class="kpi-v2-tbl" style="width:100%;border-collapse:collapse;background:white;">
+                                <thead>
+                                    <tr style="background:#1e293b;border-bottom:2px solid #0f172a;">
+                                        <th style="padding:12px;text-align:center;width:40px;color:#ffffff;font-weight:800;font-size:13px;">#</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Thời Gian Chốt</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Mã Đơn</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Tên Khách Hàng</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">NVKD / Sale</th>
+                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Nguồn Quảng Cáo</th>
+                                        <th style="padding:12px;text-align:center;color:#ffffff;font-weight:800;font-size:13px;">Tổng SL</th>
+                                        <th style="padding:12px;text-align:right;color:#ffffff;font-weight:800;font-size:13px;">Đặt Cọc</th>
+                                        <th style="padding:12px;text-align:right;color:#ffffff;font-weight:800;font-size:13px;">Doanh Số</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+            }
+
+            renderFilteredOrders('all');
         }
     } catch(e) {
         if (tableEl) tableEl.innerHTML = `<div style="text-align:center;padding:30px;color:#ef4444;font-weight:700;">❌ Lỗi nạp danh sách đơn hàng: ${e.message}</div>`;
