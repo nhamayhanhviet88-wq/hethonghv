@@ -1431,20 +1431,77 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
+        // Retrieve target metrics for this handler
+        const targetBudget = Number(h.target_budget || 0);
+        const targetRevM1 = Number(h.target_revenue_m1 || h.target_revenue || 0);
+        const targetRevM120 = Number(h.target_revenue_m120 || (targetRevM1 > 0 ? Math.round(targetRevM1 * 1.2) : 0));
+        const targetLeadsM1 = Number(h.target_leads_m1 || h.target_leads || 0);
+        const targetLeadsM120 = Number(h.target_leads_m120 || (targetLeadsM1 > 0 ? Math.round(targetLeadsM1 * 1.2) : 0));
+        const targetCostRatio = Number(h.target_cost_ratio || 0);
+        const targetCloseRate = Number(h.target_close_rate || 0);
+        const targetCpo = Number(h.target_cpo || 0);
+        const targetCpl = Number(h.target_cpl || 0);
+
+        // Mốc 1 Values
+        const m1SpentStr = targetBudget > 0 ? formatVND(targetBudget) : '-';
+        const m1RevStr = targetRevM1 > 0 ? formatVND(targetRevM1) : '-';
+        const m1LeadsStr = targetLeadsM1 > 0 ? targetLeadsM1.toLocaleString('vi-VN') : '-';
+        const m1CostRatioStr = targetRevM1 > 0 && targetBudget > 0 ? `${((targetBudget / targetRevM1) * 100).toFixed(2)}%` : (targetCostRatio > 0 ? `${targetCostRatio.toFixed(2)}%` : '-');
+        const m1CloseRateStr = targetCloseRate > 0 ? `${targetCloseRate.toFixed(2)}%` : '-';
+        const m1CpoStr = targetCpo > 0 ? formatVND(targetCpo) : '-';
+        const m1CplStr = targetCpl > 0 ? formatVND(targetCpl) : '-';
+
+        // Mốc 1 - Còn Thiếu
+        const m1MissingSpent = targetBudget > 0 ? Math.max(0, targetBudget - totSpent) : 0;
+        const m1MissingRev = targetRevM1 > 0 ? Math.max(0, targetRevM1 - totRevenue) : 0;
+        const m1MissingLeads = targetLeadsM1 > 0 ? Math.max(0, targetLeadsM1 - totLeads) : 0;
+
+        const m1MissingSpentStr = targetBudget > 0 ? (m1MissingSpent > 0 ? formatVND(m1MissingSpent) : '0đ (Đã đạt)') : '-';
+        const m1MissingRevStr = targetRevM1 > 0 ? (m1MissingRev > 0 ? formatVND(m1MissingRev) : '0đ (Đã đạt)') : '-';
+        const m1MissingLeadsStr = targetLeadsM1 > 0 ? (m1MissingLeads > 0 ? m1MissingLeads.toLocaleString('vi-VN') : '0 (Đã đạt)') : '-';
+
+        // Mốc 1 - Tỉ Lệ Hoàn Thành
+        const m1SpentPctStr = targetBudget > 0 ? `${((totSpent / targetBudget) * 100).toFixed(2)}%` : '-';
+        const m1RevPctStr = targetRevM1 > 0 ? `${((totRevenue / targetRevM1) * 100).toFixed(2)}%` : '-';
+        const m1LeadsPctStr = targetLeadsM1 > 0 ? `${((totLeads / targetLeadsM1) * 100).toFixed(2)}%` : '-';
+
+        // Mốc 2 Values (Shares the SAME targetBudget)
+        const m2SpentStr = targetBudget > 0 ? formatVND(targetBudget) : '-';
+        const m2RevStr = targetRevM120 > 0 ? formatVND(targetRevM120) : '-';
+        const m2LeadsStr = targetLeadsM120 > 0 ? targetLeadsM120.toLocaleString('vi-VN') : '-';
+        const m2CostRatioStr = targetRevM120 > 0 && targetBudget > 0 ? `${((targetBudget / targetRevM120) * 100).toFixed(2)}%` : (targetCostRatio > 0 ? `${targetCostRatio.toFixed(2)}%` : '-');
+        const m2CloseRateStr = m1CloseRateStr;
+        const m2CpoStr = m1CpoStr;
+        const m2CplStr = m1CplStr;
+
+        // Mốc 2 - Còn Thiếu (Shares the SAME targetBudget)
+        const m2MissingSpent = targetBudget > 0 ? Math.max(0, targetBudget - totSpent) : 0;
+        const m2MissingRev = targetRevM120 > 0 ? Math.max(0, targetRevM120 - totRevenue) : 0;
+        const m2MissingLeads = targetLeadsM120 > 0 ? Math.max(0, targetLeadsM120 - totLeads) : 0;
+
+        const m2MissingSpentStr = targetBudget > 0 ? (m2MissingSpent > 0 ? formatVND(m2MissingSpent) : '0đ (Đã đạt)') : '-';
+        const m2MissingRevStr = targetRevM120 > 0 ? (m2MissingRev > 0 ? formatVND(m2MissingRev) : '0đ (Đã đạt)') : '-';
+        const m2MissingLeadsStr = targetLeadsM120 > 0 ? (m2MissingLeads > 0 ? m2MissingLeads.toLocaleString('vi-VN') : '0 (Đã đạt)') : '-';
+
+        // Mốc 2 - Tỉ Lệ Hoàn Thành (Shares the SAME targetBudget)
+        const m2SpentPctStr = targetBudget > 0 ? `${((totSpent / targetBudget) * 100).toFixed(2)}%` : '-';
+        const m2RevPctStr = targetRevM120 > 0 ? `${((totRevenue / targetRevM120) * 100).toFixed(2)}%` : '-';
+        const m2LeadsPctStr = targetLeadsM120 > 0 ? `${((totLeads / targetLeadsM120) * 100).toFixed(2)}%` : '-';
+
         // Row 1: Mốc 1 - 100%
         html += `
             <tr style="background:#ecfdf5 !important;">
                 <td style="text-align:left;font-weight:800;color:#064e3b">
                     <span style="margin-left:12px">🚩 Mốc 1 - 100%</span>
                 </td>
+                <td style="font-weight:800;color:#064e3b">${m1SpentStr}</td>
                 <td style="font-weight:700;color:#064e3b">-</td>
-                <td style="font-weight:700;color:#064e3b">-</td>
-                <td style="font-weight:700;color:#064e3b">-</td>
-                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
-                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
-                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:700;color:#064e3b">-</td>
-                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+                <td style="font-weight:800;color:#064e3b">${m1RevStr}</td>
+                <td><span class="kpi-pill kpi-pill-purple">${m1CostRatioStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">${m1CloseRateStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">${m1CpoStr}</span></td>
+                <td style="font-weight:800;color:#064e3b">${m1LeadsStr}</td>
+                <td><span class="kpi-pill kpi-pill-blue">${m1CplStr}</span></td>
             </tr>
         `;
 
@@ -1454,13 +1511,13 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td style="text-align:left;font-weight:800;color:#064e3b">
                     <span style="margin-left:24px">🚩 Mốc 1 - Còn Thiếu</span>
                 </td>
+                <td style="font-weight:700;color:#064e3b">${m1MissingSpentStr}</td>
                 <td style="font-weight:700;color:#064e3b">-</td>
-                <td style="font-weight:700;color:#064e3b">-</td>
-                <td style="font-weight:700;color:#064e3b">-</td>
+                <td style="font-weight:700;color:#064e3b">${m1MissingRevStr}</td>
                 <td><span class="kpi-pill kpi-pill-purple">-</span></td>
                 <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
                 <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:700;color:#064e3b">-</td>
+                <td style="font-weight:700;color:#064e3b">${m1MissingLeadsStr}</td>
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
@@ -1471,64 +1528,64 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td style="text-align:left;font-weight:800;color:#064e3b">
                     <span style="margin-left:24px">🚩 Mốc 1 - Tỉ Lệ Hoàn Thành</span>
                 </td>
+                <td style="font-weight:800;color:#064e3b">${m1SpentPctStr}</td>
                 <td style="font-weight:700;color:#064e3b">-</td>
-                <td style="font-weight:700;color:#064e3b">-</td>
-                <td style="font-weight:700;color:#064e3b">-</td>
+                <td style="font-weight:800;color:#064e3b">${m1RevPctStr}</td>
                 <td><span class="kpi-pill kpi-pill-purple">-</span></td>
                 <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
                 <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:700;color:#064e3b">-</td>
+                <td style="font-weight:800;color:#064e3b">${m1LeadsPctStr}</td>
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
 
-        // Row 4: Mốc 2 - 120%
+        // Row 4: Mốc 2 - 120% (Uses SHARED targetBudget)
         html += `
             <tr style="background:#eff6ff !important;">
                 <td style="text-align:left;font-weight:800;color:#1e3a8a">
                     <span style="margin-left:12px">🏆 Mốc 2 - 120%</span>
                 </td>
+                <td style="font-weight:800;color:#1e3a8a">${m2SpentStr}</td>
                 <td style="font-weight:700;color:#1e3a8a">-</td>
-                <td style="font-weight:700;color:#1e3a8a">-</td>
-                <td style="font-weight:700;color:#1e3a8a">-</td>
-                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
-                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
-                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:700;color:#1e3a8a">-</td>
-                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+                <td style="font-weight:800;color:#1e3a8a">${m2RevStr}</td>
+                <td><span class="kpi-pill kpi-pill-purple">${m2CostRatioStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">${m2CloseRateStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">${m2CpoStr}</span></td>
+                <td style="font-weight:800;color:#1e3a8a">${m2LeadsStr}</td>
+                <td><span class="kpi-pill kpi-pill-blue">${m2CplStr}</span></td>
             </tr>
         `;
 
-        // Row 5: Mốc 2 - Còn Thiếu
+        // Row 5: Mốc 2 - Còn Thiếu (Uses SHARED targetBudget)
         html += `
             <tr style="background:#eff6ff !important;">
                 <td style="text-align:left;font-weight:800;color:#1e3a8a">
                     <span style="margin-left:24px">🏆 Mốc 2 - Còn Thiếu</span>
                 </td>
+                <td style="font-weight:700;color:#1e3a8a">${m2MissingSpentStr}</td>
                 <td style="font-weight:700;color:#1e3a8a">-</td>
-                <td style="font-weight:700;color:#1e3a8a">-</td>
-                <td style="font-weight:700;color:#1e3a8a">-</td>
+                <td style="font-weight:700;color:#1e3a8a">${m2MissingRevStr}</td>
                 <td><span class="kpi-pill kpi-pill-purple">-</span></td>
                 <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
                 <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:700;color:#1e3a8a">-</td>
+                <td style="font-weight:700;color:#1e3a8a">${m2MissingLeadsStr}</td>
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
 
-        // Row 6: Mốc 2 - Tỉ Lệ Hoàn Thành
+        // Row 6: Mốc 2 - Tỉ Lệ Hoàn Thành (Uses SHARED targetBudget)
         html += `
             <tr style="background:#eff6ff !important;">
                 <td style="text-align:left;font-weight:800;color:#1e3a8a">
                     <span style="margin-left:24px">🏆 Mốc 2 - Tỉ Lệ Hoàn Thành</span>
                 </td>
+                <td style="font-weight:800;color:#1e3a8a">${m2SpentPctStr}</td>
                 <td style="font-weight:700;color:#1e3a8a">-</td>
-                <td style="font-weight:700;color:#1e3a8a">-</td>
-                <td style="font-weight:700;color:#1e3a8a">-</td>
+                <td style="font-weight:800;color:#1e3a8a">${m2RevPctStr}</td>
                 <td><span class="kpi-pill kpi-pill-purple">-</span></td>
                 <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
                 <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:700;color:#1e3a8a">-</td>
+                <td style="font-weight:800;color:#1e3a8a">${m2LeadsPctStr}</td>
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
