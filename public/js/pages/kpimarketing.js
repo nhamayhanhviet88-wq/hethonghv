@@ -365,7 +365,7 @@ function renderCategoryTable(res) {
     rawItemsList.forEach(it => {
         const catName = (it.category_name || it.name || '').trim();
         if (!catName) return;
-        const key = catName.toLowerCase();
+        const key = it.category_id ? `cat_${it.category_id}` : catName.toLowerCase();
 
         const spent = Number(it.spent || 0);
         const leads = Number(it.leads || 0);

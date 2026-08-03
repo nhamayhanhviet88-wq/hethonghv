@@ -125,16 +125,7 @@ module.exports = async function(fastify, options) {
 
                 let matchedCatIds = [];
                 if (b.category_id) {
-                    const cid = Number(b.category_id);
-                    matchedCatIds.push(cid);
-                    const cObj = catMap.get(cid);
-                    if (cObj) {
-                        (allCats || []).forEach(c => {
-                            if (c.id !== cid && c.parent_id !== null && c.name && cObj.name && c.name.trim().toLowerCase() === cObj.name.trim().toLowerCase()) {
-                                matchedCatIds.push(c.id);
-                            }
-                        });
-                    }
+                    matchedCatIds.push(Number(b.category_id));
                 }
                 
                 if (matchedCatIds.length === 0 && b.linked_source_name) {
