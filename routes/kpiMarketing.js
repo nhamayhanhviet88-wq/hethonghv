@@ -401,8 +401,8 @@ module.exports = async function(fastify, options) {
                 const cpl = leads > 0 ? Math.round(spent / leads) : 0;
                 const cpo = orders > 0 ? Math.round(spent / orders) : 0;
                 const roas = spent > 0 ? Math.round((revenue / spent) * 10000) / 100 : 0;
-                const costRatio = revenue > 0 ? Math.round((spent / revenue) * 1000) / 10 : 0;
-                const closeRate = leads > 0 ? Math.round((orders / leads) * 1000) / 10 : 0;
+                const costRatio = revenue > 0 ? Math.round((spent / revenue) * 10000) / 100 : 0;
+                const closeRate = leads > 0 ? Math.round((orders / leads) * 10000) / 100 : 0;
 
                 totalSpent += spent;
                 totalBudget += budget;
@@ -447,7 +447,7 @@ module.exports = async function(fastify, options) {
                             cDailyCpl[d - 1] = cdm.leads > 0 ? Math.round(cdm.spent / cdm.leads) : 0;
                             cDailyCpo[d - 1] = cdm.orders > 0 ? Math.round(cdm.spent / cdm.orders) : 0;
                             cDailyRoas[d - 1] = cdm.spent > 0 ? Math.round((cdm.revenue / cdm.spent) * 10000) / 100 : 0;
-                            cDailyCloseRate[d - 1] = cdm.leads > 0 ? Math.round((cdm.orders / cdm.leads) * 1000) / 10 : 0;
+                            cDailyCloseRate[d - 1] = cdm.leads > 0 ? Math.round((cdm.orders / cdm.leads) * 10000) / 100 : 0;
 
                             cSpent += cdm.spent;
                             cLeads += cdm.leads;
@@ -465,8 +465,8 @@ module.exports = async function(fastify, options) {
                         const cCpl = cLeads > 0 ? Math.round(cSpent / cLeads) : 0;
                         const cCpo = cOrders > 0 ? Math.round(cSpent / cOrders) : 0;
                         const cRoas = cSpent > 0 ? Math.round((cRev / cSpent) * 10000) / 100 : 0;
-                        const cCostRatio = cRev > 0 ? Math.round((cSpent / cRev) * 1000) / 10 : 0;
-                        const cCloseRate = cLeads > 0 ? Math.round((cOrders / cLeads) * 1000) / 10 : 0;
+                        const cCostRatio = cRev > 0 ? Math.round((cSpent / cRev) * 10000) / 100 : 0;
+                        const cCloseRate = cLeads > 0 ? Math.round((cOrders / cLeads) * 10000) / 100 : 0;
 
                         const cStages = calcStages(cDailySpent, cDailyLeads, cDailyRev, 0, 0, 0, cRevM1, cRevM120);
 
@@ -577,7 +577,7 @@ module.exports = async function(fastify, options) {
             const overallDailyCpl = overallDailyLeads.map((l, i) => l > 0 ? Math.round(overallDailySpent[i] / l) : 0);
             const overallDailyCpo = overallDailyOrders.map((o, i) => o > 0 ? Math.round(overallDailySpent[i] / o) : 0);
             const overallDailyRoas = overallDailySpent.map((s, i) => s > 0 ? Math.round((overallDailyRevenue[i] / s) * 10000) / 100 : 0);
-            const overallDailyCloseRate = overallDailyLeads.map((l, i) => l > 0 ? Math.round((overallDailyOrders[i] / l) * 1000) / 10 : 0);
+            const overallDailyCloseRate = overallDailyLeads.map((l, i) => l > 0 ? Math.round((overallDailyOrders[i] / l) * 10000) / 100 : 0);
 
             const summaryStages = calcStages(
                 overallDailySpent, overallDailyLeads, overallDailyRevenue,
@@ -587,8 +587,8 @@ module.exports = async function(fastify, options) {
             const avgCpl = totalLeads > 0 ? Math.round(totalSpent / totalLeads) : 0;
             const avgCpo = totalOrders > 0 ? Math.round(totalSpent / totalOrders) : 0;
             const avgRoas = totalSpent > 0 ? Math.round((totalRevenue / totalSpent) * 10000) / 100 : 0;
-            const avgCostRatio = totalRevenue > 0 ? Math.round((totalSpent / totalRevenue) * 1000) / 10 : 0;
-            const avgCloseRate = totalLeads > 0 ? Math.round((totalOrders / totalLeads) * 1000) / 10 : 0;
+            const avgCostRatio = totalRevenue > 0 ? Math.round((totalSpent / totalRevenue) * 10000) / 100 : 0;
+            const avgCloseRate = totalLeads > 0 ? Math.round((totalOrders / totalLeads) * 10000) / 100 : 0;
 
             const pageRows = await db.all(`
                 SELECT DISTINCT page_name FROM (

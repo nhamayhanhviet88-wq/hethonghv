@@ -935,7 +935,7 @@ function _mktRenderKpiCards(s) {
     const avgCpl = Number(s.avgCpl || 0);
     const roas = Number(s.roas || 0);
     const costPerOrder = totalOrders > 0 ? Math.round(totalSpent / totalOrders) : 0;
-    const costIncomeRatio = totalRevenue > 0 ? (totalSpent / totalRevenue * 100).toFixed(1) : '0.0';
+    const costIncomeRatio = totalRevenue > 0 ? (totalSpent / totalRevenue * 100).toFixed(2) : '0.00';
     const closeRate = totalLeads > 0 ? (totalOrders / totalLeads * 100).toFixed(2) : '0.00';
 
     const periodText = _mktNavState.selectedMonth === 'all' 

@@ -322,12 +322,12 @@ async function loadKpimarketingData() {
         const s = res.summary || {};
         const totalOrders = Number(s.total_orders || 0);
         const totalRevenue = Number(s.total_revenue || 0);
-        const costIncomeRatio = s.avg_cost_ratio !== undefined ? s.avg_cost_ratio : 0;
+        const costIncomeRatio = s.avg_cost_ratio !== undefined ? Number(s.avg_cost_ratio).toFixed(2) : '0.00';
         const costPerOrder = Number(s.avg_cpo || 0);
         const totalSpent = Number(s.total_spent || 0);
         const totalLeads = Number(s.total_leads || 0);
         const avgCpl = Number(s.avg_cpl || 0);
-        const closeRate = s.avg_close_rate !== undefined ? s.avg_close_rate : 0;
+        const closeRate = s.avg_close_rate !== undefined ? Number(s.avg_close_rate).toFixed(2) : '0.00';
 
         const [yStr, mStr] = (_kpiMkt.month || '').split('-');
         const periodText = yStr && mStr ? `Tháng ${parseInt(mStr, 10)}/${yStr}` : 'Tháng';
@@ -508,8 +508,8 @@ function renderCategoryTable(res) {
     itemsList.forEach(item => {
         item.cpl = item.leads > 0 ? Math.round(item.spent / item.leads) : 0;
         item.cpo = item.orders > 0 ? Math.round(item.spent / item.orders) : 0;
-        item.cost_ratio = item.revenue > 0 ? Math.round((item.spent / item.revenue) * 1000) / 10 : 0;
-        item.close_rate = item.leads > 0 ? Math.round((item.orders / item.leads) * 1000) / 10 : 0;
+        item.cost_ratio = item.revenue > 0 ? Math.round((item.spent / item.revenue) * 10000) / 100 : 0;
+        item.close_rate = item.leads > 0 ? Math.round((item.orders / item.leads) * 10000) / 100 : 0;
     });
 
     if (!_kpiMkt.data) _kpiMkt.data = {};
@@ -549,9 +549,9 @@ function renderCategoryTable(res) {
         totalRevenue += Number(c.revenue || 0);
 
         const cplStr = formatVND(c.cpl || 0);
-        const costRatioStr = `${c.cost_ratio || 0}%`;
+        const costRatioStr = `${Number(c.cost_ratio || 0).toFixed(2)}%`;
         const cpoStr = c.cpo > 0 ? formatVND(c.cpo) : '0đ';
-        const closeRateStr = `${c.close_rate || 0}%`;
+        const closeRateStr = `${Number(c.close_rate || 0).toFixed(2)}%`;
 
         const titleCostRatio = `${formatVND(c.spent || 0)} Chi phí MKT / ${formatVND(c.revenue || 0)} Doanh số = ${costRatioStr}`;
         const titleCloseRate = `${c.orders || 0} Đơn / ${c.leads || 0} Tin Nhắn = ${closeRateStr}`;
@@ -586,9 +586,9 @@ function renderCategoryTable(res) {
 
     // Total summary row
     const avgCpl = totalLeads > 0 ? Math.round(totalSpent / totalLeads) : 0;
-    const avgCostRatio = totalRevenue > 0 ? Math.round((totalSpent / totalRevenue) * 1000) / 10 : 0;
+    const avgCostRatio = totalRevenue > 0 ? (totalSpent / totalRevenue * 100).toFixed(2) : '0.00';
     const avgCpo = totalOrders > 0 ? Math.round(totalSpent / totalOrders) : 0;
-    const avgCloseRate = totalLeads > 0 ? Math.round((totalOrders / totalLeads) * 1000) / 10 : 0;
+    const avgCloseRate = totalLeads > 0 ? (totalOrders / totalLeads * 100).toFixed(2) : '0.00';
 
     const totalTitleCostRatio = `${formatVND(totalSpent)} Chi phí MKT / ${formatVND(totalRevenue)} Doanh số = ${avgCostRatio}%`;
     const totalTitleCloseRate = `${totalOrders} Đơn / ${totalLeads} Tin Nhắn = ${avgCloseRate}%`;
