@@ -573,6 +573,47 @@ function _mkt2ColStyles() {
         .mkt-kpi-val { font-size: 22px; font-weight: 900; line-height: 1.25; margin-top: 6px; letter-spacing: -0.3px; }
         .mkt-kpi-lbl { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
 
+        /* Custom Instant Formula Tooltip */
+        [data-tooltip] { position: relative; cursor: pointer !important; }
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0f172a;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 700;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease-in-out;
+            z-index: 9999;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+        }
+        [data-tooltip]::before {
+            content: '';
+            position: absolute;
+            bottom: 95%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px;
+            border-style: solid;
+            border-color: #0f172a transparent transparent transparent;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease-in-out;
+            z-index: 9999;
+        }
+        [data-tooltip]:hover::after,
+        [data-tooltip]:hover::before {
+            opacity: 1;
+        }
+
         /* Table panel */
         .mkt-card-panel { background: white; border-radius: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden; }
         .mkt-panel-hdr { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #f1f5f9; background: #f8fafc; }
@@ -901,11 +942,20 @@ function _mktRenderKpiCards(s) {
         ? `Năm ${_mktNavState.selectedYear}` 
         : `Tháng ${_mktNavState.selectedMonth}/${_mktNavState.selectedYear}`;
 
+    const titleOrders = `${totalOrders.toLocaleString('vi-VN')} Đơn hàng chốt thành công trong ${periodText}`;
+    const titleRevenue = `${_mktFmt(totalRevenue)} Doanh số thu về trong ${periodText}`;
+    const titleCostRatio = `${_mktFmt(totalSpent)} Chi phí MKT / ${_mktFmt(totalRevenue)} Doanh số = ${costIncomeRatio}%`;
+    const titleCpo = `${_mktFmt(totalSpent)} Chi phí MKT / ${totalOrders} Đơn = ${costPerOrder > 0 ? _mktFmt(costPerOrder) : '0đ'}`;
+    const titleSpent = `${_mktFmt(totalSpent)} Chi phí MKT đã thực chi trong ${periodText}`;
+    const titleLeads = `${totalLeads.toLocaleString('vi-VN')} Khách (Tin Nhắn) trong ${periodText}`;
+    const titleCpl = `${_mktFmt(totalSpent)} Chi phí MKT / ${totalLeads} Tin Nhắn = ${_mktFmt(avgCpl)}`;
+    const titleCloseRate = `${totalOrders} Đơn / ${totalLeads} Tin Nhắn = ${closeRate}%`;
+
     el.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:14px;grid-column:1/-1;">
             <!-- HÀNG 1: 4 Ô THỐNG KÊ (Đơn Hàng | Doanh Số | % Chi Phí/Doanh Thu | Giá/Đơn) -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;">
-                <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" style="border-top-color:#2563eb;background:linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;" title="Click để xem danh sách chi tiết các đơn hàng chốt thành công">
+                <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" data-tooltip="${titleOrders}" title="${titleOrders}" style="border-top-color:#2563eb;background:linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;">
                     <div class="mkt-kpi-lbl" style="display:flex;justify-content:space-between;align-items:center;">
                         <span>📦 TỔNG SỐ ĐƠN HÀNG</span>
                         <span style="font-size:10px;color:#2563eb;background:#dbeafe;padding:1px 6px;border-radius:4px;font-weight:700;">Xem chi tiết 🔍</span>
@@ -913,20 +963,20 @@ function _mktRenderKpiCards(s) {
                     <div class="mkt-kpi-val" style="color:#2563eb;">${totalOrders.toLocaleString('vi-VN')} <span style="font-size:13px;font-weight:600">đơn</span></div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Phát sinh trong ${periodText}</div>
                 </div>
-                <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" style="border-top-color:#0284c7;background:linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;" title="Click để xem danh sách chi tiết các đơn hàng chốt thành công">
+                <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" data-tooltip="${titleRevenue}" title="${titleRevenue}" style="border-top-color:#0284c7;background:linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;">
                     <div class="mkt-kpi-lbl" style="display:flex;justify-content:space-between;align-items:center;">
                         <span>💰 DOANH SỐ MKT</span>
-                        <span style="font-size:10px;color:#0284c7;background:#e0f2fe;padding:1px 6px;border-radius:4px;font-weight:700;">Xem chi tiết 🔍</span>
+                        <span style="font-size:10px;color:#0284c7;background:#e0e7ff;padding:1px 6px;border-radius:4px;font-weight:700;">Xem chi tiết 🔍</span>
                     </div>
                     <div class="mkt-kpi-val" style="color:#0284c7;">${_mktFmt(totalRevenue)}</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Doanh số thu về</div>
                 </div>
-                <div class="mkt-kpi-card" style="border-top-color:#4f46e5;background:linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);">
+                <div class="mkt-kpi-card" data-tooltip="${titleCostRatio}" title="${titleCostRatio}" style="border-top-color:#4f46e5;background:linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);">
                     <div class="mkt-kpi-lbl">📉 % CHI PHÍ / DOANH THU</div>
                     <div class="mkt-kpi-val" style="color:#4f46e5;">${costIncomeRatio}%</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Tỷ lệ chi phí MKT / doanh thu</div>
                 </div>
-                <div class="mkt-kpi-card" style="border-top-color:#dc2626;background:linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);">
+                <div class="mkt-kpi-card" data-tooltip="${titleCpo}" title="${titleCpo}" style="border-top-color:#dc2626;background:linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);">
                     <div class="mkt-kpi-lbl">🎯 GIÁ / ĐƠN (CPO)</div>
                     <div class="mkt-kpi-val" style="color:#dc2626;">${costPerOrder > 0 ? _mktFmt(costPerOrder) : '—'}</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Chi phí thực tế / 1 đơn</div>
@@ -935,12 +985,12 @@ function _mktRenderKpiCards(s) {
 
             <!-- HÀNG 2: 4 Ô THỐNG KÊ (Thực Chi | Lead | CPL | Tỷ Lệ Chốt) -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;">
-                <div class="mkt-kpi-card" style="border-top-color:#059669;background:linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);">
+                <div class="mkt-kpi-card" data-tooltip="${titleSpent}" title="${titleSpent}" style="border-top-color:#059669;background:linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);">
                     <div class="mkt-kpi-lbl">💸 THỰC CHI MARKETING</div>
                     <div class="mkt-kpi-val" style="color:#059669;">${_mktFmt(totalSpent)}</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">${periodText}</div>
                 </div>
-                <div class="mkt-kpi-card" style="border-top-color:#d97706;background:linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);">
+                <div class="mkt-kpi-card" data-tooltip="${titleLeads}" title="${titleLeads}" style="border-top-color:#d97706;background:linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);">
                     <div class="mkt-kpi-lbl">📥 TỔNG SỐ LEAD (TIN NHẮN)</div>
                     <div class="mkt-kpi-val" style="color:#d97706;">${totalLeads.toLocaleString('vi-VN')} <span style="font-size:13px;font-weight:600">khách</span></div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Theo bộ lọc đang chọn</div>
