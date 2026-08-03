@@ -1413,7 +1413,19 @@ async function kpiMktOpenAssignModal(handlerName) {
     }
 
     const categories = (_kpiMkt.data && (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories)) ? (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories) : [];
-    const subCats = categories.filter(c => c.parent_id !== null && c.parent_id !== undefined);
+
+    const subCats = categories.filter(c => {
+        // Điều kiện 1: Bắt buộc là mục con (có parent_id)
+        const isChild = c.parent_id !== null && c.parent_id !== undefined;
+        if (!isChild) return false;
+
+        // Điều kiện 2: BẮT BUỘC hiển thị ở Bảng DANH SÁCH MỤC CON & CHỈ SỐ MARKETING CHI TIẾT
+        const isShownInKpi = c.show_in_kpi_mkt !== false && c.show_in_kpi_mkt !== 0 && c.show_in_kpi_mkt !== '0' && c.show_in_kpi_mkt !== 'false';
+        const catName = (c.name || c.category_name || '').trim();
+        if (!catName || catName === '__NEW__') return false;
+
+        return isShownInKpi;
+    });
 
     let checkboxesHtml = subCats.map(c => {
         const isAssigned = (c.ads_handler_name && c.ads_handler_name.trim().toLowerCase() === handlerName.trim().toLowerCase()) ||
