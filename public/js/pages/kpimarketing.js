@@ -1264,6 +1264,24 @@ function renderKpiMktHandlersTable(res, itemsList) {
 
         let totSpent = 0, totLeads = 0, totOrders = 0, totRevenue = 0;
 
+        // Render Dark Header Bar Row for this employee (Matching Image 1)
+        html += `
+            <tr class="employee-block-header-row" style="background:#1e293b !important;color:#ffffff !important;font-weight:800 !important;font-size:12px !important;border-top:3px solid #0284c7 !important;border-bottom:2px solid #0f172a !important;">
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:9px 4px;background:#1e293b !important;">STT</td>
+                <td style="text-align:left;color:#ffffff;font-weight:800;padding:9px 6px;background:#1e293b !important;">Nhân Viên Marketing (Ads Handler)</td>
+                <td style="text-align:left;color:#ffffff;font-weight:800;padding:9px 6px;background:#1e293b !important;">Danh Sách Page / Mục Con Đang Cầm</td>
+                <td style="text-align:center;color:#fbbf24;font-weight:800;padding:9px 4px;background:#1e293b !important;">📦 ĐƠN HÀNG</td>
+                <td style="text-align:center;color:#fb7185;font-weight:800;padding:9px 4px;background:#1e293b !important;">💸 CHI PHÍ MKT</td>
+                <td style="text-align:center;color:#4ade80;font-weight:800;padding:9px 4px;background:#1e293b !important;">💰 DOANH SỐ (đ)</td>
+                <td style="text-align:center;color:#c084fc;font-weight:800;padding:9px 4px;background:#1e293b !important;">📉 % CP / DOANH SỐ</td>
+                <td style="text-align:center;color:#38bdf8;font-weight:800;padding:9px 4px;background:#1e293b !important;">🎯 TỶ LỆ CHỐT</td>
+                <td style="text-align:center;color:#fb923c;font-weight:800;padding:9px 4px;background:#1e293b !important;">🎯 CPO (GIÁ/ĐƠN)</td>
+                <td style="text-align:center;color:#38bdf8;font-weight:800;padding:9px 4px;background:#1e293b !important;">📥 SỐ LEAD</td>
+                <td style="text-align:center;color:#60a5fa;font-weight:800;padding:9px 4px;background:#1e293b !important;">📊 CPL (GIÁ/LEAD)</td>
+                <td style="text-align:center;color:#c084fc;font-weight:800;padding:9px 4px;background:#1e293b !important;">⚙️ PHÂN CÔNG</td>
+            </tr>
+        `;
+
         if (displayItems.length === 0) {
             // Employee has no pages
             html += `
