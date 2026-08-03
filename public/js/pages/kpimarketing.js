@@ -1457,9 +1457,9 @@ function renderKpiMktHandlersTable(res, itemsList) {
         const m1MissingRev = targetRevM1 > 0 ? Math.max(0, targetRevM1 - totRevenue) : 0;
         const m1MissingLeads = targetLeadsM1 > 0 ? Math.max(0, targetLeadsM1 - totLeads) : 0;
 
-        const m1MissingSpentStr = targetBudget > 0 ? (m1MissingSpent > 0 ? formatVND(m1MissingSpent) : '0đ (Đã đạt)') : '-';
-        const m1MissingRevStr = targetRevM1 > 0 ? (m1MissingRev > 0 ? formatVND(m1MissingRev) : '0đ (Đã đạt)') : '-';
-        const m1MissingLeadsStr = targetLeadsM1 > 0 ? (m1MissingLeads > 0 ? m1MissingLeads.toLocaleString('vi-VN') : '0 (Đã đạt)') : '-';
+        const m1MissingSpentStr = targetBudget > 0 ? (m1MissingSpent > 0 ? `-${formatVND(m1MissingSpent)}` : '0đ (Đã đạt)') : '-';
+        const m1MissingRevStr = targetRevM1 > 0 ? (m1MissingRev > 0 ? `-${formatVND(m1MissingRev)}` : '0đ (Đã đạt)') : '-';
+        const m1MissingLeadsStr = targetLeadsM1 > 0 ? (m1MissingLeads > 0 ? `-${m1MissingLeads.toLocaleString('vi-VN')}` : '0 (Đã đạt)') : '-';
 
         // Mốc 1 - Tỉ Lệ Hoàn Thành
         const m1SpentPctStr = targetBudget > 0 ? `${((totSpent / targetBudget) * 100).toFixed(2)}%` : '-';
@@ -1480,9 +1480,9 @@ function renderKpiMktHandlersTable(res, itemsList) {
         const m2MissingRev = targetRevM120 > 0 ? Math.max(0, targetRevM120 - totRevenue) : 0;
         const m2MissingLeads = targetLeadsM120 > 0 ? Math.max(0, targetLeadsM120 - totLeads) : 0;
 
-        const m2MissingSpentStr = targetBudget > 0 ? (m2MissingSpent > 0 ? formatVND(m2MissingSpent) : '0đ (Đã đạt)') : '-';
-        const m2MissingRevStr = targetRevM120 > 0 ? (m2MissingRev > 0 ? formatVND(m2MissingRev) : '0đ (Đã đạt)') : '-';
-        const m2MissingLeadsStr = targetLeadsM120 > 0 ? (m2MissingLeads > 0 ? m2MissingLeads.toLocaleString('vi-VN') : '0 (Đã đạt)') : '-';
+        const m2MissingSpentStr = targetBudget > 0 ? (m2MissingSpent > 0 ? `-${formatVND(m2MissingSpent)}` : '0đ (Đã đạt)') : '-';
+        const m2MissingRevStr = targetRevM120 > 0 ? (m2MissingRev > 0 ? `-${formatVND(m2MissingRev)}` : '0đ (Đã đạt)') : '-';
+        const m2MissingLeadsStr = targetLeadsM120 > 0 ? (m2MissingLeads > 0 ? `-${m2MissingLeads.toLocaleString('vi-VN')}` : '0 (Đã đạt)') : '-';
 
         // Mốc 2 - Tỉ Lệ Hoàn Thành (Shares the SAME targetBudget)
         const m2SpentPctStr = targetBudget > 0 ? `${((totSpent / targetBudget) * 100).toFixed(2)}%` : '-';
