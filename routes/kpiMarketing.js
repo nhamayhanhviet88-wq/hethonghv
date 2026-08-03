@@ -530,6 +530,16 @@ module.exports = async function(fastify, options) {
 
                 handlers.push({
                     ads_handler_name: hName,
+                    target_budget: targetBudget,
+                    target_leads_m1: targetLeads1,
+                    target_leads_m120: targetLeads120,
+                    target_revenue_m1: targetRev1,
+                    target_revenue_m120: targetRev120,
+                    target_cpl: targetCpl,
+                    target_roas: targetRoas,
+                    target_cpo: targetCpo,
+                    target_cost_ratio: targetCostRatio,
+                    target_close_rate: targetCloseRate,
                     actual: {
                         spent,
                         budget,

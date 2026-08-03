@@ -1432,15 +1432,16 @@ function renderKpiMktHandlersTable(res, itemsList) {
         `;
 
         // Retrieve target metrics for this handler
-        const targetBudget = Number(h.target_budget || 0);
-        const targetRevM1 = Number(h.target_revenue_m1 || h.target_revenue || 0);
-        const targetRevM120 = Number(h.target_revenue_m120 || (targetRevM1 > 0 ? Math.round(targetRevM1 * 1.2) : 0));
-        const targetLeadsM1 = Number(h.target_leads_m1 || h.target_leads || 0);
-        const targetLeadsM120 = Number(h.target_leads_m120 || (targetLeadsM1 > 0 ? Math.round(targetLeadsM1 * 1.2) : 0));
-        const targetCostRatio = Number(h.target_cost_ratio || 0);
-        const targetCloseRate = Number(h.target_close_rate || 0);
-        const targetCpo = Number(h.target_cpo || 0);
-        const targetCpl = Number(h.target_cpl || 0);
+        const tObj = h.targets || h;
+        const targetBudget = Number(h.target_budget || tObj.target_budget || 0);
+        const targetRevM1 = Number(h.target_revenue_m1 || tObj.target_revenue_m1 || tObj.target_revenue || 0);
+        const targetRevM120 = Number(h.target_revenue_m120 || tObj.target_revenue_m120 || (targetRevM1 > 0 ? Math.round(targetRevM1 * 1.2) : 0));
+        const targetLeadsM1 = Number(h.target_leads_m1 || tObj.target_leads_m1 || tObj.target_leads || 0);
+        const targetLeadsM120 = Number(h.target_leads_m120 || tObj.target_leads_m120 || (targetLeadsM1 > 0 ? Math.round(targetLeadsM1 * 1.2) : 0));
+        const targetCostRatio = Number(h.target_cost_ratio || tObj.target_cost_ratio || 0);
+        const targetCloseRate = Number(h.target_close_rate || tObj.target_close_rate || 0);
+        const targetCpo = Number(h.target_cpo || tObj.target_cpo || 0);
+        const targetCpl = Number(h.target_cpl || tObj.target_cpl || 0);
 
         // Mốc 1 Values
         const m1SpentStr = targetBudget > 0 ? formatVND(targetBudget) : '-';
@@ -1726,15 +1727,16 @@ async function kpiMktOpenSetTargetModal(handlerName) {
     const handlers = (_kpiMkt.data && _kpiMkt.data.handlers) ? _kpiMkt.data.handlers : [];
     const h = handlers.find(item => (item.ads_handler_name || 'Giám Đốc').trim().toLowerCase() === handlerName.trim().toLowerCase()) || {};
 
-    const targetBudget = h.target_budget || 0;
-    const targetRevM1 = h.target_revenue_m1 || h.target_revenue || 0;
-    const targetRevM120 = h.target_revenue_m120 || (targetRevM1 > 0 ? Math.round(targetRevM1 * 1.2) : 0);
-    const targetLeadsM1 = h.target_leads_m1 || h.target_leads || 0;
-    const targetLeadsM120 = h.target_leads_m120 || (targetLeadsM1 > 0 ? Math.round(targetLeadsM1 * 1.2) : 0);
-    const targetCostRatio = h.target_cost_ratio || 0;
-    const targetCloseRate = h.target_close_rate || 0;
-    const targetCpo = h.target_cpo || 0;
-    const targetCpl = h.target_cpl || 0;
+    const tObj = h.targets || h;
+    const targetBudget = Number(h.target_budget || tObj.target_budget || 0);
+    const targetRevM1 = Number(h.target_revenue_m1 || tObj.target_revenue_m1 || tObj.target_revenue || 0);
+    const targetRevM120 = Number(h.target_revenue_m120 || tObj.target_revenue_m120 || (targetRevM1 > 0 ? Math.round(targetRevM1 * 1.2) : 0));
+    const targetLeadsM1 = Number(h.target_leads_m1 || tObj.target_leads_m1 || tObj.target_leads || 0);
+    const targetLeadsM120 = Number(h.target_leads_m120 || tObj.target_leads_m120 || (targetLeadsM1 > 0 ? Math.round(targetLeadsM1 * 1.2) : 0));
+    const targetCostRatio = Number(h.target_cost_ratio || tObj.target_cost_ratio || 0);
+    const targetCloseRate = Number(h.target_close_rate || tObj.target_close_rate || 0);
+    const targetCpo = Number(h.target_cpo || tObj.target_cpo || 0);
+    const targetCpl = Number(h.target_cpl || tObj.target_cpl || 0);
 
     const [yStr, mStr] = (_kpiMkt.month || '').split('-');
     const monthText = yStr && mStr ? `Tháng ${parseInt(mStr, 10)}/${yStr}` : 'Tháng';
