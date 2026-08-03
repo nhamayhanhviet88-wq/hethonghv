@@ -586,11 +586,26 @@ function kpiMktOpenAddCatModal() {
     if (parentSelect) {
         let parentHtml = '';
         if (rootCats.length === 0) {
-            parentHtml = `<option value="1">📌 Facebook Ads</option><option value="2">🎵 Tiktok Ads</option><option value="3">🔍 Google Ads</option><option value="4">💬 Zalo Ads / OA</option>`;
+            parentHtml = `<option value="1">📘 Facebook Ads</option><option value="2">🎵 Tiktok Ads</option><option value="3">🔍 Google Ads</option><option value="4">💬 Zalo Ads / OA</option>`;
         } else {
-            rootCats.forEach(c => {
-                parentHtml += `<option value="${c.id}">${c.icon || '📌'} ${escapeHtml(c.name)}</option>`;
-            });
+            const onlineCats = rootCats.filter(c => (c.group_type || 'online') === 'online');
+            const offlineCats = rootCats.filter(c => c.group_type === 'offline');
+
+            if (onlineCats.length > 0) {
+                parentHtml += `<optgroup label="🌐 Marketing Online">`;
+                onlineCats.forEach(c => {
+                    parentHtml += `<option value="${c.id}">${c.icon || '📌'} ${escapeHtml(c.name)}</option>`;
+                });
+                parentHtml += `</optgroup>`;
+            }
+
+            if (offlineCats.length > 0) {
+                parentHtml += `<optgroup label="🏢 Marketing Offline">`;
+                offlineCats.forEach(c => {
+                    parentHtml += `<option value="${c.id}">${c.icon || '📌'} ${escapeHtml(c.name)}</option>`;
+                });
+                parentHtml += `</optgroup>`;
+            }
         }
         parentSelect.innerHTML = parentHtml;
         parentSelect.selectedIndex = 0;

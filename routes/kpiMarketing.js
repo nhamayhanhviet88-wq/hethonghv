@@ -56,8 +56,7 @@ module.exports = async function(fastify, options) {
             const allCats = await db.all(`
                 SELECT id, parent_id, group_type, name, icon, ads_handler_name, linked_source_name, pancake_page_id, pancake_page_name
                 FROM mkt_categories
-                WHERE is_active = TRUE
-                ORDER BY group_type ASC, parent_id ASC NULLS FIRST, sort_order ASC, id ASC
+                ORDER BY CASE WHEN group_type = 'online' THEN 1 ELSE 2 END ASC, parent_id ASC NULLS FIRST, sort_order ASC, id ASC
             `);
 
             const catMap = new Map();
