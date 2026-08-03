@@ -427,8 +427,8 @@ const _PAGE_SCRIPT_MAP = {
     'kpikdoanh': '/js/pages/kpikdoanh.js?v=20260803_v152',
     'kpisale': '/js/pages/kpisale.js?v=20260803_v152',
     'kpi-sale': '/js/pages/kpisale.js?v=20260803_v152',
-    'kpimarketing': '/js/pages/kpimarketing.js?v=20260803_v1000001_RED_DELETE_BUTTON',
-    'kpi-marketing': '/js/pages/kpimarketing.js?v=20260803_v1000001_RED_DELETE_BUTTON',
+    'kpimarketing': '/js/pages/kpimarketing.js?v=20260803_v1100001_FAST_LOAD',
+    'kpi-marketing': '/js/pages/kpimarketing.js?v=20260803_v1100001_FAST_LOAD',
     'camketcuochop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'cam-ket-cuoc-hop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
@@ -547,21 +547,16 @@ async function _loadScript(src) {
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         await checkAuth();
-    } catch (err) {
-        console.error('[Auth] Xác thực thất bại:', err.message);
-        return;
-    }
-    try {
         setupEventListeners();
         handleRoute();
-    } catch (routeErr) {
-        console.error('[Route] Initial handleRoute error:', routeErr.message);
+    } catch (err) {
+        console.error('[Auth/Route] Initial load error:', err.message);
     } finally {
         var _authOverlay = document.getElementById('authLoadingOverlay');
         if (_authOverlay) {
-            _authOverlay.style.transition = 'opacity .3s';
+            _authOverlay.style.transition = 'opacity .2s';
             _authOverlay.style.opacity = '0';
-            setTimeout(function() { _authOverlay.remove(); }, 300);
+            setTimeout(function() { if (_authOverlay.parentNode) _authOverlay.remove(); }, 200);
         }
     }
 
@@ -1257,9 +1252,9 @@ async function checkAuth(retryCount) {
     var _maxRetries = 3;
     var _attempt = retryCount || 0;
     try {
-        // ★ TIMEOUT 10s — không để user chờ vĩnh viễn khi server lag
+        // ★ TIMEOUT 5s — không để user chờ vĩnh viễn khi server/mạng lag
         var controller = new AbortController();
-        var timeoutId = setTimeout(function() { controller.abort(); }, 10000);
+        var timeoutId = setTimeout(function() { controller.abort(); }, 5000);
 
         var res = await fetch('/api/auth/me', { signal: controller.signal });
         clearTimeout(timeoutId);
@@ -1288,8 +1283,7 @@ async function checkAuth(retryCount) {
 
         // ★ DOITAC PORTAL — skip heavy config loading for speed
         if (!_isDoitacDomain) {
-            // ★ TIMEOUT 8s — tất cả config loading phải xong trong 8s, nếu không thì bỏ qua
-            // Tránh treo mãi "Đang xác thực..." khi server/config endpoint chậm
+            // ★ TIMEOUT 2s — tất cả config loading phải xong trong 2s, nếu không thì tiếp tục với menu mặc định
             try {
                 await Promise.race([
                     (async function _loadConfigs() {
@@ -1339,7 +1333,7 @@ async function checkAuth(retryCount) {
                             } catch(e) {}
                         }
                     })(),
-                    new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Config loading timeout')); }, 8000); })
+                    new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Config loading timeout')); }, 2000); })
                 ]);
             } catch(cfgErr) {
                 console.warn('[Auth] Config loading bị timeout/lỗi — tiếp tục với menu mặc định:', cfgErr.message);
