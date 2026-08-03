@@ -1260,64 +1260,142 @@ function renderKpiMktHandlersTable(res, itemsList) {
         });
 
         const displayItems = assignedItems.length > 0 ? assignedItems : (h.items || []);
+        const totalRowsForHandler = Math.max(1, displayItems.length) + 1; // +1 for Employee Total row
 
-        let pagesHtml = '';
+        let totSpent = 0, totLeads = 0, totOrders = 0, totRevenue = 0;
+
         if (displayItems.length === 0) {
-            pagesHtml = `<span style="font-size:11.5px;color:#94a3b8;font-style:italic">Chưa gán Page nào</span>`;
+            // Employee has no pages
+            html += `
+                <tr>
+                    <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;font-weight:800;background:#fff">${idx + 1}</td>
+                    <td rowspan="${totalRowsForHandler}" style="text-align:left;vertical-align:middle;background:#fff">
+                        <div style="font-weight:800;font-size:14px;color:#1e1b4b;display:flex;align-items:center;gap:6px">
+                            <span>👤 ${escapeHtml(handlerName)}</span>
+                        </div>
+                    </td>
+                    <td style="text-align:left;color:#94a3b8;font-style:italic">Chưa gán Page nào</td>
+                    <td>0 đơn</td>
+                    <td>0đ</td>
+                    <td>0đ</td>
+                    <td><span class="kpi-pill kpi-pill-purple">0.00%</span></td>
+                    <td><span class="kpi-pill kpi-pill-cyan">0.00%</span></td>
+                    <td><span class="kpi-pill kpi-pill-orange">0đ</span></td>
+                    <td>0</td>
+                    <td><span class="kpi-pill kpi-pill-blue">0đ</span></td>
+                    <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;background:#fff">
+                        ${isGiamDoc ? `
+                            <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:4px 10px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
+                        ` : '<span style="font-size:11px;color:#94a3b8">-</span>'}
+                    </td>
+                </tr>
+            `;
         } else {
-            pagesHtml = displayItems.map(it => {
+            // Render each Page on its own row
+            displayItems.forEach((it, pageIdx) => {
+                const itemSpent = Number(it.spent || 0);
+                const itemLeads = Number(it.leads || 0);
+                const itemOrders = Number(it.orders || 0);
+                const itemRevenue = Number(it.revenue || 0);
+
+                totSpent += itemSpent;
+                totLeads += itemLeads;
+                totOrders += itemOrders;
+                totRevenue += itemRevenue;
+
+                const itemCpl = itemLeads > 0 ? Math.round(itemSpent / itemLeads) : 0;
+                const itemCpo = itemOrders > 0 ? Math.round(itemSpent / itemOrders) : 0;
+                const itemCostRatio = itemRevenue > 0 ? (itemSpent / itemRevenue * 100).toFixed(2) : '0.00';
+                const itemCloseRate = itemLeads > 0 ? (itemOrders / itemLeads * 100).toFixed(2) : '0.00';
+
+                const itemCplStr = formatVND(itemCpl);
+                const itemCostRatioStr = `${itemCostRatio}%`;
+                const itemCpoStr = itemCpo > 0 ? formatVND(itemCpo) : '0đ';
+                const itemCloseRateStr = `${itemCloseRate}%`;
+
+                const titleCostRatio = `${formatVND(itemSpent)} Chi phí MKT / ${formatVND(itemRevenue)} Doanh số = ${itemCostRatioStr}`;
+                const titleCloseRate = `${itemOrders} Đơn / ${itemLeads} Tin Nhắn = ${itemCloseRateStr}`;
+                const titleCpo = `${formatVND(itemSpent)} Chi phí MKT / ${itemOrders} Đơn = ${itemCpoStr}`;
+                const titleCpl = `${formatVND(itemSpent)} Chi phí MKT / ${itemLeads} Tin Nhắn = ${itemCplStr}`;
+
+                const catName = it.category_name || it.name || 'Mục Marketing';
+                const channelName = it.channel_name || 'Facebook Ads';
                 const pageLabel = it.pancake_page_name || it.linked_source_name || '';
-                const catLabel = it.category_name || it.name || '';
-                const display = pageLabel ? `🔗 ${escapeHtml(pageLabel)} <span style="color:#475569;font-weight:600">(${escapeHtml(catLabel)})</span>` : `📄 ${escapeHtml(catLabel)}`;
-                return `<span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:700;display:inline-block;margin:2px 4px 2px 0;border:1px solid #bae6fd;box-shadow:0 1px 2px rgba(2,132,199,0.08);">${display}</span>`;
-            }).join('');
+
+                const itemLabelHtml = `
+                    <div style="font-weight:800;font-size:13px;color:#0f172a;display:flex;align-items:center;gap:6px">
+                        <span>📄 ${escapeHtml(catName)}</span>
+                    </div>
+                    <div style="font-size:11px;color:#64748b;margin-top:3px;display:flex;align-items:center;gap:8px">
+                        <span>Kênh: <strong>${escapeHtml(channelName)}</strong></span>
+                        ${pageLabel ? `<span style="color:#0284c7;font-weight:700">🔗 ${escapeHtml(pageLabel)}</span>` : ''}
+                    </div>
+                `;
+
+                html += `<tr>`;
+                if (pageIdx === 0) {
+                    html += `
+                        <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;font-weight:800;background:#fff">${idx + 1}</td>
+                        <td rowspan="${totalRowsForHandler}" style="text-align:left;vertical-align:middle;background:#fff">
+                            <div style="font-weight:800;font-size:14px;color:#1e1b4b;display:flex;align-items:center;gap:6px">
+                                <span>👤 ${escapeHtml(handlerName)}</span>
+                            </div>
+                        </td>
+                    `;
+                }
+                html += `
+                    <td style="text-align:left">${itemLabelHtml}</td>
+                    <td style="font-weight:700;color:#d97706">${itemOrders} đơn</td>
+                    <td style="font-weight:700;color:#e11d48">${formatVND(itemSpent)}</td>
+                    <td style="font-weight:700;color:#16a34a">${formatVND(itemRevenue)}</td>
+                    <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${titleCostRatio}" title="${titleCostRatio}">${itemCostRatioStr}</span></td>
+                    <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${titleCloseRate}" title="${titleCloseRate}">${itemCloseRateStr}</span></td>
+                    <td><span class="kpi-pill kpi-pill-orange" data-tooltip="${titleCpo}" title="${titleCpo}">${itemCpoStr}</span></td>
+                    <td style="font-weight:700;color:#0284c7">${itemLeads}</td>
+                    <td><span class="kpi-pill kpi-pill-blue" data-tooltip="${titleCpl}" title="${titleCpl}">${itemCplStr}</span></td>
+                `;
+                if (pageIdx === 0) {
+                    html += `
+                        <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;background:#fff">
+                            ${isGiamDoc ? `
+                                <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:4px 10px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
+                            ` : '<span style="font-size:11px;color:#94a3b8">-</span>'}
+                        </td>
+                    `;
+                }
+                html += `</tr>`;
+            });
         }
 
-        let spent = 0, leads = 0, orders = 0, revenue = 0;
-        displayItems.forEach(it => {
-            spent += Number(it.spent || 0);
-            leads += Number(it.leads || 0);
-            orders += Number(it.orders || 0);
-            revenue += Number(it.revenue || 0);
-        });
+        // Render Total Row for Handler
+        const totCpl = totLeads > 0 ? Math.round(totSpent / totLeads) : 0;
+        const totCpo = totOrders > 0 ? Math.round(totSpent / totOrders) : 0;
+        const totCostRatio = totRevenue > 0 ? (totSpent / totRevenue * 100).toFixed(2) : '0.00';
+        const totCloseRate = totLeads > 0 ? (totOrders / totLeads * 100).toFixed(2) : '0.00';
 
-        const cpl = leads > 0 ? Math.round(spent / leads) : 0;
-        const cpo = orders > 0 ? Math.round(spent / orders) : 0;
-        const costRatio = revenue > 0 ? (spent / revenue * 100).toFixed(2) : '0.00';
-        const closeRate = leads > 0 ? (orders / leads * 100).toFixed(2) : '0.00';
+        const totCplStr = formatVND(totCpl);
+        const totCostRatioStr = `${totCostRatio}%`;
+        const totCpoStr = totCpo > 0 ? formatVND(totCpo) : '0đ';
+        const totCloseRateStr = `${totCloseRate}%`;
 
-        const cplStr = formatVND(cpl);
-        const costRatioStr = `${costRatio}%`;
-        const cpoStr = cpo > 0 ? formatVND(cpo) : '0đ';
-        const closeRateStr = `${closeRate}%`;
-
-        const titleCostRatio = `${formatVND(spent)} Chi phí MKT / ${formatVND(revenue)} Doanh số = ${costRatioStr}`;
-        const titleCloseRate = `${orders} Đơn / ${leads} Tin Nhắn = ${closeRateStr}`;
-        const titleCpo = `${formatVND(spent)} Chi phí MKT / ${orders} Đơn = ${cpoStr}`;
-        const titleCpl = `${formatVND(spent)} Chi phí MKT / ${leads} Tin Nhắn = ${cplStr}`;
+        const titleTotCostRatio = `${formatVND(totSpent)} Chi phí MKT / ${formatVND(totRevenue)} Doanh số = ${totCostRatioStr}`;
+        const titleTotCloseRate = `${totOrders} Đơn / ${totLeads} Tin Nhắn = ${totCloseRateStr}`;
+        const titleTotCpo = `${formatVND(totSpent)} Chi phí MKT / ${totOrders} Đơn = ${totCpoStr}`;
+        const titleTotCpl = `${formatVND(totSpent)} Chi phí MKT / ${totLeads} Tin Nhắn = ${totCplStr}`;
 
         html += `
-            <tr>
-                <td style="text-align:center">${idx + 1}</td>
-                <td style="text-align:left">
-                    <div style="font-weight:800;font-size:14px;color:#1e1b4b;display:flex;align-items:center;gap:6px">
-                        <span>👤 ${escapeHtml(handlerName)}</span>
-                    </div>
+            <tr class="total-row" style="background:#fef3c7 !important;">
+                <td style="text-align:left;font-weight:900;color:#78350f">
+                    <span>★ TỔNG CỘNG KPI ${escapeHtml(handlerName).toUpperCase()} (${displayItems.length} Mục Con)</span>
                 </td>
-                <td style="text-align:left">${pagesHtml}</td>
-                <td style="font-weight:700;color:#d97706">${orders} đơn</td>
-                <td style="font-weight:700;color:#e11d48">${formatVND(spent)}</td>
-                <td style="font-weight:700;color:#16a34a">${formatVND(revenue)}</td>
-                <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${titleCostRatio}" title="${titleCostRatio}">${costRatioStr}</span></td>
-                <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${titleCloseRate}" title="${titleCloseRate}">${closeRateStr}</span></td>
-                <td><span class="kpi-pill kpi-pill-orange" data-tooltip="${titleCpo}" title="${titleCpo}">${cpoStr}</span></td>
-                <td style="font-weight:700;color:#0284c7">${leads}</td>
-                <td><span class="kpi-pill kpi-pill-blue" data-tooltip="${titleCpl}" title="${titleCpl}">${cplStr}</span></td>
-                <td>
-                    ${isGiamDoc ? `
-                        <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:4px 10px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
-                    ` : '<span style="font-size:11px;color:#94a3b8">-</span>'}
-                </td>
+                <td style="font-weight:900;color:#d97706">${totOrders} đơn</td>
+                <td style="font-weight:900;color:#e11d48">${formatVND(totSpent)}</td>
+                <td style="font-weight:900;color:#16a34a">${formatVND(totRevenue)}</td>
+                <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${titleTotCostRatio}" title="${titleTotCostRatio}">${totCostRatioStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${titleTotCloseRate}" title="${titleTotCloseRate}">${totCloseRateStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-orange" data-tooltip="${titleTotCpo}" title="${titleTotCpo}">${totCpoStr}</span></td>
+                <td style="font-weight:900;color:#0284c7">${totLeads}</td>
+                <td><span class="kpi-pill kpi-pill-blue" data-tooltip="${titleTotCpl}" title="${titleTotCpl}">${totCplStr}</span></td>
             </tr>
         `;
     });
