@@ -70,7 +70,9 @@ async function renderKpimarketingPage(container) {
 
     const now = new Date();
     if (!_kpiMkt.month) {
-        _kpiMkt.month = '2026-07';
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        _kpiMkt.month = `${y}-${m}`;
     }
 
     const cssId = 'kpi-mkt-v2-css';
