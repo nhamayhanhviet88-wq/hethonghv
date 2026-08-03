@@ -1439,6 +1439,14 @@ function renderKpiMktHandlersTable(res, itemsList) {
         const targetBonusM1 = Number(h.target_bonus_m1 || tObj.target_bonus_m1 || 0);
         const targetBonusM120 = Number(h.target_bonus_m120 || tObj.target_bonus_m120 || 0);
         const targetBonusNote = h.target_bonus_note || tObj.target_bonus_note || '';
+        let targetBonusConds = h.target_bonus_conditions || tObj.target_bonus_conditions || ['revenue', 'leads'];
+        if (typeof targetBonusConds === 'string') {
+            try { targetBonusConds = JSON.parse(targetBonusConds); } catch(e) { targetBonusConds = ['revenue', 'leads']; }
+        }
+        if (!Array.isArray(targetBonusConds) || targetBonusConds.length === 0) {
+            targetBonusConds = ['revenue', 'leads'];
+        }
+        const targetBonusLogic = (h.target_bonus_logic || tObj.target_bonus_logic || 'ALL').toUpperCase();
 
         // Mốc 1 Values
         const m1SpentStr = targetBudget > 0 ? formatVND(targetBudget) : '-';
@@ -1596,21 +1604,88 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
+        // Evaluate Mốc 1 & Mốc 2 Bonus Achievement Status
+        const condEvalM1 = [];
+        const condEvalM2 = [];
+        const condLabelsArr = [];
+
+        if (targetBonusConds.includes('revenue')) {
+            condLabelsArr.push('💰 Doanh Số');
+            condEvalM1.push(targetRevM1 > 0 ? totRevenue >= targetRevM1 : false);
+            condEvalM2.push(targetRevM120 > 0 ? totRevenue >= targetRevM120 : false);
+        }
+        if (targetBonusConds.includes('leads')) {
+            condLabelsArr.push('📥 Số Lead');
+            condEvalM1.push(targetLeadsM1 > 0 ? totLeads >= targetLeadsM1 : false);
+            condEvalM2.push(targetLeadsM120 > 0 ? totLeads >= targetLeadsM120 : false);
+        }
+        if (targetBonusConds.includes('cost_ratio')) {
+            const label = targetCostRatio > 0 ? `📉 % CP/Doanh số (≤${targetCostRatio}%)` : '📉 % CP/Doanh số';
+            condLabelsArr.push(label);
+            const actualRatio = totRevenue > 0 ? (totSpent / totRevenue * 100) : 999;
+            const ok = targetCostRatio > 0 ? actualRatio <= targetCostRatio : false;
+            condEvalM1.push(ok);
+            condEvalM2.push(ok);
+        }
+        if (targetBonusConds.includes('close_rate')) {
+            const label = targetCloseRate > 0 ? `🎯 Tỷ lệ chốt (≥${targetCloseRate}%)` : '🎯 Tỷ lệ chốt';
+            condLabelsArr.push(label);
+            const actualRate = totLeads > 0 ? (totOrders / totLeads * 100) : 0;
+            const ok = targetCloseRate > 0 ? actualRate >= targetCloseRate : false;
+            condEvalM1.push(ok);
+            condEvalM2.push(ok);
+        }
+        if (targetBonusConds.includes('cpo')) {
+            const label = targetCpo > 0 ? `🎯 CPO (≤${formatVND(targetCpo)})` : '🎯 CPO';
+            condLabelsArr.push(label);
+            const actualCpo = totOrders > 0 ? (totSpent / totOrders) : 999999999;
+            const ok = targetCpo > 0 ? actualCpo <= targetCpo : false;
+            condEvalM1.push(ok);
+            condEvalM2.push(ok);
+        }
+        if (targetBonusConds.includes('cpl')) {
+            const label = targetCpl > 0 ? `📊 CPL (≤${formatVND(targetCpl)})` : '📊 CPL';
+            condLabelsArr.push(label);
+            const actualCpl = totLeads > 0 ? (totSpent / totLeads) : 999999999;
+            const ok = targetCpl > 0 ? actualCpl <= targetCpl : false;
+            condEvalM1.push(ok);
+            condEvalM2.push(ok);
+        }
+
+        const isM1Achieved = condEvalM1.length > 0 ? (targetBonusLogic === 'ANY' ? condEvalM1.some(Boolean) : condEvalM1.every(Boolean)) : false;
+        const isM2Achieved = condEvalM2.length > 0 ? (targetBonusLogic === 'ANY' ? condEvalM2.some(Boolean) : condEvalM2.every(Boolean)) : false;
+        const condLabelsStr = condLabelsArr.join(targetBonusLogic === 'ANY' ? ' | ' : ' + ');
+
         // Row 7: LƯƠNG THƯỞNG ĐẠT KPI (Matches Total Row style in Image 2)
         html += `
             <tr class="total-row" style="background:#fef3c7 !important;border-top:2px solid #f59e0b !important;border-bottom:2px solid #f59e0b !important;">
                 <td style="text-align:left;font-weight:900;color:#78350f">
                     <span>🎁 LƯƠNG THƯỞNG ĐẠT KPI</span>
                 </td>
-                <td style="font-weight:900;color:#047857">
-                    ${targetBonusM1 > 0 ? `<span style="background:#d1fae5;color:#047857;border:1px solid #a7f3d0;padding:3px 10px;border-radius:8px;font-weight:800;display:inline-block;" data-tooltip="Thưởng Mốc 1 (100% KPI)">🎁 Mốc 1: +${formatVND(targetBonusM1)}</span>` : '-'}
+                <td style="font-weight:900;">
+                    ${targetBonusM1 > 0 ? `
+                        <span style="background:${isM1Achieved ? '#d1fae5' : '#fff1f2'};color:${isM1Achieved ? '#047857' : '#be123c'};border:1px solid ${isM1Achieved ? '#a7f3d0' : '#fda4af'};padding:3px 10px;border-radius:8px;font-weight:800;display:inline-block;" data-tooltip="Thưởng Mốc 1 (100% KPI)">
+                            🎁 Mốc 1: +${formatVND(targetBonusM1)} ${isM1Achieved ? '✓ Đạt' : '⏳ Chưa đạt'}
+                        </span>
+                    ` : '-'}
                 </td>
                 <td style="font-weight:900;color:#78350f">-</td>
-                <td style="font-weight:900;color:#1d4ed8">
-                    ${targetBonusM120 > 0 ? `<span style="background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;padding:3px 10px;border-radius:8px;font-weight:800;display:inline-block;" data-tooltip="Thưởng Mốc 2 (120% KPI)">🏆 Mốc 2: +${formatVND(targetBonusM120)}</span>` : '-'}
+                <td style="font-weight:900;">
+                    ${targetBonusM120 > 0 ? `
+                        <span style="background:${isM2Achieved ? '#dbeafe' : '#fff1f2'};color:${isM2Achieved ? '#1d4ed8' : '#be123c'};border:1px solid ${isM2Achieved ? '#bfdbfe' : '#fda4af'};padding:3px 10px;border-radius:8px;font-weight:800;display:inline-block;" data-tooltip="Thưởng Mốc 2 (120% KPI)">
+                            🏆 Mốc 2: +${formatVND(targetBonusM120)} ${isM2Achieved ? '✓ Đạt' : '⏳ Chưa đạt'}
+                        </span>
+                    ` : '-'}
                 </td>
                 <td colspan="5" style="text-align:left;vertical-align:middle;padding:6px 12px;">
-                    ${targetBonusNote ? `<span style="font-size:12px;color:#78350f;font-weight:700;background:#fef08a;padding:4px 12px;border-radius:8px;border:1px solid #fde047;display:inline-block;">📝 Ghi chú thưởng: ${escapeHtml(targetBonusNote)}</span>` : '<span style="color:#a16207;font-style:italic;font-size:11.5px">Chưa cài đặt nội dung thưởng</span>'}
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        ${condLabelsStr ? `
+                            <span style="font-size:11.5px;color:#78350f;font-weight:800;background:#fef08a;padding:3px 10px;border-radius:6px;border:1px solid #fde047;display:inline-block;">
+                                🎯 Tiêu chí (${targetBonusLogic === 'ANY' ? 'Đạt 1 trong các chỉ số' : 'Đạt tất cả'}): ${escapeHtml(condLabelsStr)}
+                            </span>
+                        ` : ''}
+                        ${targetBonusNote ? `<span style="font-size:11.5px;color:#78350f;font-weight:700;background:#fffbeb;padding:3px 8px;border-radius:6px;border:1px solid #fde68a;">📝 ${escapeHtml(targetBonusNote)}</span>` : ''}
+                    </div>
                 </td>
             </tr>
         `;
@@ -1747,6 +1822,14 @@ async function kpiMktOpenSetTargetModal(handlerName) {
     const targetBonusM1 = Number(h.target_bonus_m1 || tObj.target_bonus_m1 || 0);
     const targetBonusM120 = Number(h.target_bonus_m120 || tObj.target_bonus_m120 || 0);
     const targetBonusNote = h.target_bonus_note || tObj.target_bonus_note || '';
+    let targetBonusConds = h.target_bonus_conditions || tObj.target_bonus_conditions || ['revenue', 'leads'];
+    if (typeof targetBonusConds === 'string') {
+        try { targetBonusConds = JSON.parse(targetBonusConds); } catch(e) { targetBonusConds = ['revenue', 'leads']; }
+    }
+    if (!Array.isArray(targetBonusConds) || targetBonusConds.length === 0) {
+        targetBonusConds = ['revenue', 'leads'];
+    }
+    const targetBonusLogic = (h.target_bonus_logic || tObj.target_bonus_logic || 'ALL').toUpperCase();
 
     const [yStr, mStr] = (_kpiMkt.month || '').split('-');
     const monthText = yStr && mStr ? `Tháng ${parseInt(mStr, 10)}/${yStr}` : 'Tháng';
@@ -1829,8 +1912,9 @@ async function kpiMktOpenSetTargetModal(handlerName) {
 
                 <!-- SECTION 4: LƯƠNG THƯỞNG ĐẠT KPI -->
                 <div style="background:#fffbeb;padding:14px 16px;border-radius:12px;border:1px solid #fde68a;">
-                    <div style="font-weight:800;font-size:13.5px;color:#92400e;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                    <div style="font-weight:800;font-size:13.5px;color:#92400e;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
                         <span>🎁 LƯƠNG THƯỞNG ĐẠT KPI</span>
+                        <span style="font-size:11.5px;font-weight:600;color:#b45309;">⚙️ Cấu hình mốc & tiêu chí thưởng</span>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                         <div>
@@ -1842,6 +1926,50 @@ async function kpiMktOpenSetTargetModal(handlerName) {
                             <input type="text" id="target_bonus_m120" value="${fmtBonus2}" placeholder="Ví dụ: 5.000.000" oninput="kpiMktFormatInputNumber(this)" style="width:100%;padding:8px 12px;border:1.5px solid #fcd34d;border-radius:8px;font-weight:700;font-size:13px;color:#78350f;outline:none;background:white;" />
                         </div>
                     </div>
+
+                    <!-- TIÊU CHÍ ÁP DỤNG THƯỞNG -->
+                    <div style="margin-top:12px;padding-top:10px;border-top:1px dashed #fde68a;">
+                        <label style="font-size:12px;font-weight:800;color:#92400e;display:block;margin-bottom:6px;">🎯 Chọn các chỉ số làm TIÊU CHÍ XÉT THƯỞNG:</label>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:white;padding:10px 12px;border-radius:8px;border:1px solid #fde68a;">
+                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="checkbox" name="kpiBonusCond" value="revenue" ${targetBonusConds.includes('revenue') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
+                                <span>💰 Doanh Số</span>
+                            </label>
+                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="checkbox" name="kpiBonusCond" value="leads" ${targetBonusConds.includes('leads') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
+                                <span>📥 Số Lead (Tin Nhắn)</span>
+                            </label>
+                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="checkbox" name="kpiBonusCond" value="cost_ratio" ${targetBonusConds.includes('cost_ratio') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
+                                <span>📉 % CP / Doanh Số (≤ mục tiêu)</span>
+                            </label>
+                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="checkbox" name="kpiBonusCond" value="close_rate" ${targetBonusConds.includes('close_rate') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
+                                <span>🎯 Tỷ Lệ Chốt % (≥ mục tiêu)</span>
+                            </label>
+                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="checkbox" name="kpiBonusCond" value="cpo" ${targetBonusConds.includes('cpo') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
+                                <span>🎯 CPO Giá / Đơn (≤ mục tiêu)</span>
+                            </label>
+                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="checkbox" name="kpiBonusCond" value="cpl" ${targetBonusConds.includes('cpl') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
+                                <span>📊 CPL Giá / Lead (≤ mục tiêu)</span>
+                            </label>
+                        </div>
+                        
+                        <div style="display:flex;align-items:center;gap:16px;margin-top:8px;font-size:12px;font-weight:700;color:#92400e;">
+                            <span>Điều kiện kết hợp:</span>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                                <input type="radio" name="kpiBonusLogic" value="ALL" ${targetBonusLogic === 'ALL' ? 'checked' : ''} style="accent-color:#d97706;" />
+                                <span>Đạt TẤT CẢ tiêu chí (AND)</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                                <input type="radio" name="kpiBonusLogic" value="ANY" ${targetBonusLogic === 'ANY' ? 'checked' : ''} style="accent-color:#d97706;" />
+                                <span>Đạt BẤT KỲ tiêu chí nào (OR)</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <div style="margin-top:10px;">
                         <label style="font-size:12px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">📝 Nội Dung Thưởng / Ghi Chú Thưởng</label>
                         <input type="text" id="target_bonus_note" value="${escapeHtml(targetBonusNote)}" placeholder="Ví dụ: Thưởng nóng tiền mặt hoặc cộng vào lương tháng..." style="width:100%;padding:8px 12px;border:1.5px solid #fcd34d;border-radius:8px;font-weight:600;font-size:12.5px;color:#78350f;outline:none;background:white;" />
@@ -1919,6 +2047,9 @@ async function kpiMktSaveTargetForHandler(e, handlerName) {
         const revM120 = kpiMktParseVnInt(document.getElementById('target_revenue_m120')?.value) || Math.round(revM1 * 1.2);
         const leadsM120 = kpiMktParseVnInt(document.getElementById('target_leads_m120')?.value) || Math.round(leadsM1 * 1.2);
 
+        const selectedConds = Array.from(document.querySelectorAll('input[name="kpiBonusCond"]:checked')).map(cb => cb.value);
+        const selectedLogic = document.querySelector('input[name="kpiBonusLogic"]:checked')?.value || 'ALL';
+
         const payload = {
             period_value: _kpiMkt.month,
             targets: [
@@ -1935,7 +2066,9 @@ async function kpiMktSaveTargetForHandler(e, handlerName) {
                     target_cpl: kpiMktParseVnInt(document.getElementById('target_cpl')?.value),
                     target_bonus_m1: kpiMktParseVnInt(document.getElementById('target_bonus_m1')?.value),
                     target_bonus_m120: kpiMktParseVnInt(document.getElementById('target_bonus_m120')?.value),
-                    target_bonus_note: document.getElementById('target_bonus_note')?.value || ''
+                    target_bonus_note: document.getElementById('target_bonus_note')?.value || '',
+                    target_bonus_conditions: selectedConds.length > 0 ? selectedConds : ['revenue', 'leads'],
+                    target_bonus_logic: selectedLogic
                 }
             ]
         };

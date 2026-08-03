@@ -21,6 +21,8 @@ module.exports = async function(fastify, options) {
         await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_m1 NUMERIC DEFAULT 0');
         await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_m120 NUMERIC DEFAULT 0');
         await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_note TEXT');
+        await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_conditions TEXT');
+        await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_logic TEXT DEFAULT \'ALL\'');
         await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS show_in_kpi_mkt BOOLEAN DEFAULT FALSE');
 
         // Initial default: enable show_in_kpi_mkt for existing core initial categories (excluding newly added ones like 'Tờ Rơi')
@@ -418,6 +420,15 @@ module.exports = async function(fastify, options) {
                 const targetBonusM1 = Number(t.target_bonus_m1 || 0);
                 const targetBonusM120 = Number(t.target_bonus_m120 || 0);
                 const targetBonusNote = t.target_bonus_note || '';
+                let targetBonusConditions = ['revenue', 'leads'];
+                try {
+                    if (t.target_bonus_conditions) {
+                        targetBonusConditions = typeof t.target_bonus_conditions === 'string' ? JSON.parse(t.target_bonus_conditions) : t.target_bonus_conditions;
+                    }
+                } catch(e) {
+                    targetBonusConditions = ['revenue', 'leads'];
+                }
+                const targetBonusLogic = t.target_bonus_logic || 'ALL';
 
                 const cpl = leads > 0 ? Math.round(spent / leads) : 0;
                 const cpo = orders > 0 ? Math.round(spent / orders) : 0;
@@ -550,6 +561,8 @@ module.exports = async function(fastify, options) {
                     target_bonus_m1: targetBonusM1,
                     target_bonus_m120: targetBonusM120,
                     target_bonus_note: targetBonusNote,
+                    target_bonus_conditions: targetBonusConditions,
+                    target_bonus_logic: targetBonusLogic,
                     actual: {
                         spent,
                         budget,
@@ -575,7 +588,9 @@ module.exports = async function(fastify, options) {
                         target_close_rate: targetCloseRate,
                         target_bonus_m1: targetBonusM1,
                         target_bonus_m120: targetBonusM120,
-                        target_bonus_note: targetBonusNote
+                        target_bonus_note: targetBonusNote,
+                        target_bonus_conditions: targetBonusConditions,
+                        target_bonus_logic: targetBonusLogic
                     },
                     efficiency: {
                         cpl: { actual: cpl, target: targetCpl, is_ok: (targetCpl === 0 || cpl <= targetCpl) },
@@ -832,6 +847,8 @@ module.exports = async function(fastify, options) {
                 const target_bonus_m1 = parseCleanNum(item.target_bonus_m1);
                 const target_bonus_m120 = parseCleanNum(item.target_bonus_m120);
                 const target_bonus_note = String(item.target_bonus_note || '').trim();
+                const target_bonus_conditions = JSON.stringify(Array.isArray(item.target_bonus_conditions) ? item.target_bonus_conditions : ['revenue', 'leads']);
+                const target_bonus_logic = String(item.target_bonus_logic || 'ALL').toUpperCase();
 
                 if (catId) {
                     const existing = await db.get(`SELECT id FROM mkt_kpi_targets WHERE category_id = $1 AND period_value = $2`, [catId, period_value]);
@@ -852,16 +869,18 @@ module.exports = async function(fastify, options) {
                                 target_bonus_m1 = $12,
                                 target_bonus_m120 = $13,
                                 target_bonus_note = $14,
+                                target_bonus_conditions = $15,
+                                target_bonus_logic = $16,
                                 updated_at = NOW()
-                            WHERE id = $15
-                        `, [hName || 'Mục Con', target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, existing.id]);
+                            WHERE id = $17
+                        `, [hName || 'Mục Con', target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, existing.id]);
                     } else {
                         await db.run(`
                             INSERT INTO mkt_kpi_targets 
-                                (category_id, ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, created_by, updated_at)
+                                (category_id, ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, created_by, updated_at)
                             VALUES 
-                                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())
-                        `, [catId, hName || 'Mục Con', period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, userId]);
+                                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW())
+                        `, [catId, hName || 'Mục Con', period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, userId]);
                     }
                 } else {
                     const existing = await db.get(`SELECT id FROM mkt_kpi_targets WHERE LOWER(TRIM(ads_handler_name)) = LOWER(TRIM($1)) AND period_value = $2 AND (category_id IS NULL OR category_id = 0)`, [hName, period_value]);
@@ -882,16 +901,18 @@ module.exports = async function(fastify, options) {
                                 target_bonus_m1 = $12,
                                 target_bonus_m120 = $13,
                                 target_bonus_note = $14,
+                                target_bonus_conditions = $15,
+                                target_bonus_logic = $16,
                                 updated_at = NOW()
-                            WHERE id = $15
-                        `, [hName, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, existing.id]);
+                            WHERE id = $17
+                        `, [hName, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, existing.id]);
                     } else {
                         await db.run(`
                             INSERT INTO mkt_kpi_targets 
-                                (ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, created_by, updated_at)
+                                (ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, created_by, updated_at)
                             VALUES 
-                                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
-                        `, [hName, period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, userId]);
+                                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
+                        `, [hName, period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, userId]);
                     }
                 }
             }
