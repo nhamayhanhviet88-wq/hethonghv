@@ -122,6 +122,7 @@ async function renderKpimarketingPage(container) {
             .kpi-pill-orange { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
             .kpi-pill-cyan { background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc; }
             .kpi-pill-green { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+            .kpi-negative-badge { background: #fef2f2 !important; color: #991b1b !important; border: 1.5px solid #fca5a5 !important; padding: 3px 10px; border-radius: 8px; font-weight: 800 !important; display: inline-block; box-shadow: 0 1px 4px rgba(220, 38, 38, 0.15); }
 
             /* Custom Instant Formula Tooltip */
             [data-tooltip] { position: relative; cursor: pointer !important; }
@@ -1506,19 +1507,27 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
+        const formatNegativeCell = (str) => {
+            if (!str || str === '-') return '-';
+            if (typeof str === 'string' && str.startsWith('-')) {
+                return `<span class="kpi-negative-badge">${escapeHtml(str)}</span>`;
+            }
+            return str;
+        };
+
         // Row 2: Mốc 1 - Còn Thiếu
         html += `
             <tr style="background:#ecfdf5 !important;">
                 <td style="text-align:left;font-weight:800;color:#064e3b">
                     <span style="margin-left:24px">🚩 Mốc 1 - Còn Thiếu</span>
                 </td>
-                <td style="font-weight:700;color:#064e3b">${m1MissingSpentStr}</td>
+                <td style="font-weight:700;color:#064e3b">${formatNegativeCell(m1MissingSpentStr)}</td>
                 <td style="font-weight:700;color:#064e3b">-</td>
-                <td style="font-weight:700;color:#064e3b">${m1MissingRevStr}</td>
+                <td style="font-weight:700;color:#064e3b">${formatNegativeCell(m1MissingRevStr)}</td>
                 <td><span class="kpi-pill kpi-pill-purple">-</span></td>
                 <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
                 <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:700;color:#064e3b">${m1MissingLeadsStr}</td>
+                <td style="font-weight:700;color:#064e3b">${formatNegativeCell(m1MissingLeadsStr)}</td>
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
@@ -1563,13 +1572,13 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td style="text-align:left;font-weight:800;color:#1e3a8a">
                     <span style="margin-left:24px">🏆 Mốc 2 - Còn Thiếu</span>
                 </td>
-                <td style="font-weight:700;color:#1e3a8a">${m2MissingSpentStr}</td>
+                <td style="font-weight:700;color:#1e3a8a">${formatNegativeCell(m2MissingSpentStr)}</td>
                 <td style="font-weight:700;color:#1e3a8a">-</td>
-                <td style="font-weight:700;color:#1e3a8a">${m2MissingRevStr}</td>
+                <td style="font-weight:700;color:#1e3a8a">${formatNegativeCell(m2MissingRevStr)}</td>
                 <td><span class="kpi-pill kpi-pill-purple">-</span></td>
                 <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
                 <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:700;color:#1e3a8a">${m2MissingLeadsStr}</td>
+                <td style="font-weight:700;color:#1e3a8a">${formatNegativeCell(m2MissingLeadsStr)}</td>
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
