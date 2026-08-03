@@ -1244,7 +1244,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
             return hN === handlerName.trim().toLowerCase();
         });
 
-        const displayItems = assignedItems.length > 0 ? assignedItems : (h.items || []);
+        const displayItems = (h.items && h.items.length > 0) ? h.items : (assignedItems.length > 0 ? assignedItems : []);
         const totalRowsForHandler = Math.max(1, displayItems.length) + 1 + 7; // +1 for Employee Total row, +7 for KPI Target rows
 
         let totSpent = 0, totLeads = 0, totOrders = 0, totRevenue = 0;
@@ -1387,6 +1387,11 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 html += `</tr>`;
             });
         }
+
+        if (totSpent === 0 && h.actual && h.actual.spent > 0) totSpent = Number(h.actual.spent);
+        if (totLeads === 0 && h.actual && h.actual.leads > 0) totLeads = Number(h.actual.leads);
+        if (totOrders === 0 && h.actual && h.actual.orders > 0) totOrders = Number(h.actual.orders);
+        if (totRevenue === 0 && h.actual && h.actual.revenue > 0) totRevenue = Number(h.actual.revenue);
 
         // Render Total Row for Handler
         const totCpl = totLeads > 0 ? Math.round(totSpent / totLeads) : 0;

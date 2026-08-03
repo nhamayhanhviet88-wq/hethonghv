@@ -456,7 +456,7 @@ module.exports = async function(fastify, options) {
                         const cDailyRoas = new Array(daysInMonth).fill(0);
                         const cDailyCloseRate = new Array(daysInMonth).fill(0);
 
-                        const cdMap = (catDailyMap[cat.id] || {})[hName] || {};
+                        const cdMap = catDailyMap[cat.id] || {};
                         let cSpent = 0, cLeads = 0, cOrders = 0, cRevenue = 0;
 
                         for (let d = 1; d <= daysInMonth; d++) {
@@ -547,6 +547,9 @@ module.exports = async function(fastify, options) {
                     target_cpo: targetCpo,
                     target_cost_ratio: targetCostRatio,
                     target_close_rate: targetCloseRate,
+                    target_bonus_m1: targetBonusM1,
+                    target_bonus_m120: targetBonusM120,
+                    target_bonus_note: targetBonusNote,
                     actual: {
                         spent,
                         budget,
@@ -569,7 +572,10 @@ module.exports = async function(fastify, options) {
                         target_roas: targetRoas,
                         target_cpo: targetCpo,
                         target_cost_ratio: targetCostRatio,
-                        target_close_rate: targetCloseRate
+                        target_close_rate: targetCloseRate,
+                        target_bonus_m1: targetBonusM1,
+                        target_bonus_m120: targetBonusM120,
+                        target_bonus_note: targetBonusNote
                     },
                     efficiency: {
                         cpl: { actual: cpl, target: targetCpl, is_ok: (targetCpl === 0 || cpl <= targetCpl) },
