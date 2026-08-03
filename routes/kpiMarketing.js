@@ -570,7 +570,7 @@ module.exports = async function(fastify, options) {
             `);
             const availablePages = (pageRows || []).map(p => p.page_name).filter(Boolean);
 
-            reply.send({
+            return reply.send({
                 month: {
                     year,
                     month: mo,

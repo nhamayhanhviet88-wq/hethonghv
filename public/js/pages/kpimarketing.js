@@ -365,7 +365,7 @@ function renderCategoryTable(res) {
     rawItemsList.forEach(it => {
         const catName = (it.category_name || it.name || '').trim();
         if (!catName) return;
-        const key = it.category_id ? `cat_${it.category_id}` : catName.toLowerCase();
+        const key = catName.toLowerCase();
 
         const spent = Number(it.spent || 0);
         const leads = Number(it.leads || 0);
@@ -857,10 +857,10 @@ if (typeof window !== 'undefined') {
     setTimeout(function() {
         const path = (window.location.pathname || '').toLowerCase();
         if (path.includes('kpimarketing') || path.includes('kpi-marketing')) {
-            const container = document.getElementById('mainContent') || document.getElementById('app') || document.querySelector('.main-content');
+            const container = document.getElementById('contentArea') || document.getElementById('mainContent') || document.getElementById('app');
             if (container && typeof window.renderKpimarketingPage === 'function') {
                 window.renderKpimarketingPage(container);
             }
         }
-    }, 50);
+    }, 100);
 }

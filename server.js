@@ -1402,7 +1402,7 @@ async function start() {
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
     fastify.register(require('@fastify/multipart'), { limits: { fileSize: 50 * 1024 * 1024 } });
-    fastify.register(require('@fastify/compress'), { global: true });
+    fastify.register(require('@fastify/compress'), { global: true, encodings: ['gzip', 'deflate'] });
 
     // Static files
     fastify.register(require('@fastify/static'), {
