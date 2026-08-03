@@ -1260,7 +1260,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
         });
 
         const displayItems = assignedItems.length > 0 ? assignedItems : (h.items || []);
-        const totalRowsForHandler = Math.max(1, displayItems.length) + 1; // +1 for Employee Total row
+        const totalRowsForHandler = Math.max(1, displayItems.length) + 1 + 3; // +1 for Employee Total row, +3 for KPI Target rows
 
         let totSpent = 0, totLeads = 0, totOrders = 0, totRevenue = 0;
 
@@ -1396,6 +1396,60 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td><span class="kpi-pill kpi-pill-orange" data-tooltip="${titleTotCpo}" title="${titleTotCpo}">${totCpoStr}</span></td>
                 <td style="font-weight:900;color:#0284c7">${totLeads}</td>
                 <td><span class="kpi-pill kpi-pill-blue" data-tooltip="${titleTotCpl}" title="${titleTotCpl}">${totCplStr}</span></td>
+            </tr>
+        `;
+
+        // Render 3 KPI Target Rows
+        const monthNum = (_kpiMkt.month && _kpiMkt.month.includes('-')) ? parseInt(_kpiMkt.month.split('-')[1], 10) : (new Date().getMonth() + 1);
+
+        // Row 1: KPI THÁNG [M] - Marketing [TEN_NHAN_VIEN]
+        html += `
+            <tr style="background:#f3e8ff !important;">
+                <td style="text-align:left;font-weight:900;color:#4c1d95">
+                    <span>🎯 KPI THÁNG ${monthNum} - Marketing ${escapeHtml(handlerName)}</span>
+                </td>
+                <td style="font-weight:800;color:#6b21a8">-</td>
+                <td style="font-weight:800;color:#6b21a8">-</td>
+                <td style="font-weight:800;color:#6b21a8">-</td>
+                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
+                <td style="font-weight:800;color:#6b21a8">-</td>
+                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+            </tr>
+        `;
+
+        // Row 2: Mốc 1 - 100%
+        html += `
+            <tr style="background:#ecfdf5 !important;">
+                <td style="text-align:left;font-weight:800;color:#065f46">
+                    <span style="margin-left:12px">🚩 Mốc 1 - 100%</span>
+                </td>
+                <td style="font-weight:700;color:#047857">-</td>
+                <td style="font-weight:700;color:#047857">-</td>
+                <td style="font-weight:700;color:#047857">-</td>
+                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
+                <td style="font-weight:700;color:#047857">-</td>
+                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+            </tr>
+        `;
+
+        // Row 3: Mốc 2 - 100%
+        html += `
+            <tr style="background:#eff6ff !important;">
+                <td style="text-align:left;font-weight:800;color:#1e40af">
+                    <span style="margin-left:12px">🏆 Mốc 2 - 100%</span>
+                </td>
+                <td style="font-weight:700;color:#1d4ed8">-</td>
+                <td style="font-weight:700;color:#1d4ed8">-</td>
+                <td style="font-weight:700;color:#1d4ed8">-</td>
+                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
+                <td style="font-weight:700;color:#1d4ed8">-</td>
+                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
     });
