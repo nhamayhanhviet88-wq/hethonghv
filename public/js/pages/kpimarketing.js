@@ -206,7 +206,7 @@ async function renderKpimarketingPage(container) {
                             <th style="width:140px">💰 DOANH SỐ (đ)</th>
                             <th style="width:110px">📦 ĐƠN HÀNG</th>
                             <th style="width:100px">📥 SỐ LEAD</th>
-                            <th style="width:130px">💸 CHI PHÍ (đ)</th>
+                            <th style="width:140px">💸 CHI MARKETING</th>
                         </tr>
                     </thead>
                     <tbody id="kpiMktTbody">
