@@ -709,6 +709,27 @@ module.exports = async function(fastify, options) {
 
     fastify.post('/api/reports/kpi-marketing/categories', { preHandler: [authenticate] }, saveCategoryHandler);
 
+    // ===== DELETE /api/reports/kpi-marketing/categories/:id ===== (Xóa / Ẩn mục con)
+    fastify.delete('/api/reports/kpi-marketing/categories/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const { id } = request.params;
+            if (!id) return reply.status(400).send({ error: 'ID không hợp lệ' });
+
+            const catId = Number(id);
+            if (isNaN(catId)) {
+                // If passed string name instead of numeric ID
+                await db.run('UPDATE mkt_categories SET is_active = FALSE WHERE LOWER(name) = LOWER(?)', [id.trim()]);
+            } else {
+                await db.run('UPDATE mkt_categories SET is_active = FALSE WHERE id = ? OR parent_id = ?', [catId, catId]);
+            }
+
+            return reply.send({ success: true, message: 'Đã xóa mục con thành công!' });
+        } catch (err) {
+            fastify.log.error(err);
+            return reply.status(500).send({ error: 'Internal Server Error', message: err.message });
+        }
+    });
+
     // ===== POST /api/reports/kpi-marketing/targets =====
     fastify.post('/api/reports/kpi-marketing/targets', { preHandler: [authenticate] }, async (request, reply) => {
         try {

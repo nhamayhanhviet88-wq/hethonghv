@@ -432,6 +432,9 @@ function renderCategoryTable(res) {
         item.close_rate = item.leads > 0 ? Math.round((item.orders / item.leads) * 1000) / 10 : 0;
     });
 
+    if (!_kpiMkt.data) _kpiMkt.data = {};
+    _kpiMkt.data.renderedCategories = itemsList.map(i => i.category_name);
+
     // 4. Guaranteed fallback items so table is NEVER empty
     if (itemsList.length === 0) {
         itemsList.push(
@@ -472,8 +475,9 @@ function renderCategoryTable(res) {
             <tr>
                 <td style="text-align:center">${idx + 1}</td>
                 <td style="text-align:left">
-                    <div style="font-weight:800;font-size:13.5px;color:#1e1b4b;display:flex;align-items:center;gap:6px">
+                    <div style="font-weight:800;font-size:13.5px;color:#1e1b4b;display:flex;align-items:center;justify-content:space-between;gap:6px">
                         <span>${c.icon || '📌'} ${escapeHtml(c.category_name)}</span>
+                        <button type="button" onclick="kpiMktDeleteCategory('${c.category_id || 0}', '${escapeHtml(c.category_name)}')" title="Xóa mục con này" style="background:none;border:none;cursor:pointer;font-size:13px;opacity:0.6;transition:all 0.2s;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1;this.style.background='#fee2e2'" onmouseout="this.style.opacity=0.6;this.style.background='none'">🗑️</button>
                     </div>
                     <div style="font-size:11px;color:#475569;margin-top:3px;display:flex;gap:10px;align-items:center">
                         <span style="background:#f1f5f9;padding:1px 6px;border-radius:4px;color:#475569">Kênh: ${escapeHtml(c.channel_name || 'Khác')}</span>
@@ -649,6 +653,9 @@ function kpiMktOnChannelChange(parentId) {
     if (!subSelect) return;
 
     const categories = (_kpiMkt.data && _kpiMkt.data.categories) ? _kpiMkt.data.categories : [];
+    const renderedNames = new Set(
+        (_kpiMkt.data && _kpiMkt.data.renderedCategories) ? _kpiMkt.data.renderedCategories.map(n => String(n).trim().toLowerCase()) : []
+    );
     
     const pIdNum = Number(parentId);
     const subCats = categories.filter(c => c.parent_id !== null && c.parent_id !== undefined && (Number(c.parent_id) === pIdNum || String(c.parent_id) === String(parentId)));
@@ -656,11 +663,12 @@ function kpiMktOnChannelChange(parentId) {
     let subHtml = '';
     const addedNames = new Set();
 
-    // 1. Add sub-categories from DB (synced with /ngansachmkt)
+    // 1. Add sub-categories from DB if NOT ALREADY in the table
     subCats.forEach(c => {
-        if (c.name && !addedNames.has(c.name.trim())) {
-            addedNames.add(c.name.trim());
-            subHtml += `<option value="${escapeHtml(c.name.trim())}" data-page="${escapeHtml(c.linked_source_name || c.pancake_page_name || '')}" data-handler="${escapeHtml(c.ads_handler_name || 'Giám Đốc')}">📌 ${escapeHtml(c.name.trim())}</option>`;
+        const cNameTrim = (c.name || '').trim();
+        if (cNameTrim && !addedNames.has(cNameTrim) && !renderedNames.has(cNameTrim.toLowerCase())) {
+            addedNames.add(cNameTrim);
+            subHtml += `<option value="${escapeHtml(cNameTrim)}" data-page="${escapeHtml(c.linked_source_name || c.pancake_page_name || '')}" data-handler="${escapeHtml(c.ads_handler_name || 'Giám Đốc')}">📌 ${escapeHtml(cNameTrim)}</option>`;
         }
     });
 
@@ -687,7 +695,7 @@ function kpiMktOnChannelChange(parentId) {
         }
 
         fallbacks.forEach(item => {
-            if (!addedNames.has(item.name)) {
+            if (!addedNames.has(item.name) && !renderedNames.has(item.name.toLowerCase())) {
                 addedNames.add(item.name);
                 subHtml += `<option value="${escapeHtml(item.name)}" data-page="${escapeHtml(item.page)}" data-handler="${escapeHtml(item.handler)}">📌 ${escapeHtml(item.name)}</option>`;
             }
@@ -874,6 +882,24 @@ async function kpiMktSaveNewCategory() {
     }
 }
 
+async function kpiMktDeleteCategory(catId, catName) {
+    if (!confirm(`Bạn có chắc chắn muốn xóa mục con "${catName}" không?\n(Mục con sẽ được ẩn khỏi bảng chỉ số Marketing)`)) {
+        return;
+    }
+    try {
+        const targetId = (catId && catId !== '0' && catId !== 0) ? catId : encodeURIComponent(catName);
+        let res = await kpiMktApiCall(`/api/reports/kpi-marketing/categories/${targetId}`, 'DELETE');
+        if (res && (res.success || res.message)) {
+            await loadKpimarketingData();
+            alert(`Đã xóa mục con "${catName}" thành công!`);
+        } else {
+            alert(res?.error || res?.message || 'Có lỗi khi xóa mục con');
+        }
+    } catch(e) {
+        alert('Lỗi xóa mục con: ' + e.message);
+    }
+}
+
 /* WINDOW EXPORTS FOR ROUTER */
 if (typeof window !== 'undefined') {
     window.renderKpimarketingPage = renderKpimarketingPage;
@@ -888,6 +914,7 @@ if (typeof window !== 'undefined') {
     window.kpiMktOnPageSelectChange = kpiMktOnPageSelectChange;
     window.kpiMktOnHandlerSelectChange = kpiMktOnHandlerSelectChange;
     window.kpiMktSaveNewCategory = kpiMktSaveNewCategory;
+    window.kpiMktDeleteCategory = kpiMktDeleteCategory;
 
     setTimeout(function() {
         const path = (window.location.pathname || '').toLowerCase();
