@@ -2200,7 +2200,7 @@ async function handleRoute() {
     const pageTitleEl = document.getElementById('pageTitle');
     if (pageTitleEl) {
         const menuItem = targetMenuItem || matchedItem;
-        pageTitleEl.textContent = menuItem ? ((_dtPortal && _dtItemLabels[menuItem.id]) || menuItem.label) : 'Dashboard';
+        pageTitleEl.textContent = menuItem ? ((typeof _dtPortal !== 'undefined' && typeof _dtItemLabels !== 'undefined' && _dtPortal && _dtItemLabels[menuItem.id]) || menuItem.label) : 'Dashboard';
     }
 
     // Add "Chuyển Số" button for specific KD pages
