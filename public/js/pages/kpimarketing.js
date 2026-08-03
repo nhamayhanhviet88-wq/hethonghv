@@ -1399,27 +1399,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
-        // Render 3 KPI Target Rows
-        const monthNum = (_kpiMkt.month && _kpiMkt.month.includes('-')) ? parseInt(_kpiMkt.month.split('-')[1], 10) : (new Date().getMonth() + 1);
-
-        // Row 1: KPI THÁNG [M] - Marketing [TEN_NHAN_VIEN]
-        html += `
-            <tr style="background:#f3e8ff !important;">
-                <td style="text-align:left;font-weight:900;color:#4c1d95">
-                    <span>🎯 KPI THÁNG ${monthNum} - Marketing ${escapeHtml(handlerName)}</span>
-                </td>
-                <td style="font-weight:800;color:#6b21a8">-</td>
-                <td style="font-weight:800;color:#6b21a8">-</td>
-                <td style="font-weight:800;color:#6b21a8">-</td>
-                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
-                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
-                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:800;color:#6b21a8">-</td>
-                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
-            </tr>
-        `;
-
-        // Row 2: Mốc 1 - 100%
+        // Row 1: Mốc 1 - 100%
         html += `
             <tr style="background:#ecfdf5 !important;">
                 <td style="text-align:left;font-weight:800;color:#064e3b">
@@ -1436,7 +1416,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
-        // Row 3: Mốc 1 - Còn Thiếu
+        // Row 2: Mốc 1 - Còn Thiếu
         html += `
             <tr style="background:#ecfdf5 !important;">
                 <td style="text-align:left;font-weight:800;color:#064e3b">
@@ -1453,7 +1433,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
-        // Row 4: Mốc 1 - Tỉ Lệ Hoàn Thành
+        // Row 3: Mốc 1 - Tỉ Lệ Hoàn Thành
         html += `
             <tr style="background:#ecfdf5 !important;">
                 <td style="text-align:left;font-weight:800;color:#064e3b">
@@ -1470,7 +1450,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
-        // Row 5: Mốc 2 - 120%
+        // Row 4: Mốc 2 - 120%
         html += `
             <tr style="background:#eff6ff !important;">
                 <td style="text-align:left;font-weight:800;color:#1e3a8a">
@@ -1487,7 +1467,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
-        // Row 6: Mốc 2 - Còn Thiếu
+        // Row 5: Mốc 2 - Còn Thiếu
         html += `
             <tr style="background:#eff6ff !important;">
                 <td style="text-align:left;font-weight:800;color:#1e3a8a">
@@ -1504,7 +1484,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
-        // Row 7: Mốc 2 - Tỉ Lệ Hoàn Thành
+        // Row 6: Mốc 2 - Tỉ Lệ Hoàn Thành
         html += `
             <tr style="background:#eff6ff !important;">
                 <td style="text-align:left;font-weight:800;color:#1e3a8a">
@@ -1517,6 +1497,23 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
                 <td><span class="kpi-pill kpi-pill-orange">-</span></td>
                 <td style="font-weight:700;color:#1e3a8a">-</td>
+                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+            </tr>
+        `;
+
+        // Row 7: LƯƠNG THƯỞNG ĐẠT KPI (Matches Total Row style in Image 2)
+        html += `
+            <tr class="total-row" style="background:#fef3c7 !important;border-top:2px solid #f59e0b !important;border-bottom:2px solid #f59e0b !important;">
+                <td style="text-align:left;font-weight:900;color:#78350f">
+                    <span>🎁 LƯƠNG THƯỞNG ĐẠT KPI</span>
+                </td>
+                <td style="font-weight:900;color:#78350f">-</td>
+                <td style="font-weight:900;color:#78350f">-</td>
+                <td style="font-weight:900;color:#78350f">-</td>
+                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
+                <td style="font-weight:900;color:#78350f">-</td>
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
