@@ -493,15 +493,26 @@ module.exports = async function(fastify, options) {
                         const cCostRatio = cRevenue > 0 ? Math.round((cSpent / cRevenue) * 10000) / 100 : 0;
                         const cCloseRate = cLeads > 0 ? Math.round((cOrders / cLeads) * 10000) / 100 : 0;
 
-                        const cRevM1 = Number(cTarget.target_revenue || 0);
-                        const cRevM120 = Number(cTarget.target_revenue_m120 || Math.round(cRevM1 * 1.2));
+                        const cTargetBud = Number(cTarget.target_budget || 0);
+                        const cTargetLeadsM1 = Number(cTarget.target_leads_m1 || cTarget.target_leads || 0);
+                        const cTargetLeadsM120 = Number(cTarget.target_leads_m120 || (cTargetLeadsM1 > 0 ? Math.round(cTargetLeadsM1 * 1.2) : 0));
+                        const cRevM1 = Number(cTarget.target_revenue_m1 || cTarget.target_revenue || 0);
+                        const cRevM120 = Number(cTarget.target_revenue_m120 || (cRevM1 > 0 ? Math.round(cRevM1 * 1.2) : 0));
                         const cTargetCpl = Number(cTarget.target_cpl || 0);
                         const cTargetCpo = Number(cTarget.target_cpo || 0);
                         const cTargetCostRatio = Number(cTarget.target_cost_ratio || 0);
                         const cTargetCloseRate = Number(cTarget.target_close_rate || 0);
+                        const cTargetBonusM1 = Number(cTarget.target_bonus_m1 || 0);
+                        const cTargetBonusM120 = Number(cTarget.target_bonus_m120 || 0);
+                        const cTargetBonusNote = cTarget.target_bonus_note || '';
+                        let cTargetBonusConds = cTarget.target_bonus_conditions || ['revenue', 'leads'];
+                        if (typeof cTargetBonusConds === 'string') {
+                            try { cTargetBonusConds = JSON.parse(cTargetBonusConds); } catch(e) { cTargetBonusConds = ['revenue', 'leads']; }
+                        }
+                        const cTargetBonusLogic = cTarget.target_bonus_logic || 'ALL';
 
 
-                        const cStages = calcStages(cDailySpent, cDailyLeads, cDailyRev, 0, 0, 0, cRevM1, cRevM120);
+                        const cStages = calcStages(cDailySpent, cDailyLeads, cDailyRev, cTargetBud, cTargetLeadsM1, cTargetLeadsM120, cRevM1, cRevM120);
 
                         childItems.push({
                             category_id: cat.id,
@@ -520,12 +531,20 @@ module.exports = async function(fastify, options) {
                             cost_ratio: cCostRatio,
                             close_rate: cCloseRate,
                             targets: {
+                                target_budget: cTargetBud,
+                                target_leads_m1: cTargetLeadsM1,
+                                target_leads_m120: cTargetLeadsM120,
                                 target_revenue_m1: cRevM1,
                                 target_revenue_m120: cRevM120,
                                 target_cpl: cTargetCpl,
                                 target_cpo: cTargetCpo,
                                 target_cost_ratio: cTargetCostRatio,
-                                target_close_rate: cTargetCloseRate
+                                target_close_rate: cTargetCloseRate,
+                                target_bonus_m1: cTargetBonusM1,
+                                target_bonus_m120: cTargetBonusM120,
+                                target_bonus_note: cTargetBonusNote,
+                                target_bonus_conditions: cTargetBonusConds,
+                                target_bonus_logic: cTargetBonusLogic
                             },
                             efficiency: {
                                 cpl: { actual: cCpl, target: cTargetCpl, is_ok: (cTargetCpl === 0 || cCpl <= cTargetCpl) },
@@ -546,8 +565,30 @@ module.exports = async function(fastify, options) {
                     }
                 });
 
+                // Auto sum per-page targets if handler targets are not set
+                let sumCatBud = 0, sumCatRev1 = 0, sumCatRev120 = 0, sumCatLeads1 = 0, sumCatLeads120 = 0, sumCatBonus1 = 0, sumCatBonus2 = 0;
+                childItems.forEach(ci => {
+                    if (ci.targets) {
+                        sumCatBud += Number(ci.targets.target_budget || 0);
+                        sumCatRev1 += Number(ci.targets.target_revenue_m1 || 0);
+                        sumCatRev120 += Number(ci.targets.target_revenue_m120 || 0);
+                        sumCatLeads1 += Number(ci.targets.target_leads_m1 || 0);
+                        sumCatLeads120 += Number(ci.targets.target_leads_m120 || 0);
+                        sumCatBonus1 += Number(ci.targets.target_bonus_m1 || 0);
+                        sumCatBonus2 += Number(ci.targets.target_bonus_m120 || 0);
+                    }
+                });
+                if (targetBudget === 0 && sumCatBud > 0) targetBudget = sumCatBud;
+                if (targetRev1 === 0 && sumCatRev1 > 0) targetRev1 = sumCatRev1;
+                if (targetRev120 === 0 && sumCatRev120 > 0) targetRev120 = sumCatRev120;
+                if (targetLeads1 === 0 && sumCatLeads1 > 0) targetLeads1 = sumCatLeads1;
+                if (targetLeads120 === 0 && sumCatLeads120 > 0) targetLeads120 = sumCatLeads120;
+                if (targetBonusM1 === 0 && sumCatBonus1 > 0) targetBonusM1 = sumCatBonus1;
+                if (targetBonusM120 === 0 && sumCatBonus2 > 0) targetBonusM120 = sumCatBonus2;
+
                 handlers.push({
                     ads_handler_name: hName,
+                    items: childItems,
                     target_budget: targetBudget,
                     target_leads_m1: targetLeads1,
                     target_leads_m120: targetLeads120,

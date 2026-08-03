@@ -1352,8 +1352,11 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 const pageLabel = it.pancake_page_name || it.linked_source_name || '';
 
                 const itemLabelHtml = `
-                    <div style="font-weight:800;font-size:13px;color:#0f172a;display:flex;align-items:center;gap:6px">
-                        <span>📄 ${escapeHtml(catName)}</span>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                        <div style="font-weight:800;font-size:13px;color:#0f172a;display:flex;align-items:center;gap:6px">
+                            <span>📄 ${escapeHtml(catName)}</span>
+                        </div>
+                        ${it.category_id ? `<button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}', ${it.category_id}, '${escapeHtml(catName)}')" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:2px 8px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(4,120,87,0.1);" title="Cài KPI & Thưởng riêng cho Page này">🎯 KPI Page</button>` : ''}
                     </div>
                     <div style="font-size:11px;color:#64748b;margin-top:3px;display:flex;align-items:center;gap:8px">
                         <span>Kênh: <strong>${escapeHtml(channelName)}</strong></span>
@@ -1797,7 +1800,7 @@ async function kpiMktSaveAssignHandler(handlerName) {
     }
 }
 
-async function kpiMktOpenSetTargetModal(handlerName) {
+async function kpiMktOpenSetTargetModal(handlerName, targetCatId = 0, targetCatName = '') {
     let modal = document.getElementById('kpiMktSetTargetModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -1809,27 +1812,34 @@ async function kpiMktOpenSetTargetModal(handlerName) {
     const handlers = (_kpiMkt.data && _kpiMkt.data.handlers) ? _kpiMkt.data.handlers : [];
     const h = handlers.find(item => (item.ads_handler_name || 'Giám Đốc').trim().toLowerCase() === handlerName.trim().toLowerCase()) || {};
 
-    const tObj = h.targets || h;
-    const targetBudget = Number(h.target_budget || tObj.target_budget || 0);
-    const targetRevM1 = Number(h.target_revenue_m1 || tObj.target_revenue_m1 || tObj.target_revenue || 0);
-    const targetRevM120 = Number(h.target_revenue_m120 || tObj.target_revenue_m120 || (targetRevM1 > 0 ? Math.round(targetRevM1 * 1.2) : 0));
-    const targetLeadsM1 = Number(h.target_leads_m1 || tObj.target_leads_m1 || tObj.target_leads || 0);
-    const targetLeadsM120 = Number(h.target_leads_m120 || tObj.target_leads_m120 || (targetLeadsM1 > 0 ? Math.round(targetLeadsM1 * 1.2) : 0));
-    const targetCostRatio = Number(h.target_cost_ratio || tObj.target_cost_ratio || 0);
-    const targetCloseRate = Number(h.target_close_rate || tObj.target_close_rate || 0);
-    const targetCpo = Number(h.target_cpo || tObj.target_cpo || 0);
-    const targetCpl = Number(h.target_cpl || tObj.target_cpl || 0);
-    const targetBonusM1 = Number(h.target_bonus_m1 || tObj.target_bonus_m1 || 0);
-    const targetBonusM120 = Number(h.target_bonus_m120 || tObj.target_bonus_m120 || 0);
-    const targetBonusNote = h.target_bonus_note || tObj.target_bonus_note || '';
-    let targetBonusConds = h.target_bonus_conditions || tObj.target_bonus_conditions || ['revenue', 'leads'];
+    let targetObj = {};
+    if (targetCatId > 0) {
+        const itemObj = (h.items || []).find(i => Number(i.category_id) === Number(targetCatId));
+        targetObj = itemObj ? (itemObj.targets || itemObj) : {};
+    } else {
+        targetObj = h.targets || h;
+    }
+
+    const targetBudget = Number(targetObj.target_budget || 0);
+    const targetRevM1 = Number(targetObj.target_revenue_m1 || targetObj.target_revenue || 0);
+    const targetRevM120 = Number(targetObj.target_revenue_m120 || (targetRevM1 > 0 ? Math.round(targetRevM1 * 1.2) : 0));
+    const targetLeadsM1 = Number(targetObj.target_leads_m1 || targetObj.target_leads || 0);
+    const targetLeadsM120 = Number(targetObj.target_leads_m120 || (targetLeadsM1 > 0 ? Math.round(targetLeadsM1 * 1.2) : 0));
+    const targetCostRatio = Number(targetObj.target_cost_ratio || 0);
+    const targetCloseRate = Number(targetObj.target_close_rate || 0);
+    const targetCpo = Number(targetObj.target_cpo || 0);
+    const targetCpl = Number(targetObj.target_cpl || 0);
+    const targetBonusM1 = Number(targetObj.target_bonus_m1 || 0);
+    const targetBonusM120 = Number(targetObj.target_bonus_m120 || 0);
+    const targetBonusNote = targetObj.target_bonus_note || '';
+    let targetBonusConds = targetObj.target_bonus_conditions || ['revenue', 'leads'];
     if (typeof targetBonusConds === 'string') {
         try { targetBonusConds = JSON.parse(targetBonusConds); } catch(e) { targetBonusConds = ['revenue', 'leads']; }
     }
     if (!Array.isArray(targetBonusConds) || targetBonusConds.length === 0) {
         targetBonusConds = ['revenue', 'leads'];
     }
-    const targetBonusLogic = (h.target_bonus_logic || tObj.target_bonus_logic || 'ALL').toUpperCase();
+    const targetBonusLogic = (targetObj.target_bonus_logic || 'ALL').toUpperCase();
 
     const [yStr, mStr] = (_kpiMkt.month || '').split('-');
     const monthText = yStr && mStr ? `Tháng ${parseInt(mStr, 10)}/${yStr}` : 'Tháng';
@@ -1844,10 +1854,15 @@ async function kpiMktOpenSetTargetModal(handlerName) {
     const fmtBonus1 = targetBonusM1 > 0 ? targetBonusM1.toLocaleString('vi-VN') : '';
     const fmtBonus2 = targetBonusM120 > 0 ? targetBonusM120.toLocaleString('vi-VN') : '';
 
+    const scopeOptionsHtml = `
+        <option value="0" ${targetCatId === 0 ? 'selected' : ''}>⭐ KPI TỔNG CHO NHÂN VIÊN (${escapeHtml(handlerName)})</option>
+        ${(h.items || []).filter(ci => ci.category_id).map(ci => `<option value="${ci.category_id}" ${Number(targetCatId) === Number(ci.category_id) ? 'selected' : ''}>📌 KPI RIÊNG PAGE: ${escapeHtml(ci.category_name)}</option>`).join('')}
+    `;
+
     modal.innerHTML = `
         <div class="kpi-v2-modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);">
             <!-- Modal Header -->
-            <div style="border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
                 <div>
                     <div style="font-size:18px;color:#0f172a;font-weight:800;display:flex;align-items:center;gap:8px;">
                         <span>🎯 Cài Đặt Chỉ Tiêu KPI Marketing</span>
@@ -1859,13 +1874,22 @@ async function kpiMktOpenSetTargetModal(handlerName) {
                 <button type="button" class="kpi-v2-modal-close" style="cursor:pointer;background:#f1f5f9;border:none;width:32px;height:32px;border-radius:50%;font-weight:800;color:#64748b;" onclick="document.getElementById('kpiMktSetTargetModal').style.display='none'">✕</button>
             </div>
 
+            <!-- SCOPE SELECTION DROPDOWN -->
+            <div style="background:#f1f5f9;padding:12px 16px;border-radius:12px;border:1px solid #cbd5e1;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <label style="font-size:13px;font-weight:800;color:#0f172a;white-space:nowrap;">📌 Phạm vi áp dụng chỉ tiêu:</label>
+                <select id="kpiTargetScopeSelect" onchange="kpiMktOnScopeChange(this.value, '${escapeHtml(handlerName)}')" style="width:100%;padding:8px 12px;border:1.5px solid #0284c7;border-radius:8px;font-weight:800;font-size:13px;color:#0369a1;outline:none;background:white;cursor:pointer;">
+                    ${scopeOptionsHtml}
+                </select>
+            </div>
+
             <!-- Form Content -->
             <form id="kpiMktTargetForm" onsubmit="kpiMktSaveTargetForHandler(event, '${escapeHtml(handlerName)}')" style="display:flex;flex-direction:column;gap:18px;">
+                <input type="hidden" id="target_cat_id" value="${targetCatId}" />
                 
                 <!-- SECTION 1: NGÂN SÁCH MKT -->
                 <div style="background:#f8fafc;padding:14px 16px;border-radius:12px;border:1px solid #e2e8f0;">
                     <div style="font-weight:800;font-size:13.5px;color:#0f172a;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
-                        <span>💸 NGÂN SÁCH CHI PHÍ MARKETING</span>
+                        <span>💸 NGÂN SÁCH CHI PHÍ MARKETING ${targetCatId > 0 ? `(RIÊNG PAGE)` : `(CHUNG)`}</span>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr;gap:12px;">
                         <div>
@@ -1913,7 +1937,7 @@ async function kpiMktOpenSetTargetModal(handlerName) {
                 <!-- SECTION 4: LƯƠNG THƯỞNG ĐẠT KPI -->
                 <div style="background:#fffbeb;padding:14px 16px;border-radius:12px;border:1px solid #fde68a;">
                     <div style="font-weight:800;font-size:13.5px;color:#92400e;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
-                        <span>🎁 LƯƠNG THƯỞNG ĐẠT KPI</span>
+                        <span>🎁 LƯƠNG THƯỞNG ĐẠT KPI ${targetCatId > 0 ? `(THƯỞNG PAGE)` : `(THƯỞNG CHUNG)`}</span>
                         <span style="font-size:11.5px;font-weight:600;color:#b45309;">⚙️ Cấu hình mốc & tiêu chí thưởng</span>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -2013,6 +2037,11 @@ async function kpiMktOpenSetTargetModal(handlerName) {
     modal.style.setProperty('display', 'flex', 'important');
 }
 
+function kpiMktOnScopeChange(catIdStr, handlerName) {
+    const catId = parseInt(catIdStr, 10) || 0;
+    kpiMktOpenSetTargetModal(handlerName, catId);
+}
+
 function kpiMktFormatInputNumber(el) {
     if (!el) return;
     const digits = el.value.replace(/[^0-9]/g, '');
@@ -2042,6 +2071,7 @@ function kpiMktAutoCalcM2() {
 async function kpiMktSaveTargetForHandler(e, handlerName) {
     e.preventDefault();
     try {
+        const targetCatId = parseInt(document.getElementById('target_cat_id')?.value, 10) || 0;
         const revM1 = kpiMktParseVnInt(document.getElementById('target_revenue_m1')?.value);
         const leadsM1 = kpiMktParseVnInt(document.getElementById('target_leads_m1')?.value);
         const revM120 = kpiMktParseVnInt(document.getElementById('target_revenue_m120')?.value) || Math.round(revM1 * 1.2);
@@ -2054,6 +2084,7 @@ async function kpiMktSaveTargetForHandler(e, handlerName) {
             period_value: _kpiMkt.month,
             targets: [
                 {
+                    category_id: targetCatId > 0 ? targetCatId : null,
                     ads_handler_name: handlerName,
                     target_budget: kpiMktParseVnInt(document.getElementById('target_budget')?.value),
                     target_revenue_m1: revM1,
@@ -2108,6 +2139,7 @@ if (typeof window !== 'undefined') {
     window.kpiMktOpenSetTargetModal = kpiMktOpenSetTargetModal;
     window.kpiMktAutoCalcM2 = kpiMktAutoCalcM2;
     window.kpiMktSaveTargetForHandler = kpiMktSaveTargetForHandler;
+    window.kpiMktOnScopeChange = kpiMktOnScopeChange;
     window.kpiMktFormatInputNumber = kpiMktFormatInputNumber;
     window.kpiMktParseVnInt = kpiMktParseVnInt;
 
