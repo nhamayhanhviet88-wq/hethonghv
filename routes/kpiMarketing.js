@@ -832,10 +832,40 @@ module.exports = async function(fastify, options) {
                 }
             }
 
-            reply.send({ success: true, message: 'Đã lưu chỉ tiêu KPI Marketing thành công!' });
+            return reply.send({ success: true, message: 'Đã lưu chỉ tiêu KPI Marketing thành công!' });
         } catch (err) {
             fastify.log.error(err);
-            reply.status(500).send({ error: 'Internal Server Error', message: err.message });
+            return reply.status(500).send({ error: 'Internal Server Error', message: err.message });
+        }
+    });
+
+    // ===== POST /api/reports/kpi-marketing/assign-handler ===== (Gán Page / Phân công Ads Handler cho mục con)
+    fastify.post('/api/reports/kpi-marketing/assign-handler', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const user = request.user || {};
+            const isGiamDoc = user.role === 'giam_doc' || user.role === 'admin' || (user.full_name || user.name || user.username || '').toLowerCase().includes('giám đốc') || user.is_admin === true || user.username === 'admin';
+            
+            if (!isGiamDoc) {
+                return reply.status(403).send({ error: 'Chỉ Giám Đốc mới có quyền phân công Page cho nhân viên!' });
+            }
+
+            const { category_id, category_ids, ads_handler_name } = request.body || {};
+            const handlerName = (ads_handler_name || 'Giám Đốc').trim();
+
+            if (Array.isArray(category_ids) && category_ids.length > 0) {
+                for (const catId of category_ids) {
+                    await db.run('UPDATE mkt_categories SET ads_handler_name = ? WHERE id = ?', [handlerName, Number(catId)]);
+                }
+            } else if (category_id) {
+                await db.run('UPDATE mkt_categories SET ads_handler_name = ? WHERE id = ?', [handlerName, Number(category_id)]);
+            } else {
+                return reply.status(400).send({ error: 'Vui lòng chọn danh mục/page để gán nhân viên!' });
+            }
+
+            return reply.send({ success: true, message: `Đã phân công Page cho ${handlerName} thành công!` });
+        } catch (err) {
+            fastify.log.error(err);
+            return reply.status(500).send({ error: 'Internal Server Error', message: err.message });
         }
     });
 

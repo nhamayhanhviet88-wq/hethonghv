@@ -203,6 +203,38 @@ async function renderKpimarketingPage(container) {
                 <div style="text-align:center;padding:20px;color:#64748b;font-weight:700;">⏳ Đang tải dữ liệu tổng quan...</div>
             </div>
 
+            <!-- SECTION TITLE: KPI MARKETING ADS THEO NHÂN VIÊN -->
+            <div class="kpi-v2-sec-hdr" style="border-left-color: #0284c7; background: linear-gradient(90deg, #f0f9ff 0%, #ffffff 100%);">
+                <div class="kpi-v2-sec-title" style="color: #0369a1;">
+                    <span>👥 BẢNG GÁN & BÁO CÁO KPI MARKETING ADS THEO NHÂN VIÊN</span>
+                </div>
+            </div>
+
+            <!-- TABLE OF MARKETING HANDLERS / EMPLOYEES -->
+            <div class="kpi-v2-tbl-wrap" style="margin-bottom: 30px;">
+                <table class="kpi-v2-tbl" id="kpiMktHandlersTable">
+                    <thead>
+                        <tr>
+                            <th style="width:45px">STT</th>
+                            <th style="text-align:left;min-width:170px">Nhân Viên Marketing (Ads Handler)</th>
+                            <th style="text-align:left;min-width:240px">Danh Sách Page / Mục Con Đang Cầm</th>
+                            <th style="width:110px">📦 ĐƠN HÀNG</th>
+                            <th style="width:140px">💸 CHI PHÍ MKT</th>
+                            <th style="width:145px">💰 DOANH SỐ (đ)</th>
+                            <th style="width:145px">📉 % CP / DOANH SỐ</th>
+                            <th style="width:130px">🎯 TỶ LỆ CHỐT</th>
+                            <th style="width:140px">🎯 CPO (GIÁ/ĐƠN)</th>
+                            <th style="width:110px">📥 SỐ LEAD</th>
+                            <th style="width:130px">📊 CPL (GIÁ/LEAD)</th>
+                            <th style="width:115px">⚙️ PHÂN CÔNG</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpiMktHandlersTbody">
+                        <tr><td colspan="12" style="text-align:center;padding:30px;color:#64748b;font-weight:700">⏳ Đang tải dữ liệu KPI theo nhân viên...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
             <!-- SECTION TITLE -->
             <div class="kpi-v2-sec-hdr">
                 <div class="kpi-v2-sec-title">
@@ -400,7 +432,7 @@ async function loadKpimarketingData() {
             `;
         }
 
-        // Render Sub-Category Items Table
+        // Render Sub-Category Items & Handlers Tables
         renderCategoryTable(res);
 
     } catch (e) {
@@ -509,8 +541,10 @@ function renderCategoryTable(res) {
         item.cpl = item.leads > 0 ? Math.round(item.spent / item.leads) : 0;
         item.cpo = item.orders > 0 ? Math.round(item.spent / item.orders) : 0;
         item.cost_ratio = item.revenue > 0 ? Math.round((item.spent / item.revenue) * 10000) / 100 : 0;
-        item.close_rate = item.leads > 0 ? Math.round((item.orders / item.leads) * 10000) / 100 : 0;
     });
+
+    // Render Handlers Table with calculated itemsList
+    renderKpiMktHandlersTable(res, itemsList);
 
     if (!_kpiMkt.data) _kpiMkt.data = {};
     _kpiMkt.data.renderedCategories = itemsList.map(i => i.category_name);
@@ -1201,6 +1235,167 @@ async function kpiMktOpenOrdersModal() {
     }
 }
 
+function renderKpiMktHandlersTable(res, itemsList) {
+    const tbody = document.getElementById('kpiMktHandlersTbody');
+    if (!tbody) return;
+
+    const handlers = (res && res.handlers) ? res.handlers : [];
+    const isGiamDoc = kpiMktIsGiamDoc();
+
+    if (handlers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">Chưa có thông tin nhân viên Marketing</td></tr>`;
+        return;
+    }
+
+    const allCatList = itemsList || [];
+
+    let html = '';
+    handlers.forEach((h, idx) => {
+        const handlerName = h.ads_handler_name || 'Giám Đốc';
+
+        // Find all categories assigned to this handlerName
+        const assignedItems = allCatList.filter(c => {
+            const hN = (c.ads_handler_name || 'Giám Đốc').trim().toLowerCase();
+            return hN === handlerName.trim().toLowerCase();
+        });
+
+        const displayItems = assignedItems.length > 0 ? assignedItems : (h.items || []);
+
+        let pagesHtml = '';
+        if (displayItems.length === 0) {
+            pagesHtml = `<span style="font-size:11.5px;color:#94a3b8;font-style:italic">Chưa gán Page nào</span>`;
+        } else {
+            pagesHtml = displayItems.map(it => {
+                const pageLabel = it.pancake_page_name || it.linked_source_name || '';
+                const catLabel = it.category_name || it.name || '';
+                const display = pageLabel ? `🔗 ${escapeHtml(pageLabel)} <span style="color:#475569;font-weight:600">(${escapeHtml(catLabel)})</span>` : `📄 ${escapeHtml(catLabel)}`;
+                return `<span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:700;display:inline-block;margin:2px 4px 2px 0;border:1px solid #bae6fd;box-shadow:0 1px 2px rgba(2,132,199,0.08);">${display}</span>`;
+            }).join('');
+        }
+
+        let spent = 0, leads = 0, orders = 0, revenue = 0;
+        displayItems.forEach(it => {
+            spent += Number(it.spent || 0);
+            leads += Number(it.leads || 0);
+            orders += Number(it.orders || 0);
+            revenue += Number(it.revenue || 0);
+        });
+
+        const cpl = leads > 0 ? Math.round(spent / leads) : 0;
+        const cpo = orders > 0 ? Math.round(spent / orders) : 0;
+        const costRatio = revenue > 0 ? (spent / revenue * 100).toFixed(2) : '0.00';
+        const closeRate = leads > 0 ? (orders / leads * 100).toFixed(2) : '0.00';
+
+        const cplStr = formatVND(cpl);
+        const costRatioStr = `${costRatio}%`;
+        const cpoStr = cpo > 0 ? formatVND(cpo) : '0đ';
+        const closeRateStr = `${closeRate}%`;
+
+        const titleCostRatio = `${formatVND(spent)} Chi phí MKT / ${formatVND(revenue)} Doanh số = ${costRatioStr}`;
+        const titleCloseRate = `${orders} Đơn / ${leads} Tin Nhắn = ${closeRateStr}`;
+        const titleCpo = `${formatVND(spent)} Chi phí MKT / ${orders} Đơn = ${cpoStr}`;
+        const titleCpl = `${formatVND(spent)} Chi phí MKT / ${leads} Tin Nhắn = ${cplStr}`;
+
+        html += `
+            <tr>
+                <td style="text-align:center">${idx + 1}</td>
+                <td style="text-align:left">
+                    <div style="font-weight:800;font-size:14px;color:#1e1b4b;display:flex;align-items:center;gap:6px">
+                        <span>👤 ${escapeHtml(handlerName)}</span>
+                    </div>
+                </td>
+                <td style="text-align:left">${pagesHtml}</td>
+                <td style="font-weight:700;color:#d97706">${orders} đơn</td>
+                <td style="font-weight:700;color:#e11d48">${formatVND(spent)}</td>
+                <td style="font-weight:700;color:#16a34a">${formatVND(revenue)}</td>
+                <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${titleCostRatio}" title="${titleCostRatio}">${costRatioStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${titleCloseRate}" title="${titleCloseRate}">${closeRateStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-orange" data-tooltip="${titleCpo}" title="${titleCpo}">${cpoStr}</span></td>
+                <td style="font-weight:700;color:#0284c7">${leads}</td>
+                <td><span class="kpi-pill kpi-pill-blue" data-tooltip="${titleCpl}" title="${titleCpl}">${cplStr}</span></td>
+                <td>
+                    ${isGiamDoc ? `
+                        <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:4px 10px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
+                    ` : '<span style="font-size:11px;color:#94a3b8">-</span>'}
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+async function kpiMktOpenAssignModal(handlerName) {
+    let modal = document.getElementById('kpiMktAssignModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'kpiMktAssignModal';
+        modal.className = 'kpi-v2-modal-overlay';
+        document.body.appendChild(modal);
+    }
+
+    const categories = (_kpiMkt.data && (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories)) ? (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories) : [];
+    const subCats = categories.filter(c => c.parent_id !== null && c.parent_id !== undefined);
+
+    let checkboxesHtml = subCats.map(c => {
+        const isAssigned = (c.ads_handler_name && c.ads_handler_name.trim().toLowerCase() === handlerName.trim().toLowerCase()) ||
+                           (handlerName === 'Giám Đốc' && (!c.ads_handler_name || !c.ads_handler_name.trim()));
+        const pageLabel = c.pancake_page_name || c.linked_source_name || '';
+        const catName = c.name || c.category_name || '';
+        const displayLabel = pageLabel ? `${catName} — (🔗 ${pageLabel})` : catName;
+
+        return `
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${isAssigned ? '#f0f9ff' : '#f8fafc'};border:1.5px solid ${isAssigned ? '#0284c7' : '#e2e8f0'};border-radius:10px;cursor:pointer;transition:all 0.2s;">
+                <input type="checkbox" value="${c.id}" class="kpi-assign-cat-checkbox" ${isAssigned ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:#0284c7;">
+                <span style="font-size:13.5px;font-weight:700;color:${isAssigned ? '#0369a1' : '#1e293b'};">📌 ${escapeHtml(displayLabel)}</span>
+            </label>
+        `;
+    }).join('');
+
+    modal.innerHTML = `
+        <div class="kpi-v2-modal" style="width:550px;max-width:94vw;">
+            <div class="kpi-v2-modal-hdr">
+                <div class="kpi-v2-modal-title">⚙️ Phân Công Page Cho Nhân Viên: 👤 ${escapeHtml(handlerName)}</div>
+                <button class="kpi-v2-modal-close" onclick="document.getElementById('kpiMktAssignModal').style.display='none'">✕</button>
+            </div>
+            <div style="font-size:12.5px;color:#64748b;margin-bottom:14px;font-weight:600;">
+                Tích chọn các Page / Mục Con do <strong>${escapeHtml(handlerName)}</strong> phụ trách chạy Ads:
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;max-height:350px;overflow-y:auto;padding-right:4px;margin-bottom:18px;">
+                ${checkboxesHtml || '<div style="color:#94a3b8;font-weight:700;">Chưa có mục con nào trong hệ thống</div>'}
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;">
+                <button type="button" onclick="document.getElementById('kpiMktAssignModal').style.display='none'" style="padding:10px 18px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:10px;font-weight:700;cursor:pointer;">Hủy</button>
+                <button type="button" onclick="kpiMktSaveAssignHandler('${escapeHtml(handlerName)}')" style="padding:10px 22px;background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13.5px;cursor:pointer;box-shadow:0 4px 14px rgba(2,132,199,0.35);">💾 Lưu Phân Công</button>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+async function kpiMktSaveAssignHandler(handlerName) {
+    const checkboxes = document.querySelectorAll('.kpi-assign-cat-checkbox:checked');
+    const categoryIds = Array.from(checkboxes).map(cb => Number(cb.value));
+
+    try {
+        let res = await kpiMktApiCall('/api/reports/kpi-marketing/assign-handler', 'POST', {
+            ads_handler_name: handlerName,
+            category_ids: categoryIds
+        });
+
+        if (res && res.success) {
+            document.getElementById('kpiMktAssignModal').style.display = 'none';
+            await loadKpimarketingData();
+            alert(`Đã phân công Page cho ${handlerName} thành công!`);
+        } else {
+            alert(res?.error || res?.message || 'Có lỗi khi phân công Page');
+        }
+    } catch(e) {
+        alert('Lỗi phân công Page: ' + e.message);
+    }
+}
+
 /* WINDOW EXPORTS FOR ROUTER */
 if (typeof window !== 'undefined') {
     window.renderKpimarketingPage = renderKpimarketingPage;
@@ -1217,6 +1412,9 @@ if (typeof window !== 'undefined') {
     window.kpiMktSaveNewCategory = kpiMktSaveNewCategory;
     window.kpiMktDeleteCategory = kpiMktDeleteCategory;
     window.kpiMktOpenOrdersModal = kpiMktOpenOrdersModal;
+    window.renderKpiMktHandlersTable = renderKpiMktHandlersTable;
+    window.kpiMktOpenAssignModal = kpiMktOpenAssignModal;
+    window.kpiMktSaveAssignHandler = kpiMktSaveAssignHandler;
 
     setTimeout(function() {
         const path = (window.location.pathname || '').toLowerCase();
