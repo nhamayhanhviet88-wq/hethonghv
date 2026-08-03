@@ -779,16 +779,30 @@ module.exports = async function(fastify, options) {
                 const catId = item.category_id ? Number(item.category_id) : null;
                 if (!hName && !catId) continue;
 
-                const target_budget = Number(item.target_budget || 0);
-                const target_leads_m1 = Number(item.target_leads_m1 || item.target_leads || 0);
-                const target_leads_m120 = Number(item.target_leads_m120 || Math.round(target_leads_m1 * 1.2));
-                const target_revenue_m1 = Number(item.target_revenue_m1 || item.target_revenue || 0);
-                const target_revenue_m120 = Number(item.target_revenue_m120 || Math.round(target_revenue_m1 * 1.2));
-                const target_cpl = Number(item.target_cpl || 0);
-                const target_roas = Number(item.target_roas || 0);
-                const target_cpo = Number(item.target_cpo || 0);
-                const target_cost_ratio = Number(item.target_cost_ratio || 0);
-                const target_close_rate = Number(item.target_close_rate || 0);
+                const parseCleanNum = (val) => {
+                    if (val === null || val === undefined || val === '') return 0;
+                    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+                    const str = String(val).trim();
+                    if (str.includes(',') && !str.includes('.')) {
+                        // European/VN decimal or thousand
+                        const clean = str.replace(/\,/g, '');
+                        return Number(clean) || 0;
+                    }
+                    // Strip all non-digits for integer inputs (like 200.000.000)
+                    const digits = str.replace(/[^0-9]/g, '');
+                    return digits ? parseInt(digits, 10) : 0;
+                };
+
+                const target_budget = parseCleanNum(item.target_budget);
+                const target_leads_m1 = parseCleanNum(item.target_leads_m1 || item.target_leads);
+                const target_leads_m120 = parseCleanNum(item.target_leads_m120 || Math.round(target_leads_m1 * 1.2));
+                const target_revenue_m1 = parseCleanNum(item.target_revenue_m1 || item.target_revenue);
+                const target_revenue_m120 = parseCleanNum(item.target_revenue_m120 || Math.round(target_revenue_m1 * 1.2));
+                const target_cpl = parseCleanNum(item.target_cpl);
+                const target_roas = parseCleanNum(item.target_roas);
+                const target_cpo = parseCleanNum(item.target_cpo);
+                const target_cost_ratio = Number(String(item.target_cost_ratio || 0).replace(/,/g, '.')) || 0;
+                const target_close_rate = Number(String(item.target_close_rate || 0).replace(/,/g, '.')) || 0;
 
                 if (catId) {
                     await db.run(`

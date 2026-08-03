@@ -1739,6 +1739,14 @@ async function kpiMktOpenSetTargetModal(handlerName) {
     const [yStr, mStr] = (_kpiMkt.month || '').split('-');
     const monthText = yStr && mStr ? `Tháng ${parseInt(mStr, 10)}/${yStr}` : 'Tháng';
 
+    const fmtBud = targetBudget > 0 ? targetBudget.toLocaleString('vi-VN') : '';
+    const fmtRev1 = targetRevM1 > 0 ? targetRevM1.toLocaleString('vi-VN') : '';
+    const fmtRev2 = targetRevM120 > 0 ? targetRevM120.toLocaleString('vi-VN') : '';
+    const fmtLd1 = targetLeadsM1 > 0 ? targetLeadsM1.toLocaleString('vi-VN') : '';
+    const fmtLd2 = targetLeadsM120 > 0 ? targetLeadsM120.toLocaleString('vi-VN') : '';
+    const fmtCpo = targetCpo > 0 ? targetCpo.toLocaleString('vi-VN') : '';
+    const fmtCpl = targetCpl > 0 ? targetCpl.toLocaleString('vi-VN') : '';
+
     modal.innerHTML = `
         <div class="kpi-v2-modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);">
             <!-- Modal Header -->
@@ -1765,7 +1773,7 @@ async function kpiMktOpenSetTargetModal(handlerName) {
                     <div style="display:grid;grid-template-columns:1fr;gap:12px;">
                         <div>
                             <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">Chi Phí MKT Chỉ Tiêu (đ)</label>
-                            <input type="number" id="target_budget" value="${targetBudget}" placeholder="Ví dụ: 50000000" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                            <input type="text" id="target_budget" value="${fmtBud}" placeholder="Ví dụ: 200.000.000" oninput="kpiMktFormatInputNumber(this)" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
                         </div>
                     </div>
                 </div>
@@ -1778,11 +1786,11 @@ async function kpiMktOpenSetTargetModal(handlerName) {
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                         <div>
                             <label style="font-size:12px;font-weight:700;color:#047857;display:block;margin-bottom:4px;">💰 Doanh Số Mốc 1 (đ)</label>
-                            <input type="number" id="target_revenue_m1" value="${targetRevM1}" placeholder="Ví dụ: 300000000" oninput="kpiMktAutoCalcM2()" style="width:100%;padding:8px 12px;border:1.5px solid #6ee7b7;border-radius:8px;font-weight:700;font-size:13px;color:#064e3b;outline:none;background:white;" />
+                            <input type="text" id="target_revenue_m1" value="${fmtRev1}" placeholder="Ví dụ: 300.000.000" oninput="kpiMktFormatInputNumber(this); kpiMktAutoCalcM2();" style="width:100%;padding:8px 12px;border:1.5px solid #6ee7b7;border-radius:8px;font-weight:700;font-size:13px;color:#064e3b;outline:none;background:white;" />
                         </div>
                         <div>
                             <label style="font-size:12px;font-weight:700;color:#047857;display:block;margin-bottom:4px;">📥 Số Lead Mốc 1 (Tin Nhắn)</label>
-                            <input type="number" id="target_leads_m1" value="${targetLeadsM1}" placeholder="Ví dụ: 500" oninput="kpiMktAutoCalcM2()" style="width:100%;padding:8px 12px;border:1.5px solid #6ee7b7;border-radius:8px;font-weight:700;font-size:13px;color:#064e3b;outline:none;background:white;" />
+                            <input type="text" id="target_leads_m1" value="${fmtLd1}" placeholder="Ví dụ: 500" oninput="kpiMktFormatInputNumber(this); kpiMktAutoCalcM2();" style="width:100%;padding:8px 12px;border:1.5px solid #6ee7b7;border-radius:8px;font-weight:700;font-size:13px;color:#064e3b;outline:none;background:white;" />
                         </div>
                     </div>
                 </div>
@@ -1796,11 +1804,11 @@ async function kpiMktOpenSetTargetModal(handlerName) {
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
                         <div>
                             <label style="font-size:12px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">💰 Doanh Số Mốc 2 (Tự động 120%)</label>
-                            <input type="number" id="target_revenue_m120" value="${targetRevM120}" readonly tabindex="-1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:800;font-size:13px;color:#1e3a8a;outline:none;background:#dbeafe;cursor:not-allowed;" />
+                            <input type="text" id="target_revenue_m120" value="${fmtRev2}" readonly tabindex="-1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:800;font-size:13px;color:#1e3a8a;outline:none;background:#dbeafe;cursor:not-allowed;" />
                         </div>
                         <div>
                             <label style="font-size:12px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">📥 Số Lead Mốc 2 (Tự động 120%)</label>
-                            <input type="number" id="target_leads_m120" value="${targetLeadsM120}" readonly tabindex="-1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:800;font-size:13px;color:#1e3a8a;outline:none;background:#dbeafe;cursor:not-allowed;" />
+                            <input type="text" id="target_leads_m120" value="${fmtLd2}" readonly tabindex="-1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:800;font-size:13px;color:#1e3a8a;outline:none;background:#dbeafe;cursor:not-allowed;" />
                         </div>
                     </div>
                 </div>
@@ -1813,19 +1821,19 @@ async function kpiMktOpenSetTargetModal(handlerName) {
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                         <div>
                             <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">📉 % CP / Doanh Số Mục Tiêu (%)</label>
-                            <input type="number" step="0.01" id="target_cost_ratio" value="${targetCostRatio}" placeholder="Ví dụ: 15.00" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                            <input type="number" step="0.01" id="target_cost_ratio" value="${targetCostRatio || ''}" placeholder="Ví dụ: 15.00" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
                         </div>
                         <div>
                             <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">🎯 Tỷ Lệ Chốt Mục Tiêu (%)</label>
-                            <input type="number" step="0.01" id="target_close_rate" value="${targetCloseRate}" placeholder="Ví dụ: 20.00" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                            <input type="number" step="0.01" id="target_close_rate" value="${targetCloseRate || ''}" placeholder="Ví dụ: 20.00" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
                         </div>
                         <div>
                             <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">🎯 CPO Giá / Đơn Mục Tiêu (đ)</label>
-                            <input type="number" id="target_cpo" value="${targetCpo}" placeholder="Ví dụ: 100000" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                            <input type="text" id="target_cpo" value="${fmtCpo}" placeholder="Ví dụ: 100.000" oninput="kpiMktFormatInputNumber(this)" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
                         </div>
                         <div>
                             <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">📊 CPL Giá / Lead Mục Tiêu (đ)</label>
-                            <input type="number" id="target_cpl" value="${targetCpl}" placeholder="Ví dụ: 50000" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                            <input type="text" id="target_cpl" value="${fmtCpl}" placeholder="Ví dụ: 50.000" oninput="kpiMktFormatInputNumber(this)" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
                         </div>
                     </div>
                 </div>
@@ -1842,32 +1850,54 @@ async function kpiMktOpenSetTargetModal(handlerName) {
     modal.style.setProperty('display', 'flex', 'important');
 }
 
+function kpiMktFormatInputNumber(el) {
+    if (!el) return;
+    const digits = el.value.replace(/[^0-9]/g, '');
+    if (!digits) {
+        el.value = '';
+        return;
+    }
+    el.value = Number(digits).toLocaleString('vi-VN');
+}
+
+function kpiMktParseVnInt(val) {
+    if (!val) return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    const digits = String(val).replace(/[^0-9]/g, '');
+    return digits ? parseInt(digits, 10) : 0;
+}
+
 function kpiMktAutoCalcM2() {
-    const revM1 = Number(document.getElementById('target_revenue_m1').value || 0);
-    const leadsM1 = Number(document.getElementById('target_leads_m1').value || 0);
+    const revM1 = kpiMktParseVnInt(document.getElementById('target_revenue_m1')?.value);
+    const leadsM1 = kpiMktParseVnInt(document.getElementById('target_leads_m1')?.value);
     const revM2Inp = document.getElementById('target_revenue_m120');
     const leadsM2Inp = document.getElementById('target_leads_m120');
-    if (revM2Inp) revM2Inp.value = Math.round(revM1 * 1.2);
-    if (leadsM2Inp) leadsM2Inp.value = Math.round(leadsM1 * 1.2);
+    if (revM2Inp) revM2Inp.value = revM1 > 0 ? Math.round(revM1 * 1.2).toLocaleString('vi-VN') : '';
+    if (leadsM2Inp) leadsM2Inp.value = leadsM1 > 0 ? Math.round(leadsM1 * 1.2).toLocaleString('vi-VN') : '';
 }
 
 async function kpiMktSaveTargetForHandler(e, handlerName) {
     e.preventDefault();
     try {
+        const revM1 = kpiMktParseVnInt(document.getElementById('target_revenue_m1')?.value);
+        const leadsM1 = kpiMktParseVnInt(document.getElementById('target_leads_m1')?.value);
+        const revM120 = kpiMktParseVnInt(document.getElementById('target_revenue_m120')?.value) || Math.round(revM1 * 1.2);
+        const leadsM120 = kpiMktParseVnInt(document.getElementById('target_leads_m120')?.value) || Math.round(leadsM1 * 1.2);
+
         const payload = {
             period_value: _kpiMkt.month,
             targets: [
                 {
                     ads_handler_name: handlerName,
-                    target_budget: Number(document.getElementById('target_budget').value || 0),
-                    target_revenue_m1: Number(document.getElementById('target_revenue_m1').value || 0),
-                    target_revenue_m120: Number(document.getElementById('target_revenue_m120').value || 0),
-                    target_leads_m1: Number(document.getElementById('target_leads_m1').value || 0),
-                    target_leads_m120: Number(document.getElementById('target_leads_m120').value || 0),
-                    target_cost_ratio: Number(document.getElementById('target_cost_ratio').value || 0),
-                    target_close_rate: Number(document.getElementById('target_close_rate').value || 0),
-                    target_cpo: Number(document.getElementById('target_cpo').value || 0),
-                    target_cpl: Number(document.getElementById('target_cpl').value || 0)
+                    target_budget: kpiMktParseVnInt(document.getElementById('target_budget')?.value),
+                    target_revenue_m1: revM1,
+                    target_revenue_m120: revM120,
+                    target_leads_m1: leadsM1,
+                    target_leads_m120: leadsM120,
+                    target_cost_ratio: Number(String(document.getElementById('target_cost_ratio')?.value || 0).replace(/,/g, '.')) || 0,
+                    target_close_rate: Number(String(document.getElementById('target_close_rate')?.value || 0).replace(/,/g, '.')) || 0,
+                    target_cpo: kpiMktParseVnInt(document.getElementById('target_cpo')?.value),
+                    target_cpl: kpiMktParseVnInt(document.getElementById('target_cpl')?.value)
                 }
             ]
         };
@@ -1907,6 +1937,8 @@ if (typeof window !== 'undefined') {
     window.kpiMktOpenSetTargetModal = kpiMktOpenSetTargetModal;
     window.kpiMktAutoCalcM2 = kpiMktAutoCalcM2;
     window.kpiMktSaveTargetForHandler = kpiMktSaveTargetForHandler;
+    window.kpiMktFormatInputNumber = kpiMktFormatInputNumber;
+    window.kpiMktParseVnInt = kpiMktParseVnInt;
 
     setTimeout(function() {
         const path = (window.location.pathname || '').toLowerCase();
