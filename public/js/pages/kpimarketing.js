@@ -477,7 +477,7 @@ function renderCategoryTable(res) {
                 <td style="text-align:left">
                     <div style="font-weight:800;font-size:13.5px;color:#1e1b4b;display:flex;align-items:center;justify-content:space-between;gap:6px">
                         <span>${c.icon || '📌'} ${escapeHtml(c.category_name)}</span>
-                        <button type="button" onclick="kpiMktDeleteCategory('${c.category_id || 0}', '${escapeHtml(c.category_name)}')" title="Xóa mục con này" style="background:none;border:none;cursor:pointer;font-size:13px;opacity:0.6;transition:all 0.2s;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1;this.style.background='#fee2e2'" onmouseout="this.style.opacity=0.6;this.style.background='none'">🗑️</button>
+                        <button type="button" onclick="kpiMktDeleteCategory('${c.category_id || 0}', '${escapeHtml(c.category_name)}')" title="Xóa mục con này khỏi danh sách" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(220,38,38,0.1);transition:all 0.2s" onmouseover="this.style.background='#fee2e2';this.style.borderColor='#f87171'" onmouseout="this.style.background='#fef2f2';this.style.borderColor='#fca5a5'">🗑️ Xóa</button>
                     </div>
                     <div style="font-size:11px;color:#475569;margin-top:3px;display:flex;gap:10px;align-items:center">
                         <span style="background:#f1f5f9;padding:1px 6px;border-radius:4px;color:#475569">Kênh: ${escapeHtml(c.channel_name || 'Khác')}</span>
