@@ -243,7 +243,10 @@ module.exports = async function(fastify, options) {
 
             const targetMap = new Map();
             (targetRows || []).forEach(t => {
-                targetMap.set(t.ads_handler_name, t);
+                if (t.ads_handler_name) {
+                    targetMap.set(t.ads_handler_name, t);
+                    targetMap.set(t.ads_handler_name.trim().toLowerCase(), t);
+                }
                 if (t.category_id) {
                     targetMap.set(`cat_${t.category_id}`, t);
                 }
@@ -362,7 +365,7 @@ module.exports = async function(fastify, options) {
                 .sort((a, b) => a.localeCompare(b, 'vi'));
 
             sortedHandlerNames.forEach(hName => {
-                const t = targetMap.get(hName) || {};
+                const t = targetMap.get(hName) || targetMap.get(hName.trim().toLowerCase()) || {};
 
                 const dailySpent = new Array(daysInMonth).fill(0);
                 const dailyLeads = new Array(daysInMonth).fill(0);
@@ -805,44 +808,59 @@ module.exports = async function(fastify, options) {
                 const target_close_rate = Number(String(item.target_close_rate || 0).replace(/,/g, '.')) || 0;
 
                 if (catId) {
-                    await db.run(`
-                        INSERT INTO mkt_kpi_targets 
-                            (category_id, ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, created_by, updated_at)
-                        VALUES 
-                            ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
-                        ON CONFLICT (ads_handler_name, period_value) DO UPDATE SET
-                            category_id = EXCLUDED.category_id,
-                            target_budget = EXCLUDED.target_budget,
-                            target_leads = EXCLUDED.target_leads,
-                            target_leads_m120 = EXCLUDED.target_leads_m120,
-                            target_revenue = EXCLUDED.target_revenue,
-                            target_revenue_m120 = EXCLUDED.target_revenue_m120,
-                            target_cpl = EXCLUDED.target_cpl,
-                            target_roas = EXCLUDED.target_roas,
-                            target_cpo = EXCLUDED.target_cpo,
-                            target_cost_ratio = EXCLUDED.target_cost_ratio,
-                            target_close_rate = EXCLUDED.target_close_rate,
-                            updated_at = NOW()
-                    `, [catId, hName || 'Mục Con', period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, userId]);
+                    const existing = await db.get(`SELECT id FROM mkt_kpi_targets WHERE category_id = $1 AND period_value = $2`, [catId, period_value]);
+                    if (existing && existing.id) {
+                        await db.run(`
+                            UPDATE mkt_kpi_targets SET
+                                ads_handler_name = $1,
+                                target_budget = $2,
+                                target_leads = $3,
+                                target_leads_m120 = $4,
+                                target_revenue = $5,
+                                target_revenue_m120 = $6,
+                                target_cpl = $7,
+                                target_roas = $8,
+                                target_cpo = $9,
+                                target_cost_ratio = $10,
+                                target_close_rate = $11,
+                                updated_at = NOW()
+                            WHERE id = $12
+                        `, [hName || 'Mục Con', target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, existing.id]);
+                    } else {
+                        await db.run(`
+                            INSERT INTO mkt_kpi_targets 
+                                (category_id, ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, created_by, updated_at)
+                            VALUES 
+                                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+                        `, [catId, hName || 'Mục Con', period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, userId]);
+                    }
                 } else {
-                    await db.run(`
-                        INSERT INTO mkt_kpi_targets 
-                            (ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, created_by, updated_at)
-                        VALUES 
-                            ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
-                        ON CONFLICT (ads_handler_name, period_value) DO UPDATE SET
-                            target_budget = EXCLUDED.target_budget,
-                            target_leads = EXCLUDED.target_leads,
-                            target_leads_m120 = EXCLUDED.target_leads_m120,
-                            target_revenue = EXCLUDED.target_revenue,
-                            target_revenue_m120 = EXCLUDED.target_revenue_m120,
-                            target_cpl = EXCLUDED.target_cpl,
-                            target_roas = EXCLUDED.target_roas,
-                            target_cpo = EXCLUDED.target_cpo,
-                            target_cost_ratio = EXCLUDED.target_cost_ratio,
-                            target_close_rate = EXCLUDED.target_close_rate,
-                            updated_at = NOW()
-                    `, [hName, period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, userId]);
+                    const existing = await db.get(`SELECT id FROM mkt_kpi_targets WHERE LOWER(TRIM(ads_handler_name)) = LOWER(TRIM($1)) AND period_value = $2 AND (category_id IS NULL OR category_id = 0)`, [hName, period_value]);
+                    if (existing && existing.id) {
+                        await db.run(`
+                            UPDATE mkt_kpi_targets SET
+                                ads_handler_name = $1,
+                                target_budget = $2,
+                                target_leads = $3,
+                                target_leads_m120 = $4,
+                                target_revenue = $5,
+                                target_revenue_m120 = $6,
+                                target_cpl = $7,
+                                target_roas = $8,
+                                target_cpo = $9,
+                                target_cost_ratio = $10,
+                                target_close_rate = $11,
+                                updated_at = NOW()
+                            WHERE id = $12
+                        `, [hName, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, existing.id]);
+                    } else {
+                        await db.run(`
+                            INSERT INTO mkt_kpi_targets 
+                                (ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, created_by, updated_at)
+                            VALUES 
+                                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+                        `, [hName, period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, userId]);
+                    }
                 }
             }
 
