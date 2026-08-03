@@ -1423,8 +1423,21 @@ async function kpiMktOpenAssignModal(handlerName) {
         const isShownInKpi = c.show_in_kpi_mkt !== false && c.show_in_kpi_mkt !== 0 && c.show_in_kpi_mkt !== '0' && c.show_in_kpi_mkt !== 'false';
         const catName = (c.name || c.category_name || '').trim();
         if (!catName || catName === '__NEW__') return false;
+        if (!isShownInKpi) return false;
 
-        return isShownInKpi;
+        // Điều kiện 3: Chỉ hiển thị Page của chính nhân viên này HOẶC Page chưa gán cho ai (Ẩn Page của nhân viên khác)
+        const assignedOwner = (c.ads_handler_name || '').trim().toLowerCase();
+        const currentTarget = handlerName.trim().toLowerCase();
+
+        if (!assignedOwner) {
+            return true; // Page chưa gán cho ai -> Hiển thị để gán
+        }
+
+        if (currentTarget === 'giám đốc') {
+            return assignedOwner === 'giám đốc';
+        }
+
+        return assignedOwner === currentTarget;
     });
 
     let checkboxesHtml = subCats.map(c => {
