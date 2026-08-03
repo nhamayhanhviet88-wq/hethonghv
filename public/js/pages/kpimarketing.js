@@ -1260,7 +1260,7 @@ function renderKpiMktHandlersTable(res, itemsList) {
         });
 
         const displayItems = assignedItems.length > 0 ? assignedItems : (h.items || []);
-        const totalRowsForHandler = Math.max(1, displayItems.length) + 1 + 5; // +1 for Employee Total row, +5 for KPI Target rows
+        const totalRowsForHandler = Math.max(1, displayItems.length) + 1 + 7; // +1 for Employee Total row, +7 for KPI Target rows
 
         let totSpent = 0, totLeads = 0, totOrders = 0, totRevenue = 0;
 
@@ -1470,11 +1470,11 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
-        // Row 3: Mốc 2 - 100%
+        // Row 5: Mốc 2 - 120%
         html += `
             <tr style="background:#eff6ff !important;">
                 <td style="text-align:left;font-weight:800;color:#1e40af">
-                    <span style="margin-left:12px">🏆 Mốc 2 - 100%</span>
+                    <span style="margin-left:12px">🏆 Mốc 2 - 120%</span>
                 </td>
                 <td style="font-weight:700;color:#1d4ed8">-</td>
                 <td style="font-weight:700;color:#1d4ed8">-</td>
@@ -1483,6 +1483,40 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
                 <td><span class="kpi-pill kpi-pill-orange">-</span></td>
                 <td style="font-weight:700;color:#1d4ed8">-</td>
+                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+            </tr>
+        `;
+
+        // Row 6: Mốc 2 - Còn Thiếu
+        html += `
+            <tr style="background:#fdf2f8 !important;">
+                <td style="text-align:left;font-weight:800;color:#be185d">
+                    <span style="margin-left:24px">🏆 Mốc 2 - Còn Thiếu</span>
+                </td>
+                <td style="font-weight:700;color:#db2777">-</td>
+                <td style="font-weight:700;color:#db2777">-</td>
+                <td style="font-weight:700;color:#db2777">-</td>
+                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
+                <td style="font-weight:700;color:#db2777">-</td>
+                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+            </tr>
+        `;
+
+        // Row 7: Mốc 2 - Tỉ Lệ Hoàn Thành
+        html += `
+            <tr style="background:#f5f3ff !important;">
+                <td style="text-align:left;font-weight:800;color:#4338ca">
+                    <span style="margin-left:24px">🏆 Mốc 2 - Tỉ Lệ Hoàn Thành</span>
+                </td>
+                <td style="font-weight:700;color:#4f46e5">-</td>
+                <td style="font-weight:700;color:#4f46e5">-</td>
+                <td style="font-weight:700;color:#4f46e5">-</td>
+                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
+                <td style="font-weight:700;color:#4f46e5">-</td>
                 <td><span class="kpi-pill kpi-pill-blue">-</span></td>
             </tr>
         `;
