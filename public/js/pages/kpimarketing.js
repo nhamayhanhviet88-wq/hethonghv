@@ -473,6 +473,11 @@ function renderCategoryTable(res) {
         const cpoStr = c.cpo > 0 ? formatVND(c.cpo) : '0đ';
         const closeRateStr = `${c.close_rate || 0}%`;
 
+        const titleCostRatio = `${formatVND(c.spent || 0)} Chi phí MKT / ${formatVND(c.revenue || 0)} Doanh số = ${costRatioStr}`;
+        const titleCloseRate = `${c.orders || 0} Đơn / ${c.leads || 0} Tin Nhắn = ${closeRateStr}`;
+        const titleCpo = `${formatVND(c.spent || 0)} Chi phí MKT / ${c.orders || 0} Đơn = ${cpoStr}`;
+        const titleCpl = `${formatVND(c.spent || 0)} Chi phí MKT / ${c.leads || 0} Tin Nhắn = ${cplStr}`;
+
         html += `
             <tr>
                 <td style="text-align:center">${idx + 1}</td>
@@ -490,11 +495,11 @@ function renderCategoryTable(res) {
                 <td style="font-weight:700;color:#d97706">${c.orders || 0} đơn</td>
                 <td style="font-weight:700;color:#e11d48">${formatVND(c.spent || 0)}</td>
                 <td style="font-weight:700;color:#16a34a">${formatVND(c.revenue || 0)}</td>
-                <td><span class="kpi-pill kpi-pill-purple">${costRatioStr}</span></td>
-                <td><span class="kpi-pill kpi-pill-cyan">${closeRateStr}</span></td>
-                <td><span class="kpi-pill kpi-pill-orange">${cpoStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-purple" title="${titleCostRatio}" style="cursor:help">${costRatioStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan" title="${titleCloseRate}" style="cursor:help">${closeRateStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-orange" title="${titleCpo}" style="cursor:help">${cpoStr}</span></td>
                 <td style="font-weight:700;color:#0284c7">${c.leads || 0}</td>
-                <td><span class="kpi-pill kpi-pill-blue">${cplStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-blue" title="${titleCpl}" style="cursor:help">${cplStr}</span></td>
             </tr>
         `;
     });
@@ -505,6 +510,11 @@ function renderCategoryTable(res) {
     const avgCpo = totalOrders > 0 ? Math.round(totalSpent / totalOrders) : 0;
     const avgCloseRate = totalLeads > 0 ? Math.round((totalOrders / totalLeads) * 1000) / 10 : 0;
 
+    const totalTitleCostRatio = `${formatVND(totalSpent)} Chi phí MKT / ${formatVND(totalRevenue)} Doanh số = ${avgCostRatio}%`;
+    const totalTitleCloseRate = `${totalOrders} Đơn / ${totalLeads} Tin Nhắn = ${avgCloseRate}%`;
+    const totalTitleCpo = `${formatVND(totalSpent)} Chi phí MKT / ${totalOrders} Đơn = ${avgCpo > 0 ? formatVND(avgCpo) : '0đ'}`;
+    const totalTitleCpl = `${formatVND(totalSpent)} Chi phí MKT / ${totalLeads} Tin Nhắn = ${formatVND(avgCpl)}`;
+
     html += `
         <tr class="total-row">
             <td style="text-align:center">★</td>
@@ -512,11 +522,11 @@ function renderCategoryTable(res) {
             <td>${totalOrders} đơn</td>
             <td>${formatVND(totalSpent)}</td>
             <td>${formatVND(totalRevenue)}</td>
-            <td><span class="kpi-pill kpi-pill-purple">${avgCostRatio}%</span></td>
-            <td><span class="kpi-pill kpi-pill-cyan">${avgCloseRate}%</span></td>
-            <td><span class="kpi-pill kpi-pill-orange">${avgCpo > 0 ? formatVND(avgCpo) : '0đ'}</span></td>
+            <td><span class="kpi-pill kpi-pill-purple" title="${totalTitleCostRatio}" style="cursor:help">${avgCostRatio}%</span></td>
+            <td><span class="kpi-pill kpi-pill-cyan" title="${totalTitleCloseRate}" style="cursor:help">${avgCloseRate}%</span></td>
+            <td><span class="kpi-pill kpi-pill-orange" title="${totalTitleCpo}" style="cursor:help">${avgCpo > 0 ? formatVND(avgCpo) : '0đ'}</span></td>
             <td>${totalLeads}</td>
-            <td><span class="kpi-pill kpi-pill-blue">${formatVND(avgCpl)}</span></td>
+            <td><span class="kpi-pill kpi-pill-blue" title="${totalTitleCpl}" style="cursor:help">${formatVND(avgCpl)}</span></td>
         </tr>
     `;
 
@@ -524,16 +534,28 @@ function renderCategoryTable(res) {
 
     // Update top summary cards dynamically from calculated table totals
     const avgCplEl = document.getElementById('kpiMktAvgCpl');
-    if (avgCplEl) avgCplEl.innerText = formatVND(avgCpl);
+    if (avgCplEl) {
+        avgCplEl.innerText = formatVND(avgCpl);
+        if (avgCplEl.parentElement) avgCplEl.parentElement.title = totalTitleCpl;
+    }
 
     const avgCostEl = document.getElementById('kpiMktAvgCostRatio');
-    if (avgCostEl) avgCostEl.innerText = `${avgCostRatio}%`;
+    if (avgCostEl) {
+        avgCostEl.innerText = `${avgCostRatio}%`;
+        if (avgCostEl.parentElement) avgCostEl.parentElement.title = totalTitleCostRatio;
+    }
 
     const avgCpoEl = document.getElementById('kpiMktAvgCpo');
-    if (avgCpoEl) avgCpoEl.innerText = avgCpo > 0 ? formatVND(avgCpo) : '0đ';
+    if (avgCpoEl) {
+        avgCpoEl.innerText = avgCpo > 0 ? formatVND(avgCpo) : '0đ';
+        if (avgCpoEl.parentElement) avgCpoEl.parentElement.title = totalTitleCpo;
+    }
 
     const avgCloseEl = document.getElementById('kpiMktAvgCloseRate');
-    if (avgCloseEl) avgCloseEl.innerText = `${avgCloseRate}%`;
+    if (avgCloseEl) {
+        avgCloseEl.innerText = `${avgCloseRate}%`;
+        if (avgCloseEl.parentElement) avgCloseEl.parentElement.title = totalTitleCloseRate;
+    }
 
     const totalRevEl = document.getElementById('kpiMktTotalRev');
     if (totalRevEl) totalRevEl.innerText = formatVND(totalRevenue);
