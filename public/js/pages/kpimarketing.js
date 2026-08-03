@@ -1332,6 +1332,16 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 totOrders += itemOrders;
                 totRevenue += itemRevenue;
 
+                const cTgts = it.targets || {};
+                const cBudTarget = Number(cTgts.target_budget || 0);
+                const cRevM1Target = Number(cTgts.target_revenue_m1 || cTgts.target_revenue || 0);
+                const cRevM120Target = Number(cTgts.target_revenue_m120 || (cRevM1Target > 0 ? Math.round(cRevM1Target * 1.2) : 0));
+                const cLeadsM1Target = Number(cTgts.target_leads_m1 || cTgts.target_leads || 0);
+                const cLeadsM120Target = Number(cTgts.target_leads_m120 || (cLeadsM1Target > 0 ? Math.round(cLeadsM1Target * 1.2) : 0));
+                const cBonusM1Target = Number(cTgts.target_bonus_m1 || 0);
+                const cBonusM120Target = Number(cTgts.target_bonus_m120 || 0);
+                const cBonusNoteTarget = cTgts.target_bonus_note || '';
+
                 const itemCpl = itemLeads > 0 ? Math.round(itemSpent / itemLeads) : 0;
                 const itemCpo = itemOrders > 0 ? Math.round(itemSpent / itemOrders) : 0;
                 const itemCostRatio = itemRevenue > 0 ? (itemSpent / itemRevenue * 100).toFixed(2) : '0.00';
@@ -1347,6 +1357,12 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 const titleCpo = `${formatVND(itemSpent)} Chi phí MKT / ${itemOrders} Đơn = ${itemCpoStr}`;
                 const titleCpl = `${formatVND(itemSpent)} Chi phí MKT / ${itemLeads} Tin Nhắn = ${itemCplStr}`;
 
+                const pageTooltipText = `📌 KPI Riêng Page: ${it.category_name || it.name || 'Mục'}\n` +
+                    `💸 Ngân sách: ${cBudTarget > 0 ? formatVND(cBudTarget) : 'Chưa đặt'}\n` +
+                    `🚩 Mốc 1 (100%): ${cRevM1Target > 0 ? formatVND(cRevM1Target) : '-'} | ${cLeadsM1Target > 0 ? cLeadsM1Target.toLocaleString('vi-VN') + ' Lead' : '-'}\n` +
+                    `🏆 Mốc 2 (120%): ${cRevM120Target > 0 ? formatVND(cRevM120Target) : '-'} | ${cLeadsM120Target > 0 ? cLeadsM120Target.toLocaleString('vi-VN') + ' Lead' : '-'}\n` +
+                    `🎁 Lương Thưởng: ${cBonusM1Target > 0 ? `Mốc 1 (+${formatVND(cBonusM1Target)})` : '-'}${cBonusM120Target > 0 ? ` • Mốc 2 (+${formatVND(cBonusM120Target)})` : ''}`;
+
                 const catName = it.category_name || it.name || 'Mục Marketing';
                 const channelName = it.channel_name || 'Facebook Ads';
                 const pageLabel = it.pancake_page_name || it.linked_source_name || '';
@@ -1355,8 +1371,9 @@ function renderKpiMktHandlersTable(res, itemsList) {
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
                         <div style="font-weight:800;font-size:13px;color:#0f172a;display:flex;align-items:center;gap:6px">
                             <span>📄 ${escapeHtml(catName)}</span>
+                            ${cBonusM1Target > 0 ? `<span style="font-size:10.5px;font-weight:800;background:#fffbeb;color:#92400e;border:1px solid #fde68a;padding:2px 7px;border-radius:6px;" title="${escapeHtml(pageTooltipText)}">🎁 Thưởng: +${formatVND(cBonusM1Target)}</span>` : ''}
                         </div>
-                        ${it.category_id ? `<button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}', ${it.category_id}, '${escapeHtml(catName)}')" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:2px 8px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(4,120,87,0.1);" title="Cài KPI & Thưởng riêng cho Page này">🎯 KPI Page</button>` : ''}
+                        ${it.category_id ? `<button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}', ${it.category_id}, '${escapeHtml(catName)}')" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:2px 8px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(4,120,87,0.1);" title="${escapeHtml(pageTooltipText)}">🎯 KPI Page</button>` : ''}
                     </div>
                     <div style="font-size:11px;color:#64748b;margin-top:3px;display:flex;align-items:center;gap:8px">
                         <span>Kênh: <strong>${escapeHtml(channelName)}</strong></span>
@@ -1378,9 +1395,15 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 }
                 html += `
                     <td style="text-align:left">${itemLabelHtml}</td>
-                    <td style="font-weight:700;color:#e11d48">${formatVND(itemSpent)}</td>
+                    <td style="font-weight:700;color:#e11d48">
+                        <div>${formatVND(itemSpent)}</div>
+                        ${cBudTarget > 0 ? `<div style="font-size:10.5px;font-weight:700;color:#94a3b8;margin-top:2px;" title="${escapeHtml(pageTooltipText)}">🎯 CT: ${formatVND(cBudTarget)}</div>` : ''}
+                    </td>
                     <td style="font-weight:700;color:#d97706">${itemOrders} đơn</td>
-                    <td style="font-weight:700;color:#16a34a">${formatVND(itemRevenue)}</td>
+                    <td style="font-weight:700;color:#16a34a">
+                        <div>${formatVND(itemRevenue)}</div>
+                        ${cRevM1Target > 0 ? `<div style="font-size:10.5px;font-weight:800;color:#047857;margin-top:2px;" title="${escapeHtml(pageTooltipText)}">🎯 Mốc 1: ${formatVND(cRevM1Target)}</div>` : ''}
+                    </td>
                     <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${titleCostRatio}" title="${titleCostRatio}">${itemCostRatioStr}</span></td>
                     <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${titleCloseRate}" title="${titleCloseRate}">${itemCloseRateStr}</span></td>
                     <td><span class="kpi-pill kpi-pill-orange" data-tooltip="${titleCpo}" title="${titleCpo}">${itemCpoStr}</span></td>
