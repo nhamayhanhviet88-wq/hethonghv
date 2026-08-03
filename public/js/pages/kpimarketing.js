@@ -123,6 +123,47 @@ async function renderKpimarketingPage(container) {
             .kpi-pill-cyan { background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc; }
             .kpi-pill-green { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
 
+            /* Custom Instant Formula Tooltip */
+            [data-tooltip] { position: relative; cursor: pointer !important; }
+            [data-tooltip]::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                bottom: 125%;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #0f172a;
+                color: #ffffff;
+                padding: 6px 12px;
+                border-radius: 8px;
+                font-size: 11.5px;
+                font-weight: 700;
+                white-space: nowrap;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.15s ease-in-out;
+                z-index: 9999;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+                border: 1px solid #334155;
+            }
+            [data-tooltip]::before {
+                content: '';
+                position: absolute;
+                bottom: 110%;
+                left: 50%;
+                transform: translateX(-50%);
+                border-width: 6px;
+                border-style: solid;
+                border-color: #0f172a transparent transparent transparent;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.15s ease-in-out;
+                z-index: 9999;
+            }
+            [data-tooltip]:hover::after,
+            [data-tooltip]:hover::before {
+                opacity: 1;
+            }
+
             /* Modal Style */
             .kpi-v2-modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 16px; }
             .kpi-v2-modal { background: #fff; border-radius: 20px; width: 560px; max-width: 95vw; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 25px 60px rgba(0,0,0,0.35); display: flex; flex-direction: column; animation: kpiModalFade 0.25s ease-out; }
@@ -495,11 +536,11 @@ function renderCategoryTable(res) {
                 <td style="font-weight:700;color:#d97706">${c.orders || 0} đơn</td>
                 <td style="font-weight:700;color:#e11d48">${formatVND(c.spent || 0)}</td>
                 <td style="font-weight:700;color:#16a34a">${formatVND(c.revenue || 0)}</td>
-                <td><span class="kpi-pill kpi-pill-purple" title="${titleCostRatio}" style="cursor:help">${costRatioStr}</span></td>
-                <td><span class="kpi-pill kpi-pill-cyan" title="${titleCloseRate}" style="cursor:help">${closeRateStr}</span></td>
-                <td><span class="kpi-pill kpi-pill-orange" title="${titleCpo}" style="cursor:help">${cpoStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${titleCostRatio}" title="${titleCostRatio}">${costRatioStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${titleCloseRate}" title="${titleCloseRate}">${closeRateStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-orange" data-tooltip="${titleCpo}" title="${titleCpo}">${cpoStr}</span></td>
                 <td style="font-weight:700;color:#0284c7">${c.leads || 0}</td>
-                <td><span class="kpi-pill kpi-pill-blue" title="${titleCpl}" style="cursor:help">${cplStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-blue" data-tooltip="${titleCpl}" title="${titleCpl}">${cplStr}</span></td>
             </tr>
         `;
     });
@@ -522,11 +563,11 @@ function renderCategoryTable(res) {
             <td>${totalOrders} đơn</td>
             <td>${formatVND(totalSpent)}</td>
             <td>${formatVND(totalRevenue)}</td>
-            <td><span class="kpi-pill kpi-pill-purple" title="${totalTitleCostRatio}" style="cursor:help">${avgCostRatio}%</span></td>
-            <td><span class="kpi-pill kpi-pill-cyan" title="${totalTitleCloseRate}" style="cursor:help">${avgCloseRate}%</span></td>
-            <td><span class="kpi-pill kpi-pill-orange" title="${totalTitleCpo}" style="cursor:help">${avgCpo > 0 ? formatVND(avgCpo) : '0đ'}</span></td>
+            <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${totalTitleCostRatio}" title="${totalTitleCostRatio}">${avgCostRatio}%</span></td>
+            <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${totalTitleCloseRate}" title="${totalTitleCloseRate}">${avgCloseRate}%</span></td>
+            <td><span class="kpi-pill kpi-pill-orange" data-tooltip="${totalTitleCpo}" title="${totalTitleCpo}">${avgCpo > 0 ? formatVND(avgCpo) : '0đ'}</span></td>
             <td>${totalLeads}</td>
-            <td><span class="kpi-pill kpi-pill-blue" title="${totalTitleCpl}" style="cursor:help">${formatVND(avgCpl)}</span></td>
+            <td><span class="kpi-pill kpi-pill-blue" data-tooltip="${totalTitleCpl}" title="${totalTitleCpl}">${formatVND(avgCpl)}</span></td>
         </tr>
     `;
 
