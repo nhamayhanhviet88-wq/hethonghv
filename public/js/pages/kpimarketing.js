@@ -1732,17 +1732,18 @@ async function kpiMktOpenSetTargetModal(handlerName) {
 
                 <!-- SECTION 3: MỐC 2 (120%) -->
                 <div style="background:#eff6ff;padding:14px 16px;border-radius:12px;border:1px solid #bfdbfe;">
-                    <div style="font-weight:800;font-size:13.5px;color:#1e3a8a;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                    <div style="font-weight:800;font-size:13.5px;color:#1e3a8a;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
                         <span>🏆 MỐC 2 - 120% KHUYẾN KHÍCH</span>
+                        <span style="font-size:11px;font-weight:600;color:#2563eb;background:#dbeafe;padding:2px 8px;border-radius:6px;">✨ Tự động = 120% Mốc 1</span>
                     </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
                         <div>
-                            <label style="font-size:12px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">💰 Doanh Số Mốc 2 (đ)</label>
-                            <input type="number" id="target_revenue_m120" value="${targetRevM120}" placeholder="Tự động x 1.2 Mốc 1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:700;font-size:13px;color:#1e3a8a;outline:none;background:white;" />
+                            <label style="font-size:12px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">💰 Doanh Số Mốc 2 (Tự động 120%)</label>
+                            <input type="number" id="target_revenue_m120" value="${targetRevM120}" readonly tabindex="-1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:800;font-size:13px;color:#1e3a8a;outline:none;background:#dbeafe;cursor:not-allowed;" />
                         </div>
                         <div>
-                            <label style="font-size:12px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">📥 Số Lead Mốc 2 (Tin Nhắn)</label>
-                            <input type="number" id="target_leads_m120" value="${targetLeadsM120}" placeholder="Tự động x 1.2 Mốc 1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:700;font-size:13px;color:#1e3a8a;outline:none;background:white;" />
+                            <label style="font-size:12px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">📥 Số Lead Mốc 2 (Tự động 120%)</label>
+                            <input type="number" id="target_leads_m120" value="${targetLeadsM120}" readonly tabindex="-1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:800;font-size:13px;color:#1e3a8a;outline:none;background:#dbeafe;cursor:not-allowed;" />
                         </div>
                     </div>
                 </div>
@@ -1789,8 +1790,8 @@ function kpiMktAutoCalcM2() {
     const leadsM1 = Number(document.getElementById('target_leads_m1').value || 0);
     const revM2Inp = document.getElementById('target_revenue_m120');
     const leadsM2Inp = document.getElementById('target_leads_m120');
-    if (revM2Inp && revM1 > 0) revM2Inp.value = Math.round(revM1 * 1.2);
-    if (leadsM2Inp && leadsM1 > 0) leadsM2Inp.value = Math.round(leadsM1 * 1.2);
+    if (revM2Inp) revM2Inp.value = Math.round(revM1 * 1.2);
+    if (leadsM2Inp) leadsM2Inp.value = Math.round(leadsM1 * 1.2);
 }
 
 async function kpiMktSaveTargetForHandler(e, handlerName) {
