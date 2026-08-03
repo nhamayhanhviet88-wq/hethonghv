@@ -7,7 +7,7 @@ const PERM_FEATURES = [
     { key: 'dashboard_kdoanh', label: 'Dashboard P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'kpi_kdoanh', label: 'KPI P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'kpi_sale', label: 'KPI P.Sale', perms: ['view'], section: 'TỔNG QUAN' },
-    { key: 'kpi_marketing', label: 'KPI Marketing', perms: ['view','edit'], section: 'TỔNG QUAN' },
+    { key: 'kpi_marketing', label: 'KPI Marketing Ads', perms: ['view','edit'], section: 'TỔNG QUAN' },
     { key: 'ngan_sach_mkt', label: 'Ngân Sách Marketing', perms: ['view','create','edit','delete'], section: 'TỔNG QUAN' },
     { key: 'tim_kiem_kh', label: 'Tìm Kiếm Khách Hàng', perms: ['view'], section: 'TỔNG QUAN' },
 
