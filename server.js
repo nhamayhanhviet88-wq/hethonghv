@@ -252,6 +252,8 @@ async function start() {
             created_at TIMESTAMP DEFAULT NOW()
         )`);
     } catch(e) { /* exists */ }
+    try { await db.exec(`ALTER TABLE meeting_sessions ADD COLUMN IF NOT EXISTS start_date DATE`); } catch(e) {}
+    try { await db.exec(`ALTER TABLE meeting_sessions ADD COLUMN IF NOT EXISTS end_date DATE`); } catch(e) {}
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS meeting_commitments (
             id SERIAL PRIMARY KEY,
@@ -279,6 +281,14 @@ async function start() {
             has_revenue_target BOOLEAN DEFAULT false,
             created_by INTEGER REFERENCES users(id),
             updated_at TIMESTAMP DEFAULT NOW()
+        )`);
+    } catch(e) { /* exists */ }
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS meeting_session_departments (
+            session_id INTEGER NOT NULL REFERENCES meeting_sessions(id) ON DELETE CASCADE,
+            department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (session_id, department_id)
         )`);
     } catch(e) { /* exists */ }
 
@@ -1886,7 +1896,7 @@ async function start() {
                 try {
                     mtime = fs.statSync(path.join(pagesDir, f)).mtimeMs;
                 } catch(e) {}
-                return `    <script defer src="/js/pages/${f}?v=${mtime}"></script>`;
+                return `    <script defer src="/js/pages/${f}?v=${Date.now()}"></script>`;
             })
             .join('\n');
 

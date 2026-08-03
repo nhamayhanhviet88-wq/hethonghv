@@ -2046,43 +2046,116 @@ function mcSaleRenderYearlySummary() {
     return h;
 }
 
+async function _mcSaleUpdateAutoTitle(dateStr) {
+    const titleEl = document.getElementById('mcSaleSessionTitle');
+    if (!titleEl) return;
+    let d = new Date();
+    if (dateStr) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+    const month = d.getMonth() + 1;
+    const year = d.getFullYear();
+    
+    let count = 0;
+    try {
+        const res = await apiCall(`/api/meeting-commitments/sessions?month=${month}&year=${year}&source=kpisale`);
+        count = (res && res.sessions) ? res.sessions.length : 0;
+    } catch(e) {}
+    
+    const sessionNo = count + 1;
+    titleEl.value = `Cuộc Họp Số ${sessionNo} - Phòng Sale - Tháng ${month}/${year}`;
+}
+
 window.mcSaleCreateSession = async function() {
     if (!_mcSaleHasPerm('create_session')) {
-        showToast('Bạn không có quyền tạo cuộc họp P.Sale', 'error');
+        showToast('Bạn không có quyền thao tác cuộc họp P.Sale', 'error');
         return;
     }
     const today = new Date().toISOString().split('T')[0];
     const [selYear, selMonth] = _kpiSale.month.split('-').map(Number);
-    const autoTitle = 'PHÒNG SALE - THÁNG ' + selMonth + '/' + selYear;
-    
+
+    let sessions = [];
+    try {
+        const res = await apiCall(`/api/meeting-commitments/sessions?month=${selMonth}&year=${selYear}`);
+        const rawSessions = (res && res.sessions) ? res.sessions : [];
+        sessions = rawSessions.filter(s => {
+            const sDate = s.start_date ? s.start_date.split('T')[0] : (s.meeting_date ? s.meeting_date.split('T')[0] : '');
+            let eDate = s.end_date ? s.end_date.split('T')[0] : '';
+            if (!eDate && sDate) {
+                const d = new Date(sDate);
+                d.setDate(d.getDate() + 7);
+                eDate = d.toISOString().split('T')[0];
+            }
+            return (!sDate || today >= sDate) && (!eDate || today <= eDate);
+        });
+    } catch(e) {}
+
     const overlay = document.createElement('div');
     overlay.className = 'kpi-mc-modal-overlay';
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    let bodyHtml = '';
+
+    if (sessions.length === 0) {
+        bodyHtml = `
+            <div style="padding:20px;text-align:center;color:#6b7280">
+                <div style="font-size:36px;margin-bottom:8px">🔒</div>
+                <div style="font-size:14px;font-weight:700;color:#1e293b">Không có cuộc họp nào đang mở trong Tháng ${selMonth}/${selYear}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:6px">Các cuộc họp đã quá thời gian đóng (hoặc chưa được tạo). Vui lòng tạo/gia hạn tại mục <b>Cam Kết Cuộc Họp</b>.</div>
+            </div>
+        `;
+    } else {
+        bodyHtml += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Chọn Cuộc Họp Trong Tháng (Đang Mở)</label>';
+        bodyHtml += '<select class="kpi-mc-input" id="mcSaleSessionSelect" onchange="_mcSaleOnSelectSession(this)" style="font-weight:700">';
+        for (let i = 0; i < sessions.length; i++) {
+            const s = sessions[i];
+            bodyHtml += `<option value="${s.id}" data-title="${s.title}" data-date="${s.meeting_date ? s.meeting_date.split('T')[0] : today}">${s.title}</option>`;
+        }
+        bodyHtml += '</select></div>';
+
+        const initialTitle = sessions[0].title;
+        const initialDate = sessions[0].meeting_date ? sessions[0].meeting_date.split('T')[0] : today;
+
+        bodyHtml += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Tiêu đề cuộc họp (Khóa cố định)</label>';
+        bodyHtml += `<input class="kpi-mc-input" id="mcSaleSessionTitle" value="${initialTitle}" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700;color:#1e293b"></div>`;
+
+        bodyHtml += '<div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Ngày họp</label>';
+        bodyHtml += `<input class="kpi-mc-input" type="date" id="mcSaleSessionDate" value="${initialDate}" readonly style="background:#f1f5f9;cursor:not-allowed"></div>`;
+    }
+
     overlay.innerHTML = '<div class="kpi-mc-modal">'
-        + '<div class="kpi-mc-modal-head"><h3>➕ Tạo Cuộc Họp P.Sale</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
-        + '<div class="kpi-mc-modal-body">'
-        + '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Tiêu đề cuộc họp</label>'
-        + '<input class="kpi-mc-input" id="mcSaleSessionTitle" value="' + autoTitle + '"></div>'
-        + '<div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Ngày họp</label>'
-        + '<input class="kpi-mc-input" type="date" id="mcSaleSessionDate" value="' + today + '"></div>'
-        + '</div>'
+        + '<div class="kpi-mc-modal-head"><h3>📋 Chọn Cuộc Họp P.Sale</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-body">' + bodyHtml + '</div>'
         + '<div class="kpi-mc-modal-foot">'
         + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
-        + '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaleSaveSession()">Tạo Cuộc Họp</button>'
+        + (sessions.length > 0 ? '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaleSaveSession()">Xác Nhận</button>' : '')
         + '</div></div>';
+
     document.body.appendChild(overlay);
 };
 
+window._mcSaleOnSelectSession = function(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    const title = opt ? opt.getAttribute('data-title') : '';
+    const date = opt ? opt.getAttribute('data-date') : '';
+    const titleEl = document.getElementById('mcSaleSessionTitle');
+    const dateEl = document.getElementById('mcSaleSessionDate');
+    if (titleEl && title) titleEl.value = title;
+    if (dateEl && date) dateEl.value = date;
+};
+
 window.mcSaleSaveSession = async function() {
-    const title = document.getElementById('mcSaleSessionTitle').value.trim();
-    const date = document.getElementById('mcSaleSessionDate').value;
-    if (!title) return alert('Vui lòng nhập tiêu đề');
-    if (!date) return alert('Vui lòng chọn ngày');
+    const selEl = document.getElementById('mcSaleSessionSelect');
+    if (!selEl) return;
+    const sessionId = selEl.value;
     try {
-        await apiCall('/api/meeting-commitments/sessions', 'POST', { title: title, meeting_date: date, source: 'kpisale' });
-        document.querySelector('.kpi-mc-modal-overlay').remove();
-        loadKpiSaleData();
-    } catch(e) { alert('Lỗi: ' + (e.message || '')); }
+        await apiCall('/api/meeting-commitments/sessions/' + sessionId + '/departments', 'POST', { department_id: 4 });
+    } catch(e) {}
+    showToast('✅ Đã chọn cuộc họp thành công!', 'success');
+    var overlay = document.querySelector('.kpi-mc-modal-overlay');
+    if (overlay) overlay.remove();
+    loadKpiSaleData();
 };
 
 // Session toggle/switch/edit/review functions for P.Sale
@@ -2409,7 +2482,10 @@ window.mcSaleReviewUser = async function(userId, userName, readOnly) {
             h += '</div>';
         }
 
-        h += '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:4px"' + (readOnly ? ' disabled' : '') + '>';
+        h += '<div style="margin-top:10px;padding:8px 12px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:8px;border-left:3px solid #059669">';
+        h += '<div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Trao Đổi Kết Quả</div>';
+        h += '<input class="kpi-mc-input rv-note" placeholder="Nhập nội dung trao đổi kết quả..." value="' + (c.review_note || '') + '" style="background:#fff;border-color:#a7f3d0;font-size:12px;font-weight:600;color:#064e3b"' + (readOnly ? ' disabled' : '') + '>';
+        h += '</div>';
         h += '</div>';
     }
 
@@ -2740,7 +2816,10 @@ window.mcSaleReviewTeam = async function(deptId, teamName, readOnly) {
             h += '</div>';
         }
 
-        h += '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:4px"' + (readOnly ? ' disabled' : '') + '>';
+        h += '<div style="margin-top:10px;padding:8px 12px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:8px;border-left:3px solid #059669">';
+        h += '<div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Trao Đổi Kết Quả</div>';
+        h += '<input class="kpi-mc-input rv-note" placeholder="Nhập nội dung trao đổi kết quả..." value="' + (c.review_note || '') + '" style="background:#fff;border-color:#a7f3d0;font-size:12px;font-weight:600;color:#064e3b"' + (readOnly ? ' disabled' : '') + '>';
+        h += '</div>';
         h += '</div>';
     }
 

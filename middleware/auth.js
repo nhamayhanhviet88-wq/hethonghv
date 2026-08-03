@@ -9,7 +9,10 @@ const ACCESS_BLOCK_WHITELIST = [
 ];
 
 async function authenticate(request, reply) {
-    const token = request.cookies?.token;
+    let token = request.cookies?.token;
+    if (!token && request.headers.authorization && request.headers.authorization.startsWith('Bearer ')) {
+        token = request.headers.authorization.substring(7);
+    }
     if (!token) {
         reply.code(401).send({ error: 'Chưa đăng nhập' });
         return;
@@ -38,7 +41,7 @@ async function authenticate(request, reply) {
         if (user.access_blocked) {
             if (decoded.role === 'giam_doc') return;
             const url = request.url.split('?')[0];
-            if (ACCESS_BLOCK_WHITELIST.includes(url)) return;
+            if (ACCESS_BLOCK_WHITELIST.includes(url) || url.startsWith('/api/meeting-commitments') || url.startsWith('/api/permissions')) return;
             reply.code(423).send({
                 error: 'access_blocked',
                 message: 'Tài khoản bị tạm chặn truy cập do chưa hoàn thành công việc.'

@@ -16,6 +16,16 @@ async function meetingCommitmentsRoutes(fastify, options) {
         await db.run(`UPDATE meeting_sessions SET source = 'kpisale' WHERE source IS NULL AND UPPER(title) LIKE '%SALE%'`);
     } catch(e) { /* column may already exist */ }
 
+    // Auto-migrate: meeting_session_departments table
+    try {
+        await db.run(`CREATE TABLE IF NOT EXISTS meeting_session_departments (
+            session_id INTEGER NOT NULL REFERENCES meeting_sessions(id) ON DELETE CASCADE,
+            department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (session_id, department_id)
+        )`);
+    } catch(e) { console.error('Migration error meeting_session_departments:', e); }
+
     // Auto-migrate: meeting_permissions table
     try {
         await db.run(`CREATE TABLE IF NOT EXISTS meeting_permissions (
@@ -59,6 +69,15 @@ async function meetingCommitmentsRoutes(fastify, options) {
     }
 
     // ===== GET commitment templates for a page (MUST be before parametric routes) =====
+    fastify.get('/api/meeting-commitments', { preHandler: [authenticate] }, async (request, reply) => {
+        const page = request.query.page || request.query.page_key || 'kpimarketing';
+        const templates = await db.all(
+            'SELECT * FROM meeting_commitment_templates WHERE page_key = ? ORDER BY stt',
+            [page]
+        );
+        return { success: true, templates: templates || [] };
+    });
+
     fastify.get('/api/meeting-commitments/templates', { preHandler: [authenticate] }, async (request, reply) => {
         const page = request.query.page || request.query.page_key;
         if (!page) return reply.code(400).send({ error: 'Thiếu page key' });
@@ -72,8 +91,8 @@ async function meetingCommitmentsRoutes(fastify, options) {
 
     // ===== SAVE commitment templates for a page (GĐ only) =====
     fastify.put('/api/meeting-commitments/templates', { preHandler: [authenticate] }, async (request, reply) => {
-        if (request.user.role !== 'giam_doc') {
-            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được setup câu hỏi' });
+        if (!['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(request.user.role)) {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý mới được setup câu hỏi' });
         }
 
         const { page_key, items } = request.body || {};
@@ -99,11 +118,16 @@ async function meetingCommitmentsRoutes(fastify, options) {
 
     // ===== GET sessions list (with filters) =====
     fastify.get('/api/meeting-commitments/sessions', { preHandler: [authenticate] }, async (request, reply) => {
-        const { month, year, user_id } = request.query;
+        const { month, year, user_id, source } = request.query;
         const isDirector = request.user.role === 'giam_doc';
 
         let where = 'WHERE 1=1';
         const params = [];
+
+        if (source) {
+            where += ` AND (ms.source = ? OR ms.source = 'camketcuochop' OR ms.source IS NULL)`;
+            params.push(source);
+        }
 
         if (month && year) {
             where += ` AND EXTRACT(MONTH FROM ms.meeting_date) = ? AND EXTRACT(YEAR FROM ms.meeting_date) = ?`;
@@ -140,53 +164,182 @@ async function meetingCommitmentsRoutes(fastify, options) {
         const session = await db.get('SELECT ms.*, u.full_name AS created_by_name FROM meeting_sessions ms LEFT JOIN users u ON ms.created_by = u.id WHERE ms.id = ?', [sessionId]);
         if (!session) return reply.code(404).send({ error: 'Không tìm thấy cuộc họp' });
 
-        let commitFilter = '';
         const params = [sessionId];
-        if (!isDirector && request.user.role !== 'quan_ly_cap_cao' && request.user.role !== 'quan_ly') {
-            commitFilter = ' AND mc.user_id = ?';
-            params.push(request.user.id);
-        }
 
         const commitments = await db.all(`
             SELECT mc.*, u.full_name AS user_name, u.role AS user_role,
-                   d.name AS dept_name, d.id AS dept_id,
+                   CASE WHEN dp.parent_id IS NULL OR dp.parent_id = 0 THEN dt.id ELSE dp.id END AS dept_id,
+                   CASE WHEN dp.parent_id IS NULL OR dp.parent_id = 0 THEN dt.name ELSE dp.name END AS dept_name,
+                   dt.id AS team_id,
+                   dt.name AS team_name,
                    rv.full_name AS reviewed_by_name
             FROM meeting_commitments mc
             JOIN users u ON mc.user_id = u.id AND u.status = 'active'
-            LEFT JOIN departments d ON u.department_id = d.id
+            LEFT JOIN departments dt ON COALESCE(mc.department_id, u.department_id) = dt.id
+            LEFT JOIN departments dp ON dt.parent_id = dp.id
             LEFT JOIN users rv ON mc.reviewed_by = rv.id
-            WHERE mc.session_id = ? ${commitFilter}
-            ORDER BY d.name, u.full_name, mc.stt
+            WHERE mc.session_id = ?
+            ORDER BY COALESCE(dp.name, dt.name), dt.name, u.full_name, mc.stt
         `, params);
 
-        return { session, commitments };
+        const registeredDepts = await db.all(`
+            SELECT msd.department_id AS id, d.name, d.parent_id
+            FROM meeting_session_departments msd
+            JOIN departments d ON msd.department_id = d.id
+            WHERE msd.session_id = ?
+        `, [sessionId]);
+
+        return { session, commitments, registeredDepts };
     });
 
-    // ===== CREATE session (GĐ only) =====
+    // ===== CREATE session (GĐ & QL Cấp Cao) =====
     fastify.post('/api/meeting-commitments/sessions', { preHandler: [authenticate] }, async (request, reply) => {
-        if (request.user.role !== 'giam_doc') {
-            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được tạo cuộc họp' });
+        if (request.user.role !== 'giam_doc' && request.user.role !== 'quan_ly_cap_cao') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao mới được tạo cuộc họp' });
         }
 
-        const { title, meeting_date, source } = request.body || {};
+        const { title, meeting_date, source, start_date, end_date } = request.body || {};
         if (!title || !meeting_date) return reply.code(400).send({ error: 'Thiếu tiêu đề hoặc ngày họp' });
 
+        const todayStr = new Date().toISOString().split('T')[0];
+        const activeSession = await db.get(
+            `SELECT * FROM meeting_sessions WHERE COALESCE(end_date, meeting_date) >= ? ORDER BY id DESC LIMIT 1`,
+            [todayStr]
+        );
+        if (activeSession) {
+            return reply.code(400).send({
+                error: `Cuộc họp "${activeSession.title}" chưa được đóng. Vui lòng đóng cuộc họp hiện tại trước khi tạo cuộc họp mới!`
+            });
+        }
+
+        const sDate = start_date || meeting_date;
+        let eDate = end_date;
+        if (!eDate) {
+            const d = new Date(sDate);
+            d.setDate(d.getDate() + 7);
+            eDate = d.toISOString().split('T')[0];
+        }
+
         const result = await db.get(
-            'INSERT INTO meeting_sessions (title, meeting_date, created_by, source) VALUES (?, ?, ?, ?) RETURNING id',
-            [title, meeting_date, request.user.id, source || null]
+            'INSERT INTO meeting_sessions (title, meeting_date, created_by, source, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
+            [title, meeting_date, request.user.id, source || null, sDate, eDate]
         );
 
         return { success: true, id: result ? result.id : null };
     });
 
-    // ===== UPDATE session (GĐ only) =====
-    fastify.put('/api/meeting-commitments/sessions/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        if (request.user.role !== 'giam_doc') {
-            return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+    // ===== REGISTER / SYNC department participation =====
+    fastify.post('/api/meeting-commitments/sessions/:id/departments', { preHandler: [authenticate] }, async (request, reply) => {
+        const sessionId = parseInt(request.params.id);
+        const departmentId = parseInt(request.body.department_id || request.body.dept_id);
+        if (!sessionId || !departmentId) return reply.code(400).send({ error: 'Thiếu thông tin' });
+        try {
+            await db.run(
+                'INSERT INTO meeting_session_departments (session_id, department_id) VALUES (?, ?) ON CONFLICT (session_id, department_id) DO NOTHING',
+                [sessionId, departmentId]
+            );
+            return { success: true };
+        } catch(e) {
+            return reply.code(500).send({ error: e.message });
         }
-        const { title, meeting_date } = request.body || {};
-        await db.run('UPDATE meeting_sessions SET title = COALESCE(?, title), meeting_date = COALESCE(?, meeting_date) WHERE id = ?',
-            [title, meeting_date, request.params.id]);
+    });
+
+    fastify.put('/api/meeting-commitments/sessions/:id/departments', { preHandler: [authenticate] }, async (request, reply) => {
+        const sessionId = parseInt(request.params.id);
+        const { department_ids } = request.body || {};
+        if (!sessionId || !Array.isArray(department_ids)) {
+            return reply.code(400).send({ error: 'Thiếu danh sách bộ phận' });
+        }
+        try {
+            await db.run('DELETE FROM meeting_session_departments WHERE session_id = ?', [sessionId]);
+            for (const deptId of department_ids) {
+                const did = parseInt(deptId);
+                if (did) {
+                    await db.run(
+                        'INSERT INTO meeting_session_departments (session_id, department_id) VALUES (?, ?) ON CONFLICT DO NOTHING',
+                        [sessionId, did]
+                    );
+                }
+            }
+            return { success: true, count: department_ids.length };
+        } catch(e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ===== CLOSE session endpoint =====
+    fastify.put('/api/meeting-commitments/sessions/:id/close', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc' && request.user.role !== 'quan_ly_cap_cao') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao mới được đóng cuộc họp' });
+        }
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        await db.run('UPDATE meeting_sessions SET end_date = ? WHERE id = ?', [yesterday, request.params.id]);
+        return { success: true };
+    });
+
+    // ===== REOPEN session endpoint =====
+    fastify.put('/api/meeting-commitments/sessions/:id/reopen', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc' && request.user.role !== 'quan_ly_cap_cao') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao mới được mở lại cuộc họp' });
+        }
+        const todayStr = new Date().toISOString().split('T')[0];
+        const activeSession = await db.get(
+            `SELECT * FROM meeting_sessions WHERE COALESCE(end_date, meeting_date) >= ? AND id != ? ORDER BY id DESC LIMIT 1`,
+            [todayStr, request.params.id]
+        );
+        if (activeSession) {
+            return reply.code(400).send({
+                error: `Cuộc họp "${activeSession.title}" đang mở. Vui lòng đóng cuộc họp đó trước khi mở lại cuộc họp này!`
+            });
+        }
+        const newEnd = new Date();
+        newEnd.setDate(newEnd.getDate() + 7);
+        const newEndStr = newEnd.toISOString().split('T')[0];
+        await db.run('UPDATE meeting_sessions SET start_date = ?, end_date = ? WHERE id = ?', [todayStr, newEndStr, request.params.id]);
+        return { success: true, new_end_date: newEndStr };
+    });
+
+    // ===== UPDATE session (GĐ & QL Cấp Cao) =====
+    fastify.put('/api/meeting-commitments/sessions/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc' && request.user.role !== 'quan_ly_cap_cao') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao' });
+        }
+        const { title, meeting_date, start_date, end_date, is_close, is_reopen } = request.body || {};
+        const todayStr = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        
+        let targetEndDate = end_date;
+        let targetStartDate = start_date;
+
+        if (is_close) {
+            targetEndDate = yesterday;
+        } else if (is_reopen) {
+            const activeSession = await db.get(
+                `SELECT * FROM meeting_sessions WHERE COALESCE(end_date, meeting_date) >= ? AND id != ? ORDER BY id DESC LIMIT 1`,
+                [todayStr, request.params.id]
+            );
+            if (activeSession) {
+                return reply.code(400).send({
+                    error: `Cuộc họp "${activeSession.title}" đang mở. Vui lòng đóng cuộc họp đó trước khi mở lại cuộc họp này!`
+                });
+            }
+            targetStartDate = todayStr;
+            const newEnd = new Date();
+            newEnd.setDate(newEnd.getDate() + 7);
+            targetEndDate = newEnd.toISOString().split('T')[0];
+        }
+
+        const fields = [];
+        const params = [];
+        if (title) { fields.push('title = ?'); params.push(title); }
+        if (meeting_date) { fields.push('meeting_date = ?'); params.push(meeting_date); }
+        if (targetStartDate) { fields.push('start_date = ?'); params.push(targetStartDate); }
+        if (targetEndDate) { fields.push('end_date = ?'); params.push(targetEndDate); }
+
+        if (fields.length > 0) {
+            params.push(request.params.id);
+            await db.run(`UPDATE meeting_sessions SET ${fields.join(', ')} WHERE id = ?`, params);
+        }
         return { success: true };
     });
 
@@ -385,7 +538,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
              WHERE EXTRACT(MONTH FROM meeting_date) = ? AND EXTRACT(YEAR FROM meeting_date) = ?`;
         const sessParams = [month, year];
         if (source) {
-            sessQuery += ` AND source = ?`;
+            sessQuery += ` AND (source = ? OR source = 'camketcuochop' OR source IS NULL)`;
             sessParams.push(source);
         }
         sessQuery += ` ORDER BY meeting_date ASC, created_at ASC`;
@@ -430,6 +583,9 @@ async function meetingCommitmentsRoutes(fastify, options) {
 
     // ===== GET current user's latest commitments (for topbar button) =====
     fastify.get('/api/meeting-commitments/my-latest', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role === 'giam_doc') {
+            return { session: null, commitments: [], sessionTitle: null };
+        }
         const userId = request.user.id;
         const now = new Date();
         const month = now.getMonth() + 1;
@@ -444,12 +600,12 @@ async function meetingCommitmentsRoutes(fastify, options) {
         );
         if (!session) return { session: null, commitments: [], sessionTitle: null };
 
-        // Get this user's commitments from that session
+        // Get this user's individual commitments only from that session
         const commitments = await db.all(`
             SELECT mc.*, d.name AS dept_name
             FROM meeting_commitments mc
             LEFT JOIN departments d ON mc.department_id = d.id
-            WHERE mc.session_id = ? AND mc.user_id = ?
+            WHERE mc.session_id = ? AND mc.user_id = ? AND mc.department_id IS NULL
             ORDER BY mc.stt
         `, [session.id, userId]);
 
@@ -457,6 +613,265 @@ async function meetingCommitmentsRoutes(fastify, options) {
             session: { id: session.id, title: session.title, meeting_date: session.meeting_date },
             commitments,
             sessionTitle: session.title
+        };
+    });
+
+    // ===== OVERVIEW (for redesigned camketcuochop page) =====
+    fastify.get('/api/meeting-commitments/overview', { preHandler: [authenticate] }, async (request, reply) => {
+        const now = new Date();
+        const month = parseInt(request.query.month) || (now.getMonth() + 1);
+        const year = parseInt(request.query.year) || now.getFullYear();
+        const deptId = request.query.dept_id ? parseInt(request.query.dept_id) : null;
+
+        // 1. Get all sessions for month/year
+        const sessions = await db.all(`
+            SELECT ms.*, u.full_name AS created_by_name,
+                (SELECT COUNT(*) FROM meeting_commitments mc WHERE mc.session_id = ms.id) AS total_items,
+                (SELECT COUNT(*) FROM meeting_commitments mc WHERE mc.session_id = ms.id AND mc.is_completed = true) AS completed_items
+            FROM meeting_sessions ms
+            LEFT JOIN users u ON ms.created_by = u.id
+            WHERE EXTRACT(MONTH FROM ms.meeting_date) = ? AND EXTRACT(YEAR FROM ms.meeting_date) = ?
+            ORDER BY ms.meeting_date ASC, ms.created_at ASC
+        `, [month, year]);
+
+        if (sessions.length === 0) {
+            // Still get yearly timeline (Filtered by deptId if provided)
+            let rawYearlyTimeline = [];
+            if (deptId) {
+                const allDeptsForTL = await db.all('SELECT id, parent_id FROM departments');
+                const childIdsForTL = [deptId];
+                function collectChildrenTL(pid) {
+                    allDeptsForTL.forEach(d => { if (d.parent_id === pid) { childIdsForTL.push(d.id); collectChildrenTL(d.id); } });
+                }
+                collectChildrenTL(deptId);
+                const deptPhTL = childIdsForTL.map(() => '?').join(',');
+                rawYearlyTimeline = await db.all(`
+                    SELECT EXTRACT(MONTH FROM ms.meeting_date)::int AS month,
+                           COUNT(DISTINCT ms.id) AS session_count
+                    FROM meeting_sessions ms
+                    WHERE EXTRACT(YEAR FROM ms.meeting_date) = ?
+                      AND (
+                        ms.id IN (SELECT session_id FROM meeting_session_departments WHERE department_id IN (${deptPhTL}))
+                        OR ms.id IN (
+                          SELECT mc.session_id FROM meeting_commitments mc 
+                          JOIN users u ON mc.user_id = u.id 
+                          WHERE mc.department_id IN (${deptPhTL}) OR u.department_id IN (${deptPhTL})
+                        )
+                      )
+                    GROUP BY EXTRACT(MONTH FROM ms.meeting_date)
+                    ORDER BY month
+                `, [year, ...childIdsForTL, ...childIdsForTL, ...childIdsForTL]);
+            } else {
+                rawYearlyTimeline = await db.all(`
+                    SELECT EXTRACT(MONTH FROM meeting_date)::int AS month,
+                           COUNT(DISTINCT id) AS session_count
+                    FROM meeting_sessions
+                    WHERE EXTRACT(YEAR FROM meeting_date) = ?
+                    GROUP BY EXTRACT(MONTH FROM meeting_date)
+                    ORDER BY month
+                `, [year]);
+            }
+            const timeline = [];
+            for (let m = 1; m <= 12; m++) {
+                const found = rawYearlyTimeline.find(t => t.month === m);
+                timeline.push({ month: m, sessionCount: found ? found.session_count : 0, avgPct: 0 });
+            }
+            return { sessions: [], stats: { totalSessions: 0, totalDepts: 0, totalUsers: 0, avgCompletion: 0 }, deptSummary: [], yearlyTimeline: timeline };
+        }
+
+        // 2. Get registered departments for these sessions
+        const sessionIds = sessions.map(s => s.id);
+        const ph = sessionIds.map(() => '?').join(',');
+        const sessionDepts = await db.all(`
+            SELECT msd.session_id, msd.department_id AS dept_id, d.name AS dept_name
+            FROM meeting_session_departments msd
+            JOIN departments d ON msd.department_id = d.id
+            WHERE msd.session_id IN (${ph})
+        `, sessionIds);
+
+        // 3. Get all commitments for these sessions
+        const allCommitments = await db.all(`
+            SELECT mc.*, u.full_name AS user_name, u.role AS user_role,
+                   CASE WHEN dp.parent_id IS NULL OR dp.parent_id = 0 THEN dt.id ELSE dp.id END AS dept_id,
+                   CASE WHEN dp.parent_id IS NULL OR dp.parent_id = 0 THEN dt.name ELSE dp.name END AS dept_name,
+                   dt.name AS team_name,
+                   mc.department_id AS team_dept_id
+            FROM meeting_commitments mc
+            JOIN users u ON mc.user_id = u.id AND u.status = 'active'
+            LEFT JOIN departments dt ON COALESCE(mc.department_id, u.department_id) = dt.id
+            LEFT JOIN departments dp ON dt.parent_id = dp.id
+            WHERE mc.session_id IN (${ph})
+            ORDER BY COALESCE(dp.name, dt.name), dt.name, u.full_name, mc.stt
+        `, sessionIds);
+
+        // 4. Build dept summary
+        const deptMap = {};
+        const userSet = new Set();
+
+        // Add registered departments to deptMap
+        sessionDepts.forEach(sd => {
+            if (!deptMap[sd.dept_id]) {
+                deptMap[sd.dept_id] = { dept_id: sd.dept_id, dept_name: sd.dept_name, sessions: new Set(), commitCount: 0, doneCount: 0, pctSum: 0, users: new Set() };
+            }
+            deptMap[sd.dept_id].sessions.add(sd.session_id);
+        });
+
+        // Add commitment departments to deptMap
+        allCommitments.forEach(c => {
+            const did = c.dept_id || 0;
+            const dname = c.dept_name || 'Khác';
+            if (!deptMap[did]) deptMap[did] = { dept_id: did, dept_name: dname, sessions: new Set(), commitCount: 0, doneCount: 0, pctSum: 0, users: new Set() };
+            deptMap[did].sessions.add(c.session_id);
+            deptMap[did].commitCount++;
+            if (c.is_completed) deptMap[did].doneCount++;
+            deptMap[did].pctSum += (c.completion_pct || 0);
+            deptMap[did].users.add(c.user_id);
+            userSet.add(c.user_id);
+        });
+
+        const deptSummary = Object.values(deptMap).map(d => ({
+            dept_id: d.dept_id,
+            dept_name: d.dept_name,
+            sessionCount: d.sessions.size,
+            commitCount: d.commitCount,
+            doneCount: d.doneCount,
+            avgPct: d.commitCount > 0 ? Math.round((d.pctSum / d.commitCount) * 10) / 10 : 0,
+            userCount: d.users.size
+        })).sort((a, b) => b.avgPct - a.avgPct);
+
+        // 5. Enrich sessions with dept tags
+        const enrichedSessions = sessions.map(s => {
+            const sCommits = allCommitments.filter(c => c.session_id === s.id);
+            const deptSet = {};
+            const sUsers = new Set();
+
+            // Registered session departments
+            sessionDepts.filter(sd => sd.session_id === s.id).forEach(sd => {
+                deptSet[sd.dept_id] = sd.dept_name;
+            });
+
+            // Commitment departments
+            sCommits.forEach(c => {
+                const did = c.dept_id || 0;
+                if (!deptSet[did]) deptSet[did] = c.dept_name || 'Khác';
+                sUsers.add(c.user_id);
+            });
+
+            const pct = s.total_items > 0 ? Math.round(100 * s.completed_items / s.total_items) : 0;
+            const masterDeptOrder = [10, 4, 1, 6, 5, 16, 17, 19, 11, 8, 12, 13, 14, 15, 18];
+            const sortedDepts = Object.entries(deptSet).map(([id, name]) => ({ id: Number(id), name })).sort((a, b) => {
+                let ia = masterDeptOrder.indexOf(a.id);
+                let ib = masterDeptOrder.indexOf(b.id);
+                if (ia === -1) ia = 999;
+                if (ib === -1) ib = 999;
+                return ia - ib;
+            });
+            return {
+                ...s,
+                pct,
+                depts: sortedDepts,
+                userCount: sUsers.size
+            };
+        });
+
+        // 5. Filter by dept if requested (after enrichment)
+        let filteredSessions = enrichedSessions;
+        if (deptId) {
+            // Get all child dept IDs
+            const allDepts = await db.all('SELECT id, parent_id FROM departments');
+            const childIds = [deptId];
+            function collectChildren(pid) {
+                allDepts.forEach(d => { if (d.parent_id === pid) { childIds.push(d.id); collectChildren(d.id); } });
+            }
+            collectChildren(deptId);
+            filteredSessions = enrichedSessions.filter(s => s.depts.some(d => childIds.includes(d.id)));
+        }
+
+        // 6. Stats
+        const totalPct = allCommitments.length > 0 ? Math.round((allCommitments.reduce((s, c) => s + (c.completion_pct || 0), 0) / allCommitments.length) * 10) / 10 : 0;
+        const stats = {
+            totalSessions: filteredSessions.length,
+            totalDepts: Object.keys(deptMap).length,
+            totalUsers: userSet.size,
+            avgCompletion: totalPct
+        };
+
+        // 7. Yearly timeline (Filtered by deptId if provided)
+        let rawYearlyTimeline = [];
+        let rawMonthlyPct = [];
+
+        if (deptId) {
+            const allDeptsForTL = await db.all('SELECT id, parent_id FROM departments');
+            const childIdsForTL = [deptId];
+            function collectChildrenTL(pid) {
+                allDeptsForTL.forEach(d => { if (d.parent_id === pid) { childIdsForTL.push(d.id); collectChildrenTL(d.id); } });
+            }
+            collectChildrenTL(deptId);
+            const deptPhTL = childIdsForTL.map(() => '?').join(',');
+
+            rawYearlyTimeline = await db.all(`
+                SELECT EXTRACT(MONTH FROM ms.meeting_date)::int AS month,
+                       COUNT(DISTINCT ms.id) AS session_count
+                FROM meeting_sessions ms
+                WHERE EXTRACT(YEAR FROM ms.meeting_date) = ?
+                  AND (
+                    ms.id IN (SELECT session_id FROM meeting_session_departments WHERE department_id IN (${deptPhTL}))
+                    OR ms.id IN (
+                      SELECT mc.session_id FROM meeting_commitments mc 
+                      JOIN users u ON mc.user_id = u.id 
+                      WHERE mc.department_id IN (${deptPhTL}) OR u.department_id IN (${deptPhTL})
+                    )
+                  )
+                GROUP BY EXTRACT(MONTH FROM ms.meeting_date)
+                ORDER BY month
+            `, [year, ...childIdsForTL, ...childIdsForTL, ...childIdsForTL]);
+
+            rawMonthlyPct = await db.all(`
+                SELECT EXTRACT(MONTH FROM ms.meeting_date)::int AS month,
+                       ROUND(AVG(mc.completion_pct)::numeric, 1) AS avg_pct
+                FROM meeting_commitments mc
+                JOIN meeting_sessions ms ON mc.session_id = ms.id
+                JOIN users u ON mc.user_id = u.id
+                WHERE EXTRACT(YEAR FROM ms.meeting_date) = ?
+                  AND (mc.department_id IN (${deptPhTL}) OR u.department_id IN (${deptPhTL}))
+                GROUP BY EXTRACT(MONTH FROM ms.meeting_date)
+            `, [year, ...childIdsForTL, ...childIdsForTL]);
+        } else {
+            rawYearlyTimeline = await db.all(`
+                SELECT EXTRACT(MONTH FROM ms.meeting_date)::int AS month,
+                       COUNT(DISTINCT ms.id) AS session_count
+                FROM meeting_sessions ms
+                WHERE EXTRACT(YEAR FROM ms.meeting_date) = ?
+                GROUP BY EXTRACT(MONTH FROM ms.meeting_date)
+                ORDER BY month
+            `, [year]);
+
+            rawMonthlyPct = await db.all(`
+                SELECT EXTRACT(MONTH FROM ms.meeting_date)::int AS month,
+                       ROUND(AVG(mc.completion_pct)::numeric, 1) AS avg_pct
+                FROM meeting_commitments mc
+                JOIN meeting_sessions ms ON mc.session_id = ms.id
+                WHERE EXTRACT(YEAR FROM ms.meeting_date) = ?
+                GROUP BY EXTRACT(MONTH FROM ms.meeting_date)
+            `, [year]);
+        }
+
+        const timeline = [];
+        for (let m = 1; m <= 12; m++) {
+            const found = rawYearlyTimeline.find(t => t.month === m);
+            const pctFound = rawMonthlyPct.find(t => t.month === m);
+            timeline.push({
+                month: m,
+                sessionCount: found ? found.session_count : 0,
+                avgPct: pctFound ? parseFloat(pctFound.avg_pct) : 0
+            });
+        }
+
+        return {
+            sessions: filteredSessions,
+            stats,
+            deptSummary,
+            yearlyTimeline: timeline
         };
     });
 
@@ -470,7 +885,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
              WHERE EXTRACT(YEAR FROM meeting_date) = ?`;
         const sessParams = [year];
         if (source) {
-            sessQuery += ` AND source = ?`;
+            sessQuery += ` AND (source = ? OR source = 'camketcuochop' OR source IS NULL)`;
             sessParams.push(source);
         }
         sessQuery += ` ORDER BY meeting_date ASC`;
@@ -519,6 +934,43 @@ async function meetingCommitmentsRoutes(fastify, options) {
             );
         }
         return { success: true };
+    });
+
+    // ===== GLOBAL SEARCH (search across ALL months & ALL years) =====
+    fastify.get('/api/meeting-commitments/search', { preHandler: [authenticate] }, async (request, reply) => {
+        const q = (request.query.q || '').trim();
+        const userId = request.query.user_id ? parseInt(request.query.user_id) : null;
+        if (!q && !userId) return { results: [] };
+
+        let sql = `
+            SELECT mc.id AS commit_id, mc.content, mc.target_revenue, mc.completion_pct, mc.stt,
+                   ms.id AS session_id, ms.title AS session_title, ms.meeting_date,
+                   EXTRACT(MONTH FROM ms.meeting_date)::int AS month,
+                   EXTRACT(YEAR FROM ms.meeting_date)::int AS year,
+                   u.id AS user_id, u.full_name AS user_name, u.role AS user_role,
+                   d.name AS dept_name
+            FROM meeting_commitments mc
+            JOIN meeting_sessions ms ON mc.session_id = ms.id
+            JOIN users u ON mc.user_id = u.id AND u.status = 'active'
+            LEFT JOIN departments dt ON COALESCE(mc.department_id, u.department_id) = dt.id
+            LEFT JOIN departments dp ON dt.parent_id = dp.id
+            LEFT JOIN departments d ON CASE WHEN dp.parent_id IS NULL OR dp.parent_id = 0 THEN dt.id ELSE dp.id END = d.id
+            WHERE 1=1
+        `;
+        const params = [];
+        if (q) {
+            sql += ` AND (mc.content ILIKE ? OR ms.title ILIKE ? OR u.full_name ILIKE ?)`;
+            const searchPattern = `%${q}%`;
+            params.push(searchPattern, searchPattern, searchPattern);
+        }
+        if (userId) {
+            sql += ` AND mc.user_id = ?`;
+            params.push(userId);
+        }
+        sql += ` ORDER BY ms.meeting_date DESC, mc.id DESC LIMIT 30`;
+
+        const results = await db.all(sql, params);
+        return { results };
     });
 }
 

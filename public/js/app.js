@@ -424,12 +424,13 @@ const _PAGE_SCRIPT_MAP = {
     'kiemtrachatluong': '/js/pages/kiemtrachatluong.js?v=20260725_ktcl_v5',
     'topkhachhang': '/js/pages/topkhachhang.js?v=20260727_v100',
     'top-khach-hang': '/js/pages/topkhachhang.js?v=20260727_v100',
-    'kpikdoanh': '/js/pages/kpikdoanh.js?v=20260731_v142',
-    'kpisale': '/js/pages/kpisale.js?v=20260731_v144',
-    'kpi-sale': '/js/pages/kpisale.js?v=20260731_v139',
-    'kpimarketing': '/js/pages/kpimarketing.js?v=20260727_v100',
-    'kpi-marketing': '/js/pages/kpimarketing.js?v=20260727_v100',
-    'camketcuochop': '/js/pages/camketcuochop.js?v=20260731_v122',
+    'kpikdoanh': '/js/pages/kpikdoanh.js?v=20260803_v152',
+    'kpisale': '/js/pages/kpisale.js?v=20260803_v152',
+    'kpi-sale': '/js/pages/kpisale.js?v=20260803_v152',
+    'kpimarketing': '/js/pages/kpimarketing.js?v=20260803_v300001_DEDUP_BY_CATNAME_SYNC',
+    'kpi-marketing': '/js/pages/kpimarketing.js?v=20260803_v300001_DEDUP_BY_CATNAME_SYNC',
+    'camketcuochop': '/js/pages/camketcuochop.js?v=20260803_v1010',
+    'cam-ket-cuoc-hop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
     'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',
@@ -437,8 +438,8 @@ const _PAGE_SCRIPT_MAP = {
     'tong-doanh-so-sale': '/js/pages/tongdoansosale.js?v=20260726_v356',
     'tongdoansosale': '/js/pages/tongdoansosale.js?v=20260726_v356',
     'tongdoanhsosale': '/js/pages/tongdoansosale.js?v=20260726_v356',
-    'ngansachmkt': '/js/pages/ngansachmkt.js?v=20260729_v1006',
-    'ngan-sach-mkt': '/js/pages/ngansachmkt.js?v=20260729_v1006',
+    'ngansachmkt': '/js/pages/ngansachmkt.js?v=20260803_v801_DEV_FIELDS',
+    'ngan-sach-mkt': '/js/pages/ngansachmkt.js?v=20260803_v801_DEV_FIELDS',
     'timkiemkhachhang': '/js/pages/timkiem-khachhang.js?v=20260726_v356',
     'timkiemkhachhanghv': '/js/pages/timkiem-khachhang.js?v=20260726_v356',
     'trasoatdonhang': '/js/pages/trasoatdonhang.js?v=20260721_ts_modal_lazy_v2',
@@ -550,14 +551,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('[Auth] Xác thực thất bại:', err.message);
         return;
     }
-    setupEventListeners();
-    handleRoute();
-
-    var _authOverlay = document.getElementById('authLoadingOverlay');
-    if (_authOverlay) {
-        _authOverlay.style.transition = 'opacity .3s';
-        _authOverlay.style.opacity = '0';
-        setTimeout(function() { _authOverlay.remove(); }, 300);
+    try {
+        setupEventListeners();
+        handleRoute();
+    } catch (routeErr) {
+        console.error('[Route] Initial handleRoute error:', routeErr.message);
+    } finally {
+        var _authOverlay = document.getElementById('authLoadingOverlay');
+        if (_authOverlay) {
+            _authOverlay.style.transition = 'opacity .3s';
+            _authOverlay.style.opacity = '0';
+            setTimeout(function() { _authOverlay.remove(); }, 300);
+        }
     }
 
     if (_isDoitacDomain) return;
@@ -2192,11 +2197,11 @@ async function handleRoute() {
         item.classList.toggle('active', item.dataset.page === currentPage);
     });
 
-    // Update page title
-    const menuItem = MENU_CONFIG.find(m => m.id === currentPage);
-    var _dtItemLabels = { 'chuyen-so': 'Chuyển Số Khách Hàng', 'quanlytkhethongaff': 'Quản Lý Tài Khoản Affiliate', 'huong-dan-su-dung': 'Lời Chào Mừng & Hướng Dẫn' };
-    var _dtPortal = window.location.hostname.indexOf('dongphuchv.net') !== -1;
-    document.getElementById('pageTitle').textContent = menuItem ? ((_dtPortal && _dtItemLabels[menuItem.id]) || menuItem.label) : 'Dashboard';
+    const pageTitleEl = document.getElementById('pageTitle');
+    if (pageTitleEl) {
+        const menuItem = targetMenuItem || matchedItem;
+        pageTitleEl.textContent = menuItem ? ((_dtPortal && _dtItemLabels[menuItem.id]) || menuItem.label) : 'Dashboard';
+    }
 
     // Add "Chuyển Số" button for specific KD pages
     const CHUYEN_SO_PAGES = ['nhantintimdoitackh','addcmtdoitackh','dangvideo','dangcontent','danggruop','seddingcongdong','dangbanthansp','timgrzalovathongke','tuyendungsvkd','cham-soc-koc-kol'];
@@ -2228,26 +2233,15 @@ async function handleRoute() {
     }
 
     // Render page content
-    const content = document.getElementById('contentArea');
+    const content = document.getElementById('contentArea') || document.getElementById('mainContent') || document.querySelector('.content-area') || document.querySelector('.main-content');
 
     // Show loading spinner immediately
-    content.innerHTML = '<div class="spa-loading"><div class="spa-spinner"></div><div class="spa-loading-text">Đang tải trang...</div></div>';
-
-    // Inject spinner CSS once
-    if (!document.getElementById('spaLoadingStyle')) {
-        const style = document.createElement('style');
-        style.id = 'spaLoadingStyle';
-        style.textContent = `
-            .spa-loading { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:16px; }
-            .spa-spinner { width:40px;height:40px;border:4px solid var(--gray-200);border-top:4px solid #e65100;border-radius:50%;animation:spaSpinAnim .7s linear infinite; }
-            @keyframes spaSpinAnim { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
-            .spa-loading-text { color:var(--gray-400);font-size:13px;font-weight:600; }
-        `;
-        document.head.appendChild(style);
+    if (content) {
+        content.innerHTML = '<div class="spa-loading"><div class="spa-spinner"></div><div class="spa-loading-text">Đang tải trang...</div></div>';
+        if (typeof content.scrollTo === 'function') {
+            content.scrollTo(0, 0);
+        }
     }
-
-    // Scroll content to top
-    content.scrollTo(0, 0);
 
     // Track current page for F5 detection (bangiao-khoa + lichsu-baocao)
     if (currentPage !== 'bangiao-khoa' && currentPage !== 'bangiaokhoa') {
@@ -2344,6 +2338,28 @@ async function handleRoute() {
                 case 'bo-phan-hoan-thien': case 'bophanhoanthien': case 'bophanhoanthienhv': renderBophanhoanthienPage(content); break;
                 case 'kpikdoanh': case 'kpi-kdoanh': renderKpikdoanhPage(content); break;
                 case 'kpisale': case 'kpi-sale': renderKpisalePage(content); break;
+                case 'kpimarketing': case 'kpi-marketing':
+                    if (typeof window.renderKpimarketingPage === 'function') {
+                        window.renderKpimarketingPage(content);
+                    } else if (typeof renderKpimarketingPage === 'function') {
+                        renderKpimarketingPage(content);
+                    } else {
+                        setTimeout(function() {
+                            if (typeof window.renderKpimarketingPage === 'function') {
+                                window.renderKpimarketingPage(content);
+                            } else if (typeof renderKpimarketingPage === 'function') {
+                                renderKpimarketingPage(content);
+                            }
+                        }, 150);
+                    }
+                    break;
+                case 'camketcuochop': case 'cam-ket-cuoc-hop':
+                    if (typeof window.renderCamketcuochopPage === 'function') {
+                        window.renderCamketcuochopPage(content);
+                    } else if (typeof renderCamketcuochopPage === 'function') {
+                        renderCamketcuochopPage(content);
+                    }
+                    break;
                 case 'design-draft': case 'designdraft': renderDesignDraftPage(content); break;
                 default:
                     // ========== CONVENTION-BASED AUTO-RENDER ==========
@@ -2605,6 +2621,8 @@ async function renderDashboardPage(container) {
 // Registry cho các trang có tên hàm KHÔNG theo convention
 // Key = page id (từ MENU_CONFIG), Value = tên hàm init
 var _PAGE_INIT_REGISTRY = {
+    'camketcuochop': 'renderCamketcuochopPage',
+    'cam-ket-cuoc-hop': 'renderCamketcuochopPage',
     'tong-doanh-so-sale': 'renderTongdoanhsosalePage',
     'tongdoansosale': 'renderTongdoanhsosalePage',
     'ngansachmkt': 'renderNgansachmktPage',
@@ -2724,24 +2742,33 @@ function renderComingSoon(container) {
 // ========== EVENT LISTENERS ==========
 function setupEventListeners() {
 
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        window.location.href = '/';
-    });
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/';
+        });
+    }
 
-    document.getElementById('changePasswordBtn').addEventListener('click', () => {
-        showChangePasswordModal();
-    });
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    if (changePasswordBtn) {
+        changePasswordBtn.addEventListener('click', () => {
+            showChangePasswordModal();
+        });
+    }
 
-    document.getElementById('modalClose').addEventListener('click', () => {
-        if (typeof window._dhtRestoreModalFn === 'function') {
-            const restore = window._dhtRestoreModalFn;
-            window._dhtRestoreModalFn = null;
-            restore();
-        } else {
-            closeModal();
-        }
-    });
+    const modalClose = document.getElementById('modalClose');
+    if (modalClose) {
+        modalClose.addEventListener('click', () => {
+            if (typeof window._dhtRestoreModalFn === 'function') {
+                const restore = window._dhtRestoreModalFn;
+                window._dhtRestoreModalFn = null;
+                restore();
+            } else {
+                closeModal();
+            }
+        });
+    }
 
     window.addEventListener('hashchange', handleRoute);
 
@@ -3041,11 +3068,16 @@ async function apiCall(url, method = 'GET', body = null) {
         const separator = url.includes('?') ? '&' : '?';
         finalUrl = url + separator + '_=' + Date.now();
     }
-    const options = { method };
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token && token.length > 20) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    const options = { method, credentials: 'include', headers };
     if (body && typeof body.append === 'function') {
         options.body = body;
     } else if (body) {
-        options.headers = { 'Content-Type': 'application/json' };
+        headers['Content-Type'] = 'application/json';
         options.body = JSON.stringify(body);
     }
     const res = await fetch(finalUrl, options);
@@ -4342,9 +4374,9 @@ async function _abCheckUnblock() {
         if (el.closest && el.closest('.ts-step-icon, .order-step-btn, [onclick*="_tsOpenStepModal"], [onclick*="_tsShowRescheduleHistoryModal"]')) return true;
         // KPI table rows, team cards, and order modal triggers — safe to click
         if (el.closest && el.closest('.kpi-tbl, .kpi-lb-row, .kpi-tc-card, .kpi-modal, [onclick*="kpiShow"], [onclick*="kpiFilter"], [onclick*="kpiClose"]')) return true;
-        // Meeting commitment buttons — Tạo Cuộc Họp, Mẫu, etc.
-        if (el.classList && (el.classList.contains('kpi-mc-btn') || el.classList.contains('kpi-mc-btn-primary') || el.classList.contains('kpi-mc-btn-ghost'))) return true;
-        if (el.closest && el.closest('.kpi-mc-modal, .kpi-mc-modal-overlay, .kpi-mc-section')) return true;
+        // Meeting commitment buttons — Tạo Cuộc Họp, Mẫu, Đóng Cuộc Họp, etc.
+        if (el.classList && (el.classList.contains('kpi-mc-btn') || el.classList.contains('kpi-mc-btn-primary') || el.classList.contains('kpi-mc-btn-ghost') || el.classList.contains('ckch-pill') || el.classList.contains('ckch-dept-tag'))) return true;
+        if (el.closest && el.closest('.kpi-mc-modal, .kpi-mc-modal-overlay, .kpi-mc-section, .ckch-session-card, .ckch-header, .ckch-tbl, [onclick*="_ckch"]')) return true;
         return false;
     }
 

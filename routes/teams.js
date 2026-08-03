@@ -277,14 +277,16 @@ async function teamsRoutes(fastify, options) {
 
     // ========== PERMISSIONS API ==========
 
-    fastify.get('/api/permissions/org-tree', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
+    fastify.get('/api/permissions/org-tree', { preHandler: [authenticate] }, async (request, reply) => {
         const departments = await db.all(`
             SELECT d.id, d.name, d.code, d.parent_id, d.head_user_id
             FROM departments d ORDER BY d.parent_id IS NULL DESC, d.parent_id, d.name
         `);
         const users = await db.all(`
-            SELECT u.id, u.full_name, u.department_id, u.role
-            FROM users u WHERE u.status = 'active'
+            SELECT u.id, u.full_name, u.department_id, u.role, d.name AS dept_name, d.parent_id AS parent_dept_id
+            FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            WHERE u.status = 'active'
             ORDER BY u.full_name
         `);
         return { departments, users };

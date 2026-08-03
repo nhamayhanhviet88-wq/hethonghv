@@ -300,6 +300,20 @@ async function renderNgansachmktPage(container) {
                         <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Dán đường link truy cập trực tiếp Trình quản lý quảng cáo Meta.</span>
                     </div>
                     <div class="mkt-fg">
+                        <label>Tên Tài Khoản FB Developer</label>
+                        <input type="text" id="mktMetaDevAccountName" class="mkt-input" placeholder="Vd: Nguyễn Văn A (FB Developer)">
+                    </div>
+                    <div class="mkt-fg">
+                        <label>Link Facebook Tài Khoản</label>
+                        <input type="url" id="mktMetaDevAccountLink" class="mkt-input" placeholder="Vd: https://facebook.com/profile.php?id=...">
+                        <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Dán đường link Facebook cá nhân của tài khoản Developer.</span>
+                    </div>
+                    <div class="mkt-fg">
+                        <label>Link Meta Developer</label>
+                        <input type="url" id="mktMetaDevPortalLink" class="mkt-input" placeholder="Vd: https://developers.facebook.com/apps/...">
+                        <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Dán đường link truy cập ứng dụng / trang Meta Developer.</span>
+                    </div>
+                    <div class="mkt-fg">
                         <label>Access Token Meta (Trình khám phá API Đồ thị) *</label>
                         <textarea id="mktMetaAccessToken" class="mkt-input" rows="3" required placeholder="Dán mã EAAV3... tại đây"></textarea>
                         <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Mã truy cập tạo từ Meta Developer Explorer kèm các quyền: ads_read, read_insights, pages_show_list.</span>
@@ -880,6 +894,8 @@ function _mktRenderKpiCards(s) {
     const avgCpl = Number(s.avgCpl || 0);
     const roas = Number(s.roas || 0);
     const costPerOrder = totalOrders > 0 ? Math.round(totalSpent / totalOrders) : 0;
+    const costIncomeRatio = totalRevenue > 0 ? (totalSpent / totalRevenue * 100).toFixed(1) : '0.0';
+    const closeRate = totalLeads > 0 ? (totalOrders / totalLeads * 100).toFixed(2) : '0.00';
 
     const periodText = _mktNavState.selectedMonth === 'all' 
         ? `Năm ${_mktNavState.selectedYear}` 
@@ -887,7 +903,7 @@ function _mktRenderKpiCards(s) {
 
     el.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:14px;grid-column:1/-1;">
-            <!-- HÀNG 1: 4 Ô THỐNG KÊ (Đơn Hàng | Doanh Số | ROAS | Giá/Đơn) -->
+            <!-- HÀNG 1: 4 Ô THỐNG KÊ (Đơn Hàng | Doanh Số | % Chi Phí/Doanh Thu | Giá/Đơn) -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;">
                 <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" style="border-top-color:#2563eb;background:linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;" title="Click để xem danh sách chi tiết các đơn hàng chốt thành công">
                     <div class="mkt-kpi-lbl" style="display:flex;justify-content:space-between;align-items:center;">
@@ -906,9 +922,9 @@ function _mktRenderKpiCards(s) {
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Doanh số thu về</div>
                 </div>
                 <div class="mkt-kpi-card" style="border-top-color:#4f46e5;background:linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);">
-                    <div class="mkt-kpi-lbl">📈 ROAS DOANH SỐ</div>
-                    <div class="mkt-kpi-val" style="color:#4f46e5;">${roas}%</div>
-                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Tỷ suất doanh thu / chi phí</div>
+                    <div class="mkt-kpi-lbl">📉 % CHI PHÍ / DOANH THU</div>
+                    <div class="mkt-kpi-val" style="color:#4f46e5;">${costIncomeRatio}%</div>
+                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Tỷ lệ chi phí MKT / doanh thu</div>
                 </div>
                 <div class="mkt-kpi-card" style="border-top-color:#dc2626;background:linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);">
                     <div class="mkt-kpi-lbl">🎯 GIÁ / ĐƠN (CPO)</div>
@@ -917,8 +933,8 @@ function _mktRenderKpiCards(s) {
                 </div>
             </div>
 
-            <!-- HÀNG 2: 3 Ô THỐNG KÊ (Thực Chi | Lead | CPL) -->
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;">
+            <!-- HÀNG 2: 4 Ô THỐNG KÊ (Thực Chi | Lead | CPL | Tỷ Lệ Chốt) -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;">
                 <div class="mkt-kpi-card" style="border-top-color:#059669;background:linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);">
                     <div class="mkt-kpi-lbl">💸 THỰC CHI MARKETING</div>
                     <div class="mkt-kpi-val" style="color:#059669;">${_mktFmt(totalSpent)}</div>
@@ -933,6 +949,11 @@ function _mktRenderKpiCards(s) {
                     <div class="mkt-kpi-lbl">📊 CPL (GIÁ / LEAD)</div>
                     <div class="mkt-kpi-val" style="color:#7c3aed;">${_mktFmt(avgCpl)}</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Chi phí / 1 tin nhắn</div>
+                </div>
+                <div class="mkt-kpi-card" style="border-top-color:#0891b2;background:linear-gradient(180deg, #ecfeff 0%, #ffffff 100%);">
+                    <div class="mkt-kpi-lbl">🎯 TỶ LỆ CHỐT (DATA CHẤT)</div>
+                    <div class="mkt-kpi-val" style="color:#0891b2;">${closeRate}%</div>
+                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Tổng số đơn / tổng số lead (tin nhắn)</div>
                 </div>
             </div>
         </div>
@@ -2272,6 +2293,9 @@ function _mktOnMetaCatChange(catId) {
     const nameInput = document.getElementById('mktMetaAdAccountName');
     const accInput = document.getElementById('mktMetaAdAccountId');
     const linkInput = document.getElementById('mktMetaAdAccountLink');
+    const devNameInput = document.getElementById('mktMetaDevAccountName');
+    const devLinkInput = document.getElementById('mktMetaDevAccountLink');
+    const devPortalInput = document.getElementById('mktMetaDevPortalLink');
     const tokenInput = document.getElementById('mktMetaAccessToken');
 
     const cat = _mktNavState.categories.find(c => Number(c.id) === Number(catId));
@@ -2279,6 +2303,9 @@ function _mktOnMetaCatChange(catId) {
         if (nameInput) nameInput.value = cat.fb_ad_account_name || '';
         if (accInput) accInput.value = cat.fb_ad_account_id || '';
         if (linkInput) linkInput.value = cat.fb_ad_account_link || '';
+        if (devNameInput) devNameInput.value = cat.fb_dev_account_name || '';
+        if (devLinkInput) devLinkInput.value = cat.fb_dev_account_link || '';
+        if (devPortalInput) devPortalInput.value = cat.fb_dev_portal_link || '';
         if (tokenInput) tokenInput.value = cat.fb_access_token || '';
     }
 }
@@ -2299,10 +2326,13 @@ async function _mktSaveMetaConfig(e) {
     const fb_ad_account_name = document.getElementById('mktMetaAdAccountName').value;
     const fb_ad_account_id = document.getElementById('mktMetaAdAccountId').value;
     const fb_ad_account_link = document.getElementById('mktMetaAdAccountLink').value;
+    const fb_dev_account_name = document.getElementById('mktMetaDevAccountName')?.value || '';
+    const fb_dev_account_link = document.getElementById('mktMetaDevAccountLink')?.value || '';
+    const fb_dev_portal_link = document.getElementById('mktMetaDevPortalLink')?.value || '';
     const fb_access_token = document.getElementById('mktMetaAccessToken').value;
 
     if (!fb_ad_account_name || !fb_ad_account_id || !fb_ad_account_link || !fb_access_token) {
-        showToast('⚠️ Vui lòng điền đầy đủ cả 4 thông tin bắt buộc!', 'error');
+        showToast('⚠️ Vui lòng điền đầy đủ các thông tin bắt buộc!', 'error');
         return;
     }
 
@@ -2311,6 +2341,9 @@ async function _mktSaveMetaConfig(e) {
             fb_ad_account_name,
             fb_ad_account_id,
             fb_ad_account_link,
+            fb_dev_account_name,
+            fb_dev_account_link,
+            fb_dev_portal_link,
             fb_access_token
         });
 

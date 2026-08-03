@@ -94,6 +94,9 @@ async function nganSachMktRoutes(fastify, options) {
         await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_ad_account_id VARCHAR(100)');
         await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_ad_account_name VARCHAR(255)');
         await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_ad_account_link TEXT');
+        await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_dev_account_name VARCHAR(255)');
+        await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_dev_account_link TEXT');
+        await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_dev_portal_link TEXT');
         await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_access_token TEXT');
 
         await db.run('ALTER TABLE marketing_budgets ALTER COLUMN channel DROP NOT NULL');
@@ -109,6 +112,9 @@ async function nganSachMktRoutes(fastify, options) {
         await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS ads_handler_name VARCHAR(255)');
         await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS fb_ad_account_id VARCHAR(100)');
         await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS fb_ad_account_link TEXT');
+        await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS fb_dev_account_name VARCHAR(255)');
+        await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS fb_dev_account_link TEXT');
+        await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS fb_dev_portal_link TEXT');
         await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS image_url TEXT');
         await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS campaign_id INT');
         await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS report_link TEXT');
@@ -418,10 +424,10 @@ async function nganSachMktRoutes(fastify, options) {
             }
 
             const id = Number(request.params.id);
-            const { fb_ad_account_id, fb_access_token, fb_ad_account_name, fb_ad_account_link } = request.body || {};
+            const { fb_ad_account_id, fb_access_token, fb_ad_account_name, fb_ad_account_link, fb_dev_account_name, fb_dev_account_link, fb_dev_portal_link } = request.body || {};
 
             if (!fb_ad_account_id || !fb_access_token || !fb_ad_account_name || !fb_ad_account_link) {
-                return reply.code(400).send({ error: 'Vui lòng điền đầy đủ cả 4 thông tin bắt buộc: ID tài khoản, Tên tài khoản, Link trực tiếp và Token Meta!' });
+                return reply.code(400).send({ error: 'Vui lòng điền đầy đủ thông tin bắt buộc: ID tài khoản, Tên tài khoản, Link trực tiếp và Token Meta!' });
             }
 
             let cleanAdAccId = fb_ad_account_id.trim();
@@ -429,32 +435,48 @@ async function nganSachMktRoutes(fastify, options) {
                 cleanAdAccId = 'act_' + cleanAdAccId;
             }
 
+            const devNameVal = fb_dev_account_name ? fb_dev_account_name.trim() : null;
+            const devLinkVal = fb_dev_account_link ? fb_dev_account_link.trim() : null;
+            const devPortalLinkVal = fb_dev_portal_link ? fb_dev_portal_link.trim() : null;
+
             await db.run(`
                 UPDATE mkt_categories SET
                     fb_ad_account_id = ?,
                     fb_access_token = ?,
                     fb_ad_account_name = ?,
-                    fb_ad_account_link = ?
+                    fb_ad_account_link = ?,
+                    fb_dev_account_name = ?,
+                    fb_dev_account_link = ?,
+                    fb_dev_portal_link = ?
                 WHERE id = ?
             `, [
                 cleanAdAccId,
                 fb_access_token.trim(),
                 fb_ad_account_name.trim(),
                 fb_ad_account_link.trim(),
+                devNameVal,
+                devLinkVal,
+                devPortalLinkVal,
                 id
             ]);
 
-            // Also update existing marketing_budgets for this category to inherit ad account name & link
+            // Also update existing marketing_budgets for this category to inherit ad account & developer info
             await db.run(`
                 UPDATE marketing_budgets SET
                     fb_ad_account_id = ?,
                     fb_ad_account_name = ?,
-                    fb_ad_account_link = ?
+                    fb_ad_account_link = ?,
+                    fb_dev_account_name = ?,
+                    fb_dev_account_link = ?,
+                    fb_dev_portal_link = ?
                 WHERE category_id = ?
             `, [
                 cleanAdAccId,
                 fb_ad_account_name.trim(),
                 fb_ad_account_link.trim(),
+                devNameVal,
+                devLinkVal,
+                devPortalLinkVal,
                 id
             ]);
 
@@ -686,7 +708,7 @@ async function nganSachMktRoutes(fastify, options) {
                 RETURNING *
             `, [
                 parentIdNum,
-                group_type,
+                group_type || 'online',
                 name.trim(),
                 icon || (group_type === 'online' ? '🌐' : '🏢'),
                 nextOrder,

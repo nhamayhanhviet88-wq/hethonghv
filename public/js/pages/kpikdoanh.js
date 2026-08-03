@@ -2453,7 +2453,10 @@ window.mcReviewTeam = function(deptId, teamName, readOnly) {
             h += '</div>';
         }
 
-        h += '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:4px"' + (readOnly ? ' disabled' : '') + '>';
+        h += '<div style="margin-top:10px;padding:8px 12px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:8px;border-left:3px solid #059669">';
+        h += '<div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Trao Đổi Kết Quả</div>';
+        h += '<input class="kpi-mc-input rv-note" placeholder="Nhập nội dung trao đổi kết quả..." value="' + (c.review_note || '') + '" style="background:#fff;border-color:#a7f3d0;font-size:12px;font-weight:600;color:#064e3b"' + (readOnly ? ' disabled' : '') + '>';
+        h += '</div>';
         h += '</div>';
     }
 
@@ -2469,39 +2472,111 @@ window.mcReviewTeam = function(deptId, teamName, readOnly) {
     document.body.appendChild(overlay);
 };
 
+async function _mcUpdateAutoTitle(dateStr) {
+    var titleEl = document.getElementById('mcSessionTitle');
+    if (!titleEl) return;
+    var d = new Date();
+    if (dateStr) {
+        var parts = dateStr.split('-');
+        if (parts.length === 3) d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+    var month = d.getMonth() + 1;
+    var year = d.getFullYear();
+    
+    var count = 0;
+    try {
+        var res = await apiCall('/api/meeting-commitments/sessions?month=' + month + '&year=' + year + '&source=kpikdoanh');
+        count = (res && res.sessions) ? res.sessions.length : 0;
+    } catch(e) {}
+    
+    var sessionNo = count + 1;
+    titleEl.value = 'Cuộc Họp Số ' + sessionNo + ' - Phòng Kinh Doanh - Tháng ' + month + '/' + year;
+}
+
 // Create session popup
-window.mcCreateSession = function() {
+window.mcCreateSession = async function() {
     var today = vnDateStr();
+    var mcParts = _kpi.month.split('-').map(Number);
+    var selYear = mcParts[0], selMonth = mcParts[1];
+
+    var sessions = [];
+    try {
+        var res = await apiCall('/api/meeting-commitments/sessions?month=' + selMonth + '&year=' + selYear);
+        var rawSessions = (res && res.sessions) ? res.sessions : [];
+        sessions = rawSessions.filter(function(s) {
+            var sDate = s.start_date ? s.start_date.split('T')[0] : (s.meeting_date ? s.meeting_date.split('T')[0] : '');
+            var eDate = s.end_date ? s.end_date.split('T')[0] : '';
+            if (!eDate && sDate) {
+                var d = new Date(sDate);
+                d.setDate(d.getDate() + 7);
+                eDate = d.toISOString().split('T')[0];
+            }
+            return (!sDate || today >= sDate) && (!eDate || today <= eDate);
+        });
+    } catch(e) {}
+
     var overlay = document.createElement('div');
     overlay.className = 'kpi-mc-modal-overlay';
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
-    var mcParts = _kpi.month.split('-').map(Number);
-    var mcAutoTitle = 'PHÒNG KINH DOANH - THÁNG ' + mcParts[1] + '/' + mcParts[0];
+
+    var bodyHtml = '';
+
+    if (sessions.length === 0) {
+        bodyHtml = '<div style="padding:20px;text-align:center;color:#6b7280">'
+            + '<div style="font-size:36px;margin-bottom:8px">🔒</div>'
+            + '<div style="font-size:14px;font-weight:700;color:#1e293b">Không có cuộc họp nào đang mở trong Tháng ' + selMonth + '/' + selYear + '</div>'
+            + '<div style="font-size:12px;color:#64748b;margin-top:6px">Các cuộc họp đã quá thời gian đóng (hoặc chưa được tạo). Vui lòng tạo/gia hạn tại mục <b>Cam Kết Cuộc Họp</b>.</div>'
+            + '</div>';
+    } else {
+        bodyHtml += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Chọn Cuộc Họp Trong Tháng (Đang Mở)</label>';
+        bodyHtml += '<select class="kpi-mc-input" id="mcSessionSelect" onchange="_mcOnSelectSession(this)" style="font-weight:700">';
+        for (var i = 0; i < sessions.length; i++) {
+            var s = sessions[i];
+            bodyHtml += '<option value="' + s.id + '" data-title="' + s.title + '" data-date="' + (s.meeting_date ? s.meeting_date.split('T')[0] : today) + '">' + s.title + '</option>';
+        }
+        bodyHtml += '</select></div>';
+
+        var initialTitle = sessions[0].title;
+        var initialDate = sessions[0].meeting_date ? sessions[0].meeting_date.split('T')[0] : today;
+
+        bodyHtml += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Tiêu đề cuộc họp (Khóa cố định)</label>';
+        bodyHtml += '<input class="kpi-mc-input" id="mcSessionTitle" value="' + initialTitle + '" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700;color:#1e293b"></div>';
+
+        bodyHtml += '<div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Ngày họp</label>';
+        bodyHtml += '<input class="kpi-mc-input" type="date" id="mcSessionDate" value="' + initialDate + '" readonly style="background:#f1f5f9;cursor:not-allowed"></div>';
+    }
+
     overlay.innerHTML = '<div class="kpi-mc-modal">'
-        + '<div class="kpi-mc-modal-head"><h3>➕ Tạo Cuộc Họp Mới</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
-        + '<div class="kpi-mc-modal-body">'
-        + '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Tiêu đề cuộc họp</label>'
-        + '<input class="kpi-mc-input" id="mcSessionTitle" value="' + mcAutoTitle + '"></div>'
-        + '<div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Ngày họp</label>'
-        + '<input class="kpi-mc-input" type="date" id="mcSessionDate" value="' + today + '"></div>'
-        + '</div>'
+        + '<div class="kpi-mc-modal-head"><h3>📋 Chọn Cuộc Họp P.Kinh Doanh</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-body">' + bodyHtml + '</div>'
         + '<div class="kpi-mc-modal-foot">'
         + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
-        + '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveSession()">Tạo Cuộc Họp</button>'
+        + (sessions.length > 0 ? '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveSession()">Xác Nhận</button>' : '')
         + '</div></div>';
     document.body.appendChild(overlay);
 };
 
+window._mcOnSelectSession = function(sel) {
+    var opt = sel.options[sel.selectedIndex];
+    var title = opt ? opt.getAttribute('data-title') : '';
+    var date = opt ? opt.getAttribute('data-date') : '';
+    var titleEl = document.getElementById('mcSessionTitle');
+    var dateEl = document.getElementById('mcSessionDate');
+    if (titleEl && title) titleEl.value = title;
+    if (dateEl && date) dateEl.value = date;
+};
+
 window.mcSaveSession = async function() {
-    var title = document.getElementById('mcSessionTitle').value.trim();
-    var date = document.getElementById('mcSessionDate').value;
-    if (!title) return alert('Vui lòng nhập tiêu đề');
-    if (!date) return alert('Vui lòng chọn ngày');
+    var selEl = document.getElementById('mcSessionSelect');
+    if (!selEl) return;
+    var sessionId = selEl.value;
     try {
-        await apiCall('/api/meeting-commitments/sessions', 'POST', { title: title, meeting_date: date, source: 'kpikdoanh' });
-        document.querySelector('.kpi-mc-modal-overlay').remove();
-        kpiLoadMeetingCommit();
-    } catch(e) { alert('Lỗi: ' + (e.message || '')); }
+        await apiCall('/api/meeting-commitments/sessions/' + sessionId + '/departments', 'POST', { department_id: 1 });
+    } catch(e) {}
+    showToast('✅ Đã chọn cuộc họp thành công!', 'success');
+    var overlay = document.querySelector('.kpi-mc-modal-overlay');
+    if (overlay) overlay.remove();
+    kpiLoadMeetingCommit();
 };
 
 // Parse combined content (❓ question \n ✅ answer) into { question, answer }
@@ -2812,7 +2887,10 @@ window.mcReviewUser = async function(userId, userName, readOnly) {
             h += '</div>';
         }
 
-        h += '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:4px"' + (readOnly ? ' disabled' : '') + '>';
+        h += '<div style="margin-top:10px;padding:8px 12px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:8px;border-left:3px solid #059669">';
+        h += '<div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Trao Đổi Kết Quả</div>';
+        h += '<input class="kpi-mc-input rv-note" placeholder="Nhập nội dung trao đổi kết quả..." value="' + (c.review_note || '') + '" style="background:#fff;border-color:#a7f3d0;font-size:12px;font-weight:600;color:#064e3b"' + (readOnly ? ' disabled' : '') + '>';
+        h += '</div>';
         h += '</div>';
     }
 
