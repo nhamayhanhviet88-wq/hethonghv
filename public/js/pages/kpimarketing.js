@@ -1248,21 +1248,45 @@ function renderKpiMktHandlersTable(res, itemsList) {
 
         let totSpent = 0, totLeads = 0, totOrders = 0, totRevenue = 0;
 
-        // Render Dark Header Bar Row for this employee (Matching Image 1)
+        // Render Dark Header Bar Row for this employee (Matching Image 2 exactly)
         html += `
             <tr class="employee-block-header-row" style="background:#1e293b !important;color:#ffffff !important;font-weight:800 !important;font-size:12px !important;border-top:3px solid #0284c7 !important;border-bottom:2px solid #0f172a !important;">
-                <td style="text-align:center;color:#ffffff;font-weight:800;padding:9px 4px;background:#1e293b !important;">STT</td>
-                <td style="text-align:left;color:#ffffff;font-weight:800;padding:9px 6px;background:#1e293b !important;">Nhân Viên Marketing (Ads Handler)</td>
-                <td style="text-align:left;color:#ffffff;font-weight:800;padding:9px 6px;background:#1e293b !important;">Danh Sách Page / Mục Con Đang Cầm</td>
-                <td style="text-align:center;color:#fbbf24;font-weight:800;padding:9px 4px;background:#1e293b !important;">📦 ĐƠN HÀNG</td>
-                <td style="text-align:center;color:#fb7185;font-weight:800;padding:9px 4px;background:#1e293b !important;">💸 CHI PHÍ MKT</td>
-                <td style="text-align:center;color:#4ade80;font-weight:800;padding:9px 4px;background:#1e293b !important;">💰 DOANH SỐ (đ)</td>
-                <td style="text-align:center;color:#c084fc;font-weight:800;padding:9px 4px;background:#1e293b !important;">📉 % CP / DOANH SỐ</td>
-                <td style="text-align:center;color:#38bdf8;font-weight:800;padding:9px 4px;background:#1e293b !important;">🎯 TỶ LỆ CHỐT</td>
-                <td style="text-align:center;color:#fb923c;font-weight:800;padding:9px 4px;background:#1e293b !important;">🎯 CPO (GIÁ/ĐƠN)</td>
-                <td style="text-align:center;color:#38bdf8;font-weight:800;padding:9px 4px;background:#1e293b !important;">📥 SỐ LEAD</td>
-                <td style="text-align:center;color:#60a5fa;font-weight:800;padding:9px 4px;background:#1e293b !important;">📊 CPL (GIÁ/LEAD)</td>
-                <td style="text-align:center;color:#c084fc;font-weight:800;padding:9px 4px;background:#1e293b !important;">⚙️ PHÂN CÔNG</td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:9px 4px;background:#1e293b !important;vertical-align:middle;">STT</td>
+                <td style="text-align:left;color:#ffffff;font-weight:800;padding:9px 6px;background:#1e293b !important;vertical-align:middle;">Nhân Viên Marketing (Ads Handler)</td>
+                <td style="text-align:left;color:#ffffff;font-weight:800;padding:9px 6px;background:#1e293b !important;vertical-align:middle;">Danh Sách Page / Mục Con Đang Cầm</td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
+                    <span>📦 ĐƠN HÀNG</span>
+                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(SL đơn hàng)</span>
+                </td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
+                    <span>💸 CHI PHÍ MKT</span>
+                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(Chi phí Quảng Cáo)</span>
+                </td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
+                    <span>💰 DOANH SỐ (đ)</span>
+                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(Doanh thu đơn hàng)</span>
+                </td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
+                    <span>📉 % CP / DOANH SỐ</span>
+                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(Chi phí MKT / Doanh số)</span>
+                </td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
+                    <span>🎯 TỶ LỆ CHỐT</span>
+                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(Đơn hàng / Số lead)</span>
+                </td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
+                    <span>🎯 CPO (GIÁ/ĐƠN)</span>
+                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(Chi phí MKT / Đơn hàng)</span>
+                </td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
+                    <span>📥 SỐ LEAD</span>
+                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(SL Tin Nhắn)</span>
+                </td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
+                    <span>📊 CPL (GIÁ/LEAD)</span>
+                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(Giá / Tin Nhắn)</span>
+                </td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:9px 4px;background:#1e293b !important;vertical-align:middle;">⚙️ PHÂN CÔNG</td>
             </tr>
         `;
 
