@@ -86,16 +86,47 @@ module.exports = async function(fastify, options) {
                 WHERE budget_year::text = ? AND (budget_month::text = ? OR budget_month::text = ?)
             `, [String(year), String(mo), String(mo).padStart(2, '0')]);
 
-            // 2b. Fetch orders & revenue from dht_orders for this month
             const dhtOrders = await db.all(`
+                WITH ActiveSources AS (
+                    SELECT DISTINCT 
+                        LOWER(TRIM(REGEXP_REPLACE(unnest(string_to_array(linked_source_name, ',')), '\\s*\\/\\s*', '/', 'g'))) as clean_src
+                    FROM mkt_categories 
+                    WHERE is_active = TRUE AND NULLIF(TRIM(linked_source_name), '') IS NOT NULL
+                ),
+                NormalizedOrders AS (
+                    SELECT 
+                        o.id,
+                        o.order_code,
+                        TO_CHAR(o.order_date, 'YYYY-MM-DD') as dt_str,
+                        TRIM(o.source) as source,
+                        LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) as clean_source_key,
+                        o.total_amount,
+                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone
+                    FROM dht_orders o
+                    LEFT JOIN customers c ON c.id = o.customer_id OR (
+                        RIGHT(REGEXP_REPLACE(c.phone, '\\D', '', 'g'), 9) = RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9)
+                        AND RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9) <> ''
+                    )
+                    WHERE o.order_date IS NOT NULL 
+                      AND COALESCE(o.is_draft, false) = false
+                      AND EXTRACT(YEAR FROM o.order_date) = $1
+                      AND EXTRACT(MONTH FROM o.order_date) = $2
+                      AND NULLIF(TRIM(o.source), '') IS NOT NULL
+                      AND LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) IN (SELECT clean_src FROM ActiveSources)
+                ),
+                RankedOrders AS (
+                    SELECT 
+                        *,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY norm_phone 
+                            ORDER BY dt_str ASC, id ASC
+                        ) as rn
+                    FROM NormalizedOrders
+                )
                 SELECT 
-                    id, order_code, source, total_amount, deposit_amount_cache,
-                    TO_CHAR(order_date, 'YYYY-MM-DD') as dt_str
-                FROM dht_orders
-                WHERE order_date IS NOT NULL 
-                  AND COALESCE(is_draft, false) = false
-                  AND EXTRACT(YEAR FROM order_date) = ?
-                  AND EXTRACT(MONTH FROM order_date) = ?
+                    id, order_code, source, total_amount, dt_str
+                FROM RankedOrders
+                WHERE rn = 1
             `, [year, mo]);
 
             // Daily map per handler: { handler_name -> { day -> { spent, leads, orders, revenue } } }
@@ -165,12 +196,15 @@ module.exports = async function(fastify, options) {
                 }
                 if (isNaN(dayNum) || dayNum < 1 || dayNum > daysInMonth) dayNum = 1;
 
+                let matched = false;
                 (allCats || []).forEach(c => {
+                    if (matched) return;
                     if (c.parent_id !== null) {
                         const cSrc1 = (c.linked_source_name || '').trim().toLowerCase();
                         const cSrc2 = (c.pancake_page_name || '').trim().toLowerCase();
                         const cName = (c.name || '').trim().toLowerCase();
                         if ((cSrc1 && cSrc1 === src) || (cSrc2 && cSrc2 === src) || (cName && cName.includes(src))) {
+                            matched = true;
                             if (!catDailyMap[c.id]) catDailyMap[c.id] = {};
                             if (!catDailyMap[c.id][dayNum]) {
                                 catDailyMap[c.id][dayNum] = { spent: 0, budget: 0, leads: 0, orders: 0, revenue: 0 };
