@@ -502,7 +502,7 @@ module.exports = async function(fastify, options) {
                             spent: cSpent,
                             leads: cLeads,
                             orders: cOrders,
-                            revenue: cRev,
+                            revenue: cRevenue,
                             cpl: cCpl,
                             cpo: cCpo,
                             roas: cRoas,

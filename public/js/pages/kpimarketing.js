@@ -528,12 +528,6 @@ function renderCategoryTable(res) {
         item.cost_ratio = item.revenue > 0 ? Math.round((item.spent / item.revenue) * 10000) / 100 : 0;
     });
 
-    // Render Handlers Table with calculated itemsList
-    renderKpiMktHandlersTable(res, itemsList);
-
-    if (!_kpiMkt.data) _kpiMkt.data = {};
-    _kpiMkt.data.renderedCategories = itemsList.map(i => i.category_name);
-
     // 4. Guaranteed fallback items so table is NEVER empty
     if (itemsList.length === 0) {
         itemsList.push(
@@ -555,6 +549,12 @@ function renderCategoryTable(res) {
             }
         );
     }
+
+    // Render Handlers Table with calculated itemsList
+    renderKpiMktHandlersTable(res, itemsList);
+
+    if (!_kpiMkt.data) _kpiMkt.data = {};
+    _kpiMkt.data.renderedCategories = itemsList.map(i => i.category_name);
 
     let html = '';
     let totalSpent = 0, totalLeads = 0, totalOrders = 0, totalRevenue = 0;
