@@ -200,13 +200,28 @@ async function renderKpimarketingPage(container) {
                             <th style="width:45px">STT</th>
                             <th style="text-align:left;min-width:220px">Mục Con / Mã Nguồn (Channel & Page)</th>
                             <th style="width:110px">📦 ĐƠN HÀNG</th>
-                            <th style="width:150px">💸 CHI PHÍ MARKETING</th>
+                            <th style="width:140px">💸 CHI PHÍ MKT</th>
                             <th style="width:140px">💰 DOANH SỐ (đ)</th>
-                            <th style="width:140px">📉 % CP / DOANH SỐ</th>
-                            <th style="width:130px">🎯 TỶ LỆ CHỐT</th>
-                            <th style="width:130px">🎯 CPO (GIÁ/ĐƠN)</th>
-                            <th style="width:100px">📥 SỐ LEAD</th>
-                            <th style="width:130px">📊 CPL (GIÁ/LEAD)</th>
+                            <th style="width:155px">
+                                📉 % CP / DOANH SỐ
+                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(Chi phí MKT / Doanh số)</span>
+                            </th>
+                            <th style="width:140px">
+                                🎯 TỶ LỆ CHỐT
+                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(Đơn hàng / Số lead)</span>
+                            </th>
+                            <th style="width:150px">
+                                🎯 CPO (GIÁ/ĐƠN)
+                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(Chi phí MKT / Đơn hàng)</span>
+                            </th>
+                            <th style="width:120px">
+                                📥 SỐ LEAD
+                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(SL Tin Nhắn)</span>
+                            </th>
+                            <th style="width:135px">
+                                📊 CPL (GIÁ/LEAD)
+                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(Giá / Tin Nhắn)</span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="kpiMktTbody">
