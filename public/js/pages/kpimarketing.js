@@ -1311,7 +1311,10 @@ function renderKpiMktHandlersTable(res, itemsList) {
                     <td><span class="kpi-pill kpi-pill-blue">0đ</span></td>
                     <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;background:#fff">
                         ${isGiamDoc ? `
-                            <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:4px 10px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
+                            <div style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;">
+                                <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:5px 12px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
+                                <button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}')" style="background:#ecfdf5;color:#047857;border:1.5px solid #a7f3d0;padding:5px 12px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(4,120,87,0.1);transition:all 0.2s" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'">🎯 Đặt KPI Tháng</button>
+                            </div>
                         ` : '<span style="font-size:11px;color:#94a3b8">-</span>'}
                     </td>
                 </tr>
@@ -1384,7 +1387,10 @@ function renderKpiMktHandlersTable(res, itemsList) {
                     html += `
                         <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;background:#fff">
                             ${isGiamDoc ? `
-                                <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:4px 10px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
+                                <div style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;">
+                                    <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:5px 12px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
+                                    <button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}')" style="background:#ecfdf5;color:#047857;border:1.5px solid #a7f3d0;padding:5px 12px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(4,120,87,0.1);transition:all 0.2s" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'">🎯 Đặt KPI Tháng</button>
+                                </div>
                             ` : '<span style="font-size:11px;color:#94a3b8">-</span>'}
                         </td>
                     `;
@@ -1651,6 +1657,176 @@ async function kpiMktSaveAssignHandler(handlerName) {
     }
 }
 
+async function kpiMktOpenSetTargetModal(handlerName) {
+    let modal = document.getElementById('kpiMktSetTargetModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'kpiMktSetTargetModal';
+        modal.className = 'kpi-v2-modal-overlay';
+        document.body.appendChild(modal);
+    }
+
+    const handlers = (_kpiMkt.data && _kpiMkt.data.handlers) ? _kpiMkt.data.handlers : [];
+    const h = handlers.find(item => (item.ads_handler_name || 'Giám Đốc').trim().toLowerCase() === handlerName.trim().toLowerCase()) || {};
+
+    const targetBudget = h.target_budget || 0;
+    const targetRevM1 = h.target_revenue_m1 || h.target_revenue || 0;
+    const targetRevM120 = h.target_revenue_m120 || (targetRevM1 > 0 ? Math.round(targetRevM1 * 1.2) : 0);
+    const targetLeadsM1 = h.target_leads_m1 || h.target_leads || 0;
+    const targetLeadsM120 = h.target_leads_m120 || (targetLeadsM1 > 0 ? Math.round(targetLeadsM1 * 1.2) : 0);
+    const targetCostRatio = h.target_cost_ratio || 0;
+    const targetCloseRate = h.target_close_rate || 0;
+    const targetCpo = h.target_cpo || 0;
+    const targetCpl = h.target_cpl || 0;
+
+    const [yStr, mStr] = (_kpiMkt.month || '').split('-');
+    const monthText = yStr && mStr ? `Tháng ${parseInt(mStr, 10)}/${yStr}` : 'Tháng';
+
+    modal.innerHTML = `
+        <div class="kpi-v2-modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);">
+            <!-- Modal Header -->
+            <div style="border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div style="font-size:18px;color:#0f172a;font-weight:800;display:flex;align-items:center;gap:8px;">
+                        <span>🎯 Cài Đặt Chỉ Tiêu KPI Marketing</span>
+                    </div>
+                    <div style="font-size:12.5px;color:#64748b;margin-top:4px;font-weight:600;">
+                        Nhân viên: <strong style="color:#1e1b4b;">👤 ${escapeHtml(handlerName)}</strong> • <span>${monthText}</span>
+                    </div>
+                </div>
+                <button type="button" class="kpi-v2-modal-close" style="cursor:pointer;background:#f1f5f9;border:none;width:32px;height:32px;border-radius:50%;font-weight:800;color:#64748b;" onclick="document.getElementById('kpiMktSetTargetModal').style.display='none'">✕</button>
+            </div>
+
+            <!-- Form Content -->
+            <form id="kpiMktTargetForm" onsubmit="kpiMktSaveTargetForHandler(event, '${escapeHtml(handlerName)}')" style="display:flex;flex-direction:column;gap:18px;">
+                
+                <!-- SECTION 1: NGÂN SÁCH MKT -->
+                <div style="background:#f8fafc;padding:14px 16px;border-radius:12px;border:1px solid #e2e8f0;">
+                    <div style="font-weight:800;font-size:13.5px;color:#0f172a;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                        <span>💸 NGÂN SÁCH CHI PHÍ MARKETING</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">Chi Phí MKT Chỉ Tiêu (đ)</label>
+                            <input type="number" id="target_budget" value="${targetBudget}" placeholder="Ví dụ: 50000000" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: MỐC 1 (100%) -->
+                <div style="background:#ecfdf5;padding:14px 16px;border-radius:12px;border:1px solid #a7f3d0;">
+                    <div style="font-weight:800;font-size:13.5px;color:#064e3b;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                        <span>🚩 MỐC 1 - 100% ĐẠT KPI</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#047857;display:block;margin-bottom:4px;">💰 Doanh Số Mốc 1 (đ)</label>
+                            <input type="number" id="target_revenue_m1" value="${targetRevM1}" placeholder="Ví dụ: 300000000" oninput="kpiMktAutoCalcM2()" style="width:100%;padding:8px 12px;border:1.5px solid #6ee7b7;border-radius:8px;font-weight:700;font-size:13px;color:#064e3b;outline:none;background:white;" />
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#047857;display:block;margin-bottom:4px;">📥 Số Lead Mốc 1 (Tin Nhắn)</label>
+                            <input type="number" id="target_leads_m1" value="${targetLeadsM1}" placeholder="Ví dụ: 500" oninput="kpiMktAutoCalcM2()" style="width:100%;padding:8px 12px;border:1.5px solid #6ee7b7;border-radius:8px;font-weight:700;font-size:13px;color:#064e3b;outline:none;background:white;" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 3: MỐC 2 (120%) -->
+                <div style="background:#eff6ff;padding:14px 16px;border-radius:12px;border:1px solid #bfdbfe;">
+                    <div style="font-weight:800;font-size:13.5px;color:#1e3a8a;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                        <span>🏆 MỐC 2 - 120% KHUYẾN KHÍCH</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">💰 Doanh Số Mốc 2 (đ)</label>
+                            <input type="number" id="target_revenue_m120" value="${targetRevM120}" placeholder="Tự động x 1.2 Mốc 1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:700;font-size:13px;color:#1e3a8a;outline:none;background:white;" />
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">📥 Số Lead Mốc 2 (Tin Nhắn)</label>
+                            <input type="number" id="target_leads_m120" value="${targetLeadsM120}" placeholder="Tự động x 1.2 Mốc 1" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:700;font-size:13px;color:#1e3a8a;outline:none;background:white;" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 4: TỶ LỆ MỞ RỘNG (TÙY CHỌN) -->
+                <div style="background:#f8fafc;padding:14px 16px;border-radius:12px;border:1px solid #e2e8f0;">
+                    <div style="font-weight:800;font-size:13.5px;color:#0f172a;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                        <span>📈 CÁC CHỈ SỐ MỤC TIÊU MỞ RỘNG (TÙY CHỌN)</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">📉 % CP / Doanh Số Mục Tiêu (%)</label>
+                            <input type="number" step="0.01" id="target_cost_ratio" value="${targetCostRatio}" placeholder="Ví dụ: 15.00" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">🎯 Tỷ Lệ Chốt Mục Tiêu (%)</label>
+                            <input type="number" step="0.01" id="target_close_rate" value="${targetCloseRate}" placeholder="Ví dụ: 20.00" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">🎯 CPO Giá / Đơn Mục Tiêu (đ)</label>
+                            <input type="number" id="target_cpo" value="${targetCpo}" placeholder="Ví dụ: 100000" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">📊 CPL Giá / Lead Mục Tiêu (đ)</label>
+                            <input type="number" id="target_cpl" value="${targetCpl}" placeholder="Ví dụ: 50000" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:700;font-size:13px;color:#0f172a;outline:none;" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Action Buttons -->
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px;border-top:1px solid #e2e8f0;padding-top:14px;">
+                    <button type="button" onclick="document.getElementById('kpiMktSetTargetModal').style.display='none'" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:9px 18px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">Hủy Bỏ</button>
+                    <button type="submit" style="background:#2563eb;color:white;border:none;padding:9px 24px;border-radius:8px;font-weight:800;font-size:13.5px;cursor:pointer;box-shadow:0 2px 6px rgba(37,99,235,0.25);">💾 Lưu Chỉ Tiêu KPI</button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    modal.style.setProperty('display', 'flex', 'important');
+}
+
+function kpiMktAutoCalcM2() {
+    const revM1 = Number(document.getElementById('target_revenue_m1').value || 0);
+    const leadsM1 = Number(document.getElementById('target_leads_m1').value || 0);
+    const revM2Inp = document.getElementById('target_revenue_m120');
+    const leadsM2Inp = document.getElementById('target_leads_m120');
+    if (revM2Inp && revM1 > 0) revM2Inp.value = Math.round(revM1 * 1.2);
+    if (leadsM2Inp && leadsM1 > 0) leadsM2Inp.value = Math.round(leadsM1 * 1.2);
+}
+
+async function kpiMktSaveTargetForHandler(e, handlerName) {
+    e.preventDefault();
+    try {
+        const payload = {
+            period_value: _kpiMkt.month,
+            targets: [
+                {
+                    ads_handler_name: handlerName,
+                    target_budget: Number(document.getElementById('target_budget').value || 0),
+                    target_revenue_m1: Number(document.getElementById('target_revenue_m1').value || 0),
+                    target_revenue_m120: Number(document.getElementById('target_revenue_m120').value || 0),
+                    target_leads_m1: Number(document.getElementById('target_leads_m1').value || 0),
+                    target_leads_m120: Number(document.getElementById('target_leads_m120').value || 0),
+                    target_cost_ratio: Number(document.getElementById('target_cost_ratio').value || 0),
+                    target_close_rate: Number(document.getElementById('target_close_rate').value || 0),
+                    target_cpo: Number(document.getElementById('target_cpo').value || 0),
+                    target_cpl: Number(document.getElementById('target_cpl').value || 0)
+                }
+            ]
+        };
+
+        const res = await kpiMktApiCall('/api/reports/kpi-marketing/targets', 'POST', payload);
+        if (res && res.success) {
+            document.getElementById('kpiMktSetTargetModal').style.display = 'none';
+            await loadKpimarketingData();
+            alert(`Thành công! Đã thiết lập KPI Tháng cho nhân viên "${handlerName}".`);
+        } else {
+            alert(res?.error || res?.message || 'Có lỗi khi lưu chỉ tiêu KPI Tháng');
+        }
+    } catch(err) {
+        alert('Lỗi lưu chỉ tiêu KPI: ' + err.message);
+    }
+}
+
 /* WINDOW EXPORTS FOR ROUTER */
 if (typeof window !== 'undefined') {
     window.renderKpimarketingPage = renderKpimarketingPage;
@@ -1670,6 +1846,9 @@ if (typeof window !== 'undefined') {
     window.renderKpiMktHandlersTable = renderKpiMktHandlersTable;
     window.kpiMktOpenAssignModal = kpiMktOpenAssignModal;
     window.kpiMktSaveAssignHandler = kpiMktSaveAssignHandler;
+    window.kpiMktOpenSetTargetModal = kpiMktOpenSetTargetModal;
+    window.kpiMktAutoCalcM2 = kpiMktAutoCalcM2;
+    window.kpiMktSaveTargetForHandler = kpiMktSaveTargetForHandler;
 
     setTimeout(function() {
         const path = (window.location.pathname || '').toLowerCase();
