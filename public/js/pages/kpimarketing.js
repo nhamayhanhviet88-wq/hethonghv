@@ -199,9 +199,18 @@ async function renderKpimarketingPage(container) {
                         <tr>
                             <th style="width:45px">STT</th>
                             <th style="text-align:left;min-width:220px">Mục Con / Mã Nguồn (Channel & Page)</th>
-                            <th style="width:110px">📦 ĐƠN HÀNG</th>
-                            <th style="width:140px">💸 CHI PHÍ MKT</th>
-                            <th style="width:140px">💰 DOANH SỐ (đ)</th>
+                            <th style="width:115px">
+                                📦 ĐƠN HÀNG
+                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(SL đơn hàng)</span>
+                            </th>
+                            <th style="width:145px">
+                                💸 CHI PHÍ MKT
+                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(Chi phí Quảng Cáo)</span>
+                            </th>
+                            <th style="width:150px">
+                                💰 DOANH SỐ (đ)
+                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(Doanh thu đơn hàng)</span>
+                            </th>
                             <th style="width:155px">
                                 📉 % CP / DOANH SỐ
                                 <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(Chi phí MKT / Doanh số)</span>
