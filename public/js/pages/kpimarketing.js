@@ -203,38 +203,6 @@ async function renderKpimarketingPage(container) {
                 <div style="text-align:center;padding:20px;color:#64748b;font-weight:700;">⏳ Đang tải dữ liệu tổng quan...</div>
             </div>
 
-            <!-- SECTION TITLE: KPI MARKETING ADS THEO NHÂN VIÊN -->
-            <div class="kpi-v2-sec-hdr" style="border-left-color: #0284c7; background: linear-gradient(90deg, #f0f9ff 0%, #ffffff 100%);">
-                <div class="kpi-v2-sec-title" style="color: #0369a1;">
-                    <span>👥 BẢNG GÁN & BÁO CÁO KPI MARKETING ADS THEO NHÂN VIÊN</span>
-                </div>
-            </div>
-
-            <!-- TABLE OF MARKETING HANDLERS / EMPLOYEES -->
-            <div class="kpi-v2-tbl-wrap" style="margin-bottom: 30px;">
-                <table class="kpi-v2-tbl" id="kpiMktHandlersTable">
-                    <thead>
-                        <tr>
-                            <th style="width:45px">STT</th>
-                            <th style="text-align:left;min-width:170px">Nhân Viên Marketing (Ads Handler)</th>
-                            <th style="text-align:left;min-width:240px">Danh Sách Page / Mục Con Đang Cầm</th>
-                            <th style="width:110px">📦 ĐƠN HÀNG</th>
-                            <th style="width:140px">💸 CHI PHÍ MKT</th>
-                            <th style="width:145px">💰 DOANH SỐ (đ)</th>
-                            <th style="width:145px">📉 % CP / DOANH SỐ</th>
-                            <th style="width:130px">🎯 TỶ LỆ CHỐT</th>
-                            <th style="width:140px">🎯 CPO (GIÁ/ĐƠN)</th>
-                            <th style="width:110px">📥 SỐ LEAD</th>
-                            <th style="width:130px">📊 CPL (GIÁ/LEAD)</th>
-                            <th style="width:115px">⚙️ PHÂN CÔNG</th>
-                        </tr>
-                    </thead>
-                    <tbody id="kpiMktHandlersTbody">
-                        <tr><td colspan="12" style="text-align:center;padding:30px;color:#64748b;font-weight:700">⏳ Đang tải dữ liệu KPI theo nhân viên...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-
             <!-- SECTION TITLE -->
             <div class="kpi-v2-sec-hdr">
                 <div class="kpi-v2-sec-title">
@@ -243,7 +211,7 @@ async function renderKpimarketingPage(container) {
             </div>
 
             <!-- MAIN TABLE OF SUB-CATEGORIES -->
-            <div class="kpi-v2-tbl-wrap">
+            <div class="kpi-v2-tbl-wrap" style="margin-bottom: 30px;">
                 <table class="kpi-v2-tbl" id="kpiMktTable">
                     <thead>
                         <tr>
@@ -285,6 +253,38 @@ async function renderKpimarketingPage(container) {
                     </thead>
                     <tbody id="kpiMktTbody">
                         <tr><td colspan="10" style="text-align:center;padding:35px;color:#64748b;font-weight:700">⏳ Đang tải danh sách Mục Con & Chỉ số...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- SECTION TITLE: KPI MARKETING ADS THEO NHÂN VIÊN -->
+            <div class="kpi-v2-sec-hdr" style="border-left-color: #0284c7; background: linear-gradient(90deg, #f0f9ff 0%, #ffffff 100%);">
+                <div class="kpi-v2-sec-title" style="color: #0369a1;">
+                    <span>👥 BẢNG GÁN & BÁO CÁO KPI MARKETING ADS THEO NHÂN VIÊN</span>
+                </div>
+            </div>
+
+            <!-- TABLE OF MARKETING HANDLERS / EMPLOYEES -->
+            <div class="kpi-v2-tbl-wrap" style="margin-bottom: 30px;">
+                <table class="kpi-v2-tbl" id="kpiMktHandlersTable">
+                    <thead>
+                        <tr>
+                            <th style="width:45px">STT</th>
+                            <th style="text-align:left;min-width:170px">Nhân Viên Marketing (Ads Handler)</th>
+                            <th style="text-align:left;min-width:240px">Danh Sách Page / Mục Con Đang Cầm</th>
+                            <th style="width:110px">📦 ĐƠN HÀNG</th>
+                            <th style="width:140px">💸 CHI PHÍ MKT</th>
+                            <th style="width:145px">💰 DOANH SỐ (đ)</th>
+                            <th style="width:145px">📉 % CP / DOANH SỐ</th>
+                            <th style="width:130px">🎯 TỶ LỆ CHỐT</th>
+                            <th style="width:140px">🎯 CPO (GIÁ/ĐƠN)</th>
+                            <th style="width:110px">📥 SỐ LEAD</th>
+                            <th style="width:130px">📊 CPL (GIÁ/LEAD)</th>
+                            <th style="width:115px">⚙️ PHÂN CÔNG</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpiMktHandlersTbody">
+                        <tr><td colspan="12" style="text-align:center;padding:30px;color:#64748b;font-weight:700">⏳ Đang tải dữ liệu KPI theo nhân viên...</td></tr>
                     </tbody>
                 </table>
             </div>
