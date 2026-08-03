@@ -2529,15 +2529,24 @@ async function _mktOpenCatModal(groupType, defaultParentId = null) {
     `).join('');
 
     let html = '<option value="">-- Không gắn Nguồn cố định --</option>';
-    html += '<optgroup label="📌 Nguồn Khách NV Kinh Doanh (Ảnh 3)">';
-    (_mktNavState.sources.nhu_cau || []).forEach(s => {
-        html += `<option value="nhu_cau:${s.name}">NV Kinh Doanh - ${s.name}</option>`;
+    html += '<optgroup label="📌 Nguồn Khách Hệ Thống">';
+    const allSources = [];
+    const addedNames = new Set();
+    const rawSources = [
+        ...(_mktNavState.sources.nhu_cau || []),
+        ...(_mktNavState.sources.sale || [])
+    ];
+    rawSources.forEach(s => {
+        if (s && s.name) {
+            const cleanName = s.name.trim();
+            if (!addedNames.has(cleanName)) {
+                addedNames.add(cleanName);
+                allSources.push({ type: s.type || 'nhu_cau', name: cleanName });
+            }
+        }
     });
-    html += '</optgroup>';
-
-    html += '<optgroup label="📌 Nguồn Khách Sale (Ảnh 4)">';
-    (_mktNavState.sources.sale || []).forEach(s => {
-        html += `<option value="sale:${s.name}">Sale - ${s.name}</option>`;
+    allSources.forEach(s => {
+        html += `<option value="${s.type}:${s.name}">${s.name}</option>`;
     });
     html += '</optgroup>';
 
