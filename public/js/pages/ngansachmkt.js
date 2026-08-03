@@ -995,12 +995,12 @@ function _mktRenderKpiCards(s) {
                     <div class="mkt-kpi-val" style="color:#d97706;">${totalLeads.toLocaleString('vi-VN')} <span style="font-size:13px;font-weight:600">khách</span></div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Theo bộ lọc đang chọn</div>
                 </div>
-                <div class="mkt-kpi-card" style="border-top-color:#7c3aed;background:linear-gradient(180deg, #f3e8ff 0%, #ffffff 100%);">
+                <div class="mkt-kpi-card" data-tooltip="${titleCpl}" title="${titleCpl}" style="border-top-color:#7c3aed;background:linear-gradient(180deg, #f3e8ff 0%, #ffffff 100%);">
                     <div class="mkt-kpi-lbl">📊 CPL (GIÁ / LEAD)</div>
                     <div class="mkt-kpi-val" style="color:#7c3aed;">${_mktFmt(avgCpl)}</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Chi phí / 1 tin nhắn</div>
                 </div>
-                <div class="mkt-kpi-card" style="border-top-color:#0891b2;background:linear-gradient(180deg, #ecfeff 0%, #ffffff 100%);">
+                <div class="mkt-kpi-card" data-tooltip="${titleCloseRate}" title="${titleCloseRate}" style="border-top-color:#0891b2;background:linear-gradient(180deg, #ecfeff 0%, #ffffff 100%);">
                     <div class="mkt-kpi-lbl">🎯 TỶ LỆ CHỐT (DATA CHẤT)</div>
                     <div class="mkt-kpi-val" style="color:#0891b2;">${closeRate}%</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Tổng số đơn / tổng số lead (tin nhắn)</div>
@@ -1557,6 +1557,10 @@ function _mktRenderTable(data) {
                 pageLinkHtml = `<a href="https://facebook.com/${item.pancake_page_id}" target="_blank" class="mkt-page-title-link" title="${fullPageName}">📄 ${fullPageName} ↗</a>`;
             }
 
+            const titleCplRow = `${_mktFmt(spent)} Chi phí MKT / ${leads} Tin Nhắn = ${_mktFmt(cpl)}`;
+            const titleCpoRow = `${_mktFmt(spent)} Chi phí MKT / ${orders} Đơn = ${_mktFmt(costPerOrder)}`;
+            const titleRoasRow = `${_mktFmt(spent)} Chi phí MKT / ${_mktFmt(rev)} Doanh số = ${roas}%`;
+
             return `
                 <tr>
                     <td style="font-weight:700;color:#64748b;text-align:center;">${idx + 1}</td>
@@ -1573,11 +1577,11 @@ function _mktRenderTable(data) {
                     </td>
                     <td style="text-align:right;font-weight:800;color:#059669;">${_mktFmt(spent)}</td>
                     <td style="text-align:center;font-weight:800;color:#d97706;">${leads}</td>
-                    <td style="text-align:right;font-weight:800;color:#7c3aed;">${cpl > 0 ? _mktFmt(cpl) : '—'}</td>
+                    <td style="text-align:right;font-weight:800;color:#7c3aed;" data-tooltip="${titleCplRow}" title="${titleCplRow}">${cpl > 0 ? _mktFmt(cpl) : '—'}</td>
                     <td style="text-align:center;font-weight:800;color:#2563eb;">${orders}</td>
                     <td style="text-align:right;font-weight:700;color:#0284c7;">${rev > 0 ? _mktFmt(rev) : '—'}</td>
-                    <td style="text-align:center;"><span style="background:${roas >= 100 ? '#dcfce7' : '#fef3c7'};color:${roas >= 100 ? '#166534' : '#92400e'};padding:2px 8px;border-radius:10px;font-weight:800;font-size:11px;">${spent > 0 ? roas + '%' : '—'}</span></td>
-                    <td style="text-align:right;font-weight:800;color:#dc2626;">${costPerOrder > 0 ? _mktFmt(costPerOrder) : '—'}</td>
+                    <td style="text-align:center;" data-tooltip="${titleRoasRow}" title="${titleRoasRow}"><span style="background:${roas >= 100 ? '#dcfce7' : '#fef3c7'};color:${roas >= 100 ? '#166534' : '#92400e'};padding:2px 8px;border-radius:10px;font-weight:800;font-size:11px;">${spent > 0 ? roas + '%' : '—'}</span></td>
+                    <td style="text-align:right;font-weight:800;color:#dc2626;" data-tooltip="${titleCpoRow}" title="${titleCpoRow}">${costPerOrder > 0 ? _mktFmt(costPerOrder) : '—'}</td>
                     <td style="text-align:center;">—</td>
                 </tr>
             `;
@@ -1594,6 +1598,10 @@ function _mktRenderTable(data) {
         const cpl = leads > 0 ? Math.round(spent / leads) : 0;
         const costPerOrder = orders > 0 ? Math.round(spent / orders) : 0;
         const roas = spent > 0 ? (rev / spent * 100).toFixed(1) : 0;
+
+        const titleCplRow = `${_mktFmt(spent)} Chi phí MKT / ${leads} Tin Nhắn = ${_mktFmt(cpl)}`;
+        const titleCpoRow = `${_mktFmt(spent)} Chi phí MKT / ${orders} Đơn = ${_mktFmt(costPerOrder)}`;
+        const titleRoasRow = `${_mktFmt(spent)} Chi phí MKT / ${_mktFmt(rev)} Doanh số = ${roas}%`;
 
         const dateDisp = item.budget_date ? _mktFmtDayOfWeek(item.budget_date) : `Tháng ${item.budget_month}/${item.budget_year}`;
         const handlerDisplay = item.ads_handler_name || 'Giám Đốc';
@@ -1654,11 +1662,11 @@ function _mktRenderTable(data) {
                 </td>
                 <td style="text-align:right;font-weight:800;color:#059669;">${_mktFmt(spent)}</td>
                 <td style="text-align:center;font-weight:800;color:#d97706;">${leads}</td>
-                <td style="text-align:right;font-weight:800;color:#7c3aed;">${cpl > 0 ? _mktFmt(cpl) : '—'}</td>
+                <td style="text-align:right;font-weight:800;color:#7c3aed;" data-tooltip="${titleCplRow}" title="${titleCplRow}">${cpl > 0 ? _mktFmt(cpl) : '—'}</td>
                 <td style="text-align:center;font-weight:800;color:#2563eb;">${orders}</td>
                 <td style="text-align:right;font-weight:700;color:#0284c7;">${rev > 0 ? _mktFmt(rev) : '—'}</td>
-                <td style="text-align:center;"><span style="background:${roas >= 100 ? '#dcfce7' : '#fef3c7'};color:${roas >= 100 ? '#166534' : '#92400e'};padding:2px 8px;border-radius:10px;font-weight:800;font-size:11px;">${spent > 0 ? roas + '%' : '—'}</span></td>
-                <td style="text-align:right;font-weight:800;color:#dc2626;">${costPerOrder > 0 ? _mktFmt(costPerOrder) : '—'}</td>
+                <td style="text-align:center;" data-tooltip="${titleRoasRow}" title="${titleRoasRow}"><span style="background:${roas >= 100 ? '#dcfce7' : '#fef3c7'};color:${roas >= 100 ? '#166534' : '#92400e'};padding:2px 8px;border-radius:10px;font-weight:800;font-size:11px;">${spent > 0 ? roas + '%' : '—'}</span></td>
+                <td style="text-align:right;font-weight:800;color:#dc2626;" data-tooltip="${titleCpoRow}" title="${titleCpoRow}">${costPerOrder > 0 ? _mktFmt(costPerOrder) : '—'}</td>
                 <td style="text-align:center;">${actionHtml}</td>
             </tr>
         `;
