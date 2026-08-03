@@ -267,22 +267,6 @@ async function renderKpimarketingPage(container) {
             <!-- TABLE OF MARKETING HANDLERS / EMPLOYEES -->
             <div class="kpi-v2-tbl-wrap" style="margin-bottom: 30px;">
                 <table class="kpi-v2-tbl" id="kpiMktHandlersTable">
-                    <thead>
-                        <tr>
-                            <th style="width:45px">STT</th>
-                            <th style="text-align:left;min-width:170px">Nhân Viên Marketing (Ads Handler)</th>
-                            <th style="text-align:left;min-width:240px">Danh Sách Page / Mục Con Đang Cầm</th>
-                            <th style="width:110px">📦 ĐƠN HÀNG</th>
-                            <th style="width:140px">💸 CHI PHÍ MKT</th>
-                            <th style="width:145px">💰 DOANH SỐ (đ)</th>
-                            <th style="width:145px">📉 % CP / DOANH SỐ</th>
-                            <th style="width:130px">🎯 TỶ LỆ CHỐT</th>
-                            <th style="width:140px">🎯 CPO (GIÁ/ĐƠN)</th>
-                            <th style="width:110px">📥 SỐ LEAD</th>
-                            <th style="width:130px">📊 CPL (GIÁ/LEAD)</th>
-                            <th style="width:115px">⚙️ PHÂN CÔNG</th>
-                        </tr>
-                    </thead>
                     <tbody id="kpiMktHandlersTbody">
                         <tr><td colspan="12" style="text-align:center;padding:30px;color:#64748b;font-weight:700">⏳ Đang tải dữ liệu KPI theo nhân viên...</td></tr>
                     </tbody>
