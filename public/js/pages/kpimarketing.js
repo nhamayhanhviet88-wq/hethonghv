@@ -1287,19 +1287,26 @@ function renderKpiMktHandlersTable(res, itemsList) {
                     <span>📊 CPL (GIÁ/LEAD)</span>
                     <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(Giá / Tin Nhắn)</span>
                 </td>
-                <td style="text-align:center;color:#ffffff;font-weight:800;padding:9px 4px;background:#1e293b !important;vertical-align:middle;">⚙️ PHÂN CÔNG</td>
             </tr>
         `;
+
+        const actionButtonsHtml = isGiamDoc ? `
+            <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;margin-top:8px;width:100%;max-width:145px;">
+                <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:5px 10px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
+                <button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}')" style="background:#ecfdf5;color:#047857;border:1.5px solid #a7f3d0;padding:5px 10px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-shadow:0 1px 2px rgba(4,120,87,0.1);transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'">🎯 Đặt KPI Tháng</button>
+            </div>
+        ` : '';
 
         if (displayItems.length === 0) {
             // Employee has no pages
             html += `
                 <tr>
                     <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;font-weight:800;background:#fff">${idx + 1}</td>
-                    <td rowspan="${totalRowsForHandler}" style="text-align:left;vertical-align:middle;background:#fff">
+                    <td rowspan="${totalRowsForHandler}" style="text-align:left;vertical-align:middle;background:#fff;padding:12px 10px;">
                         <div style="font-weight:800;font-size:14px;color:#1e1b4b;display:flex;align-items:center;gap:6px">
                             <span>👤 ${escapeHtml(handlerName)}</span>
                         </div>
+                        ${actionButtonsHtml}
                     </td>
                     <td style="text-align:left;color:#94a3b8;font-style:italic">Chưa gán Page nào</td>
                     <td>0đ</td>
@@ -1310,14 +1317,6 @@ function renderKpiMktHandlersTable(res, itemsList) {
                     <td><span class="kpi-pill kpi-pill-orange">0đ</span></td>
                     <td>0</td>
                     <td><span class="kpi-pill kpi-pill-blue">0đ</span></td>
-                    <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;background:#fff">
-                        ${isGiamDoc ? `
-                            <div style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;">
-                                <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:5px 12px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
-                                <button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}')" style="background:#ecfdf5;color:#047857;border:1.5px solid #a7f3d0;padding:5px 12px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(4,120,87,0.1);transition:all 0.2s" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'">🎯 Đặt KPI Tháng</button>
-                            </div>
-                        ` : '<span style="font-size:11px;color:#94a3b8">-</span>'}
-                    </td>
                 </tr>
             `;
         } else {
@@ -1366,10 +1365,11 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 if (pageIdx === 0) {
                     html += `
                         <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;font-weight:800;background:#fff">${idx + 1}</td>
-                        <td rowspan="${totalRowsForHandler}" style="text-align:left;vertical-align:middle;background:#fff">
+                        <td rowspan="${totalRowsForHandler}" style="text-align:left;vertical-align:middle;background:#fff;padding:12px 10px;">
                             <div style="font-weight:800;font-size:14px;color:#1e1b4b;display:flex;align-items:center;gap:6px">
                                 <span>👤 ${escapeHtml(handlerName)}</span>
                             </div>
+                            ${actionButtonsHtml}
                         </td>
                     `;
                 }
@@ -1384,18 +1384,6 @@ function renderKpiMktHandlersTable(res, itemsList) {
                     <td style="font-weight:700;color:#0284c7">${itemLeads}</td>
                     <td><span class="kpi-pill kpi-pill-blue" data-tooltip="${titleCpl}" title="${titleCpl}">${itemCplStr}</span></td>
                 `;
-                if (pageIdx === 0) {
-                    html += `
-                        <td rowspan="${totalRowsForHandler}" style="text-align:center;vertical-align:middle;background:#fff">
-                            ${isGiamDoc ? `
-                                <div style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;">
-                                    <button type="button" onclick="kpiMktOpenAssignModal('${escapeHtml(handlerName)}')" style="background:#f3e8ff;color:#7e22ce;border:1.5px solid #d8b4fe;padding:5px 12px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(126,34,206,0.1);transition:all 0.2s" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">⚙️ Gán Page</button>
-                                    <button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}')" style="background:#ecfdf5;color:#047857;border:1.5px solid #a7f3d0;padding:5px 12px;border-radius:8px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(4,120,87,0.1);transition:all 0.2s" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'">🎯 Đặt KPI Tháng</button>
-                                </div>
-                            ` : '<span style="font-size:11px;color:#94a3b8">-</span>'}
-                        </td>
-                    `;
-                }
                 html += `</tr>`;
             });
         }
