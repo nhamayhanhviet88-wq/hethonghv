@@ -709,9 +709,16 @@ module.exports = async function(fastify, options) {
 
     fastify.post('/api/reports/kpi-marketing/categories', { preHandler: [authenticate] }, saveCategoryHandler);
 
-    // ===== DELETE /api/reports/kpi-marketing/categories/:id ===== (Xóa / Ẩn mục con)
+    // ===== DELETE /api/reports/kpi-marketing/categories/:id ===== (Chỉ Giám Đốc được Xóa / Ẩn mục con)
     fastify.delete('/api/reports/kpi-marketing/categories/:id', { preHandler: [authenticate] }, async (request, reply) => {
         try {
+            const user = request.user || {};
+            const isGiamDoc = user.role === 'giam_doc' || user.role === 'admin' || (user.full_name || user.name || user.username || '').toLowerCase().includes('giám đốc') || user.is_admin === true || user.username === 'admin';
+            
+            if (!isGiamDoc) {
+                return reply.status(403).send({ error: 'Chỉ Giám Đốc mới có quyền xóa mục con!' });
+            }
+
             const { id } = request.params;
             if (!id) return reply.status(400).send({ error: 'ID không hợp lệ' });
 

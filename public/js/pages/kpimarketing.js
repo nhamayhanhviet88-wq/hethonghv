@@ -460,6 +460,8 @@ function renderCategoryTable(res) {
     let html = '';
     let totalSpent = 0, totalLeads = 0, totalOrders = 0, totalRevenue = 0;
 
+    const isGiamDoc = kpiMktIsGiamDoc();
+
     itemsList.forEach((c, idx) => {
         totalSpent += Number(c.spent || 0);
         totalLeads += Number(c.leads || 0);
@@ -477,7 +479,7 @@ function renderCategoryTable(res) {
                 <td style="text-align:left">
                     <div style="font-weight:800;font-size:13.5px;color:#1e1b4b;display:flex;align-items:center;justify-content:space-between;gap:6px">
                         <span>${c.icon || '📌'} ${escapeHtml(c.category_name)}</span>
-                        <button type="button" onclick="kpiMktDeleteCategory('${c.category_id || 0}', '${escapeHtml(c.category_name)}')" title="Xóa mục con này khỏi danh sách" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(220,38,38,0.1);transition:all 0.2s" onmouseover="this.style.background='#fee2e2';this.style.borderColor='#f87171'" onmouseout="this.style.background='#fef2f2';this.style.borderColor='#fca5a5'">🗑️ Xóa</button>
+                        ${isGiamDoc ? `<button type="button" onclick="kpiMktDeleteCategory('${c.category_id || 0}', '${escapeHtml(c.category_name)}')" title="Xóa mục con này khỏi danh sách" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(220,38,38,0.1);transition:all 0.2s" onmouseover="this.style.background='#fee2e2';this.style.borderColor='#f87171'" onmouseout="this.style.background='#fef2f2';this.style.borderColor='#fca5a5'">🗑️ Xóa</button>` : ''}
                     </div>
                     <div style="font-size:11px;color:#475569;margin-top:3px;display:flex;gap:10px;align-items:center">
                         <span style="background:#f1f5f9;padding:1px 6px;border-radius:4px;color:#475569">Kênh: ${escapeHtml(c.channel_name || 'Khác')}</span>
@@ -882,7 +884,18 @@ async function kpiMktSaveNewCategory() {
     }
 }
 
+function kpiMktIsGiamDoc() {
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : (window._currentUser || {});
+    const r = (u.role || '').toLowerCase();
+    const name = (u.full_name || u.name || u.username || '').toLowerCase();
+    return r === 'giam_doc' || r === 'admin' || name.includes('giám đốc') || u.is_admin === true || u.username === 'admin';
+}
+
 async function kpiMktDeleteCategory(catId, catName) {
+    if (!kpiMktIsGiamDoc()) {
+        alert('⚠️ Bạn không có quyền thao tác! Chỉ Giám Đốc mới được xóa mục con.');
+        return;
+    }
     if (!confirm(`Bạn có chắc chắn muốn xóa mục con "${catName}" không?\n(Mục con sẽ được ẩn khỏi bảng chỉ số Marketing)`)) {
         return;
     }
