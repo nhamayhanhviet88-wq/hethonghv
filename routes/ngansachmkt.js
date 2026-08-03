@@ -1059,7 +1059,7 @@ async function nganSachMktRoutes(fastify, options) {
                     SELECT 
                         o.id,
                         o.order_code,
-                        TO_CHAR(o.order_date, 'YYYY-MM-DD HH24:MI') as order_time_str,
+                        TO_CHAR(COALESCE(o.created_at, o.order_date), 'YYYY-MM-DD HH24:MI') as order_time_str,
                         TO_CHAR(o.order_date, 'YYYY-MM-DD') as dt_str,
                         TRIM(o.source) as source,
                         LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) as clean_source_key,

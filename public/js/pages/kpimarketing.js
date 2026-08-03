@@ -1093,10 +1093,12 @@ async function kpiMktOpenOrdersModal() {
                 return;
             }
 
-            let rowsHtml = orders.map((o, idx) => `
+            let rowsHtml = orders.map((o, idx) => {
+                const timeDisp = (o.order_time_str || o.dt_str || '').replace(' 00:00', '');
+                return `
                 <tr style="border-bottom:1px solid #e2e8f0;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
                     <td style="padding:11px 12px;text-align:center;font-weight:700;color:#64748b;font-size:12px;">${idx + 1}</td>
-                    <td style="padding:11px 12px;font-weight:700;color:#334155;font-size:12.5px;white-space:nowrap;">🕒 ${o.order_time_str || o.dt_str}</td>
+                    <td style="padding:11px 12px;font-weight:700;color:#334155;font-size:12.5px;white-space:nowrap;">🕒 ${timeDisp}</td>
                     <td style="padding:11px 12px;font-weight:800;color:#2563eb;font-family:monospace;font-size:13px;white-space:nowrap;">
                         <span style="background:#eff6ff;padding:3px 8px;border-radius:6px;border:1px solid #bfdbfe;">${o.order_code}</span>
                     </td>
@@ -1109,7 +1111,7 @@ async function kpiMktOpenOrdersModal() {
                     <td style="padding:11px 12px;text-align:right;font-weight:800;color:#d97706;font-size:13px;">${Number(o.deposit_amount) > 0 ? formatVND(o.deposit_amount) : '—'}</td>
                     <td style="padding:11px 12px;text-align:right;font-weight:900;color:#2563eb;font-size:14px;">${formatVND(o.total_amount)}</td>
                 </tr>
-            `).join('');
+            `}).join('');
 
             if (tableEl) {
                 tableEl.innerHTML = `
