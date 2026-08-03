@@ -199,14 +199,14 @@ async function renderKpimarketingPage(container) {
                         <tr>
                             <th style="width:45px">STT</th>
                             <th style="text-align:left;min-width:220px">Mục Con / Mã Nguồn (Channel & Page)</th>
-                            <th style="width:130px">📊 CPL (GIÁ/LEAD)</th>
-                            <th style="width:140px">📉 % CP / DOANH THU</th>
-                            <th style="width:130px">🎯 CPO (GIÁ/ĐƠN)</th>
-                            <th style="width:130px">🎯 TỶ LỆ CHỐT</th>
-                            <th style="width:140px">💰 DOANH SỐ (đ)</th>
                             <th style="width:110px">📦 ĐƠN HÀNG</th>
+                            <th style="width:150px">💸 CHI PHÍ MARKETING</th>
+                            <th style="width:140px">💰 DOANH SỐ (đ)</th>
+                            <th style="width:140px">📉 % CP / DOANH SỐ</th>
+                            <th style="width:130px">🎯 TỶ LỆ CHỐT</th>
+                            <th style="width:130px">🎯 CPO (GIÁ/ĐƠN)</th>
                             <th style="width:100px">📥 SỐ LEAD</th>
-                            <th style="width:140px">💸 CHI MARKETING</th>
+                            <th style="width:130px">📊 CPL (GIÁ/LEAD)</th>
                         </tr>
                     </thead>
                     <tbody id="kpiMktTbody">
@@ -457,14 +457,14 @@ function renderCategoryTable(res) {
                         <span style="background:#e0e7ff;color:#3730a3;padding:1px 6px;border-radius:4px;font-weight:700">👤 ${escapeHtml(c.ads_handler_name || 'Giám Đốc')}</span>
                     </div>
                 </td>
-                <td><span class="kpi-pill kpi-pill-blue">${cplStr}</span></td>
-                <td><span class="kpi-pill kpi-pill-purple">${costRatioStr}</span></td>
-                <td><span class="kpi-pill kpi-pill-orange">${cpoStr}</span></td>
-                <td><span class="kpi-pill kpi-pill-cyan">${closeRateStr}</span></td>
-                <td style="font-weight:700;color:#16a34a">${formatVND(c.revenue || 0)}</td>
                 <td style="font-weight:700;color:#d97706">${c.orders || 0} đơn</td>
-                <td style="font-weight:700;color:#0284c7">${c.leads || 0}</td>
                 <td style="font-weight:700;color:#e11d48">${formatVND(c.spent || 0)}</td>
+                <td style="font-weight:700;color:#16a34a">${formatVND(c.revenue || 0)}</td>
+                <td><span class="kpi-pill kpi-pill-purple">${costRatioStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-cyan">${closeRateStr}</span></td>
+                <td><span class="kpi-pill kpi-pill-orange">${cpoStr}</span></td>
+                <td style="font-weight:700;color:#0284c7">${c.leads || 0}</td>
+                <td><span class="kpi-pill kpi-pill-blue">${cplStr}</span></td>
             </tr>
         `;
     });
@@ -479,14 +479,14 @@ function renderCategoryTable(res) {
         <tr class="total-row">
             <td style="text-align:center">★</td>
             <td style="text-align:left">🏆 TỔNG CỘNG MỤC MARKETING (${itemsList.length} Mục Con)</td>
-            <td><span class="kpi-pill kpi-pill-blue">${formatVND(avgCpl)}</span></td>
-            <td><span class="kpi-pill kpi-pill-purple">${avgCostRatio}%</span></td>
-            <td><span class="kpi-pill kpi-pill-orange">${avgCpo > 0 ? formatVND(avgCpo) : '0đ'}</span></td>
-            <td><span class="kpi-pill kpi-pill-cyan">${avgCloseRate}%</span></td>
-            <td>${formatVND(totalRevenue)}</td>
             <td>${totalOrders} đơn</td>
-            <td>${totalLeads}</td>
             <td>${formatVND(totalSpent)}</td>
+            <td>${formatVND(totalRevenue)}</td>
+            <td><span class="kpi-pill kpi-pill-purple">${avgCostRatio}%</span></td>
+            <td><span class="kpi-pill kpi-pill-cyan">${avgCloseRate}%</span></td>
+            <td><span class="kpi-pill kpi-pill-orange">${avgCpo > 0 ? formatVND(avgCpo) : '0đ'}</span></td>
+            <td>${totalLeads}</td>
+            <td><span class="kpi-pill kpi-pill-blue">${formatVND(avgCpl)}</span></td>
         </tr>
     `;
 
