@@ -1431,6 +1431,9 @@ function renderKpiMktHandlersTable(res, itemsList) {
         const targetCloseRate = Number(h.target_close_rate || tObj.target_close_rate || 0);
         const targetCpo = Number(h.target_cpo || tObj.target_cpo || 0);
         const targetCpl = Number(h.target_cpl || tObj.target_cpl || 0);
+        const targetBonusM1 = Number(h.target_bonus_m1 || tObj.target_bonus_m1 || 0);
+        const targetBonusM120 = Number(h.target_bonus_m120 || tObj.target_bonus_m120 || 0);
+        const targetBonusNote = h.target_bonus_note || tObj.target_bonus_note || '';
 
         // Mốc 1 Values
         const m1SpentStr = targetBudget > 0 ? formatVND(targetBudget) : '-';
@@ -1594,14 +1597,16 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td style="text-align:left;font-weight:900;color:#78350f">
                     <span>🎁 LƯƠNG THƯỞNG ĐẠT KPI</span>
                 </td>
+                <td style="font-weight:900;color:#047857">
+                    ${targetBonusM1 > 0 ? `<span style="background:#d1fae5;color:#047857;border:1px solid #a7f3d0;padding:3px 10px;border-radius:8px;font-weight:800;display:inline-block;" data-tooltip="Thưởng Mốc 1 (100% KPI)">🎁 Mốc 1: +${formatVND(targetBonusM1)}</span>` : '-'}
+                </td>
                 <td style="font-weight:900;color:#78350f">-</td>
-                <td style="font-weight:900;color:#78350f">-</td>
-                <td style="font-weight:900;color:#78350f">-</td>
-                <td><span class="kpi-pill kpi-pill-purple">-</span></td>
-                <td><span class="kpi-pill kpi-pill-cyan">-</span></td>
-                <td><span class="kpi-pill kpi-pill-orange">-</span></td>
-                <td style="font-weight:900;color:#78350f">-</td>
-                <td><span class="kpi-pill kpi-pill-blue">-</span></td>
+                <td style="font-weight:900;color:#1d4ed8">
+                    ${targetBonusM120 > 0 ? `<span style="background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;padding:3px 10px;border-radius:8px;font-weight:800;display:inline-block;" data-tooltip="Thưởng Mốc 2 (120% KPI)">🏆 Mốc 2: +${formatVND(targetBonusM120)}</span>` : '-'}
+                </td>
+                <td colspan="5" style="text-align:left;vertical-align:middle;padding:6px 12px;">
+                    ${targetBonusNote ? `<span style="font-size:12px;color:#78350f;font-weight:700;background:#fef08a;padding:4px 12px;border-radius:8px;border:1px solid #fde047;display:inline-block;">📝 Ghi chú thưởng: ${escapeHtml(targetBonusNote)}</span>` : '<span style="color:#a16207;font-style:italic;font-size:11.5px">Chưa cài đặt nội dung thưởng</span>'}
+                </td>
             </tr>
         `;
 
@@ -1734,6 +1739,9 @@ async function kpiMktOpenSetTargetModal(handlerName) {
     const targetCloseRate = Number(h.target_close_rate || tObj.target_close_rate || 0);
     const targetCpo = Number(h.target_cpo || tObj.target_cpo || 0);
     const targetCpl = Number(h.target_cpl || tObj.target_cpl || 0);
+    const targetBonusM1 = Number(h.target_bonus_m1 || tObj.target_bonus_m1 || 0);
+    const targetBonusM120 = Number(h.target_bonus_m120 || tObj.target_bonus_m120 || 0);
+    const targetBonusNote = h.target_bonus_note || tObj.target_bonus_note || '';
 
     const [yStr, mStr] = (_kpiMkt.month || '').split('-');
     const monthText = yStr && mStr ? `Tháng ${parseInt(mStr, 10)}/${yStr}` : 'Tháng';
@@ -1745,6 +1753,8 @@ async function kpiMktOpenSetTargetModal(handlerName) {
     const fmtLd2 = targetLeadsM120 > 0 ? targetLeadsM120.toLocaleString('vi-VN') : '';
     const fmtCpo = targetCpo > 0 ? targetCpo.toLocaleString('vi-VN') : '';
     const fmtCpl = targetCpl > 0 ? targetCpl.toLocaleString('vi-VN') : '';
+    const fmtBonus1 = targetBonusM1 > 0 ? targetBonusM1.toLocaleString('vi-VN') : '';
+    const fmtBonus2 = targetBonusM120 > 0 ? targetBonusM120.toLocaleString('vi-VN') : '';
 
     modal.innerHTML = `
         <div class="kpi-v2-modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);">
@@ -1812,7 +1822,28 @@ async function kpiMktOpenSetTargetModal(handlerName) {
                     </div>
                 </div>
 
-                <!-- SECTION 4: TỶ LỆ MỞ RỘNG (TÙY CHỌN) -->
+                <!-- SECTION 4: LƯƠNG THƯỞNG ĐẠT KPI -->
+                <div style="background:#fffbeb;padding:14px 16px;border-radius:12px;border:1px solid #fde68a;">
+                    <div style="font-weight:800;font-size:13.5px;color:#92400e;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                        <span>🎁 LƯƠNG THƯỞNG ĐẠT KPI</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">💰 Thưởng Mốc 1 (100% KPI) (đ)</label>
+                            <input type="text" id="target_bonus_m1" value="${fmtBonus1}" placeholder="Ví dụ: 2.000.000" oninput="kpiMktFormatInputNumber(this)" style="width:100%;padding:8px 12px;border:1.5px solid #fcd34d;border-radius:8px;font-weight:700;font-size:13px;color:#78350f;outline:none;background:white;" />
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">🏆 Thưởng Mốc 2 (120% KPI) (đ)</label>
+                            <input type="text" id="target_bonus_m120" value="${fmtBonus2}" placeholder="Ví dụ: 5.000.000" oninput="kpiMktFormatInputNumber(this)" style="width:100%;padding:8px 12px;border:1.5px solid #fcd34d;border-radius:8px;font-weight:700;font-size:13px;color:#78350f;outline:none;background:white;" />
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <label style="font-size:12px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">📝 Nội Dung Thưởng / Ghi Chú Thưởng</label>
+                        <input type="text" id="target_bonus_note" value="${escapeHtml(targetBonusNote)}" placeholder="Ví dụ: Thưởng nóng tiền mặt hoặc cộng vào lương tháng..." style="width:100%;padding:8px 12px;border:1.5px solid #fcd34d;border-radius:8px;font-weight:600;font-size:12.5px;color:#78350f;outline:none;background:white;" />
+                    </div>
+                </div>
+
+                <!-- SECTION 5: TỶ LỆ MỞ RỘNG (TÙY CHỌN) -->
                 <div style="background:#f8fafc;padding:14px 16px;border-radius:12px;border:1px solid #e2e8f0;">
                     <div style="font-weight:800;font-size:13.5px;color:#0f172a;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
                         <span>📈 CÁC CHỈ SỐ MỤC TIÊU MỞ RỘNG (TÙY CHỌN)</span>
@@ -1896,7 +1927,10 @@ async function kpiMktSaveTargetForHandler(e, handlerName) {
                     target_cost_ratio: Number(String(document.getElementById('target_cost_ratio')?.value || 0).replace(/,/g, '.')) || 0,
                     target_close_rate: Number(String(document.getElementById('target_close_rate')?.value || 0).replace(/,/g, '.')) || 0,
                     target_cpo: kpiMktParseVnInt(document.getElementById('target_cpo')?.value),
-                    target_cpl: kpiMktParseVnInt(document.getElementById('target_cpl')?.value)
+                    target_cpl: kpiMktParseVnInt(document.getElementById('target_cpl')?.value),
+                    target_bonus_m1: kpiMktParseVnInt(document.getElementById('target_bonus_m1')?.value),
+                    target_bonus_m120: kpiMktParseVnInt(document.getElementById('target_bonus_m120')?.value),
+                    target_bonus_note: document.getElementById('target_bonus_note')?.value || ''
                 }
             ]
         };
