@@ -217,13 +217,13 @@ async function renderKpimarketingPage(container) {
                         <tr>
                             <th style="width:45px">STT</th>
                             <th style="text-align:left;min-width:220px">Mục Con / Mã Nguồn (Channel & Page)</th>
-                            <th style="width:115px">
-                                📦 ĐƠN HÀNG
-                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(SL đơn hàng)</span>
-                            </th>
                             <th style="width:145px">
                                 💸 CHI PHÍ MKT
                                 <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(Chi phí Quảng Cáo)</span>
+                            </th>
+                            <th style="width:115px">
+                                📦 ĐƠN HÀNG
+                                <span style="font-size:10px;font-weight:500;color:#cbd5e1;display:block;margin-top:3px;letter-spacing:0">(SL đơn hàng)</span>
                             </th>
                             <th style="width:150px">
                                 💰 DOANH SỐ (đ)
@@ -590,8 +590,8 @@ function renderCategoryTable(res) {
                         <span style="background:#e0e7ff;color:#3730a3;padding:1px 6px;border-radius:4px;font-weight:700">👤 ${escapeHtml(c.ads_handler_name || 'Giám Đốc')}</span>
                     </div>
                 </td>
-                <td style="font-weight:700;color:#d97706">${c.orders || 0} đơn</td>
                 <td style="font-weight:700;color:#e11d48">${formatVND(c.spent || 0)}</td>
+                <td style="font-weight:700;color:#d97706">${c.orders || 0} đơn</td>
                 <td style="font-weight:700;color:#16a34a">${formatVND(c.revenue || 0)}</td>
                 <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${titleCostRatio}" title="${titleCostRatio}">${costRatioStr}</span></td>
                 <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${titleCloseRate}" title="${titleCloseRate}">${closeRateStr}</span></td>
@@ -617,8 +617,8 @@ function renderCategoryTable(res) {
         <tr class="total-row">
             <td style="text-align:center">★</td>
             <td style="text-align:left">🏆 TỔNG CỘNG MỤC MARKETING (${itemsList.length} Mục Con)</td>
-            <td>${totalOrders} đơn</td>
             <td>${formatVND(totalSpent)}</td>
+            <td>${totalOrders} đơn</td>
             <td>${formatVND(totalRevenue)}</td>
             <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${totalTitleCostRatio}" title="${totalTitleCostRatio}">${avgCostRatio}%</span></td>
             <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${totalTitleCloseRate}" title="${totalTitleCloseRate}">${avgCloseRate}%</span></td>
@@ -1255,12 +1255,12 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td style="text-align:left;color:#ffffff;font-weight:800;padding:9px 6px;background:#1e293b !important;vertical-align:middle;">Nhân Viên Marketing (Ads Handler)</td>
                 <td style="text-align:left;color:#ffffff;font-weight:800;padding:9px 6px;background:#1e293b !important;vertical-align:middle;">Danh Sách Page / Mục Con Đang Cầm</td>
                 <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
-                    <span>📦 ĐƠN HÀNG</span>
-                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(SL đơn hàng)</span>
-                </td>
-                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
                     <span>💸 CHI PHÍ MKT</span>
                     <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(Chi phí Quảng Cáo)</span>
+                </td>
+                <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
+                    <span>📦 ĐƠN HÀNG</span>
+                    <span style="font-size:10.5px;font-weight:400;opacity:0.8;display:block;margin-top:2px">(SL đơn hàng)</span>
                 </td>
                 <td style="text-align:center;color:#ffffff;font-weight:800;padding:7px 4px;background:#1e293b !important;vertical-align:middle;">
                     <span>💰 DOANH SỐ (đ)</span>
@@ -1301,8 +1301,8 @@ function renderKpiMktHandlersTable(res, itemsList) {
                         </div>
                     </td>
                     <td style="text-align:left;color:#94a3b8;font-style:italic">Chưa gán Page nào</td>
-                    <td>0 đơn</td>
                     <td>0đ</td>
+                    <td>0 đơn</td>
                     <td>0đ</td>
                     <td><span class="kpi-pill kpi-pill-purple">0.00%</span></td>
                     <td><span class="kpi-pill kpi-pill-cyan">0.00%</span></td>
@@ -1371,8 +1371,8 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 }
                 html += `
                     <td style="text-align:left">${itemLabelHtml}</td>
-                    <td style="font-weight:700;color:#d97706">${itemOrders} đơn</td>
                     <td style="font-weight:700;color:#e11d48">${formatVND(itemSpent)}</td>
+                    <td style="font-weight:700;color:#d97706">${itemOrders} đơn</td>
                     <td style="font-weight:700;color:#16a34a">${formatVND(itemRevenue)}</td>
                     <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${titleCostRatio}" title="${titleCostRatio}">${itemCostRatioStr}</span></td>
                     <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${titleCloseRate}" title="${titleCloseRate}">${itemCloseRateStr}</span></td>
@@ -1414,8 +1414,8 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 <td style="text-align:left;font-weight:900;color:#78350f">
                     <span>★ TỔNG CỘNG KPI ${escapeHtml(handlerName).toUpperCase()} (${displayItems.length} Mục Con)</span>
                 </td>
-                <td style="font-weight:900;color:#d97706">${totOrders} đơn</td>
                 <td style="font-weight:900;color:#e11d48">${formatVND(totSpent)}</td>
+                <td style="font-weight:900;color:#d97706">${totOrders} đơn</td>
                 <td style="font-weight:900;color:#16a34a">${formatVND(totRevenue)}</td>
                 <td><span class="kpi-pill kpi-pill-purple" data-tooltip="${titleTotCostRatio}" title="${titleTotCostRatio}">${totCostRatioStr}</span></td>
                 <td><span class="kpi-pill kpi-pill-cyan" data-tooltip="${titleTotCloseRate}" title="${titleTotCloseRate}">${totCloseRateStr}</span></td>
