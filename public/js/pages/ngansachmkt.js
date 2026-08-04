@@ -2691,8 +2691,21 @@ async function _mktOpenEditCatModal(catId) {
     if (nameEl) nameEl.value = cat.name || '';
     if (iconEl) iconEl.value = cat.icon || '';
     if (sourceSelect && cat.linked_source_name) {
-        const targetVal = `${cat.linked_source_type || 'sale'}:${cat.linked_source_name}`;
-        sourceSelect.value = targetVal;
+        const sName = String(cat.linked_source_name).trim();
+        let foundOpt = Array.from(sourceSelect.options).find(opt => {
+            if (!opt.value) return false;
+            const parts = opt.value.split(':');
+            const valName = parts.length > 1 ? parts.slice(1).join(':').trim() : parts[0].trim();
+            return valName.toLowerCase() === sName.toLowerCase();
+        });
+        if (foundOpt) {
+            sourceSelect.value = foundOpt.value;
+        } else {
+            const optVal = `${cat.linked_source_type || 'sale'}:${sName}`;
+            const newOpt = new Option(sName, optVal, true, true);
+            sourceSelect.add(newOpt);
+            sourceSelect.value = optVal;
+        }
     }
 
     _mktOnParentCategoryChange(cat.parent_id);
