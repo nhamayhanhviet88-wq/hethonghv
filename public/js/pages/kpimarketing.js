@@ -213,7 +213,19 @@ async function renderKpimarketingPage(container) {
 
             <!-- MAIN TABLE OF SUB-CATEGORIES -->
             <div class="kpi-v2-tbl-wrap" style="margin-bottom: 30px;">
-                <table class="kpi-v2-tbl" id="kpiMktTable">
+                <table class="kpi-v2-tbl" id="kpiMktTable" style="table-layout: fixed !important; width: 100%;">
+                    <colgroup>
+                        <col style="width: 40px;">
+                        <col style="width: 390px;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                    </colgroup>
                     <thead>
                         <tr>
                             <th style="width:45px">STT</th>
@@ -267,9 +279,22 @@ async function renderKpimarketingPage(container) {
 
             <!-- TABLE OF MARKETING HANDLERS / EMPLOYEES -->
             <div class="kpi-v2-tbl-wrap" style="margin-bottom: 30px;">
-                <table class="kpi-v2-tbl" id="kpiMktHandlersTable">
+                <table class="kpi-v2-tbl" id="kpiMktHandlersTable" style="table-layout: fixed !important; width: 100%;">
+                    <colgroup>
+                        <col style="width: 40px;">
+                        <col style="width: 140px;">
+                        <col style="width: 250px;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                        <col style="width: 12.5%;">
+                    </colgroup>
                     <tbody id="kpiMktHandlersTbody">
-                        <tr><td colspan="12" style="text-align:center;padding:30px;color:#64748b;font-weight:700">⏳ Đang tải dữ liệu KPI theo nhân viên...</td></tr>
+                        <tr><td colspan="11" style="text-align:center;padding:30px;color:#64748b;font-weight:700">⏳ Đang tải dữ liệu KPI theo nhân viên...</td></tr>
                     </tbody>
                 </table>
             </div>
