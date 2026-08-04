@@ -1393,16 +1393,14 @@ function renderKpiMktHandlersTable(res, itemsList) {
                 const pageLabel = it.pancake_page_name || it.linked_source_name || '';
 
                 const itemLabelHtml = `
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-                        <div style="font-weight:800;font-size:13px;color:#0f172a;display:flex;align-items:center;gap:6px">
-                            <span>📄 ${escapeHtml(catName)}</span>
-                            ${cBonusM1Target > 0 ? `<span style="font-size:10.5px;font-weight:800;background:#fffbeb;color:#92400e;border:1px solid #fde68a;padding:2px 7px;border-radius:6px;" title="${escapeHtml(pageTooltipText)}">🎁 Thưởng: +${formatVND(cBonusM1Target)}</span>` : ''}
-                        </div>
-                        ${it.category_id ? `<button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}', ${it.category_id}, '${escapeHtml(catName)}')" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:2px 8px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(4,120,87,0.1);" title="${escapeHtml(pageTooltipText)}">🎯 KPI Page</button>` : ''}
+                    <div style="font-weight:800;font-size:13px;color:#0f172a;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <span>📄 ${escapeHtml(catName)}</span>
+                        ${cBonusM1Target > 0 ? `<span style="font-size:10.5px;font-weight:800;background:#fffbeb;color:#92400e;border:1px solid #fde68a;padding:2px 7px;border-radius:6px;" title="${escapeHtml(pageTooltipText)}">🎁 Thưởng: +${formatVND(cBonusM1Target)}</span>` : ''}
                     </div>
-                    <div style="font-size:11px;color:#64748b;margin-top:3px;display:flex;align-items:center;gap:8px">
+                    <div style="font-size:11px;color:#64748b;margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                         <span>Kênh: <strong>${escapeHtml(channelName)}</strong></span>
                         ${pageLabel ? `<span style="color:#0284c7;font-weight:700">🔗 ${escapeHtml(pageLabel)}</span>` : ''}
+                        ${it.category_id ? `<button type="button" onclick="kpiMktOpenSetTargetModal('${escapeHtml(handlerName)}', ${it.category_id}, '${escapeHtml(catName)}')" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:2px 9px;border-radius:12px;font-weight:800;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(4,120,87,0.1);white-space:nowrap;transition:all 0.2s;" title="${escapeHtml(pageTooltipText)}" onmouseover="this.style.background='#d1fae5';this.style.borderColor='#34d399'" onmouseout="this.style.background='#ecfdf5';this.style.borderColor='#a7f3d0'">🎯 KPI Page</button>` : ''}
                     </div>
                 `;
 
