@@ -1501,10 +1501,18 @@ function renderKpiMktHandlersTable(res, itemsList) {
         const m2SpentStr = targetBudget > 0 ? formatVND(targetBudget) : '-';
         const m2RevStr = targetRevM120 > 0 ? formatVND(targetRevM120) : '-';
         const m2LeadsStr = targetLeadsM120 > 0 ? targetLeadsM120.toLocaleString('vi-VN') : '-';
-        const m2CostRatioStr = targetRevM120 > 0 && targetBudget > 0 ? `${((targetBudget / targetRevM120) * 100).toFixed(2)}%` : (targetCostRatio > 0 ? `${targetCostRatio.toFixed(2)}%` : '-');
-        const m2CloseRateStr = m1CloseRateStr;
-        const m2CpoStr = m1CpoStr;
-        const m2CplStr = m1CplStr;
+        
+        const m2CostRatioVal = targetRevM120 > 0 && targetBudget > 0 ? ((targetBudget / targetRevM120) * 100) : (targetCostRatio > 0 ? (targetCostRatio / 1.2) : 0);
+        const m2CostRatioStr = m2CostRatioVal > 0 ? `${m2CostRatioVal.toFixed(2)}%` : '-';
+        
+        const m2CloseRateVal = targetCloseRate > 0 ? (targetCloseRate * 1.2) : 0;
+        const m2CloseRateStr = m2CloseRateVal > 0 ? `${m2CloseRateVal.toFixed(2)}%` : '-';
+        
+        const m2CpoVal = targetCpo > 0 ? Math.round(targetCpo / 1.2) : 0;
+        const m2CpoStr = m2CpoVal > 0 ? formatVND(m2CpoVal) : '-';
+        
+        const m2CplVal = targetCpl > 0 ? Math.round(targetCpl / 1.2) : 0;
+        const m2CplStr = m2CplVal > 0 ? formatVND(m2CplVal) : '-';
 
         // Mốc 2 - Còn Thiếu (Shares the SAME targetBudget)
         const m2MissingSpent = targetBudget > 0 ? Math.max(0, targetBudget - totSpent) : 0;
@@ -1646,36 +1654,40 @@ function renderKpiMktHandlersTable(res, itemsList) {
             condEvalM2.push(targetLeadsM120 > 0 ? totLeads >= targetLeadsM120 : false);
         }
         if (targetBonusConds.includes('cost_ratio')) {
-            const label = targetCostRatio > 0 ? `📉 % CP/Doanh số (≤${targetCostRatio}%)` : '📉 % CP/Doanh số';
+            const label = targetCostRatio > 0 ? `📉 % CP/Doanh số (Mốc 1 ≤${targetCostRatio.toFixed(1)}% | Mốc 2 ≤${m2CostRatioVal.toFixed(1)}%)` : '📉 % CP/Doanh số';
             condLabelsArr.push(label);
             const actualRatio = totRevenue > 0 ? (totSpent / totRevenue * 100) : 999;
-            const ok = targetCostRatio > 0 ? actualRatio <= targetCostRatio : false;
-            condEvalM1.push(ok);
-            condEvalM2.push(ok);
+            const okM1 = targetCostRatio > 0 ? actualRatio <= targetCostRatio : (m1CostRatioStr !== '-' ? actualRatio <= (targetBudget / targetRevM1 * 100) : false);
+            const okM2 = m2CostRatioVal > 0 ? actualRatio <= m2CostRatioVal : false;
+            condEvalM1.push(okM1);
+            condEvalM2.push(okM2);
         }
         if (targetBonusConds.includes('close_rate')) {
-            const label = targetCloseRate > 0 ? `🎯 Tỷ lệ chốt (≥${targetCloseRate}%)` : '🎯 Tỷ lệ chốt';
+            const label = targetCloseRate > 0 ? `🎯 Tỷ lệ chốt (Mốc 1 ≥${targetCloseRate.toFixed(1)}% | Mốc 2 ≥${m2CloseRateVal.toFixed(1)}%)` : '🎯 Tỷ lệ chốt';
             condLabelsArr.push(label);
             const actualRate = totLeads > 0 ? (totOrders / totLeads * 100) : 0;
-            const ok = targetCloseRate > 0 ? actualRate >= targetCloseRate : false;
-            condEvalM1.push(ok);
-            condEvalM2.push(ok);
+            const okM1 = targetCloseRate > 0 ? actualRate >= targetCloseRate : false;
+            const okM2 = m2CloseRateVal > 0 ? actualRate >= m2CloseRateVal : false;
+            condEvalM1.push(okM1);
+            condEvalM2.push(okM2);
         }
         if (targetBonusConds.includes('cpo')) {
-            const label = targetCpo > 0 ? `🎯 CPO (≤${formatVND(targetCpo)})` : '🎯 CPO';
+            const label = targetCpo > 0 ? `🎯 CPO (Mốc 1 ≤${formatVND(targetCpo)} | Mốc 2 ≤${formatVND(m2CpoVal)})` : '🎯 CPO';
             condLabelsArr.push(label);
             const actualCpo = totOrders > 0 ? (totSpent / totOrders) : 999999999;
-            const ok = targetCpo > 0 ? actualCpo <= targetCpo : false;
-            condEvalM1.push(ok);
-            condEvalM2.push(ok);
+            const okM1 = targetCpo > 0 ? actualCpo <= targetCpo : false;
+            const okM2 = m2CpoVal > 0 ? actualCpo <= m2CpoVal : false;
+            condEvalM1.push(okM1);
+            condEvalM2.push(okM2);
         }
         if (targetBonusConds.includes('cpl')) {
-            const label = targetCpl > 0 ? `📊 CPL (≤${formatVND(targetCpl)})` : '📊 CPL';
+            const label = targetCpl > 0 ? `📊 CPL (Mốc 1 ≤${formatVND(targetCpl)} | Mốc 2 ≤${formatVND(m2CplVal)})` : '📊 CPL';
             condLabelsArr.push(label);
             const actualCpl = totLeads > 0 ? (totSpent / totLeads) : 999999999;
-            const ok = targetCpl > 0 ? actualCpl <= targetCpl : false;
-            condEvalM1.push(ok);
-            condEvalM2.push(ok);
+            const okM1 = targetCpl > 0 ? actualCpl <= targetCpl : false;
+            const okM2 = m2CplVal > 0 ? actualCpl <= m2CplVal : false;
+            condEvalM1.push(okM1);
+            condEvalM2.push(okM2);
         }
 
         const isM1Achieved = condEvalM1.length > 0 ? (targetBonusLogic === 'ANY' ? condEvalM1.some(Boolean) : condEvalM1.every(Boolean)) : false;
