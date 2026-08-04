@@ -2081,6 +2081,17 @@ window.clearPageIntervals = function() {
     window._pageIntervals = [];
 };
 
+window._loadScript = function(src) {
+    return new Promise((resolve, reject) => {
+        const baseSrc = src.split('?')[0];
+        const s = document.createElement('script');
+        s.src = baseSrc + '?_v=' + Date.now();
+        s.onload = () => resolve(true);
+        s.onerror = (e) => reject(e);
+        document.head.appendChild(s);
+    });
+};
+
 async function handleRoute() {
     // Clear all page-specific registered intervals/timers immediately
     window.clearPageIntervals();
