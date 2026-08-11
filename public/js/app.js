@@ -435,7 +435,7 @@ const _PAGE_SCRIPT_MAP = {
     'kpi-mkt-view': '/js/pages/kpimktview.js?v=20260804_v100',
     'camketcuochop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'cam-ket-cuoc-hop': '/js/pages/camketcuochop.js?v=20260803_v1010',
-    'bangcongviec': '/js/pages/bangcongviec.js?v=20260811_v40',
+    'bangcongviec': '/js/pages/bangcongviec.js?v=20260811_v41',
     'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
     'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',

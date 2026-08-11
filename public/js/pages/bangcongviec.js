@@ -1013,8 +1013,10 @@ async function _bcvShowDetail(taskId) {
 
     // Format deadline with day of week
     var deadlineText = '';
+    var dlDate = task.deadline ? new Date(task.deadline + 'T00:00:00') : null;
+    var isOverdue = !!(dlDate && dlDate < new Date() && task.status !== 'hoan_thanh');
     if (task.deadline) {
-        var dl = new Date(task.deadline + 'T00:00:00');
+        var dl = dlDate;
         deadlineText = daysArr[dl.getDay()] + ' - ' + String(dl.getDate()).padStart(2,'0') + '/' + String(dl.getMonth()+1).padStart(2,'0');
     }
 
