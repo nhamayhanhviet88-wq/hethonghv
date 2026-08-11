@@ -11,6 +11,9 @@ const PERM_FEATURES = [
     { key: 'kpi_marketing_view', label: 'KPI Marketing View', perms: ['view','edit'], section: 'TỔNG QUAN' },
     { key: 'ngan_sach_mkt', label: 'Ngân Sách Marketing', perms: ['view','create','edit','delete'], section: 'TỔNG QUAN' },
     { key: 'tim_kiem_kh', label: 'Tìm Kiếm Khách Hàng', perms: ['view'], section: 'TỔNG QUAN' },
+    { key: 'cam_ket_cuoc_hop', label: 'Cam Kết Cuộc Họp', perms: ['view','create','edit','delete'], section: 'TỔNG QUAN' },
+    { key: 'bang_cong_viec', label: 'Bảng Công Việc', perms: ['view','create','edit','delete'], section: 'TỔNG QUAN' },
+    { key: 'tong_doanh_so_sale', label: 'Tổng Doanh Số Sale KD', perms: ['view'], section: 'TỔNG QUAN' },
 
     // ===== CÔNG VIỆC NV KINH DOANH =====
     { key: 'goi_dien', label: 'Gọi Điện Telesale', perms: ['view','create'], section: 'CÔNG VIỆC NV KINH DOANH' },

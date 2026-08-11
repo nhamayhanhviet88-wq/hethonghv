@@ -18,7 +18,7 @@ function getCustomerTypeSql(orderAlias = 'd', customerAlias = 'c') {
                   OR (d3.created_at = ${orderAlias}.created_at AND d3.id < ${orderAlias}.id)
               )
         ) THEN 'cu'
-        WHEN ${customerAlias}.customer_type = 'cu' THEN 'cu'
+        WHEN ${customerAlias}.customer_type = 'cu' AND ${customerAlias}.created_at < ${orderAlias}.created_at - INTERVAL '1 day' THEN 'cu'
         ELSE 'moi'
     END AS customer_type`;
 }

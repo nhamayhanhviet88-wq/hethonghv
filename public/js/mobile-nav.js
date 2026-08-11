@@ -6,6 +6,7 @@ if (window.location.protocol === 'http:' && window.location.hostname !== 'localh
 // Central Mobile Navigation & Drawer Component
 const MOBILE_MENU_CONFIG = [
     { id: 'hub', label: 'Trang chủ Mobile', icon: '🏠', href: '/m', permKey: null },
+    { id: 'dashboard', label: '📊 Các Chỉ Số Tổng Quan', icon: '📊', href: '/m/dashboard', permKey: null },
     { id: 'quanlynhapkho', label: 'Quản Lý Nhập Kho Vải', icon: '🗺️', href: '/m/quanlykhovai', permKey: 'quan_ly_nhap_kho_vai' },
     { id: 'xuatvaicat', label: 'Xuất Vải Để Cắt', icon: '✂️', href: '/m/xuatvaicat', permKey: 'xuat_vai_cat' },
     { id: 'baogiagoc', label: 'Báo Giá Gốc', icon: '🧮', href: '/m/baogiagoc', permKey: 'gia_nhap_goc' },
@@ -100,7 +101,9 @@ async function initMobileNavigation() {
         const pageTitle = currentPage ? currentPage.label : document.title;
         document.title = `${pageTitle} — Đồng Phục HV`;
 
-        // 4. Inject Mobile Nav Header
+        // 4. Inject Mobile Nav Header (Cleanup pre-existing headers first to ensure strictly 1 header)
+        document.querySelectorAll('.mobile-nav-header, .mobile-drawer-overlay, .mobile-drawer').forEach(el => el.remove());
+
         const header = document.createElement('header');
         header.className = 'mobile-nav-header';
         header.innerHTML = `

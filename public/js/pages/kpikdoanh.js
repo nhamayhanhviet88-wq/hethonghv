@@ -15,6 +15,7 @@ function formatVND(val) {
 }
 
 async function renderKpikdoanhPage(container) {
+    window.renderKpikdoanhPage = renderKpikdoanhPage;
     if (!_kpi.month) {
         const now = vnNow();
         _kpi.month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -168,7 +169,7 @@ async function renderKpikdoanhPage(container) {
 
             /* === ORDER DETAIL MODAL === */
             .kpi-modal-overlay,.kpi-od-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:99999!important;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-            .kpi-modal,.kpi-od-modal{background:#fff;border-radius:20px;width:920px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);animation:kpiMcSlideUp .3s ease;display:flex;flex-direction:column;padding:24px;color:#1e293b}
+            .kpi-modal,.kpi-od-modal{background:#fff;border-radius:20px;width:1300px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);animation:kpiMcSlideUp .3s ease;display:flex;flex-direction:column;padding:24px;color:#1e293b}
             .kpi-od-head{padding:18px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1)}
             .kpi-od-head h3{font-size:16px;font-weight:800;color:#fff;margin:0}
             .kpi-od-close{background:rgba(255,255,255,.1);border:none;color:#94a3b8;font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -204,7 +205,7 @@ async function renderKpikdoanhPage(container) {
                     <input type="month" id="kpiMonthInput" onchange="kpiPickMonth(this.value)">
                     <button class="kpi-nav-btn" onclick="kpiNavMonth(1)">›</button>
                 </div>
-                ${(typeof currentUser!=='undefined'&&currentUser&&currentUser.role==='giam_doc')?'<button class="kpi-set-btn" onclick="kpiOpenSetTargets()">🎯 Đặt KPI Tháng</button>':''}
+                ${(typeof currentUser!=='undefined'&&currentUser&&currentUser.role==='giam_doc')?'<button class="kpi-set-btn" onclick="kpiKdOpenTargetModal()">🎯 Đặt KPI Tháng</button>':''}
             </div>
             <div id="kpiSummary"></div>
             <div id="kpiContent"><div style="text-align:center;padding:60px;color:#9ca3af">⏳ Đang tải dữ liệu...</div></div>
@@ -319,6 +320,7 @@ function _kpiFilterData(data) {
         missing_1: myTeam.missing_1,
         missing_120: myTeam.missing_120,
         daily: myTeam.daily,
+        daily_by_biz: myTeam.daily_by_biz,
         stages: myTeam.stages,
         // Only show ME in employees list
         employees: [me]
@@ -336,8 +338,11 @@ function _kpiFilterData(data) {
         rate_120: myTarget120 > 0 ? Math.round(1000 * myActual / myTarget120) / 10 : 0,
         missing_1: myTarget - myActual,
         missing_120: myTarget120 - myActual,
-        stages: data.summary.stages, // keep original for structure
-        daily: me.daily || data.summary.daily
+        stages: data.summary ? data.summary.stages : null, // keep original for structure
+        daily: me.daily || (data.summary ? data.summary.daily : []),
+        daily_orders: me.daily_orders || (data.summary ? data.summary.daily_orders : []),
+        daily_ret_cust: me.daily_ret_cust || (data.summary ? data.summary.daily_ret_cust : []),
+        daily_by_biz: me.daily_by_biz || (data.summary ? data.summary.daily_by_biz : null)
     };
 
     return {
@@ -359,6 +364,8 @@ function _kpiFilterDataTP(data) {
     var totalTarget = 0, totalTarget120 = 0, totalActual = 0;
     var dailyLen = filteredTeams[0] && filteredTeams[0].daily ? filteredTeams[0].daily.length : 31;
     var totalDaily = new Array(dailyLen).fill(0);
+    var totalDailyOrders = new Array(dailyLen).fill(0);
+    var totalDailyRetCust = new Array(dailyLen).fill(0);
     var totalStages = { stage1: { target: 0, actual: 0, avg_per_day: 0, missing: 0 }, stage2: { target: 0, actual: 0, avg_per_day: 0, missing: 0 }, stage3: { target: 0, actual: 0, avg_per_day: 0, missing: 0 } };
 
     filteredTeams.forEach(function(t) {
@@ -366,6 +373,8 @@ function _kpiFilterDataTP(data) {
         totalTarget120 += (t.target_120 || 0);
         totalActual += (t.actual || 0);
         if (t.daily) t.daily.forEach(function(v, idx) { totalDaily[idx] += (v || 0); });
+        if (t.daily_orders) t.daily_orders.forEach(function(v, idx) { totalDailyOrders[idx] += (v || 0); });
+        if (t.daily_ret_cust) t.daily_ret_cust.forEach(function(v, idx) { totalDailyRetCust[idx] += (v || 0); });
         if (t.stages) {
             ['stage1','stage2','stage3'].forEach(function(sk) {
                 if (t.stages[sk]) {
@@ -390,7 +399,9 @@ function _kpiFilterDataTP(data) {
             missing_1: totalTarget - totalActual,
             missing_120: totalTarget120 - totalActual,
             stages: totalStages,
-            daily: totalDaily
+            daily: totalDaily,
+            daily_orders: totalDailyOrders,
+            daily_ret_cust: totalDailyRetCust
         }
     };
 }
@@ -720,6 +731,12 @@ function kpiRenderContent(data) {
     const todayDay = isCurrentMonth ? now.getDate() : -1;
     const currentStage = todayDay >= 1 && todayDay <= 10 ? 1 : todayDay >= 11 && todayDay <= 20 ? 2 : todayDay >= 21 ? 3 : 0;
 
+    // ===== SECTION 0: Reward Policy Table =====
+    html += '<div id="kpiKdRewardContainer" style="margin-bottom:20px"></div>';
+
+    // ===== TREND CHART SECTION (PLACED BELOW REWARD CONTAINER) =====
+    html += '<div id="kpiStaffTrendSection" style="margin-bottom:24px"></div>';
+
     // ===== SECTION 1: Team Summary =====
     html += '<div class="kpi-section-title">📊 TỔNG QUAN KPI THEO TEAM</div>';
     html += '<div class="kpi-tbl-wrap"><table class="kpi-tbl kpi-ov">';
@@ -832,6 +849,9 @@ function kpiRenderContent(data) {
     }
     html += '</tr></thead><tbody>';
 
+    const yr = data.month ? data.month.year : (new Date()).getFullYear();
+    const moStr = String(data.month ? data.month.month : ((new Date()).getMonth() + 1)).padStart(2, '0');
+
     data.teams.forEach(team => {
         // Team total row — on top
         html += `<tr class="team-row" style="cursor:pointer" onclick="kpiShowTeamOrders(${team.dept_id}, '${(team.dept_name || '').replace(/'/g, "\\'")}')"><td></td><td></td><td class="name">${team.dept_name}</td>`;
@@ -839,8 +859,10 @@ function kpiRenderContent(data) {
         html += `<td style="font-weight:800;color:#d97706">${kpiFmtFull(team.actual)}</td>`;
         html += `<td style="font-weight:700;color:#1e293b">${team.rate_1}%</td>`;
         html += `<td class="${team.missing_1<=0?'pos':'neg'}">${kpiSignFmtFull(team.missing_1)}</td>`;
-        team.daily.forEach(v => {
-            html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="font-weight:800">${v>0?kpiFmt(v):'-'}</td>`;
+        team.daily.forEach((v, di) => {
+            const dayStr = String(di + 1).padStart(2, '0');
+            const dayDateStr = `${yr}-${moStr}-${dayStr}`;
+            html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="font-weight:800;${v>0?'cursor:pointer':''}" ${v>0 ? `onclick="event.stopPropagation(); kpiShowTeamOrders(${team.dept_id}, '${(team.dept_name || '').replace(/'/g, "\\'")}', '${dayDateStr}')"` : ''}>${v>0?kpiFmt(v):'-'}</td>`;
         });
         html += '</tr>';
         // Employee rows — below
@@ -852,8 +874,10 @@ function kpiRenderContent(data) {
             html += `<td style="font-weight:800;color:#059669">${kpiFmtFull(emp.actual)}</td>`;
             html += `<td style="font-weight:700;color:#1e293b">${emp.rate}%</td>`;
             html += `<td class="${emp.missing<=0?'pos':'neg'}">${kpiSignFmtFull(emp.missing)}</td>`;
-            emp.daily.forEach(v => {
-                html += `<td class="day-cell ${v>0?'has-val':'zero-val'}">${v>0?kpiFmt(v):'-'}</td>`;
+            emp.daily.forEach((v, di) => {
+                const dayStr = String(di + 1).padStart(2, '0');
+                const dayDateStr = `${yr}-${moStr}-${dayStr}`;
+                html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="${v>0?'cursor:pointer':''}" ${v>0 ? `onclick="event.stopPropagation(); kpiShowOrders(${emp.user_id}, '${(emp.full_name || emp.name || '').replace(/'/g, "\\'")}', '${dayDateStr}')"` : ''}>${v>0?kpiFmt(v):'-'}</td>`;
             });
             html += '</tr>';
         });
@@ -864,6 +888,8 @@ function kpiRenderContent(data) {
     html += '</tbody></table></div>';
     html += renderRetentionTableSection(data);
     el.innerHTML = html;
+    kpiKdRenderRewardPolicyTable(data);
+    kpiInitStaffTrendSection(data);
 }
 
 // BẢNG THỐNG KÊ TỶ LỆ KHÁCH HÀNG CŨ QUAY LẠI THEO NHÂN SỰ & TEAM
@@ -1001,11 +1027,11 @@ function kpiOpenSetTargets() {
             </div>
             <div style="overflow-y:auto;flex:1;padding:0">
                 <table style="width:100%;border-collapse:collapse">
-                    <thead><tr style="background:#f8fafc">
-                        <th style="padding:10px 12px;text-align:left;font-size:12px;color:#475569">Nhân viên</th>
-                        <th style="padding:10px 12px;text-align:left;font-size:12px;color:#475569">Mã</th>
-                        <th style="padding:10px 12px;text-align:right;font-size:12px;color:#475569">DT Hiện tại</th>
-                        <th style="padding:10px 12px;text-align:right;font-size:12px;color:#475569">Target Mốc 1 (đ)</th>
+                    <thead><tr style="background:linear-gradient(135deg, #0f172a, #1e293b);box-shadow:0 2px 4px rgba(0,0,0,0.15)">
+                        <th style="padding:12px 14px;text-align:left;font-size:13px;font-weight:800;color:#ffffff;letter-spacing:0.5px;text-shadow:0 1px 2px rgba(0,0,0,0.4)">Nhân viên</th>
+                        <th style="padding:12px 14px;text-align:left;font-size:13px;font-weight:800;color:#94a3b8;letter-spacing:0.5px">Mã</th>
+                        <th style="padding:12px 14px;text-align:right;font-size:13px;font-weight:800;color:#38bdf8;letter-spacing:0.5px;text-shadow:0 1px 2px rgba(0,0,0,0.4)">DT Hiện tại</th>
+                        <th style="padding:12px 14px;text-align:right;font-size:13px;font-weight:800;color:#facc15;letter-spacing:0.5px;text-shadow:0 1px 2px rgba(0,0,0,0.4)">Target Mốc 1 (đ)</th>
                     </tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
@@ -3551,7 +3577,7 @@ function _kpiEnsureOrdersModal() {
     modal.id = 'kpiOrdersModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:99999!important;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px';
     modal.innerHTML = `
-        <div class="kpi-modal" style="background:#fff;border-radius:20px;width:920px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);display:flex;flex-direction:column;padding:24px;color:#1e293b">
+        <div class="kpi-modal" style="background:#fff;border-radius:20px;width:1300px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);display:flex;flex-direction:column;padding:24px;color:#1e293b">
             <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:14px;margin-bottom:14px">
                 <h3 style="font-size:16px;font-weight:800;color:#1e293b;margin:0;display:flex;align-items:center;gap:8px">📦 Chi Tiết Đơn Hàng — <span id="kpiOrdersModalTitle"></span></h3>
                 <button type="button" onclick="kpiCloseOrdersModal()" style="background:#f1f5f9;border:none;color:#64748b;font-size:18px;font-weight:800;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .2s;flex-shrink:0" onmouseenter="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
@@ -3581,8 +3607,10 @@ function _kpiEnsureOrdersModal() {
     return modal;
 }
 
-let _kpiModalFilterLv = 'all';
-let _kpiModalFilterCust = 'all';
+var _kpiModalFilterLv = typeof _kpiModalFilterLv !== 'undefined' ? _kpiModalFilterLv : 'all';
+var _kpiModalFilterCust = typeof _kpiModalFilterCust !== 'undefined' ? _kpiModalFilterCust : 'all';
+
+var _kpiModalFilterSale = 'all';
 
 window.kpiFilterModalLv = function(lvType) {
     _kpiModalFilterLv = lvType;
@@ -3593,6 +3621,27 @@ window.kpiFilterModalCust = function(custType) {
     _kpiModalFilterCust = custType;
     kpiApplyModalFilters();
 };
+
+window.kpiFilterModalSale = function(saleVal) {
+    _kpiModalFilterSale = saleVal;
+    kpiApplyModalFilters();
+};
+
+function kpiBuildSaleOptionsHtml(orders) {
+    if (!orders) return '<option value="all">Tất cả NV Sale</option>';
+    const counts = {};
+    orders.forEach(o => {
+        const name = o.sale_name || 'Khác / Chưa gán';
+        counts[name] = (counts[name] || 0) + 1;
+    });
+    const sortedNames = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    let optionsHtml = `<option value="all">Tất cả NV Sale (${orders.length} đơn)</option>`;
+    sortedNames.forEach(name => {
+        const isSel = _kpiModalFilterSale === name ? 'selected' : '';
+        optionsHtml += `<option value="${name}" ${isSel}>${name} (${counts[name]} đơn)</option>`;
+    });
+    return optionsHtml;
+}
 
 function kpiApplyModalFilters() {
     const tbody = document.getElementById('kpiOrdersModalBody');
@@ -3612,7 +3661,7 @@ function kpiApplyModalFilters() {
         }
     });
 
-    // Compute orders for selected Lĩnh Vực
+    // 1. Lĩnh Vực Filter
     let lvOrders = _kpiModalOrders;
     if (_kpiModalFilterLv === 'dp') {
         lvOrders = _kpiModalOrders.filter(o => !o.is_pet_tem);
@@ -3620,9 +3669,26 @@ function kpiApplyModalFilters() {
         lvOrders = _kpiModalOrders.filter(o => o.is_pet_tem);
     }
 
-    // Dynamically update Row 2 button counts based on current Lĩnh Vực!
-    const countMoi = lvOrders.filter(o => o.customer_type === 'moi').length;
-    const countCu = lvOrders.filter(o => o.customer_type === 'cu').length;
+    const saleSel = document.getElementById('kpiModalFilterSaleSelect');
+    if (saleSel) {
+        const curSaleVal = _kpiModalFilterSale;
+        saleSel.innerHTML = kpiBuildSaleOptionsHtml(lvOrders);
+        if ([...saleSel.options].some(opt => opt.value === curSaleVal)) {
+            saleSel.value = curSaleVal;
+        } else {
+            saleSel.value = 'all';
+            _kpiModalFilterSale = 'all';
+        }
+    }
+
+    // 2. NV Sale Filter
+    let saleOrders = lvOrders;
+    if (_kpiModalFilterSale && _kpiModalFilterSale !== 'all') {
+        saleOrders = lvOrders.filter(o => (o.sale_name || 'Khác / Chưa gán') === _kpiModalFilterSale);
+    }
+
+    const countMoi = saleOrders.filter(o => o.customer_type === 'moi').length;
+    const countCu = saleOrders.filter(o => o.customer_type === 'cu').length;
 
     const btnMoi = document.querySelector('.kpi-cust-btn[data-cust="moi"]');
     const btnCu = document.querySelector('.kpi-cust-btn[data-cust="cu"]');
@@ -3643,7 +3709,8 @@ function kpiApplyModalFilters() {
         }
     });
 
-    let filtered = lvOrders;
+    // 3. Loại Khách Filter
+    let filtered = saleOrders;
     if (_kpiModalFilterCust === 'moi') {
         filtered = filtered.filter(o => o.customer_type === 'moi');
     } else if (_kpiModalFilterCust === 'cu') {
@@ -3653,6 +3720,9 @@ function kpiApplyModalFilters() {
     const currentRevenue = filtered.reduce((acc, o) => acc + (Number(o.revenue) || 0), 0);
     const revEl = document.getElementById('kpiModalTotalRevenue');
     if (revEl) revEl.textContent = `${kpiFmtFull(currentRevenue)}đ`;
+
+    const countEl = document.getElementById('kpiModalTotalOrdersCount');
+    if (countEl) countEl.textContent = `${filtered.length} đơn`;
 
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#94a3b8;font-weight:600">📭 Không có đơn hàng nào khớp bộ lọc đã chọn</td></tr>';
@@ -3692,7 +3762,7 @@ function kpiBuildModalSummaryHtml(s) {
             <button type="button" class="kpi-lv-btn" data-lv="pettem" onclick="kpiFilterModalLv('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#be185d">🏷️ LV PET/TEM (<strong style="color:#be185d">${s.total_lv_pettem || 0}</strong>)</button>
         </div>
 
-        <!-- Hàng 2: Chọn Loại Khách Hàng (Tự động nhảy số theo Lĩnh Vực) -->
+        <!-- Hàng 2: Chọn Loại Khách Hàng -->
         <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;flex-wrap:wrap">
             <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
                 👥 <strong>Loại Khách:</strong>
@@ -3700,25 +3770,51 @@ function kpiBuildModalSummaryHtml(s) {
             <button type="button" class="kpi-cust-btn" data-cust="all" onclick="kpiFilterModalCust('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#1e293b">Tất cả khách</button>
             <button type="button" class="kpi-cust-btn" data-cust="moi" onclick="kpiFilterModalCust('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#16a34a">🟢 Khách Mới (<strong style="color:#16a34a">${s.new_orders || 0}</strong>)</button>
             <button type="button" class="kpi-cust-btn" data-cust="cu" onclick="kpiFilterModalCust('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fde68a;background:#fffbeb;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#b45309">🟧 Khách Cũ (<strong style="color:#b45309">${s.old_orders || 0}</strong>)</button>
+        </div>
 
-            <span style="margin-left:auto;font-size:13px;font-weight:800">Tổng doanh số: <strong id="kpiModalTotalRevenue" style="color:#dc2626">${kpiFmtFull(s.total_revenue || 0)}đ</strong></span>
+        <!-- Hàng 3: Chọn NV Sale & Badges Nổi Bật (Số Đơn & Tổng Doanh Số) -->
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;flex-wrap:wrap">
+            <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
+                👤 <strong>NV Sale:</strong>
+            </span>
+            <select id="kpiModalFilterSaleSelect" onchange="kpiFilterModalSale(this.value)" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-weight:700;font-size:12px;font-family:inherit;color:#1e293b;cursor:pointer;outline:none">
+                ${kpiBuildSaleOptionsHtml(_kpiModalOrders)}
+            </select>
+
+            <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:800;color:#166534;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;align-items:center;gap:5px">
+                    📦 <span>Số đơn:</span>
+                    <strong id="kpiModalTotalOrdersCount" style="color:#15803d;font-size:13px;font-weight:800">${s.total || 0} đơn</strong>
+                </div>
+                <div style="background:#fef2f2;border:1px solid #fecaca;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:800;color:#991b1b;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;align-items:center;gap:5px">
+                    💰 <span>Tổng doanh số:</span>
+                    <strong id="kpiModalTotalRevenue" style="color:#dc2626;font-size:13px;font-weight:800">${kpiFmtFull(s.total_revenue || 0)}đ</strong>
+                </div>
+            </div>
         </div>
     </div>
     `;
 }
 
-async function kpiShowOrders(userId, userName) {
+async function kpiShowOrders(userId, userName, dateStr) {
     const modal = _kpiEnsureOrdersModal();
     const title = document.getElementById('kpiOrdersModalTitle');
     const summary = document.getElementById('kpiOrdersModalSummary');
     const tbody = document.getElementById('kpiOrdersModalBody');
 
-    if (title) title.textContent = `NV ${userName} — Tháng ${_kpi.month}`;
+    const dateLabel = dateStr ? `Ngày ${dateStr}` : `Tháng ${_kpi.month}`;
+    if (title) title.textContent = `NV ${userName} — ${dateLabel}`;
     if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng...</td></tr>';
     modal.style.display = 'flex';
 
     try {
-        const res = await apiCall(`/api/kpi-kdoanh/employee-orders?user_id=${userId}&month=${_kpi.month}`);
+        let url = `/api/kpi-kdoanh/employee-orders?user_id=${userId}`;
+        if (dateStr) {
+            url += `&startDate=${dateStr}&endDate=${dateStr}`;
+        } else {
+            url += `&month=${_kpi.month}`;
+        }
+        const res = await apiCall(url);
         _kpiModalOrders = res.orders || [];
         _kpiModalFilterLv = 'all';
         _kpiModalFilterCust = 'all';
@@ -3733,18 +3829,25 @@ async function kpiShowOrders(userId, userName) {
     }
 }
 
-async function kpiShowTeamOrders(deptId, deptName) {
+async function kpiShowTeamOrders(deptId, deptName, dateStr) {
     const modal = _kpiEnsureOrdersModal();
     const title = document.getElementById('kpiOrdersModalTitle');
     const summary = document.getElementById('kpiOrdersModalSummary');
     const tbody = document.getElementById('kpiOrdersModalBody');
 
-    if (title) title.textContent = `Team ${deptName} — Tháng ${_kpi.month}`;
+    const dateLabel = dateStr ? `Ngày ${dateStr}` : `Tháng ${_kpi.month}`;
+    if (title) title.textContent = `Team ${deptName} — ${dateLabel}`;
     if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng của Team...</td></tr>';
     modal.style.display = 'flex';
 
     try {
-        const res = await apiCall(`/api/kpi-kdoanh/team-orders?dept_id=${deptId}&month=${_kpi.month}`);
+        let url = `/api/kpi-kdoanh/team-orders?dept_id=${deptId}`;
+        if (dateStr) {
+            url += `&startDate=${dateStr}&endDate=${dateStr}`;
+        } else {
+            url += `&month=${_kpi.month}`;
+        }
+        const res = await apiCall(url);
         _kpiModalOrders = res.orders || [];
         _kpiModalFilterLv = 'all';
         _kpiModalFilterCust = 'all';
@@ -3769,9 +3872,9 @@ function kpiCloseOrdersModal() {
 }
 
 // ========== NEW RETENTION DETAIL MODAL (BẢNG 2) ==========
-let _retentionDetailData = null;
-let _retentionFilterLv = 'all'; // 'all', 'dp', 'pettem'
-let _retentionTabGroup = 'returning'; // 'returning', 'prior_old', 'new'
+var _retentionDetailData = null;
+var _retentionFilterLv = 'all'; // 'all', 'dp', 'pettem'
+var _retentionTabGroup = 'returning'; // 'returning', 'prior_old', 'new'
 
 window.kpiShowRetentionDetail = async function(userId, empName) {
     const modal = _kpiEnsureRetentionModal();
@@ -4039,3 +4142,1489 @@ window.kpiChangeRetentionPage = function(page) {
     const modalContent = document.getElementById('kpiRetentionModalContent');
     if (modalContent) modalContent.scrollTop = 300;
 };
+
+// ==========================================
+// REWARD POLICY & KPI TARGET MODAL FOR P.KD
+// ==========================================
+
+function kpiKdFmtCurrencyStr(str) {
+    if (!str && str !== 0) return '';
+    const clean = String(str).trim();
+    if (!clean) return '';
+    const digits = clean.replace(/\D/g, '');
+    if (!digits) return clean;
+    return Number(digits).toLocaleString('vi-VN') + 'đ';
+}
+window.kpiKdFmtCurrencyStr = kpiKdFmtCurrencyStr;
+
+function kpiKdRenderRewardPolicyTable(data) {
+    const rewardEl = document.getElementById('kpiKdRewardContainer');
+    if (!rewardEl) return;
+    const teams = data ? data.teams || [] : [];
+    const rewardTeams = [];
+    let empsWithRewardCount = 0;
+    (teams || []).forEach(t => {
+        const list = (t.employees || []).filter(e => e.target_bonus_m1 || e.target_bonus_m120 || e.target_bonus_conditions || e.target > 0);
+        const hasTeamBonus = t.target_bonus_m1 || t.target_bonus_m120 || t.target_bonus_conditions;
+        if (list.length > 0 || hasTeamBonus) {
+            rewardTeams.push({
+                dept_id: t.dept_id,
+                dept_name: t.dept_name,
+                target_1: t.target_1,
+                target_120: t.target_120,
+                actual: t.actual,
+                target_bonus_m1: t.target_bonus_m1,
+                target_bonus_m120: t.target_bonus_m120,
+                target_bonus_conditions: t.target_bonus_conditions,
+                employees: (t.employees || [])
+            });
+            empsWithRewardCount += (t.employees || []).length;
+        }
+    });
+
+    if (rewardTeams.length > 0) {
+        let filterTabsHtml = `
+            <button type="button" class="kpi-kd-reward-tab-btn active" data-team-id="all" onclick="kpiKdFilterRewardTeam('all', this)" style="padding:3px 12px;border-radius:9999px;font-size:11px;font-weight:700;border:1px solid #2563eb;background:#2563eb;color:white;cursor:pointer;transition:all 0.15s ease">
+                Tất Cả (${empsWithRewardCount})
+            </button>
+        `;
+
+        rewardTeams.forEach(rt => {
+            filterTabsHtml += `
+                <button type="button" class="kpi-kd-reward-tab-btn" data-team-id="${rt.dept_id}" onclick="kpiKdFilterRewardTeam('${rt.dept_id}', this)" style="padding:3px 12px;border-radius:9999px;font-size:11px;font-weight:700;border:1px solid #cbd5e1;background:white;color:#334155;cursor:pointer;transition:all 0.15s ease">
+                    👥 ${escapeHtml(rt.dept_name)} (${rt.employees.length})
+                </button>
+            `;
+        });
+
+        let rewardRows = '';
+        let globalStt = 1;
+
+        rewardTeams.forEach(rt => {
+            const teamT1 = rt.target_1 || 0;
+            const teamT120 = rt.target_120 || Math.round(teamT1 * 1.2);
+            const teamAct = rt.actual || 0;
+
+            const isTeamReach1 = teamT1 > 0 && teamAct >= teamT1;
+            const isTeamReach120 = teamT120 > 0 && teamAct >= teamT120;
+
+            const teamBonusM1Str = kpiKdFmtCurrencyStr(rt.target_bonus_m1);
+            const teamBonusM120Str = kpiKdFmtCurrencyStr(rt.target_bonus_m120);
+
+            const teamBonus1Text = rt.target_bonus_m1 
+                ? `<span style="font-weight:800;color:${isTeamReach1 ? '#15803d' : '#1e293b'}">${teamBonusM1Str} ${isTeamReach1 ? '<b style="color:#15803d">✅ (Đã Đạt)</b>' : '<b style="color:#d97706">⌛ (Chưa Đạt)</b>'}</span>` 
+                : '<span style="color:#94a3b8">—</span>';
+
+            const teamBonus120Text = rt.target_bonus_m120 
+                ? `<span style="font-weight:800;color:${isTeamReach120 ? '#15803d' : '#1e293b'}">${teamBonusM120Str} ${isTeamReach120 ? '<b style="color:#15803d">🎉 (Đã Đạt)</b>' : '<b style="color:#d97706">⌛ (Chưa Đạt)</b>'}</span>` 
+                : '<span style="color:#94a3b8">—</span>';
+
+            let teamStatusBadgeHtml = '';
+            if (isTeamReach120) {
+                teamStatusBadgeHtml = `<span style="background:#dcfce7;color:#15803d;border:1.5px solid #4ade80;padding:2px 8px;border-radius:9999px;font-weight:800;font-size:10.5px;display:inline-block">🎉 Đạt Mốc 120%</span>`;
+            } else if (isTeamReach1) {
+                teamStatusBadgeHtml = `<span style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;padding:2px 8px;border-radius:9999px;font-weight:800;font-size:10.5px;display:inline-block">✅ Đạt Mốc 100%</span>`;
+            } else {
+                teamStatusBadgeHtml = `<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:2px 8px;border-radius:9999px;font-weight:800;font-size:10.5px;display:inline-block">❌ Chưa Đạt</span>`;
+            }
+
+            // Team Group Sub-Header Row
+            rewardRows += `
+                <tr class="kpi-kd-reward-team-group" data-team-id="${rt.dept_id}" style="background:linear-gradient(90deg,#dbeafe,#eff6ff);border-top:3px solid #2563eb;border-bottom:1.5px solid #bfdbfe">
+                    <td style="padding:8px 8px;text-align:center;font-weight:900;color:#1e3a8a;font-size:13px">👥</td>
+                    <td style="padding:8px 10px;font-weight:900;color:#1e3a8a;font-size:12.5px">
+                        <div>TEAM: <span style="color:#1e3a8a;font-size:13px;font-weight:900">${escapeHtml(rt.dept_name)}</span></div>
+                        <div style="font-size:10px;color:#1d4ed8;font-weight:700">(${rt.employees.length} Nhân Sự — Cả Tập Thể)</div>
+                    </td>
+                    <td style="padding:8px 8px;text-align:right;font-weight:800;color:#b45309;background:#fef3c7;font-size:12px">
+                        ${formatVND(teamAct)}
+                    </td>
+                    <td style="padding:8px 8px;text-align:right;font-weight:800;color:#1d4ed8;background:${isTeamReach1 ? '#e6f4ea' : '#eff6ff'};font-size:12px">
+                        ${teamT1 > 0 ? (Number(teamT1).toLocaleString('vi-VN') + 'đ') : '—'}
+                    </td>
+                    <td style="padding:8px 8px;font-size:11.5px;background:#f0fdf4">
+                        ${teamBonus1Text}
+                    </td>
+                    <td style="padding:8px 8px;text-align:right;font-weight:800;color:#6b21a8;background:${isTeamReach120 ? '#dcfce7' : '#f3e8ff'};font-size:12px">
+                        ${(teamT1 > 0 && teamT120 > 0) ? (Number(teamT120).toLocaleString('vi-VN') + 'đ') : '—'}
+                    </td>
+                    <td style="padding:8px 8px;font-size:11.5px;background:#fff1f2">
+                        ${teamBonus120Text}
+                    </td>
+                    <td style="padding:8px 10px;font-weight:600;color:#334155;font-size:11.5px">
+                        ${escapeHtml(rt.target_bonus_conditions || '—')}
+                    </td>
+                    <td style="padding:8px 8px;text-align:center">
+                        ${teamStatusBadgeHtml}
+                    </td>
+                </tr>
+            `;
+
+            rt.employees.forEach(e => {
+                const roleLabel = ['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(e.role) ? 'Quản Lý' : 'Nhân Viên';
+                
+                const t1 = e.target || 0;
+                const t120 = Math.round(t1 * 1.2);
+                const act = e.actual || 0;
+                
+                const t1Str = t1 > 0 ? (Number(t1).toLocaleString('vi-VN') + 'đ') : '0đ';
+                const t120Str = t1 > 0 ? (t120.toLocaleString('vi-VN') + 'đ') : '0đ';
+                const actStr = formatVND(act);
+
+                const isReach1 = t1 > 0 && act >= t1;
+                const isReach120 = t120 > 0 && act >= t120;
+
+                let statusBadgeHtml = '';
+                if (isReach120) {
+                    statusBadgeHtml = `<span style="background:#dcfce7;color:#15803d;border:1.5px solid #4ade80;padding:3px 10px;border-radius:9999px;font-weight:800;font-size:11px;display:inline-block">🎉 Đạt Mốc 120%</span>`;
+                } else if (isReach1) {
+                    statusBadgeHtml = `<span style="background:#dcfce7;color:#166534;border:1.5px solid #86efac;padding:3px 10px;border-radius:9999px;font-weight:800;font-size:11px;display:inline-block">✅ Đạt Mốc 100%</span>`;
+                } else {
+                    statusBadgeHtml = `<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:3px 10px;border-radius:9999px;font-weight:800;font-size:11px;display:inline-block">❌ Chưa Đạt</span>`;
+                }
+
+                const actStyle = "background:#fffbe6;color:#b45309;font-weight:800;border-left:1px solid #fef08a;border-right:1px solid #fef08a";
+                const m1Style = isReach1 ? "background:#e6f4ea;color:#137333;font-weight:800" : "color:#1d4ed8;font-weight:800";
+                const m120Style = isReach120 ? "background:#dcfce7;color:#15803d;font-weight:800" : "color:#6b21a8;font-weight:800";
+
+                const bonus1Text = e.target_bonus_m1 
+                    ? `<span style="font-weight:700;color:${isReach1 ? '#15803d' : '#475569'}">${e.target_bonus_m1} ${isReach1 ? '<b style="color:#15803d">✅ (Đã Đạt)</b>' : '<b style="color:#d97706">⌛ (Chưa Đạt)</b>'}</span>` 
+                    : '<span style="color:#94a3b8">—</span>';
+                
+                const bonus120Text = e.target_bonus_m120 
+                    ? `<span style="font-weight:700;color:${isReach120 ? '#15803d' : '#475569'}">${e.target_bonus_m120} ${isReach120 ? '<b style="color:#15803d">🎉 (Đã Đạt)</b>' : '<b style="color:#d97706">⌛ (Chưa Đạt)</b>'}</span>` 
+                    : '<span style="color:#94a3b8">—</span>';
+
+                const bgRow = globalStt % 2 === 0 ? '#f8fafc' : '#ffffff';
+
+                rewardRows += `
+                    <tr class="kpi-kd-reward-emp-row team-row-${rt.dept_id}" data-search-text="${escapeHtml((e.full_name + ' ' + (e.username || '')).toLowerCase())}" style="background:${bgRow};border-bottom:1px solid #e2e8f0;transition:background 0.15s ease" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${bgRow}'">
+                        <td style="padding:8px 10px;text-align:center;font-weight:700;color:#64748b">${globalStt++}</td>
+                        <td style="padding:8px 12px;font-weight:700;color:#1e1b4b">
+                            <div style="display:flex;align-items:center;gap:6px;padding-left:10px">
+                                <span style="color:#94a3b8;font-weight:700">└─</span>
+                                <span>👤 ${escapeHtml(e.full_name)}</span>
+                                <span style="font-size:10px;color:#4338ca;background:#e0e7ff;padding:1px 7px;border-radius:9999px;font-weight:700;margin-left:2px">(${roleLabel})</span>
+                            </div>
+                        </td>
+                        <td style="padding:8px 12px;text-align:right;${actStyle}">💰 ${actStr}</td>
+                        <td style="padding:8px 12px;text-align:right;${m1Style}">${t1Str}</td>
+                        <td style="padding:8px 12px;font-size:11.5px">${bonus1Text}</td>
+                        <td style="padding:8px 12px;text-align:right;${m120Style}">${t120Str}</td>
+                        <td style="padding:8px 12px;font-size:11.5px">${bonus120Text}</td>
+                        <td style="padding:8px 12px;font-size:11.5px;color:#334155">${escapeHtml(e.target_bonus_conditions || '—')}</td>
+                        <td style="padding:8px 10px;text-align:center">${statusBadgeHtml}</td>
+                    </tr>
+                `;
+            });
+        });
+
+        let empOptionsHtml = `<div onclick="kpiKdSelectRewardEmployee('', '')" style="padding:7px 12px;font-size:11.5px;font-weight:800;color:#2563eb;cursor:pointer;border-bottom:1px solid #e2e8f0;background:#eff6ff" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">🌐 Tất Cả Nhân Sự (${empsWithRewardCount})</div>`;
+
+        rewardTeams.forEach(rt => {
+            (rt.employees || []).forEach(e => {
+                empOptionsHtml += `
+                    <div onclick="kpiKdSelectRewardEmployee('${e.user_id}', '${escapeHtml((e.full_name || '').replace(/'/g, "\\'"))}')" class="kpi-kd-emp-option-item" data-search-text="${escapeHtml((e.full_name + ' ' + (e.username || '')).toLowerCase())}" style="padding:7px 12px;font-size:11.5px;color:#1e293b;cursor:pointer;border-bottom:1px dashed #f1f5f9;display:flex;align-items:center;justify-content:space-between;transition:background 0.15s ease" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                        <div><b>👤 ${escapeHtml(e.full_name)}</b> <span style="color:#64748b;font-size:10.5px">(${escapeHtml(rt.dept_name)})</span></div>
+                        <span style="color:#2563eb;font-size:10.5px;font-weight:700">Chọn</span>
+                    </div>
+                `;
+            });
+        });
+
+        const periodLabel = data && data.month ? `THÁNG ${data.month.month}/${data.month.year}` : '';
+
+        rewardEl.innerHTML = `
+            <div style="background:white;border:1.5px solid #cbd5e1;border-radius:12px;margin-bottom:20px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.04)">
+                <div style="background:linear-gradient(135deg,#f0fdf4,#e0f2fe);color:#0f172a;padding:10px 18px;font-weight:800;font-size:13.5px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1.5px solid #cbd5e1">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                        <span style="color:#166534">🏆 CHÍNH SÁCH PHẦN THƯỞNG & TIÊU CHÍ XÉT KPI PHÒNG KINH DOANH — ${periodLabel}</span>
+                        <div style="position:relative;display:inline-flex;align-items:center;gap:6px">
+                            <span onclick="kpiKdToggleRewardSearchDropdown()" title="Click để mở danh sách chọn nhân sự" style="font-size:11px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;padding:3px 10px;border-radius:9999px;font-weight:700;cursor:pointer;transition:all 0.15s ease;display:inline-flex;align-items:center;gap:4px" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">👥 ${empsWithRewardCount} Nhân Sự ▾</span>
+                            <div style="position:relative;display:inline-flex;align-items:center">
+                                <input type="text" id="kpiKdRewardSearchInput" onfocus="kpiKdToggleRewardSearchDropdown(true)" oninput="kpiKdFilterRewardSearch(this.value)" placeholder="🔍 Tìm tên / chọn nhân sự..." style="padding:4px 26px 4px 10px;border-radius:9999px;font-size:11px;font-weight:600;border:1.5px solid #cbd5e1;background:white;color:#0f172a;outline:none;width:170px;transition:all 0.15s ease" onblur="setTimeout(() => kpiKdToggleRewardSearchDropdown(false), 250)">
+                                <span id="kpiKdRewardSearchClear" onclick="document.getElementById('kpiKdRewardSearchInput').value='';kpiKdFilterRewardSearch('');this.style.display='none'" style="position:absolute;right:8px;cursor:pointer;color:#94a3b8;font-size:12px;font-weight:800;display:none">✕</span>
+                            </div>
+                            <div id="kpiKdRewardEmpDropdown" style="position:absolute;top:calc(100% + 6px);left:0;width:250px;max-height:220px;overflow-y:auto;background:white;border:1.5px solid #93c5fd;border-radius:10px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:9999;display:none">
+                                ${empOptionsHtml}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap" id="kpiKdRewardTeamTabs">
+                        ${filterTabsHtml}
+                    </div>
+                </div>
+                <div style="max-height:280px;overflow-y:auto">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px">
+                        <thead style="position:sticky;top:0;border-bottom:2px solid #cbd5e1;z-index:2">
+                            <tr>
+                                <th style="padding:10px 10px;text-align:center;width:40px;background:#f8fafc!important;color:#475569!important;font-weight:800">STT</th>
+                                <th style="padding:10px 12px;text-align:left;min-width:150px;background:#f8fafc!important;color:#0f172a!important;font-weight:800">👤 Nhân Viên</th>
+                                <th style="padding:10px 12px;text-align:right;min-width:125px;background:#fef3c7!important;color:#b45309!important;font-weight:800;border-left:1px solid #fde68a;border-right:1px solid #fde68a">💰 DT Thực Tế</th>
+                                <th style="padding:10px 12px;text-align:right;min-width:130px;background:#eff6ff!important;color:#1d4ed8!important;font-weight:800">🎯 KPI Mốc 1</th>
+                                <th style="padding:10px 12px;text-align:left;min-width:150px;background:#f0fdf4!important;color:#15803d!important;font-weight:800">🎁 Thưởng Mốc 1</th>
+                                <th style="padding:10px 12px;text-align:right;min-width:130px;background:#f3e8ff!important;color:#6b21a8!important;font-weight:800">🚀 KPI Mốc 2</th>
+                                <th style="padding:10px 12px;text-align:left;min-width:150px;background:#fff1f2!important;color:#b91c1c!important;font-weight:800">🏆 Thưởng Mốc 2</th>
+                                <th style="padding:10px 12px;text-align:left;min-width:160px;background:#f8fafc!important;color:#334155!important;font-weight:800">📝 Tiêu Chí Xét</th>
+                                <th style="padding:10px 10px;text-align:center;min-width:120px;background:#f8fafc!important;color:#0f172a!important;font-weight:800">Trạng Thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rewardRows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    } else {
+        rewardEl.innerHTML = '';
+    }
+}
+
+function kpiKdToggleRewardSearchDropdown(show) {
+    const dropdown = document.getElementById('kpiKdRewardEmpDropdown');
+    if (!dropdown) return;
+    if (show === undefined) {
+        dropdown.style.display = (dropdown.style.display === 'none' || !dropdown.style.display) ? 'block' : 'none';
+    } else {
+        dropdown.style.display = show ? 'block' : 'none';
+    }
+}
+window.kpiKdToggleRewardSearchDropdown = kpiKdToggleRewardSearchDropdown;
+
+function kpiKdSelectRewardEmployee(userId, name) {
+    const inp = document.getElementById('kpiKdRewardSearchInput');
+    if (inp) inp.value = name || '';
+    kpiKdFilterRewardSearch(name || '');
+    kpiKdToggleRewardSearchDropdown(false);
+}
+window.kpiKdSelectRewardEmployee = kpiKdSelectRewardEmployee;
+
+function kpiKdFilterRewardSearch(keyword) {
+    const clearBtn = document.getElementById('kpiKdRewardSearchClear');
+    if (clearBtn) clearBtn.style.display = keyword ? 'inline' : 'none';
+
+    const text = (keyword || '').toLowerCase().trim();
+    const teamGroups = document.querySelectorAll('.kpi-kd-reward-team-group');
+    const empRows = document.querySelectorAll('.kpi-kd-reward-emp-row');
+    const dropdownItems = document.querySelectorAll('.kpi-kd-emp-option-item');
+
+    // Filter dropdown options live
+    dropdownItems.forEach(item => {
+        const itemText = item.getAttribute('data-search-text') || item.textContent.toLowerCase();
+        if (!text || itemText.includes(text)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    if (!text) {
+        const activeTab = document.querySelector('.kpi-kd-reward-tab-btn.active');
+        const activeTeamId = activeTab ? activeTab.getAttribute('data-team-id') : 'all';
+        kpiKdFilterRewardTeam(activeTeamId, activeTab);
+        return;
+    }
+
+    const matchingTeamIds = new Set();
+    empRows.forEach(row => {
+        const searchText = row.getAttribute('data-search-text') || row.textContent.toLowerCase();
+        if (searchText.includes(text)) {
+            row.style.display = '';
+            const classes = row.className.split(' ');
+            classes.forEach(c => {
+                if (c.startsWith('team-row-')) {
+                    matchingTeamIds.add(c.replace('team-row-', ''));
+                }
+            });
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    teamGroups.forEach(group => {
+        const deptId = group.getAttribute('data-team-id');
+        group.style.display = matchingTeamIds.has(deptId) ? '' : 'none';
+    });
+}
+window.kpiKdFilterRewardSearch = kpiKdFilterRewardSearch;
+
+window.kpiKdFilterRewardTeam = function(teamId, btnEl) {
+    const btns = document.querySelectorAll('.kpi-kd-reward-tab-btn');
+    btns.forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'white';
+        b.style.color = '#334155';
+        b.style.borderColor = '#cbd5e1';
+    });
+
+    if (btnEl) {
+        btnEl.classList.add('active');
+        btnEl.style.background = '#2563eb';
+        btnEl.style.color = 'white';
+        btnEl.style.borderColor = '#2563eb';
+    }
+
+    const teamGroups = document.querySelectorAll('.kpi-kd-reward-team-group');
+    const empRows = document.querySelectorAll('.kpi-kd-reward-emp-row');
+
+    if (teamId === 'all') {
+        teamGroups.forEach(g => g.style.display = '');
+        empRows.forEach(r => r.style.display = '');
+    } else {
+        teamGroups.forEach(g => {
+            g.style.display = (g.getAttribute('data-team-id') === teamId) ? '' : 'none';
+        });
+        empRows.forEach(r => {
+            r.style.display = r.classList.contains(`team-row-${teamId}`) ? '' : 'none';
+        });
+    }
+};
+window.kpiKdFilterRewardTeam = kpiKdFilterRewardTeam;
+
+function kpiKdOpenTargetModal() {
+    let modal = document.getElementById('kpiKdTargetModal');
+    if (modal) {
+        const oldTabs = document.getElementById('kpiKdTargetModalTeamTabs');
+        if (oldTabs) oldTabs.remove();
+    } else {
+        const modalDiv = document.createElement('div');
+        modalDiv.className = 'kpi-modal-overlay';
+        modalDiv.id = 'kpiKdTargetModal';
+        modalDiv.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:99999;align-items:center;justify-content:center';
+        modalDiv.innerHTML = `
+            <div class="kpi-modal-content" style="background:#fff;border-radius:16px;width:1350px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;border:1px solid #e2e8f0">
+                <div class="kpi-modal-header" style="padding:16px 24px;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="font-size:20px">🎯</span>
+                        <h3 style="margin:0;font-size:16px;font-weight:800;color:#1e293b">
+                            Đặt KPI & Thưởng Phòng Kinh Doanh — <span id="kpiKdTargetModalPeriod" style="color:#2563eb"></span>
+                        </h3>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px">
+                        <input type="text" id="kpiKdModalSearchInput" placeholder="🔍 Tìm tên / mã NV..." oninput="kpiKdFilterTargetModalSearch(this.value)" style="padding:6px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;width:200px;font-weight:600;outline:none">
+                        <button class="kpi-modal-close" onclick="kpiKdCloseTargetModal()" style="font-size:18px;background:none;border:none;cursor:pointer;color:#64748b">✕</button>
+                    </div>
+                </div>
+                <div class="kpi-modal-body" style="padding:20px 24px;overflow-y:auto;flex:1" id="kpiKdTargetFormBody"></div>
+                <div class="kpi-modal-footer" style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+                    <div style="font-size:12px;color:#64748b;font-weight:600;display:flex;align-items:center;gap:6px">
+                        💡 <span style="color:#b45309">Target Mốc 2 (120%) được tự động tính = Mốc 1 × 120%</span>
+                    </div>
+                    <div style="display:flex;gap:10px">
+                        <button type="button" style="padding:8px 18px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;font-weight:700;color:#475569;cursor:pointer" onclick="kpiKdCloseTargetModal()">Hủy</button>
+                        <button type="button" style="padding:8px 22px;background:linear-gradient(135deg,#2563eb,#1d4ed8);border:none;border-radius:8px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,0.3)" onclick="kpiKdSaveTargets()">💾 Lưu Tất Cả KPI & Thưởng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
+        modal = modalDiv;
+    }
+
+    const periodSpan = document.getElementById('kpiKdTargetModalPeriod');
+    const formBody = document.getElementById('kpiKdTargetFormBody');
+    if (!modal || !_kpi.data) return;
+
+    const [year, mo] = _kpi.month.split('-');
+    if (periodSpan) periodSpan.textContent = `Tháng ${mo}/${year}`;
+
+    const searchInp = document.getElementById('kpiKdModalSearchInput');
+    if (searchInp) searchInp.value = '';
+
+    const teams = _kpi.data.teams || [];
+    let totalEmps = 0;
+    teams.forEach(t => totalEmps += (t.employees || []).length);
+
+    let filterTabsHtml = `
+        <button type="button" class="kpi-target-modal-tab-btn active" data-team-id="all" onclick="kpiKdFilterTargetModalTeam('all', this)" style="padding:4px 12px;border-radius:9999px;font-size:11.5px;font-weight:700;border:1px solid #2563eb;background:#2563eb;color:white;cursor:pointer;transition:all 0.15s ease">
+            Tất Cả (${totalEmps})
+        </button>
+    `;
+
+    teams.forEach(team => {
+        const empCount = (team.employees || []).length;
+        filterTabsHtml += `
+            <button type="button" class="kpi-target-modal-tab-btn" data-team-id="${team.dept_id}" onclick="kpiKdFilterTargetModalTeam('${team.dept_id}', this)" style="padding:4px 12px;border-radius:9999px;font-size:11.5px;font-weight:700;border:1px solid #cbd5e1;background:white;color:#334155;cursor:pointer;transition:all 0.15s ease">
+                👥 ${escapeHtml(team.dept_name)} (${empCount})
+            </button>
+        `;
+    });
+
+    let tableRows = '';
+    let globalStt = 1;
+
+    teams.forEach(team => {
+        const emps = team.employees || [];
+        if (emps.length === 0) return;
+
+        const teamT1 = team.target_1 || 0;
+        const teamT1Str = teamT1 > 0 ? (Number(teamT1).toLocaleString('vi-VN') + 'đ') : '';
+        const teamT120Str = teamT1 > 0 ? (Math.round(teamT1 * 1.2).toLocaleString('vi-VN') + 'đ') : '';
+        const teamBonusM1Str = kpiKdFmtCurrencyStr(team.target_bonus_m1);
+        const teamBonusM120Str = kpiKdFmtCurrencyStr(team.target_bonus_m120);
+
+        // Team Sub-Header Row with Inputs
+        tableRows += `
+            <tr class="kpi-target-modal-team-group" data-team-id="${team.dept_id}" style="background:linear-gradient(90deg,#dbeafe,#eff6ff);border-top:3px solid #2563eb;border-bottom:1.5px solid #bfdbfe">
+                <td style="padding:7px 8px;text-align:center;font-weight:900;color:#1e3a8a;width:35px">👥</td>
+                <td style="padding:7px 10px;font-weight:900;color:#1e3a8a;min-width:140px;font-size:12.5px">
+                    <div>TEAM: ${escapeHtml(team.dept_name)}</div>
+                    <div style="font-size:10.5px;color:#1d4ed8;font-weight:700">🏆 THƯỞNG TẬP THỂ</div>
+                </td>
+                <td style="padding:7px 6px;width:160px">
+                    <div style="display:flex;align-items:center;gap:4px">
+                        <button type="button" onclick="kpiKdApplyTeamSumTarget('${team.dept_id}')" title="⚡ Click để tự động tính = Tổng Target NV trong Team" style="padding:4px 6px;font-size:12px;font-weight:800;color:#1d4ed8;background:#dbeafe;border:1.5px solid #93c5fd;border-radius:8px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s ease" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">
+                            ⚡
+                        </button>
+                        <input type="text" id="kpiKdTeamTargetM1_${team.dept_id}" class="kpi-input kpi-kd-team-target-input" data-dept-id="${team.dept_id}" value="${teamT1Str}" oninput="kpiKdOnMoneyInput(this, 'dept_${team.dept_id}', true)" placeholder="" style="font-weight:800;color:#1d4ed8;text-align:right;padding:6px 6px;font-size:12px;flex:1;min-width:0;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;outline:none">
+                    </div>
+                </td>
+                <td style="padding:7px 6px;width:145px">
+                    <input type="text" id="kpiKdTargetM2_dept_${team.dept_id}" class="kpi-input" readonly disabled value="${teamT120Str}" style="font-weight:800;color:#6b21a8;background:#f3e8ff;border:1.5px solid #ddd6fe;border-radius:8px;text-align:right;cursor:not-allowed;padding:6px 6px;font-size:12px;width:100%">
+                </td>
+                <td style="padding:7px 6px;width:140px">
+                    <input type="text" class="kpi-input kpi-kd-team-bonus-m1-input" data-dept-id="${team.dept_id}" value="${escapeHtml(teamBonusM1Str)}" oninput="kpiKdOnMoneyInput(this, 'dept_${team.dept_id}')" placeholder="" style="font-weight:800;color:#15803d;text-align:right;padding:6px 6px;font-size:12px;width:100%;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;outline:none">
+                </td>
+                <td style="padding:7px 6px;width:140px">
+                    <input type="text" class="kpi-input kpi-kd-team-bonus-m120-input" data-dept-id="${team.dept_id}" value="${escapeHtml(teamBonusM120Str)}" oninput="kpiKdOnMoneyInput(this, 'dept_${team.dept_id}')" placeholder="" style="font-weight:800;color:#b91c1c;text-align:right;padding:6px 6px;font-size:12px;width:100%;background:#fff1f2;border:1.5px solid #fca5a5;border-radius:8px;outline:none">
+                </td>
+                <td style="padding:7px 8px;min-width:150px">
+                    <input type="text" class="kpi-input kpi-kd-team-bonus-cond-input" data-dept-id="${team.dept_id}" value="${escapeHtml(team.target_bonus_conditions || '')}" placeholder="" style="font-size:12px;color:#1e293b;font-weight:600;padding:6px 8px;width:100%;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
+                </td>
+            </tr>
+        `;
+
+        emps.forEach(emp => {
+            const roleLabel = ['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) ? 'Quản Lý' : 'Nhân Viên';
+            const m1Val = emp.target ? (Number(emp.target).toLocaleString('vi-VN') + 'đ') : '';
+            const m120Val = emp.target ? (Math.round(emp.target * 1.2).toLocaleString('vi-VN') + 'đ') : '';
+            const bonusM1Val = kpiKdFmtCurrencyStr(emp.target_bonus_m1);
+            const bonusM120Val = kpiKdFmtCurrencyStr(emp.target_bonus_m120);
+            const bgRow = globalStt % 2 === 0 ? '#f8fafc' : '#ffffff';
+
+            tableRows += `
+                <tr class="kpi-target-modal-emp-row modal-team-row-${team.dept_id}" data-search-text="${escapeHtml((emp.full_name + ' ' + (emp.username || '')).toLowerCase())}" style="background:${bgRow};border-bottom:1px solid #e2e8f0">
+                    <td style="padding:7px 8px;text-align:center;font-weight:700;color:#64748b;width:35px">${globalStt++}</td>
+                    <td style="padding:7px 10px;font-weight:800;color:#1e1b4b;min-width:140px">
+                        <div style="display:flex;align-items:center;gap:6px;padding-left:10px">
+                            <span style="color:#94a3b8;font-weight:700">└─</span>
+                            <div>
+                                <div>👤 ${escapeHtml(emp.full_name)}</div>
+                                <div style="font-size:10.5px;color:#4338ca;margin-top:1px">
+                                    <span style="background:#e0e7ff;padding:1px 7px;border-radius:9999px;font-weight:700">(${roleLabel})</span>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="padding:7px 6px;width:160px">
+                        <input type="text" class="kpi-input kpi-kd-target-input" data-user-id="${emp.user_id}" value="${m1Val}" oninput="kpiKdOnMoneyInput(this, ${emp.user_id}, true)" placeholder="" style="font-weight:800;color:#2563eb;text-align:right;padding:6px 6px;font-size:12px;width:100%;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
+                    </td>
+                    <td style="padding:7px 6px;width:145px">
+                        <input type="text" id="kpiKdTargetM2_${emp.user_id}" class="kpi-input" readonly disabled value="${m120Val}" style="font-weight:800;color:#7c3aed;background:#f3e8ff;border:1.5px solid #ddd6fe;border-radius:8px;text-align:right;cursor:not-allowed;padding:6px 6px;font-size:12px;width:100%">
+                    </td>
+                    <td style="padding:7px 6px;width:140px">
+                        <input type="text" class="kpi-input kpi-kd-bonus-m1-input" data-user-id="${emp.user_id}" value="${escapeHtml(bonusM1Val)}" oninput="kpiKdOnMoneyInput(this, ${emp.user_id})" placeholder="" style="font-weight:800;color:#15803d;text-align:right;padding:6px 6px;font-size:12px;width:100%;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
+                    </td>
+                    <td style="padding:7px 6px;width:140px">
+                        <input type="text" class="kpi-input kpi-kd-bonus-m120-input" data-user-id="${emp.user_id}" value="${escapeHtml(bonusM120Val)}" oninput="kpiKdOnMoneyInput(this, ${emp.user_id})" placeholder="" style="font-weight:800;color:#b91c1c;text-align:right;padding:6px 6px;font-size:12px;width:100%;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
+                    </td>
+                    <td style="padding:7px 8px;min-width:150px">
+                        <input type="text" class="kpi-input kpi-kd-bonus-cond-input" data-user-id="${emp.user_id}" value="${escapeHtml(emp.target_bonus_conditions || '')}" placeholder="" style="font-size:12px;color:#334155;padding:6px 6px;width:100%;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
+                    </td>
+                </tr>
+            `;
+        });
+    });
+
+    let html = `
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            ${filterTabsHtml}
+        </div>
+        <div style="max-height:58vh;overflow-y:auto;overflow-x:hidden;border:1.5px solid #cbd5e1;border-radius:10px;box-shadow:inset 0 1px 3px rgba(0,0,0,0.02)">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead style="position:sticky;top:0;z-index:3;border-bottom:2px solid #cbd5e1">
+                    <tr>
+                        <th style="padding:9px 8px;text-align:center;width:35px;background:#f8fafc!important;color:#475569!important;font-weight:800">STT</th>
+                        <th style="padding:9px 10px;text-align:left;min-width:140px;background:#f8fafc!important;color:#0f172a!important;font-weight:800">👤 Nhân Viên</th>
+                        <th style="padding:9px 8px;text-align:center;width:160px;background:#eff6ff!important;color:#1d4ed8!important;font-weight:800">🎯 Target Mốc 1 (100%)</th>
+                        <th style="padding:9px 8px;text-align:center;width:145px;background:#f3e8ff!important;color:#6b21a8!important;font-weight:800">🚀 Target Mốc 2 (120%)</th>
+                        <th style="padding:9px 8px;text-align:center;width:140px;background:#f0fdf4!important;color:#15803d!important;font-weight:800">🎁 Thưởng Mốc 1 (100%)</th>
+                        <th style="padding:9px 8px;text-align:center;width:140px;background:#fff1f2!important;color:#b91c1c!important;font-weight:800">🏆 Thưởng Mốc 2 (120%)</th>
+                        <th style="padding:9px 10px;text-align:left;min-width:150px;background:#f8fafc!important;color:#334155!important;font-weight:800">📝 Tiêu Chí Xét Thưởng</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    if (formBody) formBody.innerHTML = html;
+    modal.style.display = 'flex';
+}
+
+function kpiKdCloseTargetModal() {
+    const modal = document.getElementById('kpiKdTargetModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function kpiKdOnMoneyInput(input, userId, isMoc1 = false) {
+    if (!input) return;
+    let raw = input.value.replace(/\D/g, '');
+    if (!raw) {
+        input.value = '';
+    } else {
+        input.value = Number(raw).toLocaleString('vi-VN') + 'đ';
+    }
+    if (isMoc1) {
+        kpiKdCalcMoc120(userId, raw);
+    }
+}
+window.kpiKdOnMoneyInput = kpiKdOnMoneyInput;
+
+function kpiKdApplyTeamSumTarget(teamId) {
+    if (!teamId) return;
+    const empInputs = document.querySelectorAll(`.modal-team-row-${teamId} .kpi-kd-target-input`);
+    let total = 0;
+    empInputs.forEach(inp => {
+        const val = parseFloat(inp.value.replace(/\D/g, '')) || 0;
+        total += val;
+    });
+    const teamInput = document.getElementById(`kpiKdTeamTargetM1_${teamId}`);
+    if (teamInput) {
+        teamInput.value = total > 0 ? (total.toLocaleString('vi-VN') + 'đ') : '0đ';
+        kpiKdCalcMoc120('dept_' + teamId, total);
+        if (typeof showToast === 'function') {
+            showToast(`⚡ Đã áp dụng Tổng Target Nhân Viên (${total.toLocaleString('vi-VN')}đ) cho Team!`, 'info');
+        }
+    }
+}
+window.kpiKdApplyTeamSumTarget = kpiKdApplyTeamSumTarget;
+
+function kpiKdCalcMoc120(userId, rawVal) {
+    const el = document.getElementById('kpiKdTargetM2_' + userId);
+    if (!el) return;
+    const num = parseFloat(rawVal) || 0;
+    const m120 = Math.round(num * 1.2);
+    el.value = num > 0 ? (m120.toLocaleString('vi-VN') + 'đ') : '';
+}
+window.kpiKdCalcMoc120 = kpiKdCalcMoc120;
+
+async function kpiKdSaveTargets() {
+    if (!_kpi.month) return;
+    const [year, mo] = _kpi.month.split('-');
+    const period_value = `T${parseInt(mo)}/${year}`;
+
+    const targetInputs = document.querySelectorAll('.kpi-kd-target-input');
+    const bonusM1Inputs = document.querySelectorAll('.kpi-kd-bonus-m1-input');
+    const bonusM120Inputs = document.querySelectorAll('.kpi-kd-bonus-m120-input');
+    const bonusCondInputs = document.querySelectorAll('.kpi-kd-bonus-cond-input');
+
+    const targetsMap = {};
+
+    targetInputs.forEach(input => {
+        const userId = input.getAttribute('data-user-id');
+        const raw = input.value.replace(/\D/g, '');
+        const val = raw ? parseFloat(raw) : 0;
+        if (!targetsMap[userId]) targetsMap[userId] = { user_id: parseInt(userId), target_type: 'user' };
+        targetsMap[userId].target_value = val;
+    });
+
+    bonusM1Inputs.forEach(input => {
+        const userId = input.getAttribute('data-user-id');
+        const val = input.value.trim();
+        if (!targetsMap[userId]) targetsMap[userId] = { user_id: parseInt(userId), target_type: 'user' };
+        targetsMap[userId].target_bonus_m1 = val;
+    });
+
+    bonusM120Inputs.forEach(input => {
+        const userId = input.getAttribute('data-user-id');
+        const val = input.value.trim();
+        if (!targetsMap[userId]) targetsMap[userId] = { user_id: parseInt(userId), target_type: 'user' };
+        targetsMap[userId].target_bonus_m120 = val;
+    });
+
+    bonusCondInputs.forEach(input => {
+        const userId = input.getAttribute('data-user-id');
+        const val = input.value.trim();
+        if (!targetsMap[userId]) targetsMap[userId] = { user_id: parseInt(userId), target_type: 'user' };
+        targetsMap[userId].target_bonus_conditions = val;
+    });
+
+    // Team level inputs
+    const teamTargetInputs = document.querySelectorAll('.kpi-kd-team-target-input');
+    const teamBonusM1Inputs = document.querySelectorAll('.kpi-kd-team-bonus-m1-input');
+    const teamBonusM120Inputs = document.querySelectorAll('.kpi-kd-team-bonus-m120-input');
+    const teamBonusCondInputs = document.querySelectorAll('.kpi-kd-team-bonus-cond-input');
+
+    teamTargetInputs.forEach(input => {
+        const deptId = input.getAttribute('data-dept-id');
+        const key = `dept_${deptId}`;
+        const raw = input.value.replace(/\D/g, '');
+        const val = raw ? parseFloat(raw) : 0;
+        if (!targetsMap[key]) targetsMap[key] = { dept_id: parseInt(deptId), target_type: 'dept' };
+        targetsMap[key].target_value = val;
+    });
+
+    teamBonusM1Inputs.forEach(input => {
+        const deptId = input.getAttribute('data-dept-id');
+        const key = `dept_${deptId}`;
+        const val = input.value.trim();
+        if (!targetsMap[key]) targetsMap[key] = { dept_id: parseInt(deptId), target_type: 'dept' };
+        targetsMap[key].target_bonus_m1 = val;
+    });
+
+    teamBonusM120Inputs.forEach(input => {
+        const deptId = input.getAttribute('data-dept-id');
+        const key = `dept_${deptId}`;
+        const val = input.value.trim();
+        if (!targetsMap[key]) targetsMap[key] = { dept_id: parseInt(deptId), target_type: 'dept' };
+        targetsMap[key].target_bonus_m120 = val;
+    });
+
+    teamBonusCondInputs.forEach(input => {
+        const deptId = input.getAttribute('data-dept-id');
+        const key = `dept_${deptId}`;
+        const val = input.value.trim();
+        if (!targetsMap[key]) targetsMap[key] = { dept_id: parseInt(deptId), target_type: 'dept' };
+        targetsMap[key].target_bonus_conditions = val;
+    });
+
+    const targets = Object.values(targetsMap);
+
+    try {
+        const res = await apiCall('/api/kpi-targets/kpi-kdoanh', 'POST', { targets, period_value });
+        if (res && res.success) {
+            if (typeof showToast === 'function') {
+                showToast('✅ Đã lưu KPI & Thưởng Phòng Kinh Doanh thành công!', 'success');
+            } else {
+                alert('✅ Đã lưu KPI & Thưởng Phòng Kinh Doanh thành công!');
+            }
+            kpiKdCloseTargetModal();
+            kpiLoadAll();
+        } else {
+            alert('❌ Lỗi khi lưu: ' + (res?.error || 'Không xác định'));
+        }
+    } catch(e) {
+        alert('❌ Lỗi khi lưu KPI Phòng Kinh Doanh: ' + e.message);
+    }
+}
+
+window.kpiKdFilterTargetModalTeam = function(teamId, btnEl) {
+    const tabs = document.querySelectorAll('.kpi-target-modal-tab-btn');
+    tabs.forEach(t => {
+        t.style.background = 'white';
+        t.style.color = '#334155';
+        t.style.borderColor = '#cbd5e1';
+        t.classList.remove('active');
+    });
+    if (btnEl) {
+        btnEl.style.background = '#2563eb';
+        btnEl.style.color = 'white';
+        btnEl.style.borderColor = '#2563eb';
+        btnEl.classList.add('active');
+    }
+
+    const teamGroups = document.querySelectorAll('.kpi-target-modal-team-group');
+    const empRows = document.querySelectorAll('.kpi-target-modal-emp-row');
+
+    if (teamId === 'all') {
+        teamGroups.forEach(g => g.style.display = '');
+        empRows.forEach(r => r.style.display = '');
+    } else {
+        teamGroups.forEach(g => {
+            g.style.display = g.getAttribute('data-team-id') === String(teamId) ? '' : 'none';
+        });
+        empRows.forEach(r => {
+            r.style.display = r.classList.contains(`modal-team-row-${teamId}`) ? '' : 'none';
+        });
+    }
+};
+
+window.kpiKdFilterTargetModalSearch = function(query) {
+    const q = (query || '').toLowerCase().trim();
+    const activeTab = document.querySelector('.kpi-target-modal-tab-btn.active');
+    const teamId = activeTab ? activeTab.getAttribute('data-team-id') : 'all';
+
+    const empRows = document.querySelectorAll('.kpi-target-modal-emp-row');
+    empRows.forEach(row => {
+        const text = row.getAttribute('data-search-text') || '';
+        const matchSearch = !q || text.includes(q);
+        const matchTeam = teamId === 'all' || row.classList.contains(`modal-team-row-${teamId}`);
+        row.style.display = (matchSearch && matchTeam) ? '' : 'none';
+    });
+};
+
+window.kpiKdOpenTargetModal = kpiKdOpenTargetModal;
+window.kpiKdCloseTargetModal = kpiKdCloseTargetModal;
+window.kpiKdSaveTargets = kpiKdSaveTargets;
+window.kpiOpenSetTargets = kpiKdOpenTargetModal;
+
+// ========== NVKD STAFF TREND ANALYSIS CHART ENGINE ==========
+window._kpiTrendState = {
+    staff_id: 'all',
+    granularity: 'day', // 'day' | 'month'
+    biz_area: 'dp',
+    year: (new Date()).getFullYear(),
+    selectedMetrics: new Set(['revenue', 'orders']),
+    yearlyCache: {}
+};
+
+async function _kpiEnsureChartJs() {
+    if (window.Chart) return true;
+    return new Promise((resolve) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+        s.onload = () => resolve(true);
+        s.onerror = () => resolve(false);
+        document.head.appendChild(s);
+    });
+}
+
+function kpiInitStaffTrendSection(kpiData) {
+    const container = document.getElementById('kpiStaffTrendSection');
+    if (!container) return;
+
+    if (!document.getElementById('chartKpiStaffTrend')) {
+        const p = (_kpi.month || '').split('-').map(Number);
+        const curYr = p[0] || (new Date()).getFullYear();
+        const curMo = p[1] || ((new Date()).getMonth() + 1);
+
+        container.innerHTML = `
+            <div style="background:#fff;border-radius:16px;border:1px solid #e5e7eb;box-shadow:0 4px 20px rgba(0,0,0,0.06);margin-bottom:24px;padding:20px;overflow:hidden">
+                <!-- Header Controls -->
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+                    <div>
+                        <h3 style="font-size:16px;font-weight:800;color:#1e1b4b;margin:0;display:flex;align-items:center;gap:8px">
+                            <span>📈 BIỂU ĐỒ XU HƯỚNG HIỆU SUẤT NHÂN VIÊN KINH DOANH</span>
+                            <span id="kpiStaffTrendModeBadge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:#e0e7ff;color:#4338ca">Theo Ngày (Đồng Phục - Tháng ${curMo}/${curYr})</span>
+                        </h3>
+                        <div style="font-size:12px;color:#64748b;margin-top:2px">Thống kê Doanh Số, Số Đơn, Tỷ Lệ % Hoàn Thành KPI & Khách Hàng Cũ qua từng mốc thời gian</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <select id="kpiKdoanhBizSelect" onchange="kpiChangeStaffTrendFilter()" style="padding:7px 12px;border-radius:10px;border:1.5px solid #3b82f6;font-weight:700;font-size:12px;color:#1e3a8a;outline:none;background:#eff6ff;cursor:pointer">
+                            <option value="dp" selected>👕 Lĩnh Vực Đồng Phục (Ưu Tiên)</option>
+                            <option value="pettem">🏷️ Lĩnh Vực Tem PET</option>
+                            <option value="all">🌐 Tất Cả Lĩnh Vực</option>
+                        </select>
+                        <select id="kpiStaffSelect" onchange="kpiChangeStaffTrendFilter()" style="padding:7px 12px;border-radius:10px;border:1.5px solid #c7d2fe;font-weight:700;font-size:12px;color:#1e1b4b;outline:none;background:#f8fafc;cursor:pointer">
+                            <option value="all">🏢 Tất Cả NVKD (Tổng P.Kinh Doanh)</option>
+                        </select>
+                        <select id="kpiGranularitySelect" onchange="kpiChangeStaffTrendFilter()" style="padding:7px 12px;border-radius:10px;border:1.5px solid #c7d2fe;font-weight:700;font-size:12px;color:#1e1b4b;outline:none;background:#f8fafc;cursor:pointer">
+                            <option value="day">📅 Xem Theo Ngày (Trong Tháng)</option>
+                            <option value="month">📆 Xem Theo Tháng (Trong Năm)</option>
+                        </select>
+                        <select id="kpiYearSelect" onchange="kpiChangeStaffTrendFilter()" style="padding:7px 12px;border-radius:10px;border:1.5px solid #c7d2fe;font-weight:700;font-size:12px;color:#1e1b4b;outline:none;background:#f8fafc;cursor:pointer;display:none">
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Multi Metric Toggles -->
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;background:#f8fafc;padding:10px 14px;border-radius:12px;border:1px solid #f1f5f9">
+                    <span style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-right:4px">📊 CHỈ SỐ THEO DÕI (NHÁY ĐÚP ĐỂ XEM BẢNG PHÂN TÍCH):</span>
+                    <button id="btnKpiRev" onclick="kpiToggleTrendMetric('revenue')" ondblclick="kpiKdOpenMetricDetailModal('revenue')" title="Nhấn 1 lần để Bật/Tắt — NHÁY ĐÚP để mở Bảng Phân Tích Chi Tiết" class="kpi-metric-btn active" style="padding:5px 14px;border-radius:20px;border:1.5px solid #2563eb;background:#2563eb;color:#fff;font-size:11px;font-weight:700;cursor:pointer">Doanh Thu ✖</button>
+                    <button id="btnKpiOrders" onclick="kpiToggleTrendMetric('orders')" ondblclick="kpiKdOpenMetricDetailModal('orders')" title="Nhấn 1 lần để Bật/Tắt — NHÁY ĐÚP để mở Bảng Phân Tích Chi Tiết" class="kpi-metric-btn active" style="padding:5px 14px;border-radius:20px;border:1.5px solid #16a34a;background:#16a34a;color:#fff;font-size:11px;font-weight:700;cursor:pointer">Số Đơn ✖</button>
+                    <button id="btnKpiBoth" onclick="kpiToggleTrendMetric('both')" class="kpi-metric-btn active" style="padding:5px 14px;border-radius:20px;border:1.5px solid #9333ea;background:linear-gradient(135deg,#9333ea,#7e22ce);color:#fff;font-size:11px;font-weight:700;cursor:pointer">✨ Cả Hai ✖</button>
+                    <div style="height:16px;width:1px;background:#cbd5e1;margin:0 4px"></div>
+                    <button id="btnKpiRate" onclick="kpiToggleTrendMetric('rate')" ondblclick="kpiKdOpenMetricDetailModal('rate')" title="Nhấn 1 lần để Bật/Tắt — NHÁY ĐÚP để mở Bảng Phân Tích Chi Tiết" class="kpi-metric-btn" style="padding:5px 14px;border-radius:20px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;font-size:11px;font-weight:700;cursor:pointer">🎯 % Hoàn Thành KPI</button>
+                    <button id="btnKpiRet" onclick="kpiToggleTrendMetric('ret')" ondblclick="kpiKdOpenMetricDetailModal('ret')" title="Nhấn 1 lần để Bật/Tắt — NHÁY ĐÚP để mở Bảng Phân Tích Chi Tiết" class="kpi-metric-btn" style="padding:5px 14px;border-radius:20px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;font-size:11px;font-weight:700;cursor:pointer">🔄 KH Cũ Quay Lại</button>
+                </div>
+
+                <!-- Summary Cards -->
+                <div id="kpiStaffTrendSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px"></div>
+
+                <!-- Canvas -->
+                <div style="position:relative;height:320px;width:100%">
+                    <canvas id="chartKpiStaffTrend"></canvas>
+                </div>
+            </div>
+        `;
+    }
+
+    // Populate Staff Selector Options
+    const staffSelect = document.getElementById('kpiStaffSelect');
+    if (staffSelect && kpiData && kpiData.teams) {
+        const curVal = staffSelect.value || 'all';
+        let optionsHtml = '<option value="all">🏢 Tất Cả NVKD (Tổng P.Kinh Doanh)</option>';
+        const addedUserIds = new Set();
+        kpiData.teams.forEach(t => {
+            (t.employees || []).forEach(emp => {
+                if (!addedUserIds.has(emp.user_id)) {
+                    addedUserIds.add(emp.user_id);
+                    optionsHtml += `<option value="${emp.user_id}">👤 ${emp.full_name} (${emp.username || emp.role})</option>`;
+                }
+            });
+        });
+        staffSelect.innerHTML = optionsHtml;
+        staffSelect.value = addedUserIds.has(parseInt(curVal)) ? curVal : 'all';
+    }
+
+    // Populate Year Selector Options
+    const yearSelect = document.getElementById('kpiYearSelect');
+    if (yearSelect && !yearSelect.hasChildNodes()) {
+        const curY = (new Date()).getFullYear();
+        let yHtml = '';
+        for (let y = curY; y >= curY - 2; y--) {
+            yHtml += `<option value="${y}">Năm ${y}</option>`;
+        }
+        yearSelect.innerHTML = yHtml;
+        yearSelect.value = curY;
+    }
+
+    kpiRenderStaffTrendChart();
+}
+
+function kpiToggleTrendMetric(metric) {
+    const st = window._kpiTrendState.selectedMetrics;
+    if (metric === 'both') {
+        if (st.has('revenue') && st.has('orders')) {
+            st.delete('revenue');
+            st.delete('orders');
+        } else {
+            st.add('revenue');
+            st.add('orders');
+        }
+    } else {
+        if (st.has(metric)) st.delete(metric);
+        else st.add(metric);
+    }
+    if (st.size === 0) st.add('revenue'); // keep at least 1 metric
+
+    _updateKpiTrendButtonsUI();
+    kpiRenderStaffTrendChart();
+}
+
+function _updateKpiTrendButtonsUI() {
+    const st = window._kpiTrendState.selectedMetrics;
+    const btnRev = document.getElementById('btnKpiRev');
+    const btnOrd = document.getElementById('btnKpiOrders');
+    const btnBoth = document.getElementById('btnKpiBoth');
+    const btnRate = document.getElementById('btnKpiRate');
+    const btnRet = document.getElementById('btnKpiRet');
+
+    if (btnRev) {
+        if (st.has('revenue')) {
+            btnRev.style.background = '#2563eb'; btnRev.style.color = '#fff'; btnRev.style.borderColor = '#2563eb'; btnRev.innerText = 'Doanh Thu ✖';
+        } else {
+            btnRev.style.background = '#fff'; btnRev.style.color = '#475569'; btnRev.style.borderColor = '#cbd5e1'; btnRev.innerText = 'Doanh Thu';
+        }
+    }
+    if (btnOrd) {
+        if (st.has('orders')) {
+            btnOrd.style.background = '#16a34a'; btnOrd.style.color = '#fff'; btnOrd.style.borderColor = '#16a34a'; btnOrd.innerText = 'Số Đơn ✖';
+        } else {
+            btnOrd.style.background = '#fff'; btnOrd.style.color = '#475569'; btnOrd.style.borderColor = '#cbd5e1'; btnOrd.innerText = 'Số Đơn';
+        }
+    }
+    if (btnBoth) {
+        if (st.has('revenue') && st.has('orders')) {
+            btnBoth.style.background = 'linear-gradient(135deg,#9333ea,#7e22ce)'; btnBoth.style.color = '#fff'; btnBoth.style.borderColor = '#9333ea'; btnBoth.innerText = '✨ Cả Hai ✖';
+        } else {
+            btnBoth.style.background = '#fff'; btnBoth.style.color = '#475569'; btnBoth.style.borderColor = '#cbd5e1'; btnBoth.innerText = '✨ Cả Hai';
+        }
+    }
+    if (btnRate) {
+        if (st.has('rate')) {
+            btnRate.style.background = '#ea580c'; btnRate.style.color = '#fff'; btnRate.style.borderColor = '#ea580c'; btnRate.innerText = '🎯 % Hoàn Thành KPI ✖';
+        } else {
+            btnRate.style.background = '#fff'; btnRate.style.color = '#475569'; btnRate.style.borderColor = '#cbd5e1'; btnRate.innerText = '🎯 % Hoàn Thành KPI';
+        }
+    }
+    if (btnRet) {
+        if (st.has('ret')) {
+            btnRet.style.background = '#9333ea'; btnRet.style.color = '#fff'; btnRet.style.borderColor = '#9333ea'; btnRet.innerText = '🔄 KH Cũ Quay Lại ✖';
+        } else {
+            btnRet.style.background = '#fff'; btnRet.style.color = '#475569'; btnRet.style.borderColor = '#cbd5e1'; btnRet.innerText = '🔄 KH Cũ Quay Lại';
+        }
+    }
+}
+
+function kpiChangeStaffTrendFilter() {
+    const bizSel = document.getElementById('kpiKdoanhBizSelect');
+    const staffSel = document.getElementById('kpiStaffSelect');
+    const granSel = document.getElementById('kpiGranularitySelect');
+    const yearSel = document.getElementById('kpiYearSelect');
+
+    if (bizSel) window._kpiTrendState.biz_area = bizSel.value || 'dp';
+    if (staffSel) window._kpiTrendState.staff_id = staffSel.value;
+    if (granSel) window._kpiTrendState.granularity = granSel.value;
+    if (yearSel) window._kpiTrendState.year = parseInt(yearSel.value) || (new Date()).getFullYear();
+
+    window._kpiTrendState.yearlyCache = {};
+
+    if (yearSel) {
+        yearSel.style.display = window._kpiTrendState.granularity === 'month' ? 'inline-block' : 'none';
+    }
+
+    const badge = document.getElementById('kpiStaffTrendModeBadge');
+    if (badge) {
+        const bizLabel = window._kpiTrendState.biz_area === 'dp' 
+            ? 'Đồng Phục' 
+            : (window._kpiTrendState.biz_area === 'pettem' ? 'Tem PET' : 'Tất Cả LV');
+
+        if (window._kpiTrendState.granularity === 'month') {
+            badge.innerText = `Theo Tháng (${bizLabel} - Năm ${window._kpiTrendState.year})`;
+        } else {
+            const p = (_kpi.month || '').split('-').map(Number);
+            badge.innerText = `Theo Ngày (${bizLabel} - Tháng ${p[1]}/${p[0]})`;
+        }
+    }
+
+    kpiRenderStaffTrendChart();
+}
+
+async function kpiRenderStaffTrendChart() {
+    await _kpiEnsureChartJs();
+    const canvas = document.getElementById('chartKpiStaffTrend');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const st = window._kpiTrendState;
+    const isDaily = st.granularity === 'day';
+    const staffId = st.staff_id;
+    const bizArea = st.biz_area || 'dp';
+
+    let labels = [];
+    let revArr = [];
+    let ordArr = [];
+    let rateArr = [];
+    let retArr = [];
+
+    if (isDaily) {
+        // Daily breakdown from current loaded month
+        const data = _kpi.data;
+        if (!data || !data.summary) return;
+
+        const daysInMonth = data.month?.days_in_month || 31;
+        const mo = data.month?.month || 8;
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            labels.push(`${String(d).padStart(2,'0')}/${String(mo).padStart(2,'0')}`);
+        }
+
+        if (staffId === 'all') {
+            const bizData = (data.summary.daily_by_biz && data.summary.daily_by_biz[bizArea])
+                ? data.summary.daily_by_biz[bizArea]
+                : { daily: data.summary.daily, daily_orders: data.summary.daily_orders, daily_ret_cust: data.summary.daily_ret_cust };
+
+            revArr = bizData.daily || new Array(daysInMonth).fill(0);
+            ordArr = bizData.daily_orders || new Array(daysInMonth).fill(0);
+            retArr = bizData.daily_ret_cust || new Array(daysInMonth).fill(0);
+            const target = data.summary.target_1 || 1;
+            let cumRev = 0;
+            rateArr = revArr.map(r => {
+                cumRev += r;
+                return target > 0 ? Math.round(1000 * cumRev / target) / 10 : 0;
+            });
+        } else {
+            // Find specific employee
+            let foundEmp = null;
+            (data.teams || []).forEach(t => {
+                const e = (t.employees || []).find(x => x.user_id == staffId);
+                if (e) foundEmp = e;
+            });
+
+            if (foundEmp) {
+                const bizData = (foundEmp.daily_by_biz && foundEmp.daily_by_biz[bizArea])
+                    ? foundEmp.daily_by_biz[bizArea]
+                    : { daily: foundEmp.daily, daily_orders: foundEmp.daily_orders, daily_ret_cust: foundEmp.daily_ret_cust };
+
+                revArr = bizData.daily || new Array(daysInMonth).fill(0);
+                ordArr = bizData.daily_orders || new Array(daysInMonth).fill(0);
+                retArr = bizData.daily_ret_cust || new Array(daysInMonth).fill(0);
+                const target = foundEmp.target || 1;
+                let cumRev = 0;
+                rateArr = revArr.map(r => {
+                    cumRev += r;
+                    return target > 0 ? Math.round(1000 * cumRev / target) / 10 : 0;
+                });
+            } else {
+                revArr = new Array(daysInMonth).fill(0);
+                ordArr = new Array(daysInMonth).fill(0);
+                rateArr = new Array(daysInMonth).fill(0);
+                retArr = new Array(daysInMonth).fill(0);
+            }
+        }
+    } else {
+        // Yearly breakdown by Month (12 months)
+        labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+        const year = st.year;
+        if (!st.yearlyCache[year]) {
+            try {
+                st.yearlyCache[year] = await apiCall('/api/reports/kpi-kdoanh/yearly-trend?year=' + year);
+            } catch(e) {
+                st.yearlyCache[year] = null;
+            }
+        }
+        const yData = st.yearlyCache[year];
+        if (yData && yData.by_staff) {
+            const sObj = yData.by_staff[staffId] || yData.by_staff['all'] || {};
+            const areaObj = sObj[bizArea] || sObj.all || sObj;
+
+            revArr = areaObj.monthly_rev || new Array(12).fill(0);
+            ordArr = areaObj.monthly_orders || new Array(12).fill(0);
+            rateArr = areaObj.monthly_rate || new Array(12).fill(0);
+            retArr = areaObj.monthly_ret_cust || new Array(12).fill(0);
+        } else {
+            revArr = new Array(12).fill(0);
+            ordArr = new Array(12).fill(0);
+            rateArr = new Array(12).fill(0);
+            retArr = new Array(12).fill(0);
+        }
+    }
+
+    // Render Highlights Summary Cards
+    const cardEl = document.getElementById('kpiStaffTrendSummaryCards');
+    if (cardEl) {
+        const maxRev = Math.max(0, ...revArr);
+        const maxRevIdx = revArr.indexOf(maxRev);
+        const maxRevLabel = maxRevIdx >= 0 ? labels[maxRevIdx] : '-';
+
+        const maxOrd = Math.max(0, ...ordArr);
+        const maxOrdIdx = ordArr.indexOf(maxOrd);
+        const maxOrdLabel = maxOrdIdx >= 0 ? labels[maxOrdIdx] : '-';
+
+        const totalRev = revArr.reduce((a, b) => a + b, 0);
+        const totalOrd = ordArr.reduce((a, b) => a + b, 0);
+        const maxRate = Math.max(0, ...rateArr);
+
+        cardEl.innerHTML = `
+            <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:12px 16px;text-align:center">
+                <div style="font-size:10px;font-weight:800;color:#1e40af;text-transform:uppercase">🏆 Đỉnh Doanh Thu (Peak)</div>
+                <div style="font-size:18px;font-weight:900;color:#1e3a8a;margin-top:2px">${formatVND(maxRev)}</div>
+                <div style="font-size:11px;color:#3b82f6;font-weight:700">Mốc: ${maxRevLabel}</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:12px;padding:12px 16px;text-align:center">
+                <div style="font-size:10px;font-weight:800;color:#166534;text-transform:uppercase">📦 Kỷ Lục Đơn Hàng (Max)</div>
+                <div style="font-size:18px;font-weight:900;color:#14532d;margin-top:2px">${maxOrd} đơn</div>
+                <div style="font-size:11px;color:#22c55e;font-weight:700">Mốc: ${maxOrdLabel}</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fed7aa;border-radius:12px;padding:12px 16px;text-align:center">
+                <div style="font-size:10px;font-weight:800;color:#9a3412;text-transform:uppercase">🎯 % HT KPI Cao Nhất</div>
+                <div style="font-size:18px;font-weight:900;color:#7c2d12;margin-top:2px">${maxRate}%</div>
+                <div style="font-size:11px;color:#ea580c;font-weight:700">${isDaily ? 'Cộng dồn' : 'Trong năm'}</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:12px;padding:12px 16px;text-align:center">
+                <div style="font-size:10px;font-weight:800;color:#334155;text-transform:uppercase">💰 Tổng Cộng Trong Kỳ</div>
+                <div style="font-size:18px;font-weight:900;color:#0f172a;margin-top:2px">${formatVND(totalRev)}</div>
+                <div style="font-size:11px;color:#64748b;font-weight:700">Tổng: ${totalOrd} đơn</div>
+            </div>
+        `;
+    }
+
+    // Build Chart.js datasets & scales
+    const selected = st.selectedMetrics;
+    const datasets = [];
+    const scalesConfig = {};
+
+    let hasCurrency = false;
+    let hasOrders = false;
+    let hasPct = false;
+
+    if (selected.has('revenue')) {
+        hasCurrency = true;
+        datasets.push({
+            label: 'Doanh Thu (VNĐ)',
+            data: revArr,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.08)',
+            yAxisID: 'yRev',
+            fill: selected.size === 1,
+            tension: 0.3,
+            borderWidth: 2.5
+        });
+    }
+    if (selected.has('orders')) {
+        hasOrders = true;
+        datasets.push({
+            label: 'Số Đơn Hàng',
+            data: ordArr,
+            borderColor: '#16a34a',
+            backgroundColor: 'rgba(22, 163, 74, 0.08)',
+            yAxisID: 'yOrd',
+            fill: selected.size === 1,
+            tension: 0.3,
+            borderWidth: 2.5
+        });
+    }
+    if (selected.has('rate')) {
+        hasPct = true;
+        datasets.push({
+            label: 'Tỷ Lệ % Hoàn Thành KPI (%)',
+            data: rateArr,
+            borderColor: '#ea580c',
+            backgroundColor: 'rgba(234, 88, 12, 0.08)',
+            yAxisID: 'yPct',
+            fill: selected.size === 1,
+            tension: 0.3,
+            borderWidth: 2.5
+        });
+    }
+    if (selected.has('ret')) {
+        hasOrders = true;
+        datasets.push({
+            label: 'KH Cũ Quay Lại (KH)',
+            data: retArr,
+            borderColor: '#9333ea',
+            backgroundColor: 'rgba(147, 51, 234, 0.08)',
+            yAxisID: 'yOrd',
+            fill: selected.size === 1,
+            tension: 0.3,
+            borderWidth: 2.5
+        });
+    }
+
+    if (hasCurrency) {
+        scalesConfig.yRev = {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : (v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v)) + 'đ' }
+        };
+    }
+    if (hasOrders) {
+        scalesConfig.yOrd = {
+            type: 'linear',
+            display: true,
+            position: hasCurrency ? 'right' : 'left',
+            grid: { drawOnChartArea: !hasCurrency },
+            ticks: { precision: 0, callback: v => v + ' đơn' }
+        };
+    }
+    if (hasPct) {
+        scalesConfig.yPct = {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            grid: { drawOnChartArea: !(hasCurrency || hasOrders) },
+            ticks: { callback: v => v + '%' }
+        };
+    }
+
+    if (window._chartKpiStaffTrend) {
+        window._chartKpiStaffTrend.destroy();
+    }
+
+    window._chartKpiStaffTrend = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: datasets.length > 1, position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                const val = context.parsed.y;
+                                const yId = context.dataset.yAxisID;
+                                if (yId === 'yRev') {
+                                    label += formatVND(val);
+                                } else if (yId === 'yPct') {
+                                    label += val + '%';
+                                } else if (yId === 'yOrd') {
+                                    label += val + ' đơn';
+                                } else {
+                                    label += val;
+                                }
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: scalesConfig
+        }
+    });
+
+    canvas.ondblclick = (evt) => {
+        if (window._chartKpiStaffTrend) {
+            const points = window._chartKpiStaffTrend.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+            if (points && points.length > 0) {
+                const dsIndex = points[0].datasetIndex;
+                const dataset = window._chartKpiStaffTrend.data.datasets[dsIndex];
+                if (dataset) {
+                    const keyMap = {
+                        'Doanh Thu (VND)': 'revenue',
+                        'Số Đơn Hàng': 'orders',
+                        'Tỷ Lệ % Hoàn Thành KPI (%)': 'rate',
+                        'KH Cũ Quay Lại (KH)': 'ret'
+                    };
+                    const metricKey = keyMap[dataset.label] || 'revenue';
+                    kpiKdOpenMetricDetailModal(metricKey);
+                }
+            }
+        }
+    };
+}
+
+function kpiKdOpenMetricDetailModal(metricKey) {
+    const st = window._kpiTrendState || {};
+    const isDaily = st.granularity === 'day';
+    const staffId = st.staff_id || 'all';
+    const bizArea = st.biz_area || 'dp';
+    const data = _kpi.data;
+    if (!data) return;
+
+    const p = (_kpi.month || '').split('-').map(Number);
+    const yr = p[0] || (new Date()).getFullYear();
+    const mo = p[1] || ((new Date()).getMonth() + 1);
+
+    const metricConfigs = {
+        revenue: { name: '💰 DOANH THU', fullLabel: 'Doanh Thu Phát Sinh', unit: 'đ', isCurrency: true, isPct: false, isLowerBetter: false, color: '#2563eb', bg: '#dbeafe' },
+        orders: { name: '📦 SỐ ĐƠN HÀNG', fullLabel: 'Số Lượng Đơn Hàng', unit: 'đơn', isCurrency: false, isPct: false, isLowerBetter: false, color: '#16a34a', bg: '#dcfce7' },
+        rate: { name: '🎯 % HOÀN THÀNH KPI', fullLabel: 'Tỷ Lệ Hoàn Thành KPI Doanh Số', unit: '%', isCurrency: false, isPct: true, isLowerBetter: false, color: '#ea580c', bg: '#ffedd5' },
+        ret: { name: '🔄 KHÁCH HÀNG CỦ QUAY LẠI', fullLabel: 'Số Đơn Từ Khách Hàng Cũ', unit: 'đơn', isCurrency: false, isPct: false, isLowerBetter: false, color: '#7c3aed', bg: '#f3e8ff' }
+    };
+
+    const cfg = metricConfigs[metricKey] || metricConfigs['revenue'];
+
+    let labels = [];
+    let revArr = [], ordersArr = [], rateArr = [], retArr = [];
+
+    if (isDaily) {
+        const daysInMonth = data.month?.days_in_month || 31;
+        const vnDays = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dt = new Date(yr, mo - 1, d);
+            const dayName = vnDays[dt.getDay()];
+            labels.push(`${dayName} - ${String(d).padStart(2,'0')}/${String(mo).padStart(2,'0')}`);
+        }
+
+        let targetObj = null;
+        let targetKpi = 1;
+        if (staffId === 'all') {
+            targetObj = data.summary || {};
+            targetKpi = data.summary?.target_1 || 1;
+        } else {
+            (data.teams || []).forEach(t => {
+                const e = (t.employees || []).find(emp => emp.user_id == staffId);
+                if (e) targetObj = e;
+            });
+            targetKpi = targetObj?.target || 1;
+        }
+
+        if (targetObj) {
+            const bizData = (targetObj.daily_by_biz && targetObj.daily_by_biz[bizArea])
+                ? targetObj.daily_by_biz[bizArea]
+                : { daily: targetObj.daily, daily_orders: targetObj.daily_orders, daily_ret_cust: targetObj.daily_ret_cust };
+
+            revArr = bizData.daily || new Array(daysInMonth).fill(0);
+            ordersArr = bizData.daily_orders || new Array(daysInMonth).fill(0);
+            retArr = bizData.daily_ret_cust || new Array(daysInMonth).fill(0);
+            let cumRev = 0;
+            rateArr = revArr.map(r => {
+                cumRev += r;
+                return targetKpi > 0 ? Math.round(1000 * cumRev / targetKpi) / 10 : 0;
+            });
+        } else {
+            revArr = new Array(daysInMonth).fill(0);
+            ordersArr = new Array(daysInMonth).fill(0);
+            retArr = new Array(daysInMonth).fill(0);
+            rateArr = new Array(daysInMonth).fill(0);
+        }
+    } else {
+        labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+        const yearVal = st.year || yr;
+        const yData = st.yearlyCache ? st.yearlyCache[yearVal] : null;
+        if (yData && yData.by_staff) {
+            const sObj = yData.by_staff[staffId] || yData.by_staff['all'] || {};
+            const areaObj = sObj[bizArea] || sObj.all || sObj;
+
+            revArr = areaObj.monthly_rev || new Array(12).fill(0);
+            ordersArr = areaObj.monthly_orders || new Array(12).fill(0);
+            rateArr = areaObj.monthly_rate || new Array(12).fill(0);
+            retArr = areaObj.monthly_ret_cust || areaObj.monthly_ret || new Array(12).fill(0);
+        } else {
+            revArr = new Array(12).fill(0);
+            ordersArr = new Array(12).fill(0);
+            rateArr = new Array(12).fill(0);
+            retArr = new Array(12).fill(0);
+        }
+    }
+
+    let metricValMap = {
+        revenue: revArr,
+        orders: ordersArr,
+        rate: rateArr,
+        ret: retArr
+    };
+
+    const targetArr = metricValMap[metricKey] || revArr;
+
+    let bestIdx = 0, worstIdx = 0;
+    let bestVal = 0, worstVal = 0;
+
+    const validItems = targetArr.map((v, i) => ({ val: v, i }));
+    validItems.sort((a, b) => b.val - a.val);
+    bestIdx = validItems[0].i;
+    bestVal = validItems[0].val;
+
+    const activeItems = validItems.filter(item => revArr[item.i] > 0 || ordersArr[item.i] > 0 || item.val > 0);
+    if (activeItems.length > 0) {
+        worstIdx = activeItems[activeItems.length - 1].i;
+        worstVal = activeItems[activeItems.length - 1].val;
+    } else {
+        worstIdx = validItems[validItems.length - 1].i;
+        worstVal = validItems[validItems.length - 1].val;
+    }
+
+    const formatMetric = (val) => {
+        if (cfg.isCurrency) return formatVND(val);
+        if (cfg.isPct) return val + '%';
+        return val + ' ' + cfg.unit;
+    };
+
+    let staffLabel = '🏢 Tất Cả NVKD (Tổng P.Kinh Doanh)';
+    const staffSel = document.getElementById('kpiStaffSelect');
+    if (staffSel && staffSel.selectedIndex >= 0) {
+        staffLabel = staffSel.options[staffSel.selectedIndex].text;
+    }
+
+    const bizText = bizArea === 'dp' ? '👕 Lĩnh Vực Đồng Phục' : (bizArea === 'pettem' ? '🏷️ Tem PET' : '🌐 Tất Cả Lĩnh Vực');
+    const timeLabel = isDaily ? `Theo Ngày (Trong Tháng ${mo}/${yr})` : `Theo Tháng (Trong Năm ${st.year || yr})`;
+
+    let rowsHtml = '';
+    labels.forEach((lbl, idx) => {
+        const val = targetArr[idx];
+        const r = revArr[idx];
+        const o = ordersArr[idx];
+        const rt = rateArr[idx];
+        const ret = retArr[idx];
+
+        let badgeHtml = '';
+        if (idx === bestIdx && val > 0) {
+            badgeHtml = '<span style="background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:12px;font-weight:800;font-size:11px">🟢 HIỆU QUẢ NHẤT</span>';
+        } else if (idx === worstIdx && (r > 0 || o > 0 || val > 0)) {
+            badgeHtml = '<span style="background:#fee2e2;color:#b91c1c;padding:3px 10px;border-radius:12px;font-weight:800;font-size:11px">🔴 KÉM HIỆU QUẢ</span>';
+        } else if (r > 0 || o > 0) {
+            badgeHtml = '<span style="background:#fef3c7;color:#b45309;padding:3px 10px;border-radius:12px;font-weight:700;font-size:11px">🟡 TRUNG BÌNH</span>';
+        } else {
+            badgeHtml = '<span style="background:#f1f5f9;color:#94a3b8;padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px">⚪ CHƯA PHÁT SINH</span>';
+        }
+
+        const rowBg = idx === bestIdx ? '#f0fdf4' : (idx === worstIdx ? '#fff1f2' : (idx % 2 === 0 ? '#fff' : '#f8fafc'));
+
+        rowsHtml += `
+            <tr style="background:${rowBg};border-bottom:1px solid #e2e8f0;transition:all 0.15s">
+                <td style="padding:10px 12px;text-align:center;font-weight:700;color:#64748b">${idx + 1}</td>
+                <td style="padding:10px 12px;font-weight:800;color:#1e1b4b">${lbl}</td>
+                <td style="padding:10px 12px;text-align:right;font-weight:900;color:${cfg.color};font-size:14px">${formatMetric(val)}</td>
+                <td style="padding:10px 12px;text-align:right;font-weight:700;color:#2563eb">${formatVND(r)}</td>
+                <td style="padding:10px 12px;text-align:right;font-weight:700;color:#16a34a">${o} đơn</td>
+                <td style="padding:10px 12px;text-align:right;font-weight:700;color:#ea580c">${rt}%</td>
+                <td style="padding:10px 12px;text-align:right;font-weight:700;color:#7c3aed">${ret} đơn</td>
+                <td style="padding:10px 12px;text-align:center">${badgeHtml}</td>
+            </tr>
+        `;
+    });
+
+    const existing = document.getElementById('kpiKdMetricDetailModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'kpiKdMetricDetailModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+
+    modal.innerHTML = `
+        <div style="background:#fff;border-radius:20px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);width:100%;max-width:960px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;animation:kpiModalPop 0.25s ease-out">
+            <!-- Modal Header -->
+            <div style="background:linear-gradient(135deg,#1e1b4b,#312e81);padding:20px 24px;color:#fff;display:flex;align-items:center;justify-content:space-between">
+                <div>
+                    <h3 style="margin:0;font-size:18px;font-weight:900;display:flex;align-items:center;gap:10px">
+                        <span>📊 THỐNG KÊ CHI TIẾT & PHÂN TÍCH HIỆU SUẤT KINH DOANH</span>
+                        <span style="background:${cfg.bg};color:${cfg.color};font-size:12px;padding:3px 12px;border-radius:16px;font-weight:800">${cfg.name}</span>
+                    </h3>
+                    <div style="font-size:12px;color:#c7d2fe;margin-top:4px">
+                        ${bizText} | 📌 ${staffLabel} | 📅 ${timeLabel}
+                    </div>
+                </div>
+                <button onclick="document.getElementById('kpiKdMetricDetailModal').remove()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:20px;font-weight:800;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s">✕</button>
+            </div>
+
+            <!-- Modal Content Body -->
+            <div style="padding:20px 24px;overflow-y:auto;flex:1">
+                <!-- Smart Analysis Cards -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px">
+                    <!-- Best Card -->
+                    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:14px;padding:16px">
+                        <div style="display:flex;align-items:center;justify-content:space-between">
+                            <span style="font-size:11px;font-weight:800;color:#166534;text-transform:uppercase">🌟 Mốc Hiệu Quả Nhất</span>
+                            <span style="background:#22c55e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${labels[bestIdx] || '-'}</span>
+                        </div>
+                        <div style="font-size:22px;font-weight:900;color:#14532d;margin-top:6px">${formatMetric(bestVal || 0)}</div>
+                        <div style="font-size:12px;color:#15803d;margin-top:4px;font-weight:600">
+                            Doanh số: <b>${formatVND(revArr[bestIdx] || 0)}</b> | <b>${ordersArr[bestIdx] || 0} đơn</b> | KPI: <b>${rateArr[bestIdx] || 0}%</b>
+                        </div>
+                    </div>
+
+                    <!-- Worst Card -->
+                    <div style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);border:1.5px solid #fca5a5;border-radius:14px;padding:16px">
+                        <div style="display:flex;align-items:center;justify-content:space-between">
+                            <span style="font-size:11px;font-weight:800;color:#9f1239;text-transform:uppercase">⚠️ Mốc Kém Hiệu Quả Nhất</span>
+                            <span style="background:#f43f5e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">${labels[worstIdx] || '-'}</span>
+                        </div>
+                        <div style="font-size:22px;font-weight:900;color:#881337;margin-top:6px">${formatMetric(worstVal || 0)}</div>
+                        <div style="font-size:12px;color:#be123c;margin-top:4px;font-weight:600">
+                            Doanh số: <b>${formatVND(revArr[worstIdx] || 0)}</b> | <b>${ordersArr[worstIdx] || 0} đơn</b> | KPI: <b>${rateArr[worstIdx] || 0}%</b>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Table -->
+                <div style="border:1.5px solid #cbd5e1;border-radius:14px;overflow:hidden">
+                    <div style="background:#f8fafc;padding:12px 16px;font-size:13px;font-weight:800;color:#1e1b4b;border-bottom:1.5px solid #cbd5e1;display:flex;align-items:center;justify-content:space-between">
+                        <span>📌 BẢNG THỐNG KÊ CHI TIẾT THEO MỐC THỜI GIAN (${labels.length} mốc)</span>
+                        <span style="font-size:11px;color:#64748b">Cột màu rực rỡ thể hiện giá trị chỉ số đang xem</span>
+                    </div>
+                    <div style="max-height:360px;overflow-y:auto">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px">
+                            <thead style="position:sticky;top:0;background:#f1f5f9;z-index:2;box-shadow:0 1px 2px rgba(0,0,0,0.05)">
+                                <tr>
+                                    <th style="padding:10px;text-align:center;width:40px">STT</th>
+                                    <th style="padding:10px;text-align:left">Mốc Thời Gian</th>
+                                    <th style="padding:10px;text-align:right;background:${cfg.bg};color:${cfg.color};font-weight:900">${cfg.name}</th>
+                                    <th style="padding:10px;text-align:right">Doanh Số</th>
+                                    <th style="padding:10px;text-align:right">Số Đơn Hàng</th>
+                                    <th style="padding:10px;text-align:right">% HT KPI</th>
+                                    <th style="padding:10px;text-align:right">Đơn Khách Cũ</th>
+                                    <th style="padding:10px;text-align:center">Đánh Giá Hiệu Quả</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div style="background:#f8fafc;padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:12px;color:#64748b;font-weight:600">
+                    💡 Mẹo: Nháy đúp vào bất kỳ nút chỉ số nào để mở bảng phân tích chi tiết.
+                </div>
+                <button onclick="document.getElementById('kpiKdMetricDetailModal').remove()" style="padding:8px 20px;border-radius:10px;background:#1e1b4b;color:#fff;border:none;font-weight:700;font-size:12px;cursor:pointer">Đóng Cửa Sổ</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+window.kpiInitStaffTrendSection = kpiInitStaffTrendSection;
+window.kpiToggleTrendMetric = kpiToggleTrendMetric;
+window.kpiChangeStaffTrendFilter = kpiChangeStaffTrendFilter;
+window.kpiRenderStaffTrendChart = kpiRenderStaffTrendChart;
+window.kpiKdOpenMetricDetailModal = kpiKdOpenMetricDetailModal;
+

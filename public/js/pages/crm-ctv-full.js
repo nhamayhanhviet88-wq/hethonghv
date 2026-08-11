@@ -161,6 +161,7 @@ let CTV_CONSULT_TYPES = {
     giuc_coc: { label: 'Giục Cọc', icon: '⏰', color: '#ea580c' },
     dat_coc: { label: 'Đặt Cọc', icon: '💵', color: '#f97316' },
     chot_don: { label: 'Chốt Đơn', icon: '✅', color: '#22c55e' },
+    tu_van_don_tiep: { label: 'Tư Vấn Đơn Tiếp', icon: '📝', color: '#0ea5e9' },
     dang_san_xuat: { label: 'Đang Sản Xuất', icon: '🏭', color: '#8b5cf6' },
     hoan_thanh: { label: 'Hoàn Thành Đơn', icon: '🏆', color: '#0d9488', textColor: 'white' },
     sau_ban_hang: { label: 'Chăm Sóc Sau Bán', icon: '📦', color: '#0ea5e9' },
@@ -363,16 +364,20 @@ function _ctvFilterByCat(cat) {
 
 
 function _ctvGetCategory(c, stats) {
-    // Priority 0.5: Chờ Duyệt Hủy or Chờ Duyệt Hủy Đơn (NV đã ấn hủy, chờ sếp)
-    if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
-    if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
+    const s = stats ? stats[c.id] : null;
+    const lastType = s?.lastLog?.log_type;
+    if (!lastType || lastType === 'huy') {
+        // Priority 0.5: Chờ Duyệt Hủy or Chờ Duyệt Hủy Đơn (NV đã ấn hủy, chờ sếp)
+        if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
+        if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
 
-    // Priority 1: Hủy khách (sếp đã duyệt)
-    if (c.cancel_approved === 1) return 'huy_khach';
+        // Priority 1: Hủy khách (sếp đã duyệt)
+        if (c.cancel_approved === 1) return 'huy_khach';
+    }
 
     const today = new Date();
     const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    const s = stats[c.id] || {};
+    if (!s) s = stats ? (stats[c.id] || {}) : {};
 
     // Check if consulted today (exclude system logs like conversion)
     let consultedToday = false;
@@ -660,7 +665,7 @@ function _ctvGoToPage(page) {
 
 function _ctvRenderCustomerRow(c, stats, stt) {
     const s = stats[c.id] || { consultCount: 0, chotDonCount: 0, lastLog: null, revenue: 0 };
-    const OVERRIDE_STATUSES = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy'];
+    const OVERRIDE_STATUSES = [];
     let lastType = s.lastLog ? CTV_CONSULT_TYPES[s.lastLog.log_type] : null;
     // Override: special cancel statuses always show their own label
     if (OVERRIDE_STATUSES.includes(c.order_status) && CTV_CONSULT_TYPES[c.order_status]) {
@@ -735,7 +740,19 @@ function _ctvRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
-            `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+            `) : (s.lastLog && s.lastLog.log_type !== 'huy') ? `
+                <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
+                    <button class="btn btn-sm consult-btn" onclick="_ctvOpenConsultModal(${c.id})" 
+                        style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};flex-grow:1;">
+                        ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
+                    </button>
+                    <button class="btn btn-sm btn-star-${c.id}" onclick="event.stopPropagation();_ctvQuickRecare(${c.id})" 
+                        style="font-size:12px;padding:4px 8px;background:#fef08a;color:#ca8a04;border:1px solid #fde047;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;" 
+                        title="Chăm sóc nhanh" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                        ⭐
+                    </button>
+                </div>
+            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </button>
@@ -1254,11 +1271,11 @@ async function _ctvOpenConsultModal(customerId) {
             <input type="text" id="consultSampleOrderCode" class="form-control" readonly style="background:var(--gray-100);font-weight:700;color:var(--navy);font-size:16px;cursor:not-allowed;border:2px solid var(--gold);">
         </div>
         <div class="form-group" id="consultContentGroup">
-            <label>Nội Dung Tư Vấn <span style="color:var(--danger)">*</span></label>
+            <label>Nội Dung Tư Vấn</label>
             <textarea id="consultContent" class="form-control" rows="3" placeholder="Nhập nội dung tư vấn..."></textarea>
         </div>
         <div class="form-group" id="consultImageGroup">
-            <label>Hình Ảnh <span id="consultImageReq" style="color:var(--danger)">*</span> (Ctrl+V để dán)</label>
+            <label>Hình Ảnh <span id="consultImageReq" style="display:none;color:var(--danger)">*</span> (Ctrl+V để dán)</label>
             <div id="consultImageArea" class="image-paste-area" tabindex="0">
                 <div id="consultImagePlaceholder">📋 Click vào đây rồi Ctrl+V để dán hình ảnh</div>
                 <img id="consultImagePreview" style="display:none;max-width:100%;max-height:200px;border-radius:8px;">
@@ -1457,7 +1474,7 @@ function _ctvOnConsultTypeChange() {
 
     // Reset labels back to default FIRST (before applying max_appointment_days)
     const contentLabel = contentGroup?.querySelector('label');
-    if (contentLabel) contentLabel.innerHTML = 'Nội Dung Tư Vấn <span style="color:var(--danger)">*</span>';
+    if (contentLabel) contentLabel.innerHTML = 'Nội Dung Tư Vấn';
     const contentArea = document.getElementById('consultContent');
     if (contentArea) contentArea.placeholder = 'Nhập nội dung tư vấn...';
     const apptLabel = appointmentGroup?.querySelector('label');
@@ -1491,9 +1508,8 @@ function _ctvOnConsultTypeChange() {
     const nextTypeGroup = document.getElementById('consultNextTypeGroup');
     if (nextTypeGroup) nextTypeGroup.style.display = 'none';
 
-    // Image required: hide * for exempt types
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
-    if (imageReq) imageReq.style.display = imageExemptTypes.includes(type) ? 'none' : 'inline';
+    // Image required: optional for all types
+    if (imageReq) imageReq.style.display = 'none';
 
     // HỦY flow
     if (type === 'huy') {
@@ -1908,8 +1924,6 @@ async function _ctvSubmitConsultLog(customerId) {
         if (!sampleOrderCode || sampleOrderCode.startsWith('Đang tải') || sampleOrderCode.startsWith('Lỗi')) {
             showToast('Không thể tạo mã đơn áo mẫu!', 'error'); _ctvEnableSubmitBtn(); return;
         }
-        if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); _ctvEnableSubmitBtn(); return; }
-        if (!window._consultImageBlob) { showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); _ctvEnableSubmitBtn(); return; }
         if (!appointment_date && !window._currentConsultCustomerPinned) { showToast('Vui lòng chọn ngày hẹn!', 'error'); _ctvEnableSubmitBtn(); return; }
 
         try {
@@ -2006,12 +2020,29 @@ async function _ctvSubmitConsultLog(customerId) {
             formData.append('deposit_amount', depositAmount);
             formData.append('payment_record_id', paymentRecordId);
             formData.append('appointment_date', appointment_date);
+            if (window._nextOrderCodeForConsult && window._nextOrderCodeForConsult !== '---') {
+                formData.append('target_order_code', window._nextOrderCodeForConsult);
+            }
             if (window._consultImageBlob) {
                 formData.append('image', window._consultImageBlob, 'screenshot.png');
             }
-            const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
+            const idempKey = 'idemp_dep_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            formData.append('idempotency_key', idempKey);
+            const res = await fetch(`/api/customers/${customerId}/consult`, {
+                method: 'POST',
+                body: formData
+            });
             const data = await res.json();
             if (data.success) {
+                if (data.order_code || data.order_id) {
+                    window._lastCreatedOrderCode = data.order_code;
+                    window._lastCreatedOrderId = data.order_id;
+                    const modal = document.getElementById('consultModal');
+                    if (modal) {
+                        modal.setAttribute('data-order-code', data.order_code || '');
+                        modal.setAttribute('data-order-id', data.order_id || '');
+                    }
+                }
                 showToast('✅ Đặt cọc thành công! Mã tiền đã được khóa.'); closeModal(); window._consultImageBlob = null; loadCrmCtvData();
             } else { showToast(data.error || 'Lỗi!', 'error'); _ctvEnableSubmitBtn(); }
         } catch (err) { showToast('Lỗi kết nối!', 'error'); _ctvEnableSubmitBtn(); }
@@ -2050,6 +2081,17 @@ async function _ctvSubmitConsultLog(customerId) {
             formData.append('province', city);
             if (phone) formData.append('phone', phone);
             formData.append('appointment_date', sbhDate);
+
+            const modal = document.getElementById('consultModal');
+            const inputCode = document.getElementById('consultOrderCode')?.value?.trim();
+            const validCode = (inputCode && inputCode !== 'Đang tải...' && inputCode !== 'Lỗi tải mã' && inputCode !== 'Chưa cài mã đơn') ? inputCode : null;
+            const targetCode = validCode || modal?.getAttribute('data-order-code') || window._lastCreatedOrderCode;
+            const targetId = modal?.getAttribute('data-order-id') || window._lastCreatedOrderId;
+            if (targetCode) formData.append('order_code', targetCode);
+            if (targetId) formData.append('order_id', targetId);
+
+            const idempKey = 'idemp_cd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            formData.append('idempotency_key', idempKey);
             const isZeroDepositCheckbox = document.getElementById('consultIsZeroDeposit');
             if (isZeroDepositCheckbox && isZeroDepositCheckbox.checked) {
                 formData.append('is_zero_deposit', 'true');
@@ -2069,11 +2111,6 @@ async function _ctvSubmitConsultLog(customerId) {
     }
 
     // ========== Normal consultation flow ==========
-    if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); _ctvEnableSubmitBtn(); return; }
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
-    if (!imageExemptTypes.includes(log_type) && !window._consultImageBlob) {
-        showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); _ctvEnableSubmitBtn(); return;
-    }
     if (!appointment_date && !window._currentConsultCustomerPinned) { showToast('Vui lòng chọn ngày hẹn!', 'error'); _ctvEnableSubmitBtn(); return; }
 
     const formData = new FormData();

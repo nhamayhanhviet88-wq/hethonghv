@@ -34,6 +34,7 @@ var _tempetConsultTypes = {
     giuc_coc: { label: 'Giục Cọc', icon: '⏰', color: '#ea580c' },
     dat_coc: { label: 'Đặt Cọc', icon: '💵', color: '#f97316' },
     chot_don: { label: 'Chốt Đơn', icon: '✅', color: '#22c55e' },
+    tu_van_don_tiep: { label: 'Tư Vấn Đơn Tiếp', icon: '📝', color: '#0ea5e9' },
     dang_san_xuat: { label: 'Đang Sản Xuất', icon: '🏭', color: '#8b5cf6' },
     hoan_thanh: { label: 'Hoàn Thành Đơn', icon: '🏆', color: '#0d9488', textColor: 'white' },
     sau_ban_hang: { label: 'Chăm Sóc Sau Bán', icon: '📦', color: '#0ea5e9' },
@@ -74,6 +75,11 @@ async function renderChamsockhtempetPage(container) {
     window._saleReloadCurrentPage = () => _tempetLoadData();
     window._saleRenderCurrentTable = () => _tempetRenderFilteredTable();
     _tempetIsManager = ['giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong'].includes(currentUser.role);
+
+    // Preload chamsockhsale.js in background so customer detail and consult modals open instantly
+    if (typeof _loadScript === 'function') {
+        _loadScript('/js/pages/chamsockhsale.js?v=20260726_v355').catch(() => {});
+    }
 
     if (_tempetIsManager) {
         const [staffRes, deptsRes] = await Promise.all([
@@ -252,13 +258,17 @@ function _tempetIsBirthdayToday(bdayStr) {
 }
 
 function _tempetGetCategory(c, stats) {
-    if (c.cancel_approved === 1) return 'huy_khach';
-    if (c.cancel_requested === 1 && c.cancel_approved === 0) {
-        if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
-        return 'huy_khach';
-    }
-    if (c.last_consult_type === 'huy' && c.cancel_approved !== -2) {
-        return 'huy_khach';
+    const s = stats ? stats[c.id] : null;
+    const lastType = s?.lastLog?.log_type;
+    if (!lastType || lastType === 'huy') {
+        if (c.cancel_approved === 1) return 'huy_khach';
+        if (c.cancel_requested === 1 && c.cancel_approved === 0) {
+            if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
+            return 'huy_khach';
+        }
+        if (c.last_consult_type === 'huy' && c.cancel_approved !== -2) {
+            return 'huy_khach';
+        }
     }
 
     const today = new Date();
@@ -419,12 +429,12 @@ function _tempetBuildDateFilterHTML() {
 
     if (_tempetDatePreset === 'all') {
         const curYr = new Date().getFullYear();
-        const years = [curYr, curYr - 1, curYr - 2];
+        const startYr = curYr + 1;
         html += `<select id="tempetYearSelect" onchange="_tempetChangeYear(this.value)" 
             style="padding:4px 8px;border-radius:8px;font-size:12px;border:1px solid #cbd5e1;background:white;margin-left:8px;font-weight:600;">`;
-        years.forEach(y => {
+        for (let y = startYr; y >= 2024; y--) {
             html += `<option value="${y}" ${y === _tempetSelectedYear ? 'selected' : ''}>Năm ${y}</option>`;
-        });
+        }
         html += `</select>`;
     }
 
@@ -626,6 +636,19 @@ function _tempetShowTelegramOnlyMessage() {
     alert("🔒 Khách hàng mới chuyển về bắt buộc phải báo qua Telegram trước!\n\nVui lòng mở Telegram reply tin nhắn nhận số theo cú pháp: ; [Nội dung tư vấn]");
 }
 
+async function _tempetOpenCustomerDetail(customerId) {
+    window._currentCrmMenu = 'tem_pet';
+    window._currentIsTemPetMenu = true;
+    if (typeof _loadScript === 'function') {
+        await _loadScript('/js/pages/chamsockhsale.js?v=20260726_v355');
+    }
+    if (typeof _saleOpenCustomerDetail === 'function') {
+        _saleOpenCustomerDetail(customerId);
+    } else {
+        alert("Không thể mở thông tin khách hàng. Vui lòng thử lại.");
+    }
+}
+
 async function _tempetOpenConsultModal(customerId) {
     window._currentCrmMenu = 'tem_pet';
     window._currentIsTemPetMenu = true;
@@ -673,7 +696,7 @@ async function _tempetQuickRecare(customerId) {
 
 function _tempetRenderCustomerRow(c, stats, stt) {
     const s = stats[c.id] || { consultCount: 0, chotDonCount: 0, lastLog: null, revenue: 0 };
-    const OVERRIDE_STATUSES = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy', 'chot_don', 'hoan_thanh', 'sau_ban_hang', 'dang_san_xuat'];
+    const OVERRIDE_STATUSES = [];
     let lastType = s.lastLog ? _tempetConsultTypes[s.lastLog.log_type] : null;
     if (OVERRIDE_STATUSES.includes(c.order_status) && _tempetConsultTypes[c.order_status]) {
         lastType = _tempetConsultTypes[c.order_status];
@@ -753,6 +776,18 @@ function _tempetRenderCustomerRow(c, stats, stt) {
                     style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg, #cbd5e1, #94a3b8);color:white;cursor:pointer;">
                     🔒 Báo Telegram
                 </button>
+            ` : (s.lastLog && s.lastLog.log_type !== 'huy') ? `
+                <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
+                    <button class="btn btn-sm consult-btn" onclick="_tempetOpenConsultModal(${c.id})"
+                        style="font-size:11px;padding:4px 8px;border-radius:6px;background:${lastType ? lastType.color : '#6b7280'};color:${lastType?.textColor || 'white'};cursor:pointer;border:none;flex-grow:1;">
+                        ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Chưa TV'}
+                    </button>
+                    <button class="btn btn-sm btn-star-${c.id}" onclick="event.stopPropagation();_tempetQuickRecare(${c.id})" 
+                        style="font-size:12px;padding:4px 8px;background:#fef08a;color:#ca8a04;border:1px solid #fde047;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;" 
+                        title="Chăm sóc nhanh" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                        ⭐
+                    </button>
+                </div>
             ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
@@ -805,7 +840,7 @@ function _tempetRenderCustomerRow(c, stats, stt) {
                 const codeStr = typeof getCustomerCode === 'function' ? getCustomerCode(c) : (originalCode || '');
                 return `
                 <div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:700;">
-                    <span onclick="if(typeof _saleOpenCustomerDetail==='function')_saleOpenCustomerDetail(${c.id})" style="cursor:pointer;color:${_cc.text};background:${_cc.bg};border:1px solid ${_cc.border};padding:3px 10px;border-radius:20px;display:inline-block;">
+                    <span onclick="_tempetOpenCustomerDetail(${c.id})" style="cursor:pointer;color:${_cc.text};background:${_cc.bg};border:1px solid ${_cc.border};padding:3px 10px;border-radius:20px;display:inline-block;">
                         ${c.customer_name || '—'}
                     </span>
                     <span onclick="event.stopPropagation();_crmCopyText('${nameStr}',this,'Tên')" style="cursor:pointer;font-size:11px;color:#94a3b8;margin-left:4px;transition:color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'" title="Copy tên">📋</span>

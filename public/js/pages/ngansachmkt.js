@@ -146,7 +146,7 @@ async function renderNgansachmktPage(container) {
                                     <th style="text-align:right;">CPL</th>
                                     <th style="text-align:center;">Đơn Hàng</th>
                                     <th style="text-align:right;">Doanh Số</th>
-                                    <th style="text-align:center;">ROAS</th>
+                                    <th style="text-align:center;">📉 % CHI PHÍ / DOANH THU ADS</th>
                                     <th style="text-align:right;">Giá / Đơn</th>
                                     <th style="text-align:center;width:90px;">Thao Tác</th>
                                 </tr>
@@ -364,6 +364,12 @@ async function renderNgansachmktPage(container) {
                     <div class="mkt-fg">
                         <label>Tên Kênh / Mục Mới *</label>
                         <input type="text" id="mktCatName" class="mkt-input" required placeholder="Vd: Page Đồng Phục Công Ty, Threads Ads...">
+                    </div>
+
+                    <div class="mkt-fg">
+                        <label style="font-weight:700;color:#0284c7;">🔗 Đường Link Trực Tiếp Kênh / Fanpage (Tùy chọn)</label>
+                        <input type="url" id="mktCatChannelLink" class="mkt-input" placeholder="Vd: https://facebook.com/PageCongTy2 hoặc https://tiktok.com/@...">
+                        <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Nhập đường link trực tiếp dẫn tới Fanpage/Kênh. Bấm vào thẻ tên Nguồn trên hệ thống sẽ tự mở link ra tab mới.</span>
                     </div>
 
                     <!-- SECTION 1: SINGLE ADS HANDLER SELECTOR -->
@@ -622,7 +628,7 @@ function _mkt2ColStyles() {
         
         .mkt-table-wrap { overflow-x: auto; }
         .mkt-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
-        .mkt-table th { background: #f8fafc; padding: 12px 14px; font-weight: 700; color: #475569; font-size: 12px; border-bottom: 1.5px solid #e2e8f0; white-space: nowrap; }
+        .mkt-table th { background: #ffffff; padding: 12px 14px; font-weight: 800; color: #0f172a; font-size: 13px; border-bottom: 2px solid #cbd5e1; white-space: nowrap; }
         .mkt-table td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; color: #1e293b; vertical-align: middle; }
         .mkt-table tr:hover td { background: #f8fafc; }
 
@@ -719,7 +725,7 @@ function _mktRenderSidebar() {
                             <div class="mkt-parent-item ${isSelectedParent ? 'selected' : ''}" onclick="_mktSelectNav('online', ${pCat.id})">
                                 <div style="display:flex;flex-direction:column;min-width:0;flex:1;">
                                     <span style="display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${pCat.icon || '📌'} ${pCat.name}</span>
-                                    ${pCat.linked_source_name ? `<span style="font-size:10px;color:#0284c7;background:#e0f2fe;padding:1px 6px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;">🔗 ${pCat.linked_source_name}</span>` : ''}
+                                    ${pCat.linked_source_name ? (pCat.channel_link ? `<a href="${pCat.channel_link}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="font-size:10px;color:#0284c7;background:#e0f2fe;padding:1px 6px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;text-decoration:none;" title="Mở link kênh trong tab mới">🔗 ${pCat.linked_source_name} ↗</a>` : `<span style="font-size:10px;color:#0284c7;background:#e0f2fe;padding:1px 6px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;">🔗 ${pCat.linked_source_name}</span>`) : ''}
                                 </div>
                                 ${isDirector ? `
                                     <div style="display:flex;align-items:center;gap:3px;">
@@ -735,7 +741,7 @@ function _mktRenderSidebar() {
                                     <div class="mkt-child-item ${isSelectedChild ? 'selected' : ''}" onclick="_mktSelectNav('online', ${cCat.id})">
                                         <div style="display:flex;flex-direction:column;min-width:0;flex:1;">
                                             <span style="display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cCat.icon || '📄'} ${cCat.name}</span>
-                                            ${cCat.linked_source_name ? `<span style="font-size:9.5px;color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;">🔗 ${cCat.linked_source_name}</span>` : ''}
+                                            ${cCat.linked_source_name ? (cCat.channel_link ? `<a href="${cCat.channel_link}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="font-size:9.5px;color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;text-decoration:none;" title="Mở link kênh trong tab mới">🔗 ${cCat.linked_source_name} ↗</a>` : `<span style="font-size:9.5px;color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;">🔗 ${cCat.linked_source_name}</span>`) : ''}
                                             ${cCat.ads_handler_name ? `<span onclick="event.stopPropagation();_mktOpenResourceModal('${cCat.ads_handler_name.replace(/'/g, "\\'")}')" style="font-size:9px;color:#7c3aed;font-weight:700;cursor:pointer;background:#f3e8ff;padding:1px 6px;border-radius:4px;border:1px solid #d8b4fe;display:inline-flex;align-items:center;gap:3px;margin-top:2px;width:fit-content;" title="Click để xem Nguyên Liệu Tài Khoản của ${cCat.ads_handler_name}">👤 ${cCat.ads_handler_name} 📝</span>` : ''}
                                         </div>
                                         ${isDirector ? `
@@ -942,37 +948,37 @@ function _mktRenderKpiCards(s) {
         ? `Năm ${_mktNavState.selectedYear}` 
         : `Tháng ${_mktNavState.selectedMonth}/${_mktNavState.selectedYear}`;
 
-    const titleOrders = `${totalOrders.toLocaleString('vi-VN')} Đơn hàng chốt thành công trong ${periodText}`;
-    const titleRevenue = `${_mktFmt(totalRevenue)} Doanh số thu về trong ${periodText}`;
-    const titleCostRatio = `${_mktFmt(totalSpent)} Chi phí MKT / ${_mktFmt(totalRevenue)} Doanh số = ${costIncomeRatio}%`;
-    const titleCpo = `${_mktFmt(totalSpent)} Chi phí MKT / ${totalOrders} Đơn = ${costPerOrder > 0 ? _mktFmt(costPerOrder) : '0đ'}`;
+    const titleOrders = `${totalOrders.toLocaleString('vi-VN')} Đơn Khách Mới chốt thành công trong ${periodText}`;
+    const titleRevenue = `${_mktFmt(totalRevenue)} Doanh số Khách Mới thu về trong ${periodText}`;
+    const titleCostRatio = `${_mktFmt(totalSpent)} Chi phí MKT / ${_mktFmt(totalRevenue)} Doanh số Khách Mới = ${costIncomeRatio}%`;
+    const titleCpo = `${_mktFmt(totalSpent)} Chi phí MKT / ${totalOrders} Đơn Khách Mới = ${costPerOrder > 0 ? _mktFmt(costPerOrder) : '0đ'}`;
     const titleSpent = `${_mktFmt(totalSpent)} Chi phí MKT đã thực chi trong ${periodText}`;
     const titleLeads = `${totalLeads.toLocaleString('vi-VN')} Khách (Tin Nhắn) trong ${periodText}`;
     const titleCpl = `${_mktFmt(totalSpent)} Chi phí MKT / ${totalLeads} Tin Nhắn = ${_mktFmt(avgCpl)}`;
-    const titleCloseRate = `${totalOrders} Đơn / ${totalLeads} Tin Nhắn = ${closeRate}%`;
+    const titleCloseRate = `${totalOrders} Đơn Khách Mới / ${totalLeads} Tin Nhắn = ${closeRate}%`;
 
     el.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:14px;grid-column:1/-1;">
             <!-- HÀNG 1: 4 Ô THỐNG KÊ (Đơn Hàng | Doanh Số | % Chi Phí/Doanh Thu | Giá/Đơn) -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;">
-                <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" data-tooltip="${titleOrders}" title="${titleOrders}" style="border-top-color:#2563eb;background:linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;">
+                <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" data-tooltip="${titleOrders}" title="${titleOrders}" style="border-top-color:#16a34a;background:linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;">
                     <div class="mkt-kpi-lbl" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>📦 TỔNG SỐ ĐƠN HÀNG</span>
-                        <span style="font-size:10px;color:#2563eb;background:#dbeafe;padding:1px 6px;border-radius:4px;font-weight:700;">Xem chi tiết 🔍</span>
+                        <span>🎯 SỐ ĐƠN ADS (KHÁCH MỚI)</span>
+                        <span style="font-size:10px;color:#16a34a;background:#dcfce7;padding:1px 6px;border-radius:4px;font-weight:700;">Xem chi tiết 🔍</span>
                     </div>
-                    <div class="mkt-kpi-val" style="color:#2563eb;">${totalOrders.toLocaleString('vi-VN')} <span style="font-size:13px;font-weight:600">đơn</span></div>
-                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Phát sinh trong ${periodText}</div>
+                    <div class="mkt-kpi-val" style="color:#16a34a;">${totalOrders.toLocaleString('vi-VN')} <span style="font-size:13px;font-weight:600">đơn</span></div>
+                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Chỉ tính Khách Mới ${periodText}</div>
                 </div>
                 <div class="mkt-kpi-card" onclick="_mktOpenOrdersModal()" data-tooltip="${titleRevenue}" title="${titleRevenue}" style="border-top-color:#0284c7;background:linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);cursor:pointer;transition:transform 0.2s;">
                     <div class="mkt-kpi-lbl" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>💰 DOANH SỐ MKT</span>
+                        <span>💵 DOANH SỐ ADS (KHÁCH MỚI)</span>
                         <span style="font-size:10px;color:#0284c7;background:#e0e7ff;padding:1px 6px;border-radius:4px;font-weight:700;">Xem chi tiết 🔍</span>
                     </div>
                     <div class="mkt-kpi-val" style="color:#0284c7;">${_mktFmt(totalRevenue)}</div>
-                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Doanh số thu về</div>
+                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Doanh số từ Khách Mới</div>
                 </div>
                 <div class="mkt-kpi-card" data-tooltip="${titleCostRatio}" title="${titleCostRatio}" style="border-top-color:#4f46e5;background:linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);">
-                    <div class="mkt-kpi-lbl">📉 % CHI PHÍ / DOANH THU</div>
+                    <div class="mkt-kpi-lbl">📉 % CHI PHÍ / DOANH THU ADS</div>
                     <div class="mkt-kpi-val" style="color:#4f46e5;">${costIncomeRatio}%</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Tỷ lệ chi phí MKT / doanh thu</div>
                 </div>
@@ -985,24 +991,24 @@ function _mktRenderKpiCards(s) {
 
             <!-- HÀNG 2: 4 Ô THỐNG KÊ (Thực Chi | Lead | CPL | Tỷ Lệ Chốt) -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;">
-                <div class="mkt-kpi-card" data-tooltip="${titleSpent}" title="${titleSpent}" style="border-top-color:#059669;background:linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);">
-                    <div class="mkt-kpi-lbl">💸 THỰC CHI MARKETING</div>
-                    <div class="mkt-kpi-val" style="color:#059669;">${_mktFmt(totalSpent)}</div>
+                <div class="mkt-kpi-card" data-tooltip="${titleSpent}" title="${titleSpent}" style="border-top-color:#d97706;background:linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);">
+                    <div class="mkt-kpi-lbl">📢 CHI PHÍ QUẢNG CÁO</div>
+                    <div class="mkt-kpi-val" style="color:#d97706;">${_mktFmt(totalSpent)}</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">${periodText}</div>
                 </div>
-                <div class="mkt-kpi-card" data-tooltip="${titleLeads}" title="${titleLeads}" style="border-top-color:#d97706;background:linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);">
+                <div class="mkt-kpi-card" data-tooltip="${titleLeads}" title="${titleLeads}" style="border-top-color:#2563eb;background:linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);">
                     <div class="mkt-kpi-lbl">📥 TỔNG SỐ LEAD (TIN NHẮN)</div>
-                    <div class="mkt-kpi-val" style="color:#d97706;">${totalLeads.toLocaleString('vi-VN')} <span style="font-size:13px;font-weight:600">khách</span></div>
+                    <div class="mkt-kpi-val" style="color:#2563eb;">${totalLeads.toLocaleString('vi-VN')} <span style="font-size:13px;font-weight:600">khách</span></div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Theo bộ lọc đang chọn</div>
                 </div>
                 <div class="mkt-kpi-card" data-tooltip="${titleCpl}" title="${titleCpl}" style="border-top-color:#7c3aed;background:linear-gradient(180deg, #f3e8ff 0%, #ffffff 100%);">
-                    <div class="mkt-kpi-lbl">📊 CPL (GIÁ / LEAD)</div>
+                    <div class="mkt-kpi-lbl">📊 GIÁ ADS / LEAD (CPL)</div>
                     <div class="mkt-kpi-val" style="color:#7c3aed;">${_mktFmt(avgCpl)}</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Chi phí / 1 tin nhắn</div>
                 </div>
-                <div class="mkt-kpi-card" data-tooltip="${titleCloseRate}" title="${titleCloseRate}" style="border-top-color:#0891b2;background:linear-gradient(180deg, #ecfeff 0%, #ffffff 100%);">
-                    <div class="mkt-kpi-lbl">🎯 TỶ LỆ CHỐT (DATA CHẤT)</div>
-                    <div class="mkt-kpi-val" style="color:#0891b2;">${closeRate}%</div>
+                <div class="mkt-kpi-card" data-tooltip="${titleCloseRate}" title="${titleCloseRate}" style="border-top-color:#ea580c;background:linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);">
+                    <div class="mkt-kpi-lbl">🎯 TỶ LỆ % CHỐT ADS</div>
+                    <div class="mkt-kpi-val" style="color:#ea580c;">${closeRate}%</div>
                     <div style="font-size:11px;color:#64748b;margin-top:4px;">Tổng số đơn / tổng số lead (tin nhắn)</div>
                 </div>
             </div>
@@ -1010,7 +1016,7 @@ function _mktRenderKpiCards(s) {
     `;
 }
 
-window._mktOpenOrdersModal = async function() {
+window._mktOpenOrdersModal = async function(targetCatId = null, targetCatName = null) {
     let modal = document.getElementById('mktOrdersModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -1018,7 +1024,7 @@ window._mktOpenOrdersModal = async function() {
         modal.className = 'mkt-modal-overlay';
         modal.style.zIndex = '99999';
         modal.innerHTML = `
-            <div class="mkt-modal" style="width:1100px;max-width:96vw;max-height:92vh;padding:24px;">
+            <div class="mkt-modal" style="width:1300px;max-width:96vw;max-height:92vh;padding:24px;">
                 <div class="mkt-modal-hdr" style="border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
                     <div>
                         <h3 style="font-size:18px;color:#0f172a;margin:0;display:flex;align-items:center;gap:8px;">📦 Danh Sách Đơn Hàng Marketing (First-Touch)</h3>
@@ -1056,7 +1062,11 @@ window._mktOpenOrdersModal = async function() {
         let url = `/api/marketing-budgets/first-touch-orders?year=${_mktNavState.selectedYear}`;
         if (_mktNavState.selectedMonth !== 'all') url += `&month=${_mktNavState.selectedMonth}`;
         if (_mktNavState.selectedGroup !== 'all') url += `&group_type=${_mktNavState.selectedGroup}`;
-        if (_mktNavState.selectedCatId !== 'all') url += `&category_id=${_mktNavState.selectedCatId}`;
+        if (targetCatId && targetCatId !== 'all') {
+            url += `&category_id=${targetCatId}`;
+        } else if (_mktNavState.selectedCatId !== 'all') {
+            url += `&category_id=${_mktNavState.selectedCatId}`;
+        }
 
         const res = await apiCall(url);
         if (res.success && Array.isArray(res.orders)) {
@@ -1065,7 +1075,11 @@ window._mktOpenOrdersModal = async function() {
                 ? `Cả Năm ${_mktNavState.selectedYear}` 
                 : `Tháng ${_mktNavState.selectedMonth}/${_mktNavState.selectedYear}`;
 
-            if (subEl) subEl.textContent = `Báo cáo Đơn hàng First-Touch • ${periodTxt}`;
+            if (subEl) {
+                subEl.textContent = targetCatName 
+                    ? `Báo cáo Đơn hàng First-Touch • ${targetCatName} • ${periodTxt}`
+                    : `Báo cáo Đơn hàng First-Touch • ${periodTxt}`;
+            }
 
             if (allOrders.length === 0) {
                 if (statsEl) statsEl.innerHTML = '';
@@ -1118,6 +1132,11 @@ window._mktOpenOrdersModal = async function() {
 
                 let rowsHtml = filtered.map((o, idx) => {
                     const timeDisp = (o.order_time_str || o.dt_str || '').replace(' 00:00', '');
+                    const isOldCust = o.customer_type === 'cu';
+                    const custBadgeHtml = isOldCust
+                        ? `<span style="background:#fef3c7;color:#b45309;padding:3px 10px;border-radius:20px;font-weight:800;font-size:11.5px;border:1px solid #fde68a;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">🟧 Khách Cũ</span>`
+                        : `<span style="background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:20px;font-weight:800;font-size:11.5px;border:1px solid #bbf7d0;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">🟢 Khách Mới</span>`;
+
                     return `
                     <tr style="border-bottom:1px solid #e2e8f0;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
                         <td style="padding:11px 12px;text-align:center;font-weight:700;color:#64748b;font-size:12px;">${idx + 1}</td>
@@ -1127,6 +1146,7 @@ window._mktOpenOrdersModal = async function() {
                         </td>
                         <td style="padding:11px 12px;font-weight:800;color:#0f172a;font-size:13px;">${escapeHtml(o.customer_name)}</td>
                         <td style="padding:11px 12px;font-weight:700;color:#475569;font-size:12.5px;">👤 ${escapeHtml(o.sale_name)}</td>
+                        <td style="padding:11px 12px;font-size:12px;white-space:nowrap;">${custBadgeHtml}</td>
                         <td style="padding:11px 12px;font-size:12px;">
                             <span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;font-weight:700;border:1px solid #bae6fd;white-space:nowrap;">📍 ${escapeHtml(o.source)}</span>
                         </td>
@@ -1140,17 +1160,18 @@ window._mktOpenOrdersModal = async function() {
                     tableEl.innerHTML = `
                         <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.03);">
                             <table class="mkt-table" style="width:100%;border-collapse:collapse;background:white;">
-                                <thead>
-                                    <tr style="background:#1e293b;border-bottom:2px solid #0f172a;">
-                                        <th style="padding:12px;text-align:center;width:40px;color:#ffffff;font-weight:800;font-size:13px;">#</th>
-                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Thời Gian Chốt</th>
-                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Mã Đơn</th>
-                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Tên Khách Hàng</th>
-                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">NVKD / Sale</th>
-                                        <th style="padding:12px;color:#ffffff;font-weight:800;font-size:13px;">Nguồn Quảng Cáo</th>
-                                        <th style="padding:12px;text-align:center;color:#ffffff;font-weight:800;font-size:13px;">Tổng SL</th>
-                                        <th style="padding:12px;text-align:right;color:#ffffff;font-weight:800;font-size:13px;">Đặt Cọc</th>
-                                        <th style="padding:12px;text-align:right;color:#ffffff;font-weight:800;font-size:13px;">Doanh Số</th>
+                                <thead style="position:sticky;top:0;z-index:10;background:white;">
+                                    <tr style="background:#ffffff;border-bottom:2px solid #cbd5e1;">
+                                        <th style="padding:12px 14px;text-align:center;width:40px;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">#</th>
+                                        <th style="padding:12px 14px;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">Thời Gian Chốt</th>
+                                        <th style="padding:12px 14px;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">Mã Đơn</th>
+                                        <th style="padding:12px 14px;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">Tên Khách Hàng</th>
+                                        <th style="padding:12px 14px;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">NVKD / Sale</th>
+                                        <th style="padding:12px 14px;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">Loại khách</th>
+                                        <th style="padding:12px 14px;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">Nguồn Quảng Cáo</th>
+                                        <th style="padding:12px 14px;text-align:center;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">Tổng SL</th>
+                                        <th style="padding:12px 14px;text-align:right;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">Đặt Cọc</th>
+                                        <th style="padding:12px 14px;text-align:right;color:#0f172a;background:#ffffff;font-weight:800;font-size:13px;white-space:nowrap;">Doanh Số</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1573,7 +1594,7 @@ function _mktRenderTable(data) {
             const rev = Number(item.revenue_amount || 0);
             const cpl = leads > 0 ? Math.round(spent / leads) : 0;
             const costPerOrder = orders > 0 ? Math.round(spent / orders) : 0;
-            const roas = spent > 0 ? (rev / spent * 100).toFixed(1) : 0;
+            const costRatio = rev > 0 ? (spent / rev * 100).toFixed(1) : (spent > 0 ? '100.0' : '0.0');
 
             const handlerDisplay = item.ads_handler_name || 'Giám Đốc';
             const sourceDisplay = item.linked_source_name || '—';
@@ -1585,7 +1606,7 @@ function _mktRenderTable(data) {
             let adAccBadgeHtml = '';
             if (adAccName) {
                 if (adAccLink) {
-                    adAccBadgeHtml = `<a href="${adAccLink}" target="_blank" class="mkt-meta-acc-link" title="Mở Trình Quản Lý Quảng Cáo Meta: ${adAccName}">💳 ${adAccName} ↗</a>`;
+                    adAccBadgeHtml = `<a href="${adAccLink}" target="_blank" onclick="event.stopPropagation()" class="mkt-meta-acc-link" title="Mở Trình Quản Lý Quảng Cáo Meta: ${adAccName}">💳 ${adAccName} ↗</a>`;
                 } else {
                     adAccBadgeHtml = `<span class="mkt-meta-badge" style="color:#059669;background:#ecfdf5;">💳 ${adAccName}</span>`;
                 }
@@ -1593,15 +1614,15 @@ function _mktRenderTable(data) {
 
             let pageLinkHtml = `<span style="font-weight:800;color:#0f172a;">${item.cat_icon || '📌'} ${fullPageName}</span>`;
             if (item.pancake_page_id) {
-                pageLinkHtml = `<a href="https://facebook.com/${item.pancake_page_id}" target="_blank" class="mkt-page-title-link" title="${fullPageName}">📄 ${fullPageName} ↗</a>`;
+                pageLinkHtml = `<a href="https://facebook.com/${item.pancake_page_id}" target="_blank" onclick="event.stopPropagation()" class="mkt-page-title-link" title="${fullPageName}">📄 ${fullPageName} ↗</a>`;
             }
 
             const titleCplRow = `${_mktFmt(spent)} Chi phí MKT / ${leads} Tin Nhắn = ${_mktFmt(cpl)}`;
             const titleCpoRow = `${_mktFmt(spent)} Chi phí MKT / ${orders} Đơn = ${_mktFmt(costPerOrder)}`;
-            const titleRoasRow = `${_mktFmt(spent)} Chi phí MKT / ${_mktFmt(rev)} Doanh số = ${roas}%`;
+            const titleRoasRow = `${_mktFmt(spent)} Chi phí MKT / ${_mktFmt(rev)} Doanh số = ${costRatio}%`;
 
             return `
-                <tr>
+                <tr onclick="_mktOpenOrdersModal('${item.category_id || 'all'}', '${escapeHtml(fullPageName).replace(/'/g, "\\'")}')" style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'" title="Click bất kỳ đâu trên thanh ngang mục con để xem Danh Sách Đơn Hàng Marketing (Ảnh 2)">
                     <td style="font-weight:700;color:#64748b;text-align:center;">${idx + 1}</td>
                     <td style="font-weight:800;color:#2563eb;white-space:nowrap;">Tổng ${periodTxt}</td>
                     <td>
@@ -1610,7 +1631,7 @@ function _mktRenderTable(data) {
                             <div class="mkt-channel-meta">
                                 <span class="mkt-meta-badge" style="color:#0369a1;background:#e0f2fe;">🔗 ${sourceDisplay}</span>
                                 ${adAccBadgeHtml}
-                                <span class="mkt-meta-badge" onclick="_mktOpenResourceModal('${handlerDisplay.replace(/'/g, "\\'")}')" style="color:#7c3aed;background:#f3e8ff;border:1px solid #d8b4fe;cursor:pointer;font-weight:700;transition:all .15s;" title="Click để xem Nguyên Liệu Tài Khoản của ${handlerDisplay}">👤 ${handlerDisplay} 📝</span>
+                                <span class="mkt-meta-badge" onclick="event.stopPropagation();_mktOpenResourceModal('${handlerDisplay.replace(/'/g, "\\'")}')" style="color:#7c3aed;background:#f3e8ff;border:1px solid #d8b4fe;cursor:pointer;font-weight:700;transition:all .15s;" title="Click để xem Nguyên Liệu Tài Khoản của ${handlerDisplay}">👤 ${handlerDisplay} 📝</span>
                             </div>
                         </div>
                     </td>
@@ -1619,9 +1640,9 @@ function _mktRenderTable(data) {
                     <td style="text-align:right;font-weight:800;color:#7c3aed;" data-tooltip="${titleCplRow}" title="${titleCplRow}">${cpl > 0 ? _mktFmt(cpl) : '—'}</td>
                     <td style="text-align:center;font-weight:800;color:#2563eb;">${orders}</td>
                     <td style="text-align:right;font-weight:700;color:#0284c7;">${rev > 0 ? _mktFmt(rev) : '—'}</td>
-                    <td style="text-align:center;" data-tooltip="${titleRoasRow}" title="${titleRoasRow}"><span style="background:${roas >= 100 ? '#dcfce7' : '#fef3c7'};color:${roas >= 100 ? '#166534' : '#92400e'};padding:2px 8px;border-radius:10px;font-weight:800;font-size:11px;">${spent > 0 ? roas + '%' : '—'}</span></td>
+                    <td style="text-align:center;" data-tooltip="${titleRoasRow}" title="${titleRoasRow}"><span style="background:${rev > 0 && Number(costRatio) <= 30 ? '#dcfce7' : '#fef3c7'};color:${rev > 0 && Number(costRatio) <= 30 ? '#166534' : '#92400e'};padding:2px 8px;border-radius:10px;font-weight:800;font-size:11px;">${rev > 0 || spent > 0 ? costRatio + '%' : '—'}</span></td>
                     <td style="text-align:right;font-weight:800;color:#dc2626;" data-tooltip="${titleCpoRow}" title="${titleCpoRow}">${costPerOrder > 0 ? _mktFmt(costPerOrder) : '—'}</td>
-                    <td style="text-align:center;">—</td>
+                    <td style="text-align:center;" onclick="event.stopPropagation()">—</td>
                 </tr>
             `;
         }).join('');
@@ -1636,11 +1657,11 @@ function _mktRenderTable(data) {
         const rev = Number(item.revenue_amount || 0);
         const cpl = leads > 0 ? Math.round(spent / leads) : 0;
         const costPerOrder = orders > 0 ? Math.round(spent / orders) : 0;
-        const roas = spent > 0 ? (rev / spent * 100).toFixed(1) : 0;
+        const costRatio = rev > 0 ? (spent / rev * 100).toFixed(1) : (spent > 0 ? '100.0' : '0.0');
 
         const titleCplRow = `${_mktFmt(spent)} Chi phí MKT / ${leads} Tin Nhắn = ${_mktFmt(cpl)}`;
         const titleCpoRow = `${_mktFmt(spent)} Chi phí MKT / ${orders} Đơn = ${_mktFmt(costPerOrder)}`;
-        const titleRoasRow = `${_mktFmt(spent)} Chi phí MKT / ${_mktFmt(rev)} Doanh số = ${roas}%`;
+        const titleRoasRow = `${_mktFmt(spent)} Chi phí MKT / ${_mktFmt(rev)} Doanh số = ${costRatio}%`;
 
         const dateDisp = item.budget_date ? _mktFmtDayOfWeek(item.budget_date) : `Tháng ${item.budget_month}/${item.budget_year}`;
         const handlerDisplay = item.ads_handler_name || 'Giám Đốc';
@@ -1653,7 +1674,7 @@ function _mktRenderTable(data) {
         let adAccBadgeHtml = '';
         if (adAccName) {
             if (adAccLink) {
-                adAccBadgeHtml = `<a href="${adAccLink}" target="_blank" class="mkt-meta-acc-link" title="Mở Trình Quản Lý Quảng Cáo Meta: ${adAccName}">💳 ${adAccName} ↗</a>`;
+                adAccBadgeHtml = `<a href="${adAccLink}" target="_blank" onclick="event.stopPropagation()" class="mkt-meta-acc-link" title="Mở Trình Quản Lý Quảng Cáo Meta: ${adAccName}">💳 ${adAccName} ↗</a>`;
             } else {
                 adAccBadgeHtml = `<span class="mkt-meta-badge" style="color:#059669;background:#ecfdf5;">💳 ${adAccName}</span>`;
             }
@@ -1661,7 +1682,7 @@ function _mktRenderTable(data) {
 
         let pageLinkHtml = `<span style="font-weight:800;color:#0f172a;">${item.cat_icon || '📌'} ${fullPageName}</span>`;
         if (item.pancake_page_id) {
-            pageLinkHtml = `<a href="https://facebook.com/${item.pancake_page_id}" target="_blank" class="mkt-page-title-link" title="${fullPageName}">📄 ${fullPageName} ↗</a>`;
+            pageLinkHtml = `<a href="https://facebook.com/${item.pancake_page_id}" target="_blank" onclick="event.stopPropagation()" class="mkt-page-title-link" title="${fullPageName}">📄 ${fullPageName} ↗</a>`;
         }
 
         const isAutoApiRow = Boolean(
@@ -1675,7 +1696,7 @@ function _mktRenderTable(data) {
             actionHtml = `<span style="background:#f1f5f9;color:#64748b;padding:3px 6px;border-radius:6px;font-weight:700;font-size:10.5px;border:1px solid #e2e8f0;" title="Dữ liệu rút tự động từ Meta API">🔒 API</span>`;
         } else {
             actionHtml = `
-                <div style="display:flex;gap:4px;justify-content:center;">
+                <div style="display:flex;gap:4px;justify-content:center;" onclick="event.stopPropagation()">
                     <button class="mkt-btn mkt-btn-secondary" style="padding:3px 6px;font-size:10.5px;" onclick="_mktEditCost(${item.id})">✏️</button>
                     <button class="mkt-btn mkt-btn-secondary" style="padding:3px 6px;font-size:10.5px;color:#ef4444;border-color:#fca5a5;" onclick="_mktDeleteCost(${item.id})">🗑️</button>
                 </div>
@@ -1683,19 +1704,27 @@ function _mktRenderTable(data) {
         }
 
         const noteBadge = item.notes ? `<span title="Ghi chú: ${item.notes}" style="cursor:help;margin-left:4px;font-size:12px;">📝</span>` : '';
-        const imageBadge = item.image_url ? `<a href="${item.image_url}" target="_blank" title="Click xem ảnh hóa đơn chi phí" style="display:inline-block;margin-left:6px;"><img src="${item.image_url}" style="width:22px;height:22px;object-fit:cover;border-radius:4px;border:1.5px solid #3b82f6;vertical-align:middle;"></a>` : '';
+        const imageBadge = item.image_url ? `<a href="${item.image_url}" target="_blank" onclick="event.stopPropagation()" title="Click xem ảnh hóa đơn chi phí" style="display:inline-block;margin-left:6px;"><img src="${item.image_url}" style="width:22px;height:22px;object-fit:cover;border-radius:4px;border:1.5px solid #3b82f6;vertical-align:middle;"></a>` : '';
+
+        const catObj = _mktNavState.categories.find(c => Number(c.id) === Number(item.category_id));
+        const chLink = item.channel_link || (catObj ? catObj.channel_link : null);
+
+        let sourceBadgeHtml = `<span class="mkt-meta-badge" style="color:#0369a1;background:#e0f2fe;">🔗 ${sourceDisplay}</span>`;
+        if (chLink) {
+            sourceBadgeHtml = `<a href="${chLink}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="mkt-meta-badge" style="color:#0369a1;background:#e0f2fe;text-decoration:none;border:1px solid #bae6fd;" title="Mở link kênh trong tab mới">🔗 ${sourceDisplay} ↗</a>`;
+        }
 
         return `
-            <tr>
+            <tr onclick="_mktOpenOrdersModal('${item.category_id || 'all'}', '${escapeHtml(fullPageName).replace(/'/g, "\\'")}')" style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'" title="Click bất kỳ đâu trên thanh ngang mục con để xem Danh Sách Đơn Hàng Marketing (Ảnh 2)">
                 <td style="font-weight:700;color:#64748b;text-align:center;">${idx + 1}</td>
                 <td style="font-weight:800;color:#1e40af;white-space:nowrap;">${dateDisp} ${noteBadge}${imageBadge}</td>
                 <td>
                     <div class="mkt-channel-cell">
                         ${pageLinkHtml}
                         <div class="mkt-channel-meta">
-                            <span class="mkt-meta-badge" style="color:#0369a1;background:#e0f2fe;">🔗 ${sourceDisplay}</span>
+                            ${sourceBadgeHtml}
                             ${adAccBadgeHtml}
-                            <span class="mkt-meta-badge" onclick="_mktOpenResourceModal('${handlerDisplay.replace(/'/g, "\\'")}')" style="color:#7c3aed;background:#f3e8ff;border:1px solid #d8b4fe;cursor:pointer;font-weight:700;transition:all .15s;" title="Click để xem Nguyên Liệu Tài Khoản của ${handlerDisplay}">👤 ${handlerDisplay} 📝</span>
+                            <span class="mkt-meta-badge" onclick="event.stopPropagation();_mktOpenResourceModal('${handlerDisplay.replace(/'/g, "\\'")}')" style="color:#7c3aed;background:#f3e8ff;border:1px solid #d8b4fe;cursor:pointer;font-weight:700;transition:all .15s;" title="Click để xem Nguyên Liệu Tài Khoản của ${handlerDisplay}">👤 ${handlerDisplay} 📝</span>
                         </div>
                     </div>
                 </td>
@@ -1704,9 +1733,9 @@ function _mktRenderTable(data) {
                 <td style="text-align:right;font-weight:800;color:#7c3aed;" data-tooltip="${titleCplRow}" title="${titleCplRow}">${cpl > 0 ? _mktFmt(cpl) : '—'}</td>
                 <td style="text-align:center;font-weight:800;color:#2563eb;">${orders}</td>
                 <td style="text-align:right;font-weight:700;color:#0284c7;">${rev > 0 ? _mktFmt(rev) : '—'}</td>
-                <td style="text-align:center;" data-tooltip="${titleRoasRow}" title="${titleRoasRow}"><span style="background:${roas >= 100 ? '#dcfce7' : '#fef3c7'};color:${roas >= 100 ? '#166534' : '#92400e'};padding:2px 8px;border-radius:10px;font-weight:800;font-size:11px;">${spent > 0 ? roas + '%' : '—'}</span></td>
+                <td style="text-align:center;" data-tooltip="${titleRoasRow}" title="${titleRoasRow}"><span style="background:${rev > 0 && Number(costRatio) <= 30 ? '#dcfce7' : '#fef3c7'};color:${rev > 0 && Number(costRatio) <= 30 ? '#166534' : '#92400e'};padding:2px 8px;border-radius:10px;font-weight:800;font-size:11px;">${rev > 0 || spent > 0 ? costRatio + '%' : '—'}</span></td>
                 <td style="text-align:right;font-weight:800;color:#dc2626;" data-tooltip="${titleCpoRow}" title="${titleCpoRow}">${costPerOrder > 0 ? _mktFmt(costPerOrder) : '—'}</td>
-                <td style="text-align:center;">${actionHtml}</td>
+                <td style="text-align:center;" onclick="event.stopPropagation()">${actionHtml}</td>
             </tr>
         `;
     }).join('');
@@ -2612,6 +2641,9 @@ async function _mktOpenCatModal(groupType, defaultParentId = null) {
     nameEl.style.background = 'white';
     nameEl.style.fontWeight = 'normal';
 
+    const linkEl = document.getElementById('mktCatChannelLink');
+    if (linkEl) linkEl.value = '';
+
     iconEl.value = groupType === 'online' ? '📄' : '🏢';
 
     const topCats = _mktNavState.categories.filter(c => c.group_type === groupType && !c.parent_id);
@@ -2689,6 +2721,8 @@ async function _mktOpenEditCatModal(catId) {
     if (deleteBtn) deleteBtn.style.display = 'inline-block';
 
     if (nameEl) nameEl.value = cat.name || '';
+    const linkEl = document.getElementById('mktCatChannelLink');
+    if (linkEl) linkEl.value = cat.channel_link || '';
     if (iconEl) iconEl.value = cat.icon || '';
     if (sourceSelect && cat.linked_source_name) {
         const sName = String(cat.linked_source_name).trim();
@@ -2978,6 +3012,7 @@ async function _mktSaveCat(e) {
     }
 
     const selectedReporters = Array.from(document.querySelectorAll('#mktCatReportersBox input[name="mkt_reporter"]:checked')).map(cb => cb.value);
+    const channel_link = document.getElementById('mktCatChannelLink') ? document.getElementById('mktCatChannelLink').value.trim() : '';
 
     const payload = {
         group_type, 
@@ -2986,6 +3021,7 @@ async function _mktSaveCat(e) {
         icon,
         linked_source_type,
         linked_source_name,
+        channel_link,
         ads_handler_name: ads_handler_name || (pageObj ? pageObj.ads_handler : null),
         allowed_reporter_names: JSON.stringify(selectedReporters),
         pancake_page_id: pageObj ? pageObj.id : null,

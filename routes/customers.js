@@ -886,24 +886,38 @@ async function customersRoutes(fastify, options) {
 
     fastify.get('/api/order-codes/next', { preHandler: [authenticate] }, async (request, reply) => {
         const { customer_id, mode } = request.query;
-        if (customer_id && mode !== 'new_deposit' && mode !== 'new') {
+        if (customer_id) {
             const cust = await db.get('SELECT id, customer_name, phone, assigned_to_id FROM customers WHERE id = ?', [Number(customer_id)]);
             if (cust) {
-                const existingDeposit = await db.get(`
-                    SELECT pr.order_tt_coc 
-                    FROM payment_records pr
-                    LEFT JOIN order_codes oc ON oc.order_code = pr.order_tt_coc
-                    WHERE (
-                        pr.customer_id = $1
-                        OR (pr.customer_phone IS NOT NULL AND pr.customer_phone != '' AND pr.customer_phone = $2)
-                      )
-                      AND pr.payment_type = 'dat_coc' 
-                      AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''
-                      AND oc.id IS NULL
-                    ORDER BY pr.id DESC LIMIT 1
-                `, [cust.id, cust.phone || '']);
-                if (existingDeposit?.order_tt_coc) {
-                    return { order_code: existingDeposit.order_tt_coc, existing: true };
+                const existingOrder = await db.get(`
+                    SELECT order_code FROM order_codes WHERE customer_id = $1 ORDER BY id DESC LIMIT 1
+                `, [cust.id]);
+                const existingDht = await db.get(`
+                    SELECT order_code FROM dht_orders WHERE customer_phone = $1 AND customer_phone IS NOT NULL AND customer_phone != '' ORDER BY id DESC LIMIT 1
+                `, [cust.phone || '']);
+
+                const activeOrderCode = existingOrder?.order_code || existingDht?.order_code;
+                if (activeOrderCode && mode !== 'new_deposit') {
+                    return { order_code: activeOrderCode, existing: true };
+                }
+
+                if (mode !== 'new_deposit' && mode !== 'new') {
+                    const existingDeposit = await db.get(`
+                        SELECT pr.order_tt_coc 
+                        FROM payment_records pr
+                        LEFT JOIN order_codes oc ON oc.order_code = pr.order_tt_coc
+                        WHERE (
+                            pr.customer_id = $1
+                            OR (pr.customer_phone IS NOT NULL AND pr.customer_phone != '' AND pr.customer_phone = $2)
+                          )
+                          AND pr.payment_type = 'dat_coc' 
+                          AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''
+                          AND oc.id IS NULL
+                        ORDER BY pr.id DESC LIMIT 1
+                    `, [cust.id, cust.phone || '']);
+                    if (existingDeposit?.order_tt_coc) {
+                        return { order_code: existingDeposit.order_tt_coc, existing: true };
+                    }
                 }
             }
         }
@@ -927,6 +941,31 @@ async function customersRoutes(fastify, options) {
             const seqName = cat === 'pet' ? 'gcpet_seq' : 'gctem_seq';
             const prefix = cat === 'pet' ? 'GCPET' : 'GCTEM';
             const catId = cat === 'pet' ? 8 : 9;
+
+            // Reuse active un-finalized order code if customer already has one that has not been chot_don
+            if (customer_id) {
+                const existingOc = await db.get(`
+                    SELECT oc.id, oc.order_code
+                    FROM order_codes oc
+                    JOIN customers c ON c.id = oc.customer_id
+                    WHERE oc.customer_id = $1
+                      AND oc.order_code LIKE $2
+                      AND oc.status IN ('active', 'confirmed')
+                      AND c.order_status NOT IN ('chot_don','san_xuat','giao_hang','hoan_thanh','sau_ban_hang','dang_san_xuat')
+                      AND NOT EXISTS (
+                          SELECT 1 FROM dht_orders d JOIN dht_order_items oi ON d.id = oi.dht_order_id WHERE d.order_code = oc.order_code
+                      )
+                    ORDER BY oc.id DESC LIMIT 1
+                `, [Number(customer_id), prefix + '%']);
+
+                if (existingOc) {
+                    const prId = request.body?.payment_record_id ? Number(request.body.payment_record_id) : null;
+                    if (prId) {
+                        await db.run('UPDATE payment_records SET order_tt_coc = $1, updated_at = NOW() WHERE id = $2', [existingOc.order_code, prId]);
+                    }
+                    return { success: true, order_code: existingOc.order_code, id: existingOc.id, reused: true };
+                }
+            }
 
             try {
                 await db.run(`CREATE SEQUENCE IF NOT EXISTS ${seqName}`);
@@ -956,42 +995,30 @@ async function customersRoutes(fastify, options) {
                 const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
                 // Preserve original customer_type from Chuyển Số (do not overwrite with 'cu')
 
-                const cust = await db.get('SELECT id, customer_name, phone, province, address FROM customers WHERE id = ?', [Number(customer_id)]);
-                if (cust?.phone) {
+                const prId = request.body?.payment_record_id ? Number(request.body.payment_record_id) : null;
+                if (prId) {
                     await db.run(`
                         UPDATE payment_records SET
                             order_tt_coc = $1,
                             updated_at = NOW()
-                        WHERE customer_phone = $2
-                          AND payment_type = 'dat_coc'
-                          AND (order_tt_coc IS NULL OR order_tt_coc = '')
+                        WHERE id = $2
+                    `, [orderCode, prId]);
+                } else if (cust?.phone) {
+                    await db.run(`
+                        UPDATE payment_records SET
+                            order_tt_coc = $1,
+                            updated_at = NOW()
+                        WHERE id = (
+                            SELECT id FROM payment_records
+                            WHERE customer_phone = $2
+                              AND payment_type = 'dat_coc'
+                              AND (order_tt_coc IS NULL OR order_tt_coc = '')
+                            ORDER BY id ASC LIMIT 1
+                        )
                     `, [orderCode, cust.phone]);
                 }
 
-                // ★ Auto-create entry on Đơn Hàng Tổng (dht_orders) immediately
-                if (cust) {
-                    const existingDht = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [orderCode]);
-                    if (!existingDht) {
-                        await db.run(`
-                            INSERT INTO dht_orders (
-                                order_code, order_date, category_id,
-                                customer_name, customer_phone, province, address,
-                                cskh_user_id, created_by, last_updated_by, is_draft, customer_id,
-                                deposit_amount_cache
-                            ) VALUES (
-                                $1, NOW(), $2,
-                                $3, $4, $5, $6,
-                                $7, $7, $7, false, $8,
-                                $9
-                            )
-                        `, [
-                            orderCode, catId,
-                            cust.customer_name, cust.phone, cust.province || null, cust.address || null,
-                            userId, cust.id,
-                            Number(deposit_amount) || 0
-                        ]);
-                    }
-                }
+                // Order code registered in order_codes table (dht_orders entry will be created when Chốt Đơn is logged or Tạo Đơn is submitted)
 
                 return { success: true, order_code: orderCode, order_id: result?.lastID };
             } catch (err) {
@@ -1013,7 +1040,7 @@ async function customersRoutes(fastify, options) {
         const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
         // Preserve original customer_type from Chuyển Số (do not overwrite with 'cu')
 
-        // ★ V4.1: Backfill order_tt_coc on deposit payment records for this customer
+        // ★ V4.1: Backfill order_tt_coc on deposit payment records for this customer (limit 1)
         const cust = await db.get('SELECT customer_name, phone FROM customers WHERE id = ?', [Number(customer_id)]);
         if (cust) {
             await db.run(`
@@ -1021,12 +1048,16 @@ async function customersRoutes(fastify, options) {
                     order_tt_coc = $1,
                     customer_phone = COALESCE(NULLIF($2, ''), customer_phone),
                     updated_at = NOW()
-                WHERE (
-                    (customer_phone IS NOT NULL AND customer_phone != '' AND customer_phone = $2)
-                    OR (customer_name IS NOT NULL AND customer_name != '' AND customer_name = $3 AND (cskh_user_id = $4 OR locked_by = $4))
-                  )
-                  AND payment_type = 'dat_coc'
-                  AND (order_tt_coc IS NULL OR order_tt_coc = '')
+                WHERE id = (
+                    SELECT id FROM payment_records
+                    WHERE (
+                        (customer_phone IS NOT NULL AND customer_phone != '' AND customer_phone = $2)
+                        OR (customer_name IS NOT NULL AND customer_name != '' AND customer_name = $3 AND (cskh_user_id = $4 OR locked_by = $4))
+                      )
+                      AND payment_type = 'dat_coc'
+                      AND (order_tt_coc IS NULL OR order_tt_coc = '')
+                    ORDER BY id ASC LIMIT 1
+                )
             `, [orderCode, cust.phone || '', cust.customer_name || '', userId]);
         }
 

@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Các Chỉ Số Tổng Quan — Giám Đốc</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    
+    <!-- Unified Mobile Navigation Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
+    
+    <!-- Chart.js Thư viện vẽ biểu đồ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="/js/app.js?v=20260808_MOBILE_SYNC_V1"></script>
+
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            background: #f8fafc;
+            min-height: 100vh;
+            color: #0f172a;
+            padding-bottom: 50px;
+        }
+        
+        .dash-container {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+
+        /* Executive Header Banner */
+        .exec-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border-radius: 14px;
+            padding: 14px 16px;
+            color: white;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .exec-header::after {
+            content: '';
+            position: absolute;
+            top: -20px; right: -20px;
+            width: 100px; height: 100px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .exec-title {
+            font-size: 16.5px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .exec-sub {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .badge-role {
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
+            border: 1px solid rgba(129, 140, 248, 0.3);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10.5px;
+            font-weight: 700;
+        }
+
+        /* Time Filter Bar (Horizontal Scrollable) */
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 4px 2px;
+            margin-bottom: 10px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .filter-bar::-webkit-scrollbar {
+            display: none;
+        }
+        .filter-pill {
+            background: white;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            padding: 7px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .filter-pill.active {
+            background: linear-gradient(135deg, #4f46e5, #3b82f6);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        .filter-select {
+            background: white;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            padding: 6px 10px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* Gentle Pulse Animations */
+        @keyframes gentlePulseGlow {
+            0%, 100% {
+                opacity: 1;
+                box-shadow: 0 2px 6px rgba(168, 85, 247, 0.2);
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.85;
+                box-shadow: 0 2px 14px rgba(168, 85, 247, 0.45);
+                transform: scale(1.02);
+            }
+        }
+
+        .exec-mode-tag-pill-static {
+            font-size: 11px;
+            background: linear-gradient(135deg, #f3e8ff 0%, #faf5ff 100%);
+            color: #6b21a8;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-weight: 800;
+            border: 1.5px solid #a855f7;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 2px 6px rgba(168, 85, 247, 0.15);
+            animation: gentlePulseGlow 3s infinite ease-in-out;
+        }
+
+        .exec-sub-tag-pulse {
+            font-size: 11px;
+            font-weight: 800;
+            color: #1e40af;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 1px solid #93c5fd;
+            padding: 2px 8px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 4px;
+            box-shadow: 0 1px 4px rgba(37, 99, 235, 0.12);
+            animation: gentlePulseGlow 3s infinite ease-in-out;
+        }
+
+        /* KPI Quick Grid Cards (2 columns on mobile) */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .kpi-card {
+            background: white;
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            transition: transform 0.15s ease;
+            position: relative;
+        }
+        .kpi-card:active {
+            transform: scale(0.98);
+        }
+        .kpi-label {
+            font-size: 11.5px;
+            font-weight: 800;
+            color: #334155;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .kpi-value {
+            font-size: 19px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-top: 6px;
+            line-height: 1.1;
+        }
+        .kpi-sub-single {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #64748b;
+            margin-top: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .kpi-breakdown-box {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #475569;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dashed #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .kpi-breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Executive View Switcher Tabs */
+        .tab-bar {
+            display: flex;
+            background: #e2e8f0;
+            padding: 3px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 8px 4px;
+            border: none;
+            background: transparent;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #64748b;
+            border-radius: 99px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        .tab-btn.active {
+            background: white;
+            color: #0f172a;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        }
+
+        /* Section Container */
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        /* Card Section Box */
+        .section-box {
+            background: white;
+            border-radius: 14px;
+            padding: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            margin-bottom: 12px;
+        }
+        .section-title {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #1e293b;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        /* Chart Canvas wrapper */
+        .chart-box {
+            position: relative;
+            width: 100%;
+            height: 220px;
+        }
+
+        /* Table Styling for Mobile */
+        .mobile-table-wrap {
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+        .mobile-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11.5px;
+        }
+        .mobile-table th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 700;
+            text-align: left;
+            padding: 7px 8px;
+            border-bottom: 2px solid #e2e8f0;
+            white-space: nowrap;
+        }
+        .mobile-table td {
+            padding: 8px 8px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        /* Status Pills */
+        .status-pill {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 10.5px;
+            font-weight: 700;
+        }
+        .status-chot_don { background: #dcfce7; color: #15803d; }
+        .status-san_xuat { background: #dbeafe; color: #1d4ed8; }
+        .status-giao_hang { background: #fef3c7; color: #b45309; }
+        .status-hoan_thanh { background: #e0e7ff; color: #4338ca; }
+        .status-huy { background: #fee2e2; color: #b91c1c; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dash-container">
+        
+        <!-- Header -->
+        <div class="exec-header">
+            <div class="exec-title">
+                <span>Các Chỉ Số Tổng Quan</span>
+                <span class="badge-role">Giám Đốc</span>
+            </div>
+            <div class="exec-sub">
+                <span>🗓️ <span id="lblPeriodRange">Hôm nay</span></span>
+                <span style="margin-left:auto; cursor:pointer;" onclick="loadDashboardData()">🔄 Cập nhật</span>
+            </div>
+        </div>
+
+        <!-- Segmented Control Bar (Bộ lọc mảng kinh doanh Mobile) -->
+        <div style="background:white; border-radius:14px; padding:10px 12px; margin-bottom:10px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+            <div style="font-size:11px; font-weight:800; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px; display:flex; justify-content:space-between; align-items:center;">
+                <span>⚡ LỌC PHÂN KHÚC MẢNG:</span>
+                <span id="mPeriodDateSub" style="font-size:10.5px; color:#2563eb; font-weight:700;"></span>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button class="m-seg-btn active" id="mBtnDp" onclick="mSetSegment('dong_phuc', this)" style="flex:1; padding:7px 4px; border-radius:20px; font-size:11.5px; font-weight:800; border:1.5px solid #2563eb; background:linear-gradient(135deg, #2563eb, #1d4ed8); color:white; cursor:pointer; box-shadow:0 2px 6px rgba(37,99,235,0.25);">
+                    👔 Đồng Phục
+                </button>
+                <button class="m-seg-btn" id="mBtnAll" onclick="mSetSegment('all', this)" style="flex:1; padding:7px 4px; border-radius:20px; font-size:11.5px; font-weight:800; border:1px solid #cbd5e1; background:#f1f5f9; color:#334155; cursor:pointer;">
+                    🏢 Tất Cả
+                </button>
+                <button class="m-seg-btn" id="mBtnPet" onclick="mSetSegment('tem_pet', this)" style="flex:1; padding:7px 4px; border-radius:20px; font-size:11.5px; font-weight:800; border:1px solid #cbd5e1; background:#f1f5f9; color:#334155; cursor:pointer;">
+                    🏷️ Tem PET
+                </button>
+            </div>
+        </div>
+
+        <!-- Horizontal Scrollable Time Filter Bar -->
+        <div class="filter-bar">
+            <button class="filter-pill active" onclick="setPeriod('today', this)">Hôm nay</button>
+            <button class="filter-pill" onclick="setPeriod('yesterday', this)">Hôm qua</button>
+            <button class="filter-pill" onclick="setPeriod('day_before_yesterday', this)">Hôm kia</button>
+            <button class="filter-pill" onclick="setPeriod('this_week', this)">Tuần này</button>
+            <button class="filter-pill" onclick="setPeriod('last_week', this)">Tuần trước</button>
+            <button class="filter-pill" onclick="setPeriod('this_month', this)">Tháng này</button>
+            
+            <select class="filter-select" onchange="setPeriod(this.value, null)">
+                <option value="">-- Chọn Quý --</option>
+                <option value="q1">Quý 1</option>
+                <option value="q2">Quý 2</option>
+                <option value="q3">Quý 3</option>
+                <option value="q4">Quý 4</option>
+            </select>
+
+            <select class="filter-select" onchange="setPeriod(this.value, null)">
+                <option value="">-- Chọn Năm --</option>
+                <option value="year_2026">Năm 2026</option>
+                <option value="year_2025">Năm 2025</option>
+                <option value="year_2024">Năm 2024</option>
+            </select>
+        </div>
+
+        <!-- SECTION 1: CHỈ SỐ TỔNG CÔNG TY (OVERALL PERFORMANCE) -->
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:14px; padding:12px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display:flex; align-items:center; justify-content:space-between; font-weight:800; font-size:13px; color:#1e293b; margin-bottom:10px; padding-bottom:6px; border-bottom:2px solid #cbd5e1; flex-wrap:wrap; gap:6px;">
+                <span>🏛️ CHỈ SỐ TỔNG CÔNG TY</span>
+                <span id="mSec1ModeTag" class="exec-mode-tag-pill-static">[Đang xem: 👔 Mảng Đồng Phục]</span>
+            </div>
+            
+            <div class="kpi-grid">
+                <!-- Card 1: Số đơn chốt -->
+                <div class="kpi-card" style="border-top:3px solid #16a34a;">
+                    <div class="kpi-label">🎯 SỐ ĐƠN CHỐT</div>
+                    <div class="kpi-value" id="mOrdersNum" style="color:#16a34a;">0 đơn</div>
+                    <div class="kpi-sub-single">(Loại trừ đơn Sửa & Gửi mẫu)</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpOrders" style="color:#2563eb;">0 đơn</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetOrders" style="color:#7c3aed;">0 đơn</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongOrders" style="color:#16a34a;">0 đơn</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Doanh số chốt -->
+                <div class="kpi-card" style="border-top:3px solid #0284c7;">
+                    <div class="kpi-label">💵 DOANH SỐ CHỐT</div>
+                    <div class="kpi-value" id="mRevNum" style="color:#0284c7;">0đ</div>
+                    <div class="kpi-sub-single">(Loại trừ đơn Sửa & Gửi mẫu)</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpRev" style="color:#2563eb;">0đ</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetRev" style="color:#7c3aed;">0đ</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongRev" style="color:#0284c7;">0đ</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Giá/Đơn CPO -->
+                <div class="kpi-card" style="border-top:3px solid #dc2626;">
+                    <div class="kpi-label">🎯 GIÁ / ĐƠN (CPO)</div>
+                    <div class="kpi-value" id="mCPONum" style="color:#dc2626;">0đ</div>
+                    <div class="kpi-sub-single">Chi phí thực tế / 1 đơn</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpCPO" style="color:#2563eb;">0đ</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetCPO" style="color:#7c3aed;">0đ</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongCPO" style="color:#dc2626;">0đ</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 4: % Chi phí / DT -->
+                <div class="kpi-card" style="border-top:3px solid #4f46e5;">
+                    <div class="kpi-label">📉 % CHI PHÍ / DT</div>
+                    <div class="kpi-value" id="mRatioNum" style="color:#4f46e5;">0%</div>
+                    <div class="kpi-sub-single">Tỷ lệ chi phí / Doanh thu</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpRatio" style="color:#2563eb;">0%</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetRatio" style="color:#7c3aed;">0%</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongRatio" style="color:#4f46e5;">0%</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 5: Tỷ lệ % chốt -->
+                <div class="kpi-card" style="border-top:3px solid #ea580c;">
+                    <div class="kpi-label">🎯 TỶ LỆ % CHỐT</div>
+                    <div class="kpi-value" id="mRateNum" style="color:#ea580c;">0%</div>
+                    <div class="kpi-sub-single">Tỷ lệ đơn tổng / Lead</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpRate" style="color:#2563eb;">0%</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetRate" style="color:#7c3aed;">0%</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongRate" style="color:#ea580c;">0%</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 6: Tỷ lệ % khách cũ -->
+                <div class="kpi-card" style="border-top:3px solid #c026d3;">
+                    <div class="kpi-label">🔄 TỶ LỆ KHÁCH CỦ</div>
+                    <div class="kpi-value" id="mOldCustRateNum" style="color:#c026d3;">0%</div>
+                    <div class="kpi-sub-single">Tỷ lệ đơn Khách Cũ quay lại</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpOldCustRate" style="color:#2563eb;">0%</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetOldCustRate" style="color:#7c3aed;">0%</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongOldCustRate" style="color:#c026d3;">0%</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2: CHI PHÍ & HIỆU QUẢ QUẢNG CÁO ADS (MKT ADS PERFORMANCE) -->
+        <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:14px; padding:12px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display:flex; align-items:center; justify-content:space-between; font-weight:800; font-size:13px; color:#581c87; margin-bottom:10px; padding-bottom:6px; border-bottom:2px solid #d8b4fe; flex-wrap:wrap; gap:6px;">
+                <span>📣 CHI PHÍ & HIỆU QUẢ QUẢNG CÁO ADS</span>
+                <span id="mSec2ModeTag" class="exec-mode-tag-pill-static">[Đang xem: 👔 Mảng Đồng Phục]</span>
+            </div>
+            
+            <div class="kpi-grid">
+                <!-- Card 1: Số đơn Ads -->
+                <div class="kpi-card" style="border-top:3px solid #16a34a;">
+                    <div class="kpi-label">🎯 SỐ ĐƠN ADS (MKT)</div>
+                    <div class="kpi-value" id="mMktAdsOrdersNum" style="color:#16a34a;">0 đơn</div>
+                    <div class="kpi-sub-single">(Đơn chốt từ Quảng cáo Ads)</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpMktOrders" style="color:#2563eb;">0 đơn</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetMktOrders" style="color:#7c3aed;">0 đơn</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongMktOrders" style="color:#16a34a;">0 đơn</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Doanh số Ads -->
+                <div class="kpi-card" style="border-top:3px solid #0284c7;">
+                    <div class="kpi-label">💵 DOANH SỐ ADS (MKT)</div>
+                    <div class="kpi-value" id="mMktAdsRevNum" style="color:#0284c7;">0đ</div>
+                    <div class="kpi-sub-single">(Doanh số từ Quảng cáo Ads)</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpMktRev" style="color:#2563eb;">0đ</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetMktRev" style="color:#7c3aed;">0đ</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongMktRev" style="color:#0284c7;">0đ</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Giá/Đơn Ads (CPO) -->
+                <div class="kpi-card" style="border-top:3px solid #e11d48;">
+                    <div class="kpi-label">🎯 GIÁ / ĐƠN ADS (CPO)</div>
+                    <div class="kpi-value" id="mCPOAdsNum" style="color:#e11d48;">0đ</div>
+                    <div class="kpi-sub-single">Chi phí thực tế / 1 đơn Ads</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpCPOAds" style="color:#2563eb;">0đ</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetCPOAds" style="color:#7c3aed;">0đ</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongCPOAds" style="color:#e11d48;">0đ</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 4: % Chi phí / DT Ads -->
+                <div class="kpi-card" style="border-top:3px solid #4f46e5;">
+                    <div class="kpi-label">📉 % CHI PHÍ / DT ADS</div>
+                    <div class="kpi-value" id="mRatioAdsNum" style="color:#4f46e5;">0%</div>
+                    <div class="kpi-sub-single">Tỷ lệ chi phí QC / Doanh số Ads</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpRatioAds" style="color:#2563eb;">0%</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetRatioAds" style="color:#7c3aed;">0%</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongRatioAds" style="color:#4f46e5;">0%</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 5: Tỷ lệ % chốt Ads -->
+                <div class="kpi-card" style="border-top:3px solid #ea580c;">
+                    <div class="kpi-label">🎯 TỶ LỆ % CHỐT ADS</div>
+                    <div class="kpi-value" id="mAdsRateNum" style="color:#ea580c;">0%</div>
+                    <div class="kpi-sub-single">Tỷ lệ đơn Ads / Lead MKT</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpAdsRate" style="color:#2563eb;">0%</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetAdsRate" style="color:#7c3aed;">0%</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongAdsRate" style="color:#ea580c;">0%</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 6: Giá Ads / Lead (CPL) -->
+                <div class="kpi-card" style="border-top:3px solid #7c3aed;">
+                    <div class="kpi-label">📊 GIÁ ADS / LEAD (CPL)</div>
+                    <div class="kpi-value" id="mCPLNum" style="color:#7c3aed; font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">0đ/lead</div>
+                    <div class="kpi-sub-single">Chi phí / 1 lead</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpCPL" style="color:#2563eb;">0đ/lead</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetCPL" style="color:#7c3aed;">0đ/lead</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongCPL" style="color:#7c3aed;">0đ/lead</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 7: Số Lead (MKT) -->
+                <div class="kpi-card" style="border-top:3px solid #2563eb;">
+                    <div class="kpi-label">📥 SỐ LEAD (MKT)</div>
+                    <div class="kpi-value" id="mLeadNum" style="color:#2563eb; font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">0 lead</div>
+                    <div class="kpi-sub-single">Tổng số lead thu về</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpLeadCnt" style="color:#2563eb;">0 lead</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetLeadCnt" style="color:#7c3aed;">0 lead</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongLeadCnt" style="color:#2563eb;">0 lead</strong></div>
+                    </div>
+                </div>
+
+                <!-- Card 8: Chi phí Quảng Cáo -->
+                <div class="kpi-card" style="border-top:3px solid #d97706;">
+                    <div class="kpi-label">📢 CHI PHÍ QUẢNG CÁO</div>
+                    <div class="kpi-value" id="mSpentNum" style="color:#d97706;">0đ</div>
+                    <div class="kpi-sub-single">Thực chi Marketing</div>
+                    <div class="kpi-breakdown-box">
+                        <div class="kpi-breakdown-row"><span>👔 Đồng Phục:</span><strong id="mDpSpent" style="color:#d97706;">0đ</strong></div>
+                        <div class="kpi-breakdown-row"><span>🏷️ Tem PET:</span><strong id="mPetSpent" style="color:#7c3aed;">0đ</strong></div>
+                        <div class="kpi-breakdown-row" style="padding-top:2px; border-top:1px dotted #e2e8f0;"><span>🏢 Tổng Công Ty:</span><strong id="mTongSpent" style="color:#d97706;">0đ</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Switcher Tabs -->
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('tabOverview', this)">📊 Biểu Đồ</button>
+            <button class="tab-btn" onclick="switchTab('tabMkt', this)">📢 MKT Ads</button>
+            <button class="tab-btn" onclick="switchTab('tabSale', this)">🛍️ KPI Sale</button>
+            <button class="tab-btn" onclick="switchTab('tabKd', this)">💼 KPI KD</button>
+        </div>
+
+        <!-- Tab 1: Executive Overview & Visual Charts -->
+        <div id="tabOverview" class="tab-content active">
+            
+            <!-- Revenue & Orders Trend Chart -->
+            <div class="section-box">
+                <div class="section-title" style="display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span>📈 Xu Hướng Doanh Thu & Đơn Hàng</span>
+                            <button type="button" onclick="execOpenTrendExpandModal()" style="font-size:10.5px; font-weight:800; font-family:inherit; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; padding:2px 8px; border-radius:14px; cursor:pointer;" title="Mở rộng toàn màn hình để họp">🔍 Phóng To</button>
+                        </div>
+                        <div style="display:inline-flex; background:#f1f5f9; padding:2px; border-radius:20px; border:1px solid #cbd5e1; gap:2px;">
+                            <button type="button" class="btn-trend-mode active" id="mBtnTrendRev" onclick="_execSetTrendMode('revenue', this)" style="padding:4px 10px; font-size:11.5px; font-weight:900; font-family:inherit; letter-spacing:-0.2px; border-radius:14px; border:none; background:#2563eb; color:white; cursor:pointer;">💵 Doanh Thu <span style="margin-left:4px; font-weight:900; background:rgba(255,255,255,0.28); border-radius:50%; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; font-size:9px; line-height:1;">✖</span></button>
+                            <button type="button" class="btn-trend-mode active" id="mBtnTrendOrd" onclick="_execSetTrendMode('orders', this)" style="padding:4px 10px; font-size:11.5px; font-weight:900; font-family:inherit; letter-spacing:-0.2px; border-radius:14px; border:none; background:#16a34a; color:white; cursor:pointer;">📦 Số Đơn <span style="margin-left:4px; font-weight:900; background:rgba(255,255,255,0.28); border-radius:50%; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; font-size:9px; line-height:1;">✖</span></button>
+                            <button type="button" class="btn-trend-mode active" id="mBtnTrendBoth" onclick="_execSetTrendMode('both', this)" style="padding:4px 10px; font-size:11.5px; font-weight:900; font-family:inherit; letter-spacing:-0.2px; border-radius:14px; border:none; background:#7c3aed; color:white; cursor:pointer;">✨ Cả Hai <span style="margin-left:4px; font-weight:900; background:rgba(255,255,255,0.28); border-radius:50%; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; font-size:9px; line-height:1;">✖</span></button>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+                        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+                            <span style="font-size:10.5px; font-weight:800; color:#581c87; text-transform:uppercase;">🎯 Hiệu Quả MKT & KH:</span>
+                            <div style="display:inline-flex; background:#f3e8ff; padding:2px; border-radius:16px; border:1.5px solid #d8b4fe; flex-wrap:wrap; gap:2px;">
+                                <button type="button" class="btn-trend-mode" id="mBtnTrendCpo" onclick="_execSetTrendMode('cpo', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; font-family:inherit; border-radius:12px; border:none; background:transparent; color:#3b0764; cursor:pointer;">🎯 Giá/Đơn (CPO)</button>
+                                <button type="button" class="btn-trend-mode" id="mBtnTrendCpoAds" onclick="_execSetTrendMode('cpo_ads', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; font-family:inherit; border-radius:12px; border:none; background:transparent; color:#3b0764; cursor:pointer;">🎯 Giá/Đơn Ads</button>
+                                <button type="button" class="btn-trend-mode" id="mBtnTrendRate" onclick="_execSetTrendMode('close_rate', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; font-family:inherit; border-radius:12px; border:none; background:transparent; color:#3b0764; cursor:pointer;">🎯 % Chốt</button>
+                                <button type="button" class="btn-trend-mode" id="mBtnTrendAdsRate" onclick="_execSetTrendMode('ads_close_rate', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; font-family:inherit; border-radius:12px; border:none; background:transparent; color:#3b0764; cursor:pointer;">🎯 % Chốt Ads</button>
+                                <button type="button" class="btn-trend-mode" id="mBtnTrendOldCust" onclick="_execSetTrendMode('old_cust_rate', this)" style="padding:3px 8px; font-size:10.5px; font-weight:800; font-family:inherit; border-radius:12px; border:none; background:transparent; color:#3b0764; cursor:pointer;">🔄 % Khách Cũ</button>
+                            </div>
+                        </div>
+                        <div id="mTrendStatBadge" style="display:inline-flex; align-items:center; background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; font-size:11px; font-weight:800; padding:2px 8px; border-radius:16px;">
+                            📌 Chỉ Số Cả Kỳ: --
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartTrend"></canvas>
+                </div>
+            </div>
+
+            <!-- Order Status Breakdown Donut Chart -->
+            <div class="section-box">
+                <div class="section-title">
+                    <span>🍩 Cơ Cấu Trạng Thái Đơn Hàng</span>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartStatus"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Products Bar Chart -->
+            <div class="section-box">
+                <div class="section-title">
+                    <span id="mTitleTopProd">🔥 Top Sản Phẩm Bán Chạy</span>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartTopProducts"></canvas>
+                </div>
+            </div>
+
+            <!-- Top VIP Customers -->
+            <div class="section-box">
+                <div class="section-title">
+                    <span id="mTitleTopCust">👑 Top Khách Hàng Tiêu Biểu</span>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartTopCustomers"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Sales Leaders -->
+            <div class="section-box">
+                <div class="section-title">
+                    <span id="mTitleTopSales">🏆 Doanh Thu Theo NV Sales</span>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartTopSales"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Orders Table -->
+            <div class="section-box">
+                <div class="section-title">
+                    <span id="mTitleRecentOrders">📋 Đơn Hàng Gần Đây</span>
+                </div>
+                <div class="mobile-table-wrap">
+                    <table class="mobile-table">
+                        <thead>
+                            <tr>
+                                <th>Mã đơn</th>
+                                <th>Khách hàng</th>
+                                <th>Tổng tiền</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblRecentOrders">
+                            <tr><td colspan="4" style="text-align:center;">Đang tải dữ liệu...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Tab 2: Marketing Ads Detailed View -->
+        <div id="tabMkt" class="tab-content">
+            <div class="section-box">
+                <div class="section-title">
+                    <span>📢 Chi Tiết Chỉ Số Marketing Ads</span>
+                </div>
+                <div class="progress-banner">
+                    <div style="display:flex; justify-content:space-between; font-weight:700; font-size:13px;">
+                        <span>Doanh Số Khách Mới</span>
+                        <span id="mktRevDetail" style="color:#2563eb;">0đ</span>
+                    </div>
+                    <div style="font-size:11.5px; color:#64748b; margin-top:4px;">
+                        Tổng số đơn: <strong id="mktOrdersDetail">0</strong> | Lead: <strong id="mktLeadsDetail">0</strong>
+                    </div>
+                </div>
+
+                <div class="mobile-table-wrap">
+                    <table class="mobile-table">
+                        <thead>
+                            <tr>
+                                <th>Chỉ số MKT</th>
+                                <th>Thực tế</th>
+                                <th>Đánh giá</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Chi phí QC</td>
+                                <td id="mktRowSpent" style="font-weight:700;">0đ</td>
+                                <td style="color:#059669; font-weight:600;">Hợp lệ</td>
+                            </tr>
+                            <tr>
+                                <td>CPO (Giá/Đơn)</td>
+                                <td id="mktRowCPO" style="font-weight:700;">0đ</td>
+                                <td id="mktRowCPONote">Tối ưu</td>
+                            </tr>
+                            <tr>
+                                <td>% Chi phí/Doanh thu</td>
+                                <td id="mktRowRatio" style="font-weight:700;">0%</td>
+                                <td id="mktRowRatioNote">Tốt</td>
+                            </tr>
+                            <tr>
+                                <td>CPL (Giá/Lead)</td>
+                                <td id="mktRowCPL" style="font-weight:700;">0đ</td>
+                                <td>Trung bình</td>
+                            </tr>
+                            <tr>
+                                <td>Tỷ lệ chốt Data</td>
+                                <td id="mktRowRate" style="font-weight:700;">0%</td>
+                                <td>Ổn định</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: KPI Phòng Sale -->
+        <div id="tabSale" class="tab-content">
+            <div class="section-box">
+                <div class="section-title">
+                    <span>🛍️ Tổng Quan KPI Phòng Sale</span>
+                </div>
+                
+                <div class="progress-banner">
+                    <div style="display:flex; justify-content:space-between; font-weight:800; font-size:13.5px;">
+                        <span>Doanh Thu Thực Tế</span>
+                        <span id="saleRevActual" style="color:#059669;">0đ</span>
+                    </div>
+                    <div class="progress-bar-bg" style="background:#e2e8f0; height:8px; border-radius:10px; overflow:hidden; margin-top:6px;">
+                        <div id="saleProgressBar" style="background:linear-gradient(90deg, #10b981, #059669); height:100%; width:0%; transition:width 0.4s ease;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:11.5px; color:#64748b; margin-top:6px;">
+                        <span>Đạt: <strong id="saleCompM1">0%</strong> (Mốc 1)</span>
+                        <span>Còn thiếu: <strong id="saleRemainingM1" style="color:#dc2626;">0đ</strong></span>
+                    </div>
+                </div>
+
+                <div class="mobile-table-wrap">
+                    <table class="mobile-table">
+                        <thead>
+                            <tr>
+                                <th>Mốc KPI</th>
+                                <th>Mục tiêu</th>
+                                <th>Thưởng</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>KPI Mốc 1</td>
+                                <td id="saleTargetM1" style="font-weight:700;">1.200.000.000đ</td>
+                                <td id="saleBonusM1" style="color:#d97706; font-weight:700;">20.000.000đ</td>
+                            </tr>
+                            <tr>
+                                <td>KPI Mốc 2 (120%)</td>
+                                <td id="saleTargetM2" style="font-weight:700;">1.440.000.000đ</td>
+                                <td id="saleBonusM2" style="color:#d97706; font-weight:700;">30.000.000đ</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: KPI Phòng Kinh Doanh -->
+        <div id="tabKd" class="tab-content">
+            <div class="section-box">
+                <div class="section-title">
+                    <span>💼 KPI Phòng Kinh Doanh</span>
+                    <span style="font-size:11.5px; background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:12px; font-weight:700;">
+                        ⏳ Còn <span id="kdDaysLeft">0</span> ngày
+                    </span>
+                </div>
+
+                <div class="progress-banner">
+                    <div style="display:flex; justify-content:space-between; font-weight:800; font-size:13.5px;">
+                        <span>Doanh Thu Thực Thu</span>
+                        <span id="kdRevActual" style="color:#059669;">0đ</span>
+                    </div>
+                    <div class="progress-bar-bg" style="background:#e2e8f0; height:8px; border-radius:10px; overflow:hidden; margin-top:6px;">
+                        <div id="kdProgressBar" style="background:linear-gradient(90deg, #10b981, #059669); height:100%; width:0%; transition:width 0.4s ease;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:11.5px; color:#64748b; margin-top:6px;">
+                        <span>Đạt Mốc 1: <strong id="kdCompM1">0%</strong></span>
+                        <span>Vượt target: <strong id="kdExceededM1" style="color:#059669;">+0đ</strong></span>
+                    </div>
+                </div>
+
+                <div class="mobile-table-wrap">
+                    <table class="mobile-table">
+                        <thead>
+                            <tr>
+                                <th>Mốc KPI</th>
+                                <th>Mục tiêu</th>
+                                <th>Tỷ lệ đạt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Mốc 1</td>
+                                <td id="kdTargetM1" style="font-weight:700;">25.000.000đ</td>
+                                <td id="kdCompRowM1" style="color:#059669; font-weight:700;">0%</td>
+                            </tr>
+                            <tr>
+                                <td>Mốc 120%</td>
+                                <td id="kdTargetM120" style="font-weight:700;">30.000.000đ</td>
+                                <td id="kdCompRowM120" style="color:#059669; font-weight:700;">0%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Central Mobile Nav JS -->
+    <script src="/js/mobile-nav.js?v=20260807_SINGLE_HEADER_FORCE_V2"></script>
+
+    <script>
+        let currentPeriod = 'this_month';
+        let mSegmentMode = 'dong_phuc';
+        let mTrendMode = 'revenue';
+        let dashData = null;
+        let mTrendExpandChartObj = null;
+
+        function mSetTrendMode(mode, btn) {
+            if (!mode) return;
+            mTrendMode = mode;
+            document.querySelectorAll('.m-trend-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+                b.style.color = '#475569';
+            });
+            if (btn) {
+                btn.classList.add('active');
+                btn.style.background = mode === 'orders' ? '#16a34a' : (mode === 'both' ? '#7c3aed' : '#2563eb');
+                btn.style.color = 'white';
+            }
+            renderCharts();
+        }
+
+        function mEnsureTrendExpandModalHTML() {
+            if (document.getElementById('mModalTrendExpand')) return;
+            const div = document.createElement('div');
+            div.id = 'mModalTrendExpand';
+            div.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15, 23, 42, 0.9); backdrop-filter:blur(8px); z-index:99999; overflow-y:auto; padding:12px 8px;';
+            div.innerHTML = `
+                <div style="max-width:100%; margin:0 auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,0.2);">
+                    
+                    <!-- Header (Light Pastel Theme) -->
+                    <div style="background:linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); padding:12px 14px; color:#0f172a; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; border-bottom:1px solid #cbd5e1;">
+                        <div>
+                            <div style="font-size:14px; font-weight:900; color:#0f172a;">📊 XU HƯỚNG DOANH THU & ĐƠN HÀNG</div>
+                            <div style="font-size:11px; color:#2563eb; margin-top:2px; font-weight:800;">[CHẾ ĐỘ HỌP DỰ ÁN MOBILE]</div>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button type="button" onclick="mCloseTrendExpandModal()" style="background:#ef4444; color:white; border:none; width:32px; height:32px; border-radius:50%; font-size:16px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(239,68,68,0.3);">✖</button>
+                        </div>
+                    </div>
+
+                    <!-- Embedded Mobile Period Filters (Image 3 & 4) -->
+                    <div style="background:#ffffff; border-bottom:1px solid #e2e8f0; padding:8px 12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <select id="mModalFilterPeriod" onchange="mTriggerModalFilter()" style="flex:1; min-width:140px; padding:4px 8px; font-size:11px; font-weight:700; border-radius:8px; border:1px solid #cbd5e1; background:#ffffff; color:#0f172a;">
+                            <option value="this_month">⚡ Tháng này</option>
+                            <option value="last_month">⚡ Tháng trước</option>
+                            <option value="quarter_1">⚡ Quý 1</option>
+                            <option value="quarter_2">⚡ Quý 2</option>
+                            <option value="quarter_3">⚡ Quý 3</option>
+                            <option value="quarter_4">⚡ Quý 4</option>
+                            <option value="year_2026">⚡ Năm 2026</option>
+                            <option value="year_2025">⚡ Năm 2025</option>
+                        </select>
+                    </div>
+
+                    <!-- Body -->
+                    <div style="padding:12px; background:#f8fafc;">
+                        <!-- Mode Selector -->
+                        <div style="display:flex; background:#e2e8f0; padding:2px; border-radius:14px; margin-bottom:12px;">
+                            <button type="button" class="mMoll-trend-btn active" id="mMollBtnTrendRev" onclick="mSetModalTrendMode('revenue', this)" style="flex:1; padding:6px; font-size:11px; font-weight:800; border-radius:12px; border:none; background:#2563eb; color:white;">💵 Doanh Thu</button>
+                            <button type="button" class="mMoll-trend-btn" id="mMollBtnTrendOrd" onclick="mSetModalTrendMode('orders', this)" style="flex:1; padding:6px; font-size:11px; font-weight:800; border-radius:12px; border:none; background:transparent; color:#475569;">📦 Số Đơn</button>
+                            <button type="button" class="mMoll-trend-btn" id="mMollBtnTrendBoth" onclick="mSetModalTrendMode('both', this)" style="flex:1; padding:6px; font-size:11px; font-weight:800; border-radius:12px; border:none; background:transparent; color:#475569;">✨ Cả Hai</button>
+                        </div>
+
+                        <!-- 4 Highlights Cards -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+                            <div style="background:white; border-radius:10px; padding:10px; border-top:3px solid #2563eb; border:1px solid #e2e8f0;">
+                                <div style="font-size:10px; font-weight:800; color:#64748b;">🏆 ĐỈNH DOANH THU</div>
+                                <div id="mPeakRevValM" style="font-size:15px; font-weight:900; color:#2563eb; margin-top:2px;">0đ</div>
+                                <div id="mPeakRevDateM" style="font-size:10px; color:#0f172a;">Mốc: --</div>
+                            </div>
+                            <div style="background:white; border-radius:10px; padding:10px; border-top:3px solid #16a34a; border:1px solid #e2e8f0;">
+                                <div style="font-size:10px; font-weight:800; color:#64748b;">📦 KỶ LỤC ĐƠN</div>
+                                <div id="mPeakOrdValM" style="font-size:15px; font-weight:900; color:#16a34a; margin-top:2px;">0 đơn</div>
+                                <div id="mPeakOrdDateM" style="font-size:10px; color:#0f172a;">Mốc: --</div>
+                            </div>
+                        </div>
+
+                        <!-- Magnified Chart Box (360px height) -->
+                        <div style="background:white; border-radius:12px; padding:10px; border:1px solid #cbd5e1; margin-bottom:12px; height:360px;">
+                            <canvas id="mChartTrendExpandCanvas"></canvas>
+                        </div>
+
+                        <!-- Table -->
+                        <div style="background:white; border-radius:12px; padding:10px; border:1px solid #cbd5e1; overflow-x:auto;">
+                            <div style="font-size:12px; font-weight:800; color:#0f172a; margin-bottom:8px;">📋 GHI CHÚ NHẬT KÝ CHI TIẾT SỐ LIỆU</div>
+                            <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+                                <thead>
+                                    <tr style="background:#f1f5f9; color:#334155;">
+                                        <th style="padding:6px; text-align:left;">Mốc</th>
+                                        <th style="padding:6px; text-align:right;">Doanh Thu</th>
+                                        <th style="padding:6px; text-align:center;">Số Đơn</th>
+                                        <th style="padding:6px; text-align:center;">Đánh Giá</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblTrendExpandDetailBodyM">
+                                    <tr><td colspan="4" style="text-align:center; padding:10px; color:#94a3b8;">Đang tải...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(div);
+        }
+
+        function mOpenTrendExpandModal() {
+            mEnsureTrendExpandModalHTML();
+            const modal = document.getElementById('mModalTrendExpand');
+            if (modal) {
+                modal.style.display = 'block';
+                document.body.style.overflow = 'hidden';
+                mRenderExpandTrendModalContent();
+            }
+        }
+
+        function mTriggerModalFilter() {
+            const val = document.getElementById('mModalFilterPeriod')?.value;
+            if (!val) return;
+            currentPeriod = val;
+            const mainSel = document.getElementById('mPeriodSelect');
+            if (mainSel) {
+                mainSel.value = val;
+            }
+            loadDashboardData();
+        }
+
+        function mCloseTrendExpandModal() {
+            const modal = document.getElementById('mModalTrendExpand');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+            if (mTrendExpandChartObj) {
+                mTrendExpandChartObj.destroy();
+                mTrendExpandChartObj = null;
+            }
+        }
+
+        function mSetModalTrendMode(mode, btn) {
+            if (!mode) return;
+            mTrendMode = mode;
+            document.querySelectorAll('.mMoll-trend-btn, .m-trend-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+                b.style.color = '#475569';
+            });
+            if (btn) {
+                btn.classList.add('active');
+                btn.style.background = mode === 'orders' ? '#16a34a' : (mode === 'both' ? '#7c3aed' : '#2563eb');
+                btn.style.color = 'white';
+            }
+            renderCharts();
+            mRenderExpandTrendModalContent();
+        }
+
+        function mRenderExpandTrendModalContent() {
+            if (!dashData || !window.Chart) return;
+            const charts = dashData.charts || {};
+            const trendData = charts.revenue_trend || { labels: [], revenue: [], orders: [] };
+
+            const labels = trendData.labels || [];
+            const revenue = trendData.revenue || [];
+            const orders = trendData.orders || [];
+
+            let maxRev = 0; let maxRevIdx = -1;
+            let maxOrd = 0; let maxOrdIdx = -1;
+
+            for (let i = 0; i < labels.length; i++) {
+                const r = parseFloat(revenue[i] || 0);
+                const o = parseInt(orders[i] || 0);
+                if (r > maxRev) { maxRev = r; maxRevIdx = i; }
+                if (o > maxOrd) { maxOrd = o; maxOrdIdx = i; }
+            }
+
+            if (document.getElementById('mPeakRevValM')) document.getElementById('mPeakRevValM').innerText = formatVND(maxRev);
+            if (document.getElementById('mPeakRevDateM')) document.getElementById('mPeakRevDateM').innerText = maxRevIdx >= 0 ? `Mốc: ${labels[maxRevIdx]}` : 'Mốc: --';
+            if (document.getElementById('mPeakOrdValM')) document.getElementById('mPeakOrdValM').innerText = maxOrd + ' đơn';
+            if (document.getElementById('mPeakOrdDateM')) document.getElementById('mPeakOrdDateM').innerText = maxOrdIdx >= 0 ? `Mốc: ${labels[maxOrdIdx]}` : 'Mốc: --';
+
+            const ctx = document.getElementById('mChartTrendExpandCanvas')?.getContext('2d');
+            if (ctx) {
+                if (mTrendExpandChartObj) mTrendExpandChartObj.destroy();
+                let datasets = []; let scalesConfig = {};
+                if (mTrendMode === 'orders') {
+                    datasets = [{ label: 'Số Đơn', data: orders, borderColor: '#16a34a', backgroundColor: 'rgba(22, 163, 74, 0.15)', fill: true, tension: 0.3, borderWidth: 2.5 }];
+                    scalesConfig = { y: { beginAtZero: true, ticks: { precision: 0, callback: v => v + ' đơn' } } };
+                } else if (mTrendMode === 'both') {
+                    datasets = [
+                        { label: 'Doanh Thu', data: revenue, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.08)', yAxisID: 'yRev', fill: true, tension: 0.3, borderWidth: 2.5 },
+                        { label: 'Số Đơn', data: orders, borderColor: '#16a34a', backgroundColor: 'rgba(22, 163, 74, 0.08)', yAxisID: 'yOrd', fill: false, tension: 0.3, borderWidth: 2.5 }
+                    ];
+                    scalesConfig = {
+                        yRev: { type: 'linear', display: true, position: 'left', ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } },
+                        yOrd: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { precision: 0, callback: v => v + ' đơn' } }
+                    };
+                } else {
+                    datasets = [{ label: 'Doanh Thu', data: revenue, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.12)', fill: true, tension: 0.3, borderWidth: 2.5 }];
+                    scalesConfig = { y: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } } };
+                }
+
+                mTrendExpandChartObj = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: labels, datasets: datasets },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: mTrendMode === 'both', position: 'top' } }, scales: scalesConfig }
+                });
+            }
+
+            const tbody = document.getElementById('tblTrendExpandDetailBodyM');
+            if (tbody) {
+                let html = '';
+                for (let i = 0; i < labels.length; i++) {
+                    const dateLabel = labels[i];
+                    const revVal = parseFloat(revenue[i] || 0);
+                    const ordVal = parseInt(orders[i] || 0);
+                    let badge = '<span style="color:#94a3b8;">-</span>';
+                    if (revVal === maxRev && maxRev > 0) badge = '<span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:10px; font-weight:800; font-size:10px;">🔥 ĐỈNH DT</span>';
+                    else if (ordVal === maxOrd && maxOrd > 0) badge = '<span style="background:#dcfce7; color:#15803d; padding:2px 6px; border-radius:10px; font-weight:800; font-size:10px;">⭐ KỶ LỤC ĐƠN</span>';
+
+                    html += `
+                        <tr style="${i % 2 === 1 ? 'background:#f8fafc;' : ''}">
+                            <td style="padding:6px; font-weight:800;">${dateLabel}</td>
+                            <td style="padding:6px; text-align:right; font-weight:800; color:#2563eb;">${formatVND(revVal)}</td>
+                            <td style="padding:6px; text-align:center; font-weight:800; color:#16a34a;">${ordVal}đơn</td>
+                            <td style="padding:6px; text-align:center;">${badge}</td>
+                        </tr>
+                    `;
+                }
+                tbody.innerHTML = html;
+            }
+        }
+
+        // Chart instances
+        let chartTrendObj = null;
+        let chartStatusObj = null;
+        let chartTopProdObj = null;
+        let chartTopCustObj = null;
+        let chartTopSalesObj = null;
+
+        function formatVND(amount) {
+            if (amount === undefined || amount === null || isNaN(amount)) return '0đ';
+            return new Intl.NumberFormat('vi-VN').format(Math.round(amount)) + 'đ';
+        }
+
+        function setPeriod(period, btn) {
+            if (!period) return;
+            currentPeriod = period;
+
+            if (btn) {
+                document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+            loadDashboardData();
+        }
+
+        function mSetSegment(mode, btn) {
+            if (!mode) return;
+            mSegmentMode = mode;
+
+            document.querySelectorAll('.m-seg-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = '#f1f5f9';
+                b.style.color = '#334155';
+                b.style.borderColor = '#cbd5e1';
+                b.style.boxShadow = 'none';
+            });
+
+            if (btn) {
+                btn.classList.add('active');
+                btn.style.background = 'linear-gradient(135deg, #2563eb, #1d4ed8)';
+                btn.style.color = 'white';
+                btn.style.borderColor = '#2563eb';
+                btn.style.boxShadow = '0 2px 6px rgba(37,99,235,0.25)';
+            }
+
+            // Update Mode Tags
+            const modeText = mode === 'dong_phuc' ? '[Đang xem: 👔 Mảng Đồng Phục]' : (mode === 'tem_pet' ? '[Đang xem: 🏷️ Mảng Tem PET]' : '[Đang xem: 🏢 Tất Cả (Tổng Công Ty)]');
+            if (document.getElementById('mSec1ModeTag')) document.getElementById('mSec1ModeTag').innerText = modeText;
+            if (document.getElementById('mSec2ModeTag')) document.getElementById('mSec2ModeTag').innerText = modeText;
+
+            if (dashData && typeof _renderExecDashboard === 'function') {
+                _renderExecDashboard(dashData, mode);
+            } else {
+                renderDashboardMetrics();
+            }
+        }
+
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            btn.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        async function loadDashboardData() {
+            try {
+                const res = await fetch(`/api/m/dashboard/summary?period=${encodeURIComponent(currentPeriod)}&mode=${encodeURIComponent(mSegmentMode)}`, { credentials: 'include' });
+                if (res.status === 401 || res.status === 403) {
+                    window.location.href = '/index.html';
+                    return;
+                }
+                dashData = await res.json();
+                renderDashboard();
+            } catch (err) {
+                console.error('Lỗi tải dữ liệu Dashboard Mobile:', err);
+            }
+        }
+
+        function renderDashboard() {
+            if (!dashData) return;
+
+            window._dashData = dashData;
+            if (typeof _renderExecDashboard === 'function') {
+                _renderExecDashboard(dashData, mSegmentMode);
+            }
+
+            // 1. Header Period Range
+            document.getElementById('lblPeriodRange').innerText = dashData.period?.label || 'Tháng này';
+            if (document.getElementById('mPeriodDateSub')) {
+                document.getElementById('mPeriodDateSub').innerText = dashData.period?.sub || '';
+            }
+
+            // 2. Render Main Metrics
+            renderDashboardMetrics();
+
+            // 3. Render Tabs Data & Recent Orders
+            const sale = dashData.kpi_sale || {};
+            document.getElementById('saleRevActual').innerText = formatVND(sale.revenue_actual || 0);
+            document.getElementById('saleCompM1').innerText = (sale.completion_m1 || 0) + '%';
+            document.getElementById('saleRemainingM1').innerText = formatVND(sale.remaining_m1 || 0);
+            document.getElementById('saleTargetM1').innerText = formatVND(sale.target_m1 || 1200000000);
+            document.getElementById('saleBonusM1').innerText = formatVND(sale.bonus_m1 || 20000000);
+            document.getElementById('saleTargetM2').innerText = formatVND(sale.target_m2 || 1440000000);
+            document.getElementById('saleBonusM2').innerText = formatVND(sale.bonus_m2 || 30000000);
+            const salePercent = Math.min(100, Math.max(0, sale.completion_m1 || 0));
+            document.getElementById('saleProgressBar').style.width = salePercent + '%';
+
+            const kd = dashData.kpi_kdoanh || {};
+            document.getElementById('kdDaysLeft').innerText = kd.days_left || 0;
+            document.getElementById('kdRevActual').innerText = formatVND(kd.revenue_actual || 0);
+            document.getElementById('kdCompM1').innerText = (kd.completion_m1 || 0) + '%';
+            document.getElementById('kdExceededM1').innerText = '+' + formatVND(kd.exceeded_m1 || 0);
+            document.getElementById('kdTargetM1').innerText = formatVND(kd.target_m1 || 25000000);
+            document.getElementById('kdCompRowM1').innerText = (kd.completion_m1 || 0) + '%';
+            document.getElementById('kdTargetM120').innerText = formatVND(kd.target_m120 || 30000000);
+            document.getElementById('kdCompRowM120').innerText = (kd.completion_m120 || 0) + '%';
+            const kdPercent = Math.min(100, Math.max(0, kd.completion_m1 || 0));
+            document.getElementById('kdProgressBar').style.width = kdPercent + '%';
+
+            const recent = dashData.recent_orders || [];
+            const tbl = document.getElementById('tblRecentOrders');
+            if (recent.length === 0) {
+                tbl.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#94a3b8;">Không có đơn hàng nào trong kỳ này</td></tr>`;
+            } else {
+                tbl.innerHTML = recent.map(o => `
+                    <tr>
+                        <td style="font-weight:700; color:#2563eb;">${o.order_code || ''}</td>
+                        <td>${o.customer_name || ''}</td>
+                        <td style="font-weight:700;">${formatVND(o.total)}</td>
+                        <td><span class="status-pill status-${o.status}">${o.status || 'chot_don'}</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            // 4. Render Charts
+            renderCharts();
+        }
+
+        function renderDashboardMetrics() {
+            if (!dashData) return;
+            const mkt = dashData.marketing || {};
+            const exec = dashData.executive || {};
+            const mode = mSegmentMode || 'dong_phuc';
+
+            // --- SECTION 1: CHỈ SỐ TỔNG CÔNG TY ---
+            let displayOrders = (exec.total_orders || mkt.closed_orders || 0) + ' đơn';
+            if (mode === 'dong_phuc') displayOrders = (exec.dong_phuc_orders || 0) + ' đơn';
+            else if (mode === 'tem_pet') displayOrders = (exec.tem_pet_orders || 0) + ' đơn';
+            document.getElementById('mOrdersNum').innerText = displayOrders;
+
+            let displayRev = formatVND(exec.total_revenue || mkt.revenue || 0);
+            if (mode === 'dong_phuc') displayRev = formatVND(exec.dong_phuc_revenue || 0);
+            else if (mode === 'tem_pet') displayRev = formatVND(exec.tem_pet_revenue || 0);
+            document.getElementById('mRevNum').innerText = displayRev;
+
+            let displayCPO = formatVND(mkt.cpo || 0);
+            if (mode === 'dong_phuc') displayCPO = formatVND(mkt.dong_phuc_cpo || 0);
+            else if (mode === 'tem_pet') displayCPO = formatVND(mkt.tem_pet_cpo || 0);
+            document.getElementById('mCPONum').innerText = displayCPO;
+
+            let displayRatio = (mkt.cost_ratio || 0) + '%';
+            if (mode === 'dong_phuc') displayRatio = (mkt.dong_phuc_cost_ratio || 0) + '%';
+            else if (mode === 'tem_pet') displayRatio = (mkt.tem_pet_cost_ratio || 0) + '%';
+            document.getElementById('mRatioNum').innerText = displayRatio;
+
+            let displayRate = (mkt.close_rate || 0) + '%';
+            if (mode === 'dong_phuc') displayRate = (mkt.dong_phuc_close_rate || 0) + '%';
+            else if (mode === 'tem_pet') displayRate = (mkt.tem_pet_close_rate || 0) + '%';
+            document.getElementById('mRateNum').innerText = displayRate;
+
+            let displayOldCustRate = (exec.old_cust_rate || 0) + '%';
+            if (mode === 'dong_phuc') displayOldCustRate = (exec.dong_phuc_old_cust_rate || 0) + '%';
+            else if (mode === 'tem_pet') displayOldCustRate = (exec.tem_pet_old_cust_rate || 0) + '%';
+            document.getElementById('mOldCustRateNum').innerText = displayOldCustRate;
+
+            // Section 1 Breakdown Details
+            document.getElementById('mDpOrders').innerText = (exec.dong_phuc_orders || 0) + ' đơn';
+            document.getElementById('mPetOrders').innerText = (exec.tem_pet_orders || 0) + ' đơn';
+            document.getElementById('mTongOrders').innerText = (exec.total_orders || 0) + ' đơn';
+
+            document.getElementById('mDpRev').innerText = formatVND(exec.dong_phuc_revenue || 0);
+            document.getElementById('mPetRev').innerText = formatVND(exec.tem_pet_revenue || 0);
+            document.getElementById('mTongRev').innerText = formatVND(exec.total_revenue || 0);
+
+            document.getElementById('mDpCPO').innerText = formatVND(mkt.dong_phuc_cpo || 0);
+            document.getElementById('mPetCPO').innerText = formatVND(mkt.tem_pet_cpo || 0);
+            document.getElementById('mTongCPO').innerText = formatVND(mkt.cpo || 0);
+
+            document.getElementById('mDpRatio').innerText = (mkt.dong_phuc_cost_ratio || 0) + '%';
+            document.getElementById('mPetRatio').innerText = (mkt.tem_pet_cost_ratio || 0) + '%';
+            document.getElementById('mTongRatio').innerText = (mkt.cost_ratio || 0) + '%';
+
+            document.getElementById('mDpRate').innerText = (mkt.dong_phuc_close_rate || 0) + '%';
+            document.getElementById('mPetRate').innerText = (mkt.tem_pet_close_rate || 0) + '%';
+            document.getElementById('mTongRate').innerText = (mkt.close_rate || 0) + '%';
+
+            document.getElementById('mDpOldCustRate').innerText = (exec.dong_phuc_old_cust_rate || 0) + '%';
+            document.getElementById('mPetOldCustRate').innerText = (exec.tem_pet_old_cust_rate || 0) + '%';
+            document.getElementById('mTongOldCustRate').innerText = (exec.old_cust_rate || 0) + '%';
+
+            // --- SECTION 2: CHI PHÍ & HIỆU QUẢ QUẢNG CÁO ADS ---
+            let displayMktOrders = (mkt.closed_orders || 0) + ' đơn';
+            if (mode === 'dong_phuc') displayMktOrders = (mkt.dong_phuc_orders || 0) + ' đơn';
+            else if (mode === 'tem_pet') displayMktOrders = (mkt.tem_pet_orders || 0) + ' đơn';
+            document.getElementById('mMktAdsOrdersNum').innerText = displayMktOrders;
+
+            let displayMktRev = formatVND(mkt.revenue || 0);
+            if (mode === 'dong_phuc') displayMktRev = formatVND(mkt.dong_phuc_revenue || 0);
+            else if (mode === 'tem_pet') displayMktRev = formatVND(mkt.tem_pet_revenue || 0);
+            document.getElementById('mMktAdsRevNum').innerText = displayMktRev;
+
+            let displayMktCPO = formatVND(mkt.cpo || 0);
+            if (mode === 'dong_phuc') displayMktCPO = formatVND(mkt.dong_phuc_cpo || 0);
+            else if (mode === 'tem_pet') displayMktCPO = formatVND(mkt.tem_pet_cpo || 0);
+            document.getElementById('mCPOAdsNum').innerText = displayMktCPO;
+
+            let displayMktRatio = (mkt.cost_ratio || 0) + '%';
+            if (mode === 'dong_phuc') displayMktRatio = (mkt.dong_phuc_cost_ratio || 0) + '%';
+            else if (mode === 'tem_pet') displayMktRatio = (mkt.tem_pet_cost_ratio || 0) + '%';
+            document.getElementById('mRatioAdsNum').innerText = displayMktRatio;
+
+            let displayMktRate = (mkt.close_rate || 0) + '%';
+            if (mode === 'dong_phuc') displayMktRate = (mkt.dong_phuc_close_rate || 0) + '%';
+            else if (mode === 'tem_pet') displayMktRate = (mkt.tem_pet_close_rate || 0) + '%';
+            document.getElementById('mAdsRateNum').innerText = displayMktRate;
+
+            let displayCPL = formatVND(mkt.cpl || 0) + '/lead';
+            if (mode === 'dong_phuc') displayCPL = formatVND(mkt.dong_phuc_cpl || 0) + '/lead';
+            else if (mode === 'tem_pet') displayCPL = formatVND(mkt.tem_pet_cpl || 0) + '/lead';
+            document.getElementById('mCPLNum').innerText = displayCPL;
+
+            let displayLeads = (mkt.lead_count || 0) + ' lead';
+            if (mode === 'dong_phuc') displayLeads = (mkt.dong_phuc_leads || 0) + ' lead';
+            else if (mode === 'tem_pet') displayLeads = (mkt.tem_pet_leads || 0) + ' lead';
+            document.getElementById('mLeadNum').innerText = displayLeads;
+
+            let displaySpent = formatVND(mkt.spent_amount || 0);
+            if (mode === 'dong_phuc') displaySpent = formatVND(mkt.dong_phuc_spent || 0);
+            else if (mode === 'tem_pet') displaySpent = formatVND(mkt.tem_pet_spent || 0);
+            document.getElementById('mSpentNum').innerText = displaySpent;
+
+            // Section 2 Breakdown Details
+            document.getElementById('mDpMktOrders').innerText = (mkt.dong_phuc_orders || 0) + ' đơn';
+            document.getElementById('mPetMktOrders').innerText = (mkt.tem_pet_orders || 0) + ' đơn';
+            document.getElementById('mTongMktOrders').innerText = (mkt.closed_orders || 0) + ' đơn';
+
+            document.getElementById('mDpMktRev').innerText = formatVND(mkt.dong_phuc_revenue || 0);
+            document.getElementById('mPetMktRev').innerText = formatVND(mkt.tem_pet_revenue || 0);
+            document.getElementById('mTongMktRev').innerText = formatVND(mkt.revenue || 0);
+
+            document.getElementById('mDpCPOAds').innerText = formatVND(mkt.dong_phuc_cpo || 0);
+            document.getElementById('mPetCPOAds').innerText = formatVND(mkt.tem_pet_cpo || 0);
+            document.getElementById('mTongCPOAds').innerText = formatVND(mkt.cpo || 0);
+
+            document.getElementById('mDpRatioAds').innerText = (mkt.dong_phuc_cost_ratio || 0) + '%';
+            document.getElementById('mPetRatioAds').innerText = (mkt.tem_pet_cost_ratio || 0) + '%';
+            document.getElementById('mTongRatioAds').innerText = (mkt.cost_ratio || 0) + '%';
+
+            document.getElementById('mDpAdsRate').innerText = (mkt.dong_phuc_close_rate || 0) + '%';
+            document.getElementById('mPetAdsRate').innerText = (mkt.tem_pet_close_rate || 0) + '%';
+            document.getElementById('mTongAdsRate').innerText = (mkt.close_rate || 0) + '%';
+
+            document.getElementById('mDpCPL').innerText = formatVND(mkt.dong_phuc_cpl || 0) + '/lead';
+            document.getElementById('mPetCPL').innerText = formatVND(mkt.tem_pet_cpl || 0) + '/lead';
+            document.getElementById('mTongCPL').innerText = formatVND(mkt.cpl || 0) + '/lead';
+
+            document.getElementById('mDpLeadCnt').innerText = (mkt.dong_phuc_leads || 0) + ' lead';
+            document.getElementById('mPetLeadCnt').innerText = (mkt.tem_pet_leads || 0) + ' lead';
+            document.getElementById('mTongLeadCnt').innerText = (mkt.lead_count || 0) + ' lead';
+
+            document.getElementById('mDpSpent').innerText = formatVND(mkt.dong_phuc_spent || 0);
+            document.getElementById('mPetSpent').innerText = formatVND(mkt.tem_pet_spent || 0);
+            document.getElementById('mTongSpent').innerText = formatVND(mkt.spent_amount || 0);
+
+            // Tab MKT Rows
+            document.getElementById('mktRevDetail').innerText = formatVND(mkt.revenue);
+            document.getElementById('mktOrdersDetail').innerText = mkt.closed_orders || 0;
+            document.getElementById('mktLeadsDetail').innerText = mkt.lead_count || 0;
+            document.getElementById('mktRowSpent').innerText = formatVND(mkt.spent_amount);
+            document.getElementById('mktRowCPO').innerText = formatVND(mkt.cpo);
+            document.getElementById('mktRowRatio').innerText = (mkt.cost_ratio || 0) + '%';
+            document.getElementById('mktRowCPL').innerText = formatVND(mkt.cpl);
+            document.getElementById('mktRowRate').innerText = (mkt.close_rate || 0) + '%';
+
+            // Chart Titles Sub-Tag Update
+            const shortModeTag = mode === 'dong_phuc' ? '(👔 Mảng Đồng Phục)' : (mode === 'tem_pet' ? '(🏷️ Mảng TEM PET)' : '(🏢 Tất Cả)');
+            const subTagHtml = `<span class="exec-sub-tag-pulse">${shortModeTag}</span>`;
+            if (document.getElementById('mTitleTopProd')) document.getElementById('mTitleTopProd').innerHTML = `🔥 Top Sản Phẩm Bán Chạy ${subTagHtml}`;
+            if (document.getElementById('mTitleTopCust')) document.getElementById('mTitleTopCust').innerHTML = `👑 Top Khách Hàng Tiêu Biểu ${subTagHtml}`;
+            if (document.getElementById('mTitleTopSales')) document.getElementById('mTitleTopSales').innerHTML = `🏆 Doanh Thu Theo NV Sales ${subTagHtml}`;
+            if (document.getElementById('mTitleRecentOrders')) document.getElementById('mTitleRecentOrders').innerHTML = `📋 Đơn Hàng Gần Đây ${subTagHtml}`;
+        }
+
+        function renderCharts() {
+            if (!dashData || !window.Chart) return;
+            const charts = dashData.charts || {};
+
+            // Chart 1: Revenue & Orders Trend
+            const trendCtx = document.getElementById('chartTrend').getContext('2d');
+            if (chartTrendObj) chartTrendObj.destroy();
+
+            const trendData = charts.revenue_trend || { labels: [], revenue: [], orders: [] };
+            let datasets = [];
+            let scalesConfig = {};
+
+            if (mTrendMode === 'orders') {
+                datasets = [{
+                    label: 'Số Đơn Hàng',
+                    data: trendData.orders || [],
+                    borderColor: '#16a34a',
+                    backgroundColor: 'rgba(22, 163, 74, 0.12)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2.5
+                }];
+                scalesConfig = { y: { beginAtZero: true, ticks: { precision: 0, callback: v => v + ' đơn' } } };
+            } else if (mTrendMode === 'both') {
+                datasets = [
+                    {
+                        label: 'Doanh Thu',
+                        data: trendData.revenue || [],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                        yAxisID: 'yRev',
+                        fill: true,
+                        tension: 0.3,
+                        borderWidth: 2.5
+                    },
+                    {
+                        label: 'Số Đơn',
+                        data: trendData.orders || [],
+                        borderColor: '#16a34a',
+                        backgroundColor: 'rgba(22, 163, 74, 0.08)',
+                        yAxisID: 'yOrd',
+                        fill: false,
+                        tension: 0.3,
+                        borderWidth: 2.5
+                    }
+                ];
+                scalesConfig = {
+                    yRev: { type: 'linear', display: true, position: 'left', ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } },
+                    yOrd: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { precision: 0, callback: v => v + ' đơn' } }
+                };
+            } else {
+                datasets = [{
+                    label: 'Doanh Thu (VNĐ)',
+                    data: trendData.revenue || [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2.5
+                }];
+                scalesConfig = { y: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } } };
+            }
+
+            chartTrendObj = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: trendData.labels || [],
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: mTrendMode === 'both', position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
+                    scales: scalesConfig
+                }
+            });
+
+            // Chart 2: Order Status Donut
+            const statusCtx = document.getElementById('chartStatus').getContext('2d');
+            if (chartStatusObj) chartStatusObj.destroy();
+
+            const statusList = charts.order_statuses || [];
+            chartStatusObj = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: statusList.map(s => s.label),
+                    datasets: [{
+                        data: statusList.map(s => s.count),
+                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#6366f1', '#ef4444', '#94a3b8']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+
+            // Chart 3: Top Products
+            const prodCtx = document.getElementById('chartTopProducts').getContext('2d');
+            if (chartTopProdObj) chartTopProdObj.destroy();
+
+            const topProds = charts.top_products || [];
+            chartTopProdObj = new Chart(prodCtx, {
+                type: 'bar',
+                data: {
+                    labels: topProds.map(p => p.name),
+                    datasets: [{
+                        label: 'Doanh Thu',
+                        data: topProds.map(p => p.revenue),
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } }
+                    }
+                }
+            });
+
+            // Chart 4: Top Customers
+            const custCtx = document.getElementById('chartTopCustomers').getContext('2d');
+            if (chartTopCustObj) chartTopCustObj.destroy();
+
+            const topCusts = charts.top_customers || [];
+            chartTopCustObj = new Chart(custCtx, {
+                type: 'bar',
+                data: {
+                    labels: topCusts.map(c => c.name),
+                    datasets: [{
+                        label: 'Doanh Thu',
+                        data: topCusts.map(c => c.revenue),
+                        backgroundColor: '#6366f1',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } }
+                    }
+                }
+            });
+
+            // Chart 5: Top Sales Staff
+            const salesCtx = document.getElementById('chartTopSales').getContext('2d');
+            if (chartTopSalesObj) chartTopSalesObj.destroy();
+
+            const topSalesList = charts.top_sales || [];
+            chartTopSalesObj = new Chart(salesCtx, {
+                type: 'bar',
+                data: {
+                    labels: topSalesList.map(s => s.name),
+                    datasets: [{
+                        label: 'Doanh Thu',
+                        data: topSalesList.map(s => s.revenue),
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } }
+                    }
+                }
+            });
+
+            const mModal = document.getElementById('mModalTrendExpand');
+            if (mModal && mModal.style.display !== 'none') {
+                mRenderExpandTrendModalContent();
+            }
+        }
+
+        // Initialize on DOM load
+        document.addEventListener('DOMContentLoaded', () => {
+            initMobileNavigation();
+            loadDashboardData();
+        });
+    </script>
+</body>
+</html>

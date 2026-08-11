@@ -923,675 +923,432 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
     fastify.post('/api/customers/:id/consult', { preHandler: [authenticate] }, async (request, reply) => {
         const customerId = Number(request.params.id);
-        const customer = await db.get('SELECT * FROM customers WHERE id = ?', [customerId]);
-        if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
-
-        let log_type, content, imagePath = null;
-        const fields = {};
+        let fields = {};
+        let imagePath = null;
+        let imageBuffer = null;
 
         const contentType = request.headers['content-type'] || '';
         if (contentType.includes('multipart')) {
             const parts = request.parts();
             for await (const part of parts) {
                 if (part.type === 'file' && part.fieldname === 'image') {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const { compressImage } = require('../utils/imageCompressor');
-                    const uploadsDir = path.join(__dirname, '..', 'uploads', 'consult');
-                    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-                    let buf = await part.toBuffer();
-                    if (buf && buf.length > 0) {
-                        const compressed = await compressImage(buf, { maxWidth: 1200, quality: 80, format: 'jpeg' });
-                        const filename = `consult_${customerId}_${Date.now()}.jpg`;
-                        const filepath = path.join(uploadsDir, filename);
-                        fs.writeFileSync(filepath, compressed.buffer);
-                        imagePath = `/uploads/consult/${filename}`;
-                    }
-                } else { fields[part.fieldname] = part.value; }
+                    const buf = await part.toBuffer();
+                    if (buf && buf.length > 0) imageBuffer = buf;
+                } else if (part.type === 'field') {
+                    fields[part.fieldname] = part.value;
+                }
             }
         } else {
-            Object.assign(fields, request.body || {});
+            fields = request.body || {};
             imagePath = fields.image_path || null;
         }
 
-        log_type = fields.log_type;
-        content = fields.content;
+        if (imageBuffer && !imagePath) {
+            const fileName = `consult_${customerId}_${Date.now()}_${Math.random().toString(36).substring(7)}.png`;
+            const uploadDir = path.join(__dirname, '../public/uploads/consult');
+            await fs.mkdir(uploadDir, { recursive: true });
+            const filePath = path.join(uploadDir, fileName);
+            await fs.writeFile(filePath, imageBuffer);
+            imagePath = `/uploads/consult/${fileName}`;
+        }
+
+        let log_type = fields.log_type;
+        if (fields.payment_record_id && log_type !== 'chot_don') {
+            log_type = 'dat_coc';
+        }
         if (!log_type) return reply.code(400).send({ error: 'Vui lòng chọn loại tư vấn' });
 
-        if (log_type === 'huy' && ['sale', 'tem_pet'].includes(customer.crm_type) && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
-            const countRow = await db.get(`
-                WITH last_boundary AS (
-                    SELECT cl.customer_id, MAX(cl.id) as id
-                    FROM consultation_logs cl
-                    JOIN customers c ON c.id = cl.customer_id
-                    WHERE cl.customer_id = $1
-                      AND (
-                        cl.log_type IN ('hoan_thanh', 'chot_don')
-                        OR (cl.log_type = 'huy' AND c.order_status NOT IN ('duyet_huy', 'cho_duyet_huy'))
-                      )
-                    GROUP BY cl.customer_id
-                )
-                SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
-                FROM customers c
-                LEFT JOIN last_boundary lb ON c.id = lb.customer_id
-                LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
-                    AND (lb.id IS NULL OR cl.id > lb.id)
-                    AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'da_huy_don', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
-                    AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
-                WHERE c.id = $1
-                GROUP BY c.id
-            `, [customerId]);
-            const consultCount = Number(countRow?.cnt || 0);
-            if (consultCount < 5) {
-                return reply.code(400).send({
-                    error: `Yêu cầu chăm sóc đủ 5 lần mới được hủy khách! (Hiện tại: ${consultCount}/5 lần)`
-                });
-            }
-        }
+        const idempotencyKey = request.headers['x-idempotency-key'] || fields.idempotency_key || null;
+        const requestId = fields.request_id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        const endpoint = `/api/customers/${customerId}/consult`;
 
-        // Enforce Telegram Consultation for new leads of Sale, Affiliate, Nhu Cau CRM today
-        if (['sale', 'affiliate', 'nhu_cau'].includes(customer.crm_type) && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(request.user.role)) {
-            const vnToday = getVNToday();
-            const createdToday = customer.created_at && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(customer.created_at)) === vnToday;
-            
-            if (createdToday) {
-                // Check if there is any manual consultation log today
-                const lastLog = await db.get(
-                    `SELECT id FROM consultation_logs 
-                     WHERE customer_id = ?
-                       AND log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so')
-                       AND logged_by IS NOT NULL
-                       AND (content IS NULL OR (content NOT LIKE '%Pancake%' AND content NOT LIKE '%Đồng bộ%'))
-                       AND created_at::date = ?::date
-                     LIMIT 1`,
-                    [customerId, vnToday]
-                );
-                
-                if (!lastLog) {
-                    return reply.code(400).send({ 
-                        error: 'Khách hàng mới nhận hôm nay phải được ghi nhận tư vấn lần đầu qua Telegram (cú pháp: ; [nội dung]) trước khi thao tác trên CRM!' 
-                    });
+        try {
+            return await db.withTransaction(async (tx) => {
+                // 1. Idempotency Check inside transaction
+                if (idempotencyKey) {
+                    const existingIdemp = await tx.get(
+                        'SELECT response_body FROM request_idempotency WHERE idempotency_key = $1 AND endpoint = $2',
+                        [idempotencyKey, endpoint]
+                    );
+                    if (existingIdemp) {
+                        const cached = typeof existingIdemp.response_body === 'string' ? JSON.parse(existingIdemp.response_body) : existingIdemp.response_body;
+                        return reply.code(200).send(cached);
+                    }
                 }
-            }
-        }
 
-        // ★ Server-side validation: appointment_date constraint for Sale CRM
-        if (fields.appointment_date && customer.crm_type === 'sale' && !['huy', 'cap_cuu_sep'].includes(log_type)) {
-            const typeConfig = await db.get(
-                'SELECT max_appointment_days FROM consult_type_configs WHERE key = ? AND crm_menu = ?',
-                [log_type, 'sale']
-            );
-            if (typeConfig && typeConfig.max_appointment_days > 0) {
-                const vnToday = getVNToday();
-                if (fields.appointment_date > vnToday) {
-                    const apptDate = new Date(fields.appointment_date);
-                    const todayDate = new Date(vnToday);
-                    const diffTime = apptDate.getTime() - todayDate.getTime();
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays > typeConfig.max_appointment_days) {
+                // 2. Pessimistic Lock on Customer Row (SELECT FOR UPDATE)
+                const customer = await tx.get('SELECT * FROM customers WHERE id = $1 FOR UPDATE', [customerId]);
+                if (!customer) return reply.code(404).send({ error: 'Khách hàng không tồn tại' });
+
+                // Validation rules
+                if (log_type === 'huy' && ['sale', 'tem_pet'].includes(customer.crm_type) && !['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
+                    const countRow = await tx.get(`
+                        WITH last_boundary AS (
+                            SELECT cl.customer_id, MAX(cl.id) as id
+                            FROM consultation_logs cl
+                            JOIN customers c ON c.id = cl.customer_id
+                            WHERE cl.customer_id = $1
+                              AND (
+                                cl.log_type IN ('hoan_thanh', 'chot_don')
+                                OR (cl.log_type = 'huy' AND c.order_status NOT IN ('duyet_huy', 'cho_duyet_huy'))
+                              )
+                            GROUP BY cl.customer_id
+                        )
+                        SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
+                        FROM customers c
+                        LEFT JOIN last_boundary lb ON c.id = lb.customer_id
+                        LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
+                            AND (lb.id IS NULL OR cl.id > lb.id)
+                            AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'da_huy_don', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
+                            AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
+                        WHERE c.id = $1
+                        GROUP BY c.id
+                    `, [customerId]);
+                    const consultCount = Number(countRow?.cnt || 0);
+                    if (consultCount < 5) {
                         return reply.code(400).send({
-                            error: `Ngày hẹn tiếp theo không được vượt quá ${typeConfig.max_appointment_days} ngày kể từ hôm nay (chọn: ${fields.appointment_date})`
+                            error: `Yêu cầu chăm sóc đủ 5 lần mới được hủy khách! (Hiện tại: ${consultCount}/5 lần)`
                         });
                     }
                 }
-            }
-        }
 
-        // Update customer details if sent in FormData (unified request optimization)
-        const updates = [];
-        const params = [];
-        
-        if (fields.customer_name !== undefined) {
-            updates.push('customer_name = ?');
-            params.push(fields.customer_name);
-            customer.customer_name = fields.customer_name;
-        }
-        
-        if (fields.phone !== undefined) {
-            const { normalizePhone, checkPhoneUser } = require('../utils/phoneCheck');
-            const normalizedPhone = fields.phone ? normalizePhone(fields.phone) : null;
-            if (fields.phone && (!normalizedPhone || !/^0\d{9}$/.test(normalizedPhone))) {
-                return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0' });
-            }
-            if (normalizedPhone) {
-                const userError = await checkPhoneUser(normalizedPhone);
-                if (userError) return reply.code(400).send({ error: userError });
-            }
-            updates.push('phone = ?');
-            params.push(normalizedPhone);
-            customer.phone = normalizedPhone;
-        }
-        
-        if (fields.address !== undefined) {
-            updates.push('address = ?');
-            params.push(fields.address);
-            customer.address = fields.address;
-        }
-        
-        if (fields.province !== undefined) {
-            updates.push('province = ?');
-            params.push(fields.province);
-            customer.province = fields.province;
-        }
-        
-        if (fields.job !== undefined) {
-            updates.push('job = ?');
-            params.push(fields.job);
-            customer.job = fields.job;
-        }
-        
-        if (fields.birthday !== undefined) {
-            updates.push('birthday = ?');
-            params.push(fields.birthday || null);
-            customer.birthday = fields.birthday || null;
-        }
-        
-        if (updates.length > 0) {
-            updates.push("updated_at = NOW()");
-            params.push(customerId);
-            await db.run(`UPDATE customers SET ${updates.join(', ')} WHERE id = ?`, params);
-        }
-
-        const isZeroDepositVal = fields.is_zero_deposit === true || fields.is_zero_deposit === 'true';
-        if (log_type === 'chot_don') {
-            const { normalizePhone } = require('../utils/phoneCheck');
-            const checkPhone = fields.phone ? normalizePhone(fields.phone) : customer.phone;
-            if (!checkPhone || !/^0\d{9}$/.test(checkPhone)) {
-                return reply.code(400).send({ error: '⚠️ SĐT Khách Hàng là bắt buộc khi Chốt Đơn, phải đủ 10 số và bắt đầu bằng số 0!' });
-            }
-            if (isZeroDepositVal) {
-                const authorizedRoles = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
-                if (!authorizedRoles.includes(request.user.role)) {
-                    return reply.code(403).send({ error: '🔒 Bạn không có quyền chốt đơn không cọc!' });
+                // Customer Info Updates
+                const updates = [];
+                const params = [];
+                if (fields.customer_name && fields.customer_name !== customer.customer_name) {
+                    updates.push('customer_name = ?'); params.push(fields.customer_name); customer.customer_name = fields.customer_name;
                 }
-            } else {
-                // Find latest chot_don log for this customer
-                const latestChotDon = await db.get(
-                    `SELECT id FROM consultation_logs 
-                     WHERE customer_id = ? AND log_type = 'chot_don' 
-                     ORDER BY id DESC LIMIT 1`,
-                    [customerId]
-                );
-                
-                let hasDepositVal = false;
-                if (latestChotDon) {
-                    const depositAfter = await db.get(
-                        `SELECT id FROM consultation_logs 
-                         WHERE customer_id = ? AND log_type = 'dat_coc' AND id > ? 
-                         LIMIT 1`,
-                        [customerId, latestChotDon.id]
-                    );
-                    hasDepositVal = !!depositAfter;
-                } else {
-                    const anyDeposit = await db.get(
-                        `SELECT id FROM consultation_logs 
-                         WHERE customer_id = ? AND log_type = 'dat_coc' 
-                         LIMIT 1`,
-                        [customerId]
-                    );
-                    hasDepositVal = !!anyDeposit;
+                if (fields.phone !== undefined) {
+                    const { normalizePhone, checkPhoneUser } = require('../utils/phoneCheck');
+                    const normalizedPhone = fields.phone ? normalizePhone(fields.phone) : null;
+                    if (fields.phone && (!normalizedPhone || !/^0\d{9}$/.test(normalizedPhone))) {
+                        return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0' });
+                    }
+                    if (normalizedPhone) {
+                        const userError = await checkPhoneUser(normalizedPhone);
+                        if (userError) return reply.code(400).send({ error: userError });
+                    }
+                    updates.push('phone = ?'); params.push(normalizedPhone); customer.phone = normalizedPhone;
+                }
+                if (fields.address !== undefined) { updates.push('address = ?'); params.push(fields.address); customer.address = fields.address; }
+                if (fields.province !== undefined) { updates.push('province = ?'); params.push(fields.province); customer.province = fields.province; }
+                if (fields.job !== undefined) { updates.push('job = ?'); params.push(fields.job); customer.job = fields.job; }
+                if (fields.birthday !== undefined) { updates.push('birthday = ?'); params.push(fields.birthday || null); customer.birthday = fields.birthday || null; }
+                if (fields.appointment_date !== undefined && fields.appointment_date && fields.appointment_date.trim()) {
+                    updates.push('appointment_date = ?'); params.push(fields.appointment_date.trim()); customer.appointment_date = fields.appointment_date.trim();
+                } else if (log_type === 'dat_coc') {
+                    const nextWorkDay = await getNextWorkingDay(new Date(), customer.assigned_to_id || request.user.id);
+                    updates.push('appointment_date = ?'); params.push(nextWorkDay); customer.appointment_date = nextWorkDay;
+                } else if (fields.appointment_date !== undefined) {
+                    updates.push('appointment_date = ?'); params.push(fields.appointment_date || null); customer.appointment_date = fields.appointment_date || null;
                 }
 
-                if (!hasDepositVal) {
-                    return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
+                if (log_type !== 'huy' && (customer.cancel_requested === 1 || customer.cancel_approved !== 0 || customer.order_status === 'cho_duyet_huy' || customer.order_status === 'duyet_huy')) {
+                    updates.push('cancel_requested = 0');
+                    updates.push('cancel_approved = 0');
+                    updates.push('cancel_reason = NULL');
+                    updates.push('cancel_requested_by = NULL');
+                    updates.push('cancel_requested_at = NULL');
+                    updates.push('cancel_approved_by = NULL');
+                    updates.push('cancel_approved_at = NULL');
+                    if (['cho_duyet_huy', 'duyet_huy'].includes(customer.order_status)) {
+                        updates.push("order_status = 'tu_van'");
+                        customer.order_status = 'tu_van';
+                    }
+                    customer.cancel_requested = 0;
+                    customer.cancel_approved = 0;
                 }
-            }
-        }
 
+                if (updates.length > 0) {
+                    updates.push('updated_at = NOW()');
+                    params.push(customerId);
+                    await tx.run(`UPDATE customers SET ${updates.join(', ')} WHERE id = ?`, params);
+                }
 
-        // Generate Order Code automatically if chot_don (unified request optimization)
-        let generatedOrderCode = null;
-        if (log_type === 'chot_don') {
-            const userId = request.user.id;
-            const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
-            const prefix = userRow?.order_code_prefix;
-            if (!prefix) return reply.code(400).send({ error: 'Chưa cài đặt mã đơn cho nhân viên này. Vui lòng liên hệ Admin để cài đặt prefix.' });
+                const isZeroDepositVal = fields.is_zero_deposit === true || fields.is_zero_deposit === 'true';
 
-            // Check if there is a pending deposit order code for this customer
-            let targetCode = null;
-            const existingDeposit = await db.get(`
-                SELECT pr.order_tt_coc 
-                FROM payment_records pr
-                LEFT JOIN order_codes oc ON oc.order_code = pr.order_tt_coc
-                WHERE (
-                    pr.customer_id = $1
-                    OR (pr.customer_phone IS NOT NULL AND pr.customer_phone != '' AND pr.customer_phone = $2)
-                  )
-                  AND pr.payment_type = 'dat_coc' 
-                  AND pr.order_tt_coc IS NOT NULL AND pr.order_tt_coc != ''
-                  AND oc.id IS NULL
-                ORDER BY pr.id DESC LIMIT 1
-            `, [customer.id, customer.phone || '']);
-            if (existingDeposit?.order_tt_coc) {
-                targetCode = existingDeposit.order_tt_coc;
-            }
+                let responseData = { success: true, message: 'Đã ghi nhận tư vấn!' };
+                let targetOrderCode = null;
+                let targetOrderId = null;
+                let depositCode = null;
+                let orderStatusBefore = 'none';
+                let orderStatusAfter = 'none';
+                let createOrderCalled = false;
+                let prRow = null;
 
-            const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
-            let crmPrefix = '';
-            if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
-                crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
-            }
+                // ==========================================
+                // 3. LOGIC FOR CHỐT ĐƠN (CONFIRM ORDER)
+                // ==========================================
+                if (log_type === 'chot_don') {
+                    createOrderCalled = false; // MUST BE FALSE AT ALL TIMES
 
-            if (!targetCode) {
-                const maxSeqRow = await db.get(`
-                    SELECT COALESCE(MAX(seq), 0)::int as max_seq FROM (
-                        SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
-                        FROM dht_orders
-                        WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
-                        UNION ALL
-                        SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
-                        FROM order_codes
-                        WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
-                        UNION ALL
-                        SELECT CAST(SUBSTRING(order_tt_coc FROM '(\\d+)$') AS INTEGER) as seq
-                        FROM payment_records
-                        WHERE order_tt_coc LIKE $1 AND order_tt_coc ~ '^.*[0-9]+$'
-                    ) sub
-                `, [prefix + '%']);
-                let nextNum = (maxSeqRow?.max_seq || 0) + 1;
-                targetCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
-
-                // Concurrency retry loop with UNIQUE constraint protection
-                let inserted = false;
-                let attempts = 0;
-                while (!inserted && attempts < 5) {
-                    attempts++;
-                    try {
-                        const existingCodeRow = await db.get('SELECT id FROM order_codes WHERE order_code = ?', [targetCode]);
-                        if (!existingCodeRow) {
-                            await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status, is_zero_deposit) VALUES (?, ?, ?, \'active\', ?)', [customerId, userId, targetCode, isZeroDepositVal]);
-                        }
-                        inserted = true;
-                    } catch (err) {
-                        if (err.code === '23505' || (err.message && err.message.includes('unique'))) {
-                            nextNum++;
-                            targetCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
-                        } else {
-                            throw err;
+                    const { normalizePhone } = require('../utils/phoneCheck');
+                    const checkPhone = fields.phone ? normalizePhone(fields.phone) : customer.phone;
+                    if (!checkPhone || !/^0\d{9}$/.test(checkPhone)) {
+                        return reply.code(400).send({ error: '⚠️ SĐT Khách Hàng là bắt buộc khi Chốt Đơn, phải đủ 10 số và bắt đầu bằng số 0!' });
+                    }
+                    if (isZeroDepositVal) {
+                        const authorizedRoles = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
+                        if (!authorizedRoles.includes(request.user.role)) {
+                            return reply.code(403).send({ error: '🔒 Bạn không có quyền chốt đơn không cọc!' });
                         }
                     }
-                }
-            } else {
-                const existingCodeRow = await db.get('SELECT id FROM order_codes WHERE order_code = ?', [targetCode]);
-                if (!existingCodeRow) {
-                    await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status, is_zero_deposit) VALUES (?, ?, ?, \'active\', ?)', [customerId, userId, targetCode, isZeroDepositVal]);
-                }
-            }
-            generatedOrderCode = targetCode;
-            // Preserve original customer_type from Chuyển Số (do not overwrite with 'cu')
 
-            // Backfill/update order_tt_coc and sync customer_id/phone on deposit records for this customer
-            await db.run(`
-                UPDATE payment_records SET
-                    order_tt_coc = $1,
-                    customer_id = COALESCE(customer_id, $2),
-                    customer_phone = COALESCE(NULLIF($3, ''), customer_phone),
-                    updated_at = NOW()
-                WHERE (
-                    customer_id = $2
-                    OR (customer_phone IS NOT NULL AND customer_phone != '' AND customer_phone = $3)
-                  )
-                  AND payment_type = 'dat_coc'
-                  AND (order_tt_coc IS NULL OR order_tt_coc = '' OR order_tt_coc = $1)
-            `, [generatedOrderCode, customer.id, customer.phone || '']);
-        }
+                    // Query valid pending deposits for customer
+                    const validDeposits = await tx.all(`
+                        SELECT * FROM payment_records
+                        WHERE (customer_id = $1 OR (customer_phone IS NOT NULL AND customer_phone != '' AND customer_phone = $2))
+                          AND payment_type = 'dat_coc'
+                          AND order_tt_coc IS NOT NULL AND order_tt_coc != ''
+                        ORDER BY id DESC
+                    `, [customerId, customer.phone || '']);
 
-        // NOTE: Items validation removed — products are now entered in DHT, not CRM
-
-        if (log_type === 'hoan_thanh' && !doneTypes.includes('chot_don')) return reply.code(400).send({ error: 'Phải Chốt Đơn trước khi Hoàn Thành!' });
-
-        // ★ V4.1: Lock payment record BEFORE inserting consultation log
-        // NOTE: order_tt_coc is NULL here because order code is created at chot_don (AFTER dat_coc)
-        // It will be backfilled in POST /api/order-codes when the order code is created
-        if (log_type === 'dat_coc' && fields.payment_record_id) {
-            const prId = Number(fields.payment_record_id);
-            
-            let targetOrderCode = fields.target_order_code ? String(fields.target_order_code).trim() : null;
-
-            if (!targetOrderCode || targetOrderCode === '---') {
-                // Calculate NEXT predicted order code for this Sale user (use customer assigned_to_id or request.user.id)
-                const userId = customer.assigned_to_id || request.user.id;
-                const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
-                const prefix = userRow?.order_code_prefix || 'SVTS';
-                
-                const maxSeqRow = await db.get(`
-                    SELECT COALESCE(MAX(seq), 0)::int as max_seq FROM (
-                        SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
-                        FROM dht_orders
-                        WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
-                        UNION ALL
-                        SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
-                        FROM order_codes
-                        WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
-                        UNION ALL
-                        SELECT CAST(SUBSTRING(order_tt_coc FROM '(\\d+)$') AS INTEGER) as seq
-                        FROM payment_records
-                        WHERE order_tt_coc LIKE $1 AND order_tt_coc ~ '^.*[0-9]+$'
-                    ) sub
-                `, [prefix + '%']);
-                const nextNum = (maxSeqRow?.max_seq || 0) + 1;
-
-                const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
-                let crmPrefix = '';
-                if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
-                    crmPrefix = CRM_ORDER_PREFIX[customer.crm_type] || '';
-                }
-
-                targetOrderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
-            }
-
-            const lockResult = await db.run(`
-                UPDATE payment_records SET
-                    payment_type = 'dat_coc',
-                    handover_status = 'thu_quy_nhan',
-                    customer_name = ?,
-                    customer_phone = ?,
-                    customer_id = ?,
-                    cskh_user_id = ?,
-                    order_tt_coc = ?,
-                    locked_by = ?,
-                    locked_at = NOW(),
-                    updated_at = NOW()
-                WHERE id = ?
-            `, [customer.customer_name, customer.phone, customer.id, request.user.id, targetOrderCode, request.user.id, prId]);
-            if (lockResult.changes === 0) {
-                return reply.code(409).send({ error: 'Mã tiền này đã được nhận bởi người khác!' });
-            }
-        }
-
-        // ★ V4.2: Unlock payment record when Hủy Cọc — atomic reversal
-        if (log_type === 'huy_coc') {
-            try {
-                const unlockResult = await db.run(`
-                    UPDATE payment_records SET
-                        payment_type = 'tra_lai_coc',
-                        locked_by = NULL,
-                        locked_at = NULL,
-                        updated_at = NOW()
-                    WHERE payment_type = 'dat_coc'
-                      AND customer_name = $1
-                      AND customer_phone = $2
-                `, [customer.customer_name, customer.phone]);
-                if (unlockResult.changes > 0) {
-                    console.log(`[HỦY CỌC] Unlocked ${unlockResult.changes} payment record(s) for customer: ${customer.customer_name} - ${customer.phone}`);
-                } else {
-                    console.warn(`[HỦY CỌC] No locked payment record found for customer: ${customer.customer_name} - ${customer.phone}`);
-                }
-            } catch (unlockErr) {
-                console.error('[HỦY CỌC] Error unlocking payment record:', unlockErr.message);
-            }
-        }
-
-        // ★ V4.3: Handle 'gui_mau' draft sample order creation and linking deposit code
-        if (log_type === 'gui_mau' && fields.sample_order_code) {
-            let depositCode = null;
-            if (fields.payment_record_id) {
-                const pr = await db.get('SELECT payment_code FROM payment_records WHERE id = ?', [Number(fields.payment_record_id)]);
-                if (pr) depositCode = pr.payment_code;
-            }
-
-            await db.run(`
-                INSERT INTO don_gui_ao_mau (
-                    sample_order_code, customer_name, customer_phone, deposit_code,
-                    order_status, created_by, order_date
-                ) VALUES ($1, $2, $3, $4, 'draft', $5, CURRENT_DATE)
-            `, [
-                fields.sample_order_code,
-                customer.customer_name,
-                customer.phone,
-                depositCode,
-                request.user.id
-            ]);
-
-            if (fields.payment_record_id) {
-                const prId = Number(fields.payment_record_id);
-                const lockResult = await db.run(`
-                    UPDATE payment_records SET
-                        payment_type = 'dat_coc',
-                        order_ao_mau = $1,
-                        handover_status = 'thu_quy_nhan',
-                        customer_name = $2,
-                        customer_phone = $3,
-                        cskh_user_id = $4,
-                        locked_by = $4,
-                        locked_at = NOW(),
-                        updated_at = NOW()
-                    WHERE id = $5
-                      AND (payment_type IS NULL OR payment_type != 'dat_coc')
-                `, [fields.sample_order_code, customer.customer_name, customer.phone, request.user.id, prId]);
-                if (lockResult.changes === 0) {
-                    return reply.code(409).send({ error: 'Mã tiền này đã được nhận bởi người khác!' });
-                }
-            }
-        }
-
-        let consultContent = content || '';
-        if (!consultContent || !consultContent.trim()) {
-            if (log_type === 'dat_coc') consultContent = 'Ghi nhận đặt cọc';
-            else if (log_type === 'chot_don') consultContent = 'Ghi nhận chốt đơn thành công';
-            else if (log_type === 'dang_san_xuat') consultContent = 'Đơn đang sản xuất';
-            else if (log_type === 'hoan_thanh') consultContent = 'Hoàn thành đơn hàng';
-            else if (log_type === 'sau_ban_hang') consultContent = 'Chăm sóc sau bán hàng';
-        }
-        const payment_record_id = fields.payment_record_id ? Number(fields.payment_record_id) : null;
-        if (payment_record_id) {
-            const pr = await db.get('SELECT payment_code, amount FROM payment_records WHERE id = $1', [payment_record_id]);
-            if (pr) {
-                const amtFmt = Number(pr.amount || 0).toLocaleString('vi-VN');
-                const bindingText = `(Đã liên kết mã tiền cọc: ${pr.payment_code} - Số tiền: ${amtFmt}đ)`;
-                if (consultContent) {
-                    consultContent += '\n' + bindingText;
-                } else {
-                    consultContent = bindingText;
-                }
-
-                // ★ Tự động gắn order_tt_coc vào payment_records nếu tìm thấy đơn hàng của khách
-                let assocOrderCode = fields.sample_order_code || fields.order_code || null;
-                if (!assocOrderCode) {
-                    const latestOrder = await db.get(
-                        `SELECT order_code FROM dht_orders 
-                         WHERE (customer_id = $1 OR customer_phone = $2)
-                         ORDER BY id DESC LIMIT 1`,
-                        [customerId, customer.phone]
-                    );
-                    if (latestOrder) {
-                        assocOrderCode = latestOrder.order_code;
-                    }
-                }
-
-                await db.run(`
-                    UPDATE payment_records SET
-                        payment_type = 'dat_coc',
-                        order_tt_coc = COALESCE($1, order_tt_coc),
-                        handover_status = 'thu_quy_nhan',
-                        customer_name = COALESCE($2, customer_name),
-                        customer_phone = COALESCE($3, customer_phone),
-                        cskh_user_id = COALESCE($4, cskh_user_id),
-                        locked_by = $4,
-                        locked_at = NOW(),
-                        updated_at = NOW()
-                    WHERE id = $5
-                `, [assocOrderCode, customer.customer_name, customer.phone, request.user.id, payment_record_id]);
-            }
-        }
-
-        const deposit_amount = Number(fields.deposit_amount) || 0;
-        const next_consult_type = fields.next_consult_type || null;
-        await db.run(
-            `INSERT INTO consultation_logs (customer_id, log_type, content, image_path, logged_by, deposit_amount, next_consult_type, payment_record_id) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [customerId, log_type, consultContent || null, imagePath, request.user.id, deposit_amount, next_consult_type, payment_record_id]
-        );
-
-        // ★ Auto-create order on Đơn Hàng Tổng (dht_orders) if gc_order_code or TEM/PET deposit is logged
-        const gcOrderCode = fields.gc_order_code || fields.order_code;
-        if (gcOrderCode && (gcOrderCode.includes('GCTEM') || gcOrderCode.includes('GCPET'))) {
-            const cat = gcOrderCode.includes('GCPET') ? 'pet' : 'tem';
-            const catId = cat === 'pet' ? 8 : 9;
-            const existingDht = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [gcOrderCode]);
-            if (!existingDht) {
-                await db.run(`
-                    INSERT INTO dht_orders (
-                        order_code, order_date, category_id,
-                        customer_name, customer_phone, province, address,
-                        cskh_user_id, created_by, last_updated_by, is_draft, customer_id,
-                        deposit_amount_cache
-                    ) VALUES (
-                        $1, NOW(), $2,
-                        $3, $4, $5, $6,
-                        $7, $7, $7, false, $8,
-                        $9
-                    )
-                `, [
-                    gcOrderCode, catId,
-                    customer.customer_name, customer.phone, customer.province || null, customer.address || null,
-                    request.user.id, customerId,
-                    Number(deposit_amount) || 0
-                ]);
-            }
-        }
-
-        // ★ Thông báo ĐÃ XỬ LÝ SỐ — lần tư vấn đầu cho số chuyển/gửi lại hôm nay
-        if (log_type !== 'khong_xu_ly' && customer.assigned_to_id) {
-            try {
-                const vnToday = getVNToday();
-                const createdToday = customer.created_at && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(customer.created_at)) === vnToday;
-                const isTransferToday = customer.effective_date === vnToday || customer.appointment_date === vnToday || createdToday;
-                if (isTransferToday) {
-                    // Đếm log thật kể từ lần chuyển/gửi lại (khớp logic reminder-checker)
-                    const prevCount = await db.get(
-                        `SELECT COUNT(*) as cnt FROM consultation_logs
-                         WHERE customer_id = $1 AND log_type NOT IN ('khong_xu_ly', 'chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so')
-                           AND (content IS NULL OR (content NOT LIKE '%Pancake%' AND content NOT LIKE '%Đồng bộ%'))
-                           AND created_at >= LEAST($2::timestamp, COALESCE($3::timestamp, $2::timestamp)) - INTERVAL '1 minute'`,
-                        [customerId, customer.created_at, customer.updated_at]
-                    );
-                    if (Number(prevCount?.cnt || 0) === 1) {
-                        const _crmL = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOL/KOC Tiktok', sale: 'Sale' };
-                        const _conL = { goi_dien: 'Gọi Điện', nhan_tin: 'Nhắn Tin', gap_truc_tiep: 'Gặp Trực Tiếp', gui_bao_gia: 'Gửi Báo Giá', gui_mau: 'Gửi Mẫu', thiet_ke: 'Thiết Kế', bao_sua: 'Báo Sửa', lam_quen_tuong_tac: 'Làm Quen', gui_stk_coc: 'Gửi STK Cọc', giuc_coc: 'Giục Cọc', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', sau_ban_hang: 'Sau Bán Hàng', hoan_thanh: 'Hoàn Thành', tuong_tac_ket_noi: 'Tương Tác', gui_ct_kh_cu: 'CT KH Cũ', giam_gia: 'Giảm Giá', cap_cuu_sep: 'Cấp Cứu Sếp', huy: 'Hủy KH', huy_don_tra_coc: 'Hủy Đơn TC' };
-                        let custCode = '?';
-                        if (customer.daily_order_number && customer.effective_date) {
-                            const ed = new Date(customer.effective_date);
-                            custCode = `${customer.daily_order_number}-${ed.getDate()}-${ed.getMonth()+1}-Y${String(ed.getFullYear()).slice(-2)}`;
+                    // Target order code determination:
+                    const explicitCode = fields.order_code || fields.target_order_code || fields.order_id;
+                    if (explicitCode) {
+                        const explicitStr = String(explicitCode).trim();
+                        const orderRow = await tx.get(
+                            'SELECT * FROM order_codes WHERE (order_code = $1 OR id::text = $1) AND customer_id = $2',
+                            [explicitStr, customerId]
+                        );
+                        if (!orderRow) {
+                            return reply.code(404).send({ error: 'ORDER_NOT_FOUND', message: `Mã đơn ${explicitStr} không tồn tại hoặc không thuộc về khách hàng này!` });
                         }
-                        const tgMsg = `✅ <b>ĐÃ XỬ LÝ SỐ</b> : ${custCode} : <code>${customer.customer_name}</code> - CRM: ${_crmL[customer.crm_type] || customer.crm_type} - Tư vấn: ${_conL[log_type] || log_type}`;
-                        notifyTelegram(customer.assigned_to_id, 'chuyen_so', tgMsg);
+                        targetOrderCode = orderRow.order_code;
+                        targetOrderId = orderRow.id;
+                        orderStatusBefore = orderRow.status;
+                    } else {
+                        if (validDeposits.length === 1) {
+                            targetOrderCode = validDeposits[0].order_tt_coc;
+                            depositCode = validDeposits[0].payment_code;
+                            const ocRow = await tx.get('SELECT * FROM order_codes WHERE order_code = $1', [targetOrderCode]);
+                            targetOrderId = ocRow?.id || null;
+                            orderStatusBefore = ocRow?.status || 'deposited';
+                        } else if (validDeposits.length === 0 && !isZeroDepositVal) {
+                            return reply.code(404).send({ error: 'ORDER_NOT_FOUND', message: 'Không tìm thấy khoản đặt cọc hợp lệ nào cho khách hàng này. Vui lòng Đặt Cọc trước khi Chốt Đơn!' });
+                        } else if (validDeposits.length > 1) {
+                            return reply.code(400).send({ error: 'AMBIGUOUS_ORDER', message: `Khách hàng có ${validDeposits.length} khoản cọc khác nhau. Vui lòng chỉ định chính xác order_id cần chốt!` });
+                        }
                     }
+
+                    if (targetOrderCode) {
+                        await tx.run("UPDATE order_codes SET status = 'confirmed' WHERE order_code = $1", [targetOrderCode]);
+                        orderStatusAfter = 'confirmed';
+                    }
+
+                    responseData = {
+                        success: true,
+                        action: 'chot_don',
+                        order_id: targetOrderId,
+                        order_code: targetOrderCode,
+                        deposit_code: depositCode
+                    };
                 }
-            } catch (e) { console.error('[ĐÃ XỬ LÝ SỐ]', e.message); }
-        }
 
-        console.log('[CONSULT DEBUG]', { customerId, log_type, crm_type: customer.crm_type, is_pinned: customer.is_pinned, appt_date: fields.appointment_date });
-        if (customer.is_pinned) {
-            const nextWorkDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
-            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay, customerId]);
-        } else if (fields.appointment_date && fields.appointment_date.trim() !== '') {
-            // ★ VALIDATE: appointment_date must be AFTER today (never today or past)
-            const vnToday = getVNToday();
-            if (fields.appointment_date <= vnToday) {
-                // Auto-correct to next working day
-                const nextWorkDay2 = await getNextWorkingDay(new Date(), customer.assigned_to_id);
-                await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay2, customerId]);
-            } else {
-                await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [fields.appointment_date, customerId]);
-            }
-        } else if (log_type === 'chot_don' && customer.crm_type === 'sale') {
-            const holidays = await getHolidays();
-            const configRow = await db.get("SELECT value FROM app_config WHERE key = 'sale_chot_don_reschedule_days'");
-            const rescheduleDays = configRow ? parseInt(configRow.value) : 350;
-            const today = new Date();
-            const targetDate = new Date(today);
-            targetDate.setDate(targetDate.getDate() + rescheduleDays);
-            const rawTargetStr = toDateStr(targetDate);
-            const finalApptDate = await getEffectiveWorkingDay(rawTargetStr, customer.assigned_to_id, holidays);
-            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [finalApptDate, customerId]);
-        } else if (log_type === 'dat_coc' || ['tem_pet', 'sale'].includes(customer.crm_type)) {
-            if (!['huy', 'cap_cuu_sep', 'chot_don'].includes(log_type)) {
-                // Đặt cọc (dat_coc) hoặc CRM TEM/PET: luôn hẹn Ngày Làm Việc Tiếp Theo (bỏ qua CN, lễ, nghỉ NV)
-                const nextFollowUp = (log_type === 'dat_coc' || customer.crm_type === 'tem_pet')
-                    ? await getNextWorkingDay(new Date(), customer.assigned_to_id)
-                    : await getNextFollowUpDate(new Date(), customer.assigned_to_id);
-                await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextFollowUp, customerId]);
-            }
-        }
+                // ==========================================
+                // 4. LOGIC FOR ĐẶT CỌC (DEPOSIT)
+                // ==========================================
+                else if (log_type === 'dat_coc') {
+                    createOrderCalled = true;
+                    const isTemPet = customer.crm_type === 'tem_pet' || fields.gc_category;
+                    if (!fields.payment_record_id && !isTemPet) {
+                        return reply.code(400).send({ error: 'Vui lòng chọn mã tiền đặt cọc từ danh sách!' });
+                    }
 
-        // Auto-set appointment to next business day for 'Hoàn thành cấp cứu'
-        if (log_type === 'hoan_thanh_cap_cuu' && !fields.appointment_date) {
-            const nextBizDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
-            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextBizDay, customerId]);
-        }
+                    if (fields.payment_record_id) {
+                        const prId = Number(fields.payment_record_id);
 
-        const statusMap = { 'goi_dien': 'dang_tu_van', 'nhan_tin': 'dang_tu_van', 'gap_truc_tiep': 'dang_tu_van', 'gui_bao_gia': 'bao_gia', 'gui_mau': 'dang_tu_van', 'thiet_ke': 'dang_tu_van', 'bao_sua': 'dang_tu_van', 'lam_quen_tuong_tac': 'lam_quen_tuong_tac', 'gui_stk_coc': 'gui_stk_coc', 'giuc_coc': 'gui_stk_coc', 'dat_coc': 'dat_coc', 'chot_don': 'chot_don', 'dang_san_xuat': 'chot_don', 'hoan_thanh': 'hoan_thanh', 'sau_ban_hang': 'sau_ban_hang', 'tuong_tac_ket_noi': 'tuong_tac_ket_noi', 'gui_ct_kh_cu': 'gui_ct_kh_cu', 'giam_gia': 'giam_gia', 'huy_coc': 'huy_coc', 'da_huy_don_tra_coc': 'da_huy_don_tra_coc', 'da_huy_don': 'da_huy_don', 'huy_don': 'da_huy_don' };
-        if (statusMap[log_type]) {
-            await db.run('UPDATE customers SET order_status = ?, updated_at = NOW() WHERE id = ?', [statusMap[log_type], customerId]);
-
-            // Reset cancel status if customer was cancelled → return to normal flow
-            if (customer.cancel_approved === 1 || customer.cancel_approved === -2) {
-                await db.run('UPDATE customers SET cancel_requested = 0, cancel_approved = 0, cancel_reason = NULL, cancel_requested_by = NULL, cancel_requested_at = NULL, cancel_approved_by = NULL, cancel_approved_at = NULL WHERE id = ?', [customerId]);
-            }
-            // Hoàn Thành Đơn → complete ALL active orders + calculate commission per order
-            if (log_type === 'hoan_thanh') {
-                const activeOrders = await db.all("SELECT id FROM order_codes WHERE customer_id = ? AND status = 'active'", [customerId]);
-                for (const ao of activeOrders) {
-                    await db.run("UPDATE order_codes SET status = 'completed' WHERE id = ?", [ao.id]);
-                    // Calculate commission for this order
-                    if (customer.referrer_id) {
-                        const grandTotal = await db.get(`SELECT COALESCE(
-                            (SELECT SUM(di.item_total) FROM dht_orders d JOIN dht_order_items di ON di.dht_order_id = d.id WHERE d.order_code = oc.order_code),
-                            (SELECT SUM(oi_f.total) FROM order_items oi_f WHERE oi_f.order_code_id = oc.id),
-                            0
-                        ) - COALESCE((SELECT d2.vat_amount FROM dht_orders d2 WHERE d2.order_code = oc.order_code), 0) as t
-                        FROM order_codes oc WHERE oc.id = $1`, [ao.id]);
-                        if (grandTotal?.t) {
-                            // Direct referrer commission
-                            const referrer = await db.get('SELECT u.*, ct.percentage, ct.parent_percentage FROM users u LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id WHERE u.id = ?', [customer.referrer_id]);
-                            if (referrer?.percentage) {
-                                const commission = Math.round(grandTotal.t * referrer.percentage / 100);
-                                await db.run('UPDATE users SET balance = balance + ? WHERE id = ?', [commission, referrer.id]);
-                            }
-                            // Parent affiliate commission (2-level)
-                            // Find parent: referrer.source_customer_id → customer → referrer_id = parent affiliate
-                            if (referrer?.source_customer_id) {
-                                const sourceCustomer = await db.get('SELECT referrer_id FROM customers WHERE id = ?', [referrer.source_customer_id]);
-                                if (sourceCustomer?.referrer_id) {
-                                    const parentAffiliate = await db.get('SELECT u.*, ct.parent_percentage FROM users u LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id WHERE u.id = ?', [sourceCustomer.referrer_id]);
-                                    if (parentAffiliate?.parent_percentage) {
-                                        const parentCommission = Math.round(grandTotal.t * parentAffiliate.parent_percentage / 100);
-                                        await db.run('UPDATE users SET balance = balance + ? WHERE id = ?', [parentCommission, parentAffiliate.id]);
-                                    }
+                        // Acquire Pessimistic Lock on payment record
+                        prRow = await tx.get('SELECT * FROM payment_records WHERE id = $1 FOR UPDATE', [prId]);
+                        if (!prRow) {
+                            return reply.code(404).send({ error: 'Khoản tiền đặt cọc không tồn tại!' });
+                        }
+                        if (prRow.payment_type === 'dat_coc') {
+                            if (prRow.order_tt_coc) {
+                                const existingOc = await tx.get('SELECT id FROM order_codes WHERE order_code = $1 AND customer_id = $2', [prRow.order_tt_coc, customerId]);
+                                if (existingOc) {
+                                    return reply.code(200).send({
+                                        success: true,
+                                        action: 'dat_coc',
+                                        order_id: existingOc.id,
+                                        order_code: prRow.order_tt_coc,
+                                        deposit_code: prRow.payment_code,
+                                        message: 'Khoản cọc này đã được ghi nhận thành công trước đó.'
+                                    });
                                 }
                             }
+                            return reply.code(409).send({ error: 'Mã tiền này đã được nhận làm cọc bởi người khác hoặc đơn khác!' });
+                        }
+
+                        depositCode = prRow.payment_code;
+                    } else {
+                        depositCode = null;
+                    }
+
+                    orderStatusBefore = 'pending_deposit';
+
+                    let rawTarget = (fields.target_order_code || fields.gc_order_code) ? String(fields.target_order_code || fields.gc_order_code).trim() : null;
+                    if (rawTarget && prRow) {
+                        const existingCode = await tx.get(`
+                            SELECT id FROM order_codes WHERE order_code = $1 AND customer_id != $2
+                            UNION ALL
+                            SELECT id FROM payment_records WHERE order_tt_coc = $1 AND id != $3 AND payment_type = 'dat_coc'
+                            LIMIT 1
+                        `, [rawTarget, customerId, prRow.id]);
+                        if (existingCode) {
+                            rawTarget = null; // Force fresh unique code generation only if conflict with OTHER customer/payment
                         }
                     }
-                }
-            }
-        }
 
-        const countRow = await db.get(`
-            WITH last_boundary AS (
-                SELECT cl.customer_id, MAX(cl.id) as id
-                FROM consultation_logs cl
-                JOIN customers c ON c.id = cl.customer_id
-                WHERE cl.customer_id = $1
-                  AND (
-                    cl.log_type IN ('hoan_thanh', 'chot_don')
-                    OR (cl.log_type = 'huy' AND c.order_status NOT IN ('duyet_huy', 'cho_duyet_huy'))
-                  )
-                GROUP BY cl.customer_id
-            )
-            SELECT COALESCE(COUNT(cl.id), 0)::int as cnt
-            FROM customers c
-            LEFT JOIN last_boundary lb ON c.id = lb.customer_id
-            LEFT JOIN consultation_logs cl ON cl.customer_id = c.id 
-                AND (lb.id IS NULL OR cl.id > lb.id)
-                AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'khong_xu_ly', 'dat_coc', 'chot_don', 'dang_san_xuat', 'hoan_thanh', 'sau_ban_hang', 'huy_coc', 'hoan_thanh_cap_cuu', 'huy', 'cho_duyet_huy', 'duyet_huy', 'huy_don_tra_coc', 'da_huy_don_tra_coc', 'da_huy_don', 'cho_duyet_huy_don', 'gui_hang', 'tu_van_don_tiep', 'cancel_auto_revert')
-                AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%'))
-            WHERE c.id = $1
-            GROUP BY c.id
-        `, [customerId]);
-        const consultCount = Number(countRow?.cnt || 0);
-        return { success: true, message: 'Đã ghi nhận tư vấn!', consultCount, orderCode: generatedOrderCode };
+                    if (!rawTarget || rawTarget === '---') {
+                        const userId = customer.assigned_to_id || request.user.id;
+                        if (isTemPet) {
+                            const gcCat = (fields.gc_category || 'tem').toLowerCase();
+                            const prefix = gcCat === 'pet' ? 'GCPET' : 'GCTEM';
+                            const maxSeqRow = await tx.get(`
+                                SELECT COALESCE(MAX(seq), 0)::int as max_seq FROM (
+                                    SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq FROM dht_orders WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                                    UNION ALL
+                                    SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq FROM order_codes WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                                ) sub
+                            `, [prefix + '%']);
+                            const nextNum = (maxSeqRow?.max_seq || 0) + 1;
+                            targetOrderCode = prefix + String(nextNum).padStart(4, '0');
+                        } else {
+                            const userRow = await tx.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
+                            const prefix = userRow?.order_code_prefix || 'SVTS';
+
+                            const maxSeqRow = await tx.get(`
+                                SELECT COALESCE(MAX(seq), 0)::int as max_seq FROM (
+                                    SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                                    FROM dht_orders WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                                    UNION ALL
+                                    SELECT CAST(SUBSTRING(order_code FROM '(\\d+)$') AS INTEGER) as seq
+                                    FROM order_codes WHERE order_code LIKE $1 AND order_code ~ '^.*[0-9]+$'
+                                    UNION ALL
+                                    SELECT CAST(SUBSTRING(order_tt_coc FROM '(\\d+)$') AS INTEGER) as seq
+                                    FROM payment_records WHERE order_tt_coc LIKE $1 AND order_tt_coc ~ '^.*[0-9]+$'
+                                ) sub
+                            `, [prefix + '%']);
+                            const nextNum = (maxSeqRow?.max_seq || 0) + 1;
+
+                            const CRM_ORDER_PREFIX = { ctv: 'CTV-', ctv_hoa_hong: 'AFF-', koc_tiktok: 'KOC-' };
+                            let crmPrefix = (customer.crm_type && customer.crm_type !== 'nhu_cau') ? (CRM_ORDER_PREFIX[customer.crm_type] || '') : '';
+                            targetOrderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
+                        }
+                    } else {
+                        targetOrderCode = rawTarget;
+                    }
+
+                    // Register fresh order_code in order_codes table (or reuse if generated right before)
+                    const userId = customer.assigned_to_id || request.user.id;
+                    const existingOc = await tx.get('SELECT id FROM order_codes WHERE order_code = $1 AND customer_id = $2', [targetOrderCode, customer.id]);
+                    if (existingOc) {
+                        targetOrderId = existingOc.id;
+                    } else {
+                        const insRes = await tx.run(
+                            "INSERT INTO order_codes (customer_id, user_id, order_code, status, is_zero_deposit) VALUES (?, ?, ?, 'active', false)",
+                            [customer.id, userId, targetOrderCode]
+                        );
+                        targetOrderId = insRes.lastInsertRowid;
+                    }
+
+                    // Update payment record to bind order_tt_coc IF payment_record_id provided
+                    if (prRow) {
+                        await tx.run(`
+                            UPDATE payment_records SET
+                                payment_type = 'dat_coc',
+                                handover_status = 'thu_quy_nhan',
+                                customer_name = ?,
+                                customer_phone = ?,
+                                customer_id = ?,
+                                cskh_user_id = ?,
+                                order_tt_coc = ?,
+                                locked_by = ?,
+                                locked_at = NOW(),
+                                updated_at = NOW()
+                            WHERE id = ?
+                        `, [customer.customer_name, customer.phone, customer.id, request.user.id, targetOrderCode, request.user.id, prRow.id]);
+                    }
+
+                    orderStatusAfter = 'deposited';
+                    responseData = {
+                        success: true,
+                        action: 'dat_coc',
+                        order_id: targetOrderId,
+                        order_code: targetOrderCode,
+                        deposit_code: depositCode
+                    };
+                }
+
+                // Other log types (huy_coc)
+                if (log_type === 'huy_coc') {
+                    await tx.run(`
+                        UPDATE payment_records SET payment_type = 'tra_lai_coc', locked_by = NULL, locked_at = NULL, updated_at = NOW()
+                        WHERE payment_type = 'dat_coc' AND customer_name = $1 AND customer_phone = $2
+                    `, [customer.customer_name, customer.phone]);
+                }
+
+                // Insert consultation log
+                let consultContent = fields.content || '';
+                if (!consultContent || !consultContent.trim()) {
+                    if (log_type === 'dat_coc') consultContent = 'Ghi nhận đặt cọc';
+                    else if (log_type === 'chot_don') consultContent = 'Ghi nhận chốt đơn thành công';
+                }
+                const payment_record_id = fields.payment_record_id ? Number(fields.payment_record_id) : null;
+                if (payment_record_id && prRow) {
+                    const amtFmt = Number(prRow.amount || 0).toLocaleString('vi-VN');
+                    consultContent += `\n(Đã liên kết mã tiền cọc: ${prRow.payment_code} - Số tiền: ${amtFmt}đ)`;
+                }
+                const deposit_amount = Number(fields.deposit_amount) || 0;
+                const next_consult_type = fields.next_consult_type || null;
+
+                const logInsRes = await tx.run(
+                    `INSERT INTO consultation_logs (customer_id, log_type, content, image_path, logged_by, deposit_amount, next_consult_type, payment_record_id) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [customerId, log_type, consultContent || null, imagePath, request.user.id, deposit_amount, next_consult_type, payment_record_id]
+                );
+
+                responseData.log_id = logInsRes.lastInsertRowid;
+
+                const statusMap = { 'goi_dien': 'dang_tu_van', 'nhan_tin': 'dang_tu_van', 'gap_truc_tiep': 'dang_tu_van', 'gui_bao_gia': 'bao_gia', 'gui_mau': 'dang_tu_van', 'thiet_ke': 'dang_tu_van', 'bao_sua': 'dang_tu_van', 'lam_quen_tuong_tac': 'lam_quen_tuong_tac', 'gui_stk_coc': 'gui_stk_coc', 'giuc_coc': 'gui_stk_coc', 'dat_coc': 'dat_coc', 'chot_don': 'chot_don', 'dang_san_xuat': 'chot_don', 'hoan_thanh': 'hoan_thanh', 'sau_ban_hang': 'sau_ban_hang', 'tuong_tac_ket_noi': 'tuong_tac_ket_noi', 'gui_ct_kh_cu': 'gui_ct_kh_cu', 'giam_gia': 'giam_gia', 'huy_coc': 'huy_coc', 'da_huy_don_tra_coc': 'da_huy_don_tra_coc', 'da_huy_don': 'da_huy_don', 'huy_don': 'da_huy_don' };
+                if (statusMap[log_type]) {
+                    const isAlreadyChotDon = ['chot_don', 'san_xuat', 'giao_hang', 'hoan_thanh', 'sau_ban_hang', 'dang_san_xuat'].includes(customer.order_status);
+                    const isMinorFollowup = ['goi_dien', 'nhan_tin', 'gap_truc_tiep', 'gui_bao_gia', 'gui_mau', 'thiet_ke', 'bao_sua', 'lam_quen_tuong_tac', 'gui_stk_coc', 'giuc_coc'].includes(log_type);
+                    if (!(isAlreadyChotDon && isMinorFollowup)) {
+                        await tx.run('UPDATE customers SET order_status = ?, updated_at = NOW() WHERE id = ?', [statusMap[log_type], customerId]);
+                    }
+                }
+
+                // Log structured trace
+                console.log('[CONSULT_TRACE]', JSON.stringify({
+                    request_id: requestId,
+                    action: log_type,
+                    customer_id: customerId,
+                    order_id: targetOrderId,
+                    order_code: targetOrderCode,
+                    deposit_code: depositCode,
+                    order_status_before: orderStatusBefore,
+                    order_status_after: orderStatusAfter,
+                    create_order_called: createOrderCalled,
+                    timestamp: new Date().toISOString()
+                }));
+
+                // Save idempotency record BEFORE COMMIT
+                if (idempotencyKey) {
+                    await tx.run(
+                        'INSERT INTO request_idempotency (idempotency_key, endpoint, response_body) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+                        [idempotencyKey, endpoint, JSON.stringify(responseData)]
+                    );
+                }
+                return reply.code(200).send(responseData);
+            });
+        } catch (err) {
+            console.error('[CONSULT_ERROR]', err);
+            return reply.code(err.statusCode || 500).send({ error: err.message || 'Lỗi xử lý server' });
+        }
     });
+
 
     fastify.put('/api/customers/:id/appointment', { preHandler: [authenticate] }, async (request, reply) => {
         const { appointment_date } = request.body || {};

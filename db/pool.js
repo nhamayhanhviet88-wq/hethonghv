@@ -94,9 +94,53 @@ const database = {
         return result.rows[0] || null;
     },
 
-    // Execute raw SQL (for schema creation, multiple statements)
+    // Executeraw SQL (for schema creation, multiple statements)
     async exec(sql) {
         await pool.query(sql);
+    },
+
+    // Transaction execution helper on a single database connection client
+    async withTransaction(callback) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const tx = {
+                query: (sql, params = []) => {
+                    const converted = convertPlaceholders(sql, params);
+                    return client.query(converted.sql, converted.params);
+                },
+                get: async (sql, params = []) => {
+                    const converted = convertPlaceholders(sql, params);
+                    const res = await client.query(converted.sql, converted.params);
+                    return res.rows[0] || null;
+                },
+                all: async (sql, params = []) => {
+                    const converted = convertPlaceholders(sql, params);
+                    const res = await client.query(converted.sql, converted.params);
+                    return res.rows;
+                },
+                run: async (sql, params = []) => {
+                    const converted = convertPlaceholders(sql, params);
+                    let finalSql = converted.sql;
+                    const noIdTables = ['app_config', 'task_schedule_active_teams', 'global_penalty_config', 'material_warehouse_sources', 'kv_order_consumed_slips', 'tsam_sample_products', 'meeting_session_departments', 'request_idempotency'];
+                    const hasNoId = noIdTables.some(t => new RegExp('INTO\\s+' + t, 'i').test(finalSql));
+                    if (/^\s*INSERT\s/i.test(finalSql) && !/RETURNING/i.test(finalSql) && !hasNoId) {
+                        finalSql = finalSql.replace(/;?\s*$/, ' RETURNING id');
+                    }
+                    const res = await client.query(finalSql, converted.params);
+                    const lastInsertRowid = res.rows && res.rows.length > 0 && res.rows[0].id != null ? res.rows[0].id : 0;
+                    return { lastInsertRowid, changes: res.rowCount };
+                }
+            };
+            const result = await callback(tx, client);
+            await client.query('COMMIT');
+            return result;
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     },
 
     // No-op for compatibility (PostgreSQL auto-persists)

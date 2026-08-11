@@ -427,8 +427,15 @@ async function renderBaoCaoHoaHongHVPage(container) {
                     <input class="hv-date-hide" type="date" id="hvDateFrom" onchange="_hvApplyDateFilter()" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
                     <span class="hv-date-hide" style="color:#94a3b8;">—</span>
                     <input class="hv-date-hide" type="date" id="hvDateTo" onchange="_hvApplyDateFilter()" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
-                    <select class="hv-date-hide" onchange="_hvSetYear(this)" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
-                        <option value="2026" selected>2026</option><option value="2025">2025</option>
+                    <select class="hv-date-hide" id="hvSelectYear" onchange="_hvSetYear(this)" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
+                        ${(() => {
+                            const curY = new Date().getFullYear();
+                            let h = '';
+                            for (let y = curY + 1; y >= 2024; y--) {
+                                h += `<option value="${y}" ${y === curY ? 'selected' : ''}>Năm ${y}</option>`;
+                            }
+                            return h;
+                        })()}
                     </select>
                     <span style="font-size:12px;color:#475569;font-weight:600;">🗓 CHỌN THÁNG</span>
                     <input type="month" id="hvMonthPicker" onchange="_hvSetMonth(this.value)" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">

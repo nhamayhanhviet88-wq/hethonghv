@@ -1536,11 +1536,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     + '<div style="font-size:15px;font-weight:900;color:#9a3412;margin-bottom:12px;">📋 Sale Dặn Kế Toán Trước Gửi Hàng</div>'
     + '<table style="width:100%;border-collapse:collapse;">' + saleKtHTML + '</table>'
     + '</div>'
-    + itemsHTML
-    + payHTML
-    + surHTML
-    + finHTML
-    // Checkbox confirm (Moved above info)
+    // Checkbox confirm (Nằm ngay dưới Sale Dặn KT)
     + '<style>'
     + '@keyframes pulseBlinkConfirm {'
     + '  0% { border-color: #fb923c; box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.3); background-color: #fffbeb; }'
@@ -1549,12 +1545,16 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     + '}'
     + '.sh-blink-confirm { animation: pulseBlinkConfirm 1.8s infinite ease-in-out; transition: all 0.3s ease; }'
     + '</style>'
-    + '<div class="sh-blink-confirm" style="margin: 16px 0; padding: 14px 18px; border: 2.5px solid #fb923c; border-radius: 12px; display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="const chk=document.getElementById(\'shReadConfirmCheck\'); if(event.target!==chk) { chk.checked=!chk.checked; }">'
+    + '<div class="sh-blink-confirm" style="margin: 0 0 16px 0; padding: 14px 18px; border: 2.5px solid #fb923c; border-radius: 12px; display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="const chk=document.getElementById(\'shReadConfirmCheck\'); if(event.target!==chk) { chk.checked=!chk.checked; }">'
     + '<input type="checkbox" id="shReadConfirmCheck" style="width: 20px; height: 20px; cursor: pointer; accent-color: #dc2626;" onclick="event.stopPropagation()">'
     + '<label for="shReadConfirmCheck" style="font-size: 13.5px; font-weight: 900; color: #9a3412; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px;">'
     + '👉 <span style="color: #dc2626; font-size: 14px; text-decoration: underline; text-underline-offset: 3px;">Đã Đọc Và Làm Theo Sale Dặn</span> 👈'
     + '</label>'
     + '</div>'
+    + itemsHTML
+    + payHTML
+    + surHTML
+    + finHTML
     // P1.5: Thông tin đơn hàng
     + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:16px;">'
     + '<div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:10px;">📄 Thông tin đơn hàng</div>'
@@ -1572,6 +1572,27 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
         + '</a>'
         + '</div>'
       : '')
+    + '</div>'
+    // P1.6: Gọi Điện / Nhắn Tin Cho Khách (Bắt buộc)
+    + '<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:2px solid #3b82f6;border-radius:12px;padding:14px 16px;margin-bottom:16px;">'
+    + '<div style="font-size:13px;font-weight:800;color:#1e40af;margin-bottom:4px;display:flex;align-items:center;gap:6px;">'
+    + '📞 Gọi Điện / Nhắn Tin Cho Khách Thông Báo Gửi Hàng <span style="color:#dc2626;font-weight:900;">*</span>'
+    + '</div>'
+    + '<div style="font-size:11.5px;color:#dc2626;margin-bottom:10px;font-weight:700;">'
+    + '⚠️ Chụp ảnh linh tinh , không đúng thông báo gửi hàng : chịu phạt của công ty và đơn hàng có vấn đề gì chịu trách nhiệm !!!'
+    + '</div>'
+    + '<div id="shNotifyCustPasteZone" tabindex="0" onpaste="_shHandleNotifyCustPaste(event)" onclick="this.focus()" style="border:2px dashed #93c5fd;border-radius:10px;background:#ffffff;padding:16px;text-align:center;cursor:pointer;transition:all 0.2s;outline:none;">'
+    + '<div id="shNotifyCustHint" style="font-size:13px;font-weight:700;color:#2563eb;display:flex;align-items:center;justify-content:center;gap:6px;">'
+    + '📋 Ctrl+V để dán ảnh'
+    + '</div>'
+    + '<div id="shNotifyCustPreviewWrap" style="display:none;margin-top:10px;text-align:center;">'
+    + '<img id="shNotifyCustPreview" src="" style="max-width:100%;max-height:220px;border-radius:8px;border:1.5px solid #93c5fd;box-shadow:0 4px 12px rgba(0,0,0,0.1);object-fit:contain;" />'
+    + '<div style="margin-top:8px;">'
+    + '<button type="button" onclick="event.stopPropagation(); _shRemoveNotifyCustImage()" style="padding:4px 12px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">❌ Xóa ảnh / Dán lại</button>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
+    + '<input type="hidden" id="shNotifyCustImgLink" value="" />'
     + '</div>'
     // P2: NVC
     + '<div style="margin-bottom:16px;">'
@@ -1602,7 +1623,7 @@ async function _shShipOrder(id, code, itemId = null, itemName = null, itemLabel 
     + '<div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;">'
     + backBtnHtml
     + '<button onclick="document.getElementById(\'shShipModal\')?.remove()" style="padding:9px 18px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;">Hủy bỏ</button>'
-    + '<button onclick="_shDoShip(\'' + id + '\')" style="padding:9px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;font-size:13px;">📤 Gửi Hàng</button>'
+    + '<button id="shSubmitShipBtn" onclick="_shDoShip(\'' + id + '\')" disabled style="padding:9px 18px;border:none;border-radius:8px;background:#9ca3af;color:white;cursor:not-allowed;font-weight:700;font-size:13px;opacity:0.5;transition:all 0.3s;" title="Bắt buộc dán ảnh chứng minh Gọi Điện / Nhắn Tin cho Khách trước khi gửi hàng!">📤 Gửi Hàng</button>'
     + '</div></div>';
 
     window._shModalState = { 
@@ -1734,7 +1755,7 @@ async function _shHandleBillPaste(e) {
             if (preview) preview.style.display = 'none';
             
             try {
-                const resizedBlob = await _shResizeImage(blob, 1000, 1000, 0.75);
+                const resizedBlob = await _shResizeImage(blob, 800, 800, 0.6);
                 
                 const fd = new FormData();
                 fd.append('file', resizedBlob, 'bill_' + Date.now() + '.jpg');
@@ -1769,6 +1790,100 @@ async function _shHandleBillPaste(e) {
     }
 }
 window._shHandleBillPaste = _shHandleBillPaste;
+
+async function _shHandleNotifyCustPaste(e) {
+    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            const blob = items[i].getAsFile();
+            
+            const hint = document.getElementById('shNotifyCustHint');
+            const previewWrap = document.getElementById('shNotifyCustPreviewWrap');
+            const preview = document.getElementById('shNotifyCustPreview');
+            const hiddenInput = document.getElementById('shNotifyCustImgLink');
+            
+            if (hint) {
+                hint.innerHTML = '⏳ Đang nén và tải ảnh lên...';
+                hint.style.color = '#d97706';
+                hint.style.display = 'block';
+            }
+            if (previewWrap) previewWrap.style.display = 'none';
+            
+            try {
+                const resizedBlob = await _shResizeImage(blob, 800, 800, 0.6);
+                const fd = new FormData();
+                fd.append('file', resizedBlob, 'notify_cust_' + Date.now() + '.jpg');
+                
+                const resp = await fetch('/api/tsam/upload', { method: 'POST', body: fd, credentials: 'include' });
+                const data = await resp.json();
+                
+                if (data.success && data.url) {
+                    const fullUrl = window.location.origin + data.url;
+                    if (hiddenInput) hiddenInput.value = fullUrl;
+                    if (window._shModalState) window._shModalState.notifyCustImgLink = fullUrl;
+                    if (hint) hint.style.display = 'none';
+                    if (preview) preview.src = fullUrl;
+                    if (previewWrap) previewWrap.style.display = 'block';
+                    _shUpdateShipBtnState();
+                } else {
+                    alert(data.error || 'Lỗi tải ảnh lên');
+                    if (hint) {
+                        hint.innerHTML = '📋 Ctrl+V để dán ảnh';
+                        hint.style.color = '#2563eb';
+                    }
+                }
+            } catch (err) {
+                alert('Lỗi xử lý ảnh: ' + err.message);
+                if (hint) {
+                    hint.innerHTML = '📋 Ctrl+V để dán ảnh';
+                    hint.style.color = '#2563eb';
+                }
+            }
+            return;
+        }
+    }
+}
+window._shHandleNotifyCustPaste = _shHandleNotifyCustPaste;
+
+function _shRemoveNotifyCustImage() {
+    const hint = document.getElementById('shNotifyCustHint');
+    const previewWrap = document.getElementById('shNotifyCustPreviewWrap');
+    const preview = document.getElementById('shNotifyCustPreview');
+    const hiddenInput = document.getElementById('shNotifyCustImgLink');
+    if (hiddenInput) hiddenInput.value = '';
+    if (window._shModalState) window._shModalState.notifyCustImgLink = '';
+    if (preview) preview.src = '';
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (hint) {
+        hint.innerHTML = '📋 Ctrl+V để dán ảnh';
+        hint.style.color = '#2563eb';
+        hint.style.display = 'flex';
+    }
+    _shUpdateShipBtnState();
+}
+window._shRemoveNotifyCustImage = _shRemoveNotifyCustImage;
+
+function _shUpdateShipBtnState() {
+    const btn = document.getElementById('shSubmitShipBtn');
+    const imgLink = document.getElementById('shNotifyCustImgLink')?.value;
+    if (!btn) return;
+    if (imgLink) {
+        btn.disabled = false;
+        btn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+        btn.style.cursor = 'pointer';
+        btn.style.opacity = '1';
+        btn.title = '';
+    } else {
+        btn.disabled = true;
+        btn.style.background = '#9ca3af';
+        btn.style.cursor = 'not-allowed';
+        btn.style.opacity = '0.5';
+        btn.title = 'Bắt buộc dán ảnh chứng minh Gọi Điện / Nhắn Tin cho Khách trước khi gửi hàng!';
+    }
+}
+window._shUpdateShipBtnState = _shUpdateShipBtnState;
 
 function _shOnCarrierChange() {
     const sel = document.getElementById('shCarrierSel'); if (!sel) return;
@@ -2047,6 +2162,12 @@ async function _shDoShip(id) {
         }
     }
 
+    // Image proof validation
+    const notifyImg = document.getElementById('shNotifyCustImgLink')?.value || s?.notifyCustImgLink;
+    if (!notifyImg) {
+        return alert('⚠️ Bắt buộc phải dán ảnh chụp màn hình chứng minh Gọi Điện / Nhắn Tin cho Khách trước khi gửi hàng!');
+    }
+
     // Submit
     try {
         const body = {
@@ -2055,7 +2176,8 @@ async function _shDoShip(id) {
             shipping_fee: isPendingUpdate ? 0 : (isNoFee ? 0 : Number(feeRaw)),
             shipping_fee_payer: isPendingUpdate ? null : (isNoFee ? null : s.payer),
             shipping_fee_method: isPendingUpdate ? null : (isNoFee ? null : s.method),
-            no_fee_carrier: isNoFee
+            no_fee_carrier: isNoFee,
+            customer_notify_img: notifyImg
         };
         if (!isPendingUpdate) {
             if (s.selectedPaymentId) body.selected_payment_id = s.selectedPaymentId;
@@ -3104,6 +3226,7 @@ async function _shShowShippingDetailOnly(orderId) {
                             actual_carrier_tracking_url: s.actual_carrier_tracking_url,
                             tracking_code: s.tracking_code,
                             shipping_bill_link: s.shipping_bill_link,
+                            customer_notify_img: s.customer_notify_img || o.customer_notify_img,
                             carrier_phone: s.carrier_phone,
                             receiver_name: s.receiver_name,
                             shipping_fee: s.shipping_fee,
@@ -3237,6 +3360,34 @@ async function _shShowShippingDetailOnly(orderId) {
                     })(itBillCid, it.shipping_bill_link);
                 }
                 
+                const custNotifyImg = it.customer_notify_img || o.customer_notify_img;
+                let notifyImgHtml = '';
+                if (custNotifyImg) {
+                    const custNotifyCid = `_custNotifyImgModal_${o.id}_${it.id || countLanGui}`;
+                    notifyImgHtml = `<span id="${custNotifyCid}" style="color:#64748b;font-size:11px">⏳ Đang tải...</span>`;
+                    (function(_cid, _origUrl) {
+                        setTimeout(function() {
+                            const el = document.getElementById(_cid);
+                            if (!el) return;
+                            let imgSrc = _origUrl;
+                            if (imgSrc && imgSrc.includes('/uploads/')) {
+                                imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                            }
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                            img.onerror = function() {
+                                el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📱 Xem ảnh liên hệ khách (link)</a>';
+                            };
+                            img.onclick = function() {
+                                showShippingBillLightbox(imgSrc);
+                            };
+                            el.innerHTML = '';
+                            el.appendChild(img);
+                        }, 100);
+                    })(custNotifyCid, custNotifyImg);
+                }
+                
                 const timeValue = it.actual_ship_datetime ? vnFormat(it.actual_ship_datetime) : (it.shipped_at ? vnFormat(it.shipped_at) : '—');
                 
                 let headerHtml = '';
@@ -3312,6 +3463,7 @@ async function _shShowShippingDetailOnly(orderId) {
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💵 Số tiền thanh toán:</span> <span style="font-weight:700;color:#0284c7">${(Number(it.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>` : ''}
                         ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
+                        ${custNotifyImg ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">📱 Ảnh nhắn/gọi khách:</span> <div>${notifyImgHtml}</div>` : ''}
                     </div>
                 </div>`;
             }
@@ -3391,6 +3543,32 @@ async function _shShowShippingDetailOnly(orderId) {
                     })(_billCid, o.shipping_bill_link);
                 }
                 shipHTML += row('📷 Bill gửi hàng', billHtml);
+                if (o.customer_notify_img) {
+                    const _notifyCid = `_notifyCustImgModal_${o.id}`;
+                    const notifyImgFallbackHtml = `<span id="${_notifyCid}" style="color:#64748b;font-size:11px">⏳ Đang tải...</span>`;
+                    (function(_cid, _origUrl) {
+                        setTimeout(function() {
+                            const el = document.getElementById(_cid);
+                            if (!el) return;
+                            let imgSrc = _origUrl;
+                            if (imgSrc && imgSrc.includes('/uploads/')) {
+                                imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                            }
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                            img.onerror = function() {
+                                el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📱 Xem ảnh liên hệ khách (link)</a>';
+                            };
+                            img.onclick = function() {
+                                showShippingBillLightbox(imgSrc);
+                            };
+                            el.innerHTML = '';
+                            el.appendChild(img);
+                        }, 100);
+                    })(_notifyCid, o.customer_notify_img);
+                    shipHTML += row('📱 Ảnh nhắn/gọi khách', notifyImgFallbackHtml);
+                }
                 const _payerLabel = o.shipping_fee_payer === 'hv' ? ((o.tracking_code && o.tracking_code.trim()) ? 'HV trả cước vận chuyển' : (o.shipping_fee_method === 'ck' ? 'HV trả CK' : (o.shipping_fee_method === 'tm' ? 'HV trả TM' : 'HV trả cước vận chuyển'))) : o.shipping_fee_payer === 'khach' ? 'Khách trả' : '—';
                 const _payerColor = o.shipping_fee_payer === 'hv' ? '#7c3aed' : '#059669';
                 shipHTML += row('💳 Người Trả', `<span style="font-weight:800;color:${_payerColor}">${_payerLabel}</span>`);

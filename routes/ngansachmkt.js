@@ -98,6 +98,7 @@ async function nganSachMktRoutes(fastify, options) {
         await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_dev_account_link TEXT');
         await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_dev_portal_link TEXT');
         await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS fb_access_token TEXT');
+        await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS channel_link TEXT');
 
         await db.run('ALTER TABLE marketing_budgets ALTER COLUMN channel DROP NOT NULL');
         await db.run('ALTER TABLE marketing_budgets ADD COLUMN IF NOT EXISTS category_id INT');
@@ -679,7 +680,7 @@ async function nganSachMktRoutes(fastify, options) {
     // POST /api/marketing-categories
     fastify.post('/api/marketing-categories', { preHandler: [authenticate] }, async (request, reply) => {
         try {
-            const { group_type, name, icon, parent_id, linked_source_type, linked_source_name, pancake_page_id, pancake_page_name, ads_handler_name, allowed_reporter_names, fb_ad_account_id, fb_access_token, fb_ad_account_name, fb_ad_account_link } = request.body || {};
+            const { group_type, name, icon, parent_id, linked_source_type, linked_source_name, pancake_page_id, pancake_page_name, ads_handler_name, allowed_reporter_names, fb_ad_account_id, fb_access_token, fb_ad_account_name, fb_ad_account_link, channel_link } = request.body || {};
             if (!group_type || !name) {
                 return reply.code(400).send({ error: 'Vui lòng nhập tên kênh và chọn loại nhóm (Online / Offline)' });
             }
@@ -701,10 +702,11 @@ async function nganSachMktRoutes(fastify, options) {
 
             const finalLinkedType = parentIdNum ? (linked_source_type || null) : null;
             const finalLinkedName = parentIdNum ? (linked_source_name || null) : null;
+            const cleanChannelLink = channel_link ? channel_link.trim() : null;
 
             const res = await db.get(`
-                INSERT INTO mkt_categories (parent_id, group_type, name, icon, sort_order, linked_source_type, linked_source_name, pancake_page_id, pancake_page_name, ads_handler_name, allowed_reporter_names, fb_ad_account_id, fb_access_token, fb_ad_account_name, fb_ad_account_link)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO mkt_categories (parent_id, group_type, name, icon, sort_order, linked_source_type, linked_source_name, pancake_page_id, pancake_page_name, ads_handler_name, allowed_reporter_names, fb_ad_account_id, fb_access_token, fb_ad_account_name, fb_ad_account_link, channel_link, show_in_kpi_mkt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
                 RETURNING *
             `, [
                 parentIdNum,
@@ -721,7 +723,8 @@ async function nganSachMktRoutes(fastify, options) {
                 cleanAdAccId,
                 fb_access_token || null,
                 fb_ad_account_name || null,
-                fb_ad_account_link || null
+                fb_ad_account_link || null,
+                cleanChannelLink
             ]);
 
             return { success: true, data: res, message: 'Đã thêm kênh Marketing mới' };
@@ -750,7 +753,7 @@ async function nganSachMktRoutes(fastify, options) {
                 return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền chỉnh sửa mục Marketing' });
             }
             const id = Number(request.params.id);
-            const { name, icon, linked_source_name, ads_handler_name, allowed_reporter_names, pancake_page_id, pancake_page_name, fb_ad_account_id, fb_ad_account_name, fb_ad_account_link } = request.body || {};
+            const { name, icon, linked_source_name, ads_handler_name, allowed_reporter_names, pancake_page_id, pancake_page_name, fb_ad_account_id, fb_ad_account_name, fb_ad_account_link, channel_link } = request.body || {};
 
             const existing = await db.get('SELECT * FROM mkt_categories WHERE id = ? AND is_active = TRUE', [id]);
             if (!existing) {
@@ -766,6 +769,7 @@ async function nganSachMktRoutes(fastify, options) {
 
             const isParentCat = !existing.parent_id;
             const finalLinkedName = isParentCat ? null : (linked_source_name !== undefined ? linked_source_name : existing.linked_source_name);
+            const cleanChannelLink = channel_link !== undefined ? (channel_link ? channel_link.trim() : null) : existing.channel_link;
 
             await db.run(`
                 UPDATE mkt_categories SET
@@ -778,7 +782,8 @@ async function nganSachMktRoutes(fastify, options) {
                     pancake_page_name = ?,
                     fb_ad_account_id = ?,
                     fb_ad_account_name = ?,
-                    fb_ad_account_link = ?
+                    fb_ad_account_link = ?,
+                    channel_link = ?
                 WHERE id = ?
             `, [
                 name !== undefined ? name.trim() : existing.name,
@@ -791,12 +796,18 @@ async function nganSachMktRoutes(fastify, options) {
                 cleanAdAccId,
                 fb_ad_account_name !== undefined ? fb_ad_account_name : existing.fb_ad_account_name,
                 fb_ad_account_link !== undefined ? fb_ad_account_link : existing.fb_ad_account_link,
+                cleanChannelLink,
                 id
             ]);
 
             // Sync ads_handler_name to existing marketing_budgets records for this category if updated
             if (ads_handler_name !== undefined) {
                 await db.run('UPDATE marketing_budgets SET ads_handler_name = ? WHERE category_id = ?', [ads_handler_name, id]);
+            }
+
+            const updatedName = name !== undefined ? name.trim() : existing.name;
+            if (updatedName && cleanChannelLink) {
+                await db.run('UPDATE mkt_categories SET channel_link = ? WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND is_active = TRUE', [cleanChannelLink, updatedName]);
             }
 
             return { success: true, message: 'Đã cập nhật cấu hình & phân công nhân viên cho mục Marketing' };
@@ -875,7 +886,8 @@ async function nganSachMktRoutes(fastify, options) {
                         TRIM(o.source) as source,
                         LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) as clean_source_key,
                         o.total_amount,
-                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone
+                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone,
+                        COALESCE(c.customer_type, 'moi') as customer_type
                     FROM dht_orders o
                     LEFT JOIN customers c ON c.id = o.customer_id OR (
                         RIGHT(REGEXP_REPLACE(c.phone, '\\D', '', 'g'), 9) = RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9)
@@ -902,7 +914,7 @@ async function nganSachMktRoutes(fastify, options) {
                     COUNT(*)::int as cnt, 
                     SUM(total_amount)::numeric as rev
                 FROM RankedOrders
-                WHERE rn = 1
+                WHERE rn = 1 AND COALESCE(customer_type, 'moi') <> 'cu'
                 GROUP BY dt_str, source, clean_source_key
             `);
 
@@ -1046,7 +1058,7 @@ async function nganSachMktRoutes(fastify, options) {
     // GET /api/marketing-budgets/first-touch-orders
     fastify.get('/api/marketing-budgets/first-touch-orders', { preHandler: [authenticate] }, async (request, reply) => {
         try {
-            const { year, month, group_type, category_id } = request.query;
+            const { year, month, date_from, date_to, startDate, endDate, category_id, mkt_mode, lv_mode } = request.query;
 
             const orderDetails = await db.all(`
                 WITH ActiveSources AS (
@@ -1054,29 +1066,40 @@ async function nganSachMktRoutes(fastify, options) {
                         LOWER(TRIM(REGEXP_REPLACE(unnest(string_to_array(linked_source_name, ',')), '\\s*\\/\\s*', '/', 'g'))) as clean_src
                     FROM mkt_categories 
                     WHERE is_active = TRUE AND NULLIF(TRIM(linked_source_name), '') IS NOT NULL
+                    UNION
+                    SELECT LOWER(TRIM(REGEXP_REPLACE(channel_name, '\\s*\\/\\s*', '/', 'g'))) as clean_src
+                    FROM marketing_budgets
+                    WHERE channel_name IS NOT NULL AND TRIM(channel_name) <> ''
                 ),
                 NormalizedOrders AS (
                     SELECT 
                         o.id,
                         o.order_code,
+                        o.created_at,
                         TO_CHAR(COALESCE(o.created_at, o.order_date), 'YYYY-MM-DD HH24:MI') as order_time_str,
-                        TO_CHAR(o.order_date, 'YYYY-MM-DD') as dt_str,
+                        TO_CHAR(COALESCE(o.created_at, o.order_date), 'YYYY-MM-DD') as dt_str,
                         TRIM(o.source) as source,
                         LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) as clean_source_key,
                         COALESCE(c.customer_name, o.customer_name, 'Khách hàng') as customer_name,
                         COALESCE(u.full_name, '—') as sale_name,
                         COALESCE(o.total_quantity, 0) as total_quantity,
                         COALESCE(o.deposit_amount_cache, 0) as deposit_amount,
-                        o.total_amount,
-                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone
+                        oi_sum.revenue as total_amount,
+                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone,
+                        COALESCE(c.customer_type, 'moi') as customer_type
                     FROM dht_orders o
                     LEFT JOIN customers c ON c.id = o.customer_id OR (
                         RIGHT(REGEXP_REPLACE(c.phone, '\\D', '', 'g'), 9) = RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9)
                         AND RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9) <> ''
                     )
                     LEFT JOIN users u ON u.id = o.created_by
-                    WHERE o.order_date IS NOT NULL 
-                      AND COALESCE(o.is_draft, false) = false
+                    LEFT JOIN LATERAL (
+                        SELECT COALESCE(
+                            (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = o.id), 0
+                        ) - COALESCE(o.vat_amount, 0) AS revenue
+                    ) oi_sum ON true
+                    WHERE UPPER(COALESCE(o.order_code, '')) NOT LIKE '%SUA%'
+                      AND UPPER(COALESCE(o.order_code, '')) NOT LIKE '%MAU%'
                       AND NULLIF(TRIM(o.source), '') IS NOT NULL
                       AND LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) IN (SELECT clean_src FROM ActiveSources)
                 ),
@@ -1085,12 +1108,12 @@ async function nganSachMktRoutes(fastify, options) {
                         *,
                         ROW_NUMBER() OVER (
                             PARTITION BY norm_phone 
-                            ORDER BY dt_str ASC, id ASC
-                        ) as rn
+                            ORDER BY created_at ASC, id ASC
+                        ) as global_rn
                     FROM NormalizedOrders
                 )
                 SELECT * FROM RankedOrders 
-                WHERE rn = 1
+                WHERE global_rn = 1 AND COALESCE(customer_type, 'moi') <> 'cu'
                 ORDER BY order_time_str DESC, id DESC
             `);
 
@@ -1116,21 +1139,44 @@ async function nganSachMktRoutes(fastify, options) {
                         });
                     }
                 });
+                const budgetChans = await db.all("SELECT DISTINCT channel_name FROM marketing_budgets WHERE channel_name IS NOT NULL AND TRIM(channel_name) <> ''");
+                budgetChans.forEach(b => {
+                    if (b.channel_name) targetLinkedSources.add(normalizeSourceKey(b.channel_name));
+                });
             }
 
             let filteredOrders = orderDetails || [];
-            if (targetLinkedSources.size === 0) {
-                filteredOrders = [];
-            } else {
+            if (targetLinkedSources.size > 0) {
                 filteredOrders = filteredOrders.filter(o => targetLinkedSources.has(normalizeSourceKey(o.source)) || targetLinkedSources.has(normalizeSourceKey(o.clean_source_key)));
             }
 
-            if (year && month && month !== 'all') {
+            // Date filtering
+            const sDate = startDate || date_from;
+            const eDate = endDate || date_to;
+            if (sDate && eDate) {
+                const startStr = sDate.split(' ')[0].split('T')[0];
+                const endStr = eDate.split(' ')[0].split('T')[0];
+                filteredOrders = filteredOrders.filter(o => o.dt_str && o.dt_str >= startStr && o.dt_str <= endStr);
+            } else if (year && month && month !== 'all') {
                 const prefix = `${year}-${String(month).padStart(2, '0')}`;
                 filteredOrders = filteredOrders.filter(o => o.dt_str && o.dt_str.startsWith(prefix));
             } else if (year) {
                 const prefix = `${year}-`;
                 filteredOrders = filteredOrders.filter(o => o.dt_str && o.dt_str.startsWith(prefix));
+            }
+
+            // Mode filtering (dong_phuc / tem_pet / all)
+            const targetMode = mkt_mode || lv_mode;
+            if (targetMode === 'dong_phuc' || targetMode === 'dp') {
+                filteredOrders = filteredOrders.filter(o => {
+                    const code = (o.order_code || '').toUpperCase();
+                    return !code.includes('GCPET') && !code.includes('GCTEM') && !code.includes('PET') && !code.includes('TEM');
+                });
+            } else if (targetMode === 'tem_pet' || targetMode === 'pettem') {
+                filteredOrders = filteredOrders.filter(o => {
+                    const code = (o.order_code || '').toUpperCase();
+                    return code.includes('GCPET') || code.includes('GCTEM') || code.includes('PET') || code.includes('TEM');
+                });
             }
 
             let totalQty = 0;

@@ -1570,6 +1570,7 @@ module.exports = async function(fastify) {
 
             if (!isPendingUpdate && b.tracking_code) { sets.push(`tracking_code = $${idx++}`); params.push(b.tracking_code); }
             if (!isPendingUpdate && b.shipping_bill_link) { sets.push(`shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
+            if (b.customer_notify_img) { sets.push(`customer_notify_img = $${idx++}`); params.push(b.customer_notify_img); }
 
             sets.push(`shipping_fee = $${idx++}`); params.push(shipFee);
             sets.push(`shipping_fee_payer = $${idx++}`); params.push(isPendingUpdate ? null : b.shipping_fee_payer);
@@ -1885,6 +1886,7 @@ module.exports = async function(fastify) {
         if (!isPendingUpdate && b.shipping_bill_link) { sets.push(`shipping_bill_link = $${idx++}`); params.push(b.shipping_bill_link); }
         if (!isPendingUpdate && b.carrier_phone) { sets.push(`carrier_phone = $${idx++}`); params.push(b.carrier_phone); }
         if (!isPendingUpdate && b.receiver_name) { sets.push(`receiver_name = $${idx++}`); params.push(b.receiver_name); }
+        if (b.customer_notify_img) { sets.push(`customer_notify_img = $${idx++}`); params.push(b.customer_notify_img); }
 
         // Fee fields
         sets.push(`shipping_fee = $${idx++}`); params.push(shipFee);
@@ -2110,15 +2112,15 @@ module.exports = async function(fastify) {
                     dht_order_id, shipped_by, shipped_at, shipping_date, actual_ship_datetime,
                     actual_carrier_id, tracking_code, shipping_bill_link, carrier_phone, receiver_name,
                     shipping_fee, shipping_fee_payer, shipping_fee_method, shipping_cashflow_id, shipping_payment_id,
-                    item_ids, item_labels, is_pending_update
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                    item_ids, item_labels, is_pending_update, customer_notify_img
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
             `, [
                 orderId, userId, now.toISOString(), todayStr, now.toISOString(),
                 Number(b.actual_carrier_id), isPendingUpdate ? null : (b.tracking_code || null), isPendingUpdate ? null : (b.shipping_bill_link || null),
                 isPendingUpdate ? null : (b.carrier_phone || null), isPendingUpdate ? null : (b.receiver_name || null), shipFee,
                 (isPendingUpdate || isNoFeeCarrier) ? null : b.shipping_fee_payer, (isPendingUpdate || isNoFeeCarrier) ? null : b.shipping_fee_method,
                 cashflowResult ? cashflowResult.id : null, (!isPendingUpdate && b.selected_payment_id) ? Number(b.selected_payment_id) : null,
-                shippedItemIds.join(','), itemLabelsJson, isPendingUpdate
+                shippedItemIds.join(','), itemLabelsJson, isPendingUpdate, b.customer_notify_img || null
             ]);
         } catch (shipErr) {
             console.error('[Shipments Log] Error inserting shipment:', shipErr.message);

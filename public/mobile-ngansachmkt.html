@@ -121,11 +121,6 @@
         <div class="m-filter-card">
             <div class="m-row-flex">
                 <select id="mYearFilter" class="m-select" style="font-weight:800;color:#1e40af;" onchange="loadMobileBudgets()">
-                    <option value="2024">Năm 2024</option>
-                    <option value="2025">Năm 2025</option>
-                    <option value="2026" selected>Năm 2026</option>
-                    <option value="2027">Năm 2027</option>
-                    <option value="2028">Năm 2028</option>
                 </select>
                 <select id="mMonthFilter" class="m-select" style="font-weight:800;" onchange="loadMobileBudgets()">
                     ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => `<option value="${m}">Tháng ${m}</option>`).join('')}

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bảng Công Việc — Đồng Phục HV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260810">
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #faf7f2, #f5f0e8);
+            min-height: 100vh;
+            color: #1c1917;
+            padding-bottom: 80px;
+        }
+
+        /* Toast */
+        .mt-c{position:fixed;top:70px;left:12px;right:12px;z-index:9999}
+        .mt{padding:12px 16px;border-radius:12px;color:#fff;font-size:13px;font-weight:700;box-shadow:0 8px 25px rgba(0,0,0,.15);animation:mSI .3s cubic-bezier(.18,.89,.32,1.28);margin-bottom:8px}
+        @keyframes mSI{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}
+        .mt-s{background:linear-gradient(135deg,#16a34a,#15803d)}
+        .mt-e{background:linear-gradient(135deg,#dc2626,#b91c1c)}
+
+        /* Header */
+        .m-header {
+            background: linear-gradient(135deg, #2d2b28, #3d3a35);
+            padding: 16px;
+            color: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .m-header h1 { font-size: 18px; font-weight: 900; color: #f5f0e8; margin-bottom: 4px; }
+        .m-header-sub { font-size: 11px; color: #a8a29e; font-weight: 500; }
+
+        /* Tabs */
+        .m-tabs {
+            display: flex;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #fff;
+            border-bottom: 1px solid #e7e5e4;
+            overflow-x: auto;
+        }
+        .m-tab {
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: 1px solid #d6d3d1;
+            background: #fafaf9;
+            color: #78716c;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .m-tab.active { background: #2d2b28; color: #fff; border-color: #2d2b28; }
+
+        /* Filters */
+        .m-filters {
+            padding: 8px 16px;
+            background: #fff;
+            border-bottom: 1px solid #e7e5e4;
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+        }
+        .m-search {
+            flex: 1;
+            min-width: 160px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid #d6d3d1;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            background: #fafaf9;
+            outline: none;
+        }
+        .m-filter-sel {
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid #d6d3d1;
+            font-size: 11px;
+            font-weight: 600;
+            background: #fafaf9;
+            font-family: 'Outfit', sans-serif;
+            outline: none;
+            max-width: 130px;
+        }
+
+        /* Kanban Section */
+        .m-section {
+            margin: 10px 12px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #e7e5e4;
+            background: #fafaf9;
+        }
+        .m-section-header {
+            padding: 12px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 800;
+            color: #44403c;
+            border-bottom: 2px solid transparent;
+        }
+        .m-section[data-status="can_lam"] .m-section-header { border-bottom-color: #a8a29e; background: #f5f5f4; }
+        .m-section[data-status="dang_lam"] .m-section-header { border-bottom-color: #ea580c; background: #fff7ed; }
+        .m-section[data-status="cho_duyet"] .m-section-header { border-bottom-color: #2563eb; background: #eff6ff; }
+        .m-section[data-status="hoan_thanh"] .m-section-header { border-bottom-color: #16a34a; background: #f0fdf4; }
+        .m-section-count {
+            background: #e7e5e4;
+            color: #78716c;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .m-section-chevron { font-size: 14px; color: #a8a29e; transition: transform .2s; }
+        .m-section.collapsed .m-section-chevron { transform: rotate(-90deg); }
+        .m-section-body { padding: 8px; }
+        .m-section.collapsed .m-section-body { display: none; }
+        .m-section-empty { color: #a8a29e; font-size: 12px; text-align: center; padding: 20px; }
+
+        /* Task Card */
+        .m-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: 1px solid #e7e5e4;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .m-card:active { background: #f5f5f4; }
+        .m-card-tags { display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+        .m-tag { padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+        .m-tag-chinh { background: #fef3c7; color: #92400e; }
+        .m-tag-phu { background: #e7e5e4; color: #57534e; }
+        .m-tag-cao { background: #fecaca; color: #991b1b; }
+        .m-tag-trung_binh { background: #fed7aa; color: #9a3412; }
+        .m-tag-thap { background: #d1fae5; color: #065f46; }
+        .m-card-title { font-size: 13px; font-weight: 700; color: #1c1917; margin-bottom: 6px; }
+        .m-card-progress { height: 4px; background: #e7e5e4; border-radius: 4px; margin-bottom: 4px; overflow: hidden; }
+        .m-card-progress-bar { height: 100%; background: linear-gradient(90deg, #ea580c, #f97316); border-radius: 4px; }
+        .m-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+        .m-card-assignee { font-size: 11px; color: #78716c; font-weight: 600; }
+        .m-card-meta { font-size: 10px; color: #a8a29e; font-weight: 600; }
+        .m-card-deadline.overdue { color: #dc2626; font-weight: 700; }
+
+        /* FAB */
+        .m-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 16px;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #ea580c, #c2410c);
+            color: #fff;
+            border: none;
+            font-size: 28px;
+            font-weight: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 20px rgba(234,88,12,.4);
+            cursor: pointer;
+            z-index: 90;
+        }
+
+        /* Bottom Sheet */
+        .m-sheet-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,.5); z-index: 200;
+            animation: bsFadeIn .2s;
+        }
+        @keyframes bsFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .m-sheet {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: #fff; border-radius: 20px 20px 0 0;
+            max-height: 90vh; overflow-y: auto;
+            z-index: 201; padding: 20px 16px 40px;
+            animation: bsSlideUp .25s cubic-bezier(.18,.89,.32,1.28);
+        }
+        @keyframes bsSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .m-sheet-handle { width: 36px; height: 4px; background: #d6d3d1; border-radius: 4px; margin: 0 auto 16px; }
+        .m-sheet h3 { font-size: 16px; font-weight: 800; margin-bottom: 12px; }
+
+        .m-form-group { margin-bottom: 12px; }
+        .m-form-group label { display: block; font-size: 11px; font-weight: 700; color: #78716c; margin-bottom: 4px; text-transform: uppercase; }
+        .m-form-input, .m-form-select, .m-form-textarea {
+            width: 100%; padding: 10px 12px; border-radius: 10px;
+            border: 1px solid #d6d3d1; font-size: 13px; font-weight: 600;
+            font-family: 'Outfit', sans-serif; outline: none; background: #fafaf9;
+            box-sizing: border-box;
+        }
+        .m-form-textarea { resize: vertical; min-height: 60px; }
+        .m-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .m-form-actions { display: flex; gap: 8px; margin-top: 16px; }
+        .m-btn { flex: 1; padding: 12px; border-radius: 12px; border: none; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Outfit', sans-serif; }
+        .m-btn-primary { background: linear-gradient(135deg, #ea580c, #c2410c); color: #fff; }
+        .m-btn-secondary { background: #f5f5f4; color: #44403c; }
+        .m-btn-danger { background: #fecaca; color: #991b1b; }
+
+        /* Comments */
+        .m-comments { margin-top: 12px; border-top: 1px solid #f5f5f4; padding-top: 10px; }
+        .m-comment { padding: 8px 10px; background: #fafaf9; border-radius: 10px; margin-bottom: 6px; }
+        .m-comment-user { font-size: 11px; font-weight: 700; color: #44403c; }
+        .m-comment-time { font-size: 10px; color: #a8a29e; }
+        .m-comment-text { font-size: 12px; color: #57534e; margin-top: 2px; }
+        .m-comment-input-wrap { display: flex; gap: 6px; margin-top: 8px; }
+        .m-comment-input { flex: 1; padding: 8px 10px; border-radius: 10px; border: 1px solid #d6d3d1; font-size: 12px; font-family: 'Outfit', sans-serif; outline: none; }
+        .m-comment-send { padding: 8px 14px; border-radius: 10px; border: none; background: #ea580c; color: #fff; font-size: 12px; font-weight: 700; }
+    </style>
+</head>
+<body>
+    <div class="mt-c" id="toastContainer"></div>
+
+    <div class="m-header">
+        <h1>📋 Bảng Công Việc</h1>
+        <div class="m-header-sub" id="mGreeting">Đang tải...</div>
+    </div>
+
+    <div class="m-tabs" id="mTabs">
+        <button class="m-tab active" data-tab="me" onclick="mSwitchTab('me')">Task của tôi</button>
+    </div>
+
+    <div class="m-filters">
+        <input class="m-search" id="mSearch" placeholder="🔍 Tìm task..." oninput="mDebounceSearch()">
+        <select class="m-filter-sel" id="mFilterPriority" onchange="mApplyFilters()">
+            <option value="">Ưu tiên</option>
+            <option value="cao">🔴 Cao</option>
+            <option value="trung_binh">🟠 TB</option>
+            <option value="thap">🟢 Thấp</option>
+        </select>
+    </div>
+
+    <div id="mBoard"></div>
+
+    <div id="mFabWrap"></div>
+
+    <script>
+    var _m = { tasks: [], users: [], user: null, tab: 'me' };
+
+    // ========== AUTH ==========
+    function getToken() { return localStorage.getItem('token'); }
+    async function mApi(url, method, body) {
+        try {
+            var opts = { method: method || 'GET', headers: {} };
+            var token = getToken();
+            if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+            if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+            var res = await fetch(url, opts);
+            return await res.json();
+        } catch(e) { console.error(e); return null; }
+    }
+
+    function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+    // ========== INIT ==========
+    async function mInit() {
+        var token = getToken();
+        if (!token) { window.location.href = '/'; return; }
+
+        // Get current user
+        var meRes = await mApi('/api/users/me');
+        if (!meRes || !meRes.user) { window.location.href = '/'; return; }
+        _m.user = meRes.user;
+
+        var isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(_m.user.role);
+
+        document.getElementById('mGreeting').textContent = 'Xin chào, ' + (_m.user.full_name || 'Bạn') + ' 🌿';
+
+        // Add department tab for managers
+        if (isManager) {
+            var tabsEl = document.getElementById('mTabs');
+            tabsEl.innerHTML += '<button class="m-tab" data-tab="phong" onclick="mSwitchTab(\'phong\')">Phòng của tôi</button>';
+        }
+
+        // FAB for managers
+        if (isManager) {
+            document.getElementById('mFabWrap').innerHTML = '<button class="m-fab" onclick="mShowCreate()">＋</button>';
+        }
+
+        // Load users
+        var usersRes = await mApi('/api/board-tasks/users');
+        _m.users = (usersRes && usersRes.users) || [];
+
+        await mLoadTasks();
+    }
+
+    // ========== DATA ==========
+    async function mLoadTasks() {
+        var params = new URLSearchParams();
+        params.set('tab', _m.tab);
+        var search = (document.getElementById('mSearch') || {}).value || '';
+        var priority = (document.getElementById('mFilterPriority') || {}).value || '';
+        if (search) params.set('search', search);
+        if (priority) params.set('priority', priority);
+
+        var res = await mApi('/api/board-tasks?' + params.toString());
+        _m.tasks = (res && res.tasks) || [];
+        mRenderBoard();
+    }
+
+    function mRenderBoard() {
+        var cols = { can_lam: [], dang_lam: [], cho_duyet: [], hoan_thanh: [] };
+        _m.tasks.forEach(function(t) { if (cols[t.status]) cols[t.status].push(t); });
+
+        var labels = { can_lam: 'CẦN LÀM', dang_lam: 'ĐANG LÀM', cho_duyet: 'CHỜ DUYỆT', hoan_thanh: 'HOÀN THÀNH' };
+        var h = '';
+
+        Object.keys(cols).forEach(function(status) {
+            var tasks = cols[status];
+            var collapsed = status === 'hoan_thanh' && tasks.length === 0 ? ' collapsed' : '';
+            h += '<div class="m-section' + collapsed + '" data-status="' + status + '">';
+            h += '<div class="m-section-header" onclick="mToggleSection(this)">';
+            h += labels[status] + ' <span class="m-section-count">' + tasks.length + '</span>';
+            h += '<span class="m-section-chevron">▼</span>';
+            h += '</div>';
+            h += '<div class="m-section-body">';
+            if (tasks.length === 0) {
+                h += '<div class="m-section-empty">Trống</div>';
+            } else {
+                tasks.forEach(function(t) {
+                    var now = new Date();
+                    var isOverdue = t.deadline && new Date(t.deadline) < now && t.status !== 'hoan_thanh';
+                    var progress = Number(t.progress || 0);
+                    var assigneeName = t.assigned_to_name || 'Chưa giao';
+                    var deadlineStr = t.deadline ? new Date(t.deadline).toLocaleDateString('vi-VN') : '';
+                    var commentCount = Number(t.comment_count || 0);
+
+                    h += '<div class="m-card" onclick="mShowDetail(' + t.id + ')">';
+                    h += '<div class="m-card-tags">';
+                    h += '<span class="m-tag m-tag-' + t.task_type + '">' + (t.task_type === 'chinh' ? 'Chính' : 'Phụ') + '</span>';
+                    h += '<span class="m-tag m-tag-' + t.priority + '">' + (t.priority === 'cao' ? 'Cao' : t.priority === 'trung_binh' ? 'TB' : 'Thấp') + '</span>';
+                    h += '</div>';
+                    h += '<div class="m-card-title">' + esc(t.title) + '</div>';
+                    h += '<div class="m-card-progress"><div class="m-card-progress-bar" style="width:' + progress + '%"></div></div>';
+                    h += '<div class="m-card-footer">';
+                    h += '<div class="m-card-assignee">' + esc(assigneeName.length > 18 ? assigneeName.slice(0,18)+'…' : assigneeName) + '</div>';
+                    h += '<div class="m-card-meta">';
+                    if (commentCount > 0) h += '💬' + commentCount + ' ';
+                    if (deadlineStr) h += '<span class="m-card-deadline' + (isOverdue ? ' overdue' : '') + '">📅' + deadlineStr + '</span>';
+                    h += '</div>';
+                    h += '</div>';
+                    h += '</div>';
+                });
+            }
+            h += '</div></div>';
+        });
+
+        document.getElementById('mBoard').innerHTML = h;
+    }
+
+    // ========== INTERACTIONS ==========
+    function mToggleSection(el) {
+        var section = el.closest('.m-section');
+        if (section) section.classList.toggle('collapsed');
+    }
+
+    function mSwitchTab(tab) {
+        _m.tab = tab;
+        document.querySelectorAll('.m-tab').forEach(function(el) {
+            el.classList.toggle('active', el.dataset.tab === tab);
+        });
+        mLoadTasks();
+    }
+
+    var _mSearchTimer = null;
+    function mDebounceSearch() {
+        clearTimeout(_mSearchTimer);
+        _mSearchTimer = setTimeout(mLoadTasks, 300);
+    }
+    function mApplyFilters() { mLoadTasks(); }
+
+    // ========== CREATE ==========
+    function mShowCreate() {
+        var userOpts = '<option value="">— Chọn người —</option>';
+        _m.users.forEach(function(u) {
+            userOpts += '<option value="' + u.id + '">' + esc(u.full_name) + '</option>';
+        });
+
+        var overlay = document.createElement('div');
+        overlay.className = 'm-sheet-overlay';
+        overlay.id = 'mSheetOverlay';
+        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+        overlay.innerHTML = '<div class="m-sheet">' +
+            '<div class="m-sheet-handle"></div>' +
+            '<h3>＋ Tạo Task Mới</h3>' +
+            '<div class="m-form-group"><label>Tiêu đề *</label><input class="m-form-input" id="mCreateTitle" placeholder="Nhập tiêu đề..."></div>' +
+            '<div class="m-form-group"><label>Mô tả</label><textarea class="m-form-textarea" id="mCreateDesc" placeholder="Mô tả..."></textarea></div>' +
+            '<div class="m-form-row">' +
+            '<div class="m-form-group"><label>Loại</label><select class="m-form-select" id="mCreateType"><option value="chinh">Chính</option><option value="phu">Phụ</option></select></div>' +
+            '<div class="m-form-group"><label>Ưu tiên</label><select class="m-form-select" id="mCreatePriority"><option value="trung_binh">🟠 TB</option><option value="cao">🔴 Cao</option><option value="thap">🟢 Thấp</option></select></div>' +
+            '</div>' +
+            '<div class="m-form-group"><label>Giao cho</label><select class="m-form-select" id="mCreateAssignee">' + userOpts + '</select></div>' +
+            '<div class="m-form-group"><label>Deadline</label><input class="m-form-input" type="date" id="mCreateDeadline"></div>' +
+            '<div class="m-form-actions">' +
+            '<button class="m-btn m-btn-secondary" onclick="document.getElementById(\'mSheetOverlay\').remove()">Hủy</button>' +
+            '<button class="m-btn m-btn-primary" onclick="mSubmitCreate()">Tạo Task</button>' +
+            '</div>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+    }
+
+    async function mSubmitCreate() {
+        var title = (document.getElementById('mCreateTitle') || {}).value || '';
+        if (!title.trim()) { mToast('Vui lòng nhập tiêu đề', 'e'); return; }
+
+        var body = {
+            title: title.trim(),
+            description: (document.getElementById('mCreateDesc') || {}).value || '',
+            task_type: (document.getElementById('mCreateType') || {}).value || 'chinh',
+            priority: (document.getElementById('mCreatePriority') || {}).value || 'trung_binh',
+            assigned_to: (document.getElementById('mCreateAssignee') || {}).value || null,
+            deadline: (document.getElementById('mCreateDeadline') || {}).value || null
+        };
+
+        var res = await mApi('/api/board-tasks', 'POST', body);
+        if (res && res.ok) {
+            var overlay = document.getElementById('mSheetOverlay');
+            if (overlay) overlay.remove();
+            mToast('Tạo task thành công!', 's');
+            await mLoadTasks();
+        } else {
+            mToast(res?.error || 'Lỗi tạo task', 'e');
+        }
+    }
+
+    // ========== DETAIL ==========
+    async function mShowDetail(taskId) {
+        var task = _m.tasks.find(function(t) { return t.id === taskId; });
+        if (!task) return;
+
+        var isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(_m.user.role);
+        var isCreator = task.created_by === _m.user.id;
+        var canEdit = isManager || isCreator;
+        var canDelete = _m.user.role === 'giam_doc' || isCreator;
+
+        var commentsRes = await mApi('/api/board-tasks/' + taskId + '/comments');
+        var comments = (commentsRes && commentsRes.comments) || [];
+
+        var statusOpts = ['can_lam','dang_lam','cho_duyet','hoan_thanh'].map(function(s) {
+            var l = {can_lam:'Cần Làm',dang_lam:'Đang Làm',cho_duyet:'Chờ Duyệt',hoan_thanh:'Hoàn Thành'}[s];
+            return '<option value="' + s + '"' + (task.status===s?' selected':'') + '>' + l + '</option>';
+        }).join('');
+
+        var commentsHtml = comments.map(function(cm) {
+            return '<div class="m-comment"><div style="display:flex;justify-content:space-between"><span class="m-comment-user">' + esc(cm.user_name) + '</span><span class="m-comment-time">' + (cm.created_at ? new Date(cm.created_at).toLocaleString('vi-VN') : '') + '</span></div><div class="m-comment-text">' + esc(cm.content) + '</div></div>';
+        }).join('');
+
+        var overlay = document.createElement('div');
+        overlay.className = 'm-sheet-overlay';
+        overlay.id = 'mSheetOverlay';
+        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+        overlay.innerHTML = '<div class="m-sheet">' +
+            '<div class="m-sheet-handle"></div>' +
+            '<h3>📋 Task #' + task.id + '</h3>' +
+            '<div class="m-form-group"><label>Tiêu đề</label><input class="m-form-input" id="mDetailTitle" value="' + esc(task.title).replace(/"/g,'&quot;') + '"' + (!canEdit?' disabled':'') + '></div>' +
+            '<div class="m-form-group"><label>Mô tả</label><textarea class="m-form-textarea" id="mDetailDesc"' + (!canEdit?' disabled':'') + '>' + esc(task.description || '') + '</textarea></div>' +
+            '<div class="m-form-row">' +
+            '<div class="m-form-group"><label>Trạng thái</label><select class="m-form-select" id="mDetailStatus">' + statusOpts + '</select></div>' +
+            '<div class="m-form-group"><label>Tiến độ (%)</label><input class="m-form-input" type="number" id="mDetailProgress" min="0" max="100" value="' + (task.progress||0) + '"></div>' +
+            '</div>' +
+            '<div class="m-form-row">' +
+            '<div class="m-form-group"><label>Người giao</label><div style="padding:8px 0;font-size:13px;font-weight:600">' + esc(task.created_by_name||'?') + '</div></div>' +
+            '<div class="m-form-group"><label>Người nhận</label><div style="padding:8px 0;font-size:13px;font-weight:600">' + esc(task.assigned_to_name||'Chưa giao') + '</div></div>' +
+            '</div>' +
+            (task.deadline ? '<div class="m-form-group"><label>Deadline</label><div style="padding:8px 0;font-size:13px;font-weight:600">📅 ' + new Date(task.deadline).toLocaleDateString('vi-VN') + '</div></div>' : '') +
+            '<div class="m-form-actions">' +
+            (canDelete ? '<button class="m-btn m-btn-danger" onclick="mDeleteTask(' + task.id + ')">🗑</button>' : '') +
+            '<button class="m-btn m-btn-secondary" onclick="document.getElementById(\'mSheetOverlay\').remove()">Đóng</button>' +
+            '<button class="m-btn m-btn-primary" onclick="mSaveDetail(' + task.id + ')">💾 Lưu</button>' +
+            '</div>' +
+            '<div class="m-comments"><div style="font-size:12px;font-weight:800;margin-bottom:8px">💬 Bình luận (' + comments.length + ')</div>' +
+            '<div id="mCommentList">' + (commentsHtml || '<div style="color:#a8a29e;font-size:12px;padding:8px 0">Chưa có</div>') + '</div>' +
+            '<div class="m-comment-input-wrap"><input class="m-comment-input" id="mCommentInput" placeholder="Viết bình luận..."><button class="m-comment-send" onclick="mAddComment(' + task.id + ')">Gửi</button></div>' +
+            '</div>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+    }
+
+    async function mSaveDetail(taskId) {
+        var body = {
+            title: (document.getElementById('mDetailTitle') || {}).value || '',
+            description: (document.getElementById('mDetailDesc') || {}).value || '',
+            status: (document.getElementById('mDetailStatus') || {}).value || 'can_lam',
+            progress: parseInt((document.getElementById('mDetailProgress') || {}).value || '0', 10)
+        };
+
+        var res = await mApi('/api/board-tasks/' + taskId, 'PUT', body);
+        if (res && res.ok) {
+            document.getElementById('mSheetOverlay').remove();
+            mToast('Cập nhật thành công!', 's');
+            await mLoadTasks();
+        } else {
+            mToast(res?.error || 'Lỗi cập nhật', 'e');
+        }
+    }
+
+    async function mDeleteTask(taskId) {
+        if (!confirm('Xóa task này?')) return;
+        var res = await mApi('/api/board-tasks/' + taskId, 'DELETE');
+        if (res && res.ok) {
+            document.getElementById('mSheetOverlay').remove();
+            mToast('Đã xóa', 's');
+            await mLoadTasks();
+        } else {
+            mToast(res?.error || 'Lỗi xóa', 'e');
+        }
+    }
+
+    async function mAddComment(taskId) {
+        var input = document.getElementById('mCommentInput');
+        if (!input || !input.value.trim()) return;
+        var res = await mApi('/api/board-tasks/' + taskId + '/comments', 'POST', { content: input.value.trim() });
+        if (res && res.ok) {
+            document.getElementById('mSheetOverlay').remove();
+            mToast('Đã gửi bình luận', 's');
+            await mShowDetail(taskId);
+        }
+    }
+
+    // ========== TOAST ==========
+    function mToast(msg, type) {
+        var c = document.getElementById('toastContainer');
+        var d = document.createElement('div');
+        d.className = 'mt mt-' + (type || 's');
+        d.textContent = msg;
+        c.appendChild(d);
+        setTimeout(function() { d.remove(); }, 3000);
+    }
+
+    // Init on load
+    document.addEventListener('DOMContentLoaded', mInit);
+    </script>
+</body>
+</html>

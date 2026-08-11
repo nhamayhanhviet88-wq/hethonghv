@@ -4,7 +4,7 @@ var _tpd = {
     filter: {
         search: '',
         year: new Date().getFullYear(),
-        month: '',
+        month: new Date().getMonth() + 1,
         status: 'all' // 'all', 'draft', 'official'
     },
     activeOrderId: null,
@@ -200,9 +200,14 @@ async function renderTaophieudonhangPage(content) {
                             <label class="tpd-field-label">Năm</label>
                             <select id="tpdFilterYear" class="tpd-select" onchange="_tpdOnFilterChange('year', this.value)">
                                 <option value="">Tất cả</option>
-                                <option value="2025" ${_tpd.filter.year == 2025 ? 'selected' : ''}>2025</option>
-                                <option value="2026" ${_tpd.filter.year == 2026 ? 'selected' : ''}>2026</option>
-                                <option value="2027" ${_tpd.filter.year == 2027 ? 'selected' : ''}>2027</option>
+                                ${(() => {
+                                    const curY = new Date().getFullYear();
+                                    let h = '';
+                                    for (let y = curY + 1; y >= 2024; y--) {
+                                        h += `<option value="${y}" ${_tpd.filter.year == y ? 'selected' : ''}>Năm ${y}</option>`;
+                                    }
+                                    return h;
+                                })()}
                             </select>
                         </div>
 
@@ -1073,6 +1078,8 @@ function _tpdStartPollingForSendingOrders() {
 async function _tpdLoadOrders() {
     try {
         const grid = document.getElementById('tpdOrderGrid');
+        const countLabel = document.getElementById('tpdOrderCount');
+        if (countLabel) countLabel.textContent = 'Đang tải...';
         if (grid) grid.innerHTML = '<div class="tpd-loading"><div class="tpd-spinner"></div><p>Đang tải đơn hàng...</p></div>';
 
         // Load dht orders
@@ -1094,7 +1101,20 @@ async function _tpdLoadOrders() {
     } catch (e) {
         console.error(e);
         const grid = document.getElementById('tpdOrderGrid');
-        if (grid) grid.innerHTML = `<div class="tpd-error">⚠️ Lỗi tải dữ liệu: ${e.message}</div>`;
+        const countLabel = document.getElementById('tpdOrderCount');
+        if (countLabel) countLabel.textContent = 'Lỗi kết nối';
+        if (grid) {
+            grid.innerHTML = `
+                <div class="tpd-error" style="grid-column: 1 / -1; text-align: center; padding: 32px 20px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; margin: 16px 0;">
+                    <div style="font-size: 28px; margin-bottom: 8px;">⚠️</div>
+                    <div style="font-size: 15px; font-weight: 700; color: #be123c; margin-bottom: 6px;">Lỗi tải dữ liệu: ${e.message || 'Failed to fetch'}</div>
+                    <div style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Có thể kết nối bị gián đoạn hoặc hệ thống đang xử lý lượng dữ liệu lớn. Vui lòng bấm nút bên dưới để thử lại.</div>
+                    <button type="button" class="btn btn-primary" onclick="_tpdLoadOrders()" style="background: #2563eb; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 6px rgba(37,99,235,0.2);">
+                        🔄 Thử lại
+                    </button>
+                </div>
+            `;
+        }
     }
 }
 
@@ -5797,7 +5817,7 @@ function _tpdRenderFormInputs() {
                         <span style="font-size: 9px; color: #64748b; min-width: 38px; font-weight: 700;">Kiểu:</span>
                         <select onchange="_tpdUpdateDetailField(${idx}, 'print_type', this.value)" class="tpd-ws-input" style="${typeStyle}" ${disabledAttr || isPrint3DPosition || printLocked ? 'disabled' : ''}>
                             <option value="">-- Kiểu in/thêu --</option>
-                            ${localTypes.map(t => `<option value="${t}" ${d.print_type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                            ${localTypes.map(t => `<option value="${t}" ${(d.print_type || '').trim().toLowerCase() === (t || '').trim().toLowerCase() ? 'selected' : ''}>${t}</option>`).join('')}
                         </select>
                     </div>
 
@@ -7058,6 +7078,11 @@ function _tpdUpdateDetailField(idx, field, value, skipRender = false) {
         }
     }
 
+    // Keep state.items[state.activeItemIndex] strictly in sync with editingItem
+    if (state.items && state.items[state.activeItemIndex]) {
+        state.items[state.activeItemIndex].print_details = JSON.parse(JSON.stringify(it.print_details));
+    }
+
     _tpdSaveDraft(it);
     
     if (!skipRender) {
@@ -8287,6 +8312,38 @@ async function _tpdExportSheetAndOrder() {
     _tpdShowExportSheetsModal();
 }
 
+// Helper to convert cross-origin images (like QR code API) to Data URIs so html2canvas never taints the canvas
+async function _tpdSanitizeContainerImagesForExport(container) {
+    if (!container) return;
+    const imgs = Array.from(container.querySelectorAll('img'));
+    await Promise.all(imgs.map(async (img) => {
+        const src = img.getAttribute('src');
+        if (!src) return;
+        // Keep relative paths and data URIs untouched
+        if (src.startsWith('data:') || src.startsWith('/') || src.startsWith(window.location.origin)) {
+            return;
+        }
+        try {
+            const resp = await fetch(src, { mode: 'cors' });
+            if (resp.ok) {
+                const blob = await resp.blob();
+                const dataUrl = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(blob);
+                });
+                if (dataUrl) {
+                    img.src = dataUrl;
+                    return;
+                }
+            }
+        } catch (e) {}
+        // Fallback SVG placeholder if fetch or CORS fails
+        img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100%" height="100%" fill="%23f8fafc"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="10">QR Code</text></svg>';
+    }));
+}
+
 // Helper to wait for all images to finish loading inside a container
 async function _tpdWaitForImages(container) {
     const imgs = container.querySelectorAll('img');
@@ -9034,6 +9091,7 @@ async function _tpdShowExportSheetsModal() {
 
     // Wait for all images inside tempContainer to load
     await _tpdWaitForImages(tempContainer);
+    await _tpdSanitizeContainerImagesForExport(tempContainer);
 
     // Track download state with persistent cache
     const downloaded = new Array(items.length).fill(false);
@@ -9055,20 +9113,43 @@ async function _tpdShowExportSheetsModal() {
             const canvasOpts = {
                 scale: 1.5,
                 useCORS: true,
+                allowTaint: true,
                 logging: false,
                 backgroundColor: '#ffffff',
                 windowWidth: 1200,
                 windowHeight: 900
             };
 
-            // Render customer version and production version in parallel
-            const [canvasCust, canvasProd] = await Promise.all([
-                html2canvas(custPageEl, canvasOpts),
-                html2canvas(prodPageEl, canvasOpts)
-            ]);
+            let canvasCust, canvasProd;
+            try {
+                // Render customer version and production version in parallel
+                [canvasCust, canvasProd] = await Promise.all([
+                    html2canvas(custPageEl, canvasOpts),
+                    html2canvas(prodPageEl, canvasOpts)
+                ]);
+            } catch (canvasErr) {
+                console.warn(`Parallel html2canvas failed for sheet ${idx}, retrying sequentially:`, canvasErr);
+                canvasCust = await html2canvas(custPageEl, canvasOpts);
+                canvasProd = await html2canvas(prodPageEl, canvasOpts);
+            }
 
-            const imgUrlCust = canvasCust.toDataURL('image/jpeg', 0.85);
-            const imgUrlProd = canvasProd.toDataURL('image/jpeg', 0.85);
+            let imgUrlCust, imgUrlProd;
+            try {
+                imgUrlCust = canvasCust.toDataURL('image/jpeg', 0.85);
+                imgUrlProd = canvasProd.toDataURL('image/jpeg', 0.85);
+            } catch (taintErr) {
+                console.warn(`toDataURL tainted for sheet ${idx}, stripping external images and retrying:`, taintErr);
+                custPageEl.querySelectorAll('img').forEach(el => {
+                    if (el.src && el.src.startsWith('http') && !el.src.startsWith(window.location.origin)) el.remove();
+                });
+                prodPageEl.querySelectorAll('img').forEach(el => {
+                    if (el.src && el.src.startsWith('http') && !el.src.startsWith(window.location.origin)) el.remove();
+                });
+                const retryCust = await html2canvas(custPageEl, canvasOpts);
+                const retryProd = await html2canvas(prodPageEl, canvasOpts);
+                imgUrlCust = retryCust.toDataURL('image/jpeg', 0.85);
+                imgUrlProd = retryProd.toDataURL('image/jpeg', 0.85);
+            }
 
             // Stored to send in confirm-export email payload
             generatedImages[idx] = imgUrlProd;
@@ -10343,14 +10424,19 @@ async function _tpdSaveSizeConfig() {
 
 function _tpdPurgeBloatedDrafts() {
     try {
+        const state = window._tpdWorkspaceState;
+        const currentOrderId = state ? state.orderId : null;
         for (let i = localStorage.length - 1; i >= 0; i--) {
             const k = localStorage.key(i);
             if (k && k.startsWith('tpd_draft_')) {
+                if (currentOrderId && k.includes(`_${currentOrderId}_`)) {
+                    continue;
+                }
                 const val = localStorage.getItem(k);
                 if (val) {
                     try {
                         const parsed = JSON.parse(val);
-                        if (!parsed || val.length > 400000) {
+                        if (!parsed) {
                             localStorage.removeItem(k);
                         }
                     } catch(pe) {
@@ -10362,11 +10448,14 @@ function _tpdPurgeBloatedDrafts() {
         for (let i = sessionStorage.length - 1; i >= 0; i--) {
             const k = sessionStorage.key(i);
             if (k && k.startsWith('tpd_draft_')) {
+                if (currentOrderId && k.includes(`_${currentOrderId}_`)) {
+                    continue;
+                }
                 const val = sessionStorage.getItem(k);
                 if (val) {
                     try {
                         const parsed = JSON.parse(val);
-                        if (!parsed || val.length > 400000) {
+                        if (!parsed) {
                             sessionStorage.removeItem(k);
                         }
                     } catch(pe) {
@@ -10398,14 +10487,14 @@ function _tpdSaveDraft(it) {
             localStorage.setItem(key, jsonStr);
         } catch(e) {
             console.warn('LocalStorage quota exceeded or draft save failed:', e);
-            _tpdPurgeBloatedDrafts();
-            try {
-                for (let i = localStorage.length - 1; i >= 0; i--) {
-                    const k = localStorage.key(i);
-                    if (k && k.startsWith('tpd_draft_') && !candidateKeys.includes(k)) {
-                        localStorage.removeItem(k);
-                    }
+            const currentOrderId = state ? state.orderId : null;
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('tpd_draft_') && (!currentOrderId || !k.includes(`_${currentOrderId}_`))) {
+                    localStorage.removeItem(k);
                 }
+            }
+            try {
                 localStorage.setItem(key, jsonStr);
             } catch(retryErr) {}
         }

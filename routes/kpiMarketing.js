@@ -67,7 +67,7 @@ module.exports = async function(fastify, options) {
 
             // 1. Get all active system categories tree from mkt_categories
             const allSystemCats = await db.all(`
-                SELECT id, parent_id, group_type, name, icon, ads_handler_name, linked_source_name, pancake_page_id, pancake_page_name, show_in_kpi_mkt
+                SELECT id, parent_id, group_type, name, icon, ads_handler_name, linked_source_name, pancake_page_id, pancake_page_name, channel_link, show_in_kpi_mkt
                 FROM mkt_categories
                 WHERE is_active = TRUE
                 ORDER BY CASE WHEN group_type = 'online' THEN 1 ELSE 2 END ASC, parent_id ASC NULLS FIRST, sort_order ASC, id ASC
@@ -113,11 +113,13 @@ module.exports = async function(fastify, options) {
                     SELECT 
                         o.id,
                         o.order_code,
+                        o.order_date,
                         TO_CHAR(o.order_date, 'YYYY-MM-DD') as dt_str,
                         TRIM(o.source) as source,
                         LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) as clean_source_key,
                         o.total_amount,
-                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone
+                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone,
+                        COALESCE(c.customer_type, 'moi') as customer_type
                     FROM dht_orders o
                     LEFT JOIN customers c ON c.id = o.customer_id OR (
                         RIGHT(REGEXP_REPLACE(c.phone, '\\D', '', 'g'), 9) = RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9)
@@ -125,8 +127,6 @@ module.exports = async function(fastify, options) {
                     )
                     WHERE o.order_date IS NOT NULL 
                       AND COALESCE(o.is_draft, false) = false
-                      AND EXTRACT(YEAR FROM o.order_date) = $1
-                      AND EXTRACT(MONTH FROM o.order_date) = $2
                       AND NULLIF(TRIM(o.source), '') IS NOT NULL
                       AND LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) IN (SELECT clean_src FROM ActiveSources)
                 ),
@@ -135,14 +135,17 @@ module.exports = async function(fastify, options) {
                         *,
                         ROW_NUMBER() OVER (
                             PARTITION BY norm_phone 
-                            ORDER BY dt_str ASC, id ASC
+                            ORDER BY order_date ASC, id ASC
                         ) as rn
                     FROM NormalizedOrders
                 )
                 SELECT 
                     id, order_code, source, total_amount, dt_str
                 FROM RankedOrders
-                WHERE rn = 1
+                WHERE rn = 1 
+                  AND COALESCE(customer_type, 'moi') <> 'cu'
+                  AND EXTRACT(YEAR FROM order_date) = $1
+                  AND EXTRACT(MONTH FROM order_date) = $2
             `, [year, mo]);
 
             // Daily map per handler: { handler_name -> { day -> { spent, leads, orders, revenue } } }
@@ -179,9 +182,12 @@ module.exports = async function(fastify, options) {
                     const bSrc = b.linked_source_name.trim().toLowerCase();
                     (allCats || []).forEach(c => {
                         if (c.parent_id !== null) {
-                            const cSrc1 = (c.linked_source_name || '').trim().toLowerCase();
-                            const cSrc2 = (c.pancake_page_name || '').trim().toLowerCase();
-                            if (cSrc1 === bSrc || cSrc2 === bSrc || (c.name && c.name.trim().toLowerCase().includes(bSrc))) {
+                            const cSrcs = [
+                                ...(c.linked_source_name || '').split(','),
+                                ...(c.pancake_page_name || '').split(',')
+                            ].map(s => s.trim().toLowerCase()).filter(Boolean);
+                            const cName = (c.name || '').trim().toLowerCase();
+                            if (cSrcs.includes(bSrc) || (cName && cName.includes(bSrc))) {
                                 matchedCatIds.push(c.id);
                             }
                         }
@@ -216,10 +222,12 @@ module.exports = async function(fastify, options) {
                 (allCats || []).forEach(c => {
                     if (matched) return;
                     if (c.parent_id !== null) {
-                        const cSrc1 = (c.linked_source_name || '').trim().toLowerCase();
-                        const cSrc2 = (c.pancake_page_name || '').trim().toLowerCase();
+                        const cSrcs = [
+                            ...(c.linked_source_name || '').split(','),
+                            ...(c.pancake_page_name || '').split(',')
+                        ].map(s => s.trim().toLowerCase()).filter(Boolean);
                         const cName = (c.name || '').trim().toLowerCase();
-                        if ((cSrc1 && cSrc1 === src) || (cSrc2 && cSrc2 === src) || (cName && cName.includes(src))) {
+                        if (cSrcs.includes(src) || (cName && cName.includes(src))) {
                             matched = true;
                             if (!catDailyMap[c.id]) catDailyMap[c.id] = {};
                             if (!catDailyMap[c.id][dayNum]) {
@@ -255,7 +263,7 @@ module.exports = async function(fastify, options) {
                 if (t.category_id) {
                     targetMap.set(`cat_${t.category_id}`, t);
                 }
-                if (t.ads_handler_name) {
+                if (t.ads_handler_name && !t.category_id && t.ads_handler_name !== 'Mục Con' && t.ads_handler_name !== '__CATEGORY__') {
                     handlerSet.add(t.ads_handler_name);
                 }
             });
@@ -365,7 +373,7 @@ module.exports = async function(fastify, options) {
             const overallDailyRevenue = new Array(daysInMonth).fill(0);
 
             const sortedHandlerNames = Array.from(handlerSet)
-                .filter(n => n && typeof n === 'string' && n.trim().length > 0)
+                .filter(n => n && typeof n === 'string' && n.trim().length > 0 && n.trim() !== 'Mục Con' && n.trim() !== '__CATEGORY__')
                 .map(n => n.trim())
                 .sort((a, b) => a.localeCompare(b, 'vi'));
 
@@ -452,8 +460,8 @@ module.exports = async function(fastify, options) {
                 // Build child category items managed by this handler
                 const childItems = [];
                 (allCats || []).forEach(cat => {
-                    const isHandlerCat = (cat.ads_handler_name && cat.ads_handler_name.trim() === hName) ||
-                                         (hName === 'Giám Đốc' && (!cat.ads_handler_name || !cat.ads_handler_name.trim()));
+                    const catHandler = (cat.ads_handler_name || '').trim();
+                    const isHandlerCat = catHandler ? catHandler === hName : false;
                     if (isHandlerCat && cat.parent_id !== null) {
                         const parentCat = catMap.get(cat.parent_id);
                         const cTarget = targetMap.get(`cat_${cat.id}`) || {};
@@ -521,6 +529,7 @@ module.exports = async function(fastify, options) {
                             icon: cat.icon || (parentCat ? parentCat.icon : '📌'),
                             linked_source_name: cat.linked_source_name || '',
                             pancake_page_name: cat.pancake_page_name || '',
+                            channel_link: cat.channel_link || '',
                             spent: cSpent,
                             leads: cLeads,
                             orders: cOrders,
@@ -553,6 +562,16 @@ module.exports = async function(fastify, options) {
                                 close_rate: { actual: cCloseRate, target: cTargetCloseRate, is_ok: (cTargetCloseRate === 0 || cCloseRate >= cTargetCloseRate) }
                             },
                             stages: cStages,
+                            daily: {
+                                spent: cDailySpent,
+                                leads: cDailyLeads,
+                                orders: cDailyOrders,
+                                revenue: cDailyRev,
+                                cpl: cDailyCpl,
+                                cpo: cDailyCpo,
+                                cost_ratio: cDailyRev.map((r, i) => r > 0 ? Math.round((cDailySpent[i] / r) * 10000) / 100 : 0),
+                                close_rate: cDailyCloseRate
+                            },
                             daily_spent: cDailySpent,
                             daily_leads: cDailyLeads,
                             daily_orders: cDailyOrders,
@@ -661,7 +680,7 @@ module.exports = async function(fastify, options) {
                         revenue: dailyRevenue,
                         cpl: dailyCpl,
                         cpo: dailyCpo,
-                        roas: dailyRoas,
+                        cost_ratio: dailyRevenue.map((r, i) => r > 0 ? Math.round((dailySpent[i] / r) * 10000) / 100 : 0),
                         close_rate: dailyCloseRate
                     },
                     items: childItems
@@ -672,6 +691,7 @@ module.exports = async function(fastify, options) {
             const overallDailyCpo = overallDailyOrders.map((o, i) => o > 0 ? Math.round(overallDailySpent[i] / o) : 0);
             const overallDailyRoas = overallDailySpent.map((s, i) => s > 0 ? Math.round((overallDailyRevenue[i] / s) * 10000) / 100 : 0);
             const overallDailyCloseRate = overallDailyLeads.map((l, i) => l > 0 ? Math.round((overallDailyOrders[i] / l) * 10000) / 100 : 0);
+            const overallDailyCostRatio = overallDailyRevenue.map((r, i) => r > 0 ? Math.round((overallDailySpent[i] / r) * 10000) / 100 : 0);
 
             const summaryStages = calcStages(
                 overallDailySpent, overallDailyLeads, overallDailyRevenue,
@@ -734,15 +754,26 @@ module.exports = async function(fastify, options) {
                     daily: {
                         spent: overallDailySpent,
                         leads: overallDailyLeads,
+                        orders: overallDailyOrders,
                         revenue: overallDailyRevenue,
                         cpl: overallDailyCpl,
                         cpo: overallDailyCpo,
                         roas: overallDailyRoas,
+                        cost_ratio: overallDailyCostRatio,
                         close_rate: overallDailyCloseRate
                     },
                     stages: summaryStages
                 },
-                categories: allCats || [],
+                categories: (() => {
+                    const list = [];
+                    (handlers || []).forEach(h => {
+                        (h.items || []).forEach(item => {
+                            list.push(item);
+                        });
+                    });
+                    return list;
+                })(),
+                system_categories: allCats || [],
                 all_system_categories: allSystemCats || [],
                 handlers,
                 available_pages: availablePages,
@@ -892,67 +923,67 @@ module.exports = async function(fastify, options) {
                 const target_bonus_logic = String(item.target_bonus_logic || 'ALL').toUpperCase();
 
                 if (catId) {
-                    const existing = await db.get(`SELECT id FROM mkt_kpi_targets WHERE category_id = $1 AND period_value = $2`, [catId, period_value]);
+                    const existing = await db.get(`SELECT id FROM mkt_kpi_targets WHERE category_id = ? AND period_value = ?`, [catId, period_value]);
                     if (existing && existing.id) {
                         await db.run(`
                             UPDATE mkt_kpi_targets SET
-                                ads_handler_name = $1,
-                                target_budget = $2,
-                                target_leads = $3,
-                                target_leads_m120 = $4,
-                                target_revenue = $5,
-                                target_revenue_m120 = $6,
-                                target_cpl = $7,
-                                target_roas = $8,
-                                target_cpo = $9,
-                                target_cost_ratio = $10,
-                                target_close_rate = $11,
-                                target_bonus_m1 = $12,
-                                target_bonus_m120 = $13,
-                                target_bonus_note = $14,
-                                target_bonus_conditions = $15,
-                                target_bonus_logic = $16,
+                                ads_handler_name = ?,
+                                target_budget = ?,
+                                target_leads = ?,
+                                target_leads_m120 = ?,
+                                target_revenue = ?,
+                                target_revenue_m120 = ?,
+                                target_cpl = ?,
+                                target_roas = ?,
+                                target_cpo = ?,
+                                target_cost_ratio = ?,
+                                target_close_rate = ?,
+                                target_bonus_m1 = ?,
+                                target_bonus_m120 = ?,
+                                target_bonus_note = ?,
+                                target_bonus_conditions = ?,
+                                target_bonus_logic = ?,
                                 updated_at = NOW()
-                            WHERE id = $17
-                        `, [hName || 'Mục Con', target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, existing.id]);
+                            WHERE id = ?
+                        `, [hName || '__CATEGORY__', target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, existing.id]);
                     } else {
                         await db.run(`
                             INSERT INTO mkt_kpi_targets 
                                 (category_id, ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, created_by, updated_at)
                             VALUES 
-                                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW())
-                        `, [catId, hName || 'Mục Con', period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, userId]);
+                                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                        `, [catId, hName || '__CATEGORY__', period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, userId]);
                     }
                 } else {
-                    const existing = await db.get(`SELECT id FROM mkt_kpi_targets WHERE LOWER(TRIM(ads_handler_name)) = LOWER(TRIM($1)) AND period_value = $2 AND (category_id IS NULL OR category_id = 0)`, [hName, period_value]);
+                    const existing = await db.get(`SELECT id FROM mkt_kpi_targets WHERE LOWER(TRIM(ads_handler_name)) = LOWER(TRIM(?)) AND period_value = ? AND (category_id IS NULL OR category_id = 0)`, [hName, period_value]);
                     if (existing && existing.id) {
                         await db.run(`
                             UPDATE mkt_kpi_targets SET
-                                ads_handler_name = $1,
-                                target_budget = $2,
-                                target_leads = $3,
-                                target_leads_m120 = $4,
-                                target_revenue = $5,
-                                target_revenue_m120 = $6,
-                                target_cpl = $7,
-                                target_roas = $8,
-                                target_cpo = $9,
-                                target_cost_ratio = $10,
-                                target_close_rate = $11,
-                                target_bonus_m1 = $12,
-                                target_bonus_m120 = $13,
-                                target_bonus_note = $14,
-                                target_bonus_conditions = $15,
-                                target_bonus_logic = $16,
+                                ads_handler_name = ?,
+                                target_budget = ?,
+                                target_leads = ?,
+                                target_leads_m120 = ?,
+                                target_revenue = ?,
+                                target_revenue_m120 = ?,
+                                target_cpl = ?,
+                                target_roas = ?,
+                                target_cpo = ?,
+                                target_cost_ratio = ?,
+                                target_close_rate = ?,
+                                target_bonus_m1 = ?,
+                                target_bonus_m120 = ?,
+                                target_bonus_note = ?,
+                                target_bonus_conditions = ?,
+                                target_bonus_logic = ?,
                                 updated_at = NOW()
-                            WHERE id = $17
+                            WHERE id = ?
                         `, [hName, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, existing.id]);
                     } else {
                         await db.run(`
                             INSERT INTO mkt_kpi_targets 
                                 (ads_handler_name, period_value, target_budget, target_leads, target_leads_m120, target_revenue, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, created_by, updated_at)
                             VALUES 
-                                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
+                                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
                         `, [hName, period_value, target_budget, target_leads_m1, target_leads_m120, target_revenue_m1, target_revenue_m120, target_cpl, target_roas, target_cpo, target_cost_ratio, target_close_rate, target_bonus_m1, target_bonus_m120, target_bonus_note, target_bonus_conditions, target_bonus_logic, userId]);
                     }
                 }
@@ -975,20 +1006,255 @@ module.exports = async function(fastify, options) {
                 return reply.status(403).send({ error: 'Chỉ Giám Đốc mới có quyền phân công Page cho nhân viên!' });
             }
 
-            const { category_id, category_ids, ads_handler_name } = request.body || {};
-            const handlerName = (ads_handler_name || 'Giám Đốc').trim();
+            const { category_id, category_ids, ads_handler_name, action } = request.body || {};
+
+            if (action === 'reset' || ads_handler_name === '__RESET__') {
+                await db.run('UPDATE mkt_categories SET ads_handler_name = NULL');
+                await db.run('UPDATE all_system_categories SET ads_handler_name = NULL').catch(() => {});
+                return reply.send({ success: true, message: 'Đã xóa tất cả phân công Page thành công!' });
+            }
+
+            const rawHandler = (ads_handler_name !== undefined && ads_handler_name !== null) ? String(ads_handler_name).trim() : '';
+            const handlerName = (rawHandler === '__RESET__' || rawHandler === '__UNASSIGN__' || rawHandler === '') ? null : rawHandler;
 
             if (Array.isArray(category_ids) && category_ids.length > 0) {
                 for (const catId of category_ids) {
                     await db.run('UPDATE mkt_categories SET ads_handler_name = ? WHERE id = ?', [handlerName, Number(catId)]);
+                    await db.run('UPDATE all_system_categories SET ads_handler_name = ? WHERE id = ?', [handlerName, Number(catId)]).catch(() => {});
+                    if (handlerName === null) {
+                        await db.run('DELETE FROM mkt_kpi_targets WHERE category_id = ?', [Number(catId)]).catch(() => {});
+                    } else {
+                        await db.run('UPDATE mkt_kpi_targets SET ads_handler_name = ? WHERE category_id = ?', [handlerName, Number(catId)]).catch(() => {});
+                    }
                 }
             } else if (category_id) {
                 await db.run('UPDATE mkt_categories SET ads_handler_name = ? WHERE id = ?', [handlerName, Number(category_id)]);
+                await db.run('UPDATE all_system_categories SET ads_handler_name = ? WHERE id = ?', [handlerName, Number(category_id)]).catch(() => {});
+                if (handlerName === null) {
+                    await db.run('DELETE FROM mkt_kpi_targets WHERE category_id = ?', [Number(category_id)]).catch(() => {});
+                } else {
+                    await db.run('UPDATE mkt_kpi_targets SET ads_handler_name = ? WHERE category_id = ?', [handlerName, Number(category_id)]).catch(() => {});
+                }
             } else {
                 return reply.status(400).send({ error: 'Vui lòng chọn danh mục/page để gán nhân viên!' });
             }
 
+            return reply.send({ success: true, message: `Đã phân công Page cho ${handlerName || 'Chưa gán'} thành công!` });
+        } catch (err) {
+            fastify.log.error(err);
+            return reply.status(500).send({ error: 'Internal Server Error', message: err.message });
+        }
+    });
+
+    // ===== POST /api/reports/kpi-marketing/assign ===== (Alias for assign-handler)
+    fastify.post('/api/reports/kpi-marketing/assign', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const { category_id, category_ids, ads_handler_name } = request.body || {};
+            const rawHandler = (ads_handler_name !== undefined && ads_handler_name !== null) ? String(ads_handler_name).trim() : '';
+            const handlerName = (rawHandler === '__RESET__' || rawHandler === '__UNASSIGN__' || rawHandler === '') ? null : rawHandler;
+            const ids = Array.isArray(category_ids) ? category_ids : (category_id ? [category_id] : []);
+            for (const cid of ids) {
+                await db.run('UPDATE mkt_categories SET ads_handler_name = ? WHERE id = ?', [handlerName, Number(cid)]);
+                await db.run('UPDATE all_system_categories SET ads_handler_name = ? WHERE id = ?', [handlerName, Number(cid)]).catch(() => {});
+            }
             return reply.send({ success: true, message: `Đã phân công Page cho ${handlerName} thành công!` });
+        } catch (err) {
+            fastify.log.error(err);
+            return reply.status(500).send({ error: 'Internal Server Error', message: err.message });
+        }
+    });
+
+    // ===== POST /api/reports/kpi-marketing/reset-assignments ===== (Reset / Xóa tất cả phân công Page)
+    fastify.post('/api/reports/kpi-marketing/reset-assignments', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const user = request.user || {};
+            const isGiamDoc = user.role === 'giam_doc' || user.role === 'admin' || (user.full_name || user.name || user.username || '').toLowerCase().includes('giám đốc') || user.is_admin === true || user.username === 'admin';
+            
+            if (!isGiamDoc) {
+                return reply.status(403).send({ error: 'Chỉ Giám Đốc mới có quyền xóa phân công Page!' });
+            }
+
+            await db.run('UPDATE mkt_categories SET ads_handler_name = NULL');
+            await db.run('UPDATE all_system_categories SET ads_handler_name = NULL').catch(() => {});
+
+            return reply.send({ success: true, message: 'Đã xóa tất cả phân công Page thành công!' });
+        } catch (err) {
+            fastify.log.error(err);
+            return reply.status(500).send({ error: 'Internal Server Error', message: err.message });
+        }
+    });
+
+    // ===== GET /api/reports/kpi-marketing/yearly-trend =====
+    fastify.get('/api/reports/kpi-marketing/yearly-trend', async (request, reply) => {
+        try {
+            const { year: qYear } = request.query;
+            const year = parseInt(qYear) || (new Date()).getFullYear();
+
+            // Fetch active sub-categories (only categories enabled for KPI Marketing)
+            const subCats = await db.all(`
+                SELECT c.id, c.name, c.parent_id, p.name AS channel_name, c.linked_source_name, c.pancake_page_name
+                FROM mkt_categories c
+                LEFT JOIN mkt_categories p ON p.id = c.parent_id
+                WHERE c.is_active = TRUE AND c.parent_id IS NOT NULL AND (c.show_in_kpi_mkt = TRUE OR c.show_in_kpi_mkt = 'true')
+                ORDER BY c.id ASC
+            `);
+
+            // Fetch budgets for all months in this year
+            const budgets = await db.all(`
+                SELECT 
+                    category_id, linked_source_name, budget_month,
+                    spent_amount, lead_count, order_count, revenue_amount
+                FROM marketing_budgets
+                WHERE budget_year::text = ?
+            `, [String(year)]);
+
+            // Fetch orders for all months in this year
+            const dhtOrders = await db.all(`
+                WITH ActiveSources AS (
+                    SELECT DISTINCT 
+                        LOWER(TRIM(REGEXP_REPLACE(unnest(string_to_array(linked_source_name, ',')), '\\s*\\/\\s*', '/', 'g'))) as clean_src
+                    FROM mkt_categories 
+                    WHERE is_active = TRUE AND (show_in_kpi_mkt = TRUE OR show_in_kpi_mkt = 'true') AND NULLIF(TRIM(linked_source_name), '') IS NOT NULL
+                ),
+                NormalizedOrders AS (
+                    SELECT 
+                        o.id,
+                        o.order_date,
+                        EXTRACT(MONTH FROM o.order_date)::int as mo,
+                        TRIM(o.source) as source,
+                        o.total_amount,
+                        RIGHT(REGEXP_REPLACE(COALESCE(c.phone, o.customer_phone, ''), '\\D', '', 'g'), 9) as norm_phone,
+                        COALESCE(c.customer_type, 'moi') as customer_type
+                    FROM dht_orders o
+                    LEFT JOIN customers c ON c.id = o.customer_id OR (
+                        RIGHT(REGEXP_REPLACE(c.phone, '\\D', '', 'g'), 9) = RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9)
+                        AND RIGHT(REGEXP_REPLACE(o.customer_phone, '\\D', '', 'g'), 9) <> ''
+                    )
+                    WHERE o.order_date IS NOT NULL 
+                      AND COALESCE(o.is_draft, false) = false
+                      AND NULLIF(TRIM(o.source), '') IS NOT NULL
+                      AND EXTRACT(YEAR FROM o.order_date) = $1
+                      AND LOWER(TRIM(REGEXP_REPLACE(o.source, '\\s*\\/\\s*', '/', 'g'))) IN (SELECT clean_src FROM ActiveSources)
+                ),
+                RankedOrders AS (
+                    SELECT 
+                        *,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY norm_phone 
+                            ORDER BY order_date ASC, id ASC
+                        ) as rn
+                    FROM NormalizedOrders
+                )
+                SELECT id, mo, source, total_amount
+                FROM RankedOrders
+                WHERE rn = 1 AND COALESCE(customer_type, 'moi') <> 'cu'
+            `, [year]);
+
+            const create12M = () => ({
+                monthly_spent: new Array(12).fill(0),
+                monthly_orders: new Array(12).fill(0),
+                monthly_revenue: new Array(12).fill(0),
+                monthly_leads: new Array(12).fill(0),
+                monthly_cpl: new Array(12).fill(0),
+                monthly_cpo: new Array(12).fill(0),
+                monthly_cost_ratio: new Array(12).fill(0),
+                monthly_close_rate: new Array(12).fill(0)
+            });
+
+            const byCat = {};
+            byCat['all'] = create12M();
+            (subCats || []).forEach(c => {
+                byCat[c.id] = create12M();
+            });
+
+            (budgets || []).forEach(b => {
+                const mo = parseInt(b.budget_month, 10);
+                if (mo >= 1 && mo <= 12) {
+                    const mIdx = mo - 1;
+                    const spent = Number(b.spent_amount || 0);
+                    const leads = Number(b.lead_count || 0);
+                    const orders = Number(b.order_count || 0);
+                    const rev = Number(b.revenue_amount || 0);
+
+                    byCat['all'].monthly_spent[mIdx] += spent;
+                    byCat['all'].monthly_leads[mIdx] += leads;
+
+                    let matchedCatIds = [];
+                    if (b.category_id) matchedCatIds.push(Number(b.category_id));
+                    if (matchedCatIds.length === 0 && b.linked_source_name) {
+                        const bSrc = b.linked_source_name.trim().toLowerCase();
+                        (subCats || []).forEach(c => {
+                            const cSrcs = [
+                                ...(c.linked_source_name || '').split(','),
+                                ...(c.pancake_page_name || '').split(',')
+                            ].map(s => s.trim().toLowerCase()).filter(Boolean);
+                            const cName = (c.name || '').trim().toLowerCase();
+                            if (cSrcs.includes(bSrc) || (cName && cName.includes(bSrc))) {
+                                matchedCatIds.push(c.id);
+                            }
+                        });
+                    }
+                    Array.from(new Set(matchedCatIds)).forEach(cid => {
+                        if (byCat[cid]) {
+                            byCat[cid].monthly_spent[mIdx] += spent;
+                            byCat[cid].monthly_leads[mIdx] += leads;
+                            byCat[cid].monthly_orders[mIdx] += orders;
+                            byCat[cid].monthly_revenue[mIdx] += rev;
+                        }
+                    });
+                }
+            });
+
+            (dhtOrders || []).forEach(o => {
+                const mo = o.mo;
+                const src = (o.source || '').trim().toLowerCase();
+                if (mo >= 1 && mo <= 12 && src) {
+                    const mIdx = mo - 1;
+                    let matched = false;
+
+                    (subCats || []).forEach(c => {
+                        const cSrcs = [
+                            ...(c.linked_source_name || '').split(','),
+                            ...(c.pancake_page_name || '').split(',')
+                        ].map(s => s.trim().toLowerCase()).filter(Boolean);
+                        const cName = (c.name || '').trim().toLowerCase();
+                        if (cSrcs.includes(src) || (cName && cName.includes(src))) {
+                            matched = true;
+                            if (byCat[c.id]) {
+                                byCat[c.id].monthly_orders[mIdx] += 1;
+                                byCat[c.id].monthly_revenue[mIdx] += Number(o.total_amount || 0);
+                            }
+                        }
+                    });
+
+                    if (matched) {
+                        byCat['all'].monthly_orders[mIdx] += 1;
+                        byCat['all'].monthly_revenue[mIdx] += Number(o.total_amount || 0);
+                    }
+                }
+            });
+
+            Object.keys(byCat).forEach(key => {
+                const obj = byCat[key];
+                for (let i = 0; i < 12; i++) {
+                    const s = obj.monthly_spent[i];
+                    const l = obj.monthly_leads[i];
+                    const o = obj.monthly_orders[i];
+                    const r = obj.monthly_revenue[i];
+
+                    obj.monthly_cpl[i] = l > 0 ? Math.round(s / l) : 0;
+                    obj.monthly_cpo[i] = o > 0 ? Math.round(s / o) : 0;
+                    obj.monthly_cost_ratio[i] = r > 0 ? Math.round((s / r) * 10000) / 100 : 0;
+                    obj.monthly_close_rate[i] = l > 0 ? Math.round((o / l) * 10000) / 100 : 0;
+                }
+            });
+
+            return reply.send({
+                year,
+                months: [1,2,3,4,5,6,7,8,9,10,11,12],
+                categories: subCats,
+                by_cat: byCat
+            });
         } catch (err) {
             fastify.log.error(err);
             return reply.status(500).send({ error: 'Internal Server Error', message: err.message });

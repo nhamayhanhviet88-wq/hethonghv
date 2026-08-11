@@ -315,25 +315,49 @@ function _prRenderTable() {
     var pageRecords = filtered.slice(startIdx, endIdx);
 
     pageRecords.forEach(function(r) {
+        var crmBadges = {
+            nhu_cau: '<span class="badge" style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;font-size:9.5px;padding:1px 4px;border-radius:4px;margin-left:4px;font-weight:700">KH Nhu Cầu</span>',
+            ctv: '<span class="badge" style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;font-size:9.5px;padding:1px 4px;border-radius:4px;margin-left:4px;font-weight:700">CTV</span>',
+            ctv_hoa_hong: '<span class="badge" style="background:#f3e5f5;color:#7b1fa2;border:1px solid #ce93d8;font-size:9.5px;padding:1px 4px;border-radius:4px;margin-left:4px;font-weight:700">Affiliate</span>',
+            koc_tiktok: '<span class="badge" style="background:#fbe9e7;color:#d84315;border:1px solid #ffab91;font-size:9.5px;padding:1px 4px;border-radius:4px;margin-left:4px;font-weight:700">KOL/KOC</span>',
+            sale: '<span class="badge" style="background:#fff3e0;color:#e65100;border:1px solid #ffcc80;font-size:9.5px;padding:1px 4px;border-radius:4px;margin-left:4px;font-weight:700">Khách Sale</span>',
+            tem_pet: '<span class="badge" style="background:#e0f2f1;color:#00695c;border:1px solid #80cbd2;font-size:9.5px;padding:1px 4px;border-radius:4px;margin-left:4px;font-weight:700">TEM/PET</span>'
+        };
+        var crmTag = r.crm_type && crmBadges[r.crm_type] ? crmBadges[r.crm_type] : '';
+
         var methodBadge = r.payment_method === 'TM' ? '<span class="pr-badge pr-tm">💵'+r.payment_code+'</span>' : '<span class="pr-badge pr-ck">🏦'+r.payment_code+'</span>';
-        var custDisplay = (r.customer_name||'') + (r.customer_phone ? ' - '+r.customer_phone : '');
+        var custName = r.customer_name || r.cust_name || '';
+        var custPhone = r.customer_phone || r.cust_phone || '';
+        var isNoCustomer = (!r.customer_id || Number(r.customer_id) === 2 || !custName || custName.trim().toUpperCase().startsWith('NHU CẦU'));
+        if (isNoCustomer) {
+            custName = '';
+            custPhone = '';
+        }
+
+        var custDisplay = custName + (custPhone ? ' - ' + custPhone : '');
         if (r.payment_type === 'parent_sll' && r.sll_customer_names) {
             custDisplay = r.sll_customer_names;
         }
-        var typeBadge = '<span class="pr-badge '+(typeClass[r.payment_type]||'pr-tt')+'">'+(typeLabels[r.payment_type]||'TT')+'</span>';
+
+        var effType = r.payment_type || 'pending';
+        if (isNoCustomer && (effType === 'dat_coc' || effType === 'thanh_toan')) {
+            effType = 'pending';
+        }
+
+        var typeBadge = '<span class="pr-badge '+(typeClass[effType]||'pr-pending')+'">'+(typeLabels[effType]||'⏳')+'</span>';
         var statusBadge = r.handover_status === 'thu_quy_nhan' ? '<span class="pr-badge pr-nhan" style="cursor:pointer" onclick="_prToggleHandover('+r.id+',\'chua_bangiao\')">✅ TQ Nhận</span>' : '<span class="pr-badge pr-chua" style="cursor:pointer" onclick="_prToggleHandover('+r.id+',\'thu_quy_nhan\')">⏳ Chưa BG</span>';
         var updatedAt = r.updated_at ? _prVnFormat(new Date(r.updated_at),'dd/MM HH:mm') : '';
         var payDate = r.payment_date ? r.payment_date.split('T')[0].split('-').reverse().join('/') : '';
 
-        var rowClass = r.payment_type === 'tra_lai_coc' ? ' class="pr-row-tlc"' : '';
+        var rowClass = effType === 'tra_lai_coc' ? ' class="pr-row-tlc"' : '';
         h += '<tr style="cursor:pointer"'+rowClass+' onclick="_prShowDetail('+r.id+')">';
         h += '<td style="font-weight:700">'+methodBadge+'</td>';
-        h += '<td title="'+(custDisplay||'')+'" style="font-weight:600;color:var(--navy)">'+custDisplay+'</td>';
-        h += '<td style="color:var(--info);font-weight:600">'+(r.cskh_name||'')+'</td>';
+        h += '<td title="'+(custDisplay||'')+'" style="font-weight:600;color:var(--navy)">'+(isNoCustomer ? '' : (custDisplay+crmTag))+'</td>';
+        h += '<td style="color:var(--info);font-weight:600">'+(isNoCustomer ? '' : (r.cskh_name||''))+'</td>';
         var tienDuDisplay = '';
-        if (r.payment_type === 'pending') {
+        if (effType === 'pending') {
             tienDuDisplay = '<span style="font-weight:700;color:#94a3b8;font-size:12.5px">-</span>';
-        } else if (r.payment_type === 'parent_sll') {
+        } else if (effType === 'parent_sll') {
             var tienDu = Math.max(0, Number(r.amount) - Number(r.sll_children_sum || 0));
             if (tienDu > 0) {
                 tienDuDisplay = '<span style="font-weight:900;color:#ea580c;font-size:12.5px">' + _prFmt(tienDu) + '</span>';
@@ -347,10 +371,10 @@ function _prRenderTable() {
         h += '<td style="font-weight:900;color:#d32f2f;text-align:left;padding-left:8px;font-size:12.5px">'+_prFmt(r.amount)+'</td>';
         h += '<td style="text-align:center">'+tienDuDisplay+'</td>';
         h += '<td>'+typeBadge+'</td>';
-        var displayOrder = r.order_tt_coc || r.order_ao_mau || '';
+        var displayOrder = isNoCustomer ? '' : (r.order_tt_coc || r.order_ao_mau || '');
         if (r.payment_type === 'parent_sll' && r.sll_order_codes) {
             displayOrder = r.sll_order_codes;
-        } else if (r.total_order_codes && r.total_order_codes.trim()) {
+        } else if (!isNoCustomer && r.total_order_codes && r.total_order_codes.trim()) {
             displayOrder = r.total_order_codes;
         }
         h += '<td title="'+(displayOrder||'')+'">'+(displayOrder||'')+'</td>';
@@ -1306,7 +1330,46 @@ async function _prSubmitEdit(id) {
         _pr.tree = treeData.tree || [];
         _prRenderSidebar();
         await _prLoadRecords();
-    } catch(e) { showToast('Lỗi: '+(e.message||'Không có quyền'),'error'); }
+    } catch(e) {
+        if (e.status === 409 || e.warn_existing_deposit || (e.data && e.data.warn_existing_deposit)) {
+            var warnMsg = e.message || 'Mã đơn này đã có khoản cọc trước đó.';
+            if (typeof Swal !== 'undefined') {
+                var confirmRes = await Swal.fire({
+                    title: '⚠️ Đã có khoản cọc trước đó!',
+                    html: warnMsg + '<br><br><b>Bạn có chắc chắn muốn ghi nhận thêm khoản cọc này cho cùng đơn hàng không?</b>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Xác nhận cọc thêm',
+                    cancelButtonText: 'Hủy bỏ',
+                    confirmButtonColor: '#f59e0b'
+                });
+                if (confirmRes.isConfirmed) {
+                    body.confirm_extra_deposit = true;
+                    await apiCall('/api/payment-records/'+id,'PUT',body);
+                    showToast('✅ Đã lưu chỉnh sửa (xác nhận cọc thêm)');
+                    closeModal();
+                    var treeData2 = await apiCall('/api/payment-records/tree');
+                    _pr.tree = treeData2.tree || [];
+                    _prRenderSidebar();
+                    await _prLoadRecords();
+                    return;
+                }
+                return;
+            } else if (confirm(warnMsg + '\n\nBạn có chắc chắn muốn ghi nhận thêm khoản cọc này cho cùng đơn hàng không?')) {
+                body.confirm_extra_deposit = true;
+                await apiCall('/api/payment-records/'+id,'PUT',body);
+                showToast('✅ Đã lưu chỉnh sửa (xác nhận cọc thêm)');
+                closeModal();
+                var treeData3 = await apiCall('/api/payment-records/tree');
+                _pr.tree = treeData3.tree || [];
+                _prRenderSidebar();
+                await _prLoadRecords();
+                return;
+            }
+            return;
+        }
+        showToast('Lỗi: '+(e.message||'Không có quyền'),'error'); 
+    }
 }
 
 // ========== PERMISSIONS SETTINGS ==========

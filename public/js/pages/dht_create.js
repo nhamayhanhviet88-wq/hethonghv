@@ -261,7 +261,7 @@ async function _dhtOnFreeCatSwitch() {
                 linkedSelect.innerHTML = '<option value="">❌ Không có mã đơn ' + catName + ' nào từ Chăm Sóc KH</option>';
             }
             if (formFields) formFields.style.display = 'none';
-            showToast('⚠️ Không tìm thấy mã đơn ' + catName + ' nào chưa tạo phiếu từ Chăm Sóc KH! Vui lòng nhận cọc/chốt đơn ở trang Chăm Sóc KH TEM/PET trước.', 'error');
+            showToast('⚠️ Không tìm thấy mã đơn ' + catName + ' nào đã chốt đơn từ Chăm Sóc KH! Vui lòng thực hiện Chốt Đơn ở trang Chăm Sóc KH TEM/PET trước.', 'error');
             return;
         }
 
@@ -306,6 +306,7 @@ function _dhtOnLinkedOrderPick() {
     if (!order) return;
 
     window._dhtLinkedOrderId = order.id;
+    _dhtCreate.orderCode = order.order_code;
 
     // Show form fields
     if (formFields) formFields.style.display = '';
@@ -749,11 +750,15 @@ async function _dhtGoStep2() {
         if (typeof d === 'string') d = d.split('T')[0];
         _dhtCreate.holidays[d] = h.holiday_name;
     });
-    _dhtCreate.myInfo = infoRes.user || {};
-    _dhtCreate.availableCodes = codesRes.codes || [];
+    _dhtCreate.myInfo = (infoRes && infoRes.user) || window.currentUser || {};
+    _dhtCreate.availableCodes = (codesRes.codes || []).filter(function(c) {
+        var code = (c.order_code || '').toUpperCase();
+        if (code.startsWith('GCTEM') || code.startsWith('GCPET')) return false;
+        return true;
+    });
     if (!_dhtCreate.editMode) _dhtCreate.orderCode = '';
-    var mi = _dhtCreate.myInfo;
-    var isAdminRole = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].indexOf(mi.role) !== -1;
+    var mi = _dhtCreate.myInfo || {};
+    var isAdminRole = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].indexOf(mi.role || '') !== -1;
     var catOpts = _dht.categories.filter(function(c){ return c.name !== 'PET' && c.name !== 'TEM' && c.name !== 'ĐƠN SỬA'; }).map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
     var designers = designRes.designers || [];
     var desOpts = '<option value="">-- Chọn --</option><option value="old_design">🎨 Thiết Kế Cũ</option>'
@@ -1219,6 +1224,9 @@ function _dhtSearchOrderCode() {
         
         var codes = _dhtCreate.availableCodes || [];
         var filteredCodes = codes.filter(function(c) {
+            var code = (c.order_code || '').toUpperCase();
+            if (code.startsWith('GCTEM') || code.startsWith('GCPET')) return false;
+
             var text = (c.order_code + ' ' + c.customer_name + ' ' + c.phone).toLowerCase();
             return !q || text.indexOf(q) >= 0;
         });

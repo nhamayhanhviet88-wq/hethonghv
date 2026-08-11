@@ -122,10 +122,55 @@ function _sidebarShouldShow() {
  * @param {number|null} selectedDeptId
  * @returns {boolean}
  */
-function _sidebarIsViewingSelf(selectedUserId, selectedDeptId) {
-    if (!currentUser) return false;
-    if (selectedUserId) return selectedUserId === currentUser.id;
-    if (selectedDeptId) return false; // viewing a department = not self
-    // No selection: NV/PT implicitly view self, managers view aggregate
-    return ['nhan_vien', 'part_time', 'thu_viec'].includes(currentUser.role);
+// ===== 8. DYNAMIC YEAR GENERATOR: Enterprise Auto-Year Synchronization =====
+/**
+ * Scans all <select> elements across the system and populates dynamic years.
+ * Generates years from (currentYear + 1) down to minYear (default 2024).
+ */
+function enhanceAllYearSelects(minYear = 2024) {
+    const curYear = new Date().getFullYear();
+    const startYear = curYear + 1;
+
+    const selects = document.querySelectorAll('select');
+    selects.forEach(select => {
+        const id = (select.id || '').toLowerCase();
+        const name = (select.name || '').toLowerCase();
+        const cls = (select.className || '').toLowerCase();
+
+        const isYearFilter = id.includes('year') || name.includes('year') || cls.includes('year') ||
+            Array.from(select.options).some(opt => (opt.text || '').trim().startsWith('Năm 20') || (opt.value || '').startsWith('year_'));
+
+        if (isYearFilter) {
+            const currentSelectedValue = select.value;
+            const hasYearPrefix = Array.from(select.options).some(opt => (opt.value || '').startsWith('year_'));
+            const hasDefaultPlaceholder = Array.from(select.options).some(opt => opt.value === '' || (opt.text || '').includes('--'));
+
+            let html = '';
+            if (hasDefaultPlaceholder) {
+                const placeholderText = select.options[0]?.text || '-- Chọn Năm --';
+                html += `<option value="">${placeholderText}</option>`;
+            }
+
+            for (let y = startYear; y >= minYear; y--) {
+                const val = hasYearPrefix ? `year_${y}` : `${y}`;
+                html += `<option value="${val}">Năm ${y}</option>`;
+            }
+
+            select.innerHTML = html;
+            if (currentSelectedValue && Array.from(select.options).some(o => o.value === currentSelectedValue)) {
+                select.value = currentSelectedValue;
+            } else {
+                const defaultVal = hasYearPrefix ? `year_${curYear}` : `${curYear}`;
+                if (Array.from(select.options).some(o => o.value === defaultVal)) {
+                    select.value = defaultVal;
+                }
+            }
+        }
+    });
 }
+window.enhanceAllYearSelects = enhanceAllYearSelects;
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(enhanceAllYearSelects, 300);
+});
+

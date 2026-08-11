@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const fastify = require('fastify')({ logger: false, bodyLimit: 52428800 }); // 50MB
 
-// Trigger reload: 2026-07-22_reload_chuanbiqlx_no_cut
+// Trigger reload: 2026-08-06_reload_kpisale_reward_fields_added
 // ========== DOITAC DOMAIN DETECTION ==========
 // Detect if request comes from affiliate portal (dongphuchv.net)
 const DOITAC_DOMAINS = ['dongphuchv.net', 'www.dongphuchv.net'];
@@ -181,6 +181,9 @@ async function start() {
             UNIQUE(target_type, target_id, metric, period_type, period_value)
         )`);
     } catch(e) { /* exists */ }
+    try { await db.exec("ALTER TABLE kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_m1 TEXT DEFAULT ''"); } catch(e) {}
+    try { await db.exec("ALTER TABLE kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_m120 TEXT DEFAULT ''"); } catch(e) {}
+    try { await db.exec("ALTER TABLE kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_conditions TEXT DEFAULT ''"); } catch(e) {}
 
     // Migration: KPI Marketing targets — chỉ tiêu Marketing
     try {
@@ -540,6 +543,9 @@ async function start() {
         try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_draft BOOLEAN DEFAULT FALSE`); } catch(e) {}
         try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS draft_name TEXT`); } catch(e) {}
         try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS official_save_clicked BOOLEAN DEFAULT FALSE`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS customer_notify_img TEXT`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE dht_order_shipments ADD COLUMN IF NOT EXISTS customer_notify_img TEXT`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE don_gui_ao_mau ADD COLUMN IF NOT EXISTS customer_notify_img TEXT`); } catch(e) {}
     } catch(e) { console.error('[DHT Migration]', e.message); }
 
     // Migration: daily_penalty_ledger — Sổ phạt hàng ngày (single source of truth)
@@ -1298,6 +1304,20 @@ async function start() {
         try { await db.exec(`ALTER TABLE common_errors ADD COLUMN IF NOT EXISTS responsibility JSONB DEFAULT '[]'`); } catch(e) {}
     } catch(e) { console.error('[Migration v13] Common Errors:', e.message); }
 
+    // v16 Migration: Idempotency & Unique Constraints for Deposit / Confirm Order
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS request_idempotency (
+            id                  SERIAL PRIMARY KEY,
+            idempotency_key     VARCHAR(255) NOT NULL,
+            endpoint            VARCHAR(255) NOT NULL,
+            response_body       JSONB NOT NULL,
+            created_at          TIMESTAMPTZ DEFAULT NOW(),
+            CONSTRAINT unq_idempotency_key_endpoint UNIQUE (idempotency_key, endpoint)
+        )`);
+        try { await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS unq_order_codes_code ON order_codes(order_code)`); } catch(e) {}
+        try { await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS unq_payment_records_code ON payment_records(payment_code)`); } catch(e) {}
+    } catch(e) { console.error('[Migration v16] Idempotency:', e.message); }
+
     // Migration: Finishing Records counting_time column
     try {
         await db.exec(`ALTER TABLE finishing_records ADD COLUMN IF NOT EXISTS counting_time VARCHAR(20)`);
@@ -1626,6 +1646,7 @@ async function start() {
     fastify.register(require('./routes/kpiSale'));
     fastify.register(require('./routes/kpiMarketing'));
     fastify.register(require('./routes/meetingCommitments'));
+    fastify.register(require('./routes/bangcongviec'));
     fastify.register(require('./routes/telegram'));
     fastify.register(require('./routes/paymentRecords'));
     fastify.register(require('./routes/cashflow'));
@@ -1664,6 +1685,7 @@ async function start() {
     fastify.register(require('./routes/pancake'));
     fastify.register(require('./routes/khuyenmaigiamgia'));
     fastify.register(require('./routes/ngansachmkt'));
+    fastify.register(require('./routes/mobileDashboard'));
 
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
@@ -1686,6 +1708,14 @@ async function start() {
     // Serve standalone pages
     fastify.get('/quanlyaffiliate', async (request, reply) => {
         return reply.sendFile('quanlyaffiliate.html');
+    });
+
+    // Mobile Dashboard Giám Đốc — Executive Mobile Dashboard
+    fastify.get('/m/dashboard', async (request, reply) => {
+        return reply.sendFile('mobile-dashboard.html');
+    });
+    fastify.get('/m/tongquan', async (request, reply) => {
+        return reply.sendFile('mobile-dashboard.html');
     });
 
     // Mobile Dashboard Hub
@@ -1782,6 +1812,11 @@ async function start() {
     });
     fastify.get('/m/bophanephv', async (request, reply) => {
         return reply.sendFile('mobile-bophanep.html');
+    });
+
+    // Mobile Bảng Công Việc — standalone touch-optimized page
+    fastify.get('/m/bangcongviec', async (request, reply) => {
+        return reply.sendFile('mobile-bangcongviec.html');
     });
 
     // Mobile Bill Nhập Hàng — standalone touch-optimized page

@@ -77,15 +77,37 @@ module.exports = async function(fastify) {
             SELECT
                 c.assigned_to_id AS uid,
                 EXTRACT(DAY FROM d.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS day_num,
-                COALESCE(SUM(oi_sum.revenue - COALESCE(d.discount_amount, 0)), 0) AS daily_rev
+                CASE 
+                    WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
+                      OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
+                      OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCTEM%'
+                      OR d.category_id IN (8, 9)
+                    THEN 'pettem'
+                    ELSE 'dp'
+                END AS biz_area,
+                COALESCE(SUM(oi_sum.revenue - COALESCE(d.discount_amount, 0)), 0) AS daily_rev,
+                COUNT(DISTINCT d.id) AS daily_orders_cnt,
+                COUNT(DISTINCT CASE WHEN (
+                    c.customer_type = 'cu' 
+                    OR c.created_at < date_trunc('month', d.created_at)
+                    OR EXISTS (
+                        SELECT 1 FROM dht_orders d3
+                        JOIN order_codes oc3 ON oc3.order_code = d3.order_code
+                        WHERE oc3.customer_id = c.id
+                          AND COALESCE(d3.is_draft, false) = false
+                          AND COALESCE(oc3.status, 'active') NOT IN ('cancelled', 'canceled')
+                          AND (d3.created_at < d.created_at OR (d3.created_at = d.created_at AND d3.id < d.id))
+                    )
+                ) THEN c.id ELSE NULL END) AS daily_ret_cust_cnt
             FROM dht_orders d
             JOIN order_codes oc ON oc.order_code = d.order_code
             JOIN customers c ON oc.customer_id = c.id
+            LEFT JOIN dht_categories cat ON cat.id = d.category_id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
-                ) - COALESCE(d.vat_amount, 0) AS revenue
+                ) - COALESCE(d.vat_amount, 0) - COALESCE(d.discount_amount, 0) AS revenue
             ) oi_sum ON true
             WHERE c.assigned_to_id IN (${empPh})
               AND COALESCE(c.cancel_approved, 0) != 1
@@ -94,42 +116,73 @@ module.exports = async function(fastify) {
               AND d.created_at < $${cPE}::timestamp
               AND COALESCE(oc.status, 'active') != 'cancelled'
               ${_prodSQL}
-            GROUP BY c.assigned_to_id, day_num
-            ORDER BY uid, day_num
+            GROUP BY c.assigned_to_id, day_num, biz_area
+            ORDER BY uid, day_num, biz_area
         `, [...empIds, monthStart, monthEnd]);
 
-        // Build daily map: uid -> { 1: revenue, 2: revenue, ... }
+        // Build daily map: uid -> { dp: { day: { rev, orders, ret_cust } }, pettem: { ... } }
         const dailyMap = {};
         dailyRows.forEach(r => {
-            if (!dailyMap[r.uid]) dailyMap[r.uid] = {};
-            dailyMap[r.uid][r.day_num] = parseFloat(r.daily_rev);
+            if (!dailyMap[r.uid]) dailyMap[r.uid] = { dp: {}, pettem: {} };
+            const area = r.biz_area || 'dp';
+            if (!dailyMap[r.uid][area]) dailyMap[r.uid][area] = {};
+            dailyMap[r.uid][area][r.day_num] = {
+                rev: parseFloat(r.daily_rev),
+                orders: parseInt(r.daily_orders_cnt || 0),
+                ret_cust: parseInt(r.daily_ret_cust_cnt || 0)
+            };
         });
 
         // Helper: build daily array for a user
         function buildDaily(uid) {
-            const arr = [];
-            const m = dailyMap[uid] || {};
-            for (let d = 1; d <= daysInMonth; d++) arr.push(m[d] || 0);
-            return arr;
+            const m = dailyMap[uid] || { dp: {}, pettem: {} };
+            
+            const buildArea = (areaMap) => {
+                const arrRev = [], arrOrders = [], arrRet = [];
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const item = areaMap[d] || { rev: 0, orders: 0, ret_cust: 0 };
+                    arrRev.push(item.rev);
+                    arrOrders.push(item.orders);
+                    arrRet.push(item.ret_cust);
+                }
+                return { rev: arrRev, orders: arrOrders, ret_cust: arrRet };
+            };
+
+            const dpData = buildArea(m.dp || {});
+            const petData = buildArea(m.pettem || {});
+            const allRev = dpData.rev.map((v, i) => v + petData.rev[i]);
+            const allOrders = dpData.orders.map((v, i) => v + petData.orders[i]);
+            const allRet = dpData.ret_cust.map((v, i) => v + petData.ret_cust[i]);
+
+            return {
+                dp: dpData,
+                pettem: petData,
+                all: { rev: allRev, orders: allOrders, ret_cust: allRet }
+            };
         }
 
         // Helper: sum daily arrays
         function sumDailyArrays(arrays) {
             const result = new Array(daysInMonth).fill(0);
-            arrays.forEach(arr => { for (let i = 0; i < daysInMonth; i++) result[i] += arr[i]; });
+            arrays.forEach(arr => { for (let i = 0; i < daysInMonth; i++) result[i] += (arr ? arr[i] : 0); });
             return result;
         }
 
         // 4. Load KPI targets for this month
         const kpiTargets = await db.all(
-            `SELECT target_type, target_id, metric, target_value
+            `SELECT target_type, target_id, metric, target_value, target_bonus_m1, target_bonus_m120, target_bonus_conditions
              FROM kpi_targets
              WHERE period_type = 'month' AND period_value = $1`,
             [periodLabel]
         );
         const kpiMap = {};
         kpiTargets.forEach(k => {
-            kpiMap[`${k.target_type}_${k.target_id}_${k.metric}`] = parseFloat(k.target_value);
+            kpiMap[`${k.target_type}_${k.target_id}_${k.metric}`] = {
+                target_value: parseFloat(k.target_value) || 0,
+                target_bonus_m1: k.target_bonus_m1 || '',
+                target_bonus_m120: k.target_bonus_m120 || '',
+                target_bonus_conditions: k.target_bonus_conditions || ''
+            };
         });
 
         // 5. Build team structure
@@ -156,38 +209,77 @@ module.exports = async function(fastify) {
 
         if (tpGroupMembers.length > 0) {
             const empData = tpGroupMembers.map(emp => {
-                const daily = buildDaily(emp.id);
+                const dObj = buildDaily(emp.id);
+                const daily = dObj.all.rev;
+                const dailyOrders = dObj.all.orders;
+                const dailyRetCust = dObj.all.ret_cust;
                 const actual = daily.reduce((s, v) => s + v, 0);
-                const target = kpiMap[`user_${emp.id}_revenue`] || 0;
+                const targetObj = kpiMap[`user_${emp.id}_revenue`] || {};
+                const target = typeof targetObj === 'object' ? (targetObj.target_value || 0) : (parseFloat(targetObj) || 0);
+                const bonusM1 = typeof targetObj === 'object' ? (targetObj.target_bonus_m1 || '') : '';
+                const bonusM120 = typeof targetObj === 'object' ? (targetObj.target_bonus_m120 || '') : '';
+                const bonusCond = typeof targetObj === 'object' ? (targetObj.target_bonus_conditions || '') : '';
                 return {
                     user_id: emp.id,
                     username: emp.username,
                     full_name: emp.full_name,
                     role: emp.role,
                     target,
+                    target_bonus_m1: bonusM1,
+                    target_bonus_m120: bonusM120,
+                    target_bonus_conditions: bonusCond,
                     actual,
                     rate: target > 0 ? Math.round(1000 * actual / target) / 10 : 0,
                     missing: target - actual,
                     daily,
+                    daily_orders: dailyOrders,
+                    daily_ret_cust: dailyRetCust,
+                    daily_by_biz: {
+                        dp: { daily: dObj.dp.rev, daily_orders: dObj.dp.orders, daily_ret_cust: dObj.dp.ret_cust },
+                        pettem: { daily: dObj.pettem.rev, daily_orders: dObj.pettem.orders, daily_ret_cust: dObj.pettem.ret_cust },
+                        all: { daily: dObj.all.rev, daily_orders: dObj.all.orders, daily_ret_cust: dObj.all.ret_cust }
+                    },
                     stages: buildStages(daily, target, daysInMonth)
                 };
             });
-            const teamDaily = sumDailyArrays(empData.map(e => e.daily));
-            const teamActual = teamDaily.reduce((s, v) => s + v, 0);
-            const teamTarget = empData.reduce((s, e) => s + e.target, 0);
+            const teamDailyDp = sumDailyArrays(empData.map(e => e.daily_by_biz.dp.daily));
+            const teamDailyOrdersDp = sumDailyArrays(empData.map(e => e.daily_by_biz.dp.daily_orders));
+            const teamDailyRetDp = sumDailyArrays(empData.map(e => e.daily_by_biz.dp.daily_ret_cust));
+
+            const teamDailyPet = sumDailyArrays(empData.map(e => e.daily_by_biz.pettem.daily));
+            const teamDailyOrdersPet = sumDailyArrays(empData.map(e => e.daily_by_biz.pettem.daily_orders));
+            const teamDailyRetPet = sumDailyArrays(empData.map(e => e.daily_by_biz.pettem.daily_ret_cust));
+
+            const teamDailyAll = sumDailyArrays(empData.map(e => e.daily));
+            const teamDailyOrdersAll = sumDailyArrays(empData.map(e => e.daily_orders));
+            const teamDailyRetAll = sumDailyArrays(empData.map(e => e.daily_ret_cust));
+            const teamActual = teamDailyAll.reduce((s, v) => s + v, 0);
+            const rootDeptTargetObj = kpiMap[`dept_${rootDept.id}_revenue`] || kpiMap[`team_${rootDept.id}_revenue`] || {};
+            const teamTargetRoot = parseFloat(rootDeptTargetObj.target_value) || 0;
+
             teams.push({
                 dept_id: rootDept.id,
                 dept_name: 'TRƯỞNG PHÒNG SALE',
                 leader_name: managers[0]?.full_name || null,
-                target_1: teamTarget,
-                target_120: Math.round(teamTarget * 1.2),
+                target_1: teamTargetRoot,
+                target_120: Math.round(teamTargetRoot * 1.2),
+                target_bonus_m1: rootDeptTargetObj.target_bonus_m1 || '',
+                target_bonus_m120: rootDeptTargetObj.target_bonus_m120 || '',
+                target_bonus_conditions: rootDeptTargetObj.target_bonus_conditions || '',
                 actual: teamActual,
-                rate_1: teamTarget > 0 ? Math.round(1000 * teamActual / teamTarget) / 10 : 0,
-                rate_120: teamTarget > 0 ? Math.round(1000 * teamActual / (teamTarget * 1.2)) / 10 : 0,
-                missing_1: teamTarget - teamActual,
-                missing_120: Math.round(teamTarget * 1.2) - teamActual,
-                daily: teamDaily,
-                stages: buildStages(teamDaily, teamTarget, daysInMonth),
+                rate_1: teamTargetRoot > 0 ? Math.round(1000 * teamActual / teamTargetRoot) / 10 : 0,
+                rate_120: teamTargetRoot > 0 ? Math.round(1000 * teamActual / (teamTargetRoot * 1.2)) / 10 : 0,
+                missing_1: teamTargetRoot - teamActual,
+                missing_120: Math.round(teamTargetRoot * 1.2) - teamActual,
+                daily: teamDailyAll,
+                daily_orders: teamDailyOrdersAll,
+                daily_ret_cust: teamDailyRetAll,
+                daily_by_biz: {
+                    dp: { daily: teamDailyDp, daily_orders: teamDailyOrdersDp, daily_ret_cust: teamDailyRetDp },
+                    pettem: { daily: teamDailyPet, daily_orders: teamDailyOrdersPet, daily_ret_cust: teamDailyRetPet },
+                    all: { daily: teamDailyAll, daily_orders: teamDailyOrdersAll, daily_ret_cust: teamDailyRetAll }
+                },
+                stages: buildStages(teamDailyAll, teamTargetRoot, daysInMonth),
                 employees: empData
             });
         }
@@ -204,19 +296,36 @@ module.exports = async function(fastify) {
             const leaderUser = dept.head_user_id ? users.find(u => u.id === dept.head_user_id) : null;
 
             const empData = deptEmps.map(emp => {
-                const daily = buildDaily(emp.id);
+                const dObj = buildDaily(emp.id);
+                const daily = dObj.all.rev;
+                const dailyOrders = dObj.all.orders;
+                const dailyRetCust = dObj.all.ret_cust;
                 const actual = daily.reduce((s, v) => s + v, 0);
-                const target = kpiMap[`user_${emp.id}_revenue`] || 0;
+                const targetObj = kpiMap[`user_${emp.id}_revenue`] || {};
+                const target = typeof targetObj === 'object' ? (targetObj.target_value || 0) : (parseFloat(targetObj) || 0);
+                const bonusM1 = typeof targetObj === 'object' ? (targetObj.target_bonus_m1 || '') : '';
+                const bonusM120 = typeof targetObj === 'object' ? (targetObj.target_bonus_m120 || '') : '';
+                const bonusCond = typeof targetObj === 'object' ? (targetObj.target_bonus_conditions || '') : '';
                 return {
                     user_id: emp.id,
                     username: emp.username,
                     full_name: emp.full_name,
                     role: emp.role,
                     target,
+                    target_bonus_m1: bonusM1,
+                    target_bonus_m120: bonusM120,
+                    target_bonus_conditions: bonusCond,
                     actual,
                     rate: target > 0 ? Math.round(1000 * actual / target) / 10 : 0,
                     missing: target - actual,
                     daily,
+                    daily_orders: dailyOrders,
+                    daily_ret_cust: dailyRetCust,
+                    daily_by_biz: {
+                        dp: { daily: dObj.dp.rev, daily_orders: dObj.dp.orders, daily_ret_cust: dObj.dp.ret_cust },
+                        pettem: { daily: dObj.pettem.rev, daily_orders: dObj.pettem.orders, daily_ret_cust: dObj.pettem.ret_cust },
+                        all: { daily: dObj.all.rev, daily_orders: dObj.all.orders, daily_ret_cust: dObj.all.ret_cust }
+                    },
                     stages: buildStages(daily, target, daysInMonth)
                 };
             });
@@ -229,9 +338,21 @@ module.exports = async function(fastify) {
                 return pa - pb;
             });
 
-            const teamDaily = sumDailyArrays(empData.map(e => e.daily));
-            const teamActual = teamDaily.reduce((s, v) => s + v, 0);
-            const teamTarget = empData.reduce((s, e) => s + e.target, 0);
+            const teamDailyDp = sumDailyArrays(empData.map(e => e.daily_by_biz.dp.daily));
+            const teamDailyOrdersDp = sumDailyArrays(empData.map(e => e.daily_by_biz.dp.daily_orders));
+            const teamDailyRetDp = sumDailyArrays(empData.map(e => e.daily_by_biz.dp.daily_ret_cust));
+
+            const teamDailyPet = sumDailyArrays(empData.map(e => e.daily_by_biz.pettem.daily));
+            const teamDailyOrdersPet = sumDailyArrays(empData.map(e => e.daily_by_biz.pettem.daily_orders));
+            const teamDailyRetPet = sumDailyArrays(empData.map(e => e.daily_by_biz.pettem.daily_ret_cust));
+
+            const teamDailyAll = sumDailyArrays(empData.map(e => e.daily));
+            const teamDailyOrdersAll = sumDailyArrays(empData.map(e => e.daily_orders));
+            const teamDailyRetAll = sumDailyArrays(empData.map(e => e.daily_ret_cust));
+            const teamActual = teamDailyAll.reduce((s, v) => s + v, 0);
+            
+            const deptTargetObj = kpiMap[`dept_${dept.id}_revenue`] || kpiMap[`team_${dept.id}_revenue`] || {};
+            const teamTarget = parseFloat(deptTargetObj.target_value) || 0;
 
             teams.push({
                 dept_id: dept.id,
@@ -239,13 +360,23 @@ module.exports = async function(fastify) {
                 leader_name: leaderUser?.full_name || null,
                 target_1: teamTarget,
                 target_120: Math.round(teamTarget * 1.2),
+                target_bonus_m1: deptTargetObj.target_bonus_m1 || '',
+                target_bonus_m120: deptTargetObj.target_bonus_m120 || '',
+                target_bonus_conditions: deptTargetObj.target_bonus_conditions || '',
                 actual: teamActual,
                 rate_1: teamTarget > 0 ? Math.round(1000 * teamActual / teamTarget) / 10 : 0,
                 rate_120: teamTarget > 0 ? Math.round(1000 * teamActual / (teamTarget * 1.2)) / 10 : 0,
                 missing_1: teamTarget - teamActual,
                 missing_120: Math.round(teamTarget * 1.2) - teamActual,
-                daily: teamDaily,
-                stages: buildStages(teamDaily, teamTarget, daysInMonth),
+                daily: teamDailyAll,
+                daily_orders: teamDailyOrdersAll,
+                daily_ret_cust: teamDailyRetAll,
+                daily_by_biz: {
+                    dp: { daily: teamDailyDp, daily_orders: teamDailyOrdersDp, daily_ret_cust: teamDailyRetDp },
+                    pettem: { daily: teamDailyPet, daily_orders: teamDailyOrdersPet, daily_ret_cust: teamDailyRetPet },
+                    all: { daily: teamDailyAll, daily_orders: teamDailyOrdersAll, daily_ret_cust: teamDailyRetAll }
+                },
+                stages: buildStages(teamDailyAll, teamTarget, daysInMonth),
                 employees: empData
             });
         }
@@ -361,11 +492,21 @@ module.exports = async function(fastify) {
             });
         }
 
-        // Summary (TỔNG)
         const totalTarget = teams.reduce((s, t) => s + t.target_1, 0);
         const totalTarget120 = Math.round(totalTarget * 1.2);
         const totalActual = teams.reduce((s, t) => s + t.actual, 0);
-        const totalDaily = sumDailyArrays(teams.map(t => t.daily));
+
+        const totalDailyDp = sumDailyArrays(teams.map(t => t.daily_by_biz.dp.daily));
+        const totalDailyOrdersDp = sumDailyArrays(teams.map(t => t.daily_by_biz.dp.daily_orders));
+        const totalDailyRetDp = sumDailyArrays(teams.map(t => t.daily_by_biz.dp.daily_ret_cust));
+
+        const totalDailyPet = sumDailyArrays(teams.map(t => t.daily_by_biz.pettem.daily));
+        const totalDailyOrdersPet = sumDailyArrays(teams.map(t => t.daily_by_biz.pettem.daily_orders));
+        const totalDailyRetPet = sumDailyArrays(teams.map(t => t.daily_by_biz.pettem.daily_ret_cust));
+
+        const totalDailyAll = sumDailyArrays(teams.map(t => t.daily));
+        const totalDailyOrdersAll = sumDailyArrays(teams.map(t => t.daily_orders));
+        const totalDailyRetAll = sumDailyArrays(teams.map(t => t.daily_ret_cust));
 
         const sumOldDp = teams.reduce((s, t) => s + (t.old_dp_total || 0), 0);
         const sumRetDp = teams.reduce((s, t) => s + (t.ret_dp_cust || 0), 0);
@@ -382,8 +523,15 @@ module.exports = async function(fastify) {
                 rate_120: totalTarget120 > 0 ? Math.round(1000 * totalActual / totalTarget120) / 10 : 0,
                 missing_1: totalTarget - totalActual,
                 missing_120: totalTarget120 - totalActual,
-                stages: buildStages(totalDaily, totalTarget, daysInMonth),
-                daily: totalDaily,
+                stages: buildStages(totalDailyAll, totalTarget, daysInMonth),
+                daily: totalDailyAll,
+                daily_orders: totalDailyOrdersAll,
+                daily_ret_cust: totalDailyRetAll,
+                daily_by_biz: {
+                    dp: { daily: totalDailyDp, daily_orders: totalDailyOrdersDp, daily_ret_cust: totalDailyRetDp },
+                    pettem: { daily: totalDailyPet, daily_orders: totalDailyOrdersPet, daily_ret_cust: totalDailyRetPet },
+                    all: { daily: totalDailyAll, daily_orders: totalDailyOrdersAll, daily_ret_cust: totalDailyRetAll }
+                },
                 old_dp_total: sumOldDp,
                 ret_dp_cust: sumRetDp,
                 rate_dp: sumOldDp > 0 ? Math.round(1000 * sumRetDp / sumOldDp) / 10 : null,
@@ -407,18 +555,29 @@ module.exports = async function(fastify) {
 
         let created = 0, updated = 0;
         for (const t of targets) {
-            if (!t.user_id || t.target_value == null) continue;
+            const targetType = (t.target_type === 'dept' || t.dept_id) ? 'dept' : 'user';
+            const targetId = t.dept_id || t.user_id;
+            if (!targetId) continue;
+
+            const targetVal = parseFloat(t.target_value) || 0;
+            const bonusM1 = (t.target_bonus_m1 !== undefined && t.target_bonus_m1 !== null) ? String(t.target_bonus_m1).trim() : '';
+            const bonusM120 = (t.target_bonus_m120 !== undefined && t.target_bonus_m120 !== null) ? String(t.target_bonus_m120).trim() : '';
+            const bonusCond = (t.target_bonus_conditions !== undefined && t.target_bonus_conditions !== null) ? String(t.target_bonus_conditions).trim() : '';
+
             const existing = await db.get(
-                `SELECT id FROM kpi_targets WHERE target_type = 'user' AND target_id = $1 AND metric = 'revenue' AND period_type = 'month' AND period_value = $2`,
-                [t.user_id, period_value]
+                `SELECT id FROM kpi_targets WHERE target_type = $1 AND target_id = $2 AND metric = 'revenue' AND period_type = 'month' AND period_value = $3`,
+                [targetType, targetId, period_value]
             );
             if (existing) {
-                await db.run(`UPDATE kpi_targets SET target_value = $1, updated_at = NOW() WHERE id = $2`, [t.target_value, existing.id]);
+                await db.run(
+                    `UPDATE kpi_targets SET target_value = $1, target_bonus_m1 = $2, target_bonus_m120 = $3, target_bonus_conditions = $4, updated_at = NOW() WHERE id = $5`,
+                    [targetVal, bonusM1, bonusM120, bonusCond, existing.id]
+                );
                 updated++;
             } else {
                 await db.run(
-                    `INSERT INTO kpi_targets (target_type, target_id, metric, period_type, period_value, target_value, created_by) VALUES ('user', $1, 'revenue', 'month', $2, $3, $4)`,
-                    [t.user_id, period_value, t.target_value, request.user.id]
+                    `INSERT INTO kpi_targets (target_type, target_id, metric, period_type, period_value, target_value, target_bonus_m1, target_bonus_m120, target_bonus_conditions, created_by) VALUES ($1, $2, 'revenue', 'month', $3, $4, $5, $6, $7, $8)`,
+                    [targetType, targetId, period_value, targetVal, bonusM1, bonusM120, bonusCond, request.user.id]
                 );
                 created++;
             }
@@ -499,7 +658,7 @@ module.exports = async function(fastify) {
                 SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
-                ) - COALESCE(d.vat_amount, 0) AS revenue
+                ) - COALESCE(d.vat_amount, 0) - COALESCE(d.discount_amount, 0) AS revenue
             ) oi_sum ON true
             LEFT JOIN users ref ON ref.id = c.referrer_id AND ref.role = 'tkaffiliate'
             WHERE c.assigned_to_id = $1
@@ -559,8 +718,7 @@ module.exports = async function(fastify) {
                 SELECT DISTINCT business_area, customer_key
                 FROM valid_orders
                 WHERE created_at < $2::timestamp
-                   OR customer_created_at < $2::timestamp
-                   OR cust_table_type = 'cu'
+                   OR (customer_created_at < $2::timestamp AND cust_table_type = 'cu')
             ),
             current_orders AS (
                 SELECT business_area, customer_key, COUNT(DISTINCT order_id) AS order_cnt
@@ -670,7 +828,7 @@ module.exports = async function(fastify) {
                 SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
-                ) - COALESCE(d.vat_amount, 0) AS revenue
+                ) - COALESCE(d.vat_amount, 0) - COALESCE(d.discount_amount, 0) AS revenue
             ) oi_sum ON true
             WHERE c.assigned_to_id = $1
               AND COALESCE(c.cancel_approved, 0) != 1
@@ -713,18 +871,16 @@ module.exports = async function(fastify) {
 
         const allCusts = Object.values(custMap);
         
-        const prior_old_customers = allCusts.filter(c => {
+        const isPriorOldBeforeMonthFn = (c) => {
             return c.prior_orders_cnt > 0 || 
-                   (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart)) ||
                    c.customer_type === 'cu' ||
-                   c.month_orders_cnt >= 2;
-        });
+                   (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart));
+        };
+
+        const prior_old_customers = allCusts.filter(c => isPriorOldBeforeMonthFn(c) || c.month_orders_cnt >= 2);
 
         const returning_old_customers = allCusts.filter(c => {
-            const isPriorOld = c.prior_orders_cnt > 0 || 
-                               (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart)) ||
-                               c.customer_type === 'cu';
-            if (isPriorOld) {
+            if (isPriorOldBeforeMonthFn(c)) {
                 return c.month_orders_cnt > 0;
             } else {
                 return c.month_orders_cnt >= 2;
@@ -732,10 +888,7 @@ module.exports = async function(fastify) {
         });
 
         const new_customers = allCusts.filter(c => {
-            const isPriorOld = c.prior_orders_cnt > 0 || 
-                               (c.customer_created_at && new Date(c.customer_created_at) < new Date(monthStart)) ||
-                               c.customer_type === 'cu';
-            return (!isPriorOld) && c.month_orders_cnt > 0;
+            return (!isPriorOldBeforeMonthFn(c)) && c.month_orders_cnt >= 1;
         });
 
         return {
@@ -799,7 +952,7 @@ module.exports = async function(fastify) {
                 SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
-                ) - COALESCE(d.vat_amount, 0) AS revenue
+                ) - COALESCE(d.vat_amount, 0) - COALESCE(d.discount_amount, 0) AS revenue
             ) oi_sum ON true
             LEFT JOIN users ref ON ref.id = c.referrer_id AND ref.role = 'tkaffiliate'
             WHERE (c.assigned_to_id IN (SELECT id FROM users WHERE (department_id = $1 OR department_id IN (SELECT id FROM departments WHERE parent_id = $1)) AND status = 'active'))
@@ -902,7 +1055,7 @@ module.exports = async function(fastify) {
                 SELECT COALESCE(
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
-                ) - COALESCE(d.vat_amount, 0) AS revenue
+                ) - COALESCE(d.vat_amount, 0) - COALESCE(d.discount_amount, 0) AS revenue
             ) oi_sum ON true
             WHERE c.assigned_to_id IN (${empPh})
               AND COALESCE(c.cancel_approved, 0) != 1
@@ -986,4 +1139,208 @@ module.exports = async function(fastify) {
                 months_achieved: monthsAchieved, months_total: monthsWithTarget }
         };
     }
+
+    // ===== GET /api/reports/kpi-sale/yearly-trend =====
+    fastify.get('/api/reports/kpi-sale/yearly-trend', { preHandler: [authenticate] }, async (request, reply) => {
+        const { year: qYear } = request.query;
+        const year = parseInt(qYear) || (new Date()).getFullYear();
+
+        const yearStart = `${year}-01-01`;
+        const yearEnd = `${year + 1}-01-01`;
+
+        // 1. Get Sale department tree & active users
+        const allDepts = await db.all(
+            "SELECT id FROM departments WHERE (id = 4 OR parent_id = 4) AND status = 'active'"
+        );
+        const allDeptIds = allDepts.map(d => d.id);
+        if (allDeptIds.length === 0) return { year, months: [1,2,3,4,5,6,7,8,9,10,11,12], staff_list: [], by_staff: {} };
+
+        const salePh = allDeptIds.map((_, i) => `$${i + 1}`).join(',');
+        const users = await db.all(
+            `SELECT u.id, u.full_name, u.role, u.department_id, u.username
+             FROM users u
+             WHERE u.department_id IN (${salePh}) AND u.status = 'active'
+             ORDER BY u.full_name`,
+            allDeptIds
+        );
+        const empIds = users.filter(u => !['giam_doc'].includes(u.role)).map(u => u.id);
+
+        if (empIds.length === 0) return { year, months: [1,2,3,4,5,6,7,8,9,10,11,12], staff_list: [], by_staff: {} };
+
+        const empPh = empIds.map((_, i) => `$${i + 1}`).join(',');
+
+        // Production Mode filter
+        const _cutoff = await getProductionCutoff();
+        const _testIds = await getTestAccountIds();
+        const _prodSQL = buildProductionFilter(_cutoff, _testIds, 'c.created_at', 'c.created_by');
+
+        const cPS = empIds.length + 1;
+        const cPE = empIds.length + 2;
+
+        const monthlyRows = await db.all(`
+            SELECT
+                c.assigned_to_id AS uid,
+                EXTRACT(MONTH FROM d.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS mo,
+                CASE 
+                    WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
+                      OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
+                      OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCTEM%'
+                      OR d.category_id IN (8, 9)
+                    THEN 'pettem'
+                    ELSE 'dp'
+                END AS biz_area,
+                COALESCE(SUM(oi_sum.revenue - COALESCE(d.discount_amount, 0)), 0) AS monthly_rev,
+                COUNT(DISTINCT d.id) AS monthly_orders_cnt,
+                COUNT(DISTINCT CASE WHEN (
+                    c.customer_type = 'cu' 
+                    OR c.created_at < date_trunc('month', d.created_at)
+                    OR EXISTS (
+                        SELECT 1 FROM dht_orders d3
+                        JOIN order_codes oc3 ON oc3.order_code = d3.order_code
+                        WHERE oc3.customer_id = c.id
+                          AND COALESCE(d3.is_draft, false) = false
+                          AND COALESCE(oc3.status, 'active') NOT IN ('cancelled', 'canceled')
+                          AND (d3.created_at < d.created_at OR (d3.created_at = d.created_at AND d3.id < d.id))
+                    )
+                ) THEN c.id ELSE NULL END) AS monthly_ret_cust_cnt
+            FROM dht_orders d
+            JOIN order_codes oc ON oc.order_code = d.order_code
+            JOIN customers c ON oc.customer_id = c.id
+            LEFT JOIN dht_categories cat ON cat.id = d.category_id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(
+                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
+                    0
+                ) - COALESCE(d.vat_amount, 0) - COALESCE(d.discount_amount, 0) AS revenue
+            ) oi_sum ON true
+            WHERE c.assigned_to_id IN (${empPh})
+              AND COALESCE(c.cancel_approved, 0) != 1
+              AND COALESCE(d.is_draft, false) = false
+              AND d.created_at >= $${cPS}::timestamp
+              AND d.created_at < $${cPE}::timestamp
+              AND COALESCE(oc.status, 'active') != 'cancelled'
+              ${_prodSQL}
+            GROUP BY c.assigned_to_id, mo, biz_area
+            ORDER BY uid, mo, biz_area
+        `, [...empIds, yearStart, yearEnd]);
+
+        // Query KPI targets for all months in this year
+        const kpiTargets = await db.all(
+            `SELECT target_type, target_id, period_value, target_value
+             FROM kpi_targets
+             WHERE period_type = 'month' AND period_value LIKE $1`,
+            [`T%/${year}`]
+        );
+
+        const targetMap = {}; // `user_${uid}_T${m}/${year}` -> target_value
+        kpiTargets.forEach(k => {
+            targetMap[`${k.target_type}_${k.target_id}_${k.period_value}`] = parseFloat(k.target_value) || 0;
+        });
+
+        // Build data structure
+        const staffMap = {};
+        empIds.forEach(id => {
+            const createEmptyArea = () => ({
+                monthly_rev: new Array(12).fill(0),
+                monthly_orders: new Array(12).fill(0),
+                monthly_target: new Array(12).fill(0),
+                monthly_rate: new Array(12).fill(0),
+                monthly_ret_cust: new Array(12).fill(0)
+            });
+            staffMap[id] = {
+                dp: createEmptyArea(),
+                pettem: createEmptyArea(),
+                all: createEmptyArea()
+            };
+            for (let m = 1; m <= 12; m++) {
+                const pVal = `T${m}/${year}`;
+                const tVal = targetMap[`user_${id}_${pVal}`] || 0;
+                staffMap[id].all.monthly_target[m - 1] = tVal;
+                staffMap[id].dp.monthly_target[m - 1] = tVal;
+                staffMap[id].pettem.monthly_target[m - 1] = tVal;
+            }
+        });
+
+        monthlyRows.forEach(r => {
+            const uid = r.uid;
+            const mo = r.mo;
+            const area = r.biz_area || 'dp';
+            if (staffMap[uid] && mo >= 1 && mo <= 12) {
+                const rev = parseFloat(r.monthly_rev || 0);
+                const ord = parseInt(r.monthly_orders_cnt || 0);
+                const ret = parseInt(r.monthly_ret_cust_cnt || 0);
+                const tgt = staffMap[uid][area].monthly_target[mo - 1] || 0;
+
+                staffMap[uid][area].monthly_rev[mo - 1] += rev;
+                staffMap[uid][area].monthly_orders[mo - 1] += ord;
+                staffMap[uid][area].monthly_ret_cust[mo - 1] += ret;
+                staffMap[uid][area].monthly_rate[mo - 1] = tgt > 0 ? Math.round(1000 * rev / tgt) / 10 : 0;
+
+                // Accumulate into 'all'
+                staffMap[uid].all.monthly_rev[mo - 1] += rev;
+                staffMap[uid].all.monthly_orders[mo - 1] += ord;
+                staffMap[uid].all.monthly_ret_cust[mo - 1] += ret;
+                const allTgt = staffMap[uid].all.monthly_target[mo - 1] || 0;
+                staffMap[uid].all.monthly_rate[mo - 1] = allTgt > 0 ? Math.round(1000 * staffMap[uid].all.monthly_rev[mo - 1] / allTgt) / 10 : 0;
+            }
+        });
+
+        // Build overall 'all' summary for Sale dept across all staff
+        const createEmptyOverall = () => ({
+            monthly_rev: new Array(12).fill(0),
+            monthly_orders: new Array(12).fill(0),
+            monthly_target: new Array(12).fill(0),
+            monthly_rate: new Array(12).fill(0),
+            monthly_ret_cust: new Array(12).fill(0)
+        });
+
+        const overallObj = {
+            dp: createEmptyOverall(),
+            pettem: createEmptyOverall(),
+            all: createEmptyOverall()
+        };
+
+        empIds.forEach(id => {
+            const s = staffMap[id];
+            ['dp', 'pettem', 'all'].forEach(area => {
+                for (let i = 0; i < 12; i++) {
+                    overallObj[area].monthly_rev[i] += s[area].monthly_rev[i];
+                    overallObj[area].monthly_orders[i] += s[area].monthly_orders[i];
+                    overallObj[area].monthly_target[i] += s[area].monthly_target[i];
+                    overallObj[area].monthly_ret_cust[i] += s[area].monthly_ret_cust[i];
+                }
+            });
+        });
+
+        ['dp', 'pettem', 'all'].forEach(area => {
+            for (let i = 0; i < 12; i++) {
+                const tgt = overallObj[area].monthly_target[i];
+                const rev = overallObj[area].monthly_rev[i];
+                overallObj[area].monthly_rate[i] = tgt > 0 ? Math.round(1000 * rev / tgt) / 10 : 0;
+            }
+        });
+
+        staffMap['all'] = overallObj;
+
+        // Mirror top-level properties on staffMap[id] to staffMap[id].all for backwards compatibility
+        Object.keys(staffMap).forEach(key => {
+            if (staffMap[key] && staffMap[key].all) {
+                Object.assign(staffMap[key], staffMap[key].all);
+            }
+        });
+
+        const staffList = users.filter(u => !['giam_doc'].includes(u.role)).map(u => ({
+            id: u.id,
+            full_name: u.full_name,
+            role: u.role,
+            username: u.username
+        }));
+
+        return {
+            year,
+            months: [1,2,3,4,5,6,7,8,9,10,11,12],
+            staff_list: staffList,
+            by_staff: staffMap
+        };
+    });
 };

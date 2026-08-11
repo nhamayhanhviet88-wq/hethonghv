@@ -440,6 +440,24 @@ module.exports = async function(fastify) {
             console.log('[DHT] Seeded', cats.length, 'cutting categories');
         }
     } catch(e) { console.error('[DHT] seed cutting_category:', e.message); }
+
+    try {
+        // Cleanup premature 0-item dht_orders shells created during Dat Coc when customer is not chot_don
+        await db.run(`
+            DELETE FROM dht_orders
+            WHERE (order_code LIKE 'GCTEM%' OR order_code LIKE 'GCPET%')
+              AND NOT EXISTS (SELECT 1 FROM dht_order_items oi WHERE oi.dht_order_id = dht_orders.id)
+              AND customer_id IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM customers c
+                  WHERE c.id = dht_orders.customer_id
+                    AND (
+                        c.order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh','sau_ban_hang','dang_san_xuat')
+                        OR EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
+                    )
+              )
+        `);
+    } catch(e) { console.error('[DHT] cleanup premature orders:', e.message); }
     // ========== CATEGORIES: CRUD Lĩnh Vực ==========
     fastify.get('/api/dht/categories', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all('SELECT * FROM dht_categories ORDER BY display_order ASC, id ASC');
@@ -1893,8 +1911,16 @@ module.exports = async function(fastify) {
             }
             orderCode = repairCode;
         } else if (isLinkedPetTem) {
-            // Linked PET/TEM: use existing order code from CRM
-            const linkedOrder = await db.get('SELECT id, order_code FROM dht_orders WHERE id = $1 AND cskh_user_id = $2', [isLinkedPetTem, request.user.id]);
+            // Linked PET/TEM: use existing order code from CRM (dht_orders or order_codes)
+            let linkedOrder = await db.get('SELECT id, order_code FROM dht_orders WHERE id = $1', [isLinkedPetTem]);
+            if (!linkedOrder) {
+                const ocRow = await db.get('SELECT id, order_code FROM order_codes WHERE id = $1 OR order_code = $2', [isLinkedPetTem, b.order_code ? b.order_code.trim() : '']);
+                if (ocRow) {
+                    linkedOrder = { id: ocRow.id, order_code: ocRow.order_code };
+                } else if (b.order_code && b.order_code.trim()) {
+                    linkedOrder = { id: null, order_code: b.order_code.trim() };
+                }
+            }
             if (!linkedOrder) return reply.code(404).send({ error: 'Không tìm thấy đơn hàng liên kết!' });
             orderCode = linkedOrder.order_code;
         } else if (isFreeOrder) {
@@ -1997,8 +2023,13 @@ module.exports = async function(fastify) {
 
         let result;
         try {
+        let existingDhtRow = null;
         if (isLinkedPetTem) {
-            // ★ LINKED PET/TEM: UPDATE existing order instead of INSERT
+            existingDhtRow = await db.get('SELECT id FROM dht_orders WHERE order_code = $1 OR id = $2', [orderCode, isLinkedPetTem]);
+        }
+
+        if (existingDhtRow) {
+            // ★ LINKED PET/TEM: UPDATE existing order if row already exists on dht_orders
             const inputPhone = (b.customer_phone || '').trim();
             const validPhone = (inputPhone && !inputPhone.toLowerCase().startsWith('pancake_')) ? inputPhone : null;
             result = await db.get(`
@@ -2053,7 +2084,7 @@ module.exports = async function(fastify) {
                 b.applied_coupon || null,
                 Number(b.promo_discount_amount) || 0,
                 b.promo_gift_info || null,
-                isLinkedPetTem
+                existingDhtRow.id
             ]);
 
             // Sync updated customer phone/address/province back to customers table if customer_id is present
@@ -2655,6 +2686,7 @@ module.exports = async function(fastify) {
                 tracking_code: row.tracking_code,
                 carrier_phone: row.carrier_phone,
                 shipping_bill_link: row.shipping_bill_link,
+                customer_notify_img: row.customer_notify_img,
                 shipped_by: row.shipped_by,
                 shipped_at: row.shipped_at,
                 total_amount: row.total_amount,
@@ -2720,6 +2752,7 @@ module.exports = async function(fastify) {
                     actual_carrier_tracking_url: row.actual_carrier_tracking_url,
                     tracking_code: row.tracking_code,
                     shipping_bill_link: row.shipping_bill_link,
+                    customer_notify_img: row.customer_notify_img,
                     carrier_phone: row.carrier_phone,
                     receiver_name: row.customer_name,
                     shipping_fee: row.shipping_fee,
@@ -6263,23 +6296,23 @@ module.exports = async function(fastify) {
     fastify.get('/api/dht/unclaimed-deposits', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(`
             SELECT pr.id, pr.payment_code, 
-                   (pr.amount - COALESCE(pr_child.child_sum, 0)) AS amount,
+                   (pr.amount::numeric - COALESCE(pr_child.child_sum, 0)) AS amount,
                    pr.payment_date, pr.transfer_note,
                    pr.customer_name, pr.customer_phone, pr.payment_method, pr.bank_name,
                    pr.locked_by, pr.locked_at
             FROM payment_records pr
             LEFT JOIN LATERAL (
-                SELECT COALESCE(SUM(amount), 0) AS child_sum
+                SELECT COALESCE(SUM(amount::numeric), 0) AS child_sum
                 FROM payment_records
                 WHERE payment_type = 'child_sll' AND (parent_id = pr.id OR source_ref_id = pr.id::text)
             ) pr_child ON true
             WHERE COALESCE(pr.source, '') != 'cashflow_chi'
-              AND COALESCE(pr.payment_type, '') NOT IN ('dat_coc', 'tra_lai_coc', 'thanh_toan', 'tt_sll', 'child_sll')
+              AND COALESCE(pr.payment_type, '') NOT IN ('tra_lai_coc', 'thanh_toan', 'tt_sll', 'child_sll')
               AND COALESCE(pr.money_source, 'khach_hang') != 'nha_van_chuyen'
               AND (pr.total_order_codes IS NULL OR pr.total_order_codes = '')
               AND (pr.order_tt_coc IS NULL OR pr.order_tt_coc = '')
               AND (pr.order_ao_mau IS NULL OR pr.order_ao_mau = '')
-              AND (pr.amount - COALESCE(pr_child.child_sum, 0)) > 0
+              AND (pr.amount::numeric - COALESCE(pr_child.child_sum, 0)) > 0
               AND pr.telegram_deposit_confirmed = true
               AND (
                   pr.locked_by IS NULL
@@ -6343,9 +6376,10 @@ module.exports = async function(fastify) {
             LEFT JOIN settings_sources s ON c.source_id = s.id
             WHERE oc.user_id = $1
               AND c.assigned_to_id = $1
-              AND oc.status = 'active'
+              AND oc.status = 'confirmed'
+              AND oc.order_code NOT LIKE 'GCPET%'
+              AND oc.order_code NOT LIKE 'GCTEM%'
               AND NOT EXISTS (
-
                   SELECT 1 FROM dht_orders d WHERE d.order_code = oc.order_code
               )
             ORDER BY oc.created_at DESC
@@ -6360,45 +6394,93 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Category must be PET or TEM' });
         }
         const prefix = category.toUpperCase() === 'PET' ? 'GCPET' : 'GCTEM';
+        const isManager = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(request.user.role);
+
         const codes = await db.all(`
-            SELECT o.id, o.order_code,
-                   COALESCE(NULLIF(TRIM(o.customer_name), ''), c.customer_name) AS customer_name,
-                   CASE
-                       WHEN o.customer_phone IS NOT NULL AND o.customer_phone != '' AND o.customer_phone NOT LIKE 'pancake_%' THEN o.customer_phone
-                       WHEN c.phone IS NOT NULL AND c.phone != '' AND c.phone NOT LIKE 'pancake_%' THEN c.phone
-                       ELSE o.customer_phone
-                   END AS customer_phone,
-                   COALESCE(NULLIF(TRIM(o.address), ''), c.address) AS address,
-                   COALESCE(NULLIF(TRIM(o.province), ''), c.province) AS province,
-                   COALESCE(NULLIF(TRIM(o.source), ''), s.name) AS source,
-                   GREATEST(COALESCE(o.deposit_amount_cache, 0), COALESCE(pr.amount, 0)) AS deposit_amount,
-                   pr.payment_code AS deposit_code,
-                   pr.id AS deposit_payment_id,
-                   o.created_at, o.customer_id,
-                   c.source_id, s.name as source_name,
-                   CASE
-                       WHEN c.customer_type = 'cu' THEN 'cu'
-                       WHEN (SELECT COUNT(*) FROM dht_orders d_cnt WHERE (d_cnt.customer_id = o.customer_id OR (c.phone IS NOT NULL AND c.phone != '' AND c.phone NOT LIKE 'pancake_%' AND d_cnt.customer_phone = c.phone)) AND d_cnt.id != o.id) >= 1 THEN 'cu'
-                       ELSE 'moi'
-                   END AS customer_type
-            FROM dht_orders o
-            LEFT JOIN customers c ON c.id = o.customer_id
-            LEFT JOIN settings_sources s ON c.source_id = s.id
-            LEFT JOIN LATERAL (
-                SELECT id, payment_code, amount
-                FROM payment_records
-                WHERE (order_tt_coc = o.order_code OR total_order_codes ILIKE '%' || o.order_code || '%')
-                  AND payment_type = 'dat_coc'
-                ORDER BY id DESC LIMIT 1
-            ) pr ON true
-            WHERE o.order_code LIKE ?
-              AND o.is_draft = false
-              AND (o.cskh_user_id = ? OR o.created_by = ?)
-              AND NOT EXISTS (
-                  SELECT 1 FROM dht_order_items oi WHERE oi.dht_order_id = o.id
-              )
-            ORDER BY o.created_at DESC
-        `, [prefix + '%', request.user.id, request.user.id]);
+            SELECT DISTINCT ON (order_code)
+                   id, order_code, customer_name, customer_phone, address, province, source, deposit_amount, deposit_code, deposit_payment_id, created_at, customer_id, source_id, source_name, customer_type
+            FROM (
+                SELECT oc.id, oc.order_code,
+                       c.customer_name,
+                       c.phone AS customer_phone,
+                       c.address, c.province,
+                       s.name AS source,
+                       GREATEST(COALESCE(oc.deposit_amount, 0), COALESCE(pr.amount, 0)) AS deposit_amount,
+                       pr.payment_code AS deposit_code,
+                       pr.id AS deposit_payment_id,
+                       oc.created_at, oc.customer_id,
+                       c.source_id, s.name as source_name,
+                       CASE
+                           WHEN c.customer_type = 'cu' THEN 'cu'
+                           WHEN (SELECT COUNT(*) FROM dht_orders d_cnt WHERE (d_cnt.customer_id = oc.customer_id OR (c.phone IS NOT NULL AND c.phone != '' AND c.phone NOT LIKE 'pancake_%' AND d_cnt.customer_phone = c.phone))) >= 1 THEN 'cu'
+                           ELSE 'moi'
+                       END AS customer_type
+                FROM order_codes oc
+                JOIN customers c ON c.id = oc.customer_id
+                LEFT JOIN settings_sources s ON c.source_id = s.id
+                LEFT JOIN LATERAL (
+                    SELECT id, payment_code, amount
+                    FROM payment_records
+                    WHERE (order_tt_coc = oc.order_code OR total_order_codes ILIKE '%' || oc.order_code || '%')
+                      AND payment_type = 'dat_coc'
+                    ORDER BY id DESC LIMIT 1
+                ) pr ON true
+                WHERE oc.order_code LIKE $1
+                  AND ($3 = true OR oc.user_id = $2 OR c.assigned_to_id = $2 OR c.receiver_id = $2)
+                  AND oc.status = 'confirmed'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM dht_order_items oi JOIN dht_orders d ON oi.dht_order_id = d.id WHERE d.order_code = oc.order_code
+                  )
+
+                UNION ALL
+
+                SELECT o.id, o.order_code,
+                       COALESCE(NULLIF(TRIM(o.customer_name), ''), c.customer_name) AS customer_name,
+                       CASE
+                           WHEN o.customer_phone IS NOT NULL AND o.customer_phone != '' AND o.customer_phone NOT LIKE 'pancake_%' THEN o.customer_phone
+                           WHEN c.phone IS NOT NULL AND c.phone != '' AND c.phone NOT LIKE 'pancake_%' THEN c.phone
+                           ELSE o.customer_phone
+                       END AS customer_phone,
+                       COALESCE(NULLIF(TRIM(o.address), ''), c.address) AS address,
+                       COALESCE(NULLIF(TRIM(o.province), ''), c.province) AS province,
+                       COALESCE(NULLIF(TRIM(o.source), ''), s.name) AS source,
+                       GREATEST(COALESCE(o.deposit_amount_cache, 0), COALESCE(pr.amount, 0)) AS deposit_amount,
+                       pr.payment_code AS deposit_code,
+                       pr.id AS deposit_payment_id,
+                       o.created_at, o.customer_id,
+                       c.source_id, s.name as source_name,
+                       CASE
+                           WHEN c.customer_type = 'cu' THEN 'cu'
+                           WHEN (SELECT COUNT(*) FROM dht_orders d_cnt WHERE (d_cnt.customer_id = o.customer_id OR (c.phone IS NOT NULL AND c.phone != '' AND c.phone NOT LIKE 'pancake_%' AND d_cnt.customer_phone = c.phone)) AND d_cnt.id != o.id) >= 1 THEN 'cu'
+                           ELSE 'moi'
+                       END AS customer_type
+                FROM dht_orders o
+                LEFT JOIN customers c ON c.id = o.customer_id
+                LEFT JOIN settings_sources s ON c.source_id = s.id
+                LEFT JOIN LATERAL (
+                    SELECT id, payment_code, amount
+                    FROM payment_records
+                    WHERE (order_tt_coc = o.order_code OR total_order_codes ILIKE '%' || o.order_code || '%')
+                      AND payment_type = 'dat_coc'
+                    ORDER BY id DESC LIMIT 1
+                ) pr ON true
+                WHERE o.order_code LIKE $1
+                  AND o.is_draft = false
+                  AND ($3 = true OR o.cskh_user_id = $2 OR o.created_by = $2)
+                  AND (
+                      c.order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh','sau_ban_hang','dang_san_xuat')
+                      OR EXISTS (
+                          SELECT 1 FROM consultation_logs cl
+                          WHERE cl.customer_id = o.customer_id
+                            AND cl.log_type IN ('chot_don','san_xuat','dang_san_xuat','giao_hang','hoan_thanh','sau_ban_hang')
+                      )
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM dht_order_items oi WHERE oi.dht_order_id = o.id
+                  )
+            ) sub
+            ORDER BY order_code, created_at DESC
+        `, [prefix + '%', request.user.id, isManager]);
         return { codes, count: codes.length };
     });
 
@@ -7113,7 +7195,11 @@ module.exports = async function(fastify) {
             orderId = -sampleId;
         } else {
             orderId = Number(idStr);
-            if (isNaN(orderId)) return reply.code(400).send({ error: 'ID đơn hàng không hợp lệ' });
+            if (isNaN(orderId)) {
+                const oRow = await db.get(`SELECT id FROM dht_orders WHERE order_code = $1`, [idStr]);
+                if (!oRow) return reply.code(400).send({ error: 'ID đơn hàng không hợp lệ' });
+                orderId = oRow.id;
+            }
         }
 
         const notes = await db.all(
@@ -7142,7 +7228,11 @@ module.exports = async function(fastify) {
             isSample = true;
         } else {
             orderId = Number(idStr);
-            if (isNaN(orderId)) return reply.code(400).send({ error: 'ID đơn hàng không hợp lệ' });
+            if (isNaN(orderId)) {
+                const oRow = await db.get(`SELECT id FROM dht_orders WHERE order_code = $1`, [idStr]);
+                if (!oRow) return reply.code(400).send({ error: 'ID đơn hàng không hợp lệ' });
+                orderId = oRow.id;
+            }
         }
 
         const { note_text } = request.body || {};

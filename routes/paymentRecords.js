@@ -454,6 +454,9 @@ module.exports = async function(fastify) {
 
         const rows = await db.all(`
             SELECT pr.*,
+                   COALESCE(pr.customer_name, cust.customer_name) AS customer_name,
+                   COALESCE(pr.customer_phone, cust.phone) AS customer_phone,
+                   cust.crm_type AS crm_type,
                    u_cskh.full_name AS cskh_name,
                    u_created.full_name AS created_by_name,
                    u_handover.full_name AS handover_by_name,
@@ -473,6 +476,7 @@ module.exports = async function(fastify) {
                        WHERE c.payment_type = 'child_sll' AND (c.parent_id = pr.id OR c.source_ref_id = pr.id::text)
                    ) AS sll_children_sum
             FROM payment_records pr
+            LEFT JOIN customers cust ON (pr.customer_id = cust.id OR (pr.customer_id IS NULL AND pr.customer_phone IS NOT NULL AND pr.customer_phone != '' AND cust.phone = pr.customer_phone))
             LEFT JOIN users u_cskh ON pr.cskh_user_id = u_cskh.id
             LEFT JOIN users u_created ON pr.created_by = u_created.id
             LEFT JOIN users u_handover ON pr.handover_by = u_handover.id
@@ -485,6 +489,18 @@ module.exports = async function(fastify) {
         const isQLCC = user.role === 'quan_ly_cap_cao';
         const isKT = await isKeToan(user.id);
         const hasFullPhoneAccess = isGD || isQLCC || isKT;
+
+        rows.forEach(r => {
+            const isNoCustomer = (!r.customer_id || Number(r.customer_id) === 2 || !r.customer_name || String(r.customer_name).trim().toUpperCase().startsWith('NHU CẦU'));
+            if (isNoCustomer) {
+                if (r.payment_type === 'dat_coc') {
+                    r.payment_type = 'pending';
+                    r.order_tt_coc = null;
+                }
+                r.customer_name = null;
+                r.customer_phone = null;
+            }
+        });
 
         if (!hasFullPhoneAccess) {
             rows.forEach(r => {
@@ -604,7 +620,8 @@ module.exports = async function(fastify) {
                 autoHandover, 'manual', b.payment_date, user.id
             ]);
 
-            // === Send Telegram notification ===
+            // === Send Telegram notification (Disabled for manual/CRM deposit linking as requested: only bank auto-import sends to Telegram) ===
+            /*
             try {
                 const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_payment_notify_group'");
                 if (tgRow && tgRow.value) {
@@ -620,6 +637,7 @@ module.exports = async function(fastify) {
             } catch (tgErr) {
                 console.error('[TG Manual] Lỗi gửi Telegram:', tgErr.message);
             }
+            */
 
             // === Auto-sync TM → Sổ Thu Chi (THU) ===
             if (b.payment_method === 'TM') {
@@ -1160,11 +1178,58 @@ module.exports = async function(fastify) {
             return { success: true, auto_completed_orders: autoCompletedOrders };
         }
 
-        // Auto handover logic: chỉ thanh_toan/tt_sll → chua_bangiao, còn lại → thu_quy_nhan
-        let handoverUpdate = '';
-        if (b.payment_type) {
-            const newHandover = computeHandoverStatus(b.payment_type);
-            handoverUpdate = `, handover_status = '${newHandover}'`;
+        // ★ Warning check: Nếu gán cọc cho đơn đã có khoản cọc khác từ trước
+        if (b.payment_type === 'dat_coc' && b.order_tt_coc && !b.confirm_extra_deposit) {
+            const existingDep = await db.get(`
+                SELECT payment_code, amount FROM payment_records
+                WHERE order_tt_coc = $1 AND id != $2 AND payment_type = 'dat_coc'
+                LIMIT 1
+            `, [b.order_tt_coc, Number(id)]);
+            if (existingDep) {
+                return reply.code(409).send({
+                    warn_existing_deposit: true,
+                    order_code: b.order_tt_coc,
+                    existing_payment_code: existingDep.payment_code,
+                    existing_amount: Number(existingDep.amount),
+                    error: `Mã đơn ${b.order_tt_coc} đã có khoản cọc ${existingDep.payment_code} (${Number(existingDep.amount).toLocaleString('vi-VN')}đ). Bạn có chắc chắn muốn ghi nhận thêm khoản cọc này cho cùng đơn không?`
+                });
+            }
+        }
+
+        // ★ Max deposit amount check: Tổng cọc không vượt quá tổng giá trị đơn
+        if (b.order_tt_coc && b.payment_type === 'dat_coc') {
+            const custCheck = await db.get(`
+                SELECT crm_type FROM customers 
+                WHERE (id = $1 OR (phone IS NOT NULL AND phone != '' AND phone = $2)) AND crm_type IS NOT NULL AND crm_type != ''
+                LIMIT 1
+            `, [pr.customer_id || 0, b.customer_phone || pr.customer_phone || '']);
+            
+            if (custCheck && ['nhu_cau', 'ctv', 'ctv_hoa_hong', 'koc_tiktok', 'sale', 'tem_pet'].includes(custCheck.crm_type)) {
+                const existingDep = await db.get(`
+                    SELECT id, payment_code FROM payment_records 
+                    WHERE order_tt_coc = $1 AND id != $2 AND payment_type = 'dat_coc'
+                    LIMIT 1
+                `, [b.order_tt_coc, Number(id)]);
+                if (existingDep) {
+                    return reply.code(400).send({
+                        error: `Mã đơn ${b.order_tt_coc} thuộc trang CRM đã có khoản cọc ${existingDep.payment_code}. Khách hàng thuộc 6 trang CRM bắt buộc 1 đơn hàng chỉ nhận 1 khoản tiền cọc duy nhất!`
+                    });
+                }
+            }
+
+            const dhtOrder = await db.get('SELECT total_amount FROM dht_orders WHERE order_code = $1', [b.order_tt_coc]);
+            if (dhtOrder && Number(dhtOrder.total_amount) > 0) {
+                const totalDepsRow = await db.get(`
+                    SELECT COALESCE(SUM(amount), 0) AS total_dep FROM payment_records
+                    WHERE order_tt_coc = $1 AND id != $2 AND payment_type = 'dat_coc'
+                `, [b.order_tt_coc, Number(id)]);
+                const newTotalDep = Number(totalDepsRow.total_dep) + Number(b.amount || pr.amount || 0);
+                if (newTotalDep > Number(dhtOrder.total_amount)) {
+                    return reply.code(400).send({
+                        error: `Tổng tiền cọc (${newTotalDep.toLocaleString('vi-VN')}đ) vượt quá tổng giá trị đơn hàng ${b.order_tt_coc} (${Number(dhtOrder.total_amount).toLocaleString('vi-VN')}đ)!`
+                    });
+                }
+            }
         }
 
         await db.run(`

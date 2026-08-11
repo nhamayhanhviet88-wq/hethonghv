@@ -203,12 +203,6 @@ module.exports = async function(fastify) {
                         ) oi_sum ON true
                         WHERE c.phone IS NOT NULL AND c.phone != ''
                           AND COALESCE(c.cancel_approved, 0) != 1
-                          AND COALESCE(oc.status, 'active') != 'cancelled'
-                          AND EXISTS (
-                              SELECT 1 FROM consultation_logs cl
-                              WHERE cl.customer_id = oc.customer_id
-                                AND cl.log_type = 'chot_don'
-                          )
                           ${_pCutoff}
                     ),
                     ranked_orders AS (
@@ -622,11 +616,6 @@ module.exports = async function(fastify) {
                 WHERE c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND EXISTS (
-                      SELECT 1 FROM consultation_logs cl
-                      WHERE cl.customer_id = oc.customer_id
-                        AND cl.log_type = 'chot_don'
-                  )
                   ${_pCutoff}
             ),
             ranked_orders AS (
@@ -760,11 +749,6 @@ module.exports = async function(fastify) {
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND COALESCE(oc.status, 'active') != 'cancelled'
                   ${employeeFilter}
-                  AND EXISTS (
-                      SELECT 1 FROM consultation_logs cl
-                      WHERE cl.customer_id = oc.customer_id
-                        AND cl.log_type = 'chot_don'
-                  )
                   ${_pCutoff}
             ),
             ranked_orders AS (

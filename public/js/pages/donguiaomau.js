@@ -1896,6 +1896,33 @@ async function _dgamShowDetail(id) {
                 })(billCid, o.shipping_bill_link);
             }
 
+            let notifyImgHtml = '—';
+            if (o.customer_notify_img) {
+                const notifyCid = `_dgamCustNotifyImgModal_${o.id}`;
+                notifyImgHtml = `<span id="${notifyCid}" style="color:#64748b;font-size:11px">⏳ Đang tải...</span>`;
+                (function(_cid, _origUrl) {
+                    setTimeout(function() {
+                        const el = document.getElementById(_cid);
+                        if (!el) return;
+                        let imgSrc = _origUrl;
+                        if (imgSrc && imgSrc.includes('/uploads/')) {
+                            imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                        }
+                        const img = document.createElement('img');
+                        img.src = imgSrc;
+                        img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                        img.onerror = function() {
+                            el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📱 Xem ảnh liên hệ khách (link)</a>';
+                        };
+                        img.onclick = function() {
+                            _dgamShowImagePreview(imgSrc);
+                        };
+                        el.innerHTML = '';
+                        el.appendChild(img);
+                    }, 100);
+                })(notifyCid, o.customer_notify_img);
+            }
+
             shipInfoHTML += `
                 <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(22,163,74,0.03);margin-bottom:14px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #dcfce7;padding-bottom:8px;flex-wrap:wrap;gap:6px;">
@@ -1913,8 +1940,9 @@ async function _dgamShowDetail(id) {
                             <span style="color:#64748b;font-weight:600;">💵 Mã Tiền Chi TM:</span> 
                             <span style="font-weight:700;color:#d97706">${o.shipping_cashflow_code || '—'}</span>
                         ` : ''}
-                        <span style="color:#64748b;font-weight:600;">💰 Cước Vận Chuyển:</span> <span style="font-weight:800;color:#dc2626">${fmt(feeAmt)}đ</span>
+                        <span style="color:#64748b;font-weight:600;">💰 Cước Vận Chuyển:</span> <span style="font-weight:800;color:${payerColor}">${fmt(feeAmt)}đ</span>
                         ${o.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
+                        ${o.customer_notify_img ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">📱 Ảnh nhắn/gọi khách:</span> <div>${notifyImgHtml}</div>` : ''}
                     </div>
                 </div>`;
         }
@@ -2374,6 +2402,30 @@ async function _dgamShowInspectConfirmModal(id) {
                         <tr><td style="padding:4px 0;color:#64748b">💳 Người trả ship:</td><td style="padding:4px 0;font-weight:700;color:${payerColor}">${payerLabel}</td></tr>
                         <tr><td style="padding:4px 0;color:#64748b">💰 Cước Vận Chuyển:</td><td style="padding:4px 0;font-weight:800;color:#dc2626">${fmt(feeAmt)}đ</td></tr>
                         <tr><td style="padding:4px 0;color:#64748b">📎 Bill gửi hàng:</td><td style="padding:4px 0;" id="_dgamBillImgModalInspect_${o.id}">${billHtml}</td></tr>
+                        ${(() => {
+                            if (!o.customer_notify_img) return '';
+                            const notifyCid = `_dgamCustNotifyImgModalInspect_${o.id}`;
+                            setTimeout(function() {
+                                const el = document.getElementById(notifyCid);
+                                if (!el) return;
+                                let imgSrc = o.customer_notify_img;
+                                if (imgSrc && imgSrc.includes('/uploads/')) {
+                                    imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                                }
+                                const img = document.createElement('img');
+                                img.src = imgSrc;
+                                img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                                img.onerror = function() {
+                                    el.innerHTML = '<a href="' + o.customer_notify_img + '" target="_blank" style="color:#3b82f6;font-weight:700">📱 Xem ảnh liên hệ khách (link)</a>';
+                                };
+                                img.onclick = function() {
+                                    _dgamShowImagePreview(imgSrc);
+                                };
+                                el.innerHTML = '';
+                                el.appendChild(img);
+                            }, 100);
+                            return `<tr><td style="padding:4px 0;color:#64748b">📱 Ảnh nhắn/gọi khách:</td><td style="padding:4px 0;" id="${notifyCid}"><span style="color:#64748b;font-size:11px">⏳ Đang tải...</span></td></tr>`;
+                        })()}
                     </table>
                 </div>`;
         }

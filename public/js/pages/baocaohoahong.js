@@ -487,7 +487,7 @@ function hhRenderTable(items) {
             
             // Determine button type: sync with CRM modules — prioritize last_log_type (consultation_logs)
             // Only override with order_status for special statuses (tu_van_lai, cho_duyet_huy, duyet_huy)
-            const OVERRIDE_STATUSES_HH = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy'];
+            const OVERRIDE_STATUSES_HH = [];
             let ct = null;
             if (item.last_log_type && CONSULT_TYPES_HH[item.last_log_type]) ct = CONSULT_TYPES_HH[item.last_log_type];
             if (OVERRIDE_STATUSES_HH.includes(item.order_status) && CONSULT_TYPES_HH[item.order_status]) ct = CONSULT_TYPES_HH[item.order_status];

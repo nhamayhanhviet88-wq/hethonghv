@@ -102,6 +102,7 @@ const MENU_CONFIG = [
     { id: 'kpimktview', label: 'KPI Marketing View', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/kpimktview', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_marketing_view' },
     { id: 'ngansachmkt', label: 'Ngân Sách Marketing', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/ngansachmkt', mobileHref: '/m/ngansachmkt', permKey: 'ngan_sach_mkt' },
     { id: 'camketcuochop', label: 'Cam Kết Cuộc Họp', icon: '📝', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/camketcuochop', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'cam_ket_cuoc_hop' },
+    { id: 'bangcongviec', label: 'Bảng Công Việc', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/bangcongviec', mobileHref: '/m/bangcongviec', permKey: 'bang_cong_viec' },
     { id: 'timkiemkhachhang', label: 'Tìm Kiếm Khách Hàng', icon: '🔍', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/timkiemkhachhanghv', permKey: 'tim_kiem_kh' },
     { id: 'dashboard-kdoanh', label: 'Dashboard P.Kinh Doanh', icon: '📈', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/dashboardkdoanh', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'dashboard_kdoanh' },
     { id: 'tong-doanh-so-sale', label: 'Tổng Doanh Số Sale KD', icon: '📊', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/tongdoansosale', permKey: 'tong_doanh_so_sale' },
@@ -385,8 +386,8 @@ const _PAGE_SCRIPT_MAP = {
     'traogiaithuong': '/js/pages/traogiaithuong.js',
     'donloinoibo': '/js/pages/donloinoibo.js',
     'loithuonggap': '/js/pages/donloinoibo.js',
-    'design-draft': '/js/pages/taophieudonhang.js?v=20260731_v301',
-    'designdraft': '/js/pages/taophieudonhang.js?v=20260731_v301',
+    'design-draft': '/js/pages/taophieudonhang.js?v=20260805_v303_FIXED_RENDER_IMAGE_TAINT',
+    'designdraft': '/js/pages/taophieudonhang.js?v=20260805_v303_FIXED_RENDER_IMAGE_TAINT',
     'bangiao-diem-kd': '/js/pages/bangiao-diem.js',
     'bangiaodiem': '/js/pages/bangiao-diem.js',
     'lich-khoa-bieu': '/js/pages/lich-khoabieu.js',
@@ -425,15 +426,16 @@ const _PAGE_SCRIPT_MAP = {
     'kiemtrachatluong': '/js/pages/kiemtrachatluong.js?v=20260725_ktcl_v5',
     'topkhachhang': '/js/pages/topkhachhang.js?v=20260727_v100',
     'top-khach-hang': '/js/pages/topkhachhang.js?v=20260727_v100',
-    'kpikdoanh': '/js/pages/kpikdoanh.js?v=20260803_v152',
-    'kpisale': '/js/pages/kpisale.js?v=20260803_v152',
-    'kpi-sale': '/js/pages/kpisale.js?v=20260803_v152',
-    'kpimarketing': '/js/pages/kpimarketing.js?v=20260804_v2048_OPTION1_DISPLAY',
-    'kpi-marketing': '/js/pages/kpimarketing.js?v=20260804_v2048_OPTION1_DISPLAY',
+    'kpikdoanh': '/js/pages/kpikdoanh.js?v=20260807_v280_LEFT_SEARCH_DROPDOWN',
+    'kpisale': '/js/pages/kpisale.js?v=20260807_v280_LEFT_SEARCH_DROPDOWN',
+    'kpi-sale': '/js/pages/kpisale.js?v=20260807_v280_LEFT_SEARCH_DROPDOWN',
+    'kpimarketing': '/js/pages/kpimarketing.js?v=20260810_v35001_CLEAR_YEARLY_CACHE',
+    'kpi-marketing': '/js/pages/kpimarketing.js?v=20260810_v35001_CLEAR_YEARLY_CACHE',
     'kpimktview': '/js/pages/kpimktview.js?v=20260804_v100',
     'kpi-mkt-view': '/js/pages/kpimktview.js?v=20260804_v100',
     'camketcuochop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'cam-ket-cuoc-hop': '/js/pages/camketcuochop.js?v=20260803_v1010',
+    'bangcongviec': '/js/pages/bangcongviec.js?v=20260811_v40',
     'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
     'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',
@@ -448,6 +450,8 @@ const _PAGE_SCRIPT_MAP = {
     'trasoatdonhang': '/js/pages/trasoatdonhang.js?v=20260721_ts_modal_lazy_v2',
     'tulieuxuongvp': '/js/pages/tulieuxuongvp.js',
     'donhangchuathutien': '/js/pages/donhangchuathutien.js?v=20260721_counting_fix_v7',
+    'chuyenso': '/js/pages/chuyenso.js?v=20260807_v290_RECEIVER_GROUPING',
+    'chuyen-so': '/js/pages/chuyenso.js?v=20260807_v290_RECEIVER_GROUPING',
     'taophieuxulycv': '/js/pages/taophieuxulycv.js',
     'tao-phieu-xu-ly-cv': '/js/pages/taophieuxulycv.js',
     'bxh-template': '/js/pages/bxh-template.js',
@@ -2344,8 +2348,36 @@ async function handleRoute() {
                 case 'bo-phan-ep': case 'bophanep': case 'bophanephv': renderBophanepPage(content); break;
                 case 'bo-phan-may': case 'bophanmay': case 'bophanmayhv': renderBophanmayPage(content); break;
                 case 'bo-phan-hoan-thien': case 'bophanhoanthien': case 'bophanhoanthienhv': renderBophanhoanthienPage(content); break;
-                case 'kpikdoanh': case 'kpi-kdoanh': renderKpikdoanhPage(content); break;
-                case 'kpisale': case 'kpi-sale': renderKpisalePage(content); break;
+                case 'kpikdoanh': case 'kpi-kdoanh':
+                    if (typeof window.renderKpikdoanhPage === 'function') {
+                        window.renderKpikdoanhPage(content);
+                    } else if (typeof renderKpikdoanhPage === 'function') {
+                        renderKpikdoanhPage(content);
+                    } else {
+                        setTimeout(function() {
+                            if (typeof window.renderKpikdoanhPage === 'function') {
+                                window.renderKpikdoanhPage(content);
+                            } else if (typeof renderKpikdoanhPage === 'function') {
+                                renderKpikdoanhPage(content);
+                            }
+                        }, 150);
+                    }
+                    break;
+                case 'kpisale': case 'kpi-sale':
+                    if (typeof window.renderKpisalePage === 'function') {
+                        window.renderKpisalePage(content);
+                    } else if (typeof renderKpisalePage === 'function') {
+                        renderKpisalePage(content);
+                    } else {
+                        setTimeout(function() {
+                            if (typeof window.renderKpisalePage === 'function') {
+                                window.renderKpisalePage(content);
+                            } else if (typeof renderKpisalePage === 'function') {
+                                renderKpisalePage(content);
+                            }
+                        }, 150);
+                    }
+                    break;
                 case 'kpimarketing': case 'kpi-marketing':
                     if (typeof window.renderKpimarketingPage === 'function') {
                         window.renderKpimarketingPage(content);
@@ -2532,96 +2564,4048 @@ async function _refreshOverrideBadges() {
     } catch(e) { /* silent */ }
 }
 
-// ========== DASHBOARD ==========
+function formatCurrency(amount) {
+    if (amount === undefined || amount === null || isNaN(amount)) return '0đ';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(amount)) + 'đ';
+}
+
+// ========== DASHBOARD GIÁM ĐỐC TỔNG QUAN ==========
+let _dashPeriod = 'this_month';
+let _execSegmentMode = 'dong_phuc'; // Default priority: Đồng Phục
+let _dashData = null;
+let _dashCharts = {};
+
+function _setExecSegment(mode, btn) {
+    if (!mode) return;
+    _execSegmentMode = mode;
+    window._execSegmentMode = mode;
+
+    document.querySelectorAll('.exec-seg-pill, .modal-seg-pill').forEach(b => {
+        const text = b.textContent || '';
+        const bSeg = b.getAttribute('data-seg');
+        if (bSeg === mode || 
+           (mode === 'dong_phuc' && text.includes('Đồng Phục')) ||
+           (mode === 'tem_pet' && (text.includes('Tem PET') || text.includes('TEM PET'))) ||
+           (mode === 'tong' && (text.includes('Tất Cả') || text.includes('Tổng Công Ty')))) {
+            b.classList.add('active');
+            if (b.classList.contains('modal-seg-pill')) {
+                b.style.background = '#2563eb';
+                b.style.color = 'white';
+                b.style.borderColor = '#2563eb';
+                b.style.boxShadow = '0 2px 6px rgba(37,99,235,0.25)';
+            }
+        } else {
+            b.classList.remove('active');
+            if (b.classList.contains('modal-seg-pill')) {
+                b.style.background = 'white';
+                b.style.color = '#475569';
+                b.style.borderColor = '#cbd5e1';
+                b.style.boxShadow = 'none';
+            }
+        }
+    });
+
+    const segName = mode === 'dong_phuc' ? '👔 Đồng Phục' : (mode === 'tem_pet' ? '🏷️ TEM PET' : '🏢 Tất Cả');
+    if (document.getElementById('mTrendSegmentLabel')) document.getElementById('mTrendSegmentLabel').innerText = segName;
+    if (document.getElementById('mTrendSegmentLabel2')) document.getElementById('mTrendSegmentLabel2').innerText = segName;
+
+    _loadExecDashData();
+}
+window._setExecSegment = _setExecSegment;
+window.execSetModalSegment = _setExecSegment;
+
 async function renderDashboardPage(container) {
+    // Dynamic Chart.js loader if not present
+    if (!window.Chart && !document.getElementById('chartjs-script')) {
+        const s = document.createElement('script');
+        s.id = 'chartjs-script';
+        s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+        s.onload = () => {
+            if (_dashData) {
+                _updateTrendModeButtonsUI();
+                _renderExecCharts();
+            }
+        };
+        document.head.appendChild(s);
+    }
+    // Dynamic Inter font loader
+    if (!document.getElementById('inter-font-link')) {
+        const fontLink = document.createElement('link');
+        fontLink.id = 'inter-font-link';
+        fontLink.rel = 'stylesheet';
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap';
+        document.head.appendChild(fontLink);
+    }
+
     container.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px;" id="statsGrid">
-            <div class="card stat-card" style="border-top: 3px solid var(--gold);">
-                <div class="card-body" style="text-align:center; padding: 30px;">
-                    <div id="statCustomers" style="font-size: 36px; font-weight: 800; color: var(--gold);">...</div>
-                    <div style="color: var(--gray-500); margin-top: 8px; font-size: 13px;">Tổng Khách Hàng</div>
+        <style>
+            .exec-dash-wrapper {
+                font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+                text-rendering: optimizeLegibility;
+                color: #1e293b;
+                max-width: 1440px;
+                margin: 0 auto;
+                padding: 4px;
+            }
+            .exec-banner {
+                position: relative;
+                background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 45%, #e0f2fe 100%);
+                border-radius: 16px;
+                padding: 22px 26px;
+                color: #0f172a;
+                margin-bottom: 20px;
+                border: 1px solid rgba(199, 210, 254, 0.9);
+                box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.15), 0 2px 6px rgba(0,0,0,0.04);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 14px;
+                overflow: hidden;
+            }
+            .exec-banner::before {
+                content: '';
+                position: absolute;
+                top: 0; left: -100%;
+                width: 60%; height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+                transform: skewX(-25deg);
+                animation: execShimmer 6s infinite;
+                pointer-events: none;
+            }
+            @keyframes execShimmer {
+                0% { left: -100%; }
+                20% { left: 200%; }
+                100% { left: 200%; }
+            }
+            .exec-banner-title {
+                font-size: 22px;
+                font-weight: 800;
+                color: #1e1b4b;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                text-transform: uppercase;
+                letter-spacing: -0.3px;
+            }
+            .exec-badge {
+                background: linear-gradient(135deg, #4f46e5, #7c3aed);
+                color: #ffffff;
+                border: none;
+                padding: 4px 14px;
+                border-radius: 20px;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.5px;
+                box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            }
+            .exec-btn-update {
+                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                color: #ffffff;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 12px;
+                font-size: 13.5px;
+                font-weight: 700;
+                cursor: pointer;
+                box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+                transition: all 0.2s ease;
+            }
+            .exec-btn-update:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+            }
+            
+            .exec-filter-bar {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-bottom: 20px;
+                background: #ffffff;
+                padding: 16px;
+                border-radius: 12px;
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            }
+            .exec-btn-pill {
+                background: #f1f5f9;
+                color: #1e1b4b;
+                border: 1px solid #cbd5e1;
+                padding: 9px 18px;
+                border-radius: 8px;
+                font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 13.5px;
+                font-weight: 800;
+                letter-spacing: -0.2px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            .exec-btn-pill:hover {
+                background: #e2e8f0;
+                color: #0f172a;
+            }
+            .exec-btn-pill.active {
+                background: #2563eb;
+                color: #ffffff;
+                border-color: #1d4ed8;
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+            }
+            .exec-select {
+                background: #ffffff;
+                color: #1e1b4b;
+                border: 1px solid #cbd5e1;
+                padding: 8px 14px;
+                border-radius: 8px;
+                font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 13px;
+                font-weight: 800;
+                outline: none;
+                cursor: pointer;
+                transition: all 0.25s ease;
+            }
+            .exec-select.active {
+                background: #2563eb !important;
+                color: #ffffff !important;
+                border-color: #1d4ed8 !important;
+                box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45) !important;
+            }
+            .exec-sparkle-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%);
+                border: 1.5px solid #818cf8;
+                border-radius: 20px;
+                padding: 5px 16px;
+                font-size: 13.5px;
+                font-weight: 800;
+                color: #1e1b4b;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+            }
+
+            .exec-segment-bar {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-bottom: 20px;
+                background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+                padding: 14px 20px;
+                border-radius: 12px;
+                border: 1px solid #cbd5e1;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            }
+            .exec-seg-pill {
+                background: #f1f5f9;
+                color: #334155;
+                border: 1px solid #cbd5e1;
+                padding: 9px 20px;
+                border-radius: 20px;
+                font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 13.5px;
+                font-weight: 800;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .exec-seg-pill:hover {
+                background: #e2e8f0;
+                color: #0f172a;
+            }
+            .exec-seg-pill.active {
+                background: linear-gradient(135deg, #2563eb, #1d4ed8);
+                color: #ffffff;
+                border-color: #1e40af;
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+            }
+
+            .exec-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+            .exec-kpi-card { background: #ffffff; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: transform 0.15s ease; }
+            .exec-kpi-title { font-size: 12.5px; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 0.3px; display: flex; justify-content: space-between; align-items: center; }
+            .exec-kpi-num { font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 8px; line-height: 1.1; }
+            .exec-kpi-sub { font-size: 11px; font-weight: 700; color: #64748b; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+            .exec-tabs {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 20px;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 8px;
+            }
+            .exec-tab-item {
+                background: #f1f5f9;
+                border: 1px solid #cbd5e1;
+                padding: 10px 20px;
+                border-radius: 10px;
+                font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 14px;
+                font-weight: 800;
+                color: #1e1b4b;
+                letter-spacing: -0.2px;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .exec-tab-item:hover {
+                background: #e2e8f0;
+                color: #0f172a;
+            }
+            .exec-tab-item.active {
+                background: #2563eb;
+                color: #ffffff;
+                border-color: #1d4ed8;
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+            }
+
+            .exec-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; margin-bottom: 20px; }
+            .exec-card-box { background: #ffffff; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+            .exec-card-title { font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+
+            .exec-chart-container { position: relative; width: 100%; height: 260px; }
+
+            .exec-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+            .exec-table th { background: #f8fafc; color: #475569; font-weight: 700; text-align: left; padding: 10px 12px; border-bottom: 2px solid #e2e8f0; }
+            .exec-table td { padding: 11px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+            
+            .exec-badge-status { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; display: inline-block; }
+            .st-chot_don { background: #dcfce7; color: #15803d; }
+            .st-san_xuat { background: #dbeafe; color: #1d4ed8; }
+            .st-giao_hang { background: #fef3c7; color: #b45309; }
+            .st-hoan_thanh { background: #e0e7ff; color: #4338ca; }
+            .st-huy { background: #fee2e2; color: #b91c1c; }
+
+            @keyframes gentlePulseGlow {
+                0%, 100% {
+                    opacity: 1;
+                    box-shadow: 0 2px 6px rgba(168, 85, 247, 0.2);
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 0.85;
+                    box-shadow: 0 2px 14px rgba(168, 85, 247, 0.45);
+                    transform: scale(1.02);
+                }
+            }
+            @keyframes gentleTextGlow {
+                0%, 100% {
+                    opacity: 1;
+                    filter: drop-shadow(0 0 0px transparent);
+                }
+                50% {
+                    opacity: 0.80;
+                    filter: drop-shadow(0 0 4px rgba(37, 99, 235, 0.5));
+                }
+            }
+            .exec-mode-tag-pill-static {
+                font-size: 12px;
+                background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+                color: #1e40af;
+                padding: 5px 16px;
+                border-radius: 30px;
+                font-weight: 800;
+                border: 1.5px solid #3b82f6;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+                box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+                animation: gentlePulseGlow 3s infinite ease-in-out;
+            }
+            .exec-sub-tag-pulse {
+                font-size: 11.5px;
+                font-weight: 800;
+                color: #1e40af;
+                background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+                border: 1px solid #93c5fd;
+                padding: 3px 10px;
+                border-radius: 20px;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                margin-left: 6px;
+                box-shadow: 0 1px 4px rgba(37, 99, 235, 0.12);
+                animation: gentlePulseGlow 3s infinite ease-in-out;
+            }
+        </style>
+
+        <div class="exec-dash-wrapper">
+            <div class="exec-banner">
+                <div>
+                    <div class="exec-banner-title">
+                        <span>📊 Các Chỉ Số Tổng Quan Giám Đốc</span>
+                        <span class="exec-badge">EXECUTIVE VIEW</span>
+                    </div>
+                </div>
+                <button onclick="_loadExecDashData()" class="exec-btn-update">
+                    🔄 Cập nhật dữ liệu
+                </button>
+            </div>
+
+            <!-- Segmented Control Bar (Bộ lọc mảng kinh doanh) -->
+            <div class="exec-segment-bar">
+                <span style="font-weight:800; font-size:13.5px; color:#0f172a; margin-right:6px; display:flex; align-items:center; gap:6px;">
+                    🏷️ LỌC PHÂN KHÚC MẢNG:
+                </span>
+                <button class="exec-seg-pill active" data-seg="dong_phuc" onclick="_setExecSegment('dong_phuc', this)">👔 Đồng Phục (Ưu Tiên)</button>
+                <button class="exec-seg-pill" data-seg="tong" onclick="_setExecSegment('tong', this)">🏢 Tất Cả (Tổng Công Ty)</button>
+                <button class="exec-seg-pill" data-seg="tem_pet" onclick="_setExecSegment('tem_pet', this)">🏷️ Tem PET</button>
+            </div>
+
+            <!-- Filter Bar (Thời gian Streamlined) -->
+            <div class="exec-filter-bar" style="display:flex; flex-direction:column; gap:10px; background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:12px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.03);">
+                <!-- Hàng 1: Nút Lọc Nhanh (Pills) -->
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="font-weight:800; font-size:13px; color:#1e293b; margin-right:4px;">⏱️ BỘ LỌC THỜI GIAN:</span>
+                    <button class="exec-btn-pill" onclick="_setExecPeriod('today', this)">Hôm nay</button>
+                    <button class="exec-btn-pill" onclick="_setExecPeriod('yesterday', this)">Hôm qua</button>
+                    <button class="exec-btn-pill" onclick="_setExecPeriod('first_10_days', this)">10 ngày đầu</button>
+                    <button class="exec-btn-pill" onclick="_setExecPeriod('middle_10_days', this)">10 ngày giữa</button>
+                    <button class="exec-btn-pill" onclick="_setExecPeriod('last_10_days', this)">10 ngày cuối</button>
+                    <button class="exec-btn-pill active" onclick="_setExecPeriod('this_month', this)">Tháng này</button>
+                </div>
+
+                <!-- Hàng 2: Bộ Lọc Nâng Cao Tích Hợp (Smart Integrated Advanced Filters) -->
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f8fafc; padding:8px 12px; border-radius:10px; border:1px solid #e2e8f0;">
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <span style="font-size:12px; font-weight:800; color:#475569;">⚡ Nâng cao:</span>
+                        <select class="exec-select" id="execSelectSingleMonth" onchange="_setExecPeriod(this.value, this)" style="padding:4px 8px; font-size:12px;">
+                            <option value="">-- Chọn 1 Tháng --</option>
+                            <option value="month_2026-01">Tháng 1/2026</option>
+                            <option value="month_2026-02">Tháng 2/2026</option>
+                            <option value="month_2026-03">Tháng 3/2026</option>
+                            <option value="month_2026-04">Tháng 4/2026</option>
+                            <option value="month_2026-05">Tháng 5/2026</option>
+                            <option value="month_2026-06">Tháng 6/2026</option>
+                            <option value="month_2026-07">Tháng 7/2026</option>
+                            <option value="month_2026-08">Tháng 8/2026</option>
+                            <option value="month_2026-09">Tháng 9/2026</option>
+                            <option value="month_2026-10">Tháng 10/2026</option>
+                            <option value="month_2026-11">Tháng 11/2026</option>
+                            <option value="month_2026-12">Tháng 12/2026</option>
+                        </select>
+
+                        <select class="exec-select" id="execSelectQuarter" onchange="_setExecPeriod(this.value, this)" style="padding:4px 8px; font-size:12px;">
+                            <option value="">-- Chọn Quý --</option>
+                            <option value="q1">Quý 1</option>
+                            <option value="q2">Quý 2</option>
+                            <option value="q3">Quý 3</option>
+                            <option value="q4">Quý 4</option>
+                        </select>
+
+                        <select class="exec-select" id="execSelectYear" onchange="_setExecPeriod(this.value, this)" style="padding:4px 8px; font-size:12px;">
+                            <option value="">-- Chọn Năm --</option>
+                            <option value="year_2026">Năm 2026</option>
+                            <option value="year_2025">Năm 2025</option>
+                            <option value="year_2024">Năm 2024</option>
+                        </select>
+                    </div>
+
+                    <div style="height:20px; width:1px; background:#cbd5e1; margin:0 2px;"></div>
+
+                    <!-- Tab Switcher cho Khoảng Tự Chọn (Khoảng Tháng / Khoảng Ngày) -->
+                    <div style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <button type="button" id="btnToggleRangeMonth" onclick="execToggleCustomRangeMode('month')" style="padding:4px 10px; font-size:12px; font-weight:800; font-family:inherit; border-radius:8px; border:1px solid #2563eb; background:#2563eb; color:white; cursor:pointer; transition:all 0.2s;">🗓️ Khoảng Tháng</button>
+                        <button type="button" id="btnToggleRangeDate" onclick="execToggleCustomRangeMode('date')" style="padding:4px 10px; font-size:12px; font-weight:800; font-family:inherit; border-radius:8px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; cursor:pointer; transition:all 0.2s;">📅 Khoảng Ngày (Lịch)</button>
+
+                        <!-- Box Khoảng Tháng -->
+                        <div id="boxCustomMonthRange" style="display:inline-flex; align-items:center; gap:6px; background:#ffffff; padding:2px 8px; border-radius:8px; border:1px solid #cbd5e1;">
+                            <span style="font-size:12px; font-weight:700; color:#334155;">Từ:</span>
+                            <select class="exec-select" id="execRangeFromMonth" style="padding:3px 6px; font-size:12px;">
+                                <option value="">-- Từ tháng --</option>
+                                <option value="2026-01">T1/2026</option><option value="2026-02">T2/2026</option><option value="2026-03">T3/2026</option>
+                                <option value="2026-04">T4/2026</option><option value="2026-05">T5/2026</option><option value="2026-06">T6/2026</option>
+                                <option value="2026-07">T7/2026</option><option value="2026-08">T8/2026</option><option value="2026-09">T9/2026</option>
+                                <option value="2026-10">T10/2026</option><option value="2026-11">T11/2026</option><option value="2026-12">T12/2026</option>
+                            </select>
+                            <span style="font-size:12px; font-weight:700; color:#334155;">Đến:</span>
+                            <select class="exec-select" id="execRangeToMonth" style="padding:3px 6px; font-size:12px;">
+                                <option value="">-- Đến tháng --</option>
+                                <option value="2026-01">T1/2026</option><option value="2026-02">T2/2026</option><option value="2026-03">T3/2026</option>
+                                <option value="2026-04">T4/2026</option><option value="2026-05">T5/2026</option><option value="2026-06">T6/2026</option>
+                                <option value="2026-07">T7/2026</option><option value="2026-08">T8/2026</option><option value="2026-09">T9/2026</option>
+                                <option value="2026-10">T10/2026</option><option value="2026-11">T11/2026</option><option value="2026-12">T12/2026</option>
+                            </select>
+                            <button class="exec-btn-pill" id="execBtnApplyMonthRange" style="padding:3px 10px; font-size:11.5px; background:#2563eb; color:#ffffff; border:none;" onclick="_applyExecMonthRange(this)">🚀 Lọc</button>
+                        </div>
+
+                        <!-- Box Khoảng Ngày (Lịch) -->
+                        <div id="boxCustomDateRange" style="display:none; align-items:center; gap:6px; background:#ffffff; padding:2px 8px; border-radius:8px; border:1px solid #93c5fd;">
+                            <span style="font-size:12px; font-weight:700; color:#334155;">Từ:</span>
+                            <input type="date" id="execFilterFromDate" style="padding:2px 6px; font-size:12px; font-weight:700; border:1px solid #93c5fd; border-radius:6px; color:#0f172a; outline:none;" />
+                            <span style="font-size:12px; font-weight:700; color:#334155;">Đến:</span>
+                            <input type="date" id="execFilterToDate" style="padding:2px 6px; font-size:12px; font-weight:700; border:1px solid #93c5fd; border-radius:6px; color:#0f172a; outline:none;" />
+                            <button class="exec-btn-pill" style="padding:3px 10px; font-size:11.5px; background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%); color:#ffffff; border:none;" onclick="execApplyDateRangeFilter()">🎯 Lọc</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card stat-card" style="border-top: 3px solid var(--success);">
-                <div class="card-body" style="text-align:center; padding: 30px;">
-                    <div id="statRevenue" style="font-size: 36px; font-weight: 800; color: var(--success);">...</div>
-                    <div style="color: var(--gray-500); margin-top: 8px; font-size: 13px;">Doanh Số Chốt</div>
+
+            <!-- SECTION 1: CHỈ SỐ TỔNG TOÀN CÔNG TY (ĐẶT Ở TRÊN) -->
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display:flex; align-items:center; justify-content:space-between; font-weight:800; font-size:15px; color:#1e293b; margin-bottom:14px; padding-bottom:8px; border-bottom:2px solid #cbd5e1; flex-wrap:wrap; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                        <span>🏛️ CHỈ SỐ TỔNG CÔNG TY (OVERALL PERFORMANCE)</span>
+                        <div class="exec-sparkle-badge" style="background:linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border:1.5px solid #60a5fa; box-shadow:0 2px 8px rgba(37,99,235,0.12); padding:4px 14px; border-radius:30px; display:inline-flex; align-items:center; gap:6px;">
+                            <span style="font-size:14px;">✨</span>
+                            <span style="font-size:12px; font-weight:800; color:#1e3a8a;">ĐANG XEM DỮ LIỆU: <strong id="execPeriodLabel" style="color:#2563eb; text-transform:uppercase; font-size:13px; margin-left:3px;">THÁNG NÀY</strong></span>
+                            <span id="execPeriodDateSub" style="font-size:11.5px; color:#475569; font-weight:700; margin-left:4px; background:white; padding:1px 8px; border-radius:10px; border:1px solid #93c5fd;"></span>
+                        </div>
+                    </div>
+                    <span id="sec1ModeTag" class="exec-mode-tag-pill-static" style="border-color:#a855f7; color:#6b21a8; background:linear-gradient(135deg, #f3e8ff 0%, #faf5ff 100%);">[Đang hiển thị: 👔 Mảng Đồng Phục]</span>
+                </div>
+                <div class="exec-kpi-grid">
+                    <div class="exec-kpi-card" style="border-top: 3px solid #16a34a; cursor: pointer;" onclick="execShowOrdersModal('current')">
+                        <div class="exec-kpi-title">🎯 SỐ ĐƠN CHỐT</div>
+                        <div class="exec-kpi-num" id="exOrders" style="color:#16a34a;">0 đơn</div>
+                        <div class="exec-kpi-sub">(Loại trừ đơn Sửa & Gửi mẫu)</div>
+                        <div id="exOrdersBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowOrdersModal('dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucOrders" style="color:#2563eb;">0 đơn</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowOrdersModal('pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetOrders" style="color:#7c3aed;">0 đơn</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowOrdersModal('all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongOrders" style="color:#16a34a;">0 đơn</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #0284c7; cursor: pointer;" onclick="execShowOrdersModal('current')">
+                        <div class="exec-kpi-title">💵 DOANH SỐ CHỐT</div>
+                        <div class="exec-kpi-num" id="exRevenueMktNum" style="color:#0284c7;">0đ</div>
+                        <div class="exec-kpi-sub">(Loại trừ đơn Sửa & Gửi mẫu)</div>
+                        <div id="exRevenueBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowOrdersModal('dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucRev" style="color:#2563eb;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowOrdersModal('pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetRev" style="color:#7c3aed;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowOrdersModal('all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongRev" style="color:#0284c7;">0đ</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #dc2626; cursor: pointer;" onclick="execShowMetricDetailModal('cpo', 'current')">
+                        <div class="exec-kpi-title">🎯 GIÁ / ĐƠN (CPO)</div>
+                        <div class="exec-kpi-num" id="exCPO" style="color:#dc2626;">0đ</div>
+                        <div class="exec-kpi-sub">Chi phí thực tế / 1 đơn tổng</div>
+                        <div id="exCPOBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('cpo', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucCPO" style="color:#2563eb;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('cpo', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetCPO" style="color:#7c3aed;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('cpo', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongCPO" style="color:#dc2626;">0đ</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #4f46e5; cursor: pointer;" onclick="execShowMetricDetailModal('ratio', 'current')">
+                        <div class="exec-kpi-title">📉 % CHI PHÍ / DT</div>
+                        <div class="exec-kpi-num" id="exRatio" style="color:#4f46e5;">0%</div>
+                        <div class="exec-kpi-sub">Tỷ lệ chi phí / Doanh thu tổng</div>
+                        <div id="exRatioBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ratio', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucRatio" style="color:#2563eb;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ratio', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetRatio" style="color:#7c3aed;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ratio', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongRatio" style="color:#4f46e5;">0%</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #ea580c; cursor: pointer;" onclick="execShowMetricDetailModal('rate', 'current')">
+                        <div class="exec-kpi-title">🎯 TỶ LỆ % CHỐT</div>
+                        <div class="exec-kpi-num" id="exRate" style="color:#ea580c;">0%</div>
+                        <div class="exec-kpi-sub">Tỷ lệ đơn tổng / Lead</div>
+                        <div id="exRateBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('rate', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucRate" style="color:#2563eb;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('rate', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetRate" style="color:#7c3aed;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('rate', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongRate" style="color:#ea580c;">0%</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #c026d3; cursor: pointer;" onclick="execShowMetricDetailModal('old_cust_rate', 'current')">
+                        <div class="exec-kpi-title">🔄 TỶ LỆ % KHÁCH CŨ</div>
+                        <div class="exec-kpi-num" id="exOldCustRateNum" style="color:#c026d3;">0%</div>
+                        <div class="exec-kpi-sub">Tỷ lệ đơn Khách Cũ quay lại</div>
+                        <div id="exOldCustRateBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('old_cust_rate', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucOldCustRate" style="color:#2563eb;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('old_cust_rate', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetOldCustRate" style="color:#7c3aed;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('old_cust_rate', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongOldCustRate" style="color:#c026d3;">0%</strong>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card stat-card" style="border-top: 3px solid var(--info);">
-                <div class="card-body" style="text-align:center; padding: 30px;">
-                    <div id="statToday" style="font-size: 36px; font-weight: 800; color: var(--info);">...</div>
-                    <div style="color: var(--gray-500); margin-top: 8px; font-size: 13px;">Khách Mới Hôm Nay</div>
+
+            <!-- SECTION 2: CHỈ SỐ QUẢNG CÁO MKT ADS (ĐẶT Ở DƯỚI) -->
+            <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:12px; padding:16px; margin-bottom:20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display:flex; align-items:center; justify-content:space-between; font-weight:800; font-size:15px; color:#581c87; margin-bottom:14px; padding-bottom:8px; border-bottom:2px solid #d8b4fe; flex-wrap:wrap; gap:8px;">
+                    <span>📣 CHI PHÍ & HIỆU QUẢ QUẢNG CÁO ADS (MKT ADS PERFORMANCE)</span>
+                    <span id="sec2ModeTag" class="exec-mode-tag-pill-static" style="border-color:#a855f7; color:#6b21a8; background:linear-gradient(135deg, #f3e8ff 0%, #faf5ff 100%);">[Đang hiển thị: 👔 Mảng Đồng Phục]</span>
+                </div>
+                <div class="exec-kpi-grid">
+                    <div class="exec-kpi-card" style="border-top: 3px solid #16a34a; cursor: pointer;" onclick="execShowMktAdsOrdersModal('current')">
+                        <div class="exec-kpi-title">🎯 SỐ ĐƠN ADS (MKT)</div>
+                        <div class="exec-kpi-num" id="exMktAdsOrdersNum" style="color:#16a34a;">0 đơn</div>
+                        <div class="exec-kpi-sub">(Đơn chốt từ Quảng cáo Ads)</div>
+                        <div id="exMktAdsOrdersBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMktAdsOrdersModal('dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucMktOrders" style="color:#2563eb;">0 đơn</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMktAdsOrdersModal('pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetMktOrders" style="color:#7c3aed;">0 đơn</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMktAdsOrdersModal('all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongMktOrders" style="color:#16a34a;">0 đơn</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #0284c7; cursor: pointer;" onclick="execShowMktAdsOrdersModal('current')">
+                        <div class="exec-kpi-title">💵 DOANH SỐ ADS (MKT)</div>
+                        <div class="exec-kpi-num" id="exMktAdsRevNum" style="color:#0284c7;">0đ</div>
+                        <div class="exec-kpi-sub">(Doanh số từ Quảng cáo Ads)</div>
+                        <div id="exMktAdsRevBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMktAdsOrdersModal('dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucMktRev" style="color:#2563eb;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMktAdsOrdersModal('pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetMktRev" style="color:#7c3aed;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMktAdsOrdersModal('all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongMktRev" style="color:#0284c7;">0đ</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #e11d48; cursor: pointer;" onclick="execShowMetricDetailModal('cpo_ads', 'current')">
+                        <div class="exec-kpi-title">🎯 GIÁ / ĐƠN ADS (CPO)</div>
+                        <div class="exec-kpi-num" id="exCPOAdsNum" style="color:#e11d48;">0đ</div>
+                        <div class="exec-kpi-sub">Chi phí thực tế / 1 đơn Ads</div>
+                        <div id="exCPOAdsBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('cpo_ads', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucCPOAds" style="color:#2563eb;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('cpo_ads', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetCPOAds" style="color:#7c3aed;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('cpo_ads', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongCPOAds" style="color:#e11d48;">0đ</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #4f46e5; cursor: pointer;" onclick="execShowMetricDetailModal('ratio_ads', 'current')">
+                        <div class="exec-kpi-title">📉 % CHI PHÍ / DT ADS</div>
+                        <div class="exec-kpi-num" id="exRatioAdsNum" style="color:#4f46e5;">0%</div>
+                        <div class="exec-kpi-sub">Tỷ lệ chi phí QC / Doanh số Ads</div>
+                        <div id="exRatioAdsBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ratio_ads', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucRatioAds" style="color:#2563eb;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ratio_ads', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetRatioAds" style="color:#7c3aed;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ratio_ads', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongRatioAds" style="color:#4f46e5;">0%</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #ea580c; cursor: pointer;" onclick="execShowMetricDetailModal('ads_rate', 'current')">
+                        <div class="exec-kpi-title">🎯 TỶ LỆ % CHỐT ADS</div>
+                        <div class="exec-kpi-num" id="exAdsRateNum" style="color:#ea580c;">0%</div>
+                        <div class="exec-kpi-sub">Tỷ lệ đơn Ads / Lead MKT</div>
+                        <div id="exAdsRateBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ads_rate', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucAdsRate" style="color:#2563eb;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ads_rate', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetAdsRate" style="color:#7c3aed;">0%</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ads_rate', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongAdsRate" style="color:#ea580c;">0%</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #7c3aed; cursor: pointer;" onclick="execShowMetricDetailModal('cpl', 'current')">
+                        <div class="exec-kpi-title">📊 GIÁ ADS / LEAD (CPL)</div>
+                        <div class="exec-kpi-num" id="exCPLNum" style="color:#7c3aed; font-size:20px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">0đ/lead</div>
+                        <div class="exec-kpi-sub">Chi phí / 1 lead</div>
+                        <div id="exCPLBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('cpl', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucCPL" style="color:#2563eb;">0đ/lead</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('cpl', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetCPL" style="color:#7c3aed;">0đ/lead</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('cpl', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongCPL" style="color:#7c3aed;">0đ/lead</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #2563eb; cursor: pointer;" onclick="execShowMetricDetailModal('leads', 'current')">
+                        <div class="exec-kpi-title">📥 SỐ LEAD (MKT)</div>
+                        <div class="exec-kpi-num" id="exLeadNum" style="color:#2563eb; font-size:20px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">0 lead</div>
+                        <div class="exec-kpi-sub">Tổng số lead thu về</div>
+                        <div id="exLeadBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('leads', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucLeadCnt" style="color:#2563eb;">0 lead</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('leads', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetLeadCnt" style="color:#7c3aed;">0 lead</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('leads', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongLeadCnt" style="color:#2563eb;">0 lead</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="exec-kpi-card" style="border-top: 3px solid #d97706; cursor: pointer;" onclick="execShowMetricDetailModal('ad_spent', 'current')">
+                        <div class="exec-kpi-title">📢 CHI PHÍ QUẢNG CÁO</div>
+                        <div class="exec-kpi-num" id="exSpent" style="color:#d97706;">0đ</div>
+                        <div class="exec-kpi-sub">Thực chi Marketing</div>
+                        <div id="exSpentBreakdown" style="font-size:11.5px; font-weight:700; color:#475569; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ad_spent', 'dp')">
+                                <span>👔 Đồng Phục:</span>
+                                <strong id="exDongPhucSpent" style="color:#d97706;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ad_spent', 'pettem')">
+                                <span>🏷️ Tem PET:</span>
+                                <strong id="exTemPetSpent" style="color:#7c3aed;">0đ</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dotted #e2e8f0; cursor:pointer;" onclick="event.stopPropagation(); execShowMetricDetailModal('ad_spent', 'all')">
+                                <span>🏢 Tổng Công Ty:</span>
+                                <strong id="exTongSpent" style="color:#d97706;">0đ</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <!-- Executive View Switcher Tabs -->
+            <div class="exec-tabs">
+                <button class="exec-tab-item active" onclick="_switchExecTab('exTabOverview', this)">📊 Biểu Đồ & Overview</button>
+                <button class="exec-tab-item" onclick="_switchExecTab('exTabMkt', this)">📢 Marketing Ads</button>
+                <button class="exec-tab-item" onclick="_switchExecTab('exTabSale', this)">🛍️ KPI Phòng Sale</button>
+                <button class="exec-tab-item" onclick="_switchExecTab('exTabKd', this)">💼 KPI Phòng Kinh Doanh</button>
+            </div>
+
+            <!-- Tab 1: Visual Charts -->
+            <div id="exTabOverview" class="ex-tab-content">
+                <!-- Sector Toolbar Inside Overview -->
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:10px 16px; flex-wrap:wrap; gap:8px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+                    <span style="font-weight:800; font-size:13px; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                        🎯 CHỌN LĨNH VỰC LỌC DANH SÁCH & BIỂU ĐỒ:
+                    </span>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="exec-seg-pill active" data-seg="dong_phuc" onclick="_setExecSegment('dong_phuc', this)">👔 Lĩnh Vực Đồng Phục</button>
+                        <button class="exec-seg-pill" data-seg="tem_pet" onclick="_setExecSegment('tem_pet', this)">🏷️ Lĩnh Vực TEM PET</button>
+                        <button class="exec-seg-pill" data-seg="tong" onclick="_setExecSegment('tong', this)">🏢 Tất Cả Công Ty</button>
+                    </div>
+                </div>
+
+                <div class="exec-grid-2">
+                    <!-- Chart 1: Revenue & Orders Trend -->
+                    <div class="exec-card-box">
+                        <div class="exec-card-title" id="exTitleTrend" style="display:flex; flex-direction:column; gap:10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span>📈 Xu Hướng Doanh Thu & Đơn Hàng</span>
+                                    <button type="button" onclick="execOpenTrendExpandModal()" style="font-size:11.5px; font-weight:800; font-family:inherit; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; padding:3px 10px; border-radius:20px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.2s; box-shadow:0 1px 3px rgba(37,99,235,0.1);" title="Mở rộng toàn màn hình để họp đội ngũ">
+                                        🔍 Phóng To Họp Đội Ngũ
+                                    </button>
+                                </div>
+                                <div style="display:inline-flex; background:#f1f5f9; padding:2px; border-radius:20px; border:1px solid #cbd5e1; gap:2px;">
+                                    <button type="button" class="btn-trend-mode active" id="btnTrendRev" onclick="_execSetTrendMode('revenue', this)" style="padding:4px 12px; font-size:12px; font-weight:900; font-family:inherit; letter-spacing:-0.2px; border-radius:16px; border:none; background:#2563eb; color:white; cursor:pointer; transition:all 0.2s;">💵 Doanh Thu <span style="margin-left:4px; font-weight:900; background:rgba(255,255,255,0.28); border-radius:50%; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; line-height:1;">✖</span></button>
+                                    <button type="button" class="btn-trend-mode active" id="btnTrendOrd" onclick="_execSetTrendMode('orders', this)" style="padding:4px 12px; font-size:12px; font-weight:900; font-family:inherit; letter-spacing:-0.2px; border-radius:16px; border:none; background:#16a34a; color:white; cursor:pointer; transition:all 0.2s;">📦 Số Đơn <span style="margin-left:4px; font-weight:900; background:rgba(255,255,255,0.28); border-radius:50%; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; line-height:1;">✖</span></button>
+                                    <button type="button" class="btn-trend-mode active" id="btnTrendBoth" onclick="_execSetTrendMode('both', this)" style="padding:4px 12px; font-size:12px; font-weight:900; font-family:inherit; letter-spacing:-0.2px; border-radius:16px; border:none; background:#7c3aed; color:white; cursor:pointer; transition:all 0.2s;">✨ Cả Hai <span style="margin-left:4px; font-weight:900; background:rgba(255,255,255,0.28); border-radius:50%; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; line-height:1;">✖</span></button>
+                                </div>
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+                                <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                                    <span style="font-size:11px; font-weight:800; color:#581c87; text-transform:uppercase;">🎯 Hiệu Quả MKT & KH:</span>
+                                    <div style="display:inline-flex; background:#f3e8ff; padding:3px; border-radius:20px; border:1.5px solid #d8b4fe; flex-wrap:wrap; gap:3px;">
+                                        <button type="button" class="btn-trend-mode" id="btnTrendCpoMain" onclick="_execSetTrendMode('cpo', this)" style="padding:4px 10px; font-size:11.5px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🎯 Giá/Đơn (CPO)</button>
+                                        <button type="button" class="btn-trend-mode" id="btnTrendCpoAdsMain" onclick="_execSetTrendMode('cpo_ads', this)" style="padding:4px 10px; font-size:11.5px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🎯 Giá/Đơn Ads</button>
+                                        <button type="button" class="btn-trend-mode" id="btnTrendRateMain" onclick="_execSetTrendMode('close_rate', this)" style="padding:4px 10px; font-size:11.5px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🎯 % Chốt</button>
+                                        <button type="button" class="btn-trend-mode" id="btnTrendAdsRateMain" onclick="_execSetTrendMode('ads_close_rate', this)" style="padding:4px 10px; font-size:11.5px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🎯 % Chốt Ads</button>
+                                        <button type="button" class="btn-trend-mode" id="btnTrendOldCustMain" onclick="_execSetTrendMode('old_cust_rate', this)" style="padding:4px 10px; font-size:11.5px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🔄 % Khách Cũ</button>
+                                    </div>
+                                </div>
+                                <div id="exTrendStatBadge" style="display:inline-flex; align-items:center; background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; font-size:12px; font-weight:800; padding:4px 12px; border-radius:20px; box-shadow:0 1px 2px rgba(30,64,175,0.08); transition:all 0.2s;">
+                                    📌 Chỉ Số Cả Kỳ: --
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exec-chart-container"><canvas id="exChartTrend"></canvas></div>
+                    </div>
+                    <!-- Chart 5: Top Sales Staff -->
+                    <div class="exec-card-box">
+                        <div class="exec-card-title" id="exTitleTopSales" style="cursor:pointer;" onclick="execShowOrdersModal(null, null, null, '🏆 Báo Cáo Doanh Thu Nhân Viên Bán Hàng')">🏆 Doanh Thu Theo Nhân Viên Bán Hàng 🔍</div>
+                        <div class="exec-chart-container"><canvas id="exChartTopSales"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="exec-grid-2">
+                    <!-- Chart 3: Top Products -->
+                    <div class="exec-card-box">
+                        <div class="exec-card-title" id="exTitleTopProd">🔥 Top Sản Phẩm Bán Chạy</div>
+                        <div class="exec-chart-container"><canvas id="exChartTopProd"></canvas></div>
+                    </div>
+                    <!-- Chart 4: Top Customers -->
+                    <div class="exec-card-box">
+                        <div class="exec-card-title" id="exTitleTopCust" style="cursor:pointer;" onclick="execShowOrdersModal(null, null, null, '👑 Báo Cáo Top Khách Hàng Tiêu Biểu (VIP)')">👑 Top Khách Hàng Tiêu Biểu (VIP) 🔍</div>
+                        <div class="exec-chart-container"><canvas id="exChartTopCust"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="exec-grid-2">
+                    <!-- Chart 2: Order Statuses -->
+                    <div class="exec-card-box">
+                        <div class="exec-card-title" id="exTitleStatus" style="cursor:pointer;" onclick="execShowOrdersModal(null, null, null, '🍩 Chi Tiết Cơ Cấu Trạng Thái Đơn Hàng')">🍩 Cơ Cấu Trạng Thái Đơn Hàng 🔍</div>
+                        <div class="exec-chart-container"><canvas id="exChartStatus"></canvas></div>
+                    </div>
+                    <!-- Recent Orders Table -->
+                    <div class="exec-card-box">
+                        <div class="exec-card-title" id="exTitleRecentOrders">📋 Đơn Hàng Gần Đây</div>
+                        <div style="overflow-x:auto;">
+                            <table class="exec-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mã đơn</th>
+                                        <th>Khách hàng</th>
+                                        <th>Nhân viên</th>
+                                        <th>Tổng tiền</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="exTblRecentOrders">
+                                    <tr><td colspan="5" style="text-align:center; color:#94a3b8;">Đang tải...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card stat-card" style="border-top: 3px solid var(--warning);">
-                <div class="card-body" style="text-align:center; padding: 30px;">
-                    <div id="statRate" style="font-size: 36px; font-weight: 800; color: var(--warning);">...</div>
-                    <div style="color: var(--gray-500); margin-top: 8px; font-size: 13px;">Tỷ Lệ Chốt Đơn</div>
+
+            <!-- Tab 2: MKT Ads -->
+            <div id="exTabMkt" class="ex-tab-content" style="display:none;">
+                <div class="exec-card-box">
+                    <div class="exec-card-title">📢 Chi Tiết Chỉ Số Marketing Ads</div>
+                    <table class="exec-table">
+                        <thead>
+                            <tr>
+                                <th>Chỉ số MKT</th>
+                                <th>Thực tế</th>
+                                <th>Đánh giá</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Chi phí QC</td><td id="exMktSpent" style="font-weight:700;">0đ</td><td style="color:#059669; font-weight:600;">Hợp lệ</td></tr>
+                            <tr><td>CPO (Giá/Đơn)</td><td id="exMktCPO" style="font-weight:700;">0đ</td><td style="color:#2563eb;">Tối ưu</td></tr>
+                            <tr><td>% Chi phí/Doanh thu</td><td id="exMktRatio" style="font-weight:700;">0%</td><td style="color:#7c3aed;">Tốt</td></tr>
+                            <tr><td>CPL (Giá/Lead)</td><td id="exMktCPL" style="font-weight:700;">0đ</td><td>Trung bình</td></tr>
+                            <tr><td>Tỷ lệ chốt Data</td><td id="exMktRate" style="font-weight:700;">0%</td><td>Ổn định</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-        ${['giam_doc','quan_ly_cap_cao','quan_ly'].includes(currentUser.role) ? `
-        <div id="pendingArea" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;"></div>
-        ` : ''}
-        <div class="card">
-            <div class="card-header"><h3>🏆 Bảng Xếp Hạng Nhân Viên</h3></div>
-            <div class="card-body" id="leaderboardArea">
-                <div class="empty-state"><div class="icon">⏳</div><h3>Đang tải...</h3></div>
+
+            <!-- Tab 3: KPI Phòng Sale -->
+            <div id="exTabSale" class="ex-tab-content" style="display:none;">
+                <div class="exec-card-box">
+                    <div class="exec-card-title">🛍️ Tổng Quan KPI Phòng Sale</div>
+                    <div style="background:#f8fafc; padding:16px; border-radius:12px; margin-bottom:16px; border:1px solid #e2e8f0;">
+                        <div style="display:flex; justify-content:space-between; font-weight:800; font-size:16px;">
+                            <span>DT Thực Tế: <span id="exSaleRevActual" style="color:#059669;">0đ</span></span>
+                            <span>Còn thiếu Mốc 1: <span id="exSaleRemainingM1" style="color:#dc2626;">0đ</span></span>
+                        </div>
+                    </div>
+                    <table class="exec-table">
+                        <thead>
+                            <tr>
+                                <th>Mốc KPI</th>
+                                <th>Target Mục Tiêu</th>
+                                <th>Mức Thưởng</th>
+                                <th>Tỷ Lệ Đạt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="font-weight:700;">KPI Mốc 1</td>
+                                <td id="exSaleTargetM1" style="font-weight:700;">1.200.000.000đ</td>
+                                <td id="exSaleBonusM1" style="color:#d97706; font-weight:700;">20.000.000đ</td>
+                                <td id="exSaleCompM1" style="font-weight:700; color:#059669;">0%</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight:700;">KPI Mốc 2 (120%)</td>
+                                <td id="exSaleTargetM2" style="font-weight:700;">1.440.000.000đ</td>
+                                <td id="exSaleBonusM2" style="color:#d97706; font-weight:700;">30.000.000đ</td>
+                                <td id="exSaleCompM2" style="font-weight:700; color:#059669;">0%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 4: KPI Phòng Kinh Doanh -->
+            <div id="exTabKd" class="ex-tab-content" style="display:none;">
+                <div class="exec-card-box">
+                    <div class="exec-card-title">
+                        <span>💼 Tổng Quan KPI Phòng Kinh Doanh</span>
+                        <span style="font-size:13px; background:#dbeafe; color:#1e40af; padding:3px 10px; border-radius:12px; font-weight:700;">
+                            ⏳ Còn <span id="exKdDaysLeft">0</span> ngày
+                        </span>
+                    </div>
+                    <div style="background:#f8fafc; padding:16px; border-radius:12px; margin-bottom:16px; border:1px solid #e2e8f0;">
+                        <div style="display:flex; justify-content:space-between; font-weight:800; font-size:16px;">
+                            <span>DT Thực Thu: <span id="exKdRevActual" style="color:#059669;">0đ</span></span>
+                            <span>Đã vượt Mốc 1: <span id="exKdExceededM1" style="color:#059669;">+0đ</span></span>
+                        </div>
+                    </div>
+                    <table class="exec-table">
+                        <thead>
+                            <tr>
+                                <th>Mốc KPI</th>
+                                <th>Target Mục Tiêu</th>
+                                <th>Tỷ Lệ Đạt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="font-weight:700;">Mốc 1</td>
+                                <td id="exKdTargetM1" style="font-weight:700;">25.000.000đ</td>
+                                <td id="exKdCompM1" style="font-weight:700; color:#059669;">0%</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight:700;">Mốc 120%</td>
+                                <td id="exKdTargetM120" style="font-weight:700;">30.000.000đ</td>
+                                <td id="exKdCompM120" style="font-weight:700; color:#059669;">0%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     `;
 
-    try {
-        const data = await apiCall('/api/dashboard/stats');
-        document.getElementById('statCustomers').textContent = data.totalCustomers || 0;
-        document.getElementById('statRevenue').textContent = formatCurrency(data.totalRevenue);
-        document.getElementById('statToday').textContent = data.newToday || 0;
-        document.getElementById('statRate').textContent = (data.closeRate || 0) + '%';
+    _loadExecDashData();
+}
 
-        // Pending items for managers
-        const pendingArea = document.getElementById('pendingArea');
-        if (pendingArea) {
-            let pendingHTML = '';
-            if (data.pendingEmergency > 0) {
-                pendingHTML += `<div class="card" style="border-left:4px solid var(--danger);cursor:pointer;" onclick="navigate('cap-cuu-sep')">
-                    <div class="card-body" style="display:flex;align-items:center;gap:12px;padding:16px;">
-                        <span style="font-size:28px;">🚨</span>
-                        <div><div style="font-size:24px;font-weight:800;color:var(--danger);">${data.pendingEmergency}</div><div style="font-size:12px;color:var(--gray-500);">Cấp Cứu Chờ Xử Lý</div></div>
-                    </div>
-                </div>`;
-            }
-            if (data.pendingCancel > 0) {
-                pendingHTML += `<div class="card" style="border-left:4px solid var(--warning);cursor:pointer;" onclick="navigate('huy-khach')">
-                    <div class="card-body" style="display:flex;align-items:center;gap:12px;padding:16px;">
-                        <span style="font-size:28px;">❌</span>
-                        <div><div style="font-size:24px;font-weight:800;color:var(--warning);">${data.pendingCancel}</div><div style="font-size:12px;color:var(--gray-500);">Hủy KH Chờ Duyệt</div></div>
-                    </div>
-                </div>`;
-            }
-            if (data.pendingWithdraw > 0) {
-                pendingHTML += `<div class="card" style="border-left:4px solid var(--gold);cursor:pointer;" onclick="navigate('withdraw-manage')">
-                    <div class="card-body" style="display:flex;align-items:center;gap:12px;padding:16px;">
-                        <span style="font-size:28px;">💰</span>
-                        <div><div style="font-size:24px;font-weight:800;color:var(--gold);">${data.pendingWithdraw}</div><div style="font-size:12px;color:var(--gray-500);">Rút Tiền Chờ Duyệt</div></div>
-                    </div>
-                </div>`;
-            }
-            pendingArea.innerHTML = pendingHTML;
+function _updateExecMonthOptions(targetYear) {
+    const yr = parseInt(targetYear) || new Date().getFullYear();
+
+    const singleMonthSel = document.getElementById('execSelectSingleMonth');
+    if (singleMonthSel) {
+        const curVal = singleMonthSel.value;
+        singleMonthSel.innerHTML = `<option value="">-- Chọn 1 Tháng (${yr}) --</option>` +
+            Array.from({ length: 12 }, (_, i) => {
+                const m = i + 1;
+                const val = `month_${yr}-${String(m).padStart(2, '0')}`;
+                return `<option value="${val}">Tháng ${m}/${yr}</option>`;
+            }).join('');
+        if (curVal && curVal.startsWith(`month_${yr}-`)) {
+            singleMonthSel.value = curVal;
         }
+    }
 
-        const lb = document.getElementById('leaderboardArea');
-        if (data.topEmployees && data.topEmployees.length > 0) {
-            lb.innerHTML = `<table class="table"><thead><tr>
-                <th>#</th><th>Nhân Viên</th><th>Tổng KH</th><th>Chốt Đơn</th>
-            </tr></thead><tbody>${data.topEmployees.map((e, i) => `<tr>
-                <td>${i + 1}</td><td>${e.full_name}</td><td>${e.customer_count}</td><td>${e.closed_count}</td>
-            </tr>`).join('')}</tbody></table>`;
-        } else {
-            lb.innerHTML = `<div class="empty-state"><div class="icon">📈</div><h3>Chưa có dữ liệu</h3><p>Bắt đầu chuyển số để hiển thị bảng xếp hạng</p></div>`;
+    const fromSel = document.getElementById('execRangeFromMonth');
+    const toSel = document.getElementById('execRangeToMonth');
+    if (fromSel && toSel) {
+        const opts = Array.from({ length: 12 }, (_, i) => {
+            const m = i + 1;
+            const val = `${yr}-${String(m).padStart(2, '0')}`;
+            return `<option value="${val}">T${m}/${yr}</option>`;
+        }).join('');
+
+        fromSel.innerHTML = opts;
+        toSel.innerHTML = opts;
+
+        fromSel.value = `${yr}-01`;
+        toSel.value = `${yr}-12`;
+    }
+}
+window._updateExecMonthOptions = _updateExecMonthOptions;
+
+function _applyExecMonthRange(btn) {
+    const fromVal = document.getElementById('execRangeFromMonth')?.value || '2026-01';
+    const toVal = document.getElementById('execRangeToMonth')?.value || '2026-12';
+    const period = `monthrange_${fromVal}_${toVal}`;
+
+    document.querySelectorAll('.exec-btn-pill').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.exec-select').forEach(s => s.classList.remove('active'));
+    
+    const singleMonthSel = document.getElementById('execSelectSingleMonth');
+    const selQ = document.getElementById('execSelectQuarter');
+    const selY = document.getElementById('execSelectYear');
+    if (singleMonthSel) singleMonthSel.value = '';
+    if (selQ) selQ.value = '';
+
+    // Auto-sync year select
+    const yr = fromVal.split('-')[0];
+    if (selY && yr) {
+        selY.value = `year_${yr}`;
+        selY.classList.add('active');
+    }
+
+    if (btn) btn.classList.add('active');
+
+    _dashPeriod = period;
+    _loadExecDashData();
+}
+window._applyExecMonthRange = _applyExecMonthRange;
+
+function _setExecPeriod(period, element) {
+    if (!period) return;
+    _dashPeriod = period;
+
+    document.querySelectorAll('.exec-btn-pill').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.exec-select').forEach(s => s.classList.remove('active'));
+
+    const singleMonthSel = document.getElementById('execSelectSingleMonth');
+    const selQ = document.getElementById('execSelectQuarter');
+    const selY = document.getElementById('execSelectYear');
+    const rangeBtn = document.getElementById('execBtnApplyMonthRange');
+
+    if (element && element.tagName === 'BUTTON') {
+        element.classList.add('active');
+        if (singleMonthSel) singleMonthSel.value = '';
+        if (selQ) selQ.value = '';
+        if (selY) selY.value = '';
+    } else if (element && element.tagName === 'SELECT') {
+        element.classList.add('active');
+        if (element.id === 'execSelectSingleMonth') {
+            if (selQ) selQ.value = '';
+            if (rangeBtn) rangeBtn.classList.remove('active');
+            
+            // Auto-sync year select when month is picked
+            if (period.startsWith('month_')) {
+                const yr = period.replace('month_', '').split('-')[0];
+                if (selY && yr) {
+                    selY.value = `year_${yr}`;
+                    selY.classList.add('active');
+                }
+            }
+        } else if (element.id === 'execSelectQuarter') {
+            if (singleMonthSel) singleMonthSel.value = '';
+            if (selY) selY.value = '';
+            if (rangeBtn) rangeBtn.classList.remove('active');
+        } else if (element.id === 'execSelectYear') {
+            if (singleMonthSel) singleMonthSel.value = '';
+            if (selQ) selQ.value = '';
+            if (rangeBtn) rangeBtn.classList.remove('active');
+
+            // Dynamically update Month selects to match selected Year!
+            if (period.startsWith('year_')) {
+                const yr = period.replace('year_', '');
+                _updateExecMonthOptions(yr);
+            }
+        }
+    }
+
+    _loadExecDashData();
+}
+
+function _switchExecTab(tabId, btn) {
+    document.querySelectorAll('.exec-tab-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.ex-tab-content').forEach(c => c.style.display = 'none');
+
+    btn.classList.add('active');
+    document.getElementById(tabId).style.display = 'block';
+}
+
+function _initExecYearAndMonthOptions() {
+    const curYear = new Date().getFullYear();
+    const selY = document.getElementById('execSelectYear');
+    if (selY && (!selY.options || selY.options.length <= 1)) {
+        let yearHtml = '<option value="">-- Chọn Năm --</option>';
+        const startYr = curYear + 1;
+        const endYr = 2024;
+        for (let y = startYr; y >= endYr; y--) {
+            yearHtml += `<option value="year_${y}">Năm ${y}</option>`;
+        }
+        selY.innerHTML = yearHtml;
+    }
+
+    const singleMonthSel = document.getElementById('execSelectSingleMonth');
+    if (singleMonthSel && singleMonthSel.options.length <= 1) {
+        _updateExecMonthOptions(curYear);
+    }
+}
+window._initExecYearAndMonthOptions = _initExecYearAndMonthOptions;
+
+async function _loadExecDashData() {
+    try {
+        _initExecYearAndMonthOptions();
+        const mode = _execSegmentMode || window._execSegmentMode || 'dong_phuc';
+        const response = await fetch(`/api/m/dashboard/summary?period=${encodeURIComponent(_dashPeriod)}&mode=${encodeURIComponent(mode)}`, { credentials: 'include' });
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/index.html';
+            return;
+        }
+        _dashData = await response.json();
+        _renderExecDashboard();
+
+        // If Modal is currently open, re-render Modal content immediately with new segment data!
+        const modal = document.getElementById('exModalTrendExpand');
+        if (modal && modal.style.display === 'block') {
+            _renderExpandTrendModalContent();
         }
     } catch (err) {
-        console.error('Dashboard error:', err);
+        console.error('Error loading executive dashboard:', err);
+    }
+}
+
+// --- KPI Orders Detail Modal Helper Functions ---
+var _kpiModalOrders = _kpiModalOrders || [];
+var _kpiModalFilterLv = _kpiModalFilterLv || 'all';
+var _kpiModalFilterCust = _kpiModalFilterCust || 'all';
+var _kpiModalFilterSale = _kpiModalFilterSale || 'all';
+
+function kpiFmtFull(n) { return n != null ? Number(n).toLocaleString('vi-VN') : '-'; }
+
+function _kpiCleanPhone(phone) {
+    if (!phone || phone.startsWith('pancake_')) return '—';
+    return phone;
+}
+
+function kpiCloseOrdersModal() {
+    const modal = document.getElementById('kpiOrdersModal');
+    if (modal) modal.style.display = 'none';
+}
+window.kpiCloseOrdersModal = kpiCloseOrdersModal;
+
+function _kpiEnsureOrdersModal() {
+    let modal = document.getElementById('kpiOrdersModal');
+    if (modal) {
+        modal.remove();
+    }
+    modal = document.createElement('div');
+    modal.className = 'kpi-modal-overlay';
+    modal.id = 'kpiOrdersModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:99999!important;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px';
+    modal.innerHTML = `
+        <div class="kpi-modal" style="background:#fff;border-radius:20px;width:1300px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);display:flex;flex-direction:column;padding:24px;color:#1e293b">
+            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:14px;margin-bottom:14px">
+                <h3 style="font-size:16px;font-weight:800;color:#1e293b;margin:0;display:flex;align-items:center;gap:8px">📦 Chi Tiết Đơn Hàng — <span id="kpiOrdersModalTitle"></span></h3>
+                <button type="button" onclick="kpiCloseOrdersModal()" style="background:#f1f5f9;border:none;color:#64748b;font-size:18px;font-weight:800;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .2s;flex-shrink:0" onmouseenter="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
+            </div>
+            <div id="kpiOrdersModalSummary" style="background:#f8fafc;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;flex-wrap:wrap"></div>
+            <div style="max-height:60vh;overflow-y:auto">
+                <table class="kpi-tbl" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Mã đơn</th>
+                            <th>Khách hàng</th>
+                            <th>SĐT</th>
+                            <th>NV Sale</th>
+                            <th>Loại khách</th>
+                            <th>Nguồn</th>
+                            <th>Doanh số</th>
+                            <th>Ngày chốt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpiOrdersModalBody"></tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+}
+
+window.kpiFilterModalLv = function(lvType) {
+    _kpiModalFilterLv = lvType;
+    kpiApplyModalFilters();
+};
+
+window.kpiFilterModalCust = function(custType) {
+    _kpiModalFilterCust = custType;
+    kpiApplyModalFilters();
+};
+
+window.kpiFilterModalSale = function(saleVal) {
+    _kpiModalFilterSale = saleVal;
+    kpiApplyModalFilters();
+};
+
+function kpiBuildSaleOptionsHtml(orders) {
+    if (!orders) return '<option value="all">Tất cả NV Sale</option>';
+    const counts = {};
+    orders.forEach(o => {
+        const name = o.sale_name || 'Khác / Chưa gán';
+        counts[name] = (counts[name] || 0) + 1;
+    });
+    const sortedNames = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    let optionsHtml = `<option value="all">Tất cả NV Sale (${orders.length} đơn)</option>`;
+    sortedNames.forEach(name => {
+        const isSel = _kpiModalFilterSale === name ? 'selected' : '';
+        optionsHtml += `<option value="${name}" ${isSel}>${name} (${counts[name]} đơn)</option>`;
+    });
+    return optionsHtml;
+}
+
+function kpiApplyModalFilters() {
+    const tbody = document.getElementById('kpiOrdersModalBody');
+    if (!tbody || !_kpiModalOrders) return;
+
+    document.querySelectorAll('.kpi-lv-btn').forEach(btn => {
+        if (btn.getAttribute('data-lv') === _kpiModalFilterLv) {
+            btn.style.outline = '2px solid #2563eb';
+            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.3)';
+            btn.style.fontWeight = '800';
+            btn.style.opacity = '1';
+        } else {
+            btn.style.outline = 'none';
+            btn.style.boxShadow = 'none';
+            btn.style.fontWeight = '600';
+            btn.style.opacity = '0.75';
+        }
+    });
+
+    // 1. Lĩnh Vực Filter
+    let lvOrders = _kpiModalOrders;
+    if (_kpiModalFilterLv === 'dp') {
+        lvOrders = _kpiModalOrders.filter(o => !o.is_pet_tem);
+    } else if (_kpiModalFilterLv === 'pettem') {
+        lvOrders = _kpiModalOrders.filter(o => o.is_pet_tem);
+    }
+
+    // Dynamic update NV Sale dropdown options according to selected Lĩnh Vực
+    const saleSel = document.getElementById('kpiModalFilterSaleSelect');
+    if (saleSel) {
+        const curSaleVal = _kpiModalFilterSale;
+        saleSel.innerHTML = kpiBuildSaleOptionsHtml(lvOrders);
+        if ([...saleSel.options].some(opt => opt.value === curSaleVal)) {
+            saleSel.value = curSaleVal;
+        } else {
+            saleSel.value = 'all';
+            _kpiModalFilterSale = 'all';
+        }
+    }
+
+    // 2. NV Sale Filter
+    let saleOrders = lvOrders;
+    if (_kpiModalFilterSale && _kpiModalFilterSale !== 'all') {
+        saleOrders = lvOrders.filter(o => (o.sale_name || 'Khác / Chưa gán') === _kpiModalFilterSale);
+    }
+
+    const countMoi = saleOrders.filter(o => o.customer_type === 'moi').length;
+    const countCu = saleOrders.filter(o => o.customer_type === 'cu').length;
+
+    const btnMoi = document.querySelector('.kpi-cust-btn[data-cust="moi"]');
+    const btnCu = document.querySelector('.kpi-cust-btn[data-cust="cu"]');
+    if (btnMoi) btnMoi.innerHTML = `🟢 Khách Mới (<strong style="color:#16a34a">${countMoi}</strong>)`;
+    if (btnCu) btnCu.innerHTML = `🟧 Khách Cũ (<strong style="color:#b45309">${countCu}</strong>)`;
+
+    document.querySelectorAll('.kpi-cust-btn').forEach(btn => {
+        if (btn.getAttribute('data-cust') === _kpiModalFilterCust) {
+            btn.style.outline = '2px solid #2563eb';
+            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.3)';
+            btn.style.fontWeight = '800';
+            btn.style.opacity = '1';
+        } else {
+            btn.style.outline = 'none';
+            btn.style.boxShadow = 'none';
+            btn.style.fontWeight = '600';
+            btn.style.opacity = '0.75';
+        }
+    });
+
+    // 3. Loại Khách Filter
+    let filtered = saleOrders;
+    if (_kpiModalFilterCust === 'moi') {
+        filtered = filtered.filter(o => o.customer_type === 'moi');
+    } else if (_kpiModalFilterCust === 'cu') {
+        filtered = filtered.filter(o => o.customer_type === 'cu');
+    }
+
+    // 4. Customer Name Filter
+    if (_kpiModalFilterCustomerName && _kpiModalFilterCustomerName !== 'all') {
+        filtered = filtered.filter(o => (o.customer_name || '').trim().toLowerCase().includes(_kpiModalFilterCustomerName.toLowerCase()));
+    }
+
+    // 5. Status Code Filter
+    if (typeof _kpiModalFilterStatusCode !== 'undefined' && _kpiModalFilterStatusCode && _kpiModalFilterStatusCode !== 'all') {
+        if (_kpiModalFilterStatusCode === 'chot_don') {
+            filtered = filtered.filter(o => o.customer_type === 'moi' || o.official_save_clicked || Number(o.revenue) > 0);
+        } else if (_kpiModalFilterStatusCode === 'dat_coc') {
+            filtered = filtered.filter(o => o.customer_type === 'cu' || Number(o.deposit_amount) > 0);
+        } else {
+            filtered = filtered.filter(o => (o.customer_type || '').toLowerCase() === _kpiModalFilterStatusCode.toLowerCase());
+        }
+    }
+
+    const currentRevenue = filtered.reduce((acc, o) => acc + (Number(o.revenue) || 0), 0);
+    const revEl = document.getElementById('kpiModalTotalRevenue');
+    if (revEl) revEl.textContent = `${kpiFmtFull(currentRevenue)}đ`;
+
+    const countEl = document.getElementById('kpiModalTotalOrdersCount');
+    if (countEl) countEl.textContent = `${filtered.length} đơn`;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#94a3b8;font-weight:600">📭 Không có đơn hàng nào khớp bộ lọc đã chọn</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map((o, idx) => {
+        let badgeHtml = o.customer_type === 'moi'
+            ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">🟢 Khách Mới</span>'
+            : '<span style="padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;background:#fef3c7;color:#b45309;border:1px solid #fde68a">🟧 Khách Cũ</span>';
+
+        return `
+        <tr>
+            <td style="text-align:center">${idx + 1}</td>
+            <td style="font-weight:700;color:#2563eb">${o.order_code || '—'}</td>
+            <td>${o.customer_name || '—'}</td>
+            <td>${_kpiCleanPhone(o.customer_phone)}</td>
+            <td style="font-weight:800;color:#1e1b4b">${o.sale_name || '—'}</td>
+            <td style="text-align:center">${badgeHtml}</td>
+            <td style="font-weight:600;color:#7c3aed">${o.source_name || '—'}</td>
+            <td style="font-weight:800;color:#059669">${kpiFmtFull(o.revenue || 0)}đ</td>
+            <td style="text-align:center">${o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—'}</td>
+        </tr>
+    `}).join('');
+}
+
+function kpiBuildModalSummaryHtml(s) {
+    return `
+    <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;flex-wrap:wrap">
+            <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
+                🏢 <strong>Lĩnh Vực:</strong>
+            </span>
+            <button type="button" class="kpi-lv-btn" data-lv="all" onclick="kpiFilterModalLv('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#1e293b">Tất cả lĩnh vực (<strong style="color:#2563eb">${s.total || 0}</strong>)</button>
+            <button type="button" class="kpi-lv-btn" data-lv="dp" onclick="kpiFilterModalLv('dp')" style="padding:4px 12px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#c2410c">👔 LV Đồng Phục (<strong style="color:#c2410c">${s.total_lv_dp || 0}</strong>)</button>
+            <button type="button" class="kpi-lv-btn" data-lv="pettem" onclick="kpiFilterModalLv('pettem')" style="padding:4px 12px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#be185d">🏷️ LV PET/TEM (<strong style="color:#be185d">${s.total_lv_pettem || 0}</strong>)</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;flex-wrap:wrap">
+            <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
+                👥 <strong>Loại Khách:</strong>
+            </span>
+            <button type="button" class="kpi-cust-btn" data-cust="all" onclick="kpiFilterModalCust('all')" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#1e293b">Tất cả khách</button>
+            <button type="button" class="kpi-cust-btn" data-cust="moi" onclick="kpiFilterModalCust('moi')" style="padding:4px 12px;border-radius:8px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#16a34a">🟢 Khách Mới (<strong style="color:#16a34a">${s.new_orders || 0}</strong>)</button>
+            <button type="button" class="kpi-cust-btn" data-cust="cu" onclick="kpiFilterModalCust('cu')" style="padding:4px 12px;border-radius:8px;border:1px solid #fde68a;background:#fffbeb;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#b45309">🟧 Khách Cũ (<strong style="color:#b45309">${s.old_orders || 0}</strong>)</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;flex-wrap:wrap">
+            <span style="color:#475569;min-width:115px;display:flex;align-items:center;gap:4px">
+                👤 <strong>NV Sale:</strong>
+            </span>
+            <select id="kpiModalFilterSaleSelect" onchange="kpiFilterModalSale(this.value)" style="padding:4px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-weight:700;font-size:12px;font-family:inherit;color:#1e293b;cursor:pointer;outline:none">
+                ${kpiBuildSaleOptionsHtml(_kpiModalOrders)}
+            </select>
+
+            <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:800;color:#166534;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;align-items:center;gap:5px">
+                    📦 <span>Số đơn:</span>
+                    <strong id="kpiModalTotalOrdersCount" style="color:#15803d;font-size:13px;font-weight:800">${s.total || 0} đơn</strong>
+                </div>
+                <div style="background:#fef2f2;border:1px solid #fecaca;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:800;color:#991b1b;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;align-items:center;gap:5px">
+                    💰 <span>Tổng doanh số:</span>
+                    <strong id="kpiModalTotalRevenue" style="color:#dc2626;font-size:13px;font-weight:800">${kpiFmtFull(s.total_revenue || 0)}đ</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+}
+// --- Executive Custom Floating Tooltip Helper ---
+function _execEnsureCustomTooltip() {
+    let tooltip = document.getElementById('execCustomTooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'execCustomTooltip';
+        tooltip.style.cssText = 'position:fixed;display:none;z-index:999999!important;pointer-events:none;background:#0f172a;color:#fff;padding:10px 14px;border-radius:10px;font-size:12px;font-family:inherit;box-shadow:0 10px 25px rgba(0,0,0,0.4);border:1px solid #3b82f6;max-width:420px;line-height:1.5;backdrop-filter:blur(4px)';
+        document.body.appendChild(tooltip);
+    }
+    return tooltip;
+}
+
+function execShowHoverTooltip(e, text) {
+    if (!text) return;
+    const tooltip = _execEnsureCustomTooltip();
+    tooltip.innerHTML = `
+        <div style="font-size:11px;font-weight:800;color:#fbbf24;margin-bottom:4px;display:flex;align-items:center;gap:4px">
+            💡 PHÉP TÍNH CHI TIẾT:
+        </div>
+        <div style="font-weight:600;color:#f8fafc">${text}</div>
+    `;
+    tooltip.style.display = 'block';
+    execMoveHoverTooltip(e);
+}
+
+function execMoveHoverTooltip(e) {
+    const tooltip = document.getElementById('execCustomTooltip');
+    if (!tooltip || tooltip.style.display === 'none') return;
+    const x = e.clientX + 14;
+    const y = e.clientY + 14;
+    
+    const winWidth = window.innerWidth;
+    const winHeight = window.innerHeight;
+    const rect = tooltip.getBoundingClientRect();
+
+    let finalX = x;
+    let finalY = y;
+    if (x + rect.width > winWidth - 10) finalX = e.clientX - rect.width - 10;
+    if (y + rect.height > winHeight - 10) finalY = e.clientY - rect.height - 10;
+
+    tooltip.style.left = finalX + 'px';
+    tooltip.style.top = finalY + 'px';
+}
+
+function execHideHoverTooltip() {
+    const tooltip = document.getElementById('execCustomTooltip');
+    if (tooltip) tooltip.style.display = 'none';
+}
+
+window.execShowHoverTooltip = execShowHoverTooltip;
+window.execMoveHoverTooltip = execMoveHoverTooltip;
+window.execHideHoverTooltip = execHideHoverTooltip;
+
+// --- Executive KPI Metric Explanation Modal ---
+var _metricModalCurrentKey = 'cpo';
+var _metricModalCurrentLv = 'all';
+
+function _execEnsureMetricModal() {
+    let modal = document.getElementById('execMetricModal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.className = 'exec-metric-modal-overlay';
+    modal.id = 'execMetricModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.65);z-index:99999!important;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:20px';
+    modal.innerHTML = `
+        <div style="background:#fff;border-radius:20px;width:920px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.4);display:flex;flex-direction:column;padding:24px;color:#1e293b;font-family:inherit">
+            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:16px">
+                <h3 id="execMetricModalTitle" style="font-size:17px;font-weight:800;color:#0f172a;margin:0;display:flex;align-items:center;gap:8px"></h3>
+                <button type="button" onclick="execCloseMetricModal()" style="background:#f1f5f9;border:none;color:#64748b;font-size:18px;font-weight:800;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .2s" onmouseenter="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
+            </div>
+
+            <!-- Segment Selector -->
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:16px;flex-wrap:wrap;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0">
+                <span style="color:#475569;margin-right:4px">🏢 <strong>Ưu tiên mảng:</strong></span>
+                <button type="button" class="exec-metric-lv-btn" data-lv="all" onclick="execSwitchMetricLv('all')" style="padding:5px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#1e293b">🏢 Tất Cả (Tổng Công Ty)</button>
+                <button type="button" class="exec-metric-lv-btn" data-lv="dp" onclick="execSwitchMetricLv('dp')" style="padding:5px 14px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#c2410c">👔 Mảng Đồng Phục</button>
+                <button type="button" class="exec-metric-lv-btn" data-lv="pettem" onclick="execSwitchMetricLv('pettem')" style="padding:5px 14px;border-radius:8px;border:1px solid #fbcfe8;background:#fdf2f8;cursor:pointer;font-weight:700;font-size:12px;font-family:inherit;color:#be185d">🏷️ Mảng Tem PET</button>
+            </div>
+
+            <!-- Content Area -->
+            <div id="execMetricModalBody"></div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+}
+
+function execCloseMetricModal() {
+    const modal = document.getElementById('execMetricModal');
+    if (modal) modal.style.display = 'none';
+}
+window.execCloseMetricModal = execCloseMetricModal;
+
+function execSwitchMetricLv(lv) {
+    _metricModalCurrentLv = lv;
+    execRenderMetricDetailContent();
+}
+window.execSwitchMetricLv = execSwitchMetricLv;
+
+function execShowMetricDetailModal(metricKey, defaultLv) {
+    _metricModalCurrentKey = metricKey;
+    if (!defaultLv || defaultLv === 'current') {
+        const segMode = typeof _execSegmentMode !== 'undefined' ? _execSegmentMode : 'dong_phuc';
+        if (segMode === 'dong_phuc') defaultLv = 'dp';
+        else if (segMode === 'tem_pet') defaultLv = 'pettem';
+        else defaultLv = 'all';
+    }
+    _metricModalCurrentLv = defaultLv;
+
+    const modal = _execEnsureMetricModal();
+    modal.style.display = 'flex';
+    execRenderMetricDetailContent();
+}
+window.execShowMetricDetailModal = execShowMetricDetailModal;
+
+function execRenderMetricDetailContent() {
+    const key = _metricModalCurrentKey;
+    const lv = _metricModalCurrentLv;
+    const mkt = (_dashData && _dashData.marketing) || {};
+    const exec = (_dashData && _dashData.executive) || {};
+
+    document.querySelectorAll('.exec-metric-lv-btn').forEach(btn => {
+        if (btn.getAttribute('data-lv') === lv) {
+            btn.style.outline = '2px solid #2563eb';
+            btn.style.boxShadow = '0 2px 8px rgba(37,99,235,0.3)';
+            btn.style.fontWeight = '800';
+            btn.style.opacity = '1';
+        } else {
+            btn.style.outline = 'none';
+            btn.style.boxShadow = 'none';
+            btn.style.fontWeight = '600';
+            btn.style.opacity = '0.75';
+        }
+    });
+
+    const metricsDef = {
+        cpo: {
+            title: '🎯 CPO: GIÁ / ĐƠN (Chi Phí Quảng Cáo Để Ra 1 Đơn Tổng)',
+            formulaDesc: 'Chi phí Marketing trung bình bỏ ra để thu về 1 đơn chốt thành công toàn hệ thống.',
+            formulaMath: 'CPO = Tổng Chi Phí Quảng Cáo ÷ Tổng Số Đơn Chốt',
+            unit: 'đ/đơn',
+            getData: () => ({
+                dp: { num: mkt.dong_phuc_spent || 0, den: exec.dong_phuc_orders || 0, val: mkt.dong_phuc_cpo || 0, numName: 'Chi phí QC Đồng phục', denName: 'Số đơn Đồng phục' },
+                pettem: { num: mkt.tem_pet_spent || 0, den: exec.tem_pet_orders || 0, val: mkt.tem_pet_cpo || 0, numName: 'Chi phí QC Tem PET', denName: 'Số đơn Tem PET' },
+                all: { num: mkt.spent_amount || 0, den: exec.total_orders || 0, val: mkt.cpo || 0, numName: 'Tổng chi phí QC Công ty', denName: 'Tổng số đơn Công ty' }
+            }),
+            formatVal: v => kpiFmtFull(v) + 'đ'
+        },
+        ratio: {
+            title: '📊 % CHI PHÍ / DOANH THU (Tỷ Lệ Chi Phí QC / Doanh Số Tổng)',
+            formulaDesc: 'Tỷ lệ phần trăm chi phí quảng cáo chiếm trên tổng doanh số chốt.',
+            formulaMath: '% Chi Phí / DT = (Tổng Chi Phí QC ÷ Tổng Doanh Số Chốt) × 100%',
+            unit: '%',
+            getData: () => ({
+                dp: { num: mkt.dong_phuc_spent || 0, den: exec.dong_phuc_revenue || 0, val: mkt.dong_phuc_cost_ratio || 0, numName: 'Chi phí QC Đồng phục', denName: 'Doanh số Đồng phục' },
+                pettem: { num: mkt.tem_pet_spent || 0, den: exec.tem_pet_revenue || 0, val: mkt.tem_pet_cost_ratio || 0, numName: 'Chi phí QC Tem PET', denName: 'Doanh số Tem PET' },
+                all: { num: mkt.spent_amount || 0, den: exec.total_revenue || 0, val: mkt.cost_ratio || 0, numName: 'Tổng chi phí QC Công ty', denName: 'Tổng doanh số Công ty' }
+            }),
+            formatVal: v => v + '%'
+        },
+        rate: {
+            title: '📈 TỶ LỆ CHỐT TỔNG (Tỷ Lệ Chuyển Đổi Từng Data Khách)',
+            formulaDesc: 'Tỷ lệ phần trăm cơ hội khách hàng (Lead) chuyển đổi thành đơn chốt thành công.',
+            formulaMath: 'Tỷ Lệ Chốt = (Tổng Số Đơn Chốt ÷ Tổng Số Lead Marketing) × 100%',
+            unit: '%',
+            getData: () => ({
+                dp: { num: exec.dong_phuc_orders || 0, den: mkt.dong_phuc_leads || 0, val: mkt.dong_phuc_close_rate || 0, numName: 'Số đơn Đồng phục', denName: 'Số Lead Đồng phục' },
+                pettem: { num: exec.tem_pet_orders || 0, den: mkt.tem_pet_leads || 0, val: mkt.tem_pet_close_rate || 0, numName: 'Số đơn Tem PET', denName: 'Số Lead Tem PET' },
+                all: { num: exec.total_orders || 0, den: mkt.lead_count || 0, val: mkt.close_rate || 0, numName: 'Tổng số đơn Công ty', denName: 'Tổng số Lead Công ty' }
+            }),
+            formatVal: v => v + '%'
+        },
+        old_cust_rate: {
+            title: '👑 TỶ LỆ KHÁCH CŨ QUAY LẠI MUA TIẾP (Theo KPI P.Sale & P.Kinh Doanh)',
+            formulaDesc: 'Tỷ lệ phần trăm khách hàng cũ trong tệp tích lũy phát sinh đơn quay lại mua tiếp trong kỳ.',
+            formulaMath: 'Tỷ Lệ KH Cũ Quay Lại = (Số KH Cũ Quay Lại ÷ Tệp KH Cũ Đầu Kỳ) × 100%',
+            unit: '%',
+            getData: () => ({
+                dp: { num: exec.dong_phuc_ret_cust || mkt.dong_phuc_ret_cust || 0, den: exec.dong_phuc_old_pool || mkt.dong_phuc_old_pool || 0, val: mkt.dong_phuc_old_cust_rate || 0, numName: 'Số KH cũ quay lại Đồng phục', denName: 'Tệp KH cũ tích lũy Đồng phục' },
+                pettem: { num: exec.tem_pet_ret_cust || mkt.tem_pet_ret_cust || 0, den: exec.tem_pet_old_pool || mkt.tem_pet_old_pool || 0, val: mkt.tem_pet_old_cust_rate || 0, numName: 'Số KH cũ quay lại Tem PET', denName: 'Tệp KH cũ tích lũy Tem PET' },
+                all: { num: exec.total_ret_cust || mkt.total_ret_cust || 0, den: exec.total_old_pool || mkt.total_old_pool || 0, val: mkt.old_customer_rate || 0, numName: 'Tổng số KH cũ quay lại Công ty', denName: 'Tổng tệp KH cũ tích lũy Công ty' }
+            }),
+            formatVal: v => v + '%'
+        },
+        cpo_ads: {
+            title: '🏷️ CPO ADS: GIÁ / ĐƠN ADS (Chi Phí Quảng Cáo Cho 1 Đơn Nguồn Ads)',
+            formulaDesc: 'Chi phí Marketing trung bình bỏ ra để có 1 đơn chốt trực tiếp từ Quảng cáo Ads.',
+            formulaMath: 'CPO Ads = Tổng Chi Phí Quảng Cáo ÷ Số Đơn Chốt Nguồn Ads',
+            unit: 'đ/đơn Ads',
+            getData: () => ({
+                dp: { num: mkt.dong_phuc_spent || 0, den: mkt.dong_phuc_mkt_ads_orders || 0, val: mkt.dong_phuc_cpo_ads || 0, numName: 'Chi phí QC Đồng phục', denName: 'Số đơn Ads Đồng phục' },
+                pettem: { num: mkt.tem_pet_spent || 0, den: mkt.tem_pet_mkt_ads_orders || 0, val: mkt.tem_pet_cpo_ads || 0, numName: 'Chi phí QC Tem PET', denName: 'Số đơn Ads Tem PET' },
+                all: { num: mkt.spent_amount || 0, den: mkt.mkt_ads_orders || 0, val: mkt.cpo_ads || 0, numName: 'Tổng chi phí QC Công ty', denName: 'Tổng số đơn Ads Công ty' }
+            }),
+            formatVal: v => kpiFmtFull(v) + 'đ'
+        },
+        ratio_ads: {
+            title: '📉 % CHI PHÍ / DT ADS (Tỷ Lệ Chi Phí QC / Doanh Số Kênh Ads)',
+            formulaDesc: 'Tỷ lệ phần trăm chi phí quảng cáo chiếm trên tổng doanh số thu được từ kênh Ads.',
+            formulaMath: '% Chi Phí / DT Ads = (Tổng Chi Phí QC ÷ Doanh Số Ads) × 100%',
+            unit: '%',
+            getData: () => ({
+                dp: { num: mkt.dong_phuc_spent || 0, den: mkt.dong_phuc_mkt_ads_revenue || 0, val: mkt.dong_phuc_cost_ratio_ads || 0, numName: 'Chi phí QC Đồng phục', denName: 'Doanh số Ads Đồng phục' },
+                pettem: { num: mkt.tem_pet_spent || 0, den: mkt.tem_pet_mkt_ads_revenue || 0, val: mkt.tem_pet_cost_ratio_ads || 0, numName: 'Chi phí QC Tem PET', denName: 'Doanh số Ads Tem PET' },
+                all: { num: mkt.spent_amount || 0, den: mkt.mkt_ads_revenue || 0, val: mkt.cost_ratio_ads || 0, numName: 'Tổng chi phí QC Công ty', denName: 'Doanh số Ads Công ty' }
+            }),
+            formatVal: v => v + '%'
+        },
+        ads_rate: {
+            title: '📣 TỶ LỆ CHỐT ADS (Tỷ Lệ Đơn Ads Trên Lead MKT)',
+            formulaDesc: 'Tỷ lệ chuyển đổi từ Lead Marketing thu về thành đơn hàng chốt từ kênh Ads.',
+            formulaMath: 'Tỷ Lệ Chốt Ads = (Số Đơn Ads ÷ Tổng Số Lead Marketing) × 100%',
+            unit: '%',
+            getData: () => ({
+                dp: { num: mkt.dong_phuc_mkt_ads_orders || 0, den: mkt.dong_phuc_leads || 0, val: mkt.dong_phuc_ads_close_rate || 0, numName: 'Số đơn Ads Đồng phục', denName: 'Số Lead Đồng phục' },
+                pettem: { num: mkt.tem_pet_mkt_ads_orders || 0, den: mkt.tem_pet_leads || 0, val: mkt.tem_pet_ads_close_rate || 0, numName: 'Số đơn Ads Tem PET', denName: 'Số Lead Tem PET' },
+                all: { num: mkt.mkt_ads_orders || 0, den: mkt.lead_count || 0, val: mkt.mkt_ads_close_rate || 0, numName: 'Tổng số đơn Ads', denName: 'Tổng số Lead MKT' }
+            }),
+            formatVal: v => v + '%'
+        },
+        ad_spent: {
+            title: '📢 TỔNG CHI PHÍ QUẢNG CÁO (Thực Chi Marketing)',
+            formulaDesc: 'Tổng số tiền đã chi trả thực tế cho các chiến dịch quảng cáo Marketing.',
+            formulaMath: 'Tổng Chi Phí QC = Tổng Ngân Sách Thực Chi (FB, Google, TikTok...)',
+            unit: 'đ',
+            getData: () => ({
+                dp: { num: mkt.dong_phuc_spent || 0, den: 1, val: mkt.dong_phuc_spent || 0, numName: 'Chi phí QC Đồng phục', denName: 'Mảng Đồng phục' },
+                pettem: { num: mkt.tem_pet_spent || 0, den: 1, val: mkt.tem_pet_spent || 0, numName: 'Chi phí QC Tem PET', denName: 'Mảng Tem PET' },
+                all: { num: mkt.spent_amount || 0, den: 1, val: mkt.spent_amount || 0, numName: 'Tổng chi phí QC Công ty', denName: 'Toàn Công ty' }
+            }),
+            formatVal: v => kpiFmtFull(v) + 'đ'
+        },
+        cpl: {
+            title: '🎯 GIÁ CPL (MKT) (Chi Phí Thu Về 1 Lead Marketing)',
+            formulaDesc: 'Số tiền trung bình phải bỏ ra để thu về 1 khách hàng tiềm năng (Lead).',
+            formulaMath: 'Giá CPL = Tổng Chi Phí Quảng Cáo ÷ Tổng Số Lead Marketing',
+            unit: 'đ/lead',
+            getData: () => ({
+                dp: { num: mkt.dong_phuc_spent || 0, den: mkt.dong_phuc_leads || 0, val: mkt.dong_phuc_cpl || 0, numName: 'Chi phí QC Đồng phục', denName: 'Số Lead Đồng phục' },
+                pettem: { num: mkt.tem_pet_spent || 0, den: mkt.tem_pet_leads || 0, val: mkt.tem_pet_cpl || 0, numName: 'Chi phí QC Tem PET', denName: 'Số Lead Tem PET' },
+                all: { num: mkt.spent_amount || 0, den: mkt.lead_count || 0, val: mkt.cpl || 0, numName: 'Tổng chi phí QC Công ty', denName: 'Tổng số Lead Công ty' }
+            }),
+            formatVal: v => kpiFmtFull(v) + 'đ/lead'
+        },
+        leads: {
+            title: '📥 TỔNG SỐ LEAD MARKETING (Số Khách Hàng Tiềm Năng Thu Về)',
+            formulaDesc: 'Tổng số lượt khách hàng quan tâm / liên hệ thu về từ các chiến dịch Marketing Quảng cáo.',
+            formulaMath: 'Số Lead = Tổng Số Lead Đã Ghi Nhận Trong Kỳ',
+            unit: 'lead',
+            getData: () => ({
+                dp: { num: mkt.dong_phuc_leads || 0, den: 1, val: mkt.dong_phuc_leads || 0, numName: 'Số Lead Đồng phục', denName: 'Mảng Đồng phục' },
+                pettem: { num: mkt.tem_pet_leads || 0, den: 1, val: mkt.tem_pet_leads || 0, numName: 'Số Lead Tem PET', denName: 'Mảng Tem PET' },
+                all: { num: mkt.lead_count || 0, den: 1, val: mkt.lead_count || 0, numName: 'Tổng số Lead Công ty', denName: 'Toàn Công ty' }
+            }),
+            formatVal: v => kpiFmtFull(v) + ' lead'
+        }
+    };
+
+    const metric = metricsDef[key] || metricsDef['cpo'];
+    const data = metric.getData();
+
+    const titleEl = document.getElementById('execMetricModalTitle');
+    if (titleEl) titleEl.innerHTML = metric.title;
+
+    const bodyEl = document.getElementById('execMetricModalBody');
+    if (!bodyEl) return;
+
+    const renderCard = (mKey, mTitle, dObj, isSel) => {
+        const bg = isSel ? 'background:#f0f9ff;border:2px solid #2563eb;box-shadow:0 4px 14px rgba(37,99,235,0.15)' : 'background:#fff;border:1px solid #cbd5e1';
+        
+        const formatCountOrMoney = (val, name) => {
+            if (typeof val !== 'number') return val;
+            const nameLower = (name || '').toLowerCase();
+            const isMoney = nameLower.includes('chi phí') || nameLower.includes('doanh số') || nameLower.includes('giá') || nameLower.includes('tiền');
+            if (isMoney) {
+                return kpiFmtFull(val) + 'đ';
+            }
+            return kpiFmtFull(val);
+        };
+
+        const numStr = formatCountOrMoney(dObj.num, dObj.numName);
+        const denStr = formatCountOrMoney(dObj.den, dObj.denName);
+
+        let denDisplay = dObj.denName === 'Mảng Đồng phục' || dObj.denName === 'Mảng Tem PET' || dObj.denName === 'Toàn Công ty'
+            ? `<div style="display:flex;justify-content:space-between;color:#475569"><span>📌 ${dObj.denName}:</span><strong style="color:#0f172a">Đã chọn</strong></div>`
+            : `<div style="display:flex;justify-content:space-between;color:#475569"><span>📌 ${dObj.denName}:</span><strong style="color:#0f172a">${denStr}</strong></div>`;
+
+        return `
+        <div style="flex:1;min-width:260px;border-radius:14px;padding:16px;${bg};transition:all .2s">
+            <div style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+                ${mTitle} ${isSel ? '<span style="margin-left:auto;font-size:10px;background:#2563eb;color:#fff;padding:2px 8px;border-radius:10px">Đang xem</span>' : ''}
+            </div>
+
+            <div style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:10px;font-size:12px">
+                <div style="display:flex;justify-content:space-between;color:#475569;margin-bottom:4px">
+                    <span>📌 ${dObj.numName}:</span>
+                    <strong style="color:#0f172a">${numStr}</strong>
+                </div>
+                ${denDisplay}
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px dashed #cbd5e1">
+                <span style="font-size:12px;font-weight:700;color:#475569">➔ Kết quả:</span>
+                <strong style="font-size:15px;font-weight:800;color:#dc2626">${metric.formatVal(dObj.val)}</strong>
+            </div>
+        </div>
+        `;
+    };
+
+    bodyEl.innerHTML = `
+    <div style="background:linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);color:#fff;border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 8px 20px rgba(30,27,75,0.25)">
+        <div style="font-size:12px;color:#c7d2fe;font-weight:600;margin-bottom:6px">💡 Ý NGHĨA CHỈ SỐ</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:12px;line-height:1.4">${metric.formulaDesc}</div>
+        
+        <div style="background:rgba(255,255,255,0.1);padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);display:inline-block">
+            <span style="font-size:11px;color:#a5b4fc;font-weight:700;display:block;margin-bottom:2px">📐 CÔNG THỨC CHUẨN:</span>
+            <strong style="font-size:15px;color:#fbbf24;font-weight:800;letter-spacing:0.5px">${metric.formulaMath}</strong>
+        </div>
+    </div>
+
+    <div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:10px">
+        📊 BÓC TÁCH CHI TIẾT DỮ LIỆU TÍNH TOÁN THEO LĨNH VỰC:
+    </div>
+
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+        ${renderCard('dp', '👔 Mảng Đồng Phục', data.dp, lv === 'dp')}
+        ${renderCard('pettem', '🏷️ Mảng Tem PET', data.pettem, lv === 'pettem')}
+        ${renderCard('all', '🏢 Tất Cả (Tổng Công Ty)', data.all, lv === 'all')}
+    </div>
+    `;
+}
+
+async function execShowOrdersModal(defaultLvMode, preselectedSaleName, preselectedCustomerName, customTitle, preselectedStatusCode) {
+    if (!defaultLvMode || defaultLvMode === 'current') {
+        const segMode = typeof _execSegmentMode !== 'undefined' ? _execSegmentMode : 'dong_phuc';
+        if (segMode === 'dong_phuc') defaultLvMode = 'dp';
+        else if (segMode === 'tem_pet') defaultLvMode = 'pettem';
+        else defaultLvMode = 'all';
+    }
+
+    const modal = typeof _kpiEnsureOrdersModal === 'function' ? _kpiEnsureOrdersModal() : null;
+    if (!modal) return;
+
+    const title = document.getElementById('kpiOrdersModalTitle');
+    const summary = document.getElementById('kpiOrdersModalSummary');
+    const tbody = document.getElementById('kpiOrdersModalBody');
+
+    const periodLabel = document.getElementById('execPeriodLabel')?.innerText || 'Kỳ báo cáo';
+    if (title) title.textContent = customTitle || `Executive View — ${periodLabel}`;
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">⏳ Đang lấy chi tiết đơn hàng...</td></tr>';
+    modal.style.display = 'flex';
+
+    try {
+        let queryStr = '';
+        if (_dashData && _dashData.period) {
+            const p = _dashData.period;
+            const sDate = p.date_from || p.startDate;
+            const eDate = p.date_to || p.endDate;
+            if (sDate && eDate) {
+                const s = String(sDate).trim().split(' ')[0];
+                const e = String(eDate).trim().split(' ')[0];
+                queryStr = `startDate=${encodeURIComponent(s)}&endDate=${encodeURIComponent(e)}`;
+            } else if (p.month) {
+                queryStr = `month=${encodeURIComponent(p.month)}`;
+            } else if (p.year || p.key) {
+                queryStr = `year=${encodeURIComponent(p.year || p.key)}`;
+            }
+        }
+        if (!queryStr && typeof _dashPeriod !== 'undefined' && _dashPeriod) {
+            if (_dashPeriod.startsWith('year_') || /^\d{4}$/.test(_dashPeriod)) {
+                const yr = _dashPeriod.replace('year_', '');
+                queryStr = `startDate=${yr}-01-01&endDate=${yr}-12-31`;
+            } else {
+                queryStr = `period=${encodeURIComponent(_dashPeriod)}`;
+            }
+        }
+        if (!queryStr) {
+            const now = new Date();
+            queryStr = `month=${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        const res = await apiCall(`/api/kpi-kdoanh/company-orders?${queryStr}`);
+        _kpiModalOrders = res.orders || [];
+        _kpiModalFilterLv = defaultLvMode || 'all';
+        _kpiModalFilterCust = 'all';
+        _kpiModalFilterSale = preselectedSaleName || 'all';
+        _kpiModalFilterCustomerName = preselectedCustomerName || 'all';
+        _kpiModalFilterStatusCode = preselectedStatusCode || 'all';
+
+        if (summary) {
+            summary.innerHTML = kpiBuildModalSummaryHtml(res.summary || {});
+        }
+
+        kpiApplyModalFilters();
+    } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:#ef4444">❌ Lỗi: ${err.message}</td></tr>`;
+    }
+}
+window.execShowOrdersModal = execShowOrdersModal;
+
+async function execShowMktAdsOrdersModal(defaultLvMode, preselectedSaleName, preselectedCustomerName, customTitle) {
+    if (!defaultLvMode || defaultLvMode === 'current') {
+        const segMode = typeof _execSegmentMode !== 'undefined' ? _execSegmentMode : 'dong_phuc';
+        if (segMode === 'dong_phuc') defaultLvMode = 'dp';
+        else if (segMode === 'tem_pet') defaultLvMode = 'pettem';
+        else defaultLvMode = 'all';
+    }
+
+    let modal = document.getElementById('execMktAdsOrdersModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'execMktAdsOrdersModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:99999;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+        modal.innerHTML = `
+            <div style="background:#ffffff;border-radius:16px;width:1320px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;font-family:Inter,Segoe UI,sans-serif;padding:24px;">
+                <!-- Header -->
+                <div style="border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div id="execMktOrdersModalTitle" style="font-size:18px;color:#0f172a;font-weight:800;display:flex;align-items:center;gap:8px;">📦 Danh Sách Đơn Hàng Marketing (First-Touch)</div>
+                        <div id="execMktOrdersModalSub" style="font-size:12px;color:#64748b;margin-top:2px;font-weight:600;"></div>
+                    </div>
+                    <button style="cursor:pointer;background:#f1f5f9;border:none;width:32px;height:32px;border-radius:8px;font-weight:800;color:#64748b;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onclick="document.getElementById('execMktAdsOrdersModal').style.display='none'">✕</button>
+                </div>
+
+                <!-- Rich Filter Bar (Image 1 Style) -->
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px;">
+                    <!-- Row 1: Lĩnh Vực Button Pills -->
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <span style="font-size:13px;font-weight:800;color:#334155;white-space:nowrap;display:flex;align-items:center;gap:4px;">🏢 Lĩnh Vực:</span>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <button id="execMktBtnLvAll" style="padding:5px 14px;border-radius:20px;font-size:12.5px;font-weight:800;cursor:pointer;transition:all 0.2s;">
+                                Tất cả lĩnh vực (<span id="execMktCntAll">0</span>)
+                            </button>
+                            <button id="execMktBtnLvDp" style="padding:5px 14px;border-radius:20px;font-size:12.5px;font-weight:800;cursor:pointer;transition:all 0.2s;">
+                                👔 LV Đồng Phục (<span id="execMktCntDp">0</span>)
+                            </button>
+                            <button id="execMktBtnLvPet" style="padding:5px 14px;border-radius:20px;font-size:12.5px;font-weight:800;cursor:pointer;transition:all 0.2s;">
+                                🏷️ LV PET/TEM (<span id="execMktCntPet">0</span>)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Nguồn QC & NV Sale Dropdowns + Right Summary Badges -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-top:8px;border-top:1px dashed #cbd5e1;">
+                        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="font-size:12.5px;font-weight:800;color:#334155;white-space:nowrap;display:flex;align-items:center;gap:4px;">🎯 Nguồn Quảng Cáo:</span>
+                                <select id="execMktSourceSelect" style="padding:5px 12px;border-radius:8px;border:1.5px solid #cbd5e1;font-weight:700;font-size:12.5px;color:#0f172a;background:white;cursor:pointer;outline:none;box-shadow:0 2px 5px rgba(0,0,0,0.04);">
+                                </select>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="font-size:12.5px;font-weight:800;color:#334155;white-space:nowrap;display:flex;align-items:center;gap:4px;">👤 NV Sale:</span>
+                                <select id="execMktSaleSelect" style="padding:5px 12px;border-radius:8px;border:1.5px solid #cbd5e1;font-weight:700;font-size:12.5px;color:#0f172a;background:white;cursor:pointer;outline:none;box-shadow:0 2px 5px rgba(0,0,0,0.04);">
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:800;">
+                            <div style="background:#dcfce7;color:#15803d;padding:5px 14px;border-radius:20px;border:1px solid #bbf7d0;">
+                                📦 Số đơn: <span id="execMktStatOrders">0 đơn</span>
+                            </div>
+                            <div style="background:#fef2f2;color:#b91c1c;padding:5px 14px;border-radius:20px;border:1px solid #fecaca;">
+                                💰 Tổng doanh số: <span id="execMktStatRev">0đ</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table Container -->
+                <div id="execMktOrdersTableContainer" style="overflow-y:auto;max-height:65vh;border-radius:12px;border:1px solid #e2e8f0;">
+                    <div style="text-align:center;padding:40px;color:#64748b;font-weight:700;">
+                        ⏳ Đang truy vấn danh sách đơn hàng Marketing...
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const titleEl = modal.querySelector('#execMktOrdersModalTitle');
+    const subEl = modal.querySelector('#execMktOrdersModalSub');
+    const tableEl = modal.querySelector('#execMktOrdersTableContainer');
+
+    if (titleEl) {
+        titleEl.textContent = customTitle || '📦 Danh Sách Đơn Hàng Marketing (First-Touch)';
+    }
+
+    modal.style.display = 'flex';
+    if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;font-weight:700;">⏳ Đang tải danh sách đơn hàng chốt thành công từ Quảng Cáo...</div>';
+
+    try {
+        let queryParams = [];
+        if (_dashData && _dashData.period) {
+            const p = _dashData.period;
+            const sDate = p.date_from || p.startDate;
+            const eDate = p.date_to || p.endDate;
+            if (sDate && eDate) {
+                const s = String(sDate).trim().split(' ')[0];
+                const e = String(eDate).trim().split(' ')[0];
+                queryParams.push(`startDate=${encodeURIComponent(s)}`);
+                queryParams.push(`endDate=${encodeURIComponent(e)}`);
+            } else if (p.month) {
+                const [y, m] = p.month.split('-');
+                queryParams.push(`year=${y}`);
+                queryParams.push(`month=${parseInt(m, 10)}`);
+            } else if (p.year || p.key) {
+                queryParams.push(`year=${encodeURIComponent(p.year || p.key)}`);
+            }
+        }
+        if (queryParams.length === 0 && typeof _dashPeriod !== 'undefined' && _dashPeriod) {
+            if (_dashPeriod.startsWith('year_') || /^\d{4}$/.test(_dashPeriod)) {
+                const yr = _dashPeriod.replace('year_', '');
+                queryParams.push(`startDate=${yr}-01-01`);
+                queryParams.push(`endDate=${yr}-12-31`);
+            } else {
+                queryParams.push(`period=${encodeURIComponent(_dashPeriod)}`);
+            }
+        }
+        if (queryParams.length === 0) {
+            const now = new Date();
+            queryParams.push(`year=${now.getFullYear()}`);
+            queryParams.push(`month=${now.getMonth() + 1}`);
+        }
+        queryParams.push('mkt_mode=all');
+
+        const url = `/api/marketing-budgets/first-touch-orders?${queryParams.join('&')}`;
+        const res = await apiCall(url);
+
+        if (res.success && Array.isArray(res.orders)) {
+            const rawOrders = res.orders;
+            const periodTxt = document.getElementById('execPeriodLabel')?.innerText || 'Kỳ báo cáo';
+
+            if (subEl) {
+                subEl.textContent = `Báo cáo Đơn hàng First-Touch • ${periodTxt}`;
+            }
+
+            if (rawOrders.length === 0) {
+                if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;font-weight:600;">📭 Chưa có đơn hàng Marketing nào được ghi nhận cho kỳ đang chọn.</div>';
+                return;
+            }
+
+            // Filter state variables
+            let selectedLv = defaultLvMode || 'all';
+            let selectedSource = 'all';
+            let selectedSale = preselectedSaleName || 'all';
+            let selectedCustomer = preselectedCustomerName || 'all';
+
+            // Counts for Lĩnh vực buttons
+            const cntDp = rawOrders.filter(o => {
+                const code = (o.order_code || '').toUpperCase();
+                return !code.includes('GCPET') && !code.includes('GCTEM') && !code.includes('PET') && !code.includes('TEM');
+            }).length;
+            const cntPet = rawOrders.filter(o => {
+                const code = (o.order_code || '').toUpperCase();
+                return code.includes('GCPET') || code.includes('GCTEM') || code.includes('PET') || code.includes('TEM');
+            }).length;
+            const cntAll = rawOrders.length;
+
+            const cntAllEl = document.getElementById('execMktCntAll');
+            const cntDpEl = document.getElementById('execMktCntDp');
+            const cntPetEl = document.getElementById('execMktCntPet');
+            if (cntAllEl) cntAllEl.textContent = cntAll;
+            if (cntDpEl) cntDpEl.textContent = cntDp;
+            if (cntPetEl) cntPetEl.textContent = cntPet;
+
+            const btnAll = document.getElementById('execMktBtnLvAll');
+            const btnDp = document.getElementById('execMktBtnLvDp');
+            const btnPet = document.getElementById('execMktBtnLvPet');
+
+            const basePillStyle = 'font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:13px;font-weight:700;padding:6px 16px;border-radius:9999px;cursor:pointer;transition:all 0.2s;letter-spacing:-0.01em;display:inline-flex;align-items:center;gap:6px;';
+
+            function updateLvButtonStyles() {
+                if (btnAll) {
+                    if (selectedLv === 'all') {
+                        btnAll.style.cssText = basePillStyle + 'border:2px solid #2563eb;background:#2563eb;color:#ffffff;box-shadow:0 3px 8px rgba(37,99,235,0.3);';
+                    } else {
+                        btnAll.style.cssText = basePillStyle + 'border:1.5px solid #cbd5e1;background:#ffffff;color:#334155;box-shadow:none;';
+                    }
+                }
+                if (btnDp) {
+                    if (selectedLv === 'dp') {
+                        btnDp.style.cssText = basePillStyle + 'border:2px solid #1d4ed8;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff;box-shadow:0 3px 8px rgba(37,99,235,0.3);';
+                    } else {
+                        btnDp.style.cssText = basePillStyle + 'border:1.5px solid #cbd5e1;background:#ffffff;color:#334155;box-shadow:none;';
+                    }
+                }
+                if (btnPet) {
+                    if (selectedLv === 'pettem') {
+                        btnPet.style.cssText = basePillStyle + 'border:2px solid #be185d;background:linear-gradient(135deg,#d946ef,#ec4899);color:#ffffff;box-shadow:0 3px 8px rgba(217,70,239,0.3);';
+                    } else {
+                        btnPet.style.cssText = basePillStyle + 'border:1.5px solid #cbd5e1;background:#ffffff;color:#334155;box-shadow:none;';
+                    }
+                }
+            }
+
+            if (btnAll) btnAll.onclick = () => { selectedLv = 'all'; updateLvButtonStyles(); populateDropdowns(); renderFilteredData(); };
+            if (btnDp) btnDp.onclick = () => { selectedLv = 'dp'; updateLvButtonStyles(); populateDropdowns(); renderFilteredData(); };
+            if (btnPet) btnPet.onclick = () => { selectedLv = 'pettem'; updateLvButtonStyles(); populateDropdowns(); renderFilteredData(); };
+
+            updateLvButtonStyles();
+
+            // Populate Nguồn QC & NV Sale dropdowns based on current Lĩnh vực
+            function populateDropdowns() {
+                let lvOrders = rawOrders;
+                if (selectedLv === 'dp') {
+                    lvOrders = rawOrders.filter(o => {
+                        const code = (o.order_code || '').toUpperCase();
+                        return !code.includes('GCPET') && !code.includes('GCTEM') && !code.includes('PET') && !code.includes('TEM');
+                    });
+                } else if (selectedLv === 'pettem') {
+                    lvOrders = rawOrders.filter(o => {
+                        const code = (o.order_code || '').toUpperCase();
+                        return code.includes('GCPET') || code.includes('GCTEM') || code.includes('PET') || code.includes('TEM');
+                    });
+                }
+
+                // Sources
+                const uniqueSources = Array.from(new Set(lvOrders.map(o => (o.source || '').trim()).filter(Boolean))).sort();
+                const sourceSelect = document.getElementById('execMktSourceSelect');
+                if (sourceSelect) {
+                    let optHtml = `<option value="all">🌐 Tất cả nguồn (${lvOrders.length} đơn)</option>`;
+                    uniqueSources.forEach(s => {
+                        const c = lvOrders.filter(o => (o.source || '').trim() === s).length;
+                        optHtml += `<option value="${s}" ${selectedSource === s ? 'selected' : ''}>📍 ${s} (${c} đơn)</option>`;
+                    });
+                    sourceSelect.innerHTML = optHtml;
+                    sourceSelect.onchange = function() { selectedSource = this.value; renderFilteredData(); };
+                }
+
+                // Sales
+                const uniqueSales = Array.from(new Set(lvOrders.map(o => (o.sale_name || '').trim()).filter(Boolean))).sort();
+                const saleSelect = document.getElementById('execMktSaleSelect');
+                if (saleSelect) {
+                    let optHtml = `<option value="all">Tất cả NV Sale (${lvOrders.length} đơn)</option>`;
+                    uniqueSales.forEach(s => {
+                        const c = lvOrders.filter(o => (o.sale_name || '').trim() === s).length;
+                        optHtml += `<option value="${s}" ${selectedSale === s ? 'selected' : ''}>👤 ${s} (${c} đơn)</option>`;
+                    });
+                    saleSelect.innerHTML = optHtml;
+                    saleSelect.onchange = function() { selectedSale = this.value; renderFilteredData(); };
+                }
+            }
+
+            populateDropdowns();
+
+            // Render table & stats
+            function renderFilteredData() {
+                let filtered = rawOrders;
+
+                // Lĩnh vực filter
+                if (selectedLv === 'dp') {
+                    filtered = filtered.filter(o => {
+                        const code = (o.order_code || '').toUpperCase();
+                        return !code.includes('GCPET') && !code.includes('GCTEM') && !code.includes('PET') && !code.includes('TEM');
+                    });
+                } else if (selectedLv === 'pettem') {
+                    filtered = filtered.filter(o => {
+                        const code = (o.order_code || '').toUpperCase();
+                        return code.includes('GCPET') || code.includes('GCTEM') || code.includes('PET') || code.includes('TEM');
+                    });
+                }
+
+                // Source filter
+                if (selectedSource && selectedSource !== 'all') {
+                    filtered = filtered.filter(o => (o.source || '').trim() === selectedSource);
+                }
+
+                // Sale filter
+                if (selectedSale && selectedSale !== 'all') {
+                    filtered = filtered.filter(o => (o.sale_name || '').trim() === selectedSale);
+                }
+
+                // Customer filter
+                if (selectedCustomer && selectedCustomer !== 'all') {
+                    filtered = filtered.filter(o => (o.customer_name || '').trim().toLowerCase().includes(selectedCustomer.toLowerCase()));
+                }
+
+                // Recalculate stats
+                let totalQty = 0, totalDeposit = 0, totalRev = 0;
+                filtered.forEach(o => {
+                    totalQty += Number(o.total_quantity || 0);
+                    totalDeposit += Number(o.deposit_amount || 0);
+                    totalRev += Number(o.total_amount || 0);
+                });
+
+                // Update right stats (Số đơn & Doanh số like Image 1)
+                const statOrders = document.getElementById('execMktStatOrders');
+                const statRev = document.getElementById('execMktStatRev');
+                if (statOrders) statOrders.textContent = `${filtered.length} đơn`;
+                if (statRev) statRev.textContent = `${totalRev.toLocaleString('vi-VN')}đ`;
+
+                // Table Rows
+                let rowsHtml = '';
+                filtered.forEach((o, idx) => {
+                    const orderCodeBadge = `<span style="background:#eff6ff;color:#2563eb;padding:3px 8px;border-radius:6px;font-weight:800;font-size:12px;border:1px solid #bfdbfe;">${o.order_code || '—'}</span>`;
+                    const custTypeBadge = `<span style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:12px;font-weight:700;font-size:11.5px;">🟢 Khách Mới</span>`;
+                    const sourceBadge = `<span style="background:#f0f9ff;color:#0369a1;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11.5px;border:1px solid #bae6fd;">📍 ${o.source || '—'}</span>`;
+
+                    rowsHtml += `
+                        <tr style="border-bottom:1px solid #f1f5f9;transition:background 0.15s;${idx % 2 === 1 ? 'background:#fafafa;' : ''}">
+                            <td style="padding:10px 12px;text-align:center;font-weight:700;color:#64748b;font-size:12px;">${idx + 1}</td>
+                            <td style="padding:10px 12px;font-size:12px;color:#475569;white-space:nowrap;font-weight:600;">🕒 ${o.order_time_str || o.dt_str || '—'}</td>
+                            <td style="padding:10px 12px;white-space:nowrap;">${orderCodeBadge}</td>
+                            <td style="padding:10px 12px;font-weight:800;color:#0f172a;font-size:13px;">${o.customer_name || 'Khách hàng'}</td>
+                            <td style="padding:10px 12px;font-size:12px;color:#334155;font-weight:700;white-space:nowrap;">👤 ${o.sale_name || '—'}</td>
+                            <td style="padding:10px 12px;white-space:nowrap;">${custTypeBadge}</td>
+                            <td style="padding:10px 12px;white-space:nowrap;">${sourceBadge}</td>
+                            <td style="padding:10px 12px;text-align:right;font-weight:800;color:#15803d;font-size:13px;">${Number(o.total_quantity || 0).toLocaleString('vi-VN')}</td>
+                            <td style="padding:10px 12px;text-align:right;font-weight:800;color:#c2410c;font-size:13px;">${Number(o.deposit_amount || 0).toLocaleString('vi-VN')}đ</td>
+                            <td style="padding:10px 12px;text-align:right;font-weight:800;color:#1d4ed8;font-size:13px;">${Number(o.total_amount || 0).toLocaleString('vi-VN')}đ</td>
+                        </tr>
+                    `;
+                });
+
+                if (tableEl) {
+                    if (filtered.length === 0) {
+                        tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;font-weight:600;">📭 Không có đơn hàng nào thỏa mãn bộ lọc đang chọn.</div>';
+                    } else {
+                        tableEl.innerHTML = `
+                            <table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px;">
+                                <thead>
+                                    <tr style="background:#f8fafc;color:#475569;font-weight:800;font-size:12px;border-bottom:2px solid #e2e8f0;text-transform:uppercase;">
+                                        <th style="padding:10px 12px;text-align:center;width:40px;">#</th>
+                                        <th style="padding:10px 12px;">Thời Gian Chốt</th>
+                                        <th style="padding:10px 12px;">Mã Đơn</th>
+                                        <th style="padding:10px 12px;">Tên Khách Hàng</th>
+                                        <th style="padding:10px 12px;">NVKD / Sale</th>
+                                        <th style="padding:10px 12px;">Loại khách</th>
+                                        <th style="padding:10px 12px;">Nguồn Quảng Cáo</th>
+                                        <th style="padding:10px 12px;text-align:right;">Tổng SL</th>
+                                        <th style="padding:10px 12px;text-align:right;">Đặt Cọc</th>
+                                        <th style="padding:10px 12px;text-align:right;">Doanh Số</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHtml}
+                                </tbody>
+                            </table>
+                        `;
+                    }
+                }
+            }
+
+            renderFilteredData();
+        } else {
+            if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;font-weight:700;">❌ Không thể lấy danh sách đơn hàng Marketing</div>';
+        }
+    } catch(err) {
+        if (tableEl) tableEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;font-weight:700;">❌ Lỗi kết nối: ${err.message}</div>`;
+    }
+}
+window.execShowMktAdsOrdersModal = execShowMktAdsOrdersModal;
+
+window._execSelectedTrendModes = new Set(['revenue', 'orders']);
+window._execTrendMode = 'both';
+
+const _TREND_MODE_META = {
+    'revenue': { label: '💵 Doanh Thu', color: '#2563eb', btnIdMain: 'btnTrendRev', btnIdModal: 'modalBtnTrendRev', btnIdMobile: 'mBtnTrendRev' },
+    'orders': { label: '📦 Số Đơn', color: '#16a34a', btnIdMain: 'btnTrendOrd', btnIdModal: 'modalBtnTrendOrd', btnIdMobile: 'mBtnTrendOrd' },
+    'cpo': { label: '🎯 Giá/Đơn (CPO)', color: '#dc2626', btnIdMain: 'btnTrendCpoMain', btnIdModal: 'modalBtnTrendCpo', btnIdMobile: 'mBtnTrendCpo' },
+    'cpo_ads': { label: '🎯 Giá/Đơn Ads', color: '#e11d48', btnIdMain: 'btnTrendCpoAdsMain', btnIdModal: 'modalBtnTrendCpoAds', btnIdMobile: 'mBtnTrendCpoAds' },
+    'close_rate': { label: '🎯 % Chốt', color: '#ea580c', btnIdMain: 'btnTrendRateMain', btnIdModal: 'modalBtnTrendRate', btnIdMobile: 'mBtnTrendRate' },
+    'ads_close_rate': { label: '🎯 % Chốt Ads', color: '#d97706', btnIdMain: 'btnTrendAdsRateMain', btnIdModal: 'modalBtnTrendAdsRate', btnIdMobile: 'mBtnTrendAdsRate' },
+    'old_cust_rate': { label: '🔄 % Khách Cũ', color: '#c026d3', btnIdMain: 'btnTrendOldCustMain', btnIdModal: 'modalBtnTrendOldCust', btnIdMobile: 'mBtnTrendOldCust' }
+};
+
+function _updateTrendModeButtonsUI() {
+    if (!window._execSelectedTrendModes || window._execSelectedTrendModes.size === 0) {
+        window._execSelectedTrendModes = new Set(['revenue', 'orders']);
+    }
+    const selected = window._execSelectedTrendModes;
+
+    const styleButton = (btn, modeKey, isPurpleGroup) => {
+        if (!btn) return;
+        const meta = _TREND_MODE_META[modeKey];
+        if (!meta) return;
+
+        const isActive = selected.has(modeKey);
+        if (isActive) {
+            btn.classList.add('active');
+            btn.style.background = meta.color;
+            btn.style.color = '#ffffff';
+            btn.style.fontWeight = '900';
+            btn.innerHTML = `${meta.label} <span style="margin-left:4px; font-weight:900; background:rgba(255,255,255,0.28); border-radius:50%; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; line-height:1;">✖</span>`;
+        } else {
+            btn.classList.remove('active');
+            btn.style.background = 'transparent';
+            btn.style.color = isPurpleGroup ? '#3b0764' : '#475569';
+            btn.style.fontWeight = '800';
+            btn.innerHTML = meta.label;
+        }
+    };
+
+    Object.keys(_TREND_MODE_META).forEach(k => {
+        const meta = _TREND_MODE_META[k];
+        const isPurple = ['cpo', 'cpo_ads', 'close_rate', 'ads_close_rate', 'old_cust_rate'].includes(k);
+        styleButton(document.getElementById(meta.btnIdMain), k, isPurple);
+        styleButton(document.getElementById(meta.btnIdModal), k, isPurple);
+        styleButton(document.getElementById(meta.btnIdMobile), k, isPurple);
+    });
+
+    const bothActive = selected.has('revenue') && selected.has('orders');
+    ['btnTrendBoth', 'modalBtnTrendBoth', 'mBtnTrendBoth'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) {
+            if (bothActive) {
+                b.classList.add('active');
+                b.style.background = '#7c3aed';
+                b.style.color = '#ffffff';
+                b.style.fontWeight = '900';
+                b.innerHTML = `✨ Cả Hai <span style="margin-left:4px; font-weight:900; background:rgba(255,255,255,0.28); border-radius:50%; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; line-height:1;">✖</span>`;
+            } else {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+                b.style.color = '#475569';
+                b.style.fontWeight = '800';
+                b.innerHTML = `✨ Cả Hai`;
+            }
+        }
+    });
+}
+
+window._execSetTrendMode = function(mode, btn) {
+    if (!mode) return;
+    window._hasUserInteractedTrendMode = true;
+    if (!window._execSelectedTrendModes) {
+        window._execSelectedTrendModes = new Set(['revenue', 'orders']);
+    }
+
+    const set = window._execSelectedTrendModes;
+
+    // Single-Select Mode: Clear previous selections so clicking a button switches cleanly to that metric!
+    set.clear();
+
+    if (mode === 'both') {
+        set.add('revenue');
+        set.add('orders');
+    } else {
+        set.add(mode);
+    }
+
+    window._execTrendMode = mode;
+
+    _updateTrendModeButtonsUI();
+    _renderExecCharts();
+    const modalEl = document.getElementById('exModalTrendExpand');
+    if (modalEl && modalEl.style.display !== 'none') {
+        _renderExpandTrendModalContent();
+    }
+};
+
+window.execSetModalTrendMode = window._execSetTrendMode;
+
+let _trendExpandChartObj = null;
+
+function _ensureTrendExpandModalHTML() {
+    const existing = document.getElementById('exModalTrendExpand');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.id = 'exModalTrendExpand';
+    div.className = 'exec-modal-overlay';
+    div.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15, 23, 42, 0.85); backdrop-filter:blur(8px); z-index:99999; overflow-y:auto; padding:20px 15px;';
+    div.innerHTML = `
+        <div style="max-width:1240px; margin:0 auto; background:#ffffff; border-radius:20px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; border:1px solid rgba(255,255,255,0.2); animation:fadeIn 0.2s ease-out;">
+            
+            <!-- Modal Header (Light Pastel Theme) -->
+            <div style="background:linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); padding:18px 24px; color:#0f172a; border-bottom:1px solid #cbd5e1;">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                    <div>
+                        <div style="font-size:18px; font-weight:900; letter-spacing:-0.3px; display:flex; align-items:center; gap:10px; color:#0f172a;">
+                            <span>📊 BÁO CÁO PHÂN TÍCH XU HƯỚNG DOANH THU & ĐƠN HÀNG</span>
+                            <span style="font-size:11px; background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; padding:3px 10px; border-radius:20px; font-weight:800;">CHẾ ĐỘ HỌP DỰ ÁN</span>
+                        </div>
+                        <div style="font-size:12.5px; color:#475569; margin-top:4px; display:flex; align-items:center; gap:8px; font-weight:700;">
+                            <span>🗓️ Kỳ xem: <strong id="mTrendPeriodLabel" style="color:#2563eb;">Tháng này</strong></span>
+                            <span>•</span>
+                            <span>👔 Phân khúc: <strong id="mTrendSegmentLabel" style="color:#7c3aed;">Đồng Phục</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Close Button X -->
+                    <button type="button" onclick="execCloseTrendExpandModal()" style="background:#ef4444; color:white; border:none; width:38px; height:38px; border-radius:50%; font-size:18px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(239,68,68,0.3); transition:all 0.2s;" title="Đóng cửa sổ (hoặc bấm phím ESC)">
+                        ✖
+                    </button>
+                </div>
+
+                <!-- Modal Trend Toggle Buttons (Full-Width Sub-bar with High Contrast & Zero Overlap) -->
+                <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; background:#ffffff; padding:10px 16px; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span style="font-size:11.5px; font-weight:800; color:#475569; text-transform:uppercase;">📊 DOANH THU & SẢN LƯỢNG:</span>
+                        <div style="display:inline-flex; background:#f1f5f9; padding:3px; border-radius:20px; border:1px solid #cbd5e1; gap:2px;">
+                            <button type="button" class="modal-trend-btn active" id="modalBtnTrendRev" onclick="execSetModalTrendMode('revenue', this)" style="padding:5px 14px; font-size:12px; font-weight:900; font-family:inherit; border-radius:16px; border:none; background:#2563eb; color:white; cursor:pointer; transition:all 0.2s;">💵 Doanh Thu</button>
+                            <button type="button" class="modal-trend-btn" id="modalBtnTrendOrd" onclick="execSetModalTrendMode('orders', this)" style="padding:5px 14px; font-size:12px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#1e293b; cursor:pointer; transition:all 0.2s;">📦 Số Đơn</button>
+                            <button type="button" class="modal-trend-btn" id="modalBtnTrendBoth" onclick="execSetModalTrendMode('both', this)" style="padding:5px 14px; font-size:12px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#1e293b; cursor:pointer; transition:all 0.2s;">✨ Cả Hai</button>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span style="font-size:11.5px; font-weight:800; color:#581c87; text-transform:uppercase;">🎯 HIỆU QUẢ MARKETING & KHÁCH HÀNG:</span>
+                        <div style="display:inline-flex; background:#f3e8ff; padding:3px; border-radius:20px; border:1.5px solid #d8b4fe; flex-wrap:wrap; gap:3px;">
+                            <button type="button" class="modal-trend-btn" id="modalBtnTrendCpo" onclick="execSetModalTrendMode('cpo', this)" style="padding:5px 12px; font-size:12px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🎯 Giá/Đơn (CPO)</button>
+                            <button type="button" class="modal-trend-btn" id="modalBtnTrendCpoAds" onclick="execSetModalTrendMode('cpo_ads', this)" style="padding:5px 12px; font-size:12px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🎯 Giá/Đơn Ads</button>
+                            <button type="button" class="modal-trend-btn" id="modalBtnTrendRate" onclick="execSetModalTrendMode('close_rate', this)" style="padding:5px 12px; font-size:12px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🎯 % Chốt</button>
+                            <button type="button" class="modal-trend-btn" id="modalBtnTrendAdsRate" onclick="execSetModalTrendMode('ads_close_rate', this)" style="padding:5px 12px; font-size:12px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🎯 % Chốt Ads</button>
+                            <button type="button" class="modal-trend-btn" id="modalBtnTrendOldCust" onclick="execSetModalTrendMode('old_cust_rate', this)" style="padding:5px 12px; font-size:12px; font-weight:800; font-family:inherit; border-radius:16px; border:none; background:transparent; color:#3b0764; cursor:pointer; transition:all 0.2s;">🔄 % Khách Cũ</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Integrated Period Filters (Segment + Period Filters) -->
+            <div style="background:#ffffff; border-bottom:1px solid #e2e8f0; padding:14px 24px; display:flex; flex-direction:column; gap:10px;">
+                <!-- Nhóm 0: Lọc Phân Khúc Mảng (Mặc định Lĩnh Vực Đồng Phục - Ảnh 3) -->
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#f8fafc; padding:6px 14px; border-radius:12px; border:1px solid #e2e8f0;">
+                    <span style="font-size:12.5px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:4px;">🏷️ LỌC PHÂN KHÚC MẢNG:</span>
+                    <button type="button" class="modal-seg-pill active" data-seg="dong_phuc" onclick="execSetModalSegment('dong_phuc', this)" style="padding:5px 14px; font-size:12px; font-weight:800; font-family:inherit; border-radius:20px; border:1.5px solid #2563eb; background:#2563eb; color:white; cursor:pointer; box-shadow:0 2px 6px rgba(37,99,235,0.25); transition:all 0.2s;">
+                        👔 Lĩnh Vực Đồng Phục
+                    </button>
+                    <button type="button" class="modal-seg-pill" data-seg="tem_pet" onclick="execSetModalSegment('tem_pet', this)" style="padding:5px 14px; font-size:12px; font-weight:800; font-family:inherit; border-radius:20px; border:1px solid #cbd5e1; background:white; color:#475569; cursor:pointer; transition:all 0.2s;">
+                        🏷️ Lĩnh Vực TEM PET
+                    </button>
+                    <button type="button" class="modal-seg-pill" data-seg="tong" onclick="execSetModalSegment('tong', this)" style="padding:5px 14px; font-size:12px; font-weight:800; font-family:inherit; border-radius:20px; border:1px solid #cbd5e1; background:white; color:#475569; cursor:pointer; transition:all 0.2s;">
+                        🏢 Tất Cả Công Ty
+                    </button>
+                </div>
+
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                    <!-- Nhóm 1: Chọn Nhanh Tháng / Quý / Năm (Ảnh 3) -->
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="font-size:13px; font-weight:800; color:#475569; display:flex; align-items:center; gap:4px;">⚡ Lọc Nhanh:</span>
+                        <select id="modalFilterMonth" onchange="execTriggerModalFilter('month')" style="padding:6px 12px; font-size:12.5px; font-weight:700; border-radius:10px; border:1px solid #cbd5e1; background:#ffffff; color:#0f172a; cursor:pointer;">
+                            <option value="">-- Chọn 1 Tháng --</option>
+                            <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option>
+                            <option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option>
+                            <option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option>
+                            <option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+                        </select>
+
+                        <select id="modalFilterQuarter" onchange="execTriggerModalFilter('quarter')" style="padding:6px 12px; font-size:12.5px; font-weight:700; border-radius:10px; border:1px solid #cbd5e1; background:#ffffff; color:#0f172a; cursor:pointer;">
+                            <option value="">-- Chọn Quý --</option>
+                            <option value="q1">Quý 1</option><option value="q2">Quý 2</option><option value="q3">Quý 3</option><option value="q4">Quý 4</option>
+                        </select>
+
+                        <select id="modalFilterYear" onchange="execTriggerModalFilter('year')" style="padding:6px 12px; font-size:12.5px; font-weight:700; border-radius:10px; border:1px solid #cbd5e1; background:#ffffff; color:#0f172a; cursor:pointer;">
+                            <option value="">-- Chọn Năm --</option>
+                            <option value="2026">Năm 2026</option>
+                            <option value="2025">Năm 2025</option>
+                            <option value="2024">Năm 2024</option>
+                        </select>
+                    </div>
+
+                    <!-- Nhóm 2: Lọc Tự Chọn Khoảng Tháng / Lịch Ngày với Tab Switcher -->
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#ffffff; padding:4px 10px; border-radius:14px; border:1px solid #cbd5e1;">
+                        <button type="button" id="btnModalToggleRangeMonth" onclick="execToggleModalCustomRangeMode('month')" style="padding:4px 10px; font-size:12px; font-weight:800; font-family:inherit; border-radius:8px; border:1px solid #2563eb; background:#2563eb; color:white; cursor:pointer;">🗓️ Khoảng Tháng</button>
+                        <button type="button" id="btnModalToggleRangeDate" onclick="execToggleModalCustomRangeMode('date')" style="padding:4px 10px; font-size:12px; font-weight:800; font-family:inherit; border-radius:8px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; cursor:pointer;">📅 Khoảng Ngày (Lịch)</button>
+
+                        <!-- Box Khoảng Tháng Modal -->
+                        <div id="boxModalCustomMonthRange" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; padding:3px 10px; border-radius:10px; border:1px solid #cbd5e1;">
+                            <span style="font-size:12px; font-weight:800; color:#334155;">Từ:</span>
+                            <select id="modalFilterFromMonth" style="padding:3px 6px; font-size:12px; font-weight:700; border-radius:8px; border:1px solid #cbd5e1;">
+                                <option value="">-- Từ tháng --</option>
+                                <option value="2026-01">T1/2026</option><option value="2026-02">T2/2026</option><option value="2026-03">T3/2026</option>
+                                <option value="2026-04">T4/2026</option><option value="2026-05">T5/2026</option><option value="2026-06">T6/2026</option>
+                                <option value="2026-07">T7/2026</option><option value="2026-08">T8/2026</option><option value="2026-09">T9/2026</option>
+                                <option value="2026-10">T10/2026</option><option value="2026-11">T11/2026</option><option value="2026-12">T12/2026</option>
+                            </select>
+                            <span style="font-size:12px; font-weight:800; color:#334155;">Đến:</span>
+                            <select id="modalFilterToMonth" style="padding:3px 6px; font-size:12px; font-weight:700; border-radius:8px; border:1px solid #cbd5e1;">
+                                <option value="">-- Đến tháng --</option>
+                                <option value="2026-01">T1/2026</option><option value="2026-02">T2/2026</option><option value="2026-03">T3/2026</option>
+                                <option value="2026-04">T4/2026</option><option value="2026-05">T5/2026</option><option value="2026-06">T6/2026</option>
+                                <option value="2026-07">T7/2026</option><option value="2026-08">T8/2026</option><option value="2026-09">T9/2026</option>
+                                <option value="2026-10">T10/2026</option><option value="2026-11">T11/2026</option><option value="2026-12">T12/2026</option>
+                            </select>
+                            <button type="button" onclick="execApplyModalRangeFilter()" style="padding:4px 10px; font-size:11.5px; font-weight:800; border-radius:8px; border:none; background:#2563eb; color:white; cursor:pointer;">🚀 Lọc</button>
+                        </div>
+
+                        <!-- Box Khoảng Ngày Modal -->
+                        <div id="boxModalCustomDateRange" style="display:none; align-items:center; gap:6px; background:#ffffff; padding:3px 10px; border-radius:10px; border:1px solid #93c5fd;">
+                            <span style="font-size:12px; font-weight:800; color:#334155;">Từ:</span>
+                            <input type="date" id="modalFilterFromDate" style="padding:3px 6px; font-size:12px; font-weight:700; border-radius:8px; border:1px solid #cbd5e1; outline:none;" />
+                            <span style="font-size:12px; font-weight:800; color:#334155;">Đến:</span>
+                            <input type="date" id="modalFilterToDate" style="padding:3px 6px; font-size:12px; font-weight:700; border-radius:8px; border:1px solid #cbd5e1; outline:none;" />
+                            <button type="button" onclick="execApplyModalDateRangeFilter()" style="padding:4px 10px; font-size:11.5px; font-weight:800; border-radius:8px; border:none; background:linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color:white; cursor:pointer;">🎯 Lọc</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Prominent Active Filter Status Banner (Rõ Nổi Bật) -->
+                <div style="background:linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%); border:1.5px solid #bfdbfe; border-radius:12px; padding:10px 16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; box-shadow:0 2px 6px rgba(37,99,235,0.06);">
+                    <div style="font-size:14px; font-weight:800; color:#1e3a8a; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                        <span>🗓️ Kỳ đang xem: <strong id="mTrendPeriodLabel2" style="color:#2563eb; font-size:15px; font-weight:900;">Tháng này</strong></span>
+                        <span style="color:#cbd5e1;">•</span>
+                        <span>👔 Phân khúc: <strong id="mTrendSegmentLabel2" style="color:#7c3aed; font-size:15px; font-weight:900;">👔 Đồng Phục</strong></span>
+                        <span id="mTrendBackBtnWrapper" style="display:none; margin-left:10px;">
+                            <button type="button" onclick="execGoBackParentPeriod()" style="padding:4px 12px; font-size:12px; font-weight:800; font-family:inherit; border-radius:8px; border:none; background:#0284c7; color:white; cursor:pointer; box-shadow:0 2px 6px rgba(2,132,199,0.3);">
+                                ⬅️ Quay lại xem tổng quan Năm
+                            </button>
+                        </span>
+                    </div>
+                    <div style="font-size:12px; font-weight:700; color:#0369a1; background:#ffffff; padding:3px 10px; border-radius:20px; border:1px solid #bae6fd;">
+                        ⚡ Số liệu đã tự động cập nhật theo bộ lọc ở trên
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Body -->
+            <div style="padding:24px; background:#f8fafc;">
+                
+                <!-- 4 Highlights KPI Cards -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:20px;">
+                    <div id="mCard1" style="background:white; border-radius:14px; padding:14px 18px; border:1px solid #e2e8f0; border-top:4px solid #2563eb; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <div id="mCard1Title" style="font-size:11.5px; font-weight:800; color:#64748b; text-transform:uppercase;">🏆 ĐỈNH DOANH THU (PEAK)</div>
+                        <div id="mPeakRevVal" style="font-size:22px; font-weight:900; color:#2563eb; margin-top:4px;">0đ</div>
+                        <div id="mPeakRevDate" style="font-size:12px; font-weight:700; color:#0f172a; margin-top:2px;">Mốc: --</div>
+                    </div>
+                    <div id="mCard2" style="background:white; border-radius:14px; padding:14px 18px; border:1px solid #e2e8f0; border-top:4px solid #16a34a; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <div id="mCard2Title" style="font-size:11.5px; font-weight:800; color:#64748b; text-transform:uppercase;">📦 KỶ LỤC ĐƠN HÀNG (MAX)</div>
+                        <div id="mPeakOrdVal" style="font-size:22px; font-weight:900; color:#16a34a; margin-top:4px;">0 đơn</div>
+                        <div id="mPeakOrdDate" style="font-size:12px; font-weight:700; color:#0f172a; margin-top:2px;">Mốc: --</div>
+                    </div>
+                    <div id="mCard3" style="background:white; border-radius:14px; padding:14px 18px; border:1px solid #e2e8f0; border-top:4px solid #7c3aed; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <div id="mCard3Title" style="font-size:11.5px; font-weight:800; color:#64748b; text-transform:uppercase;">💵 DOANH THU TRUNG BÌNH</div>
+                        <div id="mAvgRevVal" style="font-size:22px; font-weight:900; color:#7c3aed; margin-top:4px;">0đ</div>
+                        <div id="mAvgRevSub" style="font-size:12px; font-weight:700; color:#64748b; margin-top:2px;">Trung bình / mốc</div>
+                    </div>
+                    <div id="mCard4" style="background:white; border-radius:14px; padding:14px 18px; border:1px solid #e2e8f0; border-top:4px solid #0284c7; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <div id="mCard4Title" style="font-size:11.5px; font-weight:800; color:#64748b; text-transform:uppercase;">🎯 TỔNG CỘNG TRONG KỲ</div>
+                        <div id="mTotalRevVal" style="font-size:22px; font-weight:900; color:#0284c7; margin-top:4px;">0đ</div>
+                        <div id="mTotalOrdVal" style="font-size:12px; font-weight:700; color:#0f172a; margin-top:2px;">Tổng: 0 đơn</div>
+                    </div>
+                </div>
+
+                <!-- Magnified Chart Box (450px height) -->
+                <div style="background:white; border-radius:16px; padding:20px; border:1px solid #cbd5e1; box-shadow:0 4px 12px rgba(0,0,0,0.04); margin-bottom:20px;">
+                    <div style="position:relative; width:100%; height:450px;">
+                        <canvas id="exChartTrendExpandCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Detailed Period Analytics Table -->
+                <div style="background:white; border-radius:16px; padding:20px; border:1px solid #cbd5e1; box-shadow:0 4px 12px rgba(0,0,0,0.04);">
+                    <div style="font-size:15px; font-weight:800; color:#0f172a; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                        <span>📋 GHI CHÚ PHÂN TÍCH NHẬT KÝ CHI TIẾT SỐ LIỆU (HỌP DỰ ÁN)</span>
+                        <span style="font-size:12px; color:#64748b; font-weight:600;">* Chi tiết theo từng mốc thời gian</span>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                            <thead>
+                                <tr style="background:#f1f5f9; color:#334155;">
+                                    <th style="padding:10px 12px; text-align:left; border-bottom:2px solid #cbd5e1;">Mốc Thời Gian</th>
+                                    <th style="padding:10px 12px; text-align:right; border-bottom:2px solid #cbd5e1;">Doanh Thu (VNĐ)</th>
+                                    <th style="padding:10px 12px; text-align:center; border-bottom:2px solid #cbd5e1;">Số Đơn Hàng</th>
+                                    <th style="padding:10px 12px; text-align:right; border-bottom:2px solid #cbd5e1;">Giá/Đơn CPO</th>
+                                    <th style="padding:10px 12px; text-align:right; border-bottom:2px solid #cbd5e1;">Giá/Đơn Ads</th>
+                                    <th style="padding:10px 12px; text-align:center; border-bottom:2px solid #cbd5e1;">% Chốt MKT</th>
+                                    <th style="padding:10px 12px; text-align:center; border-bottom:2px solid #cbd5e1;">% Khách Cũ</th>
+                                    <th style="padding:10px 12px; text-align:center; border-bottom:2px solid #cbd5e1;">Đánh Giá Hiệu Suất</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblTrendExpandDetailBody">
+                                <tr><td colspan="5" style="text-align:center; padding:20px; color:#94a3b8;">Đang tổng hợp nhật ký số liệu...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    `;
+    document.body.appendChild(div);
+}
+
+function execOpenTrendExpandModal() {
+    _ensureTrendExpandModalHTML();
+    const modal = document.getElementById('exModalTrendExpand');
+    if (!modal) return;
+
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    // Build dynamic year options for modal!
+    buildModalYearOptions();
+
+    // Reset all filter controls to blank/placeholder when opening modal!
+    if (document.getElementById('modalFilterMonth')) document.getElementById('modalFilterMonth').value = '';
+    if (document.getElementById('modalFilterQuarter')) document.getElementById('modalFilterQuarter').value = '';
+    if (document.getElementById('modalFilterYear')) document.getElementById('modalFilterYear').value = '';
+    if (document.getElementById('modalFilterFromMonth')) document.getElementById('modalFilterFromMonth').value = '';
+    if (document.getElementById('modalFilterToMonth')) document.getElementById('modalFilterToMonth').value = '';
+
+    // Dynamically initialize month range dropdowns matching current active year
+    const activeYear = _dashData?.period?.label?.match(/\d{4}/)?.[0] || String(new Date().getFullYear());
+    updateModalMonthRangeOptions(activeYear);
+
+    // Set Default Segment in Modal to dong_phuc (👔 Lĩnh Vực Đồng Phục)!
+    const currentMode = window._execSegmentMode || 'dong_phuc';
+    execSetModalSegment(currentMode);
+
+    _updateTrendModeButtonsUI();
+    _renderExpandTrendModalContent();
+}
+
+function execCloseTrendExpandModal() {
+    const modal = document.getElementById('exModalTrendExpand');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+    if (_trendExpandChartObj) {
+        _trendExpandChartObj.destroy();
+        _trendExpandChartObj = null;
+    }
+}
+
+
+function _renderExpandTrendModalContent() {
+    if (!_dashData || !window.Chart) return;
+
+    // Update Header & Prominent Banner Labels inside Modal dynamically
+    const pLabel = _dashData.period?.label || 'Tháng này';
+    const mode = window._execSegmentMode || 'dong_phuc';
+    const segName = mode === 'dong_phuc' ? '👔 Đồng Phục' : (mode === 'tem_pet' ? '🏷️ TEM PET' : '🏢 Tất Cả');
+
+    if (document.getElementById('mTrendPeriodLabel')) {
+        document.getElementById('mTrendPeriodLabel').innerText = pLabel;
+    }
+    if (document.getElementById('mTrendPeriodLabel2')) {
+        document.getElementById('mTrendPeriodLabel2').innerText = pLabel;
+    }
+    if (document.getElementById('mTrendSegmentLabel')) {
+        document.getElementById('mTrendSegmentLabel').innerText = segName;
+    }
+    if (document.getElementById('mTrendSegmentLabel2')) {
+        document.getElementById('mTrendSegmentLabel2').innerText = segName;
+    }
+
+    const charts = _dashData.charts || {};
+    const trendData = charts.revenue_trend || { labels: [], revenue: [], orders: [], month_keys: [], is_monthly: false };
+
+    const labels = trendData.labels || [];
+    const revenue = trendData.revenue || [];
+    const orders = trendData.orders || [];
+    const monthKeys = trendData.month_keys || [];
+    const isMonthly = trendData.is_monthly || false;
+
+    // Show/hide back button wrapper when drilled down
+    const backWrap = document.getElementById('mTrendBackBtnWrapper');
+    if (backWrap) {
+        if (_dashData.period?.key?.startsWith('month_') && window._previousParentPeriod) {
+            backWrap.style.display = 'inline-block';
+        } else {
+            backWrap.style.display = 'none';
+        }
+    }
+
+    const cpoList = trendData.cpo || [];
+    const cpoAdsList = trendData.cpo_ads || [];
+    const closeRateList = trendData.close_rate || [];
+    const adsCloseRateList = trendData.ads_close_rate || [];
+    const oldCustRateList = trendData.old_cust_rate || [];
+
+    // Calculate Peaks, Min/Lowest & Averages for all 8 metrics
+    let maxRev = 0, maxRevIdx = -1, minRev = Infinity, minRevIdx = -1, sumRev = 0;
+    let maxOrd = 0, maxOrdIdx = -1, minOrd = Infinity, minOrdIdx = -1, sumOrd = 0;
+    let maxCpo = 0, maxCpoIdx = -1, minCpo = Infinity, minCpoIdx = -1, sumCpo = 0;
+    let maxCpoAds = 0, maxCpoAdsIdx = -1, minCpoAds = Infinity, minCpoAdsIdx = -1, sumCpoAds = 0;
+    let maxCloseRate = 0, maxCloseRateIdx = -1, minCloseRate = Infinity, minCloseRateIdx = -1, sumCloseRate = 0;
+    let maxAdsCloseRate = 0, maxAdsCloseRateIdx = -1, minAdsCloseRate = Infinity, minAdsCloseRateIdx = -1, sumAdsCloseRate = 0;
+    let maxOldCustRate = 0, maxOldCustRateIdx = -1, minOldCustRate = Infinity, minOldCustRateIdx = -1, sumOldCustRate = 0;
+
+    for (let i = 0; i < labels.length; i++) {
+        const r = parseFloat(revenue[i] || 0);
+        const o = parseInt(orders[i] || 0);
+        const c = parseFloat(cpoList[i] || 0);
+        const ca = parseFloat(cpoAdsList[i] || 0);
+        const cr = parseFloat(closeRateList[i] || 0);
+        const acr = parseFloat(adsCloseRateList[i] || 0);
+        const ocr = parseFloat(oldCustRateList[i] || 0);
+
+        sumRev += r; sumOrd += o; sumCpo += c; sumCpoAds += ca;
+        sumCloseRate += cr; sumAdsCloseRate += acr; sumOldCustRate += ocr;
+
+        if (r > maxRev) { maxRev = r; maxRevIdx = i; }
+        if (r < minRev) { minRev = r; minRevIdx = i; }
+        if (o > maxOrd) { maxOrd = o; maxOrdIdx = i; }
+        if (o < minOrd) { minOrd = o; minOrdIdx = i; }
+
+        if (c > maxCpo) { maxCpo = c; maxCpoIdx = i; }
+        if (c > 0 && c < minCpo) { minCpo = c; minCpoIdx = i; }
+
+        if (ca > maxCpoAds) { maxCpoAds = ca; maxCpoAdsIdx = i; }
+        if (ca > 0 && ca < minCpoAds) { minCpoAds = ca; minCpoAdsIdx = i; }
+
+        if (cr > maxCloseRate) { maxCloseRate = cr; maxCloseRateIdx = i; }
+        if (cr > 0 && cr < minCloseRate) { minCloseRate = cr; minCloseRateIdx = i; }
+
+        if (acr > maxAdsCloseRate) { maxAdsCloseRate = acr; maxAdsCloseRateIdx = i; }
+        if (acr > 0 && acr < minAdsCloseRate) { minAdsCloseRate = acr; minAdsCloseRateIdx = i; }
+
+        if (ocr > maxOldCustRate) { maxOldCustRate = ocr; maxOldCustRateIdx = i; }
+        if (ocr > 0 && ocr < minOldCustRate) { minOldCustRate = ocr; minOldCustRateIdx = i; }
+    }
+
+    if (minRev === Infinity) minRev = 0;
+    if (minOrd === Infinity) minOrd = 0;
+    if (minCpo === Infinity) minCpo = 0;
+    if (minCpoAds === Infinity) minCpoAds = 0;
+    if (minCloseRate === Infinity) minCloseRate = 0;
+    if (minAdsCloseRate === Infinity) minAdsCloseRate = 0;
+    if (minOldCustRate === Infinity) minOldCustRate = 0;
+
+    const avgRev = labels.length > 0 ? sumRev / labels.length : 0;
+    const avgOrd = labels.length > 0 ? (sumOrd / labels.length).toFixed(1) : '0';
+    const avgCpo = labels.length > 0 ? Math.round(sumCpo / labels.length) : 0;
+    const avgCpoAds = labels.length > 0 ? Math.round(sumCpoAds / labels.length) : 0;
+    const avgCloseRate = labels.length > 0 ? (sumCloseRate / labels.length).toFixed(2) : '0';
+    const avgAdsCloseRate = labels.length > 0 ? (sumAdsCloseRate / labels.length).toFixed(2) : '0';
+    const avgOldCustRate = labels.length > 0 ? (sumOldCustRate / labels.length).toFixed(2) : '0';
+
+    const trendObj = _dashData.charts?.revenue_trend || {};
+    const overallSummary = trendObj.overall_summary || {};
+    const mktSummary = _dashData.marketing || {};
+    const currentTrendMode = window._execTrendMode || 'revenue';
+    const segMode = window._execSegmentMode || 'dong_phuc';
+
+    // Segment overall fallbacks from executive summary if needed
+    let overallCpoVal = overallSummary.cpo;
+    let overallCpoAdsVal = overallSummary.cpo_ads;
+    let overallCloseRateVal = overallSummary.close_rate;
+    let overallAdsCloseRateVal = overallSummary.ads_close_rate;
+    let overallOldCustRateVal = overallSummary.old_customer_rate;
+
+    if (overallCpoVal === undefined) {
+        if (segMode === 'dong_phuc') overallCpoVal = mktSummary.dong_phuc_cpo || mktSummary.cpo || avgCpo;
+        else if (segMode === 'tem_pet') overallCpoVal = mktSummary.tem_pet_cpo || mktSummary.cpo || avgCpo;
+        else overallCpoVal = mktSummary.cpo || avgCpo;
+    }
+    if (overallCpoAdsVal === undefined) {
+        if (segMode === 'dong_phuc') overallCpoAdsVal = mktSummary.dong_phuc_cpo_ads || mktSummary.cpo_ads || avgCpoAds;
+        else if (segMode === 'tem_pet') overallCpoAdsVal = mktSummary.tem_pet_cpo_ads || mktSummary.cpo_ads || avgCpoAds;
+        else overallCpoAdsVal = mktSummary.cpo_ads || avgCpoAds;
+    }
+    if (overallCloseRateVal === undefined) {
+        if (segMode === 'dong_phuc') overallCloseRateVal = mktSummary.dong_phuc_close_rate || mktSummary.close_rate || avgCloseRate;
+        else if (segMode === 'tem_pet') overallCloseRateVal = mktSummary.tem_pet_close_rate || mktSummary.close_rate || avgCloseRate;
+        else overallCloseRateVal = mktSummary.close_rate || avgCloseRate;
+    }
+    if (overallAdsCloseRateVal === undefined) {
+        if (segMode === 'dong_phuc') overallAdsCloseRateVal = mktSummary.dong_phuc_ads_close_rate || mktSummary.mkt_ads_close_rate || avgAdsCloseRate;
+        else if (segMode === 'tem_pet') overallAdsCloseRateVal = mktSummary.tem_pet_ads_close_rate || mktSummary.mkt_ads_close_rate || avgAdsCloseRate;
+        else overallAdsCloseRateVal = mktSummary.mkt_ads_close_rate || avgAdsCloseRate;
+    }
+    if (overallOldCustRateVal === undefined) {
+        if (segMode === 'dong_phuc') overallOldCustRateVal = mktSummary.dong_phuc_old_cust_rate || mktSummary.old_customer_rate || avgOldCustRate;
+        else if (segMode === 'tem_pet') overallOldCustRateVal = mktSummary.tem_pet_old_cust_rate || mktSummary.old_customer_rate || avgOldCustRate;
+        else overallOldCustRateVal = mktSummary.old_customer_rate || avgOldCustRate;
+    }
+
+    // Helper set card
+    const setCard = (num, title, val, sub, color) => {
+        if (document.getElementById(`mCard${num}Title`)) document.getElementById(`mCard${num}Title`).innerText = title;
+        const valEl = document.getElementById(num === 1 ? 'mPeakRevVal' : (num === 2 ? 'mPeakOrdVal' : (num === 3 ? 'mAvgRevVal' : 'mTotalRevVal')));
+        if (valEl) { valEl.innerText = val; valEl.style.color = color; }
+        const subEl = document.getElementById(num === 1 ? 'mPeakRevDate' : (num === 2 ? 'mPeakOrdDate' : (num === 3 ? 'mAvgRevSub' : 'mTotalOrdVal')));
+        if (subEl) subEl.innerText = sub;
+    };
+
+    if (currentTrendMode === 'revenue') {
+        setCard(1, '🏆 ĐỈNH DOANH THU (PEAK)', formatVND(maxRev), maxRevIdx >= 0 ? `Mốc: ${labels[maxRevIdx]}` : 'Mốc: --', '#2563eb');
+        setCard(2, '📉 DOANH THU THẤP NHẤT', formatVND(minRev), minRevIdx >= 0 ? `Mốc: ${labels[minRevIdx]}` : 'Mốc: --', '#e11d48');
+        setCard(3, '💵 DOANH THU TRUNG BÌNH', formatVND(avgRev), 'Trung bình / mốc', '#7c3aed');
+        setCard(4, '🎯 TỔNG DOANH THU TRONG KỲ', formatVND(sumRev), 'Tổng doanh số chốt', '#0284c7');
+    } else if (currentTrendMode === 'orders') {
+        setCard(1, '📦 KỶ LỤC ĐƠN HÀNG (MAX)', maxOrd + ' đơn', maxOrdIdx >= 0 ? `Mốc: ${labels[maxOrdIdx]}` : 'Mốc: --', '#16a34a');
+        setCard(2, '📉 ĐƠN HÀNG THẤP NHẤT', minOrd + ' đơn', minOrdIdx >= 0 ? `Mốc: ${labels[minOrdIdx]}` : 'Mốc: --', '#ea580c');
+        setCard(3, '📊 SỐ ĐƠN TRUNG BÌNH', avgOrd + ' đơn/mốc', 'Trung bình / mốc', '#059669');
+        setCard(4, '🎯 TỔNG SỐ ĐƠN TRONG KỲ', sumOrd + ' đơn', 'Tổng số đơn chốt', '#16a34a');
+    } else if (currentTrendMode === 'cpo') {
+        setCard(1, '🎯 CPO CAO NHẤT (PEAK)', formatVND(maxCpo), maxCpoIdx >= 0 ? `Mốc: ${labels[maxCpoIdx]}` : 'Mốc: --', '#dc2626');
+        setCard(2, '📉 CPO TỐI ƯU NHẤT (MIN)', formatVND(minCpo), minCpoIdx >= 0 ? `Mốc: ${labels[minCpoIdx]}` : 'Mốc: --', '#16a34a');
+        setCard(3, '💵 GIÁ/ĐƠN CPO TRUNG BÌNH', formatVND(overallCpoVal), 'Chi phí / 1 đơn tổng', '#9333ea');
+        setCard(4, '🎯 CPO TỔNG CẢ KỲ', formatVND(overallCpoVal), 'CPO toàn mảng', '#2563eb');
+    } else if (currentTrendMode === 'cpo_ads') {
+        setCard(1, '🎯 CPO ADS CAO NHẤT (PEAK)', formatVND(maxCpoAds), maxCpoAdsIdx >= 0 ? `Mốc: ${labels[maxCpoAdsIdx]}` : 'Mốc: --', '#e11d48');
+        setCard(2, '📉 CPO ADS TỐI ƯU (MIN)', formatVND(minCpoAds), minCpoAdsIdx >= 0 ? `Mốc: ${labels[minCpoAdsIdx]}` : 'Mốc: --', '#059669');
+        setCard(3, '💵 GIÁ/ĐƠN ADS TRUNG BÌNH', formatVND(overallCpoAdsVal), 'Chi phí / 1 đơn Ads', '#c026d3');
+        setCard(4, '🎯 CPO ADS CẢ KỲ', formatVND(overallCpoAdsVal), 'CPO kênh Ads', '#0284c7');
+    } else if (currentTrendMode === 'close_rate') {
+        setCard(1, '🎯 % CHỐT CAO NHẤT (MAX)', maxCloseRate + '%', maxCloseRateIdx >= 0 ? `Mốc: ${labels[maxCloseRateIdx]}` : 'Mốc: --', '#16a34a');
+        setCard(2, '📉 % CHỐT THẤP NHẤT (MIN)', minCloseRate + '%', minCloseRateIdx >= 0 ? `Mốc: ${labels[minCloseRateIdx]}` : 'Mốc: --', '#dc2626');
+        setCard(3, '📊 % CHỐT TRUNG BÌNH', overallCloseRateVal + '%', 'Tỷ lệ đơn / Lead', '#7c3aed');
+        setCard(4, '🎯 TỶ LỆ % CHỐT CẢ KỲ', overallCloseRateVal + '%', 'Tỷ lệ chốt tổng thể', '#2563eb');
+    } else if (currentTrendMode === 'ads_close_rate') {
+        setCard(1, '🎯 % CHỐT ADS CAO NHẤT', maxAdsCloseRate + '%', maxAdsCloseRateIdx >= 0 ? `Mốc: ${labels[maxAdsCloseRateIdx]}` : 'Mốc: --', '#059669');
+        setCard(2, '📉 % CHỐT ADS THẤP NHẤT', minAdsCloseRate + '%', minAdsCloseRateIdx >= 0 ? `Mốc: ${labels[minAdsCloseRateIdx]}` : 'Mốc: --', '#e11d48');
+        setCard(3, '📊 % CHỐT ADS TRUNG BÌNH', overallAdsCloseRateVal + '%', 'Tỷ lệ đơn Ads / Lead MKT', '#9333ea');
+        setCard(4, '🎯 TỶ LỆ % CHỐT ADS CẢ KỲ', overallAdsCloseRateVal + '%', 'Chuyển đổi kênh Ads', '#0284c7');
+    } else if (currentTrendMode === 'old_cust_rate') {
+        setCard(1, '🔄 % KHÁCH CŨ CAO NHẤT', maxOldCustRate + '%', maxOldCustRateIdx >= 0 ? `Mốc: ${labels[maxOldCustRateIdx]}` : 'Mốc: --', '#c026d3');
+        setCard(2, '📉 % KHÁCH CŨ THẤP NHẤT', minOldCustRate + '%', minOldCustRateIdx >= 0 ? `Mốc: ${labels[minOldCustRateIdx]}` : 'Mốc: --', '#ea580c');
+        setCard(3, '📊 % KHÁCH CŨ TRUNG BÌNH', overallOldCustRateVal + '%', 'Tỷ lệ KH cũ quay lại', '#7c3aed');
+        setCard(4, '🔄 TỶ LỆ % KHÁCH CŨ CẢ KỲ', overallOldCustRateVal + '%', 'Tích lũy tệp KH cũ', '#2563eb');
+    } else {
+        // Mode 3: Both
+        setCard(1, '🏆 ĐỈNH DOANH THU (PEAK)', formatVND(maxRev), maxRevIdx >= 0 ? `Mốc: ${labels[maxRevIdx]}` : 'Mốc: --', '#2563eb');
+        setCard(2, '📦 KỶ LỤC ĐƠN HÀNG (MAX)', maxOrd + ' đơn', maxOrdIdx >= 0 ? `Mốc: ${labels[maxOrdIdx]}` : 'Mốc: --', '#16a34a');
+        setCard(3, '💵 DOANH THU TRUNG BÌNH', formatVND(avgRev), 'Trung bình / mốc', '#7c3aed');
+        setCard(4, '🎯 TỔNG CỘNG TRONG KỲ', formatVND(sumRev), `Tổng: ${sumOrd} đơn`, '#0284c7');
+    }
+
+    // Render Magnified Chart 450px
+    const ctx = document.getElementById('exChartTrendExpandCanvas')?.getContext('2d');
+    if (ctx) {
+        if (_trendExpandChartObj) _trendExpandChartObj.destroy();
+
+        const selected = window._execSelectedTrendModes || new Set(['revenue']);
+        let datasets = [];
+        let scalesConfig = {};
+
+        const hasRev = selected.has('revenue');
+        const hasCpo = selected.has('cpo') || selected.has('cpo_ads');
+        const hasOrd = selected.has('orders');
+        const hasPct = selected.has('close_rate') || selected.has('ads_close_rate') || selected.has('old_cust_rate');
+
+        if (hasRev) {
+            datasets.push({
+                label: 'Doanh Thu (VNĐ)',
+                data: revenue,
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                yAxisID: 'yRev',
+                fill: selected.size === 1,
+                tension: 0.3,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8
+            });
+            scalesConfig.yRev = {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : (v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v)) + 'đ', font: { size: 12, weight: 'bold' } }
+            };
+        }
+
+        const cpoAxis = hasRev ? 'yCpo' : 'yRev';
+        if (selected.has('cpo')) {
+            datasets.push({
+                label: 'Giá/Đơn CPO (đ/đơn)',
+                data: cpoList,
+                borderColor: '#dc2626',
+                backgroundColor: 'rgba(220, 38, 38, 0.12)',
+                yAxisID: cpoAxis,
+                fill: selected.size === 1,
+                tension: 0.3,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8
+            });
+        }
+        if (selected.has('cpo_ads')) {
+            datasets.push({
+                label: 'Giá/Đơn Ads (đ/đơn Ads)',
+                data: cpoAdsList,
+                borderColor: '#e11d48',
+                backgroundColor: 'rgba(225, 29, 72, 0.12)',
+                yAxisID: cpoAxis,
+                fill: selected.size === 1,
+                tension: 0.3,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8
+            });
+        }
+
+        if (hasCpo) {
+            scalesConfig[cpoAxis] = {
+                type: 'linear',
+                display: true,
+                position: hasRev ? 'right' : 'left',
+                grid: { drawOnChartArea: !hasRev },
+                ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : (v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v)) + 'đ', font: { size: 12, weight: 'bold' } }
+            };
+        }
+
+        if (hasOrd) {
+            datasets.push({
+                label: 'Số Đơn Hàng',
+                data: orders,
+                borderColor: '#16a34a',
+                backgroundColor: 'rgba(22, 163, 74, 0.15)',
+                yAxisID: 'yOrd',
+                fill: selected.size === 1,
+                tension: 0.3,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8
+            });
+            scalesConfig.yOrd = {
+                type: 'linear',
+                display: true,
+                position: (hasRev || hasCpo) ? 'right' : 'left',
+                grid: { drawOnChartArea: !(hasRev || hasCpo) },
+                ticks: { precision: 0, callback: v => v + ' đơn', font: { size: 12, weight: 'bold' } }
+            };
+        }
+
+        if (selected.has('close_rate')) {
+            datasets.push({
+                label: 'Tỷ Lệ % Chốt MKT (%)',
+                data: closeRateList,
+                borderColor: '#ea580c',
+                backgroundColor: 'rgba(234, 88, 12, 0.12)',
+                yAxisID: 'yPct',
+                fill: selected.size === 1,
+                tension: 0.3,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8
+            });
+        }
+        if (selected.has('ads_close_rate')) {
+            datasets.push({
+                label: 'Tỷ Lệ % Chốt Ads (%)',
+                data: adsCloseRateList,
+                borderColor: '#d97706',
+                backgroundColor: 'rgba(217, 119, 6, 0.12)',
+                yAxisID: 'yPct',
+                fill: selected.size === 1,
+                tension: 0.3,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8
+            });
+        }
+        if (selected.has('old_cust_rate')) {
+            datasets.push({
+                label: 'Tỷ Lệ % Khách Cũ Quay Lại (%)',
+                data: oldCustRateList,
+                borderColor: '#c026d3',
+                backgroundColor: 'rgba(192, 38, 211, 0.12)',
+                yAxisID: 'yPct',
+                fill: selected.size === 1,
+                tension: 0.3,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8
+            });
+        }
+
+        if (hasPct) {
+            scalesConfig.yPct = {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                grid: { drawOnChartArea: !(hasRev || hasCpo || hasOrd) },
+                ticks: { callback: v => v + '%', font: { size: 12, weight: 'bold' } }
+            };
+        }
+
+        _trendExpandChartObj = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                onClick: (evt, elements) => {
+                    if (elements && elements.length > 0) {
+                        const idx = elements[0].index;
+                        if (monthKeys[idx]) {
+                            window._previousParentPeriod = _dashData.period?.key || 'year_2026';
+                            execTriggerMonthDrilldown(monthKeys[idx]);
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: datasets.length > 1, position: 'top', labels: { font: { size: 13, weight: 'bold' } } }
+                },
+                scales: scalesConfig
+            }
+        });
+    }
+
+    // Render Detailed Table Rows with All 8 Metrics
+    const tbody = document.getElementById('tblTrendExpandDetailBody');
+    if (tbody) {
+        if (labels.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">Không có dữ liệu trong kỳ này</td></tr>`;
+        } else {
+            let html = '';
+            for (let i = 0; i < labels.length; i++) {
+                const dateLabel = labels[i];
+                const revVal = parseFloat(revenue[i] || 0);
+                const ordVal = parseInt(orders[i] || 0);
+                const cpoVal = parseFloat(cpoList[i] || 0);
+                const cpoAdsVal = parseFloat(cpoAdsList[i] || 0);
+                const closeRateVal = parseFloat(closeRateList[i] || 0);
+                const oldCustRateVal = parseFloat(oldCustRateList[i] || 0);
+                const mCode = monthKeys[i] || '';
+
+                let badgeList = [];
+                if (revVal === maxRev && maxRev > 0) {
+                    badgeList.push(`<span style="background:#fee2e2; color:#b91c1c; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px;">🔥 ĐỈNH DT</span>`);
+                }
+                if (ordVal === maxOrd && maxOrd > 0) {
+                    badgeList.push(`<span style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px;">⭐ KỶ LỤC ĐƠN</span>`);
+                }
+                if (cpoVal > 0 && cpoVal === minCpo) {
+                    badgeList.push(`<span style="background:#e0e7ff; color:#4338ca; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px;">💎 CPO TỐI ƯU</span>`);
+                }
+                if (badgeList.length === 0) {
+                    badgeList.push(`<span style="color:#94a3b8; font-weight:600;">${isMonthly ? 'Nháy đúp xem ngày' : 'Ổn định'}</span>`);
+                }
+
+                const rowBg = i % 2 === 1 ? 'background:#f8fafc;' : 'background:#ffffff;';
+                const cursorStyle = mCode ? 'cursor:pointer;' : '';
+                const titleAttr = mCode ? 'title="Nháy đúp 2 lần để mở chi tiết các ngày trong tháng này"' : '';
+                const dblClickAttr = mCode ? `ondblclick="window._previousParentPeriod = '${_dashData.period?.key || ''}'; execTriggerMonthDrilldown('${mCode}')"` : '';
+
+                html += `
+                    <tr style="${rowBg} ${cursorStyle}" ${titleAttr} ${dblClickAttr}>
+                        <td style="padding:10px 12px; font-weight:800; color:#0f172a;">${dateLabel} ${mCode ? '<span style="font-size:10.5px; color:#2563eb; font-weight:700;">(Mở ngày)</span>' : ''}</td>
+                        <td style="padding:10px 12px; text-align:right; font-weight:800; color:#2563eb;">${formatVND(revVal)}</td>
+                        <td style="padding:10px 12px; text-align:center; font-weight:800; color:#16a34a;">${ordVal} đơn</td>
+                        <td style="padding:10px 12px; text-align:right; font-weight:700; color:#dc2626;">${cpoVal > 0 ? formatVND(cpoVal) : '—'}</td>
+                        <td style="padding:10px 12px; text-align:right; font-weight:700; color:#e11d48;">${cpoAdsVal > 0 ? formatVND(cpoAdsVal) : '—'}</td>
+                        <td style="padding:10px 12px; text-align:center; font-weight:800; color:#ea580c;">${closeRateVal > 0 ? closeRateVal + '%' : '—'}</td>
+                        <td style="padding:10px 12px; text-align:center; font-weight:800; color:#c026d3;">${oldCustRateVal > 0 ? oldCustRateVal + '%' : '—'}</td>
+                        <td style="padding:10px 12px; text-align:center;">${badgeList.join(' ')}</td>
+                    </tr>
+                `;
+            }
+            tbody.innerHTML = html;
+        }
+    }
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        execCloseTrendExpandModal();
+        if (typeof mCloseTrendExpandModal === 'function') mCloseTrendExpandModal();
+    }
+});
+
+function execGoBackParentPeriod() {
+    const parentKey = window._previousParentPeriod || 'year_2026';
+    if (parentKey.startsWith('year_')) {
+        const yr = parentKey.replace('year_', '');
+        const yearSel = document.getElementById('modalFilterYear');
+        if (yearSel) yearSel.value = yr;
+    }
+    if (typeof _setExecPeriod === 'function') {
+        _setExecPeriod(parentKey, document.getElementById('execSelectYear'));
+    }
+}
+window.execGoBackParentPeriod = execGoBackParentPeriod;
+
+function execTriggerMonthDrilldown(mCode) {
+    if (!mCode) return;
+    const cleanCode = mCode.replace('month_', '');
+    const parts = cleanCode.split('-');
+    if (parts.length === 2) {
+        const monthSel = document.getElementById('modalFilterMonth');
+        if (monthSel) monthSel.value = parseInt(parts[1]);
+    }
+    if (typeof _setExecPeriod === 'function') {
+        _setExecPeriod(mCode, document.getElementById('execSelectSingleMonth'));
+    }
+}
+window.execTriggerMonthDrilldown = execTriggerMonthDrilldown;
+
+function buildModalYearOptions() {
+    const yearSel = document.getElementById('modalFilterYear');
+    if (!yearSel) return;
+
+    const currentYear = new Date().getFullYear();
+    const maxYear = Math.max(currentYear, 2026) + 1;
+    const minYear = 2024;
+
+    let html = `<option value="">-- Chọn Năm --</option>`;
+    for (let y = maxYear; y >= minYear; y--) {
+        html += `<option value="${y}">Năm ${y}</option>`;
+    }
+    yearSel.innerHTML = html;
+}
+
+function updateModalMonthRangeOptions(selectedYear) {
+    const fromSel = document.getElementById('modalFilterFromMonth');
+    const toSel = document.getElementById('modalFilterToMonth');
+    const mainFromSel = document.getElementById('execRangeFromMonth');
+    const mainToSel = document.getElementById('execRangeToMonth');
+
+    const yr = selectedYear && String(selectedYear).trim() ? String(selectedYear).trim().replace('year_', '') : String(new Date().getFullYear());
+
+    let fromHtml = `<option value="">-- Từ tháng --</option>`;
+    for (let m = 1; m <= 12; m++) {
+        const padM = String(m).padStart(2, '0');
+        fromHtml += `<option value="${yr}-${padM}">T${m}/${yr}</option>`;
+    }
+
+    let toHtml = `<option value="">-- Đến tháng --</option>`;
+    for (let m = 1; m <= 12; m++) {
+        const padM = String(m).padStart(2, '0');
+        toHtml += `<option value="${yr}-${padM}">T${m}/${yr}</option>`;
+    }
+
+    if (fromSel) fromSel.innerHTML = fromHtml;
+    if (toSel) toSel.innerHTML = toHtml;
+    if (mainFromSel) mainFromSel.innerHTML = fromHtml;
+    if (mainToSel) mainToSel.innerHTML = toHtml;
+}
+
+function execApplyDateRangeFilter() {
+    const fromEl = document.getElementById('execFilterFromDate');
+    const toEl = document.getElementById('execFilterToDate');
+    let fromVal = fromEl?.value?.trim() || '';
+    let toVal = toEl?.value?.trim() || '';
+
+    if (!fromVal && !toVal) {
+        if (typeof showToast === 'function') showToast('Vui lòng chọn ngày từ lịch!', 'warning');
+        else alert('Vui lòng chọn ngày từ lịch!');
+        return;
+    }
+
+    if (!fromVal) fromVal = toVal;
+    if (!toVal) toVal = fromVal;
+
+    // Reset other main page dropdowns to prevent conflicting UX
+    const monthSel = document.getElementById('execSelectSingleMonth');
+    const quarterSel = document.getElementById('execSelectQuarter');
+    const yearSel = document.getElementById('execSelectYear');
+    const fromMSel = document.getElementById('execRangeFromMonth');
+    const toMSel = document.getElementById('execRangeToMonth');
+    if (monthSel) monthSel.value = '';
+    if (quarterSel) quarterSel.value = '';
+    if (yearSel) yearSel.value = '';
+    if (fromMSel) fromMSel.value = '';
+    if (toMSel) toMSel.value = '';
+
+    const periodKey = `daterange_${fromVal}_${toVal}`;
+    if (typeof _setExecPeriod === 'function') {
+        _setExecPeriod(periodKey, document.getElementById('execBtnApplyMonthRange'));
+    }
+}
+window.execApplyDateRangeFilter = execApplyDateRangeFilter;
+
+function execToggleCustomRangeMode(mode) {
+    const boxM = document.getElementById('boxCustomMonthRange');
+    const boxD = document.getElementById('boxCustomDateRange');
+    const btnM = document.getElementById('btnToggleRangeMonth');
+    const btnD = document.getElementById('btnToggleRangeDate');
+
+    if (mode === 'date') {
+        if (boxM) boxM.style.display = 'none';
+        if (boxD) boxD.style.display = 'inline-flex';
+        if (btnM) { btnM.style.background = '#ffffff'; btnM.style.color = '#475569'; btnM.style.borderColor = '#cbd5e1'; }
+        if (btnD) { btnD.style.background = '#2563eb'; btnD.style.color = '#ffffff'; btnD.style.borderColor = '#2563eb'; }
+    } else {
+        if (boxM) boxM.style.display = 'inline-flex';
+        if (boxD) boxD.style.display = 'none';
+        if (btnM) { btnM.style.background = '#2563eb'; btnM.style.color = '#ffffff'; btnM.style.borderColor = '#2563eb'; }
+        if (btnD) { btnD.style.background = '#ffffff'; btnD.style.color = '#475569'; btnD.style.borderColor = '#cbd5e1'; }
+    }
+}
+window.execToggleCustomRangeMode = execToggleCustomRangeMode;
+
+function execToggleModalCustomRangeMode(mode) {
+    const boxM = document.getElementById('boxModalCustomMonthRange');
+    const boxD = document.getElementById('boxModalCustomDateRange');
+    const btnM = document.getElementById('btnModalToggleRangeMonth');
+    const btnD = document.getElementById('btnModalToggleRangeDate');
+
+    if (mode === 'date') {
+        if (boxM) boxM.style.display = 'none';
+        if (boxD) boxD.style.display = 'inline-flex';
+        if (btnM) { btnM.style.background = '#ffffff'; btnM.style.color = '#475569'; btnM.style.borderColor = '#cbd5e1'; }
+        if (btnD) { btnD.style.background = '#2563eb'; btnD.style.color = '#ffffff'; btnD.style.borderColor = '#2563eb'; }
+    } else {
+        if (boxM) boxM.style.display = 'inline-flex';
+        if (boxD) boxD.style.display = 'none';
+        if (btnM) { btnM.style.background = '#2563eb'; btnM.style.color = '#ffffff'; btnM.style.borderColor = '#2563eb'; }
+        if (btnD) { btnD.style.background = '#ffffff'; btnD.style.color = '#475569'; btnD.style.borderColor = '#cbd5e1'; }
+    }
+}
+window.execToggleModalCustomRangeMode = execToggleModalCustomRangeMode;
+
+function execSetModalSegment(segMode, btnEl) {
+    _setExecSegment(segMode, btnEl);
+}
+window.execSetModalSegment = execSetModalSegment;
+
+function execApplyModalDateRangeFilter() {
+    const fromEl = document.getElementById('modalFilterFromDate');
+    const toEl = document.getElementById('modalFilterToDate');
+    let fromVal = fromEl?.value?.trim() || '';
+    let toVal = toEl?.value?.trim() || '';
+
+    if (!fromVal && !toVal) {
+        if (typeof showToast === 'function') showToast('Vui lòng chọn ngày từ lịch!', 'warning');
+        else alert('Vui lòng chọn ngày từ lịch!');
+        return;
+    }
+
+    if (!fromVal) fromVal = toVal;
+    if (!toVal) toVal = fromVal;
+
+    // Reset other modal dropdowns to prevent conflicting UX
+    const monthSel = document.getElementById('modalFilterMonth');
+    const quarterSel = document.getElementById('modalFilterQuarter');
+    const yearSel = document.getElementById('modalFilterYear');
+    const fromMSel = document.getElementById('modalFilterFromMonth');
+    const toMSel = document.getElementById('modalFilterToMonth');
+    if (monthSel) monthSel.value = '';
+    if (quarterSel) quarterSel.value = '';
+    if (yearSel) yearSel.value = '';
+    if (fromMSel) fromMSel.value = '';
+    if (toMSel) toMSel.value = '';
+
+    const periodKey = `daterange_${fromVal}_${toVal}`;
+    if (typeof _setExecPeriod === 'function') {
+        _setExecPeriod(periodKey, document.getElementById('modalFilterToMonth'));
+    }
+}
+window.execApplyModalDateRangeFilter = execApplyModalDateRangeFilter;
+
+function execTriggerModalFilter(type) {
+    const monthSel = document.getElementById('modalFilterMonth');
+    const quarterSel = document.getElementById('modalFilterQuarter');
+    const yearSel = document.getElementById('modalFilterYear');
+
+    if (type === 'month') {
+        const monthVal = monthSel?.value;
+        const yearVal = yearSel?.value || '2026';
+        if (!monthVal) return;
+
+        // Auto-clear Quarter dropdown to prevent UI confusion!
+        if (quarterSel) quarterSel.value = '';
+
+        const padMonth = String(monthVal).padStart(2, '0');
+        const periodCode = `month_${yearVal}-${padMonth}`;
+        const mainSel = document.getElementById('execSelectSingleMonth');
+        if (mainSel) {
+            mainSel.value = periodCode;
+        }
+        if (typeof _setExecPeriod === 'function') {
+            _setExecPeriod(periodCode, mainSel);
+        }
+    } else if (type === 'quarter') {
+        const qVal = quarterSel?.value;
+        if (!qVal) return;
+
+        // Auto-clear Month dropdown to prevent UI confusion!
+        if (monthSel) monthSel.value = '';
+
+        const periodCode = `q${qVal}`;
+        const mainSel = document.getElementById('execSelectQuarter');
+        if (mainSel) {
+            mainSel.value = periodCode;
+        }
+        if (typeof _setExecPeriod === 'function') {
+            _setExecPeriod(periodCode, mainSel);
+        }
+    } else if (type === 'year') {
+        const yVal = yearSel?.value;
+        if (!yVal) return;
+
+        // Auto-clear Month & Quarter dropdowns on year change!
+        if (monthSel) monthSel.value = '';
+        if (quarterSel) quarterSel.value = '';
+
+        // Dynamically update Month Range dropdowns to match selected year!
+        updateModalMonthRangeOptions(yVal);
+
+        const periodCode = `year_${yVal}`;
+        const mainSel = document.getElementById('execSelectYear');
+        if (mainSel) {
+            mainSel.value = periodCode;
+        }
+        if (typeof _setExecPeriod === 'function') {
+            _setExecPeriod(periodCode, mainSel);
+        }
+    }
+}
+
+function execApplyModalRangeFilter() {
+    const monthSel = document.getElementById('modalFilterMonth');
+    const quarterSel = document.getElementById('modalFilterQuarter');
+
+    // Auto-clear Month & Quarter dropdowns when custom range is applied!
+    if (monthSel) monthSel.value = '';
+    if (quarterSel) quarterSel.value = '';
+
+    const fromVal = document.getElementById('modalFilterFromMonth')?.value;
+    const toVal = document.getElementById('modalFilterToMonth')?.value;
+    
+    const mainFrom = document.getElementById('execRangeFromMonth');
+    const mainTo = document.getElementById('execRangeToMonth');
+    const mainBtn = document.getElementById('execBtnApplyMonthRange');
+
+    if (mainFrom && fromVal) mainFrom.value = fromVal;
+    if (mainTo && toVal) mainTo.value = toVal;
+    
+    if (typeof _applyExecMonthRange === 'function') {
+        _applyExecMonthRange(mainBtn);
+    }
+}
+
+window.execTriggerModalFilter = execTriggerModalFilter;
+window.execApplyModalRangeFilter = execApplyModalRangeFilter;
+window.execOpenTrendExpandModal = execOpenTrendExpandModal;
+window.execCloseTrendExpandModal = execCloseTrendExpandModal;
+// execSetModalTrendMode already assigned at line 4824 via window._execSetTrendMode
+
+function _renderExecDashboard() {
+    if (!_dashData) return;
+
+    // Period label & Date Subtitle
+    if (document.getElementById('execPeriodLabel')) {
+        const pLabel = _dashData.period?.label || 'Hôm nay';
+        document.getElementById('execPeriodLabel').innerText = pLabel.toUpperCase();
+
+        const subEl = document.getElementById('execPeriodDateSub');
+        if (subEl) {
+            let dateRangeStr = '';
+            if (_dashData.period?.date_from && _dashData.period?.date_to) {
+                const dFrom = String(_dashData.period.date_from).split(' ')[0];
+                const dTo = String(_dashData.period.date_to).split(' ')[0];
+                dateRangeStr = `(${dFrom} → ${dTo})`;
+            }
+            subEl.innerText = dateRangeStr;
+        }
+    }
+
+    // Sync Filter Bar Active Class
+    if (_dashPeriod) {
+        document.querySelectorAll('.exec-btn-pill').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.exec-select').forEach(s => s.classList.remove('active'));
+
+        const btn = Array.from(document.querySelectorAll('.exec-btn-pill')).find(b => b.getAttribute('onclick')?.includes(`'${_dashPeriod}'`));
+        if (btn) {
+            btn.classList.add('active');
+            const selQ = document.getElementById('execSelectQuarter');
+            const selY = document.getElementById('execSelectYear');
+            if (selQ) selQ.value = '';
+            if (selY) selY.value = '';
+        } else {
+            const selQ = document.getElementById('execSelectQuarter');
+            const selY = document.getElementById('execSelectYear');
+            if (selQ && selQ.value === _dashPeriod) {
+                selQ.classList.add('active');
+            } else if (selY) {
+                const matchVal = _dashPeriod.startsWith('year_') ? _dashPeriod : `year_${_dashPeriod}`;
+                if (Array.from(selY.options).some(o => o.value === matchVal)) {
+                    selY.value = matchVal;
+                    selY.classList.add('active');
+                }
+            }
+        }
+    }
+
+    const mkt = _dashData.marketing || {};
+    const exec = _dashData.executive || {};
+    const mode = _execSegmentMode || 'dong_phuc';
+
+    // Mode Label Updates
+    const modeLabelText = mode === 'dong_phuc' ? '[Đang xem: 👔 Mảng Đồng Phục]' : (mode === 'tem_pet' ? '[Đang xem: 🏷️ Mảng Tem PET]' : '[Đang xem: 🏢 Tất Cả (Tổng Công Ty)]');
+    if (document.getElementById('sec1ModeTag')) document.getElementById('sec1ModeTag').innerText = modeLabelText;
+    if (document.getElementById('sec2ModeTag')) document.getElementById('sec2ModeTag').innerText = modeLabelText;
+
+    const shortModeTag = mode === 'dong_phuc' ? '(👔 Mảng Đồng Phục)' : (mode === 'tem_pet' ? '(🏷️ Mảng TEM PET)' : '(🏢 Tất Cả)');
+    const subTagHtml = `<span class="exec-sub-tag-pulse">${shortModeTag}</span>`;
+    if (document.getElementById('exTitleTopProd')) document.getElementById('exTitleTopProd').innerHTML = `🔥 Top Sản Phẩm Bán Chạy ${subTagHtml}`;
+    if (document.getElementById('exTitleTopCust')) document.getElementById('exTitleTopCust').innerHTML = `👑 Top Khách Hàng Tiêu Biểu (VIP) ${subTagHtml}`;
+    if (document.getElementById('exTitleTopSales')) document.getElementById('exTitleTopSales').innerHTML = `🏆 Doanh Thu Theo Nhân Viên Bán Hàng ${subTagHtml}`;
+    if (document.getElementById('exTitleRecentOrders')) document.getElementById('exTitleRecentOrders').innerHTML = `📋 Đơn Hàng Gần Đây ${subTagHtml}`;
+
+    const _setTxt = (id1, id2, val) => {
+        if (id1 && document.getElementById(id1)) document.getElementById(id1).innerText = val;
+        if (id2 && document.getElementById(id2)) document.getElementById(id2).innerText = val;
+    };
+
+    // --- SECTION 1 & 2 BIG NUMBERS DEPENDING ON MODE ---
+    // 1. Số Đơn Chốt
+    let displayOrders = (exec.total_orders || mkt.closed_orders || 0) + ' đơn';
+    if (mode === 'dong_phuc') displayOrders = (exec.dong_phuc_orders || 0) + ' đơn';
+    else if (mode === 'tem_pet') displayOrders = (exec.tem_pet_orders || 0) + ' đơn';
+    _setTxt('exOrders', 'mOrdersNum', displayOrders);
+
+    // 2. Doanh Số Chốt
+    let displayRev = formatCurrency(exec.total_revenue || mkt.revenue || 0);
+    if (mode === 'dong_phuc') displayRev = formatCurrency(exec.dong_phuc_revenue || 0);
+    else if (mode === 'tem_pet') displayRev = formatCurrency(exec.tem_pet_revenue || 0);
+    _setTxt('exRevenueMktNum', 'mRevNum', displayRev);
+
+    // 3. Giá / Đơn CPO (Toàn Bộ)
+    let displayCPO = formatCurrency(mkt.cpo || 0);
+    if (mode === 'dong_phuc') displayCPO = formatCurrency(mkt.dong_phuc_cpo || 0);
+    else if (mode === 'tem_pet') displayCPO = formatCurrency(mkt.tem_pet_cpo || 0);
+    _setTxt('exCPO', 'mCPONum', displayCPO);
+
+    // 4. % Chi Phí / DT (Toàn Bộ)
+    let displayRatio = (mkt.cost_ratio || 0) + '%';
+    if (mode === 'dong_phuc') displayRatio = (mkt.dong_phuc_cost_ratio || 0) + '%';
+    else if (mode === 'tem_pet') displayRatio = (mkt.tem_pet_cost_ratio || 0) + '%';
+    _setTxt('exRatio', 'mRatioNum', displayRatio);
+
+    // 5. Tỷ Lệ Chốt (Toàn Bộ)
+    let displayRate = (mkt.close_rate || 0) + '%';
+    if (mode === 'dong_phuc') displayRate = (mkt.dong_phuc_close_rate || 0) + '%';
+    else if (mode === 'tem_pet') displayRate = (mkt.tem_pet_close_rate || 0) + '%';
+    _setTxt('exRate', 'mRateNum', displayRate);
+
+    // 6. Tỷ Lệ Đơn Khách Cũ
+    let displayOldCustRate = (mkt.old_customer_rate || 0) + '%';
+    if (mode === 'dong_phuc') displayOldCustRate = (mkt.dong_phuc_old_cust_rate || 0) + '%';
+    else if (mode === 'tem_pet') displayOldCustRate = (mkt.tem_pet_old_cust_rate || 0) + '%';
+    _setTxt('exOldCustRateNum', 'mOldCustRateNum', displayOldCustRate);
+
+    // 7. Chi Phí QC
+    let displaySpent = formatCurrency(mkt.spent_amount || 0);
+    if (mode === 'dong_phuc') displaySpent = formatCurrency(mkt.dong_phuc_spent || 0);
+    else if (mode === 'tem_pet') displaySpent = formatCurrency(mkt.tem_pet_spent || 0);
+    _setTxt('exSpent', 'mSpentNum', displaySpent);
+
+    // 8. Giá CPL
+    let displayCPLValue = formatCurrency(mkt.cpl || 0) + 'đ/lead';
+    if (mode === 'dong_phuc') displayCPLValue = formatCurrency(mkt.dong_phuc_cpl || 0) + 'đ/lead';
+    else if (mode === 'tem_pet') displayCPLValue = formatCurrency(mkt.tem_pet_cpl || 0) + 'đ/lead';
+    _setTxt('exCPLNum', 'mCPLNum', displayCPLValue);
+
+    // 9. Số Lead
+    let displayLeadsValue = (mkt.lead_count || 0) + ' lead';
+    if (mode === 'dong_phuc') displayLeadsValue = (mkt.dong_phuc_leads || 0) + ' lead';
+    else if (mode === 'tem_pet') displayLeadsValue = (mkt.tem_pet_leads || 0) + ' lead';
+    _setTxt('exLeadNum', 'mLeadNum', displayLeadsValue);
+
+    // 10. Số Đơn Ads (MKT)
+    let displayMktAdsOrders = (mkt.mkt_ads_orders || mkt.closed_orders || 0) + ' đơn';
+    if (mode === 'dong_phuc') displayMktAdsOrders = (mkt.dong_phuc_mkt_ads_orders || 0) + ' đơn';
+    else if (mode === 'tem_pet') displayMktAdsOrders = (mkt.tem_pet_mkt_ads_orders || 0) + ' đơn';
+    _setTxt('exMktAdsOrdersNum', 'mMktAdsOrdersNum', displayMktAdsOrders);
+
+    // 11. Doanh Số Ads (MKT)
+    let displayMktAdsRev = formatCurrency(mkt.mkt_ads_revenue || mkt.revenue || 0) + 'đ';
+    if (mode === 'dong_phuc') displayMktAdsRev = formatCurrency(mkt.dong_phuc_mkt_ads_revenue || 0) + 'đ';
+    else if (mode === 'tem_pet') displayMktAdsRev = formatCurrency(mkt.tem_pet_mkt_ads_revenue || 0) + 'đ';
+    _setTxt('exMktAdsRevNum', 'mMktAdsRevNum', displayMktAdsRev);
+
+    // 12. Giá / Đơn Ads (CPO Ads)
+    let displayCPOAds = formatCurrency(mkt.cpo_ads || 0);
+    if (mode === 'dong_phuc') displayCPOAds = formatCurrency(mkt.dong_phuc_cpo_ads || 0);
+    else if (mode === 'tem_pet') displayCPOAds = formatCurrency(mkt.tem_pet_cpo_ads || 0);
+    _setTxt('exCPOAdsNum', 'mCPOAdsNum', displayCPOAds);
+
+    // 13. % Chi Phí / DT Ads
+    let displayRatioAds = (mkt.cost_ratio_ads || 0) + '%';
+    if (mode === 'dong_phuc') displayRatioAds = (mkt.dong_phuc_cost_ratio_ads || 0) + '%';
+    else if (mode === 'tem_pet') displayRatioAds = (mkt.tem_pet_cost_ratio_ads || 0) + '%';
+    _setTxt('exRatioAdsNum', 'mRatioAdsNum', displayRatioAds);
+
+    // 14. Tỷ Lệ Chốt Ads
+    let displayAdsRate = (mkt.mkt_ads_close_rate || mkt.close_rate || 0) + '%';
+    if (mode === 'dong_phuc') displayAdsRate = (mkt.dong_phuc_ads_close_rate || 0) + '%';
+    else if (mode === 'tem_pet') displayAdsRate = (mkt.tem_pet_ads_close_rate || 0) + '%';
+    _setTxt('exAdsRateNum', 'mAdsRateNum', displayAdsRate);
+
+    // --- SUB-BREAKDOWN DETAILED INDICATORS BELOW CARDS ---
+    _setTxt('exDongPhucSpent', 'mDpSpent', formatCurrency(mkt.dong_phuc_spent || 0));
+    _setTxt('exTemPetSpent', 'mPetSpent', formatCurrency(mkt.tem_pet_spent || 0));
+    _setTxt('exTongSpent', 'mTongSpent', formatCurrency(mkt.spent_amount || 0));
+
+    const dpOrders = exec.dong_phuc_orders || 0;
+    const dpRev = exec.dong_phuc_revenue || 0;
+    const petOrders = exec.tem_pet_orders || 0;
+    const petRev = exec.tem_pet_revenue || 0;
+
+    _setTxt('exDongPhucOrders', 'mDpOrders', `${dpOrders} đơn`);
+    _setTxt('exDongPhucRev', 'mDpRev', formatCurrency(dpRev));
+    _setTxt('exTemPetOrders', 'mPetOrders', `${petOrders} đơn`);
+    _setTxt('exTemPetRev', 'mPetRev', formatCurrency(petRev));
+    _setTxt('exTongOrders', 'mTongOrders', `${exec.total_orders || mkt.closed_orders || 0} đơn`);
+    _setTxt('exTongRev', 'mTongRev', formatCurrency(exec.total_revenue || mkt.revenue || 0));
+
+    _setTxt('exDongPhucMktOrders', 'mDpMktOrders', (mkt.dong_phuc_mkt_ads_orders || 0) + ' đơn');
+    _setTxt('exTemPetMktOrders', 'mPetMktOrders', (mkt.tem_pet_mkt_ads_orders || 0) + ' đơn');
+    _setTxt('exTongMktOrders', 'mTongMktOrders', (mkt.mkt_ads_orders || mkt.closed_orders || 0) + ' đơn');
+
+    _setTxt('exDongPhucMktRev', 'mDpMktRev', formatCurrency(mkt.dong_phuc_mkt_ads_revenue || 0));
+    _setTxt('exTemPetMktRev', 'mPetMktRev', formatCurrency(mkt.tem_pet_mkt_ads_revenue || 0));
+    _setTxt('exTongMktRev', 'mTongMktRev', formatCurrency(mkt.mkt_ads_revenue || mkt.revenue || 0));
+
+    _setTxt('exDongPhucCPO', 'mDpCPO', formatCurrency(mkt.dong_phuc_cpo || 0));
+    _setTxt('exTemPetCPO', 'mPetCPO', formatCurrency(mkt.tem_pet_cpo || 0));
+    _setTxt('exTongCPO', 'mTongCPO', formatCurrency(mkt.cpo || 0));
+
+    _setTxt('exDongPhucCPOAds', 'mDpCPOAds', formatCurrency(mkt.dong_phuc_cpo_ads || 0));
+    _setTxt('exTemPetCPOAds', 'mPetCPOAds', formatCurrency(mkt.tem_pet_cpo_ads || 0));
+    _setTxt('exTongCPOAds', 'mTongCPOAds', formatCurrency(mkt.cpo_ads || 0));
+
+    _setTxt('exDongPhucRatio', 'mDpRatio', (mkt.dong_phuc_cost_ratio || 0) + '%');
+    _setTxt('exTemPetRatio', 'mPetRatio', (mkt.tem_pet_cost_ratio || 0) + '%');
+    _setTxt('exTongRatio', 'mTongRatio', (mkt.cost_ratio || 0) + '%');
+
+    _setTxt('exDongPhucRatioAds', 'mDpRatioAds', (mkt.dong_phuc_cost_ratio_ads || 0) + '%');
+    _setTxt('exTemPetRatioAds', 'mPetRatioAds', (mkt.tem_pet_cost_ratio_ads || 0) + '%');
+    _setTxt('exTongRatioAds', 'mTongRatioAds', (mkt.cost_ratio_ads || 0) + '%');
+
+    _setTxt('exDongPhucCPL', 'mDpCPL', formatCurrency(mkt.dong_phuc_cpl || 0) + 'đ/lead');
+    _setTxt('exTemPetCPL', 'mPetCPL', formatCurrency(mkt.tem_pet_cpl || 0) + 'đ/lead');
+    _setTxt('exTongCPL', 'mTongCPL', formatCurrency(mkt.cpl || 0) + 'đ/lead');
+
+    _setTxt('exDongPhucLeadCnt', 'mDpLeadCnt', (mkt.dong_phuc_leads || 0) + ' lead');
+    _setTxt('exTemPetLeadCnt', 'mPetLeadCnt', (mkt.tem_pet_leads || 0) + ' lead');
+    _setTxt('exTongLeadCnt', 'mTongLeadCnt', (mkt.lead_count || 0) + ' lead');
+
+    _setTxt('exDongPhucRate', 'mDpRate', (mkt.dong_phuc_close_rate || 0) + '%');
+    _setTxt('exTemPetRate', 'mPetRate', (mkt.tem_pet_close_rate || 0) + '%');
+    _setTxt('exTongRate', 'mTongRate', (mkt.close_rate || 0) + '%');
+
+    _setTxt('exDongPhucAdsRate', 'mDpAdsRate', (mkt.dong_phuc_ads_close_rate || 0) + '%');
+    _setTxt('exTemPetAdsRate', 'mPetAdsRate', (mkt.tem_pet_ads_close_rate || 0) + '%');
+    _setTxt('exTongAdsRate', 'mTongAdsRate', (mkt.mkt_ads_close_rate || mkt.close_rate || 0) + '%');
+
+    _setTxt('exDongPhucOldCustRate', 'mDpOldCustRate', (mkt.dong_phuc_old_cust_rate || 0) + '%');
+    _setTxt('exTemPetOldCustRate', 'mPetOldCustRate', (mkt.tem_pet_old_cust_rate || 0) + '%');
+    _setTxt('exTongOldCustRate', 'mTongOldCustRate', (mkt.old_customer_rate || 0) + '%');
+
+    // --- TOOLTIP CALCULATIONS ON HOVER & TOUCH ---
+    const _setTooltip = (id1, id2, text) => {
+        if (typeof id2 === 'string' && text === undefined) {
+            text = id2;
+            id2 = null;
+        }
+        [id1, id2].forEach(id => {
+            if (!id) return;
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.removeAttribute('title');
+            el.title = '';
+            el.removeAttribute('data-tooltip');
+            el.setAttribute('data-calc-text', text);
+
+            el.onmouseenter = (e) => execShowHoverTooltip(e, text);
+            el.onmousemove = (e) => execMoveHoverTooltip(e);
+            el.onmouseleave = () => execHideHoverTooltip();
+            el.ontouchstart = (e) => {
+                const touch = e.touches[0];
+                execShowHoverTooltip({ clientX: touch.clientX, clientY: touch.clientY }, text);
+                setTimeout(() => execHideHoverTooltip(), 3500);
+            };
+
+            if (el.parentElement && el.parentElement.tagName === 'DIV') {
+                const p = el.parentElement;
+                p.removeAttribute('title');
+                p.title = '';
+                p.removeAttribute('data-tooltip');
+                p.setAttribute('data-calc-text', text);
+                p.onmouseenter = (e) => execShowHoverTooltip(e, text);
+                p.onmousemove = (e) => execMoveHoverTooltip(e);
+                p.onmouseleave = () => execHideHoverTooltip();
+                p.ontouchstart = (e) => {
+                    const touch = e.touches[0];
+                    execShowHoverTooltip({ clientX: touch.clientX, clientY: touch.clientY }, text);
+                    setTimeout(() => execHideHoverTooltip(), 3500);
+                };
+            }
+
+            const card = el.closest('.exec-kpi-card') || el.closest('.kpi-card');
+            if (card) {
+                card.removeAttribute('title');
+                card.title = '';
+                card.removeAttribute('data-tooltip');
+                if (!card.dataset.hasTooltip) {
+                    card.dataset.hasTooltip = 'true';
+                    card.onmouseenter = (e) => {
+                        const curText = el.getAttribute('data-calc-text') || text;
+                        execShowHoverTooltip(e, curText);
+                    };
+                    card.onmousemove = (e) => execMoveHoverTooltip(e);
+                    card.onmouseleave = () => execHideHoverTooltip();
+                    card.ontouchstart = (e) => {
+                        const touch = e.touches[0];
+                        const curText = el.getAttribute('data-calc-text') || text;
+                        execShowHoverTooltip({ clientX: touch.clientX, clientY: touch.clientY }, curText);
+                        setTimeout(() => execHideHoverTooltip(), 3500);
+                    };
+                }
+            }
+        });
+    };
+
+    // 1. CPO Tooltips
+    const dpCPOCalc = `Phép tính CPO Đồng Phục: ${formatCurrency(mkt.dong_phuc_spent || 0)} (Chi Phí QC) ÷ ${exec.dong_phuc_orders || 0} (Số Đơn) = ${formatCurrency(mkt.dong_phuc_cpo || 0)}/đơn`;
+    const petCPOCalc = `Phép tính CPO Tem PET: ${formatCurrency(mkt.tem_pet_spent || 0)} (Chi Phí QC) ÷ ${exec.tem_pet_orders || 0} (Số Đơn) = ${formatCurrency(mkt.tem_pet_cpo || 0)}/đơn`;
+    const tongCPOCalc = `Phép tính CPO Công Ty: ${formatCurrency(mkt.spent_amount || 0)} (Chi Phí QC) ÷ ${exec.total_orders || 0} (Số Đơn) = ${formatCurrency(mkt.cpo || 0)}/đơn`;
+    let mainCPOTitle = tongCPOCalc;
+    if (mode === 'dong_phuc') mainCPOTitle = dpCPOCalc;
+    else if (mode === 'tem_pet') mainCPOTitle = petCPOCalc;
+
+    _setTooltip('exCPO', 'mCPONum', mainCPOTitle);
+    _setTooltip('exDongPhucCPO', 'mDpCPO', dpCPOCalc);
+    _setTooltip('exTemPetCPO', 'mPetCPO', petCPOCalc);
+    _setTooltip('exTongCPO', 'mTongCPO', tongCPOCalc);
+
+    // 2. % Chi Phí Tooltips
+    const dpRatioCalc = `Phép tính % Chi Phí Đồng Phục: (${formatCurrency(mkt.dong_phuc_spent || 0)} ÷ ${formatCurrency(exec.dong_phuc_revenue || 0)}) × 100% = ${mkt.dong_phuc_cost_ratio || 0}%`;
+    const petRatioCalc = `Phép tính % Chi Phí Tem PET: (${formatCurrency(mkt.tem_pet_spent || 0)} ÷ ${formatCurrency(exec.tem_pet_revenue || 0)}) × 100% = ${mkt.tem_pet_cost_ratio || 0}%`;
+    const tongRatioCalc = `Phép tính % Chi Phí Công Ty: (${formatCurrency(mkt.spent_amount || 0)} ÷ ${formatCurrency(exec.total_revenue || 0)}) × 100% = ${mkt.cost_ratio || 0}%`;
+    let mainRatioTitle = tongRatioCalc;
+    if (mode === 'dong_phuc') mainRatioTitle = dpRatioCalc;
+    else if (mode === 'tem_pet') mainRatioTitle = petRatioCalc;
+
+    _setTooltip('exRatio', 'mRatioNum', mainRatioTitle);
+    _setTooltip('exDongPhucRatio', 'mDpRatio', dpRatioCalc);
+    _setTooltip('exTemPetRatio', 'mPetRatio', petRatioCalc);
+    _setTooltip('exTongRatio', 'mTongRatio', tongRatioCalc);
+
+    // 3. Tỷ Lệ Chốt Tooltips
+    const dpRateCalc = `Phép tính Tỷ Lệ Chốt Đồng Phục: (${exec.dong_phuc_orders || 0} đơn ÷ ${mkt.dong_phuc_leads || 0} Lead) × 100% = ${mkt.dong_phuc_close_rate || 0}%`;
+    const petRateCalc = `Phép tính Tỷ Lệ Chốt Tem PET: (${exec.tem_pet_orders || 0} đơn ÷ ${mkt.tem_pet_leads || 0} Lead) × 100% = ${mkt.tem_pet_close_rate || 0}%`;
+    const tongRateCalc = `Phép tính Tỷ Lệ Chốt Công Ty: (${exec.total_orders || 0} đơn ÷ ${mkt.lead_count || 0} Lead) × 100% = ${mkt.close_rate || 0}%`;
+    let mainRateTitle = tongRateCalc;
+    if (mode === 'dong_phuc') mainRateTitle = dpRateCalc;
+    else if (mode === 'tem_pet') mainRateTitle = petRateCalc;
+
+    _setTooltip('exRate', 'mRateNum', mainRateTitle);
+    _setTooltip('exDongPhucRate', 'mDpRate', dpRateCalc);
+    _setTooltip('exTemPetRate', 'mPetRate', petRateCalc);
+    _setTooltip('exTongRate', 'mTongRate', tongRateCalc);
+
+    // 4. Số Đơn Chốt Tooltips
+    const dpOrdersCalc = `Số Đơn Chốt Đồng Phục: ${dpOrders} đơn (loại trừ đơn hủy & gửi mẫu)`;
+    const petOrdersCalc = `Số Đơn Chốt Tem PET: ${petOrders} đơn (loại trừ đơn hủy & gửi mẫu)`;
+    const tongOrdersCalc = `Tổng Số Đơn Chốt Công Ty: ${exec.total_orders || mkt.closed_orders || 0} đơn (tất cả các mảng)`;
+    let mainOrdersTitle = tongOrdersCalc;
+    if (mode === 'dong_phuc') mainOrdersTitle = dpOrdersCalc;
+    else if (mode === 'tem_pet') mainOrdersTitle = petOrdersCalc;
+
+    _setTooltip('exOrdersNum', 'mOrdersNum', mainOrdersTitle);
+    _setTooltip('exDongPhucOrders', 'mDpOrders', dpOrdersCalc);
+    _setTooltip('exTemPetOrders', 'mPetOrders', petOrdersCalc);
+    _setTooltip('exTongOrders', 'mTongOrders', tongOrdersCalc);
+
+    // 5. Doanh Số Chốt Tooltips
+    const dpRevCalc = `Doanh Số Chốt Đồng Phục: ${formatCurrency(dpRev)}`;
+    const petRevCalc = `Doanh Số Chốt Tem PET: ${formatCurrency(petRev)}`;
+    const tongRevCalc = `Tổng Doanh Số Chốt Công Ty: ${formatCurrency(exec.total_revenue || mkt.revenue || 0)}`;
+    let mainRevTitle = tongRevCalc;
+    if (mode === 'dong_phuc') mainRevTitle = dpRevCalc;
+    else if (mode === 'tem_pet') mainRevTitle = petRevCalc;
+
+    _setTooltip('exRevNum', 'mRevNum', mainRevTitle);
+    _setTooltip('exDongPhucRev', 'mDpRev', dpRevCalc);
+    _setTooltip('exTemPetRev', 'mPetRev', petRevCalc);
+    _setTooltip('exTongRev', 'mTongRev', tongRevCalc);
+
+    // 6. % Khách Cũ Tooltips
+    const dpOldCustCalc = `Phép tính % Khách Cũ Đồng Phục: (${exec.dong_phuc_ret_cust || mkt.dong_phuc_ret_cust || 0} KH quay lại ÷ ${exec.dong_phuc_old_pool || mkt.dong_phuc_old_pool || 0} KH cũ đầu kỳ) × 100% = ${mkt.dong_phuc_old_cust_rate || 0}%`;
+    const petOldCustCalc = `Phép tính % Khách Cũ Tem PET: (${exec.tem_pet_ret_cust || mkt.tem_pet_ret_cust || 0} KH quay lại ÷ ${exec.tem_pet_old_pool || mkt.tem_pet_old_pool || 0} KH cũ đầu kỳ) × 100% = ${mkt.tem_pet_old_cust_rate || 0}%`;
+    const tongOldCustCalc = `Phép tính % Khách Cũ Công Ty: (${exec.total_ret_cust || mkt.total_ret_cust || 0} KH quay lại ÷ ${exec.total_old_pool || mkt.total_old_pool || 0} KH cũ đầu kỳ) × 100% = ${mkt.old_customer_rate || 0}%`;
+    let mainOldCustTitle = tongOldCustCalc;
+    if (mode === 'dong_phuc') mainOldCustTitle = dpOldCustCalc;
+    else if (mode === 'tem_pet') mainOldCustTitle = petOldCustCalc;
+
+    _setTooltip('exOldCustRateNum', 'mOldCustRateNum', mainOldCustTitle);
+    _setTooltip('exDongPhucOldCustRate', 'mDpOldCustRate', dpOldCustCalc);
+    _setTooltip('exTemPetOldCustRate', 'mPetOldCustRate', petOldCustCalc);
+    _setTooltip('exTongOldCustRate', 'mTongOldCustRate', tongOldCustCalc);
+
+    // 7. Số Đơn Ads (MKT) Tooltips
+    const dpMktOrdersCalc = `Số Đơn Chốt Từ QC Ads Đồng Phục: ${mkt.dong_phuc_mkt_ads_orders || 0} đơn`;
+    const petMktOrdersCalc = `Số Đơn Chốt Từ QC Ads Tem PET: ${mkt.tem_pet_mkt_ads_orders || 0} đơn`;
+    const tongMktOrdersCalc = `Tổng Số Đơn Chốt Từ QC Ads Công Ty: ${mkt.mkt_ads_orders || mkt.closed_orders || 0} đơn`;
+    let mainMktOrdersTitle = tongMktOrdersCalc;
+    if (mode === 'dong_phuc') mainMktOrdersTitle = dpMktOrdersCalc;
+    else if (mode === 'tem_pet') mainMktOrdersTitle = petMktOrdersCalc;
+
+    _setTooltip('exMktAdsOrdersNum', 'mMktAdsOrdersNum', mainMktOrdersTitle);
+    _setTooltip('exDongPhucMktOrders', 'mDpMktOrders', dpMktOrdersCalc);
+    _setTooltip('exTemPetMktOrders', 'mPetMktOrders', petMktOrdersCalc);
+    _setTooltip('exTongMktOrders', 'mTongMktOrders', tongMktOrdersCalc);
+
+    // 8. Doanh Số Ads (MKT) Tooltips
+    const dpMktRevCalc = `Doanh Số Từ QC Ads Đồng Phục: ${formatCurrency(mkt.dong_phuc_mkt_ads_revenue || 0)}`;
+    const petMktRevCalc = `Doanh Số Từ QC Ads Tem PET: ${formatCurrency(mkt.tem_pet_mkt_ads_revenue || 0)}`;
+    const tongMktRevCalc = `Tổng Doanh Số Từ QC Ads Công Ty: ${formatCurrency(mkt.mkt_ads_revenue || mkt.revenue || 0)}`;
+    let mainMktRevTitle = tongMktRevCalc;
+    if (mode === 'dong_phuc') mainMktRevTitle = dpMktRevCalc;
+    else if (mode === 'tem_pet') mainMktRevTitle = petMktRevCalc;
+
+    _setTooltip('exMktAdsRevNum', 'mMktAdsRevNum', mainMktRevTitle);
+    _setTooltip('exDongPhucMktRev', 'mDpMktRev', dpMktRevCalc);
+    _setTooltip('exTemPetMktRev', 'mPetMktRev', petMktRevCalc);
+    _setTooltip('exTongMktRev', 'mTongMktRev', tongMktRevCalc);
+
+    // 9. Giá / Đơn Ads (CPO Ads) Tooltips
+    const dpCPOAdsCalc = `Phép tính CPO Ads Đồng Phục: ${formatCurrency(mkt.dong_phuc_spent || 0)} (Chi Phí QC) ÷ ${mkt.dong_phuc_mkt_ads_orders || 0} (Đơn Ads) = ${formatCurrency(mkt.dong_phuc_cpo_ads || 0)}/đơn Ads`;
+    const petCPOAdsCalc = `Phép tính CPO Ads Tem PET: ${formatCurrency(mkt.tem_pet_spent || 0)} (Chi Phí QC) ÷ ${mkt.tem_pet_mkt_ads_orders || 0} (Đơn Ads) = ${formatCurrency(mkt.tem_pet_cpo_ads || 0)}/đơn Ads`;
+    const tongCPOAdsCalc = `Phép tính CPO Ads Công Ty: ${formatCurrency(mkt.spent_amount || 0)} (Chi Phí QC) ÷ ${mkt.mkt_ads_orders || 0} (Đơn Ads) = ${formatCurrency(mkt.cpo_ads || 0)}/đơn Ads`;
+    let mainCPOAdsTitle = tongCPOAdsCalc;
+    if (mode === 'dong_phuc') mainCPOAdsTitle = dpCPOAdsCalc;
+    else if (mode === 'tem_pet') mainCPOAdsTitle = petCPOAdsCalc;
+
+    _setTooltip('exCPOAdsNum', 'mCPOAdsNum', mainCPOAdsTitle);
+    _setTooltip('exDongPhucCPOAds', 'mDpCPOAds', dpCPOAdsCalc);
+    _setTooltip('exTemPetCPOAds', 'mPetCPOAds', petCPOAdsCalc);
+    _setTooltip('exTongCPOAds', 'mTongCPOAds', tongCPOAdsCalc);
+
+    // 10. % Chi Phí / DT Ads Tooltips
+    const dpRatioAdsCalc = `Phép tính % Chi Phí Ads Đồng Phục: (${formatCurrency(mkt.dong_phuc_spent || 0)} ÷ ${formatCurrency(mkt.dong_phuc_mkt_ads_revenue || 0)}) × 100% = ${mkt.dong_phuc_cost_ratio_ads || 0}%`;
+    const petRatioAdsCalc = `Phép tính % Chi Phí Ads Tem PET: (${formatCurrency(mkt.tem_pet_spent || 0)} ÷ ${formatCurrency(mkt.tem_pet_mkt_ads_revenue || 0)}) × 100% = ${mkt.cost_ratio_ads || 0}%`;
+    const tongRatioAdsCalc = `Phép tính % Chi Phí Ads Công Ty: (${formatCurrency(mkt.spent_amount || 0)} ÷ ${formatCurrency(mkt.mkt_ads_revenue || 0)}) × 100% = ${mkt.cost_ratio_ads || 0}%`;
+    let mainRatioAdsTitle = tongRatioAdsCalc;
+    if (mode === 'dong_phuc') mainRatioAdsTitle = dpRatioAdsCalc;
+    else if (mode === 'tem_pet') mainRatioAdsTitle = petRatioAdsCalc;
+
+    _setTooltip('exRatioAdsNum', 'mRatioAdsNum', mainRatioAdsTitle);
+    _setTooltip('exDongPhucRatioAds', 'mDpRatioAds', dpRatioAdsCalc);
+    _setTooltip('exTemPetRatioAds', 'mPetRatioAds', petRatioAdsCalc);
+    _setTooltip('exTongRatioAds', 'mTongRatioAds', tongRatioAdsCalc);
+
+    // 11. Tỷ Lệ Chốt Ads Tooltips
+    const dpAdsRateCalc = `Phép tính Tỷ Lệ Chốt Ads Đồng Phục: (${mkt.dong_phuc_mkt_ads_orders || 0} đơn Ads ÷ ${mkt.dong_phuc_leads || 0} Lead) × 100% = ${mkt.dong_phuc_ads_close_rate || 0}%`;
+    const petAdsRateCalc = `Phép tính Tỷ Lệ Chốt Ads Tem PET: (${mkt.tem_pet_mkt_ads_orders || 0} đơn Ads ÷ ${mkt.tem_pet_leads || 0} Lead) × 100% = ${mkt.tem_pet_ads_close_rate || 0}%`;
+    const tongAdsRateCalc = `Phép tính Tỷ Lệ Chốt Ads Công Ty: (${mkt.mkt_ads_orders || 0} đơn Ads ÷ ${mkt.lead_count || 0} Lead) × 100% = ${mkt.mkt_ads_close_rate || 0}%`;
+    let mainAdsRateTitle = tongAdsRateCalc;
+    if (mode === 'dong_phuc') mainAdsRateTitle = dpAdsRateCalc;
+    else if (mode === 'tem_pet') mainAdsRateTitle = petAdsRateCalc;
+
+    _setTooltip('exAdsRateNum', 'mAdsRateNum', mainAdsRateTitle);
+    _setTooltip('exDongPhucAdsRate', 'mDpAdsRate', dpAdsRateCalc);
+    _setTooltip('exTemPetAdsRate', 'mPetAdsRate', petAdsRateCalc);
+    _setTooltip('exTongAdsRate', 'mTongAdsRate', tongAdsRateCalc);
+
+    // 12. Chi Phí Quảng Cáo Tooltips
+    const dpSpentCalc = `Chi phí Marketing QC Đồng Phục: ${formatCurrency(mkt.dong_phuc_spent || 0)}`;
+    const petSpentCalc = `Chi phí Marketing QC Tem PET: ${formatCurrency(mkt.tem_pet_spent || 0)}`;
+    const tongSpentCalc = `Tổng chi phí Marketing QC Công Ty: ${formatCurrency(mkt.spent_amount || 0)}`;
+    let mainSpentTitle = tongSpentCalc;
+    if (mode === 'dong_phuc') mainSpentTitle = dpSpentCalc;
+    else if (mode === 'tem_pet') mainSpentTitle = petSpentCalc;
+
+    _setTooltip('exSpentNum', 'mSpentNum', mainSpentTitle);
+    _setTooltip('exDongPhucSpent', 'mDpSpent', dpSpentCalc);
+    _setTooltip('exTemPetSpent', 'mPetSpent', petSpentCalc);
+    _setTooltip('exTongSpent', 'mTongSpent', tongSpentCalc);
+
+    // 13. CPL & Lead Tooltips
+    const dpCPLCalc = `Phép tính CPL Đồng Phục: ${formatCurrency(mkt.dong_phuc_spent || 0)} (Chi Phí QC) ÷ ${mkt.dong_phuc_leads || 0} (Lead) = ${formatCurrency(mkt.dong_phuc_cpl || 0)}/lead`;
+    const petCPLCalc = `Phép tính CPL Tem PET: ${formatCurrency(mkt.tem_pet_spent || 0)} (Chi Phí QC) ÷ ${mkt.tem_pet_leads || 0} (Lead) = ${formatCurrency(mkt.tem_pet_cpl || 0)}/lead`;
+    const tongCPLCalc = `Phép tính CPL Công Ty: ${formatCurrency(mkt.spent_amount || 0)} (Chi Phí QC) ÷ ${mkt.lead_count || 0} (Lead) = ${formatCurrency(mkt.cpl || 0)}/lead`;
+    let mainCPLTitle = tongCPLCalc;
+    if (mode === 'dong_phuc') mainCPLTitle = dpCPLCalc;
+    else if (mode === 'tem_pet') mainCPLTitle = petCPLCalc;
+
+    _setTooltip('exCPLNum', 'mCPLNum', mainCPLTitle);
+    _setTooltip('exDongPhucCPL', 'mDpCPL', dpCPLCalc);
+    _setTooltip('exTemPetCPL', 'mPetCPL', petCPLCalc);
+    _setTooltip('exTongCPL', 'mTongCPL', tongCPLCalc);
+
+    const dpLeadCalc = `Số Lead Đồng Phục: ${mkt.dong_phuc_leads || 0} lead MKT`;
+    const petLeadCalc = `Số Lead Tem PET: ${mkt.tem_pet_leads || 0} lead MKT`;
+    const tongLeadCalc = `Tổng Số Lead Công Ty: ${mkt.lead_count || 0} lead MKT`;
+    let mainLeadTitle = tongLeadCalc;
+    if (mode === 'dong_phuc') mainLeadTitle = dpLeadCalc;
+    else if (mode === 'tem_pet') mainLeadTitle = petLeadCalc;
+
+    _setTooltip('exLeadNum', 'mLeadNum', mainLeadTitle);
+    _setTooltip('exDongPhucLeadCnt', 'mDpLeadCnt', dpLeadCalc);
+    _setTooltip('exTemPetLeadCnt', 'mPetLeadCnt', petLeadCalc);
+    _setTooltip('exTongLeadCnt', 'mTongLeadCnt', tongLeadCalc);
+
+    // ★ Auto-render charts with default "both" (Doanh Thu + Số Đơn) selected on page load
+    if (!window._hasUserInteractedTrendMode) {
+        window._execSelectedTrendModes = new Set(['revenue', 'orders']);
+        window._execTrendMode = 'both';
+    }
+    _updateTrendModeButtonsUI();
+    if (typeof Chart !== 'undefined') {
+        _renderExecCharts();
+    }
+}
+
+function _formatGlobalStatusLabel(st) {
+    if (!st) return 'Chưa xác định';
+    const statusMap = {
+        'moi': 'Mới',
+        'dang_tu_van': 'Đang tư vấn',
+        'chot_don': 'Chốt đơn',
+        'gui_mau': 'Gửi mẫu',
+        'san_xuat': 'Sản xuất',
+        'hoan_thanh': 'Hoàn thành',
+        'huy': 'Hủy',
+        'da_thu_tien': 'Đã thu tiền'
+    };
+    return statusMap[st] || st;
+}
+
+function _renderExecCharts() {
+    if (!_dashData || !window.Chart) return;
+    const charts = _dashData.charts || {};
+
+    // 1. Trend Chart
+    ['exChartTrend', 'chartTrend'].forEach(canvasId => {
+        const trendCtx = document.getElementById(canvasId)?.getContext('2d');
+        if (trendCtx) {
+            if (_dashCharts[canvasId]) _dashCharts[canvasId].destroy();
+            const trendData = charts.revenue_trend || { labels: [], revenue: [], orders: [] };
+
+            const selected = window._execSelectedTrendModes || new Set(['revenue', 'orders']);
+            let datasets = [];
+            let scalesConfig = {};
+
+            let hasCurrency = false;
+            let hasOrders = false;
+            let hasPct = false;
+
+            if (selected.has('revenue')) {
+                hasCurrency = true;
+                datasets.push({
+                    label: 'Doanh Thu (VNĐ)',
+                    data: trendData.revenue || [],
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                    yAxisID: 'yRev',
+                    fill: selected.size === 1,
+                    tension: 0.3,
+                    borderWidth: 2.5
+                });
+            }
+            if (selected.has('cpo')) {
+                hasCurrency = true;
+                datasets.push({
+                    label: 'Giá/Đơn CPO (đ/đơn)',
+                    data: trendData.cpo || [],
+                    borderColor: '#dc2626',
+                    backgroundColor: 'rgba(220, 38, 38, 0.08)',
+                    yAxisID: 'yRev',
+                    fill: selected.size === 1,
+                    tension: 0.3,
+                    borderWidth: 2.5
+                });
+            }
+            if (selected.has('cpo_ads')) {
+                hasCurrency = true;
+                datasets.push({
+                    label: 'Giá/Đơn Ads (đ/đơn Ads)',
+                    data: trendData.cpo_ads || [],
+                    borderColor: '#e11d48',
+                    backgroundColor: 'rgba(225, 29, 72, 0.08)',
+                    yAxisID: 'yRev',
+                    fill: selected.size === 1,
+                    tension: 0.3,
+                    borderWidth: 2.5
+                });
+            }
+            if (selected.has('orders')) {
+                hasOrders = true;
+                datasets.push({
+                    label: 'Số Đơn Hàng',
+                    data: trendData.orders || [],
+                    borderColor: '#16a34a',
+                    backgroundColor: 'rgba(22, 163, 74, 0.08)',
+                    yAxisID: 'yOrd',
+                    fill: selected.size === 1,
+                    tension: 0.3,
+                    borderWidth: 2.5
+                });
+            }
+            if (selected.has('close_rate')) {
+                hasPct = true;
+                datasets.push({
+                    label: 'Tỷ Lệ % Chốt MKT (%)',
+                    data: trendData.close_rate || [],
+                    borderColor: '#ea580c',
+                    backgroundColor: 'rgba(234, 88, 12, 0.08)',
+                    yAxisID: 'yPct',
+                    fill: selected.size === 1,
+                    tension: 0.3,
+                    borderWidth: 2.5
+                });
+            }
+            if (selected.has('ads_close_rate')) {
+                hasPct = true;
+                datasets.push({
+                    label: 'Tỷ Lệ % Chốt Ads (%)',
+                    data: trendData.ads_close_rate || [],
+                    borderColor: '#d97706',
+                    backgroundColor: 'rgba(217, 119, 6, 0.08)',
+                    yAxisID: 'yPct',
+                    fill: selected.size === 1,
+                    tension: 0.3,
+                    borderWidth: 2.5
+                });
+            }
+            if (selected.has('old_cust_rate')) {
+                hasPct = true;
+                datasets.push({
+                    label: 'Tỷ Lệ % Khách Cũ Quay Lại (%)',
+                    data: trendData.old_cust_rate || [],
+                    borderColor: '#c026d3',
+                    backgroundColor: 'rgba(192, 38, 211, 0.08)',
+                    yAxisID: 'yPct',
+                    fill: selected.size === 1,
+                    tension: 0.3,
+                    borderWidth: 2.5
+                });
+            }
+
+            if (hasCurrency) {
+                scalesConfig.yRev = {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : (v >= 1e3 ? (v/1e3).toFixed(0) + 'k' : v)) + 'đ' }
+                };
+            }
+            if (hasOrders) {
+                scalesConfig.yOrd = {
+                    type: 'linear',
+                    display: true,
+                    position: hasCurrency ? 'right' : 'left',
+                    grid: { drawOnChartArea: !hasCurrency },
+                    ticks: { precision: 0, callback: v => v + ' đơn' }
+                };
+            }
+            if (hasPct) {
+                scalesConfig.yPct = {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: !(hasCurrency || hasOrders) },
+                    ticks: { callback: v => v + '%' }
+                };
+            }
+
+            // Update Stat Badge in header
+            ['exTrendStatBadge', 'mTrendStatBadge'].forEach(statId => {
+                const statBadgeEl = document.getElementById(statId);
+                if (statBadgeEl) {
+                    const overallSummary = trendData.overall_summary || {};
+                    const mktSummary = _dashData.marketing || {};
+                    const segMode = window._execSegmentMode || 'dong_phuc';
+                    const selectedArr = Array.from(selected);
+
+                    if (selectedArr.length === 1) {
+                        const k = selectedArr[0];
+                        let valStr = '';
+                        if (k === 'revenue') valStr = `📌 Tổng Doanh Thu: ${formatCurrency((trendData.revenue || []).reduce((a, b) => a + b, 0))}`;
+                        else if (k === 'orders') valStr = `📌 Tổng Số Đơn: ${(trendData.orders || []).reduce((a, b) => a + b, 0)} đơn`;
+                        else if (k === 'cpo') valStr = `📌 CPO Tổng Cả Kỳ: ${formatCurrency(overallSummary.cpo ?? (segMode === 'dong_phuc' ? mktSummary.dong_phuc_cpo : mktSummary.cpo))}`;
+                        else if (k === 'cpo_ads') valStr = `📌 CPO Ads Cả Kỳ: ${formatCurrency(overallSummary.cpo_ads ?? (segMode === 'dong_phuc' ? mktSummary.dong_phuc_cpo_ads : mktSummary.cpo_ads))}`;
+                        else if (k === 'close_rate') valStr = `📌 % Chốt Cả Kỳ: ${overallSummary.close_rate ?? (segMode === 'dong_phuc' ? mktSummary.dong_phuc_close_rate : mktSummary.close_rate)}%`;
+                        else if (k === 'ads_close_rate') valStr = `📌 % Chốt Ads Cả Kỳ: ${overallSummary.ads_close_rate ?? (segMode === 'dong_phuc' ? mktSummary.dong_phuc_ads_close_rate : mktSummary.mkt_ads_close_rate)}%`;
+                        else if (k === 'old_cust_rate') valStr = `📌 % Khách Cũ Cả Kỳ: ${overallSummary.old_customer_rate ?? (segMode === 'dong_phuc' ? mktSummary.dong_phuc_old_cust_rate : mktSummary.old_customer_rate)}%`;
+                        statBadgeEl.innerText = valStr;
+                    } else {
+                        statBadgeEl.innerText = `📌 Đã bật ${selectedArr.length} đường chỉ số cùng lúc`;
+                    }
+                }
+            });
+
+            _dashCharts[canvasId] = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: trendData.labels || [],
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (evt, elements) => {
+                        execOpenTrendExpandModal();
+                    },
+                    plugins: {
+                        legend: { display: datasets.length > 1, position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        const val = context.parsed.y;
+                                        const yId = context.dataset.yAxisID;
+                                        if (yId === 'yRev') {
+                                            label += formatCurrency(val);
+                                        } else if (yId === 'yPct') {
+                                            label += val + '%';
+                                        } else if (yId === 'yOrd') {
+                                            label += val + ' đơn';
+                                        } else {
+                                            label += val;
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: scalesConfig
+                }
+            });
+        }
+    });
+
+    // 2. Status Chart
+    const statusCtx = document.getElementById('exChartStatus')?.getContext('2d');
+    if (statusCtx) {
+        if (_dashCharts.status) _dashCharts.status.destroy();
+        const statusList = charts.order_statuses || [];
+        _dashCharts.status = new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: statusList.map(s => _formatGlobalStatusLabel(s.label || s.status)),
+                datasets: [{
+                    data: statusList.map(s => s.count),
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#6366f1', '#ef4444', '#94a3b8', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#a855f7']
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                onClick: (evt, elements) => {
+                    if (elements && elements.length > 0) {
+                        const idx = elements[0].index;
+                        const stObj = statusList[idx];
+                        const statusLabel = _formatGlobalStatusLabel(stObj?.label || stObj?.status || '');
+                        const statusCode = stObj?.status || 'all';
+                        execShowOrdersModal(null, null, null, `🍩 Báo Cáo Chi Tiết Đơn Hàng — Trạng Thái: ${statusLabel}`, statusCode);
+                    } else {
+                        execShowOrdersModal(null, null, null, '🍩 Chi Tiết Cơ Cấu Trạng Thái Đơn Hàng');
+                    }
+                },
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { weight: 'bold' } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const val = context.parsed || 0;
+                                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                return ` ${context.label}: ${val} đơn (${pct}%) — Bấm để xem chi tiết`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 3. Top Products Chart
+    const prodCtx = document.getElementById('exChartTopProd')?.getContext('2d');
+    if (prodCtx) {
+        if (_dashCharts.prod) _dashCharts.prod.destroy();
+        const topProds = charts.top_products || [];
+        _dashCharts.prod = new Chart(prodCtx, {
+            type: 'bar',
+            data: {
+                labels: topProds.map(p => p.name),
+                datasets: [{
+                    label: 'Doanh Thu',
+                    data: topProds.map(p => p.revenue),
+                    backgroundColor: '#f59e0b', borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } } }
+            }
+        });
+    }
+
+    // 4. Top Customers Chart
+    const custCtx = document.getElementById('exChartTopCust')?.getContext('2d');
+    if (custCtx) {
+        if (_dashCharts.cust) _dashCharts.cust.destroy();
+        const topCusts = charts.top_customers || [];
+        _dashCharts.cust = new Chart(custCtx, {
+            type: 'bar',
+            data: {
+                labels: topCusts.map(c => c.name),
+                datasets: [{
+                    label: 'Doanh Thu',
+                    data: topCusts.map(c => c.revenue),
+                    backgroundColor: '#6366f1', borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                onClick: (evt, elements) => {
+                    if (elements && elements.length > 0) {
+                        const idx = elements[0].index;
+                        const custName = topCusts[idx]?.name;
+                        if (custName) {
+                            execShowOrdersModal(null, null, custName, `👑 Báo Cáo Khách Hàng VIP - ${custName}`);
+                        }
+                    } else {
+                        execShowOrdersModal(null, null, null, '👑 Top Khách Hàng Tiêu Biểu (VIP)');
+                    }
+                },
+                plugins: { legend: { display: false } },
+                scales: { x: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } } }
+            }
+        });
+    }
+
+    // 5. Top Sales Chart
+    const salesCtx = document.getElementById('exChartTopSales')?.getContext('2d');
+    if (salesCtx) {
+        if (_dashCharts.sales) _dashCharts.sales.destroy();
+        const topSalesList = charts.top_sales || [];
+        _dashCharts.sales = new Chart(salesCtx, {
+            type: 'bar',
+            data: {
+                labels: topSalesList.map(s => s.name),
+                datasets: [{
+                    label: 'Doanh Thu',
+                    data: topSalesList.map(s => s.revenue),
+                    backgroundColor: '#10b981', borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                onClick: (evt, elements) => {
+                    if (elements && elements.length > 0) {
+                        const idx = elements[0].index;
+                        const staffName = topSalesList[idx]?.name;
+                        if (staffName) {
+                            execShowOrdersModal(null, staffName, null, `🏆 Báo Cáo Doanh Thu Nhân Viên - ${staffName}`);
+                        }
+                    } else {
+                        execShowOrdersModal(null, null, null, '🏆 Doanh Thu Theo Nhân Viên Bán Hàng');
+                    }
+                },
+                plugins: { legend: { display: false } },
+                scales: { y: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } } }
+            }
+        });
     }
 }
 
@@ -2631,6 +6615,7 @@ async function renderDashboardPage(container) {
 var _PAGE_INIT_REGISTRY = {
     'camketcuochop': 'renderCamketcuochopPage',
     'cam-ket-cuoc-hop': 'renderCamketcuochopPage',
+    'bangcongviec': 'renderBangcongviecPage',
     'tong-doanh-so-sale': 'renderTongdoanhsosalePage',
     'tongdoansosale': 'renderTongdoanhsosalePage',
     'ngansachmkt': 'renderNgansachmktPage',
@@ -3096,7 +7081,11 @@ async function apiCall(url, method = 'GET', body = null) {
         throw new Error('Lỗi phản hồi máy chủ. Vui lòng bấm Thử lại.');
     }
     if (!res.ok) {
-        throw new Error(data.error || data.message || ('Lỗi HTTP ' + res.status));
+        const err = new Error(data.error || data.message || ('Lỗi HTTP ' + res.status));
+        err.status = res.status;
+        err.data = data;
+        err.warn_existing_deposit = data.warn_existing_deposit;
+        throw err;
     }
     return data;
 }
@@ -4382,9 +8371,12 @@ async function _abCheckUnblock() {
         if (el.closest && el.closest('.ts-step-icon, .order-step-btn, [onclick*="_tsOpenStepModal"], [onclick*="_tsShowRescheduleHistoryModal"]')) return true;
         // KPI table rows, team cards, and order modal triggers — safe to click
         if (el.closest && el.closest('.kpi-tbl, .kpi-lb-row, .kpi-tc-card, .kpi-modal, [onclick*="kpiShow"], [onclick*="kpiFilter"], [onclick*="kpiClose"]')) return true;
-        // Meeting commitment buttons — Tạo Cuộc Họp, Mẫu, Đóng Cuộc Họp, etc.
-        if (el.classList && (el.classList.contains('kpi-mc-btn') || el.classList.contains('kpi-mc-btn-primary') || el.classList.contains('kpi-mc-btn-ghost') || el.classList.contains('ckch-pill') || el.classList.contains('ckch-dept-tag'))) return true;
-        if (el.closest && el.closest('.kpi-mc-modal, .kpi-mc-modal-overlay, .kpi-mc-section, .ckch-session-card, .ckch-header, .ckch-tbl, [onclick*="_ckch"]')) return true;
+        // KPI Marketing buttons — exempt from anti-double click debouncing
+        if (el.closest && el.closest('#kpiMktHandlersContainer, .kpi-v2-modal, [onclick*="kpiMkt"]')) return true;
+        // Customer detail openers, customer pills, and consult history triggers — exempt from anti-double click debouncing
+        // Bảng Công Việc buttons & modals — exempt from anti-double click debouncing
+        if (el.closest && el.closest('[onclick*="_bcv"], [onclick*="bcv"], .bcv-modal, .bcv-card, .bcv-overlay')) return true;
+        if (txt.indexOf('Bỏ gán') >= 0 || txt.indexOf('Bỏ Gán') >= 0 || txt.indexOf('Xóa Bảng') >= 0) return true;
         return false;
     }
 

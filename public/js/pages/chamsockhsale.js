@@ -34,6 +34,7 @@ var _saleConsultTypes = {
     giuc_coc: { label: 'Giục Cọc', icon: '⏰', color: '#ea580c' },
     dat_coc: { label: 'Đặt Cọc', icon: '💵', color: '#f97316' },
     chot_don: { label: 'Chốt Đơn', icon: '✅', color: '#22c55e' },
+    tu_van_don_tiep: { label: 'Tư Vấn Đơn Tiếp', icon: '📝', color: '#0ea5e9' },
     dang_san_xuat: { label: 'Đang Sản Xuất', icon: '🏭', color: '#8b5cf6' },
     hoan_thanh: { label: 'Hoàn Thành Đơn', icon: '🏆', color: '#0d9488', textColor: 'white' },
     sau_ban_hang: { label: 'Chăm Sóc Sau Bán', icon: '📦', color: '#0ea5e9' },
@@ -274,13 +275,17 @@ function _saleIsBirthdayToday(bdayStr) {
 }
 
 function _saleGetCategory(c, stats) {
-    if (c.cancel_approved === 1) return 'huy_khach';
-    if (c.cancel_requested === 1 && c.cancel_approved === 0) {
-        if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
-        return 'huy_khach';
-    }
-    if (c.last_consult_type === 'huy' && c.cancel_approved !== -2) {
-        return 'huy_khach';
+    const s = stats ? stats[c.id] : null;
+    const lastType = s?.lastLog?.log_type;
+    if (!lastType || lastType === 'huy') {
+        if (c.cancel_approved === 1) return 'huy_khach';
+        if (c.cancel_requested === 1 && c.cancel_approved === 0) {
+            if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
+            return 'huy_khach';
+        }
+        if (c.last_consult_type === 'huy' && c.cancel_approved !== -2) {
+            return 'huy_khach';
+        }
     }
 
     const today = new Date();
@@ -438,10 +443,14 @@ function _saleBuildDateFilterHTML() {
     html += `</div>`;
 
     if (_saleDatePreset === 'all') {
+        const curYr = new Date().getFullYear();
+        const startYr = curYr + 1;
+        let yrOptionsHtml = '';
+        for (let y = startYr; y >= 2024; y--) {
+            yrOptionsHtml += `<option value="${y}" ${_saleSelectedYear === y ? 'selected' : ''}>Năm ${y}</option>`;
+        }
         html += `<select id="saleDateYear" class="form-control" style="width:auto;padding:4px 8px;font-size:12px;height:30px;border-radius:6px;" onchange="_saleChangeYear(this.value)">
-            <option value="2026" ${_saleSelectedYear === 2026 ? 'selected' : ''}>Năm 2026</option>
-            <option value="2025" ${_saleSelectedYear === 2025 ? 'selected' : ''}>Năm 2025</option>
-            <option value="2024" ${_saleSelectedYear === 2024 ? 'selected' : ''}>Năm 2024</option>
+            ${yrOptionsHtml}
         </select>`;
     } else if (_saleDatePreset === 'custom') {
         html += `<div style="display:flex;align-items:center;gap:6px;">
@@ -645,7 +654,7 @@ function _saleGoToPage(page) {
 
 function _saleRenderCustomerRow(c, stats, stt) {
     const s = stats[c.id] || { consultCount: 0, chotDonCount: 0, lastLog: null, revenue: 0 };
-    const OVERRIDE_STATUSES = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy', 'chot_don', 'hoan_thanh', 'sau_ban_hang', 'dang_san_xuat'];
+    const OVERRIDE_STATUSES = [];
     let lastType = s.lastLog ? _saleConsultTypes[s.lastLog.log_type] : null;
     if (OVERRIDE_STATUSES.includes(c.order_status) && _saleConsultTypes[c.order_status]) {
         lastType = _saleConsultTypes[c.order_status];
@@ -728,6 +737,18 @@ function _saleRenderCustomerRow(c, stats, stt) {
                     style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg, #cbd5e1, #94a3b8);color:white;cursor:pointer;">
                     🔒 Báo Telegram
                 </button>
+            ` : (s.lastLog && s.lastLog.log_type !== 'huy') ? `
+                <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
+                    <button class="btn btn-sm consult-btn" onclick="_saleOpenConsultModal(${c.id})" 
+                        style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};flex-grow:1;">
+                        ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
+                    </button>
+                    <button class="btn btn-sm btn-star-${c.id}" onclick="event.stopPropagation();_saleQuickRecare(${c.id})" 
+                        style="font-size:12px;padding:4px 8px;background:#fef08a;color:#ca8a04;border:1px solid #fde047;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;" 
+                        title="Chăm sóc nhanh" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                        ⭐
+                    </button>
+                </div>
             ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
@@ -2039,6 +2060,12 @@ async function _saleSubmitConsultLog(customerId) {
             payload.append('appointment_date', apptSBH.trim());
         }
 
+        const inputCodeSale = document.getElementById('consultOrderCodeSale')?.value?.trim();
+        const validCodeSale = (inputCodeSale && inputCodeSale !== 'Đang tải...' && inputCodeSale !== 'Lỗi tải mã' && inputCodeSale !== 'Chưa cài mã đơn') ? inputCodeSale : null;
+        if (validCodeSale) {
+            payload.append('order_code', validCodeSale);
+        }
+
         const isZeroDepositCheckbox = document.getElementById('consultIsZeroDepositSale');
         if (isZeroDepositCheckbox && isZeroDepositCheckbox.checked) {
             payload.append('is_zero_deposit', 'true');
@@ -2098,7 +2125,7 @@ async function _saleSubmitConsultLog(customerId) {
 
         if (isTemPet && gcCat) {
             try {
-                const codeRes = await apiCall('/api/order-codes', 'POST', { customer_id: customerId, gc_category: gcCat });
+                const codeRes = await apiCall('/api/order-codes', 'POST', { customer_id: customerId, gc_category: gcCat, payment_record_id: recordId });
                 if (codeRes && codeRes.order_code) {
                     payload.set('gc_order_code', codeRes.order_code);
                     payload.set('target_order_code', codeRes.order_code);
@@ -2135,7 +2162,7 @@ async function _saleSubmitConsultLog(customerId) {
             showToast(res.error || 'Lỗi ghi nhận!', 'error');
         }
     } catch(e) {
-        showToast('Lỗi ghi nhận tư vấn!', 'error');
+        showToast(e.message || (e.data && e.data.message) || 'Lỗi ghi nhận tư vấn!', 'error');
     } finally {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '📝 GHI NHẬN'; }
     }
@@ -2505,6 +2532,14 @@ async function _saleFilterDepositList() {
 function _saleSelectDeposit(id, code, amount) {
     document.getElementById('consultPaymentRecordIdSale').value = id;
     document.getElementById('consultDepositAmountSale').value = amount;
+
+    const consultTypeSelect = document.getElementById('consultTypeSale');
+    if (consultTypeSelect && consultTypeSelect.value !== 'chot_don' && consultTypeSelect.value !== 'dat_coc') {
+        consultTypeSelect.value = 'dat_coc';
+        if (typeof _saleOnConsultTypeChange === 'function') {
+            _saleOnConsultTypeChange();
+        }
+    }
     
     const label = document.getElementById('consultDepositLabelSale');
     if (label) label.textContent = code;

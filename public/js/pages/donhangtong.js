@@ -1918,6 +1918,7 @@ async function _dhtShowDetail(id) {
                             actual_carrier_tracking_url: s.actual_carrier_tracking_url,
                             tracking_code: s.tracking_code,
                             shipping_bill_link: s.shipping_bill_link,
+                            customer_notify_img: s.customer_notify_img || o.customer_notify_img,
                             carrier_phone: s.carrier_phone,
                             receiver_name: s.receiver_name,
                             shipping_fee: s.shipping_fee,
@@ -2051,6 +2052,34 @@ async function _dhtShowDetail(id) {
                     })(itBillCid, it.shipping_bill_link);
                 }
                 
+                const custNotifyImg = it.customer_notify_img || o.customer_notify_img;
+                let notifyImgHtml = '';
+                if (custNotifyImg) {
+                    const custNotifyCid = `_dhtCustNotifyImgModal_${o.id}_${it.id || countLanGui}`;
+                    notifyImgHtml = `<span id="${custNotifyCid}" style="color:#64748b;font-size:11px">⏳ Đang tải...</span>`;
+                    (function(_cid, _origUrl) {
+                        setTimeout(function() {
+                            const el = document.getElementById(_cid);
+                            if (!el) return;
+                            let imgSrc = _origUrl;
+                            if (imgSrc && imgSrc.includes('/uploads/')) {
+                                imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                            }
+                            const img = document.createElement('img');
+                            img.src = imgSrc;
+                            img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                            img.onerror = function() {
+                                el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📱 Xem ảnh liên hệ khách (link)</a>';
+                            };
+                            img.onclick = function() {
+                                showShippingBillLightbox(imgSrc);
+                            };
+                            el.innerHTML = '';
+                            el.appendChild(img);
+                        }, 100);
+                    })(custNotifyCid, custNotifyImg);
+                }
+                
                 const timeValue = it.actual_ship_datetime ? vnFormat(it.actual_ship_datetime) : (it.shipped_at ? vnFormat(it.shipped_at) : '—');
                 
                 let headerHtml = '';
@@ -2126,6 +2155,7 @@ async function _dhtShowDetail(id) {
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💳 Mã thanh toán:</span> <span style="font-weight:700;color:#059669">${it.shipping_payment_code}</span>` : ''}
                         ${it.shipping_payment_code ? `<span style="color:#64748b;font-weight:600;">💵 Số tiền thanh toán:</span> <span style="font-weight:700;color:#0284c7">${(Number(it.shipping_payment_amount) || 0).toLocaleString('vi-VN')}đ</span>` : ''}
                         ${it.shipping_bill_link ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">🔗 Bill gửi hàng:</span> <div>${billHtml}</div>` : ''}
+                        ${custNotifyImg ? `<span style="color:#64748b;font-weight:600;vertical-align:top;padding-top:4px;">📱 Ảnh nhắn/gọi khách:</span> <div>${notifyImgHtml}</div>` : ''}
                     </div>
                 </div>`;
             }
@@ -2200,6 +2230,32 @@ async function _dhtShowDetail(id) {
                             el.appendChild(img);
                         }, 100);
                     })(_billCid, o.shipping_bill_link);
+                    if (o.customer_notify_img) {
+                        const _notifyCid = `_dhtNotifyCustImgModal_${o.id}`;
+                        const notifyImgFallbackHtml = `<span id="${_notifyCid}" style="color:#64748b;font-size:11px">⏳ Đang tải...</span>`;
+                        (function(_cid, _origUrl) {
+                            setTimeout(function() {
+                                const el = document.getElementById(_cid);
+                                if (!el) return;
+                                let imgSrc = _origUrl;
+                                if (imgSrc && imgSrc.includes('/uploads/')) {
+                                    imgSrc = imgSrc.substring(imgSrc.indexOf('/uploads/'));
+                                }
+                                const img = document.createElement('img');
+                                img.src = imgSrc;
+                                img.style.cssText = 'max-width:180px;max-height:140px;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer;object-fit:contain;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-top:4px;';
+                                img.onerror = function() {
+                                    el.innerHTML = '<a href="' + _origUrl + '" target="_blank" style="color:#3b82f6;font-weight:700">📱 Xem ảnh liên hệ khách (link)</a>';
+                                };
+                                img.onclick = function() {
+                                    showShippingBillLightbox(imgSrc);
+                                };
+                                el.innerHTML = '';
+                                el.appendChild(img);
+                            }, 100);
+                        })(_notifyCid, o.customer_notify_img);
+                        shipHTML += row('📱 Ảnh nhắn/gọi khách', notifyImgFallbackHtml);
+                    }
                 }
                 if (o.carrier_phone) {
                     shipHTML += row('📞 SĐT Nhà Xe', `<a href="tel:${o.carrier_phone}" style="color:#2563eb;text-decoration:underline;font-weight:700">${o.carrier_phone}</a>`);
