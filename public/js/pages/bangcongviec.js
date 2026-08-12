@@ -148,8 +148,21 @@ var _bcv = {
     },
     documents: [],
     docFilters: { search: '', department_id: '' },
-    dragTaskId: null
 };
+
+function _bcvNavigateToFullscreen() {
+    if (window.history && window.history.pushState) {
+        window.history.pushState({}, '', '/bangcongviec/hoanthanh');
+    }
+    renderBangcongviecPage();
+}
+
+function _bcvNavigateToBoard(targetUrl) {
+    if (window.history && window.history.pushState) {
+        window.history.pushState({}, '', targetUrl || '/bangcongviec');
+    }
+    renderBangcongviecPage();
+}
 
 async function renderBangcongviecPage(content) {
     var c = content || document.getElementById('main-content');
@@ -162,6 +175,49 @@ async function renderBangcongviecPage(content) {
     try { savedTab = localStorage.getItem('bcv_active_tab'); } catch(e){}
     var defaultTab = (savedTab && ['me','ban_giao','tu_lieu'].includes(savedTab)) ? savedTab : 'me';
     _bcv.tab = defaultTab;
+
+    var curPath = window.location.pathname.toLowerCase();
+    var isFullscreenHoanThanh = curPath.includes('/hoanthanh') || curPath.includes('/hoan-thanh');
+
+    if (isFullscreenHoanThanh) {
+        c.innerHTML = `<div class="bcv-page" id="bcvPage">
+    <div class="bcv-fs-header">
+        <div class="bcv-fs-header-title">
+            <h2>📋 HOÀN THÀNH — Bảng Công Việc</h2>
+            <div class="bcv-fs-header-sub">Danh sách toàn bộ công việc đã hoàn thành 🌿</div>
+        </div>
+        <button class="bcv-btn-back" onclick="_bcvNavigateToBoard('/bangcongviec')">
+            ← Quay lại Bảng Công Việc
+        </button>
+    </div>
+
+    <div class="bcv-filters" id="bcvFilters">
+        <input class="bcv-search" id="bcvSearch" placeholder="Tìm theo tên task..." oninput="_bcvDebounceSearch()">
+        ${isDirector ? `<select class="bcv-filter-sel" id="bcvFilterDept" onchange="_bcvApplyFilters()"><option value="">Tất cả phòng</option></select>` : ''}
+        <select class="bcv-filter-sel" id="bcvFilterAssignee" onchange="_bcvApplyFilters()"><option value="">Tất cả người</option></select>
+        <select class="bcv-filter-sel" id="bcvFilterPriority" onchange="_bcvApplyFilters()">
+            <option value="">Mọi ưu tiên</option>
+            <option value="cao">🔴 Cao</option>
+            <option value="trung_binh">🟠 Trung bình</option>
+            <option value="thap">🟢 Thấp</option>
+        </select>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;font-weight:700;color:#065f46">Thời gian hoàn thành:</span>
+            <div class="bcv-ht-filter-box" id="bcvHoanThanhFilterBox" style="margin:0;min-width:230px"></div>
+        </div>
+    </div>
+
+    <div class="bcv-col" data-status="hoan_thanh" style="margin:20px 28px;border-radius:16px;border:1px solid #bbf7d0">
+        <div class="bcv-col-header" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:14px 20px;border-radius:16px 16px 0 0;border-left:4px solid #16a34a">
+            <span style="font-size:14px;font-weight:800;color:#16a34a">DANH SÁCH CÔNG VIỆC HOÀN THÀNH</span>
+            <span class="bcv-col-count" id="bcvCountHoanThanh" style="font-size:12px;padding:4px 14px">0</span>
+        </div>
+        <div class="bcv-col-body bcv-fs-grid" id="bcvColHoanThanh"></div>
+    </div>
+</div>`;
+        await _bcvLoadData();
+        return;
+    }
 
     c.innerHTML = `<style>
 /* ===== BẢNG CÔNG VIỆC STYLES — KPI Marketing Inspired ===== */
@@ -208,6 +264,14 @@ async function renderBangcongviecPage(content) {
 .bcv-ht-select,.bcv-ht-input{width:100%;padding:4px 8px;border-radius:6px;border:1px solid #a7f3d0;font-size:11px;font-weight:700;background:#fff;color:#065f46;outline:none;font-family:'Inter',sans-serif;box-sizing:border-box}
 .bcv-ht-select:focus,.bcv-ht-input:focus{border-color:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,.15)}
 .bcv-ht-sub-inputs{display:flex;gap:4px;margin-top:4px}
+.bcv-btn-expand{padding:2px 8px;border-radius:6px;border:1px solid #86efac;background:#ecfdf5;color:#047857;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:3px}
+.bcv-btn-expand:hover{background:#d1fae5;color:#065f46;transform:translateY(-1px)}
+.bcv-fs-header{background:linear-gradient(135deg,#065f46 0%,#059669 60%,#10b981 100%);padding:20px 28px;color:#fff;box-shadow:0 4px 20px rgba(16,185,129,.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.bcv-fs-header-title h2{margin:0 0 4px;font-size:22px;font-weight:900;color:#fff}
+.bcv-fs-header-sub{font-size:12px;color:rgba(255,255,255,.85);font-weight:600}
+.bcv-btn-back{padding:9px 18px;border-radius:10px;border:none;background:#fff;color:#065f46;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.1);transition:all .15s;display:flex;align-items:center;gap:6px}
+.bcv-btn-back:hover{background:#f0fdf4;transform:translateY(-1px);box-shadow:0 4px 15px rgba(0,0,0,.15)}
+.bcv-fs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;padding:20px;min-height:500px}
 .bcv-col-body{flex:1;padding:10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:100px}
 .bcv-col-body.drag-over{background:rgba(59,130,246,.05);border-radius:0 0 14px 14px}
 .bcv-col-empty{color:#94a3b8;font-size:12px;font-weight:600;text-align:center;padding:40px 20px;opacity:.7}
@@ -581,7 +645,10 @@ async function renderBangcongviecPage(content) {
         <div class="bcv-col" data-status="hoan_thanh">
             <div class="bcv-col-header" style="flex-direction:column;align-items:stretch;gap:4px;padding-bottom:10px">
                 <div style="display:flex;justify-content:space-between;align-items:center">
-                    <span>HOÀN THÀNH</span>
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <span>HOÀN THÀNH</span>
+                        <button class="bcv-btn-expand" onclick="_bcvNavigateToFullscreen()" title="Mở to trang Hoàn Thành">⛶ Mở to</button>
+                    </div>
                     <span class="bcv-col-count" id="bcvCountHoanThanh">0</span>
                 </div>
                 <div class="bcv-ht-filter-box" id="bcvHoanThanhFilterBox"></div>

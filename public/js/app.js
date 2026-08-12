@@ -443,9 +443,12 @@ const _PAGE_SCRIPT_MAP = {
     'kpi-mkt-view': '/js/pages/kpimktview.js?v=20260804_v100',
     'camketcuochop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'cam-ket-cuoc-hop': '/js/pages/camketcuochop.js?v=20260803_v1010',
-    'bangcongviec': '/js/pages/bangcongviec.js?v=20260813_v310_HOAN_THANH_QUARTER_FILTER',
-    'bang-cong-viec': '/js/pages/bangcongviec.js?v=20260813_v310_HOAN_THANH_QUARTER_FILTER',
-    'bang_cong_viec': '/js/pages/bangcongviec.js?v=20260813_v310_HOAN_THANH_QUARTER_FILTER',
+    'bangcongviec': '/js/pages/bangcongviec.js?v=20260813_v320_HOAN_THANH_FULLSCREEN_ROUTE',
+    'bang-cong-viec': '/js/pages/bangcongviec.js?v=20260813_v320_HOAN_THANH_FULLSCREEN_ROUTE',
+    'bang_cong_viec': '/js/pages/bangcongviec.js?v=20260813_v320_HOAN_THANH_FULLSCREEN_ROUTE',
+    'bangcongviec/hoanthanh': '/js/pages/bangcongviec.js?v=20260813_v320_HOAN_THANH_FULLSCREEN_ROUTE',
+    'bang-cong-viec/hoan-thanh': '/js/pages/bangcongviec.js?v=20260813_v320_HOAN_THANH_FULLSCREEN_ROUTE',
+    'bang_cong_viec/hoan_thanh': '/js/pages/bangcongviec.js?v=20260813_v320_HOAN_THANH_FULLSCREEN_ROUTE',
     'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
     'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',
@@ -1995,6 +1998,9 @@ function findMenuItemForPage(pageId) {
         if (m.href && m.href.replace(/^\//, '') === pid) return true;
         
         var aliasMap = {
+            'bangcongviec/hoanthanh': 'bangcongviec',
+            'bang-cong-viec/hoan-thanh': 'bangcongviec',
+            'bang_cong_viec/hoan_thanh': 'bangcongviec',
             'baocaohoahong': 'bao-cao-hoa-hong',
             'chapnhanctvaffliate': 'chap-nhan-ctv-affiliate',
             'baocaohoahonghv': 'bao-cao-hoa-hong-hv',
