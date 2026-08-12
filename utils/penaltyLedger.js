@@ -750,11 +750,12 @@ async function syncLedgerForDate(dateStr) {
     } // end if (!isDateOff) Source 12
 
     // Source 13: Bảng Công Việc — Chậm deadline công việc (Flat 100k/ngày/nhân sự)
-    // ★ Skip ngày nghỉ (CN, Lễ)
+    // ★ Skip ngày nghỉ (CN, Lễ) và Skip ngày nhân viên xin nghỉ phép (leave_requests / staff_off_dates)
     if (!isDateOff) {
         try {
             const bcvAmount = GPC.bcv_overdue_task !== undefined ? GPC.bcv_overdue_task : 100000;
             if (bcvAmount > 0) {
+                const { isUserOnLeave: _isUserOnLeave } = require('./workingDay');
                 const overdueAssignees = await db.all(`
                     SELECT DISTINCT uid::int as user_id, COUNT(DISTINCT task_id) as overdue_count
                     FROM (
@@ -778,6 +779,12 @@ async function syncLedgerForDate(dateStr) {
                 `, [dateStr]);
 
                 for (const r of overdueAssignees) {
+                    const onLeave = await _isUserOnLeave(r.user_id, dateStr);
+                    if (onLeave) {
+                        console.log(`  ⏭️ [BCV Overdue] Skip user_id=${r.user_id} ngày ${dateStr} — Nhân viên đang nghỉ phép`);
+                        continue;
+                    }
+
                     await writeLedger(
                         r.user_id,
                         dateStr,
