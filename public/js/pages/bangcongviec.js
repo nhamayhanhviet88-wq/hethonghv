@@ -142,7 +142,7 @@ var _bcv = {
         mode: 'thang_truoc_va_nay', // mặc định: tháng trước & tháng này
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
-        week: 1,
+        quarter: Math.floor(new Date().getMonth() / 3) + 1,
         fromDate: '',
         toDate: ''
     },
@@ -665,18 +665,22 @@ function _bcvGetHoanThanhDateRange() {
         var lastDayPrev = new Date(pY, pM, 0).getDate();
         fromStr = pY + '-' + pad2(pM) + '-01 00:00:00';
         toStr = pY + '-' + pad2(pM) + '-' + pad2(lastDayPrev) + ' 23:59:59';
-    } else if (mode === 'tuan_nay') {
-        var day = now.getDay() || 7; // Mon=1..Sun=7
-        var mon = new Date(now.getTime() - (day - 1) * 86400000);
-        var sun = new Date(mon.getTime() + 6 * 86400000);
-        fromStr = mon.getFullYear() + '-' + pad2(mon.getMonth() + 1) + '-' + pad2(mon.getDate()) + ' 00:00:00';
-        toStr = sun.getFullYear() + '-' + pad2(sun.getMonth() + 1) + '-' + pad2(sun.getDate()) + ' 23:59:59';
-    } else if (mode === 'tuan_truoc') {
-        var day = now.getDay() || 7;
-        var mon = new Date(now.getTime() - (day - 1 + 7) * 86400000);
-        var sun = new Date(mon.getTime() + 6 * 86400000);
-        fromStr = mon.getFullYear() + '-' + pad2(mon.getMonth() + 1) + '-' + pad2(mon.getDate()) + ' 00:00:00';
-        toStr = sun.getFullYear() + '-' + pad2(sun.getMonth() + 1) + '-' + pad2(sun.getDate()) + ' 23:59:59';
+    } else if (mode === 'quy_nay') {
+        var q = Math.floor(curMonth / 3) + 1;
+        var startM = (q - 1) * 3 + 1;
+        var endM = q * 3;
+        var lastD = new Date(curYear, endM, 0).getDate();
+        fromStr = curYear + '-' + pad2(startM) + '-01 00:00:00';
+        toStr = curYear + '-' + pad2(endM) + '-' + pad2(lastD) + ' 23:59:59';
+    } else if (mode === 'quy_truoc') {
+        var curQ = Math.floor(curMonth / 3) + 1;
+        var q = curQ === 1 ? 4 : curQ - 1;
+        var y = curQ === 1 ? curYear - 1 : curYear;
+        var startM = (q - 1) * 3 + 1;
+        var endM = q * 3;
+        var lastD = new Date(y, endM, 0).getDate();
+        fromStr = y + '-' + pad2(startM) + '-01 00:00:00';
+        toStr = y + '-' + pad2(endM) + '-' + pad2(lastD) + ' 23:59:59';
     } else if (mode === 'nam') {
         var y = Number(filter.year) || curYear;
         fromStr = y + '-01-01 00:00:00';
@@ -687,16 +691,14 @@ function _bcvGetHoanThanhDateRange() {
         var lastDay = new Date(y, m, 0).getDate();
         fromStr = y + '-' + pad2(m) + '-01 00:00:00';
         toStr = y + '-' + pad2(m) + '-' + pad2(lastDay) + ' 23:59:59';
-    } else if (mode === 'tuan') {
+    } else if (mode === 'quy') {
         var y = Number(filter.year) || curYear;
-        var w = Number(filter.week) || 1;
-        var jan4 = new Date(y, 0, 4);
-        var dayOfWeek = jan4.getDay() || 7;
-        var monWeek1 = new Date(jan4.getTime() - (dayOfWeek - 1) * 86400000);
-        var targetMon = new Date(monWeek1.getTime() + (w - 1) * 7 * 86400000);
-        var targetSun = new Date(targetMon.getTime() + 6 * 86400000);
-        fromStr = targetMon.getFullYear() + '-' + pad2(targetMon.getMonth() + 1) + '-' + pad2(targetMon.getDate()) + ' 00:00:00';
-        toStr = targetSun.getFullYear() + '-' + pad2(targetSun.getMonth() + 1) + '-' + pad2(targetSun.getDate()) + ' 23:59:59';
+        var q = Number(filter.quarter) || (Math.floor(curMonth / 3) + 1);
+        var startM = (q - 1) * 3 + 1;
+        var endM = q * 3;
+        var lastD = new Date(y, endM, 0).getDate();
+        fromStr = y + '-' + pad2(startM) + '-01 00:00:00';
+        toStr = y + '-' + pad2(endM) + '-' + pad2(lastD) + ' 23:59:59';
     } else if (mode === 'ngay') {
         if (filter.fromDate) fromStr = filter.fromDate + ' 00:00:00';
         if (filter.toDate) toStr = filter.toDate + ' 23:59:59';
@@ -716,17 +718,18 @@ function _bcvRenderHoanThanhFilterUI() {
     var mode = filter.mode || 'thang_truoc_va_nay';
     var now = (typeof _bcvGetVNNow === 'function') ? _bcvGetVNNow() : new Date();
     var curYear = now.getFullYear();
+    var curMonth = now.getMonth();
 
     var html = `
         <select class="bcv-ht-select" id="bcvHTMode" onchange="_bcvOnHTModeChange(this.value)">
             <option value="thang_truoc_va_nay" ${mode === 'thang_truoc_va_nay' ? 'selected' : ''}>📅 Tháng trước & tháng này</option>
             <option value="thang_nay" ${mode === 'thang_nay' ? 'selected' : ''}>🗓️ Tháng này</option>
             <option value="thang_truoc" ${mode === 'thang_truoc' ? 'selected' : ''}>🗓️ Tháng trước</option>
-            <option value="tuan_nay" ${mode === 'tuan_nay' ? 'selected' : ''}>📆 Tuần này</option>
-            <option value="tuan_truoc" ${mode === 'tuan_truoc' ? 'selected' : ''}>📆 Tuần trước</option>
-            <option value="thang" ${mode === 'thang' ? 'selected' : ''}>📊 Chọn Tháng...</option>
+            <option value="quy_nay" ${mode === 'quy_nay' ? 'selected' : ''}>📊 Quý này</option>
+            <option value="quy_truoc" ${mode === 'quy_truoc' ? 'selected' : ''}>📊 Quý trước</option>
+            <option value="thang" ${mode === 'thang' ? 'selected' : ''}>🗓️ Chọn Tháng...</option>
+            <option value="quy" ${mode === 'quy' ? 'selected' : ''}>🏢 Chọn Quý...</option>
             <option value="nam" ${mode === 'nam' ? 'selected' : ''}>📈 Chọn Năm...</option>
-            <option value="tuan" ${mode === 'tuan' ? 'selected' : ''}>📋 Chọn Tuần...</option>
             <option value="ngay" ${mode === 'ngay' ? 'selected' : ''}>📆 Chọn ngày (Từ - Đến)</option>
             <option value="tat_ca" ${mode === 'tat_ca' ? 'selected' : ''}>🌐 Tất cả thời gian</option>
         </select>
@@ -752,17 +755,19 @@ function _bcvRenderHoanThanhFilterUI() {
             <select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('month', this.value)">${monthOpts}</select>
             <select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('year', this.value)">${yearOpts}</select>
         </div>`;
-    } else if (mode === 'tuan') {
-        var weekOpts = '';
-        for (var w = 1; w <= 52; w++) {
-            weekOpts += `<option value="${w}" ${filter.week == w ? 'selected' : ''}>Tuần ${w}</option>`;
+    } else if (mode === 'quy') {
+        var curQ = Math.floor(curMonth / 3) + 1;
+        var qVal = filter.quarter || curQ;
+        var quarterOpts = '';
+        for (var q = 1; q <= 4; q++) {
+            quarterOpts += `<option value="${q}" ${qVal == q ? 'selected' : ''}>Quý ${q}</option>`;
         }
         var yearOpts = '';
         for (var y = curYear + 1; y >= curYear - 4; y--) {
             yearOpts += `<option value="${y}" ${filter.year == y ? 'selected' : ''}>Năm ${y}</option>`;
         }
         subHtml = `<div class="bcv-ht-sub-inputs">
-            <select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('week', this.value)">${weekOpts}</select>
+            <select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('quarter', this.value)">${quarterOpts}</select>
             <select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('year', this.value)">${yearOpts}</select>
         </div>`;
     } else if (mode === 'ngay') {
