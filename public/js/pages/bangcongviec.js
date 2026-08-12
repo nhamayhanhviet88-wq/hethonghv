@@ -566,6 +566,13 @@ function _bcvRenderBoard() {
         return (b.id - a.id);
     });
 
+    // Sort 'hoan_thanh' column: completed_at descending (newest completed on top)
+    cols.hoan_thanh.sort(function(a, b) {
+        var aTime = a.completed_at ? new Date(a.completed_at).getTime() : (a.updated_at ? new Date(a.updated_at).getTime() : a.id);
+        var bTime = b.completed_at ? new Date(b.completed_at).getTime() : (b.updated_at ? new Date(b.updated_at).getTime() : b.id);
+        return bTime - aTime;
+    });
+
     Object.keys(cols).forEach(function(status) {
         var colId = 'bcvCol' + _bcvStatusToId(status);
         var countId = 'bcvCount' + _bcvStatusToId(status);
@@ -696,6 +703,9 @@ function _bcvRenderCard(t) {
     // Format accepted_at for card (VN timezone)
     var acceptedDisplay = _bcvFormatVNTime(t.accepted_at, true);
 
+    // Format completed_at for card (VN timezone) - only for hoan_thanh tasks
+    var completedDisplay = (t.status === 'hoan_thanh') ? _bcvFormatVNTime(t.completed_at || t.updated_at, true) : '';
+
     // Overdue HTML
     var deadlineHtml = '';
     if (deadlineDisplay) {
@@ -736,6 +746,11 @@ function _bcvRenderCard(t) {
                 <span class="info-label">Deadline</span>
                 <span class="info-value">${deadlineDisplay}</span>
                 ${isOverdue ? `<span class="bcv-card-overdue-days">Chậm ${overdueDays} ngày!</span>` : ''}
+            </div>` : ''}
+            ${completedDisplay ? `<div class="bcv-card-info-row" style="background:#f0fdf4">
+                <span class="info-icon">✅</span>
+                <span class="info-label" style="color:#16a34a">Hoàn thành</span>
+                <span class="info-value" style="color:#15803d;font-weight:800">${completedDisplay}</span>
             </div>` : ''}
         </div>
         <div class="bcv-card-footer">
