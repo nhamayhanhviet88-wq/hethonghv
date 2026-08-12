@@ -165,6 +165,17 @@ async function bangcongviecRoutes(fastify, options) {
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS director_read_at TIMESTAMP`);
     } catch(e) { /* already exists */ }
 
+    try {
+        await db.run(`CREATE TABLE IF NOT EXISTS board_task_reads (
+            id SERIAL PRIMARY KEY,
+            task_id INTEGER NOT NULL REFERENCES board_tasks(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            read_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            CONSTRAINT uq_btr_task_user UNIQUE(task_id, user_id)
+        )`);
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_btr_task_user ON board_task_reads(task_id, user_id)`);
+    } catch(e) { /* already exists */ }
+
     // ========== HELPERS ==========
 
     // Check if user's department is enabled for board
@@ -336,6 +347,8 @@ async function bangcongviecRoutes(fastify, options) {
                 params.push(`%${search}%`);
             }
 
+            pIdx++; const myUserIdx = pIdx; params.push(user.id);
+
             const tasks = await db.all(`
                 SELECT t.*,
                        u_assign.full_name as assigned_to_name,
@@ -343,7 +356,9 @@ async function bangcongviecRoutes(fastify, options) {
                        u_create.full_name as created_by_name,
                        d.name as department_name,
                        d.code as department_code,
-                       COALESCE(cc.comment_count, 0) as comment_count
+                       COALESCE(cc.comment_count, 0) as comment_count,
+                       (CASE WHEN btr.id IS NOT NULL THEN TRUE ELSE FALSE END) as my_read,
+                       btr.read_at as my_read_at
                 FROM board_tasks t
                 LEFT JOIN users u_assign ON u_assign.id = t.assigned_to
                 LEFT JOIN users u_create ON u_create.id = t.created_by
@@ -353,6 +368,7 @@ async function bangcongviecRoutes(fastify, options) {
                     FROM board_task_comments
                     GROUP BY task_id
                 ) cc ON cc.task_id = t.id
+                LEFT JOIN board_task_reads btr ON btr.task_id = t.id AND btr.user_id = $${myUserIdx}
                 WHERE ${where.join(' AND ')}
                 ORDER BY
                     CASE t.status
@@ -369,6 +385,33 @@ async function bangcongviecRoutes(fastify, options) {
                     t.sort_order ASC,
                     t.created_at DESC
             `, params);
+
+            // Fetch read_by_users list for all tasks
+            if (tasks.length > 0) {
+                const taskIds = tasks.map(t => t.id);
+                const allReads = await db.all(`
+                    SELECT btr.task_id, btr.user_id, btr.read_at, u.full_name, u.role
+                    FROM board_task_reads btr
+                    JOIN users u ON u.id = btr.user_id
+                    WHERE btr.task_id = ANY($1::int[])
+                    ORDER BY btr.read_at ASC
+                `, [taskIds]);
+
+                const readsMap = {};
+                for (const r of allReads) {
+                    if (!readsMap[r.task_id]) readsMap[r.task_id] = [];
+                    readsMap[r.task_id].push({
+                        user_id: r.user_id,
+                        full_name: r.full_name,
+                        role: r.role,
+                        read_at: r.read_at
+                    });
+                }
+
+                for (const task of tasks) {
+                    task.read_by_users = readsMap[task.id] || [];
+                }
+            }
 
             // Enrich assigned_to_name for tasks with multiple assignees
             for (const task of tasks) {
@@ -756,6 +799,62 @@ async function bangcongviecRoutes(fastify, options) {
             return reply.send({ ok: true, task: updated });
         } catch(e) {
             console.error('[board-tasks PATCH director-read]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // PATCH /api/board-tasks/:id/read — Toggle current user's read status for a task
+    fastify.patch('/api/board-tasks/:id/read', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const user = request.user;
+            const taskId = Number(request.params.id);
+            const { is_read } = request.body || {};
+
+            if (isNaN(taskId)) {
+                return reply.code(400).send({ error: 'ID công việc không hợp lệ' });
+            }
+
+            const task = await db.get(`SELECT id FROM board_tasks WHERE id = $1`, [taskId]);
+            if (!task) return reply.code(404).send({ error: 'Không tìm thấy công việc' });
+
+            let newReadState = false;
+            let readAt = null;
+
+            if (is_read === undefined || is_read === null) {
+                const existing = await db.get(`SELECT id FROM board_task_reads WHERE task_id = $1 AND user_id = $2`, [taskId, user.id]);
+                if (existing) {
+                    await db.run(`DELETE FROM board_task_reads WHERE task_id = $1 AND user_id = $2`, [taskId, user.id]);
+                    newReadState = false;
+                } else {
+                    readAt = new Date().toISOString();
+                    await db.run(`INSERT INTO board_task_reads (task_id, user_id, read_at) VALUES ($1, $2, $3) ON CONFLICT (task_id, user_id) DO UPDATE SET read_at = $3`, [taskId, user.id, readAt]);
+                    newReadState = true;
+                }
+            } else if (is_read) {
+                readAt = new Date().toISOString();
+                await db.run(`INSERT INTO board_task_reads (task_id, user_id, read_at) VALUES ($1, $2, $3) ON CONFLICT (task_id, user_id) DO UPDATE SET read_at = $3`, [taskId, user.id, readAt]);
+                newReadState = true;
+            } else {
+                await db.run(`DELETE FROM board_task_reads WHERE task_id = $1 AND user_id = $2`, [taskId, user.id]);
+                newReadState = false;
+            }
+
+            // Sync with legacy director_read column if Director
+            if (user.role === 'giam_doc') {
+                await db.run(`UPDATE board_tasks SET director_read = $1, director_read_at = $2 WHERE id = $3`, [newReadState, newReadState ? (readAt || new Date().toISOString()) : null, taskId]);
+            }
+
+            const readers = await db.all(`
+                SELECT btr.user_id, btr.read_at, u.full_name, u.role
+                FROM board_task_reads btr
+                JOIN users u ON u.id = btr.user_id
+                WHERE btr.task_id = $1
+                ORDER BY btr.read_at ASC
+            `, [taskId]);
+
+            return reply.send({ ok: true, task_id: taskId, my_read: newReadState, my_read_at: readAt, read_by_users: readers });
+        } catch(e) {
+            console.error('[board-tasks PATCH read]', e);
             return reply.code(500).send({ error: e.message });
         }
     });
