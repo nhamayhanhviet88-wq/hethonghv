@@ -161,6 +161,8 @@ async function bangcongviecRoutes(fastify, options) {
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS feedback_content TEXT`);
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS feedback_link TEXT`);
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP`);
+        await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS director_read BOOLEAN DEFAULT FALSE`);
+        await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS director_read_at TIMESTAMP`);
     } catch(e) { /* already exists */ }
 
     // ========== HELPERS ==========
@@ -724,6 +726,36 @@ async function bangcongviecRoutes(fastify, options) {
             return reply.send({ ok: true, task: updated });
         } catch(e) {
             console.error('[board-tasks PATCH status]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // PATCH /api/board-tasks/:id/director-read — Toggle director_read status (Director only)
+    fastify.patch('/api/board-tasks/:id/director-read', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const user = request.user;
+            if (!user || user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ tài khoản Giám đốc mới có quyền sử dụng tính năng này!' });
+            }
+            const taskId = Number(request.params.id);
+            const { director_read } = request.body || {};
+            const isRead = typeof director_read === 'boolean' ? director_read : true;
+
+            const task = await db.get(`SELECT id FROM board_tasks WHERE id = $1`, [taskId]);
+            if (!task) return reply.code(404).send({ error: 'Không tìm thấy công việc' });
+
+            const updated = await db.get(`
+                UPDATE board_tasks 
+                SET director_read = $1, 
+                    director_read_at = CASE WHEN $1 = TRUE THEN NOW() ELSE NULL END,
+                    updated_at = NOW() 
+                WHERE id = $2 
+                RETURNING *
+            `, [isRead, taskId]);
+
+            return reply.send({ ok: true, task: updated });
+        } catch(e) {
+            console.error('[board-tasks PATCH director-read]', e);
             return reply.code(500).send({ error: e.message });
         }
     });

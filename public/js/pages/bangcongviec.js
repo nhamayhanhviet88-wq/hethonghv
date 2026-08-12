@@ -716,11 +716,23 @@ function _bcvRenderCard(t) {
         }
     }
 
+    // Director read status tag (ONLY for Director role)
+    var isDirectorRole = (window._currentUser && window._currentUser.role === 'giam_doc');
+    var directorReadTag = '';
+    if (isDirectorRole) {
+        if (t.director_read) {
+            directorReadTag = `<span class="bcv-tag" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-weight:800;font-size:10px;padding:2px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:3px" title="Giám đốc đã đọc">👁️ Giám đốc đã đọc</span>`;
+        } else {
+            directorReadTag = `<span class="bcv-tag" style="background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;font-weight:800;font-size:10px;padding:2px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:3px" title="Giám đốc chưa đọc">👁️ Chưa đọc</span>`;
+        }
+    }
+
     return `<div class="bcv-card${isRejected ? ' bcv-card-rejected' : (isOverdue ? ' bcv-card-overdue' : '')}" draggable="true" data-task-id="${t.id}"
         ondragstart="_bcvDragStart(event,${t.id})" ondragend="_bcvDragEnd(event)"
         onclick="_bcvShowDetail(${t.id})">
         <div class="bcv-card-meta">
             <span class="bcv-card-id">${cvId}</span>
+            ${directorReadTag}
         </div>
         <div class="bcv-card-tags">
             ${isRejected ? `<span class="bcv-tag-rejected-flash">❌ KHÔNG DUYỆT</span>` : ''}
@@ -1474,12 +1486,34 @@ async function _bcvShowDetail(taskId) {
         overlay.className = 'bcv-overlay';
         overlay.id = 'bcvOverlay';
 
+        var directorReadBannerHtml = '';
+        if (user.role === 'giam_doc') {
+            var readAtStr = task.director_read_at ? _bcvFormatVNTime(task.director_read_at, true) : '';
+            if (task.director_read) {
+                directorReadBannerHtml = `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                    <div style="font-size:13px;font-weight:800;color:#15803d;display:flex;align-items:center;gap:6px">
+                        <span>👁️ Giám Đốc Đã Đọc</span>
+                        ${readAtStr ? `<span style="font-size:11px;font-weight:600;color:#047857">(${readAtStr})</span>` : ''}
+                    </div>
+                    <button class="bcv-btn" data-no-debounce="true" onclick="_bcvToggleDirectorRead(${task.id}, false)" style="padding:6px 14px;font-size:11px;font-weight:800;background:#fff;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;cursor:pointer">✕ Bỏ đánh dấu</button>
+                </div>`;
+            } else {
+                directorReadBannerHtml = `<div style="background:#fff1f2;border:1.5px solid #fecdd3;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                    <div style="font-size:13px;font-weight:800;color:#e11d48;display:flex;align-items:center;gap:6px">
+                        <span>👁️ Chưa Đánh Dấu Đã Đọc (Giám Đốc)</span>
+                    </div>
+                    <button class="bcv-btn" data-no-debounce="true" onclick="_bcvToggleDirectorRead(${task.id}, true)" style="padding:8px 18px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:8px;cursor:pointer;box-shadow:0 3px 10px rgba(37,99,235,0.3)">✓ Đánh dấu đã đọc</button>
+                </div>`;
+            }
+        }
+
         overlay.innerHTML = `<div class="bcv-modal">
             <div class="bcv-modal-header">
                 <h3>Công Việc: ${cvId}</h3>
                 <button class="bcv-modal-close" onclick="document.getElementById('bcvOverlay').remove()">✕</button>
             </div>
             <div class="bcv-modal-body">
+                ${directorReadBannerHtml}
                 <!-- 1. Grid 2 cột: LOẠI / ƯU TIÊN (lên trên Tiêu đề) -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
                     <div style="background:#f8fafc;border-radius:10px;padding:12px;border:1px solid #e2e8f0;text-align:center">
@@ -1636,12 +1670,35 @@ async function _bcvShowDetail(taskId) {
     var canEditSection1 = (task.status === 'can_lam') && (isManager || isCreator);
     var canEditReport = isAssignee && (task.status === 'dang_lam');
 
+    var directorReadBannerHtml = '';
+    if (user.role === 'giam_doc') {
+        var readAtStr = task.director_read_at ? _bcvFormatVNTime(task.director_read_at, true) : '';
+        if (task.director_read) {
+            directorReadBannerHtml = `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <div style="font-size:13px;font-weight:800;color:#15803d;display:flex;align-items:center;gap:6px">
+                    <span>👁️ Giám Đốc Đã Đọc</span>
+                    ${readAtStr ? `<span style="font-size:11px;font-weight:600;color:#047857">(${readAtStr})</span>` : ''}
+                </div>
+                <button class="bcv-btn" data-no-debounce="true" onclick="_bcvToggleDirectorRead(${task.id}, false)" style="padding:6px 14px;font-size:11px;font-weight:800;background:#fff;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;cursor:pointer">✕ Bỏ đánh dấu</button>
+            </div>`;
+        } else {
+            directorReadBannerHtml = `<div style="background:#fff1f2;border:1.5px solid #fecdd3;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <div style="font-size:13px;font-weight:800;color:#e11d48;display:flex;align-items:center;gap:6px">
+                    <span>👁️ Chưa Đánh Dấu Đã Đọc (Giám Đốc)</span>
+                </div>
+                <button class="bcv-btn" data-no-debounce="true" onclick="_bcvToggleDirectorRead(${task.id}, true)" style="padding:8px 18px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:8px;cursor:pointer;box-shadow:0 3px 10px rgba(37,99,235,0.3)">✓ Đánh dấu đã đọc</button>
+            </div>`;
+        }
+    }
+
     overlay.innerHTML = `<div class="bcv-modal">
         <div class="bcv-modal-header">
             <h3>Công Việc: ${cvId}</h3>
             <button class="bcv-modal-close" onclick="document.getElementById('bcvOverlay').remove()">✕</button>
         </div>
         <div class="bcv-modal-body">
+
+            ${directorReadBannerHtml}
 
             <!-- ═══ KHỐI THÔNG BÁO ĐÁNH GIÁ HOÀN THÀNH (NẾU ĐÃ HOÀN THÀNH) ═══ -->
             ${task.status === 'hoan_thanh' ? `<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px 16px;margin-bottom:16px;box-shadow:0 4px 12px rgba(22,163,74,0.08)">
@@ -3880,5 +3937,29 @@ async function _bcvConfirmReject(taskId) {
         _bcvLoadTasks();
     } else {
         alert((res && res.error) || 'Lỗi khi gửi Feedback yêu cầu sửa');
+    }
+}
+
+// ========== HÀM ĐÁNH DẤU GIÁM ĐỐC ĐÃ ĐỌC (DIRECTOR ONLY) ==========
+async function _bcvToggleDirectorRead(taskId, isRead) {
+    try {
+        var res = await _bcvApi('/api/board-tasks/' + taskId + '/director-read', 'PATCH', { director_read: isRead });
+        if (res && res.ok) {
+            var task = _bcv.tasks.find(function(t) { return t.id === taskId; });
+            if (task) {
+                task.director_read = isRead;
+                task.director_read_at = isRead ? new Date().toISOString() : null;
+            }
+            _bcvRenderBoard();
+            var o = document.getElementById('bcvOverlay');
+            if (o) {
+                o.remove();
+                _bcvShowDetail(taskId);
+            }
+        } else {
+            alert('Lỗi: ' + ((res && res.error) || 'Không thể cập nhật trạng thái đã đọc'));
+        }
+    } catch(e) {
+        alert('Có lỗi xảy ra: ' + (e.message || e));
     }
 }
