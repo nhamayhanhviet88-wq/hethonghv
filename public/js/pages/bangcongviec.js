@@ -175,7 +175,7 @@ async function renderBangcongviecPage(content) {
     var greeting = user.full_name || 'Bạn';
     var savedTab = null;
     try { savedTab = localStorage.getItem('bcv_active_tab'); } catch(e){}
-    var defaultTab = (savedTab && ['me','ban_giao','tu_lieu'].includes(savedTab)) ? savedTab : 'me';
+    var defaultTab = (savedTab && ['me','ban_giao','tu_lieu'].includes(savedTab)) ? savedTab : (isDirector ? 'ban_giao' : 'me');
     _bcv.tab = defaultTab;
 
     var curPath = window.location.pathname.toLowerCase();
@@ -188,9 +188,16 @@ async function renderBangcongviecPage(content) {
             <h2>📋 HOÀN THÀNH — Bảng Công Việc</h2>
             <div class="bcv-fs-header-sub">Danh sách toàn bộ công việc đã hoàn thành 🌿</div>
         </div>
-        <button class="bcv-btn-back" onclick="_bcvNavigateToBoard('/bangcongviec')">
-            ← Quay lại Bảng Công Việc
-        </button>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div class="bcv-tabs" style="background:rgba(255,255,255,0.15);padding:3px;border-radius:10px">
+                <button class="bcv-tab ${(!_bcv.hoanThanhTab || _bcv.hoanThanhTab === 'all') ? 'active' : ''}" data-ht-tab="all" onclick="_bcvSwitchHoanThanhTab('all')">🌐 Tất cả CV Hoàn Thành</button>
+                <button class="bcv-tab ${_bcv.hoanThanhTab === 'ban_giao' ? 'active' : ''}" data-ht-tab="ban_giao" onclick="_bcvSwitchHoanThanhTab('ban_giao')">Công Việc Bàn Giao</button>
+                <button class="bcv-tab ${_bcv.hoanThanhTab === 'me' ? 'active' : ''}" data-ht-tab="me" onclick="_bcvSwitchHoanThanhTab('me')">Công Việc Của Tôi</button>
+            </div>
+            <button class="bcv-btn-back" onclick="_bcvNavigateToBoard('/bangcongviec')">
+                ← Quay lại Bảng Công Việc
+            </button>
+        </div>
     </div>
 
     <div class="bcv-filters" id="bcvFilters">
@@ -862,9 +869,26 @@ function _bcvOnHTSubChange(key, val) {
     _bcvLoadTasks();
 }
 
+function _bcvSwitchHoanThanhTab(tabVal) {
+    _bcv.hoanThanhTab = tabVal;
+    document.querySelectorAll('[data-ht-tab]').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-ht-tab') === tabVal);
+    });
+    _bcvLoadTasks();
+}
+
 async function _bcvLoadTasks() {
     var params = new URLSearchParams();
-    params.set('tab', _bcv.tab);
+
+    var curPath = window.location.pathname.toLowerCase();
+    var isFullscreenHoanThanh = curPath.includes('/hoanthanh') || curPath.includes('/hoan-thanh');
+
+    if (isFullscreenHoanThanh) {
+        params.set('tab', _bcv.hoanThanhTab || 'all');
+    } else {
+        params.set('tab', _bcv.tab);
+    }
+
     if (_bcv.filters.search) params.set('search', _bcv.filters.search);
     if (_bcv.filters.assigned_to) params.set('assigned_to', _bcv.filters.assigned_to);
     if (_bcv.filters.department_id) params.set('department_id', _bcv.filters.department_id);
@@ -927,7 +951,11 @@ function _bcvRenderBoard() {
         if (countEl) countEl.textContent = cols[status].length;
 
         if (cols[status].length === 0) {
-            el.innerHTML = '<div class="bcv-col-empty">Trống</div>';
+            if (status === 'hoan_thanh' && _bcv.tab === 'me') {
+                el.innerHTML = '<div class="bcv-col-empty">Trống (Công Việc Của Tôi)<br><a href="javascript:void(0)" onclick="_bcvSwitchTab(\'ban_giao\')" style="color:#2563eb;font-weight:700;margin-top:6px;display:inline-block;font-size:11px">👉 Xem Công Việc Bàn Giao</a></div>';
+            } else {
+                el.innerHTML = '<div class="bcv-col-empty">Trống</div>';
+            }
             return;
         }
 
