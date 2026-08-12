@@ -1,11 +1,153 @@
+
+function _bcvGetFriendlyGuideLinkHtml(guideLink, deptId) {
+    if (!guideLink || !guideLink.trim()) return '<div style="font-size:12px;color:#94a3b8">Không có link hướng dẫn</div>';
+
+    var links = [];
+    var trimmed = guideLink.trim();
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        try {
+            var parsed = JSON.parse(trimmed);
+            links = Array.isArray(parsed) ? parsed : [parsed];
+        } catch(e) {}
+    }
+
+    if (Array.isArray(links) && links.length > 0) {
+        var docs = _bcv.documents || [];
+        if (deptId) {
+            var filtered = docs.filter(function(d) { return String(d.department_id) === String(deptId); });
+            if (filtered.length > 0) docs = filtered;
+        }
+
+        // Group main_categories exactly like _bcvRenderTuLieuTab to match "Tư Liệu X" numbering
+        var mainCatGroups = {};
+        docs.forEach(function(d) {
+            var cat = d.main_category || 'TƯ LIỆU CHUNG';
+            if (!mainCatGroups[cat]) mainCatGroups[cat] = [];
+            mainCatGroups[cat].push(d);
+        });
+        var mainCatKeys = Object.keys(mainCatGroups);
+
+        var firstMainCat = '';
+
+        // 1. Match ANY link in links against department documents by sub_category or main_category
+        docs.forEach(function(d) {
+            if (firstMainCat) return;
+            var subClean = (d.sub_category || '').toLowerCase().trim();
+            var mainClean = (d.main_category || '').replace(/^\d+[\.\s\-]*/, '').trim().toLowerCase();
+
+            links.forEach(function(l) {
+                if (firstMainCat) return;
+                var lSub = ((typeof l === 'object' && (l.subCat || l.prefix)) || '').toLowerCase().trim();
+                var lMain = ((typeof l === 'object' && l.mainCat) || '').toLowerCase().trim();
+                var matchSub = subClean && lSub && (lSub.includes(subClean) || subClean.includes(lSub));
+                var matchMain = lMain && mainClean && lMain.includes(mainClean);
+
+                if (matchSub || matchMain) {
+                    var cleanCat = d.main_category ? d.main_category.replace(/^\d+[\.\s\-]*/, '').trim() : '';
+                    var mainIdx = mainCatKeys.indexOf(d.main_category);
+                    firstMainCat = 'Tư Liệu ' + (mainIdx >= 0 ? mainIdx + 1 : 1) + ' : ' + cleanCat;
+                }
+            });
+        });
+
+        // 2. Fallback: match by URL / Title across all links and all docs
+        if (!firstMainCat) {
+            docs.forEach(function(d) {
+                if (firstMainCat) return;
+                var dLinks = d.links;
+                if (typeof dLinks === 'string') {
+                    try { dLinks = JSON.parse(dLinks); } catch(e) { dLinks = []; }
+                }
+                (dLinks || []).forEach(function(l) {
+                    if (firstMainCat) return;
+                    var lUrl = typeof l === 'string' ? l : l.url;
+                    var lTitle = typeof l === 'string' ? l : (l.title || l.url);
+
+                    links.forEach(function(linkObj) {
+                        if (firstMainCat) return;
+                        var sUrl = typeof linkObj === 'string' ? linkObj : linkObj.url;
+                        var sTitle = typeof linkObj === 'object' ? linkObj.title : '';
+
+                        var matchUrl = sUrl && lUrl && (lUrl.trim() === sUrl.trim() || sUrl.trim().includes(lUrl.trim()) || lUrl.trim().includes(sUrl.trim()));
+                        var matchTitle = !sTitle || (lTitle && lTitle.trim() === sTitle.trim());
+
+                        if (matchUrl && matchTitle) {
+                            var cleanCat = d.main_category ? d.main_category.replace(/^\d+[\.\s\-]*/, '').trim() : '';
+                            var mainIdx = mainCatKeys.indexOf(d.main_category);
+                            firstMainCat = 'Tư Liệu ' + (mainIdx >= 0 ? mainIdx + 1 : 1) + ' : ' + cleanCat;
+                        }
+                    });
+                });
+            });
+        }
+
+        // 3. Fallback to rawMainCat stored on links
+        if (!firstMainCat && links[0] && links[0].mainCat) {
+            var rawClean = links[0].mainCat.replace(/^Tư Liệu \d+\s*:\s*/i, '').replace(/^\d+[\.\s\-]*/, '').trim();
+            mainCatKeys.forEach(function(catKey, idx) {
+                var c = catKey.replace(/^\d+[\.\s\-]*/, '').trim();
+                if (c.toLowerCase() === rawClean.toLowerCase()) {
+                    firstMainCat = 'Tư Liệu ' + (idx + 1) + ' : ' + c;
+                }
+            });
+            if (!firstMainCat) {
+                firstMainCat = 'Tư Liệu 1 : ' + rawClean;
+            }
+        }
+
+        // Group links by subCat / prefix
+        var groups = {};
+        links.forEach(function(link) {
+            var prefix = typeof link === 'object' ? (link.prefix || link.subCat || '') : '';
+            var key = prefix || 'Mục khác';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(link);
+        });
+
+        var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+        if (firstMainCat) {
+            html += '<div style="font-size:12px;font-weight:800;color:#047857;display:flex;align-items:center;gap:4px">📂 ' + _esc(firstMainCat) + ':</div>';
+        }
+
+        Object.keys(groups).forEach(function(prefixKey) {
+            html += '<div style="margin-left:' + (firstMainCat ? '10px' : '0') + '">';
+            if (prefixKey && prefixKey !== 'Mục khác') {
+                html += '<div style="font-size:11px;font-weight:800;color:#d97706;margin-bottom:4px;display:flex;align-items:center;gap:4px">📁 ' + _esc(prefixKey) + ':</div>';
+            }
+            html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+            groups[prefixKey].forEach(function(link) {
+                var title = typeof link === 'string' ? link : (link.title || link.url);
+                var url = typeof link === 'string' ? link : link.url;
+                html += '<a href="' + _escAttr(url) + '" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#059669;background:#ecfdf5;padding:6px 12px;border-radius:8px;border:1px solid #a7f3d0;text-decoration:none">📚 ' + _esc(title) + ' ↗</a>';
+            });
+            html += '</div></div>';
+        });
+
+        html += '</div>';
+        return html;
+    }
+
+    return '<a href="' + _escAttr(guideLink) + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#059669;font-weight:700;word-break:break-all;padding:6px 12px;background:#ecfdf5;border-radius:8px;border:1px solid #a7f3d0;text-decoration:none">📚 ' + _esc(guideLink) + ' ↗</a>';
+}
+
 // ===== BẢNG CÔNG VIỆC — Kanban Task Board =====
 var _bcv = {
     tasks: [],
     users: [],
     departments: [],
     enabledDepts: [],
-    tab: null, // set dynamically: 'me' | 'phong'
+    tab: null, // set dynamically: 'me' | 'phong' | 'tu_lieu'
     filters: { search: '', assigned_to: '', department_id: '', priority: '', status: '' },
+    hoanThanhFilter: {
+        mode: 'thang_truoc_va_nay', // mặc định: tháng trước & tháng này
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+        week: 1,
+        fromDate: '',
+        toDate: ''
+    },
+    documents: [],
+    docFilters: { search: '', department_id: '' },
     dragTaskId: null
 };
 
@@ -13,10 +155,12 @@ async function renderBangcongviecPage(content) {
     var c = content || document.getElementById('main-content');
     if (!c) return;
     var user = window._currentUser || {};
-    var isDirector = user.role === 'giam_doc';
+    var isDirector = ['giam_doc', 'quan_ly_cap_cao'].includes(user.role);
     var isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(user.role);
     var greeting = user.full_name || 'Bạn';
-    var defaultTab = 'me';
+    var savedTab = null;
+    try { savedTab = localStorage.getItem('bcv_active_tab'); } catch(e){}
+    var defaultTab = (savedTab && ['me','ban_giao','tu_lieu'].includes(savedTab)) ? savedTab : 'me';
     _bcv.tab = defaultTab;
 
     c.innerHTML = `<style>
@@ -60,6 +204,10 @@ async function renderBangcongviecPage(content) {
 .bcv-col[data-status="cho_duyet"] .bcv-col-count{background:#ddd6fe;color:#6d28d9}
 .bcv-col[data-status="hoan_thanh"] .bcv-col-header{background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#16a34a;border-left-color:#16a34a}
 .bcv-col[data-status="hoan_thanh"] .bcv-col-count{background:#bbf7d0;color:#15803d}
+.bcv-ht-filter-box{margin-top:6px;background:rgba(255,255,255,0.85);border-radius:8px;padding:6px 8px;border:1px solid #a7f3d0;box-shadow:0 1px 3px rgba(0,0,0,0.03)}
+.bcv-ht-select,.bcv-ht-input{width:100%;padding:4px 8px;border-radius:6px;border:1px solid #a7f3d0;font-size:11px;font-weight:700;background:#fff;color:#065f46;outline:none;font-family:'Inter',sans-serif;box-sizing:border-box}
+.bcv-ht-select:focus,.bcv-ht-input:focus{border-color:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,.15)}
+.bcv-ht-sub-inputs{display:flex;gap:4px;margin-top:4px}
 .bcv-col-body{flex:1;padding:10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:100px}
 .bcv-col-body.drag-over{background:rgba(59,130,246,.05);border-radius:0 0 14px 14px}
 .bcv-col-empty{color:#94a3b8;font-size:12px;font-weight:600;text-align:center;padding:40px 20px;opacity:.7}
@@ -101,6 +249,10 @@ async function renderBangcongviecPage(content) {
 .bcv-card-flow-arrow{color:#3b82f6;font-weight:800;font-size:12px}
 .bcv-card-flow-name{font-weight:700;color:#334155}
 .bcv-card-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+@keyframes bcvFlashRejected{0%,100%{background:#dc2626;color:#ffffff;box-shadow:0 0 10px rgba(220,38,38,0.8)}50%{background:#fef2f2;color:#b91c1c;box-shadow:0 0 2px rgba(220,38,38,0.2)}}
+.bcv-tag-rejected-flash{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:900;letter-spacing:0.5px;animation:bcvFlashRejected 1s infinite ease-in-out;border:1px solid #dc2626}
+@keyframes bcvPulseRejectedCard{0%,100%{border-color:#ef4444;box-shadow:0 0 12px rgba(239,68,68,0.4)}50%{border-color:#fca5a5;box-shadow:0 0 4px rgba(239,68,68,0.15)}}
+.bcv-card.bcv-card-rejected{border:2px solid #ef4444 !important;animation:bcvPulseRejectedCard 1.5s infinite ease-in-out;background:#fff5f5 !important}
 
 /* Modal */
 .bcv-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.55);z-index:9990;display:flex;align-items:center;justify-content:center;animation:bcvFadeIn .2s;backdrop-filter:blur(4px)}
@@ -154,35 +306,20 @@ async function renderBangcongviecPage(content) {
 .bcv-info-compact{display:grid;grid-template-columns:1fr 1fr;gap:6px;border:none;border-radius:12px;margin-bottom:14px;background:transparent}
 .bcv-info-cell{padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;transition:all .2s}
 .bcv-info-cell:hover{box-shadow:0 2px 8px rgba(15,23,42,.05);transform:translateY(-1px)}
+.bcv-info-lbl{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.bcv-info-val{font-size:12px;font-weight:700;color:#1e293b}
 
-/* Individual Cell Background Themes */
-.bcv-cell-status{background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#bfdbfe}
-.bcv-cell-status .bcv-info-lbl{color:#1d4ed8;font-weight:800}
-
-.bcv-cell-priority{background:linear-gradient(135deg,#fffbe6,#fef3c7);border-color:#fde68a}
-.bcv-cell-priority .bcv-info-lbl{color:#b45309;font-weight:800}
-
-.bcv-cell-deadline{background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-color:#bae6fd}
-.bcv-cell-deadline .bcv-info-lbl{color:#0369a1;font-weight:800}
-.bcv-cell-deadline.overdue{background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:#fca5a5}
-.bcv-cell-deadline.overdue .bcv-info-lbl{color:#b91c1c;font-weight:800}
-
-.bcv-cell-dept{background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-color:#ddd6fe}
-.bcv-cell-dept .bcv-info-lbl{color:#6d28d9;font-weight:800}
-
-.bcv-cell-assigner{background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-color:#cbd5e1}
-.bcv-cell-assigner .bcv-info-lbl{color:#334155;font-weight:800}
-
-.bcv-cell-assignee{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#bbf7d0}
-.bcv-cell-assignee .bcv-info-lbl{color:#15803d;font-weight:800}
-
-.bcv-cell-link{grid-column:1/-1;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-color:#bae6fd}
-.bcv-cell-link .bcv-info-lbl{color:#0284c7;font-weight:800}
+/* Individual Cell — Unified Slate Theme (chỉ nhấn Deadline quá hạn) */
+.bcv-cell-status,.bcv-cell-priority,.bcv-cell-deadline,.bcv-cell-dept,.bcv-cell-assigner,.bcv-cell-assignee,.bcv-cell-link{background:#f8fafc;border-color:#e2e8f0}
+.bcv-cell-status .bcv-info-lbl,.bcv-cell-priority .bcv-info-lbl,.bcv-cell-deadline .bcv-info-lbl,.bcv-cell-dept .bcv-info-lbl,.bcv-cell-assigner .bcv-info-lbl,.bcv-cell-assignee .bcv-info-lbl,.bcv-cell-link .bcv-info-lbl{color:#64748b;font-weight:800}
+.bcv-cell-deadline.overdue{background:#fef2f2;border-color:#fca5a5}
+.bcv-cell-deadline.overdue .bcv-info-lbl{color:#b91c1c}
+.bcv-cell-link{grid-column:1/-1}
 
 /* Prominent Title & Description Fields */
-.bcv-form-input-prominent{width:100%;padding:11px 16px;border-radius:10px;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 100%);font-size:14px;font-weight:800;font-family:'Inter',sans-serif;color:#0f172a;outline:none;box-shadow:0 2px 8px rgba(37,99,235,.08);transition:all .2s;box-sizing:border-box}
-.bcv-form-input-prominent:disabled{background:#f8fafc;border-color:#cbd5e1;color:#0f172a;opacity:1;font-weight:800}
-.bcv-form-textarea-prominent{width:100%;min-height:80px;padding:11px 16px;border-radius:10px;border:1.5px solid #cbd5e1;background:#f8fafc;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;color:#1e293b;outline:none;resize:vertical;transition:all .2s;box-sizing:border-box}
+.bcv-form-input-prominent{width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 100%);font-size:13px;font-weight:700;font-family:'Inter',sans-serif;color:#0f172a;outline:none;box-shadow:0 2px 8px rgba(37,99,235,.08);transition:all .2s;box-sizing:border-box}
+.bcv-form-input-prominent:disabled{background:#f8fafc;border-color:#cbd5e1;color:#0f172a;opacity:1;font-weight:700}
+.bcv-form-textarea-prominent{width:100%;min-height:80px;padding:10px 14px;border-radius:10px;border:1.5px solid #cbd5e1;background:#f8fafc;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;color:#1e293b;outline:none;resize:vertical;transition:all .2s;box-sizing:border-box}
 .bcv-form-textarea-prominent:focus{border-color:#2563eb;background:#ffffff;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
 .bcv-form-textarea-prominent:disabled{background:#f8fafc;border-color:#e2e8f0;color:#1e293b;opacity:1}
 
@@ -215,7 +352,7 @@ async function renderBangcongviecPage(content) {
 .bcv-cl-card-save:hover{background:#1d4ed8}
 
 /* Checklist Compact Saved View */
-.bcv-cl-saved-body{margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#334155}
+.bcv-cl-saved-body{margin-top:6px;padding:6px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;display:flex;flex-direction:row;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:#334155}
 .bcv-cl-content-preview{background:#f8fafc;padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;white-space:pre-wrap;word-break:break-word;color:#334155;font-size:11.5px;font-weight:500;line-height:1.5}
 .bcv-cl-link-preview{font-weight:600;font-size:11.5px;padding:4px 0}
 .bcv-cl-link-preview a{color:#2563eb;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
@@ -298,28 +435,53 @@ async function renderBangcongviecPage(content) {
 .bcv-section-divider {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 18px 0 14px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #e2e8f0;
+    gap: 10px;
+    margin: 0 -20px 16px;
+    padding: 12px 20px;
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
 }
 
 .bcv-section-title-badge {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 16px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #1d4ed8 100%);
-    background-size: 200% 200%;
-    animation: bcvGlowShimmer 6s ease infinite;
-    color: #ffffff;
     font-size: 13px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    box-shadow: 0 4px 14px rgba(37,99,235,0.25);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,.15);
+}
+
+/* Section 1: Thông Tin Công Việc */
+.bcv-card-section1 {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(15,23,42,.04);
+    overflow: hidden;
+}
+.bcv-card-section1 > .bcv-section-divider {
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    margin-top: -20px;
+}
+
+/* Section 2: Báo Cáo Tiến Độ */
+.bcv-card-section2 {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(15,23,42,.04);
+    overflow: hidden;
+}
+.bcv-card-section2 > .bcv-section-divider {
+    background: linear-gradient(135deg, #047857 0%, #059669 100%);
+    margin-top: -20px;
 }
 
 /* Outstanding Task Report Header Badge */
@@ -380,10 +542,11 @@ async function renderBangcongviecPage(content) {
         <div class="bcv-header-sub">Xin chào, <strong>${_esc(greeting)}</strong> 🌿 — kéo thả thẻ để đổi trạng thái.</div>
         <div class="bcv-top-bar">
             <div class="bcv-tabs">
-                <button class="bcv-tab active" data-tab="me" onclick="_bcvSwitchTab('me')">Công Việc Của Tôi</button>
-                <button class="bcv-tab" data-tab="ban_giao" onclick="_bcvSwitchTab('ban_giao')">Công Việc Bàn Giao</button>
+                <button class="bcv-tab ${defaultTab === 'me' ? 'active' : ''}" data-tab="me" onclick="_bcvSwitchTab('me')">Công Việc Của Tôi</button>
+                <button class="bcv-tab ${defaultTab === 'ban_giao' ? 'active' : ''}" data-tab="ban_giao" onclick="_bcvSwitchTab('ban_giao')">Công Việc Bàn Giao</button>
+                <button class="bcv-tab ${defaultTab === 'tu_lieu' ? 'active' : ''}" data-tab="tu_lieu" onclick="_bcvSwitchTab('tu_lieu')">📚 Tư Liệu</button>
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
+            <div id="bcvHeaderActionBtns" style="display:flex;gap:8px;align-items:center">
                 ${isDirector ? '<button class="bcv-btn-config" onclick="_bcvShowConfig()">⚙️ Cài đặt phòng ban</button>' : ''}
                 ${isManager ? '<button class="bcv-btn-create" onclick="_bcvShowCreate()">＋ Tạo task mới</button>' : ''}
             </div>
@@ -416,13 +579,20 @@ async function renderBangcongviecPage(content) {
             <div class="bcv-col-body" id="bcvColChoDuyet" ondragover="_bcvDragOver(event)" ondrop="_bcvDrop(event,'cho_duyet')" ondragleave="_bcvDragLeave(event)"></div>
         </div>
         <div class="bcv-col" data-status="hoan_thanh">
-            <div class="bcv-col-header">HOÀN THÀNH <span class="bcv-col-count" id="bcvCountHoanThanh">0</span></div>
+            <div class="bcv-col-header" style="flex-direction:column;align-items:stretch;gap:4px;padding-bottom:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span>HOÀN THÀNH</span>
+                    <span class="bcv-col-count" id="bcvCountHoanThanh">0</span>
+                </div>
+                <div class="bcv-ht-filter-box" id="bcvHoanThanhFilterBox"></div>
+            </div>
             <div class="bcv-col-body" id="bcvColHoanThanh" ondragover="_bcvDragOver(event)" ondrop="_bcvDrop(event,'hoan_thanh')" ondragleave="_bcvDragLeave(event)"></div>
         </div>
     </div>
 </div>`;
 
     await _bcvLoadData();
+    await _bcvSwitchTab(defaultTab);
 }
 
 // ========== DATA LOADING ==========
@@ -430,19 +600,21 @@ async function renderBangcongviecPage(content) {
 async function _bcvLoadData() {
     try {
         var user = window._currentUser || {};
-        var isDirector = user.role === 'giam_doc';
+        var isDirector = ['giam_doc', 'quan_ly_cap_cao'].includes(user.role);
+
+        // Load config (departments)
+        var configRes = await _bcvApi('/api/board-config');
+        _bcv.departments = (configRes && configRes.departments) || [];
+        _bcv.enabledDepts = _bcv.departments.filter(function(d) { return d.board_enabled; });
+        _bcvPopulateDeptFilter();
 
         // Load users for filters
         var usersRes = await _bcvApi('/api/board-tasks/users');
         _bcv.users = (usersRes && usersRes.users) || [];
 
-        // Load departments (for director filter)
-        if (isDirector) {
-            var configRes = await _bcvApi('/api/board-config');
-            _bcv.departments = (configRes && configRes.departments) || [];
-            _bcv.enabledDepts = _bcv.departments.filter(d => d.board_enabled);
-            _bcvPopulateDeptFilter();
-        }
+        // Load documents for title mapping across board
+        var docsRes = await _bcvApi('/api/board-documents');
+        _bcv.documents = (docsRes && docsRes.documents) || [];
 
         // Populate user filter
         _bcvPopulateUserFilter();
@@ -454,6 +626,168 @@ async function _bcvLoadData() {
     }
 }
 
+// ========== HOÀN THÀNH COLUMN FILTER FUNCTIONS ==========
+
+function _bcvGetHoanThanhDateRange() {
+    var filter = (_bcv && _bcv.hoanThanhFilter) || {};
+    var mode = filter.mode || 'thang_truoc_va_nay';
+
+    var now = (typeof _bcvGetVNNow === 'function') ? _bcvGetVNNow() : new Date();
+    var curYear = now.getFullYear();
+    var curMonth = now.getMonth(); // 0-indexed (0=Jan..11=Dec)
+
+    var fromStr = '';
+    var toStr = '';
+
+    function pad2(n) { return String(n).padStart(2, '0'); }
+
+    if (mode === 'thang_truoc_va_nay') {
+        var prevMonthDate = new Date(curYear, curMonth - 1, 1);
+        var pY = prevMonthDate.getFullYear();
+        var pM = prevMonthDate.getMonth() + 1;
+
+        var lastDayCurMonth = new Date(curYear, curMonth + 1, 0).getDate();
+        var cY = curYear;
+        var cM = curMonth + 1;
+
+        fromStr = pY + '-' + pad2(pM) + '-01 00:00:00';
+        toStr = cY + '-' + pad2(cM) + '-' + pad2(lastDayCurMonth) + ' 23:59:59';
+    } else if (mode === 'thang_nay') {
+        var cY = curYear;
+        var cM = curMonth + 1;
+        var lastDay = new Date(cY, cM, 0).getDate();
+        fromStr = cY + '-' + pad2(cM) + '-01 00:00:00';
+        toStr = cY + '-' + pad2(cM) + '-' + pad2(lastDay) + ' 23:59:59';
+    } else if (mode === 'thang_truoc') {
+        var prevMonthDate = new Date(curYear, curMonth - 1, 1);
+        var pY = prevMonthDate.getFullYear();
+        var pM = prevMonthDate.getMonth() + 1;
+        var lastDayPrev = new Date(pY, pM, 0).getDate();
+        fromStr = pY + '-' + pad2(pM) + '-01 00:00:00';
+        toStr = pY + '-' + pad2(pM) + '-' + pad2(lastDayPrev) + ' 23:59:59';
+    } else if (mode === 'tuan_nay') {
+        var day = now.getDay() || 7; // Mon=1..Sun=7
+        var mon = new Date(now.getTime() - (day - 1) * 86400000);
+        var sun = new Date(mon.getTime() + 6 * 86400000);
+        fromStr = mon.getFullYear() + '-' + pad2(mon.getMonth() + 1) + '-' + pad2(mon.getDate()) + ' 00:00:00';
+        toStr = sun.getFullYear() + '-' + pad2(sun.getMonth() + 1) + '-' + pad2(sun.getDate()) + ' 23:59:59';
+    } else if (mode === 'tuan_truoc') {
+        var day = now.getDay() || 7;
+        var mon = new Date(now.getTime() - (day - 1 + 7) * 86400000);
+        var sun = new Date(mon.getTime() + 6 * 86400000);
+        fromStr = mon.getFullYear() + '-' + pad2(mon.getMonth() + 1) + '-' + pad2(mon.getDate()) + ' 00:00:00';
+        toStr = sun.getFullYear() + '-' + pad2(sun.getMonth() + 1) + '-' + pad2(sun.getDate()) + ' 23:59:59';
+    } else if (mode === 'nam') {
+        var y = Number(filter.year) || curYear;
+        fromStr = y + '-01-01 00:00:00';
+        toStr = y + '-12-31 23:59:59';
+    } else if (mode === 'thang') {
+        var y = Number(filter.year) || curYear;
+        var m = Number(filter.month) || (curMonth + 1);
+        var lastDay = new Date(y, m, 0).getDate();
+        fromStr = y + '-' + pad2(m) + '-01 00:00:00';
+        toStr = y + '-' + pad2(m) + '-' + pad2(lastDay) + ' 23:59:59';
+    } else if (mode === 'tuan') {
+        var y = Number(filter.year) || curYear;
+        var w = Number(filter.week) || 1;
+        var jan4 = new Date(y, 0, 4);
+        var dayOfWeek = jan4.getDay() || 7;
+        var monWeek1 = new Date(jan4.getTime() - (dayOfWeek - 1) * 86400000);
+        var targetMon = new Date(monWeek1.getTime() + (w - 1) * 7 * 86400000);
+        var targetSun = new Date(targetMon.getTime() + 6 * 86400000);
+        fromStr = targetMon.getFullYear() + '-' + pad2(targetMon.getMonth() + 1) + '-' + pad2(targetMon.getDate()) + ' 00:00:00';
+        toStr = targetSun.getFullYear() + '-' + pad2(targetSun.getMonth() + 1) + '-' + pad2(targetSun.getDate()) + ' 23:59:59';
+    } else if (mode === 'ngay') {
+        if (filter.fromDate) fromStr = filter.fromDate + ' 00:00:00';
+        if (filter.toDate) toStr = filter.toDate + ' 23:59:59';
+    } else if (mode === 'tat_ca') {
+        fromStr = '';
+        toStr = '';
+    }
+
+    return { from: fromStr, to: toStr };
+}
+
+function _bcvRenderHoanThanhFilterUI() {
+    var container = document.getElementById('bcvHoanThanhFilterBox');
+    if (!container) return;
+
+    var filter = (_bcv && _bcv.hoanThanhFilter) || {};
+    var mode = filter.mode || 'thang_truoc_va_nay';
+    var now = (typeof _bcvGetVNNow === 'function') ? _bcvGetVNNow() : new Date();
+    var curYear = now.getFullYear();
+
+    var html = `
+        <select class="bcv-ht-select" id="bcvHTMode" onchange="_bcvOnHTModeChange(this.value)">
+            <option value="thang_truoc_va_nay" ${mode === 'thang_truoc_va_nay' ? 'selected' : ''}>📅 Tháng trước & tháng này</option>
+            <option value="thang_nay" ${mode === 'thang_nay' ? 'selected' : ''}>🗓️ Tháng này</option>
+            <option value="thang_truoc" ${mode === 'thang_truoc' ? 'selected' : ''}>🗓️ Tháng trước</option>
+            <option value="tuan_nay" ${mode === 'tuan_nay' ? 'selected' : ''}>📆 Tuần này</option>
+            <option value="tuan_truoc" ${mode === 'tuan_truoc' ? 'selected' : ''}>📆 Tuần trước</option>
+            <option value="thang" ${mode === 'thang' ? 'selected' : ''}>📊 Chọn Tháng...</option>
+            <option value="nam" ${mode === 'nam' ? 'selected' : ''}>📈 Chọn Năm...</option>
+            <option value="tuan" ${mode === 'tuan' ? 'selected' : ''}>📋 Chọn Tuần...</option>
+            <option value="ngay" ${mode === 'ngay' ? 'selected' : ''}>📆 Chọn ngày (Từ - Đến)</option>
+            <option value="tat_ca" ${mode === 'tat_ca' ? 'selected' : ''}>🌐 Tất cả thời gian</option>
+        </select>
+    `;
+
+    var subHtml = '';
+    if (mode === 'nam') {
+        var yearOpts = '';
+        for (var y = curYear + 1; y >= curYear - 4; y--) {
+            yearOpts += `<option value="${y}" ${filter.year == y ? 'selected' : ''}>Năm ${y}</option>`;
+        }
+        subHtml = `<div class="bcv-ht-sub-inputs"><select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('year', this.value)">${yearOpts}</select></div>`;
+    } else if (mode === 'thang') {
+        var monthOpts = '';
+        for (var m = 1; m <= 12; m++) {
+            monthOpts += `<option value="${m}" ${filter.month == m ? 'selected' : ''}>Tháng ${m}</option>`;
+        }
+        var yearOpts = '';
+        for (var y = curYear + 1; y >= curYear - 4; y--) {
+            yearOpts += `<option value="${y}" ${filter.year == y ? 'selected' : ''}>Năm ${y}</option>`;
+        }
+        subHtml = `<div class="bcv-ht-sub-inputs">
+            <select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('month', this.value)">${monthOpts}</select>
+            <select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('year', this.value)">${yearOpts}</select>
+        </div>`;
+    } else if (mode === 'tuan') {
+        var weekOpts = '';
+        for (var w = 1; w <= 52; w++) {
+            weekOpts += `<option value="${w}" ${filter.week == w ? 'selected' : ''}>Tuần ${w}</option>`;
+        }
+        var yearOpts = '';
+        for (var y = curYear + 1; y >= curYear - 4; y--) {
+            yearOpts += `<option value="${y}" ${filter.year == y ? 'selected' : ''}>Năm ${y}</option>`;
+        }
+        subHtml = `<div class="bcv-ht-sub-inputs">
+            <select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('week', this.value)">${weekOpts}</select>
+            <select class="bcv-ht-select" style="flex:1" onchange="_bcvOnHTSubChange('year', this.value)">${yearOpts}</select>
+        </div>`;
+    } else if (mode === 'ngay') {
+        subHtml = `<div class="bcv-ht-sub-inputs">
+            <input type="date" class="bcv-ht-input" style="flex:1" value="${filter.fromDate || ''}" placeholder="Từ ngày" onchange="_bcvOnHTSubChange('fromDate', this.value)">
+            <input type="date" class="bcv-ht-input" style="flex:1" value="${filter.toDate || ''}" placeholder="Đến ngày" onchange="_bcvOnHTSubChange('toDate', this.value)">
+        </div>`;
+    }
+
+    container.innerHTML = html + subHtml;
+}
+
+function _bcvOnHTModeChange(val) {
+    if (!_bcv.hoanThanhFilter) _bcv.hoanThanhFilter = {};
+    _bcv.hoanThanhFilter.mode = val;
+    _bcvRenderHoanThanhFilterUI();
+    _bcvLoadTasks();
+}
+
+function _bcvOnHTSubChange(key, val) {
+    if (!_bcv.hoanThanhFilter) _bcv.hoanThanhFilter = {};
+    _bcv.hoanThanhFilter[key] = val;
+    _bcvLoadTasks();
+}
+
 async function _bcvLoadTasks() {
     var params = new URLSearchParams();
     params.set('tab', _bcv.tab);
@@ -462,9 +796,14 @@ async function _bcvLoadTasks() {
     if (_bcv.filters.department_id) params.set('department_id', _bcv.filters.department_id);
     if (_bcv.filters.priority) params.set('priority', _bcv.filters.priority);
 
+    var htRange = _bcvGetHoanThanhDateRange();
+    if (htRange.from) params.set('hoan_thanh_from', htRange.from);
+    if (htRange.to) params.set('hoan_thanh_to', htRange.to);
+
     var res = await _bcvApi('/api/board-tasks?' + params.toString());
     _bcv.tasks = (res && res.tasks) || [];
     _bcvRenderBoard();
+    _bcvRenderHoanThanhFilterUI();
 }
 
 function _bcvRenderBoard() {
@@ -477,6 +816,15 @@ function _bcvRenderBoard() {
 
     _bcv.tasks.forEach(function(t) {
         if (cols[t.status]) cols[t.status].push(t);
+    });
+
+    // Sort 'dang_lam' column: rejected tasks first (at the very top), then by ID descending
+    cols.dang_lam.sort(function(a, b) {
+        var aRejected = !!(a.feedback_content && a.feedback_content.trim());
+        var bRejected = !!(b.feedback_content && b.feedback_content.trim());
+        if (aRejected && !bRejected) return -1;
+        if (!aRejected && bRejected) return 1;
+        return (b.id - a.id);
     });
 
     Object.keys(cols).forEach(function(status) {
@@ -499,53 +847,111 @@ function _bcvRenderBoard() {
     });
 }
 
+// Get current date/time in Vietnam Timezone (Asia/Ho_Chi_Minh GMT+7)
+function _bcvGetVNNow() {
+    var d = new Date();
+    var formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    });
+    var parts = formatter.formatToParts(d);
+    var p = {};
+    parts.forEach(function(part) { p[part.type] = part.value; });
+    var hr = (p.hour === '24' || p.hour === '24:00') ? '00' : p.hour;
+    return new Date(p.year + '-' + p.month + '-' + p.day + 'T' + hr + ':' + p.minute + ':' + p.second + '+07:00');
+}
+
+// Validate and normalize URL (Google Sheets, Drive, Docs, Website links)
+function _bcvNormalizeAndValidateUrl(str) {
+    if (!str || !str.trim()) return { isValid: true, url: '' };
+    var s = str.trim();
+
+    // Auto prepend https:// if starts with www. or contains domain pattern like docs.google.com, drive.google.com, etc.
+    if (!/^https?:\/\//i.test(s)) {
+        if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(s) || /^docs\.google\.com/i.test(s) || /^drive\.google\.com/i.test(s)) {
+            s = 'https://' + s;
+        }
+    }
+
+    // Strict URL validation
+    try {
+        var parsed = new URL(s);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            if (parsed.hostname.includes('.') || parsed.hostname === 'localhost') {
+                return { isValid: true, url: s };
+            }
+        }
+    } catch(e) {}
+
+    return { isValid: false, url: str };
+}
+
+// Format date to Vietnam Timezone display string
+function _bcvFormatVNTime(dateStr, showTime) {
+    if (!dateStr) return '';
+    var d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+
+    var daysArr = ['Chủ Nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+    
+    var formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    });
+    var parts = formatter.formatToParts(d);
+    var p = {};
+    parts.forEach(function(part) { p[part.type] = part.value; });
+
+    var hr = (p.hour === '24' || p.hour === '24:00') ? '00' : p.hour;
+    var vnDate = new Date(p.year + '-' + p.month + '-' + p.day + 'T12:00:00+07:00');
+    var dayName = daysArr[vnDate.getDay()];
+    var dd = String(p.day).padStart(2,'0');
+    var mm = String(p.month).padStart(2,'0');
+    var hh = String(hr).padStart(2,'0');
+    var mi = String(p.minute).padStart(2,'0');
+
+    if (showTime) {
+        return dayName + ' - ' + dd + '/' + mm + ' ' + hh + ':' + mi;
+    }
+    return dayName + ' - ' + dd + '/' + mm;
+}
+
 function _bcvRenderCard(t) {
-    var now = new Date();
-    var dlDate = t.deadline ? new Date(t.deadline + 'T00:00:00') : null;
+    var now = _bcvGetVNNow();
+    var dlDate = t.deadline ? new Date(t.deadline + 'T23:59:59+07:00') : null;
     var isOverdue = dlDate && dlDate < now && t.status !== 'hoan_thanh';
+    var isRejected = (t.status === 'dang_lam') && !!(t.feedback_content && t.feedback_content.trim());
     var progress = Number(t.progress || 0);
     var creatorName = t.created_by_name || '?';
     var assigneeName = t.assigned_to_name || 'Chưa giao';
     var commentCount = Number(t.comment_count || 0);
-    var daysArr = ['Chủ Nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
 
     // CV-001 format
     var cvId = 'CV-' + String(t.id).padStart(3,'0');
 
-    // Deadline with full day of week
+    // Deadline with full day of week in VN timezone
     var deadlineDisplay = '';
     var overdueDays = 0;
     if (dlDate) {
-        var dayName = daysArr[dlDate.getDay()];
-        var dd = String(dlDate.getDate()).padStart(2,'0');
-        var mm = String(dlDate.getMonth()+1).padStart(2,'0');
-        var yy = String(dlDate.getFullYear()).slice(-2);
-        deadlineDisplay = dayName + ' - ' + dd + '/' + mm;
+        deadlineDisplay = _bcvFormatVNTime(t.deadline, false);
         if (isOverdue) {
-            var diff = now.getTime() - dlDate.getTime();
-            overdueDays = Math.ceil(diff / (1000*60*60*24));
+            var dlMidnight = new Date(t.deadline + 'T00:00:00+07:00');
+            var formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' });
+            var parts = formatter.formatToParts(now);
+            var p = {}; parts.forEach(function(pt) { p[pt.type] = pt.value; });
+            var nowMidnight = new Date(p.year + '-' + p.month + '-' + p.day + 'T00:00:00+07:00');
+            var diff = nowMidnight.getTime() - dlMidnight.getTime();
+            overdueDays = Math.max(1, Math.floor(diff / (1000*60*60*24)));
         }
     }
 
-    // Created date with day of week = Ngày Bàn Giao
-    var createdDisplay = '';
-    if (t.created_at) {
-        var cd = new Date(t.created_at);
-        var cdDay = daysArr[cd.getDay()];
-        var cdd = String(cd.getDate()).padStart(2,'0');
-        var cmm = String(cd.getMonth()+1).padStart(2,'0');
-        var chh = String(cd.getHours()).padStart(2,'0');
-        var cmi = String(cd.getMinutes()).padStart(2,'0');
-        createdDisplay = cdDay + ' - ' + cdd + '/' + cmm + ' ' + chh + ':' + cmi;
-    }
+    // Created date with day of week = Ngày Bàn Giao (VN timezone)
+    var createdDisplay = _bcvFormatVNTime(t.created_at, true);
 
-    // Format accepted_at for card
-    var acceptedDisplay = '';
-    if (t.accepted_at) {
-        var ac = new Date(t.accepted_at);
-        var acDay = daysArr[ac.getDay()];
-        acceptedDisplay = acDay + ' - ' + String(ac.getDate()).padStart(2,'0') + '/' + String(ac.getMonth()+1).padStart(2,'0') + ' ' + String(ac.getHours()).padStart(2,'0') + ':' + String(ac.getMinutes()).padStart(2,'0');
-    }
+    // Format accepted_at for card (VN timezone)
+    var acceptedDisplay = _bcvFormatVNTime(t.accepted_at, true);
 
     // Overdue HTML
     var deadlineHtml = '';
@@ -557,13 +963,14 @@ function _bcvRenderCard(t) {
         }
     }
 
-    return `<div class="bcv-card${isOverdue ? ' bcv-card-overdue' : ''}" draggable="true" data-task-id="${t.id}"
+    return `<div class="bcv-card${isRejected ? ' bcv-card-rejected' : (isOverdue ? ' bcv-card-overdue' : '')}" draggable="true" data-task-id="${t.id}"
         ondragstart="_bcvDragStart(event,${t.id})" ondragend="_bcvDragEnd(event)"
         onclick="_bcvShowDetail(${t.id})">
         <div class="bcv-card-meta">
             <span class="bcv-card-id">${cvId}</span>
         </div>
         <div class="bcv-card-tags">
+            ${isRejected ? `<span class="bcv-tag-rejected-flash">❌ KHÔNG DUYỆT</span>` : ''}
             <span class="bcv-tag bcv-tag-${t.task_type}">${t.task_type === 'chinh' ? '🔵 Chính' : '🟡 Phụ'}</span>
             <span class="bcv-tag bcv-tag-${t.priority}">${t.priority === 'cao' ? '🔴 Cao' : t.priority === 'trung_binh' ? '🟠 Trung bình' : '🟢 Thấp'}</span>
         </div>
@@ -648,13 +1055,7 @@ async function _bcvDrop(e, newStatus) {
 
 // ========== TABS & FILTERS ==========
 
-function _bcvSwitchTab(tab) {
-    _bcv.tab = tab;
-    document.querySelectorAll('.bcv-tab').forEach(el => {
-        el.classList.toggle('active', el.dataset.tab === tab);
-    });
-    _bcvLoadTasks();
-}
+
 
 var _bcvSearchTimer = null;
 function _bcvDebounceSearch() {
@@ -697,9 +1098,49 @@ function _bcvPopulateUserFilter() {
 
 // ========== CREATE TASK MODAL ==========
 
+function _bcvBuildAssigneeCheckboxes(users) {
+    if (!users || users.length === 0) {
+        return '<div style="font-size:12px;color:#94a3b8;font-style:italic">Không có nhân sự nào trong phòng ban</div>';
+    }
+    var html = '';
+    users.forEach(function(u) {
+        var label = _esc(u.full_name) + (u.department_name ? ' (' + _esc(u.department_name) + ')' : '');
+        html += `<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1e293b;cursor:pointer;user-select:none;padding:3px 0">
+            <input type="checkbox" class="bcv-assignee-cb" value="${u.id}" onchange="_bcvUpdateAssigneeCount()" style="width:16px;height:16px;cursor:pointer">
+            <span>${label}</span>
+        </label>`;
+    });
+    return html;
+}
+
+function _bcvUpdateAssigneeCount() {
+    var cbs = document.querySelectorAll('.bcv-assignee-cb:checked');
+    var el = document.getElementById('bcvAssigneeSelectedCount');
+    if (el) {
+        el.textContent = 'Đã chọn: ' + cbs.length + ' người';
+    }
+}
+
+function _bcvToggleSelectAllAssignees(btn) {
+    var cbs = document.querySelectorAll('.bcv-assignee-cb');
+    if (!cbs || cbs.length === 0) return;
+    var allChecked = Array.from(cbs).every(function(cb) { return cb.checked; });
+    cbs.forEach(function(cb) { cb.checked = !allChecked; });
+    _bcvUpdateAssigneeCount();
+}
+
 async function _bcvShowCreate() {
     var user = window._currentUser || {};
-    var isDirector = user.role === 'giam_doc';
+    var isDirector = ['giam_doc', 'quan_ly_cap_cao'].includes(user.role);
+
+    if (isDirector) {
+        if (!_bcv.enabledDepts || _bcv.enabledDepts.length === 0) {
+            var configRes = await _bcvApi('/api/board-config');
+            _bcv.departments = (configRes && configRes.departments) || [];
+            _bcv.enabledDepts = _bcv.departments.filter(function(d) { return d.board_enabled; });
+            _bcvPopulateDeptFilter();
+        }
+    }
 
     // Load users for assignment
     var deptId = isDirector ? '' : (user.department_id || '');
@@ -709,15 +1150,10 @@ async function _bcvShowCreate() {
     var deptOptions = '';
     if (isDirector) {
         deptOptions = '<option value="">— Chọn phòng ban —</option>';
-        _bcv.enabledDepts.forEach(function(d) {
+        (_bcv.enabledDepts || []).forEach(function(d) {
             deptOptions += `<option value="${d.id}">${_esc(d.name)}</option>`;
         });
     }
-
-    var userOptions = '<option value="">— Chọn người —</option>';
-    users.forEach(function(u) {
-        userOptions += `<option value="${u.id}">${_esc(u.full_name)}${u.department_name ? ' (' + _esc(u.department_name) + ')' : ''}</option>`;
-    });
 
     // Fetch holidays for validation
     var holidaysRes = await _bcvApi('/api/holidays');
@@ -741,6 +1177,21 @@ async function _bcvShowCreate() {
             <button class="bcv-modal-close" onclick="document.getElementById('bcvOverlay').remove()">✕</button>
         </div>
         <div class="bcv-modal-body">
+
+            ${isDirector ? `<div class="bcv-form-group">
+                <label>Phòng ban *</label>
+                <select class="bcv-form-select" id="bcvCreateDept" onchange="_bcvCreateDeptChange()">${deptOptions}</select>
+            </div>` : ''}
+            <div class="bcv-form-group" id="bcvAssigneeWrap" style="display:${isDirector ? 'none' : 'block'}">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                    <label style="margin:0">Giao cho *</label>
+                    <button type="button" onclick="_bcvToggleSelectAllAssignees(this)" style="font-size:11px;font-weight:800;color:#2563eb;background:none;border:none;cursor:pointer;padding:0">☑️ Chọn tất cả / Bỏ chọn</button>
+                </div>
+                <div id="bcvAssigneeCheckboxList" style="max-height:160px;overflow-y:auto;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:6px">
+                    ${_bcvBuildAssigneeCheckboxes(users)}
+                </div>
+                <div id="bcvAssigneeSelectedCount" style="font-size:11px;font-weight:700;color:#059669;margin-top:4px">Đã chọn: 0 người</div>
+            </div>
             <div class="bcv-form-group">
                 <label>Tiêu đề *</label>
                 <input class="bcv-form-input" id="bcvCreateTitle" placeholder="Nhập tiêu đề công việc...">
@@ -748,6 +1199,21 @@ async function _bcvShowCreate() {
             <div class="bcv-form-group">
                 <label>Mô tả *</label>
                 <textarea class="bcv-form-textarea" id="bcvCreateDesc" placeholder="Mô tả chi tiết công việc..."></textarea>
+            </div>
+            <div class="bcv-form-group">
+                <label>🔗 Đường link công việc *</label>
+                <input class="bcv-form-input" id="bcvCreateLink" placeholder="https://... hoặc đường dẫn liên quan">
+            </div>
+            <div class="bcv-form-group">
+                <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:4px">📚 Chọn Tư Liệu Hướng Dẫn</label>
+                <select class="bcv-form-select" id="bcvCreateDocMainCat" onchange="_bcvCreateDocMainCatChange()" style="margin-top:4px">
+                    <option value="">— Chọn phòng ban trước —</option>
+                </select>
+                <select class="bcv-form-select" id="bcvCreateDocSubCat" onchange="_bcvCreateDocSubCatChange()" style="display:none;margin-top:6px">
+                    <option value="">— Tất cả công việc —</option>
+                </select>
+                <div id="bcvCreateDocLinksPreview" style="margin-top:8px"></div>
+                <input type="hidden" id="bcvCreateGuideLink" value="">
             </div>
             <div class="bcv-form-row">
                 <div class="bcv-form-group">
@@ -768,22 +1234,10 @@ async function _bcvShowCreate() {
                     </select>
                 </div>
             </div>
-            ${isDirector ? `<div class="bcv-form-group">
-                <label>Phòng ban *</label>
-                <select class="bcv-form-select" id="bcvCreateDept" onchange="_bcvCreateDeptChange()">${deptOptions}</select>
-            </div>` : ''}
-            <div class="bcv-form-group" id="bcvAssigneeWrap" style="display:${isDirector ? 'none' : 'block'}">
-                <label>Giao cho *</label>
-                <select class="bcv-form-select" id="bcvCreateAssignee">${userOptions}</select>
-            </div>
             <div class="bcv-form-group">
                 <label>Deadline *</label>
                 <input class="bcv-form-input" type="date" id="bcvCreateDeadline" min="${todayStr}" onchange="_bcvCheckDeadlineHoliday(this); _bcvFormatDeadlineDisplay(this.value)">
                 <div id="bcvDeadlineDisplay" style="font-size:12px;font-weight:700;color:#3b82f6;margin-top:4px;min-height:16px"></div>
-            </div>
-            <div class="bcv-form-group">
-                <label>🔗 Đường link công việc *</label>
-                <input class="bcv-form-input" id="bcvCreateLink" placeholder="https://... hoặc đường dẫn liên quan">
             </div>
             <div class="bcv-form-group">
                 <label>✅ Checklist con</label>
@@ -807,6 +1261,11 @@ async function _bcvShowCreate() {
     document.body.appendChild(overlay);
     setTimeout(function() { var el = document.getElementById('bcvCreateTitle'); if(el) el.focus(); }, 100);
 
+    // NV thường: tự động load tư liệu phòng ban của mình
+    if (!isDirector && deptId) {
+        _bcvLoadCreateDocs(deptId);
+    }
+
     // Setup paste event on the paste area
     var pasteArea = document.getElementById('bcvPasteArea');
     if (pasteArea) {
@@ -829,27 +1288,190 @@ async function _bcvShowCreate() {
 // When director changes department in create modal, reload users
 async function _bcvCreateDeptChange() {
     var deptEl = document.getElementById('bcvCreateDept');
-    var assigneeEl = document.getElementById('bcvCreateAssignee');
     var assigneeWrap = document.getElementById('bcvAssigneeWrap');
-    if (!deptEl || !assigneeEl) return;
+    var assigneeList = document.getElementById('bcvAssigneeCheckboxList');
+    if (!deptEl) return;
 
     var deptId = deptEl.value;
     if (!deptId) {
-        // Chưa chọn phòng ban → ẩn Giao cho
         if (assigneeWrap) assigneeWrap.style.display = 'none';
-        assigneeEl.innerHTML = '<option value="">— Chọn người —</option>';
+        if (assigneeList) assigneeList.innerHTML = '';
+        _bcvUpdateAssigneeCount();
+        _bcvResetCreateDocPicker('— Chọn phòng ban trước —');
         return;
     }
 
     var usersRes = await _bcvApi('/api/board-tasks/users?department_id=' + deptId);
     var users = (usersRes && usersRes.users) || [];
 
-    var h = '<option value="">— Chọn người —</option>';
-    users.forEach(function(u) {
-        h += `<option value="${u.id}">${_esc(u.full_name)}</option>`;
-    });
-    assigneeEl.innerHTML = h;
+    if (assigneeList) {
+        assigneeList.innerHTML = _bcvBuildAssigneeCheckboxes(users);
+    }
+    _bcvUpdateAssigneeCount();
     if (assigneeWrap) assigneeWrap.style.display = 'block';
+
+    // Load tư liệu phòng ban đã chọn
+    _bcvLoadCreateDocs(deptId);
+}
+
+// ========== TƯ LIỆU PICKER FUNCTIONS ==========
+
+// Reset bộ chọn tư liệu
+function _bcvResetCreateDocPicker(placeholderText) {
+    var mainSel = document.getElementById('bcvCreateDocMainCat');
+    var subSel = document.getElementById('bcvCreateDocSubCat');
+    var preview = document.getElementById('bcvCreateDocLinksPreview');
+    var hidden = document.getElementById('bcvCreateGuideLink');
+    if (mainSel) mainSel.innerHTML = '<option value="">' + (placeholderText || '— Chọn tư liệu —') + '</option>';
+    if (subSel) { subSel.innerHTML = '<option value="">— Tất cả công việc —</option>'; subSel.style.display = 'none'; }
+    if (preview) preview.innerHTML = '';
+    if (hidden) hidden.value = '';
+    _bcv._createDocs = [];
+}
+
+// Load tư liệu theo department_id
+async function _bcvLoadCreateDocs(deptId) {
+    var mainSel = document.getElementById('bcvCreateDocMainCat');
+    if (!mainSel) return;
+
+    mainSel.innerHTML = '<option value="">⏳ Đang tải tư liệu...</option>';
+
+    var res = await _bcvApi('/api/board-documents?department_id=' + deptId);
+    var docs = (res && res.documents) || [];
+    _bcv._createDocs = docs;
+
+    // Lấy danh sách main_category duy nhất
+    var mainCats = [];
+    var seen = {};
+    docs.forEach(function(doc) {
+        if (doc.main_category && !seen[doc.main_category]) {
+            seen[doc.main_category] = true;
+            mainCats.push(doc.main_category);
+        }
+    });
+    _bcv._editMainCats = mainCats;
+    _bcv._createMainCats = mainCats;
+
+    var h = '<option value="">— Chọn tư liệu —</option>';
+    mainCats.forEach(function(cat, idx) {
+        var cleanCat = cat.replace(/^\d+[\.\s\-]*/, '');
+        h += '<option value="' + _escAttr(cat) + '">📌 Tư Liệu ' + (idx + 1) + ' : ' + _esc(cleanCat) + '</option>';
+    });
+    mainSel.innerHTML = h;
+
+    // Reset sub + preview
+    var subSel = document.getElementById('bcvCreateDocSubCat');
+    var preview = document.getElementById('bcvCreateDocLinksPreview');
+    var hidden = document.getElementById('bcvCreateGuideLink');
+    if (subSel) { subSel.style.display = 'none'; subSel.innerHTML = '<option value="">— Tất cả công việc —</option>'; }
+    if (preview) preview.innerHTML = '';
+    if (hidden) hidden.value = '';
+}
+
+// Khi chọn Tư Liệu (main_category)
+function _bcvCreateDocMainCatChange() {
+    var mainSel = document.getElementById('bcvCreateDocMainCat');
+    var subSel = document.getElementById('bcvCreateDocSubCat');
+    var preview = document.getElementById('bcvCreateDocLinksPreview');
+    var hidden = document.getElementById('bcvCreateGuideLink');
+    if (!mainSel) return;
+
+    var selectedCat = mainSel.value;
+    if (!selectedCat) {
+        // Reset
+        if (subSel) { subSel.style.display = 'none'; subSel.innerHTML = '<option value="">— Tất cả công việc —</option>'; }
+        if (preview) preview.innerHTML = '';
+        if (hidden) hidden.value = '';
+        return;
+    }
+
+    // Lọc documents theo main_category
+    var docs = (_bcv._createDocs || []).filter(function(d) { return d.main_category === selectedCat; });
+
+    // Populate sub_category dropdown
+    var h = '<option value="">— Tất cả công việc —</option>';
+    docs.forEach(function(doc, idx) {
+        h += '<option value="' + doc.id + '">📌 ' + (idx + 1) + '. ' + _esc(doc.sub_category) + '</option>';
+    });
+    if (subSel) {
+        subSel.innerHTML = h;
+        subSel.style.display = 'block';
+    }
+
+    // Hiển thị TẤT CẢ link trong tư liệu này
+    _bcvRenderCreateDocLinks(docs, preview, hidden);
+}
+
+// Khi chọn Tên Công Việc (sub_category)
+function _bcvCreateDocSubCatChange() {
+    var subSel = document.getElementById('bcvCreateDocSubCat');
+    var preview = document.getElementById('bcvCreateDocLinksPreview');
+    var hidden = document.getElementById('bcvCreateGuideLink');
+    if (!subSel) return;
+
+    var selectedDocId = subSel.value;
+    var mainSel = document.getElementById('bcvCreateDocMainCat');
+    var selectedCat = mainSel ? mainSel.value : '';
+
+    if (!selectedDocId) {
+        // "Tất cả công việc" → hiển thị tất cả link trong tư liệu
+        var docs = (_bcv._createDocs || []).filter(function(d) { return d.main_category === selectedCat; });
+        _bcvRenderCreateDocLinks(docs, preview, hidden);
+        return;
+    }
+
+    // Chỉ hiển thị link của công việc được chọn
+    var doc = (_bcv._createDocs || []).find(function(d) { return String(d.id) === String(selectedDocId); });
+    if (doc) {
+        _bcvRenderCreateDocLinks([doc], preview, hidden);
+    } else {
+        if (preview) preview.innerHTML = '';
+        if (hidden) hidden.value = '';
+    }
+}
+
+// Render link preview cho bộ chọn tư liệu
+function _bcvRenderCreateDocLinks(docs, previewEl, hiddenEl) {
+    if (!previewEl) return;
+
+    var allMainCats = _bcv._createMainCats || [];
+    if (allMainCats.length === 0) {
+        docs.forEach(function(d) {
+            if (d.main_category && !allMainCats.includes(d.main_category)) allMainCats.push(d.main_category);
+        });
+    }
+
+    var allLinks = [];
+    docs.forEach(function(doc, idx) {
+        var links = doc.links || [];
+        var prefix = doc.sub_category ? ((idx + 1) + '. ' + doc.sub_category) : '';
+        var mainIdx = allMainCats.indexOf(doc.main_category);
+        var cleanCat = doc.main_category ? doc.main_category.replace(/^\d+[\.\s\-]*/, '') : '';
+        var formattedMainCat = 'Tư Liệu ' + (mainIdx >= 0 ? mainIdx + 1 : 1) + ' : ' + cleanCat;
+
+        links.forEach(function(link) {
+            var title = typeof link === 'string' ? link : (link.title || link.url);
+            var url = typeof link === 'string' ? link : link.url;
+            allLinks.push({ mainCat: formattedMainCat, subCat: doc.sub_category, prefix: prefix, title: title, url: url });
+        });
+    });
+
+    if (allLinks.length === 0) {
+        previewEl.innerHTML = '<div style="font-size:11px;color:#94a3b8;font-style:italic;padding:6px 0">Không có link tư liệu nào</div>';
+        if (hiddenEl) hiddenEl.value = '';
+        return;
+    }
+
+    var html = '<div style="display:flex;flex-direction:column;gap:4px">';
+    allLinks.forEach(function(link) {
+        html += '<a href="' + _escAttr(link.url) + '" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;padding:3px 8px;border-radius:5px;border:1px solid #dbeafe;text-decoration:none;word-break:break-all;width:fit-content">' +
+            '🔗 ' + _esc(link.title) + ' ↗</a>';
+    });
+    html += '</div>';
+    previewEl.innerHTML = html;
+
+    // Lưu toàn bộ danh sách link dạng mảng JSON
+    if (hiddenEl) hiddenEl.value = JSON.stringify(allLinks);
 }
 
 // Check if selected deadline is a holiday
@@ -935,14 +1557,18 @@ async function _bcvSubmitCreate() {
     var priority = (document.getElementById('bcvCreatePriority') || {}).value || '';
     if (!priority) { alert('Vui lòng chọn mức ưu tiên'); return; }
 
-    var assignee = (document.getElementById('bcvCreateAssignee') || {}).value || '';
-    if (!assignee) { alert('Vui lòng chọn người được giao'); return; }
+    // Collect checked assignees
+    var assigneeCbs = document.querySelectorAll('.bcv-assignee-cb:checked');
+    var assigneeIds = Array.from(assigneeCbs).map(function(cb) { return cb.value; });
+    if (assigneeIds.length === 0) { alert('Vui lòng chọn ít nhất 1 người được giao'); return; }
 
     var deadline = (document.getElementById('bcvCreateDeadline') || {}).value || '';
     if (!deadline) { alert('Vui lòng chọn deadline'); return; }
 
     var taskLink = (document.getElementById('bcvCreateLink') || {}).value || '';
     if (!taskLink.trim()) { alert('Vui lòng nhập đường link công việc'); return; }
+
+    var guideLink = (document.getElementById('bcvCreateGuideLink') || {}).value || '';
 
     var deptEl = document.getElementById('bcvCreateDept');
     if (deptEl && !deptEl.value) { alert('Vui lòng chọn phòng ban'); return; }
@@ -952,30 +1578,31 @@ async function _bcvSubmitCreate() {
     var clInputs = document.querySelectorAll('#bcvChecklistBuilder .bcv-cl-input');
     clInputs.forEach(function(inp) { if (inp.value.trim()) checklistItems.push(inp.value.trim()); });
 
+    // Disable submit button
+    var btn = document.getElementById('bcvSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang tạo task...'; }
+
     var body = {
         title: title.trim(),
         description: desc.trim(),
         task_type: taskType,
         priority: priority,
-        assigned_to: assignee,
+        assigned_to_ids: assigneeIds,
+        assigned_to: assigneeIds[0],
         deadline: deadline,
         task_link: taskLink.trim(),
+        guide_link: guideLink.trim(),
         checklist: checklistItems
     };
-
     if (deptEl) body.department_id = deptEl.value || null;
 
-    // Disable submit button
-    var btn = document.getElementById('bcvSubmitBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Đang tạo...'; }
-
     var res = await _bcvApi('/api/board-tasks', 'POST', body);
-    if (res && res.ok) {
+    if (res && res.ok && res.task) {
         // Upload pasted images if any
         if (_bcvPastedImages.length > 0) {
-            for (var i = 0; i < _bcvPastedImages.length; i++) {
+            for (var j = 0; j < _bcvPastedImages.length; j++) {
                 var fd = new FormData();
-                fd.append('file', _bcvPastedImages[i], 'paste_' + Date.now() + '_' + i + '.png');
+                fd.append('file', _bcvPastedImages[j], 'paste_' + Date.now() + '_' + j + '.png');
                 try {
                     await fetch('/api/board-tasks/' + res.task.id + '/attachments', {
                         method: 'POST',
@@ -990,9 +1617,50 @@ async function _bcvSubmitCreate() {
         if (overlay) overlay.remove();
         await _bcvLoadTasks();
     } else {
-        alert(res?.error || 'Lỗi tạo task');
+        alert(res?.error || 'Lỗi tạo task. Vui lòng thử lại!');
         if (btn) { btn.disabled = false; btn.textContent = 'Tạo Task'; }
     }
+}
+
+function _bcvFormatGuideLinkDisplay(guideLink) {
+    if (!guideLink || !guideLink.trim()) {
+        return '<div style="font-size:12px;color:#94a3b8">Không có link hướng dẫn</div>';
+    }
+    var trimmed = guideLink.trim();
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        try {
+            var parsed = JSON.parse(trimmed);
+            var items = Array.isArray(parsed) ? parsed : [parsed];
+            if (items.length > 0) {
+                var groups = {};
+                items.forEach(function(it) {
+                    var cat = it.mainCat || it.prefix || it.subCat || 'Tài liệu hướng dẫn';
+                    if (!groups[cat]) groups[cat] = [];
+                    groups[cat].push(it);
+                });
+
+                var html = '';
+                var catKeys = Object.keys(groups);
+                catKeys.forEach(function(catName) {
+                    html += '<div style="margin-bottom:8px">';
+                    if (catKeys.length > 1 || (catName !== 'Tài liệu hướng dẫn' && catName !== '')) {
+                        html += '<div style="font-size:11px;font-weight:800;color:#047857;margin-bottom:4px;display:flex;align-items:center;gap:4px">📂 ' + _esc(catName) + ':</div>';
+                    }
+                    html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+                    groups[catName].forEach(function(it) {
+                        var title = it.title || it.prefix || it.subCat || 'Xem hướng dẫn';
+                        var showPrefixInLabel = it.mainCat && it.prefix && it.prefix !== title;
+                        var label = showPrefixInLabel ? (it.prefix + ' - ' + title) : title;
+                        var url = it.url || '#';
+                        html += '<a href="' + _escAttr(url) + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#059669;font-weight:700;word-break:break-all;padding:6px 12px;background:#ecfdf5;border-radius:8px;border:1px solid #a7f3d0;text-decoration:none">📚 ' + _esc(label) + ' ↗</a>';
+                    });
+                    html += '</div></div>';
+                });
+                return html;
+            }
+        } catch(e) {}
+    }
+    return '<a href="' + _escAttr(trimmed) + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#059669;font-weight:700;word-break:break-all;padding:6px 12px;background:#ecfdf5;border-radius:8px;border:1px solid #a7f3d0;text-decoration:none">📚 ' + _esc(trimmed) + ' ↗</a>';
 }
 
 // ========== DETAIL MODAL ==========
@@ -1001,10 +1669,18 @@ async function _bcvShowDetail(taskId) {
     var task = _bcv.tasks.find(t => t.id === taskId);
     if (!task) return;
 
+    if (!_bcv.documents || _bcv.documents.length === 0) {
+        try {
+            var docsRes = await _bcvApi('/api/board-documents');
+            _bcv.documents = (docsRes && docsRes.documents) || [];
+        } catch(e) {}
+    }
+
     var user = window._currentUser || {};
     var isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(user.role);
     var isCreator = task.created_by === user.id;
-    var isAssignee = task.assigned_to === user.id;
+    var isAssignee = task.assigned_to === user.id ||
+        (task.assigned_to_ids && task.assigned_to_ids.split(',').map(function(id){ return Number(id.trim()); }).includes(user.id));
     var canAccept = isAssignee || !task.assigned_to;
     var canEdit = isManager || isCreator;
     var canDelete = user.role === 'giam_doc' || isCreator;
@@ -1015,9 +1691,8 @@ async function _bcvShowDetail(taskId) {
     var deadlineText = '';
     var dlDate = task.deadline ? new Date(task.deadline + 'T00:00:00') : null;
     var isOverdue = !!(dlDate && dlDate < new Date() && task.status !== 'hoan_thanh');
-    if (task.deadline) {
-        var dl = dlDate;
-        deadlineText = daysArr[dl.getDay()] + ' - ' + String(dl.getDate()).padStart(2,'0') + '/' + String(dl.getMonth()+1).padStart(2,'0');
+    if (task.deadline && dlDate) {
+        deadlineText = daysArr[dlDate.getDay()] + ' - ' + String(dlDate.getDate()).padStart(2,'0') + '/' + String(dlDate.getMonth()+1).padStart(2,'0');
     }
 
     // Format accepted_at
@@ -1031,6 +1706,8 @@ async function _bcvShowDetail(taskId) {
     if (task.status === 'can_lam') {
         var checklistRes = await _bcvApi('/api/board-tasks/' + taskId + '/checklist');
         var checklist = (checklistRes && checklistRes.checklist) || [];
+        var attachRes = await _bcvApi('/api/board-tasks/' + taskId + '/attachments');
+        var attachments = (attachRes && attachRes.attachments) || [];
 
         var priorityLabel = task.priority === 'cao' ? '🔴 Cao' : task.priority === 'trung_binh' ? '🟠 Trung bình' : '🟢 Thấp';
         var typeLabel = task.task_type === 'chinh' ? '🔵 Chính' : '🟡 Phụ';
@@ -1045,31 +1722,77 @@ async function _bcvShowDetail(taskId) {
                 <button class="bcv-modal-close" onclick="document.getElementById('bcvOverlay').remove()">✕</button>
             </div>
             <div class="bcv-modal-body">
-                <div style="text-align:center;margin-bottom:16px">
-                    <span style="display:inline-block;background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#6366f1;font-weight:800;font-size:12px;padding:4px 14px;border-radius:20px;letter-spacing:.5px">${cvId}</span>
-                </div>
-
-                <div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
-                    <div style="font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tiêu đề</div>
-                    <div style="font-size:15px;font-weight:800;color:#1e293b;line-height:1.4">${_esc(task.title)}</div>
-                </div>
-
-                ${task.description ? `<div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
-                    <div style="font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Mô tả công việc</div>
-                    <div style="font-size:13px;font-weight:600;color:#334155;line-height:1.6;white-space:pre-wrap">${_esc(task.description)}</div>
-                </div>` : ''}
-
+                <!-- 1. Grid 2 cột: LOẠI / ƯU TIÊN (lên trên Tiêu đề) -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
                     <div style="background:#f8fafc;border-radius:10px;padding:12px;border:1px solid #e2e8f0;text-align:center">
-                        <div style="font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Loại</div>
+                        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Loại</div>
                         <div style="font-size:13px;font-weight:700">${typeLabel}</div>
                     </div>
                     <div style="background:#f8fafc;border-radius:10px;padding:12px;border:1px solid #e2e8f0;text-align:center">
-                        <div style="font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Ưu tiên</div>
+                        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Ưu tiên</div>
                         <div style="font-size:13px;font-weight:700">${priorityLabel}</div>
                     </div>
                 </div>
 
+                <!-- 2. TIÊU ĐỀ -->
+                <div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tiêu đề</div>
+                    <div style="font-size:15px;font-weight:800;color:#1e293b;line-height:1.4">${_esc(task.title)}</div>
+                </div>
+
+                <!-- 3. MÔ TẢ CÔNG VIỆC -->
+                ${task.description ? `<div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Mô tả công việc</div>
+                    <div style="font-size:13px;font-weight:600;color:#334155;line-height:1.6;white-space:pre-wrap">${_esc(task.description)}</div>
+                </div>` : ''}
+
+                <!-- 4. ĐƯỜNG LINK CÔNG VIỆC -->
+                ${task.task_link ? `<div style="margin-bottom:16px">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔗 Đường link công việc</div>
+                    <a href="${_escAttr(task.task_link)}" target="_blank" style="display:block;font-size:12px;color:#3b82f6;font-weight:600;word-break:break-all;padding:8px 12px;background:#eff6ff;border-radius:8px;border:1px solid #dbeafe">${_esc(task.task_link)} ↗</a>
+                </div>` : ''}
+
+                <!-- 5. LINK HƯỚNG DẪN / BIỂU MẪU -->
+                ${task.guide_link ? `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fff;margin-bottom:14px">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📚 LINK HƯỚNG DẪN / BIỂU MẪU</div>
+                    ${_bcvFormatGuideLinkDisplay(task.guide_link)}
+                </div>` : ''}
+
+                <!-- 6. CHECKLIST -->
+                ${checklist.length > 0 ? `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fff;margin-bottom:14px">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✅ CHECKLIST (${checklist.filter(c => c.is_done).length}/${checklist.length})</div>
+                    ${checklist.map(function(item) {
+                        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;font-weight:600;color:#334155">' +
+                            '<span style="color:' + (item.is_done ? '#22c55e' : '#cbd5e1') + '">' + (item.is_done ? '✅' : '⬜') + '</span>' +
+                            '<span>' + _esc(item.title) + '</span></div>';
+                    }).join('')}
+                </div>` : ''}
+
+                <!-- 7. HÌNH ẢNH ĐÍNH KÈM -->
+                <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fff;margin-bottom:14px">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🖼️ Hình ảnh đính kèm (${attachments.length})</div>
+                    ${attachments.length > 0 ? `<div class="bcv-att-gallery">
+                        ${attachments.map(function(att) {
+                            var isImg = (att.file_name || '').match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                            if (isImg) {
+                                return '<div class="bcv-att-thumb" onclick="_bcvOpenLightbox(\'' + _escAttr(att.file_path) + '\')">' +
+                                    '<img src="' + _escAttr(att.file_path) + '" alt="' + _escAttr(att.file_name) + '" loading="lazy">' +
+                                    ((isManager || isCreator) ? '<button class="bcv-att-thumb-del" onclick="event.stopPropagation();_bcvDeleteAttachment(' + task.id + ',' + att.id + ')" title="Xóa">✕</button>' : '') +
+                                '</div>';
+                            } else {
+                                var icon = (att.file_name || '').match(/\.pdf$/i) ? '📄' : '📎';
+                                return '<div class="bcv-att-thumb" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;cursor:default" onclick="window.open(\'' + _escAttr(att.file_path) + '\',\'_blank\')">' +
+                                    '<span style="font-size:24px">' + icon + '</span>' +
+                                    '<span style="font-size:8px;font-weight:600;color:#64748b;text-align:center;padding:0 4px;word-break:break-all">' + _esc(att.file_name) + '</span>' +
+                                    ((isManager || isCreator) ? '<button class="bcv-att-thumb-del" onclick="event.stopPropagation();_bcvDeleteAttachment(' + task.id + ',' + att.id + ')" title="Xóa">✕</button>' : '') +
+                                '</div>';
+                            }
+                        }).join('')}
+                    </div>` : '<div style="color:#94a3b8;font-size:11px">Chưa có hình ảnh</div>'}
+                    ${(isManager || isCreator) ? '<div style="margin-top:8px"><label class="bcv-cl-add" style="cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="_bcvUploadAttachment(' + task.id + ',this)"> ＋ Thêm hình ảnh</label></div>' : ''}
+                </div>
+
+                <!-- 8. Box Thông tin Giao/Nhận/Deadline/Phòng ban (nằm dưới Hình ảnh đính kèm) -->
                 <div class="bcv-card-info-box" style="margin-bottom:16px">
                     <div class="bcv-card-info-row">
                         <span class="info-icon">📤</span>
@@ -1093,20 +1816,6 @@ async function _bcvShowDetail(taskId) {
                     </div>` : ''}
                 </div>
 
-                ${task.task_link ? `<div style="margin-bottom:16px">
-                    <div style="font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔗 Đường link công việc</div>
-                    <a href="${_escAttr(task.task_link)}" target="_blank" style="display:block;font-size:12px;color:#3b82f6;font-weight:600;word-break:break-all;padding:8px 12px;background:#eff6ff;border-radius:8px;border:1px solid #dbeafe">${_esc(task.task_link)}</a>
-                </div>` : ''}
-
-                ${checklist.length > 0 ? `<div style="margin-bottom:16px">
-                    <div style="font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✅ Checklist (${checklist.filter(c => c.is_done).length}/${checklist.length})</div>
-                    ${checklist.map(function(item) {
-                        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;font-weight:600;color:#334155">' +
-                            '<span style="color:' + (item.is_done ? '#22c55e' : '#cbd5e1') + '">' + (item.is_done ? '✅' : '⬜') + '</span>' +
-                            '<span>' + _esc(item.title) + '</span></div>';
-                    }).join('')}
-                </div>` : ''}
-
                 ${canAccept ? `<div style="margin-top:20px;text-align:center">
                     <button class="bcv-btn bcv-btn-success" data-no-debounce="true" onclick="_bcvAcceptTask(${task.id}, this)" style="padding:10px 28px;font-size:13px;display:inline-flex;align-items:center;gap:6px">
                         ✅ NHẬN CÔNG VIỆC
@@ -1114,7 +1823,8 @@ async function _bcvShowDetail(taskId) {
                 </div>` : ''}
 
                 <div class="bcv-form-actions" style="margin-top:16px">
-                    ${(user.role === 'giam_doc' || isCreator) ? `<button class="bcv-btn bcv-btn-danger" data-no-debounce="true" onclick="_bcvDeleteTask(${task.id})">🗑 Xóa Công Việc</button>` : ''}
+                    ${(user.role === 'giam_doc' || isCreator || isManager) ? `<button class="bcv-btn bcv-btn-primary" data-no-debounce="true" onclick="document.getElementById('bcvOverlay').remove();_bcvShowEditTaskModal(${task.id})">✏️ Chỉnh sửa công việc</button>` : ''}
+                    ${user.role === 'giam_doc' ? `<button class="bcv-btn bcv-btn-danger" data-no-debounce="true" onclick="_bcvDeleteTask(${task.id})">🗑 Xóa Công Việc</button>` : ''}
                     <button class="bcv-btn bcv-btn-secondary" onclick="document.getElementById('bcvOverlay').remove()">Đóng</button>
                 </div>
             </div>
@@ -1126,13 +1836,15 @@ async function _bcvShowDetail(taskId) {
 
     // ========== ĐANG LÀM / CHỜ DUYỆT / HOÀN THÀNH: Modal edit bình thường ==========
 
-    // Load comments, checklist, attachments
+    // Load comments, checklist, attachments, feedbacks
     var commentsRes = await _bcvApi('/api/board-tasks/' + taskId + '/comments');
     var comments = (commentsRes && commentsRes.comments) || [];
     var checklistRes = await _bcvApi('/api/board-tasks/' + taskId + '/checklist');
     var checklist = (checklistRes && checklistRes.checklist) || [];
     var attachRes = await _bcvApi('/api/board-tasks/' + taskId + '/attachments');
     var attachments = (attachRes && attachRes.attachments) || [];
+    var feedbacksRes = await _bcvApi('/api/board-tasks/' + taskId + '/feedbacks');
+    var feedbacks = (feedbacksRes && feedbacksRes.feedbacks) || [];
 
     var overlay = document.createElement('div');
     overlay.className = 'bcv-overlay';
@@ -1160,7 +1872,11 @@ async function _bcvShowDetail(taskId) {
         </div>`;
     }).join('');
 
+    var priorityLabel = task.priority === 'cao' ? '🔴 Cao' : task.priority === 'trung_binh' ? '🟠 Trung bình' : '🟢 Thấp';
+    var typeLabel = task.task_type === 'chinh' ? '🔵 Chính' : '🟡 Phụ';
+
     var canEditSection1 = (task.status === 'can_lam') && (isManager || isCreator);
+    var canEditReport = isAssignee && (task.status === 'dang_lam');
 
     overlay.innerHTML = `<div class="bcv-modal">
         <div class="bcv-modal-header">
@@ -1169,107 +1885,184 @@ async function _bcvShowDetail(taskId) {
         </div>
         <div class="bcv-modal-body">
 
-            <!-- ═══ SECTION 1: THÔNG TIN CÔNG VIỆC ═══ -->
-            <div class="bcv-section-divider">
-                <span class="bcv-section-title-badge">📌 THÔNG TIN CÔNG VIỆC</span>
-            </div>
+            <!-- ═══ KHỐI THÔNG BÁO ĐÁNH GIÁ HOÀN THÀNH (NẾU ĐÃ HOÀN THÀNH) ═══ -->
+            ${task.status === 'hoan_thanh' ? `<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px 16px;margin-bottom:16px;box-shadow:0 4px 12px rgba(22,163,74,0.08)">
+                <div style="font-size:13px;font-weight:800;color:#16a34a;display:flex;align-items:center;gap:6px">
+                    <span>⭐ ĐÁNH GIÁ HOÀN THÀNH CỦA QUẢN LÝ</span>
+                    ${task.reviewed_at ? `<span style="font-size:11px;font-weight:600;color:#15803d">(${new Date(task.reviewed_at).toLocaleString('vi-VN')})</span>` : ''}
+                </div>
+                ${task.review_comment ? `<div style="font-size:13px;font-weight:600;color:#334155;margin-top:8px;line-height:1.5;white-space:pre-wrap">${_esc(task.review_comment)}</div>` : '<div style="font-size:12px;font-weight:600;color:#16a34a;margin-top:4px">Đã nghiệm thu công việc thành công.</div>'}
+            </div>` : ''}
 
+            <!-- ═══ KHỐI THÔNG BÁO YÊU CẦU SỬA LẠI & LỊCH SỬ CÁC LẦN SỬA (TIMELINE) ═══ -->
+            ${feedbacks.length > 0 ? (function() {
+                var latestFb = feedbacks[0];
+                var olderFbs = feedbacks.slice(1);
+                var latestRevNum = feedbacks.length;
+                var latestTimeStr = latestFb.created_at ? new Date(latestFb.created_at).toLocaleString('vi-VN') : '';
+                var latestRevName = latestFb.reviewer_name || 'Quản Lý';
+
+                return `<div style="background:#fff1f2;border:1.5px solid #fecdd3;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 4px 14px rgba(225,29,72,0.1)">
+                    <div style="font-size:14px;font-weight:900;color:#e11d48;display:flex;align-items:center;justify-content:space-between;border-bottom:1px dashed #fca5a5;padding-bottom:10px;margin-bottom:12px">
+                        <div style="display:flex;align-items:center;gap:6px">
+                            <span style="font-size:16px">⚠️</span> YÊU CẦU SỬA LẠI TỪ QUẢN LÝ (${feedbacks.length} lần)
+                        </div>
+                        <span style="font-size:11px;font-weight:800;background:#ffe4e6;color:#be123c;padding:3px 10px;border-radius:12px;border:1px solid #fecdd3">Lần mới nhất: ${latestTimeStr}</span>
+                    </div>
+
+                    <!-- LẦN MỚI NHẤT (HIỂN THỊ MẶC ĐỊNH) -->
+                    <div style="background:#ffffff;border:1.5px solid #e11d48;border-radius:10px;padding:12px 14px;box-shadow:0 2px 8px rgba(225,29,72,0.12)">
+                        <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span style="background:#e11d48;color:#ffffff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;letter-spacing:0.5px">LẦN ${latestRevNum} (MỚI NHẤT)</span>
+                                <span style="font-weight:800;color:#1e293b">👤 ${_esc(latestRevName)}</span>
+                            </div>
+                            <span style="font-size:11px;font-weight:700;color:#64748b">🕒 ${latestTimeStr}</span>
+                        </div>
+                        <div style="font-size:13px;font-weight:600;color:#334155;line-height:1.5;white-space:pre-wrap;margin-top:4px">${_esc(latestFb.feedback_content)}</div>
+                        ${latestFb.feedback_link ? `<div style="margin-top:8px"><a href="${_escAttr(latestFb.feedback_link)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#be123c;background:#ffe4e6;padding:4px 10px;border-radius:6px;border:1px solid #fecdd3;text-decoration:none">🔗 Link Feedback sửa ↗</a></div>` : ''}
+                    </div>
+
+                    <!-- CÁC LẦN CŨ HƠN (THU GỌN MẶC ĐỊNH) -->
+                    ${olderFbs.length > 0 ? `
+                        <div style="margin-top:10px">
+                            <button type="button" onclick="_bcvToggleFeedbackHistory(this)" style="background:#ffe4e6;color:#9f1239;border:1px solid #fecdd3;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;width:100%;justify-content:center;transition:all 0.2s">
+                                📜 Xem lịch sử yêu cầu sửa (${olderFbs.length} lần) ▾
+                            </button>
+                            <div class="bcv-older-feedbacks" style="display:none;margin-top:10px;flex-direction:column;gap:10px">
+                                ${olderFbs.map(function(fb, idx) {
+                                    var revNum = olderFbs.length - idx;
+                                    var timeStr = fb.created_at ? new Date(fb.created_at).toLocaleString('vi-VN') : '';
+                                    var revName = fb.reviewer_name || 'Quản Lý';
+
+                                    return `<div style="background:#fff8f8;border:1px solid #fecdd3;border-radius:10px;padding:12px 14px">
+                                        <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                                            <div style="display:flex;align-items:center;gap:6px">
+                                                <span style="background:#9f1239;color:#ffffff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;letter-spacing:0.5px">LẦN ${revNum}</span>
+                                                <span style="font-weight:800;color:#1e293b">👤 ${_esc(revName)}</span>
+                                            </div>
+                                            <span style="font-size:11px;font-weight:700;color:#64748b">🕒 ${timeStr}</span>
+                                        </div>
+                                        <div style="font-size:13px;font-weight:600;color:#334155;line-height:1.5;white-space:pre-wrap;margin-top:4px">${_esc(fb.feedback_content)}</div>
+                                        ${fb.feedback_link ? `<div style="margin-top:8px"><a href="${_escAttr(fb.feedback_link)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#be123c;background:#ffe4e6;padding:4px 10px;border-radius:6px;border:1px solid #fecdd3;text-decoration:none">🔗 Link Feedback sửa ↗</a></div>` : ''}
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>`;
+            })() : ''}
+
+            <!-- ═══ SECTION 1: THÔNG TIN CÔNG VIỆC ═══ -->
             ${acceptedText ? `<div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:linear-gradient(135deg,#059669,#10b981);border-radius:10px;margin-bottom:14px;font-size:12px;font-weight:800;color:#ffffff;box-shadow:0 4px 12px rgba(16,185,129,0.25);text-shadow:0 1px 2px rgba(0,0,0,0.2)">
                 <span style="font-size:16px">📥</span> Nhận việc lúc: ${acceptedText}
             </div>` : ''}
 
-            <div class="bcv-form-group">
-                <label style="font-size:11px;font-weight:800;color:#1e3a5f;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:4px">🏷️ TIÊU ĐỀ CÔNG VIỆC</label>
-                <input class="bcv-form-input-prominent" id="bcvDetailTitle" value="${_escAttr(task.title)}" ${!canEditSection1 ? 'disabled' : ''}>
-            </div>
-            <div class="bcv-form-group">
-                <label style="font-size:11px;font-weight:800;color:#1e3a5f;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:4px">📝 MÔ TẢ CHI TIẾT CÔNG VIỆC</label>
-                <textarea class="bcv-form-textarea-prominent" id="bcvDetailDesc" ${!canEditSection1 ? 'disabled' : ''}>${_esc(task.description || '')}</textarea>
-            </div>
-
-            <div class="bcv-info-compact">
-                <div class="bcv-info-cell bcv-cell-status">
-                    <div class="bcv-info-lbl">📌 TRẠNG THÁI</div>
-                    <div><select class="bcv-form-select" id="bcvDetailStatus" style="padding:4px 6px;font-size:12px;font-weight:700;margin:0;border:none;background:transparent" ${!canEditSection1 ? 'disabled' : ''}>${statusOptions}</select></div>
+            <!-- 1. Grid 2 cột: LOẠI / ƯU TIÊN (lên trên Tiêu đề) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+                <div style="background:#f8fafc;border-radius:10px;padding:12px;border:1px solid #e2e8f0;text-align:center">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Loại</div>
+                    <div style="font-size:13px;font-weight:700">${typeLabel}</div>
                 </div>
-                <div class="bcv-info-cell bcv-cell-priority">
-                    <div class="bcv-info-lbl">🔥 ƯU TIÊN</div>
-                    <div><select class="bcv-form-select" id="bcvDetailPriority" style="padding:4px 6px;font-size:12px;font-weight:700;margin:0;border:none;background:transparent" ${!canEditSection1 ? 'disabled' : ''}>${priorityOptions}</select></div>
-                </div>
-                <div class="bcv-info-cell bcv-cell-deadline ${isOverdue ? 'overdue' : ''}">
-                    <div class="bcv-info-lbl">📅 DEADLINE</div>
-                    ${canEditSection1 ? `<input class="bcv-form-input" type="date" id="bcvDetailDeadline" value="${task.deadline ? task.deadline.split('T')[0] : ''}" style="padding:4px 6px;font-size:11px;font-weight:700;border:none;background:transparent">`
-                    : `<div class="bcv-info-val" style="color:${isOverdue ? '#dc2626' : '#0369a1'};font-weight:800">📅 ${deadlineText || (task.deadline ? task.deadline.split('T')[0] : '—')}</div>`}
-                </div>
-                <div class="bcv-info-cell bcv-cell-dept">
-                    <div class="bcv-info-lbl">🏢 PHÒNG BAN</div>
-                    <div class="bcv-info-val" style="color:#6d28d9;font-weight:800">${_esc(task.department_name || '—')}</div>
-                </div>
-                <div class="bcv-info-cell bcv-cell-assigner">
-                    <div class="bcv-info-lbl">👤 NGƯỜI GIAO</div>
-                    <div class="bcv-info-val" style="color:#334155;font-weight:800">${_esc(task.created_by_name || '?')}</div>
-                </div>
-                <div class="bcv-info-cell bcv-cell-assignee">
-                    <div class="bcv-info-lbl">👤 NGƯỜI NHẬN</div>
-                    <div class="bcv-info-val" style="color:#15803d;font-weight:800">${_esc(task.assigned_to_name || 'Chưa giao')}</div>
-                </div>
-                <!-- Đường link công việc integrated into grid -->
-                <div class="bcv-info-cell bcv-cell-link">
-                    <div class="bcv-info-lbl">🔗 ĐƯỜNG LINK CÔNG VIỆC</div>
-                    ${canEditSection1 ? `<div>
-                        <input class="bcv-form-input" id="bcvDetailLink" value="${_escAttr(task.task_link || '')}" placeholder="https://..." style="padding:4px 6px;font-size:12px;font-weight:700;border:none;background:transparent">
-                        ${task.task_link ? `<a href="${_escAttr(task.task_link)}" target="_blank" style="font-size:11px;color:#0284c7;font-weight:800;display:inline-block;margin-top:2px">🔗 Mở link công việc ↗</a>` : ''}
-                    </div>` : (task.task_link ? `<a href="${_escAttr(task.task_link)}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#0284c7;font-weight:800;background:#e0f2fe;padding:4px 12px;border-radius:6px;word-break:break-all">${_esc(task.task_link)} ↗</a>` : '<div style="font-size:12px;color:#94a3b8">Không có link</div>')}
+                <div style="background:#f8fafc;border-radius:10px;padding:12px;border:1px solid #e2e8f0;text-align:center">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Ưu tiên</div>
+                    ${canEditSection1 ? `<select class="bcv-form-select" id="bcvDetailPriority" style="padding:2px 6px;font-size:12px;font-weight:700;margin:0;border:none;background:transparent">${priorityOptions}</select>` : `<div style="font-size:13px;font-weight:700">${priorityLabel}</div>`}
                 </div>
             </div>
 
-            <!-- Checklist Read-Only Card -->
-            ${checklist.length > 0 ? `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fff;margin-bottom:14px">
-                <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✅ Checklist (${checklist.filter(c => c.is_done).length}/${checklist.length})</div>
-                <div style="display:grid;gap:6px">
-                    ${checklist.map(function(item) {
-                        var doneTime = '';
-                        if (item.is_done && item.completed_at) {
-                            var d = new Date(item.completed_at);
-                            doneTime = ' — ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ' ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
-                        }
-                        return '<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;background:' + (item.is_done ? '#f0fdf4' : '#f8fafc') + ';border:1px solid ' + (item.is_done ? '#bbf7d0' : '#f1f5f9') + '">' +
-                            '<span style="font-size:14px">' + (item.is_done ? '✅' : '⬜') + '</span>' +
-                            '<span style="font-size:12px;font-weight:600;color:' + (item.is_done ? '#15803d' : '#1e293b') + '">' + _esc(item.title) + '</span>' +
-                            (doneTime ? '<span style="margin-left:auto;font-size:9px;font-weight:700;color:#16a34a">' + doneTime + '</span>' : '') +
-                        '</div>';
-                    }).join('')}
-                </div>
+            <!-- 2. TIÊU ĐỀ -->
+            <div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tiêu đề</div>
+                ${canEditSection1 ? `<input class="bcv-form-input-prominent" id="bcvDetailTitle" value="${_escAttr(task.title)}" style="font-size:15px;font-weight:800;border:none;background:transparent;padding:0;width:100%;outline:none">` : `<div style="font-size:15px;font-weight:800;color:#1e293b;line-height:1.4">${_esc(task.title)}</div>`}
+            </div>
+
+            <!-- 3. MÔ TẢ CÔNG VIỆC -->
+            ${(task.description || canEditSection1) ? `<div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Mô tả công việc</div>
+                ${canEditSection1 ? `<textarea class="bcv-form-textarea-prominent" id="bcvDetailDesc" style="font-size:13px;font-weight:600;border:none;background:transparent;padding:0;width:100%;outline:none;min-height:60px">${_esc(task.description || '')}</textarea>` : `<div style="font-size:13px;font-weight:600;color:#334155;line-height:1.6;white-space:pre-wrap">${_esc(task.description)}</div>`}
             </div>` : ''}
 
-            <!-- Hình ảnh đính kèm Card -->
+            <!-- 4. ĐƯỜNG LINK CÔNG VIỆC -->
+            <div class="bcv-form-group">
+                <label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:4px">🔗 ĐƯỜNG LINK CÔNG VIỆC</label>
+                ${canEditSection1 ? `<div>
+                    <input class="bcv-form-input" id="bcvDetailLink" value="${_escAttr(task.task_link || '')}" placeholder="https://..." style="font-size:12px;font-weight:600">
+                    ${task.task_link ? `<a href="${_escAttr(task.task_link)}" target="_blank" style="font-size:11px;color:#3b82f6;font-weight:600;display:inline-block;margin-top:4px">🔗 Mở link ↗</a>` : ''}
+                </div>` : (task.task_link ? `<a href="${_escAttr(task.task_link)}" target="_blank" style="display:block;font-size:12px;color:#3b82f6;font-weight:600;word-break:break-all;padding:8px 12px;background:#eff6ff;border-radius:8px;border:1px solid #dbeafe">${_esc(task.task_link)} ↗</a>` : '<div style="font-size:12px;color:#94a3b8">Không có link</div>')}
+            </div>
+
+            <!-- 5. LINK HƯỚNG DẪN / BIỂU MẪU -->
             <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fff;margin-bottom:14px">
-                <div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🖼️ Hình ảnh đính kèm (${attachments.length})</div>
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📚 LINK HƯỚNG DẪN / BIỂU MẪU</div>
+                ${canEditSection1 ? `<div>
+                    <input class="bcv-form-input" id="bcvDetailGuideLink" value="${_escAttr(task.guide_link || '')}" placeholder="https://... (link Google Docs, Drive, Video hướng dẫn...)" style="font-size:12px;font-weight:600">
+                    <div style="margin-top:6px">${_bcvGetFriendlyGuideLinkHtml(task.guide_link, task.department_id)}</div>
+                </div>` : _bcvGetFriendlyGuideLinkHtml(task.guide_link, task.department_id)}
+            </div>
+
+            <!-- 6. CHECKLIST -->
+            ${checklist.length > 0 ? `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fff;margin-bottom:14px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✅ CHECKLIST (${checklist.filter(c => c.is_done).length}/${checklist.length})</div>
+                ${checklist.map(function(item) {
+                    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;font-weight:600;color:#334155">' +
+                        '<span style="color:' + (item.is_done ? '#22c55e' : '#cbd5e1') + '">' + (item.is_done ? '✅' : '⬜') + '</span>' +
+                        '<span>' + _esc(item.title) + '</span></div>';
+                }).join('')}
+            </div>` : ''}
+
+            <!-- 7. HÌNH ẢNH ĐÍNH KÈM (Ẩn nút + Thêm hình ảnh ở mục Đang làm) -->
+            <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fff;margin-bottom:14px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🖼️ Hình ảnh đính kèm (${attachments.length})</div>
                 ${attachments.length > 0 ? `<div class="bcv-att-gallery">
                     ${attachments.map(function(att) {
                         var isImg = (att.file_name || '').match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                        var canManageAtt = isAssignee || isManager || isCreator;
                         if (isImg) {
                             return '<div class="bcv-att-thumb" onclick="_bcvOpenLightbox(\'' + _escAttr(att.file_path) + '\')">' +
                                 '<img src="' + _escAttr(att.file_path) + '" alt="' + _escAttr(att.file_name) + '" loading="lazy">' +
-                                (canEditSection1 ? '<button class="bcv-att-thumb-del" onclick="event.stopPropagation();_bcvDeleteAttachment(' + task.id + ',' + att.id + ')" title="Xóa">✕</button>' : '') +
+                                (canManageAtt ? '<button class="bcv-att-thumb-del" onclick="event.stopPropagation();_bcvDeleteAttachment(' + task.id + ',' + att.id + ')" title="Xóa">✕</button>' : '') +
                             '</div>';
                         } else {
                             var icon = (att.file_name || '').match(/\.pdf$/i) ? '📄' : '📎';
                             return '<div class="bcv-att-thumb" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;cursor:default" onclick="window.open(\'' + _escAttr(att.file_path) + '\',\'_blank\')">' +
                                 '<span style="font-size:24px">' + icon + '</span>' +
                                 '<span style="font-size:8px;font-weight:600;color:#64748b;text-align:center;padding:0 4px;word-break:break-all">' + _esc(att.file_name) + '</span>' +
-                                (canEditSection1 ? '<button class="bcv-att-thumb-del" onclick="event.stopPropagation();_bcvDeleteAttachment(' + task.id + ',' + att.id + ')" title="Xóa">✕</button>' : '') +
+                                (canManageAtt ? '<button class="bcv-att-thumb-del" onclick="event.stopPropagation();_bcvDeleteAttachment(' + task.id + ',' + att.id + ')" title="Xóa">✕</button>' : '') +
                             '</div>';
                         }
                     }).join('')}
                 </div>` : '<div style="color:#94a3b8;font-size:11px">Chưa có hình ảnh</div>'}
-                ${canEditSection1 ? '<div style="margin-top:8px"><label class="bcv-cl-add" style="cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="_bcvUploadAttachment(' + task.id + ',this)"> ＋ Thêm hình ảnh</label></div>' : ''}
+            </div>
+
+            <!-- 8. Box Thông tin Giao/Nhận/Deadline/Phòng ban (nằm dưới Hình ảnh đính kèm) -->
+            <div class="bcv-card-info-box" style="margin-bottom:16px">
+                <div class="bcv-card-info-row">
+                    <span class="info-icon">📤</span>
+                    <span class="info-label">Giao việc</span>
+                    <span class="info-value">${_esc(task.created_by_name || '?')}</span>
+                </div>
+                <div class="bcv-card-info-row">
+                    <span class="info-icon">📥</span>
+                    <span class="info-label">Nhận việc</span>
+                    <span class="info-value" style="color:#16a34a">${_esc(task.assigned_to_name || 'Chưa giao')}</span>
+                </div>
+                <div class="bcv-card-info-row${isOverdue ? ' overdue' : ''}">
+                    <span class="info-icon">📅</span>
+                    <span class="info-label">Deadline</span>
+                    <span class="info-value">${canEditSection1 ? `<input class="bcv-form-input" type="date" id="bcvDetailDeadline" value="${task.deadline ? task.deadline.split('T')[0] : ''}" style="padding:2px 6px;font-size:11px;font-weight:700;border:none;background:transparent">` : (deadlineText || (task.deadline ? task.deadline.split('T')[0] : '—'))}</span>
+                </div>
+                ${task.department_name ? `<div class="bcv-card-info-row">
+                    <span class="info-icon">🏢</span>
+                    <span class="info-label">Phòng ban</span>
+                    <span class="info-value">${_esc(task.department_name)}</span>
+                </div>` : ''}
             </div>
 
             <!-- ═══ SECTION 2: BÁO CÁO TIẾN ĐỘ ═══ -->
+            <div class="bcv-card-section2">
             <div class="bcv-section-divider">
                 <span class="bcv-section-title-badge">📝 BÁO CÁO TIẾN ĐỘ</span>
-                ${!isAssignee ? '<span style="margin-left:auto;font-size:11px;font-weight:700;color:#475569;background:#f1f5f9;padding:4px 10px;border-radius:8px;border:1px solid #cbd5e1">👁️ Chế độ chỉ xem</span>' : ''}
+                ${!isAssignee ? '<span style="margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:8px;letter-spacing:.3px">👁️ Chế độ chỉ xem</span>' : ''}
             </div>
 
             <!-- Khối 1: Tiến Độ & Checklist -->
@@ -1277,7 +2070,7 @@ async function _bcvShowDetail(taskId) {
                 <div class="bcv-form-group" style="margin-bottom:14px">
                     <label style="font-weight:700;color:#0f172a">📊 TIẾN ĐỘ HOÀN THÀNH</label>
                     <div class="bcv-progress-single-wrap">
-                        <input type="range" class="bcv-progress-single-slider" id="bcvDetailProgress" min="0" max="100" value="${task.progress || 0}" ${!isAssignee ? 'disabled style="cursor:not-allowed"' : ''} oninput="_bcvUpdateProgressDisplay(this.value)">
+                        <input type="range" class="bcv-progress-single-slider" id="bcvDetailProgress" min="0" max="100" value="${task.progress || 0}" ${!canEditReport ? 'disabled style="cursor:not-allowed"' : ''} oninput="_bcvUpdateProgressDisplay(this.value)">
                         <div class="bcv-progress-badge" id="bcvProgressDisplay" style="background:${(task.progress||0) < 30 ? '#ef4444' : (task.progress||0) < 70 ? '#f59e0b' : '#22c55e'}">${task.progress || 0}%</div>
                     </div>
                 </div>
@@ -1290,42 +2083,44 @@ async function _bcvShowDetail(taskId) {
                             var doneTime = '';
                             if (item.is_done && item.completed_at) {
                                 var d = new Date(item.completed_at);
-                                doneTime = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ' ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+                                doneTime = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0') + ' ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
                             }
                             var hasData = !!(item.content && item.content.trim()) || !!(item.link && item.link.trim());
-                            var contentHtml = item.content && item.content.trim() ? '<div class="bcv-cl-content-preview"><span style="color:#64748b;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Nội dung đính kèm:</span>' + _esc(item.content.trim()) + '</div>' : '';
-                            var linkHtml = item.link && item.link.trim() ? '<div class="bcv-cl-link-preview"><span style="color:#64748b;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Đường link đính kèm:</span><a href="' + _escAttr(item.link.trim()) + '" target="_blank">🔗 ' + _esc(item.link.trim()) + ' ↗</a></div>' : '';
+                            var hasContent = !!(item.content && item.content.trim());
+                            var hasLink = !!(item.link && item.link.trim());
 
-                            var showSavedView = !isAssignee || hasData;
+                            var linkBtnHtml = hasLink ? '<a href="' + _escAttr(item.link.trim()) + '" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#2563eb;background:#eff6ff;padding:1px 6px;border-radius:4px;border:1px solid #bfdbfe;text-decoration:none;line-height:1.2;white-space:nowrap" title="Mở đường link đính kèm">🔗 Link ↗</a>' : '';
+
+                            var savedDetailHtml = '';
+                            if (hasData) {
+                                savedDetailHtml = '<div class="bcv-cl-saved-body" id="bcvClSaved_' + item.id + '" style="margin-top:6px;padding:6px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;color:#334155;line-height:1.4;display:flex !important;flex-direction:row !important;align-items:center !important;gap:6px;flex-wrap:wrap">' +
+                                    '<span style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">📝 BC Checklist :</span>' +
+                                    linkBtnHtml +
+                                    (hasContent ? '<span style="font-size:12px;font-weight:600;color:#334155;word-break:break-word">' + _esc(item.content.trim()) + '</span>' : '') +
+                                '</div>';
+                            }
 
                             return '<div class="bcv-cl-card ' + (item.is_done ? 'done' : '') + '" data-cl-id="' + item.id + '">' +
                                 '<div class="bcv-cl-card-head">' +
-                                    '<input type="checkbox" ' + (item.is_done ? 'checked' : '') + ' ' + (!isAssignee ? 'disabled style="cursor:not-allowed"' : '') + ' onchange="_bcvToggleChecklist(' + task.id + ',' + item.id + ',this.checked)">' +
+                                    '<input type="checkbox" ' + (item.is_done ? 'checked' : '') + ' ' + (!canEditReport ? 'disabled style="cursor:not-allowed"' : '') + ' onchange="_bcvToggleChecklist(' + task.id + ',' + item.id + ',this.checked)">' +
                                     '<span class="bcv-cl-card-title">' + _esc(item.title) + '</span>' +
-                                    (doneTime ? '<span class="bcv-cl-card-time"><span style="color:#16a34a;font-weight:800">✓</span> Hoàn thành ' + doneTime + '</span>' : '') +
-                                    (isAssignee ? '<button class="bcv-btn-edit-sm" id="bcvClEditBtn_' + item.id + '" data-no-debounce="true" onclick="_bcvToggleClEdit(' + item.id + ')">' + (hasData ? '✏️ Sửa' : '✏️ Nhập') + '</button>' : '') +
+                                    (doneTime ? '<span class="bcv-cl-card-time"><span style="color:#16a34a;font-weight:800">✓</span> HT ' + doneTime + '</span>' : '') +
+                                    (canEditReport ? '<button class="bcv-btn-edit-sm" id="bcvClEditBtn_' + item.id + '" data-no-debounce="true" onclick="_bcvToggleClEdit(' + item.id + ')">' + (hasData ? '✏️ Sửa' : '✏️ Nhập') + '</button>' : '') +
                                 '</div>' +
-
-                                '<!-- Compact Saved Preview -->' +
-                                '<div class="bcv-cl-saved-body" id="bcvClSaved_' + item.id + '" style="display:' + (showSavedView ? 'block' : 'none') + '">' +
-                                    contentHtml + linkHtml +
-                                '</div>' +
-
-                                '<!-- Edit Form (Only for Assignee) -->' +
-                                (isAssignee ? '<div class="bcv-cl-card-body" id="bcvClForm_' + item.id + '" style="display:' + (hasData ? 'none' : 'block') + '">' +
-                                    '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Mô tả / Ghi chú</div>' +
+                                savedDetailHtml +
+                                (canEditReport ? '<div class="bcv-cl-card-body" id="bcvClForm_' + item.id + '" style="display:' + (hasData ? 'none' : 'block') + '">' +
+                                    '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">BC Checklist</div>' +
                                     '<textarea id="bcvClContent_' + item.id + '" placeholder="Nhập ghi chú chi tiết...">' + _esc(item.content || '') + '</textarea>' +
                                     '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Đường link đính kèm</div>' +
                                     '<input type="text" id="bcvClLink_' + item.id + '" value="' + _escAttr(item.link || '') + '" placeholder="https://...">' +
-                                    '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">' +
-                                        '<button style="padding:4px 10px;border-radius:6px;border:none;background:#f1f5f9;color:#64748b;font-size:10px;font-weight:700;cursor:pointer" onclick="_bcvToggleClEdit(' + item.id + ', false)">Thu gọn</button>' +
+                                    '<div style="display:flex;align-items:center;justify-content:flex-end;margin-top:6px">' +
                                         '<button class="bcv-cl-card-save" data-no-debounce="true" onclick="_bcvSaveChecklistDetail(' + task.id + ',' + item.id + ')">💾 Lưu</button>' +
                                     '</div>' +
                                 '</div>' : '') +
                             '</div>';
                         }).join('')}
                     </div>
-                    ${isAssignee ? '<div style="display:flex;gap:6px;margin-top:6px"><input class="bcv-form-input" id="bcvNewCheckItem" placeholder="Thêm mục mới..." style="font-size:12px" onkeydown="if(event.key===\'Enter\')_bcvAddChecklist(' + task.id + ')"><button class="bcv-btn" style="padding:6px 12px;font-size:11px;background:#3b82f6;color:#fff;border-radius:8px" onclick="_bcvAddChecklist(' + task.id + ')">Thêm</button></div>' : ''}
+                    ${canEditReport ? '<div style="display:flex;gap:6px;margin-top:6px"><input class="bcv-form-input" id="bcvNewCheckItem" placeholder="Thêm mục mới..." style="font-size:12px" onkeydown="if(event.key===\'Enter\')_bcvAddChecklist(' + task.id + ')"><button class="bcv-btn" data-no-debounce="true" style="padding:6px 14px;font-size:11px;font-weight:700;background:#2563eb;color:#fff;border-radius:8px;border:none;cursor:pointer" onclick="_bcvAddChecklist(' + task.id + ')">Thêm</button></div>' : ''}
                 </div>
             </div>
 
@@ -1338,21 +2133,20 @@ async function _bcvShowDetail(taskId) {
                 <div style="padding:18px">
                     <div class="bcv-form-group" style="margin-bottom:16px">
                         <label style="font-size:11px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">📝 Nội dung báo cáo toàn bộ công việc</label>
-                        <textarea class="bcv-report-textarea" id="bcvDetailReportContent" placeholder="Mô tả chi tiết kết quả thực hiện toàn bộ công việc..." ${!isAssignee ? 'disabled style="background:#f8fafc;cursor:not-allowed"' : ''}>${_esc(task.report_content || '')}</textarea>
+                        <textarea class="bcv-report-textarea" id="bcvDetailReportContent" placeholder="Mô tả chi tiết kết quả thực hiện toàn bộ công việc..." ${!canEditReport ? 'disabled style="background:#f8fafc;cursor:not-allowed"' : ''}>${_esc(task.report_content || '')}</textarea>
                     </div>
 
                     <div class="bcv-form-group">
                         <label style="font-size:11px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">🔗 Đường link nộp báo cáo tổng thể</label>
-                        <input class="bcv-report-link-input" id="bcvDetailReportLink" value="${_escAttr(task.report_link || '')}" placeholder="Dán link Google Docs, Drive, Sheet báo cáo tổng thể..." ${!isAssignee ? 'disabled style="background:#f8fafc;cursor:not-allowed"' : ''}>
+                        <input class="bcv-report-link-input" id="bcvDetailReportLink" value="${_escAttr(task.report_link || '')}" placeholder="Dán link Google Docs, Drive, Sheet báo cáo tổng thể..." ${!canEditReport ? 'disabled style="background:#f8fafc;cursor:not-allowed"' : ''}>
                         ${task.report_link ? '<div style="margin-top:8px"><a href="' + _escAttr(task.report_link) + '" target="_blank" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#ffffff;font-weight:800;background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:8px 16px;border-radius:8px;box-shadow:0 3px 10px rgba(37,99,235,0.3);text-decoration:none">🔗 Mở link nộp báo cáo tổng thể ↗</a></div>' : ''}
                     </div>
                 </div>
             </div>
+            </div>
 
-            <div class="bcv-form-actions">
-                ${user.role === 'giam_doc' ? `<button class="bcv-btn bcv-btn-danger" data-no-debounce="true" onclick="_bcvDeleteTask(${task.id})">🗑 Xóa</button>` : ''}
-                <button class="bcv-btn bcv-btn-secondary" onclick="document.getElementById('bcvOverlay').remove()">Đóng</button>
-                ${(isAssignee || canEditSection1) ? `<button class="bcv-btn bcv-btn-primary" onclick="_bcvSaveDetail(${task.id})">💾 Lưu</button>` : ''}
+            <div class="bcv-form-actions" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap">
+                ${(canEditReport || canEditSection1) ? `<button class="bcv-btn bcv-btn-primary" onclick="_bcvSaveDetail(${task.id})">💾 Lưu</button>` : ''}
             </div>
 
             <div class="bcv-comments">
@@ -1362,6 +2156,16 @@ async function _bcvShowDetail(taskId) {
                     <input class="bcv-comment-input" id="bcvCommentInput" placeholder="Viết bình luận..." onkeydown="if(event.key==='Enter')_bcvAddComment(${task.id})">
                     <button class="bcv-comment-send" onclick="_bcvAddComment(${task.id})">Gửi</button>
                 </div>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0 4px;flex-wrap:wrap">
+                ${task.status === 'dang_lam' && isAssignee ? `<button class="bcv-btn" id="bcvSubmitTaskBtn" data-no-debounce="true" onclick="_bcvSubmitTask(${task.id})" style="padding:10px 24px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);color:#ffffff;border:none;border-radius:10px;box-shadow:0 4px 14px rgba(16,185,129,0.35);cursor:pointer;display:inline-flex;align-items:center;gap:6px">🚀 Nộp Công Việc</button>` : ''}
+                ${task.status === 'cho_duyet' && (isCreator || user.role === 'giam_doc' || user.role === 'quan_ly_cap_cao') && !isAssignee ? `
+                    <button class="bcv-btn" data-no-debounce="true" onclick="_bcvShowApproveModal(${task.id})" style="padding:10px 20px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:10px;box-shadow:0 4px 12px rgba(22,163,74,0.3);cursor:pointer;display:inline-flex;align-items:center;gap:6px">✅ DUYỆT CÔNG VIỆC</button>
+                    <button class="bcv-btn" data-no-debounce="true" onclick="_bcvShowRejectModal(${task.id})" style="padding:10px 20px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:10px;box-shadow:0 4px 12px rgba(220,38,38,0.3);cursor:pointer;display:inline-flex;align-items:center;gap:6px">❌ KHÔNG DUYỆT (YÊU CẦU SỬA)</button>
+                ` : ''}
+                ${user.role === 'giam_doc' ? `<button class="bcv-btn bcv-btn-danger" data-no-debounce="true" onclick="_bcvDeleteTask(${task.id})" style="min-width:120px">🗑 Xóa Công Việc</button>` : ''}
+                <button class="bcv-btn bcv-btn-secondary" onclick="document.getElementById('bcvOverlay').remove()" style="min-width:120px">Đóng</button>
             </div>
         </div>
     </div>`;
@@ -1429,52 +2233,126 @@ function _bcvToggleClEdit(itemId, forceShowEdit) {
     var formEl = document.getElementById('bcvClForm_' + itemId);
     var savedEl = document.getElementById('bcvClSaved_' + itemId);
     var btnEl = document.getElementById('bcvClEditBtn_' + itemId);
-    if (!formEl || !savedEl) return;
+    if (!formEl) return;
 
     var isEdit = forceShowEdit !== undefined ? forceShowEdit : (formEl.style.display === 'none');
     if (isEdit) {
         formEl.style.display = 'block';
-        savedEl.style.display = 'none';
-        if (btnEl) btnEl.textContent = '✕ Thu gọn';
+        if (savedEl) savedEl.style.display = 'none';
+        if (btnEl) btnEl.textContent = '✕ Ẩn form';
     } else {
         formEl.style.display = 'none';
-        savedEl.style.display = 'block';
-        var hasContent = savedEl.children.length > 0;
-        if (btnEl) btnEl.textContent = hasContent ? '✏️ Sửa' : '✏️ Nhập';
+        if (savedEl) savedEl.style.display = 'flex';
+        if (btnEl) {
+            var hasData = !!(savedEl && savedEl.innerHTML.trim());
+            btnEl.textContent = hasData ? '✏️ Sửa' : '✏️ Nhập';
+        }
     }
 }
 
 // Save checklist item detail (content + link)
 async function _bcvSaveChecklistDetail(taskId, itemId) {
-    var content = (document.getElementById('bcvClContent_' + itemId) || {}).value || '';
-    var link = (document.getElementById('bcvClLink_' + itemId) || {}).value || '';
-    var res = await _bcvApi('/api/board-tasks/' + taskId + '/checklist/' + itemId + '/detail', 'PATCH', { content: content, link: link });
-    if (res && res.ok) {
-        // Update compact saved view HTML
-        var savedEl = document.getElementById('bcvClSaved_' + itemId);
-        if (savedEl) {
-            var html = '';
-            if (content.trim()) {
-                html += '<div class="bcv-cl-content-preview"><span style="color:#64748b;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Nội dung đính kèm:</span>' + _esc(content.trim()) + '</div>';
-            }
-            if (link.trim()) {
-                html += '<div class="bcv-cl-link-preview"><span style="color:#64748b;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Đường link đính kèm:</span><a href="' + _escAttr(link.trim()) + '" target="_blank">🔗 ' + _esc(link.trim()) + ' ↗</a></div>';
-            }
-            savedEl.innerHTML = html;
+    var contentInput = document.getElementById('bcvClContent_' + itemId);
+    var linkInput = document.getElementById('bcvClLink_' + itemId);
+    var content = (contentInput || {}).value || '';
+    var rawLink = (linkInput || {}).value || '';
+    var link = rawLink.trim();
+
+    if (link) {
+        var validated = _bcvNormalizeAndValidateUrl(link);
+        if (!validated.isValid) {
+            alert('⚠️ Đường link đính kèm không đúng định dạng link Web hợp lệ!\n\nVui lòng dán đường link chuẩn (Ví dụ: link Google Sheet, Google Drive, Google Docs, Website... có dạng https://...)');
+            if (linkInput) linkInput.focus();
+            return;
         }
-        // Show saved feedback & collapse back to compact mode
-        var btn = event && event.target;
-        if (btn) {
-            btn.textContent = '✅ Đã lưu';
-            setTimeout(function(){
+        link = validated.url;
+        if (linkInput) linkInput.value = link;
+    }
+
+    var btn = event && event.target;
+    if (btn && btn.tagName === 'BUTTON') {
+        btn.disabled = true;
+        btn.textContent = '💾 Đang lưu...';
+    }
+
+    try {
+        var res = await _bcvApi('/api/board-tasks/' + taskId + '/checklist/' + itemId + '/detail', 'PATCH', { content: content, link: link });
+        if (res && res.ok) {
+            var trimmedContent = content.trim();
+            var trimmedLink = link.trim();
+            var hasData = !!trimmedContent || !!trimmedLink;
+            var hasContent = !!trimmedContent;
+            var hasLink = !!trimmedLink;
+
+            var linkBtnHtml = hasLink ? '<a href="' + _escAttr(trimmedLink) + '" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#2563eb;background:#eff6ff;padding:1px 6px;border-radius:4px;border:1px solid #bfdbfe;text-decoration:none;line-height:1.2;white-space:nowrap" title="Mở đường link đính kèm">🔗 Link ↗</a>' : '';
+
+            var cardEl = document.querySelector('.bcv-cl-card[data-cl-id="' + itemId + '"]');
+            if (cardEl) {
+                var savedEl = document.getElementById('bcvClSaved_' + itemId);
+                if (hasData) {
+                    var innerHtml = '<span style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">📝 BC CHECKLIST :</span>' +
+                        linkBtnHtml +
+                        (hasContent ? '<span style="font-size:12px;font-weight:600;color:#334155;word-break:break-word">' + _esc(trimmedContent) + '</span>' : '');
+                    if (!savedEl) {
+                        savedEl = document.createElement('div');
+                        savedEl.className = 'bcv-cl-saved-body';
+                        savedEl.id = 'bcvClSaved_' + itemId;
+                        savedEl.style.cssText = 'margin-top:6px;padding:6px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;color:#334155;line-height:1.4;display:flex !important;flex-direction:row !important;align-items:center !important;gap:6px;flex-wrap:wrap';
+                        var headEl = cardEl.querySelector('.bcv-cl-card-head');
+                        if (headEl) headEl.after(savedEl);
+                    }
+                    savedEl.innerHTML = innerHtml;
+                    savedEl.style.display = 'flex';
+                } else if (savedEl) {
+                    savedEl.style.display = 'none';
+                }
+
+                // Hide edit form and update button label
+                var formEl = document.getElementById('bcvClForm_' + itemId);
+                if (formEl) formEl.style.display = 'none';
+                var btnEl = document.getElementById('bcvClEditBtn_' + itemId);
+                if (btnEl) btnEl.textContent = hasData ? '✏️ Sửa' : '✏️ Nhập';
+
+                // Update completion timestamp badge to CURRENT time if item is completed
+                var timeEl = cardEl.querySelector('.bcv-cl-card-time');
+                var isItemDone = cardEl.classList.contains('done') || !!cardEl.querySelector('input[type="checkbox"]:checked');
+                if (isItemDone) {
+                    var now = new Date();
+                    var doneTime = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0') + ' ' + String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0');
+                    if (!timeEl) {
+                        timeEl = document.createElement('span');
+                        timeEl.className = 'bcv-cl-card-time';
+                        var editBtn = cardEl.querySelector('.bcv-btn-edit-sm');
+                        if (editBtn) editBtn.before(timeEl);
+                        else {
+                            var headEl = cardEl.querySelector('.bcv-cl-card-head');
+                            if (headEl) headEl.appendChild(timeEl);
+                        }
+                    }
+                    if (timeEl) {
+                        timeEl.innerHTML = '<span style="color:#16a34a;font-weight:800">✓</span> HT ' + doneTime;
+                    }
+                }
+            }
+
+            if (btn && btn.tagName === 'BUTTON') {
+                btn.disabled = false;
                 btn.textContent = '💾 Lưu';
-                _bcvToggleClEdit(itemId, false);
-            }, 600);
+            }
         } else {
-            _bcvToggleClEdit(itemId, false);
+            alert((res && res.error) || 'Lỗi lưu chi tiết checklist');
+            if (btn && btn.tagName === 'BUTTON') {
+                btn.disabled = false;
+                btn.textContent = '💾 Lưu';
+            }
         }
-    } else {
-        alert(res?.error || 'Lỗi lưu chi tiết checklist');
+    } catch(e) {
+        console.error('[bcvSaveChecklistDetail error]', e);
+        alert('Lỗi lưu chi tiết checklist: ' + (e.message || e));
+        if (btn && btn.tagName === 'BUTTON') {
+            btn.disabled = false;
+            btn.textContent = '💾 Lưu';
+        }
     }
 }
 
@@ -1488,6 +2366,22 @@ function _bcvUpdateProgressDisplay(val) {
 
 async function _bcvSaveDetail(taskId) {
     var statusEl = document.getElementById('bcvReportStatus') || document.getElementById('bcvDetailStatus');
+    var rawReportLink = (document.getElementById('bcvDetailReportLink') || {}).value || '';
+    var reportLink = rawReportLink.trim();
+
+    if (reportLink) {
+        var validated = _bcvNormalizeAndValidateUrl(reportLink);
+        if (!validated.isValid) {
+            alert('⚠️ Đường link nộp báo cáo tổng thể không đúng định dạng link Web hợp lệ!\n\nVui lòng dán đường link chuẩn (Ví dụ: link Google Sheet, Google Drive, Google Docs, Sheet báo cáo... có dạng https://...)');
+            var reportInput = document.getElementById('bcvDetailReportLink');
+            if (reportInput) reportInput.focus();
+            return;
+        }
+        reportLink = validated.url;
+        var reportInput = document.getElementById('bcvDetailReportLink');
+        if (reportInput) reportInput.value = reportLink;
+    }
+
     var body = {
         title: (document.getElementById('bcvDetailTitle') || {}).value || '',
         description: (document.getElementById('bcvDetailDesc') || {}).value || '',
@@ -1496,8 +2390,9 @@ async function _bcvSaveDetail(taskId) {
         progress: parseInt((document.getElementById('bcvDetailProgress') || {}).value || '0', 10),
         deadline: (document.getElementById('bcvDetailDeadline') || {}).value || null,
         task_link: (document.getElementById('bcvDetailLink') || {}).value || null,
+        guide_link: (document.getElementById('bcvDetailGuideLink') || {}).value || null,
         report_content: (document.getElementById('bcvDetailReportContent') || {}).value || null,
-        report_link: (document.getElementById('bcvDetailReportLink') || {}).value || null
+        report_link: reportLink || null
     };
 
     var res = await _bcvApi('/api/board-tasks/' + taskId, 'PUT', body);
@@ -1538,23 +2433,99 @@ async function _bcvAddComment(taskId) {
 // ========== DETAIL — Checklist & Attachment Helpers ==========
 
 async function _bcvToggleChecklist(taskId, itemId, isDone) {
-    await _bcvApi('/api/board-tasks/' + taskId + '/checklist/' + itemId, 'PATCH', { is_done: isDone });
-    // Update UI inline
-    var item = document.querySelector('.bcv-detail-cl-item[data-cl-id="' + itemId + '"]');
-    if (item) {
-        var text = item.querySelector('.bcv-cl-text');
-        if (text) { text.className = 'bcv-cl-text ' + (isDone ? 'done' : ''); }
+    try {
+        await _bcvApi('/api/board-tasks/' + taskId + '/checklist/' + itemId, 'PATCH', { is_done: isDone });
+
+        var cardEl = document.querySelector('.bcv-cl-card[data-cl-id="' + itemId + '"]');
+        if (cardEl) {
+            if (isDone) cardEl.classList.add('done');
+            else cardEl.classList.remove('done');
+
+            var headEl = cardEl.querySelector('.bcv-cl-card-head');
+            var timeEl = cardEl.querySelector('.bcv-cl-card-time');
+            if (isDone) {
+                var daysArr = ['Chủ Nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+                var now = new Date();
+                var doneTime = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0') + ' ' + String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0');
+                if (!timeEl) {
+                    timeEl = document.createElement('span');
+                    timeEl.className = 'bcv-cl-card-time';
+                    var editBtn = cardEl.querySelector('.bcv-btn-edit-sm');
+                    if (editBtn) editBtn.before(timeEl);
+                    else if (headEl) headEl.appendChild(timeEl);
+                }
+                if (timeEl) timeEl.innerHTML = '<span style="color:#16a34a;font-weight:800">✓</span> HT ' + doneTime;
+            } else if (timeEl) {
+                timeEl.remove();
+            }
+        }
+
+        // Auto-recalculate progress & update count badge
+        var allBoxes = document.querySelectorAll('.bcv-cl-card-head input[type="checkbox"]');
+        if (allBoxes.length > 0) {
+            var checkedBoxes = document.querySelectorAll('.bcv-cl-card-head input[type="checkbox"]:checked');
+            var countBadge = document.querySelector('#bcvReportChecklist')?.previousElementSibling;
+            if (countBadge) countBadge.textContent = '✅ CHECKLIST CÔNG VIỆC (' + checkedBoxes.length + '/' + allBoxes.length + ')';
+
+            var pct = Math.round((checkedBoxes.length / allBoxes.length) * 100);
+            var sliderEl = document.getElementById('bcvDetailProgress');
+            if (sliderEl) {
+                sliderEl.value = pct;
+                _bcvUpdateProgressDisplay(pct);
+            }
+            var task = _bcv.tasks.find(t => t.id === taskId);
+            if (task) task.progress = pct;
+        }
+    } catch(e) {
+        console.error('[bcvToggleChecklist error]', e);
     }
 }
 
 async function _bcvAddChecklist(taskId) {
     var input = document.getElementById('bcvNewCheckItem');
     if (!input || !input.value.trim()) return;
-    var res = await _bcvApi('/api/board-tasks/' + taskId + '/checklist', 'POST', { title: input.value.trim() });
-    if (res && res.ok) {
-        var overlay = document.getElementById('bcvOverlay');
-        if (overlay) overlay.remove();
-        await _bcvShowDetail(taskId);
+
+    var val = input.value.trim();
+    var btn = event && event.target;
+    if (btn && btn.tagName === 'BUTTON') {
+        btn.disabled = true;
+        btn.textContent = '⏳...';
+    }
+
+    var curProgress = (document.getElementById('bcvDetailProgress') || {}).value;
+    var curReportContent = (document.getElementById('bcvDetailReportContent') || {}).value;
+    var curReportLink = (document.getElementById('bcvDetailReportLink') || {}).value;
+
+    try {
+        var res = await _bcvApi('/api/board-tasks/' + taskId + '/checklist', 'POST', { title: val });
+        if (res && res.ok) {
+            await _bcvShowDetail(taskId);
+            if (curProgress !== undefined) {
+                var sliderEl = document.getElementById('bcvDetailProgress');
+                if (sliderEl) { sliderEl.value = curProgress; _bcvUpdateProgressDisplay(curProgress); }
+            }
+            if (curReportContent !== undefined) {
+                var rContentEl = document.getElementById('bcvDetailReportContent');
+                if (rContentEl) rContentEl.value = curReportContent;
+            }
+            if (curReportLink !== undefined) {
+                var rLinkEl = document.getElementById('bcvDetailReportLink');
+                if (rLinkEl) rLinkEl.value = curReportLink;
+            }
+        } else {
+            alert((res && res.error) || 'Không thể thêm mục checklist');
+            if (btn && btn.tagName === 'BUTTON') {
+                btn.disabled = false;
+                btn.textContent = 'Thêm';
+            }
+        }
+    } catch(e) {
+        console.error('[bcvAddChecklist error]', e);
+        alert('Lỗi thêm checklist: ' + (e.message || e));
+        if (btn && btn.tagName === 'BUTTON') {
+            btn.disabled = false;
+            btn.textContent = 'Thêm';
+        }
     }
 }
 
@@ -1678,4 +2649,1478 @@ function _escAttr(s) {
     return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ========== TƯ LIỆU — DOCUMENT LIBRARY FUNCTIONS ==========
+
+async function _bcvSwitchTab(tab) {
+    _bcv.tab = tab;
+    try { localStorage.setItem('bcv_active_tab', tab); } catch(e){}
+    document.querySelectorAll('.bcv-tab').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+    });
+
+    var filtersEl = document.getElementById('bcvFilters');
+    var boardEl = document.getElementById('bcvBoard');
+    var tuLieuEl = document.getElementById('bcvTuLieuView');
+    var actionBtnsEl = document.getElementById('bcvHeaderActionBtns');
+
+    var user = window._currentUser || {};
+    var isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(user.role);
+    var isDirector = ['giam_doc','quan_ly_cap_cao'].includes(user.role);
+
+    if (tab === 'tu_lieu') {
+        if (filtersEl) filtersEl.style.display = 'none';
+        if (boardEl) boardEl.style.display = 'none';
+        if (!tuLieuEl) {
+            tuLieuEl = document.createElement('div');
+            tuLieuEl.id = 'bcvTuLieuView';
+            document.getElementById('bcvPage').appendChild(tuLieuEl);
+        }
+        tuLieuEl.style.display = 'block';
+        if (actionBtnsEl) {
+            actionBtnsEl.innerHTML = '<button class="bcv-btn-create" onclick="_bcvShowCreateDocumentModal()">＋ Tạo tư liệu mới</button>';
+        }
+        await _bcvLoadDocuments();
+    } else {
+        if (tuLieuEl) tuLieuEl.style.display = 'none';
+        if (filtersEl) filtersEl.style.display = 'flex';
+        if (boardEl) boardEl.style.display = 'grid';
+        if (actionBtnsEl) {
+            actionBtnsEl.innerHTML = (isDirector ? '<button class="bcv-btn-config" onclick="_bcvShowConfig()">⚙️ Cài đặt phòng ban</button>' : '') +
+                (isManager ? '<button class="bcv-btn-create" onclick="_bcvShowCreate()">＋ Tạo task mới</button>' : '');
+        }
+        await _bcvLoadTasks();
+    }
+}
+
+async function _bcvLoadDocuments() {
+    var tuLieuEl = document.getElementById('bcvTuLieuView');
+    if (!tuLieuEl) return;
+
+    var searchVal = (document.getElementById('bcvDocSearch') && document.getElementById('bcvDocSearch').value) || _bcv.docFilters.search || '';
+    var deptVal = (document.getElementById('bcvDocFilterDept') && document.getElementById('bcvDocFilterDept').value) || _bcv.docFilters.department_id || '';
+
+    _bcv.docFilters.search = searchVal;
+    _bcv.docFilters.department_id = deptVal;
+
+    var params = new URLSearchParams();
+    if (searchVal) params.set('search', searchVal);
+    if (deptVal) params.set('department_id', deptVal);
+
+    var res = await _bcvApi('/api/board-documents?' + params.toString());
+    _bcv.documents = (res && res.documents) || [];
+    _bcvRenderTuLieuView(_bcv.documents);
+}
+
+function _bcvRenderTuLieuView(documents) {
+    var tuLieuEl = document.getElementById('bcvTuLieuView');
+    if (!tuLieuEl) return;
+
+    var user = window._currentUser || {};
+
+    // Step 1: Group by Department (Level 1 - Khối lớn nhất)
+    var deptGroups = {};
+    documents.forEach(function(doc) {
+        var deptName = doc.department_name || 'DÙNG CHUNG TOÀN CÔNG TY';
+        if (!deptGroups[deptName]) deptGroups[deptName] = [];
+        deptGroups[deptName].push(doc);
+    });
+
+    var depts = (_bcv.enabledDepts && _bcv.enabledDepts.length > 0) ? _bcv.enabledDepts : (_bcv.departments || []).filter(function(d) { return d.board_enabled; });
+    var deptOptions = depts.map(function(d) {
+        return '<option value="' + d.id + '" ' + (String(_bcv.docFilters.department_id) === String(d.id) ? 'selected' : '') + '>' + _esc(d.name) + '</option>';
+    }).join('');
+
+    var deptNames = Object.keys(deptGroups);
+
+    var html = `
+        <div style="padding:16px 28px">
+            <!-- Filter Bar for Document Library -->
+            <div style="background:#fff;padding:14px 18px;border-radius:12px;border:1px solid #e2e8f0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+                <input class="bcv-search" id="bcvDocSearch" value="${_escAttr(_bcv.docFilters.search)}" placeholder="🔍 Tìm theo tên tư liệu, mục chính, mục phụ, mã CV..." oninput="_bcvDebounceLoadDocs()" style="width:300px">
+                <select class="bcv-filter-sel" id="bcvDocFilterDept" onchange="_bcvLoadDocuments()">
+                    <option value="">🏢 Tất cả phòng ban</option>
+                    ${deptOptions}
+                </select>
+                <button class="bcv-btn bcv-btn-secondary" onclick="_bcvLoadDocuments()" style="padding:7px 14px;font-size:12px">🔄 Tải lại</button>
+            </div>
+
+            ${deptNames.length === 0 ? `
+                <div style="background:#fff;border-radius:14px;padding:60px 20px;text-align:center;border:1px dashed #cbd5e1">
+                    <div style="font-size:48px;margin-bottom:12px">📚</div>
+                    <div style="font-size:16px;font-weight:700;color:#334155;margin-bottom:6px">Chưa có tư liệu nào</div>
+                    <div style="font-size:13px;color:#64748b;margin-bottom:16px">Hãy bấm "Tạo tư liệu mới" ở góc phải để thêm quy trình, hướng dẫn hoặc biểu mẫu làm việc.</div>
+                    <button class="bcv-btn-create" onclick="_bcvShowCreateDocumentModal()" style="margin:0 auto;display:inline-flex">＋ Tạo tư liệu mới</button>
+                </div>
+            ` : ''}
+
+            ${deptNames.map(function(deptName) {
+                var docListInDept = deptGroups[deptName];
+                var deptId = (docListInDept[0] && docListInDept[0].department_id) || '';
+                
+                // Step 2: Group by main_category inside Department (Level 2)
+                var mainCatGroups = {};
+                docListInDept.forEach(function(doc) {
+                    var mainCat = doc.main_category || 'TƯ LIỆU CHUNG';
+                    if (!mainCatGroups[mainCat]) mainCatGroups[mainCat] = [];
+                    mainCatGroups[mainCat].push(doc);
+                });
+
+                var mainCatKeys = Object.keys(mainCatGroups);
+
+                return `
+                    <!-- 🔴 LEVEL 1: KHỐI PHÒNG BAN (Container lớn nhất) -->
+                    <div style="margin-bottom:28px;background:#ffffff;border:2px solid #cbd5e1;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,0.08)">
+                        <!-- Level 1 Header: PHÒNG BAN -->
+                        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#2563eb 100%);padding:16px 24px;color:#ffffff;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:0.8px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+                            <div style="display:flex;align-items:center;gap:10px">
+                                <span style="font-size:22px">🏢</span> ${_esc(deptName)}
+                            </div>
+                            <span style="font-size:12px;font-weight:800;background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:20px;text-transform:none">${docListInDept.length} bài tư liệu</span>
+                        </div>
+
+                        <!-- Inside Level 1: List of Level 2 Main Categories -->
+                        <div style="padding:20px;display:grid;gap:24px">
+                            ${mainCatKeys.map(function(mainCat, mainIdx) {
+                                var subDocList = mainCatGroups[mainCat];
+                                var cleanCat = mainCat.replace(/^\d+[\.\s\-]*/, '');
+                                var mainNum = (mainIdx + 1) + '. ' + cleanCat;
+
+                                return `
+                                    <!-- 🟠 LEVEL 2: TÊN MỤC CHÍNH (Tiêu đề dải băng) -->
+                                    <div style="background:#ffffff;border:1.5px solid #cbd5e1;border-radius:14px;overflow:hidden;box-shadow:0 3px 12px rgba(15,23,42,0.05)">
+                                        <!-- Main Category Banner Header -->
+                                        <div style="background:linear-gradient(135deg,#f5f3ff 0%,#e9d5ff 100%);padding:10px 20px;color:#581c87;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #d8b4fe">
+                                            <div style="display:flex;align-items:center;gap:8px">
+                                                <span style="font-size:16px">📌</span> Tư Liệu ${mainIdx + 1} : ${_esc(cleanCat)}
+                                            </div>
+                                            <div style="display:flex;align-items:center;gap:10px">
+                                                <button class="bcv-btn-sm" style="background:#7c3aed;color:#ffffff;border:none;padding:5px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 2px 6px rgba(124,58,237,0.3)" onclick="event.stopPropagation();_bcvShowCreateDocumentModal(null, '${deptId}', '${_escAttr(mainCat)}')" title="Thêm mục phụ mới vào danh mục này">
+                                                    ➕ Thêm mục phụ
+                                                </button>
+                                                <span style="font-size:12px;font-weight:700;background:#581c87;color:#ffffff;padding:3px 12px;border-radius:12px">${subDocList.length} mục phụ</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- 📊 BẢNG DỮ LIỆU 6 CỘT TÊN MỤC CHÍNH -->
+                                        <div style="width:100%">
+                                            <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left;table-layout:fixed">
+                                                <colgroup>
+                                                    <col style="width:45px">
+                                                    <col style="width:280px">
+                                                    <col style="width:auto">
+                                                    <col style="width:170px">
+                                                    <col style="width:160px">
+                                                    <col style="width:110px">
+                                                    <col style="width:135px">
+                                                </colgroup>
+                                                <thead>
+                                                    <tr style="background:#f1f5f9;color:#0f172a;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.5px">
+                                                        <th style="padding:10px 8px;text-align:center;background:#f1f5f9;color:#0f172a;border-bottom:2px solid #cbd5e1">STT</th>
+                                                        <th style="padding:10px 10px;text-align:left;background:#f1f5f9;color:#0f172a;border-bottom:2px solid #cbd5e1">Tên Công Việc</th>
+                                                        <th style="padding:10px 10px;text-align:left;background:#f1f5f9;color:#0f172a;border-bottom:2px solid #cbd5e1">Nội Dung</th>
+                                                        <th style="padding:10px 10px;text-align:left;background:#f1f5f9;color:#0f172a;border-bottom:2px solid #cbd5e1">Link Tư Liệu</th>
+                                                        <th style="padding:10px 10px;text-align:center;background:#f1f5f9;color:#0f172a;border-bottom:2px solid #cbd5e1">Hình Ảnh</th>
+                                                        <th style="padding:10px 10px;text-align:center;background:#f1f5f9;color:#0f172a;border-bottom:2px solid #cbd5e1">Mã Công Việc</th>
+                                                        <th style="padding:10px 6px;text-align:center;background:#f1f5f9;color:#0f172a;border-bottom:2px solid #cbd5e1;white-space:nowrap">Thao Tác</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${subDocList.map(function(doc, subIdx) {
+                                                        var stt = subIdx + 1;
+                                                        var links = doc.links || [];
+                                                        var atts = doc.attachments || [];
+                                                        var canEdit = (user.role === 'giam_doc') || (user.id === doc.created_by) || ['quan_ly_cap_cao','quan_ly','truong_phong'].includes(user.role);
+                                                        var canDelete = (user.role === 'giam_doc');
+
+                                                        return `
+                                                            <tr style="border-bottom:1px solid #e2e8f0;background:${stt % 2 === 0 ? '#f8fafc' : '#ffffff'};cursor:pointer" onclick="_bcvShowDocumentDetailModal(${doc.id})" title="Bấm để xem chi tiết mục phụ">
+                                                                <!-- 1. STT -->
+                                                                <td style="padding:12px 8px;text-align:center;font-weight:800;color:#64748b;vertical-align:top">${stt}</td>
+
+                                                                <!-- 2. Tên Mục Phụ -->
+                                                                <td style="padding:12px 10px;vertical-align:top;text-align:left">
+                                                                    <span style="background:#fef3c7;color:#92400e;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:800;display:inline-block;border:1px solid #fde68a;word-break:break-word">
+                                                                        📌 ${stt}. ${_esc(doc.sub_category)}
+                                                                    </span>
+                                                                    ${doc.title && doc.title !== doc.sub_category ? '<div style="font-size:12px;font-weight:700;color:#0f172a;margin-top:6px;word-break:break-word">' + _esc(doc.title) + '</div>' : ''}
+                                                                </td>
+
+                                                                <!-- 3. Nội Dung -->
+                                                                <td style="padding:12px 10px;color:#0f172a;line-height:1.6;white-space:pre-wrap;font-weight:500;vertical-align:top;text-align:left;word-break:break-word">${doc.content ? _esc(doc.content.trim()) : '<span style="color:#94a3b8">—</span>'}</td>
+
+                                                                <!-- 4. Link Tư Liệu -->
+                                                                <td style="padding:12px 10px;vertical-align:top;text-align:left">
+                                                                    ${links.length > 0 ? `
+                                                                        <div style="display:flex;flex-direction:column;gap:6px">
+                                                                            ${links.map(function(link) {
+                                                                                var title = typeof link === 'string' ? link : (link.title || link.url);
+                                                                                var url = typeof link === 'string' ? link : link.url;
+                                                                                return '<a href="' + _escAttr(url) + '" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;padding:2px 6px;border-radius:5px;border:1px solid #dbeafe;text-decoration:none;word-break:break-all;width:fit-content">🔗 ' + _esc(title) + ' ↗</a>';
+                                                                            }).join('')}
+                                                                        </div>
+                                                                    ` : '<span style="color:#94a3b8;font-size:12px">—</span>'}
+                                                                </td>
+
+                                                                <!-- 5. Hình Ảnh -->
+                                                                <td style="padding:12px 10px;vertical-align:middle;text-align:center">
+                                                                    ${atts.length > 0 ? `
+                                                                        <div style="display:inline-flex;align-items:center;justify-content:center;gap:4px;vertical-align:middle">
+                                                                            ${atts.map(function(att) {
+                                                                                var token = localStorage.getItem('token') || '';
+                                                                                var imgSrc = att.file_path ? (att.file_path.startsWith('/') || att.file_path.startsWith('http') || att.file_path.startsWith('data:') ? att.file_path : '/' + att.file_path) : '';
+                                                                                if (imgSrc && token && !imgSrc.startsWith('data:')) {
+                                                                                    imgSrc += (imgSrc.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                                                                                }
+                                                                                return '<div style="position:relative;width:28px;height:28px;border-radius:6px;overflow:hidden;border:1px solid #cbd5e1;background:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.1);display:inline-block;vertical-align:middle;transition:transform 0.15s ease" onmouseover="this.style.transform=\'scale(1.15)\'" onmouseout="this.style.transform=\'scale(1)\'" onclick="event.stopPropagation();_bcvOpenLightbox(\'' + _escAttr(imgSrc) + '\')" title="Click để xem ảnh phóng to">' +
+                                                                                    '<img src="' + _escAttr(imgSrc) + '" style="width:100%;height:100%;object-fit:cover;display:block">' +
+                                                                                '</div>';
+                                                                            }).join('')}
+                                                                        </div>
+                                                                    ` : '<span style="color:#94a3b8;font-size:12px">—</span>'}
+                                                                </td>
+
+                                                                <!-- 6. Mã Công Việc -->
+                                                                <td style="padding:12px 8px;text-align:center;vertical-align:top" onclick="event.stopPropagation()">
+                                                                    ${(function() {
+                                                                        var linked = doc.linked_tasks || [];
+                                                                        var list = linked.slice();
+                                                                        if (doc.task_code && !list.some(function(x) { return x.cv_code === doc.task_code; })) {
+                                                                            var matchId = parseInt(doc.task_code.replace(/\D/g, ''), 10);
+                                                                            list.unshift({ id: matchId || null, cv_code: doc.task_code, title: doc.task_code });
+                                                                        }
+                                                                        if (list.length > 0) {
+                                                                            return '<div style="display:flex;flex-direction:column;gap:5px;align-items:center">' +
+                                                                                list.map(function(t) {
+                                                                                    return '<span class="bcv-doc-task-badge" style="background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:800;padding:3px 8px;border-radius:6px;border:1px solid #c7d2fe;display:inline-flex;align-items:center;gap:4px;cursor:pointer;box-shadow:0 1px 3px rgba(99,102,241,0.15);white-space:nowrap" ' +
+                                                                                        (t.id ? 'onclick="event.stopPropagation(); _bcvOpenTaskFromDoc(' + t.id + ')"' : 'onclick="event.stopPropagation(); _bcvFilterByTaskCode(\'' + _escAttr(t.cv_code) + '\')"') +
+                                                                                        ' title="Bấm để xem chi tiết ' + _escAttr(t.title || t.cv_code) + '">' +
+                                                                                        '📌 ' + _esc(t.cv_code) +
+                                                                                    '</span>';
+                                                                                }).join('') +
+                                                                            '</div>';
+                                                                        }
+                                                                        return '<span style="color:#94a3b8;font-size:12px">—</span>';
+                                                                    })()}
+                                                                </td>
+
+                                                                <!-- 7. Thao Tác -->
+                                                                <td style="padding:12px 8px;text-align:center;vertical-align:top">
+                                                                    ${(canEdit || canDelete) ? `
+                                                                        <div style="display:flex;gap:4px;justify-content:center">
+                                                                            ${canEdit ? '<button class="bcv-btn-edit-sm" onclick="event.stopPropagation();_bcvShowCreateDocumentModal(' + doc.id + ')">✏️ Sửa</button>' : ''}
+                                                                            ${canDelete ? '<button class="bcv-btn-edit-sm" style="color:#dc2626;border-color:#fca5a5;background:#fff5f5" onclick="event.stopPropagation();_bcvDeleteDocument(' + doc.id + ')">🗑 Xóa</button>' : ''}
+                                                                        </div>
+                                                                    ` : '<span style="color:#94a3b8;font-size:12px">—</span>'}
+                                                                </td>
+                                                            </tr>
+                                                        `;
+                                                    }).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    tuLieuEl.innerHTML = html;
+}
+
+function _bcvOpenTaskFromDoc(taskId) {
+    if (!taskId) return;
+    _bcvShowDetail(taskId);
+}
+
+function _bcvToggleFeedbackHistory(btn) {
+    if (!btn) return;
+    var container = btn.nextElementSibling;
+    if (!container) return;
+    var isHidden = (container.style.display === 'none' || !container.style.display);
+    if (isHidden) {
+        container.style.display = 'flex';
+        btn.innerHTML = '📜 Thu gọn lịch sử yêu cầu sửa ▴';
+    } else {
+        container.style.display = 'none';
+        var count = container.children.length;
+        btn.innerHTML = '📜 Xem lịch sử yêu cầu sửa (' + count + ' lần) ▾';
+    }
+}
+
+function _bcvFilterByTaskCode(taskCode) {
+    _bcvSwitchTab('me');
+    var searchInput = document.getElementById('bcvSearchInput');
+    if (searchInput) {
+        searchInput.value = taskCode;
+        _bcv.filters.search = taskCode;
+        _bcvLoadTasks();
+    }
+}
+
+function _bcvShowDocumentDetailModal(docId) {
+    var doc = (_bcv.documents || []).find(function(d) { return d.id === docId; });
+    if (!doc) return;
+
+    var links = doc.links || [];
+    var atts = doc.attachments || [];
+    var user = window._currentUser || {};
+    var canEdit = (user.role === 'giam_doc') || (user.id === doc.created_by) || ['quan_ly_cap_cao','quan_ly','truong_phong'].includes(user.role);
+    var canDelete = (user.role === 'giam_doc');
+
+    var mainCat = doc.main_category || '';
+    var cleanCat = mainCat.replace(/^\d+[\.\s\-]*/, '');
+    
+    var deptDocs = (_bcv.documents || []).filter(function(d) { return d.department_id === doc.department_id; });
+    var mainCats = [...new Set(deptDocs.map(function(d) { return d.main_category; }).filter(Boolean))];
+    var mainIdx = mainCats.indexOf(mainCat);
+    var mainDisplay = mainIdx >= 0 ? ('Tư Liệu ' + (mainIdx + 1) + ' : ' + cleanCat) : cleanCat;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'bcv-overlay';
+    overlay.id = 'bcvDocDetailOverlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = `
+        <div class="bcv-modal" style="max-width:720px;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,0.25)">
+            <!-- Header -->
+            <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#2563eb 100%);padding:18px 24px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <span style="font-size:24px">📄</span>
+                    <div>
+                        <div style="font-size:12px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:0.5px">🏢 ${_esc(doc.department_name || 'Phòng Ban')}</div>
+                        <h3 style="color:#ffffff;font-size:18px;font-weight:900;margin:3px 0 0 0">📌 ${_esc(mainDisplay)}</h3>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('bcvDocDetailOverlay').remove()" style="background:rgba(255,255,255,0.18);border:none;color:#ffffff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;font-weight:bold;display:flex;align-items:center;justify-content:center">✕</button>
+            </div>
+
+            <!-- Body -->
+            <div style="padding:24px;max-height:75vh;overflow-y:auto;display:flex;flex-direction:column;gap:18px;background:#f8fafc">
+                
+                <!-- Tên Công Việc Phụ -->
+                <div style="background:#ffffff;padding:14px 18px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+                    <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase">🏷️ Tên Công Việc</div>
+                    <div style="font-size:15px;font-weight:800;color:#d97706;margin-top:4px">${_esc(doc.sub_category || '—')}</div>
+                </div>
+
+                ${doc.title && doc.title !== doc.sub_category ? `
+                    <div style="background:#ffffff;padding:14px 18px;border-radius:12px;border:1px solid #e2e8f0">
+                        <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase">📌 Tiêu Đề Bài Viết</div>
+                        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:4px">${_esc(doc.title)}</div>
+                    </div>
+                ` : ''}
+
+                <!-- Nội Dung Chi Tiết -->
+                <div style="background:#ffffff;padding:18px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+                    <div style="font-size:12px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+                        <span>📝</span> NỘI DUNG CHI TIẾT
+                    </div>
+                    <div style="font-size:14px;color:#0f172a;line-height:1.7;white-space:pre-wrap;word-break:break-word">${doc.content ? _esc(doc.content.trim()) : '<span style="color:#94a3b8;font-style:italic">Không có nội dung văn bản</span>'}</div>
+                </div>
+
+                <!-- Link Tư Liệu (riêng) -->
+                ${links.length > 0 ? `
+                    <div style="background:#ffffff;padding:18px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+                        <div style="font-size:12px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+                            <span>🔗</span> LINK TƯ LIỆU
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:8px">
+                            ${links.map(function(l) {
+                                var title = typeof l === 'string' ? l : (l.title || l.url);
+                                var url = typeof l === 'string' ? l : l.url;
+                                return '<a href="' + _escAttr(url) + '" target="_blank" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#2563eb;background:#eff6ff;padding:9px 14px;border-radius:8px;border:1px solid #dbeafe;text-decoration:none;word-break:break-all">🔗 ' + _esc(title) + ' <span style="margin-left:auto;font-size:11px">Mở link ↗</span></a>';
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Hình Ảnh (đính kèm riêng) -->
+                ${atts.length > 0 ? `
+                    <div style="background:#ffffff;padding:18px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+                        <div style="font-size:12px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+                            <span>🖼️</span> HÌNH ẢNH ĐÍNH KÈM
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(110px, 1fr));gap:10px">
+                            ${atts.map(function(att) {
+                                var token = localStorage.getItem('token') || '';
+                                var imgSrc = att.file_path ? (att.file_path.startsWith('/') || att.file_path.startsWith('http') || att.file_path.startsWith('data:') ? att.file_path : '/' + att.file_path) : '';
+                                if (imgSrc && token && !imgSrc.startsWith('data:')) {
+                                    imgSrc += (imgSrc.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                                }
+                                return '<div style="border-radius:8px;overflow:hidden;border:1.5px solid #cbd5e1;cursor:pointer;aspect-ratio:1;box-shadow:0 2px 6px rgba(0,0,0,0.08)" onclick="_bcvOpenLightbox(\'' + _escAttr(imgSrc) + '\')">' +
+                                    '<img src="' + _escAttr(imgSrc) + '" style="width:100%;height:100%;object-fit:cover">' +
+                                '</div>';
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Associated Task Codes -->
+                ${(function() {
+                    var linked = doc.linked_tasks || [];
+                    var list = linked.slice();
+                    if (doc.task_code && !list.some(function(x) { return x.cv_code === doc.task_code; })) {
+                        var matchId = parseInt(doc.task_code.replace(/\D/g, ''), 10);
+                        list.unshift({ id: matchId || null, cv_code: doc.task_code, title: doc.task_code });
+                    }
+                    if (list.length === 0) return '';
+
+                    return `
+                        <div style="background:#ffffff;padding:16px 18px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+                            <div style="font-size:12px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+                                <span>📌</span> MÃ CÔNG VIỆC THỰC HIỆN (${list.length})
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                                ${list.map(function(t) {
+                                    return '<span class="bcv-doc-task-badge" style="background:#e0e7ff;color:#3730a3;font-size:12px;font-weight:800;padding:6px 14px;border-radius:8px;border:1px solid #c7d2fe;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:0 2px 6px rgba(99,102,241,0.15);transition:transform 0.15s ease" ' +
+                                        (t.id ? 'onclick="_bcvOpenTaskFromDoc(' + t.id + ')"' : 'onclick="_bcvFilterByTaskCode(\'' + _escAttr(t.cv_code) + '\');document.getElementById(\'bcvDocDetailOverlay\').remove()"') +
+                                        ' title="Bấm để xem chi tiết công việc ' + _escAttr(t.title || t.cv_code) + '">' +
+                                        '📌 ' + _esc(t.cv_code) + (t.title && t.title !== t.cv_code ? ' — ' + _esc(t.title) : '') +
+                                    '</span>';
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                })()}
+            </div>
+
+            <!-- Footer -->
+            <div style="padding:14px 24px;background:#ffffff;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+                <button onclick="document.getElementById('bcvDocDetailOverlay').remove()" style="padding:9px 22px;border-radius:8px;border:1px solid #cbd5e1;background:#ffffff;color:#475569;font-weight:700;font-size:13px;cursor:pointer">Đóng</button>
+                ${(canEdit || canDelete) ? `
+                    <div style="display:flex;gap:10px">
+                        ${canEdit ? '<button onclick="document.getElementById(\'bcvDocDetailOverlay\').remove();_bcvShowCreateDocumentModal(' + doc.id + ')" style="padding:9px 18px;border-radius:8px;border:1px solid #93c5fd;background:#eff6ff;color:#2563eb;font-weight:800;font-size:13px;cursor:pointer">✏️ Sửa bài viết</button>' : ''}
+                        ${canDelete ? '<button onclick="document.getElementById(\'bcvDocDetailOverlay\').remove();_bcvDeleteDocument(' + doc.id + ')" style="padding:9px 18px;border-radius:8px;border:1px solid #fca5a5;background:#fff5f5;color:#dc2626;font-weight:800;font-size:13px;cursor:pointer">🗑️ Xóa</button>' : ''}
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function _bcvShowCreateDocumentModal(docId, presetDeptId, presetMainCat) {
+    window._bcvPendingDocFiles = [];
+    var docToEdit = null;
+    if (docId) {
+        docToEdit = _bcv.documents.find(d => d.id === docId);
+    }
+
+    var targetDept = presetDeptId || (docToEdit ? docToEdit.department_id : '');
+    var defaultMainCat = docToEdit ? docToEdit.main_category : (presetMainCat || '');
+
+    var depts = (_bcv.enabledDepts && _bcv.enabledDepts.length > 0) ? _bcv.enabledDepts : (_bcv.departments || []).filter(function(d) { return d.board_enabled; });
+    var deptOptions = depts.map(function(d) {
+        var selected = String(targetDept) === String(d.id) ? 'selected' : '';
+        return `<option value="${d.id}" ${selected}>${_esc(d.name)}</option>`;
+    }).join('');
+
+    var existingMainCats = [...new Set(_bcv.documents.map(d => d.main_category).filter(Boolean))];
+    var datalistOptions = existingMainCats.map(c => `<option value="${_escAttr(c)}">`).join('');
+
+    var taskOptions = (_bcv.tasks || []).map(t => `<option value="CV-${String(t.id).padStart(3,'0')}">CV-${String(t.id).padStart(3,'0')} — ${_escAttr(t.title)}</option>`).join('');
+
+    var linksList = docToEdit && Array.isArray(docToEdit.links) ? docToEdit.links : [];
+
+    var overlay = document.createElement('div');
+    overlay.className = 'bcv-overlay';
+    overlay.id = 'bcvDocOverlay';
+
+    document.removeEventListener('paste', _bcvGlobalDocPaste);
+    document.addEventListener('paste', _bcvGlobalDocPaste);
+
+    overlay.innerHTML = `<div class="bcv-modal" style="max-width:680px">
+        <div class="bcv-modal-header" style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);padding:16px 20px;border-radius:14px 14px 0 0">
+            <h3 style="color:#ffffff;font-size:16px;font-weight:900;letter-spacing:0.5px;text-shadow:0 1px 3px rgba(0,0,0,0.3)">${docToEdit ? '✏️ SỬA TƯ LIỆU' : '📚 TẠO TƯ LIỆU MỚI'}</h3>
+            <button class="bcv-modal-close" onclick="document.getElementById('bcvDocOverlay').remove()" style="color:#ffffff;background:rgba(255,255,255,0.2)">✕</button>
+        </div>
+        <div class="bcv-modal-body" style="padding:20px">
+            
+            <!-- 1. Chọn Phòng Ban -->
+            <div class="bcv-form-group" style="margin-bottom:14px">
+                <label style="font-weight:800;color:#0f172a;font-size:12px;text-transform:uppercase">🏢 1. CHỌN PHÒNG BAN <span style="color:#ef4444">*</span></label>
+                <select class="bcv-form-select" id="bcvDocFormDept" style="width:100%;padding:9px 12px;font-size:13px">
+                    <option value="">-- Dùng chung toàn công ty --</option>
+                    ${deptOptions}
+                </select>
+            </div>
+
+            <!-- 2. Tên Mục Chính -->
+            <div class="bcv-form-group" style="margin-bottom:14px">
+                <label style="font-weight:800;color:#0f172a;font-size:12px;text-transform:uppercase">📌 2. TÊN MỤC CHÍNH CỦA TƯ LIỆU <span style="color:#ef4444">*</span></label>
+                <input class="bcv-form-input" id="bcvDocFormMainCat" list="bcvMainCatList" value="${_escAttr(defaultMainCat)}" placeholder="Nhập tên mục chính (Ví dụ: Quy Trình Vận Hành, Biểu Mẫu Sale...)" style="width:100%;padding:9px 12px;font-size:13px">
+                <datalist id="bcvMainCatList">${datalistOptions}</datalist>
+            </div>
+
+            <!-- 3. Tên Mục Phụ -->
+            <div class="bcv-form-group" style="margin-bottom:14px">
+                <label style="font-weight:800;color:#0f172a;font-size:12px;text-transform:uppercase">🏷️ 3. TÊN MỤC PHỤ CỦA TƯ LIỆU <span style="color:#ef4444">*</span></label>
+                <input class="bcv-form-input" id="bcvDocFormSubCat" value="${_escAttr(docToEdit ? docToEdit.sub_category : '')}" placeholder="Nhập tên mục phụ (Ví dụ: Quy trình tư vấn KH mới, Mẫu hợp đồng...)" style="width:100%;padding:9px 12px;font-size:13px">
+            </div>
+
+            <!-- 4. Các Đường Link / Biểu Mẫu -->
+            <div class="bcv-form-group" style="margin-bottom:14px">
+                <label style="font-weight:800;color:#0f172a;font-size:12px;text-transform:uppercase;display:flex;justify-content:space-between">
+                    <span>🔗 4. CÁC ĐƯỜNG LINK / BIỂU MẪU</span>
+                    <button type="button" onclick="_bcvAddDocLinkForm()" style="background:#eff6ff;color:#2563eb;border:1px solid #dbeafe;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">＋ Thêm link</button>
+                </label>
+                <div id="bcvDocLinksWrap" style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+                    ${linksList.length > 0 ? linksList.map(function(link) {
+                        var title = typeof link === 'string' ? link : (link.title || '');
+                        var url = typeof link === 'string' ? link : (link.url || '');
+                        return `<div class="bcv-doc-link-row" style="display:flex;gap:6px">
+                            <input class="bcv-form-input bcv-doc-link-title" value="${_escAttr(title)}" placeholder="Tên hiển thị link (VD: Mẫu Sheet)" style="flex:1;font-size:12px">
+                            <input class="bcv-form-input bcv-doc-link-url" value="${_escAttr(url)}" placeholder="https://..." style="flex:2;font-size:12px">
+                            <button type="button" onclick="this.parentElement.remove()" style="background:#fee2e2;color:#dc2626;border:none;padding:0 8px;border-radius:6px;cursor:pointer">✕</button>
+                        </div>`;
+                    }).join('') : `<div class="bcv-doc-link-row" style="display:flex;gap:6px">
+                        <input class="bcv-form-input bcv-doc-link-title" placeholder="Tên hiển thị link (VD: Google Sheet mẫu)" style="flex:1;font-size:12px">
+                        <input class="bcv-form-input bcv-doc-link-url" placeholder="https://..." style="flex:2;font-size:12px">
+                        <button type="button" onclick="this.parentElement.remove()" style="background:#fee2e2;color:#dc2626;border:none;padding:0 8px;border-radius:6px;cursor:pointer">✕</button>
+                    </div>`}
+                </div>
+            </div>
+
+            <!-- 5. Nội Dung Chi Tiết -->
+            <div class="bcv-form-group" style="margin-bottom:14px">
+                <label style="font-weight:800;color:#0f172a;font-size:12px;text-transform:uppercase">📝 5. NỘI DUNG CHI TIẾT TƯ LIỆU</label>
+                <textarea class="bcv-form-input" id="bcvDocFormContent" rows="5" placeholder="Nhập ghi chú, hướng dẫn hoặc lưu ý chi tiết..." style="width:100%;padding:9px 12px;font-size:13px;resize:vertical">${_esc(docToEdit ? docToEdit.content : '')}</textarea>
+            </div>
+
+            <!-- 6. Mã Công Việc Liên Quan (KHÓA) -->
+            <div class="bcv-form-group" style="margin-bottom:14px">
+                <label style="font-weight:800;color:#64748b;font-size:12px;text-transform:uppercase;display:flex;align-items:center;gap:4px">
+                    🔒 6. GẮN MÃ CÔNG VIỆC <span style="font-size:11px;font-weight:600;color:#94a3b8">(Tự động liên kết từ Mã Công Việc sau)</span>
+                </label>
+                <input class="bcv-form-input" id="bcvDocFormTaskCode" disabled value="${_escAttr(docToEdit ? (docToEdit.task_code || '') : '')}" placeholder="🔒 Trường này tạm khóa — Sẽ tự động liên kết sau" style="width:100%;padding:9px 12px;font-size:13px;background:#f1f5f9;color:#94a3b8;cursor:not-allowed;border-color:#e2e8f0">
+            </div>
+
+            <!-- 7. Tải / Dán Ảnh Đính Kèm -->
+            <div class="bcv-form-group">
+                <label style="font-weight:800;color:#0f172a;font-size:12px;text-transform:uppercase">🖼️ 7. HÌNH ÁNH ĐÍNH KÈM (Ctrl + V dán ảnh trực tiếp)</label>
+                
+                <div id="bcvDocPasteZone" style="border:2px dashed #3b82f6;border-radius:12px;padding:20px;text-align:center;background:#eff6ff;transition:all 0.2s;margin-top:6px">
+                    <div style="font-size:26px;margin-bottom:4px">📋 🖼️</div>
+                    <div style="font-size:14px;font-weight:800;color:#1e3a5f">Nhấn Ctrl + V ở bất kỳ đâu để dán hình ảnh trực tiếp</div>
+                    <div style="font-size:11.5px;color:#64748b;margin-top:4px">Hình ảnh từ bộ nhớ tạm (Clipboard / Chụp màn hình) sẽ lập tức được đính kèm vào đây</div>
+                </div>
+
+                <div id="bcvDocPastePreviewWrap" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px"></div>
+            </div>
+
+            <div class="bcv-form-actions" style="margin-top:20px">
+                <button class="bcv-btn bcv-btn-secondary" onclick="document.getElementById('bcvDocOverlay').remove()">Hủy</button>
+                <button class="bcv-btn bcv-btn-primary" onclick="_bcvSubmitDocument(${docToEdit ? docToEdit.id : 'null'})">💾 ${docToEdit ? 'Cập Nhật' : 'Tạo Tư Liệu'}</button>
+            </div>
+        </div>
+    </div>`;
+
+    document.body.appendChild(overlay);
+}
+
+function _bcvAddDocLinkForm() {
+    var wrap = document.getElementById('bcvDocLinksWrap');
+    if (!wrap) return;
+    var row = document.createElement('div');
+    row.className = 'bcv-doc-link-row';
+    row.style.cssText = 'display:flex;gap:6px';
+    row.innerHTML = `<input class="bcv-form-input bcv-doc-link-title" placeholder="Tên hiển thị link" style="flex:1;font-size:12px">
+        <input class="bcv-form-input bcv-doc-link-url" placeholder="https://..." style="flex:2;font-size:12px">
+        <button type="button" onclick="this.parentElement.remove()" style="background:#fee2e2;color:#dc2626;border:none;padding:0 8px;border-radius:6px;cursor:pointer">✕</button>`;
+    wrap.appendChild(row);
+}
+
+window._bcvPendingDocFiles = [];
+
+function _bcvShowImageLightbox(src) {
+    _bcvOpenLightbox(src);
+}
+
+function _bcvOpenLightbox(src) {
+    if (!src) return;
+    var existing = document.getElementById('bcvLightboxOverlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'bcvLightboxOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px);animation:bcvFadeIn 0.2s ease';
+    overlay.onclick = function(e) {
+        if (e.target === overlay || e.target.classList.contains('bcv-lb-close')) {
+            overlay.remove();
+        }
+    };
+
+    overlay.innerHTML = `
+        <div style="position:relative;max-width:92vw;max-height:90vh;display:flex;align-items:center;justify-content:center">
+            <button class="bcv-lb-close" onclick="document.getElementById('bcvLightboxOverlay').remove()" style="position:absolute;top:-16px;right:-16px;width:38px;height:38px;border-radius:50%;background:#ef4444;color:#ffffff;border:2.5px solid #ffffff;font-size:20px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(239,68,68,0.6);z-index:10;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" title="Tắt xem ảnh (Esc)">✕</button>
+            <img src="${_escAttr(src)}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.5);border:2px solid rgba(255,255,255,0.2)">
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    var escHandler = function(e) {
+        if (e.key === 'Escape') {
+            var el = document.getElementById('bcvLightboxOverlay');
+            if (el) el.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+function _bcvResizeImageFile(file, maxWidth, maxHeight, quality) {
+    maxWidth = maxWidth || 1200;
+    maxHeight = maxHeight || 1200;
+    quality = quality || 0.85;
+
+    return new Promise(function(resolve) {
+        if (!file || !file.type || !file.type.startsWith('image/')) {
+            resolve(file);
+            return;
+        }
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = new Image();
+            img.onload = function() {
+                var width = img.width;
+                var height = img.height;
+
+                if (width <= maxWidth && height <= maxHeight) {
+                    resolve(file);
+                    return;
+                }
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                var canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(function(blob) {
+                    if (!blob) {
+                        resolve(file);
+                        return;
+                    }
+                    var resizedFile = new File([blob], file.name || ('resized_image_' + Date.now() + '.jpg'), {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+                    resolve(resizedFile);
+                }, 'image/jpeg', quality);
+            };
+            img.onerror = function() { resolve(file); };
+            img.src = e.target.result;
+        };
+        reader.onerror = function() { resolve(file); };
+        reader.readAsDataURL(file);
+    });
+}
+
+function _bcvGlobalDocPaste(e) {
+    if (!document.getElementById('bcvDocOverlay')) {
+        document.removeEventListener('paste', _bcvGlobalDocPaste);
+        return;
+    }
+    _bcvHandleDocPaste(e);
+}
+
+async function _bcvHandleDocPaste(e) {
+    var items = (e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData)) ? (e.clipboardData || e.originalEvent.clipboardData).items : null;
+    if (!items) return;
+    var hasImage = false;
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].type && items[i].type.indexOf('image') !== -1) {
+            hasImage = true;
+            var file = items[i].getAsFile();
+            if (file) {
+                var fileName = 'pasted_image_' + Date.now() + '_' + (window._bcvPendingDocFiles.length + 1) + '.jpg';
+                var renamedFile = new File([file], fileName, { type: file.type || 'image/jpeg' });
+                var resizedFile = await _bcvResizeImageFile(renamedFile, 1200, 1200, 0.85);
+                window._bcvPendingDocFiles.push(resizedFile);
+            }
+        }
+    }
+    if (hasImage) {
+        if (e.preventDefault) e.preventDefault();
+        _bcvRenderDocFilePreviews();
+    }
+}
+
+async function _bcvHandleDocFileSelect(input) {
+    if (input.files && input.files.length > 0) {
+        for (var i = 0; i < input.files.length; i++) {
+            var resizedFile = await _bcvResizeImageFile(input.files[i], 1200, 1200, 0.85);
+            window._bcvPendingDocFiles.push(resizedFile);
+        }
+        input.value = '';
+        _bcvRenderDocFilePreviews();
+    }
+}
+
+function _bcvRenderDocFilePreviews() {
+    var wrap = document.getElementById('bcvDocPastePreviewWrap');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    if (!window._bcvPendingDocFiles || window._bcvPendingDocFiles.length === 0) return;
+
+    window._bcvPendingDocFiles.forEach(function(file, index) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var div = document.createElement('div');
+            div.style.cssText = 'position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;border:1.5px solid #cbd5e1;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.08);flex-shrink:0;cursor:pointer';
+            var imgSrc = e.target.result;
+            div.innerHTML = '<img src="' + imgSrc + '" style="width:100%;height:100%;object-fit:cover" onclick="event.stopPropagation();_bcvOpenLightbox(\'' + _escAttr(imgSrc) + '\')" title="Click để phóng to xem chi tiết">' +
+                '<button type="button" onclick="event.stopPropagation();_bcvRemovePendingDocFile(' + index + ')" style="position:absolute;top:2px;right:2px;background:rgba(220,38,38,0.95);color:#fff;border:none;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 2px 4px rgba(0,0,0,0.2)" title="Xóa ảnh này">✕</button>';
+            wrap.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function _bcvRemovePendingDocFile(index) {
+    if (window._bcvPendingDocFiles) {
+        window._bcvPendingDocFiles.splice(index, 1);
+        _bcvRenderDocFilePreviews();
+    }
+}
+
+async function _bcvSubmitDocument(docId) {
+    var deptId = document.getElementById('bcvDocFormDept').value;
+    var mainCat = document.getElementById('bcvDocFormMainCat').value;
+    var subCat = document.getElementById('bcvDocFormSubCat').value;
+    var content = document.getElementById('bcvDocFormContent').value;
+    var taskCode = (document.getElementById('bcvDocFormTaskCode') && document.getElementById('bcvDocFormTaskCode').value) || '';
+
+    if (!mainCat || !mainCat.trim()) {
+        alert('Vui lòng nhập Tên Mục Chính!');
+        return;
+    }
+    if (!subCat || !subCat.trim()) {
+        alert('Vui lòng nhập Tên Mục Phụ!');
+        return;
+    }
+
+    var linkRows = document.querySelectorAll('.bcv-doc-link-row');
+    var links = [];
+    linkRows.forEach(function(row) {
+        var tInput = row.querySelector('.bcv-doc-link-title');
+        var uInput = row.querySelector('.bcv-doc-link-url');
+        var t = tInput ? tInput.value.trim() : '';
+        var u = uInput ? uInput.value.trim() : '';
+        if (u) {
+            links.push({ title: t || u, url: u });
+        }
+    });
+
+    var payload = {
+        department_id: deptId ? Number(deptId) : null,
+        main_category: mainCat.trim(),
+        sub_category: subCat.trim(),
+        title: subCat.trim(),
+        content: content ? content.trim() : '',
+        links: links,
+        task_code: taskCode ? taskCode.trim() : ''
+    };
+
+    var method = docId ? 'PUT' : 'POST';
+    var url = docId ? ('/api/board-documents/' + docId) : '/api/board-documents';
+
+    var res = await _bcvApi(url, method, payload);
+    if (!res || !res.ok) {
+        alert((res && res.error) || 'Không thể lưu tư liệu');
+        return;
+    }
+
+    var targetDocId = docId || (res.document && res.document.id);
+
+    // Upload files if selected or pasted
+    if (window._bcvPendingDocFiles && window._bcvPendingDocFiles.length > 0 && targetDocId) {
+        for (var i = 0; i < window._bcvPendingDocFiles.length; i++) {
+            var fd = new FormData();
+            fd.append('file', window._bcvPendingDocFiles[i]);
+            try {
+                await fetch('/api/board-documents/' + targetDocId + '/attachments', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') },
+                    body: fd
+                });
+            } catch(e) { console.error('Upload doc file err:', e); }
+        }
+        window._bcvPendingDocFiles = [];
+    }
+
+    var overlay = document.getElementById('bcvDocOverlay');
+    if (overlay) overlay.remove();
+
+    await _bcvLoadDocuments();
+}
+
+async function _bcvDeleteDocument(docId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa tư liệu này?')) return;
+    var res = await _bcvApi('/api/board-documents/' + docId, 'DELETE');
+    if (res && res.ok) {
+        await _bcvLoadDocuments();
+    } else {
+        alert((res && res.error) || 'Lỗi khi xóa tư liệu');
+    }
+}
+
+async function _bcvDeleteDocAttachment(docId, attId) {
+    if (!confirm('Xóa ảnh đính kèm này?')) return;
+    var res = await _bcvApi('/api/board-documents/attachments/' + attId, 'DELETE');
+    if (res && res.ok) {
+        await _bcvLoadDocuments();
+    }
+}
+
+var _bcvDocSearchTimer = null;
+function _bcvDebounceLoadDocs() {
+    if (_bcvDocSearchTimer) clearTimeout(_bcvDocSearchTimer);
+    _bcvDocSearchTimer = setTimeout(function() {
+        _bcvLoadDocuments();
+    }, 300);
+}
+
 window.renderBangcongviecPage = renderBangcongviecPage;
+
+
+// ========== EDIT TASK MODAL (Chỉ dành cho CẦN LÀM) ==========
+
+async function _bcvShowEditTaskModal(taskId) {
+    var task = _bcv.tasks.find(function(t) { return t.id === taskId; });
+    if (!task) return;
+
+    if (task.status !== 'can_lam') {
+        alert('Chỉ có thể chỉnh sửa công việc khi ở trạng thái CẦN LÀM');
+        return;
+    }
+
+    var user = window._currentUser || {};
+    var isDirector = user.role === 'giam_doc';
+    var isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(user.role);
+    var isCreator = task.created_by === user.id;
+
+    if (!isDirector && !isManager && !isCreator) {
+        alert('Bạn không có quyền chỉnh sửa công việc này');
+        return;
+    }
+
+    var deptId = isDirector ? (task.department_id || '') : (user.department_id || '');
+    var usersRes = await _bcvApi('/api/board-tasks/users' + (deptId ? '?department_id=' + deptId : ''));
+    var users = (usersRes && usersRes.users) || [];
+
+    var deptOptions = '';
+    if (isDirector) {
+        deptOptions = '<option value="">— Chọn phòng ban —</option>';
+        _bcv.enabledDepts.forEach(function(d) {
+            deptOptions += '<option value="' + d.id + '" ' + (String(task.department_id) === String(d.id) ? 'selected' : '') + '>' + _esc(d.name) + '</option>';
+        });
+    }
+
+    var userOptions = '<option value="">— Chọn người —</option>';
+    users.forEach(function(u) {
+        userOptions += '<option value="' + u.id + '" ' + (String(task.assigned_to) === String(u.id) ? 'selected' : '') + '>' + _esc(u.full_name) + (u.department_name ? ' (' + _esc(u.department_name) + ')' : '') + '</option>';
+    });
+
+    var checklistRes = await _bcvApi('/api/board-tasks/' + taskId + '/checklist');
+    var checklist = (checklistRes && checklistRes.checklist) || [];
+
+    var cvId = 'CV-' + String(task.id).padStart(3,'0');
+
+    var overlay = document.createElement('div');
+    overlay.className = 'bcv-overlay';
+    overlay.id = 'bcvEditOverlay';
+
+    overlay.innerHTML = '<div class="bcv-modal">' +
+        '<div class="bcv-modal-header">' +
+            '<h3>✏️ Chỉnh Sửa Công Việc: ' + cvId + '</h3>' +
+            '<button class="bcv-modal-close" onclick="document.getElementById(\'bcvEditOverlay\').remove()">✕</button>' +
+        '</div>' +
+        '<div class="bcv-modal-body">' +
+            (isDirector ? '<div class="bcv-form-group">' +
+                '<label>Phòng ban *</label>' +
+                '<select class="bcv-form-select" id="bcvEditDept" onchange="_bcvEditDeptChange()">' + deptOptions + '</select>' +
+            '</div>' : '') +
+            '<div class="bcv-form-group" id="bcvEditAssigneeWrap" style="display:' + (isDirector && !task.department_id ? 'none' : 'block') + '">' +
+                '<label>Giao cho *</label>' +
+                '<select class="bcv-form-select" id="bcvEditAssignee">' + userOptions + '</select>' +
+            '</div>' +
+            '<div class="bcv-form-group">' +
+                '<label>Tiêu đề *</label>' +
+                '<input class="bcv-form-input" id="bcvEditTitle" value="' + _escAttr(task.title || '') + '" placeholder="Nhập tiêu đề công việc...">' +
+            '</div>' +
+            '<div class="bcv-form-group">' +
+                '<label>Mô tả *</label>' +
+                '<textarea class="bcv-form-textarea" id="bcvEditDesc" placeholder="Mô tả chi tiết công việc...">' + _esc(task.description || '') + '</textarea>' +
+            '</div>' +
+            '<div class="bcv-form-group">' +
+                '<label>🔗 Đường link công việc *</label>' +
+                '<input class="bcv-form-input" id="bcvEditLink" value="' + _escAttr(task.task_link || '') + '" placeholder="https://... hoặc đường dẫn liên quan">' +
+            '</div>' +
+            '<div class="bcv-form-group">' +
+                '<label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:4px">📚 Chọn Tư Liệu Hướng Dẫn</label>' +
+                '<select class="bcv-form-select" id="bcvEditDocMainCat" onchange="_bcvEditDocMainCatChange()" style="margin-top:4px">' +
+                    '<option value="">— Chọn phòng ban trước —</option>' +
+                '</select>' +
+                '<select class="bcv-form-select" id="bcvEditDocSubCat" onchange="_bcvEditDocSubCatChange()" style="display:none;margin-top:6px">' +
+                    '<option value="">— Tất cả công việc —</option>' +
+                '</select>' +
+                '<div id="bcvEditDocLinksPreview" style="margin-top:8px"></div>' +
+                '<input type="hidden" id="bcvEditGuideLink" value="' + _escAttr(task.guide_link || '') + '">' +
+            '</div>' +
+            '<div class="bcv-form-row">' +
+                '<div class="bcv-form-group">' +
+                    '<label>Loại *</label>' +
+                    '<select class="bcv-form-select" id="bcvEditType">' +
+                        '<option value="chinh" ' + (task.task_type === 'chinh' ? 'selected' : '') + '>🔵 Chính</option>' +
+                        '<option value="phu" ' + (task.task_type === 'phu' ? 'selected' : '') + '>🟡 Phụ</option>' +
+                    '</select>' +
+                '</div>' +
+                '<div class="bcv-form-group">' +
+                    '<label>Ưu tiên *</label>' +
+                    '<select class="bcv-form-select" id="bcvEditPriority">' +
+                        '<option value="cao" ' + (task.priority === 'cao' ? 'selected' : '') + '>🔴 Cao</option>' +
+                        '<option value="trung_binh" ' + (task.priority === 'trung_binh' ? 'selected' : '') + '>🟠 Trung bình</option>' +
+                        '<option value="thap" ' + (task.priority === 'thap' ? 'selected' : '') + '>🟢 Thấp</option>' +
+                    '</select>' +
+                '</div>' +
+            '</div>' +
+            '<div class="bcv-form-group">' +
+                '<label>Deadline *</label>' +
+                '<input class="bcv-form-input" type="date" id="bcvEditDeadline" value="' + (task.deadline || '') + '">' +
+            '</div>' +
+            '<div class="bcv-form-group">' +
+                '<label>✅ Checklist con</label>' +
+                '<div class="bcv-checklist-builder" id="bcvEditChecklistBuilder"></div>' +
+                '<button class="bcv-cl-add" type="button" onclick="_bcvAddEditChecklistItem()">＋ Thêm mục</button>' +
+            '</div>' +
+            '<div class="bcv-form-actions">' +
+                '<button class="bcv-btn bcv-btn-secondary" onclick="document.getElementById(\'bcvEditOverlay\').remove()">Hủy</button>' +
+                '<button class="bcv-btn bcv-btn-primary" id="bcvSubmitEditBtn" data-no-debounce="true" onclick="_bcvSubmitEditTask(' + task.id + ')">💾 Cập Nhật Task</button>' +
+            '</div>' +
+        '</div>' +
+    '</div>';
+
+    document.body.appendChild(overlay);
+
+    // Populate checklist items
+    var builder = document.getElementById('bcvEditChecklistBuilder');
+    if (builder && checklist.length > 0) {
+        checklist.forEach(function(item) {
+            var div = document.createElement('div');
+            div.className = 'bcv-cl-item';
+            div.innerHTML = '<input class="bcv-form-input bcv-cl-input" value="' + _escAttr(item.title) + '" placeholder="Mục checklist...">' +
+                '<button class="bcv-cl-remove" onclick="this.parentElement.remove()" title="Xóa">✕</button>';
+            builder.appendChild(div);
+        });
+    }
+
+    // Load docs for selected department
+    var targetDeptId = isDirector ? (task.department_id || '') : (user.department_id || '');
+    if (targetDeptId) {
+        _bcvLoadEditDocs(targetDeptId, task.guide_link);
+    }
+}
+
+function _bcvAddEditChecklistItem() {
+    var builder = document.getElementById('bcvEditChecklistBuilder');
+    if (!builder) return;
+    var div = document.createElement('div');
+    div.className = 'bcv-cl-item';
+    div.innerHTML = '<input class="bcv-form-input bcv-cl-input" placeholder="Mục checklist...">' +
+        '<button class="bcv-cl-remove" onclick="this.parentElement.remove()" title="Xóa">✕</button>';
+    builder.appendChild(div);
+    div.querySelector('input').focus();
+}
+
+async function _bcvEditDeptChange() {
+    var deptEl = document.getElementById('bcvEditDept');
+    var assigneeEl = document.getElementById('bcvEditAssignee');
+    var assigneeWrap = document.getElementById('bcvEditAssigneeWrap');
+    if (!deptEl || !assigneeEl) return;
+
+    var deptId = deptEl.value;
+    if (!deptId) {
+        if (assigneeWrap) assigneeWrap.style.display = 'none';
+        assigneeEl.innerHTML = '<option value="">— Chọn người —</option>';
+        _bcvResetEditDocPicker('— Chọn phòng ban trước —');
+        return;
+    }
+
+    var usersRes = await _bcvApi('/api/board-tasks/users?department_id=' + deptId);
+    var users = (usersRes && usersRes.users) || [];
+
+    var h = '<option value="">— Chọn người —</option>';
+    users.forEach(function(u) {
+        h += '<option value="' + u.id + '">' + _esc(u.full_name) + '</option>';
+    });
+    assigneeEl.innerHTML = h;
+    if (assigneeWrap) assigneeWrap.style.display = 'block';
+
+    _bcvLoadEditDocs(deptId);
+}
+
+function _bcvResetEditDocPicker(placeholderText) {
+    var mainSel = document.getElementById('bcvEditDocMainCat');
+    var subSel = document.getElementById('bcvEditDocSubCat');
+    var preview = document.getElementById('bcvEditDocLinksPreview');
+    var hidden = document.getElementById('bcvEditGuideLink');
+    if (mainSel) mainSel.innerHTML = '<option value="">' + (placeholderText || '— Chọn tư liệu —') + '</option>';
+    if (subSel) { subSel.innerHTML = '<option value="">— Tất cả công việc —</option>'; subSel.style.display = 'none'; }
+    if (preview) preview.innerHTML = '';
+    if (hidden) hidden.value = '';
+    _bcv._editDocs = [];
+}
+
+async function _bcvLoadEditDocs(deptId, initialGuideLink) {
+    var mainSel = document.getElementById('bcvEditDocMainCat');
+    if (!mainSel) return;
+
+    mainSel.innerHTML = '<option value="">⏳ Đang tải tư liệu...</option>';
+
+    var res = await _bcvApi('/api/board-documents?department_id=' + deptId);
+    var docs = (res && res.documents) || [];
+    _bcv._editDocs = docs;
+
+    var mainCats = [];
+    var seen = {};
+    docs.forEach(function(doc) {
+        if (doc.main_category && !seen[doc.main_category]) {
+            seen[doc.main_category] = true;
+            mainCats.push(doc.main_category);
+        }
+    });
+
+    var h = '<option value="">— Chọn tư liệu —</option>';
+    mainCats.forEach(function(cat, idx) {
+        var cleanCat = cat.replace(/^\d+[\.\s\-]*/, '');
+        h += '<option value="' + _escAttr(cat) + '">📌 Tư Liệu ' + (idx + 1) + ' : ' + _esc(cleanCat) + '</option>';
+    });
+    mainSel.innerHTML = h;
+
+    var subSel = document.getElementById('bcvEditDocSubCat');
+    var preview = document.getElementById('bcvEditDocLinksPreview');
+    var hidden = document.getElementById('bcvEditGuideLink');
+
+    // If initial guide link exists, auto-select matching document & category using URL + Title
+    if (initialGuideLink) {
+        if (hidden) hidden.value = initialGuideLink;
+        var matchedDoc = null;
+        var firstUrl = initialGuideLink;
+        var firstTitle = '';
+        if (initialGuideLink.trim().startsWith('[')) {
+            try {
+                var parsed = JSON.parse(initialGuideLink);
+                if (parsed.length > 0) {
+                    if (parsed[0].url) firstUrl = parsed[0].url;
+                    if (parsed[0].title) firstTitle = parsed[0].title;
+                }
+            } catch(e) {}
+        }
+        docs.forEach(function(doc) {
+            var links = doc.links || [];
+            links.forEach(function(l) {
+                var url = typeof l === 'string' ? l : l.url;
+                var title = typeof l === 'string' ? l : (l.title || l.url);
+                var matchUrl = url && (url.trim() === firstUrl.trim() || firstUrl.trim().includes(url.trim()));
+                var matchTitle = !firstTitle || (title && title.trim() === firstTitle.trim());
+                if (matchUrl && matchTitle) {
+                    matchedDoc = doc;
+                }
+            });
+        });
+
+        if (matchedDoc) {
+            mainSel.value = matchedDoc.main_category;
+            _bcvEditDocMainCatChange();
+            if (subSel) {
+                subSel.value = matchedDoc.id;
+                _bcvEditDocSubCatChange();
+            }
+        }
+    }
+}
+
+function _bcvEditDocMainCatChange() {
+    var mainSel = document.getElementById('bcvEditDocMainCat');
+    var subSel = document.getElementById('bcvEditDocSubCat');
+    var preview = document.getElementById('bcvEditDocLinksPreview');
+    var hidden = document.getElementById('bcvEditGuideLink');
+    if (!mainSel) return;
+
+    var selectedCat = mainSel.value;
+    if (!selectedCat) {
+        if (subSel) { subSel.style.display = 'none'; subSel.innerHTML = '<option value="">— Tất cả công việc —</option>'; }
+        if (preview) preview.innerHTML = '';
+        if (hidden) hidden.value = '';
+        return;
+    }
+
+    var docs = (_bcv._editDocs || []).filter(function(d) { return d.main_category === selectedCat; });
+
+    var h = '<option value="">— Tất cả công việc —</option>';
+    docs.forEach(function(doc, idx) {
+        h += '<option value="' + doc.id + '">📌 ' + (idx + 1) + '. ' + _esc(doc.sub_category) + '</option>';
+    });
+    if (subSel) {
+        subSel.innerHTML = h;
+        subSel.style.display = 'block';
+    }
+
+    _bcvRenderEditDocLinks(docs, preview, hidden);
+}
+
+function _bcvEditDocSubCatChange() {
+    var subSel = document.getElementById('bcvEditDocSubCat');
+    var preview = document.getElementById('bcvEditDocLinksPreview');
+    var hidden = document.getElementById('bcvEditGuideLink');
+    if (!subSel) return;
+
+    var selectedDocId = subSel.value;
+    var mainSel = document.getElementById('bcvEditDocMainCat');
+    var selectedCat = mainSel ? mainSel.value : '';
+
+    if (!selectedDocId) {
+        var docs = (_bcv._editDocs || []).filter(function(d) { return d.main_category === selectedCat; });
+        _bcvRenderEditDocLinks(docs, preview, hidden);
+        return;
+    }
+
+    var doc = (_bcv._editDocs || []).find(function(d) { return String(d.id) === String(selectedDocId); });
+    if (doc) {
+        _bcvRenderEditDocLinks([doc], preview, hidden);
+    } else {
+        if (preview) preview.innerHTML = '';
+        if (hidden) hidden.value = '';
+    }
+}
+
+function _bcvRenderEditDocLinks(docs, previewEl, hiddenEl) {
+    if (!previewEl) return;
+
+    var allMainCats = _bcv._editMainCats || [];
+    if (allMainCats.length === 0) {
+        docs.forEach(function(d) {
+            if (d.main_category && !allMainCats.includes(d.main_category)) allMainCats.push(d.main_category);
+        });
+    }
+
+    var allLinks = [];
+    docs.forEach(function(doc, idx) {
+        var links = doc.links || [];
+        var prefix = doc.sub_category ? ((idx + 1) + '. ' + doc.sub_category) : '';
+        var mainIdx = allMainCats.indexOf(doc.main_category);
+        var cleanCat = doc.main_category ? doc.main_category.replace(/^\d+[\.\s\-]*/, '') : '';
+        var formattedMainCat = 'Tư Liệu ' + (mainIdx >= 0 ? mainIdx + 1 : 1) + ' : ' + cleanCat;
+
+        links.forEach(function(link) {
+            var title = typeof link === 'string' ? link : (link.title || link.url);
+            var url = typeof link === 'string' ? link : link.url;
+            allLinks.push({ mainCat: formattedMainCat, subCat: doc.sub_category, prefix: prefix, title: title, url: url });
+        });
+    });
+
+    if (allLinks.length === 0) {
+        previewEl.innerHTML = '<div style="font-size:11px;color:#94a3b8;font-style:italic;padding:6px 0">Không có link tư liệu nào</div>';
+        if (hiddenEl) hiddenEl.value = '';
+        return;
+    }
+
+    var html = '<div style="display:flex;flex-direction:column;gap:4px">';
+    allLinks.forEach(function(link) {
+        html += '<a href="' + _escAttr(link.url) + '" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;padding:3px 8px;border-radius:5px;border:1px solid #dbeafe;text-decoration:none;word-break:break-all;width:fit-content">' +
+            '🔗 ' + _esc(link.title) + ' ↗</a>';
+    });
+    html += '</div>';
+    previewEl.innerHTML = html;
+
+    if (hiddenEl) hiddenEl.value = JSON.stringify(allLinks);
+}
+
+async function _bcvSubmitEditTask(taskId) {
+    var title = (document.getElementById('bcvEditTitle') || {}).value || '';
+    if (!title.trim()) { alert('Vui lòng nhập tiêu đề'); return; }
+
+    var desc = (document.getElementById('bcvEditDesc') || {}).value || '';
+    if (!desc.trim()) { alert('Vui lòng nhập mô tả công việc'); return; }
+
+    var taskType = (document.getElementById('bcvEditType') || {}).value || '';
+    if (!taskType) { alert('Vui lòng chọn loại công việc'); return; }
+
+    var priority = (document.getElementById('bcvEditPriority') || {}).value || '';
+    if (!priority) { alert('Vui lòng chọn mức ưu tiên'); return; }
+
+    var assignee = (document.getElementById('bcvEditAssignee') || {}).value || '';
+    if (!assignee) { alert('Vui lòng chọn người được giao'); return; }
+
+    var deadline = (document.getElementById('bcvEditDeadline') || {}).value || '';
+    if (!deadline) { alert('Vui lòng chọn deadline'); return; }
+
+    var taskLink = (document.getElementById('bcvEditLink') || {}).value || '';
+    if (!taskLink.trim()) { alert('Vui lòng nhập đường link công việc'); return; }
+
+    var guideLink = (document.getElementById('bcvEditGuideLink') || {}).value || '';
+    var deptEl = document.getElementById('bcvEditDept');
+
+    var btn = document.getElementById('bcvSubmitEditBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang lưu...'; }
+
+    var body = {
+        title: title.trim(),
+        description: desc.trim(),
+        task_type: taskType,
+        priority: priority,
+        assigned_to: assignee,
+        deadline: deadline,
+        task_link: taskLink.trim(),
+        guide_link: guideLink.trim()
+    };
+
+    if (deptEl && deptEl.value) body.department_id = deptEl.value;
+
+    var res = await _bcvApi('/api/board-tasks/' + taskId, 'PUT', body);
+
+    if (res && res.ok) {
+        // Save new checklist items safely
+        var clInputs = document.querySelectorAll('#bcvEditChecklistBuilder .bcv-cl-input');
+        if (clInputs.length > 0) {
+            try {
+                var existingChecklistRes = await _bcvApi('/api/board-tasks/' + taskId + '/checklist');
+                var existingTitles = ((existingChecklistRes && existingChecklistRes.checklist) || []).map(function(c) { return (c.title || '').trim(); });
+                for (var i = 0; i < clInputs.length; i++) {
+                    var val = clInputs[i].value.trim();
+                    if (val && !existingTitles.includes(val)) {
+                        await _bcvApi('/api/board-tasks/' + taskId + '/checklist', 'POST', { title: val });
+                    }
+                }
+            } catch(e) { console.error('Checklist edit save error:', e); }
+        }
+
+        var overlay = document.getElementById('bcvEditOverlay');
+        if (overlay) overlay.remove();
+        await _bcvLoadTasks();
+    } else {
+        alert(res?.error || 'Lỗi cập nhật task');
+        if (btn) { btn.disabled = false; btn.textContent = '💾 Cập Nhật Task'; }
+    }
+}
+
+
+// ========== NỘP CÔNG VIỆC (CHUYỂN SANG CHỜ DUYỆT) ==========
+async function _bcvSubmitTask(taskId) {
+    var reportContentEl = document.getElementById('bcvDetailReportContent');
+    var reportLinkEl = document.getElementById('bcvDetailReportLink');
+    var progressEl = document.getElementById('bcvDetailProgress');
+    var reportContent = reportContentEl ? reportContentEl.value.trim() : '';
+    var reportLink = reportLinkEl ? reportLinkEl.value.trim() : '';
+    var progressVal = progressEl ? parseInt(progressEl.value, 10) : 100;
+
+    // Check checklist progress
+    var clCards = document.querySelectorAll('.bcv-cl-card');
+    var totalCl = clCards.length;
+    var doneCl = document.querySelectorAll('.bcv-cl-card.done').length;
+
+    if (totalCl > 0 && doneCl < totalCl) {
+        alert('⚠️ Vui lòng hoàn thành 100% mục Checklist công việc trước khi nộp!');
+        return;
+    }
+
+    if (totalCl > 0 && doneCl === totalCl) {
+        progressVal = 100;
+    }
+
+    if (!reportContent) {
+        alert('⚠️ Vui lòng nhập Nội dung báo cáo toàn bộ công việc trước khi nộp!');
+        if (reportContentEl) reportContentEl.focus();
+        return;
+    }
+
+    if (!reportLink) {
+        alert('⚠️ Vui lòng dán Đường link nộp báo cáo tổng thể trước khi nộp!');
+        if (reportLinkEl) reportLinkEl.focus();
+        return;
+    }
+
+    var submitBtn = document.getElementById('bcvSubmitTaskBtn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Đang nộp công việc...';
+        submitBtn.style.opacity = '0.7';
+    }
+
+    try {
+        // Save report details AND progress together
+        await _bcvApi('/api/board-tasks/' + taskId, 'PUT', {
+            report_content: reportContent,
+            report_link: reportLink,
+            progress: progressVal
+        });
+
+        // Update status to cho_duyet
+        var res = await _bcvApi('/api/board-tasks/' + taskId + '/status', 'PATCH', { status: 'cho_duyet' });
+        if (res && res.ok) {
+            alert('🎉 Đã nộp công việc thành công! Công việc đã được chuyển sang cột Chờ Duyệt.');
+            var overlay = document.getElementById('bcvOverlay');
+            if (overlay) overlay.remove();
+            await _bcvLoadTasks();
+        } else {
+            alert((res && res.error) || 'Lỗi khi nộp công việc');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '🚀 Nộp Công Việc';
+                submitBtn.style.opacity = '1';
+            }
+        }
+    } catch(e) {
+        console.error(e);
+        alert('Lỗi hệ thống khi nộp công việc');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '🚀 Nộp Công Việc';
+            submitBtn.style.opacity = '1';
+        }
+    }
+}
+
+
+// ========== HIỂN THỊ MODAL DUYỆT CÔNG VIỆC ==========
+function _bcvShowApproveModal(taskId) {
+    var old = document.getElementById('bcvApproveOverlay');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'bcv-overlay';
+    overlay.id = 'bcvApproveOverlay';
+    overlay.style.zIndex = '100010';
+    overlay.innerHTML = `
+        <div class="bcv-modal" style="max-width:500px;border-radius:16px;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,0.3)">
+            <div style="font-size:16px;font-weight:800;color:#16a34a;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+                ✅ ĐÁNH GIÁ & PHÊ DUYỆT CÔNG VIỆC
+            </div>
+            <div style="font-size:12px;color:#64748b;margin-bottom:14px;line-height:1.4">
+                Nhập nội dung đánh giá nghiệm thu công việc (khen thưởng, nhận xét...):
+            </div>
+            <textarea id="bcvApproveComment" placeholder="Nội dung đánh giá hoàn thành công việc..." style="width:100%;min-height:90px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;outline:none;margin-bottom:16px;box-sizing:border-box"></textarea>
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+                <button style="padding:8px 16px;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;font-weight:700;cursor:pointer" onclick="document.getElementById('bcvApproveOverlay').remove()">Hủy</button>
+                <button style="padding:8px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:800;cursor:pointer" onclick="_bcvConfirmApprove(${taskId})">✅ Phê Duyệt & Hoàn Thành</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function _bcvConfirmApprove(taskId) {
+    var commentEl = document.getElementById('bcvApproveComment');
+    var comment = commentEl ? commentEl.value.trim() : '';
+
+    var res = await _bcvApi('/api/board-tasks/' + taskId + '/review', 'PATCH', {
+        action: 'approve',
+        review_comment: comment
+    });
+
+    if (res && res.ok) {
+        alert('🎉 Đã phê duyệt công việc thành công! Công việc đã chuyển sang cột Hoàn Thành.');
+        var ov1 = document.getElementById('bcvApproveOverlay'); if (ov1) ov1.remove();
+        var ov2 = document.getElementById('bcvOverlay'); if (ov2) ov2.remove();
+        _bcvLoadTasks();
+    } else {
+        alert((res && res.error) || 'Lỗi khi phê duyệt công việc');
+    }
+}
+
+// ========== HIỂN THỊ MODAL KHÔNG DUYỆT (YÊU CẦU SỬA) ==========
+function _bcvShowRejectModal(taskId) {
+    var old = document.getElementById('bcvRejectOverlay');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'bcv-overlay';
+    overlay.id = 'bcvRejectOverlay';
+    overlay.style.zIndex = '100010';
+    overlay.innerHTML = `
+        <div class="bcv-modal" style="max-width:550px;border-radius:16px;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,0.3)">
+            <div style="font-size:16px;font-weight:800;color:#dc2626;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+                ❌ FEEDBACK YÊU CẦU SỬA CÔNG VIỆC
+            </div>
+            <div style="font-size:12px;color:#64748b;margin-bottom:14px;line-height:1.4">
+                Nhập rõ lý do chưa đạt và hướng dẫn các nội dung người nhận việc cần sửa lại:
+            </div>
+            
+            <div style="margin-bottom:12px">
+                <label style="font-size:11px;font-weight:800;color:#334155;text-transform:uppercase;display:block;margin-bottom:4px">📝 Nội dung Feedback Sửa công việc (*)</label>
+                <textarea id="bcvRejectContent" placeholder="Mô tả chi tiết các mục cần sửa lại..." style="width:100%;min-height:90px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box"></textarea>
+            </div>
+
+            <div style="margin-bottom:18px">
+                <label style="font-size:11px;font-weight:800;color:#334155;text-transform:uppercase;display:block;margin-bottom:4px">🔗 Đường link Feedback sửa (nếu có)</label>
+                <input type="text" id="bcvRejectLink" placeholder="Dán link Google Docs, Drive, Sheet, Figma góp ý..." style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box">
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+                <button style="padding:8px 16px;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;font-weight:700;cursor:pointer" onclick="document.getElementById('bcvRejectOverlay').remove()">Hủy</button>
+                <button style="padding:8px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;font-weight:800;cursor:pointer" onclick="_bcvConfirmReject(${taskId})">🔄 Gửi Feedback & Yêu Cầu Sửa</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function _bcvConfirmReject(taskId) {
+    var contentEl = document.getElementById('bcvRejectContent');
+    var linkEl = document.getElementById('bcvRejectLink');
+    var content = contentEl ? contentEl.value.trim() : '';
+    var link = linkEl ? linkEl.value.trim() : '';
+
+    if (!content) {
+        alert('⚠️ Vui lòng nhập Nội dung Feedback Sửa công việc!');
+        if (contentEl) contentEl.focus();
+        return;
+    }
+
+    if (link) {
+        // Kiểm tra xem có phải là đường link hợp lệ hay không
+        var isUrl = /^https?:\/\/.+/i.test(link) || /^([\w\-]+\.)+[\w\-]+(\/.*)?$/i.test(link);
+        if (!isUrl) {
+            alert('⚠️ Đường link Feedback sửa phải là một đường link hợp lệ (ví dụ: https://... hoặc http://...)');
+            if (linkEl) linkEl.focus();
+            return;
+        }
+        if (!/^https?:\/\//i.test(link)) {
+            link = 'http://' + link;
+        }
+    }
+
+    var res = await _bcvApi('/api/board-tasks/' + taskId + '/review', 'PATCH', {
+        action: 'reject',
+        feedback_content: content,
+        feedback_link: link
+    });
+
+    if (res && res.ok) {
+        alert('↩️ Đã gửi Feedback thành công! Công việc đã được trả về cột Đang Làm để nhân viên sửa lại.');
+        var ov1 = document.getElementById('bcvRejectOverlay'); if (ov1) ov1.remove();
+        var ov2 = document.getElementById('bcvOverlay'); if (ov2) ov2.remove();
+        _bcvLoadTasks();
+    } else {
+        alert((res && res.error) || 'Lỗi khi gửi Feedback yêu cầu sửa');
+    }
+}

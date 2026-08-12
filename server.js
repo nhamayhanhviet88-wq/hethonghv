@@ -1441,6 +1441,17 @@ async function start() {
         return fs.createReadStream(filePath);
     });
 
+    // Serve board task uploads (attachments)
+    fastify.get('/uploads/board/:filename', async (request, reply) => {
+        const filePath = path.join(__dirname, 'uploads', 'board', request.params.filename);
+        if (!fs.existsSync(filePath)) return reply.code(404).send('Not found');
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeMap = { '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.gif':'image/gif', '.webp':'image/webp' };
+        reply.type(mimeMap[ext] || 'application/octet-stream');
+        return fs.createReadStream(filePath);
+    });
+
+
     // Serve payment uploads with automatic MIME sniffing (fixes webp files saved as png/jpg)
     fastify.get('/uploads/bill-nhap-hang/payments/:filename', async (request, reply) => {
         const fs = require('fs');
@@ -1507,21 +1518,39 @@ async function start() {
 
     // Auth check for uploads - block unauthenticated access to sensitive files
     const jwt = require('jsonwebtoken');
-    fastify.addHook('onRequest', (request, reply, done) => {
+    fastify.addHook('onRequest', async (request, reply) => {
         if (request.url.startsWith('/uploads/')) {
-            const token = request.cookies?.token;
+            const rawUrl = request.raw.url || request.url;
+            const urlPath = rawUrl.split('?')[0];
+            const urlQuery = rawUrl.includes('?') ? new URLSearchParams(rawUrl.split('?')[1]) : null;
+            let token = request.cookies?.token || (urlQuery && urlQuery.get('token')) || request.query?.token;
+            if (!token && request.headers.authorization) {
+                const parts = request.headers.authorization.split(' ');
+                if (parts.length === 2 && parts[0] === 'Bearer') token = parts[1];
+            }
             if (!token) {
                 reply.code(401).send({ error: 'Chưa đăng nhập' });
-                return;
+                return reply;
             }
             try {
                 jwt.verify(token, process.env.JWT_SECRET);
-                done();
             } catch (err) {
                 reply.code(401).send({ error: 'Token không hợp lệ' });
+                return reply;
             }
-        } else {
-            done();
+
+            const relPath = urlPath.replace(/^\/uploads\//, '');
+            let filePath = path.join(__dirname, 'public', 'uploads', relPath);
+            if (!fs.existsSync(filePath)) {
+                filePath = path.join(__dirname, 'uploads', relPath);
+            }
+            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+                const ext = path.extname(filePath).toLowerCase();
+                const mimeMap = { '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.gif':'image/gif', '.webp':'image/webp', '.pdf':'application/pdf' };
+                reply.type(mimeMap[ext] || 'application/octet-stream');
+                reply.header('Cache-Control', 'public, max-age=2592000');
+                return reply.send(fs.createReadStream(filePath));
+            }
         }
     });
 
