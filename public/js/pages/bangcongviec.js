@@ -814,8 +814,24 @@ function _bcvRenderBoard() {
         hoan_thanh: []
     };
 
+    var htRange = _bcvGetHoanThanhDateRange();
+    var fromTime = htRange.from ? new Date(htRange.from.replace(' ', 'T')).getTime() : 0;
+    var toTime = htRange.to ? new Date(htRange.to.replace(' ', 'T')).getTime() : Infinity;
+
     _bcv.tasks.forEach(function(t) {
-        if (cols[t.status]) cols[t.status].push(t);
+        if (t.status === 'hoan_thanh') {
+            if (fromTime || toTime < Infinity) {
+                var taskDateStr = t.completed_at || t.updated_at || t.created_at;
+                var taskTime = taskDateStr ? new Date(taskDateStr).getTime() : 0;
+                if (taskTime >= fromTime && taskTime <= toTime) {
+                    cols.hoan_thanh.push(t);
+                }
+            } else {
+                cols.hoan_thanh.push(t);
+            }
+        } else if (cols[t.status]) {
+            cols[t.status].push(t);
+        }
     });
 
     // Sort 'dang_lam' column: rejected tasks first (at the very top), then by ID descending
