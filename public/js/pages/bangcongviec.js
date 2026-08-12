@@ -478,7 +478,29 @@ function _bcvRenderHoanThanhFilterUI() {
         </div>`;
     }
 
-    container.innerHTML = html + subHtml;
+    var isDirectorRole = (window._currentUser && window._currentUser.role === 'giam_doc');
+    var directorReadFilterVal = (_bcv && _bcv.directorReadFilter) || 'all';
+
+    var directorFilterHtml = '';
+    if (isDirectorRole) {
+        directorFilterHtml = `
+            <div style="margin-top:4px">
+                <select class="bcv-ht-select" id="bcvDirectorReadSelect" onchange="_bcvOnDirectorReadFilterChange(this.value)" style="border-color:#fca5a5;color:#9f1239;font-weight:800;background:#fff1f2">
+                    <option value="all" ${directorReadFilterVal === 'all' ? 'selected' : ''}>👁️ Tất cả (Đã đọc & Chưa xem)</option>
+                    <option value="unread" ${directorReadFilterVal === 'unread' ? 'selected' : ''}>🔴 Giám Đốc Chưa Xem</option>
+                    <option value="read" ${directorReadFilterVal === 'read' ? 'selected' : ''}>🟢 Giám Đốc Đã Đọc</option>
+                </select>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html + subHtml + directorFilterHtml;
+}
+
+function _bcvOnDirectorReadFilterChange(val) {
+    if (!_bcv) _bcv = {};
+    _bcv.directorReadFilter = val;
+    _bcvRenderBoard();
 }
 
 function _bcvOnHTModeChange(val) {
@@ -541,16 +563,27 @@ function _bcvRenderBoard() {
     var fromTime = htRange.from ? new Date(htRange.from.replace(' ', 'T')).getTime() : 0;
     var toTime = htRange.to ? new Date(htRange.to.replace(' ', 'T')).getTime() : Infinity;
 
+    var isDirectorRole = (window._currentUser && window._currentUser.role === 'giam_doc');
+    var directorReadFilter = (_bcv && _bcv.directorReadFilter) || 'all';
+
     _bcv.tasks.forEach(function(t) {
         if (t.status === 'hoan_thanh') {
-            if (fromTime || toTime < Infinity) {
-                var taskDateStr = t.completed_at || t.updated_at || t.created_at;
-                var taskTime = taskDateStr ? new Date(taskDateStr).getTime() : 0;
-                if (taskTime >= fromTime && taskTime <= toTime) {
+            var passDirectorFilter = true;
+            if (isDirectorRole && directorReadFilter !== 'all') {
+                if (directorReadFilter === 'unread' && t.director_read) passDirectorFilter = false;
+                if (directorReadFilter === 'read' && !t.director_read) passDirectorFilter = false;
+            }
+
+            if (passDirectorFilter) {
+                if (fromTime || toTime < Infinity) {
+                    var taskDateStr = t.completed_at || t.updated_at || t.created_at;
+                    var taskTime = taskDateStr ? new Date(taskDateStr).getTime() : 0;
+                    if (taskTime >= fromTime && taskTime <= toTime) {
+                        cols.hoan_thanh.push(t);
+                    }
+                } else {
                     cols.hoan_thanh.push(t);
                 }
-            } else {
-                cols.hoan_thanh.push(t);
             }
         } else if (cols[t.status]) {
             cols[t.status].push(t);
