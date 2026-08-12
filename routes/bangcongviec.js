@@ -542,15 +542,11 @@ async function bangcongviecRoutes(fastify, options) {
             if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
 
             // Permission check
-            const isManager = canManageTasks(user);
-            const isAssignee = task.assigned_to === user.id;
+            const isDirector = user.role === 'giam_doc';
             const isCreator = task.created_by === user.id;
 
-            if (!isManager && !isAssignee && !isCreator) {
-                return reply.code(403).send({ error: 'Bạn không có quyền sửa task này' });
-            }
-            if (isAssignee && !isManager && !isCreator && ['cho_duyet', 'hoan_thanh'].includes(task.status)) {
-                return reply.code(403).send({ error: 'Công việc đã nộp hoặc hoàn thành, bạn không thể chỉnh sửa!' });
+            if (!isDirector && !isCreator) {
+                return reply.code(403).send({ error: 'Chỉ người giao việc mới có quyền chỉnh sửa công việc này!' });
             }
 
             const b = request.body;
@@ -558,7 +554,7 @@ async function bangcongviecRoutes(fastify, options) {
             const vals = [];
             let idx = 0;
 
-            if (isManager || isCreator) {
+            if (isDirector || isCreator) {
                 // Full edit for managers and creator
                 if (b.title !== undefined) { idx++; updates.push(`title = $${idx}`); vals.push(b.title.trim()); }
                 if (b.description !== undefined) { idx++; updates.push(`description = $${idx}`); vals.push(b.description); }

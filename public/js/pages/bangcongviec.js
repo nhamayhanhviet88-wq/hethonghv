@@ -1655,7 +1655,7 @@ async function _bcvShowDetail(taskId) {
                 </div>` : ''}
 
                 <div class="bcv-form-actions" style="margin-top:16px">
-                    ${(user.role === 'giam_doc' || isCreator || isManager) ? `<button class="bcv-btn bcv-btn-primary" data-no-debounce="true" onclick="document.getElementById('bcvOverlay').remove();_bcvShowEditTaskModal(${task.id})">✏️ Chỉnh sửa công việc</button>` : ''}
+                    ${(user.role === 'giam_doc' || isCreator) ? `<button class="bcv-btn bcv-btn-primary" data-no-debounce="true" onclick="document.getElementById('bcvOverlay').remove();_bcvShowEditTaskModal(${task.id})">✏️ Chỉnh sửa công việc</button>` : ''}
                     ${user.role === 'giam_doc' ? `<button class="bcv-btn bcv-btn-danger" data-no-debounce="true" onclick="_bcvDeleteTask(${task.id})">🗑 Xóa Công Việc</button>` : ''}
                     <button class="bcv-btn bcv-btn-secondary" onclick="document.getElementById('bcvOverlay').remove()">Đóng</button>
                 </div>
@@ -1707,7 +1707,7 @@ async function _bcvShowDetail(taskId) {
     var priorityLabel = task.priority === 'cao' ? '🔴 Cao' : task.priority === 'trung_binh' ? '🟠 Trung bình' : '🟢 Thấp';
     var typeLabel = task.task_type === 'chinh' ? '🔵 Chính' : '🟡 Phụ';
 
-    var canEditSection1 = (task.status === 'can_lam') && (isManager || isCreator);
+    var canEditSection1 = (task.status === 'can_lam') && (user.role === 'giam_doc' || isCreator);
     var canEditReport = isAssignee && (task.status === 'dang_lam');
 
     var myReadAtStr = task.my_read_at ? _bcvFormatVNTime(task.my_read_at, true) : '';
@@ -3370,11 +3370,10 @@ async function _bcvShowEditTaskModal(taskId) {
 
     var user = window._currentUser || {};
     var isDirector = user.role === 'giam_doc';
-    var isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(user.role);
     var isCreator = task.created_by === user.id;
 
-    if (!isDirector && !isManager && !isCreator) {
-        alert('Bạn không có quyền chỉnh sửa công việc này');
+    if (!isDirector && !isCreator) {
+        alert('Chỉ người giao việc mới có quyền chỉnh sửa công việc này!');
         return;
     }
 
