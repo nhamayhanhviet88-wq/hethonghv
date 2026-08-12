@@ -749,6 +749,50 @@ async function syncLedgerForDate(dateStr) {
     } catch (e) { console.error('  ❌ [Ledger] GC Print:', e.stack || e.message); }
     } // end if (!isDateOff) Source 12
 
+    // Source 13: Bảng Công Việc — Chậm deadline công việc (Flat 100k/ngày/nhân sự)
+    // ★ Skip ngày nghỉ (CN, Lễ)
+    if (!isDateOff) {
+        try {
+            const bcvAmount = GPC.bcv_overdue_task !== undefined ? GPC.bcv_overdue_task : 100000;
+            if (bcvAmount > 0) {
+                const overdueAssignees = await db.all(`
+                    SELECT DISTINCT uid::int as user_id, COUNT(DISTINCT task_id) as overdue_count
+                    FROM (
+                        SELECT t.id as task_id, t.assigned_to as uid, t.deadline, t.status, t.completed_at
+                        FROM board_tasks t
+                        WHERE t.assigned_to IS NOT NULL
+                        UNION ALL
+                        SELECT t.id as task_id, unnest(string_to_array(t.assigned_to_ids, ','))::int as uid, t.deadline, t.status, t.completed_at
+                        FROM board_tasks t
+                        WHERE t.assigned_to_ids IS NOT NULL AND t.assigned_to_ids != ''
+                    ) t
+                    JOIN users u ON u.id = t.uid
+                    WHERE t.deadline IS NOT NULL
+                      AND t.deadline::date <= $1::date
+                      AND (
+                          t.status != 'hoan_thanh'
+                          OR (t.completed_at IS NOT NULL AND t.completed_at::date > $1::date)
+                      )
+                      AND u.role != 'giam_doc'
+                    GROUP BY t.uid
+                `, [dateStr]);
+
+                for (const r of overdueAssignees) {
+                    await writeLedger(
+                        r.user_id,
+                        dateStr,
+                        'bcv_overdue',
+                        'bcv_user_' + r.user_id,
+                        'Bảng Công Việc: Chậm deadline công việc',
+                        bcvAmount,
+                        'Chậm deadline ' + r.overdue_count + ' công việc trong Bảng Công Việc'
+                    );
+                    count++;
+                }
+            }
+        } catch(e) { console.error('  ❌ [Ledger] Bảng Công Việc Overdue:', e.message); }
+    } // end if (!isDateOff) Source 13
+
     return count;
 }
 

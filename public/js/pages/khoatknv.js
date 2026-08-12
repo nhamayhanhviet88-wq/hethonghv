@@ -101,7 +101,8 @@ async function _penaltyLoadConfig() {
             { title: '📦 Gửi Hàng Trễ', icon: '📦', keys: ['gui_hang_tre'] },
             { title: '📋 Phiếu QLX', icon: '📋', keys: ['phieu_qlx_qua_han'] },
             { title: '🏭 Quản Lý Xưởng', icon: '🏭', keys: ['phat_qlx_tre_don_hom_nay', 'qlx_cutoff_time'] },
-            { title: '🖨️ Gia Công In', icon: '🖨️', keys: ['gc_print_khong_bao_cao', 'gc_penalty_check_time'] }
+            { title: '🖨️ Gia Công In', icon: '🖨️', keys: ['gc_print_khong_bao_cao', 'gc_penalty_check_time'] },
+            { title: '📌 Bảng Công Việc', icon: '📌', keys: ['bcv_overdue_task'] }
         ];
 
         const configMap = {};
@@ -121,7 +122,8 @@ async function _penaltyLoadConfig() {
                     phat_qlx_tre_don_hom_nay: 'QLX chưa hoàn thành đơn hàng hôm nay',
                     qlx_cutoff_time: 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng',
                     gc_print_khong_bao_cao: 'NV In — Đơn GC quá hạn không báo cáo',
-                    gc_penalty_check_time: 'Giờ tính phạt đơn GC In (HH:MM)'
+                    gc_penalty_check_time: 'Giờ tính phạt đơn GC In (HH:MM)',
+                    bcv_overdue_task: 'Bảng Công Việc — Chậm Deadline Công Việc (Tính gộp 1 lần/ngày)'
                 };
                 const amount = cfg ? cfg.amount : (key === 'phieu_qlx_qua_han' ? 50000 : (key === 'phat_qlx_tre_don_hom_nay' ? 100000 : (key === 'qlx_cutoff_time' ? 1080 : 0)));
                 const rawLabel = cfg ? cfg.label : (DEFAULT_LABELS[key] || key);

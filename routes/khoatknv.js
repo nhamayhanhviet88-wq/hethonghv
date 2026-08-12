@@ -95,7 +95,8 @@ async function khoaTKNVRoutes(fastify, options) {
             qlx_cutoff_time: 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng',
             kt_cutoff_time: 'Giờ kết thúc ca làm của Kế Toán',
             gc_print_khong_bao_cao: 'NV In — Đơn GC quá hạn không báo cáo',
-            gc_penalty_check_time: 'Giờ tính phạt đơn GC In (HH:MM, vd: 2330 = 23:30)'
+            gc_penalty_check_time: 'Giờ tính phạt đơn GC In (HH:MM, vd: 2330 = 23:30)',
+            bcv_overdue_task: 'Bảng Công Việc — Chậm Deadline Công Việc'
         };
 
         for (const cfg of configs) {
