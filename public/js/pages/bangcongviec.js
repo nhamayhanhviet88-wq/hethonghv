@@ -965,8 +965,8 @@ async function _bcvShowCreate() {
         });
     }
 
-    // Fetch holidays for validation
-    var holidaysRes = await _bcvApi('/api/holidays');
+    // Fetch holidays for validation (dựa theo trang Setup Ngày Lễ /setupngayle)
+    var holidaysRes = await _bcvApi('/api/penalty/holidays');
     var holidays = (holidaysRes && holidaysRes.holidays) || [];
     window._bcvHolidays = {};
     holidays.forEach(function(h) {
@@ -1284,16 +1284,18 @@ function _bcvRenderCreateDocLinks(docs, previewEl, hiddenEl) {
     if (hiddenEl) hiddenEl.value = JSON.stringify(allLinks);
 }
 
-// Check if selected deadline is a holiday
+// Check if selected deadline is a holiday (dựa theo trang Setup Ngày Lễ /setupngayle)
 function _bcvCheckDeadlineHoliday(input) {
-    if (!input.value || !window._bcvHolidays) return;
+    if (!input || !input.value || !window._bcvHolidays) return true;
     var selected = input.value; // YYYY-MM-DD
     if (window._bcvHolidays[selected]) {
-        alert('⚠️ Ngày ' + selected + ' là ngày lễ: "' + window._bcvHolidays[selected] + '"\nVui lòng chọn ngày khác!');
+        alert('⚠️ Ngày ' + selected + ' là ngày nghỉ lễ ("' + window._bcvHolidays[selected] + '") theo trang Setup Ngày Lễ.\nVui lòng chọn ngày làm việc khác!');
         input.value = '';
         var disp = document.getElementById('bcvDeadlineDisplay');
         if (disp) disp.textContent = '';
+        return false;
     }
+    return true;
 }
 
 // Format deadline display: "Thứ X - DD/MM/YY"
@@ -1374,6 +1376,10 @@ async function _bcvSubmitCreate() {
 
     var deadline = (document.getElementById('bcvCreateDeadline') || {}).value || '';
     if (!deadline) { alert('Vui lòng chọn deadline'); return; }
+    if (window._bcvHolidays && window._bcvHolidays[deadline]) {
+        alert('⚠️ Hạn chót (' + deadline + ') rơi vào ngày nghỉ lễ ("' + window._bcvHolidays[deadline] + '") theo trang Setup Ngày Lễ. Vui lòng chọn ngày làm việc khác!');
+        return;
+    }
 
     var taskLink = (document.getElementById('bcvCreateLink') || {}).value || '';
     if (!taskLink.trim()) { alert('Vui lòng nhập đường link công việc'); return; }
@@ -3459,7 +3465,7 @@ async function _bcvShowEditTaskModal(taskId) {
             '</div>' +
             '<div class="bcv-form-group">' +
                 '<label>Deadline *</label>' +
-                '<input class="bcv-form-input" type="date" id="bcvEditDeadline" value="' + (task.deadline || '') + '">' +
+                '<input class="bcv-form-input" type="date" id="bcvEditDeadline" value="' + (task.deadline || '') + '" onchange="_bcvCheckDeadlineHoliday(this)">' +
             '</div>' +
             '<div class="bcv-form-group">' +
                 '<label>✅ Checklist con</label>' +
@@ -3727,6 +3733,10 @@ async function _bcvSubmitEditTask(taskId) {
 
     var deadline = (document.getElementById('bcvEditDeadline') || {}).value || '';
     if (!deadline) { alert('Vui lòng chọn deadline'); return; }
+    if (window._bcvHolidays && window._bcvHolidays[deadline]) {
+        alert('⚠️ Hạn chót (' + deadline + ') rơi vào ngày nghỉ lễ ("' + window._bcvHolidays[deadline] + '") theo trang Setup Ngày Lễ. Vui lòng chọn ngày làm việc khác!');
+        return;
+    }
 
     var taskLink = (document.getElementById('bcvEditLink') || {}).value || '';
     if (!taskLink.trim()) { alert('Vui lòng nhập đường link công việc'); return; }

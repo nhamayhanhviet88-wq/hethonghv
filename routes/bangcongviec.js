@@ -496,6 +496,13 @@ async function bangcongviecRoutes(fastify, options) {
                 }
             }
 
+            if (deadline) {
+                const holiday = await db.get("SELECT holiday_name FROM holidays WHERE holiday_date = $1::date", [deadline]);
+                if (holiday) {
+                    return reply.code(400).send({ error: `Hạn chót ${deadline} rơi vào ngày nghỉ lễ "${holiday.holiday_name}" (trang Setup Ngày Lễ). Vui lòng chọn ngày làm việc khác!` });
+                }
+            }
+
             const result = await db.get(`
                 INSERT INTO board_tasks (title, description, status, priority, task_type, department_id, assigned_to, assigned_to_ids, created_by, deadline, task_link, guide_link)
                 VALUES ($1, $2, 'can_lam', $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -561,7 +568,15 @@ async function bangcongviecRoutes(fastify, options) {
                 if (b.priority !== undefined) { idx++; updates.push(`priority = $${idx}`); vals.push(b.priority); }
                 if (b.task_type !== undefined) { idx++; updates.push(`task_type = $${idx}`); vals.push(b.task_type); }
                 if (b.assigned_to !== undefined) { idx++; updates.push(`assigned_to = $${idx}`); vals.push(b.assigned_to || null); }
-                if (b.deadline !== undefined) { idx++; updates.push(`deadline = $${idx}`); vals.push(b.deadline || null); }
+                if (b.deadline !== undefined) {
+                    if (b.deadline) {
+                        const holiday = await db.get("SELECT holiday_name FROM holidays WHERE holiday_date = $1::date", [b.deadline]);
+                        if (holiday) {
+                            return reply.code(400).send({ error: `Hạn chót ${b.deadline} rơi vào ngày nghỉ lễ "${holiday.holiday_name}" (trang Setup Ngày Lễ). Vui lòng chọn ngày làm việc khác!` });
+                        }
+                    }
+                    idx++; updates.push(`deadline = $${idx}`); vals.push(b.deadline || null);
+                }
                 if (b.department_id !== undefined) { idx++; updates.push(`department_id = $${idx}`); vals.push(b.department_id || null); }
                 if (b.task_link !== undefined) { idx++; updates.push(`task_link = $${idx}`); vals.push(b.task_link || null); }
                 if (b.guide_link !== undefined) { idx++; updates.push(`guide_link = $${idx}`); vals.push(b.guide_link || null); }
