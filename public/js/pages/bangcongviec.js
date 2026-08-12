@@ -154,18 +154,20 @@ function _bcvNavigateToFullscreen() {
     if (window.history && window.history.pushState) {
         window.history.pushState({}, '', '/bangcongviec/hoanthanh');
     }
-    renderBangcongviecPage();
+    var targetArea = document.getElementById('contentArea') || document.getElementById('mainContent') || document.getElementById('main-content');
+    renderBangcongviecPage(targetArea);
 }
 
 function _bcvNavigateToBoard(targetUrl) {
     if (window.history && window.history.pushState) {
         window.history.pushState({}, '', targetUrl || '/bangcongviec');
     }
-    renderBangcongviecPage();
+    var targetArea = document.getElementById('contentArea') || document.getElementById('mainContent') || document.getElementById('main-content');
+    renderBangcongviecPage(targetArea);
 }
 
 async function renderBangcongviecPage(content) {
-    var c = content || document.getElementById('main-content');
+    var c = content || document.getElementById('contentArea') || document.getElementById('mainContent') || document.getElementById('main-content');
     if (!c) return;
     var user = window._currentUser || {};
     var isDirector = ['giam_doc', 'quan_ly_cap_cao'].includes(user.role);
