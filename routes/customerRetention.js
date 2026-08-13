@@ -1442,6 +1442,7 @@ module.exports = async function(fastify) {
     };
 
     fastify.get('/api/reports/customer-retention/conversion-details', { preHandler: [authenticate] }, handleConversionDetails);
+    fastify.get('/api/customer-retention/conversion-details', { preHandler: [authenticate] }, handleConversionDetails);
     fastify.get('/api/kpi-sale/conversion-details', { preHandler: [authenticate] }, handleConversionDetails);
     fastify.get('/api/kpi-kdoanh/conversion-details', { preHandler: [authenticate] }, handleConversionDetails);
 };
