@@ -885,6 +885,8 @@ module.exports = async function(fastify) {
                 SELECT 
                     uid,
                     COUNT(*) AS total_orders,
+                    SUM(CASE WHEN business_area = 'dp' THEN 1 ELSE 0 END) AS orders_dp,
+                    SUM(CASE WHEN business_area = 'pettem' THEN 1 ELSE 0 END) AS orders_pettem,
                     COALESCE(SUM(revenue), 0) AS total_revenue
                 FROM valid_orders
                 WHERE created_at >= $${pStart}::timestamp AND created_at < $${pEnd}::timestamp
@@ -916,6 +918,8 @@ module.exports = async function(fastify) {
             SELECT 
                 u.id AS uid,
                 COALESCE(po.total_orders, 0) AS total_orders,
+                COALESCE(po.orders_dp, 0) AS orders_dp,
+                COALESCE(po.orders_pettem, 0) AS orders_pettem,
                 COALESCE(po.total_revenue, 0) AS total_revenue,
                 COALESCE((SELECT COUNT(DISTINCT customer_key) FROM old_pool WHERE uid = u.id AND business_area = 'dp'), 0) AS old_dp_total,
                 COALESCE((SELECT COUNT(DISTINCT customer_key) FROM returning_cust WHERE uid = u.id AND business_area = 'dp'), 0) AS ret_dp_cust,
@@ -929,6 +933,8 @@ module.exports = async function(fastify) {
             const u = users.find(u2 => u2.id === Number(r.uid));
             const dept = childDepts.find(d => d.id === u?.department_id);
             const total = parseInt(r.total_orders || 0);
+            const ordersDp = parseInt(r.orders_dp || 0);
+            const ordersPetTem = parseInt(r.orders_pettem || 0);
             const oldDp = parseInt(r.old_dp_total || 0);
             const retDp = parseInt(r.ret_dp_cust || 0);
             const oldPetTem = parseInt(r.old_pettem_total || 0);
@@ -942,6 +948,8 @@ module.exports = async function(fastify) {
                 name: u?.full_name || '?',
                 team: dept?.name || '',
                 total_orders: total,
+                orders_dp: ordersDp,
+                orders_pettem: ordersPetTem,
                 old_dp_total: oldDp,
                 ret_dp_cust: retDp,
                 old_pettem_total: oldPetTem,
@@ -1020,6 +1028,8 @@ module.exports = async function(fastify) {
             )
             SELECT assigned_to_id AS uid,
                 COUNT(*) AS total_orders,
+                SUM(CASE WHEN cat_type = 'dp' THEN 1 ELSE 0 END) AS total_orders_dp,
+                SUM(CASE WHEN cat_type = 'pettem' THEN 1 ELSE 0 END) AS total_orders_pettem,
                 SUM(CASE WHEN pn > 1 THEN 1 ELSE 0 END) AS returning_orders,
                 SUM(CASE WHEN pn > 1 AND cat_type = 'dp' THEN 1 ELSE 0 END) AS returning_orders_dp,
                 SUM(CASE WHEN pn > 1 AND cat_type = 'pettem' THEN 1 ELSE 0 END) AS returning_orders_pettem,
@@ -1041,11 +1051,15 @@ module.exports = async function(fastify) {
         const prevMap = {};
         prevLeaderRows.forEach(r => {
             const total = parseInt(r.total_orders);
+            const totalDp = parseInt(r.total_orders_dp || 0);
+            const totalPetTem = parseInt(r.total_orders_pettem || 0);
             const ret = parseInt(r.returning_orders);
             const retDp = parseInt(r.returning_orders_dp || 0);
             const retPetTem = parseInt(r.returning_orders_pettem || 0);
             prevMap[r.uid] = {
                 total_orders: total,
+                total_orders_dp: totalDp,
+                total_orders_pettem: totalPetTem,
                 revenue: parseFloat(r.total_revenue),
                 rate: total > 0 ? Math.round(1000 * ret / total) / 10 : 0,
                 rate_dp: total > 0 ? Math.round(1000 * retDp / total) / 10 : 0,
@@ -1057,10 +1071,12 @@ module.exports = async function(fastify) {
 
         // Merge previous data into leaderboard
         leaderboard.forEach(l => {
-            const prev = prevMap[l.user_id] || { total_orders: 0, revenue: 0, rate: 0, rate_dp: 0, rate_pettem: 0 };
+            const prev = prevMap[l.user_id] || { total_orders: 0, total_orders_dp: 0, total_orders_pettem: 0, revenue: 0, rate: 0, rate_dp: 0, rate_pettem: 0 };
             const prevAff = prevAffMap[l.user_id] || 0;
             l.prev = {
                 total_orders: prev.total_orders,
+                total_orders_dp: prev.total_orders_dp || 0,
+                total_orders_pettem: prev.total_orders_pettem || 0,
                 revenue: prev.revenue,
                 rate: prev.rate,
                 rate_dp: prev.rate_dp || 0,
@@ -1213,7 +1229,10 @@ module.exports = async function(fastify) {
 
         // ===== PER-EMPLOYEE CONVERSION + KPI for Tab 2 =====
         const assignedPerEmpAdv = userIds.length > 0 ? await db.all(`
-            SELECT assigned_to_id AS uid, COUNT(DISTINCT id) AS assigned
+            SELECT assigned_to_id AS uid,
+                COUNT(DISTINCT id) AS assigned,
+                COUNT(DISTINCT CASE WHEN crm_type = 'tem_pet' THEN id END) AS assigned_pettem,
+                COUNT(DISTINCT CASE WHEN COALESCE(crm_type, '') != 'tem_pet' THEN id END) AS assigned_dp
             FROM customers
             WHERE assigned_to_id IN (${ph})
               AND created_at >= $${pStart}::timestamp AND created_at < $${pEnd}::timestamp
@@ -1224,20 +1243,39 @@ module.exports = async function(fastify) {
         assignedPerEmpAdv.forEach(r => {
             const uid = r.uid;
             const assigned = parseInt(r.assigned);
+            const assignedDp = parseInt(r.assigned_dp || 0);
+            const assignedPetTem = parseInt(r.assigned_pettem || 0);
             const lbEntry = leaderboard.find(l => l.user_id === uid);
             const completed = lbEntry ? lbEntry.total_orders : 0;
-            conversionMapAdv[uid] = { assigned, completed, rate: assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : 0 };
+            const completedDp = lbEntry ? (lbEntry.orders_dp || 0) : 0;
+            const completedPetTem = lbEntry ? (lbEntry.orders_pettem || 0) : 0;
+
+            conversionMapAdv[uid] = { 
+                assigned, completed, rate: assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : 0,
+                assigned_dp: assignedDp, completed_dp: completedDp, rate_dp: assignedDp > 0 ? Math.round(1000 * completedDp / assignedDp) / 10 : 0,
+                assigned_pettem: assignedPetTem, completed_pettem: completedPetTem, rate_pettem: assignedPetTem > 0 ? Math.round(1000 * completedPetTem / assignedPetTem) / 10 : 0
+            };
         });
         userIds.forEach(uid => {
             if (!conversionMapAdv[uid]) {
                 const lbEntry = leaderboard.find(l => l.user_id === uid);
-                conversionMapAdv[uid] = { assigned: 0, completed: lbEntry ? lbEntry.total_orders : 0, rate: 0 };
+                const completed = lbEntry ? lbEntry.total_orders : 0;
+                const completedDp = lbEntry ? (lbEntry.orders_dp || 0) : 0;
+                const completedPetTem = lbEntry ? (lbEntry.orders_pettem || 0) : 0;
+                conversionMapAdv[uid] = { 
+                    assigned: 0, completed, rate: 0,
+                    assigned_dp: 0, completed_dp: completedDp, rate_dp: 0,
+                    assigned_pettem: 0, completed_pettem: completedPetTem, rate_pettem: 0
+                };
             }
         });
 
         // Previous period conversion rate
         const prevAssignedAdv = userIds.length > 0 ? await db.all(`
-            SELECT assigned_to_id AS uid, COUNT(DISTINCT id) AS assigned
+            SELECT assigned_to_id AS uid,
+                COUNT(DISTINCT id) AS assigned,
+                COUNT(DISTINCT CASE WHEN crm_type = 'tem_pet' THEN id END) AS assigned_pettem,
+                COUNT(DISTINCT CASE WHEN COALESCE(crm_type, '') != 'tem_pet' THEN id END) AS assigned_dp
             FROM customers
             WHERE assigned_to_id IN (${ph})
               AND created_at >= $${pStart}::timestamp AND created_at < $${pEnd}::timestamp
@@ -1245,11 +1283,18 @@ module.exports = async function(fastify) {
         `, [...userIds, previous.start, previous.end]) : [];
 
         leaderboard.forEach(l => {
-            if (!l.prev) l.prev = { total_orders: 0, revenue: 0, rate: 0, affiliate_new: 0 };
+            if (!l.prev) l.prev = { total_orders: 0, total_orders_dp: 0, total_orders_pettem: 0, revenue: 0, rate: 0, affiliate_new: 0 };
             const prevAssigned = prevAssignedAdv.find(r => r.uid === l.user_id);
             const pAssigned = prevAssigned ? parseInt(prevAssigned.assigned) : 0;
             const pCompleted = l.prev.total_orders;
             l.prev.conversion_rate = pAssigned > 0 ? Math.round(1000 * pCompleted / pAssigned) / 10 : 0;
+
+            const pAssignedDp = prevAssigned ? parseInt(prevAssigned.assigned_dp || 0) : 0;
+            const pAssignedPetTem = prevAssigned ? parseInt(prevAssigned.assigned_pettem || 0) : 0;
+            const pCompletedDp = l.prev.total_orders_dp || 0;
+            const pCompletedPetTem = l.prev.total_orders_pettem || 0;
+            l.prev.conversion_rate_dp = pAssignedDp > 0 ? Math.round(1000 * pCompletedDp / pAssignedDp) / 10 : 0;
+            l.prev.conversion_rate_pettem = pAssignedPetTem > 0 ? Math.round(1000 * pCompletedPetTem / pAssignedPetTem) / 10 : 0;
         });
 
         const kpiTargetsAdv = await db.all(

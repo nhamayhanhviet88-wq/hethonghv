@@ -115,7 +115,7 @@ async function renderKpikdoanhPage(container) {
             .kpi-lb-tab{padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;background:none;border:none;color:#6b7280;border-bottom:3px solid transparent;transition:all .2s}
             .kpi-lb-tab.active{color:#4338ca;border-bottom-color:#4338ca}
             .kpi-lb-tab:hover{color:#4338ca}
-            .kpi-lb-row{display:grid;grid-template-columns:36px 1fr 70px 85px 55px 55px 75px 85px;padding:14px 16px;border-bottom:1px solid #f8fafc;align-items:center;gap:6px;transition:background .2s}
+            .kpi-lb-row{display:grid;grid-template-columns:36px 1fr 65px 85px 65px 75px 50px 75px 85px;padding:14px 16px;border-bottom:1px solid #f8fafc;align-items:center;gap:6px;transition:background .2s}
             .kpi-lb-row:hover{background:#fefce8}
             .kpi-lb-rank{font-size:20px;font-weight:900;text-align:center}
             .kpi-lb-name{font-weight:700;color:#1e1b4b}
@@ -1316,16 +1316,21 @@ function kpiRenderLeaderboard(el, data) {
     }
     h += '</div><div>';
     h += '<div class="kpi-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569">';
-    h += '<div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right">📊 CĐ</div><div style="text-align:right">TK Aff</div><div style="text-align:right;color:#d97706" title="Số khách cũ đầu kỳ có mua lại trong kỳ ÷ Tổng khách cũ thuộc nhân viên tại đầu kỳ">Tỷ lệ KH cũ quay lại – Đồng Phục</div><div style="text-align:right;color:#7c3aed" title="Số khách cũ đầu kỳ có mua lại trong kỳ ÷ Tổng khách cũ thuộc nhân viên tại đầu kỳ">Tỷ lệ KH cũ quay lại – PET/TEM</div>';
+    h += '<div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right;color:#059669" title="Số đơn ĐP ÷ KH ĐP được giao">📊 CĐ ĐP %</div><div style="text-align:right;color:#7c3aed" title="Số đơn PET/TEM ÷ KH PET/TEM được giao">📊 CĐ PET/TEM %</div><div style="text-align:right">TK Aff</div><div style="text-align:right;color:#d97706" title="Số khách cũ đầu kỳ có mua lại trong kỳ ÷ Tổng khách cũ thuộc nhân viên tại đầu kỳ">Tỷ lệ KH cũ quay lại – Đồng Phục</div><div style="text-align:right;color:#7c3aed" title="Số khách cũ đầu kỳ có mua lại trong kỳ ÷ Tổng khách cũ thuộc nhân viên tại đầu kỳ">Tỷ lệ KH cũ quay lại – PET/TEM</div>';
     h += '</div>';
 
     for (var i = 0; i < lb.length; i++) {
         var emp = lb[i];
         var rank = i < 3 ? medals[i] : (i + 1);
         var conv = convMap[emp.user_id] || {};
-        var cRate = conv.rate != null ? conv.rate + '%' : '—';
-        var cColor = conv.rate >= 70 ? '#10b981' : conv.rate >= 40 ? '#f59e0b' : '#ef4444';
+        var cRateDp = conv.rate_dp != null ? conv.rate_dp + '%' : '—';
+        var cColorDp = conv.rate_dp >= 70 ? '#10b981' : conv.rate_dp >= 40 ? '#f59e0b' : '#ef4444';
+        var cRatePetTem = conv.rate_pettem != null ? conv.rate_pettem + '%' : '—';
+        var cColorPetTem = conv.rate_pettem >= 70 ? '#10b981' : conv.rate_pettem >= 40 ? '#f59e0b' : '#ef4444';
         var prev = emp.prev || {};
+
+        var dpTooltipConv = conv.assigned_dp > 0 ? (conv.completed_dp + '/' + conv.assigned_dp + ' KH ĐP được giao') : 'Chưa có KH ĐP được giao';
+        var petTooltipConv = conv.assigned_pettem > 0 ? (conv.completed_pettem + '/' + conv.assigned_pettem + ' KH PET/TEM được giao') : 'Chưa có KH PET/TEM được giao';
 
         var dpText = emp.rate_dp != null ? (emp.rate_dp + '%') : '—';
         var dpTooltip = emp.old_dp_total > 0 ? (emp.ret_dp_cust + '/' + emp.old_dp_total + ' KH cũ đầu kỳ quay lại') : 'Chưa có tập khách cũ đầu kỳ';
@@ -1337,7 +1342,8 @@ function kpiRenderLeaderboard(el, data) {
         h += '<div><div class="kpi-lb-name">' + emp.name + '</div><div class="kpi-lb-team">' + (emp.team || '') + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#4338ca">' + emp.total_orders + ' đơn<div>' + kpiTrend(emp.total_orders, prev.total_orders) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#059669">' + kpiDashFmtVND(emp.revenue) + '<div>' + kpiTrend(emp.revenue, prev.revenue) + '</div></div>';
-        h += '<div class="kpi-lb-val" style="color:' + cColor + ';font-size:12px">' + cRate + '<div>' + kpiTrend(conv.rate || 0, prev.conversion_rate || 0) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:' + cColorDp + ';font-size:12px" title="' + dpTooltipConv + '">' + cRateDp + '<div>' + kpiTrend(conv.rate_dp || 0, prev.conversion_rate_dp || 0) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:' + cColorPetTem + ';font-size:12px" title="' + petTooltipConv + '">' + cRatePetTem + '<div>' + kpiTrend(conv.rate_pettem || 0, prev.conversion_rate_pettem || 0) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.affiliate_new || 0) + '<div>' + kpiTrend(emp.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#d97706" title="' + dpTooltip + '">' + dpText + '<div>' + kpiTrend(emp.rate_dp || 0, prev.rate_dp || 0) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#7c3aed" title="' + petTooltip + '">' + petText + '<div>' + kpiTrend(emp.rate_pettem || 0, prev.rate_pettem || 0) + '</div></div>';
