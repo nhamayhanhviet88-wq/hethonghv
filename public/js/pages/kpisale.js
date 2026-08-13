@@ -5091,15 +5091,19 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
 
     document.body.insertAdjacentHTML('beforeend', h);
 
-    // Fetch detail lists
-    var filter = window._kpiSaleLbFilter || window._kpiLbFilter || 'month';
-    var monthVal = (window._kpiSale && window._kpiSale.month) || (window._kpi && window._kpi.month) || window._kpiSaleLbMonth || window._kpiLbMonth || '';
-    var startDateVal = window._kpiSaleLbCustomStart || window._kpiLbCustomStart || '';
-    var endDateVal = window._kpiSaleLbCustomEnd || window._kpiLbCustomEnd || '';
+    // Fetch detail lists using exact period range from loaded data
+    var pStart = (data && data.period && data.period.start) || '';
+    var pEnd = (data && data.period && data.period.end) || '';
 
-    var detailUrl = '/api/reports/customer-retention/conversion-details?user_id=' + userId + '&type=' + type + '&period=' + filter;
-    if (monthVal) detailUrl += '&date=' + monthVal;
-    if (startDateVal && endDateVal) detailUrl += '&startDate=' + startDateVal + '&endDate=' + endDateVal;
+    var detailUrl = '/api/reports/customer-retention/conversion-details?user_id=' + userId + '&type=' + type;
+    if (pStart && pEnd) {
+        detailUrl += '&startDate=' + encodeURIComponent(pStart) + '&endDate=' + encodeURIComponent(pEnd);
+    } else {
+        var filter = window._kpiSaleLbFilter || window._kpiLbFilter || 'month';
+        var monthVal = (window._kpiSale && window._kpiSale.month) || (window._kpi && window._kpi.month) || window._kpiSaleLbMonth || window._kpiLbMonth || '';
+        detailUrl += '&period=' + filter;
+        if (monthVal) detailUrl += '&date=' + monthVal;
+    }
 
     apiCall(detailUrl).then(function(res) {
         if (!res || !res.success) return;

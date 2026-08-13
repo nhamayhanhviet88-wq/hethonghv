@@ -1333,7 +1333,14 @@ module.exports = async function(fastify) {
         const targetUserId = parseInt(user_id);
         if (!targetUserId) return reply.code(400).send({ error: 'Thiếu user_id' });
 
-        const { current } = parsePeriod(period, date, { startDate, endDate });
+        let current = {};
+        if (startDate && endDate) {
+            current.start = startDate.includes(' ') ? startDate : `${startDate} 00:00:00`;
+            current.end = endDate.includes(' ') ? endDate : `${endDate} 00:00:00`;
+        } else {
+            const parsed = parsePeriod(period, date, { startDate, endDate });
+            current = parsed.current;
+        }
         const _pCutoff = await _getCutoffSQL();
 
         // 1. Fetch Completed Orders for this user & business area
