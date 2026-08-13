@@ -5638,3 +5638,133 @@ window.kpiChangeStaffTrendFilter = kpiChangeStaffTrendFilter;
 window.kpiRenderStaffTrendChart = kpiRenderStaffTrendChart;
 window.kpiKdOpenMetricDetailModal = kpiKdOpenMetricDetailModal;
 
+// ===== CĐ DETAIL MODAL FOR KPI KDOANH PAGE =====
+window.kpiShowCdDetailModal = window.kpiShowCdDetailModal || function(userId, empName, type, advData) {
+    var data = advData || window._kpiAdvData || window._kpiSaleAdvData || {};
+    var convMap = (data && data.conversionMap) || {};
+    var conv = convMap[userId] || convMap[userId + ''] || {};
+
+    var typeName = type === 'pettem' ? 'PET / TEM' : 'Đồng Phục';
+    var assigned = type === 'pettem' ? (conv.assigned_pettem || 0) : (conv.assigned_dp || 0);
+    var completed = type === 'pettem' ? (conv.completed_pettem || 0) : (conv.completed_dp || 0);
+    var rate = type === 'pettem' ? (conv.rate_pettem != null ? conv.rate_pettem : (conv.rate != null ? conv.rate : 0)) : (conv.rate_dp != null ? conv.rate_dp : (conv.rate != null ? conv.rate : 0));
+
+    var explanationText = '';
+    if (assigned > 0 && completed > assigned) {
+        explanationText = 'Tỷ lệ CĐ mảng ' + typeName + ' đạt <strong>' + rate + '%</strong> (vượt 100%) vì nhân viên đã chốt được <strong>' + completed + ' đơn hàng</strong>, trong khi số khách hàng mới mảng ' + typeName + ' được giao trong kỳ là <strong>' + assigned + ' KH</strong>. Điều này phát sinh khi khách hàng được giao chốt từ 2 đơn trở lên, hoặc có đơn phát sinh từ tập khách hàng được phân công từ trước.';
+    } else if (assigned > 0) {
+        explanationText = 'Trong kỳ lọc này, nhân viên được phân công <strong>' + assigned + ' KH mới</strong> mảng ' + typeName + ' và đã chốt thành công <strong>' + completed + ' đơn hàng</strong>, đạt tỷ lệ chuyển đổi <strong>' + rate + '%</strong>.';
+    } else if (completed > 0) {
+        explanationText = 'Nhân viên chưa được phân công khách hàng mới mảng ' + typeName + ' nào trong kỳ lọc này (0 KH được giao), nhưng vẫn chốt thành công <strong>' + completed + ' đơn hàng</strong> mảng ' + typeName + ' từ danh sách khách hàng gán trước đó.';
+    } else {
+        explanationText = 'Trong kỳ lọc này, nhân viên chưa được giao khách hàng mới và chưa chốt đơn hàng nào thuộc mảng ' + typeName + ' (0%).';
+    }
+
+    var oldModal = document.getElementById('kpiCdDetailModal');
+    if (oldModal) oldModal.remove();
+
+    var h = '<div id="kpiCdDetailModal" onclick="if(event.target===this)closeKpiCdDetailModal()" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px">';
+    h += '<div style="background:#fff;border-radius:20px;max-width:760px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);overflow:hidden">';
+    
+    // Header
+    h += '<div style="background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:center">';
+    h += '<div>';
+    h += '<div style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px">📊 Chi Tiết Tỷ Lệ Chuyển Đổi (CĐ)</div>';
+    h += '<div style="font-size:13px;opacity:.95;margin-top:4px">👤 ' + empName + ' — Mảng <strong>' + typeName + '</strong></div>';
+    h += '</div>';
+    h += '<button onclick="closeKpiCdDetailModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1">✕</button>';
+    h += '</div>';
+
+    // Body
+    h += '<div style="padding:24px;max-height:80vh;overflow-y:auto">';
+
+    // Formula Box
+    h += '<div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:14px;padding:14px;text-align:center;margin-bottom:20px">';
+    h += '<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📐 CÔNG THỨC TÍNH CĐ ' + typeName + '</div>';
+    h += '<div style="font-size:14px;font-weight:800;color:#1e293b">Tỷ lệ CĐ % = (Số đơn chốt ÷ Số KH được giao) × 100%</div>';
+    h += '</div>';
+
+    // Stat Cards
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">';
+    h += '<div style="background:#eef2ff;border-radius:14px;padding:14px;border:1px solid #c7d2fe;text-align:center">';
+    h += '<div style="font-size:12px;color:#4338ca;font-weight:700;margin-bottom:4px">📦 Số đơn chốt (' + typeName + ')</div>';
+    h += '<div style="font-size:24px;font-weight:900;color:#3730a3">' + completed + ' đơn</div>';
+    h += '</div>';
+    h += '<div style="background:#f0fdf4;border-radius:14px;padding:14px;border:1px solid #bbf7d0;text-align:center">';
+    h += '<div style="font-size:12px;color:#166534;font-weight:700;margin-bottom:4px">👥 KH được giao (' + typeName + ')</div>';
+    h += '<div style="font-size:24px;font-weight:900;color:#15803d">' + assigned + ' KH</div>';
+    h += '</div>';
+    h += '</div>';
+
+    // Result Highlight
+    h += '<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:16px;padding:18px;text-align:center;margin-bottom:20px;box-shadow:0 4px 12px rgba(16,185,129,.1)">';
+    h += '<div style="font-size:11px;font-weight:800;color:#047857;letter-spacing:0.5px">KẾT QUẢ TỶ LỆ CHUYỂN ĐỔI</div>';
+    h += '<div style="font-size:32px;font-weight:900;color:#065f46;margin:6px 0">' + rate + '%</div>';
+    h += '<div style="font-size:13px;color:#047857;font-weight:700">Phép tính: (' + completed + ' đơn ÷ ' + (assigned > 0 ? assigned : 0) + ' KH) × 100% = <strong>' + rate + '%</strong></div>';
+    h += '</div>';
+
+    // Explanation Note
+    h += '<div style="background:#fffbebf0;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:0 12px 12px 0;font-size:13px;color:#92400e;line-height:1.6;margin-bottom:24px">';
+    h += '📌 <strong>Lý do ra kết quả:</strong> ' + explanationText;
+    h += '</div>';
+
+    // === TABS & TABLES FOR DETAILED LISTS ===
+    h += '<div style="border-top:1px solid #e2e8f0;padding-top:20px">';
+    h += '<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">';
+    h += '<button id="kpiCdTabOrdersBtn" onclick="switchKpiCdTab(\'orders\')" style="padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:#4338ca;color:#fff;border:none;box-shadow:0 2px 6px rgba(67,56,202,.2)">📦 Danh sách Đơn chốt (<span id="kpiCdOrdersCnt">' + completed + '</span>)</button>';
+    h += '<button id="kpiCdTabCustBtn" onclick="switchKpiCdTab(\'cust\')" style="padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1">👥 Danh sách KH được giao (<span id="kpiCdCustCnt">' + assigned + '</span>)</button>';
+    h += '</div>';
+
+    h += '<div id="kpiCdOrdersTab" style="display:block">';
+    h += '<div id="kpiCdOrdersList" style="max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px">';
+    h += '<div style="padding:24px;text-align:center;color:#64748b;font-weight:600">⏳ Đang tải danh sách đơn hàng chốt...</div>';
+    h += '</div>';
+    h += '</div>';
+
+    h += '<div id="kpiCdCustTab" style="display:none">';
+    h += '<div id="kpiCdCustList" style="max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px">';
+    h += '<div style="padding:24px;text-align:center;color:#64748b;font-weight:600">⏳ Đang tải danh sách khách hàng được giao...</div>';
+    h += '</div>';
+    h += '</div>';
+    h += '</div>';
+
+    h += '</div>'; // close body
+
+    // Footer
+    h += '<div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">';
+    h += '<button onclick="closeKpiCdDetailModal()" style="padding:8px 22px;border-radius:10px;background:#475569;color:#fff;border:none;font-weight:700;cursor:pointer;font-size:13px">Đóng</button>';
+    h += '</div>';
+
+    h += '</div>';
+    h += '</div>';
+
+    document.body.insertAdjacentHTML('beforeend', h);
+
+    // Fetch detail lists using exact period range from loaded data
+    var pStart = (data && data.period && data.period.start) || '';
+    var pEnd = (data && data.period && data.period.end) || '';
+
+    var detailUrl = '/api/reports/customer-retention/conversion-details?user_id=' + userId + '&type=' + type;
+    if (pStart && pEnd) {
+        detailUrl += '&startDate=' + encodeURIComponent(pStart) + '&endDate=' + encodeURIComponent(pEnd);
+    } else {
+        var filter = window._kpiLbFilter || window._kpiSaleLbFilter || 'month';
+        var monthVal = (window._kpi && window._kpi.month) || (window._kpiSale && window._kpiSale.month) || window._kpiLbMonth || '';
+        detailUrl += '&period=' + filter;
+        if (monthVal) detailUrl += '&date=' + monthVal;
+    }
+
+    apiCall(detailUrl).then(function(res) {
+        if (!res || !res.success) return;
+        if (typeof renderKpiCdDetailsTables === 'function') renderKpiCdDetailsTables(res);
+    }).catch(function(err) {
+        console.error('Error fetching CD details:', err);
+        var ordEl = document.getElementById('kpiCdOrdersList');
+        if (ordEl) ordEl.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">⚠️ Không tải được danh sách đơn: ' + (err.message||'') + '</div>';
+    });
+};
+
+window.kpiShowCdDetail = window.kpiShowCdDetail || function(userId, empName, type) {
+    window.kpiShowCdDetailModal(userId, empName, type, window._kpiAdvData || window._kpiSaleAdvData);
+};
+
