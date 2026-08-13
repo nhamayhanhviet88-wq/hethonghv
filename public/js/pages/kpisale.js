@@ -5105,21 +5105,31 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
         if (monthVal) detailUrl += '&date=' + monthVal;
     }
 
-    apiCall(detailUrl).then(function(res) {
-        if (!res || !res.success) return;
-        renderKpiCdDetailsTables(res);
-    }).catch(function(err) {
-        console.error('Error fetching CD details, trying fallback endpoint:', err);
-        var fallbackUrl = detailUrl.replace('/api/reports/customer-retention/', '/api/kpi-sale/');
-        apiCall(fallbackUrl).then(function(res2) {
-            if (res2 && res2.success && typeof renderKpiCdDetailsTables === 'function') {
-                renderKpiCdDetailsTables(res2);
-            }
-        }).catch(function(err2) {
-            var ordEl = document.getElementById('kpiCdOrdersList');
-            if (ordEl) ordEl.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">⚠️ Không tải được danh sách đơn: ' + (err2.message||err.message||'') + '</div>';
+    function loadCdDetails(attempt) {
+        attempt = attempt || 1;
+        apiCall(detailUrl).then(function(res) {
+            if (!res || !res.success) return;
+            if (typeof renderKpiCdDetailsTables === 'function') renderKpiCdDetailsTables(res);
+        }).catch(function(err) {
+            var fallbackUrl = detailUrl.replace('/api/reports/customer-retention/', '/api/kpi-sale/');
+            apiCall(fallbackUrl).then(function(res2) {
+                if (res2 && res2.success && typeof renderKpiCdDetailsTables === 'function') {
+                    renderKpiCdDetailsTables(res2);
+                }
+            }).catch(function(err2) {
+                if (attempt < 2) {
+                    setTimeout(function() { loadCdDetails(attempt + 1); }, 600);
+                } else {
+                    var ordEl = document.getElementById('kpiCdOrdersList');
+                    if (ordEl) {
+                        ordEl.innerHTML = '<div style="padding:20px;text-align:center"><div style="color:#ef4444;font-weight:600;margin-bottom:10px">⚠️ Không tải được dữ liệu chi tiết</div><button onclick="window.kpiReloadCdDetails()" style="padding:6px 16px;border-radius:8px;background:#4338ca;color:#fff;border:none;font-weight:700;cursor:pointer;font-size:12px">🔄 Thử lại</button></div>';
+                    }
+                }
+            });
         });
-    });
+    }
+    window.kpiReloadCdDetails = function() { loadCdDetails(1); };
+    loadCdDetails(1);
 };
 
 window.renderKpiCdDetailsTables = function(res) {
