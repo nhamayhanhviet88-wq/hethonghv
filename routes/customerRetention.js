@@ -10,6 +10,12 @@ const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = requir
 
 module.exports = async function(fastify) {
 
+    fastify.addHook('onSend', async (request, reply) => {
+        reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
+    });
+
     // ★ Production Mode: build combined filter for all queries in this module
     async function _getCutoffSQL() {
         const cutoff = await getProductionCutoff();

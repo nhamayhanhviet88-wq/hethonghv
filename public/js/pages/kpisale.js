@@ -5053,19 +5053,19 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
     h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">';
     h += '<div style="background:#eef2ff;border-radius:14px;padding:14px;border:1px solid #c7d2fe;text-align:center">';
     h += '<div style="font-size:12px;color:#4338ca;font-weight:700;margin-bottom:4px">📦 Số đơn chốt (' + typeName + ')</div>';
-    h += '<div style="font-size:24px;font-weight:900;color:#3730a3">' + completed + ' đơn</div>';
+    h += '<div id="kpiCdStatCompleted" style="font-size:24px;font-weight:900;color:#3730a3">' + completed + ' đơn</div>';
     h += '</div>';
     h += '<div style="background:#f0fdf4;border-radius:14px;padding:14px;border:1px solid #bbf7d0;text-align:center">';
     h += '<div style="font-size:12px;color:#166534;font-weight:700;margin-bottom:4px">👥 KH được giao (' + typeName + ')</div>';
-    h += '<div style="font-size:24px;font-weight:900;color:#15803d">' + assigned + ' KH</div>';
+    h += '<div id="kpiCdStatAssigned" style="font-size:24px;font-weight:900;color:#15803d">' + assigned + ' KH</div>';
     h += '</div>';
     h += '</div>';
 
     // Result Highlight
     h += '<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:16px;padding:18px;text-align:center;margin-bottom:20px;box-shadow:0 4px 12px rgba(16,185,129,.1)">';
     h += '<div style="font-size:11px;font-weight:800;color:#047857;letter-spacing:0.5px">KẾT QUẢ TỶ LỆ CHUYỂN ĐỔI</div>';
-    h += '<div style="font-size:32px;font-weight:900;color:#065f46;margin:6px 0">' + rate + '%</div>';
-    h += '<div style="font-size:13px;color:#047857;font-weight:700">Phép tính: (' + completed + ' đơn ÷ ' + (assigned > 0 ? assigned : 0) + ' KH) × 100% = <strong>' + rate + '%</strong></div>';
+    h += '<div id="kpiCdStatRate" style="font-size:32px;font-weight:900;color:#065f46;margin:6px 0">' + rate + '%</div>';
+    h += '<div id="kpiCdStatFormula" style="font-size:13px;color:#047857;font-weight:700">Phép tính: (' + completed + ' đơn ÷ ' + (assigned > 0 ? assigned : 0) + ' KH) × 100% = <strong>' + rate + '%</strong></div>';
     h += '</div>';
 
     // Explanation Note
