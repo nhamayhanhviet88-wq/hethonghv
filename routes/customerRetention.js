@@ -1326,4 +1326,92 @@ module.exports = async function(fastify) {
             period: { type: period, label: current.label, start: current.start, end: current.end }
         };
     });
+
+    // ===== Conversion Rate Breakdown Details: List of orders & assigned customers =====
+    fastify.get('/api/reports/customer-retention/conversion-details', { preHandler: [authenticate] }, async (request, reply) => {
+        const { user_id, type = 'dp', period = 'month', date, startDate, endDate } = request.query;
+        const targetUserId = parseInt(user_id);
+        if (!targetUserId) return reply.code(400).send({ error: 'Thiếu user_id' });
+
+        const { current } = parsePeriod(period, date, { startDate, endDate });
+        const _pCutoff = await _getCutoffSQL();
+
+        // 1. Fetch Completed Orders for this user & business area
+        const orders = await db.all(`
+            WITH valid_orders AS (
+                SELECT 
+                    d.id AS order_id,
+                    d.order_code,
+                    d.created_at,
+                    c.customer_name,
+                    c.phone,
+                    c.assigned_to_id AS uid,
+                    COALESCE(cat.name, 'Đồng Phục') AS category_name,
+                    CASE 
+                        WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
+                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
+                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCTEM%'
+                          OR d.category_id IN (8, 9)
+                        THEN 'pettem'
+                        ELSE 'dp'
+                    END AS business_area,
+                    COALESCE(oi.rev, 0) - COALESCE(d.discount_amount, 0) AS revenue
+                FROM dht_orders d
+                JOIN order_codes oc ON oc.order_code = d.order_code
+                JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN dht_categories cat ON cat.id = d.category_id
+                LEFT JOIN LATERAL (SELECT COALESCE(
+                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
+                    0
+                ) - COALESCE(d.vat_amount, 0) AS rev) oi ON true
+                WHERE c.assigned_to_id = $1
+                  AND c.phone IS NOT NULL AND c.phone != ''
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  AND COALESCE(d.is_draft, false) = false
+                  AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
+                  AND d.created_at >= $2::timestamp AND d.created_at < $3::timestamp
+                  ${_pCutoff}
+            )
+            SELECT order_id, order_code, customer_name, phone, created_at, category_name, revenue
+            FROM valid_orders
+            WHERE business_area = $4
+            ORDER BY created_at DESC
+        `, [targetUserId, current.start, current.end, type === 'pettem' ? 'pettem' : 'dp']);
+
+        // 2. Fetch Assigned Customers for this user & business area
+        const customers = await db.all(`
+            SELECT id, customer_uid, customer_name, phone, created_at, effective_date, crm_type
+            FROM customers c
+            WHERE assigned_to_id = $1
+              AND created_at >= $2::timestamp AND created_at < $3::timestamp
+              AND (
+                  CASE WHEN crm_type = 'tem_pet' THEN 'pettem' ELSE 'dp' END = $4
+              )
+              ${_pCutoff}
+            ORDER BY created_at DESC
+        `, [targetUserId, current.start, current.end, type === 'pettem' ? 'pettem' : 'dp']);
+
+        return {
+            success: true,
+            user_id: targetUserId,
+            type,
+            orders: orders.map(o => ({
+                id: o.order_id,
+                order_code: o.order_code,
+                customer_name: o.customer_name || 'Khách hàng',
+                phone: o.phone || '',
+                created_at: o.created_at,
+                category_name: o.category_name,
+                revenue: parseFloat(o.revenue || 0)
+            })),
+            customers: customers.map(c => ({
+                id: c.id,
+                customer_uid: c.customer_uid || `KH-${c.id}`,
+                customer_name: c.customer_name || 'Khách mới',
+                phone: c.phone || '',
+                created_at: c.created_at,
+                effective_date: c.effective_date
+            }))
+        };
+    });
 };

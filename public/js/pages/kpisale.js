@@ -5015,7 +5015,7 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
     if (oldModal) oldModal.remove();
 
     var h = '<div id="kpiCdDetailModal" onclick="if(event.target===this)closeKpiCdDetailModal()" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px">';
-    h += '<div style="background:#fff;border-radius:20px;max-width:520px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);overflow:hidden">';
+    h += '<div style="background:#fff;border-radius:20px;max-width:760px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);overflow:hidden">';
     
     // Header
     h += '<div style="background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:center">';
@@ -5027,7 +5027,7 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
     h += '</div>';
 
     // Body
-    h += '<div style="padding:24px">';
+    h += '<div style="padding:24px;max-height:80vh;overflow-y:auto">';
 
     // Formula Box
     h += '<div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:14px;padding:14px;text-align:center;margin-bottom:20px">';
@@ -5055,8 +5055,28 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
     h += '</div>';
 
     // Explanation Note
-    h += '<div style="background:#fffbebf0;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:0 12px 12px 0;font-size:13px;color:#92400e;line-height:1.6">';
+    h += '<div style="background:#fffbebf0;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:0 12px 12px 0;font-size:13px;color:#92400e;line-height:1.6;margin-bottom:24px">';
     h += '📌 <strong>Lý do ra kết quả:</strong> ' + explanationText;
+    h += '</div>';
+
+    // === TABS & TABLES FOR DETAILED LISTS ===
+    h += '<div style="border-top:1px solid #e2e8f0;padding-top:20px">';
+    h += '<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">';
+    h += '<button id="kpiCdTabOrdersBtn" onclick="switchKpiCdTab(\'orders\')" style="padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:#4338ca;color:#fff;border:none;box-shadow:0 2px 6px rgba(67,56,202,.2)">📦 Danh sách Đơn chốt (<span id="kpiCdOrdersCnt">' + completed + '</span>)</button>';
+    h += '<button id="kpiCdTabCustBtn" onclick="switchKpiCdTab(\'cust\')" style="padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1">👥 Danh sách KH được giao (<span id="kpiCdCustCnt">' + assigned + '</span>)</button>';
+    h += '</div>';
+
+    h += '<div id="kpiCdOrdersTab" style="display:block">';
+    h += '<div id="kpiCdOrdersList" style="max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px">';
+    h += '<div style="padding:24px;text-align:center;color:#64748b;font-weight:600">⏳ Đang tải danh sách đơn hàng chốt...</div>';
+    h += '</div>';
+    h += '</div>';
+
+    h += '<div id="kpiCdCustTab" style="display:none">';
+    h += '<div id="kpiCdCustList" style="max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px">';
+    h += '<div style="padding:24px;text-align:center;color:#64748b;font-weight:600">⏳ Đang tải danh sách khách hàng được giao...</div>';
+    h += '</div>';
+    h += '</div>';
     h += '</div>';
 
     h += '</div>'; // close body
@@ -5070,6 +5090,105 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
     h += '</div>';
 
     document.body.insertAdjacentHTML('beforeend', h);
+
+    // Fetch detail lists
+    var filter = window._kpiSaleLbFilter || window._kpiLbFilter || 'this_month';
+    var monthVal = window._kpiSaleLbMonth || window._kpiLbMonth || '';
+    var startDateVal = window._kpiSaleLbCustomStart || window._kpiLbCustomStart || '';
+    var endDateVal = window._kpiSaleLbCustomEnd || window._kpiLbCustomEnd || '';
+
+    var detailUrl = '/api/reports/customer-retention/conversion-details?user_id=' + userId + '&type=' + type + '&period=' + filter;
+    if (monthVal) detailUrl += '&date=' + monthVal;
+    if (startDateVal && endDateVal) detailUrl += '&startDate=' + startDateVal + '&endDate=' + endDateVal;
+
+    apiCall(detailUrl).then(function(res) {
+        if (!res || !res.success) return;
+        renderKpiCdDetailsTables(res);
+    }).catch(function(err) {
+        console.error('Error fetching CD details:', err);
+        var ordEl = document.getElementById('kpiCdOrdersList');
+        if (ordEl) ordEl.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">⚠️ Không tải được danh sách đơn: ' + (err.message||'') + '</div>';
+    });
+};
+
+window.renderKpiCdDetailsTables = function(res) {
+    var orders = res.orders || [];
+    var customers = res.customers || [];
+
+    var ordCntEl = document.getElementById('kpiCdOrdersCnt');
+    if (ordCntEl) ordCntEl.textContent = orders.length;
+    var custCntEl = document.getElementById('kpiCdCustCnt');
+    if (custCntEl) custCntEl.textContent = customers.length;
+
+    // Render Orders Table
+    var ordListEl = document.getElementById('kpiCdOrdersList');
+    if (ordListEl) {
+        if (orders.length === 0) {
+            ordListEl.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8">📭 Không phát sinh đơn hàng nào thuộc mảng này trong kỳ</div>';
+        } else {
+            var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+            h += '<thead><tr style="background:#f8fafc;color:#475569;border-bottom:1px solid #e2e8f0"><th style="padding:10px 12px;text-align:left">#</th><th style="padding:10px 12px;text-align:left">Mã đơn hàng</th><th style="padding:10px 12px;text-align:left">Tên khách hàng</th><th style="padding:10px 12px;text-align:left">SĐT</th><th style="padding:10px 12px;text-align:left">Ngày chốt</th><th style="padding:10px 12px;text-align:left">Hạng mục</th><th style="padding:10px 12px;text-align:right">Doanh số</th></tr></thead><tbody>';
+            for (var i = 0; i < orders.length; i++) {
+                var o = orders[i];
+                var dt = o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '—';
+                var revFmt = typeof kpiSaleCompactVND === 'function' ? kpiSaleCompactVND(o.revenue) : (o.revenue.toLocaleString() + 'đ');
+                h += '<tr style="border-bottom:1px solid #f1f5f9">';
+                h += '<td style="padding:10px 12px;color:#94a3b8">' + (i + 1) + '</td>';
+                h += '<td style="padding:10px 12px;font-weight:700;color:#4338ca">' + (o.order_code || '—') + '</td>';
+                h += '<td style="padding:10px 12px;font-weight:700;color:#1e293b">' + (o.customer_name || 'Khách hàng') + '</td>';
+                h += '<td style="padding:10px 12px;color:#64748b">' + (o.phone || '—') + '</td>';
+                h += '<td style="padding:10px 12px;color:#64748b">' + dt + '</td>';
+                h += '<td style="padding:10px 12px;color:#6366f1;font-weight:600">' + (o.category_name || '—') + '</td>';
+                h += '<td style="padding:10px 12px;text-align:right;font-weight:800;color:#059669">' + revFmt + '</td>';
+                h += '</tr>';
+            }
+            h += '</tbody></table>';
+            ordListEl.innerHTML = h;
+        }
+    }
+
+    // Render Customers Table
+    var custListEl = document.getElementById('kpiCdCustList');
+    if (custListEl) {
+        if (customers.length === 0) {
+            custListEl.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8">📭 Không có khách hàng mới được giao mảng này trong kỳ</div>';
+        } else {
+            var h2 = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+            h2 += '<thead><tr style="background:#f8fafc;color:#475569;border-bottom:1px solid #e2e8f0"><th style="padding:10px 12px;text-align:left">#</th><th style="padding:10px 12px;text-align:left">Mã KH (UID)</th><th style="padding:10px 12px;text-align:left">Tên khách hàng</th><th style="padding:10px 12px;text-align:left">Số điện thoại</th><th style="padding:10px 12px;text-align:left">Ngày giao</th></tr></thead><tbody>';
+            for (var j = 0; j < customers.length; j++) {
+                var c = customers[j];
+                var cDt = c.created_at ? new Date(c.created_at).toLocaleString('vi-VN') : '—';
+                h2 += '<tr style="border-bottom:1px solid #f1f5f9">';
+                h2 += '<td style="padding:10px 12px;color:#94a3b8">' + (j + 1) + '</td>';
+                h2 += '<td style="padding:10px 12px;font-weight:700;color:#0284c7">' + (c.customer_uid || ('KH-' + c.id)) + '</td>';
+                h2 += '<td style="padding:10px 12px;font-weight:700;color:#1e293b">' + (c.customer_name || 'Khách mới') + '</td>';
+                h2 += '<td style="padding:10px 12px;font-weight:700;color:#059669">' + (c.phone || '—') + '</td>';
+                h2 += '<td style="padding:10px 12px;color:#64748b">' + cDt + '</td>';
+                h2 += '</tr>';
+            }
+            h2 += '</tbody></table>';
+            custListEl.innerHTML = h2;
+        }
+    }
+};
+
+window.switchKpiCdTab = function(tab) {
+    var ordTab = document.getElementById('kpiCdOrdersTab');
+    var custTab = document.getElementById('kpiCdCustTab');
+    var ordBtn = document.getElementById('kpiCdTabOrdersBtn');
+    var custBtn = document.getElementById('kpiCdTabCustBtn');
+
+    if (tab === 'orders') {
+        if (ordTab) ordTab.style.display = 'block';
+        if (custTab) custTab.style.display = 'none';
+        if (ordBtn) { ordBtn.style.background = '#4338ca'; ordBtn.style.color = '#fff'; ordBtn.style.border = 'none'; }
+        if (custBtn) { custBtn.style.background = '#f1f5f9'; custBtn.style.color = '#475569'; custBtn.style.border = '1px solid #cbd5e1'; }
+    } else {
+        if (ordTab) ordTab.style.display = 'none';
+        if (custTab) custTab.style.display = 'block';
+        if (ordBtn) { ordBtn.style.background = '#f1f5f9'; ordBtn.style.color = '#475569'; ordBtn.style.border = '1px solid #cbd5e1'; }
+        if (custBtn) { custBtn.style.background = '#4338ca'; custBtn.style.color = '#fff'; custBtn.style.border = 'none'; }
+    }
 };
 
 window.closeKpiCdDetailModal = function() {
