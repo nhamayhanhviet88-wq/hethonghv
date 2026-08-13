@@ -1611,7 +1611,17 @@ function kpiRenderTeamCompare(el, data, advData) {
         h += '<div class="kpi-tc-stats">';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#3b82f6">' + kpiDashFmtVND(team.revenue || 0) + '</div><div class="kpi-tc-stat-label">💰 Doanh Số</div><div style="margin-top:4px">' + kpiTrend(team.revenue || 0, prev.revenue || 0) + '</div></div>';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#4338ca">' + (team.total_orders || 0) + '</div><div class="kpi-tc-stat-label">📦 Tổng Đơn</div><div style="margin-top:4px">' + kpiTrend(team.total_orders || 0, prev.total_orders || 0) + '</div></div>';
-        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#7c3aed">' + (team.rate || 0) + '%</div><div class="kpi-tc-stat-label">🔁 TỈ LỆ KH CŨ</div><div style="margin-top:4px">' + kpiTrend(team.rate || 0, prev.rate || 0) + '</div></div>';
+        var dpStr = team.rate_dp != null ? team.rate_dp + '%' : '—';
+        var petStr = team.rate_pettem != null ? team.rate_pettem + '%' : '—';
+        var retTooltip = 'Đồng Phục: ' + (team.ret_dp_cust || 0) + '/' + (team.old_dp_total || 0) + ' KH (' + dpStr + ') | PET/TEM: ' + (team.ret_pettem_cust || 0) + '/' + (team.old_pettem_total || 0) + ' KH (' + petStr + ')';
+        h += '<div class="kpi-tc-stat" title="' + retTooltip + '">';
+        h += '<div class="kpi-tc-stat-val" style="color:#7c3aed;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:3px">';
+        h += '<span style="color:#059669" title="Tỷ lệ KH cũ Đồng Phục quay lại">ĐP ' + dpStr + '</span>';
+        h += '<span style="color:#cbd5e1">|</span>';
+        h += '<span style="color:#7c3aed" title="Tỷ lệ KH cũ PET/TEM quay lại">PET ' + petStr + '</span>';
+        h += '</div>';
+        h += '<div class="kpi-tc-stat-label">🔁 TỈ LỆ KH CŨ</div>';
+        h += '</div>';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#059669">' + (team.affiliate_new || 0) + '</div><div class="kpi-tc-stat-label">🤝 TẠO TK AFF</div><div style="margin-top:4px">' + kpiTrend(team.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
         h += '</div></div>';
     }

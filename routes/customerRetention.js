@@ -1238,35 +1238,47 @@ module.exports = async function(fastify) {
         // === 6. TEAM COMPARISON ===
         const teamComparison = childDepts.map(dept => {
             const teamUserIds = users.filter(u => u.department_id === dept.id).map(u => u.id);
-            const teamLeader = leaderRows.filter(r => teamUserIds.includes(r.uid));
-            const totalOrders = teamLeader.reduce((s, r) => s + parseInt(r.total_orders), 0);
-            const totalRev = teamLeader.reduce((s, r) => s + parseFloat(r.total_revenue), 0);
-            const totalRet = teamLeader.reduce((s, r) => s + parseInt(r.returning_orders), 0);
-            const teamAff = leaderboard.filter(l => teamUserIds.includes(l.user_id)).reduce((s, l) => s + (l.affiliate_new || 0), 0);
+            const teamLeader = leaderRows.filter(r => teamUserIds.includes(Number(r.uid)));
+            const totalOrders = teamLeader.reduce((s, r) => s + parseInt(r.total_orders || 0), 0);
+            const totalRev = teamLeader.reduce((s, r) => s + parseFloat(r.total_revenue || 0), 0);
+
+            const oldDpTotal = teamLeader.reduce((s, r) => s + parseInt(r.old_dp_total || 0), 0);
+            const retDpCust = teamLeader.reduce((s, r) => s + parseInt(r.ret_dp_cust || 0), 0);
+            const rateDp = oldDpTotal > 0 ? Math.round(1000 * retDpCust / oldDpTotal) / 10 : null;
+
+            const oldPetTemTotal = teamLeader.reduce((s, r) => s + parseInt(r.old_pettem_total || 0), 0);
+            const retPetTemCust = teamLeader.reduce((s, r) => s + parseInt(r.ret_pettem_cust || 0), 0);
+            const ratePetTem = oldPetTemTotal > 0 ? Math.round(1000 * retPetTemCust / oldPetTemTotal) / 10 : null;
+
+            const totalOld = oldDpTotal + oldPetTemTotal;
+            const totalRetCust = retDpCust + retPetTemCust;
+            const overallRate = totalOld > 0 ? Math.round(1000 * totalRetCust / totalOld) / 10 : 0;
+            const teamAff = teamUserIds.reduce((s, uid) => s + (affMap[uid] || 0), 0);
 
             // Previous period per team
             const prevTeamLeader = prevLeaderRows.filter(r => teamUserIds.includes(r.uid));
             const prevTotalOrders = prevTeamLeader.reduce((s, r) => s + parseInt(r.total_orders), 0);
             const prevTotalRev = prevTeamLeader.reduce((s, r) => s + parseFloat(r.total_revenue), 0);
-            const prevTotalRet = prevTeamLeader.reduce((s, r) => s + parseInt(r.returning_orders), 0);
             const prevTeamAff = teamUserIds.reduce((s, uid) => s + (prevAffMap[uid] || 0), 0);
 
             return {
                 team_id: dept.id,
                 name: dept.name,
                 total_orders: totalOrders,
-                new_orders: totalOrders - totalRet,
                 revenue: totalRev,
-                returning: totalRet,
-                rate: totalOrders > 0 ? Math.round(1000 * totalRet / totalOrders) / 10 : 0,
+                old_dp_total: oldDpTotal,
+                ret_dp_cust: retDpCust,
+                rate_dp: rateDp,
+                old_pettem_total: oldPetTemTotal,
+                ret_pettem_cust: retPetTemCust,
+                rate_pettem: ratePetTem,
+                rate: overallRate,
                 affiliate_new: teamAff,
                 employee_count: teamUserIds.length,
                 prev: {
                     total_orders: prevTotalOrders,
-                    new_orders: prevTotalOrders - prevTotalRet,
                     revenue: prevTotalRev,
-                    returning: prevTotalRet,
-                    rate: prevTotalOrders > 0 ? Math.round(1000 * prevTotalRet / prevTotalOrders) / 10 : 0,
+                    rate: 0,
                     affiliate_new: prevTeamAff
                 }
             };
