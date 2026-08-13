@@ -1468,6 +1468,18 @@ window.kpiSaleLbSort = function(metric) {
     if (container && window._kpiSaleAdvData) renderKpiSaleLeaderboard(window._kpiSaleAdvData);
 };
 
+function _kpiSaleFmtDisplayEnd(pInfo) {
+    if (!pInfo) return '';
+    if (pInfo.display_end) return pInfo.display_end;
+    var end = pInfo.end || pInfo.start || '';
+    if (end && end.endsWith('-01') && end !== pInfo.start) {
+        var d = new Date(end + 'T00:00:00');
+        d.setDate(d.getDate() - 1);
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    return end;
+}
+
 function renderKpiSaleLeaderboard(data) {
     var el = document.getElementById('kpiSaleLeaderboard');
     if (!el) return;
@@ -1497,18 +1509,6 @@ function renderKpiSaleLeaderboard(data) {
     ];
 
     var filterRow1 = [
-function _kpiSaleFmtDisplayEnd(pInfo) {
-    if (!pInfo) return '';
-    if (pInfo.display_end) return pInfo.display_end;
-    var end = pInfo.end || pInfo.start || '';
-    if (end && end.endsWith('-01') && end !== pInfo.start) {
-        var d = new Date(end + 'T00:00:00');
-        d.setDate(d.getDate() - 1);
-        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    }
-    return end;
-}
-
         { key: 'today', icon: '📅', label: 'Hôm nay' },
         { key: 'yesterday', icon: '📅', label: 'Hôm qua' },
         { key: '7days', icon: '📅', label: '7 ngày' },
