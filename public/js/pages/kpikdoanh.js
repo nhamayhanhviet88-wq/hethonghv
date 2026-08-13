@@ -428,11 +428,9 @@ function _kpiFilterAdvData(advData) {
         filtered.allEmployees = filtered.allEmployees.filter(function(e) { return e.user_id === myId; });
     }
 
-    // conversionMap: only self
+    // conversionMap: preserve conversion data for leaderboard
     if (filtered.conversionMap) {
-        var myConv = {};
-        if (filtered.conversionMap[myId]) myConv[myId] = filtered.conversionMap[myId];
-        filtered.conversionMap = myConv;
+        filtered.conversionMap = Object.assign({}, advData.conversionMap || {}, filtered.conversionMap);
     }
 
     // teamComparison: only my team
@@ -479,13 +477,9 @@ function _kpiFilterAdvDataTP(advData) {
         filtered.allEmployees = filtered.allEmployees.filter(function(e) { return teamEmpIds.has(e.user_id); });
     }
 
-    // conversionMap: only team members
+    // conversionMap: preserve conversion data for all leaderboard rows
     if (filtered.conversionMap) {
-        var filtConv = {};
-        teamEmpIds.forEach(function(uid) {
-            if (filtered.conversionMap[uid]) filtConv[uid] = filtered.conversionMap[uid];
-        });
-        filtered.conversionMap = filtConv;
+        filtered.conversionMap = Object.assign({}, advData.conversionMap || {}, filtered.conversionMap);
     }
 
     // teamComparison: only own team(s)
