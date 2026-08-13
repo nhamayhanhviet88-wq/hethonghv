@@ -1241,31 +1241,35 @@ module.exports = async function(fastify) {
 
         const conversionMapAdv = {};
         assignedPerEmpAdv.forEach(r => {
-            const uid = r.uid;
+            const uid = Number(r.uid);
             const assigned = parseInt(r.assigned);
             const assignedDp = parseInt(r.assigned_dp || 0);
             const assignedPetTem = parseInt(r.assigned_pettem || 0);
-            const lbEntry = leaderboard.find(l => l.user_id === uid);
+            const lbEntry = leaderboard.find(l => Number(l.user_id) === uid);
             const completed = lbEntry ? lbEntry.total_orders : 0;
             const completedDp = lbEntry ? (lbEntry.orders_dp || 0) : 0;
             const completedPetTem = lbEntry ? (lbEntry.orders_pettem || 0) : 0;
 
+            const rateDp = assignedDp > 0 ? Math.round(1000 * completedDp / assignedDp) / 10 : (completedDp > 0 ? completedDp * 100 : 0);
+            const ratePetTem = assignedPetTem > 0 ? Math.round(1000 * completedPetTem / assignedPetTem) / 10 : (completedPetTem > 0 ? completedPetTem * 100 : 0);
+
             conversionMapAdv[uid] = { 
                 assigned, completed, rate: assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : 0,
-                assigned_dp: assignedDp, completed_dp: completedDp, rate_dp: assignedDp > 0 ? Math.round(1000 * completedDp / assignedDp) / 10 : 0,
-                assigned_pettem: assignedPetTem, completed_pettem: completedPetTem, rate_pettem: assignedPetTem > 0 ? Math.round(1000 * completedPetTem / assignedPetTem) / 10 : 0
+                assigned_dp: assignedDp, completed_dp: completedDp, rate_dp: rateDp,
+                assigned_pettem: assignedPetTem, completed_pettem: completedPetTem, rate_pettem: ratePetTem
             };
         });
-        userIds.forEach(uid => {
+        userIds.forEach(rawUid => {
+            const uid = Number(rawUid);
             if (!conversionMapAdv[uid]) {
-                const lbEntry = leaderboard.find(l => l.user_id === uid);
+                const lbEntry = leaderboard.find(l => Number(l.user_id) === uid);
                 const completed = lbEntry ? lbEntry.total_orders : 0;
                 const completedDp = lbEntry ? (lbEntry.orders_dp || 0) : 0;
                 const completedPetTem = lbEntry ? (lbEntry.orders_pettem || 0) : 0;
                 conversionMapAdv[uid] = { 
                     assigned: 0, completed, rate: 0,
-                    assigned_dp: 0, completed_dp: completedDp, rate_dp: 0,
-                    assigned_pettem: 0, completed_pettem: completedPetTem, rate_pettem: 0
+                    assigned_dp: 0, completed_dp: completedDp, rate_dp: completedDp > 0 ? completedDp * 100 : 0,
+                    assigned_pettem: 0, completed_pettem: completedPetTem, rate_pettem: completedPetTem > 0 ? completedPetTem * 100 : 0
                 };
             }
         });
@@ -1284,7 +1288,7 @@ module.exports = async function(fastify) {
 
         leaderboard.forEach(l => {
             if (!l.prev) l.prev = { total_orders: 0, total_orders_dp: 0, total_orders_pettem: 0, revenue: 0, rate: 0, affiliate_new: 0 };
-            const prevAssigned = prevAssignedAdv.find(r => r.uid === l.user_id);
+            const prevAssigned = prevAssignedAdv.find(r => Number(r.uid) === Number(l.user_id));
             const pAssigned = prevAssigned ? parseInt(prevAssigned.assigned) : 0;
             const pCompleted = l.prev.total_orders;
             l.prev.conversion_rate = pAssigned > 0 ? Math.round(1000 * pCompleted / pAssigned) / 10 : 0;
