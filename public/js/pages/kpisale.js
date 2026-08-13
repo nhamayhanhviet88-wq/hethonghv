@@ -1588,8 +1588,8 @@ function renderKpiSaleLeaderboard(data) {
             var emp = lb[i];
             var rank = i < 3 ? medals[i] : (i + 1);
             var conv = convMap[emp.user_id] || convMap[emp.id] || {};
-            var rateDpVal = conv.rate_dp != null ? conv.rate_dp : (conv.assigned_dp != null ? 0 : conv.rate);
-            var ratePetTemVal = conv.rate_pettem != null ? conv.rate_pettem : (conv.assigned_pettem != null ? 0 : conv.rate);
+            var rateDpVal = conv.rate_dp != null ? conv.rate_dp : (conv.assigned_dp > 0 ? Math.round(1000 * (conv.completed_dp || 0) / conv.assigned_dp) / 10 : (conv.completed_dp > 0 ? conv.completed_dp * 100 : 0));
+            var ratePetTemVal = conv.rate_pettem != null ? conv.rate_pettem : (conv.assigned_pettem > 0 ? Math.round(1000 * (conv.completed_pettem || 0) / conv.assigned_pettem) / 10 : (conv.completed_pettem > 0 ? conv.completed_pettem * 100 : 0));
             var cRateDp = rateDpVal != null ? rateDpVal + '%' : '0%';
             var cColorDp = (rateDpVal || 0) >= 70 ? '#10b981' : (rateDpVal || 0) >= 40 ? '#f59e0b' : '#ef4444';
             var cRatePetTem = ratePetTemVal != null ? ratePetTemVal + '%' : '0%';
@@ -4998,7 +4998,9 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
     var typeName = type === 'pettem' ? 'PET / TEM' : 'Đồng Phục';
     var assigned = type === 'pettem' ? (conv.assigned_pettem || 0) : (conv.assigned_dp || 0);
     var completed = type === 'pettem' ? (conv.completed_pettem || 0) : (conv.completed_dp || 0);
-    var rate = type === 'pettem' ? (conv.rate_pettem != null ? conv.rate_pettem : (conv.rate != null ? conv.rate : 0)) : (conv.rate_dp != null ? conv.rate_dp : (conv.rate != null ? conv.rate : 0));
+    var rate = type === 'pettem' 
+        ? (conv.rate_pettem != null ? conv.rate_pettem : (conv.assigned_pettem > 0 ? Math.round(1000 * (conv.completed_pettem || 0) / conv.assigned_pettem) / 10 : (conv.completed_pettem > 0 ? conv.completed_pettem * 100 : 0))) 
+        : (conv.rate_dp != null ? conv.rate_dp : (conv.assigned_dp > 0 ? Math.round(1000 * (conv.completed_dp || 0) / conv.assigned_dp) / 10 : (conv.completed_dp > 0 ? conv.completed_dp * 100 : 0)));
 
     var explanationText = '';
     if (assigned > 0 && completed > assigned) {
