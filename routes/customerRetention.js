@@ -1387,7 +1387,7 @@ module.exports = async function(fastify) {
 
         // 2. Fetch Assigned Customers for this user & business area
         const customers = await db.all(`
-            SELECT id, customer_uid, customer_name, phone, created_at, effective_date, crm_type
+            SELECT id, customer_uid, customer_name, phone, created_at, effective_date, handover_date, daily_order_number, crm_type
             FROM customers c
             WHERE assigned_to_id = $1
               AND created_at >= $2::timestamp AND created_at < $3::timestamp
@@ -1417,7 +1417,9 @@ module.exports = async function(fastify) {
                 customer_name: c.customer_name || 'Khách mới',
                 phone: c.phone || '',
                 created_at: c.created_at,
-                effective_date: c.effective_date
+                effective_date: c.effective_date,
+                handover_date: c.handover_date,
+                daily_order_number: parseInt(c.daily_order_number || 0)
             }))
         };
     });

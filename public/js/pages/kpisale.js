@@ -5158,13 +5158,22 @@ window.renderKpiCdDetailsTables = function(res) {
             custListEl.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8">📭 Không có khách hàng mới được giao mảng này trong kỳ</div>';
         } else {
             var h2 = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
-            h2 += '<thead><tr style="background:#f8fafc;color:#475569;border-bottom:1px solid #e2e8f0"><th style="padding:10px 12px;text-align:left">#</th><th style="padding:10px 12px;text-align:left">Mã KH (UID)</th><th style="padding:10px 12px;text-align:left">Tên khách hàng</th><th style="padding:10px 12px;text-align:left">Số điện thoại</th><th style="padding:10px 12px;text-align:left">Ngày giao</th></tr></thead><tbody>';
+            h2 += '<thead><tr style="background:#f8fafc;color:#475569;border-bottom:1px solid #e2e8f0"><th style="padding:10px 12px;text-align:left">#</th><th style="padding:10px 12px;text-align:left">Mã KH</th><th style="padding:10px 12px;text-align:left">Tên khách hàng</th><th style="padding:10px 12px;text-align:left">Số điện thoại</th><th style="padding:10px 12px;text-align:left">Ngày giao</th></tr></thead><tbody>';
             for (var j = 0; j < customers.length; j++) {
                 var c = customers[j];
                 var cDt = c.created_at ? new Date(c.created_at).toLocaleString('vi-VN') : '—';
+                var codeFmt = (typeof getCustomerCode === 'function') ? getCustomerCode(c) : '';
+                if (!codeFmt || codeFmt.indexOf('NaN') !== -1 || codeFmt.startsWith('0-0-')) {
+                    var dObj = new Date(c.effective_date || c.created_at || c.handover_date);
+                    if (!isNaN(dObj.getTime())) {
+                        codeFmt = (c.daily_order_number || 0) + '-' + dObj.getDate() + '-' + (dObj.getMonth() + 1) + '-Y' + String(dObj.getFullYear()).slice(-2);
+                    } else {
+                        codeFmt = c.customer_uid || ('KH-' + c.id);
+                    }
+                }
                 h2 += '<tr style="border-bottom:1px solid #f1f5f9">';
                 h2 += '<td style="padding:10px 12px;color:#94a3b8">' + (j + 1) + '</td>';
-                h2 += '<td style="padding:10px 12px;font-weight:700;color:#0284c7">' + (c.customer_uid || ('KH-' + c.id)) + '</td>';
+                h2 += '<td style="padding:10px 12px;font-weight:700;color:#e65100">' + codeFmt + '</td>';
                 h2 += '<td style="padding:10px 12px;font-weight:700;color:#1e293b">' + (c.customer_name || 'Khách mới') + '</td>';
                 h2 += '<td style="padding:10px 12px;font-weight:700;color:#059669">' + (c.phone || '—') + '</td>';
                 h2 += '<td style="padding:10px 12px;color:#64748b">' + cDt + '</td>';
