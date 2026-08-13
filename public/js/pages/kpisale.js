@@ -1801,7 +1801,8 @@ function renderKpiSaleTeamCompare(mainData, advData) {
 
     var tabs = [
         {key:'revenue',icon:'💰',label:'Doanh Số'},
-        {key:'orders',icon:'📦',label:'Đơn Hàng'}
+        {key:'orders',icon:'📦',label:'Đơn Hàng'},
+        {key:'retention',icon:'🔁',label:'KH Cũ Quay Lại'}
     ];
 
     var tcFilterRow1 = [
@@ -1888,12 +1889,45 @@ function renderKpiSaleTeamCompare(mainData, advData) {
     for (var i = 0; i < sorted.length; i++) {
         var team = sorted[i];
         var prev = team.prev || {};
+
+        // Fallback calculation for team rate_dp & rate_pettem if missing from API response
+        if ((team.rate_dp === undefined || team.rate_pettem === undefined) && advData && advData.allEmployees) {
+            var teamEmpList = advData.allEmployees.filter(function(e) {
+                return e.team === team.name || e.department_id === team.team_id;
+            });
+            if (teamEmpList.length > 0) {
+                var oldDp = teamEmpList.reduce(function(s, e) { return s + (e.old_dp_total || 0); }, 0);
+                var retDp = teamEmpList.reduce(function(s, e) { return s + (e.ret_dp_cust || 0); }, 0);
+                team.old_dp_total = oldDp;
+                team.ret_dp_cust = retDp;
+                team.rate_dp = oldDp > 0 ? Math.round(1000 * retDp / oldDp) / 10 : null;
+
+                var oldPet = teamEmpList.reduce(function(s, e) { return s + (e.old_pettem_total || 0); }, 0);
+                var retPet = teamEmpList.reduce(function(s, e) { return s + (e.ret_pettem_cust || 0); }, 0);
+                team.old_pettem_total = oldPet;
+                team.ret_pettem_cust = retPet;
+                team.rate_pettem = oldPet > 0 ? Math.round(1000 * retPet / oldPet) / 10 : null;
+            }
+        }
+
         var hb = team.total_orders > 0;
         h += '<div class="kpi-tc-card" style="cursor:pointer' + (hb ? ';border-color:#f59e0b;border-width:2px' : '') + '" onclick="kpiSaleShowTeamOrders(' + (team.team_id || team.id || team.dept_id) + ',\'' + (team.name || team.dept_name || '').replace(/'/g, "\\'") + '\')">';
         h += '<div class="kpi-tc-name">🏠 ' + team.name + ' <span style="font-size:12px;font-weight:500;color:#6b7280">(' + (team.employee_count || 0) + ' NV)</span></div>';
-        h += '<div class="kpi-tc-stats" style="grid-template-columns:repeat(2,1fr)">';
+        h += '<div class="kpi-tc-stats">';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#3b82f6">' + kpiSaleCompactVND(team.revenue || 0) + '</div><div class="kpi-tc-stat-label">💰 Doanh Số</div><div style="margin-top:4px">' + kpiSaleTrend(team.revenue || 0, prev.revenue || 0) + '</div></div>';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#4338ca">' + (team.total_orders || 0) + '</div><div class="kpi-tc-stat-label">📦 Tổng Đơn</div><div style="margin-top:4px">' + kpiSaleTrend(team.total_orders || 0, prev.total_orders || 0) + '</div></div>';
+
+        var dpStr = team.rate_dp != null ? team.rate_dp + '%' : '—';
+        var petStr = team.rate_pettem != null ? team.rate_pettem + '%' : '—';
+        var retTooltip = 'Đồng Phục: ' + (team.ret_dp_cust || 0) + '/' + (team.old_dp_total || 0) + ' KH (' + dpStr + ') | PET/TEM: ' + (team.ret_pettem_cust || 0) + '/' + (team.old_pettem_total || 0) + ' KH (' + petStr + ')';
+        h += '<div class="kpi-tc-stat" title="' + retTooltip + '">';
+        h += '<div class="kpi-tc-stat-val" style="color:#7c3aed;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:3px">';
+        h += '<span style="color:#059669" title="Tỷ lệ KH cũ Đồng Phục quay lại">ĐP ' + dpStr + '</span>';
+        h += '<span style="color:#cbd5e1">|</span>';
+        h += '<span style="color:#7c3aed" title="Tỷ lệ KH cũ PET/TEM quay lại">PET ' + petStr + '</span>';
+        h += '</div>';
+        h += '<div class="kpi-tc-stat-label">🔁 TỈ LỆ KH CŨ</div>';
+        h += '</div>';
         h += '</div></div>';
     }
     h += '</div>';
