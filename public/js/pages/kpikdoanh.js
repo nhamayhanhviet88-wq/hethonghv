@@ -5752,7 +5752,7 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
     var pStart = (data && data.period && data.period.start) || '';
     var pEnd = (data && data.period && data.period.end) || '';
 
-    var detailUrl = '/api/reports/customer-retention/conversion-details?user_id=' + userId + '&type=' + type;
+    var detailUrl = '/api/kpi-kdoanh/conversion-details?user_id=' + userId + '&type=' + type;
     if (pStart && pEnd) {
         detailUrl += '&startDate=' + encodeURIComponent(pStart) + '&endDate=' + encodeURIComponent(pEnd);
     } else {
