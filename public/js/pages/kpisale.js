@@ -1801,9 +1801,7 @@ function renderKpiSaleTeamCompare(mainData, advData) {
 
     var tabs = [
         {key:'revenue',icon:'💰',label:'Doanh Số'},
-        {key:'orders',icon:'📦',label:'Đơn Hàng'},
-        {key:'affiliate',icon:'🤝',label:'TK Affiliate'},
-        {key:'retention',icon:'🔁',label:'KH Cũ Quay Lại'}
+        {key:'orders',icon:'📦',label:'Đơn Hàng'}
     ];
 
     var tcFilterRow1 = [
@@ -1893,11 +1891,9 @@ function renderKpiSaleTeamCompare(mainData, advData) {
         var hb = team.total_orders > 0;
         h += '<div class="kpi-tc-card" style="cursor:pointer' + (hb ? ';border-color:#f59e0b;border-width:2px' : '') + '" onclick="kpiSaleShowTeamOrders(' + (team.team_id || team.id || team.dept_id) + ',\'' + (team.name || team.dept_name || '').replace(/'/g, "\\'") + '\')">';
         h += '<div class="kpi-tc-name">🏠 ' + team.name + ' <span style="font-size:12px;font-weight:500;color:#6b7280">(' + (team.employee_count || 0) + ' NV)</span></div>';
-        h += '<div class="kpi-tc-stats">';
+        h += '<div class="kpi-tc-stats" style="grid-template-columns:repeat(2,1fr)">';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#3b82f6">' + kpiSaleCompactVND(team.revenue || 0) + '</div><div class="kpi-tc-stat-label">💰 Doanh Số</div><div style="margin-top:4px">' + kpiSaleTrend(team.revenue || 0, prev.revenue || 0) + '</div></div>';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#4338ca">' + (team.total_orders || 0) + '</div><div class="kpi-tc-stat-label">📦 Tổng Đơn</div><div style="margin-top:4px">' + kpiSaleTrend(team.total_orders || 0, prev.total_orders || 0) + '</div></div>';
-        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#7c3aed">' + (team.rate || 0) + '%</div><div class="kpi-tc-stat-label">🔁 TỈ LỆ KH CỦ</div><div style="margin-top:4px">' + kpiSaleTrend(team.rate || 0, prev.rate || 0) + '</div></div>';
-        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#059669">' + (team.affiliate_new || 0) + '</div><div class="kpi-tc-stat-label">🤝 TẠO TK AFF</div><div style="margin-top:4px">' + kpiSaleTrend(team.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
         h += '</div></div>';
     }
     h += '</div>';
