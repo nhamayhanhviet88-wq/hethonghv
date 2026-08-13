@@ -1587,11 +1587,13 @@ function renderKpiSaleLeaderboard(data) {
         for (var i = 0; i < lb.length; i++) {
             var emp = lb[i];
             var rank = i < 3 ? medals[i] : (i + 1);
-            var conv = convMap[emp.user_id] || {};
-            var cRateDp = conv.rate_dp != null ? conv.rate_dp + '%' : '—';
-            var cColorDp = conv.rate_dp >= 70 ? '#10b981' : conv.rate_dp >= 40 ? '#f59e0b' : '#ef4444';
-            var cRatePetTem = conv.rate_pettem != null ? conv.rate_pettem + '%' : '—';
-            var cColorPetTem = conv.rate_pettem >= 70 ? '#10b981' : conv.rate_pettem >= 40 ? '#f59e0b' : '#ef4444';
+            var conv = convMap[emp.user_id] || convMap[emp.id] || {};
+            var rateDpVal = conv.rate_dp != null ? conv.rate_dp : conv.rate;
+            var ratePetTemVal = conv.rate_pettem != null ? conv.rate_pettem : conv.rate;
+            var cRateDp = rateDpVal != null ? rateDpVal + '%' : '0%';
+            var cColorDp = (rateDpVal || 0) >= 70 ? '#10b981' : (rateDpVal || 0) >= 40 ? '#f59e0b' : '#ef4444';
+            var cRatePetTem = ratePetTemVal != null ? ratePetTemVal + '%' : '0%';
+            var cColorPetTem = (ratePetTemVal || 0) >= 70 ? '#10b981' : (ratePetTemVal || 0) >= 40 ? '#f59e0b' : '#ef4444';
             var prev = emp.prev || {};
 
             var dpTooltipConv = conv.assigned_dp > 0 ? (conv.completed_dp + '/' + conv.assigned_dp + ' KH ĐP được giao') : 'Chưa có KH ĐP được giao';
