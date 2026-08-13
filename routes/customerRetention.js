@@ -527,7 +527,10 @@ module.exports = async function(fastify) {
         // ===== PER-EMPLOYEE CONVERSION RATE =====
         // Query: KH được giao per employee in current period
         const assignedPerEmp = allKDIds.length > 0 ? await db.all(`
-            SELECT assigned_to_id AS uid, COUNT(DISTINCT id) AS assigned
+            SELECT assigned_to_id AS uid,
+                COUNT(DISTINCT id) AS assigned,
+                COUNT(DISTINCT CASE WHEN crm_type = 'tem_pet' THEN id END) AS assigned_pettem,
+                COUNT(DISTINCT CASE WHEN COALESCE(crm_type, '') != 'tem_pet' THEN id END) AS assigned_dp
             FROM customers
             WHERE assigned_to_id IN (${allKDIds.map((_, i) => `$${i + 1}`).join(',')})
               AND created_at >= $${allKDIds.length + 1}::timestamp
@@ -536,23 +539,40 @@ module.exports = async function(fastify) {
             GROUP BY assigned_to_id
         `, [...allKDIds, current.start, current.end]) : [];
 
-        // Build conversion map: uid -> { assigned, completed, rate }
+        // Build conversion map: uid -> { assigned, completed, rate, assigned_dp, completed_dp, rate_dp, ... }
         const conversionMap = {};
         assignedPerEmp.forEach(r => {
-            const uid = r.uid;
+            const uid = Number(r.uid);
             const assigned = parseInt(r.assigned);
+            const assignedDp = parseInt(r.assigned_dp || 0);
+            const assignedPetTem = parseInt(r.assigned_pettem || 0);
             const completed = currentMap[uid] ? parseInt(currentMap[uid].total_orders) : 0;
+            const completedDp = currentMap[uid] ? parseInt(currentMap[uid].orders_dp || 0) : 0;
+            const completedPetTem = currentMap[uid] ? parseInt(currentMap[uid].orders_pettem || 0) : 0;
+
+            const rateDp = assignedDp > 0 ? Math.round(1000 * completedDp / assignedDp) / 10 : (completedDp > 0 ? completedDp * 100 : 0);
+            const ratePetTem = assignedPetTem > 0 ? Math.round(1000 * completedPetTem / assignedPetTem) / 10 : (completedPetTem > 0 ? completedPetTem * 100 : 0);
+
             conversionMap[uid] = {
                 assigned,
                 completed,
-                rate: assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : 0
+                rate: assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : 0,
+                assigned_dp: assignedDp, completed_dp: completedDp, rate_dp: rateDp,
+                assigned_pettem: assignedPetTem, completed_pettem: completedPetTem, rate_pettem: ratePetTem
             };
         });
         // Ensure all employees have an entry
-        allKDIds.forEach(uid => {
+        allKDIds.forEach(rawUid => {
+            const uid = Number(rawUid);
             if (!conversionMap[uid]) {
                 const completed = currentMap[uid] ? parseInt(currentMap[uid].total_orders) : 0;
-                conversionMap[uid] = { assigned: 0, completed, rate: 0 };
+                const completedDp = currentMap[uid] ? parseInt(currentMap[uid].orders_dp || 0) : 0;
+                const completedPetTem = currentMap[uid] ? parseInt(currentMap[uid].orders_pettem || 0) : 0;
+                conversionMap[uid] = {
+                    assigned: 0, completed, rate: 0,
+                    assigned_dp: 0, completed_dp: completedDp, rate_dp: completedDp > 0 ? completedDp * 100 : 0,
+                    assigned_pettem: 0, completed_pettem: completedPetTem, rate_pettem: completedPetTem > 0 ? completedPetTem * 100 : 0
+                };
             }
         });
 
