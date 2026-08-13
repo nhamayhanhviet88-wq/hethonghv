@@ -1370,7 +1370,7 @@ module.exports = async function(fastify) {
                     (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
                     0
                 ) - COALESCE(d.vat_amount, 0) AS rev) oi ON true
-                WHERE (d.user_id = $1 OR c.assigned_to_id = $1)
+                WHERE c.assigned_to_id = $1
                   AND COALESCE(d.is_draft, false) = false
                   AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
                   AND d.created_at >= $2::timestamp AND d.created_at < $3::timestamp
