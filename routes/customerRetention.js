@@ -1341,8 +1341,6 @@ module.exports = async function(fastify) {
             const parsed = parsePeriod(period, date, { startDate, endDate });
             current = parsed.current;
         }
-        const _pCutoff = await _getCutoffSQL();
-
         // 1. Fetch Completed Orders for this user & business area
         const orders = await db.all(`
             WITH valid_orders AS (
@@ -1374,7 +1372,6 @@ module.exports = async function(fastify) {
                   AND COALESCE(d.is_draft, false) = false
                   AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
                   AND d.created_at >= $2::timestamp AND d.created_at < $3::timestamp
-                  ${_pCutoff}
             )
             SELECT order_id, order_code, customer_name, phone, created_at, category_name, revenue
             FROM valid_orders
@@ -1391,7 +1388,6 @@ module.exports = async function(fastify) {
               AND (
                   CASE WHEN crm_type = 'tem_pet' THEN 'pettem' ELSE 'dp' END = $4
               )
-              ${_pCutoff}
             ORDER BY created_at DESC
         `, [targetUserId, current.start, current.end, type === 'pettem' ? 'pettem' : 'dp']);
 
