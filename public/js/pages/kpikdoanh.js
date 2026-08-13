@@ -5757,7 +5757,7 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
     h += '</div>';
 
     // Explanation Note
-    h += '<div style="background:#fffbebf0;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:0 12px 12px 0;font-size:13px;color:#92400e;line-height:1.6;margin-bottom:24px">';
+    h += '<div id="kpiCdExplanationNote" style="background:#fffbebf0;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:0 12px 12px 0;font-size:13px;color:#92400e;line-height:1.6;margin-bottom:24px">';
     h += '📌 <strong>Lý do ra kết quả:</strong> ' + explanationText;
     h += '</div>';
 
@@ -5831,7 +5831,44 @@ window.kpiShowCdDetail = window.kpiShowCdDetail || function(userId, empName, typ
     window.kpiShowCdDetailModal(userId, empName, type, window._kpiAdvData || window._kpiSaleAdvData);
 };
 
-window.renderKpiCdDetailsTables = window.renderKpiCdDetailsTables || function(res) {
+window.renderKpiCdDetailsTables = function(res) {
+    if (!res) return;
+    var orders = res.orders || [];
+    var customers = res.customers || [];
+    var type = res.type || 'dp';
+    var typeName = type === 'pettem' ? 'PET / TEM' : 'Đồng Phục';
+
+    var completed = orders.length;
+    var assigned = customers.length;
+    var rate = assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : (completed > 0 ? completed * 100 : 0);
+
+    var ordCntEl = document.getElementById('kpiCdOrdersCnt');
+    if (ordCntEl) ordCntEl.textContent = completed;
+    var custCntEl = document.getElementById('kpiCdCustCnt');
+    if (custCntEl) custCntEl.textContent = assigned;
+
+    var statCompEl = document.getElementById('kpiCdStatCompleted');
+    if (statCompEl) statCompEl.textContent = completed + ' đơn';
+    var statAssEl = document.getElementById('kpiCdStatAssigned');
+    if (statAssEl) statAssEl.textContent = assigned + ' KH';
+    var statRateEl = document.getElementById('kpiCdStatRate');
+    if (statRateEl) statRateEl.textContent = rate + '%';
+    var statFormEl = document.getElementById('kpiCdStatFormula');
+    if (statFormEl) statFormEl.innerHTML = 'Phép tính: (' + completed + ' đơn ÷ ' + (assigned > 0 ? assigned : 0) + ' KH) × 100% = <strong>' + rate + '%</strong>';
+
+    var explanationText = '';
+    if (assigned > 0 && completed > assigned) {
+        explanationText = 'Tỷ lệ CĐ mảng ' + typeName + ' đạt <strong>' + rate + '%</strong> (vượt 100%) vì nhân viên đã chốt được <strong>' + completed + ' đơn hàng</strong>, trong khi số khách hàng mới mảng ' + typeName + ' được giao trong kỳ là <strong>' + assigned + ' KH</strong>. Điều này phát sinh khi khách hàng được giao chốt từ 2 đơn trở lên, hoặc có đơn phát sinh từ tập khách hàng được phân công từ trước.';
+    } else if (assigned > 0) {
+        explanationText = 'Trong kỳ lọc này, nhân viên được phân công <strong>' + assigned + ' KH mới</strong> mảng ' + typeName + ' và đã chốt thành công <strong>' + completed + ' đơn hàng</strong>, đạt tỷ lệ chuyển đổi <strong>' + rate + '%</strong>.';
+    } else if (completed > 0) {
+        explanationText = 'Nhân viên chưa được phân công khách hàng mới mảng ' + typeName + ' nào trong kỳ lọc này (0 KH được giao), nhưng vẫn chốt thành công <strong>' + completed + ' đơn hàng</strong> mảng ' + typeName + ' từ danh sách khách hàng gán trước đó.';
+    } else {
+        explanationText = 'Trong kỳ lọc này, nhân viên chưa được giao khách hàng mới và chưa chốt đơn hàng nào thuộc mảng ' + typeName + ' (0%).';
+    }
+
+    var noteEl = document.getElementById('kpiCdExplanationNote');
+    if (noteEl) noteEl.innerHTML = '📌 <strong>Lý do ra kết quả:</strong> ' + explanationText;
     var orders = res.orders || [];
     var customers = res.customers || [];
 

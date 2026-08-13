@@ -201,6 +201,14 @@ async function renderKpimarketingPage(container) {
                 </div>
             </div>
 
+            <!-- SEGMENT FILTER BAR (ẢNH 5) -->
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;background:#fff;padding:10px 18px;border-radius:14px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.03);flex-wrap:wrap;">
+                <span style="font-size:13.5px;font-weight:800;color:#334155;display:flex;align-items:center;gap:6px;">🏷️ PHÂN KHÚC:</span>
+                <button type="button" class="kpi-segment-btn active" id="btnMktSegAll" onclick="kpiMktSetSegmentFilter('all')" style="padding:7px 18px;border-radius:20px;border:1.5px solid #2563eb;background:#2563eb;color:#fff;font-weight:800;font-size:13px;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 6px rgba(37,99,235,0.25);">🏢 Tất Cả (Cả 2 Lĩnh Vực)</button>
+                <button type="button" class="kpi-segment-btn" id="btnMktSegDongPhuc" onclick="kpiMktSetSegmentFilter('dongphuc')" style="padding:7px 18px;border-radius:20px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;">👔 Lĩnh Vực Đồng Phục</button>
+                <button type="button" class="kpi-segment-btn" id="btnMktSegTemPet" onclick="kpiMktSetSegmentFilter('tempet')" style="padding:7px 18px;border-radius:20px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;">🏷️ Lĩnh Vực TEM/PET</button>
+            </div>
+
             <!-- TOP SUMMARY METRICS GRID (2 ROWS x 4 CARDS) -->
             <div id="kpiMktSummaryCards" style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;">
                 <div style="text-align:center;padding:20px;color:#64748b;font-weight:700;">⏳ Đang tải dữ liệu tổng quan...</div>
@@ -296,7 +304,7 @@ async function renderKpimarketingPage(container) {
             </div>
         </div>
 
-        <!-- MODAL THÊM MỤC CON / MÃ NGUỒN (ẢNH 1) -->
+        <!-- MODAL THÊM MỤC CON / MÃ NGUỒN (ẢNH 1 & ẢNH 2) -->
         <div class="kpi-v2-modal-overlay" id="kpiMktAddCatModal">
             <div class="kpi-v2-modal">
                 <div class="kpi-v2-modal-hdr">
@@ -307,6 +315,19 @@ async function renderKpimarketingPage(container) {
                     <div class="kpi-v2-form-group">
                         <label class="kpi-v2-label">Kênh / Mục Lớn (Channel):</label>
                         <select id="kpiAddCatParent" class="kpi-v2-input" onchange="kpiMktOnChannelChange(this.value)"></select>
+                    </div>
+                    <div class="kpi-v2-form-group">
+                        <label class="kpi-v2-label">Lĩnh Vực Kinh Doanh / Phân Khúc:</label>
+                        <div style="display:flex;gap:12px">
+                            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border:1.5px solid #3b82f6;border-radius:10px;background:#eff6ff;cursor:pointer;font-weight:700;font-size:13px;color:#1e40af">
+                                <input type="radio" name="kpiAddCatSegment" value="dongphuc" checked style="accent-color:#2563eb;width:16px;height:16px">
+                                <span>👔 Lĩnh Vực Đồng Phục</span>
+                            </label>
+                            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border:1.5px solid #f59e0b;border-radius:10px;background:#fffbeb;cursor:pointer;font-weight:700;font-size:13px;color:#b45309">
+                                <input type="radio" name="kpiAddCatSegment" value="tempet" style="accent-color:#d97706;width:16px;height:16px">
+                                <span>🏷️ Lĩnh Vực TEM/PET</span>
+                            </label>
+                        </div>
                     </div>
                     <div class="kpi-v2-form-group">
                         <label class="kpi-v2-label">Tên Mục Con / Sản Phẩm (Mã Nguồn):</label>
@@ -335,6 +356,36 @@ async function renderKpimarketingPage(container) {
     await loadKpimarketingData();
 }
 
+function kpiMktSetSegmentFilter(seg) {
+    if (!_kpiMkt) _kpiMkt = { month: '', data: null };
+    _kpiMkt.segment = seg || 'all';
+
+    const btnAll = document.getElementById('btnMktSegAll');
+    const btnDP = document.getElementById('btnMktSegDongPhuc');
+    const btnTP = document.getElementById('btnMktSegTemPet');
+
+    if (btnAll) {
+        btnAll.style.background = (seg === 'all') ? '#2563eb' : '#fff';
+        btnAll.style.color = (seg === 'all') ? '#fff' : '#334155';
+        btnAll.style.borderColor = (seg === 'all') ? '#2563eb' : '#cbd5e1';
+        btnAll.style.fontWeight = (seg === 'all') ? '800' : '700';
+    }
+    if (btnDP) {
+        btnDP.style.background = (seg === 'dongphuc') ? '#2563eb' : '#fff';
+        btnDP.style.color = (seg === 'dongphuc') ? '#fff' : '#334155';
+        btnDP.style.borderColor = (seg === 'dongphuc') ? '#2563eb' : '#cbd5e1';
+        btnDP.style.fontWeight = (seg === 'dongphuc') ? '800' : '700';
+    }
+    if (btnTP) {
+        btnTP.style.background = (seg === 'tempet') ? '#2563eb' : '#fff';
+        btnTP.style.color = (seg === 'tempet') ? '#fff' : '#334155';
+        btnTP.style.borderColor = (seg === 'tempet') ? '#2563eb' : '#cbd5e1';
+        btnTP.style.fontWeight = (seg === 'tempet') ? '800' : '700';
+    }
+
+    loadKpimarketingData();
+}
+
 async function loadKpimarketingData() {
     try {
         if (_kpiMkt) _kpiMkt.yearlyCache = {};
@@ -349,7 +400,8 @@ async function loadKpimarketingData() {
             monthTxt.innerText = `T${parseInt(m, 10)}/${y}`;
         }
 
-        let res = await kpiMktApiCall(`/api/reports/kpi-marketing?month=${_kpiMkt.month}`);
+        const segParam = (_kpiMkt && _kpiMkt.segment) ? _kpiMkt.segment : 'all';
+        let res = await kpiMktApiCall(`/api/reports/kpi-marketing?month=${_kpiMkt.month}&segment=${segParam}`);
         if (!res || res.error) {
             console.warn('KPI MKT data fetch notice:', res ? res.error : 'No response');
             res = { summary: {}, categories: [], handlers: [] };
@@ -617,6 +669,10 @@ function renderCategoryTable(res) {
         }
         const pageTagHtml = pageNameDisp ? (cLink ? `<a href="${cLink}" target="_blank" rel="noopener noreferrer" style="background:#e0f2fe;color:#0284c7;border:1.5px solid #bae6fd;padding:2px 9px;border-radius:8px;font-weight:700;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(2,132,199,0.08);transition:all 0.2s;" title="Mở link kênh trong tab mới" onmouseover="this.style.background='#bae6fd';this.style.borderColor='#7dd3fc'" onmouseout="this.style.background='#e0f2fe';this.style.borderColor='#bae6fd'">🔗 ${escapeHtml(pageNameDisp)} ↗</a>` : `<span style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:4px;">🔗 ${escapeHtml(pageNameDisp)}</span>`) : '';
 
+        const segBadgeHtml = (c.business_segment === 'tempet') 
+            ? `<span style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:3px;">🏷️ Lĩnh Vực TEM/PET</span>`
+            : `<span style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:3px;">👔 Lĩnh Vực Đồng Phục</span>`;
+
         html += `
             <tr onclick="kpiMktOpenOrdersModal('${c.category_id || 0}', '${escapeHtml(c.category_name).replace(/'/g, "\\'")}')" style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'" title="Click bất kỳ đâu trên thanh ngang mục con để xem Danh Sách Đơn Hàng Marketing (Ảnh 2)">
                 <td style="text-align:center">${idx + 1}</td>
@@ -629,8 +685,9 @@ function renderCategoryTable(res) {
                         <span style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:2px 8px;border-radius:8px;font-weight:600;font-size:11px;display:inline-flex;align-items:center;">Kênh: <strong style="margin-left:3px;">${escapeHtml(c.channel_name || 'Khác')}</strong></span>
                         ${pageTagHtml}
                     </div>
-                    <div style="margin-top:4px;">
+                    <div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                         <span style="background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:3px;">👤 ${escapeHtml(c.ads_handler_name || 'Giám Đốc')}</span>
+                        ${segBadgeHtml}
                     </div>
                 </td>
                 <td style="font-weight:700;color:#e11d48">${formatVND(c.spent || 0)}</td>
@@ -1050,6 +1107,9 @@ async function kpiMktSaveNewCategory() {
     const handlerInputVal = document.getElementById('kpiAddCatHandlerInput').value;
     const handler = (handlerSelectVal === '__custom__' || !handlerSelectVal) ? handlerInputVal : handlerSelectVal;
 
+    const segmentRadio = document.querySelector('input[name="kpiAddCatSegment"]:checked');
+    const businessSegment = segmentRadio ? segmentRadio.value : 'dongphuc';
+
     if (!name || !name.trim()) {
         alert('Vui lòng chọn hoặc nhập tên Mục Con / Sản Phẩm (Mã Nguồn)!');
         return;
@@ -1065,7 +1125,8 @@ async function kpiMktSaveNewCategory() {
             parent_id: parentId,
             name: name.trim(),
             pancake_page_name: page.trim(),
-            ads_handler_name: handler.trim() || 'Giám Đốc'
+            ads_handler_name: handler.trim() || 'Giám Đốc',
+            business_segment: businessSegment
         });
 
         if (res && (res.success || res.id || res.message)) {
@@ -2889,6 +2950,7 @@ window._kpiMktTrendState = {
     granularity: 'day', // 'day' | 'month'
     year: (new Date()).getFullYear(),
     selectedMetrics: new Set(['spent', 'orders', 'revenue']),
+    activeMetric: 'spent',
     yearlyCache: {}
 };
 
@@ -2995,18 +3057,31 @@ function kpiInitMktTrendSection(res) {
 }
 
 function kpiToggleMktMetric(metric) {
-    const st = window._kpiMktTrendState.selectedMetrics;
-    if (st.has(metric)) {
-        if (st.size > 1) st.delete(metric);
+    const st = window._kpiMktTrendState;
+    if (!st.selectedMetrics) st.selectedMetrics = new Set(['spent', 'orders', 'revenue']);
+    if (st.selectedMetrics.has(metric)) {
+        if (st.selectedMetrics.size > 1) {
+            st.selectedMetrics.delete(metric);
+            if (st.activeMetric === metric) {
+                const remaining = Array.from(st.selectedMetrics);
+                st.activeMetric = remaining[0] || 'spent';
+            }
+        } else {
+            st.activeMetric = metric;
+        }
     } else {
-        st.add(metric);
+        st.selectedMetrics.add(metric);
+        st.activeMetric = metric;
     }
     _updateKpiMktTrendButtonsUI();
     kpiRenderMktTrendChart();
 }
 
 function _updateKpiMktTrendButtonsUI() {
-    const st = window._kpiMktTrendState.selectedMetrics;
+    const st = window._kpiMktTrendState || {};
+    const selected = st.selectedMetrics || new Set();
+    const active = st.activeMetric || 'spent';
+
     const configs = [
         { id: 'btnMktSpent', key: 'spent', label: '💸 Chi Phí MKT', activeBg: '#d97706' },
         { id: 'btnMktOrders', key: 'orders', label: '📦 Đơn Hàng', activeBg: '#16a34a' },
@@ -3021,7 +3096,10 @@ function _updateKpiMktTrendButtonsUI() {
     configs.forEach(cfg => {
         const btn = document.getElementById(cfg.id);
         if (btn) {
-            if (st.has(cfg.key)) {
+            const isSelected = selected.has(cfg.key);
+            const isActive = active === cfg.key;
+
+            if (isSelected) {
                 btn.style.background = cfg.activeBg;
                 btn.style.color = '#fff';
                 btn.style.borderColor = cfg.activeBg;
@@ -3031,6 +3109,14 @@ function _updateKpiMktTrendButtonsUI() {
                 btn.style.color = '#475569';
                 btn.style.borderColor = '#cbd5e1';
                 btn.innerText = cfg.label;
+            }
+
+            if (isActive) {
+                btn.style.boxShadow = '0 0 0 3.5px rgba(15, 23, 42, 0.35), 0 2px 8px rgba(0,0,0,0.15)';
+                btn.style.transform = 'scale(1.03)';
+            } else {
+                btn.style.boxShadow = 'none';
+                btn.style.transform = 'none';
             }
         }
     });
@@ -3154,45 +3240,151 @@ async function kpiRenderMktTrendChart() {
         }
     }
 
-    // Render Highlights Summary Cards
+    // Render Dynamic Highlights Summary Cards for Selected Active Metric
     const cardEl = document.getElementById('kpiMktTrendSummaryCards');
     if (cardEl) {
-        const maxRev = Math.max(0, ...revArr);
-        const maxRevIdx = revArr.indexOf(maxRev);
-        const maxRevLabel = maxRevIdx >= 0 ? labels[maxRevIdx] : '-';
+        let activeKey = st.activeMetric || 'spent';
+        if (st.selectedMetrics && !st.selectedMetrics.has(activeKey)) {
+            const remaining = Array.from(st.selectedMetrics);
+            activeKey = remaining[0] || 'spent';
+            st.activeMetric = activeKey;
+        }
 
-        const maxOrd = Math.max(0, ...ordersArr);
-        const maxOrdIdx = ordersArr.indexOf(maxOrd);
-        const maxOrdLabel = maxOrdIdx >= 0 ? labels[maxOrdIdx] : '-';
+        const metricConfigs = {
+            spent: { name: 'Chi Phí MKT', icon: '💸', unit: 'đ', isCurrency: true, isPct: false, color: '#d97706', grad1: '#fffbeb', grad2: '#fef3c7', border: '#fcd34d' },
+            orders: { name: 'Đơn Hàng', icon: '📦', unit: 'đơn', isCurrency: false, isPct: false, color: '#16a34a', grad1: '#f0fdf4', grad2: '#dcfce7', border: '#86efac' },
+            revenue: { name: 'Doanh Số', icon: '💰', unit: 'đ', isCurrency: true, isPct: false, color: '#0284c7', grad1: '#eff6ff', grad2: '#dbeafe', border: '#93c5fd' },
+            cost_ratio: { name: '% CP / Doanh Số', icon: '📉', unit: '%', isCurrency: false, isPct: true, color: '#4f46e5', grad1: '#eef2ff', grad2: '#e0e7ff', border: '#a5b4fc' },
+            close_rate: { name: 'Tỷ Lệ Chốt', icon: '🎯', unit: '%', isCurrency: false, isPct: true, color: '#ea580c', grad1: '#fff7ed', grad2: '#ffedd5', border: '#fdba74' },
+            cpo: { name: 'CPO (Giá/Đơn)', icon: '🎯', unit: 'đ', isCurrency: true, isPct: false, color: '#dc2626', grad1: '#fef2f2', grad2: '#fee2e2', border: '#fca5a5' },
+            leads: { name: 'Số Lead', icon: '📥', unit: 'khách', isCurrency: false, isPct: false, color: '#2563eb', grad1: '#eff6ff', grad2: '#dbeafe', border: '#93c5fd' },
+            cpl: { name: 'CPL (Giá/Lead)', icon: '📊', unit: 'đ', isCurrency: true, isPct: false, color: '#7c3aed', grad1: '#f3e8ff', grad2: '#e9d5ff', border: '#c084fc' }
+        };
 
-        const totalSpent = spentArr.reduce((a, b) => a + b, 0);
-        const totalRev = revArr.reduce((a, b) => a + b, 0);
-        const totalOrd = ordersArr.reduce((a, b) => a + b, 0);
-        const totalLeads = leadsArr.reduce((a, b) => a + b, 0);
+        const cfg = metricConfigs[activeKey] || metricConfigs['spent'];
 
-        const avgCpl = totalLeads > 0 ? Math.round(totalSpent / totalLeads) : 0;
-        const avgCostRatio = totalRev > 0 ? (totalSpent / totalRev * 100).toFixed(1) : '0.0';
+        let targetArr = spentArr;
+        if (activeKey === 'orders') targetArr = ordersArr;
+        else if (activeKey === 'revenue') targetArr = revArr;
+        else if (activeKey === 'cost_ratio') targetArr = costRatioArr;
+        else if (activeKey === 'close_rate') targetArr = closeRateArr;
+        else if (activeKey === 'cpo') targetArr = cpoArr;
+        else if (activeKey === 'leads') targetArr = leadsArr;
+        else if (activeKey === 'cpl') targetArr = cplArr;
+
+        const totalSpent = spentArr.reduce((a, b) => a + Number(b || 0), 0);
+        const totalRev = revArr.reduce((a, b) => a + Number(b || 0), 0);
+        const totalOrd = ordersArr.reduce((a, b) => a + Number(b || 0), 0);
+        const totalLeads = leadsArr.reduce((a, b) => a + Number(b || 0), 0);
+
+        const formatMetricVal = (val, isAvg = false) => {
+            if (val === undefined || val === null || isNaN(val)) return cfg.isCurrency ? '0đ' : (cfg.isPct ? '0.00%' : '0');
+            if (cfg.isCurrency) return formatVND(Math.round(val));
+            if (cfg.isPct) return Number(val).toFixed(2) + '%';
+            if (isAvg) {
+                const num = Number(val);
+                const numStr = Number.isInteger(num) ? String(num) : num.toFixed(2);
+                return numStr + (cfg.unit ? ' ' + cfg.unit : '');
+            }
+            return Math.round(Number(val)).toLocaleString('vi-VN') + (cfg.unit ? ' ' + cfg.unit : '');
+        };
+
+        // 1. Peak / Max
+        const maxVal = Math.max(0, ...targetArr);
+        const maxIdx = targetArr.indexOf(maxVal);
+        const maxLabel = (maxIdx >= 0 && labels[maxIdx]) ? labels[maxIdx] : '-';
+
+        // 2. Min / Lowest (Non-zero active min or absolute min if all zero)
+        const validItems = targetArr.map((v, i) => ({ val: Number(v || 0), label: labels[i] })).filter(item => item.val > 0);
+        let minVal = 0;
+        let minLabel = '-';
+        if (validItems.length > 0) {
+            validItems.sort((a, b) => a.val - b.val);
+            minVal = validItems[0].val;
+            minLabel = validItems[0].label;
+        } else if (targetArr.length > 0) {
+            minVal = 0;
+            minLabel = labels[0] || '-';
+        }
+
+        // 3. Average per Day / Month
+        const countDays = Math.max(1, labels.length);
+        const isDailyMode = isDaily;
+        const timeUnitLabel = isDailyMode ? '/ngày' : '/tháng';
+        const timeContextStr = isDailyMode ? `Tính trên ${countDays} ngày` : `Tính trên ${countDays} tháng`;
+
+        let avgValStr = '';
+        let avgSubStr = '';
+
+        if (['spent', 'orders', 'revenue', 'leads'].includes(activeKey)) {
+            const sumVal = targetArr.reduce((a, b) => a + Number(b || 0), 0);
+            const avgVal = sumVal / countDays;
+            avgValStr = formatMetricVal(avgVal, true) + timeUnitLabel;
+            avgSubStr = timeContextStr;
+        } else if (activeKey === 'cost_ratio') {
+            const overallRatio = totalRev > 0 ? (totalSpent / totalRev * 100) : 0;
+            avgValStr = overallRatio.toFixed(2) + '%';
+            avgSubStr = 'Bình quân % CP tổng kỳ';
+        } else if (activeKey === 'close_rate') {
+            const overallClose = totalLeads > 0 ? (totalOrd / totalLeads * 100) : 0;
+            avgValStr = overallClose.toFixed(2) + '%';
+            avgSubStr = 'Tỷ lệ chốt TB tổng kỳ';
+        } else if (activeKey === 'cpo') {
+            const overallCpo = totalOrd > 0 ? Math.round(totalSpent / totalOrd) : 0;
+            avgValStr = formatVND(overallCpo);
+            avgSubStr = 'Chi phí TB / 1 đơn tổng kỳ';
+        } else if (activeKey === 'cpl') {
+            const overallCpl = totalLeads > 0 ? Math.round(totalSpent / totalLeads) : 0;
+            avgValStr = formatVND(overallCpl);
+            avgSubStr = 'Chi phí TB / 1 lead tổng kỳ';
+        }
+
+        // 4. Total Sum / Overall Period
+        let totalValStr = '';
+        let totalSubStr = '';
+
+        if (['spent', 'orders', 'revenue', 'leads'].includes(activeKey)) {
+            const sumVal = targetArr.reduce((a, b) => a + Number(b || 0), 0);
+            totalValStr = formatMetricVal(sumVal);
+            totalSubStr = `Chi CP: ${formatVND(totalSpent)} | ${totalOrd} đơn`;
+        } else if (activeKey === 'cost_ratio') {
+            const overallRatio = totalRev > 0 ? (totalSpent / totalRev * 100) : 0;
+            totalValStr = overallRatio.toFixed(2) + '%';
+            totalSubStr = `${formatVND(totalSpent)} CP / ${formatVND(totalRev)} DS`;
+        } else if (activeKey === 'close_rate') {
+            const overallClose = totalLeads > 0 ? (totalOrd / totalLeads * 100) : 0;
+            totalValStr = overallClose.toFixed(2) + '%';
+            totalSubStr = `${totalOrd} đơn / ${totalLeads} lead`;
+        } else if (activeKey === 'cpo') {
+            const overallCpo = totalOrd > 0 ? Math.round(totalSpent / totalOrd) : 0;
+            totalValStr = formatVND(overallCpo);
+            totalSubStr = `${formatVND(totalSpent)} CP / ${totalOrd} đơn`;
+        } else if (activeKey === 'cpl') {
+            const overallCpl = totalLeads > 0 ? Math.round(totalSpent / totalLeads) : 0;
+            totalValStr = formatVND(overallCpl);
+            totalSubStr = `${formatVND(totalSpent)} CP / ${totalLeads} lead`;
+        }
 
         cardEl.innerHTML = `
-            <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:12px 16px;text-align:center">
-                <div style="font-size:10px;font-weight:800;color:#1e40af;text-transform:uppercase">🏆 Đỉnh Doanh Số (Peak)</div>
-                <div style="font-size:18px;font-weight:900;color:#1e3a8a;margin-top:2px">${formatVND(maxRev)}</div>
-                <div style="font-size:11px;color:#3b82f6;font-weight:700">Mốc: ${maxRevLabel}</div>
+            <div style="background:linear-gradient(135deg, ${cfg.grad1}, ${cfg.grad2});border:1.5px solid ${cfg.border};border-radius:14px;padding:14px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04);transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                <div style="font-size:11px;font-weight:800;color:${cfg.color};text-transform:uppercase;letter-spacing:0.3px">${cfg.icon} ĐỈNH ${cfg.name.toUpperCase()} (PEAK)</div>
+                <div style="font-size:20px;font-weight:900;color:#0f172a;margin-top:4px">${formatMetricVal(maxVal)}</div>
+                <div style="font-size:11.5px;color:${cfg.color};font-weight:700;margin-top:2px">Mốc: ${maxLabel}</div>
             </div>
-            <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:12px;padding:12px 16px;text-align:center">
-                <div style="font-size:10px;font-weight:800;color:#166534;text-transform:uppercase">📦 Kỷ Lục Đơn Hàng (Max)</div>
-                <div style="font-size:18px;font-weight:900;color:#14532d;margin-top:2px">${maxOrd} đơn</div>
-                <div style="font-size:11px;color:#22c55e;font-weight:700">Mốc: ${maxOrdLabel}</div>
+            <div style="background:linear-gradient(135deg, ${cfg.grad1}, ${cfg.grad2});border:1.5px solid ${cfg.border};border-radius:14px;padding:14px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04);transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                <div style="font-size:11px;font-weight:800;color:${cfg.color};text-transform:uppercase;letter-spacing:0.3px">🔻 ĐỈNH THẤP NHẤT ${cfg.name.toUpperCase()}</div>
+                <div style="font-size:20px;font-weight:900;color:#0f172a;margin-top:4px">${formatMetricVal(minVal)}</div>
+                <div style="font-size:11.5px;color:${cfg.color};font-weight:700;margin-top:2px">Mốc: ${minLabel}</div>
             </div>
-            <div style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1px solid #c7d2fe;border-radius:12px;padding:12px 16px;text-align:center">
-                <div style="font-size:10px;font-weight:800;color:#3730a3;text-transform:uppercase">📉 % CP / Doanh Số TB</div>
-                <div style="font-size:18px;font-weight:900;color:#312e81;margin-top:2px">${avgCostRatio}%</div>
-                <div style="font-size:11px;color:#4f46e5;font-weight:700">CPL TB: ${formatVND(avgCpl)}</div>
+            <div style="background:linear-gradient(135deg, ${cfg.grad1}, ${cfg.grad2});border:1.5px solid ${cfg.border};border-radius:14px;padding:14px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04);transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                <div style="font-size:11px;font-weight:800;color:${cfg.color};text-transform:uppercase;letter-spacing:0.3px">📊 TRUNG BÌNH / ${isDailyMode ? 'NGÀY' : 'THÁNG'} ${cfg.name.toUpperCase()}</div>
+                <div style="font-size:20px;font-weight:900;color:#0f172a;margin-top:4px">${avgValStr}</div>
+                <div style="font-size:11.5px;color:${cfg.color};font-weight:700;margin-top:2px">${avgSubStr}</div>
             </div>
-            <div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fed7aa;border-radius:12px;padding:12px 16px;text-align:center">
-                <div style="font-size:10px;font-weight:800;color:#9a3412;text-transform:uppercase">💰 Tổng Cộng Trong Kỳ</div>
-                <div style="font-size:18px;font-weight:900;color:#7c2d12;margin-top:2px">${formatVND(totalRev)}</div>
-                <div style="font-size:11px;color:#ea580c;font-weight:700">Chi CP: ${formatVND(totalSpent)} | ${totalOrd} đơn</div>
+            <div style="background:linear-gradient(135deg, ${cfg.grad1}, ${cfg.grad2});border:1.5px solid ${cfg.border};border-radius:14px;padding:14px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04);transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                <div style="font-size:11px;font-weight:800;color:${cfg.color};text-transform:uppercase;letter-spacing:0.3px">${cfg.icon} TỔNG CỘNG TRONG KỲ</div>
+                <div style="font-size:20px;font-weight:900;color:#0f172a;margin-top:4px">${totalValStr}</div>
+                <div style="font-size:11.5px;color:${cfg.color};font-weight:700;margin-top:2px">${totalSubStr}</div>
             </div>
         `;
     }
@@ -3669,6 +3861,7 @@ function kpiMktOpenMetricDetailModal(metricKey) {
 if (typeof window !== 'undefined') {
     window.renderKpimarketingPage = renderKpimarketingPage;
     window.loadKpimarketingData = loadKpimarketingData;
+    window.kpiMktSetSegmentFilter = kpiMktSetSegmentFilter;
     window.kpiMktChangeMonth = kpiMktChangeMonth;
     window.kpiMktPickMonth = kpiMktPickMonth;
     window.kpiMktOnMonthInput = kpiMktOnMonthInput;

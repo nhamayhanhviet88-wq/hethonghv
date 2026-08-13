@@ -577,11 +577,15 @@ async function start() {
             target_revenue  NUMERIC DEFAULT 0,
             target_orders   INTEGER DEFAULT 0,
             target_notes    TEXT,
+            is_locked       INTEGER DEFAULT 0,
             updated_by      INTEGER REFERENCES users(id),
             updated_at      TIMESTAMP DEFAULT NOW(),
             UNIQUE(year, category, month)
         )`);
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_yt_year_cat ON yearly_targets(year, category)`);
+        await db.exec(`ALTER TABLE yearly_targets ADD COLUMN IF NOT EXISTS is_locked INTEGER DEFAULT 0`);
+        await db.exec(`UPDATE yearly_targets SET is_locked = 1 WHERE is_locked IS NULL OR (is_locked = 0 AND (target_revenue > 0 OR target_orders > 0 OR (target_notes IS NOT NULL AND target_notes != '')))`);
+        await db.exec(`UPDATE yearly_targets SET category = 'sale_kd_dp' WHERE category = 'sale_kd'`);
     } catch(e) { /* exists */ }
 
     // Migration: Kho Vải — Fabric Warehouse Management (5 tables, prefix kv_)

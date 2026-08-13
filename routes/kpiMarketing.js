@@ -24,12 +24,23 @@ module.exports = async function(fastify, options) {
         await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_conditions TEXT');
         await db.run('ALTER TABLE mkt_kpi_targets ADD COLUMN IF NOT EXISTS target_bonus_logic TEXT DEFAULT \'ALL\'');
         await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS show_in_kpi_mkt BOOLEAN DEFAULT FALSE');
+        await db.run('ALTER TABLE mkt_categories ADD COLUMN IF NOT EXISTS business_segment VARCHAR(50) DEFAULT \'dongphuc\'');
 
         // Initial default: enable show_in_kpi_mkt for existing core initial categories (excluding newly added ones like 'Tờ Rơi')
         await db.run(`
             UPDATE mkt_categories 
             SET show_in_kpi_mkt = TRUE 
             WHERE show_in_kpi_mkt IS NULL OR (is_active = TRUE AND parent_id IS NOT NULL AND LOWER(name) IN ('đồng phục hv - đồng phục công ty, nhà hàng', 'xưởng in hv - xưởng in pet , in tem eco gia công', 'seo web', 'tiktok test'))
+        `);
+        await db.run(`
+            UPDATE mkt_categories 
+            SET business_segment = 'tempet' 
+            WHERE (LOWER(name) LIKE '%pet%' OR LOWER(name) LIKE '%tem%' OR LOWER(pancake_page_name) LIKE '%tem%' OR LOWER(linked_source_name) LIKE '%tem%')
+        `);
+        await db.run(`
+            UPDATE mkt_categories 
+            SET business_segment = 'dongphuc' 
+            WHERE business_segment IS NULL OR business_segment = ''
         `);
     } catch(e) {
         console.error('Migration mkt_kpi_targets error:', e.message);
@@ -38,7 +49,8 @@ module.exports = async function(fastify, options) {
     // ===== GET /api/reports/kpi-marketing =====
     fastify.get('/api/reports/kpi-marketing', async (request, reply) => {
         try {
-            const { month } = request.query; // Format: YYYY-MM
+            const { month, segment } = request.query; // Format: YYYY-MM, segment: all | dongphuc | tempet
+            const activeSegment = (segment === 'dongphuc' || segment === 'tempet') ? segment : 'all';
             const now = new Date();
             let year, mo;
             if (month && /^\d{4}-\d{2}$/.test(month)) {
@@ -67,14 +79,18 @@ module.exports = async function(fastify, options) {
 
             // 1. Get all active system categories tree from mkt_categories
             const allSystemCats = await db.all(`
-                SELECT id, parent_id, group_type, name, icon, ads_handler_name, linked_source_name, pancake_page_id, pancake_page_name, channel_link, show_in_kpi_mkt
+                SELECT id, parent_id, group_type, name, icon, ads_handler_name, linked_source_name, pancake_page_id, pancake_page_name, channel_link, show_in_kpi_mkt, COALESCE(business_segment, 'dongphuc') AS business_segment
                 FROM mkt_categories
                 WHERE is_active = TRUE
                 ORDER BY CASE WHEN group_type = 'online' THEN 1 ELSE 2 END ASC, parent_id ASC NULLS FIRST, sort_order ASC, id ASC
             `);
 
-            // Filter allCats for KPI Marketing Ads: must have show_in_kpi_mkt = TRUE or be a parent category
-            const allCats = (allSystemCats || []).filter(c => c.show_in_kpi_mkt === true || c.show_in_kpi_mkt === 'true' || c.parent_id === null || c.parent_id === undefined);
+            // Filter allCats for KPI Marketing Ads: must have show_in_kpi_mkt = TRUE or be a parent category, and match activeSegment if specified
+            let allCats = (allSystemCats || []).filter(c => c.show_in_kpi_mkt === true || c.show_in_kpi_mkt === 'true' || c.parent_id === null || c.parent_id === undefined);
+
+            if (activeSegment !== 'all') {
+                allCats = allCats.filter(c => c.parent_id === null || c.parent_id === undefined || c.business_segment === activeSegment);
+            }
 
             const catMap = new Map();
             (allCats || []).forEach(c => catMap.set(c.id, c));
@@ -789,10 +805,12 @@ module.exports = async function(fastify, options) {
     // ===== POST /api/reports/kpi-marketing/categories ===== (Tạo mục con / mã nguồn)
     const saveCategoryHandler = async (request, reply) => {
         try {
-            const { parent_id, name, ads_handler_name, linked_source_name, pancake_page_name } = request.body || {};
+            const { parent_id, name, ads_handler_name, linked_source_name, pancake_page_name, business_segment } = request.body || {};
             if (!name || !name.trim()) {
                 return reply.status(400).send({ error: 'Tên mục không được để trống' });
             }
+
+            const finalSegment = (business_segment === 'tempet' || business_segment === 'tem_pet') ? 'tempet' : 'dongphuc';
 
             let realParentId = null;
             let parentCat = null;
@@ -826,19 +844,20 @@ module.exports = async function(fastify, options) {
                         parent_id = COALESCE(?, parent_id),
                         pancake_page_name = CASE WHEN ? != '' THEN ? ELSE pancake_page_name END,
                         linked_source_name = CASE WHEN ? != '' THEN ? ELSE linked_source_name END,
-                        ads_handler_name = CASE WHEN ? != '' THEN ? ELSE ads_handler_name END
+                        ads_handler_name = CASE WHEN ? != '' THEN ? ELSE ads_handler_name END,
+                        business_segment = ?
                     WHERE id = ?
-                `, [realParentId, pancake_page_name || '', pancake_page_name || '', linked_source_name || pancake_page_name || '', linked_source_name || pancake_page_name || '', ads_handler_name || '', ads_handler_name || '', existingCat.id]);
+                `, [realParentId, pancake_page_name || '', pancake_page_name || '', linked_source_name || pancake_page_name || '', linked_source_name || pancake_page_name || '', ads_handler_name || '', ads_handler_name || '', finalSegment, existingCat.id]);
 
                 return reply.send({ success: true, message: 'Đã thêm mục Marketing vào KPI Marketing Ads thành công!', id: existingCat.id });
             }
 
             const res = await db.run(`
                 INSERT INTO mkt_categories 
-                    (parent_id, group_type, name, icon, sort_order, linked_source_type, linked_source_name, pancake_page_name, ads_handler_name, is_active, show_in_kpi_mkt)
+                    (parent_id, group_type, name, icon, sort_order, linked_source_type, linked_source_name, pancake_page_name, ads_handler_name, is_active, show_in_kpi_mkt, business_segment)
                 VALUES 
-                    (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE)
-            `, [realParentId, group_type, name.trim(), icon, sort_order, 'facebook', linked_source_name || '', pancake_page_name || '', ads_handler_name || 'Giám Đốc']);
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE, ?)
+            `, [realParentId, group_type, name.trim(), icon, sort_order, 'facebook', linked_source_name || '', pancake_page_name || '', ads_handler_name || 'Giám Đốc', finalSegment]);
 
             reply.send({ success: true, message: 'Đã tạo mục Marketing mới thành công!', id: res.lastInsertRowid });
         } catch (err) {
