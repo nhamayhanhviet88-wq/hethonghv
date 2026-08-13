@@ -5136,11 +5136,12 @@ window.renderKpiCdDetailsTables = function(res) {
                 var o = orders[i];
                 var dt = o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '—';
                 var revFmt = typeof kpiSaleCompactVND === 'function' ? kpiSaleCompactVND(o.revenue) : (o.revenue.toLocaleString() + 'đ');
+                var oPhone = (o.phone && !o.phone.startsWith('pancake_')) ? o.phone : '—';
                 h += '<tr style="border-bottom:1px solid #f1f5f9">';
                 h += '<td style="padding:10px 12px;color:#94a3b8">' + (i + 1) + '</td>';
                 h += '<td style="padding:10px 12px;font-weight:700;color:#4338ca">' + (o.order_code || '—') + '</td>';
                 h += '<td style="padding:10px 12px;font-weight:700;color:#1e293b">' + (o.customer_name || 'Khách hàng') + '</td>';
-                h += '<td style="padding:10px 12px;color:#64748b">' + (o.phone || '—') + '</td>';
+                h += '<td style="padding:10px 12px;color:#64748b">' + oPhone + '</td>';
                 h += '<td style="padding:10px 12px;color:#64748b">' + dt + '</td>';
                 h += '<td style="padding:10px 12px;color:#6366f1;font-weight:600">' + (o.category_name || '—') + '</td>';
                 h += '<td style="padding:10px 12px;text-align:right;font-weight:800;color:#059669">' + revFmt + '</td>';
@@ -5171,11 +5172,12 @@ window.renderKpiCdDetailsTables = function(res) {
                         codeFmt = c.customer_uid || ('KH-' + c.id);
                     }
                 }
+                var cPhone = (c.phone && !c.phone.startsWith('pancake_')) ? c.phone : '—';
                 h2 += '<tr style="border-bottom:1px solid #f1f5f9">';
                 h2 += '<td style="padding:10px 12px;color:#94a3b8">' + (j + 1) + '</td>';
                 h2 += '<td style="padding:10px 12px;font-weight:700;color:#e65100">' + codeFmt + '</td>';
                 h2 += '<td style="padding:10px 12px;font-weight:700;color:#1e293b">' + (c.customer_name || 'Khách mới') + '</td>';
-                h2 += '<td style="padding:10px 12px;font-weight:700;color:#059669">' + (c.phone || '—') + '</td>';
+                h2 += '<td style="padding:10px 12px;font-weight:700;color:' + (cPhone === '—' ? '#94a3b8' : '#059669') + '">' + cPhone + '</td>';
                 h2 += '<td style="padding:10px 12px;color:#64748b">' + cDt + '</td>';
                 h2 += '</tr>';
             }
