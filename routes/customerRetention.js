@@ -17,6 +17,27 @@ module.exports = async function(fastify) {
         return buildProductionFilter(cutoff, testIds, 'c.created_at', 'c.created_by');
     }
 
+    // Helper to fetch full department tree recursively for KD & Sales
+    async function getKdDeptTree(targetDeptId) {
+        const isKdOrSale = (!targetDeptId || targetDeptId === 1 || targetDeptId === 4);
+        const sql = `
+            WITH RECURSIVE dept_tree AS (
+                SELECT id, name, parent_id, head_user_id, display_order 
+                FROM departments 
+                WHERE (${isKdOrSale ? 'id IN (1, 4) OR parent_id IN (1, 4)' : '(id = $1 OR parent_id = $1)'})
+                  AND status = 'active'
+                UNION ALL
+                SELECT d.id, d.name, d.parent_id, d.head_user_id, d.display_order 
+                FROM departments d
+                JOIN dept_tree dt ON d.parent_id = dt.id 
+                WHERE d.status = 'active'
+            )
+            SELECT DISTINCT id, name, parent_id, head_user_id, display_order FROM dept_tree ORDER BY display_order, id
+        `;
+        const params = isKdOrSale ? [] : [targetDeptId];
+        return await db.all(sql, params);
+    }
+
     // ===== Helper: Parse period params into date ranges =====
     function parsePeriod(period, dateStr, opts) {
         let current = {}, previous = {};
@@ -153,10 +174,7 @@ module.exports = async function(fastify) {
         const { current, previous, type } = parsePeriod(period, date);
 
         // ===== 1. Get department tree =====
-        const allDepts = await db.all(
-            "SELECT id, name, parent_id, head_user_id, display_order FROM departments WHERE (id = $1 OR parent_id = $1) AND status = 'active' ORDER BY display_order, id",
-            [targetDeptId]
-        );
+        const allDepts = await getKdDeptTree(targetDeptId);
         if (allDepts.length === 0) {
             return { period: { type, ...current }, previous, summary: { current: { total: 0, new: 0, returning: 0, rate: 0 }, previous: { total: 0, new: 0, returning: 0, rate: 0 }, trend: { total: 0, new: 0, returning: 0, rate: 0 } }, groups: [] };
         }
@@ -845,10 +863,7 @@ module.exports = async function(fastify) {
         const _pCutoff = await _getCutoffSQL();
 
         // Get department hierarchy
-        const allDepts = await db.all(
-            "SELECT id, name, parent_id FROM departments WHERE (id = $1 OR parent_id = $1) AND status = 'active' ORDER BY display_order, id",
-            [targetDeptId]
-        );
+        const allDepts = await getKdDeptTree(targetDeptId);
         const rootDept = allDepts.find(d => d.id === targetDeptId) || allDepts[0];
         let childDepts = allDepts.filter(d => d.parent_id === rootDept?.id);
         if (childDepts.length === 0) childDepts = [rootDept];
