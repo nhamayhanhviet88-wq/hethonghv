@@ -5092,8 +5092,8 @@ window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
     document.body.insertAdjacentHTML('beforeend', h);
 
     // Fetch detail lists
-    var filter = window._kpiSaleLbFilter || window._kpiLbFilter || 'this_month';
-    var monthVal = window._kpiSaleLbMonth || window._kpiLbMonth || '';
+    var filter = window._kpiSaleLbFilter || window._kpiLbFilter || 'month';
+    var monthVal = (window._kpiSale && window._kpiSale.month) || (window._kpi && window._kpi.month) || window._kpiSaleLbMonth || window._kpiLbMonth || '';
     var startDateVal = window._kpiSaleLbCustomStart || window._kpiLbCustomStart || '';
     var endDateVal = window._kpiSaleLbCustomEnd || window._kpiLbCustomEnd || '';
 
