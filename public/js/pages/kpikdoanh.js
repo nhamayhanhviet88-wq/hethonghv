@@ -1323,29 +1323,31 @@ function kpiRenderLeaderboard(el, data) {
         var emp = lb[i];
         var rank = i < 3 ? medals[i] : (i + 1);
         var conv = convMap[emp.user_id] || convMap[emp.id] || {};
-        var rateDpVal = conv.rate_dp != null ? conv.rate_dp : conv.rate;
-        var ratePetTemVal = conv.rate_pettem != null ? conv.rate_pettem : conv.rate;
+        var rateDpVal = conv.rate_dp != null ? conv.rate_dp : (conv.assigned_dp != null ? 0 : conv.rate);
+        var ratePetTemVal = conv.rate_pettem != null ? conv.rate_pettem : (conv.assigned_pettem != null ? 0 : conv.rate);
         var cRateDp = rateDpVal != null ? rateDpVal + '%' : '0%';
         var cColorDp = (rateDpVal || 0) >= 70 ? '#10b981' : (rateDpVal || 0) >= 40 ? '#f59e0b' : '#ef4444';
         var cRatePetTem = ratePetTemVal != null ? ratePetTemVal + '%' : '0%';
         var cColorPetTem = (ratePetTemVal || 0) >= 70 ? '#10b981' : (ratePetTemVal || 0) >= 40 ? '#f59e0b' : '#ef4444';
         var prev = emp.prev || {};
 
-        var dpTooltipConv = conv.assigned_dp > 0 ? (conv.completed_dp + '/' + conv.assigned_dp + ' KH ĐP được giao') : 'Chưa có KH ĐP được giao';
-        var petTooltipConv = conv.assigned_pettem > 0 ? (conv.completed_pettem + '/' + conv.assigned_pettem + ' KH PET/TEM được giao') : 'Chưa có KH PET/TEM được giao';
+        var dpTooltipConv = 'Bấm để xem chi tiết: ' + (conv.assigned_dp > 0 ? (conv.completed_dp + '/' + conv.assigned_dp + ' KH ĐP được giao') : 'Chưa có KH ĐP được giao');
+        var petTooltipConv = 'Bấm để xem chi tiết: ' + (conv.assigned_pettem > 0 ? (conv.completed_pettem + '/' + conv.assigned_pettem + ' KH PET/TEM được giao') : 'Chưa có KH PET/TEM được giao');
 
         var dpText = emp.rate_dp != null ? (emp.rate_dp + '%') : '—';
         var dpTooltip = emp.old_dp_total > 0 ? (emp.ret_dp_cust + '/' + emp.old_dp_total + ' KH cũ đầu kỳ quay lại') : 'Chưa có tập khách cũ đầu kỳ';
         var petText = emp.rate_pettem != null ? (emp.rate_pettem + '%') : '—';
         var petTooltip = emp.old_pettem_total > 0 ? (emp.ret_pettem_cust + '/' + emp.old_pettem_total + ' KH cũ đầu kỳ quay lại') : 'Chưa có tập khách cũ đầu kỳ';
 
-        h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiShowOrders(' + (emp.user_id || emp.id) + ',\'' + (emp.name || emp.full_name || '').replace(/'/g, "\\'") + '\')">';
+        var safeEmpName = (emp.name || emp.full_name || '').replace(/'/g, "\\'");
+
+        h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiShowOrders(' + (emp.user_id || emp.id) + ',\'' + safeEmpName + '\')">';
         h += '<div class="kpi-lb-rank">' + rank + '</div>';
         h += '<div><div class="kpi-lb-name">' + emp.name + '</div><div class="kpi-lb-team">' + (emp.team || '') + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#4338ca">' + emp.total_orders + ' đơn<div>' + kpiTrend(emp.total_orders, prev.total_orders) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#059669">' + kpiDashFmtVND(emp.revenue) + '<div>' + kpiTrend(emp.revenue, prev.revenue) + '</div></div>';
-        h += '<div class="kpi-lb-val" style="color:' + cColorDp + ';font-size:12px" title="' + dpTooltipConv + '">' + cRateDp + '<div>' + kpiTrend(conv.rate_dp || 0, prev.conversion_rate_dp || 0) + '</div></div>';
-        h += '<div class="kpi-lb-val" style="color:' + cColorPetTem + ';font-size:12px" title="' + petTooltipConv + '">' + cRatePetTem + '<div>' + kpiTrend(conv.rate_pettem || 0, prev.conversion_rate_pettem || 0) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:' + cColorDp + ';font-size:12px;cursor:pointer;text-decoration:underline dotted" title="' + dpTooltipConv + '" onclick="event.stopPropagation();kpiShowCdDetail(' + (emp.user_id || emp.id) + ',\'' + safeEmpName + '\',\'dp\')">' + cRateDp + '<div>' + kpiTrend(conv.rate_dp || 0, prev.conversion_rate_dp || 0) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:' + cColorPetTem + ';font-size:12px;cursor:pointer;text-decoration:underline dotted" title="' + petTooltipConv + '" onclick="event.stopPropagation();kpiShowCdDetail(' + (emp.user_id || emp.id) + ',\'' + safeEmpName + '\',\'pettem\')">' + cRatePetTem + '<div>' + kpiTrend(conv.rate_pettem || 0, prev.conversion_rate_pettem || 0) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.affiliate_new || 0) + '<div>' + kpiTrend(emp.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#d97706" title="' + dpTooltip + '">' + dpText + '<div>' + kpiTrend(emp.rate_dp || 0, prev.rate_dp || 0) + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#7c3aed" title="' + petTooltip + '">' + petText + '<div>' + kpiTrend(emp.rate_pettem || 0, prev.rate_pettem || 0) + '</div></div>';

@@ -1588,25 +1588,27 @@ function renderKpiSaleLeaderboard(data) {
             var emp = lb[i];
             var rank = i < 3 ? medals[i] : (i + 1);
             var conv = convMap[emp.user_id] || convMap[emp.id] || {};
-            var rateDpVal = conv.rate_dp != null ? conv.rate_dp : conv.rate;
-            var ratePetTemVal = conv.rate_pettem != null ? conv.rate_pettem : conv.rate;
+            var rateDpVal = conv.rate_dp != null ? conv.rate_dp : (conv.assigned_dp != null ? 0 : conv.rate);
+            var ratePetTemVal = conv.rate_pettem != null ? conv.rate_pettem : (conv.assigned_pettem != null ? 0 : conv.rate);
             var cRateDp = rateDpVal != null ? rateDpVal + '%' : '0%';
             var cColorDp = (rateDpVal || 0) >= 70 ? '#10b981' : (rateDpVal || 0) >= 40 ? '#f59e0b' : '#ef4444';
             var cRatePetTem = ratePetTemVal != null ? ratePetTemVal + '%' : '0%';
             var cColorPetTem = (ratePetTemVal || 0) >= 70 ? '#10b981' : (ratePetTemVal || 0) >= 40 ? '#f59e0b' : '#ef4444';
             var prev = emp.prev || {};
 
-            var dpTooltipConv = conv.assigned_dp > 0 ? (conv.completed_dp + '/' + conv.assigned_dp + ' KH ĐP được giao') : 'Chưa có KH ĐP được giao';
-            var petTooltipConv = conv.assigned_pettem > 0 ? (conv.completed_pettem + '/' + conv.assigned_pettem + ' KH PET/TEM được giao') : 'Chưa có KH PET/TEM được giao';
+            var dpTooltipConv = 'Bấm để xem chi tiết: ' + (conv.assigned_dp > 0 ? (conv.completed_dp + '/' + conv.assigned_dp + ' KH ĐP được giao') : 'Chưa có KH ĐP được giao');
+            var petTooltipConv = 'Bấm để xem chi tiết: ' + (conv.assigned_pettem > 0 ? (conv.completed_pettem + '/' + conv.assigned_pettem + ' KH PET/TEM được giao') : 'Chưa có KH PET/TEM được giao');
 
-            h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiSaleShowOrders(' + (emp.user_id || emp.id) + ',\'' + (emp.name || emp.full_name || '').replace(/'/g, "\\'") + '\')">';
+            var safeEmpName = (emp.name || emp.full_name || '').replace(/'/g, "\\'");
+
+            h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiSaleShowOrders(' + (emp.user_id || emp.id) + ',\'' + safeEmpName + '\')">';
             h += '<div class="kpi-lb-rank">' + rank + '</div>';
             var empIcon = (['truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(emp.role) || emp.username === 'truongphongsale' || emp.user_id === 77) ? '⭐' : '👤';
             h += '<div><div class="kpi-lb-name">' + empIcon + ' ' + (emp.name || emp.full_name || '?') + '</div><div class="kpi-lb-team">' + (emp.team || 'PHÒNG SALE') + '</div></div>';
             h += '<div class="kpi-lb-val" style="color:#4338ca">' + (emp.total_orders || 0) + ' đơn<div>' + kpiSaleTrend(emp.total_orders || 0, prev.total_orders || 0) + '</div></div>';
             h += '<div class="kpi-lb-val" style="color:#059669">' + kpiSaleCompactVND(emp.revenue || 0) + '<div>' + kpiSaleTrend(emp.revenue || 0, prev.revenue || 0) + '</div></div>';
-            h += '<div class="kpi-lb-val" style="color:' + cColorDp + ';font-size:12px" title="' + dpTooltipConv + '">' + cRateDp + '<div>' + kpiSaleTrend(conv.rate_dp || 0, prev.conversion_rate_dp || 0) + '</div></div>';
-            h += '<div class="kpi-lb-val" style="color:' + cColorPetTem + ';font-size:12px" title="' + petTooltipConv + '">' + cRatePetTem + '<div>' + kpiSaleTrend(conv.rate_pettem || 0, prev.conversion_rate_pettem || 0) + '</div></div>';
+            h += '<div class="kpi-lb-val" style="color:' + cColorDp + ';font-size:12px;cursor:pointer;text-decoration:underline dotted" title="' + dpTooltipConv + '" onclick="event.stopPropagation();kpiSaleShowCdDetail(' + (emp.user_id || emp.id) + ',\'' + safeEmpName + '\',\'dp\')">' + cRateDp + '<div>' + kpiSaleTrend(conv.rate_dp || 0, prev.conversion_rate_dp || 0) + '</div></div>';
+            h += '<div class="kpi-lb-val" style="color:' + cColorPetTem + ';font-size:12px;cursor:pointer;text-decoration:underline dotted" title="' + petTooltipConv + '" onclick="event.stopPropagation();kpiSaleShowCdDetail(' + (emp.user_id || emp.id) + ',\'' + safeEmpName + '\',\'pettem\')">' + cRatePetTem + '<div>' + kpiSaleTrend(conv.rate_pettem || 0, prev.conversion_rate_pettem || 0) + '</div></div>';
             h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.affiliate_new || 0) + '<div>' + kpiSaleTrend(emp.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
             h += '<div class="kpi-lb-val" style="color:#d97706">' + (emp.rate_dp != null ? emp.rate_dp + '%' : '—') + '<div>' + kpiSaleTrend(emp.rate_dp || 0, prev.rate_dp || 0) + '</div></div>';
             h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.rate_pettem != null ? emp.rate_pettem + '%' : '—') + '<div>' + kpiSaleTrend(emp.rate_pettem || 0, prev.rate_pettem || 0) + '</div></div>';
@@ -4986,6 +4988,102 @@ function kpiSaleOpenMetricDetailModal(metricKey) {
 if (typeof window !== 'undefined') {
     window.kpiSaleOpenMetricDetailModal = kpiSaleOpenMetricDetailModal;
 }
+
+// ===== CĐ DETAIL MODAL (BAR CONVERSION RATE BREAKDOWN) =====
+window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
+    var data = advData || window._kpiSaleAdvData || window._kpiAdvData || {};
+    var convMap = (data && data.conversionMap) || {};
+    var conv = convMap[userId] || convMap[userId + ''] || {};
+
+    var typeName = type === 'pettem' ? 'PET / TEM' : 'Đồng Phục';
+    var assigned = type === 'pettem' ? (conv.assigned_pettem || 0) : (conv.assigned_dp || 0);
+    var completed = type === 'pettem' ? (conv.completed_pettem || 0) : (conv.completed_dp || 0);
+    var rate = type === 'pettem' ? (conv.rate_pettem != null ? conv.rate_pettem : (conv.rate != null ? conv.rate : 0)) : (conv.rate_dp != null ? conv.rate_dp : (conv.rate != null ? conv.rate : 0));
+
+    var explanationText = '';
+    if (assigned > 0 && completed > assigned) {
+        explanationText = 'Tỷ lệ CĐ mảng ' + typeName + ' đạt <strong>' + rate + '%</strong> (vượt 100%) vì nhân viên đã chốt được <strong>' + completed + ' đơn hàng</strong>, trong khi số khách hàng mới mảng ' + typeName + ' được giao trong kỳ là <strong>' + assigned + ' KH</strong>. Điều này phát sinh khi khách hàng được giao chốt từ 2 đơn trở lên, hoặc có đơn phát sinh từ tập khách hàng được phân công từ trước.';
+    } else if (assigned > 0) {
+        explanationText = 'Trong kỳ lọc này, nhân viên được phân công <strong>' + assigned + ' KH mới</strong> mảng ' + typeName + ' và đã chốt thành công <strong>' + completed + ' đơn hàng</strong>, đạt tỷ lệ chuyển đổi <strong>' + rate + '%</strong>.';
+    } else if (completed > 0) {
+        explanationText = 'Nhân viên chưa được phân công khách hàng mới mảng ' + typeName + ' nào trong kỳ lọc này (0 KH được giao), nhưng vẫn chốt thành công <strong>' + completed + ' đơn hàng</strong> mảng ' + typeName + ' từ danh sách khách hàng gán trước đó.';
+    } else {
+        explanationText = 'Trong kỳ lọc này, nhân viên chưa được giao khách hàng mới và chưa chốt đơn hàng nào thuộc mảng ' + typeName + ' (0%).';
+    }
+
+    var oldModal = document.getElementById('kpiCdDetailModal');
+    if (oldModal) oldModal.remove();
+
+    var h = '<div id="kpiCdDetailModal" onclick="if(event.target===this)closeKpiCdDetailModal()" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px">';
+    h += '<div style="background:#fff;border-radius:20px;max-width:520px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);overflow:hidden">';
+    
+    // Header
+    h += '<div style="background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:center">';
+    h += '<div>';
+    h += '<div style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px">📊 Chi Tiết Tỷ Lệ Chuyển Đổi (CĐ)</div>';
+    h += '<div style="font-size:13px;opacity:.95;margin-top:4px">👤 ' + empName + ' — Mảng <strong>' + typeName + '</strong></div>';
+    h += '</div>';
+    h += '<button onclick="closeKpiCdDetailModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1">✕</button>';
+    h += '</div>';
+
+    // Body
+    h += '<div style="padding:24px">';
+
+    // Formula Box
+    h += '<div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:14px;padding:14px;text-align:center;margin-bottom:20px">';
+    h += '<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📐 CÔNG THỨC TÍNH CĐ ' + typeName + '</div>';
+    h += '<div style="font-size:14px;font-weight:800;color:#1e293b">Tỷ lệ CĐ % = (Số đơn chốt ÷ Số KH được giao) × 100%</div>';
+    h += '</div>';
+
+    // Stat Cards
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">';
+    h += '<div style="background:#eef2ff;border-radius:14px;padding:14px;border:1px solid #c7d2fe;text-align:center">';
+    h += '<div style="font-size:12px;color:#4338ca;font-weight:700;margin-bottom:4px">📦 Số đơn chốt (' + typeName + ')</div>';
+    h += '<div style="font-size:24px;font-weight:900;color:#3730a3">' + completed + ' đơn</div>';
+    h += '</div>';
+    h += '<div style="background:#f0fdf4;border-radius:14px;padding:14px;border:1px solid #bbf7d0;text-align:center">';
+    h += '<div style="font-size:12px;color:#166534;font-weight:700;margin-bottom:4px">👥 KH được giao (' + typeName + ')</div>';
+    h += '<div style="font-size:24px;font-weight:900;color:#15803d">' + assigned + ' KH</div>';
+    h += '</div>';
+    h += '</div>';
+
+    // Result Highlight
+    h += '<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:16px;padding:18px;text-align:center;margin-bottom:20px;box-shadow:0 4px 12px rgba(16,185,129,.1)">';
+    h += '<div style="font-size:11px;font-weight:800;color:#047857;letter-spacing:0.5px">KẾT QUẢ TỶ LỆ CHUYỂN ĐỔI</div>';
+    h += '<div style="font-size:32px;font-weight:900;color:#065f46;margin:6px 0">' + rate + '%</div>';
+    h += '<div style="font-size:13px;color:#047857;font-weight:700">Phép tính: (' + completed + ' đơn ÷ ' + (assigned > 0 ? assigned : 0) + ' KH) × 100% = <strong>' + rate + '%</strong></div>';
+    h += '</div>';
+
+    // Explanation Note
+    h += '<div style="background:#fffbebf0;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:0 12px 12px 0;font-size:13px;color:#92400e;line-height:1.6">';
+    h += '📌 <strong>Lý do ra kết quả:</strong> ' + explanationText;
+    h += '</div>';
+
+    h += '</div>'; // close body
+
+    // Footer
+    h += '<div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">';
+    h += '<button onclick="closeKpiCdDetailModal()" style="padding:8px 22px;border-radius:10px;background:#475569;color:#fff;border:none;font-weight:700;cursor:pointer;font-size:13px">Đóng</button>';
+    h += '</div>';
+
+    h += '</div>';
+    h += '</div>';
+
+    document.body.insertAdjacentHTML('beforeend', h);
+};
+
+window.closeKpiCdDetailModal = function() {
+    var m = document.getElementById('kpiCdDetailModal');
+    if (m) m.remove();
+};
+
+window.kpiSaleShowCdDetail = function(userId, empName, type) {
+    window.kpiShowCdDetailModal(userId, empName, type, window._kpiSaleAdvData);
+};
+
+window.kpiShowCdDetail = function(userId, empName, type) {
+    window.kpiShowCdDetailModal(userId, empName, type, window._kpiAdvData);
+};
 
 
 
