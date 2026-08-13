@@ -4996,16 +4996,23 @@ if (typeof window !== 'undefined') {
 
 // ===== CĐ DETAIL MODAL (BAR CONVERSION RATE BREAKDOWN) =====
 window.kpiShowCdDetailModal = function(userId, empName, type, advData) {
-    var data = advData || window._kpiSaleAdvData || window._kpiAdvData || {};
+    var isSalePage = (window.location.pathname || '').includes('kpisale');
+    var data = advData || (isSalePage ? (window._kpiSaleAdvData || window._kpiAdvData) : (window._kpiAdvData || window._kpiSaleAdvData)) || {};
     var convMap = (data && data.conversionMap) || {};
-    var conv = convMap[userId] || convMap[userId + ''] || {};
+    var conv = convMap[userId] || convMap[userId + ''] || convMap[Number(userId)] || {};
+
+    var allEmp = (data && (data.allEmployees || (data.leaderboard && (data.leaderboard.by_revenue || data.leaderboard.by_orders)))) || [];
+    var emp = allEmp.find(function(e) { return Number(e.user_id || e.id) === Number(userId); }) || {};
 
     var typeName = type === 'pettem' ? 'PET / TEM' : 'Đồng Phục';
-    var assigned = type === 'pettem' ? (conv.assigned_pettem || 0) : (conv.assigned_dp || 0);
-    var completed = type === 'pettem' ? (conv.completed_pettem || 0) : (conv.completed_dp || 0);
+    var assigned = type === 'pettem' ? (conv.assigned_pettem != null ? conv.assigned_pettem : 0) : (conv.assigned_dp != null ? conv.assigned_dp : 0);
+    var completed = type === 'pettem' 
+        ? (conv.completed_pettem != null ? conv.completed_pettem : (emp.orders_pettem || 0)) 
+        : (conv.completed_dp != null ? conv.completed_dp : (emp.orders_dp || 0));
+
     var rate = type === 'pettem' 
-        ? (conv.rate_pettem != null ? conv.rate_pettem : (conv.assigned_pettem > 0 ? Math.round(1000 * (conv.completed_pettem || 0) / conv.assigned_pettem) / 10 : (conv.completed_pettem > 0 ? conv.completed_pettem * 100 : 0))) 
-        : (conv.rate_dp != null ? conv.rate_dp : (conv.assigned_dp > 0 ? Math.round(1000 * (conv.completed_dp || 0) / conv.assigned_dp) / 10 : (conv.completed_dp > 0 ? conv.completed_dp * 100 : 0)));
+        ? (conv.rate_pettem != null ? conv.rate_pettem : (assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : (completed > 0 ? completed * 100 : 0))) 
+        : (conv.rate_dp != null ? conv.rate_dp : (assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : (completed > 0 ? completed * 100 : 0)));
 
     var explanationText = '';
     if (assigned > 0 && completed > assigned) {
