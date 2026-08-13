@@ -567,6 +567,23 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dpl_date ON daily_penalty_ledger(penalty_date)`);
     } catch(e) { /* exists */ }
 
+    // Migration: Yearly Targets — Mục Tiêu Năm (Sale/KD, Marketing, Sản Xuất)
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS yearly_targets (
+            id              SERIAL PRIMARY KEY,
+            year            INTEGER NOT NULL,
+            category        TEXT NOT NULL,
+            month           INTEGER NOT NULL,
+            target_revenue  NUMERIC DEFAULT 0,
+            target_orders   INTEGER DEFAULT 0,
+            target_notes    TEXT,
+            updated_by      INTEGER REFERENCES users(id),
+            updated_at      TIMESTAMP DEFAULT NOW(),
+            UNIQUE(year, category, month)
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_yt_year_cat ON yearly_targets(year, category)`);
+    } catch(e) { /* exists */ }
+
     // Migration: Kho Vải — Fabric Warehouse Management (5 tables, prefix kv_)
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS kv_warehouses (
@@ -1672,6 +1689,7 @@ async function start() {
     fastify.register(require('./routes/customerRetention'));
     fastify.register(require('./routes/topCustomers'));
     fastify.register(require('./routes/kpiTargets'));
+    fastify.register(require('./routes/yearlyTargets'));
     fastify.register(require('./routes/kpiKdoanh'));
     fastify.register(require('./routes/kpiSale'));
     fastify.register(require('./routes/kpiMarketing'));
@@ -1745,6 +1763,9 @@ async function start() {
         return reply.sendFile('mobile-dashboard.html');
     });
     fastify.get('/m/tongquan', async (request, reply) => {
+        return reply.sendFile('mobile-dashboard.html');
+    });
+    fastify.get('/m/muctieunam', async (request, reply) => {
         return reply.sendFile('mobile-dashboard.html');
     });
 

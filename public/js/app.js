@@ -95,6 +95,7 @@ const CRM_LABELS = {
 
 const MENU_CONFIG = [
     { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', permKey: 'tong_quan' },
+    { id: 'muc-tieu-nam', label: 'Mục Tiêu Năm', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/muctieunam', mobileHref: '/m/muctieunam', permKey: 'muc_tieu_nam' },
     { id: 'topkhachhang', label: 'Top Khách & Sale KD', icon: '👑', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/topkhachhang', permKey: 'top_khach_hang' },
     { id: 'kpikdoanh', label: 'KPI P.Kinh Doanh', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpikdoanh', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_kdoanh' },
     { id: 'kpisale', label: 'KPI P.Sale', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpisale', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_sale' },
@@ -443,6 +444,8 @@ const _PAGE_SCRIPT_MAP = {
     'kpi-mkt-view': '/js/pages/kpimktview.js?v=20260804_v100',
     'camketcuochop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'cam-ket-cuoc-hop': '/js/pages/camketcuochop.js?v=20260803_v1010',
+    'muc-tieu-nam': '/js/pages/muctieunam.js?v=20260813_v100',
+    'muctieunam': '/js/pages/muctieunam.js?v=20260813_v100',
     'bangcongviec': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
     'bang-cong-viec': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
     'bang_cong_viec': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
@@ -2358,6 +2361,7 @@ async function handleRoute() {
                 case 'addcmtdoitackh': content.innerHTML=''; setTimeout(function(){if(typeof _acInit==='function')_acInit();},50); break;
                 case 'timkiemkhachhang': case 'timkiemkhachhanghv': renderTimKiemKhachHang(content); break;
                 case 'ngansachmkt': case 'ngan-sach-mkt': renderNgansachmktPage(content); break;
+                case 'muc-tieu-nam': case 'muctieunam': case 'm/muctieunam': if (typeof renderMucTieuNamPage === 'function') renderMucTieuNamPage(content); else if (typeof window.renderMucTieuNamPage === 'function') window.renderMucTieuNamPage(content); break;
                 case 'xuatvathv': renderXuatvathvPage(content); break;
                 case 'bo-phan-in': case 'bophanin': case 'bophaninhv': renderBophaninPage(content); break;
                 case 'bo-phan-cat': case 'bophancat': case 'bophancathv': renderBophancatPage(content); break;
