@@ -1385,7 +1385,13 @@ module.exports = async function(fastify) {
         let current = {};
         if (startDate && endDate) {
             current.start = startDate.includes(' ') ? startDate : `${startDate} 00:00:00`;
-            current.end = endDate.includes(' ') ? endDate : `${endDate} 00:00:00`;
+            if (endDate.includes(' ')) {
+                current.end = endDate;
+            } else {
+                const endD = new Date(endDate + 'T00:00:00');
+                endD.setDate(endD.getDate() + 1);
+                current.end = `${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,'0')}-${String(endD.getDate()).padStart(2,'0')} 00:00:00`;
+            }
         } else {
             const parsed = parsePeriod(period, date, { startDate, endDate });
             current = parsed.current;
