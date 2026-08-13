@@ -5768,3 +5768,99 @@ window.kpiShowCdDetail = window.kpiShowCdDetail || function(userId, empName, typ
     window.kpiShowCdDetailModal(userId, empName, type, window._kpiAdvData || window._kpiSaleAdvData);
 };
 
+window.renderKpiCdDetailsTables = window.renderKpiCdDetailsTables || function(res) {
+    var orders = res.orders || [];
+    var customers = res.customers || [];
+
+    var ordCntEl = document.getElementById('kpiCdOrdersCnt');
+    if (ordCntEl) ordCntEl.textContent = orders.length;
+    var custCntEl = document.getElementById('kpiCdCustCnt');
+    if (custCntEl) custCntEl.textContent = customers.length;
+
+    // Render Orders Table
+    var ordListEl = document.getElementById('kpiCdOrdersList');
+    if (ordListEl) {
+        if (orders.length === 0) {
+            ordListEl.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8">📭 Không phát sinh đơn hàng nào thuộc mảng này trong kỳ</div>';
+        } else {
+            var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+            h += '<thead><tr style="background:#f8fafc;color:#475569;border-bottom:1px solid #e2e8f0"><th style="padding:10px 12px;text-align:left">#</th><th style="padding:10px 12px;text-align:left">Mã đơn hàng</th><th style="padding:10px 12px;text-align:left">Tên khách hàng</th><th style="padding:10px 12px;text-align:left">SĐT</th><th style="padding:10px 12px;text-align:left">Ngày chốt</th><th style="padding:10px 12px;text-align:left">Hạng mục</th><th style="padding:10px 12px;text-align:right">Doanh số</th></tr></thead><tbody>';
+            for (var i = 0; i < orders.length; i++) {
+                var o = orders[i];
+                var dt = o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '—';
+                var revFmt = typeof kpiSaleCompactVND === 'function' ? kpiSaleCompactVND(o.revenue) : (o.revenue.toLocaleString() + 'đ');
+                var oPhone = (o.phone && !o.phone.startsWith('pancake_')) ? o.phone : '—';
+                h += '<tr style="border-bottom:1px solid #f1f5f9">';
+                h += '<td style="padding:10px 12px;color:#94a3b8">' + (i + 1) + '</td>';
+                h += '<td style="padding:10px 12px;font-weight:700;color:#4338ca">' + (o.order_code || '—') + '</td>';
+                h += '<td style="padding:10px 12px;font-weight:700;color:#1e293b">' + (o.customer_name || 'Khách hàng') + '</td>';
+                h += '<td style="padding:10px 12px;color:#64748b">' + oPhone + '</td>';
+                h += '<td style="padding:10px 12px;color:#64748b">' + dt + '</td>';
+                h += '<td style="padding:10px 12px;color:#6366f1;font-weight:600">' + (o.category_name || '—') + '</td>';
+                h += '<td style="padding:10px 12px;text-align:right;font-weight:800;color:#059669">' + revFmt + '</td>';
+                h += '</tr>';
+            }
+            h += '</tbody></table>';
+            ordListEl.innerHTML = h;
+        }
+    }
+
+    // Render Customers Table
+    var custListEl = document.getElementById('kpiCdCustList');
+    if (custListEl) {
+        if (customers.length === 0) {
+            custListEl.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8">📭 Không có khách hàng mới được giao mảng này trong kỳ</div>';
+        } else {
+            var h2 = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+            h2 += '<thead><tr style="background:#f8fafc;color:#475569;border-bottom:1px solid #e2e8f0"><th style="padding:10px 12px;text-align:left">#</th><th style="padding:10px 12px;text-align:left">Mã KH</th><th style="padding:10px 12px;text-align:left">Tên khách hàng</th><th style="padding:10px 12px;text-align:left">Số điện thoại</th><th style="padding:10px 12px;text-align:left">Ngày giao</th></tr></thead><tbody>';
+            for (var j = 0; j < customers.length; j++) {
+                var c = customers[j];
+                var cDt = c.created_at ? new Date(c.created_at).toLocaleString('vi-VN') : '—';
+                var codeFmt = (typeof getCustomerCode === 'function') ? getCustomerCode(c) : '';
+                if (!codeFmt || codeFmt.indexOf('NaN') !== -1 || codeFmt.startsWith('0-0-')) {
+                    var dObj = new Date(c.effective_date || c.created_at || c.handover_date);
+                    if (!isNaN(dObj.getTime())) {
+                        codeFmt = (c.daily_order_number || 0) + '-' + dObj.getDate() + '-' + (dObj.getMonth() + 1) + '-Y' + String(dObj.getFullYear()).slice(-2);
+                    } else {
+                        codeFmt = c.customer_uid || ('KH-' + c.id);
+                    }
+                }
+                var cPhone = (c.phone && !c.phone.startsWith('pancake_')) ? c.phone : '—';
+                h2 += '<tr style="border-bottom:1px solid #f1f5f9">';
+                h2 += '<td style="padding:10px 12px;color:#94a3b8">' + (j + 1) + '</td>';
+                h2 += '<td style="padding:10px 12px;font-weight:700;color:#e65100">' + codeFmt + '</td>';
+                h2 += '<td style="padding:10px 12px;font-weight:700;color:#1e293b">' + (c.customer_name || 'Khách mới') + '</td>';
+                h2 += '<td style="padding:10px 12px;font-weight:700;color:' + (cPhone === '—' ? '#94a3b8' : '#059669') + '">' + cPhone + '</td>';
+                h2 += '<td style="padding:10px 12px;color:#64748b">' + cDt + '</td>';
+                h2 += '</tr>';
+            }
+            h2 += '</tbody></table>';
+            custListEl.innerHTML = h2;
+        }
+    }
+};
+
+window.switchKpiCdTab = window.switchKpiCdTab || function(tab) {
+    var ordTab = document.getElementById('kpiCdOrdersTab');
+    var custTab = document.getElementById('kpiCdCustTab');
+    var ordBtn = document.getElementById('kpiCdTabOrdersBtn');
+    var custBtn = document.getElementById('kpiCdTabCustBtn');
+
+    if (tab === 'orders') {
+        if (ordTab) ordTab.style.display = 'block';
+        if (custTab) custTab.style.display = 'none';
+        if (ordBtn) { ordBtn.style.background = '#4338ca'; ordBtn.style.color = '#fff'; ordBtn.style.border = 'none'; }
+        if (custBtn) { custBtn.style.background = '#f1f5f9'; custBtn.style.color = '#475569'; custBtn.style.border = '1px solid #cbd5e1'; }
+    } else {
+        if (ordTab) ordTab.style.display = 'none';
+        if (custTab) custTab.style.display = 'block';
+        if (ordBtn) { ordBtn.style.background = '#f1f5f9'; ordBtn.style.color = '#475569'; ordBtn.style.border = '1px solid #cbd5e1'; }
+        if (custBtn) { custBtn.style.background = '#4338ca'; custBtn.style.color = '#fff'; custBtn.style.border = 'none'; }
+    }
+};
+
+window.closeKpiCdDetailModal = window.closeKpiCdDetailModal || function() {
+    var m = document.getElementById('kpiCdDetailModal');
+    if (m) m.remove();
+};
+
