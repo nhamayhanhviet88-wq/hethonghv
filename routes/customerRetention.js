@@ -17,15 +17,14 @@ module.exports = async function(fastify) {
         return buildProductionFilter(cutoff, testIds, 'c.created_at', 'c.created_by');
     }
 
-    // Helper to fetch full department tree recursively for KD & Sales
+    // Helper to fetch full department tree recursively for a given target department ID
     async function getKdDeptTree(targetDeptId) {
-        const isKdOrSale = (!targetDeptId || targetDeptId === 1 || targetDeptId === 4);
+        const rootId = parseInt(targetDeptId || 1);
         const sql = `
             WITH RECURSIVE dept_tree AS (
                 SELECT id, name, parent_id, head_user_id, display_order 
                 FROM departments 
-                WHERE (${isKdOrSale ? 'id IN (1, 4) OR parent_id IN (1, 4)' : '(id = $1 OR parent_id = $1)'})
-                  AND status = 'active'
+                WHERE id = $1 AND status = 'active'
                 UNION ALL
                 SELECT d.id, d.name, d.parent_id, d.head_user_id, d.display_order 
                 FROM departments d
@@ -34,8 +33,7 @@ module.exports = async function(fastify) {
             )
             SELECT DISTINCT id, name, parent_id, head_user_id, display_order FROM dept_tree ORDER BY display_order, id
         `;
-        const params = isKdOrSale ? [] : [targetDeptId];
-        return await db.all(sql, params);
+        return await db.all(sql, [rootId]);
     }
 
     // ===== Helper: Parse period params into date ranges =====
