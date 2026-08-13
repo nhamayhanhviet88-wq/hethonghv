@@ -1347,24 +1347,33 @@ module.exports = async function(fastify) {
         const orders = await db.all(`
             WITH valid_orders AS (
                 SELECT 
-                    o.id AS order_id,
-                    o.order_code,
-                    o.customer_name,
-                    o.customer_phone AS phone,
-                    o.created_at,
-                    o.business_area_id,
-                    o.category_id,
-                    c.category_name,
-                    COALESCE(o.total_amount, 0) AS revenue,
+                    d.id AS order_id,
+                    d.order_code,
+                    d.created_at,
+                    COALESCE(c.customer_name, d.customer_name, 'Khách hàng') AS customer_name,
+                    COALESCE(c.phone, d.customer_phone, '') AS phone,
+                    COALESCE(cat.name, 'Đồng Phục') AS category_name,
                     CASE 
-                        WHEN o.business_area_id = 2 OR LOWER(COALESCE(o.order_code, '')) LIKE 'gcpet%' OR LOWER(COALESCE(o.order_code, '')) LIKE 'gctem%' OR o.category_id IN (8, 9) THEN 'pettem'
+                        WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
+                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
+                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCTEM%'
+                          OR d.category_id IN (8, 9)
+                        THEN 'pettem'
                         ELSE 'dp'
-                    END AS business_area
-                FROM orders o
-                LEFT JOIN categories c ON o.category_id = c.id
-                WHERE o.user_id = $1
-                  AND o.order_status = 'completed'
-                  AND o.created_at >= $2::timestamp AND o.created_at < $3::timestamp
+                    END AS business_area,
+                    COALESCE(oi.rev, 0) - COALESCE(d.discount_amount, 0) AS revenue
+                FROM dht_orders d
+                LEFT JOIN order_codes oc ON oc.order_code = d.order_code
+                LEFT JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN dht_categories cat ON cat.id = d.category_id
+                LEFT JOIN LATERAL (SELECT COALESCE(
+                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
+                    0
+                ) - COALESCE(d.vat_amount, 0) AS rev) oi ON true
+                WHERE (d.user_id = $1 OR c.assigned_to_id = $1)
+                  AND COALESCE(d.is_draft, false) = false
+                  AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
+                  AND d.created_at >= $2::timestamp AND d.created_at < $3::timestamp
                   ${_pCutoff}
             )
             SELECT order_id, order_code, customer_name, phone, created_at, category_name, revenue
