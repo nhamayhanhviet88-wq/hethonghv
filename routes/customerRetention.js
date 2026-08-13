@@ -1328,7 +1328,7 @@ module.exports = async function(fastify) {
     });
 
     // ===== Conversion Rate Breakdown Details: List of orders & assigned customers =====
-    fastify.get('/api/reports/customer-retention/conversion-details', { preHandler: [authenticate] }, async (request, reply) => {
+    const handleConversionDetails = async (request, reply) => {
         const { user_id, type = 'dp', period = 'month', date, startDate, endDate } = request.query;
         const targetUserId = parseInt(user_id);
         if (!targetUserId) return reply.code(400).send({ error: 'Thiếu user_id' });
@@ -1347,36 +1347,24 @@ module.exports = async function(fastify) {
         const orders = await db.all(`
             WITH valid_orders AS (
                 SELECT 
-                    d.id AS order_id,
-                    d.order_code,
-                    d.created_at,
-                    c.customer_name,
-                    c.phone,
-                    c.assigned_to_id AS uid,
-                    COALESCE(cat.name, 'Đồng Phục') AS category_name,
+                    o.id AS order_id,
+                    o.order_code,
+                    o.customer_name,
+                    o.customer_phone AS phone,
+                    o.created_at,
+                    o.business_area_id,
+                    o.category_id,
+                    c.category_name,
+                    COALESCE(o.total_amount, 0) AS revenue,
                     CASE 
-                        WHEN UPPER(COALESCE(cat.name, '')) IN ('PET', 'TEM')
-                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCPET%'
-                          OR UPPER(COALESCE(d.order_code, '')) LIKE 'GCTEM%'
-                          OR d.category_id IN (8, 9)
-                        THEN 'pettem'
+                        WHEN o.business_area_id = 2 OR LOWER(COALESCE(o.order_code, '')) LIKE 'gcpet%' OR LOWER(COALESCE(o.order_code, '')) LIKE 'gctem%' OR o.category_id IN (8, 9) THEN 'pettem'
                         ELSE 'dp'
-                    END AS business_area,
-                    COALESCE(oi.rev, 0) - COALESCE(d.discount_amount, 0) AS revenue
-                FROM dht_orders d
-                JOIN order_codes oc ON oc.order_code = d.order_code
-                JOIN customers c ON oc.customer_id = c.id
-                LEFT JOIN dht_categories cat ON cat.id = d.category_id
-                LEFT JOIN LATERAL (SELECT COALESCE(
-                    (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
-                    0
-                ) - COALESCE(d.vat_amount, 0) AS rev) oi ON true
-                WHERE c.assigned_to_id = $1
-                  AND c.phone IS NOT NULL AND c.phone != ''
-                  AND COALESCE(c.cancel_approved, 0) != 1
-                  AND COALESCE(d.is_draft, false) = false
-                  AND COALESCE(oc.status, 'active') NOT IN ('cancelled', 'canceled')
-                  AND d.created_at >= $2::timestamp AND d.created_at < $3::timestamp
+                    END AS business_area
+                FROM orders o
+                LEFT JOIN categories c ON o.category_id = c.id
+                WHERE o.user_id = $1
+                  AND o.order_status = 'completed'
+                  AND o.created_at >= $2::timestamp AND o.created_at < $3::timestamp
                   ${_pCutoff}
             )
             SELECT order_id, order_code, customer_name, phone, created_at, category_name, revenue
@@ -1422,5 +1410,9 @@ module.exports = async function(fastify) {
                 daily_order_number: parseInt(c.daily_order_number || 0)
             }))
         };
-    });
+    };
+
+    fastify.get('/api/reports/customer-retention/conversion-details', { preHandler: [authenticate] }, handleConversionDetails);
+    fastify.get('/api/kpi-kdoanh/conversion-details', { preHandler: [authenticate] }, handleConversionDetails);
+    fastify.get('/api/kpi-sale/conversion-details', { preHandler: [authenticate] }, handleConversionDetails);
 };

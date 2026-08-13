@@ -5758,9 +5758,16 @@ window.kpiShowCdDetailModal = window.kpiShowCdDetailModal || function(userId, em
         if (!res || !res.success) return;
         if (typeof renderKpiCdDetailsTables === 'function') renderKpiCdDetailsTables(res);
     }).catch(function(err) {
-        console.error('Error fetching CD details:', err);
-        var ordEl = document.getElementById('kpiCdOrdersList');
-        if (ordEl) ordEl.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">⚠️ Không tải được danh sách đơn: ' + (err.message||'') + '</div>';
+        console.error('Error fetching CD details, trying fallback endpoint:', err);
+        var fallbackUrl = detailUrl.replace('/api/reports/customer-retention/', '/api/kpi-kdoanh/');
+        apiCall(fallbackUrl).then(function(res2) {
+            if (res2 && res2.success && typeof renderKpiCdDetailsTables === 'function') {
+                renderKpiCdDetailsTables(res2);
+            }
+        }).catch(function(err2) {
+            var ordEl = document.getElementById('kpiCdOrdersList');
+            if (ordEl) ordEl.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">⚠️ Không tải được danh sách đơn: ' + (err2.message||err.message||'') + '</div>';
+        });
     });
 };
 
