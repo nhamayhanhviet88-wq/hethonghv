@@ -1605,6 +1605,27 @@ function kpiRenderTeamCompare(el, data, advData) {
     for (var i = 0; i < sorted.length; i++) {
         var team = sorted[i];
         var prev = team.prev || {};
+
+        // Fallback calculation for team rate_dp & rate_pettem if missing from API response
+        if ((team.rate_dp === undefined || team.rate_pettem === undefined) && advData && advData.allEmployees) {
+            var teamEmpList = advData.allEmployees.filter(function(e) {
+                return e.team === team.name || e.department_id === team.team_id;
+            });
+            if (teamEmpList.length > 0) {
+                var oldDp = teamEmpList.reduce(function(s, e) { return s + (e.old_dp_total || 0); }, 0);
+                var retDp = teamEmpList.reduce(function(s, e) { return s + (e.ret_dp_cust || 0); }, 0);
+                team.old_dp_total = oldDp;
+                team.ret_dp_cust = retDp;
+                team.rate_dp = oldDp > 0 ? Math.round(1000 * retDp / oldDp) / 10 : null;
+
+                var oldPet = teamEmpList.reduce(function(s, e) { return s + (e.old_pettem_total || 0); }, 0);
+                var retPet = teamEmpList.reduce(function(s, e) { return s + (e.ret_pettem_cust || 0); }, 0);
+                team.old_pettem_total = oldPet;
+                team.ret_pettem_cust = retPet;
+                team.rate_pettem = oldPet > 0 ? Math.round(1000 * retPet / oldPet) / 10 : null;
+            }
+        }
+
         var hb = team.total_orders > 0;
         h += '<div class="kpi-tc-card" style="cursor:pointer' + (hb ? ';border-color:#f59e0b;border-width:2px' : '') + '" onclick="kpiShowTeamOrders(' + (team.team_id || team.id || team.dept_id) + ',\'' + (team.name || team.dept_name || '').replace(/'/g, "\\'") + '\')">';
         h += '<div class="kpi-tc-name">🏠 ' + team.name + ' <span style="font-size:12px;font-weight:500;color:#6b7280">(' + (team.employee_count || 0) + ' NV)</span></div>';
