@@ -1497,6 +1497,18 @@ function renderKpiSaleLeaderboard(data) {
     ];
 
     var filterRow1 = [
+function _kpiSaleFmtDisplayEnd(pInfo) {
+    if (!pInfo) return '';
+    if (pInfo.display_end) return pInfo.display_end;
+    var end = pInfo.end || pInfo.start || '';
+    if (end && end.endsWith('-01') && end !== pInfo.start) {
+        var d = new Date(end + 'T00:00:00');
+        d.setDate(d.getDate() - 1);
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    return end;
+}
+
         { key: 'today', icon: '📅', label: 'Hôm nay' },
         { key: 'yesterday', icon: '📅', label: 'Hôm qua' },
         { key: '7days', icon: '📅', label: '7 ngày' },
@@ -1520,7 +1532,8 @@ function renderKpiSaleLeaderboard(data) {
 
     var periodInfo = data && data.period;
     if (periodInfo && periodInfo.start) {
-        h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + periodInfo.start + ' → ' + periodInfo.end + ' (' + (periodInfo.label || '') + ')</div>';
+        var pEndStr = _kpiSaleFmtDisplayEnd(periodInfo);
+        h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + periodInfo.start + ' → ' + pEndStr + ' (' + (periodInfo.label || '') + ')</div>';
     }
 
     h += '<div id="kpiSaleLbBody" style="' + (_kpiSaleLbCollapsed ? 'display:none' : '') + '">';
@@ -1817,7 +1830,8 @@ function renderKpiSaleTeamCompare(mainData, advData) {
 
     var tcPeriodInfo = advData && advData.period;
     if (tcPeriodInfo && tcPeriodInfo.start) {
-        h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + tcPeriodInfo.start + ' → ' + tcPeriodInfo.end + ' (' + (tcPeriodInfo.label || '') + ')</div>';
+        var tcEndStr = _kpiSaleFmtDisplayEnd(tcPeriodInfo);
+        h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + tcPeriodInfo.start + ' → ' + tcEndStr + ' (' + (tcPeriodInfo.label || '') + ')</div>';
     }
 
     h += '<div id="kpiSaleTcBody" style="' + (_kpiSaleTcCollapsed ? 'display:none' : '') + '">';

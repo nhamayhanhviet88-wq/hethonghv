@@ -50,6 +50,7 @@ module.exports = async function(fastify) {
         // Custom date range: startDate & endDate passed directly
         if (period === 'custom' && opts && opts.startDate && opts.endDate) {
             current.start = opts.startDate;
+            current.display_end = opts.endDate;
             // endDate is inclusive — add 1 day for the < comparison
             const endD = new Date(opts.endDate + 'T00:00:00');
             endD.setDate(endD.getDate() + 1);
@@ -76,6 +77,7 @@ module.exports = async function(fastify) {
             }
             const y = dateObj.getFullYear(), m = dateObj.getMonth() + 1, d = dateObj.getDate();
             current.start = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            current.display_end = current.start;
             const next = new Date(dateObj); next.setDate(next.getDate() + 1);
             current.end = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`;
             current.label = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
@@ -103,6 +105,8 @@ module.exports = async function(fastify) {
             current.start = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
             const endDate = new Date(dateObj); endDate.setDate(endDate.getDate() + 7);
             current.end = `${endDate.getFullYear()}-${String(endDate.getMonth()+1).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}`;
+            const dispEnd = new Date(dateObj); dispEnd.setDate(dispEnd.getDate() + 6);
+            current.display_end = `${dispEnd.getFullYear()}-${String(dispEnd.getMonth()+1).padStart(2,'0')}-${String(dispEnd.getDate()).padStart(2,'0')}`;
             // ISO week number
             const jan1 = new Date(y, 0, 1);
             const weekNum = Math.ceil(((dateObj - jan1) / 86400000 + jan1.getDay() + 1) / 7);
@@ -121,7 +125,9 @@ module.exports = async function(fastify) {
                 year = now.getFullYear();
                 month = now.getMonth() + 1;
             }
+            const lastDay = new Date(year, month, 0).getDate();
             current.start = `${year}-${String(month).padStart(2, '0')}-01`;
+            current.display_end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
             const nextMonth = month === 12 ? 1 : month + 1;
             const nextYear = month === 12 ? year + 1 : year;
             current.end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
@@ -1366,7 +1372,7 @@ module.exports = async function(fastify) {
             teamComparison,
             conversionMap: conversionMapAdv,
             kpiMap: kpiMapAdv,
-            period: { type: period, label: current.label, start: current.start, end: current.end }
+            period: { type: period, label: current.label, start: current.start, end: current.end, display_end: current.display_end || current.start }
         };
     });
 
