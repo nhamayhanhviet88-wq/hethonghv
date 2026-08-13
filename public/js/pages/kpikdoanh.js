@@ -1323,8 +1323,13 @@ function kpiRenderLeaderboard(el, data) {
         var emp = lb[i];
         var rank = i < 3 ? medals[i] : (i + 1);
         var conv = convMap[emp.user_id] || convMap[String(emp.user_id)] || convMap[emp.id] || convMap[String(emp.id)] || {};
-        var rateDpVal = conv.rate_dp != null ? conv.rate_dp : (conv.assigned_dp > 0 ? Math.round(1000 * (conv.completed_dp || 0) / conv.assigned_dp) / 10 : (conv.completed_dp > 0 ? conv.completed_dp * 100 : 0));
-        var ratePetTemVal = conv.rate_pettem != null ? conv.rate_pettem : (conv.assigned_pettem > 0 ? Math.round(1000 * (conv.completed_pettem || 0) / conv.assigned_pettem) / 10 : (conv.completed_pettem > 0 ? conv.completed_pettem * 100 : 0));
+        var compDp = conv.completed_dp != null ? conv.completed_dp : (emp.orders_dp || 0);
+        var assDp = conv.assigned_dp != null ? conv.assigned_dp : 0;
+        var rateDpVal = conv.rate_dp != null ? conv.rate_dp : (assDp > 0 ? Math.round(1000 * compDp / assDp) / 10 : (compDp > 0 ? compDp * 100 : 0));
+
+        var compPetTem = conv.completed_pettem != null ? conv.completed_pettem : (emp.orders_pettem || 0);
+        var assPetTem = conv.assigned_pettem != null ? conv.assigned_pettem : 0;
+        var ratePetTemVal = conv.rate_pettem != null ? conv.rate_pettem : (assPetTem > 0 ? Math.round(1000 * compPetTem / assPetTem) / 10 : (compPetTem > 0 ? compPetTem * 100 : 0));
         var cRateDp = rateDpVal != null ? rateDpVal + '%' : '0%';
         var cColorDp = (rateDpVal || 0) >= 70 ? '#10b981' : (rateDpVal || 0) >= 40 ? '#f59e0b' : '#ef4444';
         var cRatePetTem = ratePetTemVal != null ? ratePetTemVal + '%' : '0%';
