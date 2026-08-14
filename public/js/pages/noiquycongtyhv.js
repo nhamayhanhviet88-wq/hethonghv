@@ -85,8 +85,11 @@ async function renderNoiquycongtyhvPage(container) {
             .nq-card-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
             .nq-card-content::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-            .nq-doc-link-btn { display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #3730a3; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; transition: all 0.2s; border: 1px solid #c7d2fe; margin-top: 4px; width: fit-content; }
+            .nq-doc-link-btn { display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #3730a3; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; transition: all 0.2s; border: 1px solid #c7d2fe; margin-top: 0; width: fit-content; }
             .nq-doc-link-btn:hover { background: #4338ca; color: #fff; border-color: #4338ca; }
+
+            .nq-img-thumb-btn { display: inline-flex; align-items: center; gap: 6px; background: #f1f5f9; color: #334155; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; border: 1px solid #cbd5e1; cursor: pointer; transition: all 0.2s; }
+            .nq-img-thumb-btn:hover { background: #e2e8f0; border-color: #94a3b8; color: #0f172a; }
 
             .nq-fine-box { background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
             .nq-fine-title { font-size: 11px; font-weight: 900; color: #be123c; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
@@ -443,15 +446,19 @@ function _nqRenderRules() {
 
                     <div class="nq-card-content">${escapeHtml((r.content || '').trim())}</div>
 
-                    ${r.doc_link ? `
-                        <a href="${r.doc_link}" target="_blank" class="nq-doc-link-btn" onclick="event.stopPropagation()">
-                            <span>🔗 Xem Link Nội Quy Gốc</span>
-                        </a>
-                    ` : ''}
-
-                    ${r.image_url ? `
-                        <div style="margin-top:8px">
-                            <img src="${r.image_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #cbd5e1;cursor:pointer" onclick="event.stopPropagation(); _nqOpenImageLightbox('${r.image_url}')">
+                    ${(r.doc_link || r.image_url) ? `
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
+                            ${r.doc_link ? `
+                                <a href="${r.doc_link}" target="_blank" class="nq-doc-link-btn" onclick="event.stopPropagation()">
+                                    <span>🔗 Xem Link Nội Quy Gốc</span>
+                                </a>
+                            ` : ''}
+                            ${r.image_url ? `
+                                <button type="button" class="nq-img-thumb-btn" onclick="event.stopPropagation(); _nqOpenImageLightbox('${r.image_url}')">
+                                    <img src="${r.image_url}" style="width:20px;height:20px;border-radius:4px;object-fit:cover">
+                                    <span>🖼️ Xem Ảnh Minh Họa</span>
+                                </button>
+                            ` : ''}
                         </div>
                     ` : ''}
 
