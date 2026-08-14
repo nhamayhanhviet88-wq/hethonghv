@@ -1051,9 +1051,9 @@ function setupImagePasteHandler(modalOverlay) {
                 reader.onload = function(event) {
                     var img = new Image();
                     img.onload = function() {
-                        // Canvas Compress & Resize
+                        // Canvas Compress & Resize - Tự động nén siêu nhẹ (Max 1000px, WebP/JPEG 0.75)
                         var canvas = document.createElement('canvas');
-                        var maxW = 1200;
+                        var maxW = 1000;
                         var width = img.width;
                         var height = img.height;
                         if (width > maxW) {
@@ -1063,10 +1063,20 @@ function setupImagePasteHandler(modalOverlay) {
                         canvas.width = width;
                         canvas.height = height;
                         var ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, width, height);
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        var compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                        // Try WebP 0.75, fallback to JPEG 0.75
+                        var compressedDataUrl = canvas.toDataURL('image/webp', 0.75);
+                        if (!compressedDataUrl.startsWith('data:image/webp')) {
+                            compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                        }
                         
+                        // Calculate approx filesize in KB
+                        var base64Len = compressedDataUrl.length - (compressedDataUrl.indexOf(',') + 1);
+                        var sizeInKB = Math.round((base64Len * 3 / 4) / 1024);
+
                         var imgInp = document.getElementById('nqFormImage');
                         var imgPrev = document.getElementById('nqImagePreview');
                         var prevWrapper = document.getElementById('nqImagePreviewWrapper');
@@ -1074,7 +1084,17 @@ function setupImagePasteHandler(modalOverlay) {
 
                         if (imgInp) imgInp.value = compressedDataUrl;
                         if (imgPrev) imgPrev.src = compressedDataUrl;
-                        if (prevWrapper) prevWrapper.style.display = 'inline-block';
+                        if (prevWrapper) {
+                            prevWrapper.style.display = 'inline-block';
+                            var infoBadge = document.getElementById('nqImageSizeBadge');
+                            if (!infoBadge) {
+                                infoBadge = document.createElement('div');
+                                infoBadge.id = 'nqImageSizeBadge';
+                                infoBadge.style.cssText = 'margin-top:6px;font-size:12px;font-weight:800;color:#16a34a;background:#f0fdf4;padding:4px 10px;border-radius:6px;border:1px solid #bbf7d0;display:inline-block';
+                                prevWrapper.appendChild(infoBadge);
+                            }
+                            infoBadge.innerHTML = `⚡ Đã nén ảnh tự động dung lượng thấp: <strong>${sizeInKB} KB</strong> (${width}x${height}px)`;
+                        }
                         if (boxText) boxText.style.display = 'none';
                     };
                     img.src = event.target.result;
