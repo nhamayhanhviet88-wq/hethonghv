@@ -234,6 +234,11 @@ async function companyRulesRoutes(fastify, options) {
     // POST /api/company-rules
     fastify.post('/api/company-rules', async (req, reply) => {
         try {
+            const user = req.user || {};
+            const role = user.role || '';
+            if (role && role !== 'giam_doc' && role !== 'admin' && role !== 'quan_ly_cap_cao') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc và Quản Lý Cấp Cao mới có quyền tạo điều khoản mới' });
+            }
             const {
                 scope,
                 department_id,
@@ -278,7 +283,6 @@ async function companyRulesRoutes(fastify, options) {
             });
             const finalCode = prefix + String(maxNum + 1).padStart(4, '0');
 
-            const user = req.user || {};
             const createdByName = user.fullname || user.name || user.username || 'Quản lý Hệ Thống';
             const createdByUserId = user.id || null;
 
@@ -325,6 +329,11 @@ async function companyRulesRoutes(fastify, options) {
     // PUT /api/company-rules/:id
     fastify.put('/api/company-rules/:id', async (req, reply) => {
         try {
+            const user = req.user || {};
+            const role = user.role || '';
+            if (role && role !== 'giam_doc' && role !== 'admin' && role !== 'quan_ly_cap_cao') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc và Quản Lý Cấp Cao mới có quyền chỉnh sửa điều khoản' });
+            }
             const { id } = req.params;
             const {
                 scope,
@@ -415,6 +424,11 @@ async function companyRulesRoutes(fastify, options) {
     // DELETE /api/company-rules/:id
     fastify.delete('/api/company-rules/:id', async (req, reply) => {
         try {
+            const user = req.user || {};
+            const role = user.role || '';
+            if (role && role !== 'giam_doc' && role !== 'admin') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền xóa điều khoản' });
+            }
             const { id } = req.params;
             await db.run("UPDATE company_rules SET status = 'inactive', updated_at = NOW() WHERE id = $1", [id]);
             return { success: true, message: 'Đã xóa điều khoản thành công' };

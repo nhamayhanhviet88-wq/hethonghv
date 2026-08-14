@@ -15,10 +15,16 @@ var _nqState = {
     modalDeptSearch: ''
 };
 
-var _nqIsAdmin = function() {
+var _nqCanAddOrEdit = function() {
     if (typeof currentUser === 'undefined' || !currentUser) return false;
     var r = currentUser.role;
-    return r === 'giam_doc' || r === 'quan_ly_cap_cao' || r === 'quan_ly' || r === 'truong_phong';
+    return r === 'giam_doc' || r === 'admin' || r === 'quan_ly_cap_cao';
+};
+
+var _nqCanDelete = function() {
+    if (typeof currentUser === 'undefined' || !currentUser) return false;
+    var r = currentUser.role;
+    return r === 'giam_doc' || r === 'admin';
 };
 
 async function renderNoiquycongtyhvPage(container) {
@@ -143,7 +149,7 @@ async function renderNoiquycongtyhvPage(container) {
                     <h1>📜 NỘI QUY & ĐIỀU KHOẢN CÔNG TY HV</h1>
                     <p>Quy chuẩn văn hóa, quy tắc làm việc & chế tài khen thưởng kỷ luật toàn công ty</p>
                 </div>
-                ${_nqIsAdmin() ? `
+                ${_nqCanAddOrEdit() ? `
                     <button class="nq-add-btn" onclick="_nqOpenAddModal()">
                         <span>➕</span> Thêm Điều Khoản Mới
                     </button>
@@ -436,12 +442,12 @@ function _nqRenderRules() {
                         </div>
                     ` : ''}
                 </div>
-                ${_nqIsAdmin() ? `
+                ${(_nqCanAddOrEdit() || _nqCanDelete()) ? `
                     <div class="nq-card-footer">
                         <div></div>
                         <div style="display:flex;gap:8px">
-                            <button class="nq-action-btn nq-action-edit" onclick="_nqEditRule(${r.id})">✏️ Sửa</button>
-                            <button class="nq-action-btn nq-action-del" onclick="_nqDeleteRule(${r.id})">🗑️ Xóa</button>
+                            ${_nqCanAddOrEdit() ? `<button class="nq-action-btn nq-action-edit" onclick="_nqEditRule(${r.id})">✏️ Sửa</button>` : ''}
+                            ${_nqCanDelete() ? `<button class="nq-action-btn nq-action-del" onclick="_nqDeleteRule(${r.id})">🗑️ Xóa</button>` : ''}
                         </div>
                     </div>
                 ` : ''}
@@ -596,11 +602,13 @@ function _nqUpdateManagerDisplay(deptId) {
 
 // ===== MODAL ADD / EDIT =====
 async function _nqOpenAddModal() {
+    if (!_nqCanAddOrEdit()) { alert('⚠️ Bạn không có quyền thực hiện thao tác này (Chỉ Giám Đốc và Quản Lý Cấp Cao mới có quyền)'); return; }
     _nqState.editingId = null;
     _nqRenderModalForm(null);
 }
 
 async function _nqEditRule(id) {
+    if (!_nqCanAddOrEdit()) { alert('⚠️ Bạn không có quyền chỉnh sửa điều khoản (Chỉ Giám Đốc và Quản Lý Cấp Cao mới có quyền)'); return; }
     var rule = _nqState.rules.find(function(r) { return r.id === id; });
     if (!rule) return;
     _nqState.editingId = id;
@@ -976,6 +984,7 @@ async function _nqSaveRule() {
 }
 
 async function _nqDeleteRule(id) {
+    if (!_nqCanDelete()) { alert('⚠️ Chỉ Giám Đốc mới có quyền xóa điều khoản!'); return; }
     if (!confirm('Bạn có chắc chắn muốn xóa điều khoản này?')) return;
     try {
         var res = await apiCall('/api/company-rules/' + id, 'DELETE');
