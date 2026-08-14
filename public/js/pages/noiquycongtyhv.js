@@ -451,7 +451,7 @@ function _nqRenderRules() {
 
                     ${r.image_url ? `
                         <div style="margin-top:8px">
-                            <img src="${r.image_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #cbd5e1;cursor:pointer" onclick="event.stopPropagation(); window.open('${r.image_url}')">
+                            <img src="${r.image_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #cbd5e1;cursor:pointer" onclick="event.stopPropagation(); _nqOpenImageLightbox('${r.image_url}')">
                         </div>
                     ` : ''}
 
@@ -580,8 +580,8 @@ function _nqOpenDetailModal(id) {
 
                 ${rule.image_url ? `
                     <div>
-                        <label style="font-size:13px;font-weight:800;color:#334155;margin-bottom:6px;display:block">🖼️ Hình Ảnh Minh Họa:</label>
-                        <img src="${rule.image_url}" style="max-width:100%;max-height:350px;border-radius:10px;border:1px solid #cbd5e1;cursor:pointer" onclick="window.open('${rule.image_url}')">
+                        <label style="font-size:13px;font-weight:800;color:#334155;margin-bottom:6px;display:block">🖼️ Hình Ảnh Minh Họa (Click để xem phóng to):</label>
+                        <img src="${rule.image_url}" style="max-width:100%;max-height:350px;border-radius:10px;border:1px solid #cbd5e1;cursor:pointer" onclick="_nqOpenImageLightbox('${rule.image_url}')">
                     </div>
                 ` : ''}
 
@@ -632,6 +632,32 @@ function _nqOpenDetailModal(id) {
 
 function _nqCloseDetailModal() {
     var overlay = document.getElementById('nqDetailModalOverlay');
+    if (overlay) overlay.remove();
+}
+
+// ===== LIGHTBOX IMAGE PREVIEW =====
+function _nqOpenImageLightbox(url) {
+    if (!url) return;
+    var existing = document.getElementById('nqLightboxOverlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'nqLightboxOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:100000;padding:20px;animation:nqFadeIn 0.2s ease-out';
+    overlay.onclick = function(e) { if (e.target === overlay || e.target.tagName === 'BUTTON') _nqCloseImageLightbox(); };
+
+    overlay.innerHTML = `
+        <div style="position:relative;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <button style="position:absolute;top:-45px;right:0;background:rgba(255,255,255,0.25);color:#fff;border:none;width:36px;height:36px;border-radius:50%;font-size:18px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s" onclick="_nqCloseImageLightbox()">✕</button>
+            <img src="${url}" style="max-width:90vw;max-height:85vh;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);object-fit:contain;border:2px solid rgba(255,255,255,0.2)">
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+}
+
+function _nqCloseImageLightbox() {
+    var overlay = document.getElementById('nqLightboxOverlay');
     if (overlay) overlay.remove();
 }
 
