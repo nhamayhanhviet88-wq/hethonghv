@@ -553,6 +553,7 @@ module.exports = async function(fastify, options) {
                             linked_source_name: cat.linked_source_name || '',
                             pancake_page_name: cat.pancake_page_name || '',
                             channel_link: cat.channel_link || '',
+                            business_segment: cat.business_segment || 'dongphuc',
                             spent: cSpent,
                             leads: cLeads,
                             orders: cOrders,

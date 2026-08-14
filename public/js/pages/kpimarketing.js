@@ -545,6 +545,7 @@ function renderCategoryTable(res) {
                         pancake_page_name: cat.pancake_page_name || cat.linked_source_name || '',
                         channel_link: cat.channel_link || '',
                         ads_handler_name: cat.ads_handler_name || 'Giám Đốc',
+                        business_segment: cat.business_segment || 'dongphuc',
                         spent: 0,
                         leads: 0,
                         orders: 0,
@@ -670,7 +671,8 @@ function renderCategoryTable(res) {
         }
         const pageTagHtml = pageNameDisp ? (cLink ? `<a href="${cLink}" target="_blank" rel="noopener noreferrer" style="background:#e0f2fe;color:#0284c7;border:1.5px solid #bae6fd;padding:2px 9px;border-radius:8px;font-weight:700;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(2,132,199,0.08);transition:all 0.2s;" title="Mở link kênh trong tab mới" onmouseover="this.style.background='#bae6fd';this.style.borderColor='#7dd3fc'" onmouseout="this.style.background='#e0f2fe';this.style.borderColor='#bae6fd'">🔗 ${escapeHtml(pageNameDisp)} ↗</a>` : `<span style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:4px;">🔗 ${escapeHtml(pageNameDisp)}</span>`) : '';
 
-        const segBadgeHtml = (c.business_segment === 'tempet') 
+        const segVal = c.business_segment || (catObj ? catObj.business_segment : null) || 'dongphuc';
+        const segBadgeHtml = (segVal === 'tempet') 
             ? `<span style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:3px;">🏷️ Lĩnh Vực TEM/PET</span>`
             : `<span style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:2px 8px;border-radius:8px;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:3px;">👔 Lĩnh Vực Đồng Phục</span>`;
 
