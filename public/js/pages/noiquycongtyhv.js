@@ -1,7 +1,7 @@
 // ========== NỘI QUY & ĐIỀU KHOẢN CÔNG TY HV ==========
 var _nqState = {
     rules: [],
-    depts: { vanPhong: [], xuong: [], all: [] },
+    depts: { vanPhong: [], xuong: [], other: [], all: [] },
     stats: { totalRules: 0, generalRules: 0, deptRules: 0, fineRules: 0 },
     filters: {
         scope: 'all',
@@ -11,7 +11,8 @@ var _nqState = {
         search: '',
         hasFine: false
     },
-    editingId: null
+    editingId: null,
+    modalDeptSearch: ''
 };
 
 var _nqIsAdmin = function() {
@@ -70,14 +71,17 @@ async function renderNoiquycongtyhvPage(container) {
 
             .nq-card-body { padding: 18px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
             .nq-card-title { font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.4; margin: 0; }
-            .nq-card-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #64748b; font-weight: 600; background: #f8fafc; padding: 8px 12px; border-radius: 8px; }
+            .nq-card-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: #64748b; font-weight: 600; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #f1f5f9; }
             .nq-card-meta-item { display: flex; align-items: center; gap: 5px; }
 
             .nq-card-content { font-size: 13px; color: #334155; line-height: 1.6; white-space: pre-line; background: #fff; word-break: break-word; }
 
-            .nq-fine-box { background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+            .nq-doc-link-btn { display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #3730a3; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; transition: all 0.2s; border: 1px solid #c7d2fe; margin-top: 4px; width: fit-content; }
+            .nq-doc-link-btn:hover { background: #4338ca; color: #fff; border-color: #4338ca; }
+
+            .nq-fine-box { background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
             .nq-fine-title { font-size: 11px; font-weight: 900; color: #be123c; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
-            .nq-fine-row { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+            .nq-fine-row { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; align-items: center; }
             .nq-fine-label { color: #881337; }
             .nq-fine-value { color: #e11d48; font-weight: 900; }
 
@@ -89,9 +93,9 @@ async function renderNoiquycongtyhvPage(container) {
             .nq-action-del:hover { background: #fee2e2; }
 
             /* Modal Styles */
-            .nq-modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px; animation: nqFadeIn 0.2s ease-out; }
+            .nq-modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px; animation: nqFadeIn 0.2s ease-out; }
             @keyframes nqFadeIn { from { opacity: 0; } to { opacity: 1; } }
-            .nq-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; }
+            .nq-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; }
             .nq-modal-hdr { padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 16px 16px 0 0; }
             .nq-modal-hdr h3 { margin: 0; font-size: 18px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 8px; }
             .nq-modal-close { background: none; border: none; font-size: 20px; font-weight: 700; color: #94a3b8; cursor: pointer; }
@@ -99,8 +103,27 @@ async function renderNoiquycongtyhvPage(container) {
             .nq-form-group { display: flex; flex-direction: column; gap: 6px; }
             .nq-form-group label { font-size: 13px; font-weight: 800; color: #334155; }
             .nq-form-input, .nq-form-select, .nq-form-textarea { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; width: 100%; box-sizing: border-box; }
+            .nq-form-input[readonly] { background: #f1f5f9; color: #475569; font-weight: 800; cursor: not-allowed; border-color: #e2e8f0; }
             .nq-form-textarea { min-height: 100px; resize: vertical; font-family: inherit; }
             .nq-form-input:focus, .nq-form-select:focus, .nq-form-textarea:focus { border-color: #4338ca; box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); }
+            
+            /* Searchable Select Dropdown */
+            .nq-searchable-select { position: relative; }
+            .nq-ss-input { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%20%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; }
+            .nq-ss-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; max-height: 240px; overflow-y: auto; box-shadow: 0 10px 20px rgba(0,0,0,0.12); z-index: 1000; display: none; padding: 6px; }
+            .nq-ss-menu.active { display: block; }
+            .nq-ss-search { width: 100%; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; margin-bottom: 6px; outline: none; box-sizing: border-box; }
+            .nq-ss-group-label { font-size: 11px; font-weight: 900; color: #64748b; padding: 6px 10px 4px 10px; text-transform: uppercase; background: #f8fafc; }
+            .nq-ss-item { padding: 8px 12px; font-size: 13px; font-weight: 600; color: #1e293b; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+            .nq-ss-item:hover { background: #e0e7ff; color: #3730a3; }
+            .nq-ss-item.selected { background: #4338ca; color: #fff; font-weight: 800; }
+
+            /* Paste Image Box */
+            .nq-paste-area { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 14px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.2s; position: relative; }
+            .nq-paste-area:hover, .nq-paste-area.highlight { border-color: #4338ca; background: #eef2ff; }
+            .nq-paste-text { font-size: 12px; font-weight: 700; color: #64748b; }
+            .nq-paste-preview { max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid #cbd5e1; margin-top: 8px; }
+
             .nq-modal-ftr { padding: 16px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: flex-end; gap: 12px; border-radius: 0 0 16px 16px; }
             .nq-btn-secondary { background: #e2e8f0; color: #475569; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; }
             .nq-btn-primary { background: #4338ca; color: #fff; border: none; padding: 10px 22px; border-radius: 8px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 10px rgba(67, 56, 202, 0.25); }
@@ -202,14 +225,11 @@ async function renderNoiquycongtyhvPage(container) {
 
 async function _nqInitData() {
     try {
-        // Fetch departments
         var deptRes = await apiCall('/api/company-rules/departments');
         if (deptRes) {
             _nqState.depts = deptRes;
             _nqPopulateDeptFilter();
         }
-
-        // Fetch rules
         await _nqLoadRules();
     } catch (e) {
         console.error('Error init _nqData:', e);
@@ -319,12 +339,14 @@ function _nqRenderRules() {
         var deptName = isChung ? 'Nội Quy Chung' : (r.department_name || 'Phòng Ban');
         
         var effDateStr = r.effective_date ? _nqFormatDate(r.effective_date) : 'Đang cập nhật';
+        var expDateStr = (r.is_forever !== false && r.is_forever !== 'false') ? '♾️ Mãi Mãi (Vô thời hạn)' : (r.expiry_date ? ('Đến ' + _nqFormatDate(r.expiry_date)) : '♾️ Vô thời hạn');
         var createdDateStr = r.created_at ? _nqFormatDate(r.created_at) : '';
 
         var fineAmt = Number(r.fine_amount) || 0;
         var mgrFineAmt = Number(r.manager_fine_amount) || 0;
         var hasFine = r.has_fine && fineAmt > 0;
         var hasMgrFine = r.has_manager_fine && mgrFineAmt > 0;
+        var mgrNameStr = r.manager_name || 'Trưởng Phòng / Quản Lý';
 
         html += `
             <div class="nq-card">
@@ -339,8 +361,9 @@ function _nqRenderRules() {
                     
                     <div class="nq-card-meta">
                         <div class="nq-card-meta-item">
-                            <span>📅 Áp dụng từ:</span>
+                            <span>📅 Áp dụng:</span>
                             <strong style="color:#0f172a">${effDateStr}</strong>
+                            <span style="color:#64748b;font-size:11px">(${expDateStr})</span>
                         </div>
                         <div class="nq-card-meta-item">
                             <span>👤 Tạo bởi:</span>
@@ -350,6 +373,12 @@ function _nqRenderRules() {
                     </div>
 
                     <div class="nq-card-content">${escapeHtml(r.content)}</div>
+
+                    ${r.doc_link ? `
+                        <a href="${r.doc_link}" target="_blank" class="nq-doc-link-btn">
+                            <span>🔗 Xem Link Nội Quy Gốc</span>
+                        </a>
+                    ` : ''}
 
                     ${r.image_url ? `
                         <div style="margin-top:8px">
@@ -364,13 +393,13 @@ function _nqRenderRules() {
                             </div>
                             ${hasFine ? `
                                 <div class="nq-fine-row">
-                                    <span class="nq-fine-label">Cá nhân vi phạm:</span>
+                                    <span class="nq-fine-label">👤 Cá nhân vi phạm:</span>
                                     <span class="nq-fine-value">${formatVND(fineAmt)}</span>
                                 </div>
                             ` : ''}
                             ${hasMgrFine ? `
                                 <div class="nq-fine-row">
-                                    <span class="nq-fine-label">Quản lý liên đới:</span>
+                                    <span class="nq-fine-label">🛡️ Quản lý liên đới (${escapeHtml(mgrNameStr)}):</span>
                                     <span class="nq-fine-value">${formatVND(mgrFineAmt)}</span>
                                 </div>
                             ` : ''}
@@ -435,6 +464,110 @@ function _nqOnFineChange(checked) {
     _nqLoadRules();
 }
 
+// ===== SEARCHABLE DROP-DOWN COMPONENT FOR MODAL =====
+function _nqRenderSearchableDeptSelect(selectedDeptId) {
+    var selectedDept = _nqState.depts.all.find(d => String(d.id) === String(selectedDeptId));
+    var selectedText = selectedDept ? selectedDept.name : '-- Chọn phòng ban --';
+
+    return `
+        <div class="nq-searchable-select" id="nqSsWrapper">
+            <input type="text" class="nq-form-input nq-ss-input" id="nqSsDisplayInput" readonly value="${escapeHtml(selectedText)}" onclick="_nqToggleDeptMenu()">
+            <input type="hidden" id="nqFormDeptId" value="${selectedDeptId || ''}">
+            
+            <div class="nq-ss-menu" id="nqSsMenu">
+                <input type="text" class="nq-ss-search" id="nqSsSearchInput" placeholder="🔍 Gõ từ khóa tìm phòng ban (VD: Kế toán, Sale, Cắt)..." oninput="_nqFilterDeptMenuItems(this.value)">
+                <div id="nqSsMenuList"></div>
+            </div>
+        </div>
+    `;
+}
+
+function _nqToggleDeptMenu() {
+    var menu = document.getElementById('nqSsMenu');
+    if (!menu) return;
+    var isActive = menu.classList.contains('active');
+    if (isActive) {
+        menu.classList.remove('active');
+    } else {
+        menu.classList.add('active');
+        var searchInp = document.getElementById('nqSsSearchInput');
+        if (searchInp) {
+            searchInp.value = '';
+            searchInp.focus();
+            _nqFilterDeptMenuItems('');
+        }
+    }
+}
+
+function _nqFilterDeptMenuItems(query) {
+    var listEl = document.getElementById('nqSsMenuList');
+    if (!listEl) return;
+
+    var q = (query || '').toLowerCase().trim();
+    var currentDeptId = document.getElementById('nqFormDeptId')?.value || '';
+
+    var html = '';
+
+    function renderGroup(label, items) {
+        var filtered = items.filter(d => d.name.toLowerCase().includes(q) || (d.code && d.code.toLowerCase().includes(q)));
+        if (filtered.length === 0) return '';
+        let grpHtml = `<div class="nq-ss-group-label">${label}</div>`;
+        filtered.forEach(d => {
+            var isSel = String(d.id) === String(currentDeptId);
+            grpHtml += `<div class="nq-ss-item ${isSel ? 'selected' : ''}" onclick="_nqSelectDeptItem(${d.id}, '${escapeHtml(d.name)}')">
+                <span>${escapeHtml(d.name)}</span>
+                ${d.head_user_name ? `<span style="font-size:11px;opacity:0.8">👤 ${escapeHtml(d.head_user_name)}</span>` : ''}
+            </div>`;
+        });
+        return grpHtml;
+    }
+
+    if (_nqState.depts.vanPhong && _nqState.depts.vanPhong.length > 0) {
+        html += renderGroup('🏛️ HỆ THỐNG VĂN PHÒNG HV', _nqState.depts.vanPhong);
+    }
+    if (_nqState.depts.xuong && _nqState.depts.xuong.length > 0) {
+        html += renderGroup('🏭 HỆ THỐNG XƯỞNG HV', _nqState.depts.xuong);
+    }
+    if (_nqState.depts.other && _nqState.depts.other.length > 0) {
+        html += renderGroup('🏢 PHÒNG BAN KHÁC', _nqState.depts.other);
+    }
+
+    if (!html) {
+        html = '<div style="padding:12px;text-align:center;font-size:12px;color:#94a3b8">Không tìm thấy phòng ban phù hợp</div>';
+    }
+
+    listEl.innerHTML = html;
+}
+
+function _nqSelectDeptItem(deptId, deptName) {
+    var hiddenInp = document.getElementById('nqFormDeptId');
+    var displayInp = document.getElementById('nqSsDisplayInput');
+    var menu = document.getElementById('nqSsMenu');
+
+    if (hiddenInp) hiddenInp.value = deptId;
+    if (displayInp) displayInp.value = deptName;
+    if (menu) menu.classList.remove('active');
+
+    _nqUpdateManagerDisplay(deptId);
+    _nqFetchNextCode();
+}
+
+function _nqUpdateManagerDisplay(deptId) {
+    var mgrInfoEl = document.getElementById('nqManagerInfoText');
+    if (!mgrInfoEl) return;
+
+    var dept = _nqState.depts.all.find(d => String(d.id) === String(deptId));
+    if (dept && dept.head_user_name) {
+        mgrInfoEl.textContent = `🛡️ Quản lý liên đới: ${dept.head_user_name}`;
+        mgrInfoEl.dataset.mgrId = dept.head_user_id || '';
+        mgrInfoEl.dataset.mgrName = dept.head_user_name || '';
+    } else {
+        mgrInfoEl.textContent = `🛡️ Quản lý liên đới: Trưởng Phòng / Ban Giám Đốc phụ trách`;
+        mgrInfoEl.dataset.mgrId = '';
+        mgrInfoEl.dataset.mgrName = 'Trưởng Phòng / Ban Giám Đốc';
+    }
+}
+
 // ===== MODAL ADD / EDIT =====
 async function _nqOpenAddModal() {
     _nqState.editingId = null;
@@ -457,16 +590,14 @@ function _nqRenderModalForm(rule) {
     overlay.className = 'nq-modal-overlay';
     overlay.id = 'nqModalOverlay';
 
-    var scope = isEdit ? rule.scope : 'chung';
+    var scope = isEdit ? rule.scope : 'phong_ban';
     var deptId = isEdit ? (rule.department_id || '') : '';
     var effDate = isEdit ? rule.effective_date : new Date().toISOString().substring(0, 10);
+    var isForever = isEdit ? (rule.is_forever !== false && rule.is_forever !== 'false') : true;
+    var expDate = isEdit && rule.expiry_date ? rule.expiry_date : '';
 
-    var deptsOpts = '<option value="">-- Chọn phòng ban --</option>';
-    if (_nqState.depts.all) {
-        _nqState.depts.all.forEach(function(d) {
-            deptsOpts += `<option value="${d.id}" ${String(d.id) === String(deptId) ? 'selected' : ''}>${d.name}</option>`;
-        });
-    }
+    var dept = _nqState.depts.all.find(d => String(d.id) === String(deptId));
+    var initialMgrName = isEdit ? (rule.manager_name || (dept ? dept.head_user_name : '')) : (dept ? dept.head_user_name : '');
 
     overlay.innerHTML = `
         <div class="nq-modal">
@@ -489,17 +620,12 @@ function _nqRenderModalForm(rule) {
 
                 <div class="nq-form-group" id="nqDeptSelectGroup" style="display:${scope === 'phong_ban' ? 'flex' : 'none'}">
                     <label>Phòng Ban Áp Dụng *</label>
-                    <select class="nq-form-select" id="nqFormDeptId" onchange="_nqOnFormDeptChange(this.value)">
-                        ${deptsOpts}
-                    </select>
+                    ${_nqRenderSearchableDeptSelect(deptId)}
                 </div>
 
                 <div class="nq-form-group">
-                    <label>Mã Điều Khoản (Tự động sinh hoặc chỉnh sửa)</label>
-                    <div style="display:flex;gap:8px">
-                        <input type="text" class="nq-form-input" id="nqFormCode" value="${isEdit ? rule.rule_code : ''}" placeholder="VD: NQ-CHUNG0001, NQ-KT0001...">
-                        <button type="button" class="nq-btn-secondary" onclick="_nqFetchNextCode()" style="white-space:nowrap">⚡ Sinh Mã</button>
-                    </div>
+                    <label>Mã Điều Khoản (Tự động sinh mã chuẩn)</label>
+                    <input type="text" class="nq-form-input" id="nqFormCode" value="${isEdit ? rule.rule_code : ''}" readonly placeholder="Tự động sinh mã NQ...">
                 </div>
 
                 <div class="nq-form-group">
@@ -513,13 +639,33 @@ function _nqRenderModalForm(rule) {
                 </div>
 
                 <div class="nq-form-group">
-                    <label>Hình Ảnh Minh Họa / File Đính Kèm (Link URL)</label>
-                    <input type="text" class="nq-form-input" id="nqFormImage" value="${isEdit && rule.image_url ? escapeHtml(rule.image_url) : ''}" placeholder="https://...">
+                    <label>Link Nội Quy / Tài Liệu Gốc (URL - Không bắt buộc)</label>
+                    <input type="text" class="nq-form-input" id="nqFormDocLink" value="${isEdit && rule.doc_link ? escapeHtml(rule.doc_link) : ''}" placeholder="https://docs.google.com/document/d/...">
                 </div>
 
                 <div class="nq-form-group">
-                    <label>Áp Dụng Từ Ngày *</label>
-                    <input type="date" class="nq-form-input" id="nqFormEffDate" value="${effDate}">
+                    <label>Hình Ảnh Minh Họa / Dán Ảnh (Ctrl + V)</label>
+                    <input type="text" class="nq-form-input" id="nqFormImage" value="${isEdit && rule.image_url ? escapeHtml(rule.image_url) : ''}" placeholder="Dán link ảnh hoặc ấn Ctrl + V dán ảnh trực tiếp...">
+                    <div class="nq-paste-area" id="nqPasteBox" onclick="document.getElementById('nqFormImage').focus()">
+                        <div class="nq-paste-text">📋 Bấm vào đây và ấn Ctrl + V để dán ảnh màn hình trực tiếp</div>
+                        <img id="nqImagePreview" class="nq-paste-preview" src="${isEdit && rule.image_url ? rule.image_url : ''}" style="display:${isEdit && rule.image_url ? 'inline-block' : 'none'}">
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="nq-form-group">
+                        <label>Áp Dụng Từ Ngày *</label>
+                        <input type="date" class="nq-form-input" id="nqFormEffDate" value="${effDate}">
+                    </div>
+                    <div class="nq-form-group">
+                        <label>Áp Dụng Đến Ngày</label>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                            <label style="font-size:12px;font-weight:700;color:#4338ca;cursor:pointer">
+                                <input type="checkbox" id="nqFormIsForever" ${isForever ? 'checked' : ''} onchange="_nqToggleForever(this.checked)"> ♾️ Mãi mãi (Không thời hạn)
+                            </label>
+                        </div>
+                        <input type="date" class="nq-form-input" id="nqFormExpDate" value="${expDate}" style="display:${isForever ? 'none' : 'block'}">
+                    </div>
                 </div>
 
                 <!-- Fine Section -->
@@ -530,16 +676,21 @@ function _nqRenderModalForm(rule) {
 
                     <div style="display:flex;align-items:center;justify-content:space-between">
                         <label style="font-size:13px;font-weight:700;color:#334155;cursor:pointer">
-                            <input type="checkbox" id="nqFormHasFine" ${isEdit && rule.has_fine ? 'checked' : ''} onchange="_nqToggleFineInput(this.checked)"> Phạt vi phạm cá nhân
+                            <input type="checkbox" id="nqFormHasFine" ${isEdit && rule.has_fine ? 'checked' : ''} onchange="_nqToggleFineInput(this.checked)"> 👤 Phạt vi phạm cá nhân
                         </label>
                         <input type="number" class="nq-form-input" id="nqFormFineAmt" style="width:160px" value="${isEdit ? Number(rule.fine_amount) : 0}" placeholder="Số tiền VNĐ" ${isEdit && rule.has_fine ? '' : 'disabled'}>
                     </div>
 
-                    <div style="display:flex;align-items:center;justify-content:space-between">
-                        <label style="font-size:13px;font-weight:700;color:#334155;cursor:pointer">
-                            <input type="checkbox" id="nqFormHasMgrFine" ${isEdit && rule.has_manager_fine ? 'checked' : ''} onchange="_nqToggleMgrFineInput(this.checked)"> Phạt quản lý liên đới
-                        </label>
-                        <input type="number" class="nq-form-input" id="nqFormMgrFineAmt" style="width:160px" value="${isEdit ? Number(rule.manager_fine_amount) : 0}" placeholder="Số tiền VNĐ" ${isEdit && rule.has_manager_fine ? '' : 'disabled'}>
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                        <div style="display:flex;align-items:center;justify-content:space-between">
+                            <label style="font-size:13px;font-weight:700;color:#334155;cursor:pointer">
+                                <input type="checkbox" id="nqFormHasMgrFine" ${isEdit && rule.has_manager_fine ? 'checked' : ''} onchange="_nqToggleMgrFineInput(this.checked)"> 🛡️ Phạt quản lý liên đới
+                            </label>
+                            <input type="number" class="nq-form-input" id="nqFormMgrFineAmt" style="width:160px" value="${isEdit ? Number(rule.manager_fine_amount) : 0}" placeholder="Số tiền VNĐ" ${isEdit && rule.has_manager_fine ? '' : 'disabled'}>
+                        </div>
+                        <div id="nqManagerInfoText" style="font-size:12px;font-weight:800;color:#be123c;padding-left:24px" data-mgr-name="${escapeHtml(initialMgrName)}">
+                            🛡️ Quản lý liên đới: ${escapeHtml(initialMgrName || 'Trưởng Phòng / Ban Giám Đốc phụ trách')}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -551,6 +702,18 @@ function _nqRenderModalForm(rule) {
     `;
 
     document.body.appendChild(overlay);
+
+    // Setup Clipboard Paste Event for Image
+    setupImagePasteHandler(overlay);
+
+    // Click outside to close searchable dept menu
+    document.addEventListener('click', function _closeSs(e) {
+        var wrapper = document.getElementById('nqSsWrapper');
+        if (wrapper && !wrapper.contains(e.target)) {
+            var menu = document.getElementById('nqSsMenu');
+            if (menu) menu.classList.remove('active');
+        }
+    });
 
     if (!isEdit) {
         _nqFetchNextCode();
@@ -565,10 +728,9 @@ function _nqCloseModal() {
 function _nqOnScopeRadioChange(val) {
     var grp = document.getElementById('nqDeptSelectGroup');
     if (grp) grp.style.display = (val === 'phong_ban') ? 'flex' : 'none';
-    _nqFetchNextCode();
-}
-
-function _nqOnFormDeptChange(val) {
+    if (val === 'chung') {
+        _nqUpdateManagerDisplay(null);
+    }
     _nqFetchNextCode();
 }
 
@@ -582,9 +744,59 @@ function _nqToggleMgrFineInput(checked) {
     if (inp) inp.disabled = !checked;
 }
 
+function _nqToggleForever(checked) {
+    var inp = document.getElementById('nqFormExpDate');
+    if (inp) inp.style.display = checked ? 'none' : 'block';
+}
+
+// ===== PASTE IMAGE HANDLER WITH CANVAS RESIZE =====
+function setupImagePasteHandler(modalOverlay) {
+    modalOverlay.addEventListener('paste', function(e) {
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                var blob = items[i].getAsFile();
+                var reader = new FileReader();
+                reader.onload = function(event) {
+                    var img = new Image();
+                    img.onload = function() {
+                        // Canvas Compress & Resize
+                        var canvas = document.createElement('canvas');
+                        var maxW = 1200;
+                        var width = img.width;
+                        var height = img.height;
+                        if (width > maxW) {
+                            height = Math.round(height * (maxW / width));
+                            width = maxW;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        var ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        var compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                        
+                        var imgInp = document.getElementById('nqFormImage');
+                        var imgPrev = document.getElementById('nqImagePreview');
+                        if (imgInp) imgInp.value = compressedDataUrl;
+                        if (imgPrev) {
+                            imgPrev.src = compressedDataUrl;
+                            imgPrev.style.display = 'inline-block';
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(blob);
+                e.preventDefault();
+                break;
+            }
+        }
+    });
+}
+
 async function _nqFetchNextCode() {
     var scopeRadio = document.querySelector('input[name="nqScope"]:checked');
-    var scope = scopeRadio ? scopeRadio.value : 'chung';
+    var scope = scopeRadio ? scopeRadio.value : 'phong_ban';
     var deptId = document.getElementById('nqFormDeptId')?.value || '';
 
     try {
@@ -594,7 +806,7 @@ async function _nqFetchNextCode() {
         var res = await apiCall('/api/company-rules/next-code?' + params.toString());
         if (res && res.nextCode) {
             var codeInp = document.getElementById('nqFormCode');
-            if (codeInp && (!_nqState.editingId || !codeInp.value)) {
+            if (codeInp) {
                 codeInp.value = res.nextCode;
             }
         }
@@ -605,18 +817,25 @@ async function _nqFetchNextCode() {
 
 async function _nqSaveRule() {
     var scopeRadio = document.querySelector('input[name="nqScope"]:checked');
-    var scope = scopeRadio ? scopeRadio.value : 'chung';
+    var scope = scopeRadio ? scopeRadio.value : 'phong_ban';
     var deptId = document.getElementById('nqFormDeptId')?.value || null;
     var ruleCode = document.getElementById('nqFormCode')?.value || '';
     var title = document.getElementById('nqFormTitle')?.value || '';
     var content = document.getElementById('nqFormContent')?.value || '';
+    var docLink = document.getElementById('nqFormDocLink')?.value || '';
     var imageUrl = document.getElementById('nqFormImage')?.value || '';
     var effDate = document.getElementById('nqFormEffDate')?.value || '';
+    var isForever = document.getElementById('nqFormIsForever')?.checked || false;
+    var expDate = isForever ? null : (document.getElementById('nqFormExpDate')?.value || null);
     
     var hasFine = document.getElementById('nqFormHasFine')?.checked || false;
     var fineAmt = Number(document.getElementById('nqFormFineAmt')?.value) || 0;
     var hasMgrFine = document.getElementById('nqFormHasMgrFine')?.checked || false;
     var mgrFineAmt = Number(document.getElementById('nqFormMgrFineAmt')?.value) || 0;
+
+    var mgrInfoEl = document.getElementById('nqManagerInfoText');
+    var mgrName = mgrInfoEl ? (mgrInfoEl.dataset.mgrName || 'Trưởng Phòng / Quản Lý') : 'Trưởng Phòng';
+    var mgrId = mgrInfoEl ? (Number(mgrInfoEl.dataset.mgrId) || null) : null;
 
     if (!title.trim()) { alert('Vui lòng nhập tiêu đề nội quy'); return; }
     if (!content.trim()) { alert('Vui lòng nhập nội dung nội quy'); return; }
@@ -629,12 +848,17 @@ async function _nqSaveRule() {
         rule_code: ruleCode,
         title: title,
         content: content,
+        doc_link: docLink,
         image_url: imageUrl,
         effective_date: effDate,
+        is_forever: isForever,
+        expiry_date: expDate,
         has_fine: hasFine,
         fine_amount: fineAmt,
         has_manager_fine: hasMgrFine,
-        manager_fine_amount: mgrFineAmt
+        manager_fine_amount: mgrFineAmt,
+        manager_user_id: mgrId,
+        manager_name: mgrName
     };
 
     try {

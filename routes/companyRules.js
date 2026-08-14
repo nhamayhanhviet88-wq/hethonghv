@@ -23,35 +23,71 @@ function getDepartmentPrefix(deptName, deptCode) {
 
 async function companyRulesRoutes(fastify, options) {
     
-    // GET /api/company-rules/departments - Lấy danh sách phòng ban chia nhóm
+    // GET /api/company-rules/departments - Lấy danh sách phòng ban kèm tên Quản lý/Trưởng phòng
     fastify.get('/api/company-rules/departments', async (req, reply) => {
         try {
             const depts = await db.all(`
-                SELECT id, name, code, parent_id, display_order 
-                FROM departments 
-                WHERE status = 'active'
-                ORDER BY parent_id NULLS FIRST, display_order ASC, id ASC
+                SELECT 
+                    d.id, d.name, d.code, d.parent_id, d.display_order, d.head_user_id,
+                    u.fullname as head_fullname, u.username as head_username, u.role as head_role
+                FROM departments d
+                LEFT JOIN users u ON u.id = d.head_user_id
+                WHERE d.status = 'active'
+                ORDER BY d.parent_id NULLS FIRST, d.display_order ASC, d.id ASC
             `);
             
+            // Also get all managers/leaders to assign fallback head names
+            const managers = await db.all(`
+                SELECT id, fullname, username, role, department_id 
+                FROM users 
+                WHERE role IN ('giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong') AND status = 'active'
+            `);
+
+            const deptList = depts.map(d => {
+                let headName = d.head_fullname || d.head_username || '';
+                let headId = d.head_user_id || null;
+
+                if (!headName && d.id) {
+                    const mgr = managers.find(m => m.department_id === d.id);
+                    if (mgr) {
+                        headName = mgr.fullname || mgr.username || '';
+                        headId = mgr.id;
+                    }
+                }
+
+                if (!headName) {
+                    const gd = managers.find(m => m.role === 'giam_doc');
+                    if (gd) {
+                        headName = (gd.fullname || gd.username) + ' (Ban Giám Đốc)';
+                        headId = gd.id;
+                    }
+                }
+
+                return {
+                    ...d,
+                    head_user_id: headId,
+                    head_user_name: headName
+                };
+            });
+
             const vanPhong = [];
             const xuong = [];
             const other = [];
 
-            const rootVp = depts.find(d => d.name && d.name.includes('VĂN PHÒNG'));
-            const rootXuong = depts.find(d => d.name && d.name.includes('XƯỞNG'));
+            const rootVp = deptList.find(d => d.name && d.name.includes('VĂN PHÒNG'));
+            const rootXuong = deptList.find(d => d.name && d.name.includes('XƯỞNG'));
 
             const rootVpId = rootVp ? rootVp.id : null;
             const rootXuongId = rootXuong ? rootXuong.id : null;
 
-            depts.forEach(d => {
+            deptList.forEach(d => {
                 if (d.id === rootVpId || d.id === rootXuongId) return; // Skip system roots
                 if (d.parent_id === rootVpId) {
                     vanPhong.push(d);
                 } else if (d.parent_id === rootXuongId) {
                     xuong.push(d);
                 } else if (d.parent_id) {
-                    // Check parent
-                    const parent = depts.find(p => p.id === d.parent_id);
+                    const parent = deptList.find(p => p.id === d.parent_id);
                     if (parent && parent.parent_id === rootVpId) vanPhong.push(d);
                     else if (parent && parent.parent_id === rootXuongId) xuong.push(d);
                     else other.push(d);
@@ -64,7 +100,7 @@ async function companyRulesRoutes(fastify, options) {
                 vanPhong,
                 xuong,
                 other,
-                all: depts.filter(d => d.id !== rootVpId && d.id !== rootXuongId)
+                all: deptList.filter(d => d.id !== rootVpId && d.id !== rootXuongId)
             };
         } catch (err) {
             req.log.error(err);
@@ -85,7 +121,6 @@ async function companyRulesRoutes(fastify, options) {
                 }
             }
 
-            // Find max index for this prefix
             const rows = await db.all(`
                 SELECT rule_code FROM company_rules 
                 WHERE rule_code LIKE $1 || '%'
@@ -145,7 +180,7 @@ async function companyRulesRoutes(fastify, options) {
             if (search && search.trim()) {
                 params.push(`%${search.trim()}%`);
                 const pIdx = params.length;
-                whereClauses.push(`(cr.rule_code ILIKE $${pIdx} OR cr.title ILIKE $${pIdx} OR cr.content ILIKE $${pIdx} OR cr.created_by_name ILIKE $${pIdx})`);
+                whereClauses.push(`(cr.rule_code ILIKE $${pIdx} OR cr.title ILIKE $${pIdx} OR cr.content ILIKE $${pIdx} OR cr.created_by_name ILIKE $${pIdx} OR cr.manager_name ILIKE $${pIdx})`);
             }
 
             const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
@@ -163,7 +198,6 @@ async function companyRulesRoutes(fastify, options) {
 
             const rules = await db.all(sql, params);
 
-            // Summary Stats across active rules
             const stats = await db.get(`
                 SELECT 
                     COUNT(*) as total_rules,
@@ -198,75 +232,72 @@ async function companyRulesRoutes(fastify, options) {
                 rule_code,
                 title,
                 content,
+                doc_link,
                 image_url,
                 effective_date,
+                is_forever,
+                expiry_date,
                 has_fine,
                 fine_amount,
                 has_manager_fine,
-                manager_fine_amount
+                manager_fine_amount,
+                manager_user_id,
+                manager_name
             } = req.body || {};
 
-            if (!title || !title.trim()) {
-                return reply.code(400).send({ error: 'Vui lòng nhập tiêu đề nội quy' });
-            }
-            if (!content || !content.trim()) {
-                return reply.code(400).send({ error: 'Vui lòng nhập nội dung nội quy' });
-            }
-            if (!effective_date) {
-                return reply.code(400).send({ error: 'Vui lòng chọn ngày áp dụng' });
-            }
+            if (!title || !title.trim()) return reply.code(400).send({ error: 'Vui lòng nhập tiêu đề nội quy' });
+            if (!content || !content.trim()) return reply.code(400).send({ error: 'Vui lòng nhập nội dung nội quy' });
+            if (!effective_date) return reply.code(400).send({ error: 'Vui lòng chọn ngày áp dụng' });
 
             const ruleScope = scope === 'chung' ? 'chung' : 'phong_ban';
             const deptId = ruleScope === 'chung' ? null : (department_id ? Number(department_id) : null);
 
-            // Generate or validate rule_code
-            let finalCode = rule_code ? rule_code.trim().toUpperCase() : '';
-            if (!finalCode) {
-                let prefix = 'NQ-CHUNG';
-                if (ruleScope === 'phong_ban' && deptId) {
-                    const dept = await db.get('SELECT name, code FROM departments WHERE id = $1', [deptId]);
-                    if (dept) prefix = getDepartmentPrefix(dept.name, dept.code);
-                }
-                const rows = await db.all(`SELECT rule_code FROM company_rules WHERE rule_code LIKE $1 || '%'`, [prefix]);
-                let maxNum = 0;
-                rows.forEach(r => {
-                    const numStr = r.rule_code.replace(prefix, '').replace(/[^0-9]/g, '');
-                    const num = parseInt(numStr, 10);
-                    if (!isNaN(num) && num > maxNum) maxNum = num;
-                });
-                finalCode = prefix + String(maxNum + 1).padStart(4, '0');
+            // Auto-generate rule_code
+            let prefix = 'NQ-CHUNG';
+            if (ruleScope === 'phong_ban' && deptId) {
+                const dept = await db.get('SELECT name, code FROM departments WHERE id = $1', [deptId]);
+                if (dept) prefix = getDepartmentPrefix(dept.name, dept.code);
             }
+            const rows = await db.all(`SELECT rule_code FROM company_rules WHERE rule_code LIKE $1 || '%'`, [prefix]);
+            let maxNum = 0;
+            rows.forEach(r => {
+                const numStr = r.rule_code.replace(prefix, '').replace(/[^0-9]/g, '');
+                const num = parseInt(numStr, 10);
+                if (!isNaN(num) && num > maxNum) maxNum = num;
+            });
+            const finalCode = prefix + String(maxNum + 1).padStart(4, '0');
 
-            // Check duplicate rule_code
-            const existing = await db.get('SELECT id FROM company_rules WHERE rule_code = $1', [finalCode]);
-            if (existing) {
-                return reply.code(400).send({ error: `Mã điều khoản ${finalCode} đã tồn tại trong hệ thống` });
-            }
-
-            // Get logged in user name
             const user = req.user || {};
             const createdByName = user.fullname || user.name || user.username || 'Quản lý Hệ Thống';
             const createdByUserId = user.id || null;
 
+            const isForeverVal = is_forever !== false && is_forever !== 'false';
+            const expiryDateVal = isForeverVal ? null : (expiry_date || null);
+
             const res = await db.run(`
                 INSERT INTO company_rules 
-                (rule_code, scope, department_id, title, content, image_url, effective_date, created_by_user_id, created_by_name, has_fine, fine_amount, has_manager_fine, manager_fine_amount, status, created_at, updated_at)
+                (rule_code, scope, department_id, title, content, doc_link, image_url, effective_date, is_forever, expiry_date, created_by_user_id, created_by_name, has_fine, fine_amount, has_manager_fine, manager_fine_amount, manager_user_id, manager_name, status, created_at, updated_at)
                 VALUES 
-                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'active', NOW(), NOW())
+                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'active', NOW(), NOW())
             `, [
                 finalCode,
                 ruleScope,
                 deptId,
                 title.trim(),
                 content.trim(),
+                doc_link ? doc_link.trim() : null,
                 image_url ? image_url.trim() : null,
                 effective_date,
+                isForeverVal,
+                expiryDateVal,
                 createdByUserId,
                 createdByName,
                 has_fine ? true : false,
                 Number(fine_amount) || 0,
                 has_manager_fine ? true : false,
-                Number(manager_fine_amount) || 0
+                Number(manager_fine_amount) || 0,
+                manager_user_id ? Number(manager_user_id) : null,
+                manager_name ? manager_name.trim() : null
             ]);
 
             return { success: true, message: 'Tạo điều khoản mới thành công', id: res.lastInsertRowid, rule_code: finalCode };
@@ -285,24 +316,28 @@ async function companyRulesRoutes(fastify, options) {
                 department_id,
                 title,
                 content,
+                doc_link,
                 image_url,
                 effective_date,
+                is_forever,
+                expiry_date,
                 has_fine,
                 fine_amount,
                 has_manager_fine,
-                manager_fine_amount
+                manager_fine_amount,
+                manager_user_id,
+                manager_name
             } = req.body || {};
 
             const rule = await db.get('SELECT id FROM company_rules WHERE id = $1', [id]);
-            if (!rule) {
-                return reply.code(404).send({ error: 'Không tìm thấy điều khoản cần sửa' });
-            }
-
+            if (!rule) return reply.code(404).send({ error: 'Không tìm thấy điều khoản cần sửa' });
             if (!title || !title.trim()) return reply.code(400).send({ error: 'Vui lòng nhập tiêu đề' });
             if (!content || !content.trim()) return reply.code(400).send({ error: 'Vui lòng nhập nội dung' });
 
             const ruleScope = scope === 'chung' ? 'chung' : 'phong_ban';
             const deptId = ruleScope === 'chung' ? null : (department_id ? Number(department_id) : null);
+            const isForeverVal = is_forever !== false && is_forever !== 'false';
+            const expiryDateVal = isForeverVal ? null : (expiry_date || null);
 
             await db.run(`
                 UPDATE company_rules
@@ -311,25 +346,35 @@ async function companyRulesRoutes(fastify, options) {
                     department_id = $2,
                     title = $3,
                     content = $4,
-                    image_url = $5,
-                    effective_date = $6,
-                    has_fine = $7,
-                    fine_amount = $8,
-                    has_manager_fine = $9,
-                    manager_fine_amount = $10,
+                    doc_link = $5,
+                    image_url = $6,
+                    effective_date = $7,
+                    is_forever = $8,
+                    expiry_date = $9,
+                    has_fine = $10,
+                    fine_amount = $11,
+                    has_manager_fine = $12,
+                    manager_fine_amount = $13,
+                    manager_user_id = $14,
+                    manager_name = $15,
                     updated_at = NOW()
-                WHERE id = $11
+                WHERE id = $16
             `, [
                 ruleScope,
                 deptId,
                 title.trim(),
                 content.trim(),
+                doc_link ? doc_link.trim() : null,
                 image_url ? image_url.trim() : null,
                 effective_date,
+                isForeverVal,
+                expiryDateVal,
                 has_fine ? true : false,
                 Number(fine_amount) || 0,
                 has_manager_fine ? true : false,
                 Number(manager_fine_amount) || 0,
+                manager_user_id ? Number(manager_user_id) : null,
+                manager_name ? manager_name.trim() : null,
                 id
             ]);
 
