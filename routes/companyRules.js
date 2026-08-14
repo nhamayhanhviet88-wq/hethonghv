@@ -161,6 +161,33 @@ async function companyRulesRoutes(fastify, options) {
             let whereClauses = ["cr.status = 'active'"];
             let params = [];
 
+            // Permission scoping: Giám Đốc & Quản Lý Cấp Cao xem tất cả. Các vị trí khác chỉ xem Nội Quy Chung + Phòng Ban của chính họ
+            const user = req.user || {};
+            const role = user.role || '';
+            const isHighLevel = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao');
+
+            let statsWhereClauses = ["status = 'active'"];
+            let statsParams = [];
+
+            if (!isHighLevel) {
+                let userDeptId = user.department_id;
+                if (!userDeptId && user.id) {
+                    const uRow = await db.get('SELECT department_id FROM users WHERE id = $1', [user.id]);
+                    if (uRow) userDeptId = uRow.department_id;
+                }
+
+                if (userDeptId) {
+                    params.push(Number(userDeptId));
+                    whereClauses.push(`(cr.scope = 'chung' OR cr.department_id = $${params.length})`);
+
+                    statsParams.push(Number(userDeptId));
+                    statsWhereClauses.push(`(scope = 'chung' OR department_id = $${statsParams.length})`);
+                } else {
+                    whereClauses.push(`cr.scope = 'chung'`);
+                    statsWhereClauses.push(`scope = 'chung'`);
+                }
+            }
+
             if (scope && scope !== 'all') {
                 params.push(scope);
                 whereClauses.push(`cr.scope = $${params.length}`);
@@ -206,6 +233,7 @@ async function companyRulesRoutes(fastify, options) {
 
             const rules = await db.all(sql, params);
 
+            const statsWhereSql = 'WHERE ' + statsWhereClauses.join(' AND ');
             const stats = await db.get(`
                 SELECT 
                     COUNT(*) as total_rules,
@@ -213,8 +241,8 @@ async function companyRulesRoutes(fastify, options) {
                     COUNT(CASE WHEN scope = 'phong_ban' THEN 1 END) as dept_rules,
                     COUNT(CASE WHEN has_fine = true OR has_team_fine = true OR has_dept_fine = true OR has_manager_fine = true THEN 1 END) as fine_rules
                 FROM company_rules
-                WHERE status = 'active'
-            `);
+                ${statsWhereSql}
+            `, statsParams);
 
             return {
                 rules,
