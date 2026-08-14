@@ -9,12 +9,35 @@
     var state = {
         isOpen: false,
         history: [],
-        isThinking: false
+        isThinking: false,
+        canConfig: false,
+        isEnabled: true,
+        allowedRoles: 'all',
+        hasKey: false
     };
 
-    function initHVAiAssistant() {
+    async function initHVAiAssistant() {
         injectStyles();
-        createFloatingWidget();
+        await fetchAiConfig();
+        if (state.isEnabled) {
+            createFloatingWidget();
+        }
+    }
+
+    async function fetchAiConfig() {
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/config', {
+                headers: { 'Authorization': token ? ('Bearer ' + token) : '' }
+            });
+            if (res.ok) {
+                var data = await res.json();
+                state.canConfig = !!data.can_config;
+                state.isEnabled = !!data.is_enabled;
+                state.allowedRoles = data.allowed_roles || 'all';
+                state.hasKey = !!data.has_key;
+            }
+        } catch (e) {}
     }
 
     function injectStyles() {
@@ -231,6 +254,8 @@
                 cursor: pointer;
                 transition: background 0.2s;
             }
+            .hv-ai-send-btn:hover { background: #3730a3; }
+
             /* Modal Standalone Styles */
             .hv-ai-modal-overlay {
                 position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -259,11 +284,21 @@
             .hv-ai-btn-save { background: #4338ca; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; }
             .hv-ai-btn-save:hover { background: #3730a3; }
             .hv-ai-btn-cancel { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; }
+            
+            .hv-ai-radio-group { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+            .hv-ai-radio-lbl {
+                display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+                border: 1px solid #e2e8f0; border-radius: 10px; font-size: 13px; font-weight: 700;
+                color: #334155; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+            }
+            .hv-ai-radio-lbl:hover { background: #f8fafc; border-color: #cbd5e1; }
+            .hv-ai-radio-lbl input:checked + span { color: #4338ca; }
         `;
         document.head.appendChild(style);
     }
 
     function createFloatingWidget() {
+        if (document.getElementById('hvAiFloatBtn')) return;
         var btn = document.createElement('button');
         btn.className = 'hv-ai-float-btn';
         btn.id = 'hvAiFloatBtn';
@@ -312,6 +347,9 @@
             `;
         }
 
+        // Render Gear config icon ONLY FOR DIRECTOR (state.canConfig === true)
+        var gearBtnHtml = state.canConfig ? `<button class="hv-ai-hdr-btn" onclick="window._hvAiOpenConfigModal()" title="Cấu hình API Key & Phân Quyền (Độc Quyền Giám Đốc)">⚙️</button>` : '';
+
         win.innerHTML = `
             <div class="hv-ai-header">
                 <div>
@@ -319,7 +357,7 @@
                     <div class="hv-ai-header-sub">Hỗ trợ tra cứu & tư vấn (Google Gemini 2.5 Flash)</div>
                 </div>
                 <div style="display:flex;gap:6px">
-                    <button class="hv-ai-hdr-btn" onclick="window._hvAiOpenConfigModal()" title="Cấu hình API Key">⚙️</button>
+                    ${gearBtnHtml}
                     <button class="hv-ai-hdr-btn" onclick="document.getElementById('hvAiChatWindow').remove()" title="Đóng">✕</button>
                 </div>
             </div>
@@ -402,11 +440,13 @@
                 var errDiv = document.createElement('div');
                 errDiv.className = 'hv-ai-msg assistant';
                 if (data.error === 'MISSING_API_KEY') {
+                    var configBtnHtml = state.canConfig ? `<br><button class="hv-ai-rule-btn" style="background:#4338ca" onclick="window._hvAiOpenConfigModal()">⚙️ Cấu Hình API Key Ngay</button>` : '';
                     errDiv.innerHTML = `
                         <span style="color:#dc2626;font-weight:800">⚠️ Chưa cấu hình API Key!</span><br>
-                        ${data.message}<br>
-                        <button class="hv-ai-rule-btn" style="background:#4338ca" onclick="window._hvAiOpenConfigModal()">⚙️ Cấu Hình API Key Ngay</button>
+                        ${data.message}${configBtnHtml}
                     `;
+                } else if (data.error === 'AI_DISABLED') {
+                    errDiv.innerHTML = `<span style="color:#dc2626;font-weight:800">⚠️ Thông báo từ Ban Giám Đốc:</span><br>${data.message}`;
                 } else {
                     errDiv.innerHTML = `<span style="color:#dc2626">⚠️ ${data.error || 'Lỗi xử lý'}</span>`;
                 }
@@ -450,10 +490,17 @@
         return formatted;
     }
 
-    // Modal Config API Key
+    // Modal Config API Key & Phân Quyền AI (DUY NHẤT GIÁM ĐỐC)
     window._hvAiOpenConfigModal = function() {
+        if (!state.canConfig) {
+            alert('Chỉ Ban Giám Đốc mới có quyền cấu hình API Key và Phân Quyền Trợ Lý AI!');
+            return;
+        }
+
         var existing = document.getElementById('hvAiConfigOverlay');
         if (existing) existing.remove();
+
+        var pol = state.allowedRoles || 'all';
 
         var overlay = document.createElement('div');
         overlay.className = 'hv-ai-modal-overlay';
@@ -463,22 +510,42 @@
         overlay.innerHTML = `
             <div class="hv-ai-modal">
                 <div class="hv-ai-modal-hdr">
-                    <h3>⚙️ Cấu Hình Google Gemini API Key</h3>
+                    <h3>⚙️ Cấu Hình API Key & Phân Quyền AI (Giám Đốc)</h3>
                     <button class="hv-ai-modal-close" onclick="document.getElementById('hvAiConfigOverlay').remove()">✕</button>
                 </div>
                 <div class="hv-ai-modal-body">
                     <div style="font-size:13px;color:#475569;line-height:1.5">
-                        Nhập khóa <strong>Gemini API Key Miễn Phí</strong> tạo từ Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#4338ca;font-weight:700">aistudio.google.com</a>) để kích hoạt Trợ Lý AI cho toàn hệ thống HV.
+                        Nhập khóa <strong>Gemini API Key Miễn Phí</strong> tạo từ Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#4338ca;font-weight:700">aistudio.google.com</a>) và cài đặt nhóm người dùng được phép sử dụng Trợ Lý AI.
                     </div>
+                    
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <label style="font-size:13px;font-weight:800;color:#334155">🔑 Nhập Gemini API Key:</label>
-                        <input type="password" id="hvAiApiKeyInput" class="hv-ai-input-field" placeholder="Dán mã AIzaSy... vào đây">
+                        <input type="password" id="hvAiApiKeyInput" class="hv-ai-input-field" placeholder="Dán mã AIzaSy... vào đây (Giữ nguyên nếu không đổi)">
                     </div>
+
+                    <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+                        <label style="font-size:13px;font-weight:800;color:#334155">👥 Phân Quyền Ai Được Phép Sử Dụng Trợ Lý AI HV:</label>
+                        <div class="hv-ai-radio-group">
+                            <label class="hv-ai-radio-lbl">
+                                <input type="radio" name="hvAiPolicyRadio" value="all" ${pol === 'all' ? 'checked' : ''}>
+                                <span>🌐 Cho phép Tất Cả Nhân Viên sử dụng Trợ Lý AI</span>
+                            </label>
+                            <label class="hv-ai-radio-lbl">
+                                <input type="radio" name="hvAiPolicyRadio" value="exec_only" ${pol === 'exec_only' ? 'checked' : ''}>
+                                <span>🔒 Chỉ Cho Phép Ban Giám Đốc & Lê Việt Trinh</span>
+                            </label>
+                            <label class="hv-ai-radio-lbl">
+                                <input type="radio" name="hvAiPolicyRadio" value="managers" ${pol === 'managers' ? 'checked' : ''}>
+                                <span>👔 Cho Phép Ban Giám Đốc, Lê Việt Trinh, Lê Công Thực & Các Quản Lý</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <div id="hvAiConfigStatus" style="font-size:13px;font-weight:700"></div>
                 </div>
                 <div class="hv-ai-modal-ftr">
                     <button class="hv-ai-btn-cancel" onclick="document.getElementById('hvAiConfigOverlay').remove()">Hủy</button>
-                    <button class="hv-ai-btn-save" onclick="window._hvAiSaveConfig()">💾 Lưu API Key</button>
+                    <button class="hv-ai-btn-save" onclick="window._hvAiSaveConfig()">💾 Lưu Cấu Hình</button>
                 </div>
             </div>
         `;
@@ -489,31 +556,36 @@
     window._hvAiSaveConfig = async function() {
         var inp = document.getElementById('hvAiApiKeyInput');
         var st = document.getElementById('hvAiConfigStatus');
-        if (!inp || !inp.value.trim()) {
-            if (st) st.innerHTML = '<span style="color:#dc2626">Vui lòng dán mã API Key!</span>';
-            return;
-        }
+        var selectedRadio = document.querySelector('input[name="hvAiPolicyRadio"]:checked');
+        var allowedRoles = selectedRadio ? selectedRadio.value : 'all';
 
         try {
             var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var payload = { allowed_roles: allowedRoles };
+            if (inp && inp.value.trim()) {
+                payload.api_key = inp.value.trim();
+            }
+
             var res = await fetch('/api/ai-assistant/config', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': token ? ('Bearer ' + token) : ''
                 },
-                body: JSON.stringify({ api_key: inp.value.trim() })
+                body: JSON.stringify(payload)
             });
 
             var data = await res.json();
             if (res.ok) {
-                if (st) st.innerHTML = '<span style="color:#16a34a">✅ Đã lưu API Key thành công! Bạn có thể sử dụng Trợ Lý AI ngay bây giờ.</span>';
+                state.allowedRoles = allowedRoles;
+                if (st) st.innerHTML = '<span style="color:#16a34a">✅ Đã lưu cấu hình API Key & Phân quyền AI thành công!</span>';
                 setTimeout(function() {
                     var ov = document.getElementById('hvAiConfigOverlay');
                     if (ov) ov.remove();
+                    window.location.reload();
                 }, 1200);
             } else {
-                if (st) st.innerHTML = `<span style="color:#dc2626">⚠️ ${data.error || 'Lỗi lưu API Key'}</span>`;
+                if (st) st.innerHTML = `<span style="color:#dc2626">⚠️ ${data.error || 'Lỗi lưu cấu hình'}</span>`;
             }
         } catch (e) {
             if (st) st.innerHTML = `<span style="color:#dc2626">⚠️ Lỗi kết nối: ${e.message}</span>`;

@@ -2,6 +2,21 @@ const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const https = require('https');
 
+function isAiEnabledForUser(role, username, allowedPolicy) {
+    // Super Executives (Giám Đốc, Admin, Lê Việt Trinh) ALWAYS have AI enabled
+    if (role === 'giam_doc' || role === 'admin' || username === 'trinh') return true;
+
+    const policy = allowedPolicy || 'all';
+    if (policy === 'exec_only') {
+        return false; // Only Director & Trinh allowed
+    }
+    if (policy === 'managers') {
+        // Managers, Team leads, Workshop manager (Lê Công Thực) allowed
+        return (role === 'quan_ly_cap_cao' || role === 'quan_ly' || role === 'truong_phong' || username === 'quanlyxuong');
+    }
+    return true; // 'all'
+}
+
 async function getUserAllowedFeatures(userId, deptId) {
     if (!userId) return [];
     try {
@@ -125,39 +140,65 @@ module.exports = async function (fastify, opts) {
         `);
     } catch(e) {}
 
-    // GET /api/ai-assistant/config - Kiểm tra trạng thái API Key
+    // GET /api/ai-assistant/config - Kiểm tra trạng thái API Key & Phân quyền AI
     fastify.get('/api/ai-assistant/config', { preHandler: [authenticate] }, async (req, reply) => {
         try {
+            const role = req.user?.role || '';
+            const username = String(req.user?.username || '').toLowerCase();
+
+            // DUY NHẤT GIÁM ĐỐC (admin, giam_doc) mới có quyền cấu hình API Key
+            const canConfig = (role === 'giam_doc' || role === 'admin');
+
             let keyRow = await db.get(`SELECT setting_value FROM system_settings WHERE setting_key = 'gemini_api_key'`);
+            let policyRow = await db.get(`SELECT setting_value FROM system_settings WHERE setting_key = 'ai_allowed_roles'`);
+
             const hasKey = !!(keyRow?.setting_value || process.env.GEMINI_API_KEY);
-            return { has_key: hasKey };
+            const allowedRoles = policyRow?.setting_value || 'all';
+            const isEnabled = isAiEnabledForUser(role, username, allowedRoles);
+
+            return {
+                has_key: hasKey,
+                can_config: canConfig,
+                is_enabled: isEnabled,
+                allowed_roles: allowedRoles
+            };
         } catch (e) {
-            return { has_key: false };
+            return { has_key: false, can_config: false, is_enabled: true, allowed_roles: 'all' };
         }
     });
 
-    // POST /api/ai-assistant/config - Lưu API Key (Chỉ Admin/Giám Đốc)
+    // POST /api/ai-assistant/config - Lưu API Key & Phân Quyền AI (DUY NHẤT Giám Đốc)
     fastify.post('/api/ai-assistant/config', { preHandler: [authenticate] }, async (req, reply) => {
         try {
             const role = req.user?.role;
+            // DUY NHẤT GIÁM ĐỐC (admin, giam_doc) mới được cấu hình
             if (role !== 'giam_doc' && role !== 'admin') {
-                return reply.code(403).send({ error: 'Chỉ Giám Đốc và Admin mới có quyền cấu hình API Key' });
+                return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc mới có quyền cấu hình API Key và Phân Quyền Trợ Lý AI' });
             }
 
-            const { api_key } = req.body || {};
-            if (!api_key || !api_key.trim()) {
-                return reply.code(400).send({ error: 'Vui lòng nhập API Key hợp lệ' });
+            const { api_key, allowed_roles } = req.body || {};
+
+            if (api_key && api_key.trim()) {
+                const cleanKey = api_key.trim();
+                await db.all(`
+                    INSERT INTO system_settings (setting_key, setting_value, updated_at)
+                    VALUES ('gemini_api_key', $1, NOW())
+                    ON CONFLICT (setting_key) 
+                    DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()
+                `, [cleanKey]);
             }
 
-            const cleanKey = api_key.trim();
-            await db.all(`
-                INSERT INTO system_settings (setting_key, setting_value, updated_at)
-                VALUES ('gemini_api_key', $1, NOW())
-                ON CONFLICT (setting_key) 
-                DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()
-            `, [cleanKey]);
+            if (allowed_roles) {
+                const cleanPolicy = String(allowed_roles).trim();
+                await db.all(`
+                    INSERT INTO system_settings (setting_key, setting_value, updated_at)
+                    VALUES ('ai_allowed_roles', $1, NOW())
+                    ON CONFLICT (setting_key) 
+                    DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()
+                `, [cleanPolicy]);
+            }
 
-            return { success: true, message: 'Đã lưu Gemini API Key thành công' };
+            return { success: true, message: 'Đã lưu cấu hình API Key & Phân Quyền Trợ Lý AI thành công' };
         } catch (e) {
             req.log.error(e);
             return reply.code(500).send({ error: 'Lỗi lưu cấu hình API Key' });
@@ -167,21 +208,6 @@ module.exports = async function (fastify, opts) {
     // POST /api/ai-assistant/chat - Hỏi đáp Trợ Lý AI
     fastify.post('/api/ai-assistant/chat', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            let keyRow = await db.get(`SELECT setting_value FROM system_settings WHERE setting_key = 'gemini_api_key'`);
-            const apiKey = keyRow?.setting_value || process.env.GEMINI_API_KEY;
-
-            if (!apiKey) {
-                return reply.code(400).send({
-                    error: 'MISSING_API_KEY',
-                    message: 'Hệ thống chưa cấu hình Gemini API Key. Vui lòng nhờ Ban Giám Đốc bấm nút ⚙️ Cấu Hình API Key để dán mã khóa AI Studio.'
-                });
-            }
-
-            const { message, page, history } = req.body || {};
-            if (!message || !message.trim()) {
-                return reply.code(400).send({ error: 'Vui lòng nhập nội dung câu hỏi' });
-            }
-
             // Fetch user identity & role & permissions
             const userId = req.user?.id;
             let userRow = null;
@@ -192,6 +218,32 @@ module.exports = async function (fastify, opts) {
             const role = userRow ? userRow.role : (req.user?.role || '');
             const username = String(userRow?.username || req.user?.username || '').toLowerCase();
             const userName = userRow ? (userRow.full_name || userRow.username) : (req.user?.username || '');
+
+            let policyRow = await db.get(`SELECT setting_value FROM system_settings WHERE setting_key = 'ai_allowed_roles'`);
+            const allowedRoles = policyRow?.setting_value || 'all';
+            const isEnabled = isAiEnabledForUser(role, username, allowedRoles);
+
+            if (!isEnabled) {
+                return reply.code(403).send({
+                    error: 'AI_DISABLED',
+                    message: 'Chức năng Trợ Lý AI hiện đang tạm khóa đối với tài khoản của bạn bởi Ban Giám Đốc.'
+                });
+            }
+
+            let keyRow = await db.get(`SELECT setting_value FROM system_settings WHERE setting_key = 'gemini_api_key'`);
+            const apiKey = keyRow?.setting_value || process.env.GEMINI_API_KEY;
+
+            if (!apiKey) {
+                return reply.code(400).send({
+                    error: 'MISSING_API_KEY',
+                    message: 'Hệ thống chưa cấu hình Gemini API Key. Vui lòng nhờ Ban Giám Đốc cấu hình mã khóa AI Studio.'
+                });
+            }
+
+            const { message, page, history } = req.body || {};
+            if (!message || !message.trim()) {
+                return reply.code(400).send({ error: 'Vui lòng nhập nội dung câu hỏi' });
+            }
 
             // Super Access Check: Giám Đốc, Admin, hoặc Lê Việt Trinh (trinh)
             const isSuperAccess = (role === 'giam_doc' || role === 'admin' || username === 'trinh');
@@ -244,7 +296,7 @@ DỮ LIỆU BÁO CÁO THÁNG 8/2026:
 `;
                 } else {
                     systemContext += `
-BẠN ĐANG TRỢ GIÚP TÀI KHOẢN BỊ GIỚI HẠN. Báo cáo này bị khóa phân quyền. Hãy từ chối cung cấp thông tin.
+BẠN ĐANG TRỢ GIÚP TÀI KHOẢN BỊ GIỚI HẠN. Báo cáo này bị khóa phân quyền. Hãy lịch sự từ chối cung cấp thông tin.
 `;
                 }
             } 
