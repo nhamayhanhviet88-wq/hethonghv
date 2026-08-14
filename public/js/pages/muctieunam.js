@@ -527,6 +527,29 @@
 
                 var displayNotes = isAllTab ? _mtnFormatNotesForDisplay(mData.target_notes, m) : (mData.target_notes || '');
 
+                var inputsHtml = '';
+                if (window._mtnCategory === 'marketing') {
+                    inputsHtml = `
+                    <div class="mtn-field-group">
+                        <label>${currentLabels.orderLabel}</label>
+                        <input class="mtn-input" type="number" step="any" id="mtnOrders_${m}" value="${mData.target_orders || ''}" placeholder="${isAllTab ? '' : currentLabels.orderPlaceholder}" oninput="_mtnRecalculateTotals()" ${isLocked ? 'disabled' : ''}>
+                    </div>
+                    <div class="mtn-field-group">
+                        <label>${currentLabels.revLabel} *</label>
+                        <input class="mtn-input" type="number" step="any" id="mtnRev_${m}" value="${mData.target_revenue || ''}" placeholder="${isAllTab ? '' : currentLabels.revPlaceholder}" oninput="_mtnRecalculateTotals()" ${isLocked ? 'disabled' : ''}>
+                    </div>`;
+                } else {
+                    inputsHtml = `
+                    <div class="mtn-field-group">
+                        <label>${currentLabels.revLabel} *</label>
+                        <input class="mtn-input" type="number" step="any" id="mtnRev_${m}" value="${mData.target_revenue || ''}" placeholder="${isAllTab ? '' : currentLabels.revPlaceholder}" oninput="_mtnRecalculateTotals()" ${isLocked ? 'disabled' : ''}>
+                    </div>
+                    <div class="mtn-field-group">
+                        <label>${currentLabels.orderLabel}</label>
+                        <input class="mtn-input" type="number" step="any" id="mtnOrders_${m}" value="${mData.target_orders || ''}" placeholder="${isAllTab ? '' : currentLabels.orderPlaceholder}" oninput="_mtnRecalculateTotals()" ${isLocked ? 'disabled' : ''}>
+                    </div>`;
+                }
+
                 html += `
                 <div class="${monthCardClass}">
                     <div class="mtn-month-title">
@@ -539,14 +562,7 @@
                             </span>
                         </div>
                     </div>
-                    <div class="mtn-field-group">
-                        <label>${currentLabels.revLabel} *</label>
-                        <input class="mtn-input" type="number" step="any" id="mtnRev_${m}" value="${mData.target_revenue || ''}" placeholder="${isAllTab ? '' : currentLabels.revPlaceholder}" oninput="_mtnRecalculateTotals()" ${isLocked ? 'disabled' : ''}>
-                    </div>
-                    <div class="mtn-field-group">
-                        <label>${currentLabels.orderLabel}</label>
-                        <input class="mtn-input" type="number" step="any" id="mtnOrders_${m}" value="${mData.target_orders || ''}" placeholder="${isAllTab ? '' : currentLabels.orderPlaceholder}" oninput="_mtnRecalculateTotals()" ${isLocked ? 'disabled' : ''}>
-                    </div>
+                    ${inputsHtml}
                     <div class="mtn-field-group">
                         <label>📝 Ghi chú chiến lược tháng ${m}</label>
                         <textarea class="mtn-textarea" id="mtnNotes_${m}" rows="${isAllTab ? 5 : 2}" placeholder="${isAllTab ? '' : 'Nội dung kế hoạch/chỉ tiêu chi tiết...'}" ${isLocked ? 'disabled' : ''}>${displayNotes}</textarea>
@@ -657,12 +673,12 @@
                     <span style="font-size:10px;font-weight:900;color:${targetRev > 0 ? (actualRev <= targetRev ? '#15803d' : '#dc2626') : '#1e40af'}">${pctRev > 0 ? pctRev.toFixed(1) + '%' : '0.0%'}</span>
                 </div>
                 <div class="mtn-actual-row" style="margin-bottom:6px">
-                    <span style="font-weight:700;color:#334155">${lblRev} <strong style="color:#1d4ed8;font-weight:900;font-size:13.5px;background:#eff6ff;padding:2px 8px;border-radius:6px;border:1px solid #bfdbfe;display:inline-block">${actRevDisplay}</strong></span>
-                    ${revBadge}
-                </div>
-                <div class="mtn-actual-row">
                     <span style="font-weight:700;color:#334155">${lblOrd} <strong style="color:#4338ca;font-weight:900;font-size:13.5px;background:#e0e7ff;padding:2px 8px;border-radius:6px;border:1px solid #c7d2fe;display:inline-block">${actOrdDisplay}</strong></span>
                     ${ordBadge}
+                </div>
+                <div class="mtn-actual-row">
+                    <span style="font-weight:700;color:#334155">${lblRev} <strong style="color:#1d4ed8;font-weight:900;font-size:13.5px;background:#eff6ff;padding:2px 8px;border-radius:6px;border:1px solid #bfdbfe;display:inline-block">${actRevDisplay}</strong></span>
+                    ${revBadge}
                 </div>
                 <div style="font-size:11px;color:#475569;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px dashed #cbd5e1;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                     <span>📢 CP Ads: <strong style="color:#e11d48">${formatVND(actualSpent)}</strong></span>
@@ -856,8 +872,8 @@
             // Update Header Quý
             var qHdrRev = document.getElementById('mtnQHeaderRev_' + q.id);
             var qHdrOrd = document.getElementById('mtnQHeaderOrders_' + q.id);
-            if (qHdrRev) qHdrRev.textContent = isMkt ? (qTargetRev > 0 ? (qTargetRev / 3).toFixed(1) + '%' : '0%') : formatVND(qTargetRev);
-            if (qHdrOrd) qHdrOrd.textContent = isMkt ? ('CPO: ' + (qTargetOrders > 0 ? formatVND(Math.round(qTargetOrders / 3)) : '0 đ')) : (formatNum(qTargetOrders) + ' đơn');
+            if (qHdrRev) qHdrRev.textContent = isMkt ? ('CPO: ' + (qTargetOrders > 0 ? formatVND(Math.round(qTargetOrders / 3)) : '0 đ')) : formatVND(qTargetRev);
+            if (qHdrOrd) qHdrOrd.textContent = isMkt ? (qTargetRev > 0 ? (qTargetRev / 3).toFixed(1) + '%' : '0%') : (formatNum(qTargetOrders) + ' đơn');
 
             // Update Executive Summary Row 1 (Targets) & Row 2 (Actuals)
             var sumRev = document.getElementById('mtnSum' + q.id.toUpperCase() + 'Rev');
@@ -866,10 +882,10 @@
             var sumActOrd = document.getElementById('mtnSum' + q.id.toUpperCase() + 'ActOrders');
             var sumCmp = document.getElementById('mtnSum' + q.id.toUpperCase() + 'Cmp');
 
-            if (sumRev) sumRev.textContent = isMkt ? (qTargetRev > 0 ? (qTargetRev / 3).toFixed(1) + '%' : '0%') : formatVND(qTargetRev);
-            if (sumOrd) sumOrd.textContent = isMkt ? ('🎯 CPO: ' + (qTargetOrders > 0 ? formatVND(Math.round(qTargetOrders / 3)) : '0 đ')) : ('📦 ' + formatNum(qTargetOrders) + ' đơn');
-            if (sumActRev) sumActRev.textContent = isMkt ? ((qActualRev / 3).toFixed(2) + '%') : formatVND(qActualRev);
-            if (sumActOrd) sumActOrd.textContent = isMkt ? ('🎯 CPO: ' + (qActualOrders > 0 ? formatVND(Math.round(qActualOrders / 3)) : '0 đ')) : ('📦 ' + formatNum(qActualOrders) + ' đơn');
+            if (sumRev) sumRev.textContent = isMkt ? ('🎯 CPO: ' + (qTargetOrders > 0 ? formatVND(Math.round(qTargetOrders / 3)) : '0 đ')) : formatVND(qTargetRev);
+            if (sumOrd) sumOrd.textContent = isMkt ? (qTargetRev > 0 ? (qTargetRev / 3).toFixed(1) + '%' : '0%') : ('📦 ' + formatNum(qTargetOrders) + ' đơn');
+            if (sumActRev) sumActRev.textContent = isMkt ? ('🎯 CPO: ' + (qActualOrders > 0 ? formatVND(Math.round(qActualOrders / 3)) : '0 đ')) : formatVND(qActualRev);
+            if (sumActOrd) sumActOrd.textContent = isMkt ? ((qActualRev / 3).toFixed(2) + '%') : ('📦 ' + formatNum(qActualOrders) + ' đơn');
 
             if (sumCmp) {
                 var fillWidth = Math.min(Math.max(pctQRev, 0), 100);
@@ -906,8 +922,8 @@
                         <span>⚖️ TỶ LỆ HOÀN THÀNH</span>
                         <span style="font-size:10px;font-weight:900;color:${(isMkt ? qActualRev <= qTargetRev : diffQRev >= 0) ? '#15803d' : '#dc2626'}">${pctQRev > 0 ? pctQRev.toFixed(1) + '%' : '0.0%'}</span>
                     </div>
-                    <div>${revBadgeText}</div>
-                    <div style="margin-top:2px">${ordBadgeText}</div>
+                    <div>${isMkt ? ordBadgeText : revBadgeText}</div>
+                    <div style="margin-top:2px">${isMkt ? revBadgeText : ordBadgeText}</div>
                     ${qTargetRev > 0 ? `<div class="mtn-progress-bar-bg" title="Đạt chỉ tiêu"><div class="mtn-progress-bar-fill ${fillClass}" style="width:${fillWidth}%"></div></div>` : ''}
                 `;
             }
@@ -926,10 +942,10 @@
         var yrActOrd = document.getElementById('mtnSumYearActOrders');
         var yrCmp = document.getElementById('mtnSumYearCmp');
 
-        if (yrRev) yrRev.textContent = isMktYr ? (totalYearTargetRev > 0 ? (totalYearTargetRev / 12).toFixed(1) + '%' : '0%') : formatVND(totalYearTargetRev);
-        if (yrOrd) yrOrd.textContent = isMktYr ? ('🎯 CPO: ' + (totalYearTargetOrders > 0 ? formatVND(Math.round(totalYearTargetOrders / 12)) : '0 đ')) : ('📦 ' + formatNum(totalYearTargetOrders) + ' đơn');
-        if (yrActRev) yrActRev.textContent = isMktYr ? ((totalYearActualRev / 12).toFixed(2) + '%') : formatVND(totalYearActualRev);
-        if (yrActOrd) yrActOrd.textContent = isMktYr ? ('🎯 CPO: ' + (totalYearActualOrders > 0 ? formatVND(Math.round(totalYearActualOrders / 12)) : '0 đ')) : ('📦 ' + formatNum(totalYearActualOrders) + ' đơn');
+        if (yrRev) yrRev.textContent = isMktYr ? ('🎯 CPO: ' + (totalYearTargetOrders > 0 ? formatVND(Math.round(totalYearTargetOrders / 12)) : '0 đ')) : formatVND(totalYearTargetRev);
+        if (yrOrd) yrOrd.textContent = isMktYr ? (totalYearTargetRev > 0 ? (totalYearTargetRev / 12).toFixed(1) + '%' : '0%') : ('📦 ' + formatNum(totalYearTargetOrders) + ' đơn');
+        if (yrActRev) yrActRev.textContent = isMktYr ? ('🎯 CPO: ' + (totalYearActualOrders > 0 ? formatVND(Math.round(totalYearActualOrders / 12)) : '0 đ')) : formatVND(totalYearActualRev);
+        if (yrActOrd) yrActOrd.textContent = isMktYr ? ((totalYearActualRev / 12).toFixed(2) + '%') : ('📦 ' + formatNum(totalYearActualOrders) + ' đơn');
 
         if (yrCmp) {
             var fillWidthYr = Math.min(Math.max(pctYrRev, 0), 100);
