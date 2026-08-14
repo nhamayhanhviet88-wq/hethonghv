@@ -553,18 +553,16 @@ function _nqSelectDeptItem(deptId, deptName) {
 }
 
 function _nqUpdateManagerDisplay(deptId) {
-    var mgrInfoEl = document.getElementById('nqManagerInfoText');
-    if (!mgrInfoEl) return;
+    var mgrInp = document.getElementById('nqFormMgrName');
+    if (!mgrInp) return;
 
     var dept = _nqState.depts.all.find(d => String(d.id) === String(deptId));
     if (dept && dept.head_user_name) {
-        mgrInfoEl.textContent = `🛡️ Quản lý liên đới: ${dept.head_user_name}`;
-        mgrInfoEl.dataset.mgrId = dept.head_user_id || '';
-        mgrInfoEl.dataset.mgrName = dept.head_user_name || '';
+        mgrInp.value = dept.head_user_name;
+        mgrInp.dataset.mgrId = dept.head_user_id || '';
     } else {
-        mgrInfoEl.textContent = `🛡️ Quản lý liên đới: Trưởng Phòng / Ban Giám Đốc phụ trách`;
-        mgrInfoEl.dataset.mgrId = '';
-        mgrInfoEl.dataset.mgrName = 'Trưởng Phòng / Ban Giám Đốc';
+        mgrInp.value = 'Trưởng Phòng / Ban Giám Đốc phụ trách';
+        mgrInp.dataset.mgrId = '';
     }
 }
 
@@ -691,8 +689,9 @@ function _nqRenderModalForm(rule) {
                             </label>
                             <input type="number" class="nq-form-input" id="nqFormMgrFineAmt" style="width:160px" value="${isEdit ? Number(rule.manager_fine_amount) : 0}" placeholder="Số tiền VNĐ" ${isEdit && rule.has_manager_fine ? '' : 'disabled'}>
                         </div>
-                        <div id="nqManagerInfoText" style="font-size:12px;font-weight:800;color:#be123c;padding-left:24px" data-mgr-name="${escapeHtml(initialMgrName)}">
-                            🛡️ Quản lý liên đới: ${escapeHtml(initialMgrName || 'Trưởng Phòng / Ban Giám Đốc phụ trách')}
+                        <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
+                            <label style="font-size:12px;font-weight:800;color:#be123c">👤 Tên Quản lý liên đới chịu trách nhiệm phạt:</label>
+                            <input type="text" class="nq-form-input" id="nqFormMgrName" value="${escapeHtml(initialMgrName || 'Trưởng Phòng / Ban Giám Đốc phụ trách')}" placeholder="Nhập tên Quản lý / Trưởng phòng liên đới..." ${isEdit && rule.has_manager_fine ? '' : 'disabled'}>
                         </div>
                     </div>
                 </div>
@@ -744,7 +743,9 @@ function _nqToggleFineInput(checked) {
 
 function _nqToggleMgrFineInput(checked) {
     var inp = document.getElementById('nqFormMgrFineAmt');
+    var nameInp = document.getElementById('nqFormMgrName');
     if (inp) inp.disabled = !checked;
+    if (nameInp) nameInp.disabled = !checked;
 }
 
 function _nqToggleForever(checked) {
@@ -851,9 +852,9 @@ async function _nqSaveRule() {
     var hasMgrFine = document.getElementById('nqFormHasMgrFine')?.checked || false;
     var mgrFineAmt = Number(document.getElementById('nqFormMgrFineAmt')?.value) || 0;
 
-    var mgrInfoEl = document.getElementById('nqManagerInfoText');
-    var mgrName = mgrInfoEl ? (mgrInfoEl.dataset.mgrName || 'Trưởng Phòng / Quản Lý') : 'Trưởng Phòng';
-    var mgrId = mgrInfoEl ? (Number(mgrInfoEl.dataset.mgrId) || null) : null;
+    var mgrNameInp = document.getElementById('nqFormMgrName');
+    var mgrName = mgrNameInp ? (mgrNameInp.value.trim() || 'Trưởng Phòng / Ban Giám Đốc phụ trách') : 'Trưởng Phòng / Ban Giám Đốc phụ trách';
+    var mgrId = mgrNameInp ? (Number(mgrNameInp.dataset.mgrId) || null) : null;
 
     if (!title.trim()) { alert('Vui lòng nhập tiêu đề nội quy'); return; }
     if (!content.trim()) { alert('Vui lòng nhập nội dung nội quy'); return; }
