@@ -809,10 +809,10 @@ module.exports = async function(fastify, options) {
         }
     });
 
-    // ===== POST /api/reports/kpi-marketing/categories ===== (Tạo mục con / mã nguồn)
+    // ===== POST /api/reports/kpi-marketing/categories ===== (Tạo/Sửa mục con / mã nguồn)
     const saveCategoryHandler = async (request, reply) => {
         try {
-            const { parent_id, name, ads_handler_name, linked_source_name, pancake_page_name, business_segment } = request.body || {};
+            const { id, parent_id, name, ads_handler_name, linked_source_name, pancake_page_name, business_segment } = request.body || {};
             if (!name || !name.trim()) {
                 return reply.status(400).send({ error: 'Tên mục không được để trống' });
             }
@@ -835,6 +835,24 @@ module.exports = async function(fastify, options) {
                         parentCat = { id: realParentId, group_type: 'online', icon: '📘' };
                     }
                 }
+            }
+
+            // If explicit category ID is passed, perform direct UPDATE
+            const targetCatId = Number(id);
+            if (!isNaN(targetCatId) && targetCatId > 0) {
+                await db.run(`
+                    UPDATE mkt_categories 
+                    SET show_in_kpi_mkt = TRUE,
+                        name = COALESCE(NULLIF(?, ''), name),
+                        parent_id = COALESCE(?, parent_id),
+                        pancake_page_name = ?,
+                        linked_source_name = ?,
+                        ads_handler_name = ?,
+                        business_segment = ?
+                    WHERE id = ?
+                `, [name.trim(), realParentId, pancake_page_name || '', linked_source_name || pancake_page_name || '', ads_handler_name || 'Giám Đốc', finalSegment, targetCatId]);
+
+                return reply.send({ success: true, message: 'Đã cập nhật thông tin Mục Con thành công!', id: targetCatId });
             }
 
             const group_type = parentCat ? parentCat.group_type : 'online';

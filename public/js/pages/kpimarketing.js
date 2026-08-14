@@ -307,6 +307,7 @@ async function renderKpimarketingPage(container) {
         <!-- MODAL THÊM MỤC CON / MÃ NGUỒN (ẢNH 1 & ẢNH 2) -->
         <div class="kpi-v2-modal-overlay" id="kpiMktAddCatModal">
             <div class="kpi-v2-modal">
+                <input type="hidden" id="kpiEditCatId" value="">
                 <div class="kpi-v2-modal-hdr">
                     <div class="kpi-v2-modal-title">➕ Thêm Mục Con / Mã Nguồn Marketing (Ảnh 2)</div>
                     <button class="kpi-v2-modal-close" onclick="kpiMktCloseAddCatModal()">✕</button>
@@ -679,7 +680,10 @@ function renderCategoryTable(res) {
                 <td style="text-align:left">
                     <div style="font-weight:800;font-size:13.5px;color:#1e1b4b;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <span style="flex:1;min-width:0;">${c.icon || '📌'} ${escapeHtml(c.category_name)} <span style="font-size:11px;color:#2563eb;font-weight:700;margin-left:4px;">🔍 Xem đơn</span></span>
-                        ${isGiamDoc ? `<button type="button" data-name="${escapeHtml(c.category_name)}" onclick="event.stopPropagation();kpiMktDeleteCategory('${c.category_id || 0}', this.getAttribute('data-name'))" title="Xóa mục con này khỏi danh sách" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(220,38,38,0.1);transition:all 0.2s;white-space:nowrap;flex-shrink:0;height:fit-content;align-self:center;" onmouseover="this.style.background='#fee2e2';this.style.borderColor='#f87171'" onmouseout="this.style.background='#fef2f2';this.style.borderColor='#fca5a5'">🗑️ Xóa</button>` : ''}
+                        <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                            <button type="button" data-name="${escapeHtml(c.category_name)}" onclick="event.stopPropagation();kpiMktOpenEditCatModal('${c.category_id || 0}', this.getAttribute('data-name'))" title="Chỉnh sửa thông tin Mục Con này" style="background:#eff6ff;color:#2563eb;border:1.5px solid #93c5fd;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(37,99,235,0.1);transition:all 0.2s;white-space:nowrap;height:fit-content;align-self:center;" onmouseover="this.style.background='#dbeafe';this.style.borderColor='#60a5fa'" onmouseout="this.style.background='#eff6ff';this.style.borderColor='#93c5fd'">✏️ Sửa</button>
+                            ${isGiamDoc ? `<button type="button" data-name="${escapeHtml(c.category_name)}" onclick="event.stopPropagation();kpiMktDeleteCategory('${c.category_id || 0}', this.getAttribute('data-name'))" title="Xóa mục con này khỏi danh sách" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(220,38,38,0.1);transition:all 0.2s;white-space:nowrap;height:fit-content;align-self:center;" onmouseover="this.style.background='#fee2e2';this.style.borderColor='#f87171'" onmouseout="this.style.background='#fef2f2';this.style.borderColor='#fca5a5'">🗑️ Xóa</button>` : ''}
+                        </div>
                     </div>
                     <div style="font-size:11px;color:#475569;margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <span style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:2px 8px;border-radius:8px;font-weight:600;font-size:11px;display:inline-flex;align-items:center;">Kênh: <strong style="margin-left:3px;">${escapeHtml(c.channel_name || 'Khác')}</strong></span>
@@ -800,6 +804,15 @@ function kpiMktOpenAddCatModal() {
     const modal = document.getElementById('kpiMktAddCatModal');
     if (!modal) return;
 
+    const editIdInput = document.getElementById('kpiEditCatId');
+    if (editIdInput) editIdInput.value = '';
+
+    const titleEl = modal.querySelector('.kpi-v2-modal-title');
+    if (titleEl) titleEl.innerText = '➕ Thêm Mục Con / Mã Nguồn Marketing (Ảnh 2)';
+
+    const saveBtn = modal.querySelector('button[onclick*="kpiMktSaveNewCategory"]');
+    if (saveBtn) saveBtn.innerText = '💾 Lưu Mục Marketing Mới';
+
     const categories = (_kpiMkt.data && (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories)) ? (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories) : [];
     const rootCats = categories.filter(c => c.parent_id === null || c.parent_id === undefined);
 
@@ -885,6 +898,104 @@ function kpiMktOpenAddCatModal() {
 function kpiMktCloseAddCatModal() {
     const modal = document.getElementById('kpiMktAddCatModal');
     if (modal) modal.style.display = 'none';
+}
+
+function kpiMktOpenEditCatModal(catId, catName) {
+    const modal = document.getElementById('kpiMktAddCatModal');
+    if (!modal) return;
+
+    kpiMktOpenAddCatModal();
+
+    const titleEl = modal.querySelector('.kpi-v2-modal-title');
+    if (titleEl) titleEl.innerText = `✏️ Chỉnh Sửa Mục Con: ${catName}`;
+
+    const editIdInput = document.getElementById('kpiEditCatId');
+    if (editIdInput) editIdInput.value = catId;
+
+    const allCatsList = (_kpiMkt.data && (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories)) ? (_kpiMkt.data.all_system_categories || _kpiMkt.data.categories) : [];
+    const catObj = allCatsList.find(c => String(c.id || c.category_id) === String(catId) || (c.name && c.name.trim().toLowerCase() === String(catName).trim().toLowerCase()));
+
+    if (catObj) {
+        // Set segment radio
+        const segVal = catObj.business_segment || 'dongphuc';
+        const radio = modal.querySelector(`input[name="kpiAddCatSegment"][value="${segVal}"]`);
+        if (radio) radio.checked = true;
+
+        // Set channel parent
+        const parentSelect = document.getElementById('kpiAddCatParent');
+        if (parentSelect && catObj.parent_id) {
+            parentSelect.value = catObj.parent_id;
+            kpiMktOnChannelChange(catObj.parent_id);
+        }
+
+        // Set sub category name
+        const subSelect = document.getElementById('kpiAddCatSubSelect');
+        if (subSelect) {
+            let optIdx = Array.from(subSelect.options).findIndex(o => o.value === catObj.name);
+            if (optIdx >= 0) {
+                subSelect.selectedIndex = optIdx;
+            } else {
+                const opt = document.createElement('option');
+                opt.value = catObj.name;
+                opt.textContent = `📌 ${catObj.name}`;
+                subSelect.insertBefore(opt, subSelect.firstChild);
+                subSelect.selectedIndex = 0;
+            }
+        }
+
+        // Set page pancake
+        const pageSelect = document.getElementById('kpiAddCatPageSelect');
+        const pageName = catObj.pancake_page_name || catObj.linked_source_name || '';
+        if (pageSelect) {
+            let optIdx = Array.from(pageSelect.options).findIndex(o => o.value === pageName);
+            if (optIdx >= 0) {
+                pageSelect.selectedIndex = optIdx;
+            } else if (pageName) {
+                const opt = document.createElement('option');
+                opt.value = pageName;
+                opt.textContent = `🔗 ${pageName}`;
+                pageSelect.insertBefore(opt, pageSelect.firstChild);
+                pageSelect.selectedIndex = 0;
+            }
+            pageSelect.disabled = false;
+            pageSelect.removeAttribute('disabled');
+            pageSelect.style.backgroundColor = '#fff';
+            pageSelect.style.color = '#0f172a';
+            pageSelect.style.cursor = 'pointer';
+        }
+
+        // Set handler
+        const handlerSelect = document.getElementById('kpiAddCatHandlerSelect');
+        const handlerName = catObj.ads_handler_name || 'Giám Đốc';
+        if (handlerSelect) {
+            let optIdx = Array.from(handlerSelect.options).findIndex(o => o.value === handlerName);
+            if (optIdx >= 0) {
+                handlerSelect.selectedIndex = optIdx;
+            } else if (handlerName) {
+                const opt = document.createElement('option');
+                opt.value = handlerName;
+                opt.textContent = `👤 ${handlerName}`;
+                handlerSelect.insertBefore(opt, handlerSelect.firstChild);
+                handlerSelect.selectedIndex = 0;
+            }
+            handlerSelect.disabled = false;
+            handlerSelect.removeAttribute('disabled');
+            handlerSelect.style.backgroundColor = '#fff';
+            handlerSelect.style.color = '#0f172a';
+            handlerSelect.style.cursor = 'pointer';
+            handlerSelect.style.pointerEvents = 'auto';
+            handlerSelect.style.opacity = '1';
+        }
+
+        const saveBtn = modal.querySelector('button[onclick*="kpiMktSaveNewCategory"]');
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.removeAttribute('disabled');
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
+            saveBtn.innerText = '💾 Lưu Thay Đổi';
+        }
+    }
 }
 
 function kpiMktOnChannelChange(parentId) {
@@ -1120,8 +1231,11 @@ async function kpiMktSaveNewCategory() {
         return;
     }
 
+    const editCatId = document.getElementById('kpiEditCatId')?.value || '';
+
     try {
         let res = await kpiMktApiCall('/api/reports/kpi-marketing/categories', 'POST', {
+            id: editCatId || undefined,
             parent_id: parentId,
             name: name.trim(),
             pancake_page_name: page.trim(),
@@ -1132,7 +1246,7 @@ async function kpiMktSaveNewCategory() {
         if (res && (res.success || res.id || res.message)) {
             kpiMktCloseAddCatModal();
             await loadKpimarketingData();
-            alert('Thành công! Mục con & Nguồn Pancake đã được lưu và hiển thị thành công.');
+            alert(editCatId ? '✅ Đã cập nhật thông tin Mục Con thành công!' : 'Thành công! Mục con & Nguồn Pancake đã được lưu và hiển thị thành công.');
         } else {
             alert(res?.error || res?.message || 'Có lỗi khi tạo/lưu mục Marketing mới');
         }
@@ -3866,6 +3980,7 @@ if (typeof window !== 'undefined') {
     window.kpiMktPickMonth = kpiMktPickMonth;
     window.kpiMktOnMonthInput = kpiMktOnMonthInput;
     window.kpiMktOpenAddCatModal = kpiMktOpenAddCatModal;
+    window.kpiMktOpenEditCatModal = kpiMktOpenEditCatModal;
     window.kpiMktCloseAddCatModal = kpiMktCloseAddCatModal;
     window.kpiMktOnChannelChange = kpiMktOnChannelChange;
     window.kpiMktOnSubCatSelectChange = kpiMktOnSubCatSelectChange;
