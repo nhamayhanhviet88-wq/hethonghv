@@ -645,10 +645,13 @@ function _nqRenderModalForm(rule) {
 
                 <div class="nq-form-group">
                     <label>Hình Ảnh Minh Họa / Dán Ảnh (Ctrl + V)</label>
-                    <input type="text" class="nq-form-input" id="nqFormImage" value="${isEdit && rule.image_url ? escapeHtml(rule.image_url) : ''}" placeholder="Dán link ảnh hoặc ấn Ctrl + V dán ảnh trực tiếp...">
-                    <div class="nq-paste-area" id="nqPasteBox" onclick="document.getElementById('nqFormImage').focus()">
-                        <div class="nq-paste-text">📋 Bấm vào đây và ấn Ctrl + V để dán ảnh màn hình trực tiếp</div>
-                        <img id="nqImagePreview" class="nq-paste-preview" src="${isEdit && rule.image_url ? rule.image_url : ''}" style="display:${isEdit && rule.image_url ? 'inline-block' : 'none'}">
+                    <input type="hidden" id="nqFormImage" value="${isEdit && rule.image_url ? escapeHtml(rule.image_url) : ''}">
+                    <div class="nq-paste-area" id="nqPasteBox" tabindex="0">
+                        <div class="nq-paste-text" id="nqPasteBoxText" style="display:${isEdit && rule.image_url ? 'none' : 'block'}">📋 Bấm vào đây và ấn Ctrl + V để dán ảnh màn hình trực tiếp</div>
+                        <div id="nqImagePreviewWrapper" style="position:relative;display:${isEdit && rule.image_url ? 'inline-block' : 'none'};margin-top:8px">
+                            <img id="nqImagePreview" class="nq-paste-preview" src="${isEdit && rule.image_url ? rule.image_url : ''}">
+                            <button type="button" style="position:absolute;top:6px;right:6px;background:rgba(220,38,38,0.9);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.2)" onclick="_nqRemovePastedImage(event)">🗑️ Xóa ảnh</button>
+                        </div>
                     </div>
                 </div>
 
@@ -749,6 +752,19 @@ function _nqToggleForever(checked) {
     if (inp) inp.style.display = checked ? 'none' : 'block';
 }
 
+function _nqRemovePastedImage(e) {
+    if (e) e.stopPropagation();
+    var imgInp = document.getElementById('nqFormImage');
+    var imgPrev = document.getElementById('nqImagePreview');
+    var prevWrapper = document.getElementById('nqImagePreviewWrapper');
+    var boxText = document.getElementById('nqPasteBoxText');
+
+    if (imgInp) imgInp.value = '';
+    if (imgPrev) imgPrev.src = '';
+    if (prevWrapper) prevWrapper.style.display = 'none';
+    if (boxText) boxText.style.display = 'block';
+}
+
 // ===== PASTE IMAGE HANDLER WITH CANVAS RESIZE =====
 function setupImagePasteHandler(modalOverlay) {
     modalOverlay.addEventListener('paste', function(e) {
@@ -778,11 +794,13 @@ function setupImagePasteHandler(modalOverlay) {
                         
                         var imgInp = document.getElementById('nqFormImage');
                         var imgPrev = document.getElementById('nqImagePreview');
+                        var prevWrapper = document.getElementById('nqImagePreviewWrapper');
+                        var boxText = document.getElementById('nqPasteBoxText');
+
                         if (imgInp) imgInp.value = compressedDataUrl;
-                        if (imgPrev) {
-                            imgPrev.src = compressedDataUrl;
-                            imgPrev.style.display = 'inline-block';
-                        }
+                        if (imgPrev) imgPrev.src = compressedDataUrl;
+                        if (prevWrapper) prevWrapper.style.display = 'inline-block';
+                        if (boxText) boxText.style.display = 'none';
                     };
                     img.src = event.target.result;
                 };
