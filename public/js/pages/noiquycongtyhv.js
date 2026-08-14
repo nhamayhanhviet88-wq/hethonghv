@@ -218,8 +218,16 @@ async function renderNoiquycongtyhvPage(container) {
                     </select>
                     <select class="nq-select" id="nqYearFilter" onchange="_nqOnYearChange(this.value)">
                         <option value="all">📆 Tất Cả Các Năm</option>
-                        <option value="2026">Năm 2026</option>
-                        <option value="2025">Năm 2025</option>
+                        ${(function(){
+                            var curY = new Date().getFullYear();
+                            var startY = 2024;
+                            var endY = Math.max(curY + 2, 2028);
+                            var opts = [];
+                            for (var y = endY; y >= startY; y--) {
+                                opts.push(`<option value="${y}" ${y === curY ? 'selected' : ''}>Năm ${y}</option>`);
+                            }
+                            return opts.join('');
+                        })()}
                     </select>
                     <label class="nq-checkbox-label">
                         <input type="checkbox" id="nqFineCheck" onchange="_nqOnFineChange(this.checked)">
