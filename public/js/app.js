@@ -8404,7 +8404,8 @@ async function _abCheckUnblock() {
         // Customer detail openers, customer pills, and consult history triggers — exempt from anti-double click debouncing
         // Bảng Công Việc buttons & modals — exempt from anti-double click debouncing
         if (el.closest && el.closest('[onclick*="_bcv"], [onclick*="bcv"], .bcv-modal, .bcv-card, .bcv-overlay')) return true;
-        if (txt.indexOf('Bỏ gán') >= 0 || txt.indexOf('Bỏ Gán') >= 0 || txt.indexOf('Xóa Bảng') >= 0) return true;
+        if (el.closest && el.closest('[onclick*="_hvAi"], [onclick*="hvAi"], .hv-ai-chat-window, .hv-ai-float-btn, .hv-ai-rule-btn, #hvAiConfigOverlay')) return true;
+        if (txt.indexOf('Bỏ gán') >= 0 || txt.indexOf('Bỏ Gán') >= 0 || txt.indexOf('Xóa Bảng') >= 0 || txt.indexOf('Cấu Hình API Key') >= 0) return true;
         return false;
     }
 
