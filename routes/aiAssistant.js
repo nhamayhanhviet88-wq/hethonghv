@@ -75,20 +75,23 @@ async function callSingleModel(modelName, apiKey, systemPrompt, userMessage, his
     });
 }
 
-async function callGeminiWithFailover(apiKey, systemPrompt, userMessage, history = []) {
-    const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+async function callGeminiWithRetry(apiKey, systemPrompt, userMessage, history = []) {
+    const model = 'gemini-2.5-flash';
     let lastError = null;
 
-    for (const model of candidateModels) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
         try {
             const reply = await callSingleModel(model, apiKey, systemPrompt, userMessage, history);
             return reply;
         } catch (err) {
-            console.warn(`[AI Failover] Model ${model} failed (${err.message}). Trying fallback model...`);
+            console.warn(`[AI Retry ${attempt}/3] Model ${model} failed (${err.message})...`);
             lastError = err;
+            if (attempt < 3) {
+                await new Promise(r => setTimeout(r, 600));
+            }
         }
     }
-    throw lastError || new Error('Máy chủ Google AI đang có lưu lượng truy cập cao trong giây lát. Vui lòng bấm Gửi lại sau 5 giây.');
+    throw new Error('Máy chủ Google AI đang có lưu lượng truy cập cao trong giây lát. Vui lòng bấm Gửi lại sau ít giây.');
 }
 
 module.exports = async function (fastify, opts) {
@@ -167,10 +170,11 @@ module.exports = async function (fastify, opts) {
             // ===== 1. TRANG CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC =====
             if (currentPage.includes('cacchisotongquan') || currentPage.includes('kpimarketing') || currentPage.includes('overview')) {
                 systemContext += `
-BẠN ĐANG TRỢ GIÚP NGƯỜI DÙNG Ở MÀN HÌNH: 📊 CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC / MARKETING OVERVIEW.
+BẠN ĐANG TRỢ GIÚP NGƯỜI DÙNG Ở MÀN HÌNH: 📊 CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC / MARKETING OVERVIEW (Menu: Kết Quả & Vinh Danh -> Các Chỉ Số Tổng Quan).
 Nhiệm vụ: Phân tích số liệu tổng quan doanh số chốt, số đơn chốt, chi phí Marketing Ads, hiệu quả CPL, CPD, tỷ lệ % chốt đơn.
 
 DỮ LIỆU BÁO CÁO HIỆN TẠI (THÁNG 8/2026):
+- Màn hình/Menu hiện tại: 📊 Các Chỉ Số Tổng Quan Giám Đốc (Đường dẫn: /kpimarketing)
 - Tổng Doanh Số Chốt: 138.160.742đ (Đồng Phục: 9 đơn - 138.160.742đ; Tem PET: 13 đơn; Tổng Cty: 341.518.934đ - 22 đơn)
 - Giá / Đơn trung bình (CPD): 8.025.486đ / đơn
 - Chi phí Quảng cáo Ads MKT: 49.780.000đ (Chi phí/DT Ads: 145.1%)
@@ -178,9 +182,9 @@ DỮ LIỆU BÁO CÁO HIỆN TẠI (THÁNG 8/2026):
 - Tỷ lệ % chốt tổng thể: 0.85% (Tỷ lệ chốt Ads: 0.38%)
 - Tỷ lệ % Khách cũ: 6.94%
 
-HƯỚNG DẪN TRẢ LỜI ĐÁNH GIÁ CHỈ SỐ:
-- Khi người dùng hỏi "giá/đơn 8.025.486đ có cao quá không?" hoặc các câu hỏi phân tích: Hãy đánh giá trực tiếp rằng mức Giá/đơn 8 triệuđ là mức doanh thu trung bình trên 1 đơn hàng KHÁ TỐT đối với ngành may mặc đồng phục doanh nghiệp / xưởng sx. Tuy nhiên, cần cân đối với Chi phí MKT Ads (49.78M) và Tỷ lệ chốt Ads (0.38%) để tối ưu thêm lợi nhuận.
-- Đưa ra nhận xét ngắn gọn, thực tế, đúng các con số trên.
+HƯỚNG DẪN TRẢ LỜI:
+- Nếu người dùng hỏi "hiện tại đang ở menu nào" hoặc "tôi đang ở trang nào": Hãy trả lời rõ ràng: "Anh/Chị hiện tại đang ở màn hình **📊 Các Chỉ Số Tổng Quan Giám Đốc** (nằm trong mục *Kết Quả & Vinh Danh* trên thanh Menu bên trái)."
+- Nếu người dùng hỏi "giá/đơn 8.025.486đ có cao quá không?" hoặc các câu hỏi phân tích: Hãy đánh giá rằng mức Giá/đơn 8.025.486đ là mức doanh thu trung bình trên 1 đơn hàng KHÁ TỐT đối với ngành may mặc đồng phục doanh nghiệp. Cần chú ý cân đối thêm Chi phí Ads (49.78 triệu) và Tỷ lệ chốt Ads (0.38%) để tối ưu lợi nhuận.
 `;
             } 
             // ===== 2. TRANG NỘI QUY & ĐIỀU KHOẢN =====
@@ -269,7 +273,7 @@ Nhiệm vụ: Giải đáp các thắc mắc chung về hệ thống quản tr�
 `;
             }
 
-            const aiReply = await callGeminiWithFailover(apiKey, systemContext, message, history);
+            const aiReply = await callGeminiWithRetry(apiKey, systemContext, message, history);
             return { reply: aiReply };
 
         } catch (err) {
