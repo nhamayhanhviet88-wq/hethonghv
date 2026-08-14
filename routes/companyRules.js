@@ -70,9 +70,11 @@ async function companyRulesRoutes(fastify, options) {
             });
 
             const cleanDeptList = deptList.filter(d => {
-                if (!d.name) return true;
+                if (!d.name) return false;
                 const nameUpper = d.name.toUpperCase();
                 if (nameUpper.includes('AFFILIATE')) return false;
+                if (nameUpper.startsWith('TEAM ') || nameUpper.includes('TEAM ')) return false;
+                if (nameUpper.includes('SALE BỨT PHÁ')) return false;
                 return true;
             });
 

@@ -227,14 +227,19 @@ async function _nqInitData() {
     try {
         var deptRes = await apiCall('/api/company-rules/departments');
         if (deptRes) {
-            var isNotAff = function(d) {
-                return d && d.name && !d.name.toUpperCase().includes('AFFILIATE');
+            var isOfficialDept = function(d) {
+                if (!d || !d.name) return false;
+                var n = d.name.toUpperCase();
+                if (n.includes('AFFILIATE')) return false;
+                if (n.includes('TEAM ')) return false;
+                if (n.includes('SALE BỨT PHÁ')) return false;
+                return true;
             };
             _nqState.depts = {
-                vanPhong: (deptRes.vanPhong || []).filter(isNotAff),
-                xuong: (deptRes.xuong || []).filter(isNotAff),
-                other: (deptRes.other || []).filter(isNotAff),
-                all: (deptRes.all || []).filter(isNotAff)
+                vanPhong: (deptRes.vanPhong || []).filter(isOfficialDept),
+                xuong: (deptRes.xuong || []).filter(isOfficialDept),
+                other: (deptRes.other || []).filter(isOfficialDept),
+                all: (deptRes.all || []).filter(isOfficialDept)
             };
             _nqPopulateDeptFilter();
         }
