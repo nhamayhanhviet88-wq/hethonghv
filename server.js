@@ -677,6 +677,13 @@ async function start() {
         try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS return_tx_id INTEGER REFERENCES fabric_transactions(id) ON DELETE SET NULL`); } catch(e) {}
         await db.exec(`UPDATE kv_rolls SET original_weight = weight WHERE original_weight = 0 OR original_weight IS NULL`);
 
+        // Migrations for dye test (test chống nhiễm)
+        try { await db.exec(`ALTER TABLE kv_fabric_colors ADD COLUMN IF NOT EXISTS requires_dye_test BOOLEAN DEFAULT FALSE`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS dye_test_status TEXT DEFAULT NULL`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS dye_test_image TEXT DEFAULT NULL`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS dye_test_at TIMESTAMP DEFAULT NULL`); } catch(e) {}
+        try { await db.exec(`ALTER TABLE kv_rolls ADD COLUMN IF NOT EXISTS dye_test_by INTEGER REFERENCES users(id)`); } catch(e) {}
+
         // kv_roll_images table for photo history
         await db.exec(`CREATE TABLE IF NOT EXISTS kv_roll_images (
             id          SERIAL PRIMARY KEY,
@@ -1947,6 +1954,14 @@ async function start() {
     // Mobile Ngân Sách Marketing — standalone touch-optimized page
     fastify.get('/m/ngansachmkt', async (request, reply) => {
         return reply.sendFile('mobile-ngansachmkt.html');
+    });
+
+    // Mobile Nội Quy & Điều Khoản — standalone touch-optimized page
+    fastify.get('/m/noiquycongtyhv', async (request, reply) => {
+        return reply.sendFile('mobile-noiquycongtyhv.html');
+    });
+    fastify.get('/m/noi-quy-cong-ty', async (request, reply) => {
+        return reply.sendFile('mobile-noiquycongtyhv.html');
     });
 
     // Đối Tác — public standalone page (no auth required)

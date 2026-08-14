@@ -1852,10 +1852,11 @@ async function mOpenCutModal(recordId){
                 b += '</div>';
             }
             rolls.forEach((r, idx)=>{
-                const dis=r.locked?' disabled':'';
+                const needsDyeTest = r.is_original_tree && r.dye_test_status === 'pending';
+                const dis=(r.locked || needsDyeTest)?' disabled':'';
                 const isReserved = !!r.is_reserved_for_this_order;
-                const chk = (isReserved && !r.locked) ? ' checked' : '';
-                const border = isReserved ? 'border:2px solid #ea580c;background:rgba(234,88,12,0.1);' : 'border:1.5px solid rgba(255,255,255,0.12);';
+                const chk = (isReserved && !r.locked && !needsDyeTest) ? ' checked' : '';
+                const border = needsDyeTest ? 'border:2px solid #f59e0b;background:rgba(245,158,11,0.1);' : (isReserved ? 'border:2px solid #ea580c;background:rgba(234,88,12,0.1);' : 'border:1.5px solid rgba(255,255,255,0.12);');
                 const lk=r.locked?'<div style="color:#ef4444;font-size:10px;margin-top:2px">🔒 '+(r.locked_order?r.locked_order+' — ':'')+(r.locked_by||'Đang cắt')+'</div>':'';
                 const op=r.locked?'opacity:0.4;':'';
                 
@@ -1892,12 +1893,33 @@ async function mOpenCutModal(recordId){
                     locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:'+bColor+';background:'+bBg+';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+r.roll_loc_name+'</div>';
                 }
 
-                b+='<label style="display:block;padding:12px;border-radius:12px;margin-bottom:8px;cursor:'+(r.locked?'not-allowed':'pointer')+';'+op+border+'">';
+                b+='<label id="_mDyeLabel_'+r.id+'" style="display:block;padding:12px;border-radius:12px;margin-bottom:8px;cursor:'+(r.locked?'not-allowed':(needsDyeTest?'default':'pointer'))+';'+op+border+'">';
                 b+='  <div style="display:flex;align-items:center;gap:12px">';
                 b+='    <input type="checkbox" class="_mRollCb" value="'+r.id+'" data-weight="'+r.weight+'"'+dis+chk+' onchange="mRecalcKg()" style="width:22px;height:22px;accent-color:#ef4444">';
                 if (imgHtml) b+= imgHtml;
                 b+='    <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#e2e8f0">' + (idx+1) + '. ' + r.label+(r.is_original_tree?' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>':'')+'</div>'+locBadge+lk+'</div>';
                 b+='  </div>';
+
+                // Dye test warning + upload
+                if (needsDyeTest) {
+                    b+='<div id="_mDyeTest_'+r.id+'" style="margin-top:8px;padding:10px 12px;background:rgba(245,158,11,0.15);border:1.5px solid #f59e0b;border-radius:8px">';
+                    b+='  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">';
+                    b+='    <span style="background:#dc2626;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">🧪 CẦN TEST CHỐNG NHIỄM</span>';
+                    b+='    <span style="font-size:10px;color:#fbbf24;font-weight:600">Chụp ảnh mẫu test trước khi cắt</span>';
+                    b+='  </div>';
+                    b+='  <div style="display:flex;gap:8px;align-items:center">';
+                    b+='    <input type="file" id="_mDyeFile_'+r.id+'" accept="image/*" capture="environment" style="display:none" onchange="mUploadDyeTest('+r.id+', this)">';
+                    b+='    <button type="button" onclick="event.preventDefault();event.stopPropagation();document.getElementById(\'_mDyeFile_'+r.id+'\').click()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px">📷 Chụp Ảnh Test</button>';
+                    b+='    <span id="_mDyeStatus_'+r.id+'" style="font-size:10px;color:#fbbf24"></span>';
+                    b+='  </div>';
+                    b+='</div>';
+                } else if (r.dye_test_status === 'passed' && r.dye_test_image) {
+                    b+='<div style="margin-top:6px;display:flex;align-items:center;gap:6px">';
+                    b+='  <span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>';
+                    b+='  <img src="'+r.dye_test_image+'" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981;cursor:pointer" onclick="event.preventDefault();event.stopPropagation();mShowImagePopup(\''+r.dye_test_image+'\')">';
+                    b+='</div>';
+                }
+
                 b+=resHtml;
                 b+=mRenderRollReservations(r, rec.order_code);
                 b+='</label>';
@@ -2034,6 +2056,58 @@ function mUpdateCutConfirmState() {
         confirmBtn.style.opacity = '0.5';
         confirmBtn.style.cursor = 'not-allowed';
     }
+}
+
+async function mUploadDyeTest(rollId, fileInput) {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById('_mDyeStatus_' + rollId);
+    if (statusEl) statusEl.textContent = '⏳ Đang nén & tải lên...';
+    
+    mCompressImage(file, async function(base64) {
+        if (!base64) {
+            if (statusEl) statusEl.textContent = '❌ Lỗi đọc ảnh';
+            mToast('Lỗi đọc file ảnh', false);
+            return;
+        }
+        try {
+            const res = await fetch('/api/khovai/rolls/' + rollId + '/dye-test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_data: base64 }),
+                credentials: 'include'
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || 'Lỗi upload');
+            }
+            const data = await res.json();
+            // Enable the checkbox
+            const cb = document.querySelector('._mRollCb[value="' + rollId + '"]');
+            if (cb) { cb.disabled = false; }
+            // Replace dye test section with success
+            const dyeDiv = document.getElementById('_mDyeTest_' + rollId);
+            if (dyeDiv) {
+                dyeDiv.innerHTML = '<div style="display:flex;align-items:center;gap:6px">' +
+                    '<span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>' +
+                    (data.image_path ? '<img src="'+data.image_path+'" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981">' : '') +
+                    '</div>';
+                dyeDiv.style.background = 'rgba(5,150,105,0.15)';
+                dyeDiv.style.borderColor = '#059669';
+            }
+            // Update label border
+            const label = document.getElementById('_mDyeLabel_' + rollId);
+            if (label) {
+                label.style.border = '2px solid #059669';
+                label.style.background = 'rgba(5,150,105,0.1)';
+                label.style.cursor = 'pointer';
+            }
+            mToast('✅ Đã chụp ảnh test chống nhiễm!');
+        } catch (e) {
+            if (statusEl) statusEl.textContent = '❌ ' + e.message;
+            mToast(e.message || 'Lỗi upload ảnh', false);
+        }
+    });
 }
 
 function mRecalcKg(){

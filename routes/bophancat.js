@@ -2697,6 +2697,16 @@ module.exports = async function(fastify) {
 
             }
 
+            // === Check dye test (test chống nhiễm) ===
+            const pendingDyeRolls = await db.all(
+                `SELECT r.id, r.roll_code FROM kv_rolls r WHERE r.id = ANY($1) AND r.dye_test_status = 'pending'`,
+                [selectedRollIds]
+            );
+            if (pendingDyeRolls.length > 0) {
+                const codes = pendingDyeRolls.map(r => r.roll_code || r.id).join(', ');
+                return reply.code(400).send({ error: `Cây vải ${codes} cần test chống nhiễm! Vui lòng chụp ảnh mẫu test trước khi cắt.` });
+            }
+
             // Atomic lock: only lock rolls that are not yet locked
 
             const locked = await db.all(
@@ -5187,6 +5197,8 @@ module.exports = async function(fastify) {
 
                    r.location AS roll_loc, fc.location AS color_loc, m.location AS mat_loc,
 
+                   r.dye_test_status, r.dye_test_image,
+
                    EXISTS (
 
                        SELECT 1 FROM qlx_fabric_reservations res
@@ -5357,7 +5369,11 @@ module.exports = async function(fastify) {
 
                 called_for_orders: r.called_for_orders,
 
-                reservations: r.reservations || []
+                reservations: r.reservations || [],
+
+                dye_test_status: r.dye_test_status || null,
+
+                dye_test_image: r.dye_test_image || null
 
             }))
 

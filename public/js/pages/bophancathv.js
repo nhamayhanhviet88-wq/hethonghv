@@ -2169,10 +2169,11 @@ async function _bpcOpenCutModal(recordId) {
                 bh += '</div>';
             }
             rolls.forEach(function(roll, idx) {
-                var disabled = roll.locked ? ' disabled' : '';
+                var needsDyeTest = roll.is_original_tree && roll.dye_test_status === 'pending';
+                var disabled = (roll.locked || needsDyeTest) ? ' disabled' : '';
                 var isReserved = !!roll.is_reserved_for_this_order;
-                var checked = (isReserved && !roll.locked) ? ' checked' : '';
-                var borderStyle = isReserved ? 'border:2px solid #ea580c;background:#fff7ed;' : 'border:1.5px solid #e2e8f0;';
+                var checked = (isReserved && !roll.locked && !needsDyeTest) ? ' checked' : '';
+                var borderStyle = needsDyeTest ? 'border:2px solid #f59e0b;background:#fffbeb;' : (isReserved ? 'border:2px solid #ea580c;background:#fff7ed;' : 'border:1.5px solid #e2e8f0;');
                 var lockInfo = roll.locked ? '<span style="color:#ef4444;font-size:10px;margin-left:6px">🔒 ' + (roll.locked_order ? roll.locked_order + ' — ' : '') + (roll.locked_by || 'Đang cắt') + '</span>' : '';
                 var opacity = roll.locked ? 'opacity:0.5;' : '';
                 
@@ -2200,13 +2201,34 @@ async function _bpcOpenCutModal(recordId) {
                     imgPreview = '<img src="' + roll.image_path + '" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;flex-shrink:0" onclick="event.preventDefault(); event.stopPropagation(); window.open(\'' + roll.image_path + '\', \'_blank\')">';
                 }
 
-                bh += '<label style="display:block;padding:10px 14px;border-radius:10px;margin-bottom:6px;cursor:'+(roll.locked?'not-allowed':'pointer')+';'+opacity+borderStyle+'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled && !'+isReserved+')this.style.borderColor=\'#dc2626\'" onmouseout="if(!'+isReserved+')this.style.borderColor=\'#e2e8f0\'">';
+                bh += '<label id="_bpcRollLabel_' + roll.id + '" style="display:block;padding:10px 14px;border-radius:10px;margin-bottom:6px;cursor:'+(roll.locked?'not-allowed':(needsDyeTest?'default':'pointer'))+';'+opacity+borderStyle+'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled && !'+isReserved+')this.style.borderColor=\'#dc2626\'" onmouseout="if(!'+isReserved+' && !'+needsDyeTest+')this.style.borderColor=\'#e2e8f0\'">';
                 bh += '  <div style="display:flex;align-items:center;gap:10px">';
-                bh += '    <input type="checkbox" class="_bpcRollCb" value="' + roll.id + '" data-weight="' + roll.weight + '"' + disabled + checked + ' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
+                bh += '    <input type="checkbox" class="_bpcRollCb" id="_bpcRollCb_' + roll.id + '" value="' + roll.id + '" data-weight="' + roll.weight + '"' + disabled + checked + ' onchange="_bpcRecalcKg()" style="width:18px;height:18px;accent-color:#dc2626">';
                 if (imgPreview) bh += '    ' + imgPreview;
                 bh += '    <span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (idx+1) + '. ' + roll.label + (roll.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>' + locBadge + '</span>';
                 bh += lockInfo;
                 bh += '  </div>';
+
+                // Dye test badge and upload button
+                if (needsDyeTest) {
+                    bh += '  <div id="_bpcDyeTest_' + roll.id + '" style="margin-top:8px;padding:8px 12px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px">';
+                    bh += '    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">';
+                    bh += '      <span style="background:#dc2626;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">🧪 CẦN TEST CHỐNG NHIỄM</span>';
+                    bh += '      <span style="font-size:10px;color:#92400e;font-weight:600">Chụp ảnh mẫu test trước khi cắt</span>';
+                    bh += '    </div>';
+                    bh += '    <div style="display:flex;gap:6px;align-items:center">';
+                    bh += '      <input type="file" id="_bpcDyeFile_' + roll.id + '" accept="image/*" capture="environment" style="display:none" onchange="_bpcUploadDyeTest(' + roll.id + ', this)">';
+                    bh += '      <button type="button" onclick="event.preventDefault();event.stopPropagation();document.getElementById(\'_bpcDyeFile_' + roll.id + '\').click()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px">📷 Chụp Ảnh Test</button>';
+                    bh += '      <span id="_bpcDyeStatus_' + roll.id + '" style="font-size:10px;color:#92400e"></span>';
+                    bh += '    </div>';
+                    bh += '  </div>';
+                } else if (roll.dye_test_status === 'passed' && roll.dye_test_image) {
+                    bh += '  <div style="margin-top:6px;display:flex;align-items:center;gap:6px">';
+                    bh += '    <span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>';
+                    bh += '    <img src="' + roll.dye_test_image + '" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981;cursor:pointer" onclick="event.preventDefault();event.stopPropagation();window.open(\'' + roll.dye_test_image + '\',\'_blank\')">';
+                    bh += '  </div>';
+                }
+
                 if (isReserved) {
                     var msg = roll.kg_reserved ? 'QLX báo lấy ra ' + roll.kg_reserved + 'kg cắt' : 'QLX báo lấy ra cắt';
                     bh += '  <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; border-top: 1.5px dashed rgba(234, 88, 12, 0.2); padding-top: 6px;">';
@@ -4654,3 +4676,78 @@ function _bpcCanViewBill() {
     return false;
 }
 window._bpcCanViewBill = _bpcCanViewBill;
+
+// ========== DYE TEST UPLOAD (test chống nhiễm) ==========
+async function _bpcUploadDyeTest(rollId, fileInput) {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    var statusEl = document.getElementById('_bpcDyeStatus_' + rollId);
+    if (statusEl) statusEl.textContent = '⏳ Đang upload...';
+
+    try {
+        var base64 = await new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = new Image();
+                img.onload = function() {
+                    var canvas = document.createElement('canvas');
+                    var maxWidth = 800;
+                    var maxHeight = 800;
+                    var width = img.width;
+                    var height = img.height;
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                img.onerror = function() { resolve(e.target.result); };
+                img.src = e.target.result;
+            };
+            reader.onerror = function() { reject(new Error('Đọc file thất bại')); };
+            reader.readAsDataURL(file);
+        });
+
+        var res = await apiCall('/api/khovai/rolls/' + rollId + '/dye-test', 'POST', { image_data: base64 });
+        if (res.success) {
+            showToast('✅ Đã upload ảnh test chống nhiễm!');
+            // Enable checkbox
+            var cb = document.getElementById('_bpcRollCb_' + rollId);
+            if (cb) { cb.disabled = false; }
+            // Replace dye test block with passed badge
+            var dyeBlock = document.getElementById('_bpcDyeTest_' + rollId);
+            if (dyeBlock) {
+                dyeBlock.outerHTML = '<div style="margin-top:6px;display:flex;align-items:center;gap:6px">'
+                    + '<span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>'
+                    + '<img src="' + res.image_path + '" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981;cursor:pointer" onclick="window.open(\'' + res.image_path + '\',\'_blank\')">'
+                    + '</div>';
+            }
+            // Update label style
+            var label = document.getElementById('_bpcRollLabel_' + rollId);
+            if (label) {
+                label.style.borderColor = '#e2e8f0';
+                label.style.background = '';
+                label.style.cursor = 'pointer';
+            }
+        } else {
+            showToast(res.error || 'Upload thất bại', 'error');
+            if (statusEl) statusEl.textContent = '❌ ' + (res.error || 'Thất bại');
+        }
+    } catch (e) {
+        showToast('Lỗi upload: ' + e.message, 'error');
+        if (statusEl) statusEl.textContent = '❌ ' + e.message;
+    }
+    fileInput.value = '';
+}
+window._bpcUploadDyeTest = _bpcUploadDyeTest;

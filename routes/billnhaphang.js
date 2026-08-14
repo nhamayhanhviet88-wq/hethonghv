@@ -2028,6 +2028,12 @@ module.exports = async function(fastify) {
                         const newRollId = rollResult.rows[0].id;
                         rollIds.push(newRollId);
 
+                        // Auto-set dye test pending if color requires it
+                        const fcDyeCheck = await client.query('SELECT requires_dye_test FROM kv_fabric_colors WHERE id = $1', [fi.fabric_color_id]);
+                        if (fcDyeCheck.rows.length > 0 && fcDyeCheck.rows[0].requires_dye_test) {
+                            await client.query(`UPDATE kv_rolls SET dye_test_status = 'pending' WHERE id = $1`, [newRollId]);
+                        }
+
                         // Tag roll with source info
                         if (calledOrders.length > 0) {
                             // source_import_id will be updated after import_records INSERT (we don't have the ID yet)
@@ -2648,6 +2654,12 @@ module.exports = async function(fastify) {
                         );
                         const newRollId = rollResult.rows[0].id;
                         rollIds.push(newRollId);
+
+                        // Auto-set dye test pending if color requires it
+                        const fcDyeCheck2 = await client.query('SELECT requires_dye_test FROM kv_fabric_colors WHERE id = $1', [fi.fabric_color_id]);
+                        if (fcDyeCheck2.rows.length > 0 && fcDyeCheck2.rows[0].requires_dye_test) {
+                            await client.query(`UPDATE kv_rolls SET dye_test_status = 'pending' WHERE id = $1`, [newRollId]);
+                        }
 
                         if (calledOrders.length > 0) {
                             await client.query(

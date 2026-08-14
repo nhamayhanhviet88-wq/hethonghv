@@ -6,7 +6,7 @@ types.setTypeParser(1082, val => val); // 1082 = DATE type OID
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL || 'postgresql://adminhv:hvadmin2026@192.168.0.201:5555/dongphuchv',
-    max: 20,                       // Increased to 20 to prevent pool exhaustion from concurrent background crons and web requests
+    max: 50,                       // Increased to 50 to prevent pool exhaustion from concurrent background crons and web requests
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000, // ↑ 5s→10s: cho phép chờ lâu hơn khi pool bận
     allowExitOnIdle: false,

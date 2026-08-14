@@ -36,11 +36,11 @@ async function getUserAllowedFeatures(userId, deptId) {
     }
 }
 
-async function callSingleModel(modelName, apiKey, systemPrompt, userMessage, history = []) {
+function callSingleModel(modelName, apiKey, systemPrompt, userMessage, history = [], imageBase64 = null) {
     return new Promise((resolve, reject) => {
         const contents = [];
 
-        // System prompt context
+        // System prompt as initial context
         if (systemPrompt) {
             contents.push({
                 role: 'user',
@@ -62,10 +62,30 @@ async function callSingleModel(modelName, apiKey, systemPrompt, userMessage, his
             });
         }
 
-        // Current message
+        // Current message parts (Multimodal support: image + text)
+        const currentParts = [];
+        if (imageBase64 && imageBase64.data) {
+            let rawData = imageBase64.data;
+            let mimeType = imageBase64.mime_type || 'image/png';
+            if (rawData.includes(',')) {
+                const parts = rawData.split(',');
+                const mimeMatch = parts[0].match(/data:(.*?);base64/);
+                if (mimeMatch) mimeType = mimeMatch[1];
+                rawData = parts[1];
+            }
+            currentParts.push({
+                inline_data: {
+                    mime_type: mimeType,
+                    data: rawData
+                }
+            });
+        }
+
+        currentParts.push({ text: userMessage || 'Hãy phân tích hình ảnh này và hỗ trợ tôi.' });
+
         contents.push({
             role: 'user',
-            parts: [{ text: userMessage }]
+            parts: currentParts
         });
 
         const postData = JSON.stringify({
@@ -87,6 +107,7 @@ async function callSingleModel(modelName, apiKey, systemPrompt, userMessage, his
         };
 
         const req = https.request(options, (res) => {
+            res.setEncoding('utf8');
             let body = '';
             res.on('data', chunk => body += chunk);
             res.on('end', () => {
@@ -109,23 +130,34 @@ async function callSingleModel(modelName, apiKey, systemPrompt, userMessage, his
     });
 }
 
-async function callGeminiWithRetry(apiKey, systemPrompt, userMessage, history = []) {
-    const model = 'gemini-2.5-flash';
+async function callGeminiWithRetry(apiKey, systemPrompt, userMessage, history = [], imageBase64 = null) {
+    const models = ['gemini-3.5-flash', 'gemini-flash-latest', 'gemini-pro-latest'];
     let lastError = null;
 
-    for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-            const reply = await callSingleModel(model, apiKey, systemPrompt, userMessage, history);
-            return reply;
-        } catch (err) {
-            console.warn(`[AI Retry ${attempt}/3] Model ${model} failed (${err.message})...`);
-            lastError = err;
-            if (attempt < 3) {
-                await new Promise(r => setTimeout(r, 600));
+    for (const model of models) {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const reply = await callSingleModel(model, apiKey, systemPrompt, userMessage, history, imageBase64);
+                return reply;
+            } catch (err) {
+                console.warn(`[AI Retry ${attempt}/2] Model ${model} failed: ${err.message}`);
+                lastError = err;
+                if (err.message.includes('not found') || err.message.includes('no longer available') || err.message.includes('API_KEY_INVALID')) {
+                    break;
+                }
+                if (attempt < 2) {
+                    await new Promise(r => setTimeout(r, 400));
+                }
             }
         }
     }
-    throw new Error('Máy chủ Google AI đang có lưu lượng truy cập cao trong giây lát. Vui lòng bấm Gửi lại sau ít giây.');
+    
+    console.error('[Gemini API Final Error]:', lastError?.message);
+    var errMsg = lastError?.message || 'Không thể kết nối máy chủ Google AI';
+    if (errMsg.includes('quota') || errMsg.includes('rate') || errMsg.includes('429')) {
+        throw new Error('Google AI Báo Lỗi Hạn Mức Quota (429): ' + errMsg);
+    }
+    throw new Error('Google AI Báo Lỗi: ' + errMsg);
 }
 
 module.exports = async function (fastify, opts) {
@@ -241,20 +273,25 @@ module.exports = async function (fastify, opts) {
                 });
             }
 
-            const { message, page, history } = req.body || {};
-            if (!message || !message.trim()) {
-                return reply.code(400).send({ error: 'Vui lòng nhập nội dung câu hỏi' });
+            const { message, page, history, image_base64 } = req.body || {};
+            if ((!message || !message.trim()) && (!image_base64 || !image_base64.data)) {
+                return reply.code(400).send({ error: 'Vui lòng nhập nội dung câu hỏi hoặc gửi kèm hình ảnh / giọng nói' });
             }
 
             // Super Access Check: Giám Đốc, Admin, hoặc Lê Việt Trinh (trinh)
             const isSuperAccess = (role === 'giam_doc' || role === 'admin' || username === 'trinh');
 
             const currentPage = page || '';
-            let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV. Trả lời bằng tiếng Việt chuyên nghiệp, lịch sự, phân đoạn rõ ràng, súc tích.
+            let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV.
+
+QUY TẮC PHẢN HỒI BẮT BUỘC (CRITICAL):
+1. TRẢ LỜI NGẮN GỌN & ĐÚNG TRỌNG TÂM: Chỉ trả lời từ 2 - 4 dòng ngắn gọn, cô đọng. Tuyệt đối KHÔNG dông dài, KHÔNG lặp lại câu hỏi, KHÔNG viết bài luận dài.
+2. CHỈ NÓI SỰ THẬT TỪ DỮ LIỆU CSDL: Nếu người dùng hỏi thông tin/quy định/tỉ lệ KHÔNG CÓ TRONG DỮ LIỆU CSDL ĐƯỢC CUNG CẤP -> Trả lời thẳng thắn: "Hiện tại trong dữ liệu hệ thống chưa có quy định về thông tin này. Anh/Chị có thể tạo mới điều khoản để bổ sung ạ." Tuyệt đối KHÔNG tự suy đoán hay tự nghĩ ra phần trăm %, tỉ lệ đại lý, CTV, thưởng sales ảo.
+3. TRÌNH BÀY TIẾNG VIỆT THUẦN TÚY: Không dùng ký tự tiêu đề markdown thô như ### hoặc nhiều dấu sao ** dư thừa.
 
 THÔNG TIN TÀI KHOẢN ĐANG ĐĂNG NHẬP:
 - Họ tên: ${userName} (Username: ${username})
-- Vai trò hệ thống: ${isSuperAccess ? 'SUPER ADMIN (Giám Đốc / Admin / Quản Lý Cấp Cao Lê Việt Trinh)' : 'NHÓM BỊ GIỚI HẠN PHÂN QUYỀN (Lê Công Thực / Quản lý xưởng / Quản lý / Nhân viên)'}
+- Vai trò hệ thống: ${isSuperAccess ? 'SUPER ADMIN (Giám Đốc / Admin / Quản Lý Cấp Cao Lê Việt Trinh)' : 'NHÓM BỊ GIỚI HẠN PHÂN QUYỀN'}
 `;
 
             if (isSuperAccess) {
@@ -379,7 +416,7 @@ Nhiệm vụ: Giải đáp các thắc mắc chung về hệ thống quản tr�
 `;
             }
 
-            const aiReply = await callGeminiWithRetry(apiKey, systemContext, message, history);
+            const aiReply = await callGeminiWithRetry(apiKey, systemContext, message, history, image_base64);
             return { reply: aiReply };
 
         } catch (err) {

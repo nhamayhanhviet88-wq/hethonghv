@@ -182,7 +182,7 @@ module.exports = async function (fastify) {
     fastify.get('/api/khovai/colors', { preHandler: [authenticate] }, async (request) => {
         const { mid, include_inactive } = request.query;
         let sql = `SELECT fc.id, fc.material_id, fc.color_name, fc.price, fc.original_tree_threshold, fc.notes, fc.location, fc.created_at, fc.updated_at,
-                          fc.stop_import, fc.allowed_slips, fc.allowed_import_slips,
+                          fc.stop_import, fc.allowed_slips, fc.allowed_import_slips, fc.requires_dye_test,
                           (fc.is_active AND m.is_active) AS is_active,
                           m.name AS material_name, w.name AS warehouse_name, w.unit
                    FROM kv_fabric_colors fc
@@ -240,7 +240,7 @@ module.exports = async function (fastify) {
     });
 
     fastify.put('/api/khovai/colors/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        const { color_name, price, original_tree_threshold, notes, location, stop_import, allowed_import_slips } = request.body || {};
+        const { color_name, price, original_tree_threshold, notes, location, stop_import, allowed_import_slips, requires_dye_test } = request.body || {};
         if (stop_import !== undefined || allowed_import_slips !== undefined) {
             if (!isGdOrTrinh(request.user)) {
                 return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc quản lý Lê Việt Trinh mới có quyền dừng/nhập màu vải!' });
@@ -251,6 +251,11 @@ module.exports = async function (fastify) {
             }
             if (!color.is_active || color.allowed_slips !== null) {
                 return reply.code(400).send({ error: 'Màu vải đang ở trạng thái ẩn bán hoặc giới hạn bán. Vui lòng mở bán vĩnh viễn trước khi thay đổi trạng thái nhập!' });
+            }
+        }
+        if (requires_dye_test !== undefined) {
+            if (!request.user || request.user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền bật/tắt Test Chống Nhiễm!' });
             }
         }
         const updates = []; const params = []; let idx = 1;
@@ -301,6 +306,9 @@ module.exports = async function (fastify) {
             }
             updates.push(`location = $${idx++}`); params.push(location ? location.trim() : null);
         }
+        if (requires_dye_test !== undefined) {
+            updates.push(`requires_dye_test = $${idx++}`); params.push(!!requires_dye_test);
+        }
         if (!updates.length) return { error: 'Không có gì cần cập nhật' };
         updates.push('updated_at = NOW()');
         params.push(request.params.id);
@@ -329,12 +337,17 @@ module.exports = async function (fastify) {
         if (original_tree_threshold !== undefined) changes.push('Đổi ngưỡng cây nguyên: ' + original_tree_threshold);
         if (location !== undefined) changes.push('Đổi vị trí kho: ' + (location || 'Trống'));
         if (stop_import !== undefined) changes.push('Đổi trạng thái dừng nhập: ' + (stop_import ? 'Bật' : 'Tắt'));
+        if (requires_dye_test !== undefined) changes.push('Đổi Test Chống Nhiễm: ' + (requires_dye_test ? 'Bật' : 'Tắt'));
         if (changes.length) {
             await db.run(
                 `INSERT INTO kv_transactions (fabric_color_id, tx_type, quantity, description, created_by)
                  VALUES ($1, 'UPDATE', 0, $2, $3)`,
                 [request.params.id, changes.join('; '), user.id]
             );
+        }
+        // If turning OFF dye test, clear pending status on rolls (not retroactive — don't touch 'passed')
+        if (requires_dye_test === false) {
+            await db.run(`UPDATE kv_rolls SET dye_test_status = NULL WHERE fabric_color_id = $1 AND dye_test_status = 'pending'`, [request.params.id]);
         }
         return { success: true };
     });
@@ -463,6 +476,13 @@ module.exports = async function (fastify) {
              VALUES ($1, 'NHAP', $2, $3, $4)`,
             [fabric_color_id, Number(weight), `Thêm cục ${Number(weight)} (${src === 'nhap_moi' ? 'Nhập mới' : 'Cắt dư'})`, user.id]
         );
+
+        // Auto-set dye test pending if color requires it
+        const fcDyeTest = await db.get('SELECT requires_dye_test FROM kv_fabric_colors WHERE id = $1', [fabric_color_id]);
+        if (fcDyeTest && fcDyeTest.requires_dye_test) {
+            await db.run(`UPDATE kv_rolls SET dye_test_status = 'pending' WHERE id = $1`, [roll.id]);
+            roll.dye_test_status = 'pending';
+        }
 
         return { success: true, roll };
     });
@@ -989,6 +1009,45 @@ module.exports = async function (fastify) {
         }
     });
 
+    // POST /api/khovai/rolls/:id/dye-test — Upload dye test photo (test chống nhiễm)
+    fastify.post('/api/khovai/rolls/:id/dye-test', { preHandler: [authenticate] }, async (request, reply) => {
+        const rollId = Number(request.params.id);
+        const { image_data } = request.body || {};
+        if (!image_data) return reply.code(400).send({ error: 'Thiếu dữ liệu ảnh test' });
+
+        const roll = await db.get('SELECT id, weight, dye_test_status, fabric_color_id FROM kv_rolls WHERE id = $1', [rollId]);
+        if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
+        if (roll.dye_test_status !== 'pending') return reply.code(400).send({ error: 'Cây vải này không cần test chống nhiễm hoặc đã test rồi' });
+
+        try {
+            const { compressImage } = require('../utils/imageCompressor');
+            const matches = image_data.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (!matches) return reply.code(400).send({ error: 'Định dạng ảnh không hợp lệ' });
+            let buffer = Buffer.from(matches[2], 'base64');
+
+            if (buffer.length > 10 * 1024 * 1024) return reply.code(400).send({ error: 'Ảnh quá lớn (tối đa 10MB)' });
+
+            const compressed = await compressImage(buffer, { maxWidth: 800, quality: 75, format: 'webp' });
+
+            const uploadDir = path.join(__dirname, '..', 'uploads', 'khovai');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+            const fileName = `dyetest_${rollId}_${Date.now()}.webp`;
+            fs.writeFileSync(path.join(uploadDir, fileName), compressed.buffer);
+            const imagePath = `/uploads/khovai/${fileName}`;
+
+            await db.run(
+                `UPDATE kv_rolls SET dye_test_status = 'passed', dye_test_image = $1, dye_test_at = NOW(), dye_test_by = $2, updated_at = NOW() WHERE id = $3`,
+                [imagePath, request.user.id, rollId]
+            );
+
+            return { success: true, image_path: imagePath };
+        } catch (e) {
+            console.error('[KhoVai] Dye test image upload error:', e.message);
+            return reply.code(500).send({ error: 'Lưu ảnh test thất bại: ' + e.message });
+        }
+    });
+
     // GET /api/khovai/rolls/:id/images — Get roll photo history
     fastify.get('/api/khovai/rolls/:id/images', { preHandler: [authenticate] }, async (request) => {
         const rollId = Number(request.params.id);
@@ -1344,6 +1403,7 @@ module.exports = async function (fastify) {
                    COALESCE(m.original_tree_threshold, w.original_tree_threshold, 10) AS original_tree_threshold,
                    fc.notes, fc.material_id, fc.updated_at,
                    fc.stop_import AS color_stop_import, m.stop_import AS material_stop_import,
+                   fc.requires_dye_test,
                    m.name AS material_name, m.warehouse_id, m.inventory_type AS material_inventory_type,
                    w.name AS warehouse_name, w.unit,
                    fc.location AS color_location,
@@ -1382,6 +1442,8 @@ module.exports = async function (fastify) {
                             'locked_by_cutting_id', r.locked_by_cutting_id,
                             'source_import_id', r.source_import_id,
                             'return_tx_id', r.return_tx_id,
+                            'dye_test_status', COALESCE(r.dye_test_status, ''),
+                            'dye_test_image', r.dye_test_image,
                             'import_price', COALESCE((
                                 SELECT COALESCE(NULLIF(elem->>'unit_price', ''), '0')::numeric
                                 FROM import_records ir,

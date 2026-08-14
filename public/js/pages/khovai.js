@@ -439,6 +439,11 @@ function _kvRenderTable() {
             pendingStopBadgeHtml = '<div style="margin-top:2px"><span style="background:#fff7ed;color:#ea580c;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #ffedd5;font-weight:800;white-space:nowrap;display:inline-block" title="Sẽ tự động dừng bán khi cắt xong các đơn hàng liên quan">🕒 Chờ dừng bán</span></div>';
         }
 
+        var dyeTestBadgeHtml = '';
+        if (r.requires_dye_test) {
+            dyeTestBadgeHtml = '<div style="margin-top:2px"><span style="background:#fef3c7;color:#92400e;font-size:9.5px;padding:2px 6px;border-radius:4px;border:1px solid #fde68a;font-weight:800;white-space:nowrap;display:inline-block" title="Loại vải này cần test chống nhiễm trước khi cắt">🧪 Chống Nhiễm</span></div>';
+        }
+
         var rowStyle = r.is_active === false ? 'style="cursor:pointer;opacity:0.85;background-color:#fee2e2"' : 'style="cursor:pointer"';
         h += '<tr ' + rowStyle + ' onclick="_kvShowDetail(' + r.id + ')">';
         h += '<td style="color:var(--gray-400)">' + (i+1) + '</td>';
@@ -450,6 +455,7 @@ function _kvRenderTable() {
         h += slipsBadgeHtml;
         h += importSlipsBadgeHtml;
         h += pendingStopBadgeHtml;
+        h += dyeTestBadgeHtml;
         h += '</div>';
         h += '</td>';
         var matInfBadge = r.material_inventory_type === 1 ? '<span class="kv-badge-inf" title="Nhập qua tay vô tận">♾️ Vô tận</span>' : '';
@@ -533,6 +539,7 @@ async function _kvShowDetail(fcid) {
         ['GIỚI HẠN ĐƠN', r.allowed_slips !== null && r.allowed_slips !== undefined ? (r.color_stop_import ? '<b style="color:#0369a1">🎟️ Được tạo ' + r.allowed_slips + ' đơn</b>' : '<b style="color:#0369a1">🎟️ Còn ' + r.allowed_slips + ' đơn</b>') : (r.is_active === false ? '<span style="color:#ef4444;font-weight:700">🔴 Đang ẩn bán</span>' : 'Mở bán vĩnh viễn')],
         ['GIỚI HẠN NHẬP', r.allowed_import_slips !== null && r.allowed_import_slips !== undefined ? '<b style="color:#d97706">📥 Còn ' + r.allowed_import_slips + ' đơn</b>' : (r.color_stop_import ? '<span style="color:#ef4444;font-weight:700">🛑 Đang dừng nhập</span>' : 'Mở nhập vĩnh viễn')],
         ['HẸN DỪNG BÁN', r.pending_stop_active ? '<b style="color:#ea580c">🕒 Chờ dừng bán (khi cắt xong đơn)</b>' : 'Không'],
+        ['TEST CHỐNG NHIỄM', r.requires_dye_test ? '<b style="color:#92400e">🧪 Bật — Cây nguyên phải test trước khi cắt</b>' : '—'],
         ['CẬP NHẬT', lastUpStr]
     ];
     infoRows.forEach(function(row) {
@@ -586,6 +593,7 @@ async function _kvShowDetail(fcid) {
         rh += '<th style="' + thStyle + ';text-align:right">Xuất</th>';
         rh += '<th style="' + thStyle + ';text-align:right">Tồn</th>';
         rh += '<th style="' + thStyle + '">Lịch Sử CN</th>';
+        rh += '<th style="' + thStyle + ';text-align:center">Test CN</th>';
         rh += '<th style="' + thStyle + ';border-radius:0 6px 0 0;text-align:center">Đang Cắt</th>';
         rh += '</tr></thead><tbody>';
 
@@ -603,7 +611,18 @@ async function _kvShowDetail(fcid) {
             rh += '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#dc2626">' + _kvFmt(xuatW) + '</td>';
             rh += '<td style="padding:6px 8px;text-align:right;font-weight:800;color:#0d9488">' + _kvFmt(curW) + '</td>';
             rh += '<td style="padding:6px 8px;font-size:10px;color:#64748b">' + rlDs + '</td>';
-            rh += '<td style="padding:6px 8px;text-align:center">' + (cutLabel ? '<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">' + cutLabel + '</span>' : '<span style="color:#94a3b8;font-size:10px">—</span>') + '</td>';
+            // Dye test column
+            var dyeCell = '<span style="color:#94a3b8;font-size:10px">—</span>';
+            if (rl.dye_test_status === 'pending') {
+                dyeCell = '<span style="background:#dc2626;color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:800">🧪 Chờ Test</span>';
+            } else if (rl.dye_test_status === 'passed') {
+                dyeCell = '<span style="background:#059669;color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:800">✅ Đã Test</span>';
+                if (rl.dye_test_image) {
+                    dyeCell += ' <img src="' + rl.dye_test_image + '" style="width:22px;height:22px;object-fit:cover;border-radius:3px;border:1px solid #10b981;cursor:pointer;vertical-align:middle" onclick="event.stopPropagation();window.open(\'' + rl.dye_test_image + '\',\'_blank\')">';
+                }
+            }
+            rh += '<td style="padding:6px 8px;text-align:center">' + dyeCell + '</td>';
+            rh += '<td style="padding:6px 8px;text-align:center">' + (cutLabel ? '<span style="background:#dc2626;color:#fff;padding:3px 10px;border-radius:12px;font-size:10.5px;font-weight:700;white-space:nowrap;display:inline-block">' + cutLabel + '</span>' : '<span style="color:#94a3b8;font-size:10px">—</span>') + '</td>';
             rh += '</tr>';
         });
         rh += '</tbody></table>';
@@ -674,7 +693,7 @@ async function _kvShowRollDetail(rollId) {
         body += '<tr><td style="' + thS + '">HOÀN</td><td style="' + tdS + '">' + (rl.is_returned ? '<span style="color:#f59e0b;font-weight:700">Đã hoàn</span>' : '<span style="color:#64748b">Chưa hoàn</span>') + '</td></tr>';
         body += '<tr><td style="' + thS + '">UPDATE TIME</td><td style="' + tdS + '">' + upStr + (rl.created_by_name ? ' — <b>' + rl.created_by_name + '</b>' : '') + '</td></tr>';
         var rlCutLabel = rl.cutting_order_name ? (rl.cutting_order_name.split(' — ').slice(0,2).join(' — ')) : null;
-        body += '<tr><td style="' + thS + '">ĐANG CẮT</td><td style="' + tdS + '">' + (rlCutLabel ? '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700">' + rlCutLabel + '</span>' : '<span style="color:#94a3b8">—</span>') + '</td></tr>';
+        body += '<tr><td style="' + thS + '">ĐANG CẮT</td><td style="' + tdS + '">' + (rlCutLabel ? '<span style="background:#dc2626;color:#fff;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-block">' + rlCutLabel + '</span>' : '<span style="color:#94a3b8">—</span>') + '</td></tr>';
         body += '<tr><td style="' + thS + '">NGƯỜI NHẬP VẢI</td><td style="' + tdS + '">' + (rl.created_by_name || '—') + '</td></tr>';
         
         var billLink = '<span style="color:var(--gray-400)">Chưa có</span>';

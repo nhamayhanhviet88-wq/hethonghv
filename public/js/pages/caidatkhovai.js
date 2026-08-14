@@ -344,9 +344,21 @@ function _cdkRenderCol3() {
             if (c.stop_import) {
                 h += '<span class="cdk-badge" style="background:#fef3c7;color:#d97706;margin-left:4px">⚠️ DỪNG NHẬP</span>';
             }
+            if (c.requires_dye_test) {
+                h += '<span class="cdk-badge" style="background:#fef3c7;color:#92400e;margin-left:4px">🧪 Chống Nhiễm</span>';
+            }
             if (!isOn) h += '<span class="cdk-badge" style="background:#fee2e2;color:#dc2626">ẨN</span>';
             h += '</div>';
             h += '<div class="cdk-item-actions">';
+            // Dye test toggle (only for giam_doc)
+            var isGd = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+            if (isGd) {
+                if (c.requires_dye_test) {
+                    h += '<button class="cdk-btn-sm" style="background:#92400e;color:#fff;font-size:9px;padding:3px 6px" onclick="event.stopPropagation();_cdkToggleDyeTest(' + c.id + ', false)" title="Tắt Test Chống Nhiễm">🧪 Tắt</button>';
+                } else {
+                    h += '<button class="cdk-btn-sm" style="background:#f59e0b;color:#fff;font-size:9px;padding:3px 6px" onclick="event.stopPropagation();_cdkToggleDyeTest(' + c.id + ', true)" title="Bật Test Chống Nhiễm">🧪 Bật</button>';
+                }
+            }
             h += '<button class="cdk-btn-sm" style="background:#6366f1;color:#fff" onclick="_cdkEditColor(' + c.id + ')" title="Sửa">✏️</button>';
             h += '<button class="cdk-toggle ' + (isOn ? 'on' : 'off') + '" onclick="_cdkToggleColor(' + c.id + ',' + !isOn + ')" title="' + (isOn ? 'Tắt' : 'Bật') + '"></button>';
             h += '<button class="cdk-btn-sm" style="background:#dc2626;color:#fff" onclick="_cdkDeleteColor(' + c.id + ')">🗑️</button>';
@@ -385,6 +397,22 @@ async function _cdkToggleColor(id, newState) {
         await apiCall('/api/khovai/colors/' + id + '/toggle', 'PUT', { is_active: newState });
         showToast(newState ? '✅ Đã bật' : '⚫ Đã tắt');
         await _cdkLoadColors();
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _cdkToggleDyeTest(id, newState) {
+    var msg = newState 
+        ? 'Bật Test Chống Nhiễm cho màu này?\n\nCác cây vải nguyên mới nhập sẽ phải chụp ảnh test trước khi cắt.'
+        : 'Tắt Test Chống Nhiễm cho màu này?\n\nCác cây đang chờ test sẽ được gỡ yêu cầu test.';
+    if (!confirm(msg)) return;
+    try {
+        var res = await apiCall('/api/khovai/colors/' + id, 'PUT', { requires_dye_test: newState });
+        if (res.success) {
+            showToast(newState ? '🧪 Đã bật Test Chống Nhiễm' : '🧪 Đã tắt Test Chống Nhiễm');
+            await _cdkLoadColors();
+        } else {
+            showToast(res.error || 'Lỗi', 'error');
+        }
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 

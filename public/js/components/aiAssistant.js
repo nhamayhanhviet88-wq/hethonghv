@@ -226,33 +226,66 @@
 
             /* Chat Footer Input */
             .hv-ai-footer {
-                padding: 12px 16px;
+                padding: 10px 14px;
                 background: #fff;
                 border-top: 1px solid #e2e8f0;
                 display: flex;
-                gap: 8px;
+                gap: 6px;
                 align-items: center;
+            }
+            .hv-ai-icon-btn {
+                background: #f1f5f9;
+                color: #475569;
+                border: 1px solid #cbd5e1;
+                width: 36px;
+                height: 36px;
+                border-radius: 10px;
+                font-size: 16px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+                flex-shrink: 0;
+            }
+            .hv-ai-icon-btn:hover {
+                background: #e2e8f0;
+                color: #1e293b;
+                border-color: #94a3b8;
+            }
+            .hv-ai-icon-btn.recording {
+                background: #fee2e2;
+                color: #dc2626;
+                border-color: #fca5a5;
+                animation: hvAiPulseRed 1.2s infinite;
+            }
+            @keyframes hvAiPulseRed {
+                0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
+                70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
             }
             .hv-ai-input {
                 flex: 1;
-                padding: 10px 14px;
+                padding: 9px 12px;
                 border: 1px solid #cbd5e1;
-                border-radius: 12px;
+                border-radius: 10px;
                 font-size: 13px;
                 outline: none;
                 transition: border-color 0.2s;
+                box-sizing: border-box;
             }
             .hv-ai-input:focus { border-color: #4338ca; box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); }
             .hv-ai-send-btn {
                 background: #4338ca;
                 color: #fff;
                 border: none;
-                padding: 10px 16px;
-                border-radius: 12px;
+                padding: 9px 14px;
+                border-radius: 10px;
                 font-weight: 800;
                 font-size: 13px;
                 cursor: pointer;
                 transition: background 0.2s;
+                flex-shrink: 0;
             }
             .hv-ai-send-btn:hover { background: #3730a3; }
 
@@ -284,6 +317,26 @@
             .hv-ai-btn-save { background: #4338ca; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; }
             .hv-ai-btn-save:hover { background: #3730a3; }
             .hv-ai-btn-cancel { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; }
+            
+            /* Responsive Mobile Styles */
+            @media (max-width: 768px) {
+                .hv-ai-float-btn {
+                    bottom: 18px;
+                    right: 18px;
+                    padding: 10px 15px;
+                    font-size: 12.5px;
+                    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
+                }
+                .hv-ai-chat-window {
+                    bottom: 70px;
+                    right: 10px;
+                    left: 10px;
+                    width: auto;
+                    max-width: calc(100vw - 20px);
+                    height: 75vh;
+                    max-height: calc(100vh - 90px);
+                }
+            }
             
             .hv-ai-radio-group { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
             .hv-ai-radio-lbl {
@@ -354,7 +407,7 @@
             <div class="hv-ai-header">
                 <div>
                     <h3 class="hv-ai-header-title">🤖 Trợ Lý AI Thông Minh HV</h3>
-                    <div class="hv-ai-header-sub">Hỗ trợ tra cứu & tư vấn (Google Gemini 2.5 Flash)</div>
+                    <div class="hv-ai-header-sub">Hỗ trợ tra cứu & tư vấn (Google Gemini AI)</div>
                 </div>
                 <div style="display:flex;gap:6px">
                     ${gearBtnHtml}
@@ -373,8 +426,25 @@
                 </div>
             </div>
 
+            <!-- Attached Image Preview Bar -->
+            <div id="hvAiImgPreviewBar" style="display:none;padding:6px 12px;background:#f1f5f9;border-top:1px solid #cbd5e1;align-items:center;gap:10px">
+                <img id="hvAiPreviewImgThumb" style="width:38px;height:38px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1">
+                <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:700;color:#334155" id="hvAiPreviewImgName">Ảnh đính kèm</div>
+                <button onclick="window._hvAiRemoveAttachedImage()" style="background:none;border:none;color:#ef4444;font-size:16px;font-weight:900;cursor:pointer" title="Xóa ảnh">✕</button>
+            </div>
+
+            <!-- Voice Recording Indicator Bar -->
+            <div id="hvAiVoiceStatus" style="display:none;padding:6px 12px;background:#fef2f2;border-top:1px solid #fecaca;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#dc2626">
+                <div class="hv-ai-pulse" style="background:#dc2626"></div>
+                <span id="hvAiVoiceText" style="flex:1">🎙️ Đang lắng nghe giọng nói... Hãy nói câu hỏi!</span>
+                <button onclick="window._hvAiStopVoiceRecording()" style="background:#dc2626;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">Dừng & Gửi</button>
+            </div>
+
             <div class="hv-ai-footer">
-                <input type="text" class="hv-ai-input" id="hvAiInput" placeholder="Nhập câu hỏi tra cứu..." onkeypress="if(event.key==='Enter') window._hvAiSubmitChat()">
+                <input type="file" id="hvAiFileInput" accept="image/*" style="display:none" onchange="window._hvAiOnImageSelected(this)">
+                <button class="hv-ai-icon-btn" onclick="document.getElementById('hvAiFileInput').click()" title="Đính kèm Hình ảnh / Chụp ảnh (Vision AI)">📷</button>
+                <button class="hv-ai-icon-btn" id="hvAiVoiceBtn" onclick="window._hvAiToggleVoiceRecording()" title="Ghi âm giọng nói (Voice AI)">🎙️</button>
+                <input type="text" class="hv-ai-input" id="hvAiInput" placeholder="Nhập câu hỏi hoặc chọn giọng nói/hình ảnh..." onkeypress="if(event.key==='Enter') window._hvAiSubmitChat()">
                 <button class="hv-ai-send-btn" onclick="window._hvAiSubmitChat()">Gửi 🚀</button>
             </div>
         `;
@@ -385,6 +455,114 @@
             if (inp) inp.focus();
         }, 100);
     }
+
+    // Voice & Image State Handlers
+    window._hvAiOnImageSelected = function(inp) {
+        if (!inp.files || !inp.files[0]) return;
+        var file = inp.files[0];
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var dataUrl = e.target.result;
+            state.attachedImage = {
+                data: dataUrl,
+                mime_type: file.type || 'image/png',
+                filename: file.name
+            };
+
+            var bar = document.getElementById('hvAiImgPreviewBar');
+            var img = document.getElementById('hvAiPreviewImgThumb');
+            var name = document.getElementById('hvAiPreviewImgName');
+            if (bar && img && name) {
+                img.src = dataUrl;
+                name.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+                bar.style.display = 'flex';
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    window._hvAiRemoveAttachedImage = function() {
+        state.attachedImage = null;
+        var bar = document.getElementById('hvAiImgPreviewBar');
+        var inp = document.getElementById('hvAiFileInput');
+        if (bar) bar.style.display = 'none';
+        if (inp) inp.value = '';
+    };
+
+    window._hvAiToggleVoiceRecording = function() {
+        if (state.isRecording) {
+            window._hvAiStopVoiceRecording();
+        } else {
+            window._hvAiStartVoiceRecording();
+        }
+    };
+
+    window._hvAiStartVoiceRecording = function() {
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('Trình duyệt của bạn chưa hỗ trợ nhận diện giọng nói tự động. Vui lòng sử dụng Google Chrome, Microsoft Edge hoặc Safari mới nhất ạ!');
+            return;
+        }
+
+        try {
+            var rec = new SpeechRecognition();
+            rec.lang = 'vi-VN';
+            rec.continuous = true;
+            rec.interimResults = true;
+
+            var inp = document.getElementById('hvAiInput');
+            var btn = document.getElementById('hvAiVoiceBtn');
+            var voiceBar = document.getElementById('hvAiVoiceStatus');
+            var voiceText = document.getElementById('hvAiVoiceText');
+
+            var initialText = inp ? inp.value : '';
+
+            rec.onstart = function() {
+                state.isRecording = true;
+                if (btn) btn.classList.add('recording');
+                if (voiceBar) voiceBar.style.display = 'flex';
+                if (voiceText) voiceText.textContent = '🎙️ Đang lắng nghe giọng nói... Hãy nói câu hỏi!';
+            };
+
+            rec.onresult = function(e) {
+                var transcript = '';
+                for (var i = e.resultIndex; i < e.results.length; i++) {
+                    transcript += e.results[i][0].transcript;
+                }
+                if (inp) {
+                    inp.value = (initialText ? (initialText + ' ') : '') + transcript;
+                }
+            };
+
+            rec.onerror = function(err) {
+                console.warn('Voice recognition error:', err);
+                window._hvAiStopVoiceRecording();
+            };
+
+            rec.onend = function() {
+                state.isRecording = false;
+                if (btn) btn.classList.remove('recording');
+                if (voiceBar) voiceBar.style.display = 'none';
+            };
+
+            state.voiceRecognition = rec;
+            rec.start();
+        } catch (e) {
+            alert('Không thể kết nối Microphone: ' + e.message);
+        }
+    };
+
+    window._hvAiStopVoiceRecording = function() {
+        if (state.voiceRecognition) {
+            try { state.voiceRecognition.stop(); } catch(e){}
+            state.voiceRecognition = null;
+        }
+        state.isRecording = false;
+        var btn = document.getElementById('hvAiVoiceBtn');
+        var voiceBar = document.getElementById('hvAiVoiceStatus');
+        if (btn) btn.classList.remove('recording');
+        if (voiceBar) voiceBar.style.display = 'none';
+    };
 
     window._hvAiSendQuick = function(txt) {
         var inp = document.getElementById('hvAiInput');
@@ -397,22 +575,39 @@
     window._hvAiSubmitChat = async function() {
         var inp = document.getElementById('hvAiInput');
         var body = document.getElementById('hvAiBody');
-        if (!inp || !body || !inp.value.trim() || state.isThinking) return;
+        var imgAttached = state.attachedImage;
+
+        if (!inp || !body || state.isThinking) return;
 
         var userMsg = inp.value.trim();
+        if (!userMsg && !imgAttached) return;
+
+        // Reset state
         inp.value = '';
+        if (state.isRecording) window._hvAiStopVoiceRecording();
+        window._hvAiRemoveAttachedImage();
 
         // Render User Msg
         var userDiv = document.createElement('div');
         userDiv.className = 'hv-ai-msg user';
-        userDiv.textContent = userMsg;
+
+        var userInnerHtml = '';
+        if (imgAttached) {
+            userInnerHtml += `<img src="${imgAttached.data}" style="max-width:180px;max-height:140px;border-radius:10px;margin-bottom:6px;display:block;border:1px solid rgba(255,255,255,0.3)">`;
+        }
+        if (userMsg) {
+            userInnerHtml += `<span>${userMsg.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+        } else {
+            userInnerHtml += `<span>📷 [Ảnh gửi kèm - Phân tích Vision AI]</span>`;
+        }
+        userDiv.innerHTML = userInnerHtml;
         body.appendChild(userDiv);
 
         // Render Typing Msg
         var thinkDiv = document.createElement('div');
         thinkDiv.className = 'hv-ai-msg assistant';
         thinkDiv.id = 'hvAiThinking';
-        thinkDiv.innerHTML = '<em>⏳ Trợ Lý AI đang suy nghĩ & đối soát CSDL...</em>';
+        thinkDiv.innerHTML = '<em>⏳ Trợ Lý AI đang suy nghĩ & phân tích hình ảnh/dữ liệu...</em>';
         body.appendChild(thinkDiv);
         body.scrollTop = body.scrollHeight;
 
@@ -428,6 +623,7 @@
                 },
                 body: JSON.stringify({
                     message: userMsg,
+                    image_base64: imgAttached ? { data: imgAttached.data, mime_type: imgAttached.mime_type } : null,
                     page: window.location.pathname,
                     history: state.history
                 })
@@ -476,7 +672,21 @@
     function formatAiReply(text) {
         if (!text) return '';
         var formatted = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        formatted = formatted.replace(/\n/g, '<br>');
+
+        // Clean up markdown headers ### Title -> <strong>Title</strong>
+        formatted = formatted.replace(/^#{1,6}\s*(.*?)$/gm, '<strong style="display:block;font-size:14px;color:#1e1b4b;margin-top:10px;margin-bottom:4px;font-weight:900">$1</strong>');
+
+        // Clean up markdown bullet items * text or - text -> • text
+        formatted = formatted.replace(/^[\*\-]\s+/gm, '• ');
+
+        // Bold **text** -> <strong>text</strong>
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0f172a;font-weight:900">$1</strong>');
+
+        // Italic *text* -> <em>text</em>
+        formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+        // Inline code `text`
+        formatted = formatted.replace(/`([^`]+)`/g, '<code style="background:#e0e7ff;color:#3730a3;padding:2px 6px;border-radius:4px;font-size:12px;font-weight:700">$1</code>');
 
         // Replace [OPEN_RULE:123] or [RULE:NQ-...] with interactive buttons
         formatted = formatted.replace(/\[OPEN_RULE:(\d+)\]/g, function(match, id) {
@@ -486,6 +696,9 @@
         formatted = formatted.replace(/\[SUGGEST_NEW_RULE:([^\]]+)\]/g, function(match, title) {
             return `<br><button class="hv-ai-rule-btn" style="background:#2563eb" onclick="if(window._nqOpenAddModal) window._nqOpenAddModal();">➕ Tạo Nhanh Điều Khoản Mới</button>`;
         });
+
+        // Convert newlines to <br>
+        formatted = formatted.replace(/\n/g, '<br>');
 
         return formatted;
     }
