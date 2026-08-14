@@ -587,11 +587,9 @@ function _nqUpdateManagerDisplay(deptId) {
     if (!mgrInp) return;
 
     var dept = _nqState.depts.all.find(d => String(d.id) === String(deptId));
-    if (dept && dept.head_user_name) {
-        mgrInp.value = dept.head_user_name;
-        mgrInp.dataset.mgrId = dept.head_user_id || '';
+    if (dept && dept.head_user_id) {
+        mgrInp.dataset.mgrId = dept.head_user_id;
     } else {
-        mgrInp.value = 'Trưởng Phòng / Ban Giám Đốc phụ trách';
         mgrInp.dataset.mgrId = '';
     }
 }
@@ -625,7 +623,7 @@ function _nqRenderModalForm(rule) {
     var expDate = isEdit && rule.expiry_date ? rule.expiry_date : '';
 
     var dept = _nqState.depts.all.find(d => String(d.id) === String(deptId));
-    var initialMgrName = isEdit ? (rule.manager_name || (dept ? dept.head_user_name : '')) : (dept ? dept.head_user_name : '');
+    var initialMgrName = isEdit ? (rule.manager_name || '') : '';
 
     overlay.innerHTML = `
         <div class="nq-modal">
@@ -918,7 +916,7 @@ async function _nqSaveRule() {
     var mgrFineAmt = Number(document.getElementById('nqFormMgrFineAmt')?.value) || 0;
 
     var mgrNameInp = document.getElementById('nqFormMgrName');
-    var mgrName = mgrNameInp ? (mgrNameInp.value.trim() || 'Trưởng Phòng / Ban Giám Đốc phụ trách') : 'Trưởng Phòng / Ban Giám Đốc phụ trách';
+    var mgrName = mgrNameInp ? mgrNameInp.value.trim() : '';
     var mgrId = mgrNameInp ? (Number(mgrNameInp.dataset.mgrId) || null) : null;
 
     if (!title.trim()) { alert('Vui lòng nhập tiêu đề nội quy'); return; }
@@ -931,7 +929,7 @@ async function _nqSaveRule() {
     if (hasTeamFine && teamFineAmt <= 0) { alert('⚠️ Bạn đã chọn Phạt vi phạm Team. Vui lòng nhập số tiền phạt (lớn hơn 0).'); return; }
     if (hasDeptFine && deptFineAmt <= 0) { alert('⚠️ Bạn đã chọn Phạt vi phạm Phòng Ban. Vui lòng nhập số tiền phạt (lớn hơn 0).'); return; }
     if (hasMgrFine && mgrFineAmt <= 0) { alert('⚠️ Bạn đã chọn Phạt quản lý liên đới. Vui lòng nhập số tiền phạt (lớn hơn 0).'); return; }
-    if (hasMgrFine && !mgrName) { alert('⚠️ Vui lòng nhập tên Quản lý liên đới chịu trách nhiệm phạt.'); return; }
+    if (hasMgrFine && !mgrName) { alert('⚠️ Bạn đã chọn Phạt quản lý liên đới. Vui lòng nhập Tên Quản lý liên đới chịu trách nhiệm phạt.'); return; }
 
     var payload = {
         scope: scope,
