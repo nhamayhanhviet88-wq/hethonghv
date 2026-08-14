@@ -737,7 +737,7 @@ function _nqRenderModalForm(rule) {
                         </div>
                         <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
                             <label style="font-size:12px;font-weight:800;color:#be123c">👤 Tên Quản lý liên đới chịu trách nhiệm phạt:</label>
-                            <input type="text" class="nq-form-input" id="nqFormMgrName" value="${escapeHtml(initialMgrName || 'Trưởng Phòng / Ban Giám Đốc phụ trách')}" placeholder="Nhập tên Quản lý / Trưởng phòng liên đới..." ${isEdit && rule.has_manager_fine ? '' : 'disabled'}>
+                            <input type="text" class="nq-form-input" id="nqFormMgrName" value="${escapeHtml(initialMgrName || '')}" placeholder="Nhập tên Quản lý / Trưởng phòng liên đới..." ${isEdit && rule.has_manager_fine ? '' : 'disabled'}>
                         </div>
                     </div>
                 </div>
