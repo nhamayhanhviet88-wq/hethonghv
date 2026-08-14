@@ -899,8 +899,8 @@
             // Update Header Quý
             var qHdrRev = document.getElementById('mtnQHeaderRev_' + q.id);
             var qHdrOrd = document.getElementById('mtnQHeaderOrders_' + q.id);
-            if (qHdrRev) qHdrRev.textContent = isMkt ? ('CPO: ' + formatVND(targetCpoAvg)) : formatVND(qTargetRev);
-            if (qHdrOrd) qHdrOrd.textContent = isMkt ? (targetCostRatioAvg > 0 ? targetCostRatioAvg.toFixed(1) + '%' : '0%') : (formatNum(qTargetOrders) + ' đơn');
+            if (qHdrRev) qHdrRev.textContent = isMkt ? ('CPO (Giá/Đơn): ' + formatVND(targetCpoAvg)) : formatVND(qTargetRev);
+            if (qHdrOrd) qHdrOrd.textContent = isMkt ? ('% CP/DS: ' + (targetCostRatioAvg > 0 ? targetCostRatioAvg.toFixed(1) + '%' : '0%')) : (formatNum(qTargetOrders) + ' đơn');
 
             // Update Executive Summary Row 1 (Targets) & Row 2 (Actuals)
             var sumRev = document.getElementById('mtnSum' + q.id.toUpperCase() + 'Rev');
@@ -909,10 +909,10 @@
             var sumActOrd = document.getElementById('mtnSum' + q.id.toUpperCase() + 'ActOrders');
             var sumCmp = document.getElementById('mtnSum' + q.id.toUpperCase() + 'Cmp');
 
-            if (sumRev) sumRev.textContent = isMkt ? ('🎯 CPO: ' + formatVND(targetCpoAvg)) : formatVND(qTargetRev);
-            if (sumOrd) sumOrd.textContent = isMkt ? (targetCostRatioAvg > 0 ? targetCostRatioAvg.toFixed(1) + '%' : '0%') : ('📦 ' + formatNum(qTargetOrders) + ' đơn');
-            if (sumActRev) sumActRev.textContent = isMkt ? ('🎯 CPO: ' + (qActualCpo > 0 ? formatVND(qActualCpo) : '0 đ')) : formatVND(qActualRev);
-            if (sumActOrd) sumActOrd.textContent = isMkt ? (qActualCostRatio.toFixed(2) + '%') : ('📦 ' + formatNum(qActualOrders) + ' đơn');
+            if (sumRev) sumRev.textContent = isMkt ? ('🎯 CPO (Giá/Đơn): ' + formatVND(targetCpoAvg)) : formatVND(qTargetRev);
+            if (sumOrd) sumOrd.textContent = isMkt ? ('📉 % Chi Phí / Doanh Thu: ' + (targetCostRatioAvg > 0 ? targetCostRatioAvg.toFixed(1) + '%' : '0%')) : ('📦 ' + formatNum(qTargetOrders) + ' đơn');
+            if (sumActRev) sumActRev.textContent = isMkt ? ('🎯 CPO (Giá/Đơn): ' + (qActualCpo > 0 ? formatVND(qActualCpo) : '0 đ')) : formatVND(qActualRev);
+            if (sumActOrd) sumActOrd.textContent = isMkt ? ('📉 % Chi Phí / Doanh Thu: ' + qActualCostRatio.toFixed(2) + '%') : ('📦 ' + formatNum(qActualOrders) + ' đơn');
 
             if (sumCmp) {
                 var fillWidth = Math.min(Math.max(pctQRev, 0), 100);
@@ -921,14 +921,14 @@
                 var revBadgeText = '';
                 if (targetCostRatioAvg > 0) {
                     if (isMkt) {
-                        revBadgeText = qActualCostRatio <= targetCostRatioAvg ? `<span class="mtn-cmp-row-surplus">🔥 CP/DS: ${qActualCostRatio.toFixed(1)}%</span>` : `<span class="mtn-cmp-row-deficit">🚨 CP/DS: ${qActualCostRatio.toFixed(1)}%</span>`;
+                        revBadgeText = qActualCostRatio <= targetCostRatioAvg ? `<span class="mtn-cmp-row-surplus">🔥 % CP/DS: ${qActualCostRatio.toFixed(1)}%</span>` : `<span class="mtn-cmp-row-deficit">🚨 % CP/DS: ${qActualCostRatio.toFixed(1)}%</span>`;
                     } else if (diffQRev >= 0) {
                         revBadgeText = `<span class="mtn-cmp-row-surplus"><span class="mtn-pulse-icon">🔥</span>Vượt: +${formatVND(diffQRev)} (${pctQRev.toFixed(1)}%)</span>`;
                     } else {
                         revBadgeText = `<span class="mtn-cmp-row-deficit">🚨 Thiếu: -${formatVND(Math.abs(diffQRev))} (${pctQRev.toFixed(1)}%)</span>`;
                     }
                 } else {
-                    revBadgeText = qActualCostRatio > 0 ? `<span class="mtn-cmp-badge neutral">Thực tế: ${isMkt ? qActualCostRatio.toFixed(2) + '%' : formatVND(qActualRev)}</span>` : `<span class="mtn-cmp-badge neutral">Chưa phát sinh</span>`;
+                    revBadgeText = qActualCostRatio > 0 ? `<span class="mtn-cmp-badge neutral">Thực tế: ${isMkt ? '% CP/DS: ' + qActualCostRatio.toFixed(2) + '%' : formatVND(qActualRev)}</span>` : `<span class="mtn-cmp-badge neutral">Chưa phát sinh</span>`;
                 }
 
                 var ordBadgeText = '';
@@ -975,10 +975,10 @@
         var yrActOrd = document.getElementById('mtnSumYearActOrders');
         var yrCmp = document.getElementById('mtnSumYearCmp');
 
-        if (yrRev) yrRev.textContent = isMktYr ? ('🎯 CPO: ' + formatVND(yearTargetCpoAvg)) : formatVND(totalYearTargetRev);
-        if (yrOrd) yrOrd.textContent = isMktYr ? (yearTargetCostRatioAvg > 0 ? yearTargetCostRatioAvg.toFixed(1) + '%' : '0%') : ('📦 ' + formatNum(totalYearTargetOrders) + ' đơn');
-        if (yrActRev) yrActRev.textContent = isMktYr ? ('🎯 CPO: ' + (yearActualCpo > 0 ? formatVND(yearActualCpo) : '0 đ')) : formatVND(totalYearActualRev);
-        if (yrActOrd) yrActOrd.textContent = isMktYr ? (yearActualCostRatio.toFixed(2) + '%') : ('📦 ' + formatNum(totalYearActualOrders) + ' đơn');
+        if (yrRev) yrRev.textContent = isMktYr ? ('🎯 CPO (Giá/Đơn): ' + formatVND(yearTargetCpoAvg)) : formatVND(totalYearTargetRev);
+        if (yrOrd) yrOrd.textContent = isMktYr ? ('📉 % Chi Phí / Doanh Thu: ' + (yearTargetCostRatioAvg > 0 ? yearTargetCostRatioAvg.toFixed(1) + '%' : '0%')) : ('📦 ' + formatNum(totalYearTargetOrders) + ' đơn');
+        if (yrActRev) yrActRev.textContent = isMktYr ? ('🎯 CPO (Giá/Đơn): ' + (yearActualCpo > 0 ? formatVND(yearActualCpo) : '0 đ')) : formatVND(totalYearActualRev);
+        if (yrActOrd) yrActOrd.textContent = isMktYr ? ('📉 % Chi Phí / Doanh Thu: ' + yearActualCostRatio.toFixed(2) + '%') : ('📦 ' + formatNum(totalYearActualOrders) + ' đơn');
 
         if (yrCmp) {
             var fillWidthYr = Math.min(Math.max(pctYrRev, 0), 100);
