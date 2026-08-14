@@ -316,7 +316,7 @@
             <div class="hv-ai-header">
                 <div>
                     <h3 class="hv-ai-header-title">🤖 Trợ Lý AI Thông Minh HV</h3>
-                    <div class="hv-ai-header-sub">Hỗ trợ tra cứu & tư vấn (Google Gemini 1.5 Flash)</div>
+                    <div class="hv-ai-header-sub">Hỗ trợ tra cứu & tư vấn (Google Gemini 2.5 Flash)</div>
                 </div>
                 <div style="display:flex;gap:6px">
                     <button class="hv-ai-hdr-btn" onclick="window._hvAiOpenConfigModal()" title="Cấu hình API Key">⚙️</button>
