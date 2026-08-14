@@ -370,7 +370,20 @@ function _nqRenderRules() {
     var grid = document.getElementById('nqRulesGrid');
     if (!grid) return;
 
-    if (_nqState.rules.length === 0) {
+    var displayRules = _nqState.rules;
+    if (!_nqCanAddOrEdit()) {
+        if (typeof currentUser !== 'undefined' && currentUser && currentUser.department_id) {
+            displayRules = displayRules.filter(function(r) {
+                return r.scope === 'chung' || String(r.department_id) === String(currentUser.department_id);
+            });
+        } else {
+            displayRules = displayRules.filter(function(r) {
+                return r.scope === 'chung';
+            });
+        }
+    }
+
+    if (displayRules.length === 0) {
         grid.innerHTML = `
             <div class="nq-empty">
                 <div class="nq-empty-icon">📂</div>
@@ -381,7 +394,7 @@ function _nqRenderRules() {
     }
 
     var html = '';
-    _nqState.rules.forEach(function(r) {
+    displayRules.forEach(function(r) {
         var isChung = r.scope === 'chung';
         var deptName = isChung ? 'Nội Quy Chung' : (r.department_name || 'Phòng Ban');
         var badgeStyle = _nqGetDeptBadgeStyle(r.department_name, isChung);

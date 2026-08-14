@@ -161,21 +161,33 @@ async function companyRulesRoutes(fastify, options) {
             let whereClauses = ["cr.status = 'active'"];
             let params = [];
 
-            // Permission scoping: Giám Đốc & Quản Lý Cấp Cao xem tất cả. Các vị trí khác chỉ xem Nội Quy Chung + Phòng Ban của chính họ
-            const user = req.user || {};
-            const role = user.role || '';
+            // 1. Xác thực người dùng hiện tại
+            let reqUser = req.user;
+            if (!reqUser) {
+                const token = req.cookies?.token || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.substring(7) : null);
+                if (token) {
+                    try {
+                        const jwt = require('jsonwebtoken');
+                        reqUser = jwt.verify(token, process.env.JWT_SECRET);
+                    } catch(e) {}
+                }
+            }
+
+            const userId = reqUser?.id;
+            let userRow = null;
+            if (userId) {
+                userRow = await db.get('SELECT id, role, department_id FROM users WHERE id = $1', [userId]);
+            }
+
+            const role = userRow ? userRow.role : (reqUser?.role || '');
             const isHighLevel = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao');
 
             let statsWhereClauses = ["status = 'active'"];
             let statsParams = [];
 
+            // 2. Nếu không phải Giám Đốc/Quản Lý Cấp Cao: CHỈ CHO XEM NỘI QUY CHUNG + NỘI QUY PHÒNG BAN CỦA CHÍNH MÌNH
             if (!isHighLevel) {
-                let userDeptId = user.department_id;
-                if (!userDeptId && user.id) {
-                    const uRow = await db.get('SELECT department_id FROM users WHERE id = $1', [user.id]);
-                    if (uRow) userDeptId = uRow.department_id;
-                }
-
+                const userDeptId = userRow?.department_id;
                 if (userDeptId) {
                     params.push(Number(userDeptId));
                     whereClauses.push(`(cr.scope = 'chung' OR cr.department_id = $${params.length})`);
