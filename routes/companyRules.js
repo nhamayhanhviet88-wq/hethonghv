@@ -23,7 +23,7 @@ function getDepartmentPrefix(deptName, deptCode) {
 
 async function companyRulesRoutes(fastify, options) {
     
-    // GET /api/company-rules/departments - Lấy danh sách phòng ban kèm tên Quản lý/Trưởng phòng
+    // GET /api/company-rules/departments
     fastify.get('/api/company-rules/departments', async (req, reply) => {
         try {
             const depts = await db.all(`
@@ -36,7 +36,6 @@ async function companyRulesRoutes(fastify, options) {
                 ORDER BY d.parent_id NULLS FIRST, d.display_order ASC, d.id ASC
             `);
             
-            // Also get all managers/leaders to assign fallback head names
             const managers = await db.all(`
                 SELECT id, fullname, username, role, department_id 
                 FROM users 
@@ -81,7 +80,7 @@ async function companyRulesRoutes(fastify, options) {
             const rootXuongId = rootXuong ? rootXuong.id : null;
 
             deptList.forEach(d => {
-                if (d.id === rootVpId || d.id === rootXuongId) return; // Skip system roots
+                if (d.id === rootVpId || d.id === rootXuongId) return;
                 if (d.parent_id === rootVpId) {
                     vanPhong.push(d);
                 } else if (d.parent_id === rootXuongId) {
@@ -108,7 +107,7 @@ async function companyRulesRoutes(fastify, options) {
         }
     });
 
-    // GET /api/company-rules/next-code - Gợi ý mã NQ tiếp theo
+    // GET /api/company-rules/next-code
     fastify.get('/api/company-rules/next-code', async (req, reply) => {
         try {
             const { scope, department_id } = req.query || {};
@@ -145,7 +144,7 @@ async function companyRulesRoutes(fastify, options) {
         }
     });
 
-    // GET /api/company-rules - Danh sách điều khoản kèm bộ lọc & thống kê
+    // GET /api/company-rules
     fastify.get('/api/company-rules', async (req, reply) => {
         try {
             const { scope, department_id, month, year, search, has_fine } = req.query || {};
@@ -164,7 +163,7 @@ async function companyRulesRoutes(fastify, options) {
             }
 
             if (has_fine === 'true' || has_fine === true) {
-                whereClauses.push(`(cr.has_fine = true OR cr.has_manager_fine = true)`);
+                whereClauses.push(`(cr.has_fine = true OR cr.has_team_fine = true OR cr.has_dept_fine = true OR cr.has_manager_fine = true)`);
             }
 
             if (year && year !== 'all' && !isNaN(Number(year))) {
@@ -203,7 +202,7 @@ async function companyRulesRoutes(fastify, options) {
                     COUNT(*) as total_rules,
                     COUNT(CASE WHEN scope = 'chung' THEN 1 END) as general_rules,
                     COUNT(CASE WHEN scope = 'phong_ban' THEN 1 END) as dept_rules,
-                    COUNT(CASE WHEN has_fine = true OR has_manager_fine = true THEN 1 END) as fine_rules
+                    COUNT(CASE WHEN has_fine = true OR has_team_fine = true OR has_dept_fine = true OR has_manager_fine = true THEN 1 END) as fine_rules
                 FROM company_rules
                 WHERE status = 'active'
             `);
@@ -223,7 +222,7 @@ async function companyRulesRoutes(fastify, options) {
         }
     });
 
-    // POST /api/company-rules - Thêm điều khoản mới
+    // POST /api/company-rules
     fastify.post('/api/company-rules', async (req, reply) => {
         try {
             const {
@@ -239,6 +238,10 @@ async function companyRulesRoutes(fastify, options) {
                 expiry_date,
                 has_fine,
                 fine_amount,
+                has_team_fine,
+                team_fine_amount,
+                has_dept_fine,
+                dept_fine_amount,
                 has_manager_fine,
                 manager_fine_amount,
                 manager_user_id,
@@ -252,7 +255,6 @@ async function companyRulesRoutes(fastify, options) {
             const ruleScope = scope === 'chung' ? 'chung' : 'phong_ban';
             const deptId = ruleScope === 'chung' ? null : (department_id ? Number(department_id) : null);
 
-            // Auto-generate rule_code
             let prefix = 'NQ-CHUNG';
             if (ruleScope === 'phong_ban' && deptId) {
                 const dept = await db.get('SELECT name, code FROM departments WHERE id = $1', [deptId]);
@@ -276,9 +278,9 @@ async function companyRulesRoutes(fastify, options) {
 
             const res = await db.run(`
                 INSERT INTO company_rules 
-                (rule_code, scope, department_id, title, content, doc_link, image_url, effective_date, is_forever, expiry_date, created_by_user_id, created_by_name, has_fine, fine_amount, has_manager_fine, manager_fine_amount, manager_user_id, manager_name, status, created_at, updated_at)
+                (rule_code, scope, department_id, title, content, doc_link, image_url, effective_date, is_forever, expiry_date, created_by_user_id, created_by_name, has_fine, fine_amount, has_team_fine, team_fine_amount, has_dept_fine, dept_fine_amount, has_manager_fine, manager_fine_amount, manager_user_id, manager_name, status, created_at, updated_at)
                 VALUES 
-                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'active', NOW(), NOW())
+                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, 'active', NOW(), NOW())
             `, [
                 finalCode,
                 ruleScope,
@@ -294,6 +296,10 @@ async function companyRulesRoutes(fastify, options) {
                 createdByName,
                 has_fine ? true : false,
                 Number(fine_amount) || 0,
+                has_team_fine ? true : false,
+                Number(team_fine_amount) || 0,
+                has_dept_fine ? true : false,
+                Number(dept_fine_amount) || 0,
                 has_manager_fine ? true : false,
                 Number(manager_fine_amount) || 0,
                 manager_user_id ? Number(manager_user_id) : null,
@@ -307,7 +313,7 @@ async function companyRulesRoutes(fastify, options) {
         }
     });
 
-    // PUT /api/company-rules/:id - Cập nhật điều khoản
+    // PUT /api/company-rules/:id
     fastify.put('/api/company-rules/:id', async (req, reply) => {
         try {
             const { id } = req.params;
@@ -323,6 +329,10 @@ async function companyRulesRoutes(fastify, options) {
                 expiry_date,
                 has_fine,
                 fine_amount,
+                has_team_fine,
+                team_fine_amount,
+                has_dept_fine,
+                dept_fine_amount,
                 has_manager_fine,
                 manager_fine_amount,
                 manager_user_id,
@@ -353,12 +363,16 @@ async function companyRulesRoutes(fastify, options) {
                     expiry_date = $9,
                     has_fine = $10,
                     fine_amount = $11,
-                    has_manager_fine = $12,
-                    manager_fine_amount = $13,
-                    manager_user_id = $14,
-                    manager_name = $15,
+                    has_team_fine = $12,
+                    team_fine_amount = $13,
+                    has_dept_fine = $14,
+                    dept_fine_amount = $15,
+                    has_manager_fine = $16,
+                    manager_fine_amount = $17,
+                    manager_user_id = $18,
+                    manager_name = $19,
                     updated_at = NOW()
-                WHERE id = $16
+                WHERE id = $20
             `, [
                 ruleScope,
                 deptId,
@@ -371,6 +385,10 @@ async function companyRulesRoutes(fastify, options) {
                 expiryDateVal,
                 has_fine ? true : false,
                 Number(fine_amount) || 0,
+                has_team_fine ? true : false,
+                Number(team_fine_amount) || 0,
+                has_dept_fine ? true : false,
+                Number(dept_fine_amount) || 0,
                 has_manager_fine ? true : false,
                 Number(manager_fine_amount) || 0,
                 manager_user_id ? Number(manager_user_id) : null,
@@ -385,7 +403,7 @@ async function companyRulesRoutes(fastify, options) {
         }
     });
 
-    // DELETE /api/company-rules/:id - Xóa điều khoản
+    // DELETE /api/company-rules/:id
     fastify.delete('/api/company-rules/:id', async (req, reply) => {
         try {
             const { id } = req.params;

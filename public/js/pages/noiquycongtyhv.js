@@ -343,8 +343,13 @@ function _nqRenderRules() {
         var createdDateStr = r.created_at ? _nqFormatDate(r.created_at) : '';
 
         var fineAmt = Number(r.fine_amount) || 0;
+        var teamFineAmt = Number(r.team_fine_amount) || 0;
+        var deptFineAmt = Number(r.dept_fine_amount) || 0;
         var mgrFineAmt = Number(r.manager_fine_amount) || 0;
+
         var hasFine = r.has_fine && fineAmt > 0;
+        var hasTeamFine = r.has_team_fine && teamFineAmt > 0;
+        var hasDeptFine = r.has_dept_fine && deptFineAmt > 0;
         var hasMgrFine = r.has_manager_fine && mgrFineAmt > 0;
         var mgrNameStr = r.manager_name || 'Trưởng Phòng / Quản Lý';
 
@@ -386,7 +391,7 @@ function _nqRenderRules() {
                         </div>
                     ` : ''}
 
-                    ${(hasFine || hasMgrFine) ? `
+                    ${(hasFine || hasTeamFine || hasDeptFine || hasMgrFine) ? `
                         <div class="nq-fine-box">
                             <div class="nq-fine-title">
                                 <span>🚨 CHẾ TÀI PHẠT VI PHẠM</span>
@@ -395,6 +400,18 @@ function _nqRenderRules() {
                                 <div class="nq-fine-row">
                                     <span class="nq-fine-label">👤 Cá nhân vi phạm:</span>
                                     <span class="nq-fine-value">${formatVND(fineAmt)}</span>
+                                </div>
+                            ` : ''}
+                            ${hasTeamFine ? `
+                                <div class="nq-fine-row">
+                                    <span class="nq-fine-label">👥 Vi phạm Team:</span>
+                                    <span class="nq-fine-value">${formatVND(teamFineAmt)}</span>
+                                </div>
+                            ` : ''}
+                            ${hasDeptFine ? `
+                                <div class="nq-fine-row">
+                                    <span class="nq-fine-label">🏛️ Vi phạm Phòng ban:</span>
+                                    <span class="nq-fine-value">${formatVND(deptFineAmt)}</span>
                                 </div>
                             ` : ''}
                             ${hasMgrFine ? `
@@ -675,19 +692,37 @@ function _nqRenderModalForm(rule) {
                         🚨 CHẾ TÀI PHẠT VI PHẠM (NẾU CÓ)
                     </div>
 
+                    <!-- 1. Cá nhân -->
                     <div style="display:flex;align-items:center;justify-content:space-between">
                         <label style="font-size:13px;font-weight:700;color:#334155;cursor:pointer">
                             <input type="checkbox" id="nqFormHasFine" ${isEdit && rule.has_fine ? 'checked' : ''} onchange="_nqToggleFineInput(this.checked)"> 👤 Phạt vi phạm cá nhân
                         </label>
-                        <input type="number" class="nq-form-input" id="nqFormFineAmt" style="width:160px" value="${isEdit ? Number(rule.fine_amount) : 0}" placeholder="Số tiền VNĐ" ${isEdit && rule.has_fine ? '' : 'disabled'}>
+                        <input type="number" class="nq-form-input" id="nqFormFineAmt" style="width:160px" value="${isEdit ? Number(rule.fine_amount) : 0}" placeholder="Số tiền VNĐ *" ${isEdit && rule.has_fine ? '' : 'disabled'}>
                     </div>
 
+                    <!-- 2. Team -->
+                    <div style="display:flex;align-items:center;justify-content:space-between">
+                        <label style="font-size:13px;font-weight:700;color:#334155;cursor:pointer">
+                            <input type="checkbox" id="nqFormHasTeamFine" ${isEdit && rule.has_team_fine ? 'checked' : ''} onchange="_nqToggleTeamFineInput(this.checked)"> 👥 Phạt vi phạm Team
+                        </label>
+                        <input type="number" class="nq-form-input" id="nqFormTeamFineAmt" style="width:160px" value="${isEdit ? Number(rule.team_fine_amount) : 0}" placeholder="Số tiền VNĐ *" ${isEdit && rule.has_team_fine ? '' : 'disabled'}>
+                    </div>
+
+                    <!-- 3. Phòng Ban -->
+                    <div style="display:flex;align-items:center;justify-content:space-between">
+                        <label style="font-size:13px;font-weight:700;color:#334155;cursor:pointer">
+                            <input type="checkbox" id="nqFormHasDeptFine" ${isEdit && rule.has_dept_fine ? 'checked' : ''} onchange="_nqToggleDeptFineInput(this.checked)"> 🏛️ Phạt vi phạm Phòng Ban
+                        </label>
+                        <input type="number" class="nq-form-input" id="nqFormDeptFineAmt" style="width:160px" value="${isEdit ? Number(rule.dept_fine_amount) : 0}" placeholder="Số tiền VNĐ *" ${isEdit && rule.has_dept_fine ? '' : 'disabled'}>
+                    </div>
+
+                    <!-- 4. Quản lý liên đới -->
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <div style="display:flex;align-items:center;justify-content:space-between">
                             <label style="font-size:13px;font-weight:700;color:#334155;cursor:pointer">
                                 <input type="checkbox" id="nqFormHasMgrFine" ${isEdit && rule.has_manager_fine ? 'checked' : ''} onchange="_nqToggleMgrFineInput(this.checked)"> 🛡️ Phạt quản lý liên đới
                             </label>
-                            <input type="number" class="nq-form-input" id="nqFormMgrFineAmt" style="width:160px" value="${isEdit ? Number(rule.manager_fine_amount) : 0}" placeholder="Số tiền VNĐ" ${isEdit && rule.has_manager_fine ? '' : 'disabled'}>
+                            <input type="number" class="nq-form-input" id="nqFormMgrFineAmt" style="width:160px" value="${isEdit ? Number(rule.manager_fine_amount) : 0}" placeholder="Số tiền VNĐ *" ${isEdit && rule.has_manager_fine ? '' : 'disabled'}>
                         </div>
                         <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
                             <label style="font-size:12px;font-weight:800;color:#be123c">👤 Tên Quản lý liên đới chịu trách nhiệm phạt:</label>
@@ -738,6 +773,16 @@ function _nqOnScopeRadioChange(val) {
 
 function _nqToggleFineInput(checked) {
     var inp = document.getElementById('nqFormFineAmt');
+    if (inp) inp.disabled = !checked;
+}
+
+function _nqToggleTeamFineInput(checked) {
+    var inp = document.getElementById('nqFormTeamFineAmt');
+    if (inp) inp.disabled = !checked;
+}
+
+function _nqToggleDeptFineInput(checked) {
+    var inp = document.getElementById('nqFormDeptFineAmt');
     if (inp) inp.disabled = !checked;
 }
 
@@ -849,6 +894,13 @@ async function _nqSaveRule() {
     
     var hasFine = document.getElementById('nqFormHasFine')?.checked || false;
     var fineAmt = Number(document.getElementById('nqFormFineAmt')?.value) || 0;
+    
+    var hasTeamFine = document.getElementById('nqFormHasTeamFine')?.checked || false;
+    var teamFineAmt = Number(document.getElementById('nqFormTeamFineAmt')?.value) || 0;
+
+    var hasDeptFine = document.getElementById('nqFormHasDeptFine')?.checked || false;
+    var deptFineAmt = Number(document.getElementById('nqFormDeptFineAmt')?.value) || 0;
+
     var hasMgrFine = document.getElementById('nqFormHasMgrFine')?.checked || false;
     var mgrFineAmt = Number(document.getElementById('nqFormMgrFineAmt')?.value) || 0;
 
@@ -860,6 +912,13 @@ async function _nqSaveRule() {
     if (!content.trim()) { alert('Vui lòng nhập nội dung nội quy'); return; }
     if (!effDate) { alert('Vui lòng chọn ngày áp dụng'); return; }
     if (scope === 'phong_ban' && !deptId) { alert('Vui lòng chọn phòng ban áp dụng'); return; }
+
+    // Validation: Nếu chọn chế tài phạt thì BẮT BUỘC phải ghi số tiền phạt > 0
+    if (hasFine && fineAmt <= 0) { alert('⚠️ Bạn đã chọn Phạt vi phạm cá nhân. Vui lòng nhập số tiền phạt (lớn hơn 0).'); return; }
+    if (hasTeamFine && teamFineAmt <= 0) { alert('⚠️ Bạn đã chọn Phạt vi phạm Team. Vui lòng nhập số tiền phạt (lớn hơn 0).'); return; }
+    if (hasDeptFine && deptFineAmt <= 0) { alert('⚠️ Bạn đã chọn Phạt vi phạm Phòng Ban. Vui lòng nhập số tiền phạt (lớn hơn 0).'); return; }
+    if (hasMgrFine && mgrFineAmt <= 0) { alert('⚠️ Bạn đã chọn Phạt quản lý liên đới. Vui lòng nhập số tiền phạt (lớn hơn 0).'); return; }
+    if (hasMgrFine && !mgrName) { alert('⚠️ Vui lòng nhập tên Quản lý liên đới chịu trách nhiệm phạt.'); return; }
 
     var payload = {
         scope: scope,
@@ -874,6 +933,10 @@ async function _nqSaveRule() {
         expiry_date: expDate,
         has_fine: hasFine,
         fine_amount: fineAmt,
+        has_team_fine: hasTeamFine,
+        team_fine_amount: teamFineAmt,
+        has_dept_fine: hasDeptFine,
+        dept_fine_amount: deptFineAmt,
         has_manager_fine: hasMgrFine,
         manager_fine_amount: mgrFineAmt,
         manager_user_id: mgrId,
