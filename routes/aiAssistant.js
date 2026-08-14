@@ -164,41 +164,45 @@ module.exports = async function (fastify, opts) {
                 return reply.code(400).send({ error: 'Vui lòng nhập nội dung câu hỏi' });
             }
 
-            const currentPage = page || '';
-            let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ toàn bộ nhân viên & quản lý công ty HV.
-TRUY CẬP DỮ LIỆU TOÀN HỆ THỐNG: Bạn hỗ trợ giải đáp về TẤT CẢ MỤC MENU TRÊN HỆ THỐNG CÔNG TY HV:
-1. 📊 Các Chỉ Số Tổng Quan Giám Đốc (/kpimarketing)
-2. 🎯 Mục Tiêu Năm
-3. 🏆 Top Khách & Sale KD
-4. 📈 KPI P. Kinh Doanh / KPI Sale / KPI Marketing
-5. 🤝 Cam Kết Cuộc Họp
-6. 📜 Nội Quy & Điều Khoản (/noiquycongtyhv)
-7. 📋 Bảng Công Việc
-8. 🏢 Hệ Thống Xưởng HV & Quản Lý Xưởng
-9. 💰 Tổng Doanh Số Sale KD & Bảng Xếp Hạng
+            // Fetch user identity & role
+            const userId = req.user?.id;
+            let userRow = null;
+            if (userId) {
+                userRow = await db.get('SELECT id, role, department_id, username FROM users WHERE id = $1', [userId]);
+            }
 
-Nếu người dùng hỏi "hỏi được các mục menu khác không?" hoặc "hỏi menu khác được không?", hãy khẳng định RẤT RÕ RÀNG: "HOÀN TOÀN ĐƯỢC Ạ! Bạn có thể hỏi tôi về bất kỳ menu hay tính năng nào trong hệ thống HV." Trả lời bằng tiếng Việt lịch sự, thân thiện, phân đoạn rõ ràng.`;
+            const role = userRow ? userRow.role : (req.user?.role || '');
+            const isExecutive = (role === 'giam_doc' || role === 'admin');
+
+            const currentPage = page || '';
+            let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV. Trả lời bằng tiếng Việt chuyên nghiệp, lịch sự, phân đoạn rõ ràng, súc tích.
+
+QUY TẮC BẢO MẬT & PHÂN QUYỀN VAI TRÒ:
+- Người dùng hiện tại có vai trò: ${isExecutive ? 'BAN GIÁM ĐỐC / ADMIN (Quyền truy cập cao nhất)' : 'NHÂN VIÊN / QUẢN LÝ PHÒNG BAN (Không có quyền xem Các Chỉ Số Tổng Quan Giám Đốc)'}.
+- VỀ MÀN HÌNH "CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC": Báo cáo này chứa thông tin doanh số tổng công ty, chi phí Marketing Ads và bức tranh tài chính cấp cao.
+  + NẾU NGƯỜI DÙNG KHÔNG PHẢI GIÁM ĐỐC/ADMIN (${!isExecutive ? 'Đúng trường hợp hiện tại' : ''}): Khi người dùng hỏi về số liệu Các Chỉ Số Tổng Quan Giám Đốc hay Doanh số tổng/Chi phí Ads MKT, hãy LỊCH SỰ TỪ CHỐN VÀ THÔNG BÁO: "Xin lỗi Anh/Chị! Báo cáo Các Chỉ Số Tổng Quan Giám Đốc chứa dữ liệu tài chính cấp cao thuộc thẩm quyền Ban Giám Đốc. Tài khoản của Anh/Chị không được phân quyền menu này nên tôi không thể cung cấp số liệu chi tiết. Anh/Chị có thể tra cứu thông tin KPI Sale / Nội Quy & Điều Khoản mà tài khoản của mình có quyền sử dụng ạ."
+  + NẾU NGƯỜI DÙNG LÀ GIÁM ĐỐC/ADMIN (${isExecutive ? 'Đúng trường hợp hiện tại' : ''}): Trả lời chi tiết và đầy đủ các chỉ số tài chính tổng quan.
+`;
 
             // ===== 1. TRANG CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC =====
             if (currentPage.includes('cacchisotongquan') || currentPage.includes('kpimarketing') || currentPage.includes('overview')) {
-                systemContext += `
-BẠN ĐANG TRỢ GIÚP NGƯỜI DÙNG Ở MÀN HÌNH: 📊 CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC / MARKETING OVERVIEW.
+                if (isExecutive) {
+                    systemContext += `
+BẠN ĐANG TRỢ GIÚP BAN GIÁM ĐỐC/ADMIN Ở MÀN HÌNH: 📊 CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC / MARKETING OVERVIEW.
 DỮ LIỆU BÁO CÁO THÁNG 8/2026:
 - Tổng Doanh Số Chốt: 138.160.742đ (Đồng Phục: 9 đơn - 138.160.742đ; Tem PET: 13 đơn; Tổng Cty: 341.518.934đ - 22 đơn)
 - Giá / Đơn trung bình (CPD): 8.025.486đ / đơn
 - Chi phí Quảng cáo Ads MKT: 49.780.000đ (Chi phí/DT Ads: 145.1%)
 - Giá Ads / Lead (CPL): 68.464đ / Lead | Tỷ lệ % chốt tổng thể: 0.85% (Tỷ lệ chốt Ads: 0.38%) | Tỷ lệ Khách cũ: 6.94%
 `;
+                } else {
+                    systemContext += `
+BẠN ĐANG TRỢ GIÚP NHÂN VIÊN KHÔNG CÓ QUYỀN XEM BÁO CÁO GIÁM ĐỐC. Hãy lịch sự từ chối cung cấp các con số tài chính tổng quan.
+`;
+                }
             } 
             // ===== 2. TRANG NỘI QUY & ĐIỀU KHOẢN =====
             else if (currentPage.includes('noiquycongtyhv')) {
-                const userId = req.user?.id;
-                let userRow = null;
-                if (userId) {
-                    userRow = await db.get('SELECT id, role, department_id, username FROM users WHERE id = $1', [userId]);
-                }
-
-                const role = userRow ? userRow.role : (req.user?.role || '');
                 const uname = String(userRow?.username || req.user?.username || '').toLowerCase();
                 const isQuanLyXuong = (uname === 'quanlyxuong' || (role === 'quan_ly_cap_cao' && Number(userRow?.department_id) === 11));
                 const isSuperAdmin = (role === 'giam_doc' || role === 'admin' || (role === 'quan_ly_cap_cao' && !isQuanLyXuong));
@@ -261,14 +265,13 @@ DỮ LIỆU BÁO CÁO THÁNG 8/2026:
                 systemContext += `
 BẠN ĐANG TRỢ GIÚP NGƯỜI DÙNG Ở MÀN HÌNH: 📜 NỘI QUY & ĐIỀU KHOẢN CÔNG TY HV.
 
-DANH SÁCH NỘI QUY HỢP LỆ TRONG CSDL (${rules.length} điều khoản):
+DANH SÁCH NỘI QUY HỢP LỆ CHO TÀI KHOẢN NÀY (${rules.length} điều khoản):
 ${rulesSummaryText}
 
 QUY TẮC PHẢN HỒI NỘI QUY:
 1. Trả lời chính xác thắc mắc dựa trên danh sách điều khoản ở trên.
 2. Khi đề cập đến một điều khoản cụ thể, ĐẢM BẢO gắn thẻ [OPEN_RULE:ID_ĐIỀU_KHOẢN] (Ví dụ: [OPEN_RULE:${rules[0]?.id || 1}]) để người dùng nhấp vào mở Popup điều khoản.
 3. Nếu người dùng hỏi về quy định CHƯA CÓ trong CSDL: Hãy báo rõ "Hiện tại công ty CHƯA CÓ điều khoản này" và thêm tag [SUGGEST_NEW_RULE:Tên Tiêu Đề] để đề xuất tạo mới.
-4. Nếu người dùng hỏi về các MENU KHÁC hay tính năng khác ngoài Nội quy: Vẫn thoải mái hỗ trợ và định hướng cho người dùng đầy đủ.
 `;
             } else {
                 systemContext += `
