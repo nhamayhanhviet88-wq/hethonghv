@@ -380,17 +380,6 @@ function _nqRenderRules() {
     if (!grid) return;
 
     var displayRules = _nqState.rules;
-    if (!_nqCanAddOrEdit()) {
-        if (typeof currentUser !== 'undefined' && currentUser && currentUser.department_id) {
-            displayRules = displayRules.filter(function(r) {
-                return r.scope === 'chung' || String(r.department_id) === String(currentUser.department_id);
-            });
-        } else {
-            displayRules = displayRules.filter(function(r) {
-                return r.scope === 'chung';
-            });
-        }
-    }
 
     if (displayRules.length === 0) {
         grid.innerHTML = `

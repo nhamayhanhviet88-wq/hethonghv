@@ -180,20 +180,51 @@ async function companyRulesRoutes(fastify, options) {
             }
 
             const role = userRow ? userRow.role : (reqUser?.role || '');
-            const isHighLevel = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao');
+            const uname = String(userRow?.username || reqUser?.username || '').toLowerCase();
+            const isQuanLyXuong = (uname === 'quanlyxuong' || (role === 'quan_ly_cap_cao' && Number(userRow?.department_id) === 11));
+            const isSuperAdmin = (role === 'giam_doc' || role === 'admin' || (role === 'quan_ly_cap_cao' && !isQuanLyXuong));
 
             let statsWhereClauses = ["status = 'active'"];
             let statsParams = [];
 
-            // 2. Nếu không phải Giám Đốc/Quản Lý Cấp Cao: CHỈ CHO XEM NỘI QUY CHUNG + NỘI QUY PHÒNG BAN CỦA CHÍNH MÌNH
-            if (!isHighLevel) {
+            // 2. Phân quyền hiển thị:
+            // - Giám đốc & Quản lý cấp cao văn phòng (Trình...): Xem tất cả 100%.
+            // - Quản lý xưởng (Lê Công Thực - quanlyxuong): Xem Nội quy chung + TẤT CẢ PHÒNG BAN THUỘC HỆ THỐNG XƯỞNG HV.
+            // - Nhân viên / Quản lý thông thường: Xem Nội quy chung + Phòng ban của mình & phòng ban con.
+            if (isQuanLyXuong) {
+                const xuongDepts = await db.all(`
+                    WITH RECURSIVE xuong_tree AS (
+                        SELECT id FROM departments WHERE id = 11
+                        UNION ALL
+                        SELECT d.id FROM departments d JOIN xuong_tree xt ON d.parent_id = xt.id
+                    )
+                    SELECT id FROM xuong_tree
+                `);
+                const xuongDeptIds = xuongDepts.map(d => Number(d.id));
+
+                params.push(xuongDeptIds);
+                whereClauses.push(`(cr.scope = 'chung' OR cr.department_id = ANY($${params.length}::int[]))`);
+
+                statsParams.push(xuongDeptIds);
+                statsWhereClauses.push(`(scope = 'chung' OR department_id = ANY($${statsParams.length}::int[]))`);
+            } else if (!isSuperAdmin) {
                 const userDeptId = userRow?.department_id;
                 if (userDeptId) {
-                    params.push(Number(userDeptId));
-                    whereClauses.push(`(cr.scope = 'chung' OR cr.department_id = $${params.length})`);
+                    const userDepts = await db.all(`
+                        WITH RECURSIVE dept_tree AS (
+                            SELECT id FROM departments WHERE id = $1
+                            UNION ALL
+                            SELECT d.id FROM departments d JOIN dept_tree dt ON d.parent_id = dt.id
+                        )
+                        SELECT id FROM dept_tree
+                    `, [userDeptId]);
+                    const deptIds = userDepts.map(d => Number(d.id));
 
-                    statsParams.push(Number(userDeptId));
-                    statsWhereClauses.push(`(scope = 'chung' OR department_id = $${statsParams.length})`);
+                    params.push(deptIds);
+                    whereClauses.push(`(cr.scope = 'chung' OR cr.department_id = ANY($${params.length}::int[]))`);
+
+                    statsParams.push(deptIds);
+                    statsWhereClauses.push(`(scope = 'chung' OR department_id = ANY($${statsParams.length}::int[]))`);
                 } else {
                     whereClauses.push(`cr.scope = 'chung'`);
                     statsWhereClauses.push(`scope = 'chung'`);
