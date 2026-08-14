@@ -441,7 +441,7 @@ function _nqRenderRules() {
                         ${createdDateStr ? `<div class="nq-card-meta-item"><span>🕒 Ngày tạo:</span> ${createdDateStr}</div>` : ''}
                     </div>
 
-                    <div class="nq-card-content">${escapeHtml(r.content)}</div>
+                    <div class="nq-card-content">${escapeHtml((r.content || '').trim())}</div>
 
                     ${r.doc_link ? `
                         <a href="${r.doc_link}" target="_blank" class="nq-doc-link-btn" onclick="event.stopPropagation()">
@@ -567,9 +567,7 @@ function _nqOpenDetailModal(id) {
 
                 <div>
                     <label style="font-size:14px;font-weight:900;color:#1e293b;margin-bottom:8px;display:block">📜 Nội Dung Chi Tiết Điều Khoản:</label>
-                    <div style="font-size:14px;color:#1e293b;line-height:1.75;white-space:pre-line;background:#f8fafc;padding:18px 20px;border-radius:12px;border:1px solid #e2e8f0;word-break:break-word;max-height:380px;overflow-y:auto">
-                        ${escapeHtml(rule.content)}
-                    </div>
+                    <div style="font-size:14px;color:#1e293b;line-height:1.75;white-space:pre-line;background:#f8fafc;padding:18px 20px;border-radius:12px;border:1px solid #e2e8f0;word-break:break-word;max-height:380px;overflow-y:auto">${escapeHtml((rule.content || '').trim())}</div>
                 </div>
 
                 ${rule.doc_link ? `
