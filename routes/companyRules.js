@@ -29,7 +29,7 @@ async function companyRulesRoutes(fastify, options) {
             const depts = await db.all(`
                 SELECT 
                     d.id, d.name, d.code, d.parent_id, d.display_order, d.head_user_id,
-                    u.fullname as head_fullname, u.username as head_username, u.role as head_role
+                    u.full_name as head_fullname, u.username as head_username, u.role as head_role
                 FROM departments d
                 LEFT JOIN users u ON u.id = d.head_user_id
                 WHERE d.status = 'active'
@@ -37,7 +37,7 @@ async function companyRulesRoutes(fastify, options) {
             `);
             
             const managers = await db.all(`
-                SELECT id, fullname, username, role, department_id 
+                SELECT id, full_name as fullname, username, role, department_id 
                 FROM users 
                 WHERE role IN ('giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong') AND status = 'active'
             `);
