@@ -80,7 +80,10 @@ async function renderNoiquycongtyhvPage(container) {
             .nq-card-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: #64748b; font-weight: 600; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #f1f5f9; }
             .nq-card-meta-item { display: flex; align-items: center; gap: 5px; }
 
-            .nq-card-content { font-size: 13px; color: #334155; line-height: 1.6; white-space: pre-line; background: #fff; word-break: break-word; }
+            .nq-card-content { font-size: 13px; color: #334155; line-height: 1.6; white-space: pre-line; background: #fff; word-break: break-word; max-height: 180px; overflow-y: auto; padding-right: 6px; }
+            .nq-card-content::-webkit-scrollbar { width: 5px; }
+            .nq-card-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+            .nq-card-content::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
             .nq-doc-link-btn { display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #3730a3; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; transition: all 0.2s; border: 1px solid #c7d2fe; margin-top: 4px; width: fit-content; }
             .nq-doc-link-btn:hover { background: #4338ca; color: #fff; border-color: #4338ca; }
