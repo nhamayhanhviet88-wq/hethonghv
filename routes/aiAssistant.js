@@ -2,6 +2,24 @@ const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const https = require('https');
 
+async function getUserAllowedFeatures(userId, deptId) {
+    if (!userId) return [];
+    try {
+        const rows = await db.all(`
+            SELECT DISTINCT feature
+            FROM permissions
+            WHERE can_view = 1
+              AND (
+                (target_type = 'user' AND target_id = $1)
+                OR (target_type = 'department' AND target_id = $2)
+              )
+        `, [userId, deptId || 0]);
+        return rows.map(r => r.feature);
+    } catch(e) {
+        return [];
+    }
+}
+
 async function callSingleModel(modelName, apiKey, systemPrompt, userMessage, history = []) {
     return new Promise((resolve, reject) => {
         const contents = [];
@@ -164,7 +182,7 @@ module.exports = async function (fastify, opts) {
                 return reply.code(400).send({ error: 'Vui lòng nhập nội dung câu hỏi' });
             }
 
-            // Fetch user identity & role
+            // Fetch user identity & role & permissions
             const userId = req.user?.id;
             let userRow = null;
             if (userId) {
@@ -172,31 +190,52 @@ module.exports = async function (fastify, opts) {
             }
 
             const role = userRow ? userRow.role : (req.user?.role || '');
+            const username = String(userRow?.username || req.user?.username || '').toLowerCase();
             const userName = userRow ? (userRow.full_name || userRow.username) : (req.user?.username || '');
-            const isExecutive = (role === 'giam_doc' || role === 'admin');
-            const isManager = (isExecutive || role === 'quan_ly_cap_cao' || role === 'truong_phong');
+
+            // Super Access Check: Giám Đốc, Admin, hoặc Lê Việt Trinh (trinh)
+            const isSuperAccess = (role === 'giam_doc' || role === 'admin' || username === 'trinh');
 
             const currentPage = page || '';
             let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV. Trả lời bằng tiếng Việt chuyên nghiệp, lịch sự, phân đoạn rõ ràng, súc tích.
 
-THÔNG TIN TÀI KHOẢN ĐANG HỎI:
-- Họ tên/Username: ${userName}
-- Vai trò hệ thống: ${isExecutive ? 'Ban Giám Đốc / Admin' : (isManager ? 'Quản Lý / Trưởng Phòng' : 'Nhân Viên')}
-
-QUY TẮC BẢO MẬT BÁO CÁO VÀ DỮ LIỆU NHÂN VIÊN (STRICT PRIVACY & RBAC):
-1. BÁO CÁO CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC:
-   - Nếu người dùng KHÔNG PHẢI Giám Đốc/Admin (${!isExecutive ? 'Đúng trường hợp hiện tại' : ''}) mà hỏi về số liệu tổng công ty / chi phí Ads MKT / báo cáo Giám Đốc: LỊCH SỰ TỪ CHỐI và giải thích báo cáo này thuộc thẩm quyền Giám Đốc.
-2. BẢO MẬT DỮ LIỆU RIÊNG TƯ GIỮA CÁC NHÂN VIÊN SALE (PEER DATA PRIVACY):
-   - Nhân viên Sale A KHÔNG ĐƯỢC PHÉP xem hay hỏi về số liệu doanh số chi tiết, danh sách khách hàng, tỷ lệ chốt đơn hay thu nhập/phạt riêng của nhân viên Sale B.
-   - NẾU TÀI KHOẢN HIỆN TẠI LÀ NHÂN VIÊN (${!isManager ? 'Đúng trường hợp hiện tại' : ''}) mà hỏi thông tin riêng của nhân viên khác (ví dụ: "doanh số của nhân viên B bao nhiêu", "khách của B là ai"): Hãy LỊCH SỰ TỪ CHỐI và thông báo: "Xin lỗi Anh/Chị! Số liệu doanh số chi tiết và khách hàng của đồng nghiệp được bảo mật riêng tư. Tôi chỉ có thể hỗ trợ Anh/Chị tra cứu thông tin KPI của chính tài khoản ${userName} hoặc thông tin Bảng xếp hạng vinh danh chung ạ."
-   - CHỈ KHI TÀI KHOẢN LÀ QUẢN LÝ / TRƯỞNG PHÒNG / GIÁM ĐỐC (${isManager ? 'Đúng trường hợp hiện tại' : ''}): Mới được phép xem và tổng hợp số liệu của các nhân viên thuộc cấp.
+THÔNG TIN TÀI KHOẢN ĐANG ĐĂNG NHẬP:
+- Họ tên: ${userName} (Username: ${username})
+- Vai trò hệ thống: ${isSuperAccess ? 'SUPER ADMIN (Giám Đốc / Admin / Quản Lý Cấp Cao Lê Việt Trinh)' : 'NHÓM BỊ GIỚI HẠN PHÂN QUYỀN (Lê Công Thực / Quản lý xưởng / Quản lý / Nhân viên)'}
 `;
+
+            if (isSuperAccess) {
+                systemContext += `
+BẢO MẬT & ĐẶC QUYỀN SUPER ADMIN:
+- Tài khoản này LÀ Ban Giám Đốc / Admin / Lê Việt Trinh: ĐƯỢC QUYỀN HỎI THOẢI MÁI TOÀN BỘ SỐ LIỆU CÔNG TY, BÁO CÁO TÀI CHÍNH, DOANH SỐ TỔNG, CHI PHÍ ADS MKT, SO SÁNH NHÂN SỰ, NỘI QUY PHÒNG BAN...
+- Cung cấp dữ liệu phân tích đầy đủ và chi tiết 100%.
+`;
+            } else {
+                // Fetch allowed features from DB permissions table
+                const allowedFeatures = await getUserAllowedFeatures(userId, userRow?.department_id);
+
+                systemContext += `
+BẢO MẬT BẮT BUỘC 2 LỚP CHO TÀI KHOẢN BỊ GIỚI HẠN:
+DANH SÁCH MENU/TÍNH NĂNG TÀI KHOẢN NÀY ĐƯỢC PHÂN QUYỀN XEM TRONG CSDL (Feature Keys):
+${allowedFeatures.length > 0 ? allowedFeatures.join(', ') : 'Chỉ có Nội Quy Chung'}
+
+QUY TẮC BẢO MẬT LỚP 1 - PHÂN QUYỀN MENU:
+1. Trợ lý AI CHỈ ĐƯỢC TRẢ LỜI các danh mục Menu mà tài khoản này ĐƯỢC PHÂN QUYỀN XEM trong CSDL (danh sách Feature Keys trên).
+2. Nếu người dùng hỏi về một Menu/Danh mục KHÔNG CÓ trong danh sách trên (hoặc không được tích Xem) (Ví dụ: "Các Chỉ Số Tổng Quan Giám Đốc", "Báo cáo doanh số Ads", "Quản lý nhân sự"...):
+   -> AI PHẢI LỊCH SỰ TỪ CHỐN: "Rất tiếc! Tài khoản của Anh/Chị không được phân quyền truy cập xem danh mục [Tên Menu]. Tôi không thể cung cấp thông tin này."
+
+QUY TẮC BẢO MẬT LỚP 2 - BẢO MẬT SỐ LIỆU RIÊNG TƯ GIỮA CÁC ĐỒNG NGHIỆP:
+1. Dù một Menu ĐƯỢC PHÂN QUYỀN XEM (Ví dụ: Top Khách & Sale KD, KPI P.Kinh Doanh, Bảng Công Việc...), nếu câu hỏi liên quan đến SỐ LIỆU RIÊNG CỦA ĐỒNG NGHIỆP KHÁC (Doanh số, số đơn, khách hàng cá nhân, thu nhập, thưởng/phạt riêng của nhân sự B):
+   -> AI PHẢI LỊCH SỰ TỪ CHỐN BẢO MẬT: "Xin lỗi Anh/Chị! Số liệu doanh số chi tiết và khách hàng của đồng nghiệp được bảo mật riêng tư. Tôi chỉ có thể hỗ trợ Anh/Chị tra cứu thông tin của chính tài khoản ${userName} hoặc thông tin Bảng vinh danh chung ạ."
+2. Người dùng CHỈ ĐƯỢC HỎI số liệu cá nhân của CHÍNH MÌNH (tài khoản ${userName}) hoặc các quy định nội quy chung.
+`;
+            }
 
             // ===== 1. TRANG CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC =====
             if (currentPage.includes('cacchisotongquan') || currentPage.includes('kpimarketing') || currentPage.includes('overview')) {
-                if (isExecutive) {
+                if (isSuperAccess) {
                     systemContext += `
-BẠN ĐANG TRỢ GIÚP BAN GIÁM ĐỐC/ADMIN Ở MÀN HÌNH: 📊 CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC / MARKETING OVERVIEW.
+BẠN ĐANG TRỢ GIÚP SUPER ADMIN Ở MÀN HÌNH: 📊 CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC / MARKETING OVERVIEW.
 DỮ LIỆU BÁO CÁO THÁNG 8/2026:
 - Tổng Doanh Số Chốt: 138.160.742đ (Đồng Phục: 9 đơn - 138.160.742đ; Tem PET: 13 đơn; Tổng Cty: 341.518.934đ - 22 đơn)
 - Giá / Đơn trung bình (CPD): 8.025.486đ / đơn
@@ -205,15 +244,14 @@ DỮ LIỆU BÁO CÁO THÁNG 8/2026:
 `;
                 } else {
                     systemContext += `
-BẠN ĐANG TRỢ GIÚP NHÂN VIÊN KHÔNG CÓ QUYỀN XEM BÁO CÁO GIÁM ĐỐC. Hãy lịch sự từ chối cung cấp các con số tài chính tổng quan.
+BẠN ĐANG TRỢ GIÚP TÀI KHOẢN BỊ GIỚI HẠN. Báo cáo này bị khóa phân quyền. Hãy từ chối cung cấp thông tin.
 `;
                 }
             } 
             // ===== 2. TRANG NỘI QUY & ĐIỀU KHOẢN =====
             else if (currentPage.includes('noiquycongtyhv')) {
-                const uname = String(userRow?.username || req.user?.username || '').toLowerCase();
-                const isQuanLyXuong = (uname === 'quanlyxuong' || (role === 'quan_ly_cap_cao' && Number(userRow?.department_id) === 11));
-                const isSuperAdmin = (role === 'giam_doc' || role === 'admin' || (role === 'quan_ly_cap_cao' && !isQuanLyXuong));
+                const isQuanLyXuong = (username === 'quanlyxuong' || (role === 'quan_ly_cap_cao' && Number(userRow?.department_id) === 11));
+                const isSuperAdmin = (role === 'giam_doc' || role === 'admin' || username === 'trinh' || (role === 'quan_ly_cap_cao' && !isQuanLyXuong));
 
                 let whereClauses = ["cr.status = 'active'"];
                 let params = [];
