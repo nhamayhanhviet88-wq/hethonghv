@@ -231,7 +231,34 @@
                 cursor: pointer;
                 transition: background 0.2s;
             }
-            .hv-ai-send-btn:hover { background: #3730a3; }
+            /* Modal Standalone Styles */
+            .hv-ai-modal-overlay {
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 100005; padding: 20px; animation: hvAiSlideUp 0.2s ease-out;
+            }
+            .hv-ai-modal {
+                background: #ffffff; border-radius: 16px; width: 100%; max-width: 520px;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); display: flex; flex-direction: column;
+                overflow: hidden; border: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+            .hv-ai-modal-hdr {
+                padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex;
+                justify-content: space-between; align-items: center; background: #f8fafc;
+            }
+            .hv-ai-modal-hdr h3 { margin: 0; font-size: 17px; font-weight: 900; color: #0f172a; }
+            .hv-ai-modal-close { background: none; border: none; font-size: 20px; font-weight: 700; color: #94a3b8; cursor: pointer; }
+            .hv-ai-modal-body { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+            .hv-ai-modal-ftr { padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; background: #f8fafc; }
+            .hv-ai-input-field {
+                width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px;
+                font-size: 13px; outline: none; transition: border-color 0.2s; box-sizing: border-box;
+            }
+            .hv-ai-input-field:focus { border-color: #4338ca; box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); }
+            .hv-ai-btn-save { background: #4338ca; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; }
+            .hv-ai-btn-save:hover { background: #3730a3; }
+            .hv-ai-btn-cancel { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; }
         `;
         document.head.appendChild(style);
     }
@@ -429,29 +456,29 @@
         if (existing) existing.remove();
 
         var overlay = document.createElement('div');
-        overlay.className = 'nq-modal-overlay';
+        overlay.className = 'hv-ai-modal-overlay';
         overlay.id = 'hvAiConfigOverlay';
         overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
         overlay.innerHTML = `
-            <div class="nq-modal" style="max-width:540px">
-                <div class="nq-modal-hdr">
+            <div class="hv-ai-modal">
+                <div class="hv-ai-modal-hdr">
                     <h3>⚙️ Cấu Hình Google Gemini API Key</h3>
-                    <button class="nq-modal-close" onclick="document.getElementById('hvAiConfigOverlay').remove()">✕</button>
+                    <button class="hv-ai-modal-close" onclick="document.getElementById('hvAiConfigOverlay').remove()">✕</button>
                 </div>
-                <div class="nq-modal-body">
+                <div class="hv-ai-modal-body">
                     <div style="font-size:13px;color:#475569;line-height:1.5">
                         Nhập khóa <strong>Gemini API Key Miễn Phí</strong> tạo từ Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#4338ca;font-weight:700">aistudio.google.com</a>) để kích hoạt Trợ Lý AI cho toàn hệ thống HV.
                     </div>
-                    <div class="nq-form-group">
-                        <label>🔑 Nhập Gemini API Key:</label>
-                        <input type="password" id="hvAiApiKeyInput" class="nq-input" placeholder="Dán mã AIzaSy... vào đây">
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                        <label style="font-size:13px;font-weight:800;color:#334155">🔑 Nhập Gemini API Key:</label>
+                        <input type="password" id="hvAiApiKeyInput" class="hv-ai-input-field" placeholder="Dán mã AIzaSy... vào đây">
                     </div>
                     <div id="hvAiConfigStatus" style="font-size:13px;font-weight:700"></div>
                 </div>
-                <div class="nq-modal-ftr">
-                    <button class="nq-btn-secondary" onclick="document.getElementById('hvAiConfigOverlay').remove()">Hủy</button>
-                    <button class="nq-btn-primary" onclick="window._hvAiSaveConfig()">💾 Lưu API Key</button>
+                <div class="hv-ai-modal-ftr">
+                    <button class="hv-ai-btn-cancel" onclick="document.getElementById('hvAiConfigOverlay').remove()">Hủy</button>
+                    <button class="hv-ai-btn-save" onclick="window._hvAiSaveConfig()">💾 Lưu API Key</button>
                 </div>
             </div>
         `;
