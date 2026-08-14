@@ -285,6 +285,20 @@ function _nqUpdateStats() {
     if (elFine) elFine.textContent = s.fineRules;
 }
 
+function _nqFormatDate(dStr) {
+    if (!dStr) return '';
+    try {
+        var s = String(dStr).substring(0, 10);
+        var parts = s.split('-');
+        if (parts.length === 3) {
+            return parts[2] + '/' + parts[1] + '/' + parts[0];
+        }
+        return dStr;
+    } catch(e) {
+        return dStr;
+    }
+}
+
 function _nqRenderRules() {
     var grid = document.getElementById('nqRulesGrid');
     if (!grid) return;
@@ -304,8 +318,8 @@ function _nqRenderRules() {
         var isChung = r.scope === 'chung';
         var deptName = isChung ? 'Nội Quy Chung' : (r.department_name || 'Phòng Ban');
         
-        var effDateStr = r.effective_date ? formatVNShortDate(r.effective_date) : 'Đang cập nhật';
-        var createdDateStr = r.created_at ? formatVNShortDate(r.created_at) : '';
+        var effDateStr = r.effective_date ? _nqFormatDate(r.effective_date) : 'Đang cập nhật';
+        var createdDateStr = r.created_at ? _nqFormatDate(r.created_at) : '';
 
         var fineAmt = Number(r.fine_amount) || 0;
         var mgrFineAmt = Number(r.manager_fine_amount) || 0;
