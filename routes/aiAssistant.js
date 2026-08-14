@@ -2,7 +2,7 @@ const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const https = require('https');
 
-async function callGeminiAPI(apiKey, systemPrompt, userMessage, history = []) {
+async function callSingleModel(modelName, apiKey, systemPrompt, userMessage, history = []) {
     return new Promise((resolve, reject) => {
         const contents = [];
 
@@ -38,13 +38,13 @@ async function callGeminiAPI(apiKey, systemPrompt, userMessage, history = []) {
             contents: contents,
             generationConfig: {
                 temperature: 0.3,
-                maxOutputTokens: 1200
+                maxOutputTokens: 2048
             }
         });
 
         const options = {
             hostname: 'generativelanguage.googleapis.com',
-            path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+            path: `/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -73,6 +73,22 @@ async function callGeminiAPI(apiKey, systemPrompt, userMessage, history = []) {
         req.write(postData);
         req.end();
     });
+}
+
+async function callGeminiWithFailover(apiKey, systemPrompt, userMessage, history = []) {
+    const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    let lastError = null;
+
+    for (const model of candidateModels) {
+        try {
+            const reply = await callSingleModel(model, apiKey, systemPrompt, userMessage, history);
+            return reply;
+        } catch (err) {
+            console.warn(`[AI Failover] Model ${model} failed (${err.message}). Trying fallback model...`);
+            lastError = err;
+        }
+    }
+    throw lastError || new Error('Máy chủ Google AI đang có lưu lượng truy cập cao trong giây lát. Vui lòng bấm Gửi lại sau 5 giây.');
 }
 
 module.exports = async function (fastify, opts) {
@@ -146,7 +162,7 @@ module.exports = async function (fastify, opts) {
             }
 
             const currentPage = page || '';
-            let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV. Trả lời bằng tiếng Việt chuyên nghiệp, lịch sự, phân đoạn rõ ràng.`;
+            let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV. Trả lời bằng tiếng Việt chuyên nghiệp, lịch sự, phân đoạn rõ ràng, súc tích.`;
 
             // ===== 1. TRANG CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC =====
             if (currentPage.includes('cacchisotongquan') || currentPage.includes('kpimarketing') || currentPage.includes('overview')) {
@@ -156,15 +172,15 @@ Nhiệm vụ: Phân tích số liệu tổng quan doanh số chốt, số đơn 
 
 DỮ LIỆU BÁO CÁO HIỆN TẠI (THÁNG 8/2026):
 - Tổng Doanh Số Chốt: 138.160.742đ (Đồng Phục: 9 đơn - 138.160.742đ; Tem PET: 13 đơn; Tổng Cty: 341.518.934đ - 22 đơn)
-- Giá / Đơn trung bình (CPD): 8.025.486đ
+- Giá / Đơn trung bình (CPD): 8.025.486đ / đơn
 - Chi phí Quảng cáo Ads MKT: 49.780.000đ (Chi phí/DT Ads: 145.1%)
 - Giá Ads / Lead (CPL): 68.464đ / Lead
 - Tỷ lệ % chốt tổng thể: 0.85% (Tỷ lệ chốt Ads: 0.38%)
 - Tỷ lệ % Khách cũ: 6.94%
 
-HƯỚNG DẪN TRẢ LỜI CHO MÀN HÌNH CÁC CHỈ SỐ TỔNG QUAN:
-- Khi người dùng hỏi về hiệu quả doanh số, chi phí Ads, tỷ lệ chốt hay bài toán tối ưu: Hãy phân tích dựa trên các con số chính xác ở trên.
-- Đưa ra góc nhìn tư vấn giúp Giám Đốc/Quản lý đánh giá xem chỉ số nào đang tốt (Giá đơn cao 8 triệuđ), chỉ số nào cần cải thiện (Tỷ lệ chốt Ads 0.38%, CPL 68k).
+HƯỚNG DẪN TRẢ LỜI ĐÁNH GIÁ CHỈ SỐ:
+- Khi người dùng hỏi "giá/đơn 8.025.486đ có cao quá không?" hoặc các câu hỏi phân tích: Hãy đánh giá trực tiếp rằng mức Giá/đơn 8 triệuđ là mức doanh thu trung bình trên 1 đơn hàng KHÁ TỐT đối với ngành may mặc đồng phục doanh nghiệp / xưởng sx. Tuy nhiên, cần cân đối với Chi phí MKT Ads (49.78M) và Tỷ lệ chốt Ads (0.38%) để tối ưu thêm lợi nhuận.
+- Đưa ra nhận xét ngắn gọn, thực tế, đúng các con số trên.
 `;
             } 
             // ===== 2. TRANG NỘI QUY & ĐIỀU KHOẢN =====
@@ -253,7 +269,7 @@ Nhiệm vụ: Giải đáp các thắc mắc chung về hệ thống quản tr�
 `;
             }
 
-            const aiReply = await callGeminiAPI(apiKey, systemContext, message, history);
+            const aiReply = await callGeminiWithFailover(apiKey, systemContext, message, history);
             return { reply: aiReply };
 
         } catch (err) {
