@@ -2423,6 +2423,7 @@ async function handleRoute() {
                     }
                     break;
                 case 'design-draft': case 'designdraft': renderDesignDraftPage(content); break;
+                case 'noi-quy-cong-ty': case 'noiquycongtyhv': renderNoiquycongtyhvPage(content); break;
                 default:
                     // ========== CONVENTION-BASED AUTO-RENDER ==========
                     // Try multiple naming patterns to auto-discover page render functions
