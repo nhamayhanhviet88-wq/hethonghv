@@ -818,8 +818,18 @@
         }
     };
 
-    // Real-time calculation of Quarters and Full Year totals
+    // Calculate totals across 12 months & 4 Quarters
     window._mtnRecalculateTotals = function() {
+        var totalYearTargetRev = 0;
+        var totalYearActualRev = 0;
+        var totalYearTargetOrders = 0;
+        var totalYearActualOrders = 0;
+
+        var yearTotalSpent = 0;
+        var yearTotalRevenueAds = 0;
+        var yearTotalOrdersAds = 0;
+        var yearTotalLeads = 0;
+
         var quarters = [
             { id: 'q1', months: [1, 2, 3] },
             { id: 'q2', months: [4, 5, 6] },
@@ -827,16 +837,16 @@
             { id: 'q4', months: [10, 11, 12] }
         ];
 
-        var totalYearTargetRev = 0;
-        var totalYearActualRev = 0;
-        var totalYearTargetOrders = 0;
-        var totalYearActualOrders = 0;
-
         quarters.forEach(function(q) {
             var qTargetRev = 0;
             var qActualRev = 0;
             var qTargetOrders = 0;
             var qActualOrders = 0;
+
+            var qTotalSpent = 0;
+            var qTotalRevenueAds = 0;
+            var qTotalOrdersAds = 0;
+            var qTotalLeads = 0;
 
             q.months.forEach(function(m) {
                 // Update month comparison box
@@ -855,6 +865,11 @@
                 qTargetOrders += ordVal;
                 qActualRev += actRev;
                 qActualOrders += actOrd;
+
+                qTotalSpent += Number(mData.actual_spent || 0);
+                qTotalRevenueAds += Number(mData.actual_revenue_ads || 0);
+                qTotalOrdersAds += Number(mData.actual_orders_ads || 0);
+                qTotalLeads += Number(mData.actual_leads || 0);
             });
 
             totalYearTargetRev += qTargetRev;
@@ -862,18 +877,30 @@
             totalYearActualRev += qActualRev;
             totalYearActualOrders += qActualOrders;
 
-            var diffQRev = qActualRev - qTargetRev;
-            var diffQOrd = qActualOrders - qTargetOrders;
-            var pctQRev = qTargetRev > 0 ? ((qActualRev / qTargetRev) * 100) : 0;
-            var pctQOrd = qTargetOrders > 0 ? ((qActualOrders / qTargetOrders) * 100) : 0;
+            yearTotalSpent += qTotalSpent;
+            yearTotalRevenueAds += qTotalRevenueAds;
+            yearTotalOrdersAds += qTotalOrdersAds;
+            yearTotalLeads += qTotalLeads;
 
             var isMkt = window._mtnCategory === 'marketing';
+
+            // Phương án B: Weighted Real Totals for Marketing Quarter
+            var qActualCpo = isMkt ? (qTotalOrdersAds > 0 ? Math.round(qTotalSpent / qTotalOrdersAds) : 0) : qActualOrders;
+            var qActualCostRatio = isMkt ? (qTotalRevenueAds > 0 ? Math.round((qTotalSpent / qTotalRevenueAds) * 10000) / 100 : 0) : qActualRev;
+
+            var targetCpoAvg = isMkt ? (qTargetOrders > 0 ? Math.round(qTargetOrders / 3) : 0) : qTargetOrders;
+            var targetCostRatioAvg = isMkt ? (qTargetRev > 0 ? Math.round((qTargetRev / 3) * 100) / 100 : 0) : qTargetRev;
+
+            var diffQRev = qActualCostRatio - targetCostRatioAvg;
+            var diffQOrd = qActualCpo - targetCpoAvg;
+            var pctQRev = targetCostRatioAvg > 0 ? ((qActualCostRatio / targetCostRatioAvg) * 100) : 0;
+            var pctQOrd = targetCpoAvg > 0 ? ((qActualCpo / targetCpoAvg) * 100) : 0;
 
             // Update Header Quý
             var qHdrRev = document.getElementById('mtnQHeaderRev_' + q.id);
             var qHdrOrd = document.getElementById('mtnQHeaderOrders_' + q.id);
-            if (qHdrRev) qHdrRev.textContent = isMkt ? ('CPO: ' + (qTargetOrders > 0 ? formatVND(Math.round(qTargetOrders / 3)) : '0 đ')) : formatVND(qTargetRev);
-            if (qHdrOrd) qHdrOrd.textContent = isMkt ? (qTargetRev > 0 ? (qTargetRev / 3).toFixed(1) + '%' : '0%') : (formatNum(qTargetOrders) + ' đơn');
+            if (qHdrRev) qHdrRev.textContent = isMkt ? ('CPO: ' + formatVND(targetCpoAvg)) : formatVND(qTargetRev);
+            if (qHdrOrd) qHdrOrd.textContent = isMkt ? (targetCostRatioAvg > 0 ? targetCostRatioAvg.toFixed(1) + '%' : '0%') : (formatNum(qTargetOrders) + ' đơn');
 
             // Update Executive Summary Row 1 (Targets) & Row 2 (Actuals)
             var sumRev = document.getElementById('mtnSum' + q.id.toUpperCase() + 'Rev');
@@ -882,70 +909,76 @@
             var sumActOrd = document.getElementById('mtnSum' + q.id.toUpperCase() + 'ActOrders');
             var sumCmp = document.getElementById('mtnSum' + q.id.toUpperCase() + 'Cmp');
 
-            if (sumRev) sumRev.textContent = isMkt ? ('🎯 CPO: ' + (qTargetOrders > 0 ? formatVND(Math.round(qTargetOrders / 3)) : '0 đ')) : formatVND(qTargetRev);
-            if (sumOrd) sumOrd.textContent = isMkt ? (qTargetRev > 0 ? (qTargetRev / 3).toFixed(1) + '%' : '0%') : ('📦 ' + formatNum(qTargetOrders) + ' đơn');
-            if (sumActRev) sumActRev.textContent = isMkt ? ('🎯 CPO: ' + (qActualOrders > 0 ? formatVND(Math.round(qActualOrders / 3)) : '0 đ')) : formatVND(qActualRev);
-            if (sumActOrd) sumActOrd.textContent = isMkt ? ((qActualRev / 3).toFixed(2) + '%') : ('📦 ' + formatNum(qActualOrders) + ' đơn');
+            if (sumRev) sumRev.textContent = isMkt ? ('🎯 CPO: ' + formatVND(targetCpoAvg)) : formatVND(qTargetRev);
+            if (sumOrd) sumOrd.textContent = isMkt ? (targetCostRatioAvg > 0 ? targetCostRatioAvg.toFixed(1) + '%' : '0%') : ('📦 ' + formatNum(qTargetOrders) + ' đơn');
+            if (sumActRev) sumActRev.textContent = isMkt ? ('🎯 CPO: ' + (qActualCpo > 0 ? formatVND(qActualCpo) : '0 đ')) : formatVND(qActualRev);
+            if (sumActOrd) sumActOrd.textContent = isMkt ? (qActualCostRatio.toFixed(2) + '%') : ('📦 ' + formatNum(qActualOrders) + ' đơn');
 
             if (sumCmp) {
                 var fillWidth = Math.min(Math.max(pctQRev, 0), 100);
-                var fillClass = isMkt ? (qActualRev <= qTargetRev ? 'surplus' : 'deficit') : (diffQRev >= 0 ? 'surplus' : 'deficit');
+                var fillClass = isMkt ? (qActualCostRatio <= targetCostRatioAvg ? 'surplus' : 'deficit') : (diffQRev >= 0 ? 'surplus' : 'deficit');
 
                 var revBadgeText = '';
-                if (qTargetRev > 0) {
+                if (targetCostRatioAvg > 0) {
                     if (isMkt) {
-                        revBadgeText = qActualRev <= qTargetRev ? `<span class="mtn-cmp-row-surplus">🔥 TB: ${(qActualRev / 3).toFixed(1)}%</span>` : `<span class="mtn-cmp-row-deficit">🚨 TB: ${(qActualRev / 3).toFixed(1)}%</span>`;
+                        revBadgeText = qActualCostRatio <= targetCostRatioAvg ? `<span class="mtn-cmp-row-surplus">🔥 CP/DS: ${qActualCostRatio.toFixed(1)}%</span>` : `<span class="mtn-cmp-row-deficit">🚨 CP/DS: ${qActualCostRatio.toFixed(1)}%</span>`;
                     } else if (diffQRev >= 0) {
                         revBadgeText = `<span class="mtn-cmp-row-surplus"><span class="mtn-pulse-icon">🔥</span>Vượt: +${formatVND(diffQRev)} (${pctQRev.toFixed(1)}%)</span>`;
                     } else {
                         revBadgeText = `<span class="mtn-cmp-row-deficit">🚨 Thiếu: -${formatVND(Math.abs(diffQRev))} (${pctQRev.toFixed(1)}%)</span>`;
                     }
                 } else {
-                    revBadgeText = qActualRev > 0 ? `<span class="mtn-cmp-badge neutral">Thực tế: ${isMkt ? (qActualRev / 3).toFixed(2) + '%' : formatVND(qActualRev)}</span>` : `<span class="mtn-cmp-badge neutral">Chưa phát sinh</span>`;
+                    revBadgeText = qActualCostRatio > 0 ? `<span class="mtn-cmp-badge neutral">Thực tế: ${isMkt ? qActualCostRatio.toFixed(2) + '%' : formatVND(qActualRev)}</span>` : `<span class="mtn-cmp-badge neutral">Chưa phát sinh</span>`;
                 }
 
                 var ordBadgeText = '';
-                if (qTargetOrders > 0) {
+                if (targetCpoAvg > 0) {
                     if (isMkt) {
-                        ordBadgeText = `<span class="mtn-cmp-ord-surplus">🎯 CPO TB: ${formatVND(Math.round(qActualOrders / 3))}</span>`;
+                        ordBadgeText = `<span class="mtn-cmp-ord-surplus">🎯 CPO Quý: ${formatVND(qActualCpo)}</span>`;
                     } else if (diffQOrd >= 0) {
                         ordBadgeText = `<span class="mtn-cmp-ord-surplus"><span class="mtn-pulse-icon">📦</span>Vượt: +${formatNum(diffQOrd)} đơn (${pctQOrd.toFixed(1)}%)</span>`;
                     } else {
                         ordBadgeText = `<span class="mtn-cmp-ord-deficit">📦 Thiếu: -${formatNum(Math.abs(diffQOrd))} đơn (${pctQOrd.toFixed(1)}%)</span>`;
                     }
                 } else {
-                    ordBadgeText = qActualOrders > 0 ? `<span style="font-size:11px;font-weight:800;color:#475569">${isMkt ? '🎯 CPO TB: ' + formatVND(Math.round(qActualOrders / 3)) : '📦 Thực tế: ' + formatNum(qActualOrders) + ' đơn'}</span>` : '';
+                    ordBadgeText = qActualCpo > 0 ? `<span style="font-size:11px;font-weight:800;color:#475569">${isMkt ? '🎯 CPO Quý: ' + formatVND(qActualCpo) : '📦 Thực tế: ' + formatNum(qActualOrders) + ' đơn'}</span>` : '';
                 }
 
                 sumCmp.innerHTML = `
                     <div class="mtn-cmp-hdr">
                         <span>⚖️ TỶ LỆ HOÀN THÀNH</span>
-                        <span style="font-size:10px;font-weight:900;color:${(isMkt ? qActualRev <= qTargetRev : diffQRev >= 0) ? '#15803d' : '#dc2626'}">${pctQRev > 0 ? pctQRev.toFixed(1) + '%' : '0.0%'}</span>
+                        <span style="font-size:10px;font-weight:900;color:${(isMkt ? qActualCostRatio <= targetCostRatioAvg : diffQRev >= 0) ? '#15803d' : '#dc2626'}">${pctQRev > 0 ? pctQRev.toFixed(1) + '%' : '0.0%'}</span>
                     </div>
                     <div>${isMkt ? ordBadgeText : revBadgeText}</div>
                     <div style="margin-top:2px">${isMkt ? revBadgeText : ordBadgeText}</div>
-                    ${qTargetRev > 0 ? `<div class="mtn-progress-bar-bg" title="Đạt chỉ tiêu"><div class="mtn-progress-bar-fill ${fillClass}" style="width:${fillWidth}%"></div></div>` : ''}
+                    ${targetCostRatioAvg > 0 ? `<div class="mtn-progress-bar-bg" title="Đạt chỉ tiêu"><div class="mtn-progress-bar-fill ${fillClass}" style="width:${fillWidth}%"></div></div>` : ''}
                 `;
             }
         });
 
         // Update Full Year Executive Row Panels
-        var diffYrRev = totalYearActualRev - totalYearTargetRev;
-        var diffYrOrd = totalYearActualOrders - totalYearTargetOrders;
-        var pctYrRev = totalYearTargetRev > 0 ? ((totalYearActualRev / totalYearTargetRev) * 100) : 0;
-        var pctYrOrd = totalYearTargetOrders > 0 ? ((totalYearActualOrders / totalYearTargetOrders) * 100) : 0;
-
         var isMktYr = window._mtnCategory === 'marketing';
+        var yearActualCpo = isMktYr ? (yearTotalOrdersAds > 0 ? Math.round(yearTotalSpent / yearTotalOrdersAds) : 0) : totalYearActualOrders;
+        var yearActualCostRatio = isMktYr ? (yearTotalRevenueAds > 0 ? Math.round((yearTotalSpent / yearTotalRevenueAds) * 10000) / 100 : 0) : totalYearActualRev;
+
+        var yearTargetCpoAvg = isMktYr ? (totalYearTargetOrders > 0 ? Math.round(totalYearTargetOrders / 12) : 0) : totalYearTargetOrders;
+        var yearTargetCostRatioAvg = isMktYr ? (totalYearTargetRev > 0 ? Math.round((totalYearTargetRev / 12) * 100) / 100 : 0) : totalYearTargetRev;
+
+        var diffYrRev = yearActualCostRatio - yearTargetCostRatioAvg;
+        var diffYrOrd = yearActualCpo - yearTargetCpoAvg;
+        var pctYrRev = yearTargetCostRatioAvg > 0 ? ((yearActualCostRatio / yearTargetCostRatioAvg) * 100) : 0;
+        var pctYrOrd = yearTargetCpoAvg > 0 ? ((yearActualCpo / yearTargetCpoAvg) * 100) : 0;
+
         var yrRev = document.getElementById('mtnSumYearRev');
         var yrOrd = document.getElementById('mtnSumYearOrders');
         var yrActRev = document.getElementById('mtnSumYearActRev');
         var yrActOrd = document.getElementById('mtnSumYearActOrders');
         var yrCmp = document.getElementById('mtnSumYearCmp');
 
-        if (yrRev) yrRev.textContent = isMktYr ? ('🎯 CPO: ' + (totalYearTargetOrders > 0 ? formatVND(Math.round(totalYearTargetOrders / 12)) : '0 đ')) : formatVND(totalYearTargetRev);
-        if (yrOrd) yrOrd.textContent = isMktYr ? (totalYearTargetRev > 0 ? (totalYearTargetRev / 12).toFixed(1) + '%' : '0%') : ('📦 ' + formatNum(totalYearTargetOrders) + ' đơn');
-        if (yrActRev) yrActRev.textContent = isMktYr ? ('🎯 CPO: ' + (totalYearActualOrders > 0 ? formatVND(Math.round(totalYearActualOrders / 12)) : '0 đ')) : formatVND(totalYearActualRev);
-        if (yrActOrd) yrActOrd.textContent = isMktYr ? ((totalYearActualRev / 12).toFixed(2) + '%') : ('📦 ' + formatNum(totalYearActualOrders) + ' đơn');
+        if (yrRev) yrRev.textContent = isMktYr ? ('🎯 CPO: ' + formatVND(yearTargetCpoAvg)) : formatVND(totalYearTargetRev);
+        if (yrOrd) yrOrd.textContent = isMktYr ? (yearTargetCostRatioAvg > 0 ? yearTargetCostRatioAvg.toFixed(1) + '%' : '0%') : ('📦 ' + formatNum(totalYearTargetOrders) + ' đơn');
+        if (yrActRev) yrActRev.textContent = isMktYr ? ('🎯 CPO: ' + (yearActualCpo > 0 ? formatVND(yearActualCpo) : '0 đ')) : formatVND(totalYearActualRev);
+        if (yrActOrd) yrActOrd.textContent = isMktYr ? (yearActualCostRatio.toFixed(2) + '%') : ('📦 ' + formatNum(totalYearActualOrders) + ' đơn');
 
         if (yrCmp) {
             var fillWidthYr = Math.min(Math.max(pctYrRev, 0), 100);
