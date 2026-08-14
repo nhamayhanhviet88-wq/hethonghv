@@ -169,28 +169,11 @@ module.exports = async function(fastify, options) {
             // Daily map per category item: { cat_id -> { day -> { spent, leads, orders, revenue } } }
             const catDailyMap = {};
 
+            const segmentCatIds = new Set((allCats || []).map(c => Number(c.id)).filter(id => !isNaN(id) && id > 0));
+
             (budgetRows || []).forEach(b => {
-                const hName = b.handler_name;
-                handlerSet.add(hName);
-
-                let dayNum = 1;
-                if (b.budget_date && b.budget_date.length >= 10) {
-                    dayNum = parseInt(b.budget_date.substring(8, 10), 10);
-                }
-                if (isNaN(dayNum) || dayNum < 1 || dayNum > daysInMonth) dayNum = 1;
-
-                if (!handlerDailyMap[hName]) handlerDailyMap[hName] = {};
-                if (!handlerDailyMap[hName][dayNum]) {
-                    handlerDailyMap[hName][dayNum] = { spent: 0, budget: 0, leads: 0, orders: 0, revenue: 0 };
-                }
-                handlerDailyMap[hName][dayNum].spent += Number(b.spent_amount || 0);
-                handlerDailyMap[hName][dayNum].budget += Number(b.budget_amount || 0);
-                handlerDailyMap[hName][dayNum].leads += Number(b.lead_count || 0);
-                handlerDailyMap[hName][dayNum].orders += Number(b.order_count || 0);
-                handlerDailyMap[hName][dayNum].revenue += Number(b.revenue_amount || 0);
-
                 let matchedCatIds = [];
-                if (b.category_id) {
+                if (b.category_id && segmentCatIds.has(Number(b.category_id))) {
                     matchedCatIds.push(Number(b.category_id));
                 }
                 
@@ -209,6 +192,30 @@ module.exports = async function(fastify, options) {
                         }
                     });
                 }
+
+                // If activeSegment is filtered and this budget row does not belong to any category in activeSegment, skip it!
+                if (activeSegment !== 'all' && matchedCatIds.length === 0) {
+                    return;
+                }
+
+                const hName = b.handler_name;
+                handlerSet.add(hName);
+
+                let dayNum = 1;
+                if (b.budget_date && b.budget_date.length >= 10) {
+                    dayNum = parseInt(b.budget_date.substring(8, 10), 10);
+                }
+                if (isNaN(dayNum) || dayNum < 1 || dayNum > daysInMonth) dayNum = 1;
+
+                if (!handlerDailyMap[hName]) handlerDailyMap[hName] = {};
+                if (!handlerDailyMap[hName][dayNum]) {
+                    handlerDailyMap[hName][dayNum] = { spent: 0, budget: 0, leads: 0, orders: 0, revenue: 0 };
+                }
+                handlerDailyMap[hName][dayNum].spent += Number(b.spent_amount || 0);
+                handlerDailyMap[hName][dayNum].budget += Number(b.budget_amount || 0);
+                handlerDailyMap[hName][dayNum].leads += Number(b.lead_count || 0);
+                handlerDailyMap[hName][dayNum].orders += Number(b.order_count || 0);
+                handlerDailyMap[hName][dayNum].revenue += Number(b.revenue_amount || 0);
 
                 const uniqueCids = Array.from(new Set(matchedCatIds));
                 uniqueCids.forEach(cid => {
