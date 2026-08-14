@@ -418,7 +418,7 @@ function _nqRenderRules() {
         var mgrNameStr = r.manager_name || 'Trưởng Phòng / Quản Lý';
 
         html += `
-            <div class="nq-card">
+            <div class="nq-card" style="cursor:pointer" onclick="_nqOpenDetailModal(${r.id})">
                 <div class="nq-card-header">
                     <span class="nq-code-badge">${r.rule_code}</span>
                     <span class="nq-scope-badge" style="background:${badgeStyle.bg};color:${badgeStyle.color};border:1px solid ${badgeStyle.border};font-size:12px;font-weight:900;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
@@ -444,14 +444,14 @@ function _nqRenderRules() {
                     <div class="nq-card-content">${escapeHtml(r.content)}</div>
 
                     ${r.doc_link ? `
-                        <a href="${r.doc_link}" target="_blank" class="nq-doc-link-btn">
+                        <a href="${r.doc_link}" target="_blank" class="nq-doc-link-btn" onclick="event.stopPropagation()">
                             <span>🔗 Xem Link Nội Quy Gốc</span>
                         </a>
                     ` : ''}
 
                     ${r.image_url ? `
                         <div style="margin-top:8px">
-                            <img src="${r.image_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #cbd5e1;cursor:pointer" onclick="window.open('${r.image_url}')">
+                            <img src="${r.image_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #cbd5e1;cursor:pointer" onclick="event.stopPropagation(); window.open('${r.image_url}')">
                         </div>
                     ` : ''}
 
@@ -487,20 +487,154 @@ function _nqRenderRules() {
                         </div>
                     ` : ''}
                 </div>
-                ${(_nqCanAddOrEdit() || _nqCanDelete()) ? `
-                    <div class="nq-card-footer">
-                        <div></div>
-                        <div style="display:flex;gap:8px">
-                            ${_nqCanAddOrEdit() ? `<button class="nq-action-btn nq-action-edit" onclick="_nqEditRule(${r.id})">✏️ Sửa</button>` : ''}
-                            ${_nqCanDelete() ? `<button class="nq-action-btn nq-action-del" onclick="_nqDeleteRule(${r.id})">🗑️ Xóa</button>` : ''}
+                <div class="nq-card-footer">
+                    <span style="font-size:12px;font-weight:700;color:#4338ca;display:inline-flex;align-items:center;gap:4px">🔍 Click để xem chi tiết</span>
+                    ${(_nqCanAddOrEdit() || _nqCanDelete()) ? `
+                        <div style="display:flex;gap:8px" onclick="event.stopPropagation()">
+                            ${_nqCanAddOrEdit() ? `<button class="nq-action-btn nq-action-edit" onclick="event.stopPropagation(); _nqEditRule(${r.id})">✏️ Sửa</button>` : ''}
+                            ${_nqCanDelete() ? `<button class="nq-action-btn nq-action-del" onclick="event.stopPropagation(); _nqDeleteRule(${r.id})">🗑️ Xóa</button>` : ''}
                         </div>
-                    </div>
-                ` : ''}
+                    ` : ''}
+                </div>
             </div>
         `;
     });
 
     grid.innerHTML = html;
+}
+
+// ===== POPUP DETAIL MODAL =====
+function _nqOpenDetailModal(id) {
+    var rule = _nqState.rules.find(function(r) { return r.id === id; });
+    if (!rule) return;
+
+    var existingModal = document.getElementById('nqDetailModalOverlay');
+    if (existingModal) existingModal.remove();
+
+    var isChung = rule.scope === 'chung';
+    var deptName = isChung ? 'Nội Quy Chung' : (rule.department_name || 'Phòng Ban');
+    var badgeStyle = _nqGetDeptBadgeStyle(rule.department_name, isChung);
+
+    var effDateStr = rule.effective_date ? _nqFormatDate(rule.effective_date) : 'Đang cập nhật';
+    var expDateStr = (rule.is_forever !== false && rule.is_forever !== 'false') ? '♾️ Mãi Mãi (Vô thời hạn)' : (rule.expiry_date ? ('Đến ' + _nqFormatDate(rule.expiry_date)) : '♾️ Vô thời hạn');
+    var createdDateStr = rule.created_at ? _nqFormatDate(rule.created_at) : '';
+
+    var fineAmt = Number(rule.fine_amount) || 0;
+    var teamFineAmt = Number(rule.team_fine_amount) || 0;
+    var deptFineAmt = Number(rule.dept_fine_amount) || 0;
+    var mgrFineAmt = Number(rule.manager_fine_amount) || 0;
+
+    var hasFine = rule.has_fine && fineAmt > 0;
+    var hasTeamFine = rule.has_team_fine && teamFineAmt > 0;
+    var hasDeptFine = rule.has_dept_fine && deptFineAmt > 0;
+    var hasMgrFine = rule.has_manager_fine && mgrFineAmt > 0;
+    var mgrNameStr = rule.manager_name || 'Trưởng Phòng / Quản Lý';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'nq-modal-overlay';
+    overlay.id = 'nqDetailModalOverlay';
+    overlay.onclick = function(e) { if (e.target === overlay) _nqCloseDetailModal(); };
+
+    overlay.innerHTML = `
+        <div class="nq-modal" style="max-width:760px">
+            <div class="nq-modal-hdr">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <span class="nq-code-badge" style="font-size:13px">${rule.rule_code}</span>
+                    <span class="nq-scope-badge" style="background:${badgeStyle.bg};color:${badgeStyle.color};border:1px solid ${badgeStyle.border};font-size:12px;font-weight:900;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:6px">
+                        ${badgeStyle.icon} ${escapeHtml(isChung ? 'Nội Quy Chung' : deptName)}
+                    </span>
+                </div>
+                <button class="nq-modal-close" onclick="_nqCloseDetailModal()">✕</button>
+            </div>
+
+            <div class="nq-modal-body" style="gap:20px">
+                <div>
+                    <h2 style="font-size:20px;font-weight:900;color:#0f172a;margin:0 0 10px 0;line-height:1.4">${escapeHtml(rule.title)}</h2>
+                    
+                    <div class="nq-card-meta" style="padding:12px 16px;font-size:13px">
+                        <div class="nq-card-meta-item">
+                            <span>📅 Ngày áp dụng:</span>
+                            <strong style="color:#0f172a">${effDateStr}</strong>
+                            <span style="color:#64748b;font-size:12px">(${expDateStr})</span>
+                        </div>
+                        <div class="nq-card-meta-item">
+                            <span>👤 Người tạo:</span>
+                            <strong style="color:#4338ca">${escapeHtml(rule.created_by_name || 'Hệ thống')}</strong>
+                        </div>
+                        ${createdDateStr ? `<div class="nq-card-meta-item"><span>🕒 Ngày tạo:</span> ${createdDateStr}</div>` : ''}
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size:14px;font-weight:900;color:#1e293b;margin-bottom:8px;display:block">📜 Nội Dung Chi Tiết Điều Khoản:</label>
+                    <div style="font-size:14px;color:#1e293b;line-height:1.75;white-space:pre-line;background:#f8fafc;padding:18px 20px;border-radius:12px;border:1px solid #e2e8f0;word-break:break-word;max-height:380px;overflow-y:auto">
+                        ${escapeHtml(rule.content)}
+                    </div>
+                </div>
+
+                ${rule.doc_link ? `
+                    <div>
+                        <a href="${rule.doc_link}" target="_blank" class="nq-doc-link-btn" style="padding:10px 18px;font-size:13px">
+                            <span>🔗 Xem Văn Bản / Tài Liệu Gốc</span>
+                        </a>
+                    </div>
+                ` : ''}
+
+                ${rule.image_url ? `
+                    <div>
+                        <label style="font-size:13px;font-weight:800;color:#334155;margin-bottom:6px;display:block">🖼️ Hình Ảnh Minh Họa:</label>
+                        <img src="${rule.image_url}" style="max-width:100%;max-height:350px;border-radius:10px;border:1px solid #cbd5e1;cursor:pointer" onclick="window.open('${rule.image_url}')">
+                    </div>
+                ` : ''}
+
+                ${(hasFine || hasTeamFine || hasDeptFine || hasMgrFine) ? `
+                    <div class="nq-fine-box" style="padding:16px;gap:8px">
+                        <div class="nq-fine-title" style="font-size:13px">
+                            <span>🚨 CHẾ TÀI PHẠT VI PHẠM CHI TIẾT</span>
+                        </div>
+                        ${hasFine ? `
+                            <div class="nq-fine-row" style="font-size:13px">
+                                <span class="nq-fine-label">👤 Cá nhân vi phạm:</span>
+                                <span class="nq-fine-value" style="font-size:14px">${formatVND(fineAmt)}</span>
+                            </div>
+                        ` : ''}
+                        ${hasTeamFine ? `
+                            <div class="nq-fine-row" style="font-size:13px">
+                                <span class="nq-fine-label">👥 Vi phạm Team:</span>
+                                <span class="nq-fine-value" style="font-size:14px">${formatVND(teamFineAmt)}</span>
+                            </div>
+                        ` : ''}
+                        ${hasDeptFine ? `
+                            <div class="nq-fine-row" style="font-size:13px">
+                                <span class="nq-fine-label">🏛️ Vi phạm Phòng ban:</span>
+                                <span class="nq-fine-value" style="font-size:14px">${formatVND(deptFineAmt)}</span>
+                            </div>
+                        ` : ''}
+                        ${hasMgrFine ? `
+                            <div class="nq-fine-row" style="font-size:13px">
+                                <span class="nq-fine-label">🛡️ Quản lý liên đới (${escapeHtml(mgrNameStr)}):</span>
+                                <span class="nq-fine-value" style="font-size:14px">${formatVND(mgrFineAmt)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            </div>
+
+            <div class="nq-modal-ftr" style="justify-content:space-between">
+                <button class="nq-btn-secondary" onclick="_nqCloseDetailModal()">Đóng</button>
+                ${_nqCanAddOrEdit() ? `
+                    <button class="nq-btn-primary" onclick="_nqCloseDetailModal(); _nqEditRule(${rule.id})">✏️ Chỉnh Sửa Điều Khoản</button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+}
+
+function _nqCloseDetailModal() {
+    var overlay = document.getElementById('nqDetailModalOverlay');
+    if (overlay) overlay.remove();
 }
 
 // ===== FILTER HANDLERS =====
