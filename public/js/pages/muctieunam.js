@@ -644,10 +644,46 @@
         var fillWidth = Math.min(Math.max(pctRev, 0), 100);
         var fillClass = isMkt ? (actualRev <= targetRev ? 'surplus' : 'deficit') : (diffRev >= 0 ? 'surplus' : 'deficit');
 
+        if (isMkt) {
+            var actualSpent = Number(mData.actual_spent || 0);
+            var actualRevAds = Number(mData.actual_revenue_ads || 0);
+            var actualOrdersAds = Number(mData.actual_orders_ads || 0);
+            var actualLeads = Number(mData.actual_leads || 0);
+            var actualCpl = Number(mData.actual_cpl || 0);
+
+            box.innerHTML = `
+                <div class="mtn-actual-title">
+                    <span>📊 THỰC TẾ ĐẠT ĐƯỢC THÁNG ${m}</span>
+                    <span style="font-size:10px;font-weight:900;color:${targetRev > 0 ? (actualRev <= targetRev ? '#15803d' : '#dc2626') : '#1e40af'}">${pctRev > 0 ? pctRev.toFixed(1) + '%' : '0.0%'}</span>
+                </div>
+                <div class="mtn-actual-row" style="margin-bottom:6px">
+                    <span style="font-weight:700;color:#334155">${lblRev} <strong style="color:#1d4ed8;font-weight:900;font-size:13.5px;background:#eff6ff;padding:2px 8px;border-radius:6px;border:1px solid #bfdbfe;display:inline-block">${actRevDisplay}</strong></span>
+                    ${revBadge}
+                </div>
+                <div class="mtn-actual-row">
+                    <span style="font-weight:700;color:#334155">${lblOrd} <strong style="color:#4338ca;font-weight:900;font-size:13.5px;background:#e0e7ff;padding:2px 8px;border-radius:6px;border:1px solid #c7d2fe;display:inline-block">${actOrdDisplay}</strong></span>
+                    ${ordBadge}
+                </div>
+                <div style="font-size:11px;color:#475569;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px dashed #cbd5e1;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <span>📢 CP Ads: <strong style="color:#e11d48">${formatVND(actualSpent)}</strong></span>
+                    <span>💵 DS Ads: <strong style="color:#16a34a">${formatVND(actualRevAds)}</strong></span>
+                    <span>📦 Đơn: <strong style="color:#d97706">${actualOrdersAds} đơn</strong></span>
+                    <span>📥 Lead: <strong style="color:#0284c7">${actualLeads} khách</strong></span>
+                    ${actualCpl > 0 ? `<span>⚡ CPL: <strong style="color:#7c3aed">${formatVND(actualCpl)}</strong></span>` : ''}
+                </div>
+                ${targetRev > 0 ? `
+                    <div class="mtn-progress-bar-bg" title="Đạt chỉ tiêu">
+                        <div class="mtn-progress-bar-fill ${fillClass}" style="width: ${fillWidth}%"></div>
+                    </div>
+                ` : ''}
+            `;
+            return;
+        }
+
         box.innerHTML = `
             <div class="mtn-actual-title">
                 <span>📊 THỰC TẾ ĐẠT ĐƯỢC THÁNG ${m}</span>
-                <span style="font-size:10px;font-weight:900;color:${(isMkt ? actualRev <= targetRev : diffRev >= 0) ? '#15803d' : '#dc2626'}">${pctRev > 0 ? pctRev.toFixed(1) + '%' : '0.0%'}</span>
+                <span style="font-size:10px;font-weight:900;color:${diffRev >= 0 ? '#15803d' : '#dc2626'}">${pctRev > 0 ? pctRev.toFixed(1) + '%' : '0.0%'}</span>
             </div>
             <div class="mtn-actual-row" style="margin-bottom:6px">
                 <span style="font-weight:700;color:#334155">${lblRev} <strong style="color:#1d4ed8;font-weight:900;font-size:13.5px;background:#eff6ff;padding:2px 8px;border-radius:6px;border:1px solid #bfdbfe;display:inline-block">${actRevDisplay}</strong></span>
