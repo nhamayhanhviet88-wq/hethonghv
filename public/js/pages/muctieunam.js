@@ -982,42 +982,42 @@
 
         if (yrCmp) {
             var fillWidthYr = Math.min(Math.max(pctYrRev, 0), 100);
-            var fillClassYr = isMktYr ? (totalYearActualRev <= totalYearTargetRev ? 'surplus' : 'deficit') : (diffYrRev >= 0 ? 'surplus' : 'deficit');
+            var fillClassYr = isMktYr ? (yearActualCostRatio <= yearTargetCostRatioAvg ? 'surplus' : 'deficit') : (diffYrRev >= 0 ? 'surplus' : 'deficit');
 
             var revBadgeTextYr = '';
-            if (totalYearTargetRev > 0) {
+            if (yearTargetCostRatioAvg > 0) {
                 if (isMktYr) {
-                    revBadgeTextYr = totalYearActualRev <= totalYearTargetRev ? `<span class="mtn-cmp-row-surplus">🔥 TB: ${(totalYearActualRev / 12).toFixed(1)}%</span>` : `<span class="mtn-cmp-row-deficit">🚨 TB: ${(totalYearActualRev / 12).toFixed(1)}%</span>`;
+                    revBadgeTextYr = yearActualCostRatio <= yearTargetCostRatioAvg ? `<span class="mtn-cmp-row-surplus">🔥 % CP/DS: ${yearActualCostRatio.toFixed(1)}%</span>` : `<span class="mtn-cmp-row-deficit">🚨 % CP/DS: ${yearActualCostRatio.toFixed(1)}%</span>`;
                 } else if (diffYrRev >= 0) {
                     revBadgeTextYr = `<span class="mtn-cmp-row-surplus"><span class="mtn-pulse-icon">🔥</span>Vượt: +${formatVND(diffYrRev)} (${pctYrRev.toFixed(1)}%)</span>`;
                 } else {
                     revBadgeTextYr = `<span class="mtn-cmp-row-deficit">🚨 Thiếu: -${formatVND(Math.abs(diffYrRev))} (${pctYrRev.toFixed(1)}%)</span>`;
                 }
             } else {
-                revBadgeTextYr = totalYearActualRev > 0 ? `<span class="mtn-cmp-badge neutral">Thực tế: ${isMktYr ? (totalYearActualRev / 12).toFixed(2) + '%' : formatVND(totalYearActualRev)}</span>` : `<span class="mtn-cmp-badge neutral">Chưa phát sinh</span>`;
+                revBadgeTextYr = yearActualCostRatio > 0 ? `<span class="mtn-cmp-row-deficit">🚨 % CP/DS: ${yearActualCostRatio.toFixed(1)}%</span>` : `<span class="mtn-cmp-badge neutral">Chưa phát sinh</span>`;
             }
 
             var ordBadgeTextYr = '';
-            if (totalYearTargetOrders > 0) {
+            if (yearTargetCpoAvg > 0) {
                 if (isMktYr) {
-                    ordBadgeTextYr = `<span class="mtn-cmp-ord-surplus">🎯 CPO TB: ${formatVND(Math.round(totalYearActualOrders / 12))}</span>`;
+                    ordBadgeTextYr = `<span class="mtn-cmp-ord-surplus">🎯 CPO Năm: ${formatVND(yearActualCpo)}</span>`;
                 } else if (diffYrOrd >= 0) {
                     ordBadgeTextYr = `<span class="mtn-cmp-ord-surplus"><span class="mtn-pulse-icon">📦</span>Vượt: +${formatNum(diffYrOrd)} đơn (${pctYrOrd.toFixed(1)}%)</span>`;
                 } else {
                     ordBadgeTextYr = `<span class="mtn-cmp-ord-deficit">📦 Thiếu: -${formatNum(Math.abs(diffYrOrd))} đơn (${pctYrOrd.toFixed(1)}%)</span>`;
                 }
             } else {
-                ordBadgeTextYr = totalYearActualOrders > 0 ? `<span style="font-size:11px;font-weight:800;color:#475569">${isMktYr ? '🎯 CPO TB: ' + formatVND(Math.round(totalYearActualOrders / 12)) : '📦 Thực tế: ' + formatNum(totalYearActualOrders) + ' đơn'}</span>` : '';
+                ordBadgeTextYr = yearActualCpo > 0 ? `<span class="mtn-cmp-ord-surplus">🎯 CPO Năm: ${formatVND(yearActualCpo)}</span>` : '';
             }
 
             yrCmp.innerHTML = `
                 <div class="mtn-cmp-hdr">
                     <span>⚖️ TỶ LỆ HOÀN THÀNH</span>
-                    <span style="font-size:10px;font-weight:900;color:${(isMktYr ? totalYearActualRev <= totalYearTargetRev : diffYrRev >= 0) ? '#15803d' : '#dc2626'}">${pctYrRev > 0 ? pctYrRev.toFixed(1) + '%' : '0.0%'}</span>
+                    <span style="font-size:10px;font-weight:900;color:${(isMktYr ? yearActualCostRatio <= yearTargetCostRatioAvg : diffYrRev >= 0) ? '#15803d' : '#dc2626'}">${pctYrRev > 0 ? pctYrRev.toFixed(1) + '%' : '0.0%'}</span>
                 </div>
-                <div>${revBadgeTextYr}</div>
-                <div style="margin-top:2px">${ordBadgeTextYr}</div>
-                ${totalYearTargetRev > 0 ? `<div class="mtn-progress-bar-bg" title="Đạt chỉ tiêu cả năm"><div class="mtn-progress-bar-fill ${fillClassYr}" style="width:${fillWidthYr}%"></div></div>` : ''}
+                <div>${isMktYr ? ordBadgeTextYr : revBadgeTextYr}</div>
+                <div style="margin-top:2px">${isMktYr ? revBadgeTextYr : ordBadgeTextYr}</div>
+                ${yearTargetCostRatioAvg > 0 ? `<div class="mtn-progress-bar-bg" title="Đạt chỉ tiêu cả năm"><div class="mtn-progress-bar-fill ${fillClassYr}" style="width:${fillWidthYr}%"></div></div>` : ''}
             `;
         }
     };
