@@ -338,6 +338,34 @@ function _nqFormatDate(dStr) {
     }
 }
 
+function _nqGetDeptBadgeStyle(deptName, isChung) {
+    if (isChung) {
+        return { bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe', icon: '🌐' };
+    }
+    if (!deptName) {
+        return { bg: '#f1f5f9', color: '#334155', border: '#cbd5e1', icon: '🏛️' };
+    }
+    
+    var nameUpper = deptName.toUpperCase();
+    
+    if (nameUpper.includes('KINH DOANH')) return { bg: '#fef3c7', color: '#92400e', border: '#fde68a', icon: '📈' };
+    if (nameUpper.includes('SALE')) return { bg: '#dcfce7', color: '#166534', border: '#bbf7d0', icon: '💰' };
+    if (nameUpper.includes('MARKETING')) return { bg: '#ffe4e6', color: '#9f1239', border: '#fecdd3', icon: '📢' };
+    if (nameUpper.includes('KẾ TOÁN')) return { bg: '#ccfbf1', color: '#115e59', border: '#99f6e4', icon: '🧮' };
+    if (nameUpper.includes('THIẾT KẾ')) return { bg: '#f3e8ff', color: '#6b21a8', border: '#e9d5ff', icon: '🎨' };
+    if (nameUpper.includes('THỦ QUỸ')) return { bg: '#fef08a', color: '#854d0e', border: '#fde047', icon: '🏦' };
+    if (nameUpper.includes('NHÂN SỰ') || nameUpper.includes('HÀNH CHÍNH')) return { bg: '#e0f2fe', color: '#075985', border: '#bae6fd', icon: '👥' };
+    
+    if (nameUpper.includes('CẮT')) return { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5', icon: '✂️' };
+    if (nameUpper.includes('IN')) return { bg: '#ffedd5', color: '#9a3412', border: '#fed7aa', icon: '🖨️' };
+    if (nameUpper.includes('ÉP')) return { bg: '#fae8ff', color: '#86198f', border: '#f5d0fe', icon: '⚡' };
+    if (nameUpper.includes('MAY')) return { bg: '#dbeafe', color: '#1e40af', border: '#bfdbfe', icon: '🧵' };
+    if (nameUpper.includes('KHO')) return { bg: '#ecfccb', color: '#3f6212', border: '#d9f99d', icon: '📦' };
+    if (nameUpper.includes('HOÀN THIỆN')) return { bg: '#e0f2fe', color: '#0369a1', border: '#7dd3fc', icon: '✨' };
+
+    return { bg: '#f1f5f9', color: '#1e293b', border: '#cbd5e1', icon: '🏛️' };
+}
+
 function _nqRenderRules() {
     var grid = document.getElementById('nqRulesGrid');
     if (!grid) return;
@@ -356,6 +384,7 @@ function _nqRenderRules() {
     _nqState.rules.forEach(function(r) {
         var isChung = r.scope === 'chung';
         var deptName = isChung ? 'Nội Quy Chung' : (r.department_name || 'Phòng Ban');
+        var badgeStyle = _nqGetDeptBadgeStyle(r.department_name, isChung);
         
         var effDateStr = r.effective_date ? _nqFormatDate(r.effective_date) : 'Đang cập nhật';
         var expDateStr = (r.is_forever !== false && r.is_forever !== 'false') ? '♾️ Mãi Mãi (Vô thời hạn)' : (r.expiry_date ? ('Đến ' + _nqFormatDate(r.expiry_date)) : '♾️ Vô thời hạn');
@@ -376,8 +405,8 @@ function _nqRenderRules() {
             <div class="nq-card">
                 <div class="nq-card-header">
                     <span class="nq-code-badge">${r.rule_code}</span>
-                    <span class="nq-scope-badge ${isChung ? 'chung' : 'phongban'}">
-                        ${isChung ? '🌐 Nội Quy Chung' : '🏛️ ' + deptName}
+                    <span class="nq-scope-badge" style="background:${badgeStyle.bg};color:${badgeStyle.color};border:1px solid ${badgeStyle.border};font-size:12px;font-weight:900;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
+                        ${badgeStyle.icon} ${escapeHtml(isChung ? 'Nội Quy Chung' : deptName)}
                     </span>
                 </div>
                 <div class="nq-card-body">
