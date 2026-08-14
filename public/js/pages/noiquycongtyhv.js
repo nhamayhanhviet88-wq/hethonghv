@@ -227,7 +227,15 @@ async function _nqInitData() {
     try {
         var deptRes = await apiCall('/api/company-rules/departments');
         if (deptRes) {
-            _nqState.depts = deptRes;
+            var isNotAff = function(d) {
+                return d && d.name && !d.name.toUpperCase().includes('AFFILIATE');
+            };
+            _nqState.depts = {
+                vanPhong: (deptRes.vanPhong || []).filter(isNotAff),
+                xuong: (deptRes.xuong || []).filter(isNotAff),
+                other: (deptRes.other || []).filter(isNotAff),
+                all: (deptRes.all || []).filter(isNotAff)
+            };
             _nqPopulateDeptFilter();
         }
         await _nqLoadRules();

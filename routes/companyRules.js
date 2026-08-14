@@ -69,24 +69,31 @@ async function companyRulesRoutes(fastify, options) {
                 };
             });
 
+            const cleanDeptList = deptList.filter(d => {
+                if (!d.name) return true;
+                const nameUpper = d.name.toUpperCase();
+                if (nameUpper.includes('AFFILIATE')) return false;
+                return true;
+            });
+
             const vanPhong = [];
             const xuong = [];
             const other = [];
 
-            const rootVp = deptList.find(d => d.name && d.name.includes('VĂN PHÒNG'));
-            const rootXuong = deptList.find(d => d.name && d.name.includes('XƯỞNG'));
+            const rootVp = cleanDeptList.find(d => d.name && d.name.includes('VĂN PHÒNG'));
+            const rootXuong = cleanDeptList.find(d => d.name && d.name.includes('XƯỞNG'));
 
             const rootVpId = rootVp ? rootVp.id : null;
             const rootXuongId = rootXuong ? rootXuong.id : null;
 
-            deptList.forEach(d => {
+            cleanDeptList.forEach(d => {
                 if (d.id === rootVpId || d.id === rootXuongId) return;
                 if (d.parent_id === rootVpId) {
                     vanPhong.push(d);
                 } else if (d.parent_id === rootXuongId) {
                     xuong.push(d);
                 } else if (d.parent_id) {
-                    const parent = deptList.find(p => p.id === d.parent_id);
+                    const parent = cleanDeptList.find(p => p.id === d.parent_id);
                     if (parent && parent.parent_id === rootVpId) vanPhong.push(d);
                     else if (parent && parent.parent_id === rootXuongId) xuong.push(d);
                     else other.push(d);
@@ -99,7 +106,7 @@ async function companyRulesRoutes(fastify, options) {
                 vanPhong,
                 xuong,
                 other,
-                all: deptList.filter(d => d.id !== rootVpId && d.id !== rootXuongId)
+                all: cleanDeptList.filter(d => d.id !== rootVpId && d.id !== rootXuongId)
             };
         } catch (err) {
             req.log.error(err);
