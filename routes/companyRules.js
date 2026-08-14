@@ -276,8 +276,9 @@ async function companyRulesRoutes(fastify, options) {
         try {
             const user = req.user || {};
             const role = user.role || '';
-            if (role && role !== 'giam_doc' && role !== 'admin' && role !== 'quan_ly_cap_cao') {
-                return reply.code(403).send({ error: 'Chỉ Giám Đốc và Quản Lý Cấp Cao mới có quyền tạo điều khoản mới' });
+            const uname = String(user.username || '').toLowerCase();
+            if (uname === 'quanlyxuong' || (role && role !== 'giam_doc' && role !== 'admin' && role !== 'quan_ly_cap_cao')) {
+                return reply.code(403).send({ error: 'Tài khoản của bạn không có quyền tạo mới điều khoản' });
             }
             const {
                 scope,
@@ -371,8 +372,9 @@ async function companyRulesRoutes(fastify, options) {
         try {
             const user = req.user || {};
             const role = user.role || '';
-            if (role && role !== 'giam_doc' && role !== 'admin' && role !== 'quan_ly_cap_cao') {
-                return reply.code(403).send({ error: 'Chỉ Giám Đốc và Quản Lý Cấp Cao mới có quyền chỉnh sửa điều khoản' });
+            const uname = String(user.username || '').toLowerCase();
+            if (uname === 'quanlyxuong' || (role && role !== 'giam_doc' && role !== 'admin' && role !== 'quan_ly_cap_cao')) {
+                return reply.code(403).send({ error: 'Tài khoản của bạn không có quyền chỉnh sửa điều khoản' });
             }
             const { id } = req.params;
             const {

@@ -17,6 +17,9 @@ var _nqState = {
 
 var _nqCanAddOrEdit = function() {
     if (typeof currentUser === 'undefined' || !currentUser) return false;
+    var uname = String(currentUser.username || '').toLowerCase();
+    if (uname === 'quanlyxuong') return false;
+
     var r = currentUser.role;
     return r === 'giam_doc' || r === 'admin' || r === 'quan_ly_cap_cao';
 };
