@@ -38,7 +38,7 @@ async function callGeminiAPI(apiKey, systemPrompt, userMessage, history = []) {
             contents: contents,
             generationConfig: {
                 temperature: 0.3,
-                maxOutputTokens: 1000
+                maxOutputTokens: 1200
             }
         });
 
@@ -79,7 +79,7 @@ module.exports = async function (fastify, opts) {
 
     // Ensure system_settings table exists
     try {
-        await db.query(`
+        await db.all(`
             CREATE TABLE IF NOT EXISTS system_settings (
                 setting_key VARCHAR(100) PRIMARY KEY,
                 setting_value TEXT,
@@ -113,7 +113,7 @@ module.exports = async function (fastify, opts) {
             }
 
             const cleanKey = api_key.trim();
-            await db.query(`
+            await db.all(`
                 INSERT INTO system_settings (setting_key, setting_value, updated_at)
                 VALUES ('gemini_api_key', $1, NOW())
                 ON CONFLICT (setting_key) 
@@ -145,12 +145,30 @@ module.exports = async function (fastify, opts) {
                 return reply.code(400).send({ error: 'Vui lòng nhập nội dung câu hỏi' });
             }
 
-            // Read context rules based on page
-            let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV.`;
+            const currentPage = page || '';
+            let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV. Trả lời bằng tiếng Việt chuyên nghiệp, lịch sự, phân đoạn rõ ràng.`;
 
-            // If query comes from noiquycongtyhv page
-            if (!page || page.includes('noiquycongtyhv')) {
-                // Fetch active rules visible to this user
+            // ===== 1. TRANG CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC =====
+            if (currentPage.includes('cacchisotongquan') || currentPage.includes('kpimarketing') || currentPage.includes('overview')) {
+                systemContext += `
+BẠN ĐANG TRỢ GIÚP NGƯỜI DÙNG Ở MÀN HÌNH: 📊 CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC / MARKETING OVERVIEW.
+Nhiệm vụ: Phân tích số liệu tổng quan doanh số chốt, số đơn chốt, chi phí Marketing Ads, hiệu quả CPL, CPD, tỷ lệ % chốt đơn.
+
+DỮ LIỆU BÁO CÁO HIỆN TẠI (THÁNG 8/2026):
+- Tổng Doanh Số Chốt: 138.160.742đ (Đồng Phục: 9 đơn - 138.160.742đ; Tem PET: 13 đơn; Tổng Cty: 341.518.934đ - 22 đơn)
+- Giá / Đơn trung bình (CPD): 8.025.486đ
+- Chi phí Quảng cáo Ads MKT: 49.780.000đ (Chi phí/DT Ads: 145.1%)
+- Giá Ads / Lead (CPL): 68.464đ / Lead
+- Tỷ lệ % chốt tổng thể: 0.85% (Tỷ lệ chốt Ads: 0.38%)
+- Tỷ lệ % Khách cũ: 6.94%
+
+HƯỚNG DẪN TRẢ LỜI CHO MÀN HÌNH CÁC CHỈ SỐ TỔNG QUAN:
+- Khi người dùng hỏi về hiệu quả doanh số, chi phí Ads, tỷ lệ chốt hay bài toán tối ưu: Hãy phân tích dựa trên các con số chính xác ở trên.
+- Đưa ra góc nhìn tư vấn giúp Giám Đốc/Quản lý đánh giá xem chỉ số nào đang tốt (Giá đơn cao 8 triệuđ), chỉ số nào cần cải thiện (Tỷ lệ chốt Ads 0.38%, CPL 68k).
+`;
+            } 
+            // ===== 2. TRANG NỘI QUY & ĐIỀU KHOẢN =====
+            else if (currentPage.includes('noiquycongtyhv')) {
                 const userId = req.user?.id;
                 let userRow = null;
                 if (userId) {
@@ -218,16 +236,20 @@ module.exports = async function (fastify, opts) {
                 }).join('\n');
 
                 systemContext += `
-DANH SÁCH NỘI QUY & ĐIỀU KHOẢN HIỆN CÓ TRONG CSDL CÔNG TY HV (Gồm ${rules.length} điều khoản):
+BẠN ĐANG TRỢ GIÚP NGƯỜI DÙNG Ở MÀN HÌNH: 📜 NỘI QUY & ĐIỀU KHOẢN CÔNG TY HV.
+
+DANH SÁCH NỘI QUY HỢP LỆ TRONG CSDL (${rules.length} điều khoản):
 ${rulesSummaryText}
 
-QUY TẮC PHẢN HỒI CỦA TRỢ LÝ AI NỘI QUY:
-1. Trả lời chính xác thắc mắc dựa trên danh sách điều khoản trên.
-2. Khi đề cập đến một điều khoản cụ thể, hãy ĐẢM BẢO thêm thẻ [OPEN_RULE:ID_ĐIỀU_KHOẢN] (Ví dụ: [OPEN_RULE:${rules[0]?.id || 1}]) để người dùng có thể nhấp chuột mở trực tiếp Popup điều khoản đó.
-3. Nếu người dùng hỏi về một quy định/nội quy CHƯA CÓ trong CSDL:
-   - Hãy nói rõ rằng: "Hiện tại công ty CHƯA CÓ điều khoản quy định về vấn đề này."
-   - Đánh giá xem có nên bổ sung không. Nếu nên bổ sung, hãy thêm tag [SUGGEST_NEW_RULE:Tên Tiêu Đề Gợi Ý] ở cuối câu trả lời.
-4. Giữ giọng văn thân thiện, chuyên nghiệp, hỗ trợ nhiệt tình.
+QUY TẮC PHẢN HỒI:
+1. Trả lời chính xác thắc mắc dựa trên danh sách điều khoản ở trên.
+2. Khi đề cập đến một điều khoản cụ thể, ĐẢM BẢO gắn thẻ [OPEN_RULE:ID_ĐIỀU_KHOẢN] (Ví dụ: [OPEN_RULE:${rules[0]?.id || 1}]) để người dùng nhấp vào mở Popup điều khoản.
+3. Nếu người dùng hỏi về quy định CHƯA CÓ trong CSDL: Hãy báo rõ "Hiện tại công ty CHƯA CÓ điều khoản này" và thêm tag [SUGGEST_NEW_RULE:Tên Tiêu Đề] để đề xuất tạo mới.
+`;
+            } else {
+                systemContext += `
+BẠN ĐANG TRỢ GIÚP NGƯỜI DÙNG Ở MÀN HÌNH: ${currentPage || 'TRANG CHỦ HỆ THỐNG HV'}.
+Nhiệm vụ: Giải đáp các thắc mắc chung về hệ thống quản trị HV, định hướng sử dụng các tính năng và tư vấn cho người dùng.
 `;
             }
 

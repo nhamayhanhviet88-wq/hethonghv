@@ -264,7 +264,26 @@
         win.className = 'hv-ai-chat-window';
         win.id = 'hvAiChatWindow';
 
-        var pageName = window.location.pathname;
+        var pagePath = (window.location.pathname || '') + (window.location.search || '') + (window.location.hash || '');
+        var isOverview = pagePath.includes('cacchisotongquan') || pagePath.includes('kpimarketing') || pagePath.includes('overview');
+
+        var chipsHtml = '';
+        var welcomeSub = '';
+        if (isOverview) {
+            welcomeSub = 'Trợ lý AI đang hỗ trợ Anh/Chị ở màn hình: <strong>📊 Các Chỉ Số Tổng Quan Giám Đốc</strong>';
+            chipsHtml = `
+                <div class="hv-ai-chip" onclick="window._hvAiSendQuick('Phân tích tổng quan hiệu quả số liệu tháng này giúp tôi')">💡 Phân tích tổng quan số liệu</div>
+                <div class="hv-ai-chip" onclick="window._hvAiSendQuick('Chi phí Marketing Ads và CPL đang ở mức thế nào?')">💡 Đánh giá chi phí MKT Ads & CPL</div>
+                <div class="hv-ai-chip" onclick="window._hvAiSendQuick('Tỷ lệ chốt đơn và Giá/đơn (CPD) hiện tại bao nhiêu?')">💡 Tỷ lệ chốt & Giá đơn CPD</div>
+            `;
+        } else {
+            welcomeSub = 'Tôi có thể hỗ trợ Anh/Chị tra cứu nhanh quy định nội quy, kiểm tra điều khoản và tư vấn số liệu công ty.';
+            chipsHtml = `
+                <div class="hv-ai-chip" onclick="window._hvAiSendQuick('Công ty quy định đi làm muộn phạt bao nhiêu tiền?')">💡 Phạt đi làm muộn thế nào?</div>
+                <div class="hv-ai-chip" onclick="window._hvAiSendQuick('Quy định về việc duyệt phiếu thu chi tiền nằm ở đâu?')">💡 Quy định duyệt thu chi?</div>
+                <div class="hv-ai-chip" onclick="window._hvAiSendQuick('Công ty đã có quy định bảo mật dữ liệu chưa?')">💡 Kiểm tra quy định bảo mật</div>
+            `;
+        }
 
         win.innerHTML = `
             <div class="hv-ai-header">
@@ -281,12 +300,10 @@
             <div class="hv-ai-body" id="hvAiBody">
                 <div class="hv-ai-msg assistant">
                     <strong>Xin chào Anh/Chị! 👋</strong><br>
-                    Tôi là Trợ lý AI Hệ Thống HV. Tôi có thể hỗ trợ Anh/Chị tra cứu nhanh quy định nội quy, kiểm tra điều khoản và tư vấn số liệu công ty.
+                    ${welcomeSub}
                     <div style="margin-top:10px;font-weight:700;color:#4338ca">💡 Câu hỏi gợi ý nhanh:</div>
                     <div class="hv-ai-chips">
-                        <div class="hv-ai-chip" onclick="window._hvAiSendQuick('Công ty quy định đi làm muộn phạt bao nhiêu tiền?')">💡 Phạt đi làm muộn thế nào?</div>
-                        <div class="hv-ai-chip" onclick="window._hvAiSendQuick('Quy định về việc duyệt phiếu thu chi tiền nằm ở đâu?')">💡 Quy định duyệt thu chi?</div>
-                        <div class="hv-ai-chip" onclick="window._hvAiSendQuick('Công ty đã có quy định bảo mật dữ liệu chưa?')">💡 Kiểm tra quy định bảo mật</div>
+                        ${chipsHtml}
                     </div>
                 </div>
             </div>
