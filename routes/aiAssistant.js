@@ -3,16 +3,17 @@ const { authenticate } = require('../middleware/auth');
 const https = require('https');
 
 function isAiEnabledForUser(role, username, allowedPolicy) {
-    // Super Executives (Giám Đốc, Admin, Lê Việt Trinh) ALWAYS have AI enabled
-    if (role === 'giam_doc' || role === 'admin' || username === 'trinh') return true;
+    // Directors & Admins ALWAYS have AI enabled
+    if (role === 'giam_doc' || role === 'admin') return true;
 
     const policy = allowedPolicy || 'all';
     if (policy === 'exec_only') {
-        return false; // Only Director & Trinh allowed
+        // Chỉ Ban Giám Đốc, Lê Việt Trinh & Lê Công Thực
+        return (username === 'trinh' || username === 'quanlyxuong');
     }
     if (policy === 'managers') {
-        // Managers, Team leads, Workshop manager (Lê Công Thực) allowed
-        return (role === 'quan_ly_cap_cao' || role === 'quan_ly' || role === 'truong_phong' || username === 'quanlyxuong');
+        // Ban Giám Đốc, Lê Việt Trinh, Lê Công Thực & Các Quản Lý
+        return (username === 'trinh' || username === 'quanlyxuong' || role === 'quan_ly_cap_cao' || role === 'quan_ly' || role === 'truong_phong');
     }
     return true; // 'all'
 }

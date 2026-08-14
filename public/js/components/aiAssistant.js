@@ -532,7 +532,7 @@
                             </label>
                             <label class="hv-ai-radio-lbl">
                                 <input type="radio" name="hvAiPolicyRadio" value="exec_only" ${pol === 'exec_only' ? 'checked' : ''}>
-                                <span>🔒 Chỉ Cho Phép Ban Giám Đốc & Lê Việt Trinh</span>
+                                <span>🔒 Chỉ Cho Phép Ban Giám Đốc, Lê Việt Trinh & Lê Công Thực</span>
                             </label>
                             <label class="hv-ai-radio-lbl">
                                 <input type="radio" name="hvAiPolicyRadio" value="managers" ${pol === 'managers' ? 'checked' : ''}>
