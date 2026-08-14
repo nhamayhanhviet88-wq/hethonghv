@@ -883,9 +883,9 @@ async function _nqSaveRule() {
     try {
         var res;
         if (_nqState.editingId) {
-            res = await apiCall('/api/company-rules/' + _nqState.editingId, { method: 'PUT', body: JSON.stringify(payload) });
+            res = await apiCall('/api/company-rules/' + _nqState.editingId, 'PUT', payload);
         } else {
-            res = await apiCall('/api/company-rules', { method: 'POST', body: JSON.stringify(payload) });
+            res = await apiCall('/api/company-rules', 'POST', payload);
         }
 
         if (res && res.error) {
@@ -897,14 +897,14 @@ async function _nqSaveRule() {
         await _nqLoadRules();
     } catch (e) {
         console.error('Error save rule:', e);
-        alert('Lỗi lưu điều khoản');
+        alert(e.message || 'Lỗi lưu điều khoản');
     }
 }
 
 async function _nqDeleteRule(id) {
     if (!confirm('Bạn có chắc chắn muốn xóa điều khoản này?')) return;
     try {
-        var res = await apiCall('/api/company-rules/' + id, { method: 'DELETE' });
+        var res = await apiCall('/api/company-rules/' + id, 'DELETE');
         if (res && res.error) {
             alert(res.error);
             return;
