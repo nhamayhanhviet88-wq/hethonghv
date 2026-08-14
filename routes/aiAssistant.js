@@ -168,20 +168,28 @@ module.exports = async function (fastify, opts) {
             const userId = req.user?.id;
             let userRow = null;
             if (userId) {
-                userRow = await db.get('SELECT id, role, department_id, username FROM users WHERE id = $1', [userId]);
+                userRow = await db.get('SELECT id, role, department_id, username, full_name FROM users WHERE id = $1', [userId]);
             }
 
             const role = userRow ? userRow.role : (req.user?.role || '');
+            const userName = userRow ? (userRow.full_name || userRow.username) : (req.user?.username || '');
             const isExecutive = (role === 'giam_doc' || role === 'admin');
+            const isManager = (isExecutive || role === 'quan_ly_cap_cao' || role === 'truong_phong');
 
             const currentPage = page || '';
             let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV. Trả lời bằng tiếng Việt chuyên nghiệp, lịch sự, phân đoạn rõ ràng, súc tích.
 
-QUY TẮC BẢO MẬT & PHÂN QUYỀN VAI TRÒ:
-- Người dùng hiện tại có vai trò: ${isExecutive ? 'BAN GIÁM ĐỐC / ADMIN (Quyền truy cập cao nhất)' : 'NHÂN VIÊN / QUẢN LÝ PHÒNG BAN (Không có quyền xem Các Chỉ Số Tổng Quan Giám Đốc)'}.
-- VỀ MÀN HÌNH "CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC": Báo cáo này chứa thông tin doanh số tổng công ty, chi phí Marketing Ads và bức tranh tài chính cấp cao.
-  + NẾU NGƯỜI DÙNG KHÔNG PHẢI GIÁM ĐỐC/ADMIN (${!isExecutive ? 'Đúng trường hợp hiện tại' : ''}): Khi người dùng hỏi về số liệu Các Chỉ Số Tổng Quan Giám Đốc hay Doanh số tổng/Chi phí Ads MKT, hãy LỊCH SỰ TỪ CHỐN VÀ THÔNG BÁO: "Xin lỗi Anh/Chị! Báo cáo Các Chỉ Số Tổng Quan Giám Đốc chứa dữ liệu tài chính cấp cao thuộc thẩm quyền Ban Giám Đốc. Tài khoản của Anh/Chị không được phân quyền menu này nên tôi không thể cung cấp số liệu chi tiết. Anh/Chị có thể tra cứu thông tin KPI Sale / Nội Quy & Điều Khoản mà tài khoản của mình có quyền sử dụng ạ."
-  + NẾU NGƯỜI DÙNG LÀ GIÁM ĐỐC/ADMIN (${isExecutive ? 'Đúng trường hợp hiện tại' : ''}): Trả lời chi tiết và đầy đủ các chỉ số tài chính tổng quan.
+THÔNG TIN TÀI KHOẢN ĐANG HỎI:
+- Họ tên/Username: ${userName}
+- Vai trò hệ thống: ${isExecutive ? 'Ban Giám Đốc / Admin' : (isManager ? 'Quản Lý / Trưởng Phòng' : 'Nhân Viên')}
+
+QUY TẮC BẢO MẬT BÁO CÁO VÀ DỮ LIỆU NHÂN VIÊN (STRICT PRIVACY & RBAC):
+1. BÁO CÁO CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC:
+   - Nếu người dùng KHÔNG PHẢI Giám Đốc/Admin (${!isExecutive ? 'Đúng trường hợp hiện tại' : ''}) mà hỏi về số liệu tổng công ty / chi phí Ads MKT / báo cáo Giám Đốc: LỊCH SỰ TỪ CHỐI và giải thích báo cáo này thuộc thẩm quyền Giám Đốc.
+2. BẢO MẬT DỮ LIỆU RIÊNG TƯ GIỮA CÁC NHÂN VIÊN SALE (PEER DATA PRIVACY):
+   - Nhân viên Sale A KHÔNG ĐƯỢC PHÉP xem hay hỏi về số liệu doanh số chi tiết, danh sách khách hàng, tỷ lệ chốt đơn hay thu nhập/phạt riêng của nhân viên Sale B.
+   - NẾU TÀI KHOẢN HIỆN TẠI LÀ NHÂN VIÊN (${!isManager ? 'Đúng trường hợp hiện tại' : ''}) mà hỏi thông tin riêng của nhân viên khác (ví dụ: "doanh số của nhân viên B bao nhiêu", "khách của B là ai"): Hãy LỊCH SỰ TỪ CHỐI và thông báo: "Xin lỗi Anh/Chị! Số liệu doanh số chi tiết và khách hàng của đồng nghiệp được bảo mật riêng tư. Tôi chỉ có thể hỗ trợ Anh/Chị tra cứu thông tin KPI của chính tài khoản ${userName} hoặc thông tin Bảng xếp hạng vinh danh chung ạ."
+   - CHỈ KHI TÀI KHOẢN LÀ QUẢN LÝ / TRƯỞNG PHÒNG / GIÁM ĐỐC (${isManager ? 'Đúng trường hợp hiện tại' : ''}): Mới được phép xem và tổng hợp số liệu của các nhân viên thuộc cấp.
 `;
 
             // ===== 1. TRANG CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC =====
