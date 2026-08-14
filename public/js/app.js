@@ -465,6 +465,8 @@ const _PAGE_SCRIPT_MAP = {
     'timkiemkhachhanghv': '/js/pages/timkiem-khachhang.js?v=20260726_v356',
     'trasoatdonhang': '/js/pages/trasoatdonhang.js?v=20260721_ts_modal_lazy_v2',
     'tulieuxuongvp': '/js/pages/tulieuxuongvp.js',
+    'noiquycongtyhv': '/js/pages/noiquycongtyhv.js',
+    'noi-quy-cong-ty': '/js/pages/noiquycongtyhv.js',
     'donhangchuathutien': '/js/pages/donhangchuathutien.js?v=20260721_counting_fix_v7',
     'chuyenso': '/js/pages/chuyenso.js?v=20260807_v290_RECEIVER_GROUPING',
     'chuyen-so': '/js/pages/chuyenso.js?v=20260807_v290_RECEIVER_GROUPING',
