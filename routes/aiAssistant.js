@@ -258,17 +258,24 @@ CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL (DÙNG ĐỂ TRA CỨU MỌI MENU):
    - factory_price (numeric): Giá may nhà (Đơn vị: VNĐ, VD 6.500đ)
    - processing_price (numeric): Giá gia công (Đơn vị: VNĐ, VD 15.000đ)
    - approval_status (text): Trạng thái duyệt ('APPROVED', 'PENDING')
-   - CÁCH TRUY VẤN THÔNG SỐ MẪU ÁO (VD Cổ Bẻ Dệt - Bo Tay Dệt):
-     SELECT sample_code, factory_price, processing_price, collection, approval_status
-     FROM tsam_samples
-     WHERE sample_code ILIKE '%CỔ BẺ DỆT%' AND is_active = true;
+
+13. board_tasks (Trang Bảng Công Việc / bangcongviec - Quản lý công việc, deadline & tiến độ):
+   - id (int), title (text), status (text: 'can_lam', 'dang_lam', 'cho_duyet', 'hoan_thanh')
+   - deadline (varchar/date YYYY-MM-DD): Hạn chót hoàn thành
+   - completed_at (timestamp): Ngày hoàn thành thực tế (NULL là chưa hoàn thành)
+   - progress (int), assigned_to (int), created_by (int)
+   - CÁCH TRUY VẤN CÔNG VIỆC CHẬM DEADLINE (HÔM NAY LÀ 2026-08-15):
+     SELECT bt.id, bt.title, bt.status, bt.deadline, bt.progress
+     FROM board_tasks bt
+     WHERE bt.status != 'hoan_thanh' AND bt.deadline IS NOT NULL AND CAST(bt.deadline AS DATE) < CURRENT_DATE;
 
 QUY TẮC BẮT BUỘC KHI SINH SQL:
 - CHỈ TRẢ VỀ CÂU LỆNH SQL THUẦN TÚY TRONG KHUNG \`\`\`sql ... \`\`\`. KHÔNG GIẢI THÍCH CHỮ NÀO KHÁC.
 - Ngày hôm nay là 2026-08-15 (Năm 2026, Tháng 8).
 - Luôn kiểm tra điều kiện (is_draft IS NOT TRUE) khi tính đơn hàng dht_orders.
 - Luôn dùng LIMIT 10 để tránh quá tải.
-- Khi người dùng hỏi về Thông Số Mẫu Áo / Giá mẫu áo (VD: Cổ Bẻ Dệt - Bo Tay Dệt, Cổ Bẻ Vải) -> Truy vấn bảng tsam_samples!
+- Khi người dùng hỏi về Công việc chậm deadline / Quá hạn / Tiến độ (VD: Bảng Công Việc) -> Truy vấn bảng board_tasks WHERE status != 'hoan_thanh' AND CAST(deadline AS DATE) < CURRENT_DATE!
+- Khi người dùng hỏi về Thông Số Mẫu Áo / Giá mẫu áo (VD: Cổ Bẻ Dệt - Bo Tay Dệt) -> Truy vấn bảng tsam_samples!
 - Khi người dùng hỏi về Tỉ Lệ Cắt Gốc / Định Mức Cắt / Định Lượng Cắt (VD: Cotton Lite 100%, Poly) -> Truy vấn bảng kv_material_cutting_targets JOIN kv_materials!
 - Khi người dùng hỏi về Kho vải / Tồn kho vải (VD: Poly, Cotton, Vải) -> BẮT BUỘC LỌC r.weight > 0 ĐỂ ĐẾM ĐÚNG SỐ CỤC VẢI CÒN TỒN THỰC TẾ!
 - Khi người dùng hỏi về Khách hàng -> Truy vấn bảng customers hoặc dht_orders.
@@ -899,6 +906,27 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
                         autoPageData += `\n📌 DỮ LIỆU CSDL THỜI GIAN THỰC TRÍCH XUẤT TỪ TRANG [KHO VẢI (/khovai)]:\n`;
                         kvRows.forEach(r => {
                             autoPageData += `- Chất liệu: ${r.material_name} | Màu: ${r.color_name} | Số cục còn tồn: ${r.active_roll_count} | Tổng kg: ${r.total_kg} kg\n`;
+                        });
+                    }
+                }
+
+                // 4. Bảng Công Việc (/bangcongviec) & Công việc chậm deadline
+                if (searchCtx.includes('bangcongviec') || searchCtx.includes('bảng công việc') || searchCtx.includes('deadline') || searchCtx.includes('chậm') || searchCtx.includes('công việc')) {
+                    const overdueTasks = await db.all(`
+                        SELECT bt.id, bt.title, bt.status, bt.deadline, bt.progress,
+                               u_creator.full_name as creator_name, u_assign.full_name as assignee_name
+                        FROM board_tasks bt
+                        LEFT JOIN users u_creator ON u_creator.id = bt.created_by
+                        LEFT JOIN users u_assign ON u_assign.id = bt.assigned_to
+                        WHERE bt.status != 'hoan_thanh' 
+                          AND bt.deadline IS NOT NULL 
+                          AND CAST(bt.deadline AS DATE) < CURRENT_DATE
+                        ORDER BY bt.deadline ASC LIMIT 20
+                    `);
+                    if (overdueTasks && overdueTasks.length > 0) {
+                        autoPageData += `\n📌 DỮ LIỆU CSDL THỜI GIAN THỰC TRÍCH XUẤT CÁC CÔNG VIỆC CHẬM DEADLINE (TRANG BẢNG CÔNG VIỆC - /bangcongviec):\n`;
+                        overdueTasks.forEach(t => {
+                            autoPageData += `- Task CV-${t.id}: "${t.title}" | Trạng thái: ${t.status} | Deadline: ${t.deadline} (ĐÃ CHẬM DEADLINE!) | Tiến độ: ${t.progress}% | Người giao: ${t.creator_name || ''} -> Người nhận: ${t.assignee_name || ''}\n`;
                         });
                     }
                 }
