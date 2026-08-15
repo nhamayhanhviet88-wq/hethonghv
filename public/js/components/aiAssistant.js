@@ -1051,12 +1051,12 @@
         overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
         overlay.innerHTML = `
-            <div class="hv-ai-modal">
+            <div class="hv-ai-modal" style="width:94%;max-width:720px;max-height:92vh;display:flex;flex-direction:column">
                 <div class="hv-ai-modal-hdr">
-                    <h3>⚙️ Cấu Hình API Key & Phân Quyền AI (Giám Đốc)</h3>
+                    <h3>⚙️ Cấu Hình API Key & Phân Quyền AI (Giám Đốc & Lê Việt Trinh)</h3>
                     <button class="hv-ai-modal-close" onclick="document.getElementById('hvAiConfigOverlay').remove()">✕</button>
                 </div>
-                <div class="hv-ai-modal-body">
+                <div class="hv-ai-modal-body" style="flex:1;overflow-y:auto">
                     <div style="font-size:13px;color:#475569;line-height:1.5">
                         Nhập khóa <strong>Gemini API Key Miễn Phí</strong> tạo từ Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#4338ca;font-weight:700">aistudio.google.com</a>) và cài đặt nhóm người dùng được phép sử dụng Trợ Lý AI.
                     </div>
@@ -1084,14 +1084,18 @@
                         </div>
                     </div>
 
-                    <div style="display:flex;flex-direction:column;gap:6px;margin-top:14px;padding-top:12px;border-top:1px dashed #cbd5e1">
-                        <label style="font-size:13px;font-weight:800;color:#3730a3">💡 Thiết Lập Câu Hỏi Gợi Ý Nhanh (Ban Giám Đốc & Lê Việt Trinh):</label>
-                        <div style="display:flex;gap:6px">
-                            <input type="text" id="hvAiNewPromptInput" class="hv-ai-input-field" placeholder="Nhập câu hỏi gợi ý mới (VD: Hôm nay chốt được bao nhiêu đơn?)..." style="flex:1">
-                            <button onclick="window._hvAiAddQuickPrompt()" style="background:#4338ca;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">➕ Thêm Gợi Ý</button>
+                    <!-- Wide Section for Quick Prompts Setup with STT Numbering -->
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;padding-top:14px;border-top:1px dashed #cbd5e1">
+                        <div style="display:flex;align-items:center;justify-content:space-between">
+                            <label style="font-size:13px;font-weight:800;color:#3730a3">💡 Thiết Lập Câu Hỏi Gợi Ý Nhanh (Sắp xếp theo STT hiển thị):</label>
+                            <span style="font-size:11px;font-weight:700;color:#64748b">Ban Giám Đốc & Lê Việt Trinh</span>
                         </div>
-                        <div id="hvAiManagePromptsList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:140px;overflow-y:auto">
-                            <div style="font-size:12px;color:#94a3b8;padding:6px">⏳ Đang tải danh sách...</div>
+                        <div style="display:flex;gap:8px">
+                            <input type="text" id="hvAiNewPromptInput" class="hv-ai-input-field" placeholder="Nhập câu hỏi gợi ý mới (VD: Hôm nay chốt được bao nhiêu đơn?)..." style="flex:1" onkeypress="if(event.key==='Enter') window._hvAiAddQuickPrompt()">
+                            <button onclick="window._hvAiAddQuickPrompt()" style="background:#4338ca;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(67,56,202,0.3)">➕ Thêm Gợi Ý</button>
+                        </div>
+                        <div id="hvAiManagePromptsList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;max-height:340px;overflow-y:auto;padding-right:4px">
+                            <div style="font-size:12px;color:#94a3b8;padding:10px;text-align:center">⏳ Đang tải danh sách câu hỏi...</div>
                         </div>
                     </div>
 
@@ -1132,9 +1136,9 @@
                     return;
                 }
                 var html = '';
-                prompts.forEach(function(p) {
+                prompts.forEach(function(p, idx) {
                     var safeTxt = p.prompt_text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    html += `<button onclick="window._hvAiSelectQuickPrompt('${safeTxt}')" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;text-align:left;cursor:pointer;transition:all 0.2s;line-height:1.4" onmouseover="this.style.background='#e0e7ff';this.style.borderColor='#818cf8';this.style.color='#3730a3'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#cbd5e1';this.style.color='#1e293b'">💡 ${p.prompt_text}</button>`;
+                    html += `<button onclick="window._hvAiSelectQuickPrompt('${safeTxt}')" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;text-align:left;cursor:pointer;transition:all 0.2s;line-height:1.4;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#e0e7ff';this.style.borderColor='#818cf8';this.style.color='#3730a3'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#cbd5e1';this.style.color='#1e293b'"><span style="background:#4338ca;color:#ffffff;font-size:11px;font-weight:900;padding:2px 7px;border-radius:6px;flex-shrink:0">STT ${idx + 1}</span> <span>💡 ${p.prompt_text}</span></button>`;
                 });
                 listContainer.innerHTML = html;
             }
@@ -1174,25 +1178,48 @@
                     var isLast = (idx === prompts.length - 1);
 
                     var upBtn = isFirst
-                        ? `<button style="background:none;border:none;color:#cbd5e1;font-size:12px;cursor:default;opacity:0.4" disabled>⬆️</button>`
+                        ? `<button style="background:none;border:none;color:#cbd5e1;font-size:12px;cursor:default;opacity:0.3" disabled>⬆️</button>`
                         : `<button onclick="window._hvAiMoveQuickPrompt(${p.id}, 'up')" style="background:none;border:none;color:#4338ca;font-size:12px;cursor:pointer;font-weight:700" title="Đẩy lên vị trí trên">⬆️</button>`;
 
                     var downBtn = isLast
-                        ? `<button style="background:none;border:none;color:#cbd5e1;font-size:12px;cursor:default;opacity:0.4" disabled>⬇️</button>`
+                        ? `<button style="background:none;border:none;color:#cbd5e1;font-size:12px;cursor:default;opacity:0.3" disabled>⬇️</button>`
                         : `<button onclick="window._hvAiMoveQuickPrompt(${p.id}, 'down')" style="background:none;border:none;color:#4338ca;font-size:12px;cursor:pointer;font-weight:700" title="Đẩy xuống vị trí dưới">⬇️</button>`;
 
                     html += `
-                        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:700;color:#1e293b;gap:8px">
-                            <span style="flex:1">💡 ${p.prompt_text}</span>
-                            <div style="display:flex;align-items:center;gap:4px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;font-size:12px;font-weight:700;color:#1e293b;gap:10px">
+                            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                                <span style="font-size:11px;font-weight:900;color:#3730a3">STT</span>
+                                <input type="number" min="1" max="${prompts.length}" value="${idx + 1}" onchange="window._hvAiChangePromptStt(${p.id}, this.value)" style="width:48px;text-align:center;font-size:12px;font-weight:900;color:#1e1b4b;background:#ffffff;border:1.5px solid #818cf8;border-radius:6px;padding:3px 2px;outline:none" title="Gõ số STT bất kỳ để nhảy vị trí">
+                            </div>
+                            <span style="flex:1;font-size:13px;font-weight:800;color:#0f172a">💡 ${p.prompt_text}</span>
+                            <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
                                 ${upBtn}
                                 ${downBtn}
-                                <button onclick="window._hvAiDeleteQuickPrompt(${p.id})" style="background:none;border:none;color:#ef4444;font-weight:900;cursor:pointer;font-size:13px;margin-left:4px" title="Xóa câu hỏi">🗑️</button>
+                                <button onclick="window._hvAiDeleteQuickPrompt(${p.id})" style="background:none;border:none;color:#ef4444;font-weight:900;cursor:pointer;font-size:14px;margin-left:6px" title="Xóa câu hỏi">🗑️</button>
                             </div>
                         </div>
                     `;
                 });
                 container.innerHTML = html;
+            }
+        } catch(e){}
+    };
+
+    window._hvAiChangePromptStt = async function(id, newStt) {
+        var sttVal = Number(newStt);
+        if (isNaN(sttVal) || sttVal < 1) return;
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/quick-prompts/' + id + '/set-stt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? ('Bearer ' + token) : ''
+                },
+                body: JSON.stringify({ stt: sttVal })
+            });
+            if (res.ok) {
+                window._hvAiLoadManagePrompts();
             }
         } catch(e){}
     };

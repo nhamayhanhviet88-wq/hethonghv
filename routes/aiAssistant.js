@@ -865,6 +865,31 @@ module.exports = async function (fastify, opts) {
         return { success: true };
     });
 
+    // POST /api/ai-assistant/quick-prompts/:id/set-stt - Đặt số thứ tự (STT) trực tiếp
+    fastify.post('/api/ai-assistant/quick-prompts/:id/set-stt', { preHandler: [authenticate] }, async (req, reply) => {
+        const { role, username } = req.user || {};
+        const isAllowed = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao' || username === 'trinh' || username === 'leviettrinh');
+        if (!isAllowed) {
+            return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc và Quản Lý Cấp Cao mới được quyền thiết lập STT gợi ý nhanh!' });
+        }
+        const id = Number(req.params.id);
+        let newStt = Number(req.body?.stt);
+        if (isNaN(newStt) || newStt < 1) newStt = 1;
+
+        const allPrompts = await db.all(`SELECT id FROM ai_quick_prompts WHERE id != $1 ORDER BY display_order ASC, id ASC`, [id]);
+        
+        // Insert target id at (newStt - 1) index
+        const targetIndex = Math.min(Math.max(newStt - 1, 0), allPrompts.length);
+        allPrompts.splice(targetIndex, 0, { id: id });
+
+        // Re-index all prompts sequentially with display_order 1, 2, 3...
+        for (let i = 0; i < allPrompts.length; i++) {
+            await db.run(`UPDATE ai_quick_prompts SET display_order = $1 WHERE id = $2`, [i + 1, allPrompts[i].id]);
+        }
+
+        return { success: true };
+    });
+
     // POST /api/ai-assistant/chat - Hỏi đáp Trợ Lý AI
     fastify.post('/api/ai-assistant/chat', { preHandler: [authenticate] }, async (req, reply) => {
         try {
