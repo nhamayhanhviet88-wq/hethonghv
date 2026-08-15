@@ -2223,7 +2223,7 @@ async function _bpcOpenCutModal(recordId) {
                     bh += '    </div>';
                     bh += '  </div>';
                 } else if (roll.dye_test_status === 'passed' && roll.dye_test_image) {
-                    bh += '  <div style="margin-top:6px;display:flex;align-items:center;gap:6px">';
+                    bh += '  <div id="_bpcDyeTest_' + roll.id + '" style="margin-top:6px;display:flex;align-items:center;gap:6px">';
                     bh += '    <span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>';
                     bh += '    <img src="' + roll.dye_test_image + '" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981;cursor:pointer" onclick="event.preventDefault();event.stopPropagation();window.open(\'' + roll.dye_test_image + '\',\'_blank\')">';
                     bh += '    <input type="file" id="_bpcDyeFile_' + roll.id + '" accept="image/*" capture="environment" style="display:none" onchange="_bpcUploadDyeTest(' + roll.id + ', this)">';
@@ -4725,15 +4725,19 @@ async function _bpcUploadDyeTest(rollId, fileInput) {
         var res = await apiCall('/api/khovai/rolls/' + rollId + '/dye-test', 'POST', { image_data: base64 });
         if (res.success) {
             showToast('✅ Đã upload ảnh test chống nhiễm!');
+            if (statusEl) statusEl.textContent = '';
             // Enable checkbox
             var cb = document.getElementById('_bpcRollCb_' + rollId);
             if (cb) { cb.disabled = false; }
             // Replace dye test block with passed badge
             var dyeBlock = document.getElementById('_bpcDyeTest_' + rollId);
             if (dyeBlock) {
-                dyeBlock.outerHTML = '<div style="margin-top:6px;display:flex;align-items:center;gap:6px">'
+                dyeBlock.outerHTML = '<div id="_bpcDyeTest_' + rollId + '" style="margin-top:6px;display:flex;align-items:center;gap:6px">'
                     + '<span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>'
                     + '<img src="' + res.image_path + '" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981;cursor:pointer" onclick="window.open(\'' + res.image_path + '\',\'_blank\')">'
+                    + '<input type="file" id="_bpcDyeFile_' + rollId + '" accept="image/*" capture="environment" style="display:none" onchange="_bpcUploadDyeTest(' + rollId + ', this)">'
+                    + '<button type="button" onclick="event.preventDefault();event.stopPropagation();document.getElementById(\'_bpcDyeFile_' + rollId + '\').click()" style="background:#374151;color:#f3f4f6;border:1px solid #6b7280;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px" title="Chụp lại ảnh test">📸 Chụp Lại</button>'
+                    + '<span id="_bpcDyeStatus_' + rollId + '" style="font-size:10px;color:#92400e"></span>'
                     + '</div>';
             }
             // Update label style

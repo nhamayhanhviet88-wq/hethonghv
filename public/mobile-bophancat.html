@@ -1914,7 +1914,7 @@ async function mOpenCutModal(recordId){
                     b+='  </div>';
                     b+='</div>';
                 } else if (r.dye_test_status === 'passed' && r.dye_test_image) {
-                    b+='<div style="margin-top:6px;display:flex;align-items:center;gap:6px">';
+                    b+='<div id="_mDyeTest_'+r.id+'" style="margin-top:6px;display:flex;align-items:center;gap:6px">';
                     b+='  <span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>';
                     b+='  <img src="'+r.dye_test_image+'" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981;cursor:pointer" onclick="event.preventDefault();event.stopPropagation();mShowImagePopup(\''+r.dye_test_image+'\')">';
                     b+='  <input type="file" id="_mDyeFile_'+r.id+'" accept="image/*" capture="environment" style="display:none" onchange="mUploadDyeTest('+r.id+', this)">';
@@ -2091,12 +2091,18 @@ async function mUploadDyeTest(rollId, fileInput) {
             // Replace dye test section with success
             const dyeDiv = document.getElementById('_mDyeTest_' + rollId);
             if (dyeDiv) {
-                dyeDiv.innerHTML = '<div style="display:flex;align-items:center;gap:6px">' +
-                    '<span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>' +
-                    (data.image_path ? '<img src="'+data.image_path+'" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981">' : '') +
-                    '</div>';
-                dyeDiv.style.background = 'rgba(5,150,105,0.15)';
-                dyeDiv.style.borderColor = '#059669';
+                dyeDiv.innerHTML = '<span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>' +
+                    (data.image_path ? '<img src="'+data.image_path+'" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981;cursor:pointer" onclick="event.preventDefault();event.stopPropagation();mShowImagePopup(\''+data.image_path+'\')">' : '') +
+                    '<input type="file" id="_mDyeFile_'+rollId+'" accept="image/*" capture="environment" style="display:none" onchange="mUploadDyeTest('+rollId+', this)">' +
+                    '<button type="button" onclick="event.preventDefault();event.stopPropagation();document.getElementById(\'_mDyeFile_'+rollId+'\').click()" style="background:#374151;color:#f3f4f6;border:1px solid #6b7280;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px" title="Chụp lại ảnh test">📸 Chụp Lại</button>' +
+                    '<span id="_mDyeStatus_'+rollId+'" style="font-size:10px;color:#fbbf24"></span>';
+                dyeDiv.style.background = 'transparent';
+                dyeDiv.style.borderColor = 'transparent';
+                dyeDiv.style.padding = '0';
+                dyeDiv.style.display = 'flex';
+                dyeDiv.style.alignItems = 'center';
+                dyeDiv.style.gap = '6px';
+                dyeDiv.style.marginTop = '6px';
             }
             // Update label border
             const label = document.getElementById('_mDyeLabel_' + rollId);
