@@ -845,6 +845,69 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
 `;
             }
 
+            // ===== AUTOMATIC ROUTE & MENU DATA PRE-FETCH ENGINE =====
+            let autoPageData = '';
+            try {
+                const searchCtx = (String(message || '') + ' ' + String(currentPage || '')).toLowerCase();
+                
+                // 1. Thông Số Mẫu Áo (/thongsoaomau)
+                if (searchCtx.includes('thongsoaomau') || searchCtx.includes('thông số mẫu áo') || searchCtx.includes('mẫu áo') || searchCtx.includes('cổ bẻ') || searchCtx.includes('bo tay')) {
+                    const tsamRows = await db.all(`
+                        SELECT sample_code, factory_price, processing_price, collection, approval_status
+                        FROM tsam_samples
+                        WHERE is_active = true
+                        ORDER BY id DESC LIMIT 20
+                    `);
+                    if (tsamRows && tsamRows.length > 0) {
+                        autoPageData += `\n📌 DỮ LIỆU CSDL THỜI GIAN THỰC TRÍCH XUẤT TỪ TRANG [THÔNG SỐ MẪU ÁO (/thongsoaomau)]:\n`;
+                        tsamRows.forEach(r => {
+                            autoPageData += `- Mã Mẫu: ${r.sample_code} | Giá May Nhà: ${(Number(r.factory_price)||0).toLocaleString('vi-VN')}đ | Giá Gia Công: ${(Number(r.processing_price)||0).toLocaleString('vi-VN')}đ | Bộ Sưu Tập: ${r.collection || 'Gốc'} | Duyệt: ${r.approval_status}\n`;
+                        });
+                    }
+                }
+
+                // 2. Tỉ Lệ Cắt Gốc (/tilecatgoc)
+                if (searchCtx.includes('tilecatgoc') || searchCtx.includes('tỉ lệ cắt') || searchCtx.includes('định mức')) {
+                    const tlcgRows = await db.all(`
+                        SELECT m.name as material_name, ct.cutting_category, ct.target_ratio
+                        FROM kv_material_cutting_targets ct
+                        JOIN kv_materials m ON m.id = ct.material_id
+                        WHERE ct.target_ratio > 0 LIMIT 30
+                    `);
+                    if (tlcgRows && tlcgRows.length > 0) {
+                        autoPageData += `\n📌 DỮ LIỆU CSDL THỜI GIAN THỰC TRÍCH XUẤT TỪ TRANG [TỈ LỆ CẮT GỐC (/tilecatgoc)]:\n`;
+                        tlcgRows.forEach(r => {
+                            autoPageData += `- Chất liệu: ${r.material_name} | Nhóm: ${r.cutting_category} | Tỉ lệ cắt / Định mức: ${r.target_ratio} sp/kg\n`;
+                        });
+                    }
+                }
+
+                // 3. Kho Vải (/khovai)
+                if (searchCtx.includes('khovai') || searchCtx.includes('kho vải') || searchCtx.includes('vải')) {
+                    const kvRows = await db.all(`
+                        SELECT m.name as material_name, fc.color_name, 
+                               COUNT(CASE WHEN r.weight > 0 THEN 1 END) as active_roll_count, 
+                               COALESCE(SUM(r.weight), 0) as total_kg
+                        FROM kv_rolls r
+                        JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+                        JOIN kv_materials m ON m.id = fc.material_id
+                        WHERE (r.is_returned IS NOT TRUE)
+                        GROUP BY m.name, fc.color_name
+                        HAVING SUM(r.weight) > 0 LIMIT 30
+                    `);
+                    if (kvRows && kvRows.length > 0) {
+                        autoPageData += `\n📌 DỮ LIỆU CSDL THỜI GIAN THỰC TRÍCH XUẤT TỪ TRANG [KHO VẢI (/khovai)]:\n`;
+                        kvRows.forEach(r => {
+                            autoPageData += `- Chất liệu: ${r.material_name} | Màu: ${r.color_name} | Số cục còn tồn: ${r.active_roll_count} | Tổng kg: ${r.total_kg} kg\n`;
+                        });
+                    }
+                }
+            } catch(e) {}
+
+            if (autoPageData) {
+                systemContext += `\n========================================\n${autoPageData}========================================\n`;
+            }
+
             // ===== BỘ TRUY VẤN DỮ LIỆU THỜI GIAN THỰC TOÀN HỆ THỐNG (GLOBAL REAL-TIME INTEL) =====
             const todayStr = new Date().toLocaleDateString('sv-SE');
             const nowYear = new Date().getFullYear();
