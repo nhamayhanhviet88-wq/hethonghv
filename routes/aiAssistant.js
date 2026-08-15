@@ -228,13 +228,15 @@ CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL (DÙNG ĐỂ TRA CỨU MỌI MENU):
    - id (int), fabric_color_id (int): Liên kết kv_fabric_colors.id
    - weight (numeric): Trọng lượng kg của cây vải
    - is_returned (boolean): TRUE là đã trả/xuất, FALSE/NULL là còn tồn trong kho.
-   - CÁCH TÍNH TỒN KHO VẢI (KG) THEO CHẤT LIỆU (VD Poly, Cotton):
-     SELECT m.name as material_name, COUNT(r.id) as roll_count, COALESCE(SUM(r.weight), 0) as total_kg
+   - CÁCH TÍNH TỒN KHO VẢI (KG & SỐ CỤC VẢI) THEO CHẤT LIỆU (VD Poly, Cotton):
+     SELECT fc.color_name, 
+            COUNT(CASE WHEN r.weight > 0 THEN 1 END) as active_roll_count, 
+            COALESCE(SUM(r.weight), 0) as total_kg
      FROM kv_rolls r
      JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
      JOIN kv_materials m ON m.id = fc.material_id
-     WHERE m.name ILIKE '%poly%' AND (r.is_returned IS NOT TRUE)
-     GROUP BY m.name;
+     WHERE m.name ILIKE '%cotton lite%' AND (r.is_returned IS NOT TRUE)
+     GROUP BY fc.color_name;
 
 8. customers (Quản lý dữ liệu khách hàng & đối tác):
    - id (int), name (text), phone (text), email (text), city (text), address (text)
@@ -250,7 +252,7 @@ QUY TẮC BẮT BUỘC KHI SINH SQL:
 - Ngày hôm nay là 2026-08-15 (Năm 2026, Tháng 8).
 - Luôn kiểm tra điều kiện (is_draft IS NOT TRUE) khi tính đơn hàng dht_orders.
 - Luôn dùng LIMIT 10 để tránh quá tải.
-- Khi người dùng hỏi về Kho vải / Tồn kho vải (VD: Poly, Cotton, Vải) -> BẮT BUỘC JOIN kv_rolls, kv_fabric_colors, kv_materials để tính SUM(r.weight) như ví dụ ở trên!
+- Khi người dùng hỏi về Kho vải / Tồn kho vải (VD: Poly, Cotton, Vải) -> BẮT BUỘC LỌC r.weight > 0 ĐỂ ĐẾM ĐÚNG SỐ CỤC VẢI CÒN TỒN THỰC TẾ (tránh đếm nhầm các cây đã cắt xong 0kg như ví dụ ở trên)!
 - Khi người dùng hỏi về Khách hàng -> Truy vấn bảng customers hoặc dht_orders.
 - Khi người dùng hỏi về Tháng X -> Lấy lọc theo EXTRACT(MONTH FROM created_at) HOẶC budget_month.
 `;
