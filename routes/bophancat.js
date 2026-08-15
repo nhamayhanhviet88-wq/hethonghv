@@ -7053,7 +7053,7 @@ module.exports = async function(fastify) {
 
         const groupRecords = await db.all(
 
-            `SELECT id, dht_order_id, order_item_id, phoi_index, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name, material_name, fabric_color, cutter_id, cutting_category, printing_contractor_id FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
+            `SELECT id, dht_order_id, order_item_id, phoi_index, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name, material_name, fabric_color, cutter_id, cutting_category, printing_contractor_id, pending_undo_cutting, order_code FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
 
             [group_id]
 
@@ -7061,7 +7061,12 @@ module.exports = async function(fastify) {
 
         if (groupRecords.length < 2) return reply.code(400).send({ error: 'Nhóm không hợp lệ hoặc chỉ có 1 đơn' });
 
-
+        // Check if any record in the group is waiting for undo approval
+        const pendingUndoRecs = groupRecords.filter(r => r.pending_undo_cutting);
+        if (pendingUndoRecs.length > 0) {
+            const pendingCodes = pendingUndoRecs.map(r => r.order_code || r.product_name || ('Đơn #' + r.id)).join(', ');
+            return reply.code(400).send({ error: 'Không thể báo Cắt Xong vì đơn ' + pendingCodes + ' trong nhóm đang chờ duyệt trở về nhận cắt. Vui lòng chờ Quản lý duyệt hoặc Hủy yêu cầu trước!' });
+        }
 
         // Check if any record in the group is already finalized
 

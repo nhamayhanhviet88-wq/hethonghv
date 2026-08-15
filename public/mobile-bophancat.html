@@ -988,6 +988,14 @@ function mRenderMine(items = null, showSectionBadge = false){
     const groupNotDoneIds = new Set();
     mMine.forEach(x => { if (x.multi_cut_group_id && !x.is_cut_done) groupNotDoneIds.add(x.multi_cut_group_id); });
 
+    const pendingUndoGroupMap = {};
+    mState.records.forEach(x => {
+        if (x.multi_cut_group_id && x.pending_undo_cutting) {
+            if (!pendingUndoGroupMap[x.multi_cut_group_id]) pendingUndoGroupMap[x.multi_cut_group_id] = [];
+            pendingUndoGroupMap[x.multi_cut_group_id].push(x.order_code || x.product_name || ('Đơn #' + x.id));
+        }
+    });
+
     const cardHtml = itemsToRender.map(r=>{
         const doneCls=r.is_cut_done?' on':'';
         const washCls=r.wash_reported?' on':'';
@@ -1034,9 +1042,13 @@ function mRenderMine(items = null, showSectionBadge = false){
                     actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:default;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;margin:8px 0;opacity:0.65" disabled>'+doneTxt+' (CHỈ GIÁM ĐỐC ĐƯỢC HOÀN TÁC)</button>';
                 }
             } else {
+                var groupPendingUndo = (r.multi_cut_group_id && pendingUndoGroupMap[r.multi_cut_group_id]) ? pendingUndoGroupMap[r.multi_cut_group_id] : null;
                 if (r.pending_undo_cutting) {
                     actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:not-allowed;font-family:Inter,sans-serif;background:#d97706;color:#fff;margin:8px 0" disabled>⏳ ĐANG CHỜ DUYỆT VỀ NHẬN CẮT</button>';
                     actionHtml+='<button style="width:100%;padding:10px;border:1px solid #fca5a5;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;margin:4px 0 8px 0;box-sizing:border-box" onclick="mToggle('+r.id+',\'cancel_undo_cutting_request\')">↩️ HỦY YÊU CẦU VỀ NHẬN CẮT</button>';
+                } else if (groupPendingUndo && groupPendingUndo.length > 0) {
+                    actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:13px;font-weight:900;cursor:not-allowed;font-family:Inter,sans-serif;background:#64748b;color:#fff;margin:8px 0" disabled title="Đơn '+groupPendingUndo.join(', ')+' cùng nhóm đang chờ duyệt về nhận cắt">🔒 KHÔNG THỂ CẮT XONG ('+groupPendingUndo.join(', ')+' ĐANG CHỜ DUYỆT VỀ NHẬN CẮT)</button>';
+                    actionHtml+='<button style="width:100%;padding:10px;border:1px solid #fca5a5;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;margin:4px 0 8px 0;box-sizing:border-box" onclick="mToggle('+r.id+',\'request_undo_cutting\')">↩️ TRỞ VỀ NHẬN CẮT (CHỜ DUYỆT)</button>';
                 } else {
                     actionHtml+='<button style="width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:Inter,sans-serif;background:'+doneBg+';color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.4);margin:8px 0" onclick="mOpenDoneModal('+r.id+')">'+doneTxt+'</button>';
                     actionHtml+='<button style="width:100%;padding:10px;border:1px solid #fca5a5;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;background:#fee2e2;color:#dc2626;margin:4px 0 8px 0;box-sizing:border-box" onclick="mToggle('+r.id+',\'request_undo_cutting\')">↩️ TRỞ VỀ NHẬN CẮT (CHỜ DUYỆT)</button>';
@@ -2840,6 +2852,13 @@ async function mOpenGroupDoneModal(groupId, isRefresh = false){
     window._mBusy=true;
     const groupRecs=mMine.filter(x=>x.multi_cut_group_id===groupId);
     if(groupRecs.length<2){mToast('Nhóm không đủ đơn',false);window._mBusy=false;return;}
+    const pendingInGroup = groupRecs.filter(x => x.pending_undo_cutting);
+    if (pendingInGroup.length > 0) {
+        const codes = pendingInGroup.map(x => x.order_code || x.product_name || ('Đơn #' + x.id)).join(', ');
+        mToast('⚠️ Không thể cắt xong vì đơn ' + codes + ' trong nhóm đang chờ duyệt trở về nhận cắt!', false);
+        window._mBusy = false;
+        return;
+    }
     const ref=groupRecs[0];
 
     let preservedQtys = {};

@@ -788,6 +788,16 @@ function _bpcGetScheduleBadge(cutExpectedAt, isCutDone) {
 }
 
 function _bpcMapRecordRow(r, i) {
+    var pendingUndoGroupMap = {};
+    if (_bpc && _bpc.records) {
+        _bpc.records.forEach(function(x) {
+            if (x.multi_cut_group_id && x.pending_undo_cutting) {
+                if (!pendingUndoGroupMap[x.multi_cut_group_id]) pendingUndoGroupMap[x.multi_cut_group_id] = [];
+                pendingUndoGroupMap[x.multi_cut_group_id].push(x.order_code || x.product_name || ('Đơn #' + x.id));
+            }
+        });
+    }
+
     // === CUT/DONE button visibility logic ===
     // Not cutting yet: show ✂️, hide ✅
     // Cutting (not done): hide ✂️, show ✅
@@ -948,8 +958,11 @@ function _bpcMapRecordRow(r, i) {
                     ? '<button class="bpc-icon-btn on-done" onclick="_bpcToggleAction('+r.id+',\'undo_cut_done\')" title="Hoàn tác cắt xong (chỉ dành cho Giám đốc)">'+doneIcon+'</button>'
                     : '<button class="bpc-icon-btn on-done" disabled title="Đã hoàn thành (chỉ Giám đốc mới được hoàn tác)" style="opacity:0.6;cursor:default">'+doneIcon+'</button>';
             } else {
+                var groupPendingUndo = (r.multi_cut_group_id && pendingUndoGroupMap[r.multi_cut_group_id]) ? pendingUndoGroupMap[r.multi_cut_group_id] : null;
                 if (r.pending_undo_cutting) {
-                    doneBtnHtml = '<button class="bpc-icon-btn" disabled title="Đang chờ duyệt hoàn tác" style="opacity:0.4;cursor:default">' + doneIcon + '</button>';
+                    doneBtnHtml = '<button class="bpc-icon-btn" disabled title="Đang chờ duyệt trở về nhận cắt" style="opacity:0.4;cursor:not-allowed;background:#f59e0b;color:#fff">' + doneIcon + '</button>';
+                } else if (groupPendingUndo && groupPendingUndo.length > 0) {
+                    doneBtnHtml = '<button class="bpc-icon-btn" disabled title="Đơn (' + groupPendingUndo.join(', ') + ') cùng nhóm đang chờ duyệt về nhận cắt" style="opacity:0.4;cursor:not-allowed;background:#64748b;color:#fff">' + doneIcon + '</button>';
                 } else {
                     if (canInteract) {
                         doneBtnHtml = '<button class="bpc-icon-btn" onclick="_bpcOpenDoneModal('+r.id+')" title="Cắt xong" style="background:#eff6ff;border-color:#3b82f6">'+doneIcon+'</button>';
@@ -3401,6 +3414,13 @@ async function _bpcOpenGroupDoneModal(groupId, isRefresh = false) {
     window._bpcBusy = true;
     var groupRecs = _bpc.records.filter(function(x) { return x.multi_cut_group_id === groupId; });
     if (groupRecs.length < 2) { showToast('Nhóm không đủ đơn', 'error'); window._bpcBusy = false; return; }
+    var pendingInGroup = groupRecs.filter(function(x) { return x.pending_undo_cutting; });
+    if (pendingInGroup.length > 0) {
+        var codes = pendingInGroup.map(function(x) { return x.order_code || x.product_name || ('Đơn #' + x.id); }).join(', ');
+        showToast('⚠️ Không thể cắt xong vì đơn (' + codes + ') trong nhóm đang chờ duyệt trở về nhận cắt!', 'error');
+        window._bpcBusy = false;
+        return;
+    }
     var ref = groupRecs[0];
     
     var preservedQtys = {};
