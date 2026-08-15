@@ -441,8 +441,8 @@
             alertCardsHtml = `<div style="margin-top:10px">${items}</div>`;
         }
 
-        // Render Gear config icon ONLY FOR DIRECTOR (state.canConfig === true)
-        var gearBtnHtml = state.canConfig ? `<button class="hv-ai-hdr-btn" onclick="window._hvAiOpenConfigModal()" title="Cấu hình API Key & Phân Quyền (Độc Quyền Giám Đốc)">⚙️</button>` : '';
+        // Render Gear config icon FOR DIRECTOR & LE VIET TRINH (state.canConfig === true)
+        var gearBtnHtml = state.canConfig ? `<button class="hv-ai-hdr-btn" onclick="window._hvAiOpenConfigModal()" title="Cấu hình & Thiết lập gợi ý nhanh (Ban Giám Đốc & Lê Việt Trinh)">⚙️</button>` : '';
         var ttsColor = state.ttsEnabled ? '#22c55e' : '#ffffff';
         var ttsBtnHtml = `<button class="hv-ai-hdr-btn" id="hvAiTtsBtn" onclick="window._hvAiToggleVoiceSpeech()" style="color:${ttsColor}" title="Bật/Tắt Giọng đọc Tiếng Việt 2 chiều">🔊</button>`;
 
@@ -1033,10 +1033,10 @@
         return formatted;
     }
 
-    // Modal Config API Key & Phân Quyền AI (DUY NHẤT GIÁM ĐỐC)
+    // Modal Config API Key & Phân Quyền AI & Thiết lập Gợi ý Nhanh (Giám Đốc & Lê Việt Trinh)
     window._hvAiOpenConfigModal = function() {
         if (!state.canConfig) {
-            alert('Chỉ Ban Giám Đốc mới có quyền cấu hình API Key và Phân Quyền Trợ Lý AI!');
+            alert('Chỉ Ban Giám Đốc và Quản Lý Cấp Cao Lê Việt Trinh mới có quyền cài đặt!');
             return;
         }
 

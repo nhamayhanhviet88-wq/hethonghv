@@ -578,8 +578,8 @@ module.exports = async function (fastify, opts) {
             const role = req.user?.role || '';
             const username = String(req.user?.username || '').toLowerCase();
 
-            // DUY NHẤT GIÁM ĐỐC (admin, giam_doc) mới có quyền cấu hình API Key
-            const canConfig = (role === 'giam_doc' || role === 'admin');
+            // Ban Giám Đốc (admin, giam_doc) & Quản Lý Cấp Cao Lê Việt Trinh có quyền mở bảng cấu hình & gợi ý nhanh
+            const canConfig = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao' || username === 'trinh' || username === 'leviettrinh');
 
             let keyRow = await db.get(`SELECT setting_value FROM system_settings WHERE setting_key = 'gemini_api_key'`);
             let policyRow = await db.get(`SELECT setting_value FROM system_settings WHERE setting_key = 'ai_allowed_roles'`);
@@ -599,13 +599,14 @@ module.exports = async function (fastify, opts) {
         }
     });
 
-    // POST /api/ai-assistant/config - Lưu API Key & Phân Quyền AI (DUY NHẤT Giám Đốc)
+    // POST /api/ai-assistant/config - Lưu API Key & Phân Quyền AI
     fastify.post('/api/ai-assistant/config', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            const role = req.user?.role;
-            // DUY NHẤT GIÁM ĐỐC (admin, giam_doc) mới được cấu hình
-            if (role !== 'giam_doc' && role !== 'admin') {
-                return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc mới có quyền cấu hình API Key và Phân Quyền Trợ Lý AI' });
+            const role = req.user?.role || '';
+            const username = String(req.user?.username || '').toLowerCase();
+            const isAllowed = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao' || username === 'trinh' || username === 'leviettrinh');
+            if (!isAllowed) {
+                return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc và Quản Lý Cấp Cao mới có quyền cấu hình Trợ Lý AI' });
             }
 
             const { api_key, allowed_roles } = req.body || {};
