@@ -769,16 +769,54 @@
         body.scrollTop = body.scrollHeight;
     };
 
+    function getVietnameseVoice() {
+        if (!('speechSynthesis' in window)) return null;
+        var voices = window.speechSynthesis.getVoices() || [];
+        var viVoice = voices.find(function(v) {
+            var lang = (v.lang || '').toLowerCase();
+            var name = (v.name || '').toLowerCase();
+            return lang.includes('vi') || name.includes('vietnam') || name.includes('hoaimy') || name.includes('namminh') || name.includes('tiếng việt');
+        });
+        return viVoice || null;
+    }
+
+    // Load voices eagerly for Web Speech API
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = function() {
+            getVietnameseVoice();
+        };
+    }
+
     function speakText(text) {
-        if (!('speechSynthesis' in window) || !state.ttsEnabled) return;
+        if (!state.ttsEnabled) return;
         try {
-            window.speechSynthesis.cancel();
-            var cleanText = text.replace(/<[^>]*>?/gm, '').replace(/\[\[.*?\]\]/g, '');
-            var utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = 'vi-VN';
-            utterance.rate = 1.0;
-            window.speechSynthesis.speak(utterance);
-        } catch(e) {}
+            var cleanText = text.replace(/<[^>]*>?/gm, '').replace(/\[\[.*?\]\]/g, '').trim();
+            if (!cleanText) return;
+
+            var viVoice = getVietnameseVoice();
+            if (viVoice && ('speechSynthesis' in window)) {
+                window.speechSynthesis.cancel();
+                var utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.voice = viVoice;
+                utterance.lang = 'vi-VN';
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                // High-quality Google Vietnamese Audio TTS Fallback for computers without vi-VN voice installed
+                if (window._hvAiAudioTts) {
+                    try { window._hvAiAudioTts.pause(); } catch(e){}
+                }
+                var shortText = cleanText.substring(0, 200);
+                var ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&q=' + encodeURIComponent(shortText) + '&tl=vi&client=tw-ob';
+                var audio = new Audio(ttsUrl);
+                window._hvAiAudioTts = audio;
+                audio.play().catch(function(err) {
+                    console.warn('Audio TTS fallback playback prevented:', err);
+                });
+            }
+        } catch(e) {
+            console.warn('Speech synthesis error:', e);
+        }
     }
 
     window._hvAiToggleVoiceSpeech = function() {
