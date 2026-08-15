@@ -488,12 +488,17 @@
                 <button onclick="window._hvAiStopVoiceRecording()" style="background:#dc2626;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">Dừng & Gửi</button>
             </div>
 
-            <div class="hv-ai-footer">
+            <div class="hv-ai-footer" id="hvAiFooter">
                 <input type="file" id="hvAiFileInput" accept="image/*" style="display:none" onchange="window._hvAiOnImageSelected(this)">
                 <button class="hv-ai-icon-btn" onclick="document.getElementById('hvAiFileInput').click()" title="Đính kèm Hình ảnh / Chụp ảnh (Vision AI)">📷</button>
                 <button class="hv-ai-icon-btn" id="hvAiVoiceBtn" onclick="window._hvAiToggleVoiceRecording()" title="Ghi âm giọng nói (Voice AI)">🎙️</button>
                 <input type="text" class="hv-ai-input" id="hvAiInput" placeholder="Nhập câu hỏi hoặc chọn giọng nói/hình ảnh..." onkeypress="if(event.key==='Enter') window._hvAiSubmitChat()">
                 <button class="hv-ai-send-btn" onclick="window._hvAiSubmitChat()">Gửi 🚀</button>
+            </div>
+
+            <!-- Thinking Progress Footer (Hides input field during AI thinking to kill iOS Safari Dictation buffer) -->
+            <div id="hvAiThinkingFooter" style="display:none;padding:11px 16px;background:linear-gradient(135deg, #e0e7ff 0%, #f1f5f9 100%);border-top:1px solid #c7d2fe;text-align:center;font-size:12px;font-weight:800;color:#3730a3;border-bottom-left-radius:16px;border-bottom-right-radius:16px">
+                ⚡ Trợ Lý AI đang suy nghĩ &amp; truy vấn CSDL...
             </div>
         `;
 
@@ -708,6 +713,12 @@
         window._hvAiStopVoiceRecording();
         window._hvAiRemoveAttachedImage();
 
+        // Hide input footer & show thinking bar to force iOS Keyboard & Dictation to terminate
+        var footer = document.getElementById('hvAiFooter');
+        var thinkFooter = document.getElementById('hvAiThinkingFooter');
+        if (footer) footer.style.display = 'none';
+        if (thinkFooter) thinkFooter.style.display = 'block';
+
         // DOM Node Replacement: Replace input element to completely destroy WebKit dictation composition range on iOS Safari
         var parent = inp.parentNode;
         if (parent) {
@@ -715,8 +726,7 @@
             newInp.type = 'text';
             newInp.className = 'hv-ai-input';
             newInp.id = 'hvAiInput';
-            newInp.placeholder = '⏳ Trợ Lý AI đang suy nghĩ & truy vấn CSDL...';
-            newInp.disabled = true;
+            newInp.placeholder = 'Nhập câu hỏi hoặc chọn giọng nói/hình ảnh...';
             newInp.onkeypress = function(e) { if (e.key === 'Enter') window._hvAiSubmitChat(); };
             newInp.value = '';
             parent.replaceChild(newInp, inp);
@@ -804,7 +814,10 @@
             body.appendChild(errDiv);
         } finally {
             state.isThinking = false;
+            var footer = document.getElementById('hvAiFooter');
+            var thinkFooter = document.getElementById('hvAiThinkingFooter');
             var curInp = document.getElementById('hvAiInput');
+
             if (curInp && curInp.parentNode) {
                 var freshInp = document.createElement('input');
                 freshInp.type = 'text';
@@ -815,6 +828,8 @@
                 freshInp.value = '';
                 curInp.parentNode.replaceChild(freshInp, curInp);
             }
+            if (thinkFooter) thinkFooter.style.display = 'none';
+            if (footer) footer.style.display = 'flex';
             body.scrollTop = body.scrollHeight;
         }
     };
