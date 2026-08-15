@@ -7383,6 +7383,19 @@ module.exports = async function(fastify) {
 
             return reply.code(400).send({ error: 'Chọn ít nhất 2 đơn để cắt chung' });
 
+        // Strict Rule: Validate that all selected rolls belong to the EXACT SAME material and color
+        const rollCheck = await db.all(`
+            SELECT DISTINCT r.fabric_color_id, fc.color_name, fc.material_id, m.name AS material_name
+            FROM kv_rolls r
+            JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+            JOIN kv_materials m ON m.id = fc.material_id
+            WHERE r.id = ANY($1)
+        `, [selected_roll_ids]);
+
+        if (rollCheck.length > 1) {
+            return reply.code(400).send({ error: 'Quy tắc Cắt Nhiều Đơn: Cấm chọn các cây vải khác màu hoặc khác chất liệu trong cùng 1 lần cắt!' });
+        }
+
 
 
         const now = vnNow();
