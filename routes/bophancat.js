@@ -3050,27 +3050,16 @@ module.exports = async function(fastify) {
                     }
 
                     await txDb.run(
-
-                        `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', multi_cut_group_id = NULL, cut_shared = NULL, pending_undo_cutting = false, pending_undo_cutting_by = NULL, pending_undo_cutting_at = NULL, updated_at = $1 WHERE id = $2`,
-
+                        `UPDATE cutting_records SET cutter_id = NULL, is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', multi_cut_group_id = NULL, cut_shared = NULL, pending_undo_cutting = false, pending_undo_cutting_by = NULL, pending_undo_cutting_at = NULL, updated_at = $1 WHERE id = $2`,
                         [now, id]
-
                     );
-
                 } else {
-
                     const rolls = await txDb.all('SELECT id FROM kv_rolls WHERE locked_by_cutting_id = $1', [id]);
-
                     await onRollsUnlockedFromCutting(txDb, rolls.map(r => r.id), false);
-
                     await txDb.run(
-
-                        `UPDATE cutting_records SET is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', pending_undo_cutting = false, pending_undo_cutting_by = NULL, pending_undo_cutting_at = NULL, updated_at = $1 WHERE id = $2`,
-
+                        `UPDATE cutting_records SET cutter_id = NULL, is_cutting = false, cutting_at = NULL, cutting_by = NULL, kg_start = 0, selected_roll_ids = '[]', pending_undo_cutting = false, pending_undo_cutting_by = NULL, pending_undo_cutting_at = NULL, updated_at = $1 WHERE id = $2`,
                         [now, id]
-
                     );
-
                 }
 
                 if (mode === 'surcharge' && rec.dht_order_id) {
