@@ -264,16 +264,27 @@ CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL (DÙNG ĐỂ TRA CỨU MỌI MENU):
    - deadline (varchar/date YYYY-MM-DD): Hạn chót hoàn thành
    - completed_at (timestamp): Ngày hoàn thành thực tế (NULL là chưa hoàn thành)
    - progress (int), assigned_to (int), created_by (int)
-   - CÁCH TRUY VẤN CÔNG VIỆC CHẬM DEADLINE (HÔM NAY LÀ 2026-08-15):
-     SELECT bt.id, bt.title, bt.status, bt.deadline, bt.progress
-     FROM board_tasks bt
-     WHERE bt.status != 'hoan_thanh' AND bt.deadline IS NOT NULL AND CAST(bt.deadline AS DATE) < CURRENT_DATE;
+
+14. promotion_codes (Trang Khuyến Mãi Giảm Giá / khuyenmaigiamgia - Mã giảm giá, voucher, quà tặng áo):
+   - id (int), code (varchar): Mã KM (VD: '86JV1VE8', 'J34OFHEZ', '7D7NRY5F'...)
+   - promo_type (varchar): Loại ưu đãi ('discount' - Giảm Giá %, 'gift' - Tặng Áo)
+   - discount_pct (double): % giảm giá (VD 10%, 5%)
+   - gift_quantity (int): Số lượng áo tặng (VD 4 áo, 2 áo)
+   - status (varchar): Trạng thái ('active' là KÍCH HOẠT, 'inactive' là TẮT)
+   - used_count (int), max_uses (int): Số lượt đã dùng / Tối đa
+   - expire_at (timestamp): Hạn dùng (NULL là Vô thời hạn)
+   - CÁCH TRUY VẤN MÃ KHUYẾN MÃI GIẢM GIÁ ĐANG KÍCH HOẠT:
+     SELECT code, promo_type, discount_pct, gift_quantity, used_count, max_uses, status, expire_at
+     FROM promotion_codes
+     WHERE status = 'active'
+     ORDER BY id DESC;
 
 QUY TẮC BẮT BUỘC KHI SINH SQL:
 - CHỈ TRẢ VỀ CÂU LỆNH SQL THUẦN TÚY TRONG KHUNG \`\`\`sql ... \`\`\`. KHÔNG GIẢI THÍCH CHỮ NÀO KHÁC.
 - Ngày hôm nay là 2026-08-15 (Năm 2026, Tháng 8).
 - Luôn kiểm tra điều kiện (is_draft IS NOT TRUE) khi tính đơn hàng dht_orders.
 - Luôn dùng LIMIT 10 để tránh quá tải.
+- Khi người dùng hỏi về Khuyến Mãi Giảm Giá / Mã ưu đãi / Voucher / Quà tặng -> Truy vấn bảng promotion_codes WHERE status = 'active'!
 - Khi người dùng hỏi về Công việc chậm deadline / Quá hạn / Tiến độ (VD: Bảng Công Việc) -> Truy vấn bảng board_tasks WHERE status != 'hoan_thanh' AND CAST(deadline AS DATE) < CURRENT_DATE!
 - Khi người dùng hỏi về Thông Số Mẫu Áo / Giá mẫu áo (VD: Cổ Bẻ Dệt - Bo Tay Dệt) -> Truy vấn bảng tsam_samples!
 - Khi người dùng hỏi về Tỉ Lệ Cắt Gốc / Định Mức Cắt / Định Lượng Cắt (VD: Cotton Lite 100%, Poly) -> Truy vấn bảng kv_material_cutting_targets JOIN kv_materials!
@@ -927,6 +938,23 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
                         autoPageData += `\n📌 DỮ LIỆU CSDL THỜI GIAN THỰC TRÍCH XUẤT CÁC CÔNG VIỆC CHẬM DEADLINE (TRANG BẢNG CÔNG VIỆC - /bangcongviec):\n`;
                         overdueTasks.forEach(t => {
                             autoPageData += `- Task CV-${t.id}: "${t.title}" | Trạng thái: ${t.status} | Deadline: ${t.deadline} (ĐÃ CHẬM DEADLINE!) | Tiến độ: ${t.progress}% | Người giao: ${t.creator_name || ''} -> Người nhận: ${t.assignee_name || ''}\n`;
+                        });
+                    }
+                }
+
+                // 5. Khuyến Mãi Giảm Giá (/khuyenmaigiamgia)
+                if (searchCtx.includes('khuyenmaigiamgia') || searchCtx.includes('khuyến mãi') || searchCtx.includes('ưu đãi') || searchCtx.includes('voucher') || searchCtx.includes('giam gia')) {
+                    const promoRows = await db.all(`
+                        SELECT code, promo_type, discount_pct, gift_quantity, used_count, max_uses, status, expire_at
+                        FROM promotion_codes
+                        ORDER BY id DESC LIMIT 20
+                    `);
+                    if (promoRows && promoRows.length > 0) {
+                        autoPageData += `\n📌 DỮ LIỆU CSDL THỜI GIAN THỰC CÁC CHƯƠNG TRÌNH KHUYẾN MÃI GIẢM GIÁ (TRANG KHUYẾN MÃI GIẢM GIÁ - /khuyenmaigiamgia):\n`;
+                        promoRows.forEach(p => {
+                            const detailStr = p.promo_type === 'discount' ? `Giảm ${p.discount_pct}%` : `Tặng ${p.gift_quantity} áo`;
+                            const expireStr = p.expire_at ? new Date(p.expire_at).toLocaleDateString('vi-VN') : 'Vô thời hạn';
+                            autoPageData += `- Mã KM: ${p.code} | Loại: ${p.promo_type === 'discount' ? 'Giảm Giá %' : 'Tặng Áo'} (${detailStr}) | Lượt dùng: ${p.used_count}/${p.max_uses} | Hạn dùng: ${expireStr} | Trạng thái: ${p.status === 'active' ? '🟢 KÍCH HOẠT' : '🔴 TẮT'}\n`;
                         });
                     }
                 }

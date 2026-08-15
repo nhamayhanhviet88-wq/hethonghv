@@ -2,7 +2,7 @@ const db = require('./db/pool');
 
 (async () => {
     try {
-        console.log('--- SEARCHING FOR "CV-034" OR "qlmkt1" IN ALL TABLES ---');
+        console.log('--- SEARCHING FOR PROMOTION CODES IN ALL TABLES ---');
 
         const tables = await db.all(`
             SELECT table_name 
@@ -24,7 +24,7 @@ const db = require('./db/pool');
                         const check = await db.all(`
                             SELECT "${c.column_name}" 
                             FROM "${tableName}" 
-                            WHERE "${c.column_name}" ILIKE '%CV-034%' OR "${c.column_name}" ILIKE '%qlmkt1%'
+                            WHERE "${c.column_name}" ILIKE '%8G7V1VE8%' OR "${c.column_name}" ILIKE '%FUQSSNYA%' OR "${c.column_name}" ILIKE '%UFW7F3XN%'
                             LIMIT 1
                         `);
                         if (check.length > 0) {
