@@ -620,7 +620,11 @@
                 state.isRecording = true;
                 if (btn) btn.classList.add('recording');
                 if (voiceBar) voiceBar.style.display = 'flex';
-                if (voiceText) voiceText.textContent = '🎙️ Đang lắng nghe giọng nói... Hãy nói câu hỏi!';
+                if (voiceText) voiceText.innerHTML = '🎙️ <b>Đang lắng nghe giọng nói... Hãy nói câu hỏi!</b>';
+                if (inp) {
+                    inp.focus();
+                    inp.scrollLeft = inp.scrollWidth;
+                }
             };
 
             rec.onresult = function(e) {
@@ -630,6 +634,11 @@
                 }
                 if (inp) {
                     inp.value = (initialText ? (initialText + ' ') : '') + transcript;
+                    inp.scrollLeft = inp.scrollWidth;
+                    try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(err){}
+                    if (voiceText) {
+                        voiceText.innerHTML = '🎙️ <b>Đang nhận diện:</b> <span style="color:#1e293b;font-weight:700">' + (inp.value.length > 40 ? ('...' + inp.value.slice(-40)) : inp.value) + '</span>';
+                    }
                 }
             };
 
