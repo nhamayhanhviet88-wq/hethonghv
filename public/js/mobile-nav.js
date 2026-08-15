@@ -236,7 +236,7 @@ async function initMobileNavigation() {
 if (!document.getElementById('hvAiScript') && !window.HVAiAssistantInitialized) {
     const s = document.createElement('script');
     s.id = 'hvAiScript';
-    s.src = '/js/components/aiAssistant.js?v=20260815_v1800_FIX_OVERLAY_REFERENCE_ERROR';
+    s.src = '/js/components/aiAssistant.js?v=20260815_v1900_HIDE_STT_TEXT_LABEL_SHOW_ONLY_NUMBERS';
     document.head.appendChild(s);
 }
 

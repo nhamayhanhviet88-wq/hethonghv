@@ -1154,7 +1154,7 @@
                 var html = '';
                 prompts.forEach(function(p, idx) {
                     var safeTxt = p.prompt_text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    html += `<button onclick="window._hvAiSelectQuickPrompt('${safeTxt}')" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;text-align:left;cursor:pointer;transition:all 0.2s;line-height:1.4;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#e0e7ff';this.style.borderColor='#818cf8';this.style.color='#3730a3'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#cbd5e1';this.style.color='#1e293b'"><span style="background:#4338ca;color:#ffffff;font-size:11px;font-weight:900;padding:2px 7px;border-radius:6px;flex-shrink:0">STT ${idx + 1}</span> <span>💡 ${p.prompt_text}</span></button>`;
+                    html += `<button onclick="window._hvAiSelectQuickPrompt('${safeTxt}')" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;text-align:left;cursor:pointer;transition:all 0.2s;line-height:1.4;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#e0e7ff';this.style.borderColor='#818cf8';this.style.color='#3730a3'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#cbd5e1';this.style.color='#1e293b'"><span style="background:#4338ca;color:#ffffff;font-size:11.5px;font-weight:900;padding:2px 8px;border-radius:6px;flex-shrink:0;min-width:18px;text-align:center">${idx + 1}</span> <span>💡 ${p.prompt_text}</span></button>`;
                 });
                 listContainer.innerHTML = html;
             }
@@ -1203,9 +1203,8 @@
 
                     html += `
                         <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;font-size:13.5px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1e293b;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,0.03)">
-                            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-                                <span style="font-size:11.5px;font-weight:700;color:#4338ca">STT</span>
-                                <input type="number" min="1" max="${prompts.length}" value="${idx + 1}" onchange="window._hvAiChangePromptStt(${p.id}, this.value)" style="width:48px;text-align:center;font-size:13px;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1e293b;background:#ffffff;border:1.5px solid #818cf8;border-radius:6px;padding:3px 2px;outline:none" title="Gõ số STT bất kỳ để nhảy vị trí">
+                            <div style="display:flex;align-items:center;flex-shrink:0">
+                                <input type="number" min="1" max="${prompts.length}" value="${idx + 1}" onchange="window._hvAiChangePromptStt(${p.id}, this.value)" style="width:44px;text-align:center;font-size:13px;font-weight:800;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#3730a3;background:#ffffff;border:1.5px solid #818cf8;border-radius:6px;padding:3px 2px;outline:none" title="Gõ số vị trí để nhảy STT">
                             </div>
                             <span style="flex:1;font-size:13.5px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1e293b;line-height:1.4">💡 ${p.prompt_text}</span>
                             <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
