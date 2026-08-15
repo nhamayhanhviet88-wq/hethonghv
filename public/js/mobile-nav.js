@@ -236,7 +236,7 @@ async function initMobileNavigation() {
 if (!document.getElementById('hvAiScript') && !window.HVAiAssistantInitialized) {
     const s = document.createElement('script');
     s.id = 'hvAiScript';
-    s.src = '/js/components/aiAssistant.js?v=20260815_v2000_SLASH_SHORTCUT_AUTOCOMPLETE_SYSTEM';
+    s.src = '/js/components/aiAssistant.js?v=20260815_v2100_STRICT_SLASH_SHORTCUT_FILTER';
     document.head.appendChild(s);
 }
 

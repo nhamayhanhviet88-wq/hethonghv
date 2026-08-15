@@ -550,11 +550,20 @@
             }
 
             var list = state.quickPromptsList || [];
-            var matches = list.filter(function(p) {
-                var sk = (p.shortcut_key || '').toLowerCase();
-                var pt = (p.prompt_text || '').toLowerCase();
-                return (sk && sk.includes(val)) || (val.startsWith('/') && sk && sk.startsWith(val)) || pt.includes(val.replace('/', ''));
-            });
+            var matches = [];
+            if (val.startsWith('/')) {
+                matches = list.filter(function(p) {
+                    var sk = (p.shortcut_key || '').trim().toLowerCase();
+                    if (!sk) return false;
+                    return sk.startsWith(val) || sk === val;
+                });
+            } else {
+                matches = list.filter(function(p) {
+                    var sk = (p.shortcut_key || '').trim().toLowerCase();
+                    var pt = (p.prompt_text || '').toLowerCase();
+                    return (sk && sk.includes(val)) || pt.includes(val);
+                });
+            }
 
             if (matches.length === 0) {
                 popup.style.display = 'none';
