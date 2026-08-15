@@ -216,21 +216,33 @@ CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL (DÙNG ĐỂ TRA CỨU MỌI MENU):
 4. company_rules (Nội quy & điều khoản):
    - rule_code (varchar), title (text), content (text), fine_amount (numeric), scope (varchar)
 
-5. fabric_transactions (Kho vải, vật liệu & nhật ký nhập xuất tồn kho):
-   - material_name (text): Chất liệu vải (Poly, Cotton, Cá sấu, Su, Mễ, Nỉ, Thun...)
-   - color_name (text): Màu sắc vải (Trắng, Đen, Đỏ, Xanh, Vàng...)
-   - total_quantity (numeric): Số lượng vải (kg, cuộn, m)
-   - unit (text): Đơn vị tính ('kg', 'm', 'cuộn')
-   - tx_type (text): Loại giao dịch ('nhap_kho', 'xuat_kho', 'ton_kho')
-   - is_canceled (boolean): Trạng thái hủy phiếu
+5. kv_materials (Danh mục chất liệu vải trong kho):
+   - id (int), name (varchar): Tên chất liệu vải ('POLY THÁI', 'COTTON LITE 100%', 'MẮT CHIM', 'LACOSTE TICI', 'COTTON PHA SX'...)
+   - location (text): Vị trí kệ lưu trữ ('Kệ A', 'Kệ B', 'Kệ C'...)
 
-6. customers (Quản lý dữ liệu khách hàng & đối tác):
+6. kv_fabric_colors (Màu sắc vải & liên kết chất liệu):
+   - id (int), material_id (int): Liên kết kv_materials.id
+   - color_name (text): Tên màu sắc vải ('Bạch Kim', 'Bích Lợt', 'Biển', 'Bò', 'Đen'...)
+
+7. kv_rolls (Cây vải tồn kho thực tế & trọng lượng kg):
+   - id (int), fabric_color_id (int): Liên kết kv_fabric_colors.id
+   - weight (numeric): Trọng lượng kg của cây vải
+   - is_returned (boolean): TRUE là đã trả/xuất, FALSE/NULL là còn tồn trong kho.
+   - CÁCH TÍNH TỒN KHO VẢI (KG) THEO CHẤT LIỆU (VD Poly, Cotton):
+     SELECT m.name as material_name, COUNT(r.id) as roll_count, COALESCE(SUM(r.weight), 0) as total_kg
+     FROM kv_rolls r
+     JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+     JOIN kv_materials m ON m.id = fc.material_id
+     WHERE m.name ILIKE '%poly%' AND (r.is_returned IS NOT TRUE)
+     GROUP BY m.name;
+
+8. customers (Quản lý dữ liệu khách hàng & đối tác):
    - id (int), name (text), phone (text), email (text), city (text), address (text)
 
-7. meeting_commitments (Cam kết cuộc họp & việc quan trọng):
+9. meeting_commitments (Cam kết cuộc họp & việc quan trọng):
    - title (text), description (text), deadline (timestamptz), status (varchar)
 
-8. departments (Cơ cấu tổ chức phòng ban):
+10. departments (Cơ cấu tổ chức phòng ban):
    - id (int), name (varchar), parent_id (int)
 
 QUY TẮC BẮT BUỘC KHI SINH SQL:
@@ -238,7 +250,7 @@ QUY TẮC BẮT BUỘC KHI SINH SQL:
 - Ngày hôm nay là 2026-08-15 (Năm 2026, Tháng 8).
 - Luôn kiểm tra điều kiện (is_draft IS NOT TRUE) khi tính đơn hàng dht_orders.
 - Luôn dùng LIMIT 10 để tránh quá tải.
-- Khi người dùng hỏi về Kho vải / Vật liệu (VD: Poly, Cotton, Vải) -> Truy vấn bảng fabric_transactions (dùng ILIKE '%poly%').
+- Khi người dùng hỏi về Kho vải / Tồn kho vải (VD: Poly, Cotton, Vải) -> BẮT BUỘC JOIN kv_rolls, kv_fabric_colors, kv_materials để tính SUM(r.weight) như ví dụ ở trên!
 - Khi người dùng hỏi về Khách hàng -> Truy vấn bảng customers hoặc dht_orders.
 - Khi người dùng hỏi về Tháng X -> Lấy lọc theo EXTRACT(MONTH FROM created_at) HOẶC budget_month.
 `;
