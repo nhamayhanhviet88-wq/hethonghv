@@ -1087,6 +1087,11 @@
             <button class="hv-ai-btn-save" onclick="document.getElementById('hvAiConfigOverlay').remove()" style="background:#4338ca">Đóng</button>
         `;
 
+        var overlay = document.createElement('div');
+        overlay.className = 'hv-ai-modal-overlay';
+        overlay.id = 'hvAiConfigOverlay';
+        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
         overlay.innerHTML = `
             <div class="hv-ai-modal" style="width:94%;max-width:720px;max-height:92vh;display:flex;flex-direction:column">
                 <div class="hv-ai-modal-hdr">

@@ -236,7 +236,7 @@ async function initMobileNavigation() {
 if (!document.getElementById('hvAiScript') && !window.HVAiAssistantInitialized) {
     const s = document.createElement('script');
     s.id = 'hvAiScript';
-    s.src = '/js/components/aiAssistant.js?v=20260815_v1700_LEVIETTRINH_PROMPTS_ONLY_MODAL';
+    s.src = '/js/components/aiAssistant.js?v=20260815_v1800_FIX_OVERLAY_REFERENCE_ERROR';
     document.head.appendChild(s);
 }
 
