@@ -4045,10 +4045,15 @@ function _mcRenderStep() {
                     }
                 }
 
-                var dis = r.locked ? ' disabled' : '', op = r.locked ? 'opacity:0.4;' : '';
+                var needsDyeTest = r.is_original_tree && r.dye_test_status === 'pending';
+                var dis = (r.locked || needsDyeTest) ? ' disabled' : '';
+                var op = r.locked ? 'opacity:0.4;' : '';
                 var chk = _mcData.selRolls.indexOf(r.id) >= 0 ? ' checked' : '';
                 
                 var borderStyle = isReserved ? 'border:2px solid #ea580c;background:#fff7ed;' : 'border:1.5px solid #e2e8f0;';
+                if (needsDyeTest) {
+                    borderStyle = 'border:2px solid #f59e0b;background:#fef3c7;';
+                }
 
                 var locBadge = '';
                 if (r.roll_loc_name) {
@@ -4073,12 +4078,36 @@ function _mcRenderStep() {
                     locBadge = '<div style="margin-top:4px;font-size:10px;font-weight:800;color:\''+bColor+'\';background:\''+bBg+'\';padding:2px 6px;border-radius:6px;border:1px solid ' + bColor + '40;display:inline-block">📍 '+r.location_name+'</div>';
                 }
 
-                h += '<label style="display:block;padding:10px 14px;border-radius:10px;margin-bottom:6px;cursor:' + (r.locked?'not-allowed':'pointer') + ';' + op + borderStyle + 'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled && !' + isReserved + ')this.style.borderColor=\'#dc2626\'" onmouseout="if(!' + isReserved + ')this.style.borderColor=\'#e2e8f0\'">';
+                var dyeHtml = '';
+                if (needsDyeTest) {
+                    dyeHtml += '<div id="_bpcDyeTest_' + r.id + '" style="margin-top:8px;padding:8px 12px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px">';
+                    dyeHtml += '  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">';
+                    dyeHtml += '    <span style="background:#dc2626;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">🧪 CẦN TEST CHỐNG NHIỄM</span>';
+                    dyeHtml += '    <span style="font-size:10.5px;color:#dc2626;font-weight:700">⚠️ Chụp mẫu test linh tinh, chụp không đúng phạt 100k/lần</span>';
+                    dyeHtml += '  </div>';
+                    dyeHtml += '  <div style="display:flex;gap:6px;align-items:center">';
+                    dyeHtml += '    <input type="file" id="_bpcDyeFile_' + r.id + '" accept="image/*" capture="environment" style="display:none" onchange="_bpcUploadDyeTest(' + r.id + ', this)">';
+                    dyeHtml += '    <button type="button" onclick="event.preventDefault();event.stopPropagation();document.getElementById(\'_bpcDyeFile_' + r.id + '\').click()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px">📷 Chụp Ảnh Test</button>';
+                    dyeHtml += '    <span id="_bpcDyeStatus_' + r.id + '" style="font-size:10px;color:#92400e"></span>';
+                    dyeHtml += '  </div>';
+                    dyeHtml += '</div>';
+                } else if (r.dye_test_status === 'passed' && r.dye_test_image) {
+                    dyeHtml += '<div id="_bpcDyeTest_' + r.id + '" style="margin-top:6px;display:flex;align-items:center;gap:6px">';
+                    dyeHtml += '  <span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>';
+                    dyeHtml += '  <img src="' + r.dye_test_image + '" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981;cursor:pointer" onclick="event.preventDefault();event.stopPropagation();window.open(\'' + r.dye_test_image + '\',\'_blank\')">';
+                    dyeHtml += '  <input type="file" id="_bpcDyeFile_' + r.id + '" accept="image/*" capture="environment" style="display:none" onchange="_bpcUploadDyeTest(' + r.id + ', this)">';
+                    dyeHtml += '  <button type="button" onclick="event.preventDefault();event.stopPropagation();document.getElementById(\'_bpcDyeFile_' + r.id + '\').click()" style="background:#374151;color:#f3f4f6;border:1px solid #6b7280;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px" title="Chụp lại ảnh test">📸 Chụp Lại</button>';
+                    dyeHtml += '  <span id="_bpcDyeStatus_' + r.id + '" style="font-size:10px;color:#92400e"></span>';
+                    dyeHtml += '</div>';
+                }
+
+                h += '<label id="_bpcRollLabel_' + r.id + '" style="display:block;padding:10px 14px;border-radius:10px;margin-bottom:6px;cursor:' + ((r.locked || needsDyeTest)?'not-allowed':'pointer') + ';' + op + borderStyle + 'transition:all .15s" onmouseover="if(!this.querySelector(\'input\').disabled && !' + isReserved + ')this.style.borderColor=\'#dc2626\'" onmouseout="if(!' + isReserved + ')this.style.borderColor=\'#e2e8f0\'">';
                 h += '  <div style="display:flex;align-items:center;gap:10px">';
                 h += '    <input type="checkbox" class="_mcRollCb" value="' + r.id + '" data-weight="' + r.weight + '"' + dis + chk + ' onchange="_mcRollChanged()" style="width:18px;height:18px;accent-color:#ea580c">';
                 h += '    <span style="flex:1;display:flex;flex-direction:column;align-items:flex-start"><span style="font-size:13px;font-weight:600;color:#1e293b">' + (idx+1) + '. ' + r.label + (r.is_original_tree ? ' <span style="background:#ea580c;color:#fff;font-size:8px;padding:1px 5px;border-radius:3px;font-weight:800;margin-left:4px;display:inline-block;vertical-align:middle">CÂY NGUYÊN</span>' : '') + '</span>' + locBadge + '</span>';
                 if (r.locked) h += '    <span style="color:#ef4444;font-size:10px">🔒 ' + (r.locked_order ? r.locked_order + ' — ' : '') + (r.locked_by||'') + '</span>';
                 h += '  </div>';
+                if (dyeHtml) h += '  ' + dyeHtml;
                 if (isReserved) {
                     var msg = reservedKg ? 'QLX báo lấy ra ' + reservedKg + 'kg cắt' : 'QLX báo lấy ra cắt';
                     h += '  <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; border-top: 1.5px dashed rgba(234, 88, 12, 0.2); padding-top: 6px;">';
