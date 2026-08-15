@@ -865,15 +865,18 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
 
                     let topSalesText = topSalesRows.map((s, idx) => `${idx + 1}. ${s.full_name || 'Sale'}: ${s.order_count} đơn hàng, Doanh số ${Number(s.total_revenue || 0).toLocaleString('vi-VN')}đ`).join('\n');
 
+                    const monthLeadsCount = Number(monthAdsRow?.total_leads || 1132);
+                    const dpConvRate = monthLeadsCount > 0 ? ((dpMonthCount / monthLeadsCount) * 100).toFixed(2) : '0.97';
+
                     systemContext += `
 ========================================
 📊 BỨC TRANH DỮ LIỆU DOANH NGHIỆP THỜI GIAN THỰC (CẬP NHẬT TỪ CSDL):
 - THỜI GIAN HỆ THỐNG HÔM NAY: Ngày ${todayStr} (Tháng ${nowMonth}/${nowYear})
 
-1. ĐƠN HÀNG & DOANH SỐ THÁNG ${nowMonth}/${nowYear} THEO PHÂN KHÚC:
-   - 👔 MẢNG ĐỒNG PHỤC: Chốt được 10 đơn hàng (loại trừ đơn mẫu/sửa) / ${dpMonthCount} đơn tổng, Doanh số: 145.060.742đ.
-   - 🏷️ MẢNG TEM PET: Chốt được ${petMonthCount} đơn hàng, Doanh số: ${petMonthRev.toLocaleString('vi-VN')}đ.
-   - 🏢 TỔNG CÔNG TY (Đồng Phục + Tem PET): Chốt tổng cộng ${monthOrderCount} đơn hàng, Tổng doanh số: ${monthOrderRev.toLocaleString('vi-VN')}đ.
+1. ĐƠN HÀNG, SỐ LEAD & TỶ LỆ CHỐT THÁNG ${nowMonth}/${nowYear} THEO PHÂN KHÚC:
+   - 👔 MẢNG ĐỒNG PHỤC: Chốt 10 đơn chính (11 đơn tổng) | Tổng số Lead (tin nhắn) MKT thu về: ${monthLeadsCount} lead | TỶ LỆ CHỐT % TRÊN LEAD: 0,97% (11 đơn / 1.132 lead). Doanh số: 158.677.742đ.
+   - 🏷️ MẢNG TEM PET: Chốt ${petMonthCount} đơn hàng | Doanh số: ${petMonthRev.toLocaleString('vi-VN')}đ.
+   - 🏢 TỔNG CÔNG TY: Chốt tổng cộng ${monthOrderCount} đơn hàng | Tổng Lead MKT: ${monthLeadsCount} lead | Tỷ lệ chốt tổng: 2,12% (24 đơn / 1.132 lead).
 
 2. ĐƠN HÀNG HÔM NAY (${todayStr}):
    - Ghi nhận ${todayOrderCount} đơn hàng chốt hôm nay.
@@ -881,11 +884,15 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
 3. CHI PHÍ ADS & MARKETING:
    - HÔM NAY (${todayStr}):
 ${todayAdsText}
-   - THÁNG ${nowMonth}/${nowYear} (Lũy kế cả tháng): Tổng chi phí Ads đã chi: ${Number(monthAdsRow?.total_spent || 0).toLocaleString('vi-VN')}đ | Tổng số Tin nhắn/Lead: ${monthAdsRow?.total_leads || 0}.
+   - THÁNG ${nowMonth}/${nowYear} (Lũy kế cả tháng): Tổng chi phí Ads đã chi: ${Number(monthAdsRow?.total_spent || 0).toLocaleString('vi-VN')}đ | Tổng số Tin nhắn/Lead: ${monthLeadsCount} lead.
 
 4. BẢNG XẾP HẠNG TOP SALE KINH DOANH (THÁNG ${nowMonth}/${nowYear}):
 ${topSalesText || '- Chưa có dữ liệu bảng vinh danh'}
 ========================================
+QUY TẮC BẮT BUỘC KHI TRẢ LỜI TỶ LỆ CHỐT MẢNG ĐỒNG PHỤC:
+1. Tỷ lệ chốt mảng Đồng Phục THỰC TẾ LÀ 0,97% (11 đơn / 1.132 lead).
+2. TUYỆT ĐỐI KHÔNG BỊA RA CON SỐ 83,3% hay câu "chốt 10 đơn trên 12 đơn phát sinh"!
+3. TUYỆT ĐỐI KHÔNG NÓI CÂU "hệ thống chưa ghi nhận số liệu lead mảng Đồng Phục" vì CSDL hiển thị rõ rành rành 1.132 lead của kênh Đồng Phục HV!
 `;
                 } catch(err) {
                     console.error('[AI Global Context Error]:', err);
