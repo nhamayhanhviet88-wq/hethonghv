@@ -708,21 +708,22 @@
         window._hvAiStopVoiceRecording();
         window._hvAiRemoveAttachedImage();
 
-        // Lock & Clear input field
-        inp.value = '';
-        inp.scrollLeft = 0;
-        inp.disabled = true;
-        inp.placeholder = '⏳ Trợ Lý AI đang suy nghĩ & truy vấn CSDL...';
-        try { inp.blur(); } catch(e){}
+        // DOM Node Replacement: Replace input element to completely destroy WebKit dictation composition range on iOS Safari
+        var parent = inp.parentNode;
+        if (parent) {
+            var newInp = document.createElement('input');
+            newInp.type = 'text';
+            newInp.className = 'hv-ai-input';
+            newInp.id = 'hvAiInput';
+            newInp.placeholder = '⏳ Trợ Lý AI đang suy nghĩ & truy vấn CSDL...';
+            newInp.disabled = true;
+            newInp.onkeypress = function(e) { if (e.key === 'Enter') window._hvAiSubmitChat(); };
+            newInp.value = '';
+            parent.replaceChild(newInp, inp);
+            inp = newInp;
+        }
 
-        // Interval guard to wipe any stubborn iOS Safari dictation flushes during thinking phase
-        var clearTimer = setInterval(function() {
-            var el = document.getElementById('hvAiInput');
-            if (el && el.value) {
-                el.value = '';
-                el.scrollLeft = 0;
-            }
-        }, 30);
+        try { inp.blur(); } catch(e){}
 
         // Render User Msg
         var userDiv = document.createElement('div');
@@ -802,13 +803,17 @@
             errDiv.innerHTML = `<span style="color:#dc2626">⚠️ Lỗi kết nối mạng: ${e.message}</span>`;
             body.appendChild(errDiv);
         } finally {
-            if (typeof clearTimer !== 'undefined') clearInterval(clearTimer);
             state.isThinking = false;
-            if (inp) {
-                inp.disabled = false;
-                inp.value = '';
-                inp.scrollLeft = 0;
-                inp.placeholder = 'Nhập câu hỏi hoặc chọn giọng nói/hình ảnh...';
+            var curInp = document.getElementById('hvAiInput');
+            if (curInp && curInp.parentNode) {
+                var freshInp = document.createElement('input');
+                freshInp.type = 'text';
+                freshInp.className = 'hv-ai-input';
+                freshInp.id = 'hvAiInput';
+                freshInp.placeholder = 'Nhập câu hỏi hoặc chọn giọng nói/hình ảnh...';
+                freshInp.onkeypress = function(evt) { if (evt.key === 'Enter') window._hvAiSubmitChat(); };
+                freshInp.value = '';
+                curInp.parentNode.replaceChild(freshInp, curInp);
             }
             body.scrollTop = body.scrollHeight;
         }
