@@ -2226,6 +2226,9 @@ async function _bpcOpenCutModal(recordId) {
                     bh += '  <div style="margin-top:6px;display:flex;align-items:center;gap:6px">';
                     bh += '    <span style="background:#059669;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">✅ Đã Test Chống Nhiễm</span>';
                     bh += '    <img src="' + roll.dye_test_image + '" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #10b981;cursor:pointer" onclick="event.preventDefault();event.stopPropagation();window.open(\'' + roll.dye_test_image + '\',\'_blank\')">';
+                    bh += '    <input type="file" id="_bpcDyeFile_' + roll.id + '" accept="image/*" capture="environment" style="display:none" onchange="_bpcUploadDyeTest(' + roll.id + ', this)">';
+                    bh += '    <button type="button" onclick="event.preventDefault();event.stopPropagation();document.getElementById(\'_bpcDyeFile_' + roll.id + '\').click()" style="background:#374151;color:#f3f4f6;border:1px solid #6b7280;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px" title="Chụp lại ảnh test">📸 Chụp Lại</button>';
+                    bh += '    <span id="_bpcDyeStatus_' + roll.id + '" style="font-size:10px;color:#92400e"></span>';
                     bh += '  </div>';
                 }
 

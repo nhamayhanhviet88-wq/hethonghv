@@ -1017,7 +1017,6 @@ module.exports = async function (fastify) {
 
         const roll = await db.get('SELECT id, weight, dye_test_status, fabric_color_id FROM kv_rolls WHERE id = $1', [rollId]);
         if (!roll) return reply.code(404).send({ error: 'Cục vải không tồn tại' });
-        if (roll.dye_test_status !== 'pending') return reply.code(400).send({ error: 'Cây vải này không cần test chống nhiễm hoặc đã test rồi' });
 
         try {
             const { compressImage } = require('../utils/imageCompressor');
