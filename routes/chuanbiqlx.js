@@ -4096,8 +4096,9 @@ module.exports = async function(fastify) {
         );
 
         const pendingUndoRecord = await db.get(`
-            SELECT cr.id, cr.pending_undo_cutting, cr.pending_undo_cutting_by, cr.pending_undo_cutting_at, cr.cutter_id, u.full_name AS cutter_name, cr.order_code
+            SELECT cr.id, cr.pending_undo_cutting, cr.pending_undo_cutting_by, cr.pending_undo_cutting_at, cr.cutter_id, u.full_name AS cutter_name, o.order_code
             FROM cutting_records cr
+            LEFT JOIN dht_orders o ON o.id = cr.dht_order_id
             LEFT JOIN users u ON cr.cutter_id = u.id
             WHERE cr.order_item_id = $1 AND cr.phoi_index = $2 AND cr.pending_undo_cutting = true
             LIMIT 1

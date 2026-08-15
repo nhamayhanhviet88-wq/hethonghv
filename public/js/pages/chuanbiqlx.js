@@ -221,6 +221,8 @@ function _qlxPatchOrderRows(orderId) {
         } else {
             priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
         }
+        var isCancelled = !!(o.is_production_cancelled || o.production_cancelled);
+        var cancelBadge = isCancelled ? '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">HỦY SX</span>' : '';
         var pendingUndoBadge = o.pending_undo_cutting
             ? '<span style="margin-right: 6px; background: #d97706; color: #fff; border: 1px solid #b45309; font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 800; display: inline-block; vertical-align: middle; animation: qlxPulse 2s infinite;" title="Thợ cắt đang gửi yêu cầu trở về nhận cắt (chờ QLX duyệt)">⏳ Chờ Duyệt Về Nhận Cắt</span>'
             : '';
@@ -793,11 +795,14 @@ function _qlxRenderRows(paged) {
         } else {
             priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
         }
+        var pendingUndoBadge = o.pending_undo_cutting
+            ? '<span style="margin-right: 6px; background: #d97706; color: #fff; border: 1px solid #b45309; font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 800; display: inline-block; vertical-align: middle; animation: qlxPulse 2s infinite;" title="Thợ cắt đang gửi yêu cầu trở về nhận cắt (chờ QLX duyệt)">⏳ Chờ Duyệt Về Nhận Cắt</span>'
+            : '';
         var spName;
         if (totalRows > 1) {
-            spName = cancelBadge + priBadge + o.order_code + ' \u2014 Phi\u1ebfu ' + r.itemIdx + ' \u2014 P' + r.phoiInItem + (itemDesc ? ' \u2014 ' + itemDesc : '');
+            spName = cancelBadge + pendingUndoBadge + priBadge + o.order_code + ' — Phiếu ' + r.itemIdx + ' — P' + r.phoiInItem + (itemDesc ? ' — ' + itemDesc : '');
         } else {
-            spName = cancelBadge + priBadge + o.order_code + (itemDesc ? ' \u2014 ' + itemDesc : '');
+            spName = cancelBadge + pendingUndoBadge + priBadge + o.order_code + (itemDesc ? ' — ' + itemDesc : '');
         }
         var phoiTag = '';
         var matName = p ? (p.material_name || '') : (it ? (it.material_name || '') : '');
