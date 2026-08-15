@@ -588,14 +588,17 @@ module.exports = async function (fastify, opts) {
             const allowedRoles = policyRow?.setting_value || 'all';
             const isEnabled = isAiEnabledForUser(role, username, allowedRoles);
 
+            const isDirector = (role === 'giam_doc' || role === 'admin');
+
             return {
                 has_key: hasKey,
                 can_config: canConfig,
+                is_director: isDirector,
                 is_enabled: isEnabled,
                 allowed_roles: allowedRoles
             };
         } catch (e) {
-            return { has_key: false, can_config: false, is_enabled: true, allowed_roles: 'all' };
+            return { has_key: false, can_config: false, is_director: false, is_enabled: true, allowed_roles: 'all' };
         }
     });
 

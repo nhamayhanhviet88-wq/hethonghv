@@ -33,6 +33,7 @@
             if (res.ok) {
                 var data = await res.json();
                 state.canConfig = !!data.can_config;
+                state.isDirector = !!data.is_director;
                 state.isEnabled = !!data.is_enabled;
                 state.allowedRoles = data.allowed_roles || 'all';
                 state.hasKey = !!data.has_key;
@@ -1043,58 +1044,69 @@
         var existing = document.getElementById('hvAiConfigOverlay');
         if (existing) existing.remove();
 
+        var isDir = !!state.isDirector;
         var pol = state.allowedRoles || 'all';
 
-        var overlay = document.createElement('div');
-        overlay.className = 'hv-ai-modal-overlay';
-        overlay.id = 'hvAiConfigOverlay';
-        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+        var modalTitleHtml = isDir 
+            ? `<h3>⚙️ Cấu Hình API Key & Phân Quyền AI (Giám Đốc)</h3>` 
+            : `<h3>💡 Thiết Lập Câu Hỏi Gợi Ý Nhanh (Lê Việt Trinh)</h3>`;
+
+        var adminSectionHtml = isDir ? `
+            <div style="font-size:13px;color:#475569;line-height:1.5">
+                Nhập khóa <strong>Gemini API Key Miễn Phí</strong> tạo từ Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#4338ca;font-weight:700">aistudio.google.com</a>) và cài đặt nhóm người dùng được phép sử dụng Trợ Lý AI.
+            </div>
+            
+            <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:800;color:#334155">🔑 Nhập Gemini API Key:</label>
+                <input type="password" id="hvAiApiKeyInput" class="hv-ai-input-field" placeholder="Dán mã AIzaSy... vào đây (Giữ nguyên nếu không đổi)">
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+                <label style="font-size:13px;font-weight:800;color:#334155">👥 Phân Quyền Ai Được Phép Sử Dụng Trợ Lý AI HV:</label>
+                <div class="hv-ai-radio-group">
+                    <label class="hv-ai-radio-lbl">
+                        <input type="radio" name="hvAiPolicyRadio" value="all" ${pol === 'all' ? 'checked' : ''}>
+                        <span>🌐 Cho phép Tất Cả Nhân Viên sử dụng Trợ Lý AI</span>
+                    </label>
+                    <label class="hv-ai-radio-lbl">
+                        <input type="radio" name="hvAiPolicyRadio" value="exec_only" ${pol === 'exec_only' ? 'checked' : ''}>
+                        <span>🔒 Chỉ Cho Phép Ban Giám Đốc, Lê Việt Trinh & Lê Công Thực</span>
+                    </label>
+                    <label class="hv-ai-radio-lbl">
+                        <input type="radio" name="hvAiPolicyRadio" value="managers" ${pol === 'managers' ? 'checked' : ''}>
+                        <span>👔 Cho Phép Ban Giám Đốc, Lê Việt Trinh, Lê Công Thực & Các Quản Lý</span>
+                    </label>
+                </div>
+            </div>
+        ` : '';
+
+        var footerBtnsHtml = isDir ? `
+            <button class="hv-ai-btn-cancel" onclick="document.getElementById('hvAiConfigOverlay').remove()">Hủy</button>
+            <button class="hv-ai-btn-save" onclick="window._hvAiSaveConfig()">💾 Lưu Cấu Hình</button>
+        ` : `
+            <button class="hv-ai-btn-save" onclick="document.getElementById('hvAiConfigOverlay').remove()" style="background:#4338ca">Đóng</button>
+        `;
 
         overlay.innerHTML = `
             <div class="hv-ai-modal" style="width:94%;max-width:720px;max-height:92vh;display:flex;flex-direction:column">
                 <div class="hv-ai-modal-hdr">
-                    <h3>⚙️ Cấu Hình API Key & Phân Quyền AI (Giám Đốc & Lê Việt Trinh)</h3>
+                    ${modalTitleHtml}
                     <button class="hv-ai-modal-close" onclick="document.getElementById('hvAiConfigOverlay').remove()">✕</button>
                 </div>
                 <div class="hv-ai-modal-body" style="flex:1;overflow-y:auto">
-                    <div style="font-size:13px;color:#475569;line-height:1.5">
-                        Nhập khóa <strong>Gemini API Key Miễn Phí</strong> tạo từ Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#4338ca;font-weight:700">aistudio.google.com</a>) và cài đặt nhóm người dùng được phép sử dụng Trợ Lý AI.
-                    </div>
-                    
-                    <div style="display:flex;flex-direction:column;gap:6px">
-                        <label style="font-size:13px;font-weight:800;color:#334155">🔑 Nhập Gemini API Key:</label>
-                        <input type="password" id="hvAiApiKeyInput" class="hv-ai-input-field" placeholder="Dán mã AIzaSy... vào đây (Giữ nguyên nếu không đổi)">
-                    </div>
+                    ${adminSectionHtml}
 
-                    <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
-                        <label style="font-size:13px;font-weight:800;color:#334155">👥 Phân Quyền Ai Được Phép Sử Dụng Trợ Lý AI HV:</label>
-                        <div class="hv-ai-radio-group">
-                            <label class="hv-ai-radio-lbl">
-                                <input type="radio" name="hvAiPolicyRadio" value="all" ${pol === 'all' ? 'checked' : ''}>
-                                <span>🌐 Cho phép Tất Cả Nhân Viên sử dụng Trợ Lý AI</span>
-                            </label>
-                            <label class="hv-ai-radio-lbl">
-                                <input type="radio" name="hvAiPolicyRadio" value="exec_only" ${pol === 'exec_only' ? 'checked' : ''}>
-                                <span>🔒 Chỉ Cho Phép Ban Giám Đốc, Lê Việt Trinh & Lê Công Thực</span>
-                            </label>
-                            <label class="hv-ai-radio-lbl">
-                                <input type="radio" name="hvAiPolicyRadio" value="managers" ${pol === 'managers' ? 'checked' : ''}>
-                                <span>👔 Cho Phép Ban Giám Đốc, Lê Việt Trinh, Lê Công Thực & Các Quản Lý</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Wide Section for Quick Prompts Setup with STT Numbering -->
-                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;padding-top:14px;border-top:1px dashed #cbd5e1">
+                    <!-- Section for Quick Prompts Setup with STT Numbering -->
+                    <div style="display:flex;flex-direction:column;gap:8px;${isDir ? 'margin-top:14px;padding-top:14px;border-top:1px dashed #cbd5e1' : ''}">
                         <div style="display:flex;align-items:center;justify-content:space-between">
-                            <label style="font-size:13px;font-weight:800;color:#3730a3">💡 Thiết Lập Câu Hỏi Gợi Ý Nhanh (Sắp xếp theo STT hiển thị):</label>
+                            <label style="font-size:13.5px;font-weight:800;color:#3730a3">💡 Thiết Lập Câu Hỏi Gợi Ý Nhanh (Sắp xếp theo STT hiển thị):</label>
                             <span style="font-size:11px;font-weight:700;color:#64748b">Ban Giám Đốc & Lê Việt Trinh</span>
                         </div>
                         <div style="display:flex;gap:8px">
                             <input type="text" id="hvAiNewPromptInput" class="hv-ai-input-field" placeholder="Nhập câu hỏi gợi ý mới (VD: Hôm nay chốt được bao nhiêu đơn?)..." style="flex:1" onkeypress="if(event.key==='Enter') window._hvAiAddQuickPrompt()">
                             <button onclick="window._hvAiAddQuickPrompt()" style="background:#4338ca;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(67,56,202,0.3)">➕ Thêm Gợi Ý</button>
                         </div>
-                        <div id="hvAiManagePromptsList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;max-height:340px;overflow-y:auto;padding-right:4px">
+                        <div id="hvAiManagePromptsList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;max-height:360px;overflow-y:auto;padding-right:4px">
                             <div style="font-size:12px;color:#94a3b8;padding:10px;text-align:center">⏳ Đang tải danh sách câu hỏi...</div>
                         </div>
                     </div>
@@ -1102,8 +1114,7 @@
                     <div id="hvAiConfigStatus" style="font-size:13px;font-weight:700"></div>
                 </div>
                 <div class="hv-ai-modal-ftr">
-                    <button class="hv-ai-btn-cancel" onclick="document.getElementById('hvAiConfigOverlay').remove()">Hủy</button>
-                    <button class="hv-ai-btn-save" onclick="window._hvAiSaveConfig()">💾 Lưu Cấu Hình</button>
+                    ${footerBtnsHtml}
                 </div>
             </div>
         `;
