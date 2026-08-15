@@ -517,13 +517,68 @@
         document.body.appendChild(win);
         bindClipboardPaste(win);
         loadPersistentHistory();
+        window._hvAiFetchQuickPromptsList();
+
         setTimeout(function() {
             var inp = document.getElementById('hvAiInput');
             if (inp) {
                 inp.focus();
                 bindClipboardPaste(inp);
+                bindShortcutAutocomplete(inp);
             }
         }, 100);
+    }
+
+    function bindShortcutAutocomplete(inp) {
+        if (!inp) return;
+        var chatWin = document.getElementById('hvAiChatWindow');
+        if (!chatWin) return;
+
+        var popup = document.getElementById('hvAiShortcutAutocompletePopup');
+        if (!popup) {
+            popup = document.createElement('div');
+            popup.id = 'hvAiShortcutAutocompletePopup';
+            popup.style.cssText = 'position:absolute;bottom:64px;left:12px;right:12px;background:#ffffff;border:1.5px solid #6366f1;border-radius:12px;box-shadow:0 -10px 25px rgba(0,0,0,0.18);z-index:99999;max-height:220px;overflow-y:auto;padding:6px;display:none;flex-direction:column;gap:4px';
+            chatWin.appendChild(popup);
+        }
+
+        inp.addEventListener('input', function() {
+            var val = inp.value.trim().toLowerCase();
+            if (!val || (!val.startsWith('/') && !val.includes('/'))) {
+                popup.style.display = 'none';
+                return;
+            }
+
+            var list = state.quickPromptsList || [];
+            var matches = list.filter(function(p) {
+                var sk = (p.shortcut_key || '').toLowerCase();
+                var pt = (p.prompt_text || '').toLowerCase();
+                return (sk && sk.includes(val)) || (val.startsWith('/') && sk && sk.startsWith(val)) || pt.includes(val.replace('/', ''));
+            });
+
+            if (matches.length === 0) {
+                popup.style.display = 'none';
+                return;
+            }
+
+            var html = '';
+            matches.forEach(function(p) {
+                var safeTxt = p.prompt_text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                var sk = p.shortcut_key || '';
+                html += `<div onclick="window._hvAiSelectShortcutPrompt('${safeTxt}')" style="padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;transition:all 0.15s" onmouseover="this.style.background='#e0e7ff';this.style.borderColor='#818cf8'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">
+                    <span style="font-weight:700;font-size:12.5px;color:#1e293b">💡 ${p.prompt_text}</span>
+                    <span style="background:#4338ca;color:#ffffff;font-weight:900;font-size:11px;padding:2px 8px;border-radius:6px;flex-shrink:0">${sk}</span>
+                </div>`;
+            });
+            popup.innerHTML = html;
+            popup.style.display = 'flex';
+        });
+
+        inp.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                popup.style.display = 'none';
+            }
+        });
     }
 
     function bindClipboardPaste(el) {
@@ -756,6 +811,23 @@
         if (!inp || !body || state.isThinking) return;
 
         var userMsg = inp.value.trim();
+
+        // Hide autocomplete popup if open
+        var autoPopup = document.getElementById('hvAiShortcutAutocompletePopup');
+        if (autoPopup) autoPopup.style.display = 'none';
+
+        // Auto-expand shortcut key (e.g. '/t' -> full prompt text)
+        if (userMsg && (userMsg.startsWith('/') || (state.quickPromptsList && state.quickPromptsList.length > 0))) {
+            var cleanInput = userMsg.toLowerCase();
+            if (!cleanInput.startsWith('/')) cleanInput = '/' + cleanInput;
+            var foundPrompt = (state.quickPromptsList || []).find(function(p) {
+                return (p.shortcut_key || '').toLowerCase() === cleanInput;
+            });
+            if (foundPrompt) {
+                userMsg = foundPrompt.prompt_text;
+            }
+        }
+
         if (!userMsg && !imgAttached) return;
 
         // Reset voice & image states first with global ignore guard
@@ -1109,6 +1181,7 @@
                         </div>
                         <div style="display:flex;gap:8px">
                             <input type="text" id="hvAiNewPromptInput" class="hv-ai-input-field" placeholder="Nhập câu hỏi gợi ý mới (VD: Hôm nay chốt được bao nhiêu đơn?)..." style="flex:1" onkeypress="if(event.key==='Enter') window._hvAiAddQuickPrompt()">
+                            <input type="text" id="hvAiNewShortcutInput" class="hv-ai-input-field" placeholder="Viết tắt (VD: /t)..." style="width:120px;text-align:center" onkeypress="if(event.key==='Enter') window._hvAiAddQuickPrompt()">
                             <button onclick="window._hvAiAddQuickPrompt()" style="background:#4338ca;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(67,56,202,0.3)">➕ Thêm Gợi Ý</button>
                         </div>
                         <div id="hvAiManagePromptsList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;max-height:360px;overflow-y:auto;padding-right:4px">
@@ -1126,6 +1199,19 @@
 
         document.body.appendChild(overlay);
         setTimeout(window._hvAiLoadManagePrompts, 100);
+    };
+
+    window._hvAiFetchQuickPromptsList = async function() {
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/quick-prompts', {
+                headers: { 'Authorization': token ? ('Bearer ' + token) : '' }
+            });
+            if (res.ok) {
+                var data = await res.json();
+                state.quickPromptsList = data.prompts || [];
+            }
+        } catch(e){}
     };
 
     window._hvAiToggleQuickPromptsMenu = async function() {
@@ -1147,6 +1233,7 @@
             if (res.ok) {
                 var data = await res.json();
                 var prompts = data.prompts || [];
+                state.quickPromptsList = prompts;
                 if (prompts.length === 0) {
                     listContainer.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:8px">Chưa có câu hỏi gợi ý nào.</div>';
                     return;
@@ -1154,7 +1241,8 @@
                 var html = '';
                 prompts.forEach(function(p, idx) {
                     var safeTxt = p.prompt_text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    html += `<button onclick="window._hvAiSelectQuickPrompt('${safeTxt}')" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;text-align:left;cursor:pointer;transition:all 0.2s;line-height:1.4;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#e0e7ff';this.style.borderColor='#818cf8';this.style.color='#3730a3'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#cbd5e1';this.style.color='#1e293b'"><span style="background:#4338ca;color:#ffffff;font-size:11.5px;font-weight:900;padding:2px 8px;border-radius:6px;flex-shrink:0;min-width:18px;text-align:center">${idx + 1}</span> <span>💡 ${p.prompt_text}</span></button>`;
+                    var shortcutPill = p.shortcut_key ? `<span style="background:#e0e7ff;color:#4338ca;font-size:11px;font-weight:900;padding:2px 7px;border-radius:6px;margin-left:auto;flex-shrink:0">${p.shortcut_key}</span>` : '';
+                    html += `<button onclick="window._hvAiSelectQuickPrompt('${safeTxt}')" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;text-align:left;cursor:pointer;transition:all 0.2s;line-height:1.4;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#e0e7ff';this.style.borderColor='#818cf8';this.style.color='#3730a3'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#cbd5e1';this.style.color='#1e293b'"><span style="background:#4338ca;color:#ffffff;font-size:11.5px;font-weight:900;padding:2px 8px;border-radius:6px;flex-shrink:0;min-width:18px;text-align:center">${idx + 1}</span> <span>💡 ${p.prompt_text}</span> ${shortcutPill}</button>`;
                 });
                 listContainer.innerHTML = html;
             }
@@ -1166,6 +1254,18 @@
     window._hvAiSelectQuickPrompt = function(txt) {
         var popup = document.getElementById('hvAiQuickPromptsPopup');
         if (popup) popup.style.display = 'none';
+        var autoPopup = document.getElementById('hvAiShortcutAutocompletePopup');
+        if (autoPopup) autoPopup.style.display = 'none';
+        var inp = document.getElementById('hvAiInput');
+        if (inp) {
+            inp.value = txt;
+            window._hvAiSubmitChat();
+        }
+    };
+
+    window._hvAiSelectShortcutPrompt = function(txt) {
+        var autoPopup = document.getElementById('hvAiShortcutAutocompletePopup');
+        if (autoPopup) autoPopup.style.display = 'none';
         var inp = document.getElementById('hvAiInput');
         if (inp) {
             inp.value = txt;
@@ -1184,6 +1284,7 @@
             if (res.ok) {
                 var data = await res.json();
                 var prompts = data.prompts || [];
+                state.quickPromptsList = prompts;
                 if (prompts.length === 0) {
                     container.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:6px">Chưa có câu hỏi gợi ý nào.</div>';
                     return;
@@ -1207,16 +1308,36 @@
                                 <input type="number" min="1" max="${prompts.length}" value="${idx + 1}" onchange="window._hvAiChangePromptStt(${p.id}, this.value)" style="width:44px;text-align:center;font-size:13px;font-weight:800;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#3730a3;background:#ffffff;border:1.5px solid #818cf8;border-radius:6px;padding:3px 2px;outline:none" title="Gõ số vị trí để nhảy STT">
                             </div>
                             <span style="flex:1;font-size:13.5px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1e293b;line-height:1.4">💡 ${p.prompt_text}</span>
-                            <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+                            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                                <div style="display:flex;align-items:center;gap:4px">
+                                    <span style="font-size:11px;font-weight:700;color:#64748b">Tắt:</span>
+                                    <input type="text" value="${p.shortcut_key || ''}" placeholder="/t" onchange="window._hvAiChangeShortcut(${p.id}, this.value)" style="width:64px;text-align:center;font-weight:800;color:#4338ca;background:#e0e7ff;border:1px solid #818cf8;border-radius:6px;padding:3px 4px;font-size:12px;outline:none" title="Ký tự viết tắt (Ví dụ: /t)">
+                                </div>
                                 ${upBtn}
                                 ${downBtn}
-                                <button onclick="window._hvAiDeleteQuickPrompt(${p.id})" style="background:none;border:none;color:#ef4444;font-weight:700;cursor:pointer;font-size:14px;margin-left:6px" title="Xóa câu hỏi">🗑️</button>
+                                <button onclick="window._hvAiDeleteQuickPrompt(${p.id})" style="background:none;border:none;color:#ef4444;font-weight:700;cursor:pointer;font-size:14px;margin-left:4px" title="Xóa câu hỏi">🗑️</button>
                             </div>
                         </div>
                     `;
                 });
                 container.innerHTML = html;
             }
+        } catch(e){}
+    };
+
+    window._hvAiChangeShortcut = async function(id, newShortcut) {
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            await fetch('/api/ai-assistant/quick-prompts/' + id + '/shortcut', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? ('Bearer ' + token) : ''
+                },
+                body: JSON.stringify({ shortcut_key: newShortcut })
+            });
+            window._hvAiLoadManagePrompts();
+            window._hvAiFetchQuickPromptsList();
         } catch(e){}
     };
 
@@ -1258,8 +1379,10 @@
 
     window._hvAiAddQuickPrompt = async function() {
         var inp = document.getElementById('hvAiNewPromptInput');
+        var scInp = document.getElementById('hvAiNewShortcutInput');
         if (!inp || !inp.value.trim()) return;
         var txt = inp.value.trim();
+        var scTxt = scInp ? scInp.value.trim() : '';
         try {
             var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
             var res = await fetch('/api/ai-assistant/quick-prompts', {
@@ -1268,12 +1391,14 @@
                     'Content-Type': 'application/json',
                     'Authorization': token ? ('Bearer ' + token) : ''
                 },
-                body: JSON.stringify({ prompt_text: txt })
+                body: JSON.stringify({ prompt_text: txt, shortcut_key: scTxt })
             });
             var data = await res.json();
             if (res.ok) {
                 inp.value = '';
+                if (scInp) scInp.value = '';
                 window._hvAiLoadManagePrompts();
+                window._hvAiFetchQuickPromptsList();
             } else {
                 alert(data.error || 'Lỗi thêm câu hỏi gợi ý');
             }

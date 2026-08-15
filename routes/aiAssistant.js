@@ -744,7 +744,7 @@ module.exports = async function (fastify, opts) {
         }
     });
 
-    // Migration: Create ai_quick_prompts table
+    // Migration: Create ai_quick_prompts table & add shortcut_key column
     try {
         await db.exec(`
             CREATE TABLE IF NOT EXISTS ai_quick_prompts (
@@ -752,27 +752,34 @@ module.exports = async function (fastify, opts) {
                 prompt_text TEXT NOT NULL UNIQUE,
                 category TEXT DEFAULT 'Chung',
                 display_order INTEGER DEFAULT 0,
+                shortcut_key TEXT,
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `);
+        try {
+            await db.exec(`ALTER TABLE ai_quick_prompts ADD COLUMN shortcut_key TEXT;`);
+        } catch(e) {}
+
         const countRow = await db.get(`SELECT COUNT(*) as c FROM ai_quick_prompts`);
         if (Number(countRow?.c || 0) === 0) {
             const defaults = [
-                'Phạt đi làm muộn thế nào?',
-                'Quy định duyệt thu chi?',
-                'Kiểm tra quy định bảo mật',
-                'Hôm nay chốt được bao nhiêu đơn?',
-                'Công việc nào chậm deadline?',
-                'Tỉ lệ cắt vải Cotton Lite 100% là bao nhiêu?',
-                'Có những chương trình khuyến mãi nào đang kích hoạt?'
+                { text: 'Phạt đi làm muộn thế nào?', shortcut: '/muon' },
+                { text: 'Quy định duyệt thu chi?', shortcut: '/thuchi' },
+                { text: 'Kiểm tra quy định bảo mật', shortcut: '/baomat' },
+                { text: 'Hôm nay chốt được bao nhiêu đơn?', shortcut: '/don' },
+                { text: 'Công việc nào chậm deadline?', shortcut: '/deadline' },
+                { text: 'Tỉ lệ cắt vải Cotton Lite 100% là bao nhiêu?', shortcut: '/catvai' },
+                { text: 'Có những chương trình khuyến mãi nào đang kích hoạt?', shortcut: '/t' }
             ];
             for (let i = 0; i < defaults.length; i++) {
                 await db.run(
-                    `INSERT INTO ai_quick_prompts (prompt_text, display_order) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-                    [defaults[i], i + 1]
+                    `INSERT INTO ai_quick_prompts (prompt_text, display_order, shortcut_key) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+                    [defaults[i].text, i + 1, defaults[i].shortcut]
                 );
             }
         }
+        // Populate shortcut_key for '/t' default if missing
+        await db.run(`UPDATE ai_quick_prompts SET shortcut_key = '/t' WHERE prompt_text LIKE '%chương trình khuyến mãi%' AND (shortcut_key IS NULL OR shortcut_key = '')`);
     } catch(e) {
         console.warn('ai_quick_prompts migration warning:', e.message);
     }
@@ -794,19 +801,40 @@ module.exports = async function (fastify, opts) {
         if (!isAllowed) {
             return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc và Quản Lý Cấp Cao mới được quyền thiết lập câu hỏi gợi ý nhanh!' });
         }
-        const { prompt_text } = req.body || {};
+        const { prompt_text, shortcut_key } = req.body || {};
         if (!prompt_text || !prompt_text.trim()) {
             return reply.code(400).send({ error: 'Nội dung câu hỏi gợi ý không được để trống' });
         }
+        let cleanShortcut = (shortcut_key || '').trim().toLowerCase();
+        if (cleanShortcut && !cleanShortcut.startsWith('/')) {
+            cleanShortcut = '/' + cleanShortcut;
+        }
+
         try {
             const result = await db.get(
-                `INSERT INTO ai_quick_prompts (prompt_text, display_order) VALUES ($1, (SELECT COALESCE(MAX(display_order), 0) + 1 FROM ai_quick_prompts)) RETURNING *`,
-                [prompt_text.trim()]
+                `INSERT INTO ai_quick_prompts (prompt_text, display_order, shortcut_key) VALUES ($1, (SELECT COALESCE(MAX(display_order), 0) + 1 FROM ai_quick_prompts), $2) RETURNING *`,
+                [prompt_text.trim(), cleanShortcut || null]
             );
             return { success: true, prompt: result };
         } catch(e) {
             return reply.code(400).send({ error: 'Câu hỏi gợi ý này đã tồn tại hoặc không hợp lệ!' });
         }
+    });
+
+    // POST /api/ai-assistant/quick-prompts/:id/shortcut - Cập nhật ký tự viết tắt
+    fastify.post('/api/ai-assistant/quick-prompts/:id/shortcut', { preHandler: [authenticate] }, async (req, reply) => {
+        const { role, username } = req.user || {};
+        const isAllowed = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao' || username === 'trinh' || username === 'leviettrinh');
+        if (!isAllowed) {
+            return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc và Quản Lý Cấp Cao mới được quyền thiết lập ký tự viết tắt!' });
+        }
+        const id = Number(req.params.id);
+        let cleanShortcut = (req.body?.shortcut_key || '').trim().toLowerCase();
+        if (cleanShortcut && !cleanShortcut.startsWith('/')) {
+            cleanShortcut = '/' + cleanShortcut;
+        }
+        await db.run(`UPDATE ai_quick_prompts SET shortcut_key = $1 WHERE id = $2`, [cleanShortcut || null, id]);
+        return { success: true };
     });
 
     // DELETE /api/ai-assistant/quick-prompts/:id - Xóa câu hỏi gợi ý nhanh (Giám đốc, Admin, Lê Việt Trinh)
