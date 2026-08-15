@@ -704,9 +704,11 @@
         window._hvAiStopVoiceRecording();
         window._hvAiRemoveAttachedImage();
 
-        // Reset input field clean (Bulletproof 3-stage clear for Mobile Safari iOS & WebSpeech flushes)
+        // Lock & Clear input field (Triple-Lock protection for Mobile Safari & Keyboard flushes)
         inp.value = '';
         inp.scrollLeft = 0;
+        inp.disabled = true;
+        inp.placeholder = '⏳ Trợ Lý AI đang suy nghĩ & truy vấn CSDL...';
         try { inp.blur(); } catch(e){}
 
         setTimeout(function() {
@@ -796,10 +798,16 @@
             errDiv.className = 'hv-ai-msg assistant';
             errDiv.innerHTML = `<span style="color:#dc2626">⚠️ Lỗi kết nối mạng: ${e.message}</span>`;
             body.appendChild(errDiv);
+        } finally {
+            state.isThinking = false;
+            if (inp) {
+                inp.disabled = false;
+                inp.value = '';
+                inp.scrollLeft = 0;
+                inp.placeholder = 'Nhập câu hỏi hoặc chọn giọng nói/hình ảnh...';
+            }
+            body.scrollTop = body.scrollHeight;
         }
-
-        state.isThinking = false;
-        body.scrollTop = body.scrollHeight;
     };
 
     function getVietnameseVoice() {
