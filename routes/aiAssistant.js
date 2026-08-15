@@ -448,7 +448,7 @@ function callSingleModel(modelName, apiKey, systemPrompt, userMessage, history =
 }
 
 async function callGeminiWithRetry(apiKey, systemPrompt, userMessage, history = [], imageBase64 = null) {
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-lite'];
+    const models = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-pro', 'gemini-pro-latest', 'gemini-2.5-flash-lite'];
     let lastError = null;
 
     for (const model of models) {
