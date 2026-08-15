@@ -604,6 +604,7 @@
         }
 
         try {
+            state.ignoreVoiceResults = false;
             var rec = new SpeechRecognition();
             rec.lang = 'vi-VN';
             rec.continuous = true;
@@ -628,11 +629,12 @@
             };
 
             rec.onresult = function(e) {
+                if (state.ignoreVoiceResults || state.isThinking) return;
                 var transcript = '';
                 for (var i = e.resultIndex; i < e.results.length; i++) {
                     transcript += e.results[i][0].transcript;
                 }
-                if (inp) {
+                if (inp && !state.ignoreVoiceResults && !state.isThinking) {
                     inp.value = (initialText ? (initialText + ' ') : '') + transcript;
                     inp.scrollLeft = inp.scrollWidth;
                     try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(err){}
@@ -661,6 +663,7 @@
     };
 
     window._hvAiStopVoiceRecording = function() {
+        state.ignoreVoiceResults = true;
         if (state.voiceRecognition) {
             var rec = state.voiceRecognition;
             state.voiceRecognition = null;
@@ -700,26 +703,26 @@
         var userMsg = inp.value.trim();
         if (!userMsg && !imgAttached) return;
 
-        // Reset voice & image states first
+        // Reset voice & image states first with global ignore guard
+        state.ignoreVoiceResults = true;
         window._hvAiStopVoiceRecording();
         window._hvAiRemoveAttachedImage();
 
-        // Lock & Clear input field (Triple-Lock protection for Mobile Safari & Keyboard flushes)
+        // Lock & Clear input field
         inp.value = '';
         inp.scrollLeft = 0;
         inp.disabled = true;
         inp.placeholder = '⏳ Trợ Lý AI đang suy nghĩ & truy vấn CSDL...';
         try { inp.blur(); } catch(e){}
 
-        setTimeout(function() {
+        // Interval guard to wipe any stubborn iOS Safari dictation flushes during thinking phase
+        var clearTimer = setInterval(function() {
             var el = document.getElementById('hvAiInput');
-            if (el) { el.value = ''; el.scrollLeft = 0; }
-        }, 50);
-
-        setTimeout(function() {
-            var el = document.getElementById('hvAiInput');
-            if (el) { el.value = ''; el.scrollLeft = 0; }
-        }, 200);
+            if (el && el.value) {
+                el.value = '';
+                el.scrollLeft = 0;
+            }
+        }, 30);
 
         // Render User Msg
         var userDiv = document.createElement('div');
@@ -799,6 +802,7 @@
             errDiv.innerHTML = `<span style="color:#dc2626">⚠️ Lỗi kết nối mạng: ${e.message}</span>`;
             body.appendChild(errDiv);
         } finally {
+            if (typeof clearTimer !== 'undefined') clearInterval(clearTimer);
             state.isThinking = false;
             if (inp) {
                 inp.disabled = false;
