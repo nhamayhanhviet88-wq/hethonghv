@@ -67,7 +67,7 @@ if exist "I:\My Drive\BACKUP_HV" (
 )
 
 REM --- 4. Kiem tra ket noi PostgreSQL ---
-for /f %%r in ('node -e "require('dotenv').config();const{Pool:P}=require('pg');const p=new P({connectionString:process.env.DATABASE_URL,max:1,connectionTimeoutMillis:5000});p.query('SELECT 1').then(()=>{console.log('DB_OK');p.end()}).catch(()=>{console.log('DB_FAIL');p.end()})" 2^>nul') do set DB_STATUS=%%r
+for /f %%r in ('node -e "require('dotenv').config();const{Pool:P}=require('pg');const p=new P({connectionString:process.env.DATABASE_URL,max:1,connectionTimeoutMillis:5000});async function check(r=3){for(let i=0;i<r;i++){try{await p.query('SELECT 1');console.log('DB_OK');await p.end();return;}catch(e){if(i===r-1){console.log('DB_FAIL');await p.end();return;}await new Promise(res=>setTimeout(res,3000));}}}check();" 2^>nul') do set DB_STATUS=%%r
 if "%DB_STATUS%"=="DB_OK" (
     echo [OK] Ket noi PostgreSQL thanh cong >> "%LOGFILE%"
 ) else (

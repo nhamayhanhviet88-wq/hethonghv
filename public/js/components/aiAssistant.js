@@ -350,6 +350,32 @@
         document.head.appendChild(style);
     }
 
+    async function checkProactiveAlerts() {
+        try {
+            var token = localStorage.getItem('token');
+            var res = await fetch('/api/ai-assistant/alerts', {
+                headers: { 'Authorization': token ? ('Bearer ' + token) : '' }
+            });
+            if (res.ok) {
+                var data = await res.json();
+                if (data && data.alerts && data.alerts.length > 0) {
+                    state.proactiveAlerts = data.alerts;
+                    updateFloatBadgeAlerts(data.alerts.length);
+                }
+            }
+        } catch(e) {}
+    }
+
+    function updateFloatBadgeAlerts(count) {
+        var btn = document.getElementById('hvAiFloatBtn');
+        if (btn) {
+            btn.innerHTML = `
+                <div class="hv-ai-pulse" style="background:#ef4444"></div>
+                <span>🤖 Trợ Lý AI HV <span style="background:#ef4444;color:#fff;padding:2px 6px;border-radius:10px;font-size:11px;margin-left:4px;font-weight:900">🚨 ${count}</span></span>
+            `;
+        }
+    }
+
     function createFloatingWidget() {
         if (document.getElementById('hvAiFloatBtn')) return;
         var btn = document.createElement('button');
@@ -361,6 +387,7 @@
         `;
         btn.onclick = toggleAiChatWindow;
         document.body.appendChild(btn);
+        checkProactiveAlerts();
     }
 
     function toggleAiChatWindow() {
@@ -400,8 +427,26 @@
             `;
         }
 
+        var alertCardsHtml = '';
+        if (state.proactiveAlerts && state.proactiveAlerts.length > 0) {
+            var items = state.proactiveAlerts.map(function(a) {
+                var bg = a.severity === 'danger' ? '#fef2f2' : '#fffbeb';
+                var border = a.severity === 'danger' ? '#fecaca' : '#fef3c7';
+                var color = a.severity === 'danger' ? '#991b1b' : '#92400e';
+                return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:12.5px;color:${color};box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+                    <div style="font-weight:900;margin-bottom:2px;display:flex;align-items:center;gap:6px">${a.title}</div>
+                    <div style="line-height:1.4">${a.message}</div>
+                </div>`;
+            }).join('');
+            alertCardsHtml = `<div style="margin-top:10px">${items}</div>`;
+        }
+
         // Render Gear config icon ONLY FOR DIRECTOR (state.canConfig === true)
         var gearBtnHtml = state.canConfig ? `<button class="hv-ai-hdr-btn" onclick="window._hvAiOpenConfigModal()" title="Cấu hình API Key & Phân Quyền (Độc Quyền Giám Đốc)">⚙️</button>` : '';
+        var ttsColor = state.ttsEnabled ? '#22c55e' : '#ffffff';
+        var ttsBtnHtml = `<button class="hv-ai-hdr-btn" id="hvAiTtsBtn" onclick="window._hvAiToggleVoiceSpeech()" style="color:${ttsColor}" title="Bật/Tắt Giọng đọc Tiếng Việt 2 chiều">🔊</button>`;
+
+        var clearBtnHtml = `<button class="hv-ai-hdr-btn" onclick="window._hvAiClearHistory()" title="Xóa lịch sử đàm thoại dài hạn">🗑️</button>`;
 
         win.innerHTML = `
             <div class="hv-ai-header">
@@ -410,6 +455,8 @@
                     <div class="hv-ai-header-sub">Hỗ trợ tra cứu & tư vấn (Google Gemini AI)</div>
                 </div>
                 <div style="display:flex;gap:6px">
+                    ${ttsBtnHtml}
+                    ${clearBtnHtml}
                     ${gearBtnHtml}
                     <button class="hv-ai-hdr-btn" onclick="document.getElementById('hvAiChatWindow').remove()" title="Đóng">✕</button>
                 </div>
@@ -419,6 +466,7 @@
                 <div class="hv-ai-msg assistant">
                     <strong>Xin chào Anh/Chị! 👋</strong><br>
                     ${welcomeSub}
+                    ${alertCardsHtml}
                     <div style="margin-top:10px;font-weight:700;color:#4338ca">💡 Câu hỏi gợi ý nhanh:</div>
                     <div class="hv-ai-chips">
                         ${chipsHtml}
@@ -450,11 +498,62 @@
         `;
 
         document.body.appendChild(win);
+        loadPersistentHistory();
         setTimeout(function() {
             var inp = document.getElementById('hvAiInput');
             if (inp) inp.focus();
         }, 100);
     }
+
+    async function loadPersistentHistory() {
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/history', {
+                headers: { 'Authorization': token ? ('Bearer ' + token) : '' }
+            });
+            if (res.ok) {
+                var data = await res.json();
+                if (data && data.history && data.history.length > 0) {
+                    state.history = data.history.map(function(h) { return { role: h.role, text: h.text }; });
+                    var body = document.getElementById('hvAiBody');
+                    if (body) {
+                        data.history.forEach(function(item) {
+                            var div = document.createElement('div');
+                            div.className = 'hv-ai-msg ' + (item.role === 'user' ? 'user' : 'assistant');
+                            if (item.role === 'user') {
+                                div.innerHTML = `<span>${(item.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+                            } else {
+                                div.innerHTML = formatAiReply(item.text);
+                            }
+                            body.appendChild(div);
+                        });
+                        body.scrollTop = body.scrollHeight;
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+
+    window._hvAiClearHistory = async function() {
+        if (!confirm('Anh/Chị có chắc chắn muốn xóa toàn bộ lịch sử đàm thoại dài hạn với Trợ lý AI không?')) return;
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/history', {
+                method: 'DELETE',
+                headers: { 'Authorization': token ? ('Bearer ' + token) : '' }
+            });
+            if (res.ok) {
+                state.history = [];
+                var win = document.getElementById('hvAiChatWindow');
+                if (win) {
+                    win.remove();
+                    renderAiChatWindow();
+                }
+            }
+        } catch(e) {
+            alert('Lỗi xóa lịch sử: ' + e.message);
+        }
+    };
 
     // Voice & Image State Handlers
     window._hvAiOnImageSelected = function(inp) {
@@ -656,6 +755,7 @@
                 aiDiv.className = 'hv-ai-msg assistant';
                 aiDiv.innerHTML = formatAiReply(replyText);
                 body.appendChild(aiDiv);
+                speakText(replyText);
             }
         } catch (e) {
             if (thinkDiv) thinkDiv.remove();
@@ -667,6 +767,79 @@
 
         state.isThinking = false;
         body.scrollTop = body.scrollHeight;
+    };
+
+    function speakText(text) {
+        if (!('speechSynthesis' in window) || !state.ttsEnabled) return;
+        try {
+            window.speechSynthesis.cancel();
+            var cleanText = text.replace(/<[^>]*>?/gm, '').replace(/\[\[.*?\]\]/g, '');
+            var utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'vi-VN';
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+        } catch(e) {}
+    }
+
+    window._hvAiToggleVoiceSpeech = function() {
+        state.ttsEnabled = !state.ttsEnabled;
+        var btn = document.getElementById('hvAiTtsBtn');
+        if (btn) {
+            btn.style.color = state.ttsEnabled ? '#22c55e' : '#ffffff';
+            btn.title = state.ttsEnabled ? 'Giọng đọc Tiếng Việt 2 Chiều: Đang BẬT 🔊' : 'Giọng đọc Tiếng Việt 2 Chiều: Đang TẮT 🔇';
+        }
+        if (state.ttsEnabled) {
+            speakText('Đã bật giọng nói đàm thoại 2 chiều với Trợ lý AI.');
+        } else {
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        }
+    };
+
+    window._hvAiExecuteAction = async function(actionType, target, label) {
+        if (actionType === 'DOWNLOAD_REPORT') {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            window.open('/api/ai-assistant/export-report?token=' + (token || ''), '_blank');
+            var body = document.getElementById('hvAiBody');
+            if (body) {
+                var actMsgDiv = document.createElement('div');
+                actMsgDiv.className = 'hv-ai-msg assistant';
+                actMsgDiv.innerHTML = `<span style="color:#16a34a;font-weight:800">📥 Đã khởi chạy tải Báo cáo Executive Excel/CSV thành công!</span>`;
+                body.appendChild(actMsgDiv);
+                body.scrollTop = body.scrollHeight;
+            }
+            return;
+        }
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/execute-action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? ('Bearer ' + token) : ''
+                },
+                body: JSON.stringify({
+                    action_type: actionType,
+                    target: target
+                })
+            });
+
+            var data = await res.json();
+            var body = document.getElementById('hvAiBody');
+            if (body) {
+                var actMsgDiv = document.createElement('div');
+                actMsgDiv.className = 'hv-ai-msg assistant';
+                if (res.ok) {
+                    actMsgDiv.innerHTML = `<span style="color:#16a34a;font-weight:800">${data.message || '⚡ Đã thực thi hành động 1-Click thành công!'}</span>`;
+                } else {
+                    actMsgDiv.innerHTML = `<span style="color:#dc2626;font-weight:800">⚠️ ${data.error || 'Lỗi thực thi'}</span>`;
+                }
+                body.appendChild(actMsgDiv);
+                body.scrollTop = body.scrollHeight;
+                speakText(data.message || 'Đã thực thi hành động thành công');
+            }
+        } catch(e) {
+            alert('Lỗi thực thi hành động 1-Click: ' + e.message);
+        }
     };
 
     function formatAiReply(text) {
@@ -687,6 +860,11 @@
 
         // Inline code `text`
         formatted = formatted.replace(/`([^`]+)`/g, '<code style="background:#e0e7ff;color:#3730a3;padding:2px 6px;border-radius:4px;font-size:12px;font-weight:700">$1</code>');
+
+        // Replace 1-Click Actions [[ACTION:type|target|label]]
+        formatted = formatted.replace(/\[\[ACTION:(.*?)\|(.*?)\|(.*?)\]\]/gi, function(match, type, target, label) {
+            return `<br><button class="hv-ai-action-btn" onclick="window._hvAiExecuteAction('${type}', '${target}', '${label}')" style="background:#2563eb;color:#ffffff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;margin-top:6px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.25)">⚡ ${label}</button>`;
+        });
 
         // Replace [OPEN_RULE:123] or [RULE:NQ-...] with interactive buttons
         formatted = formatted.replace(/\[OPEN_RULE:(\d+)\]/g, function(match, id) {

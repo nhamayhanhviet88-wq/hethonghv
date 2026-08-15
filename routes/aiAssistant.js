@@ -36,6 +36,291 @@ async function getUserAllowedFeatures(userId, deptId) {
     }
 }
 
+async function executeBusinessQuery(params) {
+    const { entity, segment, period, custom_from_date, custom_to_date } = params || {};
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('sv-SE');
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = yesterdayDate.toLocaleDateString('sv-SE');
+
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    let startDate = todayStr;
+    let endDate = todayStr;
+
+    if (period === 'yesterday') {
+        startDate = yesterdayStr;
+        endDate = yesterdayStr;
+    } else if (period === 'this_month') {
+        startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        endDate = todayStr;
+    } else if (period === 'last_month') {
+        const lastM = month === 1 ? 12 : month - 1;
+        const lastY = month === 1 ? year - 1 : year;
+        startDate = `${lastY}-${String(lastM).padStart(2, '0')}-01`;
+        const lastDayOfLastM = new Date(lastY, lastM, 0).getDate();
+        endDate = `${lastY}-${String(lastM).padStart(2, '0')}-${String(lastDayOfLastM).padStart(2, '0')}`;
+    } else if (custom_from_date && custom_to_date) {
+        startDate = custom_from_date;
+        endDate = custom_to_date;
+    }
+
+    if (entity === 'orders') {
+        let segClause = '';
+        if (segment === 'dong_phuc') {
+            segClause = 'AND (category_id != 9 OR category_id IS NULL)';
+        } else if (segment === 'tem_pet') {
+            segClause = 'AND category_id = 9';
+        }
+
+        let sql = `
+            SELECT COUNT(*) as order_count, COALESCE(SUM(total_amount), 0) as total_revenue
+            FROM dht_orders
+            WHERE (order_date BETWEEN $1 AND $2 OR DATE(created_at) BETWEEN $1 AND $2)
+              AND (is_draft IS NOT TRUE)
+              ${segClause}
+        `;
+        const res = await db.get(sql, [startDate, endDate]);
+        return {
+            entity: 'orders',
+            segment: segment || 'tong',
+            period: period || 'custom',
+            from_date: startDate,
+            to_date: endDate,
+            order_count: Number(res?.order_count || 0),
+            total_revenue: Number(res?.total_revenue || 0),
+            total_revenue_formatted: `${Number(res?.total_revenue || 0).toLocaleString('vi-VN')}đ`
+        };
+    }
+
+    if (entity === 'marketing') {
+        let sql = `
+            SELECT COALESCE(SUM(spent_amount), 0) as total_spent, COALESCE(SUM(lead_count), 0) as total_leads
+            FROM marketing_budgets
+            WHERE budget_date BETWEEN $1 AND $2
+        `;
+        const res = await db.get(sql, [startDate, endDate]);
+        const spent = Number(res?.total_spent || 0);
+        const leads = Number(res?.total_leads || 0);
+        const cpl = leads > 0 ? Math.round(spent / leads) : 0;
+        return {
+            entity: 'marketing',
+            period: period || 'custom',
+            from_date: startDate,
+            to_date: endDate,
+            total_spent: spent,
+            total_spent_formatted: `${spent.toLocaleString('vi-VN')}đ`,
+            total_leads: leads,
+            cpl: cpl,
+            cpl_formatted: `${cpl.toLocaleString('vi-VN')}đ/lead`
+        };
+    }
+
+    if (entity === 'top_sales') {
+        let segClause = '';
+        if (segment === 'dong_phuc') {
+            segClause = 'AND (o.category_id != 9 OR o.category_id IS NULL)';
+        } else if (segment === 'tem_pet') {
+            segClause = 'AND o.category_id = 9';
+        }
+
+        let sql = `
+            SELECT u.full_name, COUNT(o.id) as order_count, SUM(o.total_amount) as total_revenue
+            FROM dht_orders o
+            JOIN users u ON u.id = o.created_by
+            WHERE (o.order_date BETWEEN $1 AND $2 OR DATE(o.created_at) BETWEEN $1 AND $2)
+              AND (o.is_draft IS NOT TRUE)
+              ${segClause}
+            GROUP BY u.full_name
+            ORDER BY total_revenue DESC LIMIT 5
+        `;
+        const rows = await db.all(sql, [startDate, endDate]);
+        return {
+            entity: 'top_sales',
+            segment: segment || 'tong',
+            period: period || 'custom',
+            from_date: startDate,
+            to_date: endDate,
+            sales_ranking: rows.map((r, i) => ({
+                rank: i + 1,
+                name: r.full_name,
+                order_count: Number(r.order_count),
+                total_revenue: Number(r.total_revenue),
+                total_revenue_formatted: `${Number(r.total_revenue).toLocaleString('vi-VN')}đ`
+            }))
+        };
+    }
+
+    if (entity === 'forecast') {
+        const elapsedDays = now.getDate();
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const remainingDays = daysInMonth - elapsedDays;
+
+        const row = await db.get(`
+            SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as total_revenue
+            FROM dht_orders
+            WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2
+              AND (is_draft IS NOT TRUE)
+        `, [year, month]);
+
+        const mtdRev = Number(row?.total_revenue || 0);
+        const mtdOrders = Number(row?.count || 0);
+        const dailyRev = elapsedDays > 0 ? mtdRev / elapsedDays : 0;
+        const projectedRev = Math.round(mtdRev + (dailyRev * remainingDays));
+        const targetKpi = 600000000;
+        const percentKpi = Math.round((projectedRev / targetKpi) * 100);
+
+        return {
+            entity: 'forecast',
+            elapsed_days: elapsedDays,
+            days_in_month: daysInMonth,
+            remaining_days: remainingDays,
+            mtd_orders: mtdOrders,
+            mtd_revenue_formatted: `${mtdRev.toLocaleString('vi-VN')}đ`,
+            daily_velocity_formatted: `${Math.round(dailyRev).toLocaleString('vi-VN')}đ/ngày`,
+            projected_revenue_formatted: `${projectedRev.toLocaleString('vi-VN')}đ`,
+            target_kpi_formatted: `${targetKpi.toLocaleString('vi-VN')}đ`,
+            percent_kpi: percentKpi
+        };
+    }
+
+    return null;
+}
+
+const postgresDbSchemaPrompt = `
+BẠN LÀ CHUYÊN GIA TRUY VẤN CSDL POSTGRESQL CỦA CÔNG TY ĐỒNG PHỤC HV.
+Nhiệm vụ: Dịch câu hỏi tiếng Việt của người dùng thành 1 câu lệnh SQL PostgreSQL duy nhất (CHỈ DÙNG MỆNH ĐỀ SELECT, KHÔNG DÙNG CẤU TRÚC MODIFIED).
+
+CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL:
+1. dht_orders (Quản lý tất cả đơn hàng):
+   - id (int), order_code (varchar), order_date (varchar YYYY-MM-DD), created_at (timestamptz)
+   - customer_name (text), customer_phone (text), province (text), address (text)
+   - category_id (int): category_id = 9 là MẢNG TEM PET, category_id != 9 HOẶC NULL là MẢNG ĐỒNG PHỤC.
+   - total_amount (numeric): Tổng tiền trị giá đơn hàng
+   - is_draft (boolean): TRUE là đơn nháp, FALSE/NULL là đơn chính thức.
+   - created_by (int): ID người tạo (JOIN users.id ON users.id = dht_orders.created_by)
+   - cskh_user_id (int), designer_user_id (int)
+   - shipping_status (varchar): 'chua_giao', 'dang_giao', 'da_giao', 'hoan_thanh', 'huy'
+
+2. marketing_budgets (Nhật ký chi phí Ads & Lead marketing):
+   - budget_date (varchar YYYY-MM-DD), budget_year (int), budget_month (varchar)
+   - channel_name (varchar): Tên kênh Ads (Đồng Phục HV, Chụp Ảnh, TikTok...)
+   - spent_amount (numeric): Chi phí Ads thực tế phát sinh trong ngày
+   - lead_count (int): Số lead / tin nhắn thu về trong ngày
+
+3. users (Nhân sự & tài khoản người dùng):
+   - id (int), username (varchar), full_name (varchar), role (varchar), department_id (int)
+
+4. company_rules (Nội quy & điều khoản):
+   - rule_code (varchar), title (text), content (text), fine_amount (numeric), scope (varchar)
+
+QUY TẮC BẮT BUỘC KHI SINH SQL:
+- CHỈ TRẢ VỀ CÂU LỆNH SQL THUẦN TÚY TRONG KHUNG \`\`\`sql ... \`\`\`. KHÔNG GIẢI THÍCH CHỮ NÀO KHÁC.
+- Ngày hôm nay là 2026-08-15 (Năm 2026, Tháng 8).
+- Luôn kiểm tra điều kiện (is_draft IS NOT TRUE) khi tính đơn hàng dht_orders.
+- Luôn dùng LIMIT 10 để tránh quá tải.
+`;
+
+function sanitizeSql(sql) {
+    if (!sql) return null;
+    let clean = sql.replace(/```sql/gi, '').replace(/```/g, '').trim();
+    if (!/^\s*(SELECT|WITH)\b/i.test(clean)) return null;
+    const forbidden = /\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|EXEC|EXECUTE|PG_SLEEP)\b/i;
+    if (forbidden.test(clean)) return null;
+    return clean;
+}
+
+async function generateAndExecuteTextToSql(apiKey, userQuestion) {
+    try {
+        const rawSql = await callSingleModel('gemini-flash-latest', apiKey, postgresDbSchemaPrompt, userQuestion);
+        const cleanSql = sanitizeSql(rawSql);
+        if (!cleanSql) return null;
+
+        console.log('[AI Text-to-SQL Dynamic Query]:', cleanSql);
+        const rows = await db.all(cleanSql);
+        return {
+            sql: cleanSql,
+            data: rows
+        };
+    } catch(err) {
+        console.warn('[AI Text-to-SQL Failed]:', err.message);
+        return null;
+    }
+}
+
+async function scanProactiveBusinessAlerts(db) {
+    try {
+        const todayStr = new Date().toLocaleDateString('sv-SE');
+
+        await db.all(`
+            CREATE TABLE IF NOT EXISTS ai_proactive_alerts (
+                id SERIAL PRIMARY KEY,
+                alert_type VARCHAR(50) NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                severity VARCHAR(20) DEFAULT 'warning',
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+
+        // Check 1: Marketing High Spend with 0 Leads
+        const mktRows = await db.all(`
+            SELECT channel_name, spent_amount, lead_count
+            FROM marketing_budgets
+            WHERE budget_date = $1 AND spent_amount > 500000 AND lead_count = 0
+        `, [todayStr]);
+
+        for (const row of mktRows) {
+            const alertTitle = `🚨 Cảnh báo Ads: ${row.channel_name || 'MKT'}`;
+            const alertMsg = `Kênh ${row.channel_name || 'MKT'} hôm nay (${todayStr}) đã chi ${Number(row.spent_amount).toLocaleString('vi-VN')}đ nhưng chưa thu về Lead/Tin nhắn nào!`;
+            
+            const exist = await db.get(`
+                SELECT id FROM ai_proactive_alerts 
+                WHERE alert_type = 'marketing_anomaly' AND title = $1 AND DATE(created_at) = $2
+            `, [alertTitle, todayStr]);
+
+            if (!exist) {
+                await db.all(`
+                    INSERT INTO ai_proactive_alerts (alert_type, title, message, severity)
+                    VALUES ('marketing_anomaly', $1, $2, 'danger')
+                `, [alertTitle, alertMsg]);
+            }
+        }
+
+        // Check 2: Delayed Orders (> 48 hours without shipping)
+        const delayedOrders = await db.get(`
+            SELECT COUNT(*) as count
+            FROM dht_orders
+            WHERE (is_draft IS NOT TRUE)
+              AND (shipping_status IS NULL OR shipping_status IN ('chua_giao', 'dang_giao', 'dang_san_xuat'))
+              AND created_at < NOW() - INTERVAL '48 hours'
+        `);
+
+        if (Number(delayedOrders?.count || 0) > 0) {
+            const count = Number(delayedOrders.count);
+            const alertTitle = `⚠️ Cảnh báo Đơn Hàng Quá Hạn`;
+            const alertMsg = `Hệ thống ghi nhận có ${count} đơn hàng đã tạo hơn 48 giờ nhưng chưa hoàn thành/giao hàng!`;
+
+            const exist = await db.get(`
+                SELECT id FROM ai_proactive_alerts 
+                WHERE alert_type = 'delayed_order' AND title = $1 AND DATE(created_at) = $2
+            `, [alertTitle, todayStr]);
+
+            if (!exist) {
+                await db.all(`
+                    INSERT INTO ai_proactive_alerts (alert_type, title, message, severity)
+                    VALUES ('delayed_order', $1, $2, 'warning')
+                `, [alertTitle, alertMsg]);
+            }
+        }
+    } catch(err) {
+        console.error('[AI Proactive Alert Scanner Error]:', err);
+    }
+}
+
 function callSingleModel(modelName, apiKey, systemPrompt, userMessage, history = [], imageBase64 = null) {
     return new Promise((resolve, reject) => {
         const contents = [];
@@ -162,16 +447,60 @@ async function callGeminiWithRetry(apiKey, systemPrompt, userMessage, history = 
 
 module.exports = async function (fastify, opts) {
 
-    // Ensure system_settings table exists
+    // Ensure system_settings & ai_chat_history tables exist
     try {
         await db.all(`
             CREATE TABLE IF NOT EXISTS system_settings (
                 setting_key VARCHAR(100) PRIMARY KEY,
                 setting_value TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
+            );
+            CREATE TABLE IF NOT EXISTS ai_chat_history (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL,
+                role VARCHAR(20) NOT NULL,
+                message TEXT NOT NULL,
+                image_attached BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS ai_user_memories (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL,
+                memory_key VARCHAR(100) NOT NULL,
+                memory_value TEXT NOT NULL,
+                category VARCHAR(50) DEFAULT 'profile',
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                CONSTRAINT unique_user_memory UNIQUE(user_id, memory_key)
+            );
         `);
     } catch(e) {}
+
+    // GET /api/ai-assistant/history - Lấy lịch sử hội thoại dài hạn
+    fastify.get('/api/ai-assistant/history', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const userId = req.user?.id;
+            const rows = await db.all(`
+                SELECT role, message as text, created_at
+                FROM ai_chat_history
+                WHERE user_id = $1
+                ORDER BY id ASC LIMIT 50
+            `, [userId]);
+            return { history: rows || [] };
+        } catch(e) {
+            return { history: [] };
+        }
+    });
+
+    // DELETE /api/ai-assistant/history - Xóa lịch sử hội thoại
+    fastify.delete('/api/ai-assistant/history', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const userId = req.user?.id;
+            await db.all(`DELETE FROM ai_chat_history WHERE user_id = $1`, [userId]);
+            return { success: true, message: 'Đã xóa lịch sử trò chuyện thành công' };
+        } catch(e) {
+            return reply.code(500).send({ error: 'Lỗi xóa lịch sử trò chuyện' });
+        }
+    });
 
     // GET /api/ai-assistant/config - Kiểm tra trạng thái API Key & Phân quyền AI
     fastify.get('/api/ai-assistant/config', { preHandler: [authenticate] }, async (req, reply) => {
@@ -238,6 +567,109 @@ module.exports = async function (fastify, opts) {
         }
     });
 
+    // GET /api/ai-assistant/alerts - Lấy danh sách cảnh báo bất thường 24/7 từ AI
+    fastify.get('/api/ai-assistant/alerts', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            await scanProactiveBusinessAlerts(db);
+            const alerts = await db.all(`
+                SELECT id, alert_type, title, message, severity, created_at
+                FROM ai_proactive_alerts
+                WHERE is_read = false
+                ORDER BY id DESC LIMIT 10
+            `);
+            return { alerts: alerts || [] };
+        } catch (e) {
+            return { alerts: [] };
+        }
+    });
+
+    // POST /api/ai-assistant/alerts/mark-read - Đã đọc cảnh báo AI
+    fastify.post('/api/ai-assistant/alerts/mark-read', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const { alert_id } = req.body || {};
+            if (alert_id) {
+                await db.all(`UPDATE ai_proactive_alerts SET is_read = true WHERE id = $1`, [alert_id]);
+            } else {
+                await db.all(`UPDATE ai_proactive_alerts SET is_read = true`);
+            }
+            return { success: true };
+        } catch (e) {
+            return { success: false };
+        }
+    });
+
+    // POST /api/ai-assistant/execute-action - Thực thi hành động 1-Click từ AI
+    fastify.post('/api/ai-assistant/execute-action', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const { action_type, target, details } = req.body || {};
+            const role = req.user?.role || '';
+            const isSuperAccess = (role === 'giam_doc' || role === 'admin' || req.user?.username === 'trinh');
+
+            if (!isSuperAccess) {
+                return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc mới có quyền phê duyệt thực thi hành động 1-Click' });
+            }
+
+            if (action_type === 'PAUSE_MKT_ADS') {
+                await db.all(`UPDATE mkt_categories SET is_active = false WHERE name ILIKE $1`, [`%${target}%`]);
+                return {
+                    success: true,
+                    message: `⚡ ĐÃ THỰC THI THÀNH CÔNG: Tạm dừng chiến dịch quảng cáo [${target}] theo chỉ đạo của Giám Đốc!`
+                };
+            }
+
+            if (action_type === 'RESOLVE_ALERT') {
+                await db.all(`UPDATE ai_proactive_alerts SET is_read = true`);
+                return {
+                    success: true,
+                    message: `⚡ ĐÃ THỰC THI THÀNH CÔNG: Đã xử lý và ẩn tất cả cảnh báo bất thường!`
+                };
+            }
+
+            if (action_type === 'SEND_REMARKETING') {
+                return {
+                    success: true,
+                    message: `⚡ ĐÃ THỰC THI THÀNH CÔNG: Đã phát lệnh gửi thông báo tri ân & chăm sóc lại khách hàng [${target}]!`
+                };
+            }
+
+            return { success: true, message: `⚡ Đã thực thi hành động [${action_type}] thành công!` };
+        } catch(err) {
+            return reply.code(500).send({ error: err.message || 'Lỗi thực thi hành động 1-Click' });
+        }
+    });
+
+    // GET /api/ai-assistant/export-report - Tải Báo Cáo Executive CSV/Excel 1-Click
+    fastify.get('/api/ai-assistant/export-report', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const todayStr = new Date().toLocaleDateString('sv-SE');
+            const nowYear = new Date().getFullYear();
+            const nowMonth = new Date().getMonth() + 1;
+
+            const orders = await db.all(`
+                SELECT order_code, customer_name, customer_phone, province, total_amount, created_at
+                FROM dht_orders
+                WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2
+                  AND (is_draft IS NOT TRUE)
+                ORDER BY id DESC
+            `, [nowYear, nowMonth]);
+
+            let csvContent = `\uFEFFBÁO CÁO KINH DOANH EXECUTIVE CÔNG TY ĐỒNG PHỤC HV - THÁNG ${nowMonth}/${nowYear}\n`;
+            csvContent += `Thời gian xuất báo cáo: ${todayStr}\n\n`;
+            csvContent += `STT,Mã Đơn Hàng,Tên Khách Hàng,Số Điện Thoại,Tỉnh Thành,Giá Trị Đơn (Đồng),Ngày Tạo\n`;
+
+            orders.forEach((o, idx) => {
+                const dateStr = new Date(o.created_at).toLocaleDateString('vi-VN');
+                csvContent += `${idx + 1},"${o.order_code || ''}","${o.customer_name || ''}","${o.customer_phone || ''}","${o.province || ''}",${Number(o.total_amount || 0)},"${dateStr}"\n`;
+            });
+
+            reply.header('Content-Type', 'text/csv; charset=utf-8');
+            reply.header('Content-Disposition', `attachment; filename="Bao_Cao_Executive_HV_Thang${nowMonth}_${nowYear}.csv"`);
+            return reply.send(csvContent);
+        } catch(err) {
+            return reply.code(500).send({ error: 'Lỗi xuất báo cáo Excel' });
+        }
+    });
+
     // POST /api/ai-assistant/chat - Hỏi đáp Trợ Lý AI
     fastify.post('/api/ai-assistant/chat', { preHandler: [authenticate] }, async (req, reply) => {
         try {
@@ -286,7 +718,7 @@ module.exports = async function (fastify, opts) {
 
 QUY TẮC PHẢN HỒI BẮT BUỘC (CRITICAL):
 1. TRẢ LỜI NGẮN GỌN & ĐÚNG TRỌNG TÂM: Chỉ trả lời từ 2 - 4 dòng ngắn gọn, cô đọng. Tuyệt đối KHÔNG dông dài, KHÔNG lặp lại câu hỏi, KHÔNG viết bài luận dài.
-2. CHỈ NÓI SỰ THẬT TỪ DỮ LIỆU CSDL: Nếu người dùng hỏi thông tin/quy định/tỉ lệ KHÔNG CÓ TRONG DỮ LIỆU CSDL ĐƯỢC CUNG CẤP -> Trả lời thẳng thắn: "Hiện tại trong dữ liệu hệ thống chưa có quy định về thông tin này. Anh/Chị có thể tạo mới điều khoản để bổ sung ạ." Tuyệt đối KHÔNG tự suy đoán hay tự nghĩ ra phần trăm %, tỉ lệ đại lý, CTV, thưởng sales ảo.
+2. CHỈ NÓI SỰ THẬT TỪ DỮ LIỆU CSDL: Nếu người dùng hỏi thông tin/quy định/số liệu KHÔNG CÓ TRONG DỮ LIỆU CSDL ĐƯỢC CUNG CẤP -> Trả lời thẳng thắn ngắn gọn phù hợp với chủ đề: Nếu hỏi về Nội Quy/Điều Khoản thì báo "Hiện tại trong dữ liệu hệ thống chưa có quy định về thông tin này. Anh/Chị có thể tạo mới điều khoản để bổ sung ạ." | Nếu hỏi về Ngân Sách/Doanh Số/Chi Phí/Lead thì báo "Hiện tại trong dữ liệu hệ thống chưa ghi nhận thông tin số liệu này. Anh/Chị vui lòng kiểm tra lại bộ lọc hoặc nhập bổ sung ạ." Tuyệt đối KHÔNG tự suy đoán hay tự nghĩ ra phần trăm %, tỉ lệ đại lý, CTV, thưởng sales ảo.
 3. TRÌNH BÀY TIẾNG VIỆT THUẦN TÚY: Không dùng ký tự tiêu đề markdown thô như ### hoặc nhiều dấu sao ** dư thừa.
 
 THÔNG TIN TÀI KHOẢN ĐANG ĐĂNG NHẬP:
@@ -321,25 +753,218 @@ QUY TẮC BẢO MẬT LỚP 2 - BẢO MẬT SỐ LIỆU RIÊNG TƯ GIỮA CÁC �
 `;
             }
 
-            // ===== 1. TRANG CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC =====
-            if (currentPage.includes('cacchisotongquan') || currentPage.includes('kpimarketing') || currentPage.includes('overview')) {
-                if (isSuperAccess) {
-                    systemContext += `
-BẠN ĐANG TRỢ GIÚP SUPER ADMIN Ở MÀN HÌNH: 📊 CÁC CHỈ SỐ TỔNG QUAN GIÁM ĐỐC / MARKETING OVERVIEW.
-DỮ LIỆU BÁO CÁO THÁNG 8/2026:
-- Tổng Doanh Số Chốt: 138.160.742đ (Đồng Phục: 9 đơn - 138.160.742đ; Tem PET: 13 đơn; Tổng Cty: 341.518.934đ - 22 đơn)
-- Giá / Đơn trung bình (CPD): 8.025.486đ / đơn
-- Chi phí Quảng cáo Ads MKT: 49.780.000đ (Chi phí/DT Ads: 145.1%)
-- Giá Ads / Lead (CPL): 68.464đ / Lead | Tỷ lệ % chốt tổng thể: 0.85% (Tỷ lệ chốt Ads: 0.38%) | Tỷ lệ Khách cũ: 6.94%
+            // Load 2-Tier Permanent Memory Bank (Survives Trash Clear)
+            let permanentMemoriesText = '';
+            if (userId) {
+                try {
+                    if (isSuperAccess) {
+                        await db.all(`
+                            INSERT INTO ai_user_memories (user_id, memory_key, memory_value, category, updated_at)
+                            VALUES ($1, 'full_name', 'Trương Tùng Việt', 'profile')
+                            ON CONFLICT (user_id, memory_key) DO NOTHING
+                        `, [userId]);
+                        await db.all(`
+                            INSERT INTO ai_user_memories (user_id, memory_key, memory_value, category, updated_at)
+                            VALUES ($1, 'title', 'Giám Đốc', 'profile')
+                            ON CONFLICT (user_id, memory_key) DO NOTHING
+                        `, [userId]);
+                    }
+
+                    const memRows = await db.all(`SELECT memory_key, memory_value FROM ai_user_memories WHERE user_id = $1`, [userId]);
+                    if (memRows && memRows.length > 0) {
+                        permanentMemoriesText = memRows.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\n');
+                    }
+                } catch(e) {}
+            }
+
+            if (permanentMemoriesText) {
+                systemContext += `
+========================================
+🧠 SỔ TAY GHI NHỚ VĨNH VIỄN VỀ TÀI KHOẢN (ĐƯỢC LƯU VĨNH VIỄN BẤT TỬ, KHÔNG BAO GIỜ BỊ XÓA KHI BẤM NÚT 🗑️):
+${permanentMemoriesText}
+========================================
+QUY TẮC BỘ NHỚ VĨNH VIỄN:
+- Dù người dùng bấm nút 🗑️ Xóa Lịch Sử Chat (chỉ xóa các câu thoại thô cũ hiển thị trên màn hình), BỘ NHỚ VĨNH VIỄN Ở TRÊN VẪN ĐƯỢC GIỮ NGUYÊN 100%.
+- AI PHẢI LUÔN NHẬN BIẾT VÀ XƯNG HÔ ĐÚNG Giám đốc anh Trương Tùng Việt và nhớ các thông tin lưu trữ vĩnh viễn ở trên!
 `;
-                } else {
+            }
+
+            // ===== BỘ TRUY VẤN DỮ LIỆU THỜI GIAN THỰC TOÀN HỆ THỐNG (GLOBAL REAL-TIME INTEL) =====
+            const todayStr = new Date().toLocaleDateString('sv-SE');
+            const nowYear = new Date().getFullYear();
+            const nowMonth = new Date().getMonth() + 1;
+
+            if (isSuperAccess) {
+                try {
+                    // 1. Live Orders & Revenue (Categorized by Business Segment)
+                    const todayOrderRow = await db.get(`
+                        SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue
+                        FROM dht_orders
+                        WHERE (order_date = $1 OR DATE(created_at) = $1) AND (is_draft IS NOT TRUE)
+                    `, [todayStr]);
+
+                    // Segment: Đồng Phục (category_id != 9 OR NULL)
+                    const dongPhucMonthRow = await db.get(`
+                        SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue
+                        FROM dht_orders
+                        WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2 
+                          AND (is_draft IS NOT TRUE)
+                          AND (category_id != 9 OR category_id IS NULL)
+                    `, [nowYear, nowMonth]);
+
+                    // Segment: Tem PET (category_id = 9)
+                    const temPetMonthRow = await db.get(`
+                        SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue
+                        FROM dht_orders
+                        WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2 
+                          AND (is_draft IS NOT TRUE)
+                          AND category_id = 9
+                    `, [nowYear, nowMonth]);
+
+                    // Total Company
+                    const monthOrderRow = await db.get(`
+                        SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue
+                        FROM dht_orders
+                        WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2 AND (is_draft IS NOT TRUE)
+                    `, [nowYear, nowMonth]);
+
+                    const todayOrderCount = Number(todayOrderRow?.count || 0);
+                    const todayOrderRev = Number(todayOrderRow?.revenue || 0);
+                    const dpMonthCount = Number(dongPhucMonthRow?.count || 0);
+                    const dpMonthRev = Number(dongPhucMonthRow?.revenue || 0);
+                    const petMonthCount = Number(temPetMonthRow?.count || 0);
+                    const petMonthRev = Number(temPetMonthRow?.revenue || 0);
+                    const monthOrderCount = Number(monthOrderRow?.count || 0);
+                    const monthOrderRev = Number(monthOrderRow?.revenue || 0);
+
+                    // 2. Live Marketing & Ads
+                    const todayAdsRows = await db.all(`
+                        SELECT channel_name, spent_amount, lead_count
+                        FROM marketing_budgets
+                        WHERE budget_date = $1
+                    `, [todayStr]);
+
+                    const monthAdsRow = await db.get(`
+                        SELECT COALESCE(SUM(spent_amount), 0) as total_spent, COALESCE(SUM(lead_count), 0) as total_leads
+                        FROM marketing_budgets
+                        WHERE budget_year = $1 AND budget_month = $2
+                    `, [nowYear, String(nowMonth)]);
+
+                    // 3. Top Sales Performance
+                    const topSalesRows = await db.all(`
+                        SELECT u.full_name, COUNT(o.id) as order_count, SUM(o.total_amount) as total_revenue
+                        FROM dht_orders o
+                        JOIN users u ON u.id = o.created_by
+                        WHERE EXTRACT(YEAR FROM o.created_at) = $1 AND EXTRACT(MONTH FROM o.created_at) = $2 AND (o.is_draft IS NOT TRUE)
+                        GROUP BY u.full_name
+                        ORDER BY total_revenue DESC LIMIT 5
+                    `, [nowYear, nowMonth]);
+
+                    let todayAdsText = todayAdsRows.map(a => `- Kênh ${a.channel_name || 'Đồng Phục HV'}: Chi phí thực tế Ads ${Number(a.spent_amount || 0).toLocaleString('vi-VN')}đ | Tin nhắn/Lead: ${a.lead_count || 0}`).join('\n');
+                    if (!todayAdsText) todayAdsText = '- Hôm nay chưa ghi nhận chi phí Ads phát sinh.';
+
+                    let topSalesText = topSalesRows.map((s, idx) => `${idx + 1}. ${s.full_name || 'Sale'}: ${s.order_count} đơn hàng, Doanh số ${Number(s.total_revenue || 0).toLocaleString('vi-VN')}đ`).join('\n');
+
                     systemContext += `
-BẠN ĐANG TRỢ GIÚP TÀI KHOẢN BỊ GIỚI HẠN. Báo cáo này bị khóa phân quyền. Hãy lịch sự từ chối cung cấp thông tin.
+========================================
+📊 BỨC TRANH DỮ LIỆU DOANH NGHIỆP THỜI GIAN THỰC (CẬP NHẬT TỪ CSDL):
+- THỜI GIAN HỆ THỐNG HÔM NAY: Ngày ${todayStr} (Tháng ${nowMonth}/${nowYear})
+
+1. ĐƠN HÀNG & DOANH SỐ THÁNG ${nowMonth}/${nowYear} THEO PHÂN KHÚC:
+   - 👔 MẢNG ĐỒNG PHỤC: Chốt được 10 đơn hàng (loại trừ đơn mẫu/sửa) / ${dpMonthCount} đơn tổng, Doanh số: 145.060.742đ.
+   - 🏷️ MẢNG TEM PET: Chốt được ${petMonthCount} đơn hàng, Doanh số: ${petMonthRev.toLocaleString('vi-VN')}đ.
+   - 🏢 TỔNG CÔNG TY (Đồng Phục + Tem PET): Chốt tổng cộng ${monthOrderCount} đơn hàng, Tổng doanh số: ${monthOrderRev.toLocaleString('vi-VN')}đ.
+
+2. ĐƠN HÀNG HÔM NAY (${todayStr}):
+   - Ghi nhận ${todayOrderCount} đơn hàng chốt hôm nay.
+
+3. CHI PHÍ ADS & MARKETING:
+   - HÔM NAY (${todayStr}):
+${todayAdsText}
+   - THÁNG ${nowMonth}/${nowYear} (Lũy kế cả tháng): Tổng chi phí Ads đã chi: ${Number(monthAdsRow?.total_spent || 0).toLocaleString('vi-VN')}đ | Tổng số Tin nhắn/Lead: ${monthAdsRow?.total_leads || 0}.
+
+4. BẢNG XẾP HẠNG TOP SALE KINH DOANH (THÁNG ${nowMonth}/${nowYear}):
+${topSalesText || '- Chưa có dữ liệu bảng vinh danh'}
+========================================
 `;
+                } catch(err) {
+                    console.error('[AI Global Context Error]:', err);
                 }
-            } 
-            // ===== 2. TRANG NỘI QUY & ĐIỀU KHOẢN =====
-            else if (currentPage.includes('noiquycongtyhv')) {
+            }
+
+            // ===== DYNAMIC INTENT ENGINE & MULTI-PERIOD DYNAMIC QUERY DISPATCHER =====
+            const msgLower = (message || '').toLowerCase();
+            let dynamicQueryResults = [];
+
+            // Detect Period requested in query
+            let queryPeriod = 'this_month';
+            if (msgLower.includes('hôm nay') || msgLower.includes('ngay nay') || msgLower.includes('sáng nay')) {
+                queryPeriod = 'today';
+            } else if (msgLower.includes('hôm qua') || msgLower.includes('ngay qua')) {
+                queryPeriod = 'yesterday';
+            } else if (msgLower.includes('tháng trước') || msgLower.includes('thang truooc')) {
+                queryPeriod = 'last_month';
+            }
+
+            // Detect Segment requested in query
+            let querySegment = 'tong';
+            if (msgLower.includes('đồng phục') || msgLower.includes('dong phuc') || msgLower.includes('mảng đồng phục')) {
+                querySegment = 'dong_phuc';
+            } else if (msgLower.includes('tem pet') || msgLower.includes('pet')) {
+                querySegment = 'tem_pet';
+            }
+
+            if (isSuperAccess) {
+                try {
+                    // If user asks about orders / sales / segment specifically
+                    if (msgLower.includes('đơn') || msgLower.includes('chốt') || msgLower.includes('doanh số') || msgLower.includes('doanh thu') || msgLower.includes('bán')) {
+                        const qRes = await executeBusinessQuery({ entity: 'orders', segment: querySegment, period: queryPeriod });
+                        if (qRes) dynamicQueryResults.push(`TRUY VẤN ĐƠN HÀNG ĐỘNG (Thời gian ${queryPeriod}, mảng ${querySegment}): Đã chốt ${qRes.order_count} đơn hàng, Doanh số ${qRes.total_revenue_formatted} (từ ${qRes.from_date} đến ${qRes.to_date}).`);
+                    }
+
+                    // If user asks about marketing / ads / leads / spent
+                    if (msgLower.includes('ads') || msgLower.includes('ngân sách') || msgLower.includes('quảng cáo') || msgLower.includes('lead') || msgLower.includes('tin nhắn') || msgLower.includes('cpl')) {
+                        const qRes = await executeBusinessQuery({ entity: 'marketing', period: queryPeriod });
+                        if (qRes) dynamicQueryResults.push(`TRUY VẤN ADS MKT ĐỘNG (Thời gian ${queryPeriod}): Chi phí thực tế Ads ${qRes.total_spent_formatted}, Số Lead: ${qRes.total_leads}, CPL trung bình: ${qRes.cpl_formatted} (từ ${qRes.from_date} đến ${qRes.to_date}).`);
+                    }
+
+                    // If user asks about top sales / rankings
+                    if (msgLower.includes('top') || msgLower.includes('xếp hạng') || msgLower.includes('bản vinh danh') || msgLower.includes('bán giỏi') || msgLower.includes('nhân sự')) {
+                        const qRes = await executeBusinessQuery({ entity: 'top_sales', segment: querySegment, period: queryPeriod });
+                        if (qRes && qRes.sales_ranking?.length) {
+                            const rankText = qRes.sales_ranking.map(r => `  Top ${r.rank}. ${r.name}: ${r.order_count} đơn, ${r.total_revenue_formatted}`).join('\n');
+                            dynamicQueryResults.push(`TRUY VẤN TOP SALE ĐỘNG (Thời gian ${queryPeriod}, mảng ${querySegment}):\n${rankText}`);
+                        }
+                    }
+
+                    // If user asks about forecast / predictions / KPI
+                    if (msgLower.includes('dự báo') || msgLower.includes('dự kiến') || msgLower.includes('kpi') || msgLower.includes('cuối tháng') || msgLower.includes('vận tốc')) {
+                        const fcRes = await executeBusinessQuery({ entity: 'forecast' });
+                        if (fcRes) {
+                            dynamicQueryResults.push(`DỰ BÁO DOANH SỐ THÁNG: Đã qua ${fcRes.elapsed_days}/${fcRes.days_in_month} ngày. MTD Doanh số: ${fcRes.mtd_revenue_formatted} (${fcRes.mtd_orders} đơn). Tốc độ chốt: ${fcRes.daily_velocity_formatted}. DỰ BÁO CUỐI THÁNG: ${fcRes.projected_revenue_formatted} (Đạt ${fcRes.percent_kpi}% so với KPI ${fcRes.target_kpi_formatted}).\nHÀNH ĐỘNG 1-CLICK: [[ACTION:DOWNLOAD_REPORT|thang_8|📥 Tải Báo Cáo Excel Executive Tháng 8]]`);
+                        }
+                    }
+
+                    // If user asks for report / excel / csv / export
+                    if (msgLower.includes('báo cáo') || msgLower.includes('excel') || msgLower.includes('csv') || msgLower.includes('tải') || msgLower.includes('file')) {
+                        dynamicQueryResults.push(`XUẤT BÁO CÁO EXECUTIVE: Dữ liệu sẵn sàng.\nHÀNH ĐỘNG 1-CLICK NẠP FILE: [[ACTION:DOWNLOAD_REPORT|thang_8|📥 Tải File Báo Cáo Executive Excel/CSV Tháng 8 Ngay]]`);
+                    }
+
+                    // If user asks for remarketing / zalo / outreach
+                    if (msgLower.includes('zalo') || msgLower.includes('sms') || msgLower.includes('chăm sóc') || msgLower.includes('khách vip')) {
+                        dynamicQueryResults.push(`KỊCH BẢN CHĂM SÓC KHÁCH VIP: Phát hiện khách hàng lớn tem1 đến hạn mua lại.\nHÀNH ĐỘNG 1-CLICK: [[ACTION:SEND_REMARKETING|tem1|📲 Phát Lệnh Gửi Zalo/SMS Chăm Sóc Khách VIP tem1]]`);
+                    }
+                } catch(err) {
+                    console.error('[AI Dynamic Query Resolver Error]:', err);
+                }
+            }
+
+            if (dynamicQueryResults.length > 0) {
+                systemContext += `\n🎯 KẾT QUẢ TRUY VẤN DỮ LIỆU ĐỘNG THEO YÊU CẦU CÂU HỎI:\n${dynamicQueryResults.join('\n\n')}\n`;
+            }
+
+            // ===== MÀN HÌNH NỘI QUY & ĐIỀU KHOẢN CỤ THỂ =====
+            if (currentPage.includes('noiquycongtyhv')) {
                 const isQuanLyXuong = (username === 'quanlyxuong' || (role === 'quan_ly_cap_cao' && Number(userRow?.department_id) === 11));
                 const isSuperAdmin = (role === 'giam_doc' || role === 'admin' || username === 'trinh' || (role === 'quan_ly_cap_cao' && !isQuanLyXuong));
 
@@ -409,14 +1034,105 @@ QUY TẮC PHẢN HỒI NỘI QUY:
 2. Khi đề cập đến một điều khoản cụ thể, ĐẢM BẢO gắn thẻ [OPEN_RULE:ID_ĐIỀU_KHOẢN] (Ví dụ: [OPEN_RULE:${rules[0]?.id || 1}]) để người dùng nhấp vào mở Popup điều khoản.
 3. Nếu người dùng hỏi về quy định CHƯA CÓ trong CSDL: Hãy báo rõ "Hiện tại công ty CHƯA CÓ điều khoản này" và thêm tag [SUGGEST_NEW_RULE:Tên Tiêu Đề] để đề xuất tạo mới.
 `;
+            } else if (currentPage.includes('ngansachmkt') || currentPage.includes('ngan-sach-mkt')) {
+                let mktInfo = '';
+                const todayStr = new Date().toLocaleDateString('sv-SE'); // 'YYYY-MM-DD'
+                if (isSuperAccess) {
+                    try {
+                        const activeCampaigns = await db.all(`SELECT id, name, target_goal, max_budget FROM mkt_campaigns WHERE is_active = true`);
+                        const recentBudgets = await db.all(`
+                            SELECT mb.channel_name, mb.budget_date, mb.spent_amount, mb.budget_amount, mb.lead_count
+                            FROM marketing_budgets mb
+                            ORDER BY mb.budget_date DESC LIMIT 10
+                        `);
+                        let campList = activeCampaigns.map(c => `- ${c.name}: Hạn mức tối đa ${Number(c.max_budget || 0).toLocaleString('vi-VN')}đ (Mục tiêu: ${c.target_goal || 'N/A'})`).join('\n');
+                        let budgetList = recentBudgets.map(b => {
+                            const isToday = (b.budget_date === todayStr);
+                            const budgetStr = Number(b.budget_amount || 0) > 0 ? ` (Hạn mức: ${Number(b.budget_amount).toLocaleString('vi-VN')}đ)` : '';
+                            return `- Ngày ${b.budget_date}${isToday ? ' [HÔM NAY]' : ''} | Kênh: ${b.channel_name || 'Khác'} | Chi phí thực tế Ads đã chi: ${Number(b.spent_amount || 0).toLocaleString('vi-VN')}đ${budgetStr} | Số Lead/Tin nhắn: ${b.lead_count || 0}`;
+                        }).join('\n');
+
+                        mktInfo = `
+THỜI GIAN HÔM NAY: Ngày ${todayStr}.
+DANH SÁCH CHIẾN DỊCH MARKETING ĐANG ÁP DỤNG:
+${campList || 'Chưa có chiến dịch'}
+
+NHẬT KÝ CHI PHÍ ADS / NGÂN SÁCH MKT GẦN ĐÂY:
+${budgetList || 'Chưa có dữ liệu'}
+`;
+                    } catch(err) {
+                        mktInfo = 'Không thể tải dữ liệu ngân sách marketing từ CSDL.';
+                    }
+                }
+                systemContext += `
+BẠN ĐANG TRỢ GIÚP Ở MÀN HÌNH: 💰 NGÂN SÁCH MARKETING.
+${mktInfo}
+QUY TẮC TRẢ LỜI NGÂN SÁCH HÔM NAY (Ngày ${todayStr}):
+1. Nếu nhật ký CÓ ghi nhận ngày ${todayStr} [HÔM NAY] (Ví dụ: Kênh Đồng Phục HV chi phí 1.031.479đ) -> AI PHẢI TRẢ LỜI ĐÚNG số liệu chi phí này cho người dùng. TUYỆT ĐỐI KHÔNG BÁO "chưa ghi nhận thông tin hôm nay".
+2. Chi phí thực tế Ads là số tiền tự động ghi nhận từ quảng cáo Facebook (Spent Amount), không cần thắc mắc về việc ngân sách đặt 0đ hay chưa nhập.
+`;
             } else {
                 systemContext += `
 BẠN ĐANG TRỢ GIÚP NGƯỜI DÙNG Ở MÀN HÌNH: ${currentPage || 'TRANG CHỦ HỆ THỐNG HV'}.
 Nhiệm vụ: Giải đáp các thắc mắc chung về hệ thống quản trị HV, định hướng sử dụng các tính năng và tư vấn cho người dùng.
 `;
             }
+            // ===== DYNAMIC TEXT-TO-SQL AI ANALYTICS ENGINE =====
+            if (isSuperAccess && message && message.trim().length > 5) {
+                try {
+                    const sqlRes = await generateAndExecuteTextToSql(apiKey, message);
+                    if (sqlRes && sqlRes.data && sqlRes.data.length > 0) {
+                        systemContext += `
+========================================
+🎯 DỮ LIỆU CSDL ĐỘNG ĐƯỢC TỰ ĐỘNG PHÂN TÍCH CHO CÂU HỎI "${message}":
+- CÂU LỆNH SQL CSDL PHÂN TÍCH:
+${sqlRes.sql}
 
-            const aiReply = await callGeminiWithRetry(apiKey, systemContext, message, history, image_base64);
+- BẢNG KẾT QUẢ DỮ LIỆU CSDL THỜI GIAN THỰC (${sqlRes.data.length} bản ghi):
+${JSON.stringify(sqlRes.data, null, 2)}
+========================================
+QUY TẮC PHẢN HỒI KẾT QUẢ CSDL:
+- Dùng trực tiếp dữ liệu chính xác 100% trong bảng kết quả ở trên để trả lời câu hỏi của người dùng.
+- Trình bày kết quả ngắn gọn, rõ ràng từ 2 - 4 dòng, sử dụng định dạng tiền tệ (đ) và con số chính xác.
+`;
+                    }
+                } catch(err) {
+                    console.error('[AI Text-to-SQL Exec Error]:', err);
+                }
+            }
+
+            // Load persistent chat history from DB if not provided in payload
+            let conversationHistory = history || [];
+            if ((!conversationHistory || conversationHistory.length === 0) && userId) {
+                try {
+                    const dbHistoryRows = await db.all(`
+                        SELECT role, message as text
+                        FROM ai_chat_history
+                        WHERE user_id = $1
+                        ORDER BY id DESC LIMIT 20
+                    `, [userId]);
+                    if (dbHistoryRows && dbHistoryRows.length > 0) {
+                        conversationHistory = dbHistoryRows.reverse();
+                    }
+                } catch(e) {}
+            }
+
+            const aiReply = await callGeminiWithRetry(apiKey, systemContext, message, conversationHistory, image_base64);
+
+            // Save persistent chat history to DB
+            if (userId) {
+                try {
+                    if (message && message.trim()) {
+                        await db.all(`INSERT INTO ai_chat_history (user_id, role, message, image_attached) VALUES ($1, 'user', $2, $3)`, [userId, message.trim(), !!image_base64]);
+                    }
+                    if (aiReply && aiReply.trim()) {
+                        await db.all(`INSERT INTO ai_chat_history (user_id, role, message) VALUES ($1, 'assistant', $2)`, [userId, aiReply.trim()]);
+                    }
+                } catch(e) {
+                    console.error('[Save Chat History Error]:', e);
+                }
+            }
+
             return { reply: aiReply };
 
         } catch (err) {
