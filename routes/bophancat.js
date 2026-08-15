@@ -3123,18 +3123,28 @@ module.exports = async function(fastify) {
                         }];
 
                         await txDb.run(`
-
                             INSERT INTO dht_audit_logs (dht_order_id, action, summary, changes, performed_by, created_at) 
-
                             VALUES ($1, $2, $3, $4, $5, NOW())
-
                         `, [rec.dht_order_id, 'update_order', `Duyệt về nhận cắt & Thêm phụ phí bù cắt: +${finalSurcharge.toLocaleString('vi-VN')}đ`, JSON.stringify(changesArr), request.user.id]);
-
                     }
-
                 }
 
+                // Release active fabric reservations for this order
+                await txDb.run(
+                    `UPDATE qlx_fabric_reservations SET status = 'released', updated_at = $1 WHERE dht_order_id = $2 AND status NOT IN ('released', 'fulfilled')`,
+                    [now, rec.dht_order_id]
+                );
+
+                // Reset fabric_called and fabric_arrived status in qlx_preparation
+                await txDb.run(
+                    `UPDATE qlx_preparation SET fabric_called = false, fabric_arrived = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
+                    [now, rec.dht_order_id]
+                );
+
                 await client.query('COMMIT');
+
+                const { recalculateOrderFabricStatus } = require('../utils/qlx_fabric_helper');
+                await recalculateOrderFabricStatus(rec.dht_order_id);
 
                 detail = '↩️ Phê duyệt trở về nhận cắt — ' + (mode === 'surcharge' ? 'bù phí ' + amount.toLocaleString() + 'đ' : 'miễn phí');
 
