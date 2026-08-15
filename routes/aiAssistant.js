@@ -247,12 +247,23 @@ CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL (DÙNG ĐỂ TRA CỨU MỌI MENU):
 10. departments (Cơ cấu tổ chức phòng ban):
    - id (int), name (varchar), parent_id (int)
 
+11. kv_material_cutting_targets (Tỉ Lệ Cắt Gốc / Định Mức Cắt / Định Lượng Cắt của các loại vải):
+   - id (int), material_id (int): Liên kết kv_materials.id
+   - cutting_category (text): Nhóm sản phẩm ('Áo', 'Áo Oversize', 'Áo Mầm Non', 'Áo Tiểu Học', 'Người Lớn TT'...)
+   - target_ratio (numeric): Tỉ lệ cắt gốc / Định mức cắt (Đơn vị: sp/kg)
+   - CÁCH TRUY VẤN TỈ LỆ CẮT GỐC (ĐỊNH MỨC CẮT) CỦA MỌI LOẠI VẢI (VD Cotton Lite 100%, Poly Thái):
+     SELECT m.name as material_name, ct.cutting_category, ct.target_ratio
+     FROM kv_material_cutting_targets ct
+     JOIN kv_materials m ON m.id = ct.material_id
+     WHERE m.name ILIKE '%cotton lite%' AND ct.target_ratio > 0;
+
 QUY TẮC BẮT BUỘC KHI SINH SQL:
 - CHỈ TRẢ VỀ CÂU LỆNH SQL THUẦN TÚY TRONG KHUNG \`\`\`sql ... \`\`\`. KHÔNG GIẢI THÍCH CHỮ NÀO KHÁC.
 - Ngày hôm nay là 2026-08-15 (Năm 2026, Tháng 8).
 - Luôn kiểm tra điều kiện (is_draft IS NOT TRUE) khi tính đơn hàng dht_orders.
 - Luôn dùng LIMIT 10 để tránh quá tải.
-- Khi người dùng hỏi về Kho vải / Tồn kho vải (VD: Poly, Cotton, Vải) -> BẮT BUỘC LỌC r.weight > 0 ĐỂ ĐẾM ĐÚNG SỐ CỤC VẢI CÒN TỒN THỰC TẾ (tránh đếm nhầm các cây đã cắt xong 0kg như ví dụ ở trên)!
+- Khi người dùng hỏi về Tỉ Lệ Cắt Gốc / Định Mức Cắt / Định Lượng Cắt (VD: Cotton Lite 100%, Poly) -> Truy vấn bảng kv_material_cutting_targets JOIN kv_materials!
+- Khi người dùng hỏi về Kho vải / Tồn kho vải (VD: Poly, Cotton, Vải) -> BẮT BUỘC LỌC r.weight > 0 ĐỂ ĐẾM ĐÚNG SỐ CỤC VẢI CÒN TỒN THỰC TẾ!
 - Khi người dùng hỏi về Khách hàng -> Truy vấn bảng customers hoặc dht_orders.
 - Khi người dùng hỏi về Tháng X -> Lấy lọc theo EXTRACT(MONTH FROM created_at) HOẶC budget_month.
 `;
@@ -752,8 +763,12 @@ module.exports = async function (fastify, opts) {
 
 QUY TẮC PHẢN HỒI BẮT BUỘC (CRITICAL):
 1. TRẢ LỜI NGẮN GỌN & ĐÚNG TRỌNG TÂM: Chỉ trả lời từ 2 - 4 dòng ngắn gọn, cô đọng. Tuyệt đối KHÔNG dông dài, KHÔNG lặp lại câu hỏi, KHÔNG viết bài luận dài.
-2. CHỈ NÓI SỰ THẬT TỪ DỮ LIỆU CSDL: Nếu người dùng hỏi thông tin/quy định/số liệu KHÔNG CÓ TRONG DỮ LIỆU CSDL ĐƯỢC CUNG CẤP -> Trả lời thẳng thắn ngắn gọn phù hợp với chủ đề: Nếu hỏi về Nội Quy/Điều Khoản thì báo "Hiện tại trong dữ liệu hệ thống chưa có quy định về thông tin này. Anh/Chị có thể tạo mới điều khoản để bổ sung ạ." | Nếu hỏi về Ngân Sách/Doanh Số/Chi Phí/Lead thì báo "Hiện tại trong dữ liệu hệ thống chưa ghi nhận thông tin số liệu này. Anh/Chị vui lòng kiểm tra lại bộ lọc hoặc nhập bổ sung ạ." Tuyệt đối KHÔNG tự suy đoán hay tự nghĩ ra phần trăm %, tỉ lệ đại lý, CTV, thưởng sales ảo.
-3. TRÌNH BÀY TIẾNG VIỆT THUẦN TÚY: Không dùng ký tự tiêu đề markdown thô như ### hoặc nhiều dấu sao ** dư thừa.
+2. CHỈ NÓI SỰ THẬT TỪ DỮ LIỆU CSDL: Tuyệt đối KHÔNG tự suy đoán hay tự nghĩ ra phần trăm %, tỉ lệ đại lý, CTV, thưởng sales ảo.
+3. QUY TẮC KHI CHƯA XÁC ĐỊNH ĐƯỢC CHỈ SỐ HOẶC DỮ LIỆU BỊ TRỐNG: 
+   - Tuyệt đối KHÔNG vội vàng khẳng định "Hệ thống chưa có dữ liệu" hay "Chưa ghi nhận thông tin" một cách cứng nhắc.
+   - Nếu câu hỏi liên quan đến một chỉ số mà truy vấn CSDL chưa trả về kết quả, AI PHẢI LỊCH SỰ HỎI LẠI GIÁM ĐỐC ĐỂ THU THẬP THÔNG TIN:
+     "Báo cáo Giám đốc, chỉ số này hiện đang được quản lý ở Trang Menu nào trên hệ thống ạ? Anh/Chị cho em xin tên trang Menu (Ví dụ: Tỉ Lệ Cắt Gốc, Báo Giá Gốc, Kho Vải, Ngân Sách Ads...), em sẽ lập tức quét CSDL của trang đó và báo cáo lại chính xác 100% cho Anh/Chị ạ!"
+4. TRÌNH BÀY TIẾNG VIỆT THUẦN TÚY: Không dùng ký tự tiêu đề markdown thô như ### hoặc nhiều dấu sao ** dư thừa.
 
 THÔNG TIN TÀI KHOẢN ĐANG ĐĂNG NHẬP:
 - Họ tên: ${userName} (Username: ${username})
