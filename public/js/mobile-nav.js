@@ -236,7 +236,7 @@ async function initMobileNavigation() {
 if (!document.getElementById('hvAiScript') && !window.HVAiAssistantInitialized) {
     const s = document.createElement('script');
     s.id = 'hvAiScript';
-    s.src = '/js/components/aiAssistant.js?v=20260814_v300_GEMINI25_FLASH';
+    s.src = '/js/components/aiAssistant.js?v=20260815_v600_MOBILE_SUPER_CLEAR';
     document.head.appendChild(s);
 }
 

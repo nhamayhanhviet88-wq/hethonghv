@@ -704,9 +704,20 @@
         window._hvAiStopVoiceRecording();
         window._hvAiRemoveAttachedImage();
 
-        // Reset input field clean
+        // Reset input field clean (Bulletproof 3-stage clear for Mobile Safari iOS & WebSpeech flushes)
         inp.value = '';
         inp.scrollLeft = 0;
+        try { inp.blur(); } catch(e){}
+
+        setTimeout(function() {
+            var el = document.getElementById('hvAiInput');
+            if (el) { el.value = ''; el.scrollLeft = 0; }
+        }, 50);
+
+        setTimeout(function() {
+            var el = document.getElementById('hvAiInput');
+            if (el) { el.value = ''; el.scrollLeft = 0; }
+        }, 200);
 
         // Render User Msg
         var userDiv = document.createElement('div');
