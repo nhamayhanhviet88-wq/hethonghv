@@ -3129,17 +3129,29 @@ module.exports = async function(fastify) {
                     }
                 }
 
-                // Release active fabric reservations for this order
-                await txDb.run(
-                    `UPDATE qlx_fabric_reservations SET status = 'released', updated_at = $1 WHERE dht_order_id = $2 AND status NOT IN ('released', 'fulfilled')`,
-                    [now, rec.dht_order_id]
-                );
+                // Release active fabric reservations strictly for this specific item and phoi
+                if (rec.order_item_id) {
+                    const pIdx = (rec.phoi_index !== null && rec.phoi_index !== undefined) ? rec.phoi_index : 0;
+                    await txDb.run(
+                        `UPDATE qlx_fabric_reservations SET status = 'released', updated_at = $1 WHERE dht_order_id = $2 AND item_id = $3 AND phoi_index = $4 AND status NOT IN ('released', 'fulfilled')`,
+                        [now, rec.dht_order_id, rec.order_item_id, pIdx]
+                    );
 
-                // Reset fabric_called and fabric_arrived status in qlx_preparation
-                await txDb.run(
-                    `UPDATE qlx_preparation SET fabric_called = false, fabric_arrived = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2`,
-                    [now, rec.dht_order_id]
-                );
+                    // Reset fabric_called and fabric_arrived status in qlx_preparation for this specific item
+                    await txDb.run(
+                        `UPDATE qlx_preparation SET fabric_called = false, fabric_arrived = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE item_id = $2`,
+                        [now, rec.order_item_id]
+                    );
+                } else {
+                    await txDb.run(
+                        `UPDATE qlx_fabric_reservations SET status = 'released', updated_at = $1 WHERE dht_order_id = $2 AND status NOT IN ('released', 'fulfilled')`,
+                        [now, rec.dht_order_id]
+                    );
+                    await txDb.run(
+                        `UPDATE qlx_preparation SET fabric_called = false, fabric_arrived = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2 AND item_id IS NULL`,
+                        [now, rec.dht_order_id]
+                    );
+                }
 
                 await client.query('COMMIT');
 
