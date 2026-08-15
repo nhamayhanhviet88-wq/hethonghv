@@ -485,6 +485,9 @@
             <div id="hvAiVoiceStatus" style="display:none;padding:6px 12px;background:#fef2f2;border-top:1px solid #fecaca;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#dc2626">
                 <div class="hv-ai-pulse" style="background:#dc2626"></div>
                 <span id="hvAiVoiceText" style="flex:1">🎙️ Đang lắng nghe giọng nói... Hãy nói câu hỏi!</span>
+                <button onclick="window._hvAiStopVoiceRecording()" style="background:#dc2626;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">Dừng & Gửi</button>
+            </div>
+
             <!-- Quick Suggestion Prompts Popup Menu -->
             <div id="hvAiQuickPromptsPopup" style="display:none;position:absolute;bottom:54px;left:10px;right:10px;background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.18);padding:12px;z-index:999;max-height:240px;overflow-y:auto">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f1f5f9">
