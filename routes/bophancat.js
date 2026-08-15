@@ -5143,13 +5143,16 @@ module.exports = async function(fastify) {
 
 
 
+        let targetMat = material_name.trim();
+        let targetColor = color_name.trim();
+
         let locationFilter = '';
 
-        let queryParams = ['%' + material_name.trim() + '%', '%' + color_name.trim() + '%', orderId, orderItemId, phoiIdx];
+        let queryParams = [targetMat, targetColor, targetColor + ' %', targetColor + ' (%', orderId, orderItemId, phoiIdx];
 
         if (filterLocationIds.length > 0) {
 
-            locationFilter = ` AND LOWER(TRIM(r.location)) = ANY($6) `;
+            locationFilter = ` AND LOWER(TRIM(r.location)) = ANY($8) `;
 
             queryParams.push(filterLocationIds);
 
@@ -5169,7 +5172,7 @@ module.exports = async function(fastify) {
 
                 const excludeNames = contractorLocs.map(l => l.name.trim().toLowerCase());
 
-                locationFilter = ` AND (r.location IS NULL OR TRIM(r.location) = '' OR NOT (LOWER(TRIM(r.location)) = ANY($6))) `;
+                locationFilter = ` AND (r.location IS NULL OR TRIM(r.location) = '' OR NOT (LOWER(TRIM(r.location)) = ANY($8))) `;
 
                 queryParams.push(excludeNames);
 
@@ -5205,11 +5208,11 @@ module.exports = async function(fastify) {
 
                        WHERE res.roll_id = r.id
 
-                         AND res.dht_order_id = $3
+                         AND res.dht_order_id = $5
 
-                         AND COALESCE(res.item_id, 0) = COALESCE($4, 0)
+                         AND COALESCE(res.item_id, 0) = COALESCE($6, 0)
 
-                         AND COALESCE(res.phoi_index, 0) = COALESCE($5, 0)
+                         AND COALESCE(res.phoi_index, 0) = COALESCE($7, 0)
 
                          AND res.status = 'arrived'
 
@@ -5223,11 +5226,11 @@ module.exports = async function(fastify) {
 
                        WHERE res.roll_id = r.id
 
-                         AND res.dht_order_id = $3
+                         AND res.dht_order_id = $5
 
-                         AND COALESCE(res.item_id, 0) = COALESCE($4, 0)
+                         AND COALESCE(res.item_id, 0) = COALESCE($6, 0)
 
-                         AND COALESCE(res.phoi_index, 0) = COALESCE($5, 0)
+                         AND COALESCE(res.phoi_index, 0) = COALESCE($7, 0)
 
                          AND res.status = 'arrived'
 
@@ -5255,9 +5258,13 @@ module.exports = async function(fastify) {
 
               AND r.weight > 0
 
-              AND TRIM(m.name) ILIKE $1
+              AND LOWER(TRIM(m.name)) = LOWER($1)
 
-              AND TRIM(fc.color_name) ILIKE $2
+              AND (
+                  LOWER(TRIM(fc.color_name)) = LOWER($2)
+                  OR LOWER(TRIM(fc.color_name)) LIKE LOWER($3)
+                  OR LOWER(TRIM(fc.color_name)) LIKE LOWER($4)
+              )
 
               ${locationFilter}
 
@@ -5269,11 +5276,11 @@ module.exports = async function(fastify) {
 
                   WHERE res.roll_id = r.id
 
-                    AND res.dht_order_id = $3
+                    AND res.dht_order_id = $5
 
-                    AND COALESCE(res.item_id, 0) = COALESCE($4, 0)
+                    AND COALESCE(res.item_id, 0) = COALESCE($6, 0)
 
-                    AND COALESCE(res.phoi_index, 0) = COALESCE($5, 0)
+                    AND COALESCE(res.phoi_index, 0) = COALESCE($7, 0)
 
                     AND res.status = 'arrived'
 
