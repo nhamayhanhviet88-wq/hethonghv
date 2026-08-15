@@ -2,8 +2,8 @@ const db = require('./db/pool');
 
 (async () => {
     try {
-        console.log('--- SEARCHING FOR 5.21 OR 40.00 IN ALL TABLES ---');
-        
+        console.log('--- SEARCHING FOR "CỔ BẺ DỆT" OR "15000" OR "6500" IN ALL TABLES ---');
+
         const tables = await db.all(`
             SELECT table_name 
             FROM information_schema.tables 
@@ -20,16 +20,16 @@ const db = require('./db/pool');
                 `, [tableName]);
                 
                 for (const c of cols) {
-                    if (['text', 'character varying', 'numeric', 'double precision', 'real'].includes(c.data_type)) {
+                    if (['text', 'character varying'].includes(c.data_type)) {
                         const check = await db.all(`
                             SELECT "${c.column_name}" 
                             FROM "${tableName}" 
-                            WHERE CAST("${c.column_name}" AS TEXT) LIKE '%5.21%' OR CAST("${c.column_name}" AS TEXT) LIKE '%40.00%' OR CAST("${c.column_name}" AS TEXT) LIKE '%40%'
+                            WHERE "${c.column_name}" ILIKE '%CỔ BẺ DỆT%' OR "${c.column_name}" ILIKE '%BO TAY DỆT%'
                             LIMIT 1
                         `);
                         if (check.length > 0) {
                             console.log(`FOUND IN TABLE: ${tableName}, COLUMN: ${c.column_name}`);
-                            const allRows = await db.all(`SELECT * FROM "${tableName}" LIMIT 10`);
+                            const allRows = await db.all(`SELECT * FROM "${tableName}" LIMIT 5`);
                             console.log(allRows);
                         }
                     }

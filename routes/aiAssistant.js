@@ -251,17 +251,24 @@ CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL (DÙNG ĐỂ TRA CỨU MỌI MENU):
    - id (int), material_id (int): Liên kết kv_materials.id
    - cutting_category (text): Nhóm sản phẩm ('Áo', 'Áo Oversize', 'Áo Mầm Non', 'Áo Tiểu Học', 'Người Lớn TT'...)
    - target_ratio (numeric): Tỉ lệ cắt gốc / Định mức cắt (Đơn vị: sp/kg)
-   - CÁCH TRUY VẤN TỈ LỆ CẮT GỐC (ĐỊNH MỨC CẮT) CỦA MỌI LOẠI VẢI (VD Cotton Lite 100%, Poly Thái):
-     SELECT m.name as material_name, ct.cutting_category, ct.target_ratio
-     FROM kv_material_cutting_targets ct
-     JOIN kv_materials m ON m.id = ct.material_id
-     WHERE m.name ILIKE '%cotton lite%' AND ct.target_ratio > 0;
+
+12. tsam_samples (Trang Thông Số Mẫu Áo / thongsoaomau - Giá may nhà & Giá gia công mẫu áo):
+   - id (int), sample_code (text): Mã mẫu (VD: 'CỔ BẺ DỆT - BO TAY DỆT', 'CỔ BẺ DỆT - BO TAY VẢI'...)
+   - collection (text): Bộ sưu tập ('Gốc', '2 phối'...)
+   - factory_price (numeric): Giá may nhà (Đơn vị: VNĐ, VD 6.500đ)
+   - processing_price (numeric): Giá gia công (Đơn vị: VNĐ, VD 15.000đ)
+   - approval_status (text): Trạng thái duyệt ('APPROVED', 'PENDING')
+   - CÁCH TRUY VẤN THÔNG SỐ MẪU ÁO (VD Cổ Bẻ Dệt - Bo Tay Dệt):
+     SELECT sample_code, factory_price, processing_price, collection, approval_status
+     FROM tsam_samples
+     WHERE sample_code ILIKE '%CỔ BẺ DỆT%' AND is_active = true;
 
 QUY TẮC BẮT BUỘC KHI SINH SQL:
 - CHỈ TRẢ VỀ CÂU LỆNH SQL THUẦN TÚY TRONG KHUNG \`\`\`sql ... \`\`\`. KHÔNG GIẢI THÍCH CHỮ NÀO KHÁC.
 - Ngày hôm nay là 2026-08-15 (Năm 2026, Tháng 8).
 - Luôn kiểm tra điều kiện (is_draft IS NOT TRUE) khi tính đơn hàng dht_orders.
 - Luôn dùng LIMIT 10 để tránh quá tải.
+- Khi người dùng hỏi về Thông Số Mẫu Áo / Giá mẫu áo (VD: Cổ Bẻ Dệt - Bo Tay Dệt, Cổ Bẻ Vải) -> Truy vấn bảng tsam_samples!
 - Khi người dùng hỏi về Tỉ Lệ Cắt Gốc / Định Mức Cắt / Định Lượng Cắt (VD: Cotton Lite 100%, Poly) -> Truy vấn bảng kv_material_cutting_targets JOIN kv_materials!
 - Khi người dùng hỏi về Kho vải / Tồn kho vải (VD: Poly, Cotton, Vải) -> BẮT BUỘC LỌC r.weight > 0 ĐỂ ĐẾM ĐÚNG SỐ CỤC VẢI CÒN TỒN THỰC TẾ!
 - Khi người dùng hỏi về Khách hàng -> Truy vấn bảng customers hoặc dht_orders.
