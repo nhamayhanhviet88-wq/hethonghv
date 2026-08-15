@@ -485,14 +485,22 @@
             <div id="hvAiVoiceStatus" style="display:none;padding:6px 12px;background:#fef2f2;border-top:1px solid #fecaca;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#dc2626">
                 <div class="hv-ai-pulse" style="background:#dc2626"></div>
                 <span id="hvAiVoiceText" style="flex:1">🎙️ Đang lắng nghe giọng nói... Hãy nói câu hỏi!</span>
-                <button onclick="window._hvAiStopVoiceRecording()" style="background:#dc2626;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">Dừng & Gửi</button>
+            <!-- Quick Suggestion Prompts Popup Menu -->
+            <div id="hvAiQuickPromptsPopup" style="display:none;position:absolute;bottom:54px;left:10px;right:10px;background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.18);padding:12px;z-index:999;max-height:240px;overflow-y:auto">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f1f5f9">
+                    <span style="font-size:12px;font-weight:900;color:#1e293b;display:flex;align-items:center;gap:4px">💡 Câu Hỏi Gợi Ý Nhanh (1-Click)</span>
+                    <button onclick="window._hvAiToggleQuickPromptsMenu()" style="background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;font-weight:700">✕</button>
+                </div>
+                <div id="hvAiQuickPromptsList" style="display:flex;flex-direction:column;gap:6px">
+                    <div style="font-size:12px;color:#94a3b8;text-align:center;padding:10px">⏳ Đang tải câu hỏi gợi ý...</div>
+                </div>
             </div>
 
             <div class="hv-ai-footer" id="hvAiFooter">
                 <input type="file" id="hvAiFileInput" accept="image/*" style="display:none" onchange="window._hvAiOnImageSelected(this)">
-                <button class="hv-ai-icon-btn" onclick="document.getElementById('hvAiFileInput').click()" title="Đính kèm Hình ảnh / Chụp ảnh (Vision AI)">📷</button>
+                <button class="hv-ai-icon-btn" id="hvAiQuickBtn" onclick="window._hvAiToggleQuickPromptsMenu()" title="Danh sách câu hỏi gợi ý nhanh (1-Click)">💡</button>
                 <button class="hv-ai-icon-btn" id="hvAiVoiceBtn" onclick="window._hvAiToggleVoiceRecording()" title="Ghi âm giọng nói (Voice AI)">🎙️</button>
-                <input type="text" class="hv-ai-input" id="hvAiInput" placeholder="Nhập câu hỏi hoặc chọn giọng nói/hình ảnh..." onkeypress="if(event.key==='Enter') window._hvAiSubmitChat()">
+                <input type="text" class="hv-ai-input" id="hvAiInput" placeholder="Nhập câu hỏi, chọn giọng nói hoặc dán ảnh (Ctrl+V)..." onkeypress="if(event.key==='Enter') window._hvAiSubmitChat()">
                 <button class="hv-ai-send-btn" onclick="window._hvAiSubmitChat()">Gửi 🚀</button>
             </div>
 
@@ -503,11 +511,49 @@
         `;
 
         document.body.appendChild(win);
+        bindClipboardPaste(win);
         loadPersistentHistory();
         setTimeout(function() {
             var inp = document.getElementById('hvAiInput');
-            if (inp) inp.focus();
+            if (inp) {
+                inp.focus();
+                bindClipboardPaste(inp);
+            }
         }, 100);
+    }
+
+    function bindClipboardPaste(el) {
+        if (!el) return;
+        el.addEventListener('paste', function(e) {
+            var clipboardData = e.clipboardData || (window.clipboardData);
+            if (!clipboardData) return;
+            var items = clipboardData.items;
+            if (!items) return;
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                if (item.kind === 'file' && item.type.indexOf('image') !== -1) {
+                    var file = item.getAsFile();
+                    if (!file) continue;
+                    var reader = new FileReader();
+                    reader.onload = function(evt) {
+                        state.attachedImage = {
+                            data: evt.target.result,
+                            name: 'Ảnh_Dán_Clipboard.png',
+                            mime_type: file.type
+                        };
+                        var bar = document.getElementById('hvAiImgPreviewBar');
+                        var thumb = document.getElementById('hvAiPreviewImgThumb');
+                        var nameEl = document.getElementById('hvAiPreviewImgName');
+                        if (thumb) thumb.src = evt.target.result;
+                        if (nameEl) nameEl.textContent = '📷 Ảnh đã dán từ Clipboard (Ctrl+V)';
+                        if (bar) bar.style.display = 'flex';
+                    };
+                    reader.readAsDataURL(file);
+                    e.preventDefault();
+                    break;
+                }
+            }
+        });
     }
 
     async function loadPersistentHistory() {
@@ -1035,6 +1081,17 @@
                         </div>
                     </div>
 
+                    <div style="display:flex;flex-direction:column;gap:6px;margin-top:14px;padding-top:12px;border-top:1px dashed #cbd5e1">
+                        <label style="font-size:13px;font-weight:800;color:#3730a3">💡 Thiết Lập Câu Hỏi Gợi Ý Nhanh (Ban Giám Đốc & Lê Việt Trinh):</label>
+                        <div style="display:flex;gap:6px">
+                            <input type="text" id="hvAiNewPromptInput" class="hv-ai-input-field" placeholder="Nhập câu hỏi gợi ý mới (VD: Hôm nay chốt được bao nhiêu đơn?)..." style="flex:1">
+                            <button onclick="window._hvAiAddQuickPrompt()" style="background:#4338ca;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">➕ Thêm Gợi Ý</button>
+                        </div>
+                        <div id="hvAiManagePromptsList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:140px;overflow-y:auto">
+                            <div style="font-size:12px;color:#94a3b8;padding:6px">⏳ Đang tải danh sách...</div>
+                        </div>
+                    </div>
+
                     <div id="hvAiConfigStatus" style="font-size:13px;font-weight:700"></div>
                 </div>
                 <div class="hv-ai-modal-ftr">
@@ -1045,6 +1102,121 @@
         `;
 
         document.body.appendChild(overlay);
+        setTimeout(window._hvAiLoadManagePrompts, 100);
+    };
+
+    window._hvAiToggleQuickPromptsMenu = async function() {
+        var popup = document.getElementById('hvAiQuickPromptsPopup');
+        if (!popup) return;
+        if (popup.style.display === 'block') {
+            popup.style.display = 'none';
+            return;
+        }
+        popup.style.display = 'block';
+        var listContainer = document.getElementById('hvAiQuickPromptsList');
+        if (listContainer) listContainer.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:8px">⏳ Đang tải câu hỏi gợi ý...</div>';
+
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/quick-prompts', {
+                headers: { 'Authorization': token ? ('Bearer ' + token) : '' }
+            });
+            if (res.ok) {
+                var data = await res.json();
+                var prompts = data.prompts || [];
+                if (prompts.length === 0) {
+                    listContainer.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:8px">Chưa có câu hỏi gợi ý nào.</div>';
+                    return;
+                }
+                var html = '';
+                prompts.forEach(function(p) {
+                    var safeTxt = p.prompt_text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    html += `<button onclick="window._hvAiSelectQuickPrompt('${safeTxt}')" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;text-align:left;cursor:pointer;transition:all 0.2s;line-height:1.4" onmouseover="this.style.background='#e0e7ff';this.style.borderColor='#818cf8';this.style.color='#3730a3'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#cbd5e1';this.style.color='#1e293b'">💡 ${p.prompt_text}</button>`;
+                });
+                listContainer.innerHTML = html;
+            }
+        } catch(e) {
+            if (listContainer) listContainer.innerHTML = '<div style="font-size:12px;color:#ef4444;text-align:center;padding:8px">Không thể tải danh sách gợi ý.</div>';
+        }
+    };
+
+    window._hvAiSelectQuickPrompt = function(txt) {
+        var popup = document.getElementById('hvAiQuickPromptsPopup');
+        if (popup) popup.style.display = 'none';
+        var inp = document.getElementById('hvAiInput');
+        if (inp) {
+            inp.value = txt;
+            window._hvAiSubmitChat();
+        }
+    };
+
+    window._hvAiLoadManagePrompts = async function() {
+        var container = document.getElementById('hvAiManagePromptsList');
+        if (!container) return;
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/quick-prompts', {
+                headers: { 'Authorization': token ? ('Bearer ' + token) : '' }
+            });
+            if (res.ok) {
+                var data = await res.json();
+                var prompts = data.prompts || [];
+                if (prompts.length === 0) {
+                    container.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:6px">Chưa có câu hỏi gợi ý nào.</div>';
+                    return;
+                }
+                var html = '';
+                prompts.forEach(function(p) {
+                    html += `
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b">
+                            <span>💡 ${p.prompt_text}</span>
+                            <button onclick="window._hvAiDeleteQuickPrompt(${p.id})" style="background:none;border:none;color:#ef4444;font-weight:900;cursor:pointer;font-size:13px" title="Xóa">🗑️</button>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+        } catch(e){}
+    };
+
+    window._hvAiAddQuickPrompt = async function() {
+        var inp = document.getElementById('hvAiNewPromptInput');
+        if (!inp || !inp.value.trim()) return;
+        var txt = inp.value.trim();
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/quick-prompts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? ('Bearer ' + token) : ''
+                },
+                body: JSON.stringify({ prompt_text: txt })
+            });
+            var data = await res.json();
+            if (res.ok) {
+                inp.value = '';
+                window._hvAiLoadManagePrompts();
+            } else {
+                alert(data.error || 'Lỗi thêm câu hỏi gợi ý');
+            }
+        } catch(e) {
+            alert('Lỗi thêm gợi ý: ' + e.message);
+        }
+    };
+
+    window._hvAiDeleteQuickPrompt = async function(id) {
+        if (!confirm('Bạn có chắc chắn muốn xóa câu hỏi gợi ý này không?')) return;
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/quick-prompts/' + id, {
+                method: 'DELETE',
+                headers: { 'Authorization': token ? ('Bearer ' + token) : '' }
+            });
+            if (res.ok) {
+                window._hvAiLoadManagePrompts();
+            }
+        } catch(e){}
     };
 
     window._hvAiSaveConfig = async function() {

@@ -236,7 +236,7 @@ async function initMobileNavigation() {
 if (!document.getElementById('hvAiScript') && !window.HVAiAssistantInitialized) {
     const s = document.createElement('script');
     s.id = 'hvAiScript';
-    s.src = '/js/components/aiAssistant.js?v=20260815_v1000_KILL_IOS_DICTATION_FOOTER';
+    s.src = '/js/components/aiAssistant.js?v=20260815_v1100_QUICK_PROMPTS_CTRL_V';
     document.head.appendChild(s);
 }
 

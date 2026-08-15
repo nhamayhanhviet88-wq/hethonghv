@@ -740,6 +740,83 @@ module.exports = async function (fastify, opts) {
         }
     });
 
+    // Migration: Create ai_quick_prompts table
+    try {
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS ai_quick_prompts (
+                id SERIAL PRIMARY KEY,
+                prompt_text TEXT NOT NULL UNIQUE,
+                category TEXT DEFAULT 'Chung',
+                display_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        const countRow = await db.get(`SELECT COUNT(*) as c FROM ai_quick_prompts`);
+        if (Number(countRow?.c || 0) === 0) {
+            const defaults = [
+                'Phạt đi làm muộn thế nào?',
+                'Quy định duyệt thu chi?',
+                'Kiểm tra quy định bảo mật',
+                'Hôm nay chốt được bao nhiêu đơn?',
+                'Công việc nào chậm deadline?',
+                'Tỉ lệ cắt vải Cotton Lite 100% là bao nhiêu?',
+                'Có những chương trình khuyến mãi nào đang kích hoạt?'
+            ];
+            for (let i = 0; i < defaults.length; i++) {
+                await db.run(
+                    `INSERT INTO ai_quick_prompts (prompt_text, display_order) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                    [defaults[i], i + 1]
+                );
+            }
+        }
+    } catch(e) {
+        console.warn('ai_quick_prompts migration warning:', e.message);
+    }
+
+    // GET /api/ai-assistant/quick-prompts - Lấy danh sách câu hỏi gợi ý nhanh
+    fastify.get('/api/ai-assistant/quick-prompts', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const rows = await db.all(`SELECT * FROM ai_quick_prompts ORDER BY display_order ASC, id ASC`);
+            return { prompts: rows };
+        } catch(e) {
+            return { prompts: [] };
+        }
+    });
+
+    // POST /api/ai-assistant/quick-prompts - Thêm mới câu hỏi gợi ý nhanh (Giám đốc, Admin, Lê Việt Trinh)
+    fastify.post('/api/ai-assistant/quick-prompts', { preHandler: [authenticate] }, async (req, reply) => {
+        const { role, username } = req.user || {};
+        const isAllowed = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao' || username === 'trinh' || username === 'leviettrinh');
+        if (!isAllowed) {
+            return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc và Quản Lý Cấp Cao mới được quyền thiết lập câu hỏi gợi ý nhanh!' });
+        }
+        const { prompt_text } = req.body || {};
+        if (!prompt_text || !prompt_text.trim()) {
+            return reply.code(400).send({ error: 'Nội dung câu hỏi gợi ý không được để trống' });
+        }
+        try {
+            const result = await db.get(
+                `INSERT INTO ai_quick_prompts (prompt_text, display_order) VALUES ($1, (SELECT COALESCE(MAX(display_order), 0) + 1 FROM ai_quick_prompts)) RETURNING *`,
+                [prompt_text.trim()]
+            );
+            return { success: true, prompt: result };
+        } catch(e) {
+            return reply.code(400).send({ error: 'Câu hỏi gợi ý này đã tồn tại hoặc không hợp lệ!' });
+        }
+    });
+
+    // DELETE /api/ai-assistant/quick-prompts/:id - Xóa câu hỏi gợi ý nhanh (Giám đốc, Admin, Lê Việt Trinh)
+    fastify.delete('/api/ai-assistant/quick-prompts/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const { role, username } = req.user || {};
+        const isAllowed = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao' || username === 'trinh' || username === 'leviettrinh');
+        if (!isAllowed) {
+            return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc và Quản Lý Cấp Cao mới được quyền thiết lập câu hỏi gợi ý nhanh!' });
+        }
+        const id = Number(req.params.id);
+        await db.run(`DELETE FROM ai_quick_prompts WHERE id = $1`, [id]);
+        return { success: true };
+    });
+
     // POST /api/ai-assistant/chat - Hỏi đáp Trợ Lý AI
     fastify.post('/api/ai-assistant/chat', { preHandler: [authenticate] }, async (req, reply) => {
         try {
