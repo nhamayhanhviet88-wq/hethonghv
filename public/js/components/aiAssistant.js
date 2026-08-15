@@ -662,8 +662,18 @@
 
     window._hvAiStopVoiceRecording = function() {
         if (state.voiceRecognition) {
-            try { state.voiceRecognition.stop(); } catch(e){}
+            var rec = state.voiceRecognition;
             state.voiceRecognition = null;
+            try {
+                rec.onresult = null;
+                rec.onerror = null;
+                rec.onend = null;
+                if (rec.abort) {
+                    rec.abort();
+                } else {
+                    rec.stop();
+                }
+            } catch(e){}
         }
         state.isRecording = false;
         var btn = document.getElementById('hvAiVoiceBtn');
@@ -690,10 +700,13 @@
         var userMsg = inp.value.trim();
         if (!userMsg && !imgAttached) return;
 
-        // Reset state
-        inp.value = '';
-        if (state.isRecording) window._hvAiStopVoiceRecording();
+        // Reset voice & image states first
+        window._hvAiStopVoiceRecording();
         window._hvAiRemoveAttachedImage();
+
+        // Reset input field clean
+        inp.value = '';
+        inp.scrollLeft = 0;
 
         // Render User Msg
         var userDiv = document.createElement('div');
