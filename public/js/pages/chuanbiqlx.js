@@ -221,11 +221,14 @@ function _qlxPatchOrderRows(orderId) {
         } else {
             priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
         }
+        var pendingUndoBadge = o.pending_undo_cutting
+            ? '<span style="margin-right: 6px; background: #d97706; color: #fff; border: 1px solid #b45309; font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 800; display: inline-block; vertical-align: middle; animation: qlxPulse 2s infinite;" title="Thợ cắt đang gửi yêu cầu trở về nhận cắt (chờ QLX duyệt)">⏳ Chờ Duyệt Về Nhận Cắt</span>'
+            : '';
         var spName;
         if (totalRows > 1) {
-            spName = priBadge + o.order_code + ' — Phiếu ' + r.itemIdx + ' — P' + r.phoiInItem + (itemDesc ? ' — ' + itemDesc : '');
+            spName = cancelBadge + pendingUndoBadge + priBadge + o.order_code + ' — Phiếu ' + r.itemIdx + ' — P' + r.phoiInItem + (itemDesc ? ' — ' + itemDesc : '');
         } else {
-            spName = priBadge + o.order_code + (itemDesc ? ' — ' + itemDesc : '');
+            spName = cancelBadge + pendingUndoBadge + priBadge + o.order_code + (itemDesc ? ' — ' + itemDesc : '');
         }
         var phoiTag = '';
         var matName = r.phoi ? (r.phoi.material_name || '') : (r.item ? (r.item.material_name || '') : '');
@@ -1156,7 +1159,26 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
 
         // Bỏ qua nhánh check if (isNoCut) để luôn hiển thị đầy đủ popup gọi vải, cho phép bật/tắt KHÔNG CẮT bất cứ lúc nào.
         // Chỉ ẩn phần Lịch cắt phối thông qua ID _qlxCutScheduleContainer ở bên dưới.
-            if (data.is_production_done) {
+            if (data.pending_undo_record && data.pending_undo_record.pending_undo_cutting) {
+            var undoRec = data.pending_undo_record;
+            var cutterName = undoRec.cutter_name ? ' (' + undoRec.cutter_name + ')' : '';
+            html += '<div style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; padding:14px 18px; margin:12px 20px 0 20px; border-radius:10px; box-shadow:0 4px 12px rgba(245,158,11,0.3);">';
+            html += '  <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">';
+            html += '    <div>';
+            html += '      <div style="font-size:14px; font-weight:900; display:flex; align-items:center; gap:6px;">';
+            html += '        <span>⏳ YÊU CẦU TRỞ VỀ NHẬN CẮT CHỜ DUYỆT' + cutterName + '</span>';
+            html += '      </div>';
+            html += '      <div style="font-size:12px; margin-top:4px; opacity:0.95;">Thợ cắt đang yêu cầu trả đơn này về trạng thái chưa nhận cắt. Quản lý xưởng vui lòng duyệt hoặc từ chối.</div>';
+            html += '    </div>';
+            html += '    <div style="display:flex; gap:8px; flex-shrink:0;">';
+            html += '      <button onclick="_qlxApproveUndoCutting(' + undoRec.id + ', ' + orderId + ', ' + itemId + ', ' + pairIndex + ')" style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:900; font-size:13px; cursor:pointer; box-shadow:0 2px 6px rgba(16,185,129,0.4);">✅ DUYỆT VỀ NHẬN CẮT</button>';
+            html += '      <button onclick="_qlxRejectUndoCutting(' + undoRec.id + ', ' + orderId + ', ' + itemId + ', ' + pairIndex + ')" style="background:#ef4444; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:900; font-size:13px; cursor:pointer; box-shadow:0 2px 6px rgba(239,68,68,0.4);">❌ TỪ CHỐI</button>';
+            html += '    </div>';
+            html += '  </div>';
+            html += '</div>';
+        }
+
+        if (data.is_production_done) {
             html += '<div style="background:#fef2f2; border-left:4px solid #dc2626; padding:10px 16px; font-size:12px; color:#991b1b; font-weight:700; margin:12px 20px 0 20px; border-radius:6px;">';
             html += '🔒 Phiếu đã hoàn thành sản xuất (đã in/cắt xong). Không thể chỉnh sửa gọi/giữ vải!';
             html += '</div>';
@@ -4897,3 +4919,34 @@ function _qlxOpenImagePreview(imgUrl) {
         + '</div>';
     document.body.appendChild(ov);
 }
+
+async function _qlxApproveUndoCutting(recordId, orderId, itemId, pairIndex) {
+    if (!confirm('Bạn có chắc chắn muốn DUYỆT cho đơn này trở về trạng thái chưa nhận cắt?')) return;
+    try {
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'approve_undo_cutting' });
+        showToast('✅ Đã duyệt trở về nhận cắt thành công!');
+        if (orderId && itemId !== undefined && pairIndex !== undefined) {
+            _qlxFabricPopup(orderId, itemId, pairIndex);
+        }
+        _qlxLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi duyệt', 'error');
+    }
+}
+
+async function _qlxRejectUndoCutting(recordId, orderId, itemId, pairIndex) {
+    if (!confirm('Bạn có chắc chắn muốn TỪ CHỐI yêu cầu trở về nhận cắt của thợ?')) return;
+    try {
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', { action: 'reject_undo_cutting' });
+        showToast('❌ Đã từ chối yêu cầu trở về nhận cắt');
+        if (orderId && itemId !== undefined && pairIndex !== undefined) {
+            _qlxFabricPopup(orderId, itemId, pairIndex);
+        }
+        _qlxLoadAll();
+    } catch(e) {
+        showToast(e.message || 'Lỗi từ chối', 'error');
+    }
+}
+
+window._qlxApproveUndoCutting = _qlxApproveUndoCutting;
+window._qlxRejectUndoCutting = _qlxRejectUndoCutting;

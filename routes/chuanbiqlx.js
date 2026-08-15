@@ -1193,6 +1193,7 @@ module.exports = async function(fastify) {
                 COALESCE(o.sx_print_confirmed, false) AS sx_print_confirmed,
                 COALESCE(o.is_draft, false) AS is_draft,
                 o.is_locked, o.locked_by, o.locked_at, u_locked.full_name AS locked_by_name,
+                EXISTS (SELECT 1 FROM cutting_records cr_u WHERE cr_u.dht_order_id = o.id AND cr_u.pending_undo_cutting = true) AS pending_undo_cutting,
                 COALESCE(p.qlx_reviewed, false) AS qlx_reviewed,
                 COALESCE(p.qlx_received_phieu, false) AS qlx_received_phieu,
                 u_cskh.full_name AS cskh_name,
@@ -4094,6 +4095,14 @@ module.exports = async function(fastify) {
             [Number(orderId), Number(itemId)]
         );
 
+        const pendingUndoRecord = await db.get(`
+            SELECT cr.id, cr.pending_undo_cutting, cr.pending_undo_cutting_by, cr.pending_undo_cutting_at, cr.cutter_id, u.full_name AS cutter_name, cr.order_code
+            FROM cutting_records cr
+            LEFT JOIN users u ON cr.cutter_id = u.id
+            WHERE cr.order_item_id = $1 AND cr.phoi_index = $2 AND cr.pending_undo_cutting = true
+            LIMIT 1
+        `, [itemId, pi]);
+
         return {
             order: { id: order.id, order_code: order.order_code, customer_name: order.customer_name, is_no_cut: !!order.is_no_cut, sx_print_confirmed: !!order.sx_print_confirmed },
             item: { id: item.id, description: item.description, quantity: item.quantity, item_index: item.item_index, is_no_cut: !!item.is_no_cut },
@@ -4121,6 +4130,7 @@ module.exports = async function(fastify) {
             is_production_done: isPhoiProdDone,
             is_cut_done: isPhoiCutDone,
             is_cut_claimed: isPhoiCutClaimed,
+            pending_undo_record: pendingUndoRecord || null,
             target_shelf
         };
     });
