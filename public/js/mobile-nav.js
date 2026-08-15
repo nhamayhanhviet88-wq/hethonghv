@@ -236,7 +236,7 @@ async function initMobileNavigation() {
 if (!document.getElementById('hvAiScript') && !window.HVAiAssistantInitialized) {
     const s = document.createElement('script');
     s.id = 'hvAiScript';
-    s.src = '/js/components/aiAssistant.js?v=20260815_v1200_FIX_FOOTER_UNCLOSED_DIV';
+    s.src = '/js/components/aiAssistant.js?v=20260815_v1300_REORDER_QUICK_PROMPTS';
     document.head.appendChild(s);
 }
 

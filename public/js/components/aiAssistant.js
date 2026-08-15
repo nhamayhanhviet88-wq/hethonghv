@@ -1169,15 +1169,47 @@
                     return;
                 }
                 var html = '';
-                prompts.forEach(function(p) {
+                prompts.forEach(function(p, idx) {
+                    var isFirst = (idx === 0);
+                    var isLast = (idx === prompts.length - 1);
+
+                    var upBtn = isFirst
+                        ? `<button style="background:none;border:none;color:#cbd5e1;font-size:12px;cursor:default;opacity:0.4" disabled>⬆️</button>`
+                        : `<button onclick="window._hvAiMoveQuickPrompt(${p.id}, 'up')" style="background:none;border:none;color:#4338ca;font-size:12px;cursor:pointer;font-weight:700" title="Đẩy lên vị trí trên">⬆️</button>`;
+
+                    var downBtn = isLast
+                        ? `<button style="background:none;border:none;color:#cbd5e1;font-size:12px;cursor:default;opacity:0.4" disabled>⬇️</button>`
+                        : `<button onclick="window._hvAiMoveQuickPrompt(${p.id}, 'down')" style="background:none;border:none;color:#4338ca;font-size:12px;cursor:pointer;font-weight:700" title="Đẩy xuống vị trí dưới">⬇️</button>`;
+
                     html += `
-                        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b">
-                            <span>💡 ${p.prompt_text}</span>
-                            <button onclick="window._hvAiDeleteQuickPrompt(${p.id})" style="background:none;border:none;color:#ef4444;font-weight:900;cursor:pointer;font-size:13px" title="Xóa">🗑️</button>
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:700;color:#1e293b;gap:8px">
+                            <span style="flex:1">💡 ${p.prompt_text}</span>
+                            <div style="display:flex;align-items:center;gap:4px">
+                                ${upBtn}
+                                ${downBtn}
+                                <button onclick="window._hvAiDeleteQuickPrompt(${p.id})" style="background:none;border:none;color:#ef4444;font-weight:900;cursor:pointer;font-size:13px;margin-left:4px" title="Xóa câu hỏi">🗑️</button>
+                            </div>
                         </div>
                     `;
                 });
                 container.innerHTML = html;
+            }
+        } catch(e){}
+    };
+
+    window._hvAiMoveQuickPrompt = async function(id, dir) {
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var res = await fetch('/api/ai-assistant/quick-prompts/' + id + '/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? ('Bearer ' + token) : ''
+                },
+                body: JSON.stringify({ direction: dir })
+            });
+            if (res.ok) {
+                window._hvAiLoadManagePrompts();
             }
         } catch(e){}
     };

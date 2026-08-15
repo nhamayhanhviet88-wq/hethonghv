@@ -817,6 +817,54 @@ module.exports = async function (fastify, opts) {
         return { success: true };
     });
 
+    // POST /api/ai-assistant/quick-prompts/:id/move - Sắp xếp vị trí ưu tiên hiển thị câu hỏi gợi ý
+    fastify.post('/api/ai-assistant/quick-prompts/:id/move', { preHandler: [authenticate] }, async (req, reply) => {
+        const { role, username } = req.user || {};
+        const isAllowed = (role === 'giam_doc' || role === 'admin' || role === 'quan_ly_cap_cao' || username === 'trinh' || username === 'leviettrinh');
+        if (!isAllowed) {
+            return reply.code(403).send({ error: 'Chỉ Ban Giám Đốc và Quản Lý Cấp Cao mới được quyền sắp xếp thứ tự gợi ý nhanh!' });
+        }
+        const id = Number(req.params.id);
+        const { direction } = req.body || {};
+
+        const current = await db.get(`SELECT * FROM ai_quick_prompts WHERE id = $1`, [id]);
+        if (!current) return reply.code(404).send({ error: 'Không tìm thấy câu hỏi gợi ý' });
+
+        const allPrompts = await db.all(`SELECT id, display_order FROM ai_quick_prompts ORDER BY display_order ASC, id ASC`);
+        const currentIndex = allPrompts.findIndex(p => Number(p.id) === id);
+
+        if (currentIndex !== -1) {
+            let targetIndex = -1;
+            if (direction === 'up' && currentIndex > 0) {
+                targetIndex = currentIndex - 1;
+            } else if (direction === 'down' && currentIndex < allPrompts.length - 1) {
+                targetIndex = currentIndex + 1;
+            }
+
+            if (targetIndex !== -1) {
+                const targetPrompt = allPrompts[targetIndex];
+                let currentOrder = Number(current.display_order || 0);
+                let targetOrder = Number(targetPrompt.display_order || 0);
+
+                if (currentOrder === targetOrder) {
+                    // Re-index sequentially if duplicate orders exist
+                    for (let i = 0; i < allPrompts.length; i++) {
+                        await db.run(`UPDATE ai_quick_prompts SET display_order = $1 WHERE id = $2`, [i + 1, allPrompts[i].id]);
+                    }
+                    const freshCurrent = await db.get(`SELECT display_order FROM ai_quick_prompts WHERE id = $1`, [id]);
+                    const freshTarget = await db.get(`SELECT display_order FROM ai_quick_prompts WHERE id = $1`, [targetPrompt.id]);
+                    currentOrder = Number(freshCurrent.display_order);
+                    targetOrder = Number(freshTarget.display_order);
+                }
+
+                await db.run(`UPDATE ai_quick_prompts SET display_order = $1 WHERE id = $2`, [targetOrder, id]);
+                await db.run(`UPDATE ai_quick_prompts SET display_order = $1 WHERE id = $2`, [currentOrder, targetPrompt.id]);
+            }
+        }
+
+        return { success: true };
+    });
+
     // POST /api/ai-assistant/chat - Hỏi đáp Trợ Lý AI
     fastify.post('/api/ai-assistant/chat', { preHandler: [authenticate] }, async (req, reply) => {
         try {
