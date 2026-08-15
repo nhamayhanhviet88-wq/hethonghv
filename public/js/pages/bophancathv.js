@@ -4335,6 +4335,24 @@ function _mcRollChanged() {
     cbs.forEach(function(cb) { ids.push(Number(cb.value)); kg += parseFloat(cb.dataset.weight) || 0; });
     _mcData.selRolls = ids;
     var el = document.getElementById('_mcKgDisp'); if (el) el.textContent = _bpcFmtKg(kg) + ' kg';
+
+    var nx = document.getElementById('_mcNextBtn');
+    if (nx && _mcData.step === 2) {
+        var hasPendingDyeTest = _mcData.rolls.some(function(r) {
+            return (ids.indexOf(r.id) >= 0 || (r.reservations && r.reservations.length > 0)) && r.is_original_tree && r.dye_test_status === 'pending';
+        });
+        if (hasPendingDyeTest) {
+            nx.disabled = true;
+            nx.style.opacity = '0.4';
+            nx.style.cursor = 'not-allowed';
+            nx.title = 'Vui lòng chụp ảnh test chống nhiễm trước khi bấm Tiếp theo';
+        } else {
+            nx.disabled = false;
+            nx.style.opacity = '1';
+            nx.style.cursor = 'pointer';
+            nx.title = '';
+        }
+    }
 }
 
 function _mcOrderChanged() {
@@ -4380,6 +4398,13 @@ async function _mcNext() {
         _mcData.step = 2; _mcRenderStep();
     } else if (_mcData.step === 2) {
         if (!_mcData.selRolls.length) { showToast('Chọn ít nhất 1 cây vải', 'error'); return; }
+        var pendingDyeRolls = _mcData.rolls.filter(function(r) {
+            return (_mcData.selRolls.indexOf(r.id) >= 0 || (r.reservations && r.reservations.length > 0)) && r.is_original_tree && r.dye_test_status === 'pending';
+        });
+        if (pendingDyeRolls.length > 0) {
+            showToast('⚠️ Vui lòng chụp ảnh test chống nhiễm cho các cây vải được chọn trước khi bấm Tiếp theo!', 'error');
+            return;
+        }
         _mcData.step = 3; _mcRenderStep();
     } else if (_mcData.step === 3) {
         if (_mcData.selOrders.length < 2) { showToast('Chọn ít nhất 2 đơn để cắt chung', 'error'); return; }
@@ -4778,6 +4803,16 @@ async function _bpcUploadDyeTest(rollId, fileInput) {
             // Enable checkbox
             var cb = document.getElementById('_bpcRollCb_' + rollId);
             if (cb) { cb.disabled = false; }
+            var mcCb = document.querySelector('._mcRollCb[value="' + rollId + '"]');
+            if (mcCb) { mcCb.disabled = false; mcCb.checked = true; }
+            if (typeof _mcData !== 'undefined' && _mcData && _mcData.rolls) {
+                var targetRoll = _mcData.rolls.find(function(r) { return r.id === rollId; });
+                if (targetRoll) {
+                    targetRoll.dye_test_status = 'passed';
+                    targetRoll.dye_test_image = res.image_path;
+                }
+            }
+            if (typeof _mcRollChanged === 'function') { _mcRollChanged(); }
             // Replace dye test block with passed badge
             var dyeBlock = document.getElementById('_bpcDyeTest_' + rollId);
             if (dyeBlock) {

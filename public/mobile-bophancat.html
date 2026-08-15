@@ -2100,6 +2100,16 @@ async function mUploadDyeTest(rollId, fileInput) {
             // Enable the checkbox
             const cb = document.querySelector('._mRollCb[value="' + rollId + '"]');
             if (cb) { cb.disabled = false; }
+            const mmCb = document.querySelector('._mmRCb[value="' + rollId + '"]');
+            if (mmCb) { mmCb.disabled = false; mmCb.checked = true; }
+            if (typeof _mm !== 'undefined' && _mm && _mm.rolls) {
+                var targetRoll = _mm.rolls.find(function(r) { return r.id === rollId; });
+                if (targetRoll) {
+                    targetRoll.dye_test_status = 'passed';
+                    targetRoll.dye_test_image = data.image_path;
+                }
+            }
+            if (typeof mMCRollCh === 'function') { mMCRollCh(); }
             // Replace dye test section with success
             const dyeDiv = document.getElementById('_mDyeTest_' + rollId);
             if (dyeDiv) {
@@ -3535,7 +3545,32 @@ function mUpdateMultiCutConfirmState() {
 
 function mMCMatCh(){var s=document.getElementById('_mmMatS');_mm.selMat=s?s.value:'';_mm.selColor='';mMCRender();}
 function mMCColCh(){var s=document.getElementById('_mmColS');_mm.selColor=s?s.value:'';}
-function mMCRollCh(){var cbs=document.querySelectorAll('._mmRCb:checked');var ids=[],kg=0;cbs.forEach(cb=>{ids.push(Number(cb.value));kg+=parseFloat(cb.dataset.weight)||0;});_mm.selRolls=ids;var el=document.getElementById('_mmKgD');if(el)el.textContent=mFmtKg(kg)+' kg';}
+function mMCRollCh(){
+    var cbs=document.querySelectorAll('._mmRCb:checked');
+    var ids=[],kg=0;
+    cbs.forEach(cb=>{ids.push(Number(cb.value));kg+=parseFloat(cb.dataset.weight)||0;});
+    _mm.selRolls=ids;
+    var el=document.getElementById('_mmKgD');
+    if(el)el.textContent=mFmtKg(kg)+' kg';
+
+    var nx = document.getElementById('_mmMCNext');
+    if (nx && _mm.step === 2) {
+        var hasPendingDyeTest = _mm.rolls.some(function(r) {
+            return (ids.indexOf(r.id) >= 0 || (r.reservations && r.reservations.length > 0)) && r.is_original_tree && r.dye_test_status === 'pending';
+        });
+        if (hasPendingDyeTest) {
+            nx.disabled = true;
+            nx.style.opacity = '0.4';
+            nx.style.cursor = 'not-allowed';
+            nx.title = 'Vui lòng chụp ảnh test chống nhiễm trước khi bấm Tiếp';
+        } else {
+            nx.disabled = false;
+            nx.style.opacity = '1';
+            nx.style.cursor = 'pointer';
+            nx.title = '';
+        }
+    }
+}
 function mMCOrdCh(){var cbs=document.querySelectorAll('._mmOCb:checked');var ids=[];cbs.forEach(cb=>ids.push(Number(cb.value)));_mm.selOrders=ids;}
 function mMCBack(){if(_mm.step>1){_mm.step--;mMCRender();}}
 async function mMCNext(){
@@ -3564,6 +3599,13 @@ async function mMCNext(){
         _mm.step=2;mMCRender();
     }else if(_mm.step===2){
         if(!_mm.selRolls.length){mToast('Chọn ít nhất 1 cây',false);return;}
+        var pendingDyeRolls = _mm.rolls.filter(function(r) {
+            return (_mm.selRolls.indexOf(r.id) >= 0 || (r.reservations && r.reservations.length > 0)) && r.is_original_tree && r.dye_test_status === 'pending';
+        });
+        if (pendingDyeRolls.length > 0) {
+            mToast('⚠️ Vui lòng chụp ảnh test chống nhiễm cho các cây vải được chọn trước khi bấm Tiếp!', false);
+            return;
+        }
         _mm.step=3;mMCRender();
     }else if(_mm.step===3){
         if(_mm.selOrders.length<2){mToast('Chọn ít nhất 2 đơn',false);return;}
