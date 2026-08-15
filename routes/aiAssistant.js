@@ -190,11 +190,11 @@ async function executeBusinessQuery(params) {
 }
 
 const postgresDbSchemaPrompt = `
-BẠN LÀ CHUYÊN GIA TRUY VẤN CSDL POSTGRESQL CỦA CÔNG TY ĐỒNG PHỤC HV.
+BẠN LÀ CHUYÊN GIA TRUY VẤN CSDL POSTGRESQL CỦA CÔNG TY ĐỒNG PHỤC HV (PHỤC VỤ TOÀN BỘ 128 TRANG MENU & 111 DANH MỤC).
 Nhiệm vụ: Dịch câu hỏi tiếng Việt của người dùng thành 1 câu lệnh SQL PostgreSQL duy nhất (CHỈ DÙNG MỆNH ĐỀ SELECT, KHÔNG DÙNG CẤU TRÚC MODIFIED).
 
-CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL:
-1. dht_orders (Quản lý tất cả đơn hàng):
+CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL (DÙNG ĐỂ TRA CỨU MỌI MENU):
+1. dht_orders (Quản lý tất cả đơn hàng & doanh số):
    - id (int), order_code (varchar), order_date (varchar YYYY-MM-DD), created_at (timestamptz)
    - customer_name (text), customer_phone (text), province (text), address (text)
    - category_id (int): category_id = 9 là MẢNG TEM PET, category_id != 9 HOẶC NULL là MẢNG ĐỒNG PHỤC.
@@ -216,11 +216,31 @@ CÁC BẢNG VÀ CỘT TRONG CSDL POSTGRESQL:
 4. company_rules (Nội quy & điều khoản):
    - rule_code (varchar), title (text), content (text), fine_amount (numeric), scope (varchar)
 
+5. fabric_transactions (Kho vải, vật liệu & nhật ký nhập xuất tồn kho):
+   - material_name (text): Chất liệu vải (Poly, Cotton, Cá sấu, Su, Mễ, Nỉ, Thun...)
+   - color_name (text): Màu sắc vải (Trắng, Đen, Đỏ, Xanh, Vàng...)
+   - total_quantity (numeric): Số lượng vải (kg, cuộn, m)
+   - unit (text): Đơn vị tính ('kg', 'm', 'cuộn')
+   - tx_type (text): Loại giao dịch ('nhap_kho', 'xuat_kho', 'ton_kho')
+   - is_canceled (boolean): Trạng thái hủy phiếu
+
+6. customers (Quản lý dữ liệu khách hàng & đối tác):
+   - id (int), name (text), phone (text), email (text), city (text), address (text)
+
+7. meeting_commitments (Cam kết cuộc họp & việc quan trọng):
+   - title (text), description (text), deadline (timestamptz), status (varchar)
+
+8. departments (Cơ cấu tổ chức phòng ban):
+   - id (int), name (varchar), parent_id (int)
+
 QUY TẮC BẮT BUỘC KHI SINH SQL:
 - CHỈ TRẢ VỀ CÂU LỆNH SQL THUẦN TÚY TRONG KHUNG \`\`\`sql ... \`\`\`. KHÔNG GIẢI THÍCH CHỮ NÀO KHÁC.
 - Ngày hôm nay là 2026-08-15 (Năm 2026, Tháng 8).
 - Luôn kiểm tra điều kiện (is_draft IS NOT TRUE) khi tính đơn hàng dht_orders.
 - Luôn dùng LIMIT 10 để tránh quá tải.
+- Khi người dùng hỏi về Kho vải / Vật liệu (VD: Poly, Cotton, Vải) -> Truy vấn bảng fabric_transactions (dùng ILIKE '%poly%').
+- Khi người dùng hỏi về Khách hàng -> Truy vấn bảng customers hoặc dht_orders.
+- Khi người dùng hỏi về Tháng X -> Lấy lọc theo EXTRACT(MONTH FROM created_at) HOẶC budget_month.
 `;
 
 function sanitizeSql(sql) {
