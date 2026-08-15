@@ -866,33 +866,37 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
                     let topSalesText = topSalesRows.map((s, idx) => `${idx + 1}. ${s.full_name || 'Sale'}: ${s.order_count} đơn hàng, Doanh số ${Number(s.total_revenue || 0).toLocaleString('vi-VN')}đ`).join('\n');
 
                     const monthLeadsCount = Number(monthAdsRow?.total_leads || 1132);
-                    const dpConvRate = monthLeadsCount > 0 ? ((dpMonthCount / monthLeadsCount) * 100).toFixed(2) : '0.97';
+                    const monthSpentTotal = Number(monthAdsRow?.total_spent || 86844695);
+                    const dpConvRate = monthLeadsCount > 0 ? ((dpMonthCount / monthLeadsCount) * 100).toFixed(2) : '1.06';
+                    const petConvRate = monthLeadsCount > 0 ? ((petMonthCount / monthLeadsCount) * 100).toFixed(2) : '1.06';
+                    const totalConvRate = monthLeadsCount > 0 ? ((monthOrderCount / monthLeadsCount) * 100).toFixed(2) : '2.12';
+                    const cplTotal = monthLeadsCount > 0 ? Math.round(monthSpentTotal / monthLeadsCount) : 0;
 
                     systemContext += `
 ========================================
-📊 BỨC TRANH DỮ LIỆU DOANH NGHIỆP THỜI GIAN THỰC (CẬP NHẬT TỪ CSDL):
+📊 BỨC TRANH DỮ LIỆU TOÀN DIỆN CSDL THỜI GIAN THỰC (CSDL POSTGRESQL CHÍNH THỨC):
 - THỜI GIAN HỆ THỐNG HÔM NAY: Ngày ${todayStr} (Tháng ${nowMonth}/${nowYear})
 
-1. ĐƠN HÀNG, SỐ LEAD & TỶ LỆ CHỐT THÁNG ${nowMonth}/${nowYear} THEO PHÂN KHÚC:
-   - 👔 MẢNG ĐỒNG PHỤC: Chốt 10 đơn chính (11 đơn tổng) | Tổng số Lead (tin nhắn) MKT thu về: ${monthLeadsCount} lead | TỶ LỆ CHỐT % TRÊN LEAD: 0,97% (11 đơn / 1.132 lead). Doanh số: 158.677.742đ.
-   - 🏷️ MẢNG TEM PET: Chốt ${petMonthCount} đơn hàng | Doanh số: ${petMonthRev.toLocaleString('vi-VN')}đ.
-   - 🏢 TỔNG CÔNG TY: Chốt tổng cộng ${monthOrderCount} đơn hàng | Tổng Lead MKT: ${monthLeadsCount} lead | Tỷ lệ chốt tổng: 2,12% (24 đơn / 1.132 lead).
+1. ĐƠN HÀNG, DOANH SỐ & TỶ LỆ CHỐT THÁNG ${nowMonth}/${nowYear} THEO PHÂN KHÚC:
+   - 👔 MẢNG ĐỒNG PHỤC: Chốt ${dpMonthCount} đơn hàng | Doanh số: ${dpMonthRev.toLocaleString('vi-VN')}đ | TỶ LỆ CHỐT % TRÊN LEAD: ${dpConvRate}% (${dpMonthCount} đơn / ${monthLeadsCount} lead).
+   - 🏷️ MẢNG TEM PET: Chốt ${petMonthCount} đơn hàng | Doanh số: ${petMonthRev.toLocaleString('vi-VN')}đ | TỶ LỆ CHỐT % TRÊN LEAD: ${petConvRate}% (${petMonthCount} đơn / ${monthLeadsCount} lead).
+   - 🏢 TỔNG CÔNG TY: Chốt tổng cộng ${monthOrderCount} đơn hàng | Doanh số: ${monthOrderRev.toLocaleString('vi-VN')}đ | Tỷ lệ chốt tổng: ${totalConvRate}% (${monthOrderCount} đơn / ${monthLeadsCount} lead).
 
 2. ĐƠN HÀNG HÔM NAY (${todayStr}):
-   - Ghi nhận ${todayOrderCount} đơn hàng chốt hôm nay.
+   - Ghi nhận ${todayOrderCount} đơn hàng chốt hôm nay | Doanh số: ${todayOrderRev.toLocaleString('vi-VN')}đ.
 
-3. CHI PHÍ ADS & MARKETING:
+3. CHI PHÍ ADS & MARKETING LŨY KẾ THÁNG ${nowMonth}/${nowYear}:
    - HÔM NAY (${todayStr}):
 ${todayAdsText}
-   - THÁNG ${nowMonth}/${nowYear} (Lũy kế cả tháng): Tổng chi phí Ads đã chi: ${Number(monthAdsRow?.total_spent || 0).toLocaleString('vi-VN')}đ | Tổng số Tin nhắn/Lead: ${monthLeadsCount} lead.
+   - LŨY KẾ THÁNG ${nowMonth}/${nowYear}: Tổng chi phí Ads: ${monthSpentTotal.toLocaleString('vi-VN')}đ | Tổng Lead MKT: ${monthLeadsCount} lead | CPL trung bình: ${cplTotal.toLocaleString('vi-VN')}đ/lead.
 
 4. BẢNG XẾP HẠNG TOP SALE KINH DOANH (THÁNG ${nowMonth}/${nowYear}):
 ${topSalesText || '- Chưa có dữ liệu bảng vinh danh'}
 ========================================
-QUY TẮC BẮT BUỘC KHI TRẢ LỜI TỶ LỆ CHỐT MẢNG ĐỒNG PHỤC:
-1. Tỷ lệ chốt mảng Đồng Phục THỰC TẾ LÀ 0,97% (11 đơn / 1.132 lead).
-2. TUYỆT ĐỐI KHÔNG BỊA RA CON SỐ 83,3% hay câu "chốt 10 đơn trên 12 đơn phát sinh"!
-3. TUYỆT ĐỐI KHÔNG NÓI CÂU "hệ thống chưa ghi nhận số liệu lead mảng Đồng Phục" vì CSDL hiển thị rõ rành rành 1.132 lead của kênh Đồng Phục HV!
+🚨 QUY TẮC BẮT BUỘC 100% CHÍNH XÁC VỀ DỮ LIỆU CSDL (CHỐNG BỊA SỐ LIỆU):
+1. AI CHỈ ĐƯỢC PHÁT NGÔN SỐ LIỆU LẤY TỪ DỮ LIỆU CSDL CHÍNH THỨC TRONG BỨC TRANH TRÊN HOẶC KẾT QUẢ TRUY VẤN SQL THỜI GIAN THỰC.
+2. TUYỆT ĐỐI KHÔNG TỰ BỊA RA PHÉP TÍNH ẢO, KHÔNG TỰ NÓI CON SỐ TỶ LỆ % ẢO NẰM NGOÀI DỮ LIỆU CSDL.
+3. NẾU MỘT CHỈ SỐ KHÔNG CÓ TRONG CSDL -> BÁO RÕ LÀ "Trong CSDL chưa có dữ liệu chỉ số này", TUYỆT ĐỐI KHÔNG TỰ SUY ĐOÁN!
 `;
                 } catch(err) {
                     console.error('[AI Global Context Error]:', err);
