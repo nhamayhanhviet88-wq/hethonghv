@@ -2214,7 +2214,7 @@ async function _bpcOpenCutModal(recordId) {
                     bh += '  <div id="_bpcDyeTest_' + roll.id + '" style="margin-top:8px;padding:8px 12px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px">';
                     bh += '    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">';
                     bh += '      <span style="background:#dc2626;color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:800">🧪 CẦN TEST CHỐNG NHIỄM</span>';
-                    bh += '      <span style="font-size:10px;color:#92400e;font-weight:600">Chụp ảnh mẫu test trước khi cắt</span>';
+                    bh += '      <span style="font-size:10.5px;color:#dc2626;font-weight:700">⚠️ Chụp mẫu test linh tinh, chụp không đúng phạt 100k/lần</span>';
                     bh += '    </div>';
                     bh += '    <div style="display:flex;gap:6px;align-items:center">';
                     bh += '      <input type="file" id="_bpcDyeFile_' + roll.id + '" accept="image/*" capture="environment" style="display:none" onchange="_bpcUploadDyeTest(' + roll.id + ', this)">';
