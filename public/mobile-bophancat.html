@@ -989,7 +989,7 @@ function mRenderMine(items = null, showSectionBadge = false){
     mMine.forEach(x => { if (x.multi_cut_group_id && !x.is_cut_done) groupNotDoneIds.add(x.multi_cut_group_id); });
 
     const pendingUndoGroupMap = {};
-    mState.records.forEach(x => {
+    mMine.forEach(x => {
         if (x.multi_cut_group_id && x.pending_undo_cutting) {
             if (!pendingUndoGroupMap[x.multi_cut_group_id]) pendingUndoGroupMap[x.multi_cut_group_id] = [];
             pendingUndoGroupMap[x.multi_cut_group_id].push(x.order_code || x.product_name || ('Đơn #' + x.id));
