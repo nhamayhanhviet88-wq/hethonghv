@@ -1981,21 +1981,11 @@ module.exports = async function(fastify) {
 
                                  AND res.phoi_index = cr.phoi_index
 
+                                 AND res.status NOT IN ('released', 'fulfilled')
+
                            ) THEN (
 
-                               EXISTS (
-
-                                   SELECT 1 FROM qlx_fabric_reservations res
-
-                                   WHERE res.item_id = cr.order_item_id
-
-                                     AND res.phoi_index = cr.phoi_index
-
-                                     AND res.status NOT IN ('released', 'fulfilled')
-
-                               )
-
-                               AND NOT EXISTS (
+                               NOT EXISTS (
 
                                    SELECT 1 FROM qlx_fabric_reservations res
 
@@ -2011,13 +2001,35 @@ module.exports = async function(fastify) {
 
                            )
 
+                           WHEN EXISTS (
+
+                               SELECT 1 FROM kv_rolls r
+
+                               JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+
+                               JOIN kv_materials m ON m.id = fc.material_id
+
+                               WHERE m.name = cr.material_name 
+
+                                 AND fc.color_name = cr.fabric_color
+
+                                 AND r.weight > 0
+
+                                 AND r.is_returned = false
+
+                           ) THEN true
+
                            ELSE COALESCE(
 
                                (
 
                                    SELECT p.fabric_arrived FROM qlx_preparation p
 
-                                   WHERE p.dht_order_id = cr.dht_order_id AND p.item_id IS NULL
+                                   WHERE p.dht_order_id = cr.dht_order_id AND (p.item_id = cr.order_item_id OR p.item_id IS NULL)
+
+                                   ORDER BY (CASE WHEN p.item_id IS NOT NULL THEN 1 ELSE 2 END)
+
+                                   LIMIT 1
 
                                ),
 
@@ -2247,21 +2259,11 @@ module.exports = async function(fastify) {
 
                                  AND res.phoi_index = cr.phoi_index
 
+                                 AND res.status NOT IN ('released', 'fulfilled')
+
                            ) THEN (
 
-                               EXISTS (
-
-                                   SELECT 1 FROM qlx_fabric_reservations res
-
-                                   WHERE res.item_id = cr.order_item_id
-
-                                     AND res.phoi_index = cr.phoi_index
-
-                                     AND res.status NOT IN ('released', 'fulfilled')
-
-                               )
-
-                               AND NOT EXISTS (
+                               NOT EXISTS (
 
                                    SELECT 1 FROM qlx_fabric_reservations res
 
@@ -2277,13 +2279,35 @@ module.exports = async function(fastify) {
 
                            )
 
+                           WHEN EXISTS (
+
+                               SELECT 1 FROM kv_rolls r
+
+                               JOIN kv_fabric_colors fc ON fc.id = r.fabric_color_id
+
+                               JOIN kv_materials m ON m.id = fc.material_id
+
+                               WHERE m.name = cr.material_name 
+
+                                 AND fc.color_name = cr.fabric_color
+
+                                 AND r.weight > 0
+
+                                 AND r.is_returned = false
+
+                           ) THEN true
+
                            ELSE COALESCE(
 
                                (
 
                                    SELECT p.fabric_arrived FROM qlx_preparation p
 
-                                   WHERE p.dht_order_id = cr.dht_order_id AND p.item_id IS NULL
+                                   WHERE p.dht_order_id = cr.dht_order_id AND (p.item_id = cr.order_item_id OR p.item_id IS NULL)
+
+                                   ORDER BY (CASE WHEN p.item_id IS NOT NULL THEN 1 ELSE 2 END)
+
+                                   LIMIT 1
 
                                ),
 
