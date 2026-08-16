@@ -1085,7 +1085,7 @@ function mRenderMine(items = null, showSectionBadge = false){
 
         return '<div class="m-card"><div class="m-card-top">'
             +'<div class="m-card-icon">'+(r.is_cut_done?'✅':r.is_cutting?'✂️':'📋')+'</div>'
-            +'<div class="m-card-title">'+((r.total_items_in_order>1)?(r.order_code+' — Phiếu '+r.item_index+' — '):'')+(r.product_name||'Sản phẩm')+ccBadge+sharedBadge+compBadge+sectBadge+'</div>'
+            +'<div class="m-card-title">'+((r.total_items_in_order>1)?(r.order_code+' — Phiếu '+r.item_index):(r.product_name||'Sản phẩm'))+ccBadge+sharedBadge+compBadge+sectBadge+'</div>'
             +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
             +'<div style="padding:4px 16px"><span style="font-size:10px;color:#60a5fa;cursor:pointer;border-bottom:1px dashed #60a5fa" onclick="event.stopPropagation();mOpenDetail('+r.id+')">📋 Xem chi tiết</span></div>'
             +'<div class="m-card-body">'
@@ -1234,7 +1234,7 @@ function mRenderHist(items = null, showSectionBadge = false){
 
         return '<div class="m-card" style="opacity:0.85"><div class="m-card-top">'
         +'<div class="m-card-icon">✅</div>'
-        +'<div class="m-card-title" style="color:#a1a1aa">'+((r.total_items_in_order>1)?(r.order_code+' — Phiếu '+r.item_index+' — '):'')+(r.product_name||'SP')+ccBadge+sharedBadge+sectBadge+'</div>'
+        +'<div class="m-card-title" style="color:#a1a1aa">'+((r.total_items_in_order>1)?(r.order_code+' — Phiếu '+r.item_index):(r.product_name||'SP'))+ccBadge+sharedBadge+sectBadge+'</div>'
         +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
         +'<div class="m-card-body">'
         +'<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val" style="color:#60a5fa">'+constCust+'</span></div>'
