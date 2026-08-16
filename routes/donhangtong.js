@@ -5656,7 +5656,7 @@ module.exports = async function(fastify) {
                             ) OR
                             EXISTS (
                                 SELECT 1 FROM cutting_records cr
-                                WHERE cr.order_item_id = i.id
+                                WHERE cr.order_item_id = i.id AND (cr.is_cutting = true OR cr.is_cut_done = true OR cr.cutter_id IS NOT NULL)
                             )
                        ) AS has_fabric_called,
                        EXISTS (
