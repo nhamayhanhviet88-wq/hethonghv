@@ -538,6 +538,32 @@ async function renderDesignDraftPage(content) {
         window._tpdWorkspaceState.editingItem = clonedItems.length > 0 ? JSON.parse(JSON.stringify(clonedItems[activeIdx])) : null;
         window._tpdWorkspaceState.dbBaselines = items.length > 0 ? items.map((it, idx) => _tpdCloneItemState(it, true, orderId, idx)) : [];
 
+        // ★ Default any missing active department sale_remind_choices to 'none' for dispatched orders
+        if (order && order.has_successful_factory_email) {
+            const deptsDefault = [
+                { key: 'qlx', stepId: 1 },
+                { key: 'cat', stepId: 2 },
+                { key: 'in', stepId: 3 },
+                { key: 'ep', stepId: 4 },
+                { key: 'qc', stepId: 7 },
+                { key: 'hoanthien', stepId: 6 }
+            ];
+            for (const it of clonedItems) {
+                if (!it.sale_remind_choices) it.sale_remind_choices = {};
+                deptsDefault.forEach(d => {
+                    if (_tpdIsStepInWorkflow(it, d.stepId)) {
+                        if (!it.sale_remind_choices[d.key]) {
+                            it.sale_remind_choices[d.key] = 'none';
+                        }
+                    }
+                });
+            }
+            // Re-sync editingItem from the updated clonedItems
+            if (clonedItems.length > 0) {
+                window._tpdWorkspaceState.editingItem = JSON.parse(JSON.stringify(clonedItems[activeIdx]));
+            }
+        }
+
         // Render main workspace wrapper
         _tpdRenderWorkspace(content);
 
@@ -780,25 +806,6 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                         });
                     }
 
-                    // Default any active department choice without 'yes' to 'none' for existing dispatched orders
-                    if (state.order && (state.order.has_successful_factory_email || hasSuccessfulFactoryEmail || state.isEditMode)) {
-                        if (!draft.sale_remind_choices) draft.sale_remind_choices = {};
-                        const deptsCheck = [
-                            { key: 'qlx', stepId: 1 },
-                            { key: 'cat', stepId: 2 },
-                            { key: 'in', stepId: 3 },
-                            { key: 'ep', stepId: 4 },
-                            { key: 'qc', stepId: 7 },
-                            { key: 'hoanthien', stepId: 6 }
-                        ];
-                        deptsCheck.forEach(d => {
-                            if (_tpdIsStepInWorkflow(draft, d.stepId)) {
-                                if (!draft.sale_remind_choices[d.key]) {
-                                    draft.sale_remind_choices[d.key] = 'none';
-                                }
-                            }
-                        });
-                    }
                     draft.has_shipped = !!(item.has_shipped || item.shipping_status === 'shipped' || item.shipped_at || item.actual_ship_datetime);
                     draft.shipping_status = item.shipping_status;
                     draft.shipped_at = item.shipped_at;
