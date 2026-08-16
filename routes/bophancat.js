@@ -2701,9 +2701,9 @@ module.exports = async function(fastify) {
 
             }
 
-            // === Check dye test (test chống nhiễm) ===
+            // === Check dye test (test chống nhiễm - chỉ áp dụng với Cây Nguyên) ===
             const pendingDyeRolls = await db.all(
-                `SELECT r.id, r.roll_code FROM kv_rolls r WHERE r.id = ANY($1) AND r.dye_test_status = 'pending'`,
+                `SELECT r.id, r.roll_code FROM kv_rolls r WHERE r.id = ANY($1) AND r.dye_test_status = 'pending' AND r.weight = r.original_weight`,
                 [selectedRollIds]
             );
             if (pendingDyeRolls.length > 0) {
