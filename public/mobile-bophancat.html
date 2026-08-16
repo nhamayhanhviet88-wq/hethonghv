@@ -2671,7 +2671,7 @@ async function mOpenDoneModal(recordId, isRefresh = false, skipGroupRedirect = f
     sheetHtml+='<div id="_mDoneImgPreview" style="margin-top:6px">'+(preservedImgHtml || '')+'</div></div></div></div>';
     sheetHtml+='</div>'; // mm-body end
     sheetHtml+='<div class="mm-actions"><button class="mm-btn mm-btn-no" onclick="mCloseDoneModal()">Hủy</button>';
-    sheetHtml+='<button class="mm-btn mm-btn-ok" id="_mDoneOk" style="background:linear-gradient(135deg,#1e40af,#3b82f6)" onclick="mSubmitDone('+recordId+')">🏁 XÁC NHẬN</button></div>';
+    sheetHtml+='<button class="mm-btn mm-btn-ok" id="_mDoneOk" style="background:#64748b;opacity:0.5;cursor:not-allowed" onclick="mSubmitDone('+recordId+')" disabled>🏁 XÁC NHẬN</button></div>';
     sheetHtml+='</div>'; // mm-sheet end
 
     if (existing) {
@@ -2729,6 +2729,18 @@ function mDoneRecalc(){
     const kgCut=kgStartChecked-kgR;
     const elStart=document.getElementById('_mDoneKgStart');if(elStart)elStart.textContent=mFmtKg(kgStartChecked)+' kg';
     const el=document.getElementById('_mDoneKgCut');if(el)el.textContent=mFmtKg(kgCut);
+    // Enable/disable XÁC NHẬN based on all rolls checked
+    const totalRolls=document.querySelectorAll('._mDoneRollCb').length;
+    const checkedRolls=document.querySelectorAll('._mDoneRollCb:checked').length;
+    const allChecked=d._allCut||(totalRolls>0&&checkedRolls===totalRolls);
+    const okBtn=document.getElementById('_mDoneOk');
+    if(okBtn){
+        if(allChecked){
+            okBtn.disabled=false;okBtn.style.background='linear-gradient(135deg,#1e40af,#3b82f6)';okBtn.style.opacity='1';okBtn.style.cursor='pointer';
+        } else {
+            okBtn.disabled=true;okBtn.style.background='#64748b';okBtn.style.opacity='0.5';okBtn.style.cursor='not-allowed';
+        }
+    }
     const qty=parseFloat(document.getElementById('_mDoneQty').value)||0;
     
     // Show/hide compensation area based on qty
