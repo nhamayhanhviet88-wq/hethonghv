@@ -8185,6 +8185,11 @@ function _tpdValidateAllSheets() {
                     return false;
                 }
             }
+
+            // For previously dispatched orders, skip mandatory reminders check for unedited non-active sheets
+            if (hasSuccessfulFactoryEmail && !isModified && idx !== state.activeItemIndex) {
+                continue;
+            }
         }
 
         // 6. Validate mandatory Sale Reminders for active departments
