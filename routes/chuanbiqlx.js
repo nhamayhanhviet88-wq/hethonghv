@@ -1288,6 +1288,22 @@ module.exports = async function(fastify) {
         // Fetch items for each order (for phối breakdown)
         const orderIds = orders.map(o => o.id);
         await releaseMismatchedFromStockReservations(orderIds, request.user.id);
+        let pendingUndoMapByOrder = {};
+        if (orderIds.length > 0) {
+            const pendingUndoRecords = await db.all(`
+                SELECT dht_order_id, order_item_id, phoi_index
+                FROM cutting_records
+                WHERE dht_order_id = ANY($1) AND pending_undo_cutting = true
+            `, [orderIds]);
+
+            for (const pu of pendingUndoRecords) {
+                if (!pendingUndoMapByOrder[pu.dht_order_id]) {
+                    pendingUndoMapByOrder[pu.dht_order_id] = {};
+                }
+                const key = (pu.order_item_id || 0) + '_' + (pu.phoi_index || 0);
+                pendingUndoMapByOrder[pu.dht_order_id][key] = true;
+            }
+        }
         let items = [];
         if (orderIds.length > 0) {
             items = await db.all(`
@@ -1546,6 +1562,7 @@ module.exports = async function(fastify) {
         }
 
         for (const o of orders) {
+            o.pending_undo_map = pendingUndoMapByOrder[o.id] || {};
             const oItems = itemMap[o.id] || [];
             if (oItems.length > 0) {
                 o.is_cut_done = oItems.every(it => it.is_cut_done);

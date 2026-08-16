@@ -223,7 +223,10 @@ function _qlxPatchOrderRows(orderId) {
         }
         var isCancelled = !!(o.is_production_cancelled || o.production_cancelled);
         var cancelBadge = isCancelled ? '<span style="margin-right: 6px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">HỦY SX</span>' : '';
-        var pendingUndoBadge = o.pending_undo_cutting
+        var rItemId = r.item ? r.item.id : 0;
+        var rPhoiIndex = (r.pairIndex || 0);
+        var isRowPendingUndo = (o.pending_undo_map && o.pending_undo_map[rItemId + '_' + rPhoiIndex]) || (totalRows === 1 && o.pending_undo_cutting);
+        var pendingUndoBadge = isRowPendingUndo
             ? '<span style="margin-right: 6px; background: #d97706; color: #fff; border: 1px solid #b45309; font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 800; display: inline-block; vertical-align: middle; animation: qlxPulse 2s infinite;" title="Thợ cắt đang gửi yêu cầu trở về nhận cắt (chờ QLX duyệt)">⏳ Chờ Duyệt Về Nhận Cắt</span>'
             : '';
         var spName;
@@ -795,7 +798,10 @@ function _qlxRenderRows(paged) {
         } else {
             priBadge = '<span style="margin-right: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; display: inline-block; vertical-align: middle;">Chuẩn</span>';
         }
-        var pendingUndoBadge = o.pending_undo_cutting
+        var rItemId = it ? it.id : 0;
+        var rPhoiIndex = (r.pairIndex || 0);
+        var isRowPendingUndo = (o.pending_undo_map && o.pending_undo_map[rItemId + '_' + rPhoiIndex]) || (totalRows === 1 && o.pending_undo_cutting);
+        var pendingUndoBadge = isRowPendingUndo
             ? '<span style="margin-right: 6px; background: #d97706; color: #fff; border: 1px solid #b45309; font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 800; display: inline-block; vertical-align: middle; animation: qlxPulse 2s infinite;" title="Thợ cắt đang gửi yêu cầu trở về nhận cắt (chờ QLX duyệt)">⏳ Chờ Duyệt Về Nhận Cắt</span>'
             : '';
         var spName;
