@@ -2449,10 +2449,10 @@ async function mOpenDetail(recordId){
     }
 }
 
-async function mOpenDoneModal(recordId, isRefresh = false){
+async function mOpenDoneModal(recordId, isRefresh = false, skipGroupRedirect = false){
     let r=mMine.find(x=>x.id===recordId);if(!r)return;
-    // If multi-cut group → open GROUP done modal
-    if(r.multi_cut_group_id){return mOpenGroupDoneModal(r.multi_cut_group_id, isRefresh);}
+    // If multi-cut group → open GROUP done modal (unless skipped for single-remaining-in-group case)
+    if(r.multi_cut_group_id && !skipGroupRedirect){return mOpenGroupDoneModal(r.multi_cut_group_id, isRefresh);}
     if(window._mBusy && !isRefresh)return;
     window._mBusy=true;
 
@@ -2861,7 +2861,11 @@ async function mOpenGroupDoneModal(groupId, isRefresh = false){
     if(window._mBusy && !isRefresh)return;
     window._mBusy=true;
     const groupRecs=mMine.filter(x=>x.multi_cut_group_id===groupId);
-    if(groupRecs.length<2){mToast('Nhóm không đủ đơn',false);window._mBusy=false;return;}
+    if(groupRecs.length<2){
+        // Only 1 record left in group — use single done modal instead
+        if(groupRecs.length===1){window._mBusy=false;return mOpenDoneModal(groupRecs[0].id, isRefresh, true);}
+        mToast('Nhóm không đủ đơn',false);window._mBusy=false;return;
+    }
     const pendingInGroup = groupRecs.filter(x => x.pending_undo_cutting);
     if (pendingInGroup.length > 0) {
         const codes = pendingInGroup.map(x => x.order_code || x.product_name || ('Đơn #' + x.id)).join(', ');
