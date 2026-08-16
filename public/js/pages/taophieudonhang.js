@@ -4850,7 +4850,7 @@ function _tpdUpdateLivePreview() {
                 <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: calc(100% - 95mm - 10px); height: 100%; min-width: 120px;">
                     <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                     <div class="tpd-a4-img-body" id="prev_mockup_container">
-                        ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Tải lên ảnh từ bảng bên phải</span></div>`}
+                        ${mockupSrc ? `<img src="${mockupSrc}" onload="if(typeof _tpdAdjustMockupWidth==='function')_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup<br><span style="font-size:10px; color:#cbd5e1;">Tải lên ảnh từ bảng bên phải</span></div>`}
                     </div>
                 </div>
                 ${_tpdGetInfoBoxHtml(it, layout, o)}
@@ -9103,7 +9103,7 @@ async function _tpdShowExportSheetsModal() {
                         <div class="tpd-a4-mockup-wrapper" contenteditable="false" style="width: fit-content; max-width: calc(100% - 95mm - 10px); height: 100%; min-width: 120px; ${mockupStyle}">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
-                                ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
+                                ${mockupSrc ? `<img src="${mockupSrc}" onload="if(typeof _tpdAdjustMockupWidth==='function')_tpdAdjustMockupWidth(this)">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
                         ${_tpdGetInfoBoxHtml(it, layout, o, hideShipping, isCustomerExport)}
@@ -10026,7 +10026,7 @@ async function _tpdPrintAllSheets(isCustomerExport = false) {
                         <div class="tpd-a4-mockup-wrapper" style="width: fit-content; max-width: calc(100% - 95mm - 10px); height: 100%; min-width: 120px; ${mockupStyle}">
                             <div class="tpd-a4-img-header">Ảnh Thiết Kế Mockup lớn</div>
                             <div class="tpd-a4-img-body">
-                                ${mockupSrc ? `<img src="${mockupSrc}" onload="_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
+                                ${mockupSrc ? `<img src="${mockupSrc}" onload="if(typeof _tpdAdjustMockupWidth==='function')_tpdAdjustMockupWidth(this)" onclick="_tpdViewFullImage('${mockupSrc}')" style="cursor: pointer;">` : `<div class="tpd-a4-img-placeholder">Chưa có ảnh Mockup</div>`}
                             </div>
                         </div>
                         ${_tpdGetInfoBoxHtml(it, layout, o, false, isCustomerExport)}
