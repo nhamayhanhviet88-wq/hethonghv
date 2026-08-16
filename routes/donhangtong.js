@@ -2912,7 +2912,7 @@ module.exports = async function(fastify) {
                         EXISTS (
                             SELECT 1 FROM qlx_preparation p 
                             WHERE p.item_id = i.id 
-                              AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                              AND (p.fabric_called = true OR p.fabric_arrived = true)
                         ) OR
                         (
                             NOT EXISTS (
@@ -2922,7 +2922,7 @@ module.exports = async function(fastify) {
                             AND EXISTS (
                                 SELECT 1 FROM qlx_preparation p 
                                 WHERE p.dht_order_id = i.dht_order_id AND p.item_id IS NULL
-                                  AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                                  AND (p.fabric_called = true OR p.fabric_arrived = true)
                             )
                         ) OR
                         EXISTS (
@@ -3640,7 +3640,7 @@ module.exports = async function(fastify) {
                     EXISTS (
                         SELECT 1 FROM qlx_preparation p 
                         WHERE p.item_id = $2 
-                          AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                          AND (p.fabric_called = true OR p.fabric_arrived = true)
                     ) OR
                     (
                         NOT EXISTS (
@@ -3650,7 +3650,7 @@ module.exports = async function(fastify) {
                         AND EXISTS (
                             SELECT 1 FROM qlx_preparation p 
                             WHERE p.dht_order_id = $1 AND p.item_id IS NULL
-                              AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                              AND (p.fabric_called = true OR p.fabric_arrived = true)
                         )
                     ) OR
                     EXISTS (
@@ -5637,7 +5637,7 @@ module.exports = async function(fastify) {
                             EXISTS (
                                 SELECT 1 FROM qlx_preparation p 
                                 WHERE p.item_id = i.id 
-                                  AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                                  AND (p.fabric_called = true OR p.fabric_arrived = true)
                             ) OR
                             (
                                 NOT EXISTS (
@@ -5647,7 +5647,7 @@ module.exports = async function(fastify) {
                                 AND EXISTS (
                                     SELECT 1 FROM qlx_preparation p 
                                     WHERE p.dht_order_id = i.dht_order_id AND p.item_id IS NULL
-                                      AND (p.fabric_called = true OR p.material_called = true OR p.fabric_arrived = true OR p.material_arrived = true)
+                                      AND (p.fabric_called = true OR p.fabric_arrived = true)
                                 )
                             ) OR
                             EXISTS (
