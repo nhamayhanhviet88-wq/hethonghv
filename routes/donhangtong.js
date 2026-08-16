@@ -3183,7 +3183,7 @@ module.exports = async function(fastify) {
             }
         }
 
-        // Fetch sale_reminders for all items of this order
+        // Fetch sale_reminders & qlx_preparation choices for all items of this order
         try {
             const saleReminders = await db.all(
                 `SELECT sr.id, sr.item_id, sr.dept, sr.content,
@@ -3195,12 +3195,32 @@ module.exports = async function(fastify) {
                  WHERE sr.dht_order_id = $1 ORDER BY sr.id`,
                 [orderId]
             );
+            const prepRows = await db.all(
+                `SELECT item_id, qlx_remind_choice, cut_remind_choice, print_remind_choice, press_remind_choice, qc_remind_choice, hoanthien_remind_choice FROM qlx_preparation WHERE dht_order_id = $1`,
+                [orderId]
+            );
+
             for (const it of items) {
                 const itemReminders = saleReminders.filter(r => r.item_id === it.id).map(r => ({
                     ...r,
                     is_viewed: Number(r.view_count) > 0
                 }));
                 it.sale_reminders_data = itemReminders;
+
+                let choices = {};
+                if (it.sale_remind_choices) {
+                    try { choices = typeof it.sale_remind_choices === 'string' ? JSON.parse(it.sale_remind_choices) : it.sale_remind_choices; } catch(e) {}
+                }
+                const pRow = prepRows.find(p => p.item_id === it.id) || prepRows.find(p => p.item_id === null);
+                if (pRow) {
+                    if (!choices.qlx && pRow.qlx_remind_choice) choices.qlx = pRow.qlx_remind_choice;
+                    if (!choices.cat && pRow.cut_remind_choice) choices.cat = pRow.cut_remind_choice;
+                    if (!choices.in && pRow.print_remind_choice) choices.in = pRow.print_remind_choice;
+                    if (!choices.ep && pRow.press_remind_choice) choices.ep = pRow.press_remind_choice;
+                    if (!choices.qc && pRow.qc_remind_choice) choices.qc = pRow.qc_remind_choice;
+                    if (!choices.hoanthien && pRow.hoanthien_remind_choice) choices.hoanthien = pRow.hoanthien_remind_choice;
+                }
+                it.sale_remind_choices = choices;
             }
         } catch(e) { /* sale_reminders table may not exist yet */ }
 

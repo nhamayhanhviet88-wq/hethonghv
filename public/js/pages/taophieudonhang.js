@@ -779,6 +779,26 @@ function _tpdCloneItemState(item, ignoreDraft = false, currentOrderId = null, it
                             }
                         });
                     }
+
+                    // Default any active department choice without 'yes' to 'none' for existing dispatched orders
+                    if (state.order && (state.order.has_successful_factory_email || hasSuccessfulFactoryEmail || state.isEditMode)) {
+                        if (!draft.sale_remind_choices) draft.sale_remind_choices = {};
+                        const deptsCheck = [
+                            { key: 'qlx', stepId: 1 },
+                            { key: 'cat', stepId: 2 },
+                            { key: 'in', stepId: 3 },
+                            { key: 'ep', stepId: 4 },
+                            { key: 'qc', stepId: 7 },
+                            { key: 'hoanthien', stepId: 6 }
+                        ];
+                        deptsCheck.forEach(d => {
+                            if (_tpdIsStepInWorkflow(draft, d.stepId)) {
+                                if (!draft.sale_remind_choices[d.key]) {
+                                    draft.sale_remind_choices[d.key] = 'none';
+                                }
+                            }
+                        });
+                    }
                     draft.has_shipped = !!(item.has_shipped || item.shipping_status === 'shipped' || item.shipped_at || item.actual_ship_datetime);
                     draft.shipping_status = item.shipping_status;
                     draft.shipped_at = item.shipped_at;
