@@ -2837,6 +2837,8 @@ async function mSubmitDone(recordId){
             if(d.rolls && d.rolls[idx]) kgStartChecked += Number(d.rolls[idx].weight) || 0;
         });
     }
+    let kgR = 0;
+    rollRemains.forEach(r => { kgR += r.remaining_weight || 0; });
     const kgCut = kgStartChecked - kgR;
     const ratio = kgCut > 0 ? Math.round((qty / kgCut) * 100) / 100 : 0;
 
