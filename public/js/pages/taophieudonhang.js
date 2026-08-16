@@ -1280,7 +1280,7 @@ function _tpdRenderList() {
 }
 
 // Search input handler (debounce-like)
-let _tpdSearchTimeout = null;
+var _tpdSearchTimeout = null;
 function _tpdOnSearchChange(e) {
     if (_tpdSearchTimeout) clearTimeout(_tpdSearchTimeout);
     _tpdSearchTimeout = setTimeout(() => {
