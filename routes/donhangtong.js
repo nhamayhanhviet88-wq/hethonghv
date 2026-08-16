@@ -4424,20 +4424,58 @@ module.exports = async function(fastify) {
             // Backend automatically generates standardized PDF filenames based on successfulSendCount (No manual user renaming needed!)
         }
 
-        // Backend Validation: Require sheet_edit_note ONLY if order email was sent to factory successfully before
+        // Backend Validation: Require sheet_edit_note ONLY for sheets that were actually modified since last send
         const successfulSendCount = Number(order.design_email_sent_count || 0);
         const hasSuccessfulFactoryEmail = successfulSendCount > 0 || Boolean(order.design_email_sent_at);
 
         if (hasSuccessfulFactoryEmail) {
+            // Parse last sent state to compare
+            let lastSentItems = [];
+            try {
+                const lastState = typeof order.last_sent_order_state === 'string' ? JSON.parse(order.last_sent_order_state) : (order.last_sent_order_state || {});
+                lastSentItems = lastState.items || [];
+            } catch(e) {}
+
             for (const item of orderItems) {
-                const freshItem = await db.get('SELECT custom_layout FROM dht_order_items WHERE id = $1', [item.id]);
-                let layout = {};
-                try { layout = typeof freshItem?.custom_layout === 'string' ? JSON.parse(freshItem.custom_layout) : (freshItem?.custom_layout || {}); } catch(e){}
-                const note = String(layout.sheet_edit_note || '').trim();
-                if (!note) {
-                    return reply.code(400).send({
-                        error: `Vui lòng nhập "Nội dung sửa đổi chi tiết" cho [${item.product_name || 'Phiếu'}] trước khi gửi đơn sửa cho Xưởng!`
-                    });
+                const freshItem = await db.get('SELECT custom_layout, material_name, color_name, quantity, sewing_techniques, print_details FROM dht_order_items WHERE id = $1', [item.id]);
+                
+                // Check if this item was actually modified compared to last sent state
+                const lastItem = lastSentItems.find(li => li.id === item.id);
+                let isModified = false;
+                if (!lastItem) {
+                    // New item not in last sent state — treat as modified
+                    isModified = true;
+                } else {
+                    // Compare key fields
+                    if ((freshItem?.material_name || '') !== (lastItem.material_name || '')) isModified = true;
+                    if ((freshItem?.color_name || '') !== (lastItem.color_name || '')) isModified = true;
+                    if (Number(freshItem?.quantity || 0) !== Number(lastItem.quantity || 0)) isModified = true;
+                    // Compare sewing_techniques
+                    const sewCurr = JSON.stringify(typeof freshItem?.sewing_techniques === 'string' ? JSON.parse(freshItem.sewing_techniques || '[]') : (freshItem?.sewing_techniques || []));
+                    const sewLast = JSON.stringify(typeof lastItem.sewing_techniques === 'string' ? JSON.parse(lastItem.sewing_techniques || '[]') : (lastItem.sewing_techniques || []));
+                    if (sewCurr !== sewLast) isModified = true;
+                    // Compare print_details
+                    const printCurr = JSON.stringify(typeof freshItem?.print_details === 'string' ? JSON.parse(freshItem.print_details || '[]') : (freshItem?.print_details || []));
+                    const printLast = JSON.stringify(typeof lastItem.print_details === 'string' ? JSON.parse(lastItem.print_details || '[]') : (lastItem.print_details || []));
+                    if (printCurr !== printLast) isModified = true;
+                    // Compare design PDF
+                    const designVal = item_designs[item.id];
+                    if (designVal) {
+                        const newUrl = typeof designVal === 'object' ? (designVal.url || '') : (designVal || '');
+                        if (newUrl && newUrl.trim() !== (lastItem.design_pdf_url || '').trim()) isModified = true;
+                    }
+                }
+
+                // Only require sheet_edit_note if this specific sheet was modified
+                if (isModified) {
+                    let layout = {};
+                    try { layout = typeof freshItem?.custom_layout === 'string' ? JSON.parse(freshItem.custom_layout) : (freshItem?.custom_layout || {}); } catch(e){}
+                    const note = String(layout.sheet_edit_note || '').trim();
+                    if (!note) {
+                        return reply.code(400).send({
+                            error: `Vui lòng nhập "Nội dung sửa đổi chi tiết" cho [${item.product_name || 'Phiếu'}] trước khi gửi đơn sửa cho Xưởng!`
+                        });
+                    }
                 }
             }
         }
