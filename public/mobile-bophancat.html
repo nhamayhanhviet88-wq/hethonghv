@@ -2656,7 +2656,7 @@ async function mOpenDoneModal(recordId, isRefresh = false, skipGroupRedirect = f
     sheetHtml+='</div></div></div>';
     // Stats
     sheetHtml+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    sheetHtml+='<div style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.4);padding:10px;border-radius:10px;text-align:center"><div style="font-size:10px;font-weight:800;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:20px;font-weight:900;color:#fbbf24">'+mFmtKg(r.kg_start||0)+' kg</div></div>';
+    sheetHtml+='<div style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.4);padding:10px;border-radius:10px;text-align:center"><div style="font-size:10px;font-weight:800;color:#fbbf24">⚖️ KG ĐẦU</div><div id="_mDoneKgStart" style="font-size:20px;font-weight:900;color:#fbbf24">'+mFmtKg(r.kg_start||0)+' kg</div></div>';
     sheetHtml+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ KG CẮT</div><div id="_mDoneKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+mFmtKg(r.kg_start||0)+'</div></div></div>';
     sheetHtml+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">📊 Định Lượng Thực Tế</span><span class="mm-val" id="_mDoneRatio" style="font-size:18px;font-weight:900;color:#10b981">—</span></div>';
     sheetHtml+='<div class="mm-row" style="margin-top:6px"><span class="mm-lbl">⚖️ Định Lượng Cắt Yêu Cầu</span><span class="mm-val" style="font-size:16px;font-weight:700;color:#fbbf24">' + (r.target_cut_ratio || 0) + ' sp/' + (r.fabric_unit || 'kg') + '</span></div>';
@@ -2712,8 +2712,23 @@ function mDoneAllCut(){
 }
 function mDoneRecalc(){
     const d=window._mDoneData;if(!d)return;
-    let kgR=0;document.querySelectorAll('._mDoneRollCb:checked').forEach(cb=>{const k=document.getElementById('_mDoneRollKg_'+cb.dataset.idx);kgR+=k?(parseFloat(k.value)||0):0;});
-    const kgCut=d.kgStart-kgR;const el=document.getElementById('_mDoneKgCut');if(el)el.textContent=mFmtKg(kgCut);
+    let kgR=0, kgStartChecked=0;
+    if(d._allCut){
+        // All rolls cut to 0 → kgStart = total of all rolls
+        kgStartChecked=d.kgStart;
+        kgR=0;
+    } else {
+        document.querySelectorAll('._mDoneRollCb:checked').forEach(cb=>{
+            const idx=cb.dataset.idx;
+            const k=document.getElementById('_mDoneRollKg_'+idx);
+            kgR+=k?(parseFloat(k.value)||0):0;
+            // Add original weight of this checked roll to kgStartChecked
+            if(d.rolls && d.rolls[idx]) kgStartChecked+=Number(d.rolls[idx].weight)||0;
+        });
+    }
+    const kgCut=kgStartChecked-kgR;
+    const elStart=document.getElementById('_mDoneKgStart');if(elStart)elStart.textContent=mFmtKg(kgStartChecked)+' kg';
+    const el=document.getElementById('_mDoneKgCut');if(el)el.textContent=mFmtKg(kgCut);
     const qty=parseFloat(document.getElementById('_mDoneQty').value)||0;
     
     // Show/hide compensation area based on qty
@@ -2800,10 +2815,17 @@ async function mSubmitDone(recordId){
     });
     if(err){mToast('Kiểm tra kg còn lại',false);window._mSubmitBusy=false;return;}
 
-    // Check ratio and target ratio validation
-    let kgR=0;
-    rollRemains.forEach(r => { kgR += r.remaining_weight || 0; });
-    const kgCut = d.kgStart - kgR;
+    // Calculate kgStart only from checked rolls' original weights
+    let kgStartChecked = 0;
+    if(d._allCut) {
+        kgStartChecked = d.kgStart;
+    } else {
+        document.querySelectorAll('._mDoneRollCb:checked').forEach(cb => {
+            const idx = cb.dataset.idx;
+            if(d.rolls && d.rolls[idx]) kgStartChecked += Number(d.rolls[idx].weight) || 0;
+        });
+    }
+    const kgCut = kgStartChecked - kgR;
     const ratio = kgCut > 0 ? Math.round((qty / kgCut) * 100) / 100 : 0;
 
     if (d.targetRatio > 0 && ratio < d.targetRatio) {
