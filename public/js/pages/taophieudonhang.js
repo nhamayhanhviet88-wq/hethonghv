@@ -539,7 +539,7 @@ async function renderDesignDraftPage(content) {
         window._tpdWorkspaceState.dbBaselines = items.length > 0 ? items.map((it, idx) => _tpdCloneItemState(it, true, orderId, idx)) : [];
 
         // ★ Default any missing active department sale_remind_choices to 'none' for dispatched orders
-        if (order && order.has_successful_factory_email) {
+        if (order && (order.design_email_status === 'sent' || order.design_email_sent_count > 0)) {
             const deptsDefault = [
                 { key: 'qlx', stepId: 1 },
                 { key: 'cat', stepId: 2 },

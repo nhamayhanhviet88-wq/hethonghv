@@ -3196,7 +3196,7 @@ module.exports = async function(fastify) {
                 [orderId]
             );
             const prepRows = await db.all(
-                `SELECT item_id, qlx_remind_choice, cut_remind_choice, print_remind_choice, press_remind_choice, qc_remind_choice, hoanthien_remind_choice FROM qlx_preparation WHERE dht_order_id = $1`,
+                `SELECT item_id, cut_remind_choice, print_remind_choice, press_remind_choice, hoanthien_remind_choice FROM qlx_preparation WHERE dht_order_id = $1`,
                 [orderId]
             );
 
@@ -3211,18 +3211,33 @@ module.exports = async function(fastify) {
                 if (it.sale_remind_choices) {
                     try { choices = typeof it.sale_remind_choices === 'string' ? JSON.parse(it.sale_remind_choices) : it.sale_remind_choices; } catch(e) {}
                 }
+                // Merge from sale_reminders_data: departments with text content = 'yes'
+                const remindedDepts = new Set(itemReminders.map(r => r.dept));
+                for (const dept of remindedDepts) {
+                    if (!choices[dept]) choices[dept] = 'yes';
+                }
+
                 const pRow = prepRows.find(p => p.item_id === it.id) || prepRows.find(p => p.item_id === null);
                 if (pRow) {
-                    if (!choices.qlx && pRow.qlx_remind_choice) choices.qlx = pRow.qlx_remind_choice;
                     if (!choices.cat && pRow.cut_remind_choice) choices.cat = pRow.cut_remind_choice;
                     if (!choices.in && pRow.print_remind_choice) choices.in = pRow.print_remind_choice;
                     if (!choices.ep && pRow.press_remind_choice) choices.ep = pRow.press_remind_choice;
-                    if (!choices.qc && pRow.qc_remind_choice) choices.qc = pRow.qc_remind_choice;
                     if (!choices.hoanthien && pRow.hoanthien_remind_choice) choices.hoanthien = pRow.hoanthien_remind_choice;
                 }
+
+                // Default any still-missing active department to 'none' if order was dispatched
+                if (order && (order.design_email_status === 'sent' || order.design_email_sent_count > 0)) {
+                    if (!choices.qlx) choices.qlx = remindedDepts.has('qlx') ? 'yes' : 'none';
+                    if (!choices.cat) choices.cat = 'none';
+                    if (!choices.in) choices.in = 'none';
+                    if (!choices.ep) choices.ep = 'none';
+                    if (!choices.qc) choices.qc = 'none';
+                    if (!choices.hoanthien) choices.hoanthien = 'none';
+                }
+
                 it.sale_remind_choices = choices;
             }
-        } catch(e) { /* sale_reminders table may not exist yet */ }
+        } catch(e) { console.error('[sale_remind sync error]', e.message); }
 
         return {
             order,
