@@ -2813,7 +2813,7 @@ async function mSubmitDone(recordId){
             const k=document.getElementById('_mDoneRollKg_'+cb.dataset.idx);
             const v=k?parseFloat(k.value):0;
             const mx=parseFloat(cb.dataset.weight)||0;
-            if(!v||v<=0){
+            if(v===null||v===undefined||isNaN(v)||v<0){
                 err=true;
                 mHighlight(k);
             }
@@ -3232,7 +3232,7 @@ async function mSubmitGDone(){
             const k=document.getElementById('_mGRollKg_'+cb.dataset.idx);
             const v=k?parseFloat(k.value):0;
             const mx=parseFloat(cb.dataset.weight)||0;
-            if(!v||v<=0){
+            if(v===null||v===undefined||isNaN(v)||v<0){
                 err=true;
                 mHighlight(k);
             }
