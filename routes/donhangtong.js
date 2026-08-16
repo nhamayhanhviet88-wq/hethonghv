@@ -85,17 +85,20 @@ async function saveSaleRemindersForItem(txDb, orderId, itemId, choices, itemsMap
         );
     } catch(e) {}
 
+    // Fetch existing reminders for this item to compare contents before updating
+    let existingReminders = [];
+    try {
+        existingReminders = await txDb.all(
+            `SELECT dept, content FROM sale_reminders WHERE item_id = $1`,
+            [itemId]
+        );
+    } catch(e) {}
+
     for (const dept of validDepts) {
         const choice = choices[dept];
         if (!choice) continue;
 
-        try {
-            await txDb.run(
-                `DELETE FROM sale_reminders WHERE item_id = $1 AND dept = $2`,
-                [itemId, dept]
-            );
-        } catch(e) {}
-
+        let newContents = [];
         if (choice === 'yes') {
             const rawList = itemsMap && Array.isArray(itemsMap[dept]) ? itemsMap[dept] : [];
             let validContents = rawList.map(x => (x || '').trim()).filter(x => x.length > 0);
@@ -105,8 +108,29 @@ async function saveSaleRemindersForItem(txDb, orderId, itemId, choices, itemsMap
                 const deptLabel = dept === 'qlx' ? 'Quản Lý Xưởng' : dept.toUpperCase();
                 validContents.push(`Có nhắc nhở từ Sale cho ${deptLabel} (Vui lòng kiểm tra chi tiết trên phiếu SX)`);
             }
+            newContents = validContents;
+        }
 
-            for (const content of validContents) {
+        // Compare old content list vs new content list for this dept
+        const oldDeptReminders = existingReminders.filter(r => r.dept === dept || (dept === 'qlx' && (r.dept === '1' || r.dept === 'quan_ly_xuong')));
+        const oldSorted = oldDeptReminders.map(r => (r.content || '').trim()).filter(Boolean).sort();
+        const newSorted = [...newContents].sort();
+
+        // If choices and contents for this dept have NOT changed, SKIP update to preserve QLX read state!
+        const hasChanged = JSON.stringify(oldSorted) !== JSON.stringify(newSorted);
+        if (!hasChanged) {
+            continue;
+        }
+
+        try {
+            await txDb.run(
+                `DELETE FROM sale_reminders WHERE item_id = $1 AND (dept = $2 OR (dept IN ('1', 'quan_ly_xuong') AND $2 = 'qlx'))`,
+                [itemId, dept]
+            );
+        } catch(e) {}
+
+        if (choice === 'yes') {
+            for (const content of newContents) {
                 try {
                     await txDb.run(
                         `INSERT INTO sale_reminders (dht_order_id, item_id, dept, content, created_by, created_at)
@@ -2936,11 +2960,20 @@ module.exports = async function(fastify) {
                     ) AS has_fabric_called,
 
                     -- Check print assignment status
-                    EXISTS (
-                        SELECT 1 FROM qlx_assignments qa 
-                        WHERE qa.assignment_type = 'in'
-                          AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
-                          AND (qa.item_id = i.id OR (qa.dht_order_id = i.dht_order_id AND qa.item_id IS NULL))
+                    (
+                        EXISTS (
+                            SELECT 1 FROM qlx_assignments qa 
+                            WHERE qa.assignment_type = 'in'
+                              AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                              AND (qa.item_id = i.id OR (qa.dht_order_id = i.dht_order_id AND qa.item_id IS NULL))
+                        )
+                        OR
+                        EXISTS (
+                            SELECT 1 FROM qlx_order_print_assignments qopa
+                            JOIN printing_fields pf ON qopa.field_id = pf.id
+                            WHERE pf.name != 'KHÔNG IN'
+                              AND (qopa.item_id = i.id OR (qopa.dht_order_id = i.dht_order_id AND qopa.item_id IS NULL AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qopa2 WHERE qopa2.item_id = i.id)))
+                        )
                     ) AS has_print_assignment,
 
                     EXISTS (
@@ -3823,6 +3856,7 @@ module.exports = async function(fastify) {
         if (shouldResetPrint) {
             await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
             await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
+            await db.run(`DELETE FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_print_done, false) = false AND contractor_id IS NULL`, [itemId]);
             
             // Revert print-and-cut records associated with this item
             const records = await db.all(`
@@ -5824,52 +5858,7 @@ module.exports = async function(fastify) {
                         }
                     }
 
-                    // B. Auto reset print assignment if critical details changed
-                    let shouldResetPrint = false;
-                    if (oldIt) {
-                        const hasProductChanged = (item.product_name || '') !== (oldIt.product_name || '');
-                        const hasPatternChanged = (item.pattern_name || '') !== (oldIt.pattern_name || '');
-                        const hasColorChanged = (item.color_id ? Number(item.color_id) : null) !== (oldIt.color_id ? Number(oldIt.color_id) : null);
-                        
-                        let oldQArr = [];
-                        try { oldQArr = typeof oldIt.quantities === 'string' ? JSON.parse(oldIt.quantities) : (oldIt.quantities || []); } catch(e){}
-                        const newQArr = item.quantities || [];
-                        const hasQuantitiesChanged = JSON.stringify(oldQArr) !== JSON.stringify(newQArr);
 
-                        if (hasProductChanged || hasPatternChanged || hasColorChanged || hasQuantitiesChanged) {
-                            shouldResetPrint = true;
-                        }
-                    }
-
-                    if (shouldResetPrint) {
-                        await db.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
-                        await db.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
-                        
-                        const records = await db.all(`
-                            SELECT id FROM cutting_records 
-                            WHERE dht_order_id = $1 AND order_item_id = $2 AND printing_contractor_id IS NOT NULL AND is_cut_done = false
-                        `, [orderId, itemId]);
-                        if (records.length > 0) {
-                            const recordIds = records.map(r => r.id);
-                            await db.run(`
-                                UPDATE kv_rolls 
-                                SET locked_by_cutting_id = NULL 
-                                WHERE locked_by_cutting_id = ANY($1)
-                            `, [recordIds]);
-                            await db.run(`
-                                UPDATE cutting_records 
-                                SET printing_contractor_id = NULL,
-                                    cutter_id = NULL,
-                                    is_cutting = false,
-                                    cutting_at = NULL,
-                                    cutting_by = NULL,
-                                    selected_roll_ids = '[]',
-                                    kg_start = 0,
-                                    updated_at = NOW()
-                                WHERE id = ANY($1)
-                            `, [recordIds]);
-                        }
-                    }
 
                     const prodRow = await db.get('SELECT size_type FROM dht_products WHERE name = $1', [item.product_name || '']);
                     const resolvedSizeType = prodRow?.size_type || item.size_type || 'Size TT';

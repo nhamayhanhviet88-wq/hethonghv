@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scale=no">
     <title>✂️ Bộ Phận Cắt — Đồng Phục HV</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
@@ -507,8 +508,8 @@ function mDoneValidQty(el,max){
     mDoneRecalc();
 }
 function mDoneValidKg(el,max){
-    const v=parseFloat(el.value)||0;
-    if(v>max || v<=0){el.style.borderColor='#ef4444';el.style.color='#ef4444';}
+    const v=parseFloat(el.value);
+    if(isNaN(v) || v > (max + 0.05) || v < 0){el.style.borderColor='#ef4444';el.style.color='#ef4444';}
     else{el.style.borderColor='#3b82f6';el.style.color='#93c5fd';}
     mDoneRecalc();
 }
@@ -519,8 +520,8 @@ function mGDoneValidQty(el,max){
     mGDoneRecalc();
 }
 function mGDoneValidKg(el,max){
-    const v=parseFloat(el.value)||0;
-    if(v>max || v<=0){el.style.borderColor='#ef4444';el.style.color='#ef4444';}
+    const v=parseFloat(el.value);
+    if(isNaN(v) || v > (max + 0.05) || v < 0){el.style.borderColor='#ef4444';el.style.color='#ef4444';}
     else{el.style.borderColor='#8b5cf6';el.style.color='#c4b5fd';}
     mGDoneRecalc();
 }
@@ -844,7 +845,7 @@ function mRenderUncut(items = null, showSectionBadge = false){
         const o=g.order, ready=o.fabric_arrived && (o.has_pc_in || o.is_no_print);
         const priCls=mPriClass(o.shipping_priority);
         const priLbl=mPriLabel(o.shipping_priority);
-        const cardTitle=(o.total_items_in_order>1)?o.order_code+' — Phiếu '+o.item_index:o.order_code;
+        const cardTitle = (o.total_phoi > 1 && o.phoi_in_item) ? (o.order_code + ' — Phiếu ' + o.item_index + ' — P' + o.phoi_in_item) : ((o.total_items_in_order > 1) ? (o.order_code + ' — Phiếu ' + o.item_index) : o.order_code);
         const sectBadge = showSectionBadge ? '<span style="background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase;">Chưa Cắt</span>' : '';
         const compBadge=o.cut_warning?'<span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px;display:inline-block;vertical-align:middle;text-transform:uppercase">Cắt Bù</span>':'';
         let h='<div class="m-card"><div class="m-card-top">';
@@ -1085,7 +1086,7 @@ function mRenderMine(items = null, showSectionBadge = false){
 
         return '<div class="m-card"><div class="m-card-top">'
             +'<div class="m-card-icon">'+(r.is_cut_done?'✅':r.is_cutting?'✂️':'📋')+'</div>'
-            +'<div class="m-card-title">'+((r.total_items_in_order>1)?(r.order_code+' — Phiếu '+r.item_index):(r.product_name||'Sản phẩm'))+ccBadge+sharedBadge+compBadge+sectBadge+'</div>'
+            +'<div class="m-card-title">'+((r.total_phoi>1 && r.phoi_in_item)?(r.order_code+' — Phiếu '+r.item_index+' — P'+r.phoi_in_item):(r.total_items_in_order>1)?(r.order_code+' — Phiếu '+r.item_index):(r.order_code+(r.product_name?' — '+r.product_name:'')))+ccBadge+sharedBadge+compBadge+sectBadge+'</div>'
             +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
             +'<div style="padding:4px 16px"><span style="font-size:10px;color:#60a5fa;cursor:pointer;border-bottom:1px dashed #60a5fa" onclick="event.stopPropagation();mOpenDetail('+r.id+')">📋 Xem chi tiết</span></div>'
             +'<div class="m-card-body">'
@@ -1234,7 +1235,7 @@ function mRenderHist(items = null, showSectionBadge = false){
 
         return '<div class="m-card" style="opacity:0.85"><div class="m-card-top">'
         +'<div class="m-card-icon">✅</div>'
-        +'<div class="m-card-title" style="color:#a1a1aa">'+((r.total_items_in_order>1)?(r.order_code+' — Phiếu '+r.item_index):(r.product_name||'SP'))+ccBadge+sharedBadge+sectBadge+'</div>'
+        +'<div class="m-card-title" style="color:#a1a1aa">'+((r.total_phoi>1 && r.phoi_in_item)?(r.order_code+' — Phiếu '+r.item_index+' — P'+r.phoi_in_item):(r.total_items_in_order>1)?(r.order_code+' — Phiếu '+r.item_index):(r.order_code+(r.product_name?' — '+r.product_name:'')))+ccBadge+sharedBadge+sectBadge+'</div>'
         +'<div class="m-card-code">'+(r.order_code||'')+'</div></div>'
         +'<div class="m-card-body">'
         +'<div class="m-row"><span class="m-lbl">👤 Khách</span><span class="m-val" style="color:#60a5fa">'+constCust+'</span></div>'
@@ -1253,7 +1254,7 @@ async function mClaim(id,itemId,phoiIndex,code){
     // Find specific phoi row for this claim unit
     const rows=mUncut.filter(r=>r.id===id && (r.item_id||0)===(itemId||0) && r.phoi_pair_index===phoiIndex);
     const o=rows[0]||{};
-    const title=(o.total_phoi>1)?o.order_code+' — Phiếu '+o.item_index+' — P'+(phoiIndex+1):o.order_code;
+    const title = (o.total_phoi > 1 && (phoiIndex !== null && phoiIndex !== undefined)) ? o.order_code + ' — Phiếu ' + o.item_index + ' — P' + (phoiIndex + 1) : ((o.total_items_in_order > 1) ? o.order_code + ' — Phiếu ' + o.item_index : o.order_code);
     const priMap={'GẤP':['🔴 GẤP','m-pri-gap'],'GỬI':['🟡 GỬI','m-pri-gui']};
     const pri=priMap[o.shipping_priority]||['🟣 CHUẨN','m-pri-chuan'];
 
@@ -2640,7 +2641,7 @@ async function mOpenDoneModal(recordId, isRefresh = false, skipGroupRedirect = f
         sheetHtml+=mRenderRollReservations(rl, r.order_code);
         sheetHtml+='<div id="_mDoneRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         sheetHtml+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
-        sheetHtml+='<input id="_mDoneRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)">';
+        sheetHtml+='<input id="_mDoneRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0" max="'+(w+0.05)+'" oninput="mDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#93c5fd;background:rgba(255,255,255,0.06)">';
         sheetHtml+='<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
     sheetHtml+='</div>';
@@ -2690,7 +2691,11 @@ function mDoneToggleRoll(idx){
     const rl=document.getElementById('_mDoneRollsList');if(rl)rl.style.display='';
     const cb=document.querySelector('._mDoneRollCb[data-idx="'+idx+'"]');
     const inp=document.getElementById('_mDoneRollInp_'+idx);
-    if(cb&&inp){inp.style.display=cb.checked?'block':'none';if(!cb.checked){const k=document.getElementById('_mDoneRollKg_'+idx);if(k)k.value='';}}
+    if(cb&&inp){
+        inp.style.display=cb.checked?'block':'none';
+        const k=document.getElementById('_mDoneRollKg_'+idx);
+        if(k) k.value = '';
+    }
     mDoneRecalc();
 }
 function mDoneAllCut(){
@@ -2713,6 +2718,7 @@ function mDoneAllCut(){
 function mDoneRecalc(){
     const d=window._mDoneData;if(!d)return;
     let kgR=0, kgStartChecked=0;
+    let allInputsFilled = true;
     if(d._allCut){
         // All rolls cut to 0 → kgStart = total of all rolls
         kgStartChecked=d.kgStart;
@@ -2721,21 +2727,26 @@ function mDoneRecalc(){
         document.querySelectorAll('._mDoneRollCb:checked').forEach(cb=>{
             const idx=cb.dataset.idx;
             const k=document.getElementById('_mDoneRollKg_'+idx);
-            kgR+=k?(parseFloat(k.value)||0):0;
-            // Add original weight of this checked roll to kgStartChecked
-            if(d.rolls && d.rolls[idx]) kgStartChecked+=Number(d.rolls[idx].weight)||0;
+            const origW = (d.rolls && d.rolls[idx]) ? (Number(d.rolls[idx].weight) || 0) : (parseFloat(cb.dataset.weight) || 0);
+            const valStr = k ? k.value.trim() : '';
+            if (valStr === '') {
+                allInputsFilled = false;
+            }
+            const val = valStr !== '' ? (parseFloat(valStr) || 0) : origW;
+            kgR += val;
+            kgStartChecked += origW;
         });
     }
     const kgCut=kgStartChecked-kgR;
     const elStart=document.getElementById('_mDoneKgStart');if(elStart)elStart.textContent=mFmtKg(kgStartChecked)+' kg';
     const el=document.getElementById('_mDoneKgCut');if(el)el.textContent=mFmtKg(kgCut);
-    // Enable/disable XÁC NHẬN based on all rolls checked
+    // Enable/disable XÁC NHẬN based on all rolls checked AND all checked inputs filled AND kgCut > 0
     const totalRolls=document.querySelectorAll('._mDoneRollCb').length;
     const checkedRolls=document.querySelectorAll('._mDoneRollCb:checked').length;
     const allChecked=d._allCut||(totalRolls>0&&checkedRolls===totalRolls);
     const okBtn=document.getElementById('_mDoneOk');
     if(okBtn){
-        if(allChecked){
+        if(allChecked && allInputsFilled && kgCut > 0){
             okBtn.disabled=false;okBtn.style.background='linear-gradient(135deg,#1e40af,#3b82f6)';okBtn.style.opacity='1';okBtn.style.cursor='pointer';
         } else {
             okBtn.disabled=true;okBtn.style.background='#64748b';okBtn.style.opacity='0.5';okBtn.style.cursor='not-allowed';
@@ -2840,6 +2851,11 @@ async function mSubmitDone(recordId){
     let kgR = 0;
     rollRemains.forEach(r => { kgR += r.remaining_weight || 0; });
     const kgCut = kgStartChecked - kgR;
+    if (kgCut <= 0) {
+        mToast('⚠️ Kg cắt phải lớn hơn 0 mới có thể xác nhận!', false);
+        window._mSubmitBusy = false;
+        return;
+    }
     const ratio = kgCut > 0 ? Math.round((qty / kgCut) * 100) / 100 : 0;
 
     if (d.targetRatio > 0 && ratio < d.targetRatio) {
@@ -3064,7 +3080,7 @@ async function mOpenGroupDoneModal(groupId, isRefresh = false){
         sheetHtml+=mRenderRollReservations(rl, groupOrderCodes);
         sheetHtml+='<div id="_mGRollInp_'+idx+'" style="display:none;margin-top:10px;padding-left:34px">';
         sheetHtml+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#94a3b8;font-weight:600">Còn:</span>';
-        sheetHtml+='<input id="_mGRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0.1" max="'+w+'" oninput="mGDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#c4b5fd;background:rgba(255,255,255,0.06)">';
+        sheetHtml+='<input id="_mGRollKg_'+idx+'" type="number" inputmode="decimal" step="0.1" min="0" max="'+(w+0.05)+'" oninput="mGDoneValidKg(this,'+w+')" style="width:70px;padding:8px;border:1.5px solid #8b5cf6;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#c4b5fd;background:rgba(255,255,255,0.06)">';
         sheetHtml+='<span style="font-size:10px;color:#64748b">kg</span></div></div></div>';
     });
     sheetHtml+='</div>';
@@ -3081,7 +3097,7 @@ async function mOpenGroupDoneModal(groupId, isRefresh = false){
     // Stats
     sheetHtml+='<div style="border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
     sheetHtml+='<div style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.4);padding:10px;border-radius:10px;text-align:center"><div style="font-size:10px;font-weight:800;color:#fbbf24">⚖️ KG ĐẦU</div><div style="font-size:20px;font-weight:900;color:#fbbf24">'+mFmtKg(kgStart)+' kg</div></div>';
-    sheetHtml+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ TỔNG KG CẮT</div><div id="_mGKgCut" style="font-size:18px;font-weight:900;color:#ef4444">'+mFmtKg(kgStart)+'</div></div></div>';
+    sheetHtml+='<div style="background:rgba(239,68,68,0.15);padding:10px;border-radius:10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#fca5a5">✂️ TỔNG KG CẮT</div><div id="_mGKgCut" style="font-size:18px;font-weight:900;color:#ef4444">0</div></div></div>';
     // Distribution preview
     sheetHtml+='<div id="_mGDistrib" style="margin-top:8px"></div>';
     // Warning Ratio Reason Container Mobile Group
@@ -3130,7 +3146,11 @@ function mGDoneToggleRoll(idx){
     const rl=document.getElementById('_mGRollsList');if(rl)rl.style.display='';
     const cb=document.querySelector('._mGRollCb[data-idx="'+idx+'"]');
     const inp=document.getElementById('_mGRollInp_'+idx);
-    if(cb&&inp){inp.style.display=cb.checked?'block':'none';if(!cb.checked){const k=document.getElementById('_mGRollKg_'+idx);if(k)k.value='';}}
+    if(cb&&inp){
+        inp.style.display=cb.checked?'block':'none';
+        const k=document.getElementById('_mGRollKg_'+idx);
+        if(k) k.value = '';
+    }
     mGDoneRecalc();
 }
 function mGDoneAllCut(){
@@ -3145,8 +3165,31 @@ function mGDoneAllCut(){
 
 function mGDoneRecalc(){
     const d=window._mGDone;if(!d)return;
-    let kgR=0;document.querySelectorAll('._mGRollCb:checked').forEach(cb=>{const k=document.getElementById('_mGRollKg_'+cb.dataset.idx);kgR+=k?(parseFloat(k.value)||0):0;});
-    const totalKgCut=d.kgStart-kgR;
+    let totalKgCut=0;
+    let allInputsFilled = true;
+    if (d._allCut) {
+        totalKgCut = d.kgStart;
+    } else {
+        const checkedCbs = document.querySelectorAll('._mGRollCb:checked');
+        if (checkedCbs.length === 0) {
+            allInputsFilled = false;
+        }
+        checkedCbs.forEach(cb => {
+            const k = document.getElementById('_mGRollKg_' + cb.dataset.idx);
+            const origW = parseFloat(cb.dataset.weight) || 0;
+            const valStr = k ? k.value.trim() : '';
+            if (valStr === '') {
+                allInputsFilled = false;
+            } else {
+                const remaining = parseFloat(valStr) || 0;
+                if (remaining <= origW && remaining >= 0) {
+                    totalKgCut += (origW - remaining);
+                } else {
+                    allInputsFilled = false;
+                }
+            }
+        });
+    }
     const el=document.getElementById('_mGKgCut');if(el)el.textContent=mFmtKg(totalKgCut);
     // Calculate distribution
     let totalQty=0;const qtys=[];
@@ -3191,6 +3234,19 @@ function mGDoneRecalc(){
             warn.style.display = 'block';
         } else {
             warn.style.display = 'none';
+        }
+    }
+
+    // Enable/disable XÁC NHẬN based on all rolls checked AND all checked inputs filled AND totalKgCut > 0
+    const totalRolls=document.querySelectorAll('._mGRollCb').length;
+    const checkedRolls=document.querySelectorAll('._mGRollCb:checked').length;
+    const allChecked=d._allCut||(totalRolls>0&&checkedRolls===totalRolls);
+    const gOkBtn=document.getElementById('_mGDoneOk');
+    if(gOkBtn){
+        if(allChecked && allInputsFilled && totalKgCut > 0){
+            gOkBtn.disabled=false;gOkBtn.style.background='linear-gradient(135deg,#7c3aed,#a855f7)';gOkBtn.style.opacity='1';gOkBtn.style.cursor='pointer';
+        } else {
+            gOkBtn.disabled=true;gOkBtn.style.background='#64748b';gOkBtn.style.opacity='0.5';gOkBtn.style.cursor='not-allowed';
         }
     }
 }
@@ -3252,6 +3308,11 @@ async function mSubmitGDone(){
     let kgR=0;
     rollRemains.forEach(r => { kgR += r.remaining_weight || 0; });
     const totalKgCut = d.kgStart - kgR;
+    if (totalKgCut <= 0) {
+        mToast('⚠️ Tổng kg cắt phải lớn hơn 0 mới có thể xác nhận!', false);
+        window._mSubmitBusy = false;
+        return;
+    }
     let totalQty = 0;
     items.forEach(it => { totalQty += it.cut_quantity || 0; });
     const combinedRatio = totalKgCut > 0 ? Math.round((totalQty / totalKgCut) * 100) / 100 : 0;
@@ -3596,7 +3657,7 @@ function mMCRollCh(){
     var nx = document.getElementById('_mmMCNext');
     if (nx && _mm.step === 2) {
         var hasPendingDyeTest = _mm.rolls.some(function(r) {
-            return (ids.indexOf(r.id) >= 0 || (r.reservations && r.reservations.length > 0)) && r.is_original_tree && r.dye_test_status === 'pending';
+            return (ids.indexOf(r.id) >= 0) && r.is_original_tree && r.dye_test_status === 'pending';
         });
         if (hasPendingDyeTest) {
             nx.disabled = true;
@@ -3624,23 +3685,13 @@ async function mMCNext(){
             var candidateCodes = _mm.candidates.map(function(c) { return c.order_code; });
             mSortRollsForCutting(_mm.rolls, candidateCodes);
             
-            // Auto-check rolls reserved for candidates
             _mm.selRolls = [];
-            _mm.rolls.forEach(function(r) {
-                if (r.locked) return;
-                var hasMatchingRes = r.reservations && r.reservations.some(function(res) {
-                    return candidateCodes.indexOf(res.order_code) >= 0;
-                });
-                if (hasMatchingRes) {
-                    _mm.selRolls.push(r.id);
-                }
-            });
         }catch(e){mToast(e.message,false);return;}
         _mm.step=2;mMCRender();
     }else if(_mm.step===2){
         if(!_mm.selRolls.length){mToast('Chọn ít nhất 1 cây',false);return;}
         var pendingDyeRolls = _mm.rolls.filter(function(r) {
-            return (_mm.selRolls.indexOf(r.id) >= 0 || (r.reservations && r.reservations.length > 0)) && r.is_original_tree && r.dye_test_status === 'pending';
+            return (_mm.selRolls.indexOf(r.id) >= 0) && r.is_original_tree && r.dye_test_status === 'pending';
         });
         if (pendingDyeRolls.length > 0) {
             mToast('⚠️ Vui lòng chụp ảnh test chống nhiễm cho các cây vải được chọn trước khi bấm Tiếp!', false);

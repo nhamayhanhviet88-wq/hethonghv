@@ -431,6 +431,29 @@ function _bpiGetProductNameDisplay(r) {
     base = base.replace(/\s*-\s*\[HỦY BỎ - KHÁCH BÙ TIỀN\]/g, '');
     base = base.replace(/\s*-\s*\[HỦY BỎ - BÙ PHÍ\]/g, '');
     base = base.replace(/\s*—\s*\[HỦY BỎ - BÙ PHÍ\]/g, '');
+
+    // Format Phiếu X / P Y into prominent badges if present
+    if (r.order_code && base.indexOf('Phiếu') >= 0) {
+        var m = base.match(/^(.+?)\s*—\s*(Phiếu\s*\d+(?:\s*—\s*P\d+)?)(?:\s*—\s*(.+))?$/i);
+        if (m) {
+            var ordCode = m[1].trim();
+            var badgeText = m[2].trim();
+            var restDesc = m[3] ? m[3].trim() : '';
+            return '<span style="font-weight:800;color:#1e293b">' + ordCode + '</span> '
+                + '<span style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;white-space:nowrap;margin:0 3px;display:inline-block;vertical-align:middle">' + badgeText + '</span>'
+                + (restDesc ? (' <span style="font-weight:500;color:#475569">' + restDesc + '</span>') : '');
+        }
+    }
+
+    // Fallback: If order has multiple items and item_index exists, append badge
+    if (r.order_code && (r.total_items_in_order > 1 || r.item_index > 0) && r.item_index) {
+        var cleanBase = base.replace(new RegExp('^' + r.order_code + '\\s*—\\s*', 'i'), '');
+        var badgeStr = 'Phiếu ' + r.item_index;
+        return '<span style="font-weight:800;color:#1e293b">' + (r.order_code || '') + '</span> '
+            + '<span style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;white-space:nowrap;margin:0 3px;display:inline-block;vertical-align:middle">' + badgeStr + '</span>'
+            + (cleanBase && cleanBase !== r.order_code ? (' <span style="font-weight:500;color:#475569">' + cleanBase + '</span>') : '');
+    }
+
     return base;
 }
 

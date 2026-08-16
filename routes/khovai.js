@@ -1113,7 +1113,7 @@ module.exports = async function (fastify) {
              LEFT JOIN import_records ir ON ir.id = r.source_import_id
              WHERE r.fabric_color_id = $1 AND r.is_returned = false AND r.weight = 0
                AND (r.source_import_id IS NULL OR ir.id IS NULL OR ir.requires_price_approval = false OR ir.price_approved_at IS NOT NULL)
-             ORDER BY r.updated_at DESC NULLS LAST, r.id DESC
+             ORDER BY COALESCE(r.updated_at, r.created_at) DESC, r.id DESC
              LIMIT $2 OFFSET $3`,
             [fcid, l, offset]
         );
@@ -1163,7 +1163,7 @@ module.exports = async function (fastify) {
 
         // Cut history from cutting_records
         const cutHistory = await db.all(
-            `SELECT cr.id AS cutting_record_id, cr.cut_date, cr.product_name,
+            `SELECT cr.id AS cutting_record_id, cr.cut_date, cr.cut_done_at, cr.product_name,
                     cr.order_quantity, cr.cut_quantity, cr.kg_cut, cr.selected_roll_ids,
                     u.full_name AS cutter_name
              FROM cutting_records cr
@@ -1205,6 +1205,7 @@ module.exports = async function (fastify) {
             return {
                 cutting_record_id: cr.cutting_record_id,
                 cut_date: cr.cut_date,
+                cut_done_at: cr.cut_done_at,
                 product_name: cr.product_name,
                 order_quantity: cr.order_quantity,
                 cut_quantity: cr.cut_quantity,

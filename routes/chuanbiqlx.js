@@ -649,8 +649,8 @@ module.exports = async function(fastify) {
             ] = await Promise.all([
                 db.all(`
                     SELECT doi.id, doi.dht_order_id, doi.shipping_status, doi.material_pairs,
-                           COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
-                           COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived
+                           (COALESCE(p_item.material_called, false) OR COALESCE(p_order.material_called, false)) AS material_called,
+                           (COALESCE(p_item.material_arrived, false) OR COALESCE(p_order.material_arrived, false)) AS material_arrived
                     FROM dht_order_items doi
                     LEFT JOIN qlx_preparation p_item ON p_item.item_id = doi.id
                     LEFT JOIN qlx_preparation p_order ON p_order.dht_order_id = doi.dht_order_id AND p_order.item_id IS NULL
@@ -1313,8 +1313,8 @@ module.exports = async function(fastify) {
                        (doi.is_no_cut = true OR (doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '2'::jsonb) OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"2"' AND NOT p_proc.steps @> '2') OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'HÀNG SẴN' OR UPPER(COALESCE(cc.name, '')) LIKE '%SẴN%' OR cc.name = 'May Gia Công' OR UPPER(COALESCE(cc.name, '')) LIKE '%GIA CÔNG%' OR UPPER(COALESCE(doi.product_name, doi.description, '')) LIKE '%GIA CÔNG%'))) AS is_no_cut,
                        ((doi.production_steps IS NOT NULL AND NOT doi.production_steps @> '3'::jsonb AND NOT doi.production_steps @> '4'::jsonb) OR (p_proc.steps IS NOT NULL AND NOT p_proc.steps @> '"3"' AND NOT p_proc.steps @> '3' AND NOT p_proc.steps @> '"4"' AND NOT p_proc.steps @> '4') OR (doi.production_steps IS NULL AND p_proc.steps IS NULL AND (cc.name = 'May Gia Công' OR UPPER(COALESCE(cc.name, '')) LIKE '%GIA CÔNG%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%ÁO TRƠN%' OR UPPER(COALESCE(p.name, doi.product_name, doi.description, '')) LIKE '%AO TRON%'))) AS is_no_print,
                        cc.name AS cutting_category_name,
-                       COALESCE(p_item.material_called, p_order.material_called, false) AS material_called,
-                       COALESCE(p_item.material_arrived, p_order.material_arrived, false) AS material_arrived,
+                       (COALESCE(p_item.material_called, false) OR COALESCE(p_order.material_called, false)) AS material_called,
+                       (COALESCE(p_item.material_arrived, false) OR COALESCE(p_order.material_arrived, false)) AS material_arrived,
                        COALESCE(
                            (SELECT string_agg(DISTINCT u_c.full_name, ', ')
                             FROM cutting_records cr_c
@@ -1740,7 +1740,7 @@ module.exports = async function(fastify) {
             const cutClaimed = await db.get(`
                 SELECT 1 FROM cutting_records
                 WHERE dht_order_id = $1
-                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                  AND (cutter_id IS NOT NULL OR is_cut_done = true)
                 LIMIT 1
             `, [orderId]);
             if (cutClaimed) {
@@ -1764,7 +1764,7 @@ module.exports = async function(fastify) {
             const cutClaimed = await db.get(`
                 SELECT 1 FROM cutting_records
                 WHERE dht_order_id = $1
-                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                  AND (cutter_id IS NOT NULL OR is_cut_done = true)
                 LIMIT 1
             `, [orderId]);
             if (cutClaimed) {
@@ -2531,14 +2531,14 @@ module.exports = async function(fastify) {
         let isPrintDone = false;
         let isPressDone = false;
         if (itemId) {
-            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND COALESCE(is_discarded, false) = false`, [orderId, itemId]);
-            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
+            const printRecs = await db.all(`SELECT is_print_done FROM printing_records WHERE dht_order_id = $1 AND order_item_id = $2 AND COALESCE(is_discarded, false) = false`, [orderId, itemId]);
+            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done === true || r.is_print_done === 't' || r.is_print_done === 1);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id = $2`, [orderId, itemId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
         } else {
-            const printRecs = await db.all(`SELECT is_print_done, contractor_id FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
-            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done || r.contractor_id !== null);
+            const printRecs = await db.all(`SELECT is_print_done FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_discarded, false) = false`, [orderId]);
+            isPrintDone = printRecs.length > 0 && printRecs.every(r => r.is_print_done === true || r.is_print_done === 't' || r.is_print_done === 1);
 
             const pressRecs = await db.all(`SELECT is_reported FROM pressing_records WHERE dht_order_id = $1 AND order_item_id IS NULL`, [orderId]);
             isPressDone = pressRecs.length > 0 && pressRecs.every(r => r.is_reported);
@@ -2746,10 +2746,12 @@ module.exports = async function(fastify) {
             if (itemId) {
                 await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE item_id = $1`, [itemId]);
                 await txDb.run(`DELETE FROM qlx_assignments WHERE item_id = $1 AND assignment_type = 'in'`, [itemId]);
+                await txDb.run(`DELETE FROM printing_records WHERE order_item_id = $1 AND COALESCE(is_print_done, false) = false AND contractor_id IS NULL`, [itemId]);
             } else {
                 await txDb.run(`DELETE FROM qlx_order_print_assignments WHERE dht_order_id = $1 AND item_id IS NULL`, [orderId]);
                 await txDb.run(`DELETE FROM qlx_assignments WHERE dht_order_id = $1 AND assignment_type = 'in' AND item_id IS NULL`, [orderId]);
                 await txDb.run(`DELETE FROM qlx_in_theu_chung WHERE dht_order_id = $1`, [orderId]);
+                await txDb.run(`DELETE FROM printing_records WHERE dht_order_id = $1 AND order_item_id IS NULL AND COALESCE(is_print_done, false) = false AND contractor_id IS NULL`, [orderId]);
             }
 
             // 2. Sync print and cut removal
@@ -4091,7 +4093,7 @@ module.exports = async function(fastify) {
         const hasClaimedCut = await db.get(`
             SELECT 1 FROM cutting_records 
             WHERE order_item_id = $1 AND phoi_index = $2
-              AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+              AND (cutter_id IS NOT NULL OR is_cut_done = true)
             LIMIT 1
         `, [itemId, pi]);
         const isPhoiCutClaimed = !!hasClaimedCut;
@@ -4173,7 +4175,7 @@ module.exports = async function(fastify) {
             SELECT 1 FROM cutting_records
             WHERE order_item_id = $1 
               AND phoi_index = $2
-              AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+              AND (cutter_id IS NOT NULL OR is_cut_done = true)
             LIMIT 1
         `, [item_id, pi]);
         if (cutClaimed) {
@@ -4485,7 +4487,7 @@ module.exports = async function(fastify) {
             SELECT 1 FROM cutting_records
             WHERE order_item_id = $1 
               AND phoi_index = $2
-              AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+              AND (cutter_id IS NOT NULL OR is_cut_done = true)
             LIMIT 1
         `, [item_id, pi]);
         if (cutClaimed) {
@@ -4681,7 +4683,7 @@ module.exports = async function(fastify) {
                 SELECT 1 FROM cutting_records
                 WHERE order_item_id = $1 
                   AND phoi_index = $2
-                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                  AND (cutter_id IS NOT NULL OR is_cut_done = true)
                 LIMIT 1
             `, [res.item_id, pi]);
             if (cutClaimed) {
@@ -4807,7 +4809,7 @@ module.exports = async function(fastify) {
                 SELECT 1 FROM cutting_records
                 WHERE order_item_id = $1 
                   AND phoi_index = $2
-                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                  AND (cutter_id IS NOT NULL OR is_cut_done = true)
                 LIMIT 1
             `, [res.item_id, pi]);
             if (cutClaimed) {
@@ -4938,7 +4940,7 @@ module.exports = async function(fastify) {
                 SELECT 1 FROM cutting_records
                 WHERE order_item_id = $1 
                   AND phoi_index = $2
-                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                  AND (cutter_id IS NOT NULL OR is_cut_done = true)
                 LIMIT 1
             `, [res.item_id, pi]);
             if (cutClaimed) {
@@ -4948,7 +4950,7 @@ module.exports = async function(fastify) {
             const cutClaimed = await db.get(`
                 SELECT 1 FROM cutting_records
                 WHERE dht_order_id = $1
-                  AND (cutter_id IS NOT NULL OR printing_contractor_id IS NOT NULL OR is_cutting = true OR is_cut_done = true)
+                  AND (cutter_id IS NOT NULL OR is_cut_done = true)
                 LIMIT 1
             `, [res.dht_order_id]);
             if (cutClaimed) {

@@ -3,6 +3,47 @@ var _kv = { tree: [], summary: [], filter: {}, selectedWid: null, selectedMid: n
 
 function _kvFmt(n) { return Number(n||0).toLocaleString('vi-VN'); }
 
+function _kvFmtDate(val) {
+    if (!val) return '—';
+    try {
+        var d = new Date(val);
+        if (isNaN(d.getTime())) return '—';
+        var parts = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hour12: false
+        }).formatToParts(d);
+        var res = {};
+        parts.forEach(function(p) { res[p.type] = p.value; });
+        return res.day + '/' + res.month + '/' + res.year + ' ' + res.hour + ':' + res.minute;
+    } catch(e) {
+        return '—';
+    }
+}
+
+function _kvFmtTimeDate(val) {
+    if (!val) return '—';
+    try {
+        var str = String(val).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+            var p = str.split('-');
+            return p[2] + '/' + p[1] + '/' + p[0];
+        }
+        var d = new Date(val);
+        if (isNaN(d.getTime())) return '—';
+        var parts = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hour12: false
+        }).formatToParts(d);
+        var res = {};
+        parts.forEach(function(p) { res[p.type] = p.value; });
+        return res.hour + ':' + res.minute + ' ' + res.day + '/' + res.month + '/' + res.year;
+    } catch(e) {
+        return '—';
+    }
+}
+
 function _kvSaveState() {
     var state = {
         selectedWid: _kv.selectedWid,
@@ -598,8 +639,7 @@ async function _kvShowDetail(fcid) {
         rh += '</tr></thead><tbody>';
 
         rolls.forEach(function(rl, idx) {
-            var rlDate = rl.updated_at ? new Date(rl.updated_at) : (rl.created_at ? new Date(rl.created_at) : null);
-            var rlDs = rlDate ? (String(rlDate.getDate()).padStart(2,'0') + '/' + String(rlDate.getMonth()+1).padStart(2,'0') + '/' + rlDate.getFullYear() + ' ' + String(rlDate.getHours()).padStart(2,'0') + ':' + String(rlDate.getMinutes()).padStart(2,'0')) : '\u2014';
+            var rlDs = _kvFmtDate(rl.updated_at || rl.created_at);
             var origW = Number(rl.original_weight || rl.weight);
             var curW = Number(rl.weight);
             var xuatW = origW - curW;
@@ -647,8 +687,7 @@ async function _kvShowRollDetail(rollId) {
         var xuatW = origW - curW;
         var cuoiColor = curW > 0 ? '#059669' : '#dc2626';
 
-        var upDate = rl.updated_at ? new Date(rl.updated_at) : (rl.created_at ? new Date(rl.created_at) : null);
-        var upStr = upDate ? (String(upDate.getDate()).padStart(2,'0') + '/' + String(upDate.getMonth()+1).padStart(2,'0') + '/' + upDate.getFullYear() + ' ' + String(upDate.getHours()).padStart(2,'0') + ':' + String(upDate.getMinutes()).padStart(2,'0') + ':' + String(upDate.getSeconds()).padStart(2,'0')) : '\u2014';
+        var upStr = _kvFmtDate(rl.updated_at || rl.created_at);
 
         // Part 1: Info card
         var thS = 'padding:6px 12px;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;width:160px;border-bottom:1px solid var(--gray-100)';
@@ -731,8 +770,7 @@ async function _kvShowRollDetail(rollId) {
             body += '<th style="' + cThS + ';border-radius:0 6px 0 0">Thợ Cắt</th>';
             body += '</tr></thead><tbody>';
             cuts.forEach(function(c, ci) {
-                var cDate = c.cut_date ? new Date(c.cut_date) : null;
-                var cDs = cDate ? (String(cDate.getDate()).padStart(2,'0') + '/' + String(cDate.getMonth()+1).padStart(2,'0') + '/' + cDate.getFullYear()) : '—';
+                var cDs = _kvFmtTimeDate(c.cut_done_at || c.cut_date);
                 body += '<tr style="border-bottom:1px solid var(--gray-100)">';
                 body += '<td style="padding:6px 8px;color:var(--gray-400)">' + (ci+1) + '</td>';
                 body += '<td style="padding:6px 8px;font-weight:700;color:#0d9488"><a href="javascript:void(0)" onclick="_kvOpenCuttingDetail(' + c.cutting_record_id + ')" style="color:#0d9488;font-weight:700;text-decoration:underline">' + (c.product_name||'') + '</a></td>';
@@ -1085,8 +1123,7 @@ async function _kvLoadCompletedRolls(fcid, page) {
         rh += '</tr></thead><tbody>';
 
         rolls.forEach(function(rl, idx) {
-            var rlDate = rl.updated_at ? new Date(rl.updated_at) : (rl.created_at ? new Date(rl.created_at) : null);
-            var rlDs = rlDate ? (String(rlDate.getDate()).padStart(2,'0') + '/' + String(rlDate.getMonth()+1).padStart(2,'0') + '/' + rlDate.getFullYear() + ' ' + String(rlDate.getHours()).padStart(2,'0') + ':' + String(rlDate.getMinutes()).padStart(2,'0')) : '—';
+            var rlDs = _kvFmtDate(rl.updated_at || rl.created_at);
             var origW = Number(rl.original_weight || rl.weight);
             var curW = Number(rl.weight);
 

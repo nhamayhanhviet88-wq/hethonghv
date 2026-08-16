@@ -1181,9 +1181,25 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             html += '      </div>';
             html += '      <div style="font-size:12px; margin-top:4px; opacity:0.95;">Thợ cắt đang yêu cầu trả đơn này về trạng thái chưa nhận cắt. Quản lý xưởng vui lòng duyệt hoặc từ chối.</div>';
             html += '    </div>';
-            html += '    <div style="display:flex; gap:8px; flex-shrink:0;">';
+            html += '    <div id="_qlxUndoActionsArea" style="display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap;">';
             html += '      <button onclick="_qlxApproveUndoCutting(' + undoRec.id + ', ' + orderId + ', ' + itemId + ', ' + pairIndex + ')" style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:900; font-size:13px; cursor:pointer; box-shadow:0 2px 6px rgba(16,185,129,0.4);">✅ DUYỆT VỀ NHẬN CẮT</button>';
+            html += '      <button onclick="_qlxShowUndoSurchargeForm()" style="background:#dc2626; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:900; font-size:13px; cursor:pointer; box-shadow:0 2px 6px rgba(220,38,38,0.4);">💰 BÙ CHI PHÍ CẮT</button>';
             html += '      <button onclick="_qlxRejectUndoCutting(' + undoRec.id + ', ' + orderId + ', ' + itemId + ', ' + pairIndex + ')" style="background:#ef4444; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:900; font-size:13px; cursor:pointer; box-shadow:0 2px 6px rgba(239,68,68,0.4);">❌ TỪ CHỐI</button>';
+            html += '    </div>';
+            html += '  </div>';
+            html += '  <div id="_qlxUndoSurchargeForm" style="display:none; border-top:2px dashed rgba(255,255,255,0.4); margin-top:14px; padding-top:12px;">';
+            html += '    <h4 style="margin:0 0 10px 0; color:#fff; font-size:12px; font-weight:800; text-transform:uppercase;">NHẬP THÔNG TIN PHỤ PHÍ BÙ CẮT</h4>';
+            html += '    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">';
+            html += '      <span style="font-size:12px; font-weight:700; white-space:nowrap; min-width:90px;">Số tiền (đ) <span style="color:#fef2f2">*</span></span>';
+            html += '      <input id="_qlxUndoSurAmount" type="number" min="0" value="0" style="flex:1; padding:8px; border:none; border-radius:6px; font-weight:bold; font-size:14px; text-align:right;">';
+            html += '    </div>';
+            html += '    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">';
+            html += '      <span style="font-size:12px; font-weight:700; white-space:nowrap; min-width:90px;">Lý do <span style="color:#fef2f2">*</span></span>';
+            html += '      <input id="_qlxUndoSurNote" type="text" placeholder="Ghi lý do bù chi phí cắt..." style="flex:1; padding:8px; border:none; border-radius:6px; font-size:12px;">';
+            html += '    </div>';
+            html += '    <div style="display:flex; gap:8px;">';
+            html += '      <button onclick="_qlxHideUndoSurchargeForm()" style="flex:1; background:rgba(255,255,255,0.9); color:#1e293b; border:none; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer;">Quay lại</button>';
+            html += '      <button onclick="_qlxApproveUndoSurcharge(' + undoRec.id + ', ' + orderId + ', ' + itemId + ', ' + pairIndex + ')" style="flex:2; background:#dc2626; color:#fff; border:none; padding:8px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; box-shadow:0 2px 6px rgba(220,38,38,0.4);">Xác nhận & Bù phí</button>';
             html += '    </div>';
             html += '  </div>';
             html += '</div>';
@@ -1361,6 +1377,15 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                 });
             }
 
+            // Calculate unread Sale reminders for cutting to control mark button state
+            var qlxUnviewedCount = 0;
+            var saleRemindersCat = data.sale_reminders_cat || [];
+            if (saleRemindersCat && saleRemindersCat.length > 0) {
+                saleRemindersCat.forEach(function(r) {
+                    if (!r.is_viewed) qlxUnviewedCount++;
+                });
+            }
+
             // === Stock section (always visible when warehouse has data) ===
             var stockDisplay = isNoCut ? 'none' : 'block';
             html += '<div id="_qlxSecStock" style="display: ' + stockDisplay + ';">';
@@ -1506,11 +1531,18 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
                                              Number(rl.lock_item_id) === Number(itemId) &&
                                              Number(rl.lock_phoi_index) === Number(pairIndex);
                     if (avail > 0 && !alreadyMarked && !isLockedSameCoord && !isDisabled && !isLocked) {
+                        var isMarkDisabled = qlxUnviewedCount > 0;
+                        var markBtnStyle = isMarkDisabled
+                            ? 'padding:4px 12px;background:#94a3b8;color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:not-allowed;opacity:0.6;'
+                            : 'padding:4px 12px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;';
+                        var markTitle = isMarkDisabled ? 'title="Vui lòng đọc hết Sale nhắc nhở để mở khóa đánh dấu"' : '';
+                        var markAttrDisabled = isMarkDisabled ? 'disabled' : '';
+
                         html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">';
                         html += '<span style="font-size:10px;color:#475569;font-weight:700">Sử dụng:<span style="color:#dc2626"> *</span></span>';
-                        html += '<input id="_qlxFabKg_' + idx + '" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="Tối đa ' + avail + '" required style="width:90px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';
+                        html += '<input id="_qlxFabKg_' + idx + '" class="_qlx_fab_mark_input" type="number" step="0.1" min="0.1" max="' + avail + '" placeholder="Tối đa ' + avail + '" required ' + markAttrDisabled + ' ' + markTitle + ' style="width:90px;padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;text-align:center" value="">';
                         html += '<span style="font-size:10px;color:#64748b">' + unitLabel + '</span>';
-                        html += '<button onclick="_qlxFabReserveRoll(' + orderId + ',' + itemId + ',' + pairIndex + ',' + rl.id + ',\'' + (rl.roll_code||'') + '\',' + idx + ',\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\')" style="padding:4px 12px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">📌 Đánh dấu</button>';
+                        html += '<button class="_qlx_fab_mark_btn" ' + markAttrDisabled + ' ' + markTitle + ' onclick="_qlxFabReserveRoll(' + orderId + ',' + itemId + ',' + pairIndex + ',' + rl.id + ',\'' + (rl.roll_code||'') + '\',' + idx + ',\'' + (ph.material_name||'') + '\',\'' + (ph.color_name||'') + '\',\'' + unit + '\')" style="' + markBtnStyle + '">📌 Đánh dấu</button>';
                         html += '</div>';
                     }
                     html += '</div>';
@@ -1547,10 +1579,13 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
         ov.innerHTML = '<div class="qlx-cl-popup" style="width:700px;max-height:90vh;overflow-y:auto">' + html + '</div>';
         document.body.appendChild(ov);
 
+        // Run lock status check to sync mark buttons and call button state
+        _qlxCheckFabCallLockStatus();
+
         // Populate existing cut reminders
         var cutChoice = data.cut_remind_choice || '';
         var cutReminders = data.cut_reminders || [];
-        var isSchedLocked = data.is_production_done || data.is_cut_done || (data.primary_index !== null && data.primary_index !== undefined && pairIndex !== data.primary_index);
+        var isSchedLocked = data.is_production_done || data.is_cut_done || data.is_cut_claimed || (data.primary_index !== null && data.primary_index !== undefined && pairIndex !== data.primary_index);
         if (!isSchedLocked) {
             if (cutChoice === 'yes' && cutReminders.length > 0) {
                 cutReminders.forEach(function(r) {
@@ -1566,7 +1601,7 @@ async function _qlxFabricPopup(orderId, itemId, pairIndex, clearCallingInputs) {
             originalReminders: cutReminders.map(function(r) { return (r.content || '').trim(); }),
             originalSchedule: data.cut_schedule || null,
             isSaved: (cutChoice === 'yes' || cutChoice === 'none') && !!data.cut_schedule,
-            isProductionDone: data.is_production_done || data.is_cut_done,
+            isProductionDone: data.is_production_done || data.is_cut_done || data.is_cut_claimed,
             isScheduleLocked: isSchedLocked
         };
 
@@ -1855,11 +1890,13 @@ function _qlxCheckFabCallLockStatus() {
 
     var warnEl = document.getElementById('_qlxFabCallRemWarn');
     var btn = document.getElementById('_qlxFabCallBtn');
+    var markBtns = document.querySelectorAll('._qlx_fab_mark_btn');
+    var markInputs = document.querySelectorAll('._qlx_fab_mark_input');
 
     if (unviewedCount > 0) {
         if (warnEl) {
             warnEl.style.display = 'block';
-            warnEl.innerHTML = '⚠️ Bạn còn ' + unviewedCount + ' câu Nhắc Nhở của Sale dành cho Bộ Phận Cắt chưa đọc. Vui lòng bấm nhấp vào từng câu để chuyển thành "QLX ĐÃ ĐỌC" để mở khóa nút Gọi Vải!';
+            warnEl.innerHTML = '⚠️ Bạn còn ' + unviewedCount + ' câu Nhắc Nhở của Sale dành cho Bộ Phận Cắt chưa đọc. Vui lòng bấm nhấp vào từng câu để chuyển thành "QLX ĐÃ ĐỌC" để mở khóa nút Gọi Vải & Đánh Dấu!';
         }
         if (btn) {
             btn.disabled = true;
@@ -1867,6 +1904,17 @@ function _qlxCheckFabCallLockStatus() {
             btn.style.cursor = 'not-allowed';
             btn.style.opacity = '0.65';
         }
+        markBtns.forEach(function(mBtn) {
+            mBtn.disabled = true;
+            mBtn.style.background = '#94a3b8';
+            mBtn.style.cursor = 'not-allowed';
+            mBtn.style.opacity = '0.6';
+            mBtn.title = 'Vui lòng đọc hết Sale nhắc nhở để mở khóa đánh dấu';
+        });
+        markInputs.forEach(function(mInp) {
+            mInp.disabled = true;
+            mInp.title = 'Vui lòng đọc hết Sale nhắc nhở để mở khóa đánh dấu';
+        });
     } else {
         if (warnEl) warnEl.style.display = 'none';
         if (btn) {
@@ -1875,6 +1923,17 @@ function _qlxCheckFabCallLockStatus() {
             btn.style.cursor = 'pointer';
             btn.style.opacity = '1';
         }
+        markBtns.forEach(function(mBtn) {
+            mBtn.disabled = false;
+            mBtn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+            mBtn.style.cursor = 'pointer';
+            mBtn.style.opacity = '1';
+            mBtn.removeAttribute('title');
+        });
+        markInputs.forEach(function(mInp) {
+            mInp.disabled = false;
+            mInp.removeAttribute('title');
+        });
     }
 }
 
@@ -2391,6 +2450,19 @@ async function _qlxFabArrived(resId, orderId, itemId, pairIndex) {
 async function _qlxFabReserveRoll(orderId, itemId, pairIndex, rollId, rollCode, idx, mat, color, unit) {
     if (window._qlxFabBusy) return;
     window._qlxFabBusy = true;
+
+    // Check if there are any unviewed Sale reminders for Cutting
+    var unviewedCatRemItems = document.querySelectorAll('.qlx-cat-rem-item');
+    var unviewedCatCount = 0;
+    unviewedCatRemItems.forEach(function(el) {
+        var rId = el.getAttribute('data-rem-id');
+        if (rId && !window._qlxFabSaleCatRemsChecked[rId]) unviewedCatCount++;
+    });
+    if (unviewedCatCount > 0) {
+        showToast('⚠️ Bạn chưa đọc hết các câu Nhắc Nhở của Sale dành cho Bộ Phận Cắt!', 'error');
+        window._qlxFabBusy = false;
+        return;
+    }
     var inp = document.getElementById('_qlxFabKg_' + idx);
     var kg = inp ? parseFloat(inp.value) : 0;
     if (!kg || kg <= 0) {
@@ -4941,6 +5013,7 @@ async function _qlxApproveUndoCutting(recordId, orderId, itemId, pairIndex) {
         }
         _qlxLoadAll();
     } catch(e) {
+        alert(e.message || 'Lỗi duyệt');
         showToast(e.message || 'Lỗi duyệt', 'error');
     }
 }
@@ -4955,9 +5028,62 @@ async function _qlxRejectUndoCutting(recordId, orderId, itemId, pairIndex) {
         }
         _qlxLoadAll();
     } catch(e) {
+        alert(e.message || 'Lỗi từ chối');
         showToast(e.message || 'Lỗi từ chối', 'error');
     }
 }
 
 window._qlxApproveUndoCutting = _qlxApproveUndoCutting;
 window._qlxRejectUndoCutting = _qlxRejectUndoCutting;
+
+function _qlxShowUndoSurchargeForm() {
+    var area = document.getElementById('_qlxUndoActionsArea');
+    var form = document.getElementById('_qlxUndoSurchargeForm');
+    if (area) area.style.display = 'none';
+    if (form) form.style.display = 'block';
+}
+window._qlxShowUndoSurchargeForm = _qlxShowUndoSurchargeForm;
+
+function _qlxHideUndoSurchargeForm() {
+    var area = document.getElementById('_qlxUndoActionsArea');
+    var form = document.getElementById('_qlxUndoSurchargeForm');
+    if (area) area.style.display = 'flex';
+    if (form) form.style.display = 'none';
+}
+window._qlxHideUndoSurchargeForm = _qlxHideUndoSurchargeForm;
+
+async function _qlxApproveUndoSurcharge(recordId, orderId, itemId, pairIndex) {
+    var amount = Number(document.getElementById('_qlxUndoSurAmount').value) || 0;
+    var note = (document.getElementById('_qlxUndoSurNote').value || '').trim();
+    if (amount <= 0) {
+        alert('Vui lòng nhập số tiền lớn hơn 0');
+        return;
+    }
+    if (!note) {
+        alert('Vui lòng nhập nội dung / lý do bù phí');
+        return;
+    }
+    if (!confirm('Xác nhận duyệt trở về nhận cắt & BÙ PHÍ ' + amount.toLocaleString('vi-VN') + 'đ?\nSố tiền này sẽ được cộng vào phụ phí đơn hàng.')) return;
+    try {
+        var res = await apiCall('/api/cutting/toggle/' + recordId, 'POST', {
+            action: 'approve_undo_cutting',
+            mode: 'surcharge',
+            amount: amount,
+            note: note
+        });
+        if (res && res.error) {
+            alert('⚠️ ' + res.error);
+            showToast('⚠️ ' + res.error, 'error');
+            return;
+        }
+        showToast('✅ Đã duyệt trở về nhận cắt & tính phụ phí ' + amount.toLocaleString('vi-VN') + 'đ');
+        if (orderId && itemId !== undefined && pairIndex !== undefined) {
+            _qlxFabricPopup(orderId, itemId, pairIndex);
+        }
+        _qlxLoadAll();
+    } catch(e) {
+        alert(e.message || 'Lỗi bù phí');
+        showToast(e.message || 'Lỗi bù phí', 'error');
+    }
+}
+window._qlxApproveUndoSurcharge = _qlxApproveUndoSurcharge;

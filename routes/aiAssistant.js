@@ -36,16 +36,34 @@ async function getUserAllowedFeatures(userId, deptId) {
     }
 }
 
+function getVnDateInfo(dateObj = new Date()) {
+    const todayStr = dateObj.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const timeStr = dateObj.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour12: false });
+    
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric'
+    }).formatToParts(dateObj);
+    
+    let year = 0, month = 0, day = 0;
+    for (const p of parts) {
+        if (p.type === 'year') year = parseInt(p.value, 10);
+        if (p.type === 'month') month = parseInt(p.value, 10);
+        if (p.type === 'day') day = parseInt(p.value, 10);
+    }
+
+    const vnDateObj = new Date(Date.UTC(year, month - 1, day));
+    vnDateObj.setUTCDate(vnDateObj.getUTCDate() - 1);
+    const yesterdayStr = vnDateObj.toISOString().split('T')[0];
+
+    return { todayStr, yesterdayStr, year, month, day, timeStr };
+}
+
 async function executeBusinessQuery(params) {
     const { entity, segment, period, custom_from_date, custom_to_date } = params || {};
-    const now = new Date();
-    const todayStr = now.toLocaleDateString('sv-SE');
-    const yesterdayDate = new Date(now);
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = yesterdayDate.toLocaleDateString('sv-SE');
-
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
+    const { todayStr, yesterdayStr, year, month, day: elapsedDays } = getVnDateInfo();
 
     let startDate = todayStr;
     let endDate = todayStr;
@@ -78,7 +96,7 @@ async function executeBusinessQuery(params) {
         let sql = `
             SELECT COUNT(*) as order_count, COALESCE(SUM(total_amount), 0) as total_revenue
             FROM dht_orders
-            WHERE (order_date BETWEEN $1 AND $2 OR DATE(created_at) BETWEEN $1 AND $2)
+            WHERE (order_date BETWEEN $1 AND $2 OR DATE(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') BETWEEN $1 AND $2)
               AND (is_draft IS NOT TRUE)
               ${segClause}
         `;
@@ -130,7 +148,7 @@ async function executeBusinessQuery(params) {
             SELECT u.full_name, COUNT(o.id) as order_count, SUM(o.total_amount) as total_revenue
             FROM dht_orders o
             JOIN users u ON u.id = o.created_by
-            WHERE (o.order_date BETWEEN $1 AND $2 OR DATE(o.created_at) BETWEEN $1 AND $2)
+            WHERE (o.order_date BETWEEN $1 AND $2 OR DATE(o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') BETWEEN $1 AND $2)
               AND (o.is_draft IS NOT TRUE)
               ${segClause}
             GROUP BY u.full_name
@@ -154,14 +172,14 @@ async function executeBusinessQuery(params) {
     }
 
     if (entity === 'forecast') {
-        const elapsedDays = now.getDate();
         const daysInMonth = new Date(year, month, 0).getDate();
         const remainingDays = daysInMonth - elapsedDays;
 
         const row = await db.get(`
             SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as total_revenue
             FROM dht_orders
-            WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2
+            WHERE EXTRACT(YEAR FROM created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1 
+              AND EXTRACT(MONTH FROM created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2
               AND (is_draft IS NOT TRUE)
         `, [year, month]);
 
@@ -304,7 +322,12 @@ function sanitizeSql(sql) {
 
 async function generateAndExecuteTextToSql(apiKey, userQuestion) {
     try {
-        const rawSql = await callSingleModel('gemini-flash-latest', apiKey, postgresDbSchemaPrompt, userQuestion);
+        const { todayStr, year, month } = getVnDateInfo();
+        const dynamicSchemaPrompt = postgresDbSchemaPrompt.replace(
+            /QUY TẮC BẮT BUỘC KHI SINH SQL:/,
+            `QUY TẮC BẮT BUỘC KHI SINH SQL:\n- Ngày hôm nay là ${todayStr} (Giờ Việt Nam UTC+7, Năm ${year}, Tháng ${month}).`
+        );
+        const rawSql = await callSingleModel('gemini-flash-latest', apiKey, dynamicSchemaPrompt, userQuestion);
         const cleanSql = sanitizeSql(rawSql);
         if (!cleanSql) return null;
 
@@ -322,7 +345,7 @@ async function generateAndExecuteTextToSql(apiKey, userQuestion) {
 
 async function scanProactiveBusinessAlerts(db) {
     try {
-        const todayStr = new Date().toLocaleDateString('sv-SE');
+        const { todayStr } = getVnDateInfo();
 
         await db.all(`
             CREATE TABLE IF NOT EXISTS ai_proactive_alerts (
@@ -715,9 +738,7 @@ module.exports = async function (fastify, opts) {
     // GET /api/ai-assistant/export-report - Tải Báo Cáo Executive CSV/Excel 1-Click
     fastify.get('/api/ai-assistant/export-report', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            const todayStr = new Date().toLocaleDateString('sv-SE');
-            const nowYear = new Date().getFullYear();
-            const nowMonth = new Date().getMonth() + 1;
+            const { todayStr, year: nowYear, month: nowMonth } = getVnDateInfo();
 
             const orders = await db.all(`
                 SELECT order_code, customer_name, customer_phone, province, total_amount, created_at
@@ -966,7 +987,11 @@ module.exports = async function (fastify, opts) {
             const isSuperAccess = (role === 'giam_doc' || role === 'admin' || username === 'trinh');
 
             const currentPage = page || '';
+            const { todayStr, year: nowYear, month: nowMonth, day: nowDay, timeStr: nowVnTime } = getVnDateInfo();
+
             let systemContext = `Bạn là Trợ Lý AI Hệ Thống HV - Trợ lý thông minh hỗ trợ nhân viên & quản lý công ty HV.
+
+THỜI GIAN HỆ THỐNG HIỆN TẠI (GIỜ VIỆT NAM - ICT UTC+7): ${nowVnTime} Ngày ${nowDay}/${nowMonth}/${nowYear} (${todayStr})
 
 QUY TẮC PHẢN HỒI BẮT BUỘC (CRITICAL):
 1. TRẢ LỜI NGẮN GỌN & ĐÚNG TRỌNG TÂM: Chỉ trả lời từ 2 - 4 dòng ngắn gọn, cô đọng. Tuyệt đối KHÔNG dông dài, KHÔNG lặp lại câu hỏi, KHÔNG viết bài luận dài.
@@ -1147,24 +1172,21 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
             }
 
             // ===== BỘ TRUY VẤN DỮ LIỆU THỜI GIAN THỰC TOÀN HỆ THỐNG (GLOBAL REAL-TIME INTEL) =====
-            const todayStr = new Date().toLocaleDateString('sv-SE');
-            const nowYear = new Date().getFullYear();
-            const nowMonth = new Date().getMonth() + 1;
-
             if (isSuperAccess) {
                 try {
                     // 1. Live Orders & Revenue (Categorized by Business Segment)
                     const todayOrderRow = await db.get(`
                         SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue
                         FROM dht_orders
-                        WHERE (order_date = $1 OR DATE(created_at) = $1) AND (is_draft IS NOT TRUE)
+                        WHERE (order_date = $1 OR DATE(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1) AND (is_draft IS NOT TRUE)
                     `, [todayStr]);
 
                     // Segment: Đồng Phục (category_id != 9 OR NULL)
                     const dongPhucMonthRow = await db.get(`
                         SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue
                         FROM dht_orders
-                        WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2 
+                        WHERE EXTRACT(YEAR FROM created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1 
+                          AND EXTRACT(MONTH FROM created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2 
                           AND (is_draft IS NOT TRUE)
                           AND (category_id != 9 OR category_id IS NULL)
                     `, [nowYear, nowMonth]);
@@ -1173,7 +1195,8 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
                     const temPetMonthRow = await db.get(`
                         SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue
                         FROM dht_orders
-                        WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2 
+                        WHERE EXTRACT(YEAR FROM created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1 
+                          AND EXTRACT(MONTH FROM created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2 
                           AND (is_draft IS NOT TRUE)
                           AND category_id = 9
                     `, [nowYear, nowMonth]);
@@ -1182,7 +1205,9 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
                     const monthOrderRow = await db.get(`
                         SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue
                         FROM dht_orders
-                        WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2 AND (is_draft IS NOT TRUE)
+                        WHERE EXTRACT(YEAR FROM created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1 
+                          AND EXTRACT(MONTH FROM created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2 
+                          AND (is_draft IS NOT TRUE)
                     `, [nowYear, nowMonth]);
 
                     const todayOrderCount = Number(todayOrderRow?.count || 0);
@@ -1212,7 +1237,9 @@ QUY TẮC BỘ NHỚ VĨNH VIỄN:
                         SELECT u.full_name, COUNT(o.id) as order_count, SUM(o.total_amount) as total_revenue
                         FROM dht_orders o
                         JOIN users u ON u.id = o.created_by
-                        WHERE EXTRACT(YEAR FROM o.created_at) = $1 AND EXTRACT(MONTH FROM o.created_at) = $2 AND (o.is_draft IS NOT TRUE)
+                        WHERE EXTRACT(YEAR FROM o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1 
+                          AND EXTRACT(MONTH FROM o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2 
+                          AND (o.is_draft IS NOT TRUE)
                         GROUP BY u.full_name
                         ORDER BY total_revenue DESC LIMIT 5
                     `, [nowYear, nowMonth]);
@@ -1404,7 +1431,7 @@ QUY TẮC PHẢN HỒI NỘI QUY:
 `;
             } else if (currentPage.includes('ngansachmkt') || currentPage.includes('ngan-sach-mkt')) {
                 let mktInfo = '';
-                const todayStr = new Date().toLocaleDateString('sv-SE'); // 'YYYY-MM-DD'
+                const { todayStr } = getVnDateInfo();
                 if (isSuperAccess) {
                     try {
                         const activeCampaigns = await db.all(`SELECT id, name, target_goal, max_budget FROM mkt_campaigns WHERE is_active = true`);

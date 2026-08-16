@@ -194,15 +194,19 @@ async function recalculateOrderFabricStatus(orderId) {
             }
 
             // Ensure the item-level row exists or update it
+            const orderPrep = await db.get('SELECT material_called, material_arrived, material_called_at, material_called_by, material_arrived_at, material_arrived_by FROM qlx_preparation WHERE dht_order_id = $1 AND item_id IS NULL', [orderId]);
+            const matCalled = orderPrep ? orderPrep.material_called : false;
+            const matArrived = orderPrep ? orderPrep.material_arrived : false;
+
             await db.run(`
-                INSERT INTO qlx_preparation (dht_order_id, item_id, fabric_called, fabric_arrived, updated_at)
-                VALUES ($1, $2, $3, $4, NOW())
+                INSERT INTO qlx_preparation (dht_order_id, item_id, fabric_called, fabric_arrived, material_called, material_arrived, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, NOW())
                 ON CONFLICT (item_id)
                 DO UPDATE SET 
                     fabric_called = EXCLUDED.fabric_called, 
                     fabric_arrived = EXCLUDED.fabric_arrived, 
                     updated_at = EXCLUDED.updated_at
-            `, [orderId, it.id, itemFabricCalled, itemFabricArrived]);
+            `, [orderId, it.id, itemFabricCalled, itemFabricArrived, matCalled, matArrived]);
         }
 
         let fabricArrived = false;

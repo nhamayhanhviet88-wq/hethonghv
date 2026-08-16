@@ -875,10 +875,15 @@ module.exports = async function(fastify) {
                 const fabricArrived = prep ? !!prep.fabric_arrived : false;
 
                 const assignment = await db.get(`
-                    SELECT 1 FROM qlx_assignments
-                    WHERE assignment_type = 'in'
-                      AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
-                      AND (item_id = $1 OR (dht_order_id = $2 AND item_id IS NULL))
+                    SELECT 1 FROM qlx_assignments qa
+                    WHERE qa.assignment_type = 'in'
+                      AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
+                      AND (qa.item_id = $1 OR (qa.dht_order_id = $2 AND qa.item_id IS NULL))
+                    UNION ALL
+                    SELECT 1 FROM qlx_order_print_assignments qopa
+                    JOIN printing_fields pf ON qopa.field_id = pf.id
+                    WHERE pf.name != 'KHÔNG IN'
+                      AND (qopa.item_id = $1 OR (qopa.dht_order_id = $2 AND qopa.item_id IS NULL AND NOT EXISTS (SELECT 1 FROM qlx_order_print_assignments qopa2 WHERE qopa2.item_id = $1)))
                     LIMIT 1
                 `, [item.id, orderId]);
                 const hasPrintAssignment = !!assignment;

@@ -1572,8 +1572,9 @@ module.exports = async function(fastify) {
                     )
                     OR EXISTS (
                         SELECT 1 FROM qlx_order_print_assignments qopa
+                        JOIN printing_fields pf ON qopa.field_id = pf.id
                         WHERE qopa.dht_order_id = o.id
-                          AND qopa.field_id = 9
+                          AND pf.name != 'KHÔNG IN'
                     )
                 ) AS has_pc_in
 
@@ -2139,26 +2140,9 @@ module.exports = async function(fastify) {
 
                    u_cskh.full_name AS cskh_name,
 
-                   u_created.full_name AS created_by_name,
-
-                   -- Last history
-
-                   lh.details AS last_update_detail,
-
-                   lh.performed_at AS last_update_at,
-
-                   lh_user.full_name AS last_update_by,
-
-                   t.target_ratio AS target_cut_ratio,
-
-                   w.unit AS fabric_unit,
-
-                   sch.cut_expected_at,
-
-                   COALESCE(oi.production_cancelled, false) AS production_cancelled,
-
+                                 COALESCE(cr.phoi_index, 0) + 1 AS phoi_in_item,
+                   oi.material_pairs,
                    (SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = cr.dht_order_id AND it2.id <= cr.order_item_id) AS item_index,
-
                    (SELECT COUNT(*)::int FROM dht_order_items it3 WHERE it3.dht_order_id = cr.dht_order_id) AS total_items_in_order
 
              FROM cutting_records cr
@@ -2211,7 +2195,18 @@ module.exports = async function(fastify) {
 
         `, params);
 
-
+        records.forEach(r => {
+            let totalPhoi = 1;
+            if (r.material_pairs) {
+                try {
+                    const parsed = typeof r.material_pairs === 'string' ? JSON.parse(r.material_pairs) : r.material_pairs;
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        totalPhoi = parsed.length;
+                    }
+                } catch(e) {}
+            }
+            r.total_phoi = totalPhoi;
+        });
 
         await populateSourceImportIds(records);
 
@@ -2661,46 +2656,30 @@ module.exports = async function(fastify) {
 
         if (['start_cutting', 'cut_done'].includes(action)) {
 
-            const reservations = await db.all(`
-
-                SELECT status FROM qlx_fabric_reservations
-
-                WHERE item_id = $1 AND phoi_index = $2
-
-            `, [rec.order_item_id, rec.phoi_index]);
-
-            
-
-            let fabricArrived = false;
-
-            if (reservations.length > 0) {
-
-                const activeRes = reservations.filter(r => !['released', 'fulfilled'].includes(r.status));
-
-                fabricArrived = activeRes.length > 0 && activeRes.every(r => r.status === 'arrived');
-
-            } else {
-
-                const prep = await db.get(`
-
-                    SELECT fabric_arrived FROM qlx_preparation
-
-                    WHERE dht_order_id = $1 AND item_id IS NULL
-
-                `, [rec.dht_order_id]);
-
-                fabricArrived = prep ? !!prep.fabric_arrived : false;
-
-            }
-
-            
+            let fabricArrived = !!(rec.fabric_arrived || rec.is_cutting);
 
             if (!fabricArrived) {
+                const reservations = await db.all(`
+                    SELECT status FROM qlx_fabric_reservations
+                    WHERE item_id = $1 AND phoi_index = $2
+                `, [rec.order_item_id, rec.phoi_index]);
 
-                return reply.code(400).send({ error: 'Vải phối này chưa về đủ — không thể thao tác cắt!' });
+                if (reservations.length > 0) {
+                    const nonReleased = reservations.filter(r => r.status !== 'released');
+                    fabricArrived = nonReleased.length > 0 && nonReleased.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+                } else {
+                    const prep = await db.get(`
+                        SELECT fabric_arrived FROM qlx_preparation
+                        WHERE dht_order_id = $1 AND item_id IS NULL
+                    `, [rec.dht_order_id]);
 
+                    fabricArrived = prep ? !!prep.fabric_arrived : false;
+                }
             }
 
+            if (!fabricArrived) {
+                return reply.code(400).send({ error: 'Vải phối này chưa về đủ — không thể thao tác cắt!' });
+            }
         }
 
 
@@ -3110,7 +3089,11 @@ module.exports = async function(fastify) {
 
                         const oldSurTotal = surcharges.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
 
-                        const surchargeName = note || `Bù phí cắt đơn`;
+                        const phieuLabel = rec.phieu_index ? `Phiếu ${rec.phieu_index}` : '';
+                        const phoiLabel = rec.phoi_index ? `P${rec.phoi_index}` : '';
+                        const productLabel = rec.product_name || '';
+                        const detailParts = [phieuLabel, phoiLabel, productLabel].filter(Boolean).join(' — ');
+                        const surchargeName = `Bù phí cắt${detailParts ? ' - ' + detailParts : ''}${note ? ': ' + note : ''}`;
 
                         surcharges.push({
 
@@ -3165,9 +3148,9 @@ module.exports = async function(fastify) {
                         [now, rec.dht_order_id, rec.order_item_id, pIdx]
                     );
 
-                    // Reset fabric_called, fabric_arrived, material_called, material_arrived status in qlx_preparation for this specific item
+                    // Reset fabric_called and fabric_arrived status in qlx_preparation (keep material & print status unchanged)
                     await txDb.run(
-                        `UPDATE qlx_preparation SET fabric_called = false, fabric_arrived = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived_at = NULL, fabric_arrived_by = NULL, material_called = false, material_arrived = false, material_called_at = NULL, material_called_by = NULL, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE item_id = $2`,
+                        `UPDATE qlx_preparation SET fabric_called = false, fabric_arrived = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE item_id = $2`,
                         [now, rec.order_item_id]
                     );
                 } else {
@@ -3176,7 +3159,7 @@ module.exports = async function(fastify) {
                         [now, rec.dht_order_id]
                     );
                     await txDb.run(
-                        `UPDATE qlx_preparation SET fabric_called = false, fabric_arrived = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived_at = NULL, fabric_arrived_by = NULL, material_called = false, material_arrived = false, material_called_at = NULL, material_called_by = NULL, material_arrived_at = NULL, material_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2 AND item_id IS NULL`,
+                        `UPDATE qlx_preparation SET fabric_called = false, fabric_arrived = false, fabric_called_at = NULL, fabric_called_by = NULL, fabric_arrived_at = NULL, fabric_arrived_by = NULL, updated_at = $1 WHERE dht_order_id = $2 AND item_id IS NULL`,
                         [now, rec.dht_order_id]
                     );
                 }
@@ -4758,7 +4741,13 @@ module.exports = async function(fastify) {
 
         if (roll.is_returned || Number(roll.weight) <= 0) return reply.code(400).send({ error: 'Cây vải không khả dụng (đã trả hoặc hết vải)' });
 
-        if (roll.locked_by_cutting_id) return reply.code(409).send({ error: 'Cây vải đã bị đơn khác chọn' });
+        let previousLockCuttingId = null;
+        if (roll.locked_by_cutting_id) {
+            previousLockCuttingId = roll.locked_by_cutting_id;
+            // Log that this roll is being taken from another cutting record
+            const lockerRec = await db.get('SELECT product_name FROM cutting_records WHERE id = $1', [roll.locked_by_cutting_id]);
+            console.log(`[ADD-ROLL] Roll ${roll_id} (${roll.roll_code}) re-assigned from cutting #${roll.locked_by_cutting_id} (${lockerRec ? lockerRec.product_name : 'N/A'}) to cutting #${id}`);
+        }
 
 
 
@@ -4798,12 +4787,10 @@ module.exports = async function(fastify) {
 
 
 
+        // Force lock the roll to this cutting record (re-assign if already locked)
         const lockResult = await db.run(
-
-            `UPDATE kv_rolls SET locked_by_cutting_id = $1 WHERE id = $2 AND locked_by_cutting_id IS NULL`,
-
+            `UPDATE kv_rolls SET locked_by_cutting_id = $1 WHERE id = $2`,
             [lockId, roll_id]
-
         );
 
         if (lockResult.changes === 0) {
@@ -5067,6 +5054,9 @@ module.exports = async function(fastify) {
         const { material_name, color_name, order_id, order_item_id, phoi_index, printing_contractor_id } = request.query;
 
         if (!material_name || !color_name) return { rolls: [], message: 'Thiếu chất liệu hoặc màu' };
+
+        // Auto-cleanup: unlock rolls locked by completed cutting records
+        await db.run(`UPDATE kv_rolls SET locked_by_cutting_id = NULL WHERE locked_by_cutting_id IS NOT NULL AND locked_by_cutting_id IN (SELECT id FROM cutting_records WHERE is_cut_done = true)`);
 
 
 
@@ -5399,6 +5389,10 @@ module.exports = async function(fastify) {
 
                 locked_order: r.locked_order_code || null,
 
+                locked_by_cutting_id: r.locked_by_cutting_id || null,
+
+                locked_product: r.locked_product || null,
+
                 is_original_tree: !!r.is_original_tree,
 
                 is_reserved_for_this_order: !!r.is_reserved_for_this_order,
@@ -5568,7 +5562,8 @@ module.exports = async function(fastify) {
                         )
                         OR EXISTS(
                             SELECT 1 FROM qlx_order_print_assignments qopa
-                            WHERE qopa.dht_order_id = o.id AND qopa.field_id = 9
+                            JOIN printing_fields pf ON qopa.field_id = pf.id
+                            WHERE qopa.dht_order_id = o.id AND pf.name != 'KHÔNG IN'
                         )
                     ) AS has_pc_in,
                     (
@@ -5670,7 +5665,7 @@ module.exports = async function(fastify) {
                 CASE WHEN COALESCE(p.fabric_arrived, false) = true
                      AND (
                          EXISTS (SELECT 1 FROM qlx_assignments qa2 WHERE qa2.dht_order_id = o.id AND qa2.assignment_type = 'in' AND (qa2.assigned_user_id IS NOT NULL OR qa2.assigned_contractor_id IS NOT NULL))
-                         OR EXISTS (SELECT 1 FROM qlx_order_print_assignments qopa2 WHERE qopa2.dht_order_id = o.id AND qopa2.field_id = 9)
+                         OR EXISTS (SELECT 1 FROM qlx_order_print_assignments qopa2 JOIN printing_fields pf2 ON qopa2.field_id = pf2.id WHERE qopa2.dht_order_id = o.id AND pf2.name != 'KHÔNG IN')
                      )
                 THEN 0 ELSE 1 END,
 
@@ -5773,7 +5768,8 @@ module.exports = async function(fastify) {
                         )
                         OR EXISTS(
                             SELECT 1 FROM qlx_order_print_assignments qopa
-                            WHERE qopa.field_id = 9
+                            JOIN printing_fields pf ON qopa.field_id = pf.id
+                            WHERE pf.name != 'KHÔNG IN'
                               AND (qopa.item_id = doi.id OR (qopa.dht_order_id = doi.dht_order_id AND qopa.item_id IS NULL))
                         )
                     ) AS has_pc_in,
@@ -6239,11 +6235,12 @@ module.exports = async function(fastify) {
                       OR (dht_order_id = $2 AND item_id IS NULL)
                   )
                 UNION
-                SELECT 1 FROM qlx_order_print_assignments
-                WHERE field_id = 9
+                SELECT 1 FROM qlx_order_print_assignments qopa
+                JOIN printing_fields pf ON qopa.field_id = pf.id
+                WHERE pf.name != 'KHÔNG IN'
                   AND (
-                      (item_id = $1)
-                      OR (dht_order_id = $2 AND item_id IS NULL)
+                      (qopa.item_id = $1)
+                      OR (qopa.dht_order_id = $2 AND qopa.item_id IS NULL)
                   )
             ) AS sub LIMIT 1
         `, [Number(order_item_id), dht_order_id]);
@@ -6641,7 +6638,7 @@ module.exports = async function(fastify) {
 
                         SELECT 1 FROM cutting_records cr 
 
-                        WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NOT NULL
+                        WHERE cr.order_item_id = oi.id AND (cr.cutter_id IS NOT NULL OR cr.printing_contractor_id IS NOT NULL OR cr.is_cutting = true OR cr.is_cut_done = true)
 
                     )
 
@@ -6657,7 +6654,7 @@ module.exports = async function(fastify) {
 
                         SELECT COUNT(*)::int FROM cutting_records cr 
 
-                        WHERE cr.order_item_id = oi.id AND cr.cutter_id IS NOT NULL
+                        WHERE cr.order_item_id = oi.id AND (cr.cutter_id IS NOT NULL OR cr.printing_contractor_id IS NOT NULL OR cr.is_cutting = true OR cr.is_cut_done = true)
 
                     ) < jsonb_array_length(oi.material_pairs)
 
@@ -6733,7 +6730,7 @@ module.exports = async function(fastify) {
 
                 claimedRecs = await db.all(`
 
-                    SELECT id, order_item_id, material_name, fabric_color, cutter_id, is_cut_done, cut_warning, order_quantity
+                    SELECT id, order_item_id, material_name, fabric_color, cutter_id, printing_contractor_id, is_cutting, is_cut_done, cut_warning, order_quantity
 
                     FROM cutting_records 
 
@@ -6764,10 +6761,11 @@ module.exports = async function(fastify) {
                   AND (assigned_user_id IS NOT NULL OR assigned_contractor_id IS NOT NULL)
                   AND dht_order_id = ANY($1)
                 UNION
-                SELECT dht_order_id, item_id
-                FROM qlx_order_print_assignments
-                WHERE field_id = 9
-                  AND dht_order_id = ANY($1)
+                SELECT qopa.dht_order_id, qopa.item_id
+                FROM qlx_order_print_assignments qopa
+                JOIN printing_fields pf ON qopa.field_id = pf.id
+                WHERE pf.name != 'KHÔNG IN'
+                  AND qopa.dht_order_id = ANY($1)
             `, [orderIds]);
 
 
@@ -6860,13 +6858,15 @@ module.exports = async function(fastify) {
 
             const itemRecords = claimedRecs.filter(r => r.order_item_id === it.order_item_id);
 
+            const isRecClaimedOrDone = (r) => (r.cutter_id !== null || r.printing_contractor_id !== null || r.is_cutting || r.is_cut_done);
+
             if (pairs.length > 0) {
 
-                // Find if the matching pair is claimed
+                // Find if the matching pair is claimed or cut
 
                 const isClaimed = itemRecords.some(r => 
 
-                    r.cutter_id !== null &&
+                    isRecClaimedOrDone(r) &&
 
                     (r.material_name || '').trim().toLowerCase() === matQ &&
 
@@ -6880,7 +6880,7 @@ module.exports = async function(fastify) {
 
                 const unclaimedRec = itemRecords.find(r => 
 
-                    r.cutter_id === null && !r.is_cut_done &&
+                    !isRecClaimedOrDone(r) &&
 
                     (r.material_name || '').trim().toLowerCase() === matQ &&
 
@@ -6908,9 +6908,9 @@ module.exports = async function(fastify) {
 
                 // No pairs
 
-                const hasClaimed = itemRecords.some(r => r.cutter_id !== null);
+                const hasClaimed = itemRecords.some(r => isRecClaimedOrDone(r));
 
-                const unclaimedRec = itemRecords.find(r => r.cutter_id === null && !r.is_cut_done);
+                const unclaimedRec = itemRecords.find(r => !isRecClaimedOrDone(r));
 
                 if (hasClaimed && !unclaimedRec) {
 
@@ -7078,9 +7078,9 @@ module.exports = async function(fastify) {
 
         if (!group_id) return reply.code(400).send({ error: 'Thiếu group_id' });
 
-        if (!items || !Array.isArray(items) || items.length < 2)
+        if (!items || !Array.isArray(items) || items.length < 1)
 
-            return reply.code(400).send({ error: 'Cần ít nhất 2 đơn trong nhóm' });
+            return reply.code(400).send({ error: 'Cần ít nhất 1 đơn trong nhóm' });
 
 
 
@@ -7092,13 +7092,17 @@ module.exports = async function(fastify) {
 
         const groupRecords = await db.all(
 
-            `SELECT id, dht_order_id, order_item_id, phoi_index, order_quantity, kg_start, selected_roll_ids, is_cut_done, product_name, material_name, fabric_color, cutter_id, cutting_category, printing_contractor_id, pending_undo_cutting, order_code FROM cutting_records WHERE multi_cut_group_id = $1 ORDER BY id`,
+            `SELECT cr.id, cr.dht_order_id, cr.order_item_id, cr.phoi_index, cr.order_quantity, cr.kg_start, cr.selected_roll_ids, cr.is_cut_done, cr.product_name, cr.material_name, cr.fabric_color, cr.cutter_id, cr.cutting_category, cr.printing_contractor_id, cr.pending_undo_cutting, o.order_code 
+             FROM cutting_records cr 
+             LEFT JOIN dht_orders o ON o.id = cr.dht_order_id 
+             WHERE cr.multi_cut_group_id = $1 
+             ORDER BY cr.id`,
 
             [group_id]
 
         );
 
-        if (groupRecords.length < 2) return reply.code(400).send({ error: 'Nhóm không hợp lệ hoặc chỉ có 1 đơn' });
+        if (groupRecords.length < 1) return reply.code(400).send({ error: 'Nhóm không hợp lệ hoặc không có đơn' });
 
         // Check if any record in the group is waiting for undo approval
         const pendingUndoRecs = groupRecords.filter(r => r.pending_undo_cutting);
@@ -7337,7 +7341,7 @@ module.exports = async function(fastify) {
 
             }
 
-            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = $2, needs_photo = $3 WHERE id = $4`, [finalWeight, nextLocation, needsPhoto, s.roll_id]);
+            await db.run(`UPDATE kv_rolls SET weight = $1, locked_by_cutting_id = NULL, location = $2, needs_photo = $3, updated_at = NOW() WHERE id = $4`, [finalWeight, nextLocation, needsPhoto, s.roll_id]);
 
             if (groupOrderIds.length > 0) {
 
@@ -7423,9 +7427,14 @@ module.exports = async function(fastify) {
 
             return reply.code(400).send({ error: 'Chọn ít nhất 1 cây vải' });
 
-        if (!selected_order_item_ids || !Array.isArray(selected_order_item_ids) || selected_order_item_ids.length < 2)
+        const isGiamDoc = request.user.role === 'giam_doc';
+        const isFactoryManagerReq = !isGiamDoc && (await isCutManager(request));
+        const reqContractorId = request.body && request.body.printing_contractor_id;
+        const minOrders = (isFactoryManagerReq || reqContractorId) ? 1 : 2;
 
-            return reply.code(400).send({ error: 'Chọn ít nhất 2 đơn để cắt chung' });
+        if (!selected_order_item_ids || !Array.isArray(selected_order_item_ids) || selected_order_item_ids.length < minOrders)
+
+            return reply.code(400).send({ error: `Chọn ít nhất ${minOrders} đơn để cắt` + (minOrders > 1 ? ' chung' : '') });
 
         // Strict Rule: Validate that all selected rolls belong to the EXACT SAME material and color
         const rollCheck = await db.all(`
@@ -7461,9 +7470,11 @@ module.exports = async function(fastify) {
                            WHERE qa.dht_order_id = o.id AND qa.assignment_type = 'in'
                            AND (qa.assigned_user_id IS NOT NULL OR qa.assigned_contractor_id IS NOT NULL)
                     ) OR EXISTS(SELECT 1 FROM qlx_order_print_assignments qopa
-                                WHERE qopa.dht_order_id = o.id AND qopa.field_id = 9
+                                JOIN printing_fields pf ON qopa.field_id = pf.id
+                                WHERE qopa.dht_order_id = o.id AND pf.name != 'KHÔNG IN'
                     )) AS has_print,
-                   COALESCE(oi.production_cancelled, false) AS production_cancelled
+                   COALESCE(oi.production_cancelled, false) AS production_cancelled,
+                   (SELECT bool_or(COALESCE(cr.is_cut_done, false) = false) FROM cutting_records cr WHERE cr.order_item_id = oi.id) as is_cutting
             FROM dht_order_items oi
             JOIN dht_orders o ON o.id = oi.dht_order_id
             LEFT JOIN qlx_preparation p ON p.dht_order_id = o.id AND p.item_id IS NULL
@@ -7476,8 +7487,7 @@ module.exports = async function(fastify) {
         if (items.length !== selected_order_item_ids.length)
             return reply.code(400).send({ error: 'Một số phiếu không tồn tại' });
 
-        const isGiamDoc = request.user.role === 'giam_doc';
-        const isFactoryManager = !isGiamDoc && (await isCutManager(request));
+        const isFactoryManager = isFactoryManagerReq;
 
         for (const it of items) {
             if (it.production_cancelled) return reply.code(400).send({ error: 'Phiếu ' + (it.description || it.order_code) + ' đã bị HỦY SẢN XUẤT' });
@@ -7491,47 +7501,34 @@ module.exports = async function(fastify) {
 
 
 
-            // Validate specific coordination part fabric arrival
+            let fabricArrived = !!(it.is_cutting || it.order_fabric_arrived);
 
-            let fabricArrived = false;
+            if (!fabricArrived) {
+                let pairs = [];
+                try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
+                if (pairs.length > 0) {
+                    const matFilter = (reqMaterial || '').trim().toLowerCase();
+                    const colFilter = (reqColor || '').trim().toLowerCase();
+                    const pairIdx = pairs.findIndex(p =>
+                        (p.material_name || '').trim().toLowerCase() === matFilter &&
+                        (p.color_name || '').trim().toLowerCase() === colFilter
+                    );
+                    const currentPairIdx = pairIdx >= 0 ? pairIdx : 0;
+                    const phoiRes = await db.all(`
+                        SELECT status FROM qlx_fabric_reservations
+                        WHERE item_id = $1 AND phoi_index = $2
+                    `, [it.order_item_id, currentPairIdx]);
 
-            let pairs = [];
-
-            try { pairs = typeof it.material_pairs === 'string' ? JSON.parse(it.material_pairs) : (it.material_pairs || []); } catch(e) {}
-
-            if (pairs.length > 0) {
-
-                const matFilter = (reqMaterial || '').trim().toLowerCase();
-
-                const colFilter = (reqColor || '').trim().toLowerCase();
-
-                const pairIdx = pairs.findIndex(p =>
-
-                    (p.material_name || '').trim().toLowerCase() === matFilter &&
-
-                    (p.color_name || '').trim().toLowerCase() === colFilter
-
-                );
-
-                const currentPairIdx = pairIdx >= 0 ? pairIdx : 0;
-
-                const phoiRes = await db.all(`
-
-                    SELECT status FROM qlx_fabric_reservations
-
-                    WHERE item_id = $1 AND phoi_index = $2 AND status NOT IN ('released', 'fulfilled')
-
-                `, [it.order_item_id, currentPairIdx]);
-
-                fabricArrived = phoiRes.length > 0 && phoiRes.every(r => r.status === 'arrived');
-
-            } else {
-
-                fabricArrived = it.order_fabric_arrived;
-
+                    if (phoiRes.length > 0) {
+                        const nonReleased = phoiRes.filter(r => r.status !== 'released');
+                        fabricArrived = nonReleased.length > 0 && nonReleased.every(r => r.status === 'arrived' || r.status === 'fulfilled');
+                    } else {
+                        fabricArrived = !!it.order_fabric_arrived;
+                    }
+                } else {
+                    fabricArrived = !!it.order_fabric_arrived;
+                }
             }
-
-
 
             if (!fabricArrived) return reply.code(400).send({ error: 'Phiếu "' + it.order_code + '" chưa có vải về' });
 
@@ -7773,7 +7770,7 @@ module.exports = async function(fastify) {
 
 
 
-        if (createdIds.length < 2) {
+        if (createdIds.length < 1) {
 
             // Cleanup if something went wrong
 

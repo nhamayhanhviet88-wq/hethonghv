@@ -640,6 +640,8 @@ module.exports = async function(fastify) {
                     pr.gc_deadline,
                     pr.gc_extension_count,
                     o.category_id AS category_id,
+                    (SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = pr.dht_order_id AND it2.id <= pr.order_item_id) AS item_index,
+                    (SELECT COUNT(*)::int FROM dht_order_items it3 WHERE it3.dht_order_id = pr.dht_order_id) AS total_items_in_order,
                     (SELECT product_name FROM cutting_records WHERE order_item_id = pr.order_item_id ORDER BY CASE WHEN product_name LIKE '%P1%' THEN 0 ELSE 1 END, id ASC LIMIT 1) AS cut_product_name,
                     COALESCE(oi_cancel.production_cancelled, false) AS production_cancelled
                 FROM printing_records pr
@@ -717,6 +719,8 @@ module.exports = async function(fastify) {
                     NULL::date AS gc_deadline,
                     0 AS gc_extension_count,
                     o.category_id AS category_id,
+                    NULL::int AS item_index,
+                    (SELECT COUNT(*)::int FROM dht_order_items it3 WHERE it3.dht_order_id = o.id) AS total_items_in_order,
                     NULL::text AS cut_product_name,
                     false AS production_cancelled
                 FROM dht_orders o

@@ -410,9 +410,9 @@ const _PAGE_SCRIPT_MAP = {
     'bophanhoanthien': '/js/pages/bophanhoanthienhv.js?v=20260722_fix_syntax_map_v1',
     'bophanhoanthienhv': '/js/pages/bophanhoanthienhv.js?v=20260722_fix_syntax_map_v1',
     'bo-phan-hoan-thien': '/js/pages/bophanhoanthienhv.js?v=20260722_fix_syntax_map_v1',
-    'bophaninhv': '/js/pages/bophaninhv.js?v=20260722_fmt_meters_v2',
-    'bophanin': '/js/pages/bophaninhv.js?v=20260722_fmt_meters_v2',
-    'bo-phan-in': '/js/pages/bophaninhv.js?v=20260722_fmt_meters_v2',
+    'bophaninhv': '/js/pages/bophaninhv.js?v=' + Date.now(),
+    'bophanin': '/js/pages/bophaninhv.js?v=' + Date.now(),
+    'bo-phan-in': '/js/pages/bophaninhv.js?v=' + Date.now(),
     'bophanephv': '/js/pages/bophanephv.js',
     'bophanep': '/js/pages/bophanephv.js',
     'bo-phan-ep': '/js/pages/bophanephv.js',
@@ -452,7 +452,7 @@ const _PAGE_SCRIPT_MAP = {
     'bangcongviec/hoanthanh': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
     'bang-cong-viec/hoan-thanh': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
     'bang_cong_viec/hoan_thanh': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
-    'khovai': '/js/pages/khovai.js?v=20260721_infinite_stock_v2',
+    'khovai': '/js/pages/khovai.js?v=20260817_tz_v12',
     'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',
     'nhapxuathoanvai': '/js/pages/nhapxuathoanvai.js',
@@ -499,8 +499,8 @@ const _PAGE_SCRIPT_MAP = {
     'nhapxuathoanvatlieu': '/js/pages/nhapxuathoanvatlieu.js',
     'congviec-qlx': '/js/pages/congviecqlx.js?v=20260725_qlx_v103',
     'congviecqlx': '/js/pages/congviecqlx.js?v=20260725_qlx_v103',
-    'chuanbiqlx': '/js/pages/chuanbiqlx.js?v=20260725_qlx_v103',
-    'quanlyxuongqlx': '/js/pages/chuanbiqlx.js?v=20260725_qlx_v103',
+    'chuanbiqlx': '/js/pages/chuanbiqlx.js?v=20260816_undo_cutting_fix',
+    'quanlyxuongqlx': '/js/pages/chuanbiqlx.js?v=20260816_undo_cutting_fix',
     'chuyen-so': '/js/pages/chuyenso.js?v=20260730_v7',
     'chuyenso': '/js/pages/chuyenso.js?v=20260730_v7',
     'chuyensosale': '/js/pages/chuyensosale.js?v=20260730_v7',
@@ -532,7 +532,7 @@ const _PAGE_SCRIPT_MAP = {
     'bill-vat-lieu': '/js/pages/billvatlieu.js',
     'nhap-xuat-hoan-vat-lieu': '/js/pages/nhapxuathoanvatlieu.js',
     'kiem-kho': '/js/pages/kiemkho.js',
-    'kho-vai': '/js/pages/khovai.js',
+    'kho-vai': '/js/pages/khovai.js?v=20260817_tz_v12',
     'xuat-vai-cat': '/js/pages/xuatvaicat.js',
     'kho-vat-lieu': '/js/pages/khovatlieu.js',
     'thong-so-ao-mau': '/js/pages/thongsoaomau.js',
@@ -6899,12 +6899,20 @@ function closeModal() {
 
 // ========== TOAST ==========
 function showToast(message, type = 'success') {
-    const container = document.getElementById('toastContainer');
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:999999;display:flex;flex-direction:column;gap:8px;max-width:420px;pointer-events:none;';
+        document.body.appendChild(container);
+    }
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    toast.style.cssText = 'pointer-events:auto;white-space:pre-line;word-break:break-word;padding:12px 16px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);font-size:13px;line-height:1.4;font-weight:600;' +
+        (type === 'error' ? 'background:#ef4444;color:#fff;' : type === 'warning' ? 'background:#f59e0b;color:#fff;' : 'background:#10b981;color:#fff;');
     toast.textContent = message;
     container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3500);
+    setTimeout(() => toast.remove(), type === 'error' ? 6000 : 3500);
 }
 
 // ========== DELETE IMPACT CONFIRM POPUP ==========
@@ -8378,6 +8386,9 @@ async function _abCheckUnblock() {
     // Elements that should NOT be debounced (safe to click rapidly)
     function _isExempt(el) {
         if (!el) return true;
+        // Elements with inline onclick attributes — safe to run directly
+        if (el.hasAttribute && el.hasAttribute('onclick')) return true;
+        if (el.closest && el.closest('[onclick]')) return true;
         var tag = (el.tagName || '').toUpperCase();
         // Input fields, textareas, selects, labels — always safe
         if (['INPUT', 'TEXTAREA', 'SELECT', 'LABEL', 'OPTION'].indexOf(tag) >= 0) return true;
@@ -8405,7 +8416,8 @@ async function _abCheckUnblock() {
         // Bảng Công Việc buttons & modals — exempt from anti-double click debouncing
         if (el.closest && el.closest('[onclick*="_bcv"], [onclick*="bcv"], .bcv-modal, .bcv-card, .bcv-overlay')) return true;
         if (el.closest && el.closest('[onclick*="_hvAi"], [onclick*="hvAi"], .hv-ai-chat-window, .hv-ai-float-btn, .hv-ai-rule-btn, #hvAiConfigOverlay')) return true;
-        if (txt.indexOf('Bỏ gán') >= 0 || txt.indexOf('Bỏ Gán') >= 0 || txt.indexOf('Xóa Bảng') >= 0 || txt.indexOf('Cấu Hình API Key') >= 0) return true;
+        if (el.closest && el.closest('[onclick*="_qlx"], [onclick*="qlx"], [onclick*="UndoCutting"], [onclick*="_bpc"], .qlx-modal, .bpc-modal')) return true;
+        if (txt.indexOf('Bỏ gán') >= 0 || txt.indexOf('Bỏ Gán') >= 0 || txt.indexOf('Xóa Bảng') >= 0 || txt.indexOf('Cấu Hình API Key') >= 0 || txt.indexOf('DUYỆT VỀ NHẬN CẮT') >= 0 || txt.indexOf('TỪ CHỐI') >= 0) return true;
         return false;
     }
 
