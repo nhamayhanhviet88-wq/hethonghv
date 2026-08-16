@@ -2143,7 +2143,11 @@ module.exports = async function(fastify) {
 
                    sch.cut_expected_at,
 
-                   COALESCE(oi.production_cancelled, false) AS production_cancelled
+                   COALESCE(oi.production_cancelled, false) AS production_cancelled,
+
+                   (SELECT COUNT(*)::int FROM dht_order_items it2 WHERE it2.dht_order_id = cr.dht_order_id AND it2.id <= cr.order_item_id) AS item_index,
+
+                   (SELECT COUNT(*)::int FROM dht_order_items it3 WHERE it3.dht_order_id = cr.dht_order_id) AS total_items_in_order
 
              FROM cutting_records cr
 
