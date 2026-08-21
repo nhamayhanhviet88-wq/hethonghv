@@ -1462,7 +1462,59 @@
         });
     }
 
-    window._mpOnProcessChange = function(procId, preSelectedColId) {
+    function _mpFormatShortDate(dateStr) {
+        if (!dateStr) return '';
+        var parts = dateStr.split('-');
+        if (parts.length === 3) {
+            var y = parts[0].slice(-2);
+            var m = parseInt(parts[1], 10);
+            var d = parseInt(parts[2], 10);
+            return d + '/' + m + '/' + y;
+        }
+        var dt = new Date(dateStr);
+        if (isNaN(dt.getTime())) return '';
+        return dt.getDate() + '/' + (dt.getMonth() + 1) + '/' + String(dt.getFullYear()).slice(-2);
+    }
+
+    function _mpGenerateAutoTitle(procId, meetingDateStr, currentSessionId) {
+        var procObj = _mpProcesses.find(function(p) { return String(p.id) === String(procId); });
+        if (!procObj) return '';
+
+        var cleanProcName = (procObj.name || '').replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]\s*/u, '').trim();
+
+        var targetDate = meetingDateStr ? meetingDateStr.substring(0, 10) : new Date().toISOString().substring(0, 10);
+
+        var matchingSessions = _mpSessions.filter(function(s) {
+            if (String(s.process_id || 1) !== String(procId)) return false;
+            var sDate = (s.meeting_date || '').substring(0, 10);
+            return sDate === targetDate;
+        });
+
+        var nth = 1;
+        if (currentSessionId) {
+            matchingSessions.sort(function(a, b) { return a.id - b.id; });
+            var idx = matchingSessions.findIndex(function(s) { return String(s.id) === String(currentSessionId); });
+            if (idx >= 0) {
+                nth = idx + 1;
+            } else {
+                nth = matchingSessions.length + 1;
+            }
+        } else {
+            nth = matchingSessions.length + 1;
+        }
+
+        var shortDate = _mpFormatShortDate(targetDate);
+        return cleanProcName + ' - Lần ' + nth + ' - ' + shortDate;
+    }
+
+    window._mpOnDateChange = function() {
+        var procSelect = document.getElementById('mp-session-process');
+        if (procSelect) {
+            window._mpOnProcessChange(procSelect.value, undefined, window._mpActiveSessionId);
+        }
+    };
+
+    window._mpOnProcessChange = function(procId, preSelectedColId, currentSessionId) {
         var procObj = _mpProcesses.find(function(p) { return String(p.id) === String(procId); });
         var procName = procObj ? (procObj.name || '') : '';
         var isBst = procName.toLowerCase().indexOf('bộ sưu tập') >= 0 || procName.indexOf('Họp Bộ Sưu Tập Mới') >= 0;
@@ -1470,6 +1522,8 @@
         var wrapEl = document.getElementById('mp-collection-wrap');
         var titleInput = document.getElementById('mp-session-title');
         var colSelect = document.getElementById('mp-session-collection-select');
+        var dateInput = document.getElementById('mp-session-date');
+        var meetingDateStr = dateInput ? dateInput.value : '';
 
         if (isBst) {
             if (wrapEl) wrapEl.style.display = 'block';
@@ -1495,12 +1549,14 @@
         } else {
             if (wrapEl) wrapEl.style.display = 'none';
             if (titleInput) {
-                titleInput.readOnly = false;
-                titleInput.style.background = '#ffffff';
-                titleInput.style.color = '#0f172a';
-                titleInput.style.cursor = 'text';
-                titleInput.style.border = '1px solid ' + C.slate300;
-                titleInput.style.fontWeight = 'normal';
+                var autoTitle = _mpGenerateAutoTitle(procId, meetingDateStr, currentSessionId);
+                titleInput.value = autoTitle;
+                titleInput.readOnly = true;
+                titleInput.style.background = '#f1f5f9';
+                titleInput.style.color = '#475569';
+                titleInput.style.cursor = 'not-allowed';
+                titleInput.style.border = '1px solid #cbd5e1';
+                titleInput.style.fontWeight = '700';
             }
         }
     };
@@ -1578,7 +1634,7 @@
 
         html += '<div><label style="' + _labelStyle() + '">📋 Tiêu đề cuộc họp *</label><input type="text" id="mp-session-title" value="' + _escHtml((session && session.title) || '') + '" placeholder="VD: Họp tuần 33 — Tổng kết KPI tháng 8/2026" style="' + _inputStyle() + '" /></div>';
 
-        html += '<div><label style="' + _labelStyle() + '">📅 Ngày họp *</label><input type="date" id="mp-session-date" value="' + ((session && session.meeting_date) ? session.meeting_date.substring(0, 10) : new Date().toISOString().substring(0, 10)) + '" style="' + _inputStyle() + '" /></div>';
+        html += '<div><label style="' + _labelStyle() + '">📅 Ngày họp *</label><input type="date" id="mp-session-date" onchange="window._mpOnDateChange()" value="' + ((session && session.meeting_date) ? session.meeting_date.substring(0, 10) : new Date().toISOString().substring(0, 10)) + '" style="' + _inputStyle() + '" /></div>';
 
         // Chairperson & Secretary Unified Searchable Select
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
@@ -1625,11 +1681,13 @@
 
         _mpShowModal((isEdit ? '✏️ Chỉnh Sửa Phiên Họp' : '📝 Tạo Biên Bản Cuộc Họp Mới'), html, '640px');
 
+        window._mpActiveSessionId = session ? session.id : null;
+
         // Trigger initial process change calculation after modal HTML is mounted
         setTimeout(function() {
             var procSelect = document.getElementById('mp-session-process');
             if (procSelect) {
-                window._mpOnProcessChange(procSelect.value, session ? session.collection_id : undefined);
+                window._mpOnProcessChange(procSelect.value, session ? session.collection_id : undefined, session ? session.id : null);
             }
         }, 30);
     }
