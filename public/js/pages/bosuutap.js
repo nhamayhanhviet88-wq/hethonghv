@@ -1496,6 +1496,30 @@ function viewCollectionDetail(id) {
     const pb = typeof col.phieu_ban_don === 'string' ? JSON.parse(col.phieu_ban_don) : (col.phieu_ban_don || {});
     const ts = typeof col.thong_so_mau_ao === 'string' ? JSON.parse(col.thong_so_mau_ao) : (col.thong_so_mau_ao || {});
 
+    const chupRaw = typeof col.chup_anh_mau_bst === 'string' ? JSON.parse(col.chup_anh_mau_bst) : (col.chup_anh_mau_bst || []);
+    let chupImgList = [];
+    let chupOrigList = [];
+    if (Array.isArray(chupRaw)) {
+        chupRaw.forEach(item => {
+            if (typeof item === 'string' && item) {
+                chupImgList.push(item);
+                chupOrigList.push(item);
+            } else if (item && typeof item === 'object') {
+                const u = item.image_url || item.url || '';
+                const origU = item.original_image_url || item.original_url || u;
+                if (u) {
+                    chupImgList.push(u);
+                    chupOrigList.push(origU);
+                }
+            }
+        });
+    } else if (chupRaw && typeof chupRaw === 'object') {
+        const urls = Array.isArray(chupRaw.image_urls) ? chupRaw.image_urls : (chupRaw.image_url ? [chupRaw.image_url] : []);
+        const origUrls = Array.isArray(chupRaw.original_image_urls) ? chupRaw.original_image_urls : urls;
+        chupImgList = urls.filter(Boolean);
+        chupOrigList = origUrls.filter(Boolean);
+    }
+
     const renderSectionFilesDetailHtml = (groupObj, titleText, badgeNumber, accentColor) => {
         const imgUrls = Array.isArray(groupObj.image_urls) && groupObj.image_urls.length > 0 
             ? groupObj.image_urls.filter(Boolean) 
@@ -1650,6 +1674,36 @@ function viewCollectionDetail(id) {
                     💰 Giá Sản Phẩm & Gợi Ý Chất Liệu:
                 </div>
                 <div style="font-size: 14px; color: #78350f; font-weight: 600; white-space: pre-wrap; line-height: 1.6; padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 10px; border: 1px solid #fcd34d;">${escapeHtml(col.gia_san_pham || 'Chưa cập nhật')}</div>
+            </div>
+
+            <!-- 8. Chụp Ảnh Mẫu BST (Luôn hiển thị) -->
+            <div style="background: #f8fafc; padding: 18px 22px; border-radius: 14px; border: 1px solid #cbd5e1; box-shadow: 0 2px 6px rgba(15,23,42,0.03);">
+                <div style="font-weight: 800; font-size: 14px; color: #334155; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="background: linear-gradient(135deg,#64748b,#475569); color: white; width: 24px; height: 24px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">8</span>
+                        <span>📷 Chụp Ảnh Mẫu BST:</span>
+                    </div>
+                    <span style="font-size: 11px; font-weight: 700; background: white; padding: 2px 8px; border-radius: 12px; color: #64748b; border: 1px solid #e2e8f0;">${chupImgList.length} Ảnh mẫu</span>
+                </div>
+                ${chupImgList.length > 0 ? `
+                    <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                        ${chupImgList.map((u, i) => {
+                            const origU = chupOrigList[i] || u;
+                            return `
+                                <div style="background: white; border: 1px solid #e2e8f0; padding: 6px; border-radius: 10px; text-align: center; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);">
+                                    <a href="${origU}" target="_blank" title="Bấm để mở xem ảnh mẫu HD gốc">
+                                        <img src="${u}" style="height: 100px; width: 130px; object-fit: cover; object-position: top center; border-radius: 8px; border: 1px solid #f1f5f9; background: #f8fafc;">
+                                    </a>
+                                    <a href="${origU}" download="Anh_Mau_BST_${i+1}.jpg" target="_blank" style="color: #475569; font-size: 11px; font-weight: 700; text-decoration: none; background: #f1f5f9; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: flex; align-items: center; gap: 4px; width: 100%; justify-content: center;">
+                                        ⬇️ Tải Ảnh HD
+                                    </a>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : `
+                    <div style="font-size: 12.5px; color: #94a3b8; font-style: italic; padding: 6px 0;">(Chưa có ảnh chụp mẫu BST nào)</div>
+                `}
             </div>
 
             <!-- Liên kết 9 & 10 -->
