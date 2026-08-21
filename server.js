@@ -1480,6 +1480,16 @@ async function start() {
         return fs.createReadStream(filePath);
     });
 
+    // Serve collection uploads (attachments, images, pdfs)
+    fastify.get('/uploads/collections/:filename', async (request, reply) => {
+        const filePath = path.join(__dirname, 'uploads', 'collections', request.params.filename);
+        if (!fs.existsSync(filePath)) return reply.code(404).send('Not found');
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeMap = { '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.gif':'image/gif', '.webp':'image/webp', '.pdf':'application/pdf' };
+        reply.type(mimeMap[ext] || 'application/octet-stream');
+        return fs.createReadStream(filePath);
+    });
+
 
     // Serve payment uploads with automatic MIME sniffing (fixes webp files saved as png/jpg)
     fastify.get('/uploads/bill-nhap-hang/payments/:filename', async (request, reply) => {
@@ -1522,8 +1532,10 @@ async function start() {
     fastify.addHook('onSend', (request, reply, payload, done) => {
         const url = request.url;
         if (url.match(/\.(js|css)(\?|$)/)) {
-            // JS/CSS: cache 5 phút — đủ nhanh, đủ ngắn để deploy mới lên ngay
-            reply.header('Cache-Control', 'public, max-age=300, must-revalidate');
+            // JS/CSS: Never cache in browser, force immediate revalidation
+            reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            reply.header('Pragma', 'no-cache');
+            reply.header('Expires', '0');
         } else if (url.match(/\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot)(\?|$)/)) {
             // Static assets: cache for 30 days
             reply.header('Cache-Control', 'public, max-age=2592000');
@@ -1705,9 +1717,11 @@ async function start() {
     fastify.register(require('./routes/kpiSale'));
     fastify.register(require('./routes/kpiMarketing'));
     fastify.register(require('./routes/meetingCommitments'));
+    fastify.register(require('./routes/meetingProcess'));
     fastify.register(require('./routes/companyRules'));
     fastify.register(require('./routes/aiAssistant'));
     fastify.register(require('./routes/bangcongviec'));
+    fastify.register(require('./routes/bosuutap'));
     fastify.register(require('./routes/telegram'));
     fastify.register(require('./routes/paymentRecords'));
     fastify.register(require('./routes/cashflow'));
@@ -1795,6 +1809,11 @@ async function start() {
     // Mobile Khuyến Mãi Giảm Giá
     fastify.get('/m/khuyenmaigiamgia', async (request, reply) => {
         return reply.sendFile('mobile-khuyenmaigiamgia.html');
+    });
+
+    // Mobile Bộ Sưu Tập / BST
+    fastify.get('/m/bosuutap', async (request, reply) => {
+        return reply.sendFile('mobile-bosuutap.html');
     });
 
 

@@ -585,3 +585,57 @@ async function _cdkSubmitBulk() {
     document.getElementById('cdkBulkText').value = '';
     await _cdkLoadColors();
 }
+
+// ===== CUTOFF TIME WIDGET — Giờ chốt kiểm tra cây lẻ =====
+
+async function _cdkLoadCutoffWidget() {
+    var widget = document.getElementById('cdkCutoffWidget');
+    if (!widget) return;
+
+    try {
+        var data = await apiCall('/api/penalty/config');
+        var configs = data.configs || [];
+        var cutoffCfg = configs.find(function(c) { return c.key === 'cay_le_cutoff_time'; });
+        var totalMins = cutoffCfg ? cutoffCfg.amount : 1020; // Default 17:00
+        var hrs = Math.floor(totalMins / 60);
+        var mins = totalMins % 60;
+        var timeStr = String(hrs).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
+
+        widget.innerHTML = '<div style="background:white;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);">'
+            + '<div style="background:linear-gradient(135deg,#0d9488,#059669);padding:10px 16px;display:flex;align-items:center;gap:8px;">'
+            + '<span style="color:white;font-weight:800;font-size:14px;">⏰ Giờ Chốt Kiểm Tra Cây Lẻ Hằng Ngày</span>'
+            + '</div>'
+            + '<div style="padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+            + '<div style="flex:1;min-width:200px;">'
+            + '<div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Nếu còn cây lẻ chưa xếp kệ kho tại thời điểm này → phạt NV đã cài đặt.</div>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:8px;">'
+            + '<label style="font-size:13px;font-weight:700;color:#1e293b;">Giờ chốt:</label>'
+            + '<input type="time" id="cdkCutoffTime" value="' + timeStr + '" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:15px;font-weight:700;color:#0d9488;width:110px;">'
+            + '<button onclick="_cdkSaveCutoff()" style="padding:6px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#0d9488,#10b981);color:white;cursor:pointer;font-weight:700;font-size:12px;box-shadow:0 2px 6px rgba(5,150,105,0.3);">💾 Lưu</button>'
+            + '</div></div></div>';
+    } catch(e) {
+        widget.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:8px;">Lỗi tải widget giờ chốt</div>';
+    }
+}
+
+async function _cdkSaveCutoff() {
+    var input = document.getElementById('cdkCutoffTime');
+    if (!input) return;
+    var val = input.value || '17:00';
+    var parts = val.split(':');
+    var minutes = (Number(parts[0]) || 0) * 60 + (Number(parts[1]) || 0);
+
+    try {
+        var res = await apiCall('/api/penalty/config', 'POST', {
+            configs: [{ key: 'cay_le_cutoff_time', amount: minutes }]
+        });
+        if (res.success) {
+            showToast('✅ Đã lưu giờ chốt: ' + val);
+        } else {
+            showToast(res.error || 'Lỗi', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
+    }
+}

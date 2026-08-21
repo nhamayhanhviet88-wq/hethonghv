@@ -2,6 +2,7 @@
 
 const PERM_FEATURES = [
     // ===== TỔNG QUAN =====
+    { key: 'quy_trinh_cuoc_hop', label: 'Quy Trình Cuộc Họp', perms: ['view','create','edit','delete'], section: 'TỔNG QUAN' },
     { key: 'tong_quan', label: 'Các Chỉ Số Tổng Quan', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'top_khach_hang', label: 'Top Khách & Sale KD', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'dashboard_kdoanh', label: 'Dashboard P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
@@ -117,12 +118,13 @@ const PERM_FEATURES = [
     // ===== NỘI QUY & TƯ LIỆU NỘI BỘ =====
     { key: 'noi_quy_cong_ty', label: 'Nội Quy & Điều Khoản', perms: ['view'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
     { key: 'tu_lieu_xuong_vp', label: 'Tư Liệu Xưởng & VP', perms: ['view'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
+    { key: 'bo_suu_tap', label: 'Bộ Sưu Tập / BST', perms: ['view', 'create', 'edit', 'delete'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
 
     // ===== QUY TẮC & CHÍNH SÁCH KH =====
     { key: 'chinh_sach_kh', label: 'Chính Sách Khách Hàng', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
-    { key: 'xu_ly_don_loi', label: 'Cách Xử Lý Đơn Lỗi', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
     { key: 'chuong_trinh_kh', label: 'Chương Trình Khách Hàng', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
-    { key: 'khuyen_mai_giam_gia', label: 'Khuyến Mãi Giảm Giá', perms: ['view', 'create', 'edit', 'delete'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
+    { key: 'xu_ly_don_loi', label: 'Cách Xử Lý Đơn Lỗi', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
+    { key: 'khuyen_mai_giam_gia', label: 'Tạo Mã Giảm Giá', perms: ['view', 'create', 'edit', 'delete'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
 
 
     // ===== VĂN PHÒNG QUẢN LÝ =====

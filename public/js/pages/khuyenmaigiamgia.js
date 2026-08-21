@@ -1,4 +1,4 @@
-// ========== KHUYẾN MÃI GIẢM GIÁ PAGE ==========
+// ========== TẠO MÃ GIẢM GIÁ PAGE ==========
 
 async function renderKhuyenMaiPage(container) {
     if (!document.getElementById('promoPageCSS')) {
@@ -18,7 +18,7 @@ async function renderKhuyenMaiPage(container) {
             <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-radius: 16px; padding: 32px; color: white; margin-bottom: 28px; box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3); position: relative; overflow: hidden;">
                 <div style="position: absolute; right: -50px; bottom: -50px; font-size: 180px; opacity: 0.1; transform: rotate(-15deg); user-select: none;">🎁</div>
                 <h2 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px;">
-                    <span>🎁 Quản Lý Khuyến Mãi Giảm Giá</span>
+                    <span>🎁 Tạo Mã Giảm Giá</span>
                 </h2>
                 <p style="margin: 8px 0 0; font-size: 15px; opacity: 0.9; max-width: 600px; line-height: 1.5;">
                     Tạo mã ưu đãi tự động 8 ký tự, quản lý loại quà tặng, chiết khấu và theo dõi trạng thái sử dụng của mã khuyến mãi.

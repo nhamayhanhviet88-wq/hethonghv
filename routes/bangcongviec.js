@@ -97,6 +97,10 @@ async function bangcongviecRoutes(fastify, options) {
             created_at TIMESTAMP DEFAULT NOW()
         )`);
     } catch(e) { /* already exists */ }
+    try {
+        await db.run(`ALTER TABLE board_task_checklist ADD COLUMN IF NOT EXISTS report_content TEXT`);
+        await db.run(`ALTER TABLE board_task_checklist ADD COLUMN IF NOT EXISTS report_link TEXT`);
+    } catch(e) { /* already exists */ }
 
     // Add task_link & assigned_to_ids column if not exists
     try {
@@ -127,6 +131,7 @@ async function bangcongviecRoutes(fastify, options) {
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW()
         )`);
+        await db.run(`ALTER TABLE board_documents ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);
     } catch(e) { /* already exists */ }
 
     // board_document_attachments
@@ -260,6 +265,240 @@ async function bangcongviecRoutes(fastify, options) {
 
     // ========== BOARD TASKS ==========
 
+    // GET /api/board-tasks/deadline-stats — Thống kê Tỉ lệ hoàn thành Deadline phân tầng theo Phòng Ban & Nhân Sự
+    fastify.get('/api/board-tasks/deadline-stats', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const user = request.user;
+            const { mode = 'thang', month, quarter, year, fromDate, toDate, department_id } = request.query;
+
+            const enabledDepts = await getEnabledDeptIds();
+            const userDeptId = await getUserDeptId(user);
+
+            // Determine target date range
+            let startDate, endDate, timeLabel;
+            const now = new Date();
+            const curYear = year ? parseInt(year, 10) : now.getFullYear();
+            const curMonth = month ? parseInt(month, 10) : (now.getMonth() + 1);
+
+            if (mode === 'quy') {
+                const q = quarter ? parseInt(quarter, 10) : Math.floor((curMonth - 1) / 3) + 1;
+                const startM = (q - 1) * 3 + 1;
+                const endM = q * 3;
+                startDate = `${curYear}-${String(startM).padStart(2, '0')}-01 00:00:00`;
+                const lastDay = new Date(curYear, endM, 0).getDate();
+                endDate = `${curYear}-${String(endM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')} 23:59:59`;
+                timeLabel = `Quý ${q}/${curYear}`;
+            } else if (mode === 'nam') {
+                startDate = `${curYear}-01-01 00:00:00`;
+                endDate = `${curYear}-12-31 23:59:59`;
+                timeLabel = `Năm ${curYear}`;
+            } else if (mode === 'ngay' && fromDate && toDate) {
+                startDate = `${fromDate} 00:00:00`;
+                endDate = `${toDate} 23:59:59`;
+                timeLabel = `Từ ${fromDate} đến ${toDate}`;
+            } else {
+                // Default: thang
+                startDate = `${curYear}-${String(curMonth).padStart(2, '0')}-01 00:00:00`;
+                const lastDay = new Date(curYear, curMonth, 0).getDate();
+                endDate = `${curYear}-${String(curMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')} 23:59:59`;
+                timeLabel = `Tháng ${curMonth}/${curYear}`;
+            }
+
+            // Fetch departments
+            if (enabledDepts.length === 0 && user.role !== 'giam_doc') {
+                return reply.send({ ok: true, time_label: timeLabel, summary: { total_tasks: 0, on_time_count: 0, late_count: 0, overdue_count: 0, on_time_rate: 100 }, departments: [] });
+            }
+
+            let deptWhere = [];
+            let deptParams = [];
+            if (user.role !== 'giam_doc' && user.role !== 'quan_ly_cap_cao') {
+                if (userDeptId) {
+                    deptWhere.push(`id = $1`);
+                    deptParams.push(userDeptId);
+                } else {
+                    deptWhere.push(`id = ANY($1::int[])`);
+                    deptParams.push(enabledDepts);
+                }
+            } else if (department_id) {
+                deptWhere.push(`id = $1`);
+                deptParams.push(parseInt(department_id, 10));
+            } else {
+                deptWhere.push(`id = ANY($1::int[])`);
+                deptParams.push(enabledDepts);
+            }
+
+            const depts = await db.all(`SELECT id, name FROM departments WHERE ${deptWhere.join(' AND ')} ORDER BY id ASC`, deptParams);
+
+            // Fetch users for these departments
+            const deptIds = depts.map(d => d.id);
+            if (deptIds.length === 0) {
+                return reply.send({ ok: true, time_label: timeLabel, summary: { total_tasks: 0, on_time_count: 0, late_count: 0, overdue_count: 0, on_time_rate: 100 }, departments: [] });
+            }
+
+            const deptUsers = await db.all(`
+                SELECT id, username, full_name, role, department_id 
+                FROM users 
+                WHERE department_id = ANY($1::int[])
+                ORDER BY CASE role WHEN 'truong_phong' THEN 1 WHEN 'quan_ly' THEN 2 ELSE 3 END, full_name ASC
+            `, [deptIds]);
+
+            // Fetch tasks in range
+            const tasks = await db.all(`
+                SELECT t.id, t.title, t.status, t.priority, t.department_id, t.assigned_to, t.assigned_to_ids, t.created_by, t.deadline, t.completed_at, t.updated_at, t.created_at
+                FROM board_tasks t
+                WHERE t.department_id = ANY($1::int[])
+                  AND (
+                      (t.status = 'hoan_thanh' AND COALESCE(t.completed_at, t.updated_at, t.created_at) BETWEEN $2::timestamp AND $3::timestamp)
+                      OR (t.status != 'hoan_thanh' AND (t.deadline BETWEEN $2::date AND $3::date OR t.created_at BETWEEN $2::timestamp AND $3::timestamp))
+                  )
+            `, [deptIds, startDate, endDate]);
+
+            // Process stats per department and per user
+            let grandTotal = 0;
+            let grandOnTime = 0;
+            let grandLate = 0;
+            let grandOverdue = 0;
+            let grandInProgress = 0;
+
+            const nowTime = new Date().getTime();
+
+            const deptResults = depts.map(dept => {
+                const deptTasks = tasks.filter(t => t.department_id === dept.id);
+                const usersInDept = deptUsers.filter(u => u.department_id === dept.id);
+
+                let dTotal = 0, dOnTime = 0, dLate = 0, dOverdue = 0, dInProgress = 0;
+
+                const userResults = usersInDept.map(u => {
+                    const uTasks = deptTasks.filter(t => {
+                        if (t.assigned_to === u.id) return true;
+                        if (t.assigned_to_ids) {
+                            const ids = t.assigned_to_ids.split(',');
+                            return ids.includes(String(u.id));
+                        }
+                        return false;
+                    });
+
+                    let uOnTime = 0, uLate = 0, uOverdue = 0, uInProgress = 0;
+                    uTasks.forEach(t => {
+                        const dlStr = t.deadline ? t.deadline + 'T23:59:59+07:00' : null;
+                        const dlTime = dlStr ? new Date(dlStr).getTime() : null;
+
+                        if (t.status === 'hoan_thanh') {
+                            const compTime = t.completed_at ? new Date(t.completed_at).getTime() : new Date(t.updated_at || t.created_at).getTime();
+                            if (dlTime && compTime > dlTime) {
+                                uLate++;
+                            } else {
+                                uOnTime++;
+                            }
+                        } else {
+                            if (dlTime && nowTime > dlTime) {
+                                uOverdue++;
+                            } else {
+                                uInProgress++;
+                            }
+                        }
+                    });
+
+                    const uTotal = uTasks.length;
+                    const uEvaluated = uOnTime + uLate + uOverdue;
+                    const uRate = uEvaluated > 0 ? Math.round((uOnTime / uEvaluated) * 1000) / 10 : 100;
+
+                    let roleTitle = 'Nhân Viên';
+                    if (u.role === 'truong_phong') roleTitle = 'Trưởng Phòng';
+                    else if (u.role === 'quan_ly') roleTitle = 'Quản Lý';
+                    else if (u.role === 'giam_doc') roleTitle = 'Giám Đốc';
+
+                    return {
+                        id: u.id,
+                        username: u.username,
+                        full_name: u.full_name || u.username,
+                        role: u.role,
+                        role_name: roleTitle,
+                        total_tasks: uTotal,
+                        on_time_count: uOnTime,
+                        late_completed_count: uLate,
+                        overdue_pending_count: uOverdue,
+                        in_progress_count: uInProgress,
+                        on_time_rate: uRate
+                    };
+                });
+
+                // Sum up user assignments for department summary so header badges match table rows sum 100%
+                userResults.forEach(u => {
+                    dTotal += u.total_tasks;
+                    dOnTime += u.on_time_count;
+                    dLate += u.late_completed_count;
+                    dOverdue += u.overdue_pending_count;
+                    dInProgress += u.in_progress_count;
+                });
+
+                // Also account for any unassigned tasks in the department
+                const unassignedTasks = deptTasks.filter(t => !t.assigned_to && !t.assigned_to_ids);
+                unassignedTasks.forEach(t => {
+                    const dlStr = t.deadline ? t.deadline + 'T23:59:59+07:00' : null;
+                    const dlTime = dlStr ? new Date(dlStr).getTime() : null;
+
+                    if (t.status === 'hoan_thanh') {
+                        const compTime = t.completed_at ? new Date(t.completed_at).getTime() : new Date(t.updated_at || t.created_at).getTime();
+                        if (dlTime && compTime > dlTime) {
+                            dLate++;
+                        } else {
+                            dOnTime++;
+                        }
+                    } else {
+                        if (dlTime && nowTime > dlTime) {
+                            dOverdue++;
+                        } else {
+                            dInProgress++;
+                        }
+                    }
+                    dTotal++;
+                });
+
+                const dEvaluated = dOnTime + dLate + dOverdue;
+                const dRate = dEvaluated > 0 ? Math.round((dOnTime / dEvaluated) * 1000) / 10 : 100;
+
+                grandTotal += dTotal;
+                grandOnTime += dOnTime;
+                grandLate += dLate;
+                grandOverdue += dOverdue;
+                grandInProgress += dInProgress;
+
+                return {
+                    id: dept.id,
+                    name: dept.name,
+                    total_tasks: dTotal,
+                    on_time_count: dOnTime,
+                    late_completed_count: dLate,
+                    overdue_pending_count: dOverdue,
+                    in_progress_count: dInProgress,
+                    on_time_rate: dRate,
+                    users: userResults
+                };
+            });
+
+            const grandEvaluated = grandOnTime + grandLate + grandOverdue;
+            const grandRate = grandEvaluated > 0 ? Math.round((grandOnTime / grandEvaluated) * 1000) / 10 : 100;
+
+            return reply.send({
+                ok: true,
+                time_label: timeLabel,
+                summary: {
+                    total_tasks: grandTotal,
+                    on_time_count: grandOnTime,
+                    late_count: grandLate,
+                    overdue_count: grandOverdue,
+                    in_progress_count: grandInProgress,
+                    on_time_rate: grandRate
+                },
+                departments: deptResults
+            });
+        } catch(e) {
+            console.error('[deadline-stats GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     // GET /api/board-tasks — List tasks (with filters)
     fastify.get('/api/board-tasks', { preHandler: [authenticate] }, async (request, reply) => {
         try {
@@ -319,10 +558,9 @@ async function bangcongviecRoutes(fastify, options) {
                 if (tab === 'me') {
                     pIdx++; where.push(`(t.assigned_to = $${pIdx} OR (t.assigned_to_ids IS NOT NULL AND $${pIdx}::text = ANY(string_to_array(t.assigned_to_ids, ','))))`); params.push(user.id);
                 } else if (tab === 'ban_giao' || tab === 'phong') {
-                    pIdx++; where.push(`(t.created_by = $${pIdx} OR t.department_id = $${pIdx + 1}) AND (t.assigned_to IS NULL OR (t.assigned_to != $${pIdx} AND (t.assigned_to_ids IS NULL OR NOT ($${pIdx}::text = ANY(string_to_array(t.assigned_to_ids, ','))))))`);
-                    params.push(user.id);
-                    params.push(userDeptId);
-                    pIdx++;
+                    pIdx++; const uDeptParam = pIdx; params.push(userDeptId);
+                    pIdx++; const uIdParam = pIdx; params.push(user.id);
+                    where.push(`t.created_by IN (SELECT id FROM users WHERE department_id = $${uDeptParam} AND role IN ('truong_phong', 'quan_ly', 'quan_ly_cap_cao')) AND (t.assigned_to IS NULL OR (t.assigned_to != $${uIdParam} AND (t.assigned_to_ids IS NULL OR NOT ($${uIdParam}::text = ANY(string_to_array(t.assigned_to_ids, ','))))))`);
                 }
             }
 
@@ -503,9 +741,21 @@ async function bangcongviecRoutes(fastify, options) {
                 }
             }
 
+            // Calculate department task code & sequence number
+            let taskCode = null;
+            let deptTaskNo = null;
+            if (deptId) {
+                const dept = await db.get(`SELECT name FROM departments WHERE id = $1`, [deptId]);
+                const deptCode = getDeptShortCode(dept ? dept.name : '');
+                const maxRow = await db.get(`SELECT MAX(dept_task_no) as max_no FROM board_tasks WHERE department_id = $1`, [deptId]);
+                deptTaskNo = (maxRow && maxRow.max_no ? Number(maxRow.max_no) : 0) + 1;
+                const numStr = deptTaskNo < 10 ? ('0' + deptTaskNo) : String(deptTaskNo);
+                taskCode = 'CV-' + deptCode + '-' + numStr;
+            }
+
             const result = await db.get(`
-                INSERT INTO board_tasks (title, description, status, priority, task_type, department_id, assigned_to, assigned_to_ids, created_by, deadline, task_link, guide_link)
-                VALUES ($1, $2, 'can_lam', $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                INSERT INTO board_tasks (title, description, status, priority, task_type, department_id, assigned_to, assigned_to_ids, created_by, deadline, task_link, guide_link, task_code, dept_task_no)
+                VALUES ($1, $2, 'can_lam', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 RETURNING *
             `, [
                 title.trim(),
@@ -518,24 +768,41 @@ async function bangcongviecRoutes(fastify, options) {
                 user.id,
                 deadline || null,
                 task_link || null,
-                guide_link || null
+                guide_link || null,
+                taskCode,
+                deptTaskNo
             ]);
 
             // Create checklist items if provided
             if (checklist && Array.isArray(checklist) && checklist.length > 0) {
                 for (let i = 0; i < checklist.length; i++) {
                     const item = checklist[i];
-                    if (item && item.trim()) {
+                    if (typeof item === 'string' && item.trim()) {
                         await db.run(`INSERT INTO board_task_checklist (task_id, title, sort_order) VALUES ($1, $2, $3)`,
                             [result.id, item.trim(), i]);
+                    } else if (typeof item === 'object' && item && item.title != null) {
+                        const itemTitle = String(item.title).trim();
+                        if (itemTitle) {
+                            const itemContent = item.content != null ? String(item.content).trim() : null;
+                            let itemLink = null;
+                            if (typeof item.link === 'string') {
+                                itemLink = item.link.trim() || null;
+                            } else if (item.link && typeof item.link === 'object') {
+                                itemLink = item.link.url || (item.link.title ? String(item.link.title) : String(item.link));
+                            } else if (item.link != null) {
+                                itemLink = String(item.link).trim() || null;
+                            }
+                            await db.run(`INSERT INTO board_task_checklist (task_id, title, content, link, sort_order) VALUES ($1, $2, $3, $4, $5)`,
+                                [result.id, itemTitle, itemContent || null, itemLink || null, i]);
+                        }
                     }
                 }
             }
 
             return reply.send({ ok: true, task: result });
         } catch(e) {
-            console.error('[board-tasks POST]', e);
-            return reply.code(500).send({ error: e.message });
+            console.error('[board-tasks POST ERROR]', e);
+            return reply.code(500).send({ error: e.message || 'Lỗi hệ thống khi tạo task' });
         }
     });
 
@@ -765,6 +1032,45 @@ async function bangcongviecRoutes(fastify, options) {
 
             let extraSql = '';
             if (status === 'hoan_thanh') {
+                const rContent = (task.report_content || '').trim();
+                const rLink = (task.report_link || '').trim();
+                if (!rContent || !rLink) {
+                    return reply.code(400).send({ error: 'Bạn phải điền đầy đủ Nội dung báo cáo toàn bộ công việc và Đường link nộp báo cáo tổng thể trước khi chuyển sang trạng thái Hoàn Thành!' });
+                }
+
+                // Check if task belongs to "Tư Liệu 2 : Thiết Kế Mẫu Bộ Sưu Tập / BST (New)"
+                let guides = [];
+                try {
+                    guides = typeof task.guide_link === 'string' ? JSON.parse(task.guide_link) : (task.guide_link || []);
+                } catch(e){}
+                let isTuLieu2Task = false;
+                if (Array.isArray(guides)) {
+                    isTuLieu2Task = guides.some(g => {
+                        const gMain = (g.mainCat || '').toLowerCase();
+                        const gSub = (g.subCat || g.title || '').toLowerCase();
+                        return gMain.includes('thiết kế mẫu bộ sưu tập') || gMain.includes('thiết kế bst') || gSub.includes('thiết kế mẫu');
+                    });
+                }
+                if (!isTuLieu2Task && task.title && task.title.toLowerCase().includes('thiết kế mẫu')) {
+                    isTuLieu2Task = true;
+                }
+
+                if (isTuLieu2Task) {
+                    const linkedCollection = await db.get(`SELECT id FROM product_collections WHERE task_id = $1 LIMIT 1`, [taskId]);
+                    if (!linkedCollection) {
+                        return reply.code(400).send({ 
+                            error: 'Công việc thuộc "Tư Liệu 2 : Thiết Kế Mẫu Bộ Sưu Tập / BST (New)" bắt buộc phải tạo 1 Bộ Sưu Tập tại Menu Bộ Sưu Tập / BST trước khi chuyển sang Hoàn Thành!' 
+                        });
+                    }
+                }
+
+                const uncompletedChecklist = await db.get(`
+                    SELECT COUNT(*) as count FROM board_task_checklist
+                    WHERE task_id = $1 AND is_done = FALSE
+                `, [taskId]);
+                if (uncompletedChecklist && Number(uncompletedChecklist.count) > 0) {
+                    return reply.code(400).send({ error: `Còn ${uncompletedChecklist.count} mục checklist chưa được tích hoàn thành!` });
+                }
                 extraSql = ', completed_at = NOW(), progress = 100';
             } else if (status === 'dang_lam' && task.status === 'can_lam') {
                 // Chuyển từ CẦN LÀM → ĐANG LÀM: ghi thời gian nhận việc
@@ -870,6 +1176,62 @@ async function bangcongviecRoutes(fastify, options) {
         }
     });
 
+function getDeptShortCode(deptName) {
+    if (!deptName) return 'CHUNG';
+    const nameUpper = String(deptName).toUpperCase().trim();
+    if (nameUpper.includes('MARKETING')) return 'MKT';
+    if (nameUpper.includes('KINH DOANH')) return 'KD';
+    if (nameUpper.includes('KẾ TOÁN') || nameUpper.includes('KE TOAN')) return 'KT';
+    if (nameUpper.includes('THỦ QUỸ') || nameUpper.includes('THU QUY')) return 'QUY';
+    if (nameUpper.includes('THỦ KHO') || nameUpper.includes('THU KHO')) return 'KHO';
+    if (nameUpper.includes('NHÂN SỰ') || nameUpper.includes('HÀNH CHÍNH')) return 'NS';
+    if (nameUpper.includes('AFFILIATE')) return 'AFF';
+    if (nameUpper.includes('ÉP') || nameUpper.includes('EP')) return 'EP';
+    if (nameUpper.includes('HOÀN THIỆN') || nameUpper.includes('HOAN THIEN')) return 'HT';
+    if (nameUpper.includes('CẮT CÁNH')) return 'CC';
+    if (nameUpper.includes('CẮT')) return 'CAT';
+    if (nameUpper.includes('XÃ HỘI')) return 'XH';
+    if (nameUpper.includes('VĂN PHÒNG')) return 'VP';
+    if (nameUpper.includes('XƯỞNG')) return 'XUONG';
+    if (nameUpper.includes('THIẾT KẾ') || nameUpper.includes('THIET KE')) return 'TK';
+    if (nameUpper.includes('SINH VIÊN')) return 'SVKD';
+    if (nameUpper.includes('THỬ VIỆC')) return 'TVKD';
+    if (nameUpper.includes('TIÊN PHONG')) return 'MTP';
+    if (nameUpper.includes('TINH HOA')) return 'MTH';
+    if (nameUpper.includes('MAY')) return 'MAY';
+    if (nameUpper.includes('IN')) return 'IN';
+    if (nameUpper.includes('SALE')) return 'SALE';
+
+    const stopWords = ['PHÒNG', 'TEAM', 'HỆ', 'THỐNG', 'BAN', 'BỘ', 'PHẬN', 'HV'];
+    const words = nameUpper.split(/\s+/).filter(w => w && !stopWords.includes(w));
+    if (words.length > 0) {
+        const code = words.map(w => w[0]).join('').replace(/[^A-Z0-9]/g, '');
+        if (code) return code;
+    }
+    return 'CV';
+}
+
+    // GET /api/board-tasks/next-id — Lấy mã task chuẩn bị tạo tiếp theo theo phòng ban
+    fastify.get('/api/board-tasks/next-id', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const deptId = request.query.department_id || request.query.dept_id;
+            if (!deptId) {
+                return reply.send({ nextId: 0, nextCode: '— Chọn phòng ban —' });
+            }
+            const dept = await db.get(`SELECT name FROM departments WHERE id = $1`, [deptId]);
+            const deptName = dept ? dept.name : '';
+            const deptCode = getDeptShortCode(deptName);
+            const row = await db.get(`SELECT MAX(dept_task_no) as max_no FROM board_tasks WHERE department_id = $1`, [deptId]);
+            const maxNo = row && row.max_no ? Number(row.max_no) : 0;
+            const nextNo = maxNo + 1;
+            const numStr = nextNo < 10 ? ('0' + nextNo) : String(nextNo);
+            const nextCode = 'CV-' + deptCode + '-' + numStr;
+            return reply.send({ nextId: nextNo, nextCode, deptCode });
+        } catch(e) {
+            return reply.send({ nextId: 1, nextCode: 'CV-CHUNG-01' });
+        }
+    });
+
     // DELETE /api/board-tasks/:id — Delete task
     fastify.delete('/api/board-tasks/:id', { preHandler: [authenticate] }, async (request, reply) => {
         try {
@@ -879,16 +1241,27 @@ async function bangcongviecRoutes(fastify, options) {
             const task = await db.get(`SELECT * FROM board_tasks WHERE id = $1`, [taskId]);
             if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
 
-            // Delete permission rule: ONLY Director can delete tasks across all columns
-            if (user.role !== 'giam_doc') {
-                return reply.code(403).send({ error: 'Chỉ Giám đốc mới có quyền xóa công việc!' });
+            const isDirectorOrAdmin = ['giam_doc', 'quan_ly_cap_cao'].includes(user.role) ||
+                (user.username && (user.username.toLowerCase().includes('giamdoc') || user.username.toLowerCase() === 'admin')) ||
+                Boolean(user.is_admin);
+            const isCreator = Number(task.created_by) === Number(user.id);
+
+            if (!isDirectorOrAdmin && !isCreator) {
+                return reply.code(403).send({ error: 'Chỉ Giám đốc hoặc Người tạo task mới có quyền xóa công việc!' });
             }
+
+            // Xóa sạch dữ liệu liên quan ở các bảng con trước khi xóa task chính
+            await db.run(`DELETE FROM board_task_checklist WHERE task_id = $1`, [taskId]);
+            await db.run(`DELETE FROM board_task_comments WHERE task_id = $1`, [taskId]);
+            await db.run(`DELETE FROM board_task_attachments WHERE task_id = $1`, [taskId]);
+            await db.run(`DELETE FROM board_task_feedbacks WHERE task_id = $1`, [taskId]);
+            await db.run(`DELETE FROM board_task_reads WHERE task_id = $1`, [taskId]);
 
             await db.run(`DELETE FROM board_tasks WHERE id = $1`, [taskId]);
             return reply.send({ ok: true });
         } catch(e) {
             console.error('[board-tasks DELETE]', e);
-            return reply.code(500).send({ error: e.message });
+            return reply.code(500).send({ error: e.message || 'Lỗi khi xóa công việc' });
         }
     });
 
@@ -1045,7 +1418,20 @@ async function bangcongviecRoutes(fastify, options) {
     fastify.patch('/api/board-tasks/:taskId/checklist/:itemId', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             const { is_done } = request.body;
-            const done = is_done !== false;
+            if (is_done === undefined) {
+                return reply.code(400).send({ error: 'Thiếu trường is_done' });
+            }
+            const done = !!is_done;
+
+            if (done) {
+                const currentItem = await db.get(`SELECT * FROM board_task_checklist WHERE id = $1 AND task_id = $2`, [request.params.itemId, request.params.taskId]);
+                const rContent = (currentItem && currentItem.report_content ? currentItem.report_content.trim() : '');
+                const rLink = (currentItem && currentItem.report_link ? currentItem.report_link.trim() : '');
+                if (!rContent || !rLink) {
+                    return reply.code(400).send({ error: 'Bạn phải nhập đầy đủ Nội dung báo cáo kết quả và Link dẫn chứng hoàn thành cho mục checklist này trước khi tích chọn hoàn thành!' });
+                }
+            }
+
             const completedAt = done ? 'NOW()' : 'NULL';
             const item = await db.get(`
                 UPDATE board_task_checklist
@@ -1059,19 +1445,53 @@ async function bangcongviecRoutes(fastify, options) {
         }
     });
 
-    // PATCH /api/board-tasks/:taskId/checklist/:itemId/detail — Save content + link for checklist item
+    // PATCH /api/board-tasks/:taskId/checklist/:itemId/detail — Save title, content, link for checklist item
     fastify.patch('/api/board-tasks/:taskId/checklist/:itemId/detail', { preHandler: [authenticate] }, async (request, reply) => {
         try {
-            const { content, link } = request.body;
+            const { title, content, link } = request.body;
             const item = await db.get(`
                 UPDATE board_task_checklist
-                SET content = $1, link = $2,
+                SET title = COALESCE($1, title),
+                    content = $2,
+                    link = $3,
                     completed_at = CASE WHEN is_done = TRUE THEN NOW() ELSE completed_at END
-                WHERE id = $3 AND task_id = $4 RETURNING *
-            `, [content || null, link || null, request.params.itemId, request.params.taskId]);
+                WHERE id = $4 AND task_id = $5 RETURNING *
+            `, [title != null ? String(title).trim() : null, content != null ? String(content).trim() : null, link != null ? String(link).trim() : null, request.params.itemId, request.params.taskId]);
             return reply.send({ ok: true, item });
         } catch(e) {
             console.error('[board-task-checklist PATCH detail]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // PATCH /api/board-tasks/:taskId/checklist/:itemId/report — Auto-save report_content + report_link for checklist item
+    fastify.patch('/api/board-tasks/:taskId/checklist/:itemId/report', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const { report_content, report_link } = request.body;
+            const item = await db.get(`
+                UPDATE board_task_checklist
+                SET report_content = $1, report_link = $2
+                WHERE id = $3 AND task_id = $4 RETURNING *
+            `, [report_content != null ? String(report_content).trim() : null, report_link != null ? String(report_link).trim() : null, request.params.itemId, request.params.taskId]);
+            return reply.send({ ok: true, item });
+        } catch(e) {
+            console.error('[board-task-checklist PATCH report]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // PATCH /api/board-tasks/:taskId/report-overall — Auto-save report_content + report_link for overall task report
+    fastify.patch('/api/board-tasks/:taskId/report-overall', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const { report_content, report_link } = request.body || {};
+            await db.run(`
+                UPDATE board_tasks
+                SET report_content = $1, report_link = $2, updated_at = NOW()
+                WHERE id = $3
+            `, [report_content != null ? String(report_content).trim() : null, report_link != null ? String(report_link).trim() : null, request.params.taskId]);
+            return reply.send({ ok: true });
+        } catch (e) {
+            console.error('[board-tasks PATCH report-overall]', e);
             return reply.code(500).send({ error: e.message });
         }
     });
@@ -1185,7 +1605,8 @@ async function bangcongviecRoutes(fastify, options) {
             const userDeptId = await getUserDeptId(user);
             const { department_id, main_category, search } = req.query;
             let query = `
-                SELECT d.*, u.full_name as created_by_name
+                SELECT d.*, u.full_name as created_by_name,
+                MIN(d.id) OVER (PARTITION BY d.main_category) AS first_cat_id
                 FROM board_documents d
                 LEFT JOIN users u ON d.created_by = u.id
                 WHERE 1=1
@@ -1218,7 +1639,7 @@ async function bangcongviecRoutes(fastify, options) {
                 idx++;
             }
 
-            query += ` ORDER BY d.main_category ASC, d.sub_category ASC, d.created_at DESC`;
+            query += ` ORDER BY first_cat_id ASC, COALESCE(d.sort_order, 0) ASC, d.id ASC`;
 
             const documents = await db.all(query, params);
 
@@ -1236,6 +1657,7 @@ async function bangcongviecRoutes(fastify, options) {
 
                 const linked = [];
                 const docSub = (doc.sub_category || '').trim().toLowerCase();
+                const docMain = (doc.main_category || '').replace(/^Tư Liệu \d+\s*:\s*/i, '').replace(/^\d+[\.\s\-]*/, '').trim().toLowerCase();
                 const docTaskCode = (doc.task_code || '').trim().toUpperCase();
 
                 allTasksWithGuides.forEach(task => {
@@ -1250,11 +1672,17 @@ async function bangcongviecRoutes(fastify, options) {
                         guides = typeof task.guide_link === 'string' ? JSON.parse(task.guide_link) : (task.guide_link || []);
                     } catch(e){}
 
-                    if (Array.isArray(guides)) {
+                    if (Array.isArray(guides) && docSub.length > 0) {
                         const isMatched = guides.some(g => {
-                            const gSub = (g.subCat || '').trim().toLowerCase();
+                            const gSub = (g.subCat || g.title || '').trim().toLowerCase();
                             const gPrefix = (g.prefix || '').trim().toLowerCase();
-                            return gSub === docSub || gPrefix.includes(docSub) || docSub.includes(gSub);
+                            const gMain = (g.mainCat || '').replace(/^Tư Liệu \d+\s*:\s*/i, '').replace(/^\d+[\.\s\-]*/, '').trim().toLowerCase();
+                            
+                            const matchSub = !!(docSub && gSub && (gSub === docSub || gSub.includes(docSub) || docSub.includes(gSub)));
+                            const matchPrefix = !!(docSub && gPrefix && gPrefix.includes(docSub));
+                            const matchMain = !!(docMain && gMain && (gMain === docMain || gMain.includes(docMain) || docMain.includes(gMain)));
+                            
+                            return (matchSub || matchPrefix) && (gMain ? matchMain : true);
                         });
                         if (isMatched && !linked.some(x => x.id === task.id)) {
                             linked.push({ id: task.id, cv_code: cvCode, title: task.title });
@@ -1272,10 +1700,119 @@ async function bangcongviecRoutes(fastify, options) {
         }
     });
 
+    // POST /api/board-documents/reorder & PUT /api/board-documents/reorder
+    const handleDocReorder = async (req, reply) => {
+        try {
+            const user = req.user || {};
+            if (!['giam_doc', 'quan_ly_cap_cao'].includes(user.role)) {
+                return reply.code(403).send({ error: 'Bạn không có quyền sắp xếp lại tư liệu' });
+            }
+            const { id, direction, ids } = req.body;
+
+            if (Array.isArray(ids) && ids.length > 0) {
+                for (let i = 0; i < ids.length; i++) {
+                    await db.run(`UPDATE board_documents SET sort_order = $1 WHERE id = $2`, [i + 1, Number(ids[i])]);
+                }
+                return reply.send({ ok: true });
+            }
+
+            if (!id || !direction) {
+                return reply.code(400).send({ error: 'Thiếu id hoặc direction' });
+            }
+
+            const currDoc = await db.get(`SELECT * FROM board_documents WHERE id = $1`, [id]);
+            if (!currDoc) {
+                return reply.code(404).send({ error: 'Không tìm thấy tư liệu' });
+            }
+
+            let query = `SELECT id, sort_order FROM board_documents WHERE main_category = $1`;
+            const params = [currDoc.main_category];
+            if (currDoc.department_id) {
+                query += ` AND department_id = $2`;
+                params.push(currDoc.department_id);
+            } else {
+                query += ` AND department_id IS NULL`;
+            }
+            query += ` ORDER BY COALESCE(sort_order, 0) ASC, id ASC`;
+
+            const groupDocs = await db.all(query, params);
+            const currIdx = groupDocs.findIndex(d => Number(d.id) === Number(id));
+            if (currIdx === -1) {
+                return reply.code(400).send({ error: 'Không tìm thấy tư liệu trong danh mục' });
+            }
+
+            let targetIdx = currIdx;
+            if (direction === 'up') targetIdx = currIdx - 1;
+            else if (direction === 'down') targetIdx = currIdx + 1;
+
+            if (targetIdx >= 0 && targetIdx < groupDocs.length) {
+                const temp = groupDocs[currIdx];
+                groupDocs[currIdx] = groupDocs[targetIdx];
+                groupDocs[targetIdx] = temp;
+
+                for (let i = 0; i < groupDocs.length; i++) {
+                    await db.run(`UPDATE board_documents SET sort_order = $1 WHERE id = $2`, [i + 1, Number(groupDocs[i].id)]);
+                }
+            }
+
+            return reply.send({ ok: true });
+        } catch(e) {
+            console.error('[board-documents reorder]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    };
+    fastify.post('/api/board-documents/reorder', { preHandler: [authenticate] }, handleDocReorder);
+    fastify.put('/api/board-documents/reorder', { preHandler: [authenticate] }, handleDocReorder);
+
+    // PUT /api/board-documents/category/rename — Rename main_category (Director only)
+    fastify.put('/api/board-documents/category/rename', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const user = req.user;
+            if (user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ tài khoản Giám Đốc mới có quyền sửa tên tư liệu!' });
+            }
+
+            const { department_id, old_main_category, new_main_category } = req.body || {};
+
+            if (!old_main_category || !old_main_category.trim()) {
+                return reply.code(400).send({ error: 'Thiếu tên tư liệu cũ' });
+            }
+            if (!new_main_category || !new_main_category.trim()) {
+                return reply.code(400).send({ error: 'Tên tư liệu mới không được để trống' });
+            }
+
+            const oldCat = old_main_category.trim();
+            const newCat = new_main_category.trim();
+            const deptId = department_id ? Number(department_id) : null;
+
+            if (deptId) {
+                await db.run(`
+                    UPDATE board_documents
+                    SET main_category = $1, updated_at = NOW()
+                    WHERE main_category = $2 AND department_id = $3
+                `, [newCat, oldCat, deptId]);
+            } else {
+                await db.run(`
+                    UPDATE board_documents
+                    SET main_category = $1, updated_at = NOW()
+                    WHERE main_category = $2 AND department_id IS NULL
+                `, [newCat, oldCat]);
+            }
+
+            return reply.send({ ok: true, old_category: oldCat, new_category: newCat });
+        } catch(e) {
+            console.error('[board-documents category rename]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     // POST /api/board-documents
     fastify.post('/api/board-documents', { preHandler: [authenticate] }, async (req, reply) => {
         try {
             const user = req.user;
+            if (!['giam_doc', 'quan_ly_cap_cao'].includes(user.role)) {
+                return reply.code(403).send({ error: 'Bạn không có quyền tạo tư liệu mới' });
+            }
             const { department_id, main_category, sub_category, title, content, links, task_code } = req.body;
 
             if (!main_category || !main_category.trim()) {
@@ -1293,9 +1830,12 @@ async function bangcongviecRoutes(fastify, options) {
 
             const linksJson = JSON.stringify(Array.isArray(links) ? links : []);
 
+            const maxSortRow = await db.get(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM board_documents WHERE main_category = $1`, [main_category.trim()]);
+            const nextSort = (maxSortRow && maxSortRow.next) ? maxSortRow.next : 1;
+
             const doc = await db.get(`
-                INSERT INTO board_documents (department_id, department_name, main_category, sub_category, title, content, links, task_code, created_by, created_by_name)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                INSERT INTO board_documents (department_id, department_name, main_category, sub_category, title, content, links, task_code, created_by, created_by_name, sort_order)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 RETURNING *
             `, [
                 department_id || null,
@@ -1307,7 +1847,8 @@ async function bangcongviecRoutes(fastify, options) {
                 linksJson,
                 (task_code || '').trim(),
                 user.id,
-                user.full_name || user.username
+                user.full_name || user.username,
+                nextSort
             ]);
 
             return reply.send({ ok: true, document: doc });
@@ -1320,12 +1861,30 @@ async function bangcongviecRoutes(fastify, options) {
     // PUT /api/board-documents/:id
     fastify.put('/api/board-documents/:id', { preHandler: [authenticate] }, async (req, reply) => {
         try {
+            const user = req.user;
+            if (!['giam_doc', 'quan_ly_cap_cao'].includes(user.role)) {
+                return reply.code(403).send({ error: 'Bạn không có quyền chỉnh sửa tư liệu' });
+            }
             const docId = req.params.id;
+            if (isNaN(Number(docId))) {
+                return reply.code(400).send({ error: 'ID tư liệu không hợp lệ' });
+            }
             const { department_id, main_category, sub_category, title, content, links, task_code } = req.body;
 
+            const existingDoc = await db.get(`SELECT * FROM board_documents WHERE id = $1`, [docId]);
+            if (!existingDoc) {
+                return reply.code(404).send({ error: 'Không tìm thấy tư liệu' });
+            }
+
+            const newMainCat = (main_category || '').trim();
+            if (newMainCat && existingDoc.main_category !== newMainCat && user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ tài khoản Giám Đốc mới có quyền sửa tên tư liệu (mục chính)!' });
+            }
+
             let deptName = '';
-            if (department_id) {
-                const dept = await db.get(`SELECT name FROM departments WHERE id = $1`, [department_id]);
+            const targetDeptId = department_id !== undefined ? (department_id || null) : existingDoc.department_id;
+            if (targetDeptId) {
+                const dept = await db.get(`SELECT name FROM departments WHERE id = $1`, [targetDeptId]);
                 if (dept) deptName = dept.name;
             }
 
@@ -1336,9 +1895,9 @@ async function bangcongviecRoutes(fastify, options) {
                 SET department_id = $1, department_name = $2, main_category = $3, sub_category = $4, title = $5, content = $6, links = $7, task_code = $8, updated_at = NOW()
                 WHERE id = $9
             `, [
-                department_id || null,
+                targetDeptId,
                 deptName,
-                (main_category || '').trim(),
+                newMainCat || existingDoc.main_category,
                 (sub_category || '').trim(),
                 (title || sub_category || '').trim(),
                 content || '',

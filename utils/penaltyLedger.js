@@ -800,6 +800,75 @@ async function syncLedgerForDate(dateStr) {
         } catch(e) { console.error('  ❌ [Ledger] Bảng Công Việc Overdue:', e.message); }
     } // end if (!isDateOff) Source 13
 
+    // Source 14: Cây Lẻ Chưa Xếp Kệ Kho — phạt NV đã cấu hình nếu còn cây lẻ rảnh chưa lên kệ
+    // ★ Giờ chốt (mặc định 17:00 VN) chia "ngày phạt": cây lẻ tạo trước 17:00 → phải xếp kệ trong ngày đó
+    // ★ Chỉ chạy khi giờ chốt của dateStr đã qua (thường là Phase 2 sáng hôm sau)
+    // ★ Skip ngày nghỉ (CN, Lễ) và skip NV xin nghỉ phép
+    const cayLeCutoffMins = GPC.cay_le_cutoff_time || 1020; // 1020 phút = 17:00 VN
+    const cutoffDatetime = new Date(dateStr + 'T00:00:00+07:00');
+    cutoffDatetime.setMinutes(cutoffDatetime.getMinutes() + cayLeCutoffMins);
+    const isPastCutoff = Date.now() > cutoffDatetime.getTime();
+    if (!isDateOff && isPastCutoff) {
+    try {
+        const cayLeAmount = GPC.cay_le_chua_xep_ke !== undefined ? GPC.cay_le_chua_xep_ke : 100000;
+        if (cayLeAmount > 0) {
+            // Đọc danh sách user bị phạt từ app_config
+            const cfgRow = await db.get("SELECT value FROM app_config WHERE key = 'cay_le_penalty_user_ids'");
+            let penaltyUserIds = [];
+            if (cfgRow && cfgRow.value) {
+                try { penaltyUserIds = JSON.parse(cfgRow.value); } catch(e) {}
+            }
+
+            if (penaltyUserIds.length > 0) {
+                // Đếm cây lẻ rảnh chưa xếp kệ, CHỈ cây tạo TRƯỚC giờ chốt (loại trừ đang bận)
+                const unleResult = await db.get(`
+                    SELECT COUNT(*) as cnt FROM kv_rolls
+                    WHERE location = 'Chưa Phân Vị Trí Cây Lẻ'
+                      AND weight > 0
+                      AND is_returned = false
+                      AND is_cutting = false
+                      AND locked_by_cutting_id IS NULL
+                      AND created_at < ($1::date + $2 * INTERVAL '1 minute')
+                `, [dateStr, cayLeCutoffMins]);
+                const unleCount = Number(unleResult?.cnt || 0);
+
+                if (unleCount > 0) {
+                    const { isUserOnLeave: _isUserOnLeave } = require('./workingDay');
+
+                    for (const uid of penaltyUserIds) {
+                        // Kiểm tra user còn active
+                        const usr = await db.get("SELECT id, status FROM users WHERE id = $1", [uid]);
+                        if (!usr || usr.status !== 'active') continue;
+
+                        // Kiểm tra nghỉ phép
+                        const onLeave = await _isUserOnLeave(uid, dateStr);
+                        if (onLeave) {
+                            console.log(`  ⏭️ [Cây Lẻ] Skip user_id=${uid} ngày ${dateStr} — Nhân viên đang nghỉ phép`);
+                            continue;
+                        }
+
+                        await writeLedger(
+                            uid,
+                            dateStr,
+                            'cay_le_chua_xep_ke',
+                            'cay_le_daily',
+                            `Cây Lẻ Chưa Xếp Kệ: ${unleCount} cây chưa lên kho`,
+                            cayLeAmount,
+                            `Còn ${unleCount} cây vải lẻ (tạo trước ${Math.floor(cayLeCutoffMins/60)}:${String(cayLeCutoffMins%60).padStart(2,'0')}) chưa xếp lên kệ kho nội bộ`
+                        );
+                        count++;
+                    }
+                    console.log(`  🛠️ [Cây Lẻ] ${unleCount} cây lẻ chưa xếp kệ (trước ${Math.floor(cayLeCutoffMins/60)}:${String(cayLeCutoffMins%60).padStart(2,'0')}) → phạt ${penaltyUserIds.length} NV`);
+                } else {
+                    console.log(`  ✅ [Cây Lẻ] Tất cả cây lẻ (trước ${Math.floor(cayLeCutoffMins/60)}:${String(cayLeCutoffMins%60).padStart(2,'0')}) đã xếp kệ`);
+                }
+            }
+        }
+    } catch (e) { console.error('  ❌ [Ledger] Cây Lẻ Chưa Xếp Kệ:', e.message); }
+    } else if (!isDateOff && !isPastCutoff) {
+        console.log(`  ⏳ [Cây Lẻ] Chưa qua giờ chốt ${Math.floor(cayLeCutoffMins/60)}:${String(cayLeCutoffMins%60).padStart(2,'0')} cho ngày ${dateStr} — skip`);
+    } // end Source 14
+
     return count;
 }
 

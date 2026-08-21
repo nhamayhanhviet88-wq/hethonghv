@@ -31,8 +31,10 @@ const MOBILE_MENU_CONFIG = [
     { id: 'kiemkho', label: 'Kiểm Kho Vải', icon: '📝', href: '/m/kiemkhohv', permKey: 'kiem_kho' },
     { id: 'vatlieutempet', label: 'Vật Liệu PET/TEM', icon: '🏷️', href: '/m/vatlieutempet', permKey: 'vat_lieu_tem_pet' },
     { id: 'xinnghi', label: 'Xin Nghỉ Nhân Viên', icon: '📋', href: '/m/xinnghinhanvien', permKey: 'xin_nghi_nv' },
-    { id: 'khuyenmaigiamgia', label: 'Khuyến Mãi Giảm Giá', icon: '🎁', href: '/m/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' },
-    { id: 'noiquycongtyhv', label: 'Nội Quy & Điều Khoản', icon: '📜', href: '/m/noiquycongtyhv', permKey: 'noi_quy_cong_ty' }
+    { id: 'khuyenmaigiamgia', label: 'Tạo Mã Giảm Giá', icon: '🎁', href: '/m/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' },
+    { id: 'noiquycongtyhv', label: 'Nội Quy & Điều Khoản', icon: '📜', href: '/m/noiquycongtyhv', permKey: 'noi_quy_cong_ty' },
+    { id: 'tulieuxuongvp', label: 'Tư Liệu Xưởng & VP', icon: '📂', href: '/m/tulieuxuongvp', permKey: 'tu_lieu_xuong_vp' },
+    { id: 'bosuutap', label: 'Bộ Sưu Tập / BST', icon: '🖼️', href: '/m/bosuutap', permKey: 'bo_suu_tap' }
 ];
 
 

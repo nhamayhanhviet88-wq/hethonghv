@@ -102,7 +102,8 @@ async function _penaltyLoadConfig() {
             { title: '📋 Phiếu QLX', icon: '📋', keys: ['phieu_qlx_qua_han'] },
             { title: '🏭 Quản Lý Xưởng', icon: '🏭', keys: ['phat_qlx_tre_don_hom_nay', 'qlx_cutoff_time'] },
             { title: '🖨️ Gia Công In', icon: '🖨️', keys: ['gc_print_khong_bao_cao', 'gc_penalty_check_time'] },
-            { title: '📌 Bảng Công Việc', icon: '📌', keys: ['bcv_overdue_task'] }
+            { title: '📌 Bảng Công Việc', icon: '📌', keys: ['bcv_overdue_task'] },
+            { title: '🛠️ Kho Chưa Xử Lý Hôm Nay', icon: '🛠️', keys: ['cay_le_chua_xep_ke', 'cay_le_cutoff_time'] }
         ];
 
         const configMap = {};
@@ -123,14 +124,16 @@ async function _penaltyLoadConfig() {
                     qlx_cutoff_time: 'Giờ nghỉ chốt nhận đơn của Quản Lý Xưởng',
                     gc_print_khong_bao_cao: 'NV In — Đơn GC quá hạn không báo cáo',
                     gc_penalty_check_time: 'Giờ tính phạt đơn GC In (HH:MM)',
-                    bcv_overdue_task: 'Bảng Công Việc — Chậm Deadline Công Việc (Tính gộp 1 lần/ngày)'
+                    bcv_overdue_task: 'Bảng Công Việc — Chậm Deadline Công Việc (Tính gộp 1 lần/ngày)',
+                    cay_le_chua_xep_ke: 'Cây lẻ chưa xếp kệ kho — Toàn bộ NV đã chọn',
+                    cay_le_cutoff_time: 'Giờ chốt kiểm tra cây lẻ (HH:MM)'
                 };
                 const amount = cfg ? cfg.amount : (key === 'phieu_qlx_qua_han' ? 50000 : (key === 'phat_qlx_tre_don_hom_nay' ? 100000 : (key === 'qlx_cutoff_time' ? 1080 : 0)));
                 const rawLabel = cfg ? cfg.label : (DEFAULT_LABELS[key] || key);
                 // Short label (remove category prefix)
                 const shortLabel = rawLabel.replace(/^[^—]+—\s*/, '');
 
-                if (key === 'qlx_cutoff_time' || key === 'gc_penalty_check_time') {
+                if (key === 'qlx_cutoff_time' || key === 'gc_penalty_check_time' || key === 'cay_le_cutoff_time') {
                     const totalMins = amount || 1080;
                     const hrs = Math.floor(totalMins / 60);
                     const mins = totalMins % 60;
@@ -163,6 +166,9 @@ async function _penaltyLoadConfig() {
         });
 
         list.innerHTML = html;
+
+        // Load và render block chọn user bị phạt cây lẻ
+        _penLoadCayLeUsers();
     } catch(e) {
         list.innerHTML = '<div style="color:#dc2626;">Lỗi tải cấu hình</div>';
     }
@@ -454,7 +460,9 @@ async function _penaltyLoadStats() {
             gui_hang_tre: { icon: '📦', label: 'Gửi Hàng Trễ', color: '#7c3aed', bg: '#f5f3ff' },
             phieu_qlx_qua_han: { icon: '📋', label: 'Phiếu QLX', color: '#0891b2', bg: '#ecfeff' },
             phat_qlx_tre_don_hom_nay: { icon: '🏭', label: 'QLX Trễ Đơn', color: '#6d28d9', bg: '#f5f3ff' },
-            gc_print: { icon: '🖨️', label: 'GC In Quá Hạn', color: '#d97706', bg: '#fffbeb' }
+            gc_print: { icon: '🖨️', label: 'GC In Quá Hạn', color: '#d97706', bg: '#fffbeb' },
+            bcv_overdue: { icon: '📌', label: 'Bảng Công Việc', color: '#0d9488', bg: '#f0fdfa' },
+            cay_le_kho: { icon: '🛠️', label: 'Cây Lẻ Kho', color: '#b45309', bg: '#fffbeb' }
         };
 
         // Build HTML tree
@@ -687,7 +695,9 @@ async function _penaltyShowSlip(managerId, month, managerName) {
                 gui_hang_tre: { bg: '#f5f3ff', color: '#7c3aed', label: '📦 Gửi Hàng Trễ' },
                 phieu_qlx_qua_han: { bg: '#ecfeff', color: '#0891b2', label: '📋 Phiếu QLX' },
                 phat_qlx_tre_don_hom_nay: { bg: '#f5f3ff', color: '#6d28d9', label: '🏭 QLX Trễ Đơn' },
-                gc_print: { bg: '#fffbeb', color: '#d97706', label: '🖨️ GC In Quá Hạn' }
+                gc_print: { bg: '#fffbeb', color: '#d97706', label: '🖨️ GC In Quá Hạn' },
+                bcv_overdue: { bg: '#f0fdfa', color: '#0d9488', label: '📌 Bảng Công Việc' },
+                cay_le_kho: { bg: '#fffbeb', color: '#b45309', label: '🛠️ Cây Lẻ Kho' }
             };
             const cfg = map[type] || { bg: '#f3f4f6', color: '#6b7280', label: type };
             return `<span style="background:${cfg.bg};color:${cfg.color};padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">${cfg.label}</span>`;
@@ -862,5 +872,78 @@ async function _penaltyAcknowledge() {
     } catch(e) {
         alert('Lỗi: ' + e.message);
         if (btn) { btn.disabled = false; btn.textContent = '✅ Tôi đã đọc và xác nhận — Mở khóa tài khoản'; }
+    }
+}
+
+// ===== CÂY LẺ PENALTY — USER CHECKBOX =====
+
+async function _penLoadCayLeUsers() {
+    // Tìm group "Kho Chưa Xử Lý Hôm Nay" container — nó là group cuối cùng trong penaltyConfigList
+    var list = document.getElementById('penaltyConfigList');
+    if (!list) return;
+
+    try {
+        var data = await apiCall('/api/penalty/cay-le-users');
+        var eligible = data.eligible || [];
+        var selectedIds = (data.selectedIds || []).map(Number);
+
+        if (eligible.length === 0) return;
+
+        // Render block user checkbox ngay sau groups
+        var block = document.createElement('div');
+        block.id = 'cayLeUserBlock';
+        block.style.cssText = 'border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-top:10px;';
+
+        var bHtml = '<div style="background:linear-gradient(135deg,#0d9488,#059669);padding:10px 16px;color:white;font-weight:800;font-size:13px;">👥 Nhân Viên Bị Phạt — Cây Lẻ Chưa Xếp Kệ</div>';
+        bHtml += '<div style="padding:12px 16px;background:white;">';
+        bHtml += '<div style="margin-bottom:8px;padding:8px 12px;background:#ecfdf5;border-radius:8px;border:1px solid #a7f3d0;font-size:11px;color:#065f46;">ℹ️ Tick chọn nhân viên sẽ bị phạt nếu còn cây lẻ chưa xếp kệ kho tại giờ chốt hằng ngày.</div>';
+
+        // Group by department
+        var deptGroups = {};
+        eligible.forEach(function(u) {
+            var dName = u.dept_name || 'Khác';
+            if (!deptGroups[dName]) deptGroups[dName] = [];
+            deptGroups[dName].push(u);
+        });
+
+        for (var dName in deptGroups) {
+            bHtml += '<div style="font-size:11px;color:#6b7280;font-weight:700;margin-top:8px;margin-bottom:4px;text-transform:uppercase;">' + dName + '</div>';
+            deptGroups[dName].forEach(function(u) {
+                var isChecked = selectedIds.includes(Number(u.id));
+                bHtml += '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'transparent\'">';
+                bHtml += '<input type="checkbox" class="cay-le-user-chk" data-uid="' + u.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:16px;height:16px;accent-color:#059669;cursor:pointer;">';
+                bHtml += '<span style="font-size:13px;font-weight:600;color:#1e293b;">' + (u.full_name || u.username) + '</span>';
+                bHtml += '<span style="font-size:11px;color:#94a3b8;">@' + u.username + '</span>';
+                bHtml += '</label>';
+            });
+        }
+
+        bHtml += '<div style="text-align:right;margin-top:10px;">';
+        bHtml += '<button onclick="_penSaveCayLeUsers()" style="padding:6px 16px;font-size:12px;border:none;border-radius:8px;background:linear-gradient(135deg,#0d9488,#10b981);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(5,150,105,0.3);">💾 Lưu danh sách</button>';
+        bHtml += '</div></div>';
+
+        block.innerHTML = bHtml;
+        list.appendChild(block);
+    } catch(e) {
+        console.error('[CayLe Users] Load error:', e);
+    }
+}
+
+async function _penSaveCayLeUsers() {
+    var chks = document.querySelectorAll('.cay-le-user-chk');
+    var userIds = [];
+    chks.forEach(function(chk) {
+        if (chk.checked) userIds.push(Number(chk.dataset.uid));
+    });
+
+    try {
+        var res = await apiCall('/api/penalty/cay-le-users', 'POST', { user_ids: userIds });
+        if (res.success) {
+            showToast('✅ ' + (res.message || 'Đã lưu danh sách'));
+        } else {
+            showToast(res.error || 'Lỗi', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi: ' + e.message, 'error');
     }
 }

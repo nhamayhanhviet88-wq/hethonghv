@@ -94,6 +94,7 @@ const CRM_LABELS = {
 };
 
 const MENU_CONFIG = [
+    { id: 'quytrinhcuochop', label: 'Quy Trình Cuộc Họp', icon: '🏛️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/quytrinhcuochop', permKey: 'quy_trinh_cuoc_hop' },
     { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', permKey: 'tong_quan' },
     { id: 'muc-tieu-nam', label: 'Mục Tiêu Năm', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/muctieunam', mobileHref: '/m/muctieunam', permKey: 'muc_tieu_nam' },
     { id: 'topkhachhang', label: 'Top Khách & Sale KD', icon: '👑', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/topkhachhang', permKey: 'top_khach_hang' },
@@ -166,10 +167,11 @@ const MENU_CONFIG = [
     // ========== NỘI QUY & QUY TẮC LÀM VIỆC ==========
     { id: 'noi-quy-cong-ty', label: 'Nội Quy & Điều Khoản', icon: '📜', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ', href: '/noiquycongtyhv', permKey: 'noi_quy_cong_ty' },
     { id: 'tu-lieu-xuong-vp', label: 'Tư Liệu Xưởng & VP', icon: '📂', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ', href: '/tulieuxuongvp', permKey: 'tu_lieu_xuong_vp' },
+    { id: 'bo-suu-tap', label: 'Bộ Sưu Tập / BST', icon: '🖼️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ', href: '/bosuutap', permKey: 'bo_suu_tap' },
     { id: 'chinh-sach-kh', label: 'Chính Sách Khách Hàng', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chinhsachkhhv', permKey: 'chinh_sach_kh' },
-    { id: 'xu-ly-don-loi', label: 'Cách Xử Lý Đơn Lỗi', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/xulydonloihv', permKey: 'xu_ly_don_loi' },
     { id: 'chuong-trinh-kh', label: 'Chương Trình Khách Hàng', icon: '🎁', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chuongtrinhkhhv', permKey: 'chuong_trinh_kh' },
-    { id: 'khuyenmaigiamgia', label: 'Khuyến Mãi Giảm Giá', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' },
+    { id: 'xu-ly-don-loi', label: 'Cách Xử Lý Đơn Lỗi', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/xulydonloihv', permKey: 'xu_ly_don_loi' },
+    { id: 'khuyenmaigiamgia', label: 'Tạo Mã Giảm Giá', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' },
 
 
     // ========== BỘ PHẬN VĂN PHÒNG ==========
@@ -396,7 +398,7 @@ const _PAGE_SCRIPT_MAP = {
     'congvieckhoaxuly': '/js/pages/congvieckhoaxuly.js',
     'lich-su-bao-cao': '/js/pages/lichsu-baocao.js',
     'lichsubaocaocv': '/js/pages/lichsu-baocao.js',
-    'khoa-tk-nv': '/js/pages/khoatknv.js',
+    'khoa-tk-nv': '/js/pages/khoatknv.js?v=20260817_cayle_v1',
     'mo-khoa-tk-phat': '/js/pages/mokhoatkphat.js',
     'mokhoatkphat': '/js/pages/mokhoatkphat.js',
     'setup-ngay-le': '/js/pages/setupngayle.js',
@@ -442,16 +444,18 @@ const _PAGE_SCRIPT_MAP = {
     'kpi-marketing': '/js/pages/kpimarketing.js?v=20260810_v35001_CLEAR_YEARLY_CACHE',
     'kpimktview': '/js/pages/kpimktview.js?v=20260804_v100',
     'kpi-mkt-view': '/js/pages/kpimktview.js?v=20260804_v100',
+    'quytrinhcuochop': '/js/pages/quytrinhcuochop.js?v=' + Date.now(),
+    'quy-trinh-cuoc-hop': '/js/pages/quytrinhcuochop.js?v=' + Date.now(),
     'camketcuochop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'cam-ket-cuoc-hop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'muc-tieu-nam': '/js/pages/muctieunam.js?v=20260813_v112_FIX_PCT_Q_ORD',
     'muctieunam': '/js/pages/muctieunam.js?v=20260813_v112_FIX_PCT_Q_ORD',
-    'bangcongviec': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
-    'bang-cong-viec': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
-    'bang_cong_viec': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
-    'bangcongviec/hoanthanh': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
-    'bang-cong-viec/hoan-thanh': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
-    'bang_cong_viec/hoan_thanh': '/js/pages/bangcongviec.js?v=20260813_v540_DISABLE_HOLIDAY_DEADLINE_SELECTION',
+    'bangcongviec': '/js/pages/bangcongviec.js?v=20260818_v594_FIX_DEFAULT_TAB_LOADING',
+    'bang-cong-viec': '/js/pages/bangcongviec.js?v=20260818_v594_FIX_DEFAULT_TAB_LOADING',
+    'bang_cong_viec': '/js/pages/bangcongviec.js?v=20260818_v594_FIX_DEFAULT_TAB_LOADING',
+    'bangcongviec/hoanthanh': '/js/pages/bangcongviec.js?v=20260818_v594_FIX_DEFAULT_TAB_LOADING',
+    'bang-cong-viec/hoan-thanh': '/js/pages/bangcongviec.js?v=20260818_v594_FIX_DEFAULT_TAB_LOADING',
+    'bang_cong_viec/hoan_thanh': '/js/pages/bangcongviec.js?v=20260818_v594_FIX_DEFAULT_TAB_LOADING',
     'khovai': '/js/pages/khovai.js?v=20260817_tz_v12',
     'quanlykhovai': '/js/pages/quanlykhovai.js',
     'khovatlieu': '/js/pages/khovatlieu.js',
@@ -474,6 +478,8 @@ const _PAGE_SCRIPT_MAP = {
     'tao-phieu-xu-ly-cv': '/js/pages/taophieuxulycv.js',
     'bxh-template': '/js/pages/bxh-template.js',
     'zalo-finder': '/js/pages/zalo-finder.js',
+    'timgrzalovathongke': '/js/pages/zalo-finder.js',
+    'hethongphanchiagrzalo': '/js/pages/zalo-finder.js',
     'nhantintimdoitackh': '/js/pages/nhantintimdoitackh.js',
     'dangvideo': '/js/pages/dailylinks.js',
     'dangcontent': '/js/pages/dailylinks.js',
@@ -504,7 +510,7 @@ const _PAGE_SCRIPT_MAP = {
     'chuyen-so': '/js/pages/chuyenso.js?v=20260730_v7',
     'chuyenso': '/js/pages/chuyenso.js?v=20260730_v7',
     'chuyensosale': '/js/pages/chuyensosale.js?v=20260730_v7',
-    'caidatsanxuat': '/js/pages/caidatsanxuat.js?v=20260721_spqt_grouping_v1',
+    'caidatsanxuat': '/js/pages/caidatsanxuat.js?v=20260817_cayle_cutoff_v1',
     'don-hang-tong': '/js/pages/donhangtong.js',
     'donhangtong': '/js/pages/donhangtong.js',
     'taophieudonhang': '/js/pages/taophieudonhang.js?v=20260731_v301',
@@ -540,23 +546,21 @@ const _PAGE_SCRIPT_MAP = {
     'tra-soat-don-hang': '/js/pages/trasoatdonhang.js?v=20260721_ts_modal_lazy_v2',
     'khuyenmaigiamgia': '/js/pages/khuyenmaigiamgia.js',
     'khuyen-mai-giam-gia': '/js/pages/khuyenmaigiamgia.js',
-    'xuatvaicat': '/js/pages/xuatvaicat.js'
+    'xuatvaicat': '/js/pages/xuatvaicat.js',
+    'bosuutap': '/js/pages/bosuutap.js',
+    'bo-suu-tap': '/js/pages/bosuutap.js'
 };
 
 const _loadedScripts = new Set();
 async function _loadScript(src) {
     const cleanSrc = src.split('?')[0];
-    const existing = document.querySelector(`script[src^="${cleanSrc}"]`);
-    if (_loadedScripts.has(src) && _loadedScripts.has(cleanSrc) && existing) return;
-    if (existing) {
-        existing.remove();
-        _loadedScripts.delete(cleanSrc);
-        _loadedScripts.delete(src);
-    }
+    const existingScripts = document.querySelectorAll(`script[src^="${cleanSrc}"]`);
+    existingScripts.forEach(s => s.remove());
+
     return new Promise((resolve, reject) => {
         const s = document.createElement('script');
-        const ver = window.BUILD_VERSION || Date.now();
-        s.src = src.includes('?') ? src : (src + '?v=' + ver);
+        const ts = Date.now();
+        s.src = src.includes('?') ? (src + '&_t=' + ts) : (src + '?_t=' + ts);
         s.async = true;
         s.onload = () => {
             _loadedScripts.add(cleanSrc);
@@ -2159,39 +2163,41 @@ async function handleRoute() {
             history.replaceState({ page: currentPage }, '', '/bao-cao-hoa-hong-hv');
         }
     } else if (pathname === 'dashboard' && currentUser) {
-        // ★ Smart Default Page: auto-redirect to first visible menu item
-        // Uses same permission logic as renderSidebar() for consistency
+        // ★ Smart Default Page
         var _isDP = window.location.hostname.indexOf('dongphuchv.net') !== -1;
-        var _dpAllowed = ['tu-van-khach-aff', 'theo-doi-tu-van-aff', 'bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff', 'bao-cao-hoa-hong-hv', 'huong-dan-su-dung'];
-        var _firstVisibleItem = null;
-        for (var _mi = 0; _mi < MENU_CONFIG.length; _mi++) {
-            var _item = MENU_CONFIG[_mi];
-            if (_isDP && _dpAllowed.indexOf(_item.id) === -1) continue;
-            if (_item.strictRoles && !_item.roles.includes(currentUser.role)) continue;
-            if (currentUser.role !== 'giam_doc') {
-                var _pk = _item.permKey;
-                if (_pk) {
-                    if (!userPermissions[_pk] || !userPermissions[_pk].can_view) continue;
-                } else {
-                    if (!_item.roles.includes(currentUser.role)) continue;
+        if (_isDP) {
+            // On dongphuchv.net partner portal: auto-redirect to first visible affiliate menu
+            var _dpAllowed = ['tu-van-khach-aff', 'theo-doi-tu-van-aff', 'bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff', 'bao-cao-hoa-hong-hv', 'huong-dan-su-dung'];
+            var _firstVisibleItem = null;
+            for (var _mi = 0; _mi < MENU_CONFIG.length; _mi++) {
+                var _item = MENU_CONFIG[_mi];
+                if (_dpAllowed.indexOf(_item.id) === -1) continue;
+                if (_item.strictRoles && !_item.roles.includes(currentUser.role)) continue;
+                if (currentUser.role !== 'giam_doc') {
+                    var _pk = _item.permKey;
+                    if (_pk) {
+                        if (!userPermissions[_pk] || !userPermissions[_pk].can_view) continue;
+                    } else {
+                        if (!_item.roles.includes(currentUser.role)) continue;
+                    }
                 }
+                _firstVisibleItem = _item;
+                break;
             }
-            _firstVisibleItem = _item;
-            break;
-        }
-        if (_firstVisibleItem) {
-            currentPage = _firstVisibleItem.id;
-            var _targetPath = _firstVisibleItem.href || ('/' + _firstVisibleItem.id);
-            if (_targetPath !== '/dashboard') {
-                // If item uses href (separate HTML page), do full redirect
+            if (_firstVisibleItem && _firstVisibleItem.id !== 'dashboard') {
+                currentPage = _firstVisibleItem.id;
+                var _targetPath = _firstVisibleItem.href || ('/' + _firstVisibleItem.id);
                 if (_firstVisibleItem.href) {
                     window.location.href = _firstVisibleItem.href;
                     return;
                 }
                 history.replaceState({ page: currentPage }, '', _targetPath);
+            } else {
+                currentPage = 'dashboard';
             }
         } else {
-            currentPage = pathname;
+            // Main site: dashboard is always the default page
+            currentPage = 'dashboard';
         }
     } else {
         currentPage = pathname;
@@ -2283,6 +2289,9 @@ async function handleRoute() {
     if (currentPage !== 'lich-su-bao-cao' && currentPage !== 'lichsubaocaocv') {
         sessionStorage.setItem('_rh_lastPage', currentPage);
     }
+    if (currentPage !== 'quytrinhcuochop' && currentPage !== 'quy-trinh-cuoc-hop') {
+        sessionStorage.setItem('_mp_lastPage', currentPage);
+    }
 
     // Defer the script loading and actual rendering to let the skeleton paint immediately
     setTimeout(async () => {
@@ -2358,12 +2367,27 @@ async function handleRoute() {
                 case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
                 case 'quytacnuttuvancrmsale': case 'quytacnuttuvancrmtempet': renderQuyTacTuVanSalePage(content); break;
                 case 'dailylinks': renderDailyLinksPage(content); break;
-                case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _dlInit==='function')_dlInit();},50); break;
+                case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _zlInit==='function')_zlInit();},50); break;
                 case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;
                 case 'addcmtdoitackh': content.innerHTML=''; setTimeout(function(){if(typeof _acInit==='function')_acInit();},50); break;
                 case 'timkiemkhachhang': case 'timkiemkhachhanghv': renderTimKiemKhachHang(content); break;
                 case 'ngansachmkt': case 'ngan-sach-mkt': renderNgansachmktPage(content); break;
                 case 'muc-tieu-nam': case 'muctieunam': case 'm/muctieunam': if (typeof renderMucTieuNamPage === 'function') renderMucTieuNamPage(content); else if (typeof window.renderMucTieuNamPage === 'function') window.renderMucTieuNamPage(content); break;
+                case 'bangcongviec': case 'bang-cong-viec': case 'bang_cong_viec': case 'bangcongviec/hoanthanh': case 'bang-cong-viec/hoan-thanh': case 'bang_cong_viec/hoan_thanh':
+                    if (typeof window.renderBangcongviecPage === 'function') {
+                        window.renderBangcongviecPage(content);
+                    } else if (typeof renderBangcongviecPage === 'function') {
+                        renderBangcongviecPage(content);
+                    } else {
+                        setTimeout(function() {
+                            if (typeof window.renderBangcongviecPage === 'function') {
+                                window.renderBangcongviecPage(content);
+                            } else if (typeof renderBangcongviecPage === 'function') {
+                                renderBangcongviecPage(content);
+                            }
+                        }, 150);
+                    }
+                    break;
                 case 'xuatvathv': renderXuatvathvPage(content); break;
                 case 'bo-phan-in': case 'bophanin': case 'bophaninhv': renderBophaninPage(content); break;
                 case 'bo-phan-cat': case 'bophancat': case 'bophancathv': renderBophancatPage(content); break;
@@ -2413,6 +2437,11 @@ async function handleRoute() {
                                 renderKpimarketingPage(content);
                             }
                         }, 150);
+                    }
+                    break;
+                case 'quytrinhcuochop': case 'quy-trinh-cuoc-hop':
+                    if (typeof window.initQuyTrinhCuocHop === 'function') {
+                        window.initQuyTrinhCuocHop(content);
                     }
                     break;
                 case 'camketcuochop': case 'cam-ket-cuoc-hop':
@@ -6636,6 +6665,8 @@ function _renderExecCharts() {
 // Registry cho các trang có tên hàm KHÔNG theo convention
 // Key = page id (từ MENU_CONFIG), Value = tên hàm init
 var _PAGE_INIT_REGISTRY = {
+    'quytrinhcuochop': 'initQuyTrinhCuocHop',
+    'quy-trinh-cuoc-hop': 'initQuyTrinhCuocHop',
     'camketcuochop': 'renderCamketcuochopPage',
     'cam-ket-cuoc-hop': 'renderCamketcuochopPage',
     'bangcongviec': 'renderBangcongviecPage',
@@ -6688,6 +6719,8 @@ var _PAGE_INIT_REGISTRY = {
     'xuat-hoa-don-vat': 'renderXuatvathvPage',
     'design-draft': 'renderDesignDraftPage',
     'khuyenmaigiamgia': 'renderKhuyenMaiPage',
+    'bosuutap': 'renderBosuutapPage',
+    'bo-suu-tap': 'renderBosuutapPage',
     'timgrzalovathongke': '_zlInit',
     'hethongphanchiagrzalo': '_zpInit',
     'caidatsanxuat': 'renderCaidatsanxuatPage',
@@ -8413,11 +8446,12 @@ async function _abCheckUnblock() {
         // KPI Marketing buttons — exempt from anti-double click debouncing
         if (el.closest && el.closest('#kpiMktHandlersContainer, .kpi-v2-modal, [onclick*="kpiMkt"]')) return true;
         // Customer detail openers, customer pills, and consult history triggers — exempt from anti-double click debouncing
-        // Bảng Công Việc buttons & modals — exempt from anti-double click debouncing
+        // Bảng Công Việc & Quy Trình Họp buttons & modals — exempt from anti-double click debouncing
         if (el.closest && el.closest('[onclick*="_bcv"], [onclick*="bcv"], .bcv-modal, .bcv-card, .bcv-overlay')) return true;
+        if (el.closest && el.closest('[onclick*="_mp"], [onclick*="mp"], [onclick*="SkipStep"], [onclick*="skipstep"]')) return true;
         if (el.closest && el.closest('[onclick*="_hvAi"], [onclick*="hvAi"], .hv-ai-chat-window, .hv-ai-float-btn, .hv-ai-rule-btn, #hvAiConfigOverlay')) return true;
         if (el.closest && el.closest('[onclick*="_qlx"], [onclick*="qlx"], [onclick*="UndoCutting"], [onclick*="_bpc"], .qlx-modal, .bpc-modal')) return true;
-        if (txt.indexOf('Bỏ gán') >= 0 || txt.indexOf('Bỏ Gán') >= 0 || txt.indexOf('Xóa Bảng') >= 0 || txt.indexOf('Cấu Hình API Key') >= 0 || txt.indexOf('DUYỆT VỀ NHẬN CẮT') >= 0 || txt.indexOf('TỪ CHỐI') >= 0) return true;
+        if (txt.indexOf('Bỏ Qua') >= 0 || txt.indexOf('Bỏ qua') >= 0 || txt.indexOf('Bỏ gán') >= 0 || txt.indexOf('Bỏ Gán') >= 0 || txt.indexOf('Xóa Bảng') >= 0 || txt.indexOf('Cấu Hình API Key') >= 0 || txt.indexOf('DUYỆT VỀ NHẬN CẮT') >= 0 || txt.indexOf('TỪ CHỐI') >= 0) return true;
         return false;
     }
 

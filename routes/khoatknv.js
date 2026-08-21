@@ -96,7 +96,9 @@ async function khoaTKNVRoutes(fastify, options) {
             kt_cutoff_time: 'Giờ kết thúc ca làm của Kế Toán',
             gc_print_khong_bao_cao: 'NV In — Đơn GC quá hạn không báo cáo',
             gc_penalty_check_time: 'Giờ tính phạt đơn GC In (HH:MM, vd: 2330 = 23:30)',
-            bcv_overdue_task: 'Bảng Công Việc — Chậm Deadline Công Việc'
+            bcv_overdue_task: 'Bảng Công Việc — Chậm Deadline Công Việc',
+            cay_le_chua_xep_ke: 'Cây Lẻ Chưa Xếp Kệ Kho',
+            cay_le_cutoff_time: 'Giờ chốt kiểm tra cây lẻ hằng ngày'
         };
 
         for (const cfg of configs) {
@@ -224,7 +226,8 @@ async function khoaTKNVRoutes(fastify, options) {
             'gui_hang_tre': 'gui_hang_tre',
             'phieu_qlx_qua_han': 'phieu_qlx_qua_han',
             'phat_qlx_tre_don_hom_nay': 'phat_qlx_tre_don_hom_nay',
-            'gc_print_khong_bao_cao': 'gc_print'
+            'gc_print_khong_bao_cao': 'gc_print',
+            'cay_le_chua_xep_ke': 'cay_le_kho'
         };
 
         const testAccountIds = await getTestAccountIds();
@@ -275,7 +278,8 @@ async function khoaTKNVRoutes(fastify, options) {
             'cv_diem': 'diem', 'cap_cuu': 'emergency',
             'kh_chua_xl': 'customer_unhandled', 'kh_tre': 'customer_overdue',
             'gui_hang_tre': 'gui_hang_tre',
-            'phieu_qlx_qua_han': 'phieu_qlx_qua_han'
+            'phieu_qlx_qua_han': 'phieu_qlx_qua_han',
+            'cay_le_chua_xep_ke': 'cay_le_kho'
         };
         const items = rows.map(r => ({
             task_name: r.task_name, task_date: r.penalty_date,
@@ -436,6 +440,50 @@ async function khoaTKNVRoutes(fastify, options) {
         const todayStr = vnDateStr(vnNow());
         await db.run('UPDATE users SET penalty_mgr_popup_date = $1 WHERE id = $2', [todayStr, userId]);
         return { success: true };
+    });
+    // ========== CÂY LẺ PENALTY — USER MANAGEMENT ==========
+
+    // GET: Lấy danh sách user eligible + đã chọn phạt cây lẻ
+    fastify.get('/api/penalty/cay-le-users', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+
+        // Lấy danh sách eligible: Phòng Cắt (8) + Kế Toán (16) + QL cấp cao Xưởng (11)
+        const eligible = await db.all(`
+            SELECT u.id, u.full_name, u.username, u.role, u.department_id, d.name as dept_name
+            FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            WHERE u.status = 'active' AND u.role != 'giam_doc'
+              AND (
+                  u.department_id IN (8, 16)
+                  OR (u.role = 'quan_ly_cap_cao' AND u.department_id = 11)
+              )
+            ORDER BY u.department_id, u.id
+        `);
+
+        // Đọc danh sách đã chọn từ app_config
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'cay_le_penalty_user_ids'");
+        let selectedIds = [];
+        if (row && row.value) {
+            try { selectedIds = JSON.parse(row.value); } catch(e) {}
+        }
+
+        return { eligible, selectedIds };
+    });
+
+    // POST: Lưu danh sách user IDs bị phạt cây lẻ
+    fastify.post('/api/penalty/cay-le-users', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+
+        const { user_ids } = request.body || {};
+        if (!Array.isArray(user_ids)) return reply.code(400).send({ error: 'Thiếu user_ids' });
+
+        const value = JSON.stringify(user_ids.map(Number).filter(n => n > 0));
+        await db.run(
+            `INSERT INTO app_config (key, value) VALUES ('cay_le_penalty_user_ids', $1)
+             ON CONFLICT (key) DO UPDATE SET value = $1`, [value]
+        );
+
+        return { success: true, message: 'Đã lưu danh sách nhân viên bị phạt cây lẻ' };
     });
 }
 
