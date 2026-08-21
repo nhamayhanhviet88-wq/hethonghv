@@ -224,6 +224,11 @@ async function collectionsRoutes(fastify, options) {
 
             const rawOriginalName = data.filename || 'file';
             const ext = path.extname(rawOriginalName).toLowerCase() || '.png';
+
+            if (ext === '.url' || ext === '.lnk') {
+                return reply.code(400).send({ error: 'Không hỗ trợ upload file shortcut (.url / .lnk)! Vui lòng upload trực tiếp file PDF hoặc Hình Ảnh thực sự từ máy tính.' });
+            }
+
             const baseNameNoExt = path.basename(rawOriginalName, path.extname(rawOriginalName))
                 .replace(/[^a-zA-Z0-9_\-\s]/g, '_')
                 .substring(0, 50);

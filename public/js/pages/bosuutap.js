@@ -1072,6 +1072,20 @@ async function uploadCollectionFiles(inputEl, groupKey, propKey) {
     if (!inputEl.files || inputEl.files.length === 0) return;
     const files = Array.from(inputEl.files);
     const isImage = propKey === 'image_urls';
+
+    for (const file of files) {
+        const fname = file.name.toLowerCase();
+        if (!isImage && (fname.endsWith('.url') || fname.endsWith('.lnk') || !fname.endsWith('.pdf'))) {
+            alert(`❌ File "${file.name}" không phải là file định dạng .pdf chuẩn!\n(Phát hiện file .url/shortcut hoặc định dạng sai). Vui lòng chọn đúng file có đuôi .pdf!`);
+            inputEl.value = '';
+            return;
+        }
+        if (isImage && (fname.endsWith('.url') || fname.endsWith('.lnk') || fname.endsWith('.pdf'))) {
+            alert(`❌ File "${file.name}" không phải là file Hình Ảnh hợp lệ!\nVui lòng chọn file ảnh (.jpg, .png, .jpeg...).`);
+            inputEl.value = '';
+            return;
+        }
+    }
     
     const prevEl = document.getElementById(`prev_${groupKey}_${isImage ? 'img' : 'pdf'}`);
     let statusDiv = document.getElementById(`upload_status_${groupKey}_${propKey}`);
@@ -1577,10 +1591,17 @@ function viewCollectionDetail(id) {
                 <div style="display: flex; flex-wrap: wrap; gap: 6px;">`;
             pdfUrls.forEach((u, i) => {
                 const origU = origPdfUrls[i] || u;
+                const isShortcut = origU.toLowerCase().endsWith('.url') || origU.toLowerCase().endsWith('.lnk');
                 const origName = _getCleanOriginalFileName(origU || u, pdfFileNames, i, true);
-                html += `<a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #047857; font-weight: 700; font-size: 11.5px; background: #dcfce7; border: 1px solid #86efac; padding: 6px 12px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">
-                    📄 <span>${escapeHtml(origName)}</span> <span style="font-size: 10px; opacity: 0.8;">↗</span>
-                </a>`;
+                if (isShortcut) {
+                    html += `<span style="color: #dc2626; font-weight: 700; font-size: 11.5px; background: #fef2f2; border: 1px solid #fecaca; padding: 6px 12px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;" title="File này là shortcut .url không phải file PDF thực sự. Vui lòng bấm Chỉnh Sửa để upload lại file .pdf chuẩn">
+                        ⚠️ <span>File lỗi .url (Hãy bấm Chỉnh sửa để up lại file .pdf)</span>
+                    </span>`;
+                } else {
+                    html += `<a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #047857; font-weight: 700; font-size: 11.5px; background: #dcfce7; border: 1px solid #86efac; padding: 6px 12px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">
+                        📄 <span>${escapeHtml(origName)}</span> <span style="font-size: 10px; opacity: 0.8;">↗</span>
+                    </a>`;
+                }
             });
             html += `</div></div>`;
         }
