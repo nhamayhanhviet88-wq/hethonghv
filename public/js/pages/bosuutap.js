@@ -29,7 +29,7 @@ async function _bsutApi(url, method = 'GET', body = null) {
     return await res.json();
 }
 
-let _bsutData = {
+var _bsutData = window._bsutData || {
     collections: [],
     eligibleTasks: [],
     activeMode: 'task_linked', // 'task_linked' or 'free'
@@ -43,8 +43,14 @@ let _bsutData = {
         chup_anh_mau_bst: []
     }
 };
+window._bsutData = _bsutData;
 
 async function renderBosuutapPage(container) {
+    if (!container || !(container instanceof HTMLElement)) {
+        container = document.getElementById('mainContent') || document.getElementById('app') || document.querySelector('.main-content') || document.body;
+    }
+    if (!container) return;
+
     container.innerHTML = `
         <div style="padding: 24px; max-width: 1400px; margin: 0 auto; font-family: 'Inter', sans-serif;">
             <!-- Header Banner -->

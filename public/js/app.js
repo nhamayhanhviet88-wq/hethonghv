@@ -554,8 +554,9 @@ const _PAGE_SCRIPT_MAP = {
 const _loadedScripts = new Set();
 async function _loadScript(src) {
     const cleanSrc = src.split('?')[0];
-    const existingScripts = document.querySelectorAll(`script[src^="${cleanSrc}"]`);
-    existingScripts.forEach(s => s.remove());
+    if (_loadedScripts.has(cleanSrc) || document.querySelector(`script[src^="${cleanSrc}"]`)) {
+        return Promise.resolve();
+    }
 
     return new Promise((resolve, reject) => {
         const s = document.createElement('script');
