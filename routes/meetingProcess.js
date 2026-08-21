@@ -385,6 +385,7 @@ async function meetingProcessRoutes(fastify, options) {
         const total = countResult ? parseInt(countResult.total) : 0;
 
         const dataQuery = `
+            SELECT s.*,
                    p.name AS process_name,
                    p.icon AS process_icon,
                    cp.full_name AS chairperson_name,
