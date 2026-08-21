@@ -1638,8 +1638,8 @@
 
         // Chairperson & Secretary Unified Searchable Select
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
-        html += _mpRenderSearchableUserSelect('mp-session-chair', '👔 Chủ tọa', session ? session.chairperson_id : null, '🔍 Gõ tìm hoặc chọn Chủ tọa...');
-        html += _mpRenderSearchableUserSelect('mp-session-secretary', '📝 Thư ký', session ? session.secretary_id : null, '🔍 Gõ tìm hoặc chọn Thư ký...');
+        html += _mpRenderSearchableUserSelect('mp-session-chair', '👔 Chủ tọa *', session ? session.chairperson_id : null, '🔍 Gõ tìm hoặc chọn Chủ tọa...');
+        html += _mpRenderSearchableUserSelect('mp-session-secretary', '📝 Thư ký *', session ? session.secretary_id : null, '🔍 Gõ tìm hoặc chọn Thư ký...');
         html += '</div>';
 
         // Status (only for edit)
@@ -1722,7 +1722,9 @@
         var statusEl = document.getElementById('mp-session-status');
         if (statusEl) data.status = statusEl.value;
 
-        if (!data.title || !data.meeting_date) return alert('Vui lòng nhập tiêu đề và ngày họp!');
+        if (!data.title || !data.meeting_date) return alert('⚠️ Vui lòng nhập tiêu đề và ngày họp!');
+        if (!data.chairperson_id) return alert('⚠️ Vui lòng chọn Chủ tọa cho cuộc họp!');
+        if (!data.secretary_id) return alert('⚠️ Vui lòng chọn Thư ký cho cuộc họp!');
 
         if (!id) {
             // Check client-side if chosen process has active meeting

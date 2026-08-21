@@ -417,6 +417,8 @@ async function meetingProcessRoutes(fastify, options) {
 
         const { process_id, collection_id, title, meeting_date, start_time, end_time, chairperson_id, secretary_id, attendees } = request.body;
         if (!title || !meeting_date) return reply.code(400).send({ error: 'Tiêu đề và ngày họp bắt buộc' });
+        if (!chairperson_id) return reply.code(400).send({ error: '⚠️ Vui lòng chọn Chủ tọa cho cuộc họp!' });
+        if (!secretary_id) return reply.code(400).send({ error: '⚠️ Vui lòng chọn Thư ký cho cuộc họp!' });
 
         const targetProcessId = parseInt(process_id) || 1;
 
