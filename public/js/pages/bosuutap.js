@@ -9,6 +9,12 @@ function _bsutGetAuthHeaders() {
     return headers;
 }
 
+function _bsutIsSuperUser() {
+    const u = window._currentUser;
+    if (!u) return false;
+    return u.role === 'giam_doc' || u.role === 'admin' || !!u.is_admin;
+}
+
 async function _bsutApi(url, method = 'GET', body = null) {
     const opts = {
         method,
@@ -1734,7 +1740,7 @@ function viewCollectionDetail(id) {
                 ` : ''}
                 ${canEdit ? `
                     <button onclick="openEditCollectionModal(${col.id})" style="background: linear-gradient(135deg, #4338ca, #6366f1); color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
-                        ${col.is_approved ? '📷 Cập Nhật Ảnh Mẫu (Mục 8)' : '✏️ Chỉnh Sửa'}
+                        ${(col.is_approved && !_bsutIsSuperUser()) ? '📷 Cập Nhật Ảnh Mẫu (Mục 8)' : '✏️ Chỉnh Sửa'}
                     </button>
                 ` : ''}
                 <button onclick="document.getElementById('modalViewCollectionDetail').style.display='none'" style="background: #f1f5f9; border: 1px solid #cbd5e1; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: #64748b; font-weight: bold; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
@@ -1848,9 +1854,10 @@ function openEditCollectionModal(id) {
     if (!modal) return;
 
     // Change title and button text
+    const isLockedForUser = col.is_approved && !_bsutIsSuperUser();
     const headerTitle = modal.querySelector('h3');
     if (headerTitle) {
-        headerTitle.innerText = col.is_approved 
+        headerTitle.innerText = isLockedForUser 
             ? `📷 Cập Nhật Ảnh Mẫu BST #${id} (Đã Khóa Mục 1-7)` 
             : `✏️ Chỉnh Sửa Bộ Sưu Tập #${id}`;
     }
@@ -1918,8 +1925,9 @@ function openEditCollectionModal(id) {
         if (coverPlaceholder) coverPlaceholder.style.display = 'block';
     }
 
-    _bsutData.isEditingApproved = !!col.is_approved;
-    _bsutToggleFormLock(!!col.is_approved);
+    const isLockedForUser = col.is_approved && !_bsutIsSuperUser();
+    _bsutData.isEditingApproved = isLockedForUser;
+    _bsutToggleFormLock(isLockedForUser);
 
     // Set Bo Tay toggle choice
     toggleCoBotay(_bsutData.formState.hasCoBotay);
