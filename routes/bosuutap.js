@@ -222,14 +222,19 @@ async function collectionsRoutes(fastify, options) {
             const data = await req.file();
             if (!data) return reply.code(400).send({ error: 'Không tìm thấy file tải lên' });
 
-            const ext = path.extname(data.filename).toLowerCase() || '.png';
+            const rawOriginalName = data.filename || 'file';
+            const ext = path.extname(rawOriginalName).toLowerCase() || '.png';
+            const baseNameNoExt = path.basename(rawOriginalName, path.extname(rawOriginalName))
+                .replace(/[^a-zA-Z0-9_\-\s]/g, '_')
+                .substring(0, 50);
+
             const timestamp = Date.now();
             const randStr = Math.random().toString(36).substring(2, 8);
             const isImage = (data.mimetype && data.mimetype.startsWith('image/')) || ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext);
 
             if (isImage) {
-                const origFileName = `col_orig_${timestamp}_${randStr}${ext}`;
-                const webFileName = `col_web_${timestamp}_${randStr}.jpg`;
+                const origFileName = `col_orig_${timestamp}_${randStr}_${baseNameNoExt}${ext}`;
+                const webFileName = `col_web_${timestamp}_${randStr}_${baseNameNoExt}.jpg`;
 
                 const origPath = path.join(UPLOAD_DIR, origFileName);
                 const webPath = path.join(UPLOAD_DIR, webFileName);
@@ -258,7 +263,7 @@ async function collectionsRoutes(fastify, options) {
                 return reply.send({ ok: true, url, original_url, filename: data.filename });
             } else {
                 // PDF or non-image file
-                const safeName = `col_${timestamp}_${randStr}${ext}`;
+                const safeName = `col_${timestamp}_${randStr}_${baseNameNoExt}${ext}`;
                 const filePath = path.join(UPLOAD_DIR, safeName);
                 const writeStream = fs.createWriteStream(filePath);
                 await new Promise((resolve, reject) => {

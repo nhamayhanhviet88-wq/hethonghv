@@ -1558,9 +1558,9 @@ function viewCollectionDetail(id) {
                 <div style="display: flex; flex-wrap: wrap; gap: 10px;">`;
             imgUrls.forEach((u, i) => {
                 const origU = origImgUrls[i] || u;
-                const origName = imgFileNames[i] || `Market_Anh_${i+1}.jpg`;
+                const origName = _getCleanOriginalFileName(origU || u, imgFileNames, i, false);
                 html += `<div style="background: white; border: 1px solid #e2e8f0; padding: 6px; border-radius: 10px; text-align: center; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                    <div style="cursor: pointer;" onclick="showBsutLightbox('${origU}', '${escapeHtml(titleText)} - ${escapeHtml(origName)}')" title="Bấm để xem ảnh phóng to trực tiếp trên trang">
+                    <div style="cursor: pointer;" onclick="showBsutLightbox('${origU}', '${escapeHtml(titleText)} - ${escapeHtml(origName)}', '${escapeHtml(origName)}')" title="Bấm để xem ảnh phóng to trực tiếp trên trang">
                         <img src="${u}" style="height: 85px; width: 110px; object-fit: cover; object-position: top center; border-radius: 6px; border: 1px solid #f1f5f9; background: #f8fafc;">
                     </div>
                     <a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #4338ca; font-size: 11px; font-weight: 700; text-decoration: none; background: #eef2ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #c7d2fe; display: flex; align-items: center; gap: 4px; width: 100%; justify-content: center;">
@@ -1577,7 +1577,7 @@ function viewCollectionDetail(id) {
                 <div style="display: flex; flex-wrap: wrap; gap: 6px;">`;
             pdfUrls.forEach((u, i) => {
                 const origU = origPdfUrls[i] || u;
-                const origName = pdfFileNames[i] || `Market_File_${i+1}.pdf`;
+                const origName = _getCleanOriginalFileName(origU || u, pdfFileNames, i, true);
                 html += `<a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #047857; font-weight: 700; font-size: 11.5px; background: #dcfce7; border: 1px solid #86efac; padding: 6px 12px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">
                     📄 <span>${escapeHtml(origName)}</span> <span style="font-size: 10px; opacity: 0.8;">↗</span>
                 </a>`;
@@ -1689,12 +1689,13 @@ function viewCollectionDetail(id) {
                     <div style="display: flex; flex-wrap: wrap; gap: 12px;">
                         ${chupImgList.map((u, i) => {
                             const origU = chupOrigList[i] || u;
+                            const origName = _getCleanOriginalFileName(origU || u, null, i, false);
                             return `
                                 <div style="background: white; border: 1px solid #e2e8f0; padding: 6px; border-radius: 10px; text-align: center; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);">
-                                    <div style="cursor: pointer;" onclick="showBsutLightbox('${origU}', '📷 Chụp Ảnh Mẫu BST - Ảnh ${i + 1}')" title="Bấm để xem ảnh phóng to trực tiếp trên trang">
+                                    <div style="cursor: pointer;" onclick="showBsutLightbox('${origU}', '📷 Chụp Ảnh Mẫu BST - ${escapeHtml(origName)}', '${escapeHtml(origName)}')" title="Bấm để xem ảnh phóng to trực tiếp trên trang">
                                         <img src="${u}" style="height: 100px; width: 130px; object-fit: cover; object-position: top center; border-radius: 8px; border: 1px solid #f1f5f9; background: #f8fafc;">
                                     </div>
-                                    <a href="${origU}" download="Anh_Mau_BST_${i+1}.jpg" target="_blank" style="color: #475569; font-size: 11px; font-weight: 700; text-decoration: none; background: #f1f5f9; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: flex; align-items: center; gap: 4px; width: 100%; justify-content: center;">
+                                    <a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #475569; font-size: 11px; font-weight: 700; text-decoration: none; background: #f1f5f9; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: flex; align-items: center; gap: 4px; width: 100%; justify-content: center;">
                                         ⬇️ Tải Ảnh HD
                                     </a>
                                 </div>
@@ -1858,11 +1859,32 @@ async function approveCollectionItem(id) {
     }
 }
 
+// ========== HELPER TRÍCH XUẤT TÊN FILE GỐC ==========
+function _getCleanOriginalFileName(url, fileNamesArr, idx, isPdf) {
+    if (fileNamesArr && fileNamesArr[idx] && typeof fileNamesArr[idx] === 'string' && fileNamesArr[idx].trim()) {
+        return fileNamesArr[idx].trim();
+    }
+    if (url && typeof url === 'string') {
+        let name = url.split('/').pop().split('?')[0];
+        name = name.replace(/^col_(orig_|web_)?\d+_[a-z0-9]+_/i, '');
+        if (name && name.length > 1) {
+            try {
+                return decodeURIComponent(name);
+            } catch(e) {
+                return name;
+            }
+        }
+    }
+    return isPdf ? `Tai_Lieu_${idx + 1}.pdf` : `Anh_Mau_${idx + 1}.jpg`;
+}
+
 // ========== SHOW LIGHTBOX xem ảnh trực tiếp trên trang ==========
-function showBsutLightbox(url, title) {
+function showBsutLightbox(url, title, downloadFileName) {
     if (!url) return;
     var old = document.getElementById('bsutLightboxOverlay');
     if (old) old.remove();
+
+    var saveName = downloadFileName || _getCleanOriginalFileName(url, null, 0, false);
 
     var overlay = document.createElement('div');
     overlay.id = 'bsutLightboxOverlay';
@@ -1874,7 +1896,7 @@ function showBsutLightbox(url, title) {
                 🖼️ ${escapeHtml(title || 'Xem Ảnh Lớn')}
             </div>
             <div style="display:flex;align-items:center;gap:10px">
-                <a href="${url}" download target="_blank" style="background:rgba(255,255,255,0.2);color:#ffffff;text-decoration:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);display:inline-flex;align-items:center;gap:6px" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                <a href="${url}" download="${escapeHtml(saveName)}" target="_blank" style="background:rgba(255,255,255,0.2);color:#ffffff;text-decoration:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);display:inline-flex;align-items:center;gap:6px" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
                     ⬇️ Tải Ảnh HD
                 </a>
                 <button onclick="document.getElementById('bsutLightboxOverlay').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#ffffff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-weight:bold;font-size:20px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2)" onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">✕</button>
