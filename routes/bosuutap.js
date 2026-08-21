@@ -169,14 +169,19 @@ async function collectionsRoutes(fastify, options) {
     // 2. GET /api/collections/eligible-tasks
     fastify.get('/api/collections/eligible-tasks', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            const allTasks = await db.all(`
-                SELECT t.id, t.title, t.status, t.guide_link, t.department_id, t.task_code, t.dept_task_no, d.name as department_name
-                FROM board_tasks t
-                LEFT JOIN departments d ON d.id = t.department_id
-                ORDER BY t.id DESC
-            `);
+            const [allTasks, existingCols] = await Promise.all([
+                db.all(`
+                    SELECT t.id, t.title, t.status, t.guide_link, t.department_id, t.task_code, t.dept_task_no, d.name as department_name
+                    FROM board_tasks t
+                    LEFT JOIN departments d ON d.id = t.department_id
+                    ORDER BY t.id DESC
+                `),
+                db.all(`SELECT task_id FROM product_collections WHERE task_id IS NOT NULL`)
+            ]);
             
+            const existingTaskIds = new Set(existingCols.map(c => Number(c.task_id)));
             const eligibleTasks = [];
+
             allTasks.forEach(task => {
                 let guides = [];
                 try {
@@ -198,7 +203,8 @@ async function collectionsRoutes(fastify, options) {
                         id: task.id,
                         cv_code: cvCode,
                         title: task.title,
-                        status: task.status
+                        status: task.status,
+                        is_created: existingTaskIds.has(Number(task.id))
                     });
                 }
             });

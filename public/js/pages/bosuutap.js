@@ -873,7 +873,7 @@ function updateNameFromSelectedTask() {
     }
 }
 
-function populateEligibleTaskSelect(tasks) {
+function populateEligibleTaskSelect(tasks, currentEditingTaskId) {
     const sel = document.getElementById('selCollectionTask');
     if (!sel) return;
 
@@ -883,9 +883,17 @@ function populateEligibleTaskSelect(tasks) {
         return;
     }
 
-    sel.innerHTML = `<option value="">-- Chọn mã công việc Tư Liệu 2 --</option>` +
-        tasks.map(t => `<option value="${t.id}">${t.cv_code} - ${escapeHtml(t.title)} (${t.status})</option>`).join('');
+    const curVal = sel.value;
 
+    sel.innerHTML = `<option value="">-- Chọn mã công việc Tư Liệu 2 --</option>` +
+        tasks.map(t => {
+            const isAlreadyCreated = t.is_created && String(t.id) !== String(currentEditingTaskId);
+            const disabledAttr = isAlreadyCreated ? 'disabled style="color:#94a3b8;background:#f1f5f9"' : '';
+            const statusLabel = isAlreadyCreated ? '✅ Đã tạo BST' : t.status;
+            return `<option value="${t.id}" ${disabledAttr}>${t.cv_code} - ${escapeHtml(t.title)} (${statusLabel})</option>`;
+        }).join('');
+
+    if (curVal) sel.value = curVal;
     updateNameFromSelectedTask();
 }
 
