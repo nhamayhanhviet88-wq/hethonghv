@@ -4692,15 +4692,22 @@ async function _bcvShowApproveModal(taskId) {
             guides = typeof task.guide_link === 'string' ? JSON.parse(task.guide_link) : (task.guide_link || []);
         } catch(e){}
         let isTuLieu2Task = false;
-        if (Array.isArray(guides)) {
+        if (Array.isArray(guides) && guides.length > 0) {
             isTuLieu2Task = guides.some(g => {
                 const gMain = (g.mainCat || '').toLowerCase();
                 const gSub = (g.subCat || g.title || '').toLowerCase();
-                return gMain.includes('thiết kế mẫu') || gMain.includes('thiết kế bst') || gSub.includes('thiết kế mẫu');
+                const fullStr = (gMain + ' ' + gSub).toLowerCase();
+                if (fullStr.includes('tư liệu 3') || fullStr.includes('chụp ảnh') || fullStr.includes('tạo ai')) {
+                    return false;
+                }
+                return fullStr.includes('tư liệu 2') || fullStr.includes('thiết kế mẫu');
             });
         }
-        if (!isTuLieu2Task && task.title && (task.title.toLowerCase().includes('thiết kế mẫu') || task.title.toLowerCase().includes('bst'))) {
-            isTuLieu2Task = true;
+        if (!isTuLieu2Task && task.title) {
+            const tLower = task.title.toLowerCase();
+            if ((tLower.includes('thiết kế mẫu') || tLower.includes('tư liệu 2')) && !tLower.includes('chụp ảnh') && !tLower.includes('tạo ai') && !tLower.includes('tư liệu 3')) {
+                isTuLieu2Task = true;
+            }
         }
 
         if (isTuLieu2Task) {
