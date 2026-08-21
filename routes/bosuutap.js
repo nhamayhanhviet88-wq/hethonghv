@@ -56,10 +56,79 @@ function formatTaskCode(t) {
 
 async function collectionsRoutes(fastify, options) {
 
-    // Migration: add cover_image column
+    // Migration: add cover_image & linh_vuc columns
     try {
         await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS cover_image TEXT`);
     } catch(e) { /* column may already exist */ }
+
+    try {
+        await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS linh_vuc TEXT`);
+    } catch(e) { /* column may already exist */ }
+
+    try {
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS bsut_linh_vuc (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        const countRes = await db.get(`SELECT COUNT(*) as count FROM bsut_linh_vuc`);
+        const count = parseInt((countRes && countRes.count) || 0);
+        if (count === 0) {
+            await db.run(`INSERT INTO bsut_linh_vuc (name) VALUES ('Công Ty'), ('Áo Lớp'), ('Mầm Non') ON CONFLICT DO NOTHING`);
+        }
+    } catch(e) {
+        console.error('[bsut_linh_vuc migration error]', e);
+    }
+
+    // 0a. GET /api/collections/linh-vuc
+    fastify.get('/api/collections/linh-vuc', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const rows = await db.all(`SELECT * FROM bsut_linh_vuc ORDER BY id ASC`);
+            return reply.send({ ok: true, linh_vuc_list: rows });
+        } catch (e) {
+            console.error('[linh-vuc GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // 0b. POST /api/collections/linh-vuc (Only Director)
+    fastify.post('/api/collections/linh-vuc', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            if (req.user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền quản lý Cấu hình Lĩnh Vực!' });
+            }
+            const { name } = req.body || {};
+            if (!name || !name.trim()) {
+                return reply.code(400).send({ error: 'Tên Lĩnh Vực không được để trống' });
+            }
+            const trimmedName = name.trim();
+            const result = await db.get(
+                `INSERT INTO bsut_linh_vuc (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING *`,
+                [trimmedName]
+            );
+            return reply.send({ ok: true, item: result });
+        } catch (e) {
+            console.error('[linh-vuc POST]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // 0c. DELETE /api/collections/linh-vuc/:id (Only Director)
+    fastify.delete('/api/collections/linh-vuc/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            if (req.user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền quản lý Cấu hình Lĩnh Vực!' });
+            }
+            const id = req.params.id;
+            await db.run(`DELETE FROM bsut_linh_vuc WHERE id = $1`, [id]);
+            return reply.send({ ok: true });
+        } catch (e) {
+            console.error('[linh-vuc DELETE]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
 
     // 1. GET /api/collections
     fastify.get('/api/collections', { preHandler: [authenticate] }, async (req, reply) => {
@@ -208,6 +277,11 @@ async function collectionsRoutes(fastify, options) {
                 return reply.code(400).send({ error: 'Tên Bộ Sưu Tập không được để trống' });
             }
 
+            if (!body.linh_vuc || !body.linh_vuc.trim()) {
+                return reply.code(400).send({ error: 'Lĩnh Vực Bộ Sưu Tập là bắt buộc!' });
+            }
+            const linh_vuc = body.linh_vuc.trim();
+
             if (!body.cover_image || !body.cover_image.trim()) {
                 return reply.code(400).send({ error: 'Ảnh đại diện Bộ Sưu Tập là bắt buộc!' });
             }
@@ -314,19 +388,19 @@ async function collectionsRoutes(fastify, options) {
                     name, release_date, created_mode, task_id,
                     market_mau, market_co_botay, phieu_ban_don, thong_so_mau_ao,
                     chup_anh_mau_bst, gia_san_pham, ban_giao_maket, hop_voi_sale,
-                    created_by, cover_image
+                    created_by, cover_image, linh_vuc
                 ) VALUES (
                     $1, $2, $3, $4,
                     $5, $6, $7, $8,
                     $9, $10, $11, $12,
-                    $13, $14
+                    $13, $14, $15
                 ) RETURNING *
             `, [
                 body.name.trim(), release_date, created_mode, task_id,
                 JSON.stringify(market_mau), JSON.stringify(market_co_botay),
                 JSON.stringify(phieu_ban_don), JSON.stringify(thong_so_mau_ao),
                 JSON.stringify(chup_anh_mau_bst), body.gia_san_pham.trim(),
-                null, JSON.stringify({}), user.id, cover_image
+                null, JSON.stringify({}), user.id, cover_image, linh_vuc
             ]);
 
             return reply.send({ ok: true, collection: result });

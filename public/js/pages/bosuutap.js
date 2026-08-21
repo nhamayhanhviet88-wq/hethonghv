@@ -53,7 +53,12 @@ async function renderBosuutapPage(container) {
                         Trang lưu trữ, trưng bày và quản lý chi tiết các Mẫu Bộ Sưu Tập (Maket Mẫu, Market Cổ, Thông Số Áo, Bán Giao & Họp Sale).
                     </p>
                 </div>
-                <div style="z-index: 1;">
+                <div style="z-index: 1; display: flex; gap: 12px; align-items: center;">
+                    ${(window._currentUser && window._currentUser.role === 'giam_doc') ? `
+                        <button id="btnOpenManageLinhVuc" onclick="openModalManageLinhVuc()" style="background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); color: white; border: 1px solid rgba(255, 255, 255, 0.4); padding: 14px 20px; border-radius: 12px; font-weight: 700; font-size: 14.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                            <span style="font-size: 18px;">⚙️</span> Cấu Hình Lĩnh Vực
+                        </button>
+                    ` : ''}
                     <button id="btnOpenCreateCollection" onclick="btnOpenCreateCollectionModal()" style="background: #10b981; color: white; border: none; padding: 14px 24px; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); transition: all 0.2s ease;">
                         <span style="font-size: 18px;">➕</span> Tạo Bộ Sưu Tập Mới
                     </button>
@@ -72,16 +77,23 @@ async function renderBosuutapPage(container) {
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.2fr auto; gap: 12px; align-items: center;">
+                <div style="display: grid; grid-template-columns: 1.8fr 1fr 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: center;">
                     <!-- 1. Search Box -->
                     <div style="position: relative;">
                         <input type="text" id="iptSearchBsutName" onkeyup="applyBosuutapFilters()" placeholder="🔍 Tìm tên BST, mã CV..." style="width: 100%; padding: 10px 14px 10px 36px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; background: #fafafa; transition: all 0.2s;" onfocus="this.style.borderColor='#4338ca';this.style.background='white';this.style.boxShadow='0 0 0 3px rgba(67,56,202,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
                         <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; opacity: 0.5;">🔍</span>
                     </div>
 
-                    <!-- 2. Year select -->
+                    <!-- 2. Lĩnh Vực select -->
                     <div>
-                        <select id="selFilterBsutYear" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
+                        <select id="selFilterBsutLinhVuc" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 10px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 12.5px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
+                            <option value="">🏢 Tất cả lĩnh vực</option>
+                        </select>
+                    </div>
+
+                    <!-- 3. Year select -->
+                    <div>
+                        <select id="selFilterBsutYear" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 10px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 12.5px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
                             <option value="">📅 Tất cả năm</option>
                             <option value="2026">Năm 2026</option>
                             <option value="2025">Năm 2025</option>
@@ -89,9 +101,9 @@ async function renderBosuutapPage(container) {
                         </select>
                     </div>
 
-                    <!-- 3. Quarter select -->
+                    <!-- 4. Quarter select -->
                     <div>
-                        <select id="selFilterBsutQuarter" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
+                        <select id="selFilterBsutQuarter" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 10px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 12.5px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
                             <option value="">📊 Tất cả quý</option>
                             <option value="1">Quý 1 (T1 - T3)</option>
                             <option value="2">Quý 2 (T4 - T6)</option>
@@ -100,9 +112,9 @@ async function renderBosuutapPage(container) {
                         </select>
                     </div>
 
-                    <!-- 4. Month select -->
+                    <!-- 5. Month select -->
                     <div>
-                        <select id="selFilterBsutMonth" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
+                        <select id="selFilterBsutMonth" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 10px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 12.5px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
                             <option value="">🗓️ Tất cả tháng</option>
                             <option value="1">Tháng 1</option>
                             <option value="2">Tháng 2</option>
@@ -119,16 +131,16 @@ async function renderBosuutapPage(container) {
                         </select>
                     </div>
 
-                    <!-- 5. Creator select -->
+                    <!-- 6. Creator select -->
                     <div>
-                        <select id="selFilterBsutCreator" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
+                        <select id="selFilterBsutCreator" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 10px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 12.5px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
                             <option value="">👤 Tất cả người tạo</option>
                         </select>
                     </div>
 
-                    <!-- 6. Reset button -->
+                    <!-- 7. Reset button -->
                     <div>
-                        <button onclick="resetBosuutapFilters()" style="padding: 10px 16px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; transition: all 0.2s ease; white-space: nowrap;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#475569'">🔄 Đặt Lại</button>
+                        <button onclick="resetBosuutapFilters()" style="padding: 10px 14px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: #475569; cursor: pointer; transition: all 0.2s ease; white-space: nowrap;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#475569'">🔄 Đặt Lại</button>
                     </div>
                 </div>
             </div>
@@ -136,6 +148,40 @@ async function renderBosuutapPage(container) {
             <!-- List Grid -->
             <div id="bsutContainer">
                 <div style="text-align: center; padding: 60px; color: #64748b; font-size: 15px;">⏳ Đang tải danh sách Bộ Sưu Tập...</div>
+            </div>
+        </div>
+
+        <!-- MODAL CẤU HÌNH LĨNH VỰC (DÀNH CHO GIÁM ĐỐC) -->
+        <div id="modalManageLinhVuc" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 9999; justify-content: center; align-items: center; padding: 24px; overflow-y: auto;">
+            <div style="background: white; border-radius: 20px; width: 100%; max-width: 520px; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column;">
+                <div style="background: linear-gradient(135deg, #1e1b4b, #4338ca); padding: 20px 24px; color: white; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 22px;">⚙️</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 18px; font-weight: 800;">Cấu Hình Lĩnh Vực</h3>
+                            <div style="font-size: 12px; opacity: 0.8;">Chỉ Giám Đốc có quyền thêm hoặc xóa Lĩnh Vực</div>
+                        </div>
+                    </div>
+                    <button onclick="closeModalManageLinhVuc()" style="background: rgba(255,255,255,0.2); border: none; font-size: 16px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: white; font-weight: bold;">✕</button>
+                </div>
+
+                <div style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Form thêm Lĩnh Vực mới -->
+                    <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Thêm Lĩnh Vực Mới:</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="iptNewLinhVucName" placeholder="Ví dụ: Đồng Phục Xưởng, Áo Nhóm..." style="flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 600;">
+                            <button onclick="addNewLinhVuc()" style="background: #4338ca; color: white; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; white-space: nowrap;">➕ Thêm</button>
+                        </div>
+                    </div>
+
+                    <!-- Danh sách Lĩnh Vực hiện tại -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 10px;">Danh Sách Lĩnh Vực Hiện Tại:</label>
+                        <div id="listLinhVucManage" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -195,6 +241,16 @@ async function renderBosuutapPage(container) {
                                             1. Tên Bộ Sưu Tập <span style="color: #ef4444;">*</span>
                                         </label>
                                         <input type="text" id="iptCollectionName" placeholder="Ví dụ: BST Áo Nhóm Mùa Hè 2026..." style="width: 100%; padding: 11px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 600; transition: border-color 0.2s;" onfocus="this.style.borderColor='#4338ca';this.style.boxShadow='0 0 0 3px rgba(67,56,202,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
+                                    </div>
+
+                                    <!-- Lĩnh Vực -->
+                                    <div>
+                                        <label style="display: block; font-weight: 700; font-size: 13px; color: #334155; margin-bottom: 6px;">
+                                            🏢 Lĩnh Vực <span style="color: #ef4444;">*</span>
+                                        </label>
+                                        <select id="selCollectionLinhVuc" style="width: 100%; padding: 11px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 600; color: #0f172a; background: #ffffff; cursor: pointer;">
+                                            <option value="">-- Bắt buộc chọn Lĩnh Vực --</option>
+                                        </select>
                                     </div>
 
                                     <!-- Ngày ra mắt -->
@@ -436,20 +492,112 @@ async function loadBosuutapData() {
     if (!container) return;
 
     try {
-        const [resCols, resTasks] = await Promise.all([
+        const [resCols, resTasks, resLinhVuc] = await Promise.all([
             _bsutApi('/api/collections'),
-            _bsutApi('/api/collections/eligible-tasks')
+            _bsutApi('/api/collections/eligible-tasks'),
+            _bsutApi('/api/collections/linh-vuc')
         ]);
 
         _bsutData.collections = (resCols && resCols.collections) || [];
         _bsutData.eligibleTasks = (resTasks && resTasks.tasks) || [];
+        _bsutData.linhVucList = (resLinhVuc && resLinhVuc.linh_vuc_list) || [];
 
         populateEligibleTaskSelect(_bsutData.eligibleTasks);
+        populateLinhVucSelect();
+        populateLinhVucFilterSelect();
         populateBsutCreatorFilter(_bsutData.collections);
         applyBosuutapFilters();
     } catch(e) {
         console.error('[loadBosuutapData error]', e);
         container.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">❌ Đã xảy ra lỗi khi tải dữ liệu: ${e.message}</div>`;
+    }
+}
+
+function populateLinhVucSelect() {
+    const sel = document.getElementById('selCollectionLinhVuc');
+    if (!sel) return;
+    const list = _bsutData.linhVucList || [];
+    const curVal = sel.value;
+    let html = '<option value="">-- Bắt buộc chọn Lĩnh Vực --</option>';
+    list.forEach(item => {
+        html += `<option value="${escapeHtml(item.name)}">🏢 ${escapeHtml(item.name)}</option>`;
+    });
+    sel.innerHTML = html;
+    if (curVal) sel.value = curVal;
+}
+
+function populateLinhVucFilterSelect() {
+    const sel = document.getElementById('selFilterBsutLinhVuc');
+    if (!sel) return;
+    const list = _bsutData.linhVucList || [];
+    const curVal = sel.value;
+    let html = '<option value="">🏢 Tất cả lĩnh vực</option>';
+    list.forEach(item => {
+        html += `<option value="${escapeHtml(item.name)}">🏢 ${escapeHtml(item.name)}</option>`;
+    });
+    sel.innerHTML = html;
+    if (curVal) sel.value = curVal;
+}
+
+function openModalManageLinhVuc() {
+    if (!window._currentUser || window._currentUser.role !== 'giam_doc') {
+        return alert('Chỉ Giám Đốc mới có quyền quản lý Cấu hình Lĩnh Vực!');
+    }
+    renderLinhVucManageList();
+    const modal = document.getElementById('modalManageLinhVuc');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeModalManageLinhVuc() {
+    const modal = document.getElementById('modalManageLinhVuc');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderLinhVucManageList() {
+    const container = document.getElementById('listLinhVucManage');
+    if (!container) return;
+    const list = _bsutData.linhVucList || [];
+    if (list.length === 0) {
+        container.innerHTML = '<div style="color: #94a3b8; font-size: 13px; text-align: center; padding: 12px;">(Chưa có Lĩnh Vực nào)</div>';
+        return;
+    }
+
+    container.innerHTML = list.map(item => `
+        <div style="background: white; border: 1px solid #cbd5e1; padding: 10px 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 14px; font-weight: 700; color: #0f172a;">🏢 ${escapeHtml(item.name)}</span>
+            <button onclick="deleteLinhVucItem(${item.id}, '${escapeHtml(item.name)}')" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">🗑️ Xóa</button>
+        </div>
+    `).join('');
+}
+
+async function addNewLinhVuc() {
+    const input = document.getElementById('iptNewLinhVucName');
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) return alert('Vui lòng nhập tên Lĩnh Vực!');
+
+    try {
+        const res = await _bsutApi('/api/collections/linh-vuc', 'POST', { name });
+        if (!res.ok) throw new Error(res.error || 'Thêm thất bại');
+        alert(`🎉 Đã thêm Lĩnh Vực "${name}" thành công!`);
+        input.value = '';
+        await loadBosuutapData();
+        renderLinhVucManageList();
+    } catch(e) {
+        alert('❌ Lỗi khi thêm Lĩnh Vực: ' + e.message);
+    }
+}
+
+async function deleteLinhVucItem(id, name) {
+    if (!confirm(`Bạn có chắc chắn muốn xóa Lĩnh Vực "${name}"?`)) return;
+    try {
+        const res = await _bsutApi('/api/collections/linh-vuc/' + id, 'DELETE');
+        if (!res.ok) throw new Error(res.error || 'Xóa thất bại');
+        alert('Xóa Lĩnh Vực thành công!');
+        await loadBosuutapData();
+        renderLinhVucManageList();
+    } catch(e) {
+        alert('❌ Lỗi khi xóa Lĩnh Vực: ' + e.message);
     }
 }
 
@@ -476,6 +624,7 @@ function populateBsutCreatorFilter(collections) {
 
 function applyBosuutapFilters() {
     const searchKey = (document.getElementById('iptSearchBsutName')?.value || '').trim().toLowerCase();
+    const selLinhVuc = document.getElementById('selFilterBsutLinhVuc')?.value;
     const selYear = document.getElementById('selFilterBsutYear')?.value;
     const selQuarter = document.getElementById('selFilterBsutQuarter')?.value;
     const selMonth = document.getElementById('selFilterBsutMonth')?.value;
@@ -484,13 +633,21 @@ function applyBosuutapFilters() {
     const allCols = _bsutData.collections || [];
 
     const filtered = allCols.filter(col => {
-        // 1. Search key check (Tên BST, mã CV, tiêu đề CV, tên người tạo)
+        // 1. Search key check (Tên BST, mã CV, tiêu đề CV, tên người tạo, Lĩnh Vực)
         if (searchKey) {
             const cName = (col.name || '').toLowerCase();
             const cCode = (col.task_code || '').toLowerCase();
             const cTitle = (col.task_title || '').toLowerCase();
             const cCreator = (col.created_by_name || '').toLowerCase();
-            if (!cName.includes(searchKey) && !cCode.includes(searchKey) && !cTitle.includes(searchKey) && !cCreator.includes(searchKey)) {
+            const cLinhVuc = (col.linh_vuc || '').toLowerCase();
+            if (!cName.includes(searchKey) && !cCode.includes(searchKey) && !cTitle.includes(searchKey) && !cCreator.includes(searchKey) && !cLinhVuc.includes(searchKey)) {
+                return false;
+            }
+        }
+
+        // 2. Lĩnh Vực filter
+        if (selLinhVuc) {
+            if ((col.linh_vuc || '').trim() !== selLinhVuc.trim()) {
                 return false;
             }
         }
@@ -500,21 +657,21 @@ function applyBosuutapFilters() {
         const d = dateStr ? new Date(dateStr) : null;
         const isValidDate = d && !isNaN(d.getTime());
 
-        // 2. Year filter
+        // 3. Year filter
         if (selYear) {
             if (!isValidDate || String(d.getFullYear()) !== String(selYear)) {
                 return false;
             }
         }
 
-        // 3. Month filter
+        // 4. Month filter
         if (selMonth) {
             if (!isValidDate || String(d.getMonth() + 1) !== String(selMonth)) {
                 return false;
             }
         }
 
-        // 4. Quarter filter
+        // 5. Quarter filter
         if (selQuarter) {
             if (!isValidDate) return false;
             const q = Math.ceil((d.getMonth() + 1) / 3);
@@ -523,7 +680,7 @@ function applyBosuutapFilters() {
             }
         }
 
-        // 5. Creator filter
+        // 6. Creator filter
         if (selCreator) {
             const creatorName = (col.created_by_name || 'Hệ thống').trim();
             if (creatorName !== selCreator.trim()) {
@@ -544,12 +701,14 @@ function applyBosuutapFilters() {
 
 function resetBosuutapFilters() {
     const iptName = document.getElementById('iptSearchBsutName');
+    const selLinhVuc = document.getElementById('selFilterBsutLinhVuc');
     const selYear = document.getElementById('selFilterBsutYear');
     const selQuarter = document.getElementById('selFilterBsutQuarter');
     const selMonth = document.getElementById('selFilterBsutMonth');
     const selCreator = document.getElementById('selFilterBsutCreator');
 
     if (iptName) iptName.value = '';
+    if (selLinhVuc) selLinhVuc.value = '';
     if (selYear) selYear.value = '';
     if (selQuarter) selQuarter.value = '';
     if (selMonth) selMonth.value = '';
@@ -566,9 +725,9 @@ function renderCollectionGrid(collections) {
         container.innerHTML = `
             <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 60px 20px; text-align: center;">
                 <div style="font-size: 56px; margin-bottom: 12px;">🎨</div>
-                <h3 style="font-size: 18px; font-weight: 700; color: #1e293b; margin: 0 0 8px;">Chưa có Bộ Sưu Tập nào</h3>
+                <h3 style="font-size: 18px; font-weight: 700; color: #1e293b; margin: 0 0 8px;">Không tìm thấy Bộ Sưu Tập nào</h3>
                 <p style="color: #64748b; font-size: 13.5px; max-width: 420px; margin: 0 auto 20px;">
-                    Nhấn vào nút <b>"+ Tạo Bộ Sưu Tập Mới"</b> ở phía trên để thêm Bộ Sưu Tập đầu tiên.
+                    Thử thay đổi từ khóa tìm kiếm hoặc điều chỉnh bộ lọc để xem các Bộ Sưu Tập khác.
                 </p>
             </div>
         `;
@@ -588,18 +747,21 @@ function renderCollectionGrid(collections) {
                         
                         <div style="padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
                             <div>
-                                <!-- Chips: Mã CV & Người Tạo -->
+                                <!-- Chips: Lĩnh Vực, Mã CV & Người Tạo -->
                                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                                    <span style="background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #fde68a;">
+                                        🏢 ${escapeHtml(col.linh_vuc || 'Khác')}
+                                    </span>
                                     ${col.created_mode === 'task_linked' && (col.task_code || col.task_id) ? `
-                                        <span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                                        <span style="background: #e0e7ff; color: #3730a3; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
                                             📌 ${escapeHtml((col.task_code && col.task_code.trim()) ? col.task_code.trim() : `CV-${String(col.task_id).padStart(3, '0')}`)}
                                         </span>
                                     ` : `
-                                        <span style="background: #f1f5f9; color: #475569; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                        <span style="background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                                             ✨ Tạo Tự Do
                                         </span>
                                     `}
-                                    <span style="background: #f1f5f9; color: #334155; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                    <span style="background: #f1f5f9; color: #334155; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                                         👤 Người tạo: <b>${escapeHtml(col.created_by_name || 'Hệ thống')}</b>
                                     </span>
                                 </div>
@@ -1139,11 +1301,13 @@ async function handlePasteBanGiaoMaket(e) {
 
 async function submitCreateCollection() {
     const name = (document.getElementById('iptCollectionName').value || '').trim();
+    const linh_vuc = (document.getElementById('selCollectionLinhVuc')?.value || '').trim();
     const release_date = document.getElementById('iptCollectionReleaseDate').value;
     const task_id = document.getElementById('selCollectionTask').value;
     const gia_san_pham = (document.getElementById('txtGiaSanPham').value || '').trim();
 
     if (!name) return alert('Vui lòng nhập Tên Bộ Sưu Tập!');
+    if (!linh_vuc) return alert('Vui lòng chọn Lĩnh Vực cho Bộ Sưu Tập! (Bắt buộc)');
     if (!release_date) return alert('Vui lòng chọn Ngày ra Bộ Sưu Tập!');
 
     // Validate cover image
@@ -1209,6 +1373,7 @@ async function submitCreateCollection() {
 
     const payload = {
         name,
+        linh_vuc,
         release_date,
         cover_image: _bsutData.formState.cover_image_url,
         created_mode: _bsutData.activeMode,
@@ -1338,6 +1503,7 @@ function viewCollectionDetail(id) {
                 <div style="display: flex; flex-direction: column; justify-content: center; padding-top: 4px;">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
                         <span style="background: linear-gradient(135deg, #4338ca, #6366f1); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800;">✨ BST #${col.id}</span>
+                        <span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #fde68a;">🏢 ${escapeHtml(col.linh_vuc || 'Khác')}</span>
                         ${col.task_code ? `<span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">📌 ${escapeHtml(col.task_code)}</span>` : ''}
                     </div>
                     <h2 style="margin: 6px 0 10px; font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.4px;">${escapeHtml(col.name)}</h2>
