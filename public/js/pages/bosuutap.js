@@ -1931,7 +1931,6 @@ function openEditCollectionModal(id) {
         if (coverPlaceholder) coverPlaceholder.style.display = 'block';
     }
 
-    const isLockedForUser = col.is_approved && !_bsutIsSuperUser();
     _bsutData.isEditingApproved = isLockedForUser;
     _bsutToggleFormLock(isLockedForUser);
 
