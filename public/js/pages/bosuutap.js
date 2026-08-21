@@ -1070,6 +1070,82 @@ async function uploadCoverImage(inputEl) {
     inputEl.value = '';
 }
 
+function _bsutRenderChupAnhMauBstPreview() {
+    const prevEl = document.getElementById('prev_chup_anh_mau_bst');
+    if (!prevEl) return;
+    const chupList = _bsutData.formState.chup_anh_mau_bst || [];
+    if (!Array.isArray(chupList) || chupList.length === 0) {
+        prevEl.innerHTML = '';
+        return;
+    }
+    let html = '';
+    chupList.forEach((item, idx) => {
+        const u = typeof item === 'string' ? item : item.url;
+        const origU = (typeof item === 'object' && item.original_url) || u;
+        const origName = _getCleanOriginalFileName(origU || u, null, idx, false);
+        html += `<div style="position:relative;display:inline-block;margin-right:6px;margin-bottom:6px">
+            <img src="${u}" style="height:60px;width:75px;object-fit:cover;border-radius:6px;border:1px solid #0284c7">
+            <button type="button" onclick="_bsutRemoveChupAnhMauBstItem(${idx})" style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;border:none;width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:10px;font-weight:bold;line-height:1;display:flex;align-items:center;justify-content:center" title="Xóa ảnh này">✕</button>
+        </div>`;
+    });
+    prevEl.innerHTML = html;
+}
+
+function _bsutRemoveChupAnhMauBstItem(idx) {
+    if (Array.isArray(_bsutData.formState.chup_anh_mau_bst)) {
+        _bsutData.formState.chup_anh_mau_bst.splice(idx, 1);
+        _bsutRenderChupAnhMauBstPreview();
+    }
+}
+
+async function uploadMultipleImages(inputEl) {
+    if (!inputEl.files || inputEl.files.length === 0) return;
+    const prevEl = document.getElementById('prev_chup_anh_mau_bst');
+    if (prevEl) {
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'status_upload_chup_mau';
+        statusDiv.style.cssText = 'font-size:12px;color:#0284c7;font-weight:600;width:100%';
+        statusDiv.innerHTML = '⏳ Đang tải ảnh mẫu...';
+        prevEl.appendChild(statusDiv);
+    }
+
+    if (!Array.isArray(_bsutData.formState.chup_anh_mau_bst)) {
+        _bsutData.formState.chup_anh_mau_bst = [];
+    }
+
+    const files = Array.from(inputEl.files);
+    for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+            alert(`❌ File "${file.name}" không phải là file ảnh hợp lệ!`);
+            continue;
+        }
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const res = await fetch('/api/collections/upload-file', {
+                method: 'POST',
+                headers: _bsutGetAuthHeaders(),
+                credentials: 'include',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.ok && data.url) {
+                _bsutData.formState.chup_anh_mau_bst.push({
+                    url: data.url,
+                    original_url: data.original_url || data.url
+                });
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    const statusEl = document.getElementById('status_upload_chup_mau');
+    if (statusEl) statusEl.remove();
+    inputEl.value = '';
+    _bsutRenderChupAnhMauBstPreview();
+}
+
 async function uploadCollectionFiles(inputEl, groupKey, propKey) {
     if (!inputEl.files || inputEl.files.length === 0) return;
     const files = Array.from(inputEl.files);
