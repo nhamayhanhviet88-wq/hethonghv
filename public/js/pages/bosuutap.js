@@ -409,11 +409,27 @@ function renderCollectionGrid(collections) {
                         
                         <div style="padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
                             <div>
-                                <h4 style="margin: 0 0 6px; font-size: 17px; font-weight: 800; color: #0f172a;">${escapeHtml(col.name)}</h4>
-                                <div style="font-size: 12px; color: #64748b; margin-bottom: 14px;">
+                                <!-- Chips: Mã CV & Người Tạo -->
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                                    ${col.created_mode === 'task_linked' && (col.task_code || col.task_id) ? `
+                                        <span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                                            📌 ${escapeHtml((col.task_code && col.task_code.trim()) ? col.task_code.trim() : `CV-${String(col.task_id).padStart(3, '0')}`)}
+                                        </span>
+                                    ` : `
+                                        <span style="background: #f1f5f9; color: #475569; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                            ✨ Tạo Tự Do
+                                        </span>
+                                    `}
+                                    <span style="background: #f1f5f9; color: #334155; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                        👤 Người tạo: <b>${escapeHtml(col.created_by_name || 'Hệ thống')}</b>
+                                    </span>
+                                </div>
+
+                                <h4 style="margin: 0 0 8px; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.3;">${escapeHtml(col.name)}</h4>
+                                <div style="font-size: 12px; color: #64748b; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
                                     📅 Ngày ra mắt: <b>${formatDate(col.release_date)}</b>
                                 </div>
-                                <div style="font-size: 13px; color: #334155; margin-bottom: 12px; background: #fafafa; padding: 8px 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
+                                <div style="font-size: 13px; color: #334155; margin-bottom: 12px; background: #fafafa; padding: 10px 14px; border-radius: 10px; border: 1px solid #f1f5f9; line-height: 1.5;">
                                     <b>💰 Giá:</b> ${escapeHtml(col.gia_san_pham || 'Chưa cập nhật')}
                                 </div>
                             </div>
