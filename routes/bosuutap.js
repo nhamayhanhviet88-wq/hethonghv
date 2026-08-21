@@ -433,17 +433,28 @@ async function collectionsRoutes(fastify, options) {
     fastify.put('/api/collections/:id', { preHandler: [authenticate] }, async (req, reply) => {
         try {
             const id = req.params.id;
-            const user = req.user;
-            const body = req.body || {};
+            const existing = await db.get(`SELECT * FROM product_collections WHERE id = $1`, [id]);
+            if (!existing) return reply.code(404).send({ error: 'Không tìm thấy Bộ Sưu Tập' });
 
-            const col = await db.get(`SELECT * FROM product_collections WHERE id = $1`, [id]);
-            if (!col) {
-                return reply.code(404).send({ error: 'Không tìm thấy Bộ Sưu Tập' });
+            const isGiamDoc = req.user.role === 'giam_doc';
+            const isCreator = Number(req.user.id) === Number(existing.created_by);
+            if (!isGiamDoc && !isCreator) {
+                return reply.code(403).send({ error: 'Bạn không có quyền chỉnh sửa Bộ Sưu Tập này!' });
             }
 
-            // Permission check: Must be Giám Đốc OR the creator of this collection
-            if (user.role !== 'giam_doc' && Number(col.created_by) !== Number(user.id)) {
-                return reply.code(403).send({ error: 'Chỉ người tạo hoặc Giám Đốc mới có quyền chỉnh sửa Bộ Sưu Tập này!' });
+            const body = req.body || {};
+
+            // If collection is ALREADY APPROVED: ONLY allow updating chup_anh_mau_bst (Item 8)!
+            if (existing.is_approved) {
+                const chup_anh_mau_bst = Array.isArray(body.chup_anh_mau_bst) ? body.chup_anh_mau_bst : [];
+                const result = await db.get(`
+                    UPDATE product_collections
+                    SET chup_anh_mau_bst = $1
+                    WHERE id = $2
+                    RETURNING *
+                `, [JSON.stringify(chup_anh_mau_bst), id]);
+
+                return reply.send({ ok: true, collection: result, locked_notice: 'Bộ Sưu Tập đã duyệt: Chỉ cập nhật Mục 8 (Chụp Ảnh Mẫu BST).' });
             }
 
             if (!body.name || !body.name.trim()) {

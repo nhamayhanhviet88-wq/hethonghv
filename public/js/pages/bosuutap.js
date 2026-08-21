@@ -964,6 +964,8 @@ function toggleCoBotay(hasCo) {
 
 function btnOpenCreateCollectionModal() {
     _bsutData.editingId = null;
+    _bsutData.isEditingApproved = false;
+    _bsutToggleFormLock(false);
 
     const modal = document.getElementById('modalCreateCollection');
     if (modal) {
@@ -1155,11 +1157,12 @@ function _bsutRenderGroupFilesPreview(groupKey, propKey) {
     }
 
     let html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">';
+    const canDelete = !(_bsutData.isEditingApproved && groupKey !== 'chup_anh_mau_bst');
     urls.forEach((url, idx) => {
         if (isImage) {
             html += `<div style="position:relative;display:inline-block">
                 <img src="${url}" style="height:50px;width:50px;object-fit:cover;border-radius:6px;border:1px solid #10b981">
-                <button type="button" onclick="_bsutRemoveGroupFile('${groupKey}', '${propKey}', ${idx})" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border:none;width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:10px;font-weight:bold;line-height:1;display:flex;align-items:center;justify-content:center" title="Xóa file này">✕</button>
+                ${canDelete ? `<button type="button" onclick="_bsutRemoveGroupFile('${groupKey}', '${propKey}', ${idx})" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border:none;width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:10px;font-weight:bold;line-height:1;display:flex;align-items:center;justify-content:center" title="Xóa file này">✕</button>` : ''}
             </div>`;
         } else {
             const fnKey = '_pdf_filenames';
@@ -1167,7 +1170,7 @@ function _bsutRenderGroupFilesPreview(groupKey, propKey) {
             const fileName = storedNames[idx] || url.split('/').pop() || 'PDF';
             html += `<div style="display:inline-flex;align-items:center;gap:4px;background:#eef2ff;border:1px solid #c7d2fe;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;color:#3730a3">
                 📄 <a href="${url}" target="_blank" style="color:#3730a3;text-decoration:none">${escapeHtml(fileName)}</a>
-                <button type="button" onclick="_bsutRemoveGroupFile('${groupKey}', '${propKey}', ${idx})" style="background:transparent;color:#ef4444;border:none;cursor:pointer;font-weight:bold;font-size:12px;margin-left:2px" title="Xóa file này">✕</button>
+                ${canDelete ? `<button type="button" onclick="_bsutRemoveGroupFile('${groupKey}', '${propKey}', ${idx})" style="background:transparent;color:#ef4444;border:none;cursor:pointer;font-weight:bold;font-size:12px;margin-left:2px" title="Xóa file này">✕</button>` : ''}
             </div>`;
         }
     });
@@ -1828,6 +1831,9 @@ function openEditCollectionModal(id) {
         if (coverPlaceholder) coverPlaceholder.style.display = 'block';
     }
 
+    _bsutData.isEditingApproved = !!col.is_approved;
+    _bsutToggleFormLock(!!col.is_approved);
+
     // Set Bo Tay toggle choice
     toggleCoBotay(_bsutData.formState.hasCoBotay);
 
@@ -1838,7 +1844,68 @@ function openEditCollectionModal(id) {
         _bsutUpdatePairBadge(gk);
     });
 
+    _bsutRenderChupAnhMauBstPreview();
+
     modal.style.display = 'flex';
+}
+
+function _bsutToggleFormLock(isLocked) {
+    const modal = document.getElementById('modalCreateCollection');
+    if (!modal) return;
+
+    let notice = document.getElementById('boxApprovedLockedNotice');
+    if (isLocked) {
+        if (!notice) {
+            notice = document.createElement('div');
+            notice.id = 'boxApprovedLockedNotice';
+            notice.style.cssText = 'background:#eff6ff;border:1px solid #bfdbfe;padding:12px 16px;border-radius:12px;color:#1e40af;font-size:13px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px';
+            const modalContainer = modal.querySelector('div[style*="background: white"]') || modal.querySelector('.modal-body') || modal.firstElementChild;
+            if (modalContainer) modalContainer.insertBefore(notice, modalContainer.children[1] || modalContainer.firstElementChild);
+        }
+        if (notice) {
+            notice.style.display = 'flex';
+            notice.innerHTML = '🔒 <b>Bộ Sưu Tập đã được DUYỆT!</b> Tất cả thông tin Mục 1 đến 7 đã được khóa cố định. Bạn CHỈ ĐƯỢC PHÉP CẬP NHẬT THÊM HÌNH ẢNH ở Mục 8 (📷 Chụp Ảnh Mẫu BST).';
+        }
+    } else {
+        if (notice) notice.style.display = 'none';
+    }
+
+    ['iptCollectionName', 'selCollectionLinhVuc', 'iptCollectionReleaseDate', 'selCollectionTask', 'txtGiaSanPham'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.disabled = isLocked;
+            el.style.background = isLocked ? '#f8fafc' : 'white';
+            el.style.color = isLocked ? '#64748b' : '#0f172a';
+            el.style.cursor = isLocked ? 'not-allowed' : 'text';
+        }
+    });
+
+    ['radModeTaskLinked', 'radModeFree'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = isLocked;
+    });
+
+    const coverBox = document.getElementById('boxCoverImage');
+    if (coverBox) {
+        coverBox.style.pointerEvents = isLocked ? 'none' : 'auto';
+        coverBox.style.opacity = isLocked ? '0.75' : '1';
+    }
+
+    const coBotayYes = document.getElementById('toggleCoBotay_yes');
+    const coBotayNo = document.getElementById('toggleCoBotay_no');
+    if (coBotayYes) coBotayYes.style.pointerEvents = isLocked ? 'none' : 'auto';
+    if (coBotayNo) coBotayNo.style.pointerEvents = isLocked ? 'none' : 'auto';
+
+    // Hide or show upload file labels for groups 3, 4, 5, 6
+    ['market_mau', 'market_co_botay', 'phieu_ban_don', 'thong_so_mau_ao'].forEach(groupKey => {
+        ['img', 'pdf'].forEach(type => {
+            const prevEl = document.getElementById(`prev_${groupKey}_${type}`);
+            if (prevEl && prevEl.parentElement) {
+                const label = prevEl.parentElement.querySelector('label');
+                if (label) label.style.display = isLocked ? 'none' : 'inline-flex';
+            }
+        });
+    });
 }
 
 async function deleteCollectionItem(id) {
