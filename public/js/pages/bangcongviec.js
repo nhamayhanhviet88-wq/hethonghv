@@ -4591,6 +4591,98 @@ async function _bcvSubmitTask(taskId) {
 }
 
 
+// ========== HIỂN THỊ POPUP CẢNH BÁO 2 ĐIỀU KIỆN ĐẸP SANG TRỌNG ==========
+function _bcvShowConditionWarningModal(opts) {
+    var old = document.getElementById('bcvConditionWarningOverlay');
+    if (old) old.remove();
+
+    var colName = opts.collectionName || 'Bộ Sưu Tập';
+    var cond1Met = !!opts.condition1Met;
+    var cond2Met = !!opts.condition2Met;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'bcv-overlay';
+    overlay.id = 'bcvConditionWarningOverlay';
+    overlay.style.zIndex = '100020';
+    overlay.style.background = 'rgba(15, 23, 42, 0.75)';
+    overlay.style.backdropFilter = 'blur(10px)';
+
+    overlay.innerHTML = `
+        <div class="bcv-modal" style="max-width:540px;border-radius:20px;padding:0;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);background:#ffffff">
+            <!-- Modal Header -->
+            <div style="background:linear-gradient(135deg, #dc2626 0%, #991b1b 100%);padding:20px 24px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <span style="font-size:26px;background:rgba(255,255,255,0.2);width:44px;height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.15)">⚠️</span>
+                    <div>
+                        <div style="font-size:16px;font-weight:900;letter-spacing:-0.3px;color:#ffffff;text-transform:uppercase">KHÔNG THỂ DUYỆT CÔNG VIỆC</div>
+                        <div style="font-size:12px;opacity:0.9;margin-top:2px;font-weight:600">Yêu cầu hoàn thành đủ 2 điều kiện bắt buộc</div>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('bcvConditionWarningOverlay').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-weight:bold;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+            </div>
+
+            <!-- Modal Body -->
+            <div style="padding:22px 24px;display:flex;flex-direction:column;gap:16px">
+                <div style="font-size:13px;color:#334155;line-height:1.5;font-weight:600">
+                    Công việc thuộc nhóm <b style="color:#4338ca">"Tư Liệu 2 : Thiết Kế Mẫu - BST"</b> yêu cầu người dùng phải thỏa mãn <b>đủ 2 điều kiện</b> dưới đây:
+                </div>
+
+                <!-- 2 Conditions Cards -->
+                <div style="display:flex;flex-direction:column;gap:10px;background:#f8fafc;padding:14px;border-radius:14px;border:1px solid #e2e8f0">
+                    <!-- Condition 1 -->
+                    <div style="background:#ffffff;padding:12px 14px;border-radius:10px;border:1.5px solid ${cond1Met ? '#86efac' : '#fecdd3'};display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 5px rgba(0,0,0,0.02)">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <span style="font-size:20px">${cond1Met ? '✅' : '❌'}</span>
+                            <div>
+                                <div style="font-size:13px;font-weight:800;color:#0f172a">1. Tạo Bộ Sưu Tập cho công việc</div>
+                                <div style="font-size:11.5px;color:#64748b;margin-top:2px">${cond1Met ? `Đã tạo: <b style="color:#15803d">"${_esc(colName)}"</b>` : 'Người nhận việc chưa tạo Bộ Sưu Tập'}</div>
+                            </div>
+                        </div>
+                        <span style="background:${cond1Met ? '#dcfce7' : '#fff1f2'};color:${cond1Met ? '#15803d' : '#e11d48'};border:1px solid ${cond1Met ? '#86efac' : '#fecdd3'};padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800;white-space:nowrap">
+                            ${cond1Met ? '✅ ĐÃ TẠO ĐK1' : '❌ CHƯA TẠO'}
+                        </span>
+                    </div>
+
+                    <!-- Condition 2 -->
+                    <div style="background:#ffffff;padding:12px 14px;border-radius:10px;border:1.5px solid ${cond2Met ? '#86efac' : '#fecdd3'};display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 5px rgba(0,0,0,0.02)">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <span style="font-size:20px">${cond2Met ? '✅' : '❌'}</span>
+                            <div>
+                                <div style="font-size:13px;font-weight:800;color:#0f172a">2. Người giao việc Duyệt Bộ Sưu Tập</div>
+                                <div style="font-size:11.5px;color:#64748b;margin-top:2px">${cond2Met ? 'Đã ấn Duyệt Bộ Sưu Tập' : 'Người giao việc chưa ấn nút Duyệt Bộ Sưu Tập'}</div>
+                            </div>
+                        </div>
+                        <span style="background:${cond2Met ? '#dcfce7' : '#fff1f2'};color:${cond2Met ? '#15803d' : '#e11d48'};border:1px solid ${cond2Met ? '#86efac' : '#fecdd3'};padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800;white-space:nowrap">
+                            ${cond2Met ? '✅ ĐÃ DUYỆT ĐK2' : '❌ CHƯA DUYỆT'}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Guidance Box -->
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:12px 14px;border-radius:10px;color:#1e40af;font-size:12px;line-height:1.5;display:flex;align-items:flex-start;gap:8px">
+                    <span style="font-size:16px;line-height:1">💡</span>
+                    <div>
+                        <b>Hướng dẫn khắc phục:</b><br>
+                        ${!cond1Met 
+                            ? 'Người nhận việc cần sang menu <b>"Bộ Sưu Tập / BST"</b> $\\rightarrow$ bấm <b>"Tạo Bộ Sưu Tập Mới"</b> chọn đúng mã công việc này.'
+                            : 'Người giao việc cần sang menu <b>"Bộ Sưu Tập / BST"</b> $\\rightarrow$ mở <b>"👁️ Xem Chi Tiết"</b> bộ sưu tập <b>"' + _esc(colName) + '"</b> $\\rightarrow$ ấn nút <b>"✅ Duyệt Bộ Sưu Tập"</b> trước khi quay lại duyệt công việc.'}
+                    </div>
+                </div>
+
+                <!-- Action Footer Buttons -->
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">
+                    <button onclick="document.getElementById('bcvConditionWarningOverlay').remove()" style="padding:9px 18px;border-radius:10px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;font-weight:700;font-size:12.5px;cursor:pointer">Đóng</button>
+                    <button onclick="document.getElementById('bcvConditionWarningOverlay').remove(); window.location.href='/bosuutap';" style="padding:9px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#4338ca,#3730a3);color:#ffffff;font-weight:800;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(67,56,202,0.35)">
+                        🚀 Sang Trang "Bộ Sưu Tập / BST" ↗
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+}
+
 // ========== HIỂN THỊ MODAL DUYỆT CÔNG VIỆC ==========
 async function _bcvShowApproveModal(taskId) {
     var task = (_bcv.tasks || []).find(function(t) { return t.id === taskId; });
@@ -4618,12 +4710,21 @@ async function _bcvShowApproveModal(taskId) {
                 var linkedCollection = collections.find(function(c) { return Number(c.task_id) === Number(taskId); });
 
                 if (!linkedCollection) {
-                    alert('⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nCông việc thuộc "Tư Liệu 2 : Thiết Kế Mẫu - BST" yêu cầu bắt buộc 2 điều kiện:\n\n1. Người nhận việc phải Tạo Bộ Sưu Tập cho công việc này tại menu "Bộ Sưu Tập / BST" (❌ Chưa tạo).\n2. Người giao việc phải vào menu "Bộ Sưu Tập / BST", xem chi tiết và bấm "✅ Duyệt Bộ Sưu Tập" (❌ Chưa duyệt).');
+                    _bcvShowConditionWarningModal({
+                        collectionName: '',
+                        condition1Met: false,
+                        condition2Met: false
+                    });
                     return;
                 }
 
                 if (!linkedCollection.is_approved) {
-                    alert('⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nBộ Sưu Tập "' + linkedCollection.name + '" đã được tạo (✅ Đã đạt ĐK1), nhưng NGƯỜI GIAO VIỆC chưa bấm Duyệt Bộ Sưu Tập này (❌ Chưa đạt ĐK2)!\n\nVui lòng sang menu "Bộ Sưu Tập / BST", bấm "👁️ Xem Chi Tiết" bộ sưu tập này và ấn nút "✅ Duyệt Bộ Sưu Tập" trước khi quay lại duyệt công việc.');
+                    _bcvShowConditionWarningModal({
+                        collectionName: linkedCollection.name,
+                        collectionId: linkedCollection.id,
+                        condition1Met: true,
+                        condition2Met: false
+                    });
                     return;
                 }
             } catch(e) {
@@ -4672,7 +4773,16 @@ async function _bcvConfirmApprove(taskId) {
         var ov2 = document.getElementById('bcvOverlay'); if (ov2) ov2.remove();
         _bcvLoadTasks();
     } else {
-        alert((res && res.error) || 'Lỗi khi phê duyệt công việc');
+        if (res && res.condition1_met !== undefined) {
+            _bcvShowConditionWarningModal({
+                collectionName: res.collection_name || '',
+                collectionId: res.collection_id || null,
+                condition1Met: res.condition1_met,
+                condition2Met: res.condition2_met
+            });
+        } else {
+            alert((res && res.error) || 'Lỗi khi phê duyệt công việc');
+        }
     }
 }
 
