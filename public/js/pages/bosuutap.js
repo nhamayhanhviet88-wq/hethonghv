@@ -1596,7 +1596,7 @@ function viewCollectionDetail(id) {
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 ${(!col.is_approved && canApproveCollection) ? `
-                    <button onclick="approveCollectionItem(${col.id})" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 18px; border-radius: 10px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <button onclick="approveCollectionItem(${col.id})" style="background: linear-gradient(135deg, #059669, #10b981); color: white; border: none; padding: 6px 16px; border-radius: 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 10px rgba(16, 185, 129, 0.35); transition: all 0.2s; letter-spacing: 0.2px;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
                         ✅ DUYỆT BỘ SƯU TẬP
                     </button>
                 ` : ''}
