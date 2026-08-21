@@ -422,12 +422,18 @@ async function collectionsRoutes(fastify, options) {
             const chup_anh_mau_bst = Array.isArray(body.chup_anh_mau_bst) ? body.chup_anh_mau_bst : [];
 
             const driveRegex = /^https?:\/\/(?:drive|docs)\.google\.com\/.+/i;
-            const video_bst = Array.isArray(body.video_bst) ? body.video_bst : [];
-            for (let i = 0; i < video_bst.length; i++) {
-                const vLink = (video_bst[i] || '').trim();
-                if (vLink && !driveRegex.test(vLink)) {
-                    return reply.code(400).send({ error: `Link Video Bộ Sưu Tập #${i + 1} phải là đường link Google Drive hợp lệ (https://drive.google.com/...)` });
-                }
+            let video_bst = body.video_bst || {};
+            let videoLink = '';
+            if (typeof video_bst === 'string') {
+                try { video_bst = JSON.parse(video_bst); } catch(e){}
+            }
+            if (typeof video_bst === 'object' && video_bst !== null) {
+                videoLink = Array.isArray(video_bst) ? (video_bst[0] || '') : (video_bst.link || '');
+            } else if (typeof video_bst === 'string') {
+                videoLink = video_bst;
+            }
+            if (videoLink && !driveRegex.test(String(videoLink).trim())) {
+                return reply.code(400).send({ error: 'Link Video Bộ Sưu Tập phải là đường link Google Drive hợp lệ (https://drive.google.com/...)' });
             }
 
             const result = await db.get(`
@@ -510,13 +516,18 @@ async function collectionsRoutes(fastify, options) {
             const thong_so_mau_ao = body.thong_so_mau_ao || {};
             const chup_anh_mau_bst = Array.isArray(body.chup_anh_mau_bst) ? body.chup_anh_mau_bst : [];
 
-            const driveRegex = /^https?:\/\/(?:drive|docs)\.google\.com\/.+/i;
-            const video_bst = Array.isArray(body.video_bst) ? body.video_bst : [];
-            for (let i = 0; i < video_bst.length; i++) {
-                const vLink = (video_bst[i] || '').trim();
-                if (vLink && !driveRegex.test(vLink)) {
-                    return reply.code(400).send({ error: `Link Video Bộ Sưu Tập #${i + 1} phải là đường link Google Drive hợp lệ (https://drive.google.com/...)` });
-                }
+            let video_bst = body.video_bst || {};
+            let videoLink = '';
+            if (typeof video_bst === 'string') {
+                try { video_bst = JSON.parse(video_bst); } catch(e){}
+            }
+            if (typeof video_bst === 'object' && video_bst !== null) {
+                videoLink = Array.isArray(video_bst) ? (video_bst[0] || '') : (video_bst.link || '');
+            } else if (typeof video_bst === 'string') {
+                videoLink = video_bst;
+            }
+            if (videoLink && !driveRegex.test(String(videoLink).trim())) {
+                return reply.code(400).send({ error: 'Link Video Bộ Sưu Tập phải là đường link Google Drive hợp lệ (https://drive.google.com/...)' });
             }
 
             const result = await db.get(`
