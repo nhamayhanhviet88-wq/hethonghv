@@ -1922,7 +1922,7 @@ async function viewCollectionDetail(id) {
                         `}
                     </div>
                 `;
-            })()}` ,StartLine:1852,TargetContent:
+            })()}
 
             <!-- Liên kết 9 & 10 -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
