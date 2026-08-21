@@ -2453,6 +2453,21 @@ async function handleRoute() {
                     break;
                 case 'design-draft': case 'designdraft': renderDesignDraftPage(content); break;
                 case 'noi-quy-cong-ty': case 'noiquycongtyhv': renderNoiquycongtyhvPage(content); break;
+                case 'bosuutap': case 'bo-suu-tap':
+                    if (typeof window.renderBosuutapPage === 'function') {
+                        window.renderBosuutapPage(content);
+                    } else if (typeof renderBosuutapPage === 'function') {
+                        renderBosuutapPage(content);
+                    } else {
+                        setTimeout(function() {
+                            if (typeof window.renderBosuutapPage === 'function') {
+                                window.renderBosuutapPage(content);
+                            } else if (typeof renderBosuutapPage === 'function') {
+                                renderBosuutapPage(content);
+                            }
+                        }, 150);
+                    }
+                    break;
                 default:
                     // ========== CONVENTION-BASED AUTO-RENDER ==========
                     // Try multiple naming patterns to auto-discover page render functions
