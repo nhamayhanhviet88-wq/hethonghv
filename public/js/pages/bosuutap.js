@@ -344,8 +344,8 @@ async function renderBosuutapPage(container) {
         </div>
 
         <!-- MODAL XEM CHI TIẾT BỘ SƯU TẬP -->
-        <div id="modalViewCollectionDetail" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(6px); z-index: 9999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
-            <div style="background: white; border-radius: 20px; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+        <div id="modalViewCollectionDetail" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 9999; justify-content: center; align-items: flex-start; padding: 24px; overflow-y: auto;">
+            <div style="background: #f8fafc; border-radius: 24px; width: 100%; max-width: 1050px; margin: auto; max-height: 92vh; overflow-y: auto; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); border: 1px solid rgba(255,255,255,0.8);">
                 <div id="viewCollectionContent" style="padding: 28px;"></div>
             </div>
         </div>
@@ -402,9 +402,9 @@ function renderCollectionGrid(collections) {
                 const mm = typeof col.market_mau === 'string' ? JSON.parse(col.market_mau) : (col.market_mau || {});
                 const previewImg = col.cover_image || mm.image_url || (mm.image_urls && mm.image_urls[0]) || '/public/img/placeholder.png';
                 return `
-                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); transition: all 0.2s ease; display: flex; flex-direction: column;">
-                        <div style="height: 200px; background: #f1f5f9; overflow: hidden; position: relative;">
-                            <img src="${previewImg}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://via.placeholder.com/400x250?text=No+Image';">
+                    <div style="background: white; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.06); transition: all 0.3s ease; display: flex; flex-direction: column;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 25px -5px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px -2px rgba(0,0,0,0.06)'">
+                        <div style="height: 380px; background: #f8fafc; overflow: hidden; position: relative;">
+                            <img src="${previewImg}" style="width: 100%; height: 100%; object-fit: cover; object-position: top center; transition: transform 0.4s ease;" onerror="this.src='https://via.placeholder.com/400x500?text=No+Image';" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         </div>
                         
                         <div style="padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
@@ -1056,7 +1056,7 @@ function viewCollectionDetail(id) {
     const pb = typeof col.phieu_ban_don === 'string' ? JSON.parse(col.phieu_ban_don) : (col.phieu_ban_don || {});
     const ts = typeof col.thong_so_mau_ao === 'string' ? JSON.parse(col.thong_so_mau_ao) : (col.thong_so_mau_ao || {});
 
-    const renderSectionFilesDetailHtml = (groupObj) => {
+    const renderSectionFilesDetailHtml = (groupObj, titleText, badgeNumber, accentColor) => {
         const imgUrls = Array.isArray(groupObj.image_urls) && groupObj.image_urls.length > 0 
             ? groupObj.image_urls.filter(Boolean) 
             : (groupObj.image_url ? [groupObj.image_url] : []);
@@ -1076,94 +1076,131 @@ function viewCollectionDetail(id) {
         const imgFileNames = Array.isArray(groupObj._img_filenames) ? groupObj._img_filenames : [];
         const pdfFileNames = Array.isArray(groupObj._pdf_filenames) ? groupObj._pdf_filenames : [];
 
-        let html = '<div style="margin-top: 6px; display: flex; flex-direction: column; gap: 8px;">';
-        
+        let html = `
+            <div style="display: flex; flex-direction: column; height: 100%;">
+                <div style="font-weight: 800; font-size: 13.5px; color: ${accentColor.title}; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid ${accentColor.border};">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="background: ${accentColor.badgeBg}; color: white; width: 24px; height: 24px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">${badgeNumber}</span>
+                        <span>${titleText}</span>
+                    </div>
+                    <span style="font-size: 11px; font-weight: 700; background: white; padding: 2px 8px; border-radius: 12px; color: #64748b; border: 1px solid #e2e8f0;">${imgUrls.length} Ảnh | ${pdfUrls.length} PDF</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px; flex: 1;">
+        `;
+
         if (imgUrls.length > 0) {
-            html += '<div style="display: flex; flex-direction: column; gap: 4px;">';
-            html += '<span style="font-size: 11px; color: #475569; font-weight: 700;">🖼️ Hình Ảnh (' + imgUrls.length + '):</span>';
-            html += '<div style="display: flex; flex-wrap: wrap; gap: 8px;">';
+            html += `<div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">🖼️ Hình Ảnh:</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">`;
             imgUrls.forEach((u, i) => {
                 const origU = origImgUrls[i] || u;
-                const origName = imgFileNames[i] || origU.split('/').pop() || `anh_${i+1}.jpg`;
-                html += `<div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 4px; border-radius: 6px; text-align: center; display: inline-flex; flex-direction: column; align-items: center; gap: 3px;">
-                    <img src="${u}" style="height: 50px; max-width: 90px; object-fit: cover; border-radius: 4px; border: 1px solid #e2e8f0;">
-                    <a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #4338ca; font-size: 10.5px; font-weight: 700; text-decoration: none; background: #eef2ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #c7d2fe;">⬇️ ${escapeHtml(origName)}</a>
+                const origName = imgFileNames[i] || `Market_Anh_${i+1}.jpg`;
+                html += `<div style="background: white; border: 1px solid #e2e8f0; padding: 6px; border-radius: 10px; text-align: center; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <a href="${origU}" target="_blank" title="Bấm để mở xem ảnh HD gốc">
+                        <img src="${u}" style="height: 85px; width: 110px; object-fit: cover; object-position: top center; border-radius: 6px; border: 1px solid #f1f5f9; background: #f8fafc;">
+                    </a>
+                    <a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #4338ca; font-size: 11px; font-weight: 700; text-decoration: none; background: #eef2ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #c7d2fe; display: flex; align-items: center; gap: 4px; width: 100%; justify-content: center;">
+                        ⬇️ Tải Ảnh HD
+                    </a>
                 </div>`;
             });
-            html += '</div></div>';
+            html += `</div></div>`;
         }
 
         if (pdfUrls.length > 0) {
-            html += '<div style="display: flex; flex-direction: column; gap: 4px;">';
-            html += '<span style="font-size: 11px; color: #475569; font-weight: 700;">📄 File PDF (' + pdfUrls.length + '):</span>';
-            html += '<div style="display: flex; flex-wrap: wrap; gap: 4px;">';
+            html += `<div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">📄 File PDF:</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">`;
             pdfUrls.forEach((u, i) => {
                 const origU = origPdfUrls[i] || u;
-                const origName = pdfFileNames[i] || origU.split('/').pop() || `pdf_${i+1}.pdf`;
-                html += `<a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #10b981; font-weight: bold; font-size: 11px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 2px 6px; border-radius: 4px; text-decoration: none;">📄 ${escapeHtml(origName)} ↗</a>`;
+                const origName = pdfFileNames[i] || `Market_File_${i+1}.pdf`;
+                html += `<a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #047857; font-weight: 700; font-size: 11.5px; background: #dcfce7; border: 1px solid #86efac; padding: 6px 12px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">
+                    📄 <span>${escapeHtml(origName)}</span> <span style="font-size: 10px; opacity: 0.8;">↗</span>
+                </a>`;
             });
-            html += '</div></div>';
+            html += `</div></div>`;
         }
-        html += '</div>';
+
+        if (imgUrls.length === 0 && pdfUrls.length === 0) {
+            html += `<div style="font-size: 12px; color: #94a3b8; font-style: italic; padding: 12px 0;">(Chưa tải file nào)</div>`;
+        }
+
+        html += `</div></div>`;
         return html;
     };
 
     const coverImg = col.cover_image || mm.image_url || (mm.image_urls && mm.image_urls[0]) || '';
 
     content.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px;">
-            <div style="display: flex; gap: 16px; align-items: flex-start;">
-                ${coverImg ? `<img src="${coverImg}" style="width: 80px; height: 100px; object-fit: cover; border-radius: 12px; border: 2px solid #e2e8f0; flex-shrink: 0;">` : ''}
-                <div>
-                    <span style="background: #4338ca; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">BST #${col.id}</span>
-                    <h2 style="margin: 8px 0 4px; font-size: 24px; font-weight: 800; color: #0f172a;">${escapeHtml(col.name)}</h2>
-                    <div style="font-size: 13px; color: #64748b;">📅 Ngày ra mắt: <b>${formatDate(col.release_date)}</b> | Người tạo: <b>${escapeHtml(col.created_by_name || 'N/A')}</b></div>
+        <!-- Header Banner -->
+        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
+            <div style="display: flex; gap: 20px; align-items: flex-start;">
+                ${coverImg ? `
+                    <div style="width: 130px; height: 175px; border-radius: 14px; overflow: hidden; border: 2px solid #e2e8f0; box-shadow: 0 8px 20px rgba(0,0,0,0.1); flex-shrink: 0; background: #f8fafc;">
+                        <img src="${coverImg}" style="width: 100%; height: 100%; object-fit: cover; object-position: top center;">
+                    </div>
+                ` : ''}
+                <div style="display: flex; flex-direction: column; justify-content: center; padding-top: 4px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                        <span style="background: linear-gradient(135deg, #4338ca, #6366f1); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800;">✨ BST #${col.id}</span>
+                        ${col.task_code ? `<span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">📌 ${escapeHtml(col.task_code)}</span>` : ''}
+                    </div>
+                    <h2 style="margin: 6px 0 10px; font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.4px;">${escapeHtml(col.name)}</h2>
+                    <div style="display: flex; gap: 16px; font-size: 13px; color: #64748b; flex-wrap: wrap;">
+                        <span style="background: #f1f5f9; padding: 5px 12px; border-radius: 8px; font-weight: 600; color: #334155;">📅 Ngày ra mắt: <b>${formatDate(col.release_date)}</b></span>
+                        <span style="background: #f1f5f9; padding: 5px 12px; border-radius: 8px; font-weight: 600; color: #334155;">👤 Người tạo: <b>${escapeHtml(col.created_by_name || 'Hệ thống')}</b></span>
+                    </div>
                 </div>
             </div>
-            <button onclick="document.getElementById('modalViewCollectionDetail').style.display='none'" style="background: #f1f5f9; border: none; font-size: 18px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer;">✕</button>
+            <button onclick="document.getElementById('modalViewCollectionDetail').style.display='none'" style="background: #f1f5f9; border: 1px solid #cbd5e1; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: #64748b; font-weight: bold; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 20px;">
-            <!-- Bộ tài liệu -->
-            <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #1e293b;">📁 File Maket & Phiếu Bắn Đơn</h4>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-                    <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                        <b>3. Market Mẫu:</b>
-                        ${renderSectionFilesDetailHtml(mm)}
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+            <!-- Bộ tài liệu (Mục 3, 4, 5, 6 Grid 2x2) -->
+            <div>
+                <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    <span>📁</span> BỘ TÀI LIỆU MAKET & THIẾT KẾ
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                    <!-- 3. Market Mẫu -->
+                    <div style="background: #fffbeb; padding: 16px; border-radius: 14px; border: 1px solid #fde68a; box-shadow: 0 2px 6px rgba(245,158,11,0.05);">
+                        ${renderSectionFilesDetailHtml(mm, 'Market Mẫu (Mốc chuẩn N)', '3', { title: '#92400e', border: '#fde68a', badgeBg: 'linear-gradient(135deg,#f59e0b,#d97706)' })}
                     </div>
-                    <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                        <b>4. Market Cổ / Bo:</b>
-                        ${renderSectionFilesDetailHtml(mc)}
+                    <!-- 4. Market Cổ / Bo -->
+                    <div style="background: #f0fdf4; padding: 16px; border-radius: 14px; border: 1px solid #bbf7d0; box-shadow: 0 2px 6px rgba(34,197,94,0.05);">
+                        ${renderSectionFilesDetailHtml(mc, 'Market Cổ / Bo Tay', '4', { title: '#166534', border: '#bbf7d0', badgeBg: 'linear-gradient(135deg,#22c55e,#16a34a)' })}
                     </div>
-                    <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                        <b>5. Phiếu Bắn Đơn:</b>
-                        ${renderSectionFilesDetailHtml(pb)}
+                    <!-- 5. Phiếu Bắn Đơn -->
+                    <div style="background: #eef2ff; padding: 16px; border-radius: 14px; border: 1px solid #c7d2fe; box-shadow: 0 2px 6px rgba(67,56,202,0.05);">
+                        ${renderSectionFilesDetailHtml(pb, 'Phiếu Bắn Đơn', '5', { title: '#3730a3', border: '#c7d2fe', badgeBg: 'linear-gradient(135deg,#4338ca,#6366f1)' })}
                     </div>
-                    <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                        <b>6. Thông Số Áo:</b>
-                        ${renderSectionFilesDetailHtml(ts)}
+                    <!-- 6. Thông Số Áo -->
+                    <div style="background: #fdf4ff; padding: 16px; border-radius: 14px; border: 1px solid #e9d5ff; box-shadow: 0 2px 6px rgba(147,51,234,0.05);">
+                        ${renderSectionFilesDetailHtml(ts, 'Thông Số Mẫu Áo', '6', { title: '#6b21a8', border: '#e9d5ff', badgeBg: 'linear-gradient(135deg,#9333ea,#7c3aed)' })}
                     </div>
                 </div>
             </div>
 
-            <!-- Giá Sản Phẩm -->
-            <div style="background: #f0fdf4; padding: 16px; border-radius: 12px; border: 1px solid #bbf7d0;">
-                <h4 style="margin: 0 0 8px; font-size: 14px; font-weight: 700; color: #166534;">💰 Giá Sản Phẩm:</h4>
-                <div style="font-size: 14px; color: #14532d; white-space: pre-wrap;">${escapeHtml(col.gia_san_pham)}</div>
+            <!-- Giá Sản Phẩm (Mục 7) -->
+            <div style="background: linear-gradient(135deg, #ffffec 0%, #fef3c7 100%); padding: 18px 22px; border-radius: 14px; border: 1px solid #fde68a; box-shadow: 0 2px 6px rgba(217,119,6,0.08);">
+                <div style="font-weight: 800; font-size: 14px; color: #92400e; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #d97706; color: white; width: 24px; height: 24px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">7</span>
+                    💰 Giá Sản Phẩm & Gợi Ý Chất Liệu:
+                </div>
+                <div style="font-size: 14px; color: #78350f; font-weight: 600; white-space: pre-wrap; line-height: 1.6; padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 10px; border: 1px solid #fcd34d;">${escapeHtml(col.gia_san_pham || 'Chưa cập nhật')}</div>
             </div>
 
-            <!-- Liên kết placeholder -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div style="background: #faf5ff; padding: 14px; border-radius: 12px; border: 1px dashed #d8b4fe; text-align: center;">
-                    <div style="font-size: 18px; margin-bottom: 4px;">🔗</div>
-                    <div style="font-size: 13px; font-weight: 700; color: #7c3aed;">9. Bàn Giao Maket cho BP. Thiết Kế</div>
-                    <div style="font-size: 11px; color: #a78bfa; margin-top: 4px;">Liên kết sẽ được cấu hình sau</div>
+            <!-- Liên kết 9 & 10 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div style="background: #faf5ff; padding: 16px; border-radius: 14px; border: 1.5px dashed #d8b4fe; text-align: center; transition: all 0.2s;" onmouseover="this.style.borderColor='#a855f7'" onmouseout="this.style.borderColor='#d8b4fe'">
+                    <div style="font-size: 22px; margin-bottom: 4px;">🔗</div>
+                    <div style="font-size: 13.5px; font-weight: 800; color: #7c3aed;">9. Bàn Giao Maket cho BP. Thiết Kế</div>
+                    <div style="font-size: 11.5px; color: #a78bfa; margin-top: 4px; font-weight: 600;">(Liên kết đang cấu hình)</div>
                 </div>
-                <div style="background: #fdf2f8; padding: 14px; border-radius: 12px; border: 1px dashed #f9a8d4; text-align: center;">
-                    <div style="font-size: 18px; margin-bottom: 4px;">🤝</div>
-                    <div style="font-size: 13px; font-weight: 700; color: #db2777;">10. Thông Tin Họp Với Sale</div>
-                    <div style="font-size: 11px; color: #f472b6; margin-top: 4px;">Liên kết sẽ được cấu hình sau</div>
+                <div style="background: #fdf2f8; padding: 16px; border-radius: 14px; border: 1.5px dashed #f9a8d4; text-align: center; transition: all 0.2s;" onmouseover="this.style.borderColor='#ec4899'" onmouseout="this.style.borderColor='#f9a8d4'">
+                    <div style="font-size: 22px; margin-bottom: 4px;">🤝</div>
+                    <div style="font-size: 13.5px; font-weight: 800; color: #db2777;">10. Thông Tin Họp Với Sale</div>
+                    <div style="font-size: 11.5px; color: #f472b6; margin-top: 4px; font-weight: 600;">(Liên kết đang cấu hình)</div>
                 </div>
             </div>
         </div>
