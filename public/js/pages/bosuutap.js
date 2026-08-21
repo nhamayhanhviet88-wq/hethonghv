@@ -1861,21 +1861,29 @@ async function approveCollectionItem(id) {
 
 // ========== HELPER TRÍCH XUẤT TÊN FILE GỐC ==========
 function _getCleanOriginalFileName(url, fileNamesArr, idx, isPdf) {
+    // 1. If stored original filename array has a valid name, use it!
     if (fileNamesArr && fileNamesArr[idx] && typeof fileNamesArr[idx] === 'string' && fileNamesArr[idx].trim()) {
-        return fileNamesArr[idx].trim();
+        const fn = fileNamesArr[idx].trim();
+        if (!fn.match(/^col_(orig_|web_)?\d+_[a-z0-9]+(\.[a-z0-9]+)?$/i)) {
+            return fn;
+        }
     }
+
+    // 2. If url contains an original name after col_timestamp_rand_
     if (url && typeof url === 'string') {
-        let name = url.split('/').pop().split('?')[0];
-        name = name.replace(/^col_(orig_|web_)?\d+_[a-z0-9]+_/i, '');
-        if (name && name.length > 1) {
+        let filename = url.split('/').pop().split('?')[0];
+        let cleaned = filename.replace(/^col_(orig_|web_)?\d+_[a-z0-9]+_/i, '');
+        if (cleaned && cleaned !== filename && cleaned.length > 1) {
             try {
-                return decodeURIComponent(name);
+                return decodeURIComponent(cleaned);
             } catch(e) {
-                return name;
+                return cleaned;
             }
         }
     }
-    return isPdf ? `Tai_Lieu_${idx + 1}.pdf` : `Anh_Mau_${idx + 1}.jpg`;
+
+    // 3. Fallback for older existing records where no original name was stored
+    return isPdf ? `File_PDF_${idx + 1}.pdf` : `Anh_Mau_${idx + 1}.jpg`;
 }
 
 // ========== SHOW LIGHTBOX xem ảnh trực tiếp trên trang ==========
