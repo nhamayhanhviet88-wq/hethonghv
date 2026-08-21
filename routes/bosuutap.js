@@ -8,6 +8,52 @@ if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
+function getDeptShortCode(deptName) {
+    if (!deptName) return 'CHUNG';
+    const nameUpper = String(deptName).toUpperCase().trim();
+    if (nameUpper.includes('MARKETING')) return 'MKT';
+    if (nameUpper.includes('KINH DOANH')) return 'KD';
+    if (nameUpper.includes('KẾ TOÁN') || nameUpper.includes('KE TOAN')) return 'KT';
+    if (nameUpper.includes('THỦ QUỸ') || nameUpper.includes('THU QUY')) return 'QUY';
+    if (nameUpper.includes('THỦ KHO') || nameUpper.includes('THU KHO')) return 'KHO';
+    if (nameUpper.includes('NHÂN SỰ') || nameUpper.includes('HÀNH CHÍNH')) return 'NS';
+    if (nameUpper.includes('AFFILIATE')) return 'AFF';
+    if (nameUpper.includes('ÉP') || nameUpper.includes('EP')) return 'EP';
+    if (nameUpper.includes('HOÀN THIỆN') || nameUpper.includes('HOAN THIEN')) return 'HT';
+    if (nameUpper.includes('CẮT CÁNH')) return 'CC';
+    if (nameUpper.includes('CẮT')) return 'CAT';
+    if (nameUpper.includes('XÃ HỘI')) return 'XH';
+    if (nameUpper.includes('VĂN PHÒNG')) return 'VP';
+    if (nameUpper.includes('XƯỞNG')) return 'XUONG';
+    if (nameUpper.includes('THIẾT KẾ') || nameUpper.includes('THIET KE')) return 'TK';
+    if (nameUpper.includes('SINH VIÊN')) return 'SVKD';
+    if (nameUpper.includes('THỬ VIỆC')) return 'TVKD';
+    if (nameUpper.includes('TIÊN PHONG')) return 'MTP';
+    if (nameUpper.includes('TINH HOA')) return 'MTH';
+    if (nameUpper.includes('MAY')) return 'MAY';
+    if (nameUpper.includes('IN')) return 'IN';
+    if (nameUpper.includes('SALE')) return 'SALE';
+
+    const stopWords = ['PHÒNG', 'TEAM', 'HỆ', 'THỐNG', 'BAN', 'BỘ', 'PHẬN', 'HV'];
+    const words = nameUpper.split(/\s+/).filter(w => w && !stopWords.includes(w));
+    if (words.length > 0) {
+        const code = words.map(w => w[0]).join('').replace(/[^A-Z0-9]/g, '');
+        if (code) return code;
+    }
+    return 'CV';
+}
+
+function formatTaskCode(t) {
+    if (!t) return 'CV-000';
+    if (t.task_code && t.task_code.trim()) return t.task_code.trim();
+    if (t.department_name) {
+        const dCode = getDeptShortCode(t.department_name);
+        const no = t.dept_task_no ? (t.dept_task_no < 10 ? ('0' + t.dept_task_no) : String(t.dept_task_no)) : String(t.id || 0).padStart(2, '0');
+        return `CV-${dCode}-${no}`;
+    }
+    return 'CV-' + String(t.id || 0).padStart(3, '0');
+}
+
 async function collectionsRoutes(fastify, options) {
 
     // Migration: add cover_image column
@@ -22,12 +68,25 @@ async function collectionsRoutes(fastify, options) {
                 SELECT c.*, 
                        t.title as task_title,
                        t.task_code as task_code,
+                       t.dept_task_no as dept_task_no,
+                       d.name as department_name,
                        u.full_name as created_by_name
                 FROM product_collections c
                 LEFT JOIN board_tasks t ON c.task_id = t.id
+                LEFT JOIN departments d ON d.id = t.department_id
                 LEFT JOIN users u ON c.created_by = u.id
                 ORDER BY c.id DESC
             `);
+            rows.forEach(col => {
+                if (col.task_id) {
+                    col.task_code = formatTaskCode({
+                        id: col.task_id,
+                        task_code: col.task_code,
+                        dept_task_no: col.dept_task_no,
+                        department_name: col.department_name
+                    });
+                }
+            });
             return reply.send({ ok: true, collections: rows });
         } catch (e) {
             console.error('[collections GET]', e);
@@ -39,9 +98,10 @@ async function collectionsRoutes(fastify, options) {
     fastify.get('/api/collections/eligible-tasks', { preHandler: [authenticate] }, async (req, reply) => {
         try {
             const allTasks = await db.all(`
-                SELECT id, title, status, guide_link, department_id, task_code
-                FROM board_tasks 
-                ORDER BY id DESC
+                SELECT t.id, t.title, t.status, t.guide_link, t.department_id, t.task_code, t.dept_task_no, d.name as department_name
+                FROM board_tasks t
+                LEFT JOIN departments d ON d.id = t.department_id
+                ORDER BY t.id DESC
             `);
             
             const eligibleTasks = [];
@@ -61,7 +121,7 @@ async function collectionsRoutes(fastify, options) {
                 }
                 
                 if (isMatched || (task.title && task.title.toLowerCase().includes('thiết kế mẫu'))) {
-                    const cvCode = (task.task_code && task.task_code.trim()) ? task.task_code.trim() : ('CV-' + String(task.id).padStart(3, '0'));
+                    const cvCode = formatTaskCode(task);
                     eligibleTasks.push({
                         id: task.id,
                         cv_code: cvCode,
