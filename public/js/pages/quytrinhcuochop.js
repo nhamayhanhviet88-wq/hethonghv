@@ -1515,15 +1515,29 @@
     };
 
     window._mpOnProcessChange = function(procId, preSelectedColId, currentSessionId) {
-        var procObj = _mpProcesses.find(function(p) { return String(p.id) === String(procId); });
-        var procName = procObj ? (procObj.name || '') : '';
-        var isBst = procName.toLowerCase().indexOf('bộ sưu tập') >= 0 || procName.indexOf('Họp Bộ Sưu Tập Mới') >= 0;
-
         var wrapEl = document.getElementById('mp-collection-wrap');
         var titleInput = document.getElementById('mp-session-title');
         var colSelect = document.getElementById('mp-session-collection-select');
         var dateInput = document.getElementById('mp-session-date');
         var meetingDateStr = dateInput ? dateInput.value : '';
+
+        if (!procId) {
+            if (wrapEl) wrapEl.style.display = 'none';
+            if (titleInput) {
+                titleInput.value = '';
+                titleInput.readOnly = true;
+                titleInput.style.background = '#f1f5f9';
+                titleInput.style.color = '#475569';
+                titleInput.style.cursor = 'not-allowed';
+                titleInput.style.border = '1px solid #cbd5e1';
+                titleInput.placeholder = 'VD: Tự động điền theo loại quy trình...';
+            }
+            return;
+        }
+
+        var procObj = _mpProcesses.find(function(p) { return String(p.id) === String(procId); });
+        var procName = procObj ? (procObj.name || '') : '';
+        var isBst = procName.toLowerCase().indexOf('bộ sưu tập') >= 0 || procName.indexOf('Họp Bộ Sưu Tập Mới') >= 0;
 
         if (isBst) {
             if (wrapEl) wrapEl.style.display = 'block';
@@ -1602,6 +1616,9 @@
 
         // Select Process
         html += '<div><label style="' + _labelStyle() + '">🏛️ Loại Quy Trình Họp *</label><select id="mp-session-process" style="' + _inputStyle() + '" onchange="window._mpOnProcessChange(this.value)">';
+        if (!isEdit) {
+            html += '<option value="" selected disabled>-- Chọn Loại Quy Trình Họp --</option>';
+        }
         var hasActiveBlocked = false;
         for (var p = 0; p < _mpProcesses.length; p++) {
             var procItem = _mpProcesses[p];
@@ -1609,7 +1626,7 @@
             var isBlocked = !isEdit && !!activeS;
             if (isBlocked) hasActiveBlocked = true;
 
-            var sel = (session ? session.process_id == procItem.id : _mpActiveProcessId == procItem.id) ? ' selected' : '';
+            var sel = (isEdit && session ? session.process_id == procItem.id : false) ? ' selected' : '';
             if (isBlocked && sel) sel = '';
 
             if (isBlocked) {
@@ -1697,7 +1714,9 @@
         var attendees = [];
         attendeeCheckboxes.forEach(function(cb) { attendees.push(parseInt(cb.value)); });
 
-        var procId = parseInt(document.getElementById('mp-session-process').value) || _mpActiveProcessId || 1;
+        var procIdVal = document.getElementById('mp-session-process').value;
+        if (!procIdVal) return alert('⚠️ Vui lòng chọn Loại Quy Trình Họp!');
+        var procId = parseInt(procIdVal);
         var procObj = _mpProcesses.find(function(p) { return String(p.id) === String(procId); });
         var procName = procObj ? (procObj.name || '') : '';
         var isBst = procName.toLowerCase().indexOf('bộ sưu tập') >= 0 || procName.indexOf('Họp Bộ Sưu Tập Mới') >= 0;
