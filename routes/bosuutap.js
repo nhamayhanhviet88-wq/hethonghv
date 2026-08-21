@@ -139,13 +139,14 @@ async function collectionsRoutes(fastify, options) {
                        t.task_code as task_code,
                        t.dept_task_no as dept_task_no,
                        t.created_by as task_created_by,
-                       t.created_by_name as task_created_by_name,
+                       u2.full_name as task_created_by_name,
                        d.name as department_name,
                        u.full_name as created_by_name
                 FROM product_collections c
                 LEFT JOIN board_tasks t ON c.task_id = t.id
                 LEFT JOIN departments d ON d.id = t.department_id
                 LEFT JOIN users u ON c.created_by = u.id
+                LEFT JOIN users u2 ON t.created_by = u2.id
                 ORDER BY c.id DESC
             `);
             rows.forEach(col => {
@@ -511,7 +512,7 @@ async function collectionsRoutes(fastify, options) {
 
             let canApprove = (user.role === 'giam_doc');
             if (!canApprove && col.task_id) {
-                const task = await db.get(`SELECT created_by, created_by_name FROM board_tasks WHERE id = $1`, [col.task_id]);
+                const task = await db.get(`SELECT t.created_by, u.full_name as created_by_name FROM board_tasks t LEFT JOIN users u ON t.created_by = u.id WHERE t.id = $1`, [col.task_id]);
                 if (task && (Number(task.created_by) === Number(user.id) || (task.created_by_name && user.full_name && task.created_by_name.trim() === user.full_name.trim()))) {
                     canApprove = true;
                 }
