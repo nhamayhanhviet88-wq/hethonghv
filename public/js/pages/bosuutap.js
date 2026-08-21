@@ -506,6 +506,7 @@ async function loadBosuutapData() {
         populateLinhVucSelect();
         populateLinhVucFilterSelect();
         populateBsutCreatorFilter(_bsutData.collections);
+        populateBsutYearFilter(_bsutData.collections);
         applyBosuutapFilters();
     } catch(e) {
         console.error('[loadBosuutapData error]', e);
@@ -619,6 +620,39 @@ function populateBsutCreatorFilter(collections) {
     sel.innerHTML = html;
     if (currentVal && Array.from(creators).includes(currentVal)) {
         sel.value = currentVal;
+    }
+}
+
+function populateBsutYearFilter(collections) {
+    const sel = document.getElementById('selFilterBsutYear');
+    if (!sel) return;
+
+    const years = new Set();
+    const currentYear = new Date().getFullYear();
+    years.add(currentYear);
+
+    (collections || []).forEach(c => {
+        const dStr = c.release_date || c.created_at;
+        if (dStr) {
+            const d = new Date(dStr);
+            if (d && !isNaN(d.getTime())) {
+                years.add(d.getFullYear());
+            }
+        }
+    });
+
+    const sortedYears = Array.from(years).sort((a, b) => b - a);
+    const curVal = sel.value;
+
+    let html = '<option value="">📅 Tất cả năm</option>';
+    sortedYears.forEach(y => {
+        html += `<option value="${y}">Năm ${y}</option>`;
+    });
+    sel.innerHTML = html;
+    if (curVal && sortedYears.includes(Number(curVal))) {
+        sel.value = curVal;
+    } else {
+        sel.value = '';
     }
 }
 
