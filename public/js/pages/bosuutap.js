@@ -401,8 +401,9 @@ function renderCollectionGrid(collections) {
             ${collections.map(col => {
                 const mm = typeof col.market_mau === 'string' ? JSON.parse(col.market_mau) : (col.market_mau || {});
                 const previewImg = col.cover_image || mm.image_url || (mm.image_urls && mm.image_urls[0]) || '/public/img/placeholder.png';
+                const taskCodeStr = (col.task_code && col.task_code.trim()) ? col.task_code.trim() : `CV-${String(col.task_id).padStart(3, '0')}`;
                 const cvTag = col.created_mode === 'task_linked' && col.task_id 
-                    ? `<span style="background: #e0e7ff; color: #3730a3; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">📌 CV-${String(col.task_id).padStart(3, '0')}: ${col.task_title || ''}</span>`
+                    ? `<span style="background: #e0e7ff; color: #3730a3; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">📌 ${escapeHtml(taskCodeStr)}: ${escapeHtml(col.task_title || '')}</span>`
                     : `<span style="background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">✨ Tạo Tự Do</span>`;
 
                 return `

@@ -21,6 +21,7 @@ async function collectionsRoutes(fastify, options) {
             const rows = await db.all(`
                 SELECT c.*, 
                        t.title as task_title,
+                       t.task_code as task_code,
                        u.full_name as created_by_name
                 FROM product_collections c
                 LEFT JOIN board_tasks t ON c.task_id = t.id
@@ -38,7 +39,7 @@ async function collectionsRoutes(fastify, options) {
     fastify.get('/api/collections/eligible-tasks', { preHandler: [authenticate] }, async (req, reply) => {
         try {
             const allTasks = await db.all(`
-                SELECT id, title, status, guide_link, department_id 
+                SELECT id, title, status, guide_link, department_id, task_code
                 FROM board_tasks 
                 ORDER BY id DESC
             `);
@@ -60,9 +61,10 @@ async function collectionsRoutes(fastify, options) {
                 }
                 
                 if (isMatched || (task.title && task.title.toLowerCase().includes('thiết kế mẫu'))) {
+                    const cvCode = (task.task_code && task.task_code.trim()) ? task.task_code.trim() : ('CV-' + String(task.id).padStart(3, '0'));
                     eligibleTasks.push({
                         id: task.id,
-                        cv_code: 'CV-' + String(task.id).padStart(3, '0'),
+                        cv_code: cvCode,
                         title: task.title,
                         status: task.status
                     });
