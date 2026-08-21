@@ -1658,7 +1658,7 @@ function viewCollectionDetail(id) {
                 ` : ''}
                 ${canEdit ? `
                     <button onclick="openEditCollectionModal(${col.id})" style="background: linear-gradient(135deg, #4338ca, #6366f1); color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
-                        ✏️ Chỉnh Sửa
+                        ${col.is_approved ? '📷 Cập Nhật Ảnh Mẫu (Mục 8)' : '✏️ Chỉnh Sửa'}
                     </button>
                 ` : ''}
                 <button onclick="document.getElementById('modalViewCollectionDetail').style.display='none'" style="background: #f1f5f9; border: 1px solid #cbd5e1; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: #64748b; font-weight: bold; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
@@ -1707,7 +1707,13 @@ function viewCollectionDetail(id) {
                         <span style="background: linear-gradient(135deg,#64748b,#475569); color: white; width: 24px; height: 24px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">8</span>
                         <span>📷 Chụp Ảnh Mẫu BST:</span>
                     </div>
-                    <span style="font-size: 11px; font-weight: 700; background: white; padding: 2px 8px; border-radius: 12px; color: #64748b; border: 1px solid #e2e8f0;">${chupImgList.length} Ảnh mẫu</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 11px; font-weight: 700; background: white; padding: 2px 8px; border-radius: 12px; color: #64748b; border: 1px solid #e2e8f0;">${chupImgList.length} Ảnh mẫu</span>
+                        <label onclick="this.querySelector('input').click()" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+                            📷 + Thêm Ảnh Mẫu BST
+                            <input type="file" accept="image/*" multiple onchange="uploadDirectChupAnhMauBst(this, ${col.id})" style="display: none;">
+                        </label>
+                    </div>
                 </div>
                 ${chupImgList.length > 0 ? `
                     <div style="display: flex; flex-wrap: wrap; gap: 12px;">
@@ -1715,7 +1721,8 @@ function viewCollectionDetail(id) {
                             const origU = chupOrigList[i] || u;
                             const origName = _getCleanOriginalFileName(origU || u, null, i, false);
                             return `
-                                <div style="background: white; border: 1px solid #e2e8f0; padding: 6px; border-radius: 10px; text-align: center; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);">
+                                <div style="position: relative; background: white; border: 1px solid #e2e8f0; padding: 6px; border-radius: 10px; text-align: center; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);">
+                                    <button onclick="removeDirectChupAnhMauBst(${col.id}, ${i})" style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 2;" title="Xóa ảnh này">✕</button>
                                     <div style="cursor: pointer;" onclick="showBsutLightbox('${origU}', '📷 Chụp Ảnh Mẫu BST - ${escapeHtml(origName)}', '${escapeHtml(origName)}')" title="Bấm để xem ảnh phóng to trực tiếp trên trang">
                                         <img src="${u}" style="height: 100px; width: 130px; object-fit: cover; object-position: top center; border-radius: 8px; border: 1px solid #f1f5f9; background: #f8fafc;">
                                     </div>
@@ -1727,7 +1734,7 @@ function viewCollectionDetail(id) {
                         }).join('')}
                     </div>
                 ` : `
-                    <div style="font-size: 12.5px; color: #94a3b8; font-style: italic; padding: 6px 0;">(Chưa có ảnh chụp mẫu BST nào)</div>
+                    <div style="font-size: 12.5px; color: #94a3b8; font-style: italic; padding: 6px 0;">(Chưa có ảnh chụp mẫu BST nào. Bấm <b>📷 + Thêm Ảnh Mẫu BST</b> ở trên để chọn ảnh tải lên)</div>
                 `}
             </div>
 
@@ -1766,7 +1773,11 @@ function openEditCollectionModal(id) {
 
     // Change title and button text
     const headerTitle = modal.querySelector('h3');
-    if (headerTitle) headerTitle.innerText = `✏️ Chỉnh Sửa Bộ Sưu Tập #${id}`;
+    if (headerTitle) {
+        headerTitle.innerText = col.is_approved 
+            ? `📷 Cập Nhật Ảnh Mẫu BST #${id} (Đã Khóa Mục 1-7)` 
+            : `✏️ Chỉnh Sửa Bộ Sưu Tập #${id}`;
+    }
 
     const btnSubmit = document.getElementById('btnSubmitCollection');
     if (btnSubmit) btnSubmit.innerHTML = '<span>💾</span> Cập Nhật Bộ Sưu Tập';
@@ -2018,4 +2029,74 @@ function showBsutLightbox(url, title, downloadFileName) {
     document.addEventListener('keydown', escHandler);
 
     document.body.appendChild(overlay);
+}
+
+async function uploadDirectChupAnhMauBst(inputEl, collectionId) {
+    if (!inputEl.files || inputEl.files.length === 0) return;
+    const col = _bsutData.collections.find(x => x.id === collectionId);
+    if (!col) return;
+
+    let chup = typeof col.chup_anh_mau_bst === 'string' ? JSON.parse(col.chup_anh_mau_bst) : (col.chup_anh_mau_bst || []);
+    if (!Array.isArray(chup)) chup = [];
+
+    const files = Array.from(inputEl.files);
+    for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+            alert(`❌ File "${file.name}" không phải là ảnh hợp lệ!`);
+            continue;
+        }
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const res = await fetch('/api/collections/upload-file', {
+                method: 'POST',
+                headers: _bsutGetAuthHeaders(),
+                credentials: 'include',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.ok && data.url) {
+                chup.push({ url: data.url, original_url: data.original_url || data.url });
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    inputEl.value = '';
+
+    try {
+        const res = await _bsutApi(`/api/collections/${collectionId}`, 'PUT', { chup_anh_mau_bst: chup });
+        if (res.ok) {
+            await loadBosuutapData();
+            viewCollectionDetail(collectionId);
+        } else {
+            alert('Lỗi cập nhật ảnh: ' + (res.error || 'Thất bại'));
+        }
+    } catch(e) {
+        alert('Lỗi: ' + e.message);
+    }
+}
+
+async function removeDirectChupAnhMauBst(collectionId, index) {
+    if (!confirm('Bạn có chắc chắn muốn xóa hình ảnh mẫu này?')) return;
+    const col = _bsutData.collections.find(x => x.id === collectionId);
+    if (!col) return;
+
+    let chup = typeof col.chup_anh_mau_bst === 'string' ? JSON.parse(col.chup_anh_mau_bst) : (col.chup_anh_mau_bst || []);
+    if (!Array.isArray(chup)) chup = [];
+
+    chup.splice(index, 1);
+
+    try {
+        const res = await _bsutApi(`/api/collections/${collectionId}`, 'PUT', { chup_anh_mau_bst: chup });
+        if (res.ok) {
+            await loadBosuutapData();
+            viewCollectionDetail(collectionId);
+        } else {
+            alert('Lỗi xóa ảnh: ' + (res.error || 'Thất bại'));
+        }
+    } catch(e) {
+        alert('Lỗi: ' + e.message);
+    }
 }
