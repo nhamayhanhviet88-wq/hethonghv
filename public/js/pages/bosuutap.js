@@ -776,7 +776,7 @@ function renderCollectionGrid(collections) {
                 return `
                     <div style="background: white; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.06); transition: all 0.3s ease; display: flex; flex-direction: column;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 25px -5px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px -2px rgba(0,0,0,0.06)'">
                         <div style="height: 380px; background: #f8fafc; overflow: hidden; position: relative;">
-                            <img src="${previewImg}" style="width: 100%; height: 100%; object-fit: cover; object-position: top center; transition: transform 0.4s ease;" onerror="this.src='https://via.placeholder.com/400x500?text=No+Image';" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                            <img src="${previewImg}" style="width: 100%; height: 100%; object-fit: cover; object-position: top center; transition: transform 0.4s ease; cursor: pointer;" onclick="showBsutLightbox('${previewImg}', '${escapeHtml(col.name)}')" title="Bấm để xem ảnh phóng to trực tiếp trên trang" onerror="this.src='https://via.placeholder.com/400x500?text=No+Image';" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         </div>
                         
                         <div style="padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
@@ -1560,9 +1560,9 @@ function viewCollectionDetail(id) {
                 const origU = origImgUrls[i] || u;
                 const origName = imgFileNames[i] || `Market_Anh_${i+1}.jpg`;
                 html += `<div style="background: white; border: 1px solid #e2e8f0; padding: 6px; border-radius: 10px; text-align: center; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                    <a href="${origU}" target="_blank" title="Bấm để mở xem ảnh HD gốc">
+                    <div style="cursor: pointer;" onclick="showBsutLightbox('${origU}', '${escapeHtml(titleText)} - ${escapeHtml(origName)}')" title="Bấm để xem ảnh phóng to trực tiếp trên trang">
                         <img src="${u}" style="height: 85px; width: 110px; object-fit: cover; object-position: top center; border-radius: 6px; border: 1px solid #f1f5f9; background: #f8fafc;">
-                    </a>
+                    </div>
                     <a href="${origU}" download="${escapeHtml(origName)}" target="_blank" style="color: #4338ca; font-size: 11px; font-weight: 700; text-decoration: none; background: #eef2ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #c7d2fe; display: flex; align-items: center; gap: 4px; width: 100%; justify-content: center;">
                         ⬇️ Tải Ảnh HD
                     </a>
@@ -1600,7 +1600,7 @@ function viewCollectionDetail(id) {
         <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
             <div style="display: flex; gap: 20px; align-items: flex-start;">
                 ${coverImg ? `
-                    <div style="width: 130px; height: 175px; border-radius: 14px; overflow: hidden; border: 2px solid #e2e8f0; box-shadow: 0 8px 20px rgba(0,0,0,0.1); flex-shrink: 0; background: #f8fafc;">
+                    <div style="width: 130px; height: 175px; border-radius: 14px; overflow: hidden; border: 2px solid #e2e8f0; box-shadow: 0 8px 20px rgba(0,0,0,0.1); flex-shrink: 0; background: #f8fafc; cursor: pointer;" onclick="showBsutLightbox('${coverImg}', '${escapeHtml(col.name)} - Ảnh Đại Diện')" title="Bấm để xem ảnh phóng to trực tiếp trên trang">
                         <img src="${coverImg}" style="width: 100%; height: 100%; object-fit: cover; object-position: top center;">
                     </div>
                 ` : ''}
@@ -1691,9 +1691,9 @@ function viewCollectionDetail(id) {
                             const origU = chupOrigList[i] || u;
                             return `
                                 <div style="background: white; border: 1px solid #e2e8f0; padding: 6px; border-radius: 10px; text-align: center; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);">
-                                    <a href="${origU}" target="_blank" title="Bấm để mở xem ảnh mẫu HD gốc">
+                                    <div style="cursor: pointer;" onclick="showBsutLightbox('${origU}', '📷 Chụp Ảnh Mẫu BST - Ảnh ${i + 1}')" title="Bấm để xem ảnh phóng to trực tiếp trên trang">
                                         <img src="${u}" style="height: 100px; width: 130px; object-fit: cover; object-position: top center; border-radius: 8px; border: 1px solid #f1f5f9; background: #f8fafc;">
-                                    </a>
+                                    </div>
                                     <a href="${origU}" download="Anh_Mau_BST_${i+1}.jpg" target="_blank" style="color: #475569; font-size: 11px; font-weight: 700; text-decoration: none; background: #f1f5f9; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: flex; align-items: center; gap: 4px; width: 100%; justify-content: center;">
                                         ⬇️ Tải Ảnh HD
                                     </a>
@@ -1856,4 +1856,48 @@ async function approveCollectionItem(id) {
     } catch(e) {
         alert('❌ Lỗi khi duyệt Bộ Sưu Tập: ' + e.message);
     }
+}
+
+// ========== SHOW LIGHTBOX xem ảnh trực tiếp trên trang ==========
+function showBsutLightbox(url, title) {
+    if (!url) return;
+    var old = document.getElementById('bsutLightboxOverlay');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'bsutLightboxOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.92);backdrop-filter:blur(10px);z-index:100050;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:bcvPopIn 0.2s ease;';
+
+    overlay.innerHTML = `
+        <div style="position:absolute;top:20px;left:24px;right:24px;display:flex;align-items:center;justify-content:space-between;z-index:100052;color:#ffffff">
+            <div style="font-size:15px;font-weight:800;background:rgba(255,255,255,0.15);padding:8px 16px;border-radius:20px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                🖼️ ${escapeHtml(title || 'Xem Ảnh Lớn')}
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+                <a href="${url}" download target="_blank" style="background:rgba(255,255,255,0.2);color:#ffffff;text-decoration:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);display:inline-flex;align-items:center;gap:6px" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                    ⬇️ Tải Ảnh HD
+                </a>
+                <button onclick="document.getElementById('bsutLightboxOverlay').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#ffffff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-weight:bold;font-size:20px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2)" onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">✕</button>
+            </div>
+        </div>
+        <div style="max-width:92vw;max-height:85vh;display:flex;align-items:center;justify-content:center;position:relative;margin-top:40px" onclick="event.stopPropagation()">
+            <img id="bsutLightboxImg" src="${url}" style="max-width:92vw;max-height:82vh;object-fit:contain;border-radius:14px;box-shadow:0 25px 70px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);transition:transform 0.25s ease">
+        </div>
+    `;
+
+    overlay.onclick = function(e) {
+        if (e.target === overlay || e.target.id === 'bsutLightboxOverlay') {
+            overlay.remove();
+        }
+    };
+
+    var escHandler = function(e) {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    document.body.appendChild(overlay);
 }
