@@ -91,6 +91,7 @@ async function meetingProcessRoutes(fastify, options) {
             updated_at TIMESTAMP DEFAULT NOW()
         )`);
         await db.run(`ALTER TABLE meeting_process_sessions ADD COLUMN IF NOT EXISTS process_id INTEGER DEFAULT 1`);
+        await db.run(`ALTER TABLE meeting_process_sessions ADD COLUMN IF NOT EXISTS collection_id INTEGER`);
         await db.run(`UPDATE meeting_process_sessions SET process_id = 1 WHERE process_id IS NULL`);
 
         // Auto-repair any sessions whose process_id was accidentally overwritten to 1
@@ -384,7 +385,6 @@ async function meetingProcessRoutes(fastify, options) {
         const total = countResult ? parseInt(countResult.total) : 0;
 
         const dataQuery = `
-            SELECT s.*,
                    p.name AS process_name,
                    p.icon AS process_icon,
                    cp.full_name AS chairperson_name,
@@ -414,7 +414,7 @@ async function meetingProcessRoutes(fastify, options) {
         const canCreate = await checkPerm(request, 'create');
         if (!canCreate) return reply.code(403).send({ error: 'Không có quyền tạo phiên họp' });
 
-        const { process_id, title, meeting_date, start_time, end_time, chairperson_id, secretary_id, attendees } = request.body;
+        const { process_id, collection_id, title, meeting_date, start_time, end_time, chairperson_id, secretary_id, attendees } = request.body;
         if (!title || !meeting_date) return reply.code(400).send({ error: 'Tiêu đề và ngày họp bắt buộc' });
 
         const targetProcessId = parseInt(process_id) || 1;
@@ -437,9 +437,9 @@ async function meetingProcessRoutes(fastify, options) {
         }
 
         const result = await db.run(
-            `INSERT INTO meeting_process_sessions (process_id, title, meeting_date, start_time, end_time, chairperson_id, secretary_id, attendees, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-            [targetProcessId, title, meeting_date, start_time || '', end_time || '', chairperson_id || request.user.id, secretary_id || null, JSON.stringify(attendees || []), request.user.id]
+            `INSERT INTO meeting_process_sessions (process_id, collection_id, title, meeting_date, start_time, end_time, chairperson_id, secretary_id, attendees, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+            [targetProcessId, collection_id ? parseInt(collection_id) : null, title, meeting_date, start_time || '', end_time || '', chairperson_id || request.user.id, secretary_id || null, JSON.stringify(attendees || []), request.user.id]
         );
         return { success: true, message: 'Đã tạo phiên họp mới', id: result ? result.id : null };
     });
@@ -452,7 +452,7 @@ async function meetingProcessRoutes(fastify, options) {
         const existing = await db.get(`SELECT * FROM meeting_process_sessions WHERE id = $1`, [request.params.id]);
         if (!existing) return reply.code(404).send({ error: 'Không tìm thấy phiên họp' });
 
-        const { process_id, title, meeting_date, start_time, end_time, chairperson_id, secretary_id, attendees, status, conclusion, next_actions } = request.body;
+        const { process_id, collection_id, title, meeting_date, start_time, end_time, chairperson_id, secretary_id, attendees, status, conclusion, next_actions } = request.body;
 
         let targetProcessId = existing.process_id || 1;
         if (process_id !== undefined && process_id !== null && !isNaN(parseInt(process_id))) {
@@ -465,9 +465,10 @@ async function meetingProcessRoutes(fastify, options) {
         }
 
         await db.run(
-            `UPDATE meeting_process_sessions SET process_id=$1, title=$2, meeting_date=$3, start_time=$4, end_time=$5, chairperson_id=$6, secretary_id=$7, attendees=$8, status=$9, conclusion=$10, next_actions=$11, updated_at=NOW() WHERE id=$12`,
+            `UPDATE meeting_process_sessions SET process_id=$1, collection_id=$2, title=$3, meeting_date=$4, start_time=$5, end_time=$6, chairperson_id=$7, secretary_id=$8, attendees=$9, status=$10, conclusion=$11, next_actions=$12, updated_at=NOW() WHERE id=$13`,
             [
                 targetProcessId,
+                collection_id !== undefined ? (collection_id ? parseInt(collection_id) : null) : existing.collection_id,
                 title || existing.title,
                 meeting_date || existing.meeting_date,
                 start_time !== undefined ? start_time : existing.start_time,

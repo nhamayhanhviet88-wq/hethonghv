@@ -14,6 +14,7 @@
     var _mpProtocols = [];
     var _mpDepartments = [];
     var _mpAllUsers = [];
+    var _mpCollections = [];
     var _mpCurrentTab = 'process';
     var _mpSessionPage = 1;
     var _mpSessionTotal = 0;
@@ -1435,6 +1436,100 @@
         if (session) _mpShowSessionModal(session);
     };
 
+    function _mpFetchCollections(cb) {
+        if (_mpCollections && _mpCollections.length > 0) {
+            if (typeof cb === 'function') cb(_mpCollections);
+            return;
+        }
+        fetch('/api/collections', {
+            headers: (function() {
+                var headers = {};
+                var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+                if (token && token !== 'null') headers['Authorization'] = 'Bearer ' + token;
+                return headers;
+            })(),
+            credentials: 'include'
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            _mpCollections = (d && d.collections) || [];
+            if (typeof cb === 'function') cb(_mpCollections);
+        })
+        .catch(function(e) {
+            console.error('[MeetingProcess] fetch collections error:', e);
+            _mpCollections = [];
+            if (typeof cb === 'function') cb(_mpCollections);
+        });
+    }
+
+    window._mpOnProcessChange = function(procId, preSelectedColId) {
+        var procObj = _mpProcesses.find(function(p) { return String(p.id) === String(procId); });
+        var procName = procObj ? (procObj.name || '') : '';
+        var isBst = procName.toLowerCase().indexOf('bộ sưu tập') >= 0 || procName.indexOf('Họp Bộ Sưu Tập Mới') >= 0;
+
+        var wrapEl = document.getElementById('mp-collection-wrap');
+        var titleInput = document.getElementById('mp-session-title');
+        var colSelect = document.getElementById('mp-session-collection-select');
+
+        if (isBst) {
+            if (wrapEl) wrapEl.style.display = 'block';
+
+            _mpFetchCollections(function(cols) {
+                if (colSelect) {
+                    var targetId = preSelectedColId !== undefined ? preSelectedColId : colSelect.value;
+                    var optHtml = '<option value="">-- Chọn Bộ Sưu Tập Để Họp --</option>';
+                    for (var i = 0; i < cols.length; i++) {
+                        var c = cols[i];
+                        var sel = String(targetId) === String(c.id) ? ' selected' : '';
+                        optHtml += '<option value="' + c.id + '"' + sel + '>' + _escHtml(c.name) + '</option>';
+                    }
+                    colSelect.innerHTML = optHtml;
+
+                    if (!colSelect.value && cols.length > 0) {
+                        colSelect.value = cols[0].id;
+                    }
+
+                    window._mpOnCollectionSelectChange(colSelect.value);
+                }
+            });
+        } else {
+            if (wrapEl) wrapEl.style.display = 'none';
+            if (titleInput) {
+                titleInput.readOnly = false;
+                titleInput.style.background = '#ffffff';
+                titleInput.style.color = '#0f172a';
+                titleInput.style.cursor = 'text';
+                titleInput.style.border = '1px solid ' + C.slate300;
+                titleInput.style.fontWeight = 'normal';
+            }
+        }
+    };
+
+    window._mpOnCollectionSelectChange = function(colId) {
+        var procId = document.getElementById('mp-session-process') ? document.getElementById('mp-session-process').value : null;
+        var procObj = _mpProcesses.find(function(p) { return String(p.id) === String(procId); });
+        var procName = procObj ? (procObj.name || '') : '';
+        var isBst = procName.toLowerCase().indexOf('bộ sưu tập') >= 0 || procName.indexOf('Họp Bộ Sưu Tập Mới') >= 0;
+
+        if (!isBst) return;
+
+        var titleInput = document.getElementById('mp-session-title');
+        if (!titleInput) return;
+
+        var colObj = _mpCollections.find(function(c) { return String(c.id) === String(colId); });
+        if (colObj) {
+            titleInput.value = colObj.name;
+            titleInput.readOnly = true;
+            titleInput.style.background = '#f1f5f9';
+            titleInput.style.color = '#475569';
+            titleInput.style.cursor = 'not-allowed';
+            titleInput.style.border = '1px solid #cbd5e1';
+            titleInput.style.fontWeight = '700';
+        } else {
+            titleInput.value = '';
+        }
+    };
+
     function _mpShowSessionModal(session) {
         var isEdit = !!session;
         var html = '';
@@ -1450,7 +1545,7 @@
         });
 
         // Select Process
-        html += '<div><label style="' + _labelStyle() + '">🏛️ Loại Quy Trình Họp *</label><select id="mp-session-process" style="' + _inputStyle() + '">';
+        html += '<div><label style="' + _labelStyle() + '">🏛️ Loại Quy Trình Họp *</label><select id="mp-session-process" style="' + _inputStyle() + '" onchange="window._mpOnProcessChange(this.value)">';
         var hasActiveBlocked = false;
         for (var p = 0; p < _mpProcesses.length; p++) {
             var procItem = _mpProcesses[p];
@@ -1471,6 +1566,14 @@
         if (hasActiveBlocked) {
             html += '<div style="margin-top:6px;padding:8px 12px;background:#fffbebf0;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:6px;">⚠️ <strong>Lưu ý:</strong> Quy trình được đánh dấu 🔴 (đang diễn ra) sẽ không thể tạo thêm cuộc họp mới cho đến khi cuộc họp cũ kết thúc.</div>';
         }
+        html += '</div>';
+
+        // Collection Select Wrap (Shown ONLY when "Họp Bộ Sưu Tập Mới" is selected)
+        html += '<div id="mp-collection-wrap" style="display:none;">';
+        html += '<label style="' + _labelStyle() + '">🖼️ Chọn Bộ Sưu Tập Để Họp *</label>';
+        html += '<select id="mp-session-collection-select" style="' + _inputStyle() + '" onchange="window._mpOnCollectionSelectChange(this.value)">';
+        html += '<option value="">-- Chọn Bộ Sưu Tập Để Họp --</option>';
+        html += '</select>';
         html += '</div>';
 
         html += '<div><label style="' + _labelStyle() + '">📋 Tiêu đề cuộc họp *</label><input type="text" id="mp-session-title" value="' + _escHtml((session && session.title) || '') + '" placeholder="VD: Họp tuần 33 — Tổng kết KPI tháng 8/2026" style="' + _inputStyle() + '" /></div>';
@@ -1521,6 +1624,14 @@
         html += '</div>';
 
         _mpShowModal((isEdit ? '✏️ Chỉnh Sửa Phiên Họp' : '📝 Tạo Biên Bản Cuộc Họp Mới'), html, '640px');
+
+        // Trigger initial process change calculation after modal HTML is mounted
+        setTimeout(function() {
+            var procSelect = document.getElementById('mp-session-process');
+            if (procSelect) {
+                window._mpOnProcessChange(procSelect.value, session ? session.collection_id : undefined);
+            }
+        }, 30);
     }
 
     window._mpSaveSession = function(id) {
@@ -1528,8 +1639,17 @@
         var attendees = [];
         attendeeCheckboxes.forEach(function(cb) { attendees.push(parseInt(cb.value)); });
 
+        var procId = parseInt(document.getElementById('mp-session-process').value) || _mpActiveProcessId || 1;
+        var procObj = _mpProcesses.find(function(p) { return String(p.id) === String(procId); });
+        var procName = procObj ? (procObj.name || '') : '';
+        var isBst = procName.toLowerCase().indexOf('bộ sưu tập') >= 0 || procName.indexOf('Họp Bộ Sưu Tập Mới') >= 0;
+
+        var colSelect = document.getElementById('mp-session-collection-select');
+        var collectionId = (isBst && colSelect && colSelect.value) ? (parseInt(colSelect.value) || null) : null;
+
         var data = {
-            process_id: parseInt(document.getElementById('mp-session-process').value) || _mpActiveProcessId || 1,
+            process_id: procId,
+            collection_id: collectionId,
             title: document.getElementById('mp-session-title').value.trim(),
             meeting_date: document.getElementById('mp-session-date').value,
             start_time: '',
