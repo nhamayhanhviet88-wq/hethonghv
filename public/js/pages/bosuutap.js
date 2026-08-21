@@ -401,16 +401,10 @@ function renderCollectionGrid(collections) {
             ${collections.map(col => {
                 const mm = typeof col.market_mau === 'string' ? JSON.parse(col.market_mau) : (col.market_mau || {});
                 const previewImg = col.cover_image || mm.image_url || (mm.image_urls && mm.image_urls[0]) || '/public/img/placeholder.png';
-                const taskCodeStr = (col.task_code && col.task_code.trim()) ? col.task_code.trim() : `CV-${String(col.task_id).padStart(3, '0')}`;
-                const cvTag = col.created_mode === 'task_linked' && col.task_id 
-                    ? `<span style="background: #e0e7ff; color: #3730a3; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">📌 ${escapeHtml(taskCodeStr)}: ${escapeHtml(col.task_title || '')}</span>`
-                    : `<span style="background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">✨ Tạo Tự Do</span>`;
-
                 return `
                     <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); transition: all 0.2s ease; display: flex; flex-direction: column;">
                         <div style="height: 200px; background: #f1f5f9; overflow: hidden; position: relative;">
                             <img src="${previewImg}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://via.placeholder.com/400x250?text=No+Image';">
-                            <div style="position: absolute; top: 12px; left: 12px;">${cvTag}</div>
                         </div>
                         
                         <div style="padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
