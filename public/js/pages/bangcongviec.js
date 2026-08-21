@@ -4592,7 +4592,46 @@ async function _bcvSubmitTask(taskId) {
 
 
 // ========== HIỂN THỊ MODAL DUYỆT CÔNG VIỆC ==========
-function _bcvShowApproveModal(taskId) {
+async function _bcvShowApproveModal(taskId) {
+    var task = (_bcv.tasks || []).find(function(t) { return t.id === taskId; });
+    if (task) {
+        let guides = [];
+        try {
+            guides = typeof task.guide_link === 'string' ? JSON.parse(task.guide_link) : (task.guide_link || []);
+        } catch(e){}
+        let isTuLieu2Task = false;
+        if (Array.isArray(guides)) {
+            isTuLieu2Task = guides.some(g => {
+                const gMain = (g.mainCat || '').toLowerCase();
+                const gSub = (g.subCat || g.title || '').toLowerCase();
+                return gMain.includes('thiết kế mẫu') || gMain.includes('thiết kế bst') || gSub.includes('thiết kế mẫu');
+            });
+        }
+        if (!isTuLieu2Task && task.title && (task.title.toLowerCase().includes('thiết kế mẫu') || task.title.toLowerCase().includes('bst'))) {
+            isTuLieu2Task = true;
+        }
+
+        if (isTuLieu2Task) {
+            try {
+                var colsRes = await _bcvApi('/api/collections');
+                var collections = (colsRes && colsRes.collections) || [];
+                var linkedCollection = collections.find(function(c) { return Number(c.task_id) === Number(taskId); });
+
+                if (!linkedCollection) {
+                    alert('⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nCông việc thuộc "Tư Liệu 2 : Thiết Kế Mẫu - BST" yêu cầu bắt buộc 2 điều kiện:\n\n1. Người nhận việc phải Tạo Bộ Sưu Tập cho công việc này tại menu "Bộ Sưu Tập / BST" (❌ Chưa tạo).\n2. Người giao việc phải vào menu "Bộ Sưu Tập / BST", xem chi tiết và bấm "✅ Duyệt Bộ Sưu Tập" (❌ Chưa duyệt).');
+                    return;
+                }
+
+                if (!linkedCollection.is_approved) {
+                    alert('⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nBộ Sưu Tập "' + linkedCollection.name + '" đã được tạo (✅ Đã đạt ĐK1), nhưng NGƯỜI GIAO VIỆC chưa bấm Duyệt Bộ Sưu Tập này (❌ Chưa đạt ĐK2)!\n\nVui lòng sang menu "Bộ Sưu Tập / BST", bấm "👁️ Xem Chi Tiết" bộ sưu tập này và ấn nút "✅ Duyệt Bộ Sưu Tập" trước khi quay lại duyệt công việc.');
+                    return;
+                }
+            } catch(e) {
+                console.error('[pre-check approve task error]', e);
+            }
+        }
+    }
+
     var old = document.getElementById('bcvApproveOverlay');
     if (old) old.remove();
 
