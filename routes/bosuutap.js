@@ -56,13 +56,14 @@ function formatTaskCode(t) {
 
 async function collectionsRoutes(fastify, options) {
 
-    // Migration: add cover_image, linh_vuc & is_approved columns
+    // Migration: add cover_image, linh_vuc, is_approved & video_bst columns
     try {
         await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS cover_image TEXT`);
         await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS linh_vuc TEXT`);
         await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`);
         await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS approved_by INT`);
         await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP`);
+        await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS video_bst TEXT`);
     } catch(e) { /* column may already exist */ }
 
     try {
@@ -420,24 +421,33 @@ async function collectionsRoutes(fastify, options) {
             const release_date = body.release_date || new Date().toISOString().slice(0, 10);
             const chup_anh_mau_bst = Array.isArray(body.chup_anh_mau_bst) ? body.chup_anh_mau_bst : [];
 
+            const driveRegex = /^https?:\/\/(?:drive|docs)\.google\.com\/.+/i;
+            const video_bst = Array.isArray(body.video_bst) ? body.video_bst : [];
+            for (let i = 0; i < video_bst.length; i++) {
+                const vLink = (video_bst[i] || '').trim();
+                if (vLink && !driveRegex.test(vLink)) {
+                    return reply.code(400).send({ error: `Link Video Bộ Sưu Tập #${i + 1} phải là đường link Google Drive hợp lệ (https://drive.google.com/...)` });
+                }
+            }
+
             const result = await db.get(`
                 INSERT INTO product_collections (
                     name, release_date, created_mode, task_id,
                     market_mau, market_co_botay, phieu_ban_don, thong_so_mau_ao,
                     chup_anh_mau_bst, gia_san_pham, ban_giao_maket, hop_voi_sale,
-                    created_by, cover_image, linh_vuc
+                    created_by, cover_image, linh_vuc, video_bst
                 ) VALUES (
                     $1, $2, $3, $4,
                     $5, $6, $7, $8,
                     $9, $10, $11, $12,
-                    $13, $14, $15
+                    $13, $14, $15, $16
                 ) RETURNING *
             `, [
                 body.name.trim(), release_date, created_mode, task_id,
                 JSON.stringify(market_mau), JSON.stringify(market_co_botay),
                 JSON.stringify(phieu_ban_don), JSON.stringify(thong_so_mau_ao),
                 JSON.stringify(chup_anh_mau_bst), body.gia_san_pham.trim(),
-                null, JSON.stringify({}), user.id, cover_image, linh_vuc
+                null, JSON.stringify({}), user.id, cover_image, linh_vuc, JSON.stringify(video_bst)
             ]);
 
             return reply.send({ ok: true, collection: result });
@@ -500,6 +510,15 @@ async function collectionsRoutes(fastify, options) {
             const thong_so_mau_ao = body.thong_so_mau_ao || {};
             const chup_anh_mau_bst = Array.isArray(body.chup_anh_mau_bst) ? body.chup_anh_mau_bst : [];
 
+            const driveRegex = /^https?:\/\/(?:drive|docs)\.google\.com\/.+/i;
+            const video_bst = Array.isArray(body.video_bst) ? body.video_bst : [];
+            for (let i = 0; i < video_bst.length; i++) {
+                const vLink = (video_bst[i] || '').trim();
+                if (vLink && !driveRegex.test(vLink)) {
+                    return reply.code(400).send({ error: `Link Video Bộ Sưu Tập #${i + 1} phải là đường link Google Drive hợp lệ (https://drive.google.com/...)` });
+                }
+            }
+
             const result = await db.get(`
                 UPDATE product_collections
                 SET name = $1,
@@ -513,15 +532,16 @@ async function collectionsRoutes(fastify, options) {
                     chup_anh_mau_bst = $9,
                     gia_san_pham = $10,
                     cover_image = $11,
-                    linh_vuc = $12
-                WHERE id = $13
+                    linh_vuc = $12,
+                    video_bst = $13
+                WHERE id = $14
                 RETURNING *
             `, [
                 body.name.trim(), release_date, created_mode, task_id,
                 JSON.stringify(market_mau), JSON.stringify(market_co_botay),
                 JSON.stringify(phieu_ban_don), JSON.stringify(thong_so_mau_ao),
                 JSON.stringify(chup_anh_mau_bst), body.gia_san_pham.trim(),
-                cover_image, linh_vuc, id
+                cover_image, linh_vuc, JSON.stringify(video_bst), id
             ]);
 
             return reply.send({ ok: true, collection: result });

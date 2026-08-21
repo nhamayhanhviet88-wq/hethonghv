@@ -451,6 +451,36 @@ async function renderBosuutapPage(container) {
                                 <div id="prev_chup_anh_mau_bst" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;"></div>
                             </div>
 
+                            <!-- VIDEO BỘ SƯU TẬP (4 Link Google Drive) -->
+                            <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                                <div style="font-weight: 700; font-size: 13px; color: #334155; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800;">🎥</span>
+                                        <span style="font-weight: 800; color: #0f172a;">VIDEO BỘ SƯU TẬP</span>
+                                        <span style="font-size: 11px; color: #ef4444; font-weight: 700; background: #fef2f2; padding: 2px 8px; border-radius: 6px; border: 1px solid #fecaca;">Bắt buộc link Google Drive</span>
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                                    <div>
+                                        <label style="display: block; font-size: 11.5px; font-weight: 700; color: #475569; margin-bottom: 4px;">🎬 Video 1 (Google Drive link):</label>
+                                        <input type="url" id="iptVideoBst1" placeholder="https://drive.google.com/file/d/.../view" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; font-weight: 600; transition: all 0.2s;" onfocus="this.style.borderColor='#ef4444';this.style.boxShadow='0 0 0 3px rgba(239,68,68,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-size: 11.5px; font-weight: 700; color: #475569; margin-bottom: 4px;">🎬 Video 2 (Google Drive link):</label>
+                                        <input type="url" id="iptVideoBst2" placeholder="https://drive.google.com/file/d/.../view" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; font-weight: 600; transition: all 0.2s;" onfocus="this.style.borderColor='#ef4444';this.style.boxShadow='0 0 0 3px rgba(239,68,68,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-size: 11.5px; font-weight: 700; color: #475569; margin-bottom: 4px;">🎬 Video 3 (Google Drive link):</label>
+                                        <input type="url" id="iptVideoBst3" placeholder="https://drive.google.com/file/d/.../view" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; font-weight: 600; transition: all 0.2s;" onfocus="this.style.borderColor='#ef4444';this.style.boxShadow='0 0 0 3px rgba(239,68,68,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-size: 11.5px; font-weight: 700; color: #475569; margin-bottom: 4px;">🎬 Video 4 (Google Drive link):</label>
+                                        <input type="url" id="iptVideoBst4" placeholder="https://drive.google.com/file/d/.../view" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; font-weight: 600; transition: all 0.2s;" onfocus="this.style.borderColor='#ef4444';this.style.boxShadow='0 0 0 3px rgba(239,68,68,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
+                                    </div>
+                                </div>
+                                <div style="font-size: 11px; color: #64748b; margin-top: 8px;">💡 Vui lòng dán đường link Google Drive (dạng <b>https://drive.google.com/...</b>) cho các Video Bộ Sưu Tập.</div>
+                            </div>
+
                             <!-- 9 & 10: Placeholder Liên Kết -->
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                 <div style="background: #faf5ff; padding: 14px; border-radius: 12px; border: 1px solid #d8b4fe; text-align: center;">
@@ -1026,6 +1056,11 @@ function btnOpenCreateCollectionModal() {
     const selTask = document.getElementById('selCollectionTask');
     if (selTask) selTask.value = '';
 
+    ['iptVideoBst1', 'iptVideoBst2', 'iptVideoBst3', 'iptVideoBst4'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
     // Reset mode to task_linked by default and lock name input
     selectCollectionMode('task_linked');
 
@@ -1542,6 +1577,21 @@ async function submitCreateCollection() {
         return alert('Mục 7 (Giá Sản Phẩm) không được để trống!');
     }
 
+    // Video Bộ Sưu Tập (Google Drive link validation)
+    const v1 = (document.getElementById('iptVideoBst1')?.value || '').trim();
+    const v2 = (document.getElementById('iptVideoBst2')?.value || '').trim();
+    const v3 = (document.getElementById('iptVideoBst3')?.value || '').trim();
+    const v4 = (document.getElementById('iptVideoBst4')?.value || '').trim();
+
+    const driveRegex = /^https?:\/\/(?:drive|docs)\.google\.com\/.+/i;
+    const videoList = [v1, v2, v3, v4];
+    for (let i = 0; i < videoList.length; i++) {
+        const link = videoList[i];
+        if (link && !driveRegex.test(link)) {
+            return alert(`❌ Link Video Bộ Sưu Tập #${i + 1} phải là đường link Google Drive hợp lệ!\n(Dạng https://drive.google.com/...)`);
+        }
+    }
+
     const payload = {
         name,
         linh_vuc,
@@ -1554,6 +1604,7 @@ async function submitCreateCollection() {
         phieu_ban_don: _bsutData.formState.phieu_ban_don,
         thong_so_mau_ao: _bsutData.formState.thong_so_mau_ao,
         chup_anh_mau_bst: _bsutData.formState.chup_anh_mau_bst,
+        video_bst: videoList,
         gia_san_pham
     };
 
@@ -1841,6 +1892,38 @@ async function viewCollectionDetail(id) {
                 `}
             </div>
 
+            <!-- VIDEO BỘ SƯU TẬP -->
+            ${(() => {
+                const videoBstRaw = typeof col.video_bst === 'string' ? JSON.parse(col.video_bst) : (col.video_bst || []);
+                const videoList = Array.isArray(videoBstRaw) ? videoBstRaw.filter(Boolean) : [];
+                return `
+                    <div style="background: #fff5f5; padding: 18px 22px; border-radius: 14px; border: 1px solid #fecaca; box-shadow: 0 2px 6px rgba(239,68,68,0.04);">
+                        <div style="font-weight: 800; font-size: 14px; color: #991b1b; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #fee2e2; padding-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; width: 24px; height: 24px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">🎥</span>
+                                <span>VIDEO BỘ SƯU TẬP (Google Drive):</span>
+                            </div>
+                            <span style="font-size: 11px; font-weight: 700; background: white; padding: 2px 8px; border-radius: 12px; color: #dc2626; border: 1px solid #fecaca;">${videoList.length} Video</span>
+                        </div>
+                        ${videoList.length > 0 ? `
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;">
+                                ${videoList.map((vUrl, vIdx) => `
+                                    <a href="${escapeHtml(vUrl)}" target="_blank" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: white; border: 1px solid #fca5a5; border-radius: 10px; text-decoration: none; color: #991b1b; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.03);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 10px rgba(239,68,68,0.15)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 4px rgba(0,0,0,0.03)'">
+                                        <span style="font-size: 20px;">🎬</span>
+                                        <div style="display: flex; flex-direction: column; overflow: hidden;">
+                                            <span style="font-weight: 800; font-size: 12.5px; color: #991b1b;">Video ${vIdx + 1} (Google Drive)</span>
+                                            <span style="font-size: 10.5px; color: #dc2626; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.85;">Mở xem trên Drive ↗️</span>
+                                        </div>
+                                    </a>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div style="font-size: 12.5px; color: #94a3b8; font-style: italic; padding: 4px 0;">(Chưa có link video nào cho bộ sưu tập này)</div>
+                        `}
+                    </div>
+                `;
+            })()}` ,StartLine:1852,TargetContent:
+
             <!-- Liên kết 9 & 10 -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 ${(col.completed_meeting || (col.hop_voi_sale && (col.hop_voi_sale.status === 'da_ket_thuc' || (typeof col.hop_voi_sale === 'string' && col.hop_voi_sale.includes('da_ket_thuc'))))) ? `
@@ -1963,6 +2046,13 @@ function openEditCollectionModal(id) {
     const ts = typeof col.thong_so_mau_ao === 'string' ? JSON.parse(col.thong_so_mau_ao) : (col.thong_so_mau_ao || {});
     const chup = typeof col.chup_anh_mau_bst === 'string' ? JSON.parse(col.chup_anh_mau_bst) : (col.chup_anh_mau_bst || []);
 
+    // Populate Video inputs
+    const videoBst = typeof col.video_bst === 'string' ? JSON.parse(col.video_bst) : (col.video_bst || []);
+    [1, 2, 3, 4].forEach((num, idx) => {
+        const el = document.getElementById(`iptVideoBst${num}`);
+        if (el) el.value = (Array.isArray(videoBst) ? videoBst[idx] : '') || '';
+    });
+
     // Set formState
     _bsutData.formState.cover_image_url = col.cover_image || '';
     _bsutData.formState.hasCoBotay = (mc.image_urls && mc.image_urls.length > 0) || (mc.pdf_urls && mc.pdf_urls.length > 0) || !!mc.image_url || !!mc.pdf_url;
@@ -2023,7 +2113,7 @@ function _bsutToggleFormLock(isLocked) {
         if (notice) notice.style.display = 'none';
     }
 
-    ['iptCollectionName', 'selCollectionLinhVuc', 'iptCollectionReleaseDate', 'selCollectionTask', 'txtGiaSanPham'].forEach(id => {
+    ['iptCollectionName', 'selCollectionLinhVuc', 'iptCollectionReleaseDate', 'selCollectionTask', 'txtGiaSanPham', 'iptVideoBst1', 'iptVideoBst2', 'iptVideoBst3', 'iptVideoBst4'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.disabled = isLocked;
