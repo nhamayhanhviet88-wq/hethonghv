@@ -60,6 +60,79 @@ async function renderBosuutapPage(container) {
                 </div>
             </div>
 
+            <!-- Filter & Search Toolbar Card -->
+            <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.04); display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: #0f172a;">
+                        <span>🔍</span>
+                        <span>TÌM KIẾM & LỌC BỘ SƯU TẬP</span>
+                    </div>
+                    <div id="bsutFilterResultCount" style="font-size: 12px; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 5px 14px; border-radius: 20px; border: 1px solid #c7d2fe;">
+                        Hiển thị 0 Bộ Sưu Tập
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.2fr auto; gap: 12px; align-items: center;">
+                    <!-- 1. Search Box -->
+                    <div style="position: relative;">
+                        <input type="text" id="iptSearchBsutName" onkeyup="applyBosuutapFilters()" placeholder="🔍 Tìm tên BST, mã CV..." style="width: 100%; padding: 10px 14px 10px 36px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; background: #fafafa; transition: all 0.2s;" onfocus="this.style.borderColor='#4338ca';this.style.background='white';this.style.boxShadow='0 0 0 3px rgba(67,56,202,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
+                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; opacity: 0.5;">🔍</span>
+                    </div>
+
+                    <!-- 2. Year select -->
+                    <div>
+                        <select id="selFilterBsutYear" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
+                            <option value="">📅 Tất cả năm</option>
+                            <option value="2026">Năm 2026</option>
+                            <option value="2025">Năm 2025</option>
+                            <option value="2024">Năm 2024</option>
+                        </select>
+                    </div>
+
+                    <!-- 3. Quarter select -->
+                    <div>
+                        <select id="selFilterBsutQuarter" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
+                            <option value="">📊 Tất cả quý</option>
+                            <option value="1">Quý 1 (T1 - T3)</option>
+                            <option value="2">Quý 2 (T4 - T6)</option>
+                            <option value="3">Quý 3 (T7 - T9)</option>
+                            <option value="4">Quý 4 (T10 - T12)</option>
+                        </select>
+                    </div>
+
+                    <!-- 4. Month select -->
+                    <div>
+                        <select id="selFilterBsutMonth" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
+                            <option value="">🗓️ Tất cả tháng</option>
+                            <option value="1">Tháng 1</option>
+                            <option value="2">Tháng 2</option>
+                            <option value="3">Tháng 3</option>
+                            <option value="4">Tháng 4</option>
+                            <option value="5">Tháng 5</option>
+                            <option value="6">Tháng 6</option>
+                            <option value="7">Tháng 7</option>
+                            <option value="8">Tháng 8</option>
+                            <option value="9">Tháng 9</option>
+                            <option value="10">Tháng 10</option>
+                            <option value="11">Tháng 11</option>
+                            <option value="12">Tháng 12</option>
+                        </select>
+                    </div>
+
+                    <!-- 5. Creator select -->
+                    <div>
+                        <select id="selFilterBsutCreator" onchange="applyBosuutapFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer;">
+                            <option value="">👤 Tất cả người tạo</option>
+                        </select>
+                    </div>
+
+                    <!-- 6. Reset button -->
+                    <div>
+                        <button onclick="resetBosuutapFilters()" style="padding: 10px 16px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; transition: all 0.2s ease; white-space: nowrap;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#475569'">🔄 Đặt Lại</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- List Grid -->
             <div id="bsutContainer">
                 <div style="text-align: center; padding: 60px; color: #64748b; font-size: 15px;">⏳ Đang tải danh sách Bộ Sưu Tập...</div>
@@ -371,12 +444,118 @@ async function loadBosuutapData() {
         _bsutData.collections = (resCols && resCols.collections) || [];
         _bsutData.eligibleTasks = (resTasks && resTasks.tasks) || [];
 
-        renderCollectionGrid(_bsutData.collections);
         populateEligibleTaskSelect(_bsutData.eligibleTasks);
+        populateBsutCreatorFilter(_bsutData.collections);
+        applyBosuutapFilters();
     } catch(e) {
         console.error('[loadBosuutapData error]', e);
         container.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">❌ Đã xảy ra lỗi khi tải dữ liệu: ${e.message}</div>`;
     }
+}
+
+function populateBsutCreatorFilter(collections) {
+    const sel = document.getElementById('selFilterBsutCreator');
+    if (!sel) return;
+
+    const creators = new Set();
+    (collections || []).forEach(c => {
+        const name = (c.created_by_name || '').trim();
+        if (name) creators.add(name);
+    });
+
+    const currentVal = sel.value;
+    let html = '<option value="">👤 Tất cả người tạo</option>';
+    Array.from(creators).sort().forEach(cr => {
+        html += `<option value="${escapeHtml(cr)}">${escapeHtml(cr)}</option>`;
+    });
+    sel.innerHTML = html;
+    if (currentVal && Array.from(creators).includes(currentVal)) {
+        sel.value = currentVal;
+    }
+}
+
+function applyBosuutapFilters() {
+    const searchKey = (document.getElementById('iptSearchBsutName')?.value || '').trim().toLowerCase();
+    const selYear = document.getElementById('selFilterBsutYear')?.value;
+    const selQuarter = document.getElementById('selFilterBsutQuarter')?.value;
+    const selMonth = document.getElementById('selFilterBsutMonth')?.value;
+    const selCreator = document.getElementById('selFilterBsutCreator')?.value;
+
+    const allCols = _bsutData.collections || [];
+
+    const filtered = allCols.filter(col => {
+        // 1. Search key check (Tên BST, mã CV, tiêu đề CV, tên người tạo)
+        if (searchKey) {
+            const cName = (col.name || '').toLowerCase();
+            const cCode = (col.task_code || '').toLowerCase();
+            const cTitle = (col.task_title || '').toLowerCase();
+            const cCreator = (col.created_by_name || '').toLowerCase();
+            if (!cName.includes(searchKey) && !cCode.includes(searchKey) && !cTitle.includes(searchKey) && !cCreator.includes(searchKey)) {
+                return false;
+            }
+        }
+
+        // Date extraction
+        const dateStr = col.release_date || col.created_at;
+        const d = dateStr ? new Date(dateStr) : null;
+        const isValidDate = d && !isNaN(d.getTime());
+
+        // 2. Year filter
+        if (selYear) {
+            if (!isValidDate || String(d.getFullYear()) !== String(selYear)) {
+                return false;
+            }
+        }
+
+        // 3. Month filter
+        if (selMonth) {
+            if (!isValidDate || String(d.getMonth() + 1) !== String(selMonth)) {
+                return false;
+            }
+        }
+
+        // 4. Quarter filter
+        if (selQuarter) {
+            if (!isValidDate) return false;
+            const q = Math.ceil((d.getMonth() + 1) / 3);
+            if (String(q) !== String(selQuarter)) {
+                return false;
+            }
+        }
+
+        // 5. Creator filter
+        if (selCreator) {
+            const creatorName = (col.created_by_name || 'Hệ thống').trim();
+            if (creatorName !== selCreator.trim()) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    const badgeCount = document.getElementById('bsutFilterResultCount');
+    if (badgeCount) {
+        badgeCount.innerText = `Hiển thị ${filtered.length} / ${allCols.length} Bộ Sưu Tập`;
+    }
+
+    renderCollectionGrid(filtered);
+}
+
+function resetBosuutapFilters() {
+    const iptName = document.getElementById('iptSearchBsutName');
+    const selYear = document.getElementById('selFilterBsutYear');
+    const selQuarter = document.getElementById('selFilterBsutQuarter');
+    const selMonth = document.getElementById('selFilterBsutMonth');
+    const selCreator = document.getElementById('selFilterBsutCreator');
+
+    if (iptName) iptName.value = '';
+    if (selYear) selYear.value = '';
+    if (selQuarter) selQuarter.value = '';
+    if (selMonth) selMonth.value = '';
+    if (selCreator) selCreator.value = '';
+
+    applyBosuutapFilters();
 }
 
 function renderCollectionGrid(collections) {
