@@ -777,7 +777,9 @@ function renderCollectionGrid(collections) {
 
                             <div style="display: flex; gap: 8px; margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 14px;">
                                 <button onclick="viewCollectionDetail(${col.id})" style="flex: 1; background: #4338ca; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">👁️ Xem Chi Tiết</button>
-                                <button onclick="deleteCollectionItem(${col.id})" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">🗑️ Xóa</button>
+                                ${(window._currentUser && window._currentUser.role === 'giam_doc') ? `
+                                    <button onclick="deleteCollectionItem(${col.id})" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">🗑️ Xóa</button>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -910,6 +912,16 @@ function toggleCoBotay(hasCo) {
 }
 
 function btnOpenCreateCollectionModal() {
+    _bsutData.editingId = null;
+
+    const modal = document.getElementById('modalCreateCollection');
+    if (modal) {
+        const headerTitle = modal.querySelector('h3');
+        if (headerTitle) headerTitle.innerText = 'Tạo Bộ Sưu Tập Mới';
+        const btnSubmit = document.getElementById('btnSubmitCollection');
+        if (btnSubmit) btnSubmit.innerHTML = '<span>💾</span> Lưu Bộ Sưu Tập';
+    }
+
     _bsutData.formState = {
         cover_image_url: '',
         hasCoBotay: true,
@@ -949,11 +961,11 @@ function btnOpenCreateCollectionModal() {
     // Reset mode to task_linked by default and lock name input
     selectCollectionMode('task_linked');
 
-    const modal = document.getElementById('modalCreateCollection');
     if (modal) modal.style.display = 'flex';
 }
 
 function closeModalCreateCollection() {
+    _bsutData.editingId = null;
     const modal = document.getElementById('modalCreateCollection');
     if (modal) modal.style.display = 'none';
 }
@@ -1386,20 +1398,24 @@ async function submitCreateCollection() {
         gia_san_pham
     };
 
+    const isEditing = !!_bsutData.editingId;
+    const apiUrl = isEditing ? `/api/collections/${_bsutData.editingId}` : '/api/collections';
+    const apiMethod = isEditing ? 'PUT' : 'POST';
+
     const btn = document.getElementById('btnSubmitCollection');
-    if (btn) { btn.disabled = true; btn.innerText = '⏳ Đang lưu...'; }
+    if (btn) { btn.disabled = true; btn.innerText = isEditing ? '⏳ Đang cập nhật...' : '⏳ Đang lưu...'; }
 
     try {
-        const res = await _bsutApi('/api/collections', 'POST', payload);
+        const res = await _bsutApi(apiUrl, apiMethod, payload);
         if (!res.ok) throw new Error(res.error || 'Thất bại');
 
-        alert('🎉 Lưu Bộ Sưu Tập thành công!');
+        alert(isEditing ? '🎉 Cập nhật Bộ Sưu Tập thành công!' : '🎉 Lưu Bộ Sưu Tập thành công!');
         closeModalCreateCollection();
         await loadBosuutapData();
     } catch(e) {
         alert('❌ Lỗi khi lưu Bộ Sưu Tập: ' + e.message);
     } finally {
-        if (btn) { btn.disabled = false; btn.innerText = '💾 Lưu Bộ Sưu Tập'; }
+        if (btn) { btn.disabled = false; btn.innerText = isEditing ? '💾 Cập Nhật Bộ Sưu Tập' : '💾 Lưu Bộ Sưu Tập'; }
     }
 }
 
@@ -1410,6 +1426,13 @@ function viewCollectionDetail(id) {
     const modal = document.getElementById('modalViewCollectionDetail');
     const content = document.getElementById('viewCollectionContent');
     if (!modal || !content) return;
+
+    const isCreator = window._currentUser && (
+        (col.created_by && Number(window._currentUser.id) === Number(col.created_by)) ||
+        (col.created_by_name && window._currentUser.full_name && col.created_by_name.trim() === window._currentUser.full_name.trim())
+    );
+    const isGiamDoc = window._currentUser && window._currentUser.role === 'giam_doc';
+    const canEdit = isCreator || isGiamDoc;
 
     const mm = typeof col.market_mau === 'string' ? JSON.parse(col.market_mau) : (col.market_mau || {});
     const mc = typeof col.market_co_botay === 'string' ? JSON.parse(col.market_co_botay) : (col.market_co_botay || {});
@@ -1513,7 +1536,14 @@ function viewCollectionDetail(id) {
                     </div>
                 </div>
             </div>
-            <button onclick="document.getElementById('modalViewCollectionDetail').style.display='none'" style="background: #f1f5f9; border: 1px solid #cbd5e1; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: #64748b; font-weight: bold; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                ${canEdit ? `
+                    <button onclick="openEditCollectionModal(${col.id})" style="background: linear-gradient(135deg, #4338ca, #6366f1); color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+                        ✏️ Chỉnh Sửa
+                    </button>
+                ` : ''}
+                <button onclick="document.getElementById('modalViewCollectionDetail').style.display='none'" style="background: #f1f5f9; border: 1px solid #cbd5e1; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: #64748b; font-weight: bold; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
+            </div>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -1566,6 +1596,100 @@ function viewCollectionDetail(id) {
             </div>
         </div>
     `;
+
+    modal.style.display = 'flex';
+}
+
+function openEditCollectionModal(id) {
+    const col = _bsutData.collections.find(x => x.id === id);
+    if (!col) return alert('Không tìm thấy Bộ Sưu Tập!');
+
+    // Close detail modal first
+    const detailModal = document.getElementById('modalViewCollectionDetail');
+    if (detailModal) detailModal.style.display = 'none';
+
+    _bsutData.editingId = id;
+
+    // Open create collection modal in EDIT mode
+    const modal = document.getElementById('modalCreateCollection');
+    if (!modal) return;
+
+    // Change title and button text
+    const headerTitle = modal.querySelector('h3');
+    if (headerTitle) headerTitle.innerText = `✏️ Chỉnh Sửa Bộ Sưu Tập #${id}`;
+
+    const btnSubmit = document.getElementById('btnSubmitCollection');
+    if (btnSubmit) btnSubmit.innerHTML = '<span>💾</span> Cập Nhật Bộ Sưu Tập';
+
+    // Populate basic fields
+    const iptName = document.getElementById('iptCollectionName');
+    if (iptName) iptName.value = col.name || '';
+
+    const selLinhVuc = document.getElementById('selCollectionLinhVuc');
+    if (selLinhVuc) selLinhVuc.value = col.linh_vuc || '';
+
+    const iptDate = document.getElementById('iptCollectionReleaseDate');
+    if (iptDate) {
+        const dStr = col.release_date ? new Date(col.release_date).toISOString().slice(0, 10) : '';
+        iptDate.value = dStr;
+    }
+
+    const txtGia = document.getElementById('txtGiaSanPham');
+    if (txtGia) txtGia.value = col.gia_san_pham || '';
+
+    // Set mode
+    const mode = col.created_mode === 'task_linked' ? 'task_linked' : 'free';
+    selectCollectionMode(mode);
+
+    if (mode === 'task_linked') {
+        const selTask = document.getElementById('selCollectionTask');
+        if (selTask) selTask.value = col.task_id || '';
+        if (iptName) {
+            iptName.readOnly = false;
+            iptName.style.background = 'white';
+            iptName.style.color = '#0f172a';
+            iptName.style.cursor = 'text';
+            iptName.value = col.name || '';
+        }
+    }
+
+    // Parse JSON sections
+    const mm = typeof col.market_mau === 'string' ? JSON.parse(col.market_mau) : (col.market_mau || {});
+    const mc = typeof col.market_co_botay === 'string' ? JSON.parse(col.market_co_botay) : (col.market_co_botay || {});
+    const pb = typeof col.phieu_ban_don === 'string' ? JSON.parse(col.phieu_ban_don) : (col.phieu_ban_don || {});
+    const ts = typeof col.thong_so_mau_ao === 'string' ? JSON.parse(col.thong_so_mau_ao) : (col.thong_so_mau_ao || {});
+    const chup = typeof col.chup_anh_mau_bst === 'string' ? JSON.parse(col.chup_anh_mau_bst) : (col.chup_anh_mau_bst || []);
+
+    // Set formState
+    _bsutData.formState.cover_image_url = col.cover_image || '';
+    _bsutData.formState.hasCoBotay = (mc.image_urls && mc.image_urls.length > 0) || (mc.pdf_urls && mc.pdf_urls.length > 0) || !!mc.image_url || !!mc.pdf_url;
+    _bsutData.formState.market_mau = mm;
+    _bsutData.formState.market_co_botay = mc;
+    _bsutData.formState.phieu_ban_don = pb;
+    _bsutData.formState.thong_so_mau_ao = ts;
+    _bsutData.formState.chup_anh_mau_bst = chup;
+
+    // Cover image preview
+    const coverPreview = document.getElementById('coverImagePreview');
+    const coverPlaceholder = document.getElementById('coverImagePlaceholder');
+    if (col.cover_image && coverPreview) {
+        coverPreview.src = col.cover_image;
+        coverPreview.style.display = 'block';
+        if (coverPlaceholder) coverPlaceholder.style.display = 'none';
+    } else {
+        if (coverPreview) coverPreview.style.display = 'none';
+        if (coverPlaceholder) coverPlaceholder.style.display = 'block';
+    }
+
+    // Set Bo Tay toggle choice
+    toggleCoBotay(_bsutData.formState.hasCoBotay);
+
+    // Render group file previews
+    ['market_mau', 'market_co_botay', 'phieu_ban_don', 'thong_so_mau_ao'].forEach(gk => {
+        _bsutRenderGroupFilesPreview(gk, 'image_urls');
+        _bsutRenderGroupFilesPreview(gk, 'pdf_urls');
+        _bsutUpdatePairBadge(gk);
+    });
 
     modal.style.display = 'flex';
 }

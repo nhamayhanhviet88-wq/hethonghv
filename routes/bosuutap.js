@@ -410,9 +410,85 @@ async function collectionsRoutes(fastify, options) {
         }
     });
 
-    // 5. DELETE /api/collections/:id
+    // 5. PUT /api/collections/:id (Edit Collection - Creator or Giám Đốc)
+    fastify.put('/api/collections/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const id = req.params.id;
+            const user = req.user;
+            const body = req.body || {};
+
+            const col = await db.get(`SELECT * FROM product_collections WHERE id = $1`, [id]);
+            if (!col) {
+                return reply.code(404).send({ error: 'Không tìm thấy Bộ Sưu Tập' });
+            }
+
+            // Permission check: Must be Giám Đốc OR the creator of this collection
+            if (user.role !== 'giam_doc' && Number(col.created_by) !== Number(user.id)) {
+                return reply.code(403).send({ error: 'Chỉ người tạo hoặc Giám Đốc mới có quyền chỉnh sửa Bộ Sưu Tập này!' });
+            }
+
+            if (!body.name || !body.name.trim()) {
+                return reply.code(400).send({ error: 'Tên Bộ Sưu Tập không được để trống' });
+            }
+            if (!body.linh_vuc || !body.linh_vuc.trim()) {
+                return reply.code(400).send({ error: 'Lĩnh Vực Bộ Sưu Tập là bắt buộc' });
+            }
+            if (!body.cover_image || !body.cover_image.trim()) {
+                return reply.code(400).send({ error: 'Ảnh đại diện Bộ Sưu Tập không được để trống' });
+            }
+            if (!body.gia_san_pham || !body.gia_san_pham.trim()) {
+                return reply.code(400).send({ error: 'Giá Sản Phẩm không được để trống' });
+            }
+
+            const created_mode = body.created_mode === 'task_linked' ? 'task_linked' : 'free';
+            let task_id = created_mode === 'task_linked' ? (body.task_id ? Number(body.task_id) : null) : null;
+            const release_date = body.release_date || new Date().toISOString().slice(0, 10);
+            const cover_image = body.cover_image.trim();
+            const linh_vuc = body.linh_vuc.trim();
+
+            const market_mau = body.market_mau || {};
+            const market_co_botay = body.market_co_botay || {};
+            const phieu_ban_don = body.phieu_ban_don || {};
+            const thong_so_mau_ao = body.thong_so_mau_ao || {};
+            const chup_anh_mau_bst = Array.isArray(body.chup_anh_mau_bst) ? body.chup_anh_mau_bst : [];
+
+            const result = await db.get(`
+                UPDATE product_collections
+                SET name = $1,
+                    release_date = $2,
+                    created_mode = $3,
+                    task_id = $4,
+                    market_mau = $5,
+                    market_co_botay = $6,
+                    phieu_ban_don = $7,
+                    thong_so_mau_ao = $8,
+                    chup_anh_mau_bst = $9,
+                    gia_san_pham = $10,
+                    cover_image = $11,
+                    linh_vuc = $12
+                WHERE id = $13
+                RETURNING *
+            `, [
+                body.name.trim(), release_date, created_mode, task_id,
+                JSON.stringify(market_mau), JSON.stringify(market_co_botay),
+                JSON.stringify(phieu_ban_don), JSON.stringify(thong_so_mau_ao),
+                JSON.stringify(chup_anh_mau_bst), body.gia_san_pham.trim(),
+                cover_image, linh_vuc, id
+            ]);
+
+            return reply.send({ ok: true, collection: result });
+        } catch (e) {
+            console.error('[collections PUT]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // 6. DELETE /api/collections/:id (Director only)
     fastify.delete('/api/collections/:id', { preHandler: [authenticate] }, async (req, reply) => {
         try {
+            if (req.user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền xóa Bộ Sưu Tập!' });
+            }
             const id = req.params.id;
             await db.run(`DELETE FROM product_collections WHERE id = $1`, [id]);
             return reply.send({ ok: true });
