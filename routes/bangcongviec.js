@@ -107,6 +107,7 @@ async function bangcongviecRoutes(fastify, options) {
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS task_link TEXT`);
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS guide_link TEXT`);
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS assigned_to_ids TEXT`);
+        await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS collection_id INT`);
     } catch(e) { /* already exists */ }
 
     // Add report columns if not exists
@@ -594,6 +595,7 @@ async function bangcongviecRoutes(fastify, options) {
                        u_create.full_name as created_by_name,
                        d.name as department_name,
                        d.code as department_code,
+                       col.name as collection_name,
                        COALESCE(cc.comment_count, 0) as comment_count,
                        (CASE WHEN btr.id IS NOT NULL THEN TRUE ELSE FALSE END) as my_read,
                        btr.read_at as my_read_at
@@ -601,6 +603,7 @@ async function bangcongviecRoutes(fastify, options) {
                 LEFT JOIN users u_assign ON u_assign.id = t.assigned_to
                 LEFT JOIN users u_create ON u_create.id = t.created_by
                 LEFT JOIN departments d ON d.id = t.department_id
+                LEFT JOIN product_collections col ON col.id = t.collection_id
                 LEFT JOIN (
                     SELECT task_id, COUNT(*) as comment_count
                     FROM board_task_comments
@@ -679,7 +682,7 @@ async function bangcongviecRoutes(fastify, options) {
                 return reply.code(403).send({ error: 'Bạn không có quyền tạo task' });
             }
 
-            const { title, description, priority, task_type, assigned_to, assigned_to_ids, department_id, deadline, task_link, guide_link, checklist } = request.body;
+            const { title, description, priority, task_type, assigned_to, assigned_to_ids, department_id, deadline, task_link, guide_link, checklist, collection_id } = request.body;
             if (!title || !title.trim()) {
                 return reply.code(400).send({ error: 'Tiêu đề không được để trống' });
             }
@@ -754,8 +757,8 @@ async function bangcongviecRoutes(fastify, options) {
             }
 
             const result = await db.get(`
-                INSERT INTO board_tasks (title, description, status, priority, task_type, department_id, assigned_to, assigned_to_ids, created_by, deadline, task_link, guide_link, task_code, dept_task_no)
-                VALUES ($1, $2, 'can_lam', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                INSERT INTO board_tasks (title, description, status, priority, task_type, department_id, assigned_to, assigned_to_ids, created_by, deadline, task_link, guide_link, task_code, dept_task_no, collection_id)
+                VALUES ($1, $2, 'can_lam', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 RETURNING *
             `, [
                 title.trim(),
@@ -770,7 +773,8 @@ async function bangcongviecRoutes(fastify, options) {
                 task_link || null,
                 guide_link || null,
                 taskCode,
-                deptTaskNo
+                deptTaskNo,
+                collection_id ? Number(collection_id) : null
             ]);
 
             // Create checklist items if provided
@@ -847,6 +851,7 @@ async function bangcongviecRoutes(fastify, options) {
                 if (b.department_id !== undefined) { idx++; updates.push(`department_id = $${idx}`); vals.push(b.department_id || null); }
                 if (b.task_link !== undefined) { idx++; updates.push(`task_link = $${idx}`); vals.push(b.task_link || null); }
                 if (b.guide_link !== undefined) { idx++; updates.push(`guide_link = $${idx}`); vals.push(b.guide_link || null); }
+                if (b.collection_id !== undefined) { idx++; updates.push(`collection_id = $${idx}`); vals.push(b.collection_id ? Number(b.collection_id) : null); }
             }
 
             // Assignee, manager, or creator can update status & progress
@@ -919,11 +924,18 @@ async function bangcongviecRoutes(fastify, options) {
                     isTuLieu2Task = guides.some(g => {
                         const gMain = (g.mainCat || '').toLowerCase();
                         const gSub = (g.subCat || g.title || '').toLowerCase();
-                        return gMain.includes('thiết kế mẫu') || gMain.includes('thiết kế bst') || gSub.includes('thiết kế mẫu');
+                        const fullStr = (gMain + ' ' + gSub).toLowerCase();
+                        if (fullStr.includes('tư liệu 3') || fullStr.includes('chụp ảnh') || fullStr.includes('tạo ai')) {
+                            return false;
+                        }
+                        return fullStr.includes('tư liệu 2') || fullStr.includes('thiết kế mẫu');
                     });
                 }
-                if (!isTuLieu2Task && task.title && (task.title.toLowerCase().includes('thiết kế mẫu') || task.title.toLowerCase().includes('bst'))) {
-                    isTuLieu2Task = true;
+                if (!isTuLieu2Task && task.title) {
+                    const tLower = task.title.toLowerCase();
+                    if ((tLower.includes('thiết kế mẫu') || tLower.includes('tư liệu 2')) && !tLower.includes('chụp ảnh') && !tLower.includes('tạo ai') && !tLower.includes('tư liệu 3')) {
+                        isTuLieu2Task = true;
+                    }
                 }
 
                 if (isTuLieu2Task) {
@@ -949,6 +961,76 @@ async function bangcongviecRoutes(fastify, options) {
                             collection_name: linkedCollection.name,
                             collection_id: linkedCollection.id,
                             error: `⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nBộ Sưu Tập "${linkedCollection.name}" đã được tạo (✅ Đã đạt ĐK1), nhưng NGƯỜI GIAO VIỆC chưa bấm Duyệt Bộ Sưu Tập này (❌ Chưa đạt ĐK2)!\n\nVui lòng sang menu "Bộ Sưu Tập / BST", bấm "👁️ Xem Chi Tiết" bộ sưu tập này và bấm nút "✅ Duyệt Bộ Sưu Tập" trước khi quay lại duyệt công việc.` 
+                        });
+                    }
+                }
+
+                // Check if task belongs to "Tư Liệu 3 : Chụp Ảnh / Tạo AI - BST"
+                let isTuLieu3Task = false;
+                if (Array.isArray(guides)) {
+                    isTuLieu3Task = guides.some(g => {
+                        const gMain = (g.mainCat || '').toLowerCase();
+                        const gSub = (g.subCat || g.title || '').toLowerCase();
+                        const fullStr = (gMain + ' ' + gSub).toLowerCase();
+                        return fullStr.includes('tư liệu 3') || fullStr.includes('chụp ảnh') || fullStr.includes('tạo ai');
+                    });
+                }
+                if (!isTuLieu3Task && task.title) {
+                    const tLower = task.title.toLowerCase();
+                    if (tLower.includes('chụp ảnh') || tLower.includes('tạo ai') || tLower.includes('tư liệu 3')) {
+                        isTuLieu3Task = true;
+                    }
+                }
+
+                if (isTuLieu3Task) {
+                    let linkedCol = null;
+                    if (task.collection_id) {
+                        linkedCol = await db.get(`SELECT * FROM product_collections WHERE id = $1 LIMIT 1`, [task.collection_id]);
+                    }
+                    if (!linkedCol) {
+                        linkedCol = await db.get(`SELECT * FROM product_collections WHERE task_id = $1 LIMIT 1`, [taskId]);
+                    }
+
+                    if (!linkedCol) {
+                        return reply.code(400).send({
+                            ok: false,
+                            condition1_met: false,
+                            condition2_met: false,
+                            error: '⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nCông việc thuộc "Tư Liệu 3 : Chụp Ảnh / Tạo AI - BST" chưa chọn Bộ Sưu Tập liên kết.'
+                        });
+                    }
+
+                    // Check Condition 1: Section 8 photos exist (chup_anh_mau_bst)
+                    let chupRaw = typeof linkedCol.chup_anh_mau_bst === 'string' ? JSON.parse(linkedCol.chup_anh_mau_bst) : (linkedCol.chup_anh_mau_bst || []);
+                    let chupPhotoCount = 0;
+                    if (Array.isArray(chupRaw)) {
+                        chupPhotoCount = chupRaw.length;
+                    } else if (chupRaw && typeof chupRaw === 'object') {
+                        let urls = Array.isArray(chupRaw.image_urls) ? chupRaw.image_urls : (chupRaw.image_url ? [chupRaw.image_url] : []);
+                        chupPhotoCount = urls.filter(Boolean).length;
+                    }
+                    const cond1Met = chupPhotoCount > 0;
+
+                    // Check Condition 2: Section 9 & 10 meeting completed
+                    let meetingSession = null;
+                    try {
+                        meetingSession = await db.get(`
+                            SELECT id FROM meeting_sessions 
+                            WHERE status = 'da_ket_thuc' AND (collection_id = $1 OR collection_name = $2) 
+                            LIMIT 1
+                        `, [linkedCol.id, linkedCol.name]);
+                    } catch(e){}
+
+                    const cond2Met = Boolean(meetingSession || linkedCol.completed_meeting || (linkedCol.hop_voi_sale && (linkedCol.hop_voi_sale.status === 'da_ket_thuc' || (typeof linkedCol.hop_voi_sale === 'string' && linkedCol.hop_voi_sale.includes('da_ket_thuc')))));
+
+                    if (!cond1Met || !cond2Met) {
+                        return reply.code(400).send({
+                            ok: false,
+                            condition1_met: cond1Met,
+                            condition2_met: cond2Met,
+                            collection_name: linkedCol.name,
+                            collection_id: linkedCol.id,
+                            error: `⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nCông việc "Tư Liệu 3 : Chụp Ảnh / Tạo AI - BST" liên kết với "${linkedCol.name}" yêu cầu đủ 2 điều kiện:\n\n1. 📷 Đã thêm ảnh mẫu BST tại Mục 8 (${cond1Met ? '✅ Đã có' : '❌ Chưa có'}).\n2. 🤝 Đã họp hoàn thành tại Quy trình cuộc họp ở Mục 9 & 10 (${cond2Met ? '✅ Đã họp' : '❌ Chưa họp'}).`
                         });
                     }
                 }
@@ -1285,13 +1367,12 @@ function getDeptShortCode(deptName) {
             const task = await db.get(`SELECT * FROM board_tasks WHERE id = $1`, [taskId]);
             if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
 
-            const isDirectorOrAdmin = ['giam_doc', 'quan_ly_cap_cao'].includes(user.role) ||
+            const isDirector = user.role === 'giam_doc' ||
                 (user.username && (user.username.toLowerCase().includes('giamdoc') || user.username.toLowerCase() === 'admin')) ||
                 Boolean(user.is_admin);
-            const isCreator = Number(task.created_by) === Number(user.id);
 
-            if (!isDirectorOrAdmin && !isCreator) {
-                return reply.code(403).send({ error: 'Chỉ Giám đốc hoặc Người tạo task mới có quyền xóa công việc!' });
+            if (!isDirector) {
+                return reply.code(403).send({ error: 'Chỉ Giám đốc mới có quyền xóa công việc!' });
             }
 
             // Xóa sạch dữ liệu liên quan ở các bảng con trước khi xóa task chính
@@ -1473,6 +1554,11 @@ function getDeptShortCode(deptName) {
                 const rLink = (currentItem && currentItem.report_link ? currentItem.report_link.trim() : '');
                 if (!rContent || !rLink) {
                     return reply.code(400).send({ error: 'Bạn phải nhập đầy đủ Nội dung báo cáo kết quả và Link dẫn chứng hoàn thành cho mục checklist này trước khi tích chọn hoàn thành!' });
+                }
+
+                const isUrl = /^https?:\/\/.+/i.test(rLink) || /^([\w\-]+\.)+[a-z]{2,}(\/.*)?$/i.test(rLink);
+                if (!isUrl) {
+                    return reply.code(400).send({ error: '⚠️ Link dẫn chứng hoàn thành phải là một đường link liên kết hợp lệ (ví dụ: https://... hoặc http://...) chứ không được nhập chữ/số thông thường!' });
                 }
             }
 

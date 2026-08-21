@@ -341,6 +341,68 @@
         _mpCheckPermissions(function() {
             // Load all data
             _mpLoadAllData(function() {
+                try {
+                    var uParams = new URLSearchParams(window.location.search);
+                    var urlSid = uParams.get('session_id') || uParams.get('sid');
+                    var urlColId = uParams.get('col_id');
+
+                    var token = localStorage.getItem('token');
+                    var headers = {};
+                    if (token && token.length > 20) { headers['Authorization'] = 'Bearer ' + token; }
+
+                    var getSessionPromise = null;
+                    if (urlSid) {
+                        var targetSid = parseInt(urlSid, 10);
+                        var foundInMemory = (_mpSessions || []).find(function(s) { return s.id === targetSid; });
+                        if (foundInMemory) {
+                            getSessionPromise = Promise.resolve(foundInMemory);
+                        } else {
+                            getSessionPromise = fetch('/api/meeting-process/sessions/' + targetSid, { credentials: 'include', headers: headers })
+                                .then(function(r) { return r.json(); })
+                                .then(function(d) { return d.session || d; })
+                                .catch(function() { return null; });
+                        }
+                    } else if (urlColId) {
+                        var targetColId = parseInt(urlColId, 10);
+                        var foundColInMemory = (_mpSessions || []).find(function(s) { return s.collection_id === targetColId; });
+                        getSessionPromise = Promise.resolve(foundColInMemory);
+                    }
+
+                    if (getSessionPromise) {
+                        getSessionPromise.then(function(foundSession) {
+                            if (foundSession && foundSession.id) {
+                                _mpActiveProcessId = foundSession.process_id || 1;
+                                _mpActiveSessionId = foundSession.id;
+                                _mpCurrentTab = 'session_detail';
+
+                                if (!(_mpSessions || []).some(function(s) { return s.id === foundSession.id; })) {
+                                    _mpSessions.unshift(foundSession);
+                                }
+
+                                fetch('/api/meeting-process/steps?process_id=' + _mpActiveProcessId, { credentials: 'include', headers: headers })
+                                    .then(function(r) { return r.json(); })
+                                    .then(function(sd) {
+                                        if (sd && sd.steps) _mpSteps = sd.steps;
+                                        _mpPrefetchAllPreviousStepNotes(foundSession.id, headers);
+                                        return fetch('/api/meeting-process/sessions/' + foundSession.id + '/notes', { credentials: 'include', headers: headers });
+                                    })
+                                    .then(function(r) { return r.json(); })
+                                    .then(function(d) {
+                                        _mpNotes = d.notes || [];
+                                        _mpRender(container);
+                                    })
+                                    .catch(function() {
+                                        _mpRender(container);
+                                    });
+                                return;
+                            }
+                            _mpRender(container);
+                        }).catch(function() {
+                            _mpRender(container);
+                        });
+                        return;
+                    }
+                } catch(e) {}
                 _mpRender(container);
             });
         });
@@ -1864,6 +1926,11 @@
         if (session.process_name) {
             var procTheme = _getProcessTheme(session.process_id, session.process_name);
             html += '<span style="padding:4px 12px;background:' + procTheme.bg + ';color:' + procTheme.text + ';border:1px solid ' + procTheme.border + ';border-radius:8px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">' + (session.process_icon || '📋') + ' ' + _escHtml(session.process_name) + '</span>';
+        }
+        var isBstProc = (session.process_name || '').toLowerCase().indexOf('bộ sưu tập') >= 0;
+        if (session.collection_id || session.collection_name || isBstProc) {
+            var displayColName = session.collection_name || session.title;
+            html += '<a href="/bosuutap" target="_blank" title="Mở Bộ Sưu Tập / BST" style="padding:4px 12px;background:linear-gradient(135deg,#eef2ff 0%,#e0e7ff 100%);color:#4338ca;border:1px solid #c7d2fe;border-radius:8px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:4px;text-decoration:none;box-shadow:0 1px 3px rgba(67,56,202,0.1);transition:all 0.2s;">🖼️ BST: ' + _escHtml(displayColName) + ' ↗️</a>';
         }
         html += '<h2 style="font-size:20px;font-weight:800;color:' + C.slate800 + ';margin:0;">' + _escHtml(session.title) + '</h2>';
         html += '</div>';
@@ -3603,6 +3670,7 @@
 
         var data = {
             process_id: session.process_id || 1,
+            collection_id: session.collection_id !== undefined ? session.collection_id : null,
             title: session.title,
             meeting_date: session.meeting_date,
             start_time: session.start_time,

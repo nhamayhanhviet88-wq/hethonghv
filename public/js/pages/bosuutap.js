@@ -453,15 +453,15 @@ async function renderBosuutapPage(container) {
 
                             <!-- 9 & 10: Placeholder Liên Kết -->
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                                <div style="background: #faf5ff; padding: 14px; border-radius: 12px; border: 1px dashed #d8b4fe; text-align: center;">
+                                <div style="background: #faf5ff; padding: 14px; border-radius: 12px; border: 1px solid #d8b4fe; text-align: center;">
                                     <div style="font-size: 20px; margin-bottom: 4px;">🔗</div>
                                     <div style="font-size: 13px; font-weight: 700; color: #7c3aed;">9. Bàn Giao Maket cho BP. Thiết Kế</div>
-                                    <div style="font-size: 11px; color: #a78bfa; margin-top: 4px;">Liên kết sẽ được cấu hình sau</div>
+                                    <div style="font-size: 11px; color: #7c3aed; margin-top: 4px; font-weight: 600;">(Tự động liên kết theo CV bàn giao)</div>
                                 </div>
-                                <div style="background: #fdf2f8; padding: 14px; border-radius: 12px; border: 1px dashed #f9a8d4; text-align: center;">
+                                <div style="background: #f0fdf4; padding: 14px; border-radius: 12px; border: 1px solid #86efac; text-align: center;">
                                     <div style="font-size: 20px; margin-bottom: 4px;">🤝</div>
-                                    <div style="font-size: 13px; font-weight: 700; color: #db2777;">10. Thông Tin Họp Với Sale</div>
-                                    <div style="font-size: 11px; color: #f472b6; margin-top: 4px;">Liên kết sẽ được cấu hình sau</div>
+                                    <div style="font-size: 13px; font-weight: 700; color: #15803d;">10. Thông Tin Họp Với Sale</div>
+                                    <div style="font-size: 11px; color: #15803d; margin-top: 4px; font-weight: 600;">(Tự động liên kết khi kết thúc cuộc họp)</div>
                                 </div>
                             </div>
                         </div>
@@ -786,9 +786,9 @@ function renderCollectionGrid(collections) {
                 const mm = typeof col.market_mau === 'string' ? JSON.parse(col.market_mau) : (col.market_mau || {});
                 const previewImg = col.cover_image || mm.image_url || (mm.image_urls && mm.image_urls[0]) || '/public/img/placeholder.png';
                 return `
-                    <div style="background: white; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.06); transition: all 0.3s ease; display: flex; flex-direction: column;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 25px -5px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px -2px rgba(0,0,0,0.06)'">
+                    <div onclick="viewCollectionDetail(${col.id})" style="background: white; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.06); transition: all 0.3s ease; display: flex; flex-direction: column; cursor: pointer;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 25px -5px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px -2px rgba(0,0,0,0.06)'">
                         <div style="height: 380px; background: #f8fafc; overflow: hidden; position: relative;">
-                            <img src="${previewImg}" style="width: 100%; height: 100%; object-fit: cover; object-position: top center; transition: transform 0.4s ease; cursor: pointer;" onclick="showBsutLightbox('${previewImg}', '${escapeHtml(col.name)}')" title="Bấm để xem ảnh phóng to trực tiếp trên trang" onerror="this.src='https://via.placeholder.com/400x500?text=No+Image';" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                            <img src="${previewImg}" style="width: 100%; height: 100%; object-fit: cover; object-position: top center; transition: transform 0.4s ease; cursor: pointer;" onclick="event.stopPropagation(); viewCollectionDetail(${col.id})" title="Bấm để xem chi tiết Bộ Sưu Tập" onerror="this.src='https://via.placeholder.com/400x500?text=No+Image';" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         </div>
                         
                         <div style="padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
@@ -831,9 +831,9 @@ function renderCollectionGrid(collections) {
                             </div>
 
                             <div style="display: flex; gap: 8px; margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 14px;">
-                                <button onclick="viewCollectionDetail(${col.id})" style="flex: 1; background: #4338ca; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">👁️ Xem Chi Tiết</button>
+                                <button onclick="event.stopPropagation(); viewCollectionDetail(${col.id})" style="flex: 1; background: #4338ca; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">👁️ Xem Chi Tiết</button>
                                 ${(window._currentUser && window._currentUser.role === 'giam_doc') ? `
-                                    <button onclick="deleteCollectionItem(${col.id})" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">🗑️ Xóa</button>
+                                    <button onclick="event.stopPropagation(); deleteCollectionItem(${col.id})" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">🗑️ Xóa</button>
                                 ` : ''}
                             </div>
                         </div>
@@ -889,8 +889,14 @@ function populateEligibleTaskSelect(tasks, currentEditingTaskId) {
     const sel = document.getElementById('selCollectionTask');
     if (!sel) return;
 
-    if (!tasks || tasks.length === 0) {
-        sel.innerHTML = `<option value="">-- Không tìm thấy mã công việc Tư Liệu 2 nào --</option>`;
+    // Lọc bỏ toàn bộ công việc Tư Liệu 2 đã được tạo Bộ Sưu Tập rồi (không hiển thị nữa)
+    const availableTasks = (tasks || []).filter(t => {
+        const isAlreadyCreated = t.is_created && String(t.id) !== String(currentEditingTaskId);
+        return !isAlreadyCreated;
+    });
+
+    if (!availableTasks || availableTasks.length === 0) {
+        sel.innerHTML = `<option value="">-- Tất cả công việc Tư Liệu 2 đã được tạo Bộ Sưu Tập --</option>`;
         updateNameFromSelectedTask();
         return;
     }
@@ -898,11 +904,8 @@ function populateEligibleTaskSelect(tasks, currentEditingTaskId) {
     const curVal = sel.value;
 
     sel.innerHTML = `<option value="">-- Chọn mã công việc Tư Liệu 2 --</option>` +
-        tasks.map(t => {
-            const isAlreadyCreated = t.is_created && String(t.id) !== String(currentEditingTaskId);
-            const disabledAttr = isAlreadyCreated ? 'disabled style="color:#94a3b8;background:#f1f5f9"' : '';
-            const statusLabel = isAlreadyCreated ? '✅ Đã tạo BST' : t.status;
-            return `<option value="${t.id}" ${disabledAttr}>${t.cv_code} - ${escapeHtml(t.title)} (${statusLabel})</option>`;
+        availableTasks.map(t => {
+            return `<option value="${t.id}">${t.cv_code} - ${escapeHtml(t.title)} (${t.status})</option>`;
         }).join('');
 
     if (curVal) sel.value = curVal;
@@ -1575,7 +1578,14 @@ async function submitCreateCollection() {
     }
 }
 
-function viewCollectionDetail(id) {
+async function viewCollectionDetail(id) {
+    try {
+        const resCols = await _bsutApi('/api/collections');
+        if (resCols && Array.isArray(resCols.collections)) {
+            _bsutData.collections = resCols.collections;
+        }
+    } catch(e) {}
+
     const col = _bsutData.collections.find(x => x.id === id);
     if (!col) return;
 
@@ -1797,6 +1807,11 @@ function viewCollectionDetail(id) {
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="font-size: 11px; font-weight: 700; background: white; padding: 2px 8px; border-radius: 12px; color: #64748b; border: 1px solid #e2e8f0;">${chupImgList.length} Ảnh mẫu</span>
+                        ${chupImgList.length > 0 ? `
+                            <a href="/api/collections/${col.id}/download-chup-anh-zip" download="Anh_Mau_BST_${escapeHtml((col.name || 'BST').replace(/[^a-zA-Z0-9_\-]/g, '_'))}_Full.zip" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; background: linear-gradient(135deg, #059669, #047857); color: white; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; box-shadow: 0 2px 5px rgba(5,150,105,0.2); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'" title="Tải tất cả ${chupImgList.length} ảnh mẫu HD nguyên bản nén trong 1 file ZIP">
+                                📦 ⬇️ Tải Hàng Loạt (.ZIP)
+                            </a>
+                        ` : ''}
                         <label onclick="this.querySelector('input').click()" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
                             📷 + Thêm Ảnh Mẫu BST
                             <input type="file" accept="image/*" multiple onchange="uploadDirectChupAnhMauBst(this, ${col.id})" style="display: none;">
@@ -1828,16 +1843,54 @@ function viewCollectionDetail(id) {
 
             <!-- Liên kết 9 & 10 -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                <div style="background: #faf5ff; padding: 16px; border-radius: 14px; border: 1.5px dashed #d8b4fe; text-align: center; transition: all 0.2s;" onmouseover="this.style.borderColor='#a855f7'" onmouseout="this.style.borderColor='#d8b4fe'">
-                    <div style="font-size: 22px; margin-bottom: 4px;">🔗</div>
-                    <div style="font-size: 13.5px; font-weight: 800; color: #7c3aed;">9. Bàn Giao Maket cho BP. Thiết Kế</div>
-                    <div style="font-size: 11.5px; color: #a78bfa; margin-top: 4px; font-weight: 600;">(Liên kết đang cấu hình)</div>
-                </div>
-                <div style="background: #fdf2f8; padding: 16px; border-radius: 14px; border: 1.5px dashed #f9a8d4; text-align: center; transition: all 0.2s;" onmouseover="this.style.borderColor='#ec4899'" onmouseout="this.style.borderColor='#f9a8d4'">
-                    <div style="font-size: 22px; margin-bottom: 4px;">🤝</div>
-                    <div style="font-size: 13.5px; font-weight: 800; color: #db2777;">10. Thông Tin Họp Với Sale</div>
-                    <div style="font-size: 11.5px; color: #f472b6; margin-top: 4px; font-weight: 600;">(Liên kết đang cấu hình)</div>
-                </div>
+                ${(col.completed_meeting || (col.hop_voi_sale && (col.hop_voi_sale.status === 'da_ket_thuc' || (typeof col.hop_voi_sale === 'string' && col.hop_voi_sale.includes('da_ket_thuc'))))) ? `
+                    <div style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); padding: 16px; border-radius: 14px; border: 1.5px solid #c084fc; text-align: center; box-shadow: 0 4px 12px rgba(147,51,234,0.08);">
+                        <div style="font-size: 22px; margin-bottom: 4px;">🔗</div>
+                        <div style="font-size: 13.5px; font-weight: 800; color: #7c3aed;">9. Bàn Giao Maket cho BP. Thiết Kế</div>
+                        <div style="font-size: 12.5px; font-weight: 800; color: #6b21a8; margin-top: 6px; line-height: 1.4;">
+                            ✅ Đã Họp ${escapeHtml(col.name)} ở quy trình cuộc họp
+                        </div>
+                        <div style="font-size: 11.5px; color: #7c3aed; margin-top: 4px; font-weight: 600;">
+                            📅 Ngày họp: ${col.completed_meeting && col.completed_meeting.meeting_date ? new Date(col.completed_meeting.meeting_date).toLocaleDateString('vi-VN') : (col.release_date ? new Date(col.release_date).toLocaleDateString('vi-VN') : '')}
+                            ${col.completed_meeting && col.completed_meeting.chairperson_name ? ` | 👔 Chủ tọa: ${escapeHtml(col.completed_meeting.chairperson_name)}` : ''}
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <a href="/quytrinhcuochop?session_id=${col.completed_meeting ? col.completed_meeting.id : (col.hop_voi_sale ? (typeof col.hop_voi_sale === 'object' ? col.hop_voi_sale.session_id : 13) : 13)}" target="_blank" style="padding: 7px 16px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border-radius: 10px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 10px rgba(124,58,237,0.25); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
+                                🔗 Mở Cuộc Họp & Xem Biên Bản ↗️
+                            </a>
+                        </div>
+                    </div>
+                ` : `
+                    <div style="background: #faf5ff; padding: 16px; border-radius: 14px; border: 1.5px dashed #d8b4fe; text-align: center; transition: all 0.2s;" onmouseover="this.style.borderColor='#a855f7'" onmouseout="this.style.borderColor='#d8b4fe'">
+                        <div style="font-size: 22px; margin-bottom: 4px;">🔗</div>
+                        <div style="font-size: 13.5px; font-weight: 800; color: #7c3aed;">9. Bàn Giao Maket cho BP. Thiết Kế</div>
+                        <div style="font-size: 11.5px; color: #a78bfa; margin-top: 4px; font-weight: 600;">(Chưa có biên bản cuộc họp / Đang chờ họp)</div>
+                    </div>
+                `}
+                ${(col.completed_meeting || (col.hop_voi_sale && (col.hop_voi_sale.status === 'da_ket_thuc' || (typeof col.hop_voi_sale === 'string' && col.hop_voi_sale.includes('da_ket_thuc'))))) ? `
+                    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); padding: 16px; border-radius: 14px; border: 1.5px solid #86efac; text-align: center; box-shadow: 0 4px 12px rgba(22,163,74,0.08);">
+                        <div style="font-size: 22px; margin-bottom: 4px;">🤝</div>
+                        <div style="font-size: 13.5px; font-weight: 800; color: #15803d;">10. Thông Tin Họp Với Sale</div>
+                        <div style="font-size: 12.5px; font-weight: 800; color: #166534; margin-top: 6px; line-height: 1.4;">
+                            ✅ Đã Họp ${escapeHtml(col.name)} ở quy trình cuộc họp
+                        </div>
+                        <div style="font-size: 11.5px; color: #15803d; margin-top: 4px; font-weight: 600;">
+                            📅 Ngày họp: ${col.completed_meeting && col.completed_meeting.meeting_date ? new Date(col.completed_meeting.meeting_date).toLocaleDateString('vi-VN') : (col.release_date ? new Date(col.release_date).toLocaleDateString('vi-VN') : '')}
+                            ${col.completed_meeting && col.completed_meeting.chairperson_name ? ` | 👔 Chủ tọa: ${escapeHtml(col.completed_meeting.chairperson_name)}` : ''}
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <a href="/quytrinhcuochop?session_id=${col.completed_meeting ? col.completed_meeting.id : (col.hop_voi_sale ? (typeof col.hop_voi_sale === 'object' ? col.hop_voi_sale.session_id : 13) : 13)}" target="_blank" style="padding: 7px 16px; background: linear-gradient(135deg, #16a34a, #15803d); color: white; border-radius: 10px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 10px rgba(22,163,74,0.25); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
+                                🔗 Mở Cuộc Họp & Xem Biên Bản ↗️
+                            </a>
+                        </div>
+                    </div>
+                ` : `
+                    <div style="background: #fdf2f8; padding: 16px; border-radius: 14px; border: 1.5px dashed #f9a8d4; text-align: center; transition: all 0.2s;" onmouseover="this.style.borderColor='#ec4899'" onmouseout="this.style.borderColor='#f9a8d4'">
+                        <div style="font-size: 22px; margin-bottom: 4px;">🤝</div>
+                        <div style="font-size: 13.5px; font-weight: 800; color: #db2777;">10. Thông Tin Họp Với Sale</div>
+                        <div style="font-size: 11.5px; color: #f472b6; margin-top: 4px; font-weight: 600;">(Chưa có biên bản cuộc họp / Đang chờ họp)</div>
+                    </div>
+                `}
             </div>
         </div>
     `;

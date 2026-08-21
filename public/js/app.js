@@ -169,8 +169,8 @@ const MENU_CONFIG = [
     { id: 'tu-lieu-xuong-vp', label: 'Tư Liệu Xưởng & VP', icon: '📂', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ', href: '/tulieuxuongvp', permKey: 'tu_lieu_xuong_vp' },
     { id: 'bo-suu-tap', label: 'Bộ Sưu Tập / BST', icon: '🖼️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ', href: '/bosuutap', permKey: 'bo_suu_tap' },
     { id: 'chinh-sach-kh', label: 'Chính Sách Khách Hàng', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chinhsachkhhv', permKey: 'chinh_sach_kh' },
-    { id: 'chuong-trinh-kh', label: 'Chương Trình Khách Hàng', icon: '🎁', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chuongtrinhkhhv', permKey: 'chuong_trinh_kh' },
-    { id: 'xu-ly-don-loi', label: 'Cách Xử Lý Đơn Lỗi', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/xulydonloihv', permKey: 'xu_ly_don_loi' },
+    { id: 'chuong-trinh-kh', label: 'Chương Trình & Quà Tặng KH', icon: '🎁', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chuongtrinhkhhv', permKey: 'chuong_trinh_kh' },
+    { id: 'xu-ly-don-loi', label: 'Kịch Bản Tư Vấn & Xử Lý Lỗi', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/xulydonloihv', permKey: 'xu_ly_don_loi' },
     { id: 'khuyenmaigiamgia', label: 'Tạo Mã Giảm Giá', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' },
 
 
@@ -547,8 +547,12 @@ const _PAGE_SCRIPT_MAP = {
     'khuyenmaigiamgia': '/js/pages/khuyenmaigiamgia.js',
     'khuyen-mai-giam-gia': '/js/pages/khuyenmaigiamgia.js',
     'xuatvaicat': '/js/pages/xuatvaicat.js',
-    'bosuutap': '/js/pages/bosuutap.js',
-    'bo-suu-tap': '/js/pages/bosuutap.js'
+    'bosuutap': '/js/pages/bosuutap.js?v=' + Date.now(),
+    'bo-suu-tap': '/js/pages/bosuutap.js?v=' + Date.now(),
+    'chinhsachkhhv': '/js/pages/chinhsachkhhv.js?v=' + Date.now(),
+    'chinh-sach-kh': '/js/pages/chinhsachkhhv.js?v=' + Date.now(),
+    'chuongtrinhkhhv': '/js/pages/chuongtrinhkhhv.js?v=' + Date.now(),
+    'chuong-trinh-kh': '/js/pages/chuongtrinhkhhv.js?v=' + Date.now()
 };
 
 const _loadedScripts = new Set();
@@ -6758,6 +6762,10 @@ var _PAGE_INIT_REGISTRY = {
     'bo-phan-hoan-thien': 'renderBophanhoanthienPage',
     'bophanhoanthien': 'renderBophanhoanthienPage',
     'bophanhoanthienhv': 'renderBophanhoanthienPage',
+    'chinhsachkhhv': 'renderChinhsachkhhvPage',
+    'chinh-sach-kh': 'renderChinhsachkhhvPage',
+    'chuongtrinhkhhv': 'renderChuongtrinhkhhvPage',
+    'chuong-trinh-kh': 'renderChuongtrinhkhhvPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {

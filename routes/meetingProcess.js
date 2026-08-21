@@ -389,11 +389,13 @@ async function meetingProcessRoutes(fastify, options) {
                    p.name AS process_name,
                    p.icon AS process_icon,
                    cp.full_name AS chairperson_name,
-                   sec.full_name AS secretary_name
+                   sec.full_name AS secretary_name,
+                   col.name AS collection_name
             FROM meeting_process_sessions s
             LEFT JOIN meeting_processes p ON p.id = s.process_id
             LEFT JOIN users cp ON cp.id = s.chairperson_id
             LEFT JOIN users sec ON sec.id = s.secretary_id
+            LEFT JOIN product_collections col ON col.id = s.collection_id
             ${where}
             ORDER BY s.meeting_date DESC, s.created_at DESC
             LIMIT $${paramIdx++} OFFSET $${paramIdx++}
@@ -408,6 +410,32 @@ async function meetingProcessRoutes(fastify, options) {
             page: pageNum,
             totalPages: Math.ceil(total / pageSize)
         };
+    });
+
+    // GET /api/meeting-process/sessions/:id — Get single session details
+    fastify.get('/api/meeting-process/sessions/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const session = await db.get(`
+                SELECT s.*,
+                       p.name AS process_name,
+                       p.icon AS process_icon,
+                       cp.full_name AS chairperson_name,
+                       sec.full_name AS secretary_name,
+                       col.name AS collection_name
+                FROM meeting_process_sessions s
+                LEFT JOIN meeting_processes p ON p.id = s.process_id
+                LEFT JOIN users cp ON cp.id = s.chairperson_id
+                LEFT JOIN users sec ON sec.id = s.secretary_id
+                LEFT JOIN product_collections col ON col.id = s.collection_id
+                WHERE s.id = $1
+            `, [request.params.id]);
+
+            if (!session) return reply.code(404).send({ error: 'Không tìm thấy phiên họp' });
+            return reply.send({ success: true, session });
+        } catch(e) {
+            console.error('[meeting-process/sessions/:id GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
     });
 
     // POST create session
@@ -467,24 +495,40 @@ async function meetingProcessRoutes(fastify, options) {
             parsedAttendees = JSON.stringify(attendees);
         }
 
+        const finalStatus = status || existing.status;
+        const finalColId = collection_id !== undefined ? (collection_id ? parseInt(collection_id) : null) : existing.collection_id;
+        const finalTitle = title || existing.title;
+
         await db.run(
             `UPDATE meeting_process_sessions SET process_id=$1, collection_id=$2, title=$3, meeting_date=$4, start_time=$5, end_time=$6, chairperson_id=$7, secretary_id=$8, attendees=$9, status=$10, conclusion=$11, next_actions=$12, updated_at=NOW() WHERE id=$13`,
             [
                 targetProcessId,
-                collection_id !== undefined ? (collection_id ? parseInt(collection_id) : null) : existing.collection_id,
-                title || existing.title,
+                finalColId,
+                finalTitle,
                 meeting_date || existing.meeting_date,
                 start_time !== undefined ? start_time : existing.start_time,
                 end_time !== undefined ? end_time : existing.end_time,
                 chairperson_id !== undefined ? chairperson_id : existing.chairperson_id,
                 secretary_id !== undefined ? secretary_id : existing.secretary_id,
                 parsedAttendees,
-                status || existing.status,
+                finalStatus,
                 conclusion !== undefined ? conclusion : existing.conclusion,
                 next_actions !== undefined ? next_actions : existing.next_actions,
                 request.params.id
             ]
         );
+
+        if (finalStatus === 'da_ket_thuc') {
+            try {
+                const colData = JSON.stringify({ session_id: request.params.id, status: 'da_ket_thuc', title: finalTitle });
+                if (finalColId) {
+                    await db.run(`UPDATE product_collections SET hop_voi_sale = ? WHERE id = ?`, [colData, finalColId]);
+                } else if (finalTitle) {
+                    await db.run(`UPDATE product_collections SET hop_voi_sale = ? WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))`, [colData, finalTitle]);
+                }
+            } catch(eColErr) { console.error('[MeetingProcess] update collection hop_voi_sale error:', eColErr.message); }
+        }
+
         return { success: true, message: 'Đã cập nhật phiên họp' };
     });
 

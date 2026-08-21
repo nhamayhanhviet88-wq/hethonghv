@@ -133,22 +133,35 @@ async function collectionsRoutes(fastify, options) {
     // 1. GET /api/collections
     fastify.get('/api/collections', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            const rows = await db.all(`
-                SELECT c.*, 
-                       t.title as task_title,
-                       t.task_code as task_code,
-                       t.dept_task_no as dept_task_no,
-                       t.created_by as task_created_by,
-                       u2.full_name as task_created_by_name,
-                       d.name as department_name,
-                       u.full_name as created_by_name
-                FROM product_collections c
-                LEFT JOIN board_tasks t ON c.task_id = t.id
-                LEFT JOIN departments d ON d.id = t.department_id
-                LEFT JOIN users u ON c.created_by = u.id
-                LEFT JOIN users u2 ON t.created_by = u2.id
-                ORDER BY c.id DESC
-            `);
+            const [rows, completedSessions] = await Promise.all([
+                db.all(`
+                    SELECT c.*, 
+                           t.title as task_title,
+                           t.task_code as task_code,
+                           t.dept_task_no as dept_task_no,
+                           t.status as task_status,
+                           t.deadline as task_deadline,
+                           t.created_by as task_created_by,
+                           u2.full_name as task_created_by_name,
+                           d.name as department_name,
+                           u.full_name as created_by_name
+                    FROM product_collections c
+                    LEFT JOIN board_tasks t ON c.task_id = t.id
+                    LEFT JOIN departments d ON d.id = t.department_id
+                    LEFT JOIN users u ON c.created_by = u.id
+                    LEFT JOIN users u2 ON t.created_by = u2.id
+                    ORDER BY c.id DESC
+                `),
+                db.all(`
+                    SELECT s.id, s.process_id, s.collection_id, s.title, s.meeting_date, s.status, s.conclusion,
+                           cp.full_name AS chairperson_name
+                    FROM meeting_process_sessions s
+                    LEFT JOIN users cp ON cp.id = s.chairperson_id
+                    WHERE s.status = 'da_ket_thuc'
+                    ORDER BY s.id DESC
+                `)
+            ]);
+
             rows.forEach(col => {
                 if (col.task_id) {
                     col.task_code = formatTaskCode({
@@ -158,6 +171,11 @@ async function collectionsRoutes(fastify, options) {
                         department_name: col.department_name
                     });
                 }
+                const matchedSession = (completedSessions || []).find(s => 
+                    (s.collection_id && Number(s.collection_id) === Number(col.id)) ||
+                    (s.title && col.name && s.title.trim().toLowerCase() === col.name.trim().toLowerCase())
+                );
+                col.completed_meeting = matchedSession || null;
             });
             return reply.send({ ok: true, collections: rows });
         } catch (e) {
@@ -560,6 +578,62 @@ async function collectionsRoutes(fastify, options) {
         } catch(e) {
             console.error('[collections approve error]', e);
             return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // GET /api/collections/:id/download-chup-anh-zip — Download all Section 8 original HD photos as ZIP
+    fastify.get('/api/collections/:id/download-chup-anh-zip', async (req, reply) => {
+        try {
+            const col = await db.get(`SELECT * FROM product_collections WHERE id = $1`, [req.params.id]);
+            if (!col) return reply.code(404).send({ error: 'Không tìm thấy Bộ Sưu Tập' });
+
+            const chupRaw = typeof col.chup_anh_mau_bst === 'string' ? JSON.parse(col.chup_anh_mau_bst) : (col.chup_anh_mau_bst || []);
+            if (!Array.isArray(chupRaw) || chupRaw.length === 0) {
+                return reply.code(400).send({ error: 'Bộ Sưu Tập này chưa có hình ảnh mẫu nào ở Mục 8!' });
+            }
+
+            const cleanName = (col.name || 'Bo_Suu_Tap')
+                .replace(/[^a-zA-Z0-9_\-]/g, '_')
+                .replace(/_+/g, '_')
+                .substring(0, 40);
+
+            const zipFilename = `Anh_Mau_BST_${cleanName}_Full.zip`;
+
+            reply.raw.writeHead(200, {
+                'Content-Type': 'application/zip',
+                'Content-Disposition': `attachment; filename="${encodeURIComponent(zipFilename)}"; filename*=UTF-8''${encodeURIComponent(zipFilename)}`
+            });
+
+            const archiverModule = require('archiver');
+            const archive = new archiverModule.ZipArchive({ zlib: { level: 9 } });
+            archive.pipe(reply.raw);
+
+            let addedCount = 0;
+            chupRaw.forEach((item, index) => {
+                let imgUrl = typeof item === 'object' ? (item.original_url || item.url) : item;
+                if (!imgUrl) return;
+
+                const fileName = path.basename(imgUrl.split('?')[0]);
+                const filePathOnDisk = path.join(UPLOAD_DIR, fileName);
+
+                if (fs.existsSync(filePathOnDisk)) {
+                    const ext = path.extname(fileName) || '.jpg';
+                    const fileInZipName = `Anh_Mau_BST_${cleanName}_${index + 1}${ext}`;
+                    archive.file(filePathOnDisk, { name: fileInZipName });
+                    addedCount++;
+                }
+            });
+
+            if (addedCount === 0) {
+                archive.append('Khong tim thay file anh goc tren he thong.', { name: 'Thong_Bao.txt' });
+            }
+
+            await archive.finalize();
+        } catch(e) {
+            console.error('[download-chup-anh-zip GET]', e);
+            if (!reply.raw.headersSent) {
+                return reply.code(500).send({ error: e.message });
+            }
         }
     });
 }

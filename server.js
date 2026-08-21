@@ -1447,6 +1447,37 @@ async function start() {
         console.log('✅ [Migration v15] Production Cancellation tables ready');
     } catch(e) { console.error('[Migration v15] Production Cancellation:', e.message); }
 
+    // ========== Migration v16: Customer Policies ==========
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS customer_policies (
+            id              SERIAL PRIMARY KEY,
+            title           VARCHAR(500) NOT NULL,
+            policy_type     VARCHAR(50) NOT NULL DEFAULT 'khach_hang',
+            field_name      VARCHAR(200) DEFAULT '',
+            content         TEXT DEFAULT '',
+            valid_from      DATE,
+            valid_to        DATE,
+            is_active       BOOLEAN DEFAULT true,
+            display_order   INT DEFAULT 0,
+            created_by      INTEGER REFERENCES users(id),
+            created_at      TIMESTAMPTZ DEFAULT NOW(),
+            updated_at      TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS customer_policy_tiers (
+            id              SERIAL PRIMARY KEY,
+            policy_id       INTEGER NOT NULL REFERENCES customer_policies(id) ON DELETE CASCADE,
+            tier_order       INT DEFAULT 1,
+            condition_label VARCHAR(300) DEFAULT '',
+            min_quantity    INT,
+            max_quantity    INT,
+            min_value       NUMERIC,
+            max_value       NUMERIC,
+            benefit_text    TEXT DEFAULT ''
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_cpt_policy ON customer_policy_tiers(policy_id)`);
+        console.log('✅ [Migration v16] Customer Policies tables ready');
+    } catch(e) { console.error('[Migration v16] Customer Policies:', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -1719,6 +1750,8 @@ async function start() {
     fastify.register(require('./routes/meetingCommitments'));
     fastify.register(require('./routes/meetingProcess'));
     fastify.register(require('./routes/companyRules'));
+    fastify.register(require('./routes/customerPolicies'));
+    fastify.register(require('./routes/customerPrograms'));
     fastify.register(require('./routes/aiAssistant'));
     fastify.register(require('./routes/bangcongviec'));
     fastify.register(require('./routes/bosuutap'));
