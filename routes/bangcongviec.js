@@ -909,6 +909,50 @@ async function bangcongviecRoutes(fastify, options) {
             }
 
             if (action === 'approve') {
+                // Check if task belongs to "Tư Liệu 2 : Thiết Kế Mẫu - BST"
+                let guides = [];
+                try {
+                    guides = typeof task.guide_link === 'string' ? JSON.parse(task.guide_link) : (task.guide_link || []);
+                } catch(e){}
+                let isTuLieu2Task = false;
+                if (Array.isArray(guides)) {
+                    isTuLieu2Task = guides.some(g => {
+                        const gMain = (g.mainCat || '').toLowerCase();
+                        const gSub = (g.subCat || g.title || '').toLowerCase();
+                        return gMain.includes('thiết kế mẫu') || gMain.includes('thiết kế bst') || gSub.includes('thiết kế mẫu');
+                    });
+                }
+                if (!isTuLieu2Task && task.title && (task.title.toLowerCase().includes('thiết kế mẫu') || task.title.toLowerCase().includes('bst'))) {
+                    isTuLieu2Task = true;
+                }
+
+                if (isTuLieu2Task) {
+                    // Query linked collection in product_collections
+                    const linkedCollection = await db.get(`SELECT * FROM product_collections WHERE task_id = $1 LIMIT 1`, [taskId]);
+                    
+                    // Condition 1: Collection must be created!
+                    if (!linkedCollection) {
+                        return reply.code(400).send({ 
+                            ok: false,
+                            condition1_met: false,
+                            condition2_met: false,
+                            error: '⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nCông việc thuộc "Tư Liệu 2 : Thiết Kế Mẫu - BST" yêu cầu bắt buộc 2 điều kiện:\n\n1. Người nhận việc phải Tạo Bộ Sưu Tập cho công việc này tại menu "Bộ Sưu Tập / BST" (❌ Chưa tạo).\n2. Người giao việc phải vào menu "Bộ Sưu Tập / BST", xem chi tiết và bấm "✅ Duyệt Bộ Sưu Tập" (❌ Chưa duyệt).' 
+                        });
+                    }
+
+                    // Condition 2: Assignor must have clicked "Duyệt Bộ Sưu Tập" (is_approved === true)!
+                    if (!linkedCollection.is_approved) {
+                        return reply.code(400).send({ 
+                            ok: false,
+                            condition1_met: true,
+                            condition2_met: false,
+                            collection_name: linkedCollection.name,
+                            collection_id: linkedCollection.id,
+                            error: `⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nBộ Sưu Tập "${linkedCollection.name}" đã được tạo (✅ Đã đạt ĐK1), nhưng NGƯỜI GIAO VIỆC chưa bấm Duyệt Bộ Sưu Tập này (❌ Chưa đạt ĐK2)!\n\nVui lòng sang menu "Bộ Sưu Tập / BST", bấm "👁️ Xem Chi Tiết" bộ sưu tập này và bấm nút "✅ Duyệt Bộ Sưu Tập" trước khi quay lại duyệt công việc.` 
+                        });
+                    }
+                }
+
                 const updated = await db.get(`
                     UPDATE board_tasks 
                     SET status = 'hoan_thanh', progress = 100, completed_at = NOW(), 

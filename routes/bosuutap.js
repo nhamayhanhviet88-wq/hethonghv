@@ -56,13 +56,13 @@ function formatTaskCode(t) {
 
 async function collectionsRoutes(fastify, options) {
 
-    // Migration: add cover_image & linh_vuc columns
+    // Migration: add cover_image, linh_vuc & is_approved columns
     try {
         await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS cover_image TEXT`);
-    } catch(e) { /* column may already exist */ }
-
-    try {
         await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS linh_vuc TEXT`);
+        await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`);
+        await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS approved_by INT`);
+        await db.run(`ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP`);
     } catch(e) { /* column may already exist */ }
 
     try {
@@ -138,6 +138,8 @@ async function collectionsRoutes(fastify, options) {
                        t.title as task_title,
                        t.task_code as task_code,
                        t.dept_task_no as dept_task_no,
+                       t.created_by as task_created_by,
+                       t.created_by_name as task_created_by_name,
                        d.name as department_name,
                        u.full_name as created_by_name
                 FROM product_collections c
@@ -494,6 +496,41 @@ async function collectionsRoutes(fastify, options) {
             return reply.send({ ok: true });
         } catch (e) {
             console.error('[collections DELETE]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // 7. PATCH /api/collections/:id/approve (Assignor or Director only)
+    fastify.patch('/api/collections/:id/approve', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const user = req.user;
+            const id = req.params.id;
+
+            const col = await db.get(`SELECT * FROM product_collections WHERE id = $1`, [id]);
+            if (!col) return reply.code(404).send({ error: 'Không tìm thấy Bộ Sưu Tập' });
+
+            let canApprove = (user.role === 'giam_doc');
+            if (!canApprove && col.task_id) {
+                const task = await db.get(`SELECT created_by, created_by_name FROM board_tasks WHERE id = $1`, [col.task_id]);
+                if (task && (Number(task.created_by) === Number(user.id) || (task.created_by_name && user.full_name && task.created_by_name.trim() === user.full_name.trim()))) {
+                    canApprove = true;
+                }
+            }
+
+            if (!canApprove) {
+                return reply.code(403).send({ error: 'Chỉ Người bàn giao việc (Người tạo task) hoặc Giám Đốc mới có quyền duyệt Bộ Sưu Tập này!' });
+            }
+
+            const updated = await db.get(`
+                UPDATE product_collections
+                SET is_approved = TRUE, approved_by = $1, approved_at = NOW()
+                WHERE id = $2
+                RETURNING *
+            `, [user.id, id]);
+
+            return reply.send({ ok: true, collection: updated });
+        } catch(e) {
+            console.error('[collections approve error]', e);
             return reply.code(500).send({ error: e.message });
         }
     });

@@ -761,6 +761,15 @@ function renderCollectionGrid(collections) {
                                             ✨ Tạo Tự Do
                                         </span>
                                     `}
+                                    ${col.is_approved ? `
+                                        <span style="background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #86efac;">
+                                            🟢 Đã duyệt
+                                        </span>
+                                    ` : `
+                                        <span style="background: #fff1f2; color: #e11d48; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #fecdd3;">
+                                            ⏳ Chưa duyệt
+                                        </span>
+                                    `}
                                     <span style="background: #f1f5f9; color: #334155; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                                         👤 Người tạo: <b>${escapeHtml(col.created_by_name || 'Hệ thống')}</b>
                                     </span>
@@ -1434,6 +1443,12 @@ function viewCollectionDetail(id) {
     const isGiamDoc = window._currentUser && window._currentUser.role === 'giam_doc';
     const canEdit = isCreator || isGiamDoc;
 
+    const isAssignor = isGiamDoc || (col.task_created_by && window._currentUser && (
+        Number(window._currentUser.id) === Number(col.task_created_by) ||
+        (col.task_created_by_name && window._currentUser.full_name && col.task_created_by_name.trim() === window._currentUser.full_name.trim())
+    ));
+    const canApproveCollection = isGiamDoc || isAssignor;
+
     const mm = typeof col.market_mau === 'string' ? JSON.parse(col.market_mau) : (col.market_mau || {});
     const mc = typeof col.market_co_botay === 'string' ? JSON.parse(col.market_co_botay) : (col.market_co_botay || {});
     const pb = typeof col.phieu_ban_don === 'string' ? JSON.parse(col.phieu_ban_don) : (col.phieu_ban_don || {});
@@ -1528,6 +1543,15 @@ function viewCollectionDetail(id) {
                         <span style="background: linear-gradient(135deg, #4338ca, #6366f1); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800;">✨ BST #${col.id}</span>
                         <span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #fde68a;">🏢 ${escapeHtml(col.linh_vuc || 'Khác')}</span>
                         ${col.task_code ? `<span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">📌 ${escapeHtml(col.task_code)}</span>` : ''}
+                        ${col.is_approved ? `
+                            <span style="background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; border: 1px solid #86efac; display: inline-flex; align-items: center; gap: 4px;">
+                                🟢 ĐÃ DUYỆT BỘ SƯU TẬP
+                            </span>
+                        ` : `
+                            <span style="background: #fff1f2; color: #e11d48; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #fecdd3; display: inline-flex; align-items: center; gap: 4px;">
+                                ⏳ CHƯA DUYỆT BỘ SƯU TẬP
+                            </span>
+                        `}
                     </div>
                     <h2 style="margin: 6px 0 10px; font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.4px;">${escapeHtml(col.name)}</h2>
                     <div style="display: flex; gap: 16px; font-size: 13px; color: #64748b; flex-wrap: wrap;">
@@ -1537,6 +1561,11 @@ function viewCollectionDetail(id) {
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
+                ${(!col.is_approved && canApproveCollection) ? `
+                    <button onclick="approveCollectionItem(${col.id})" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 18px; border-radius: 10px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+                        ✅ DUYỆT BỘ SƯU TẬP
+                    </button>
+                ` : ''}
                 ${canEdit ? `
                     <button onclick="openEditCollectionModal(${col.id})" style="background: linear-gradient(135deg, #4338ca, #6366f1); color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
                         ✏️ Chỉnh Sửa
@@ -1716,4 +1745,19 @@ function formatDate(dStr) {
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function approveCollectionItem(id) {
+    if (!confirm('Bạn có chắc chắn muốn Duyệt Bộ Sưu Tập này?')) return;
+    try {
+        const res = await _bsutApi('/api/collections/' + id + '/approve', 'PATCH');
+        if (!res.ok) throw new Error(res.error || 'Duyệt thất bại');
+        alert('🎉 Đã duyệt Bộ Sưu Tập thành công!');
+        const modal = document.getElementById('modalViewCollectionDetail');
+        if (modal) modal.style.display = 'none';
+        await loadBosuutapData();
+        viewCollectionDetail(id);
+    } catch(e) {
+        alert('❌ Lỗi khi duyệt Bộ Sưu Tập: ' + e.message);
+    }
 }
