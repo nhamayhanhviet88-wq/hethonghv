@@ -256,6 +256,31 @@ async function renderBosuutapPage(container) {
 
                                 <!-- Thông tin form -->
                                 <div style="display: flex; flex-direction: column; gap: 16px;">
+                                    <!-- Phương thức tạo -->
+                                    <div style="background: #f1f5f9; border-radius: 12px; padding: 14px; border: 1px solid #e2e8f0;">
+                                        <label style="display: block; font-weight: 700; font-size: 12px; color: #334155; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">📌 Phương Thức Tạo:</label>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                            <div id="optCardTaskLinked" onclick="selectCollectionMode('task_linked')" style="border: 2px solid #4338ca; background: #eef2ff; border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: all 0.2s ease;">
+                                                <div style="display: flex; align-items: center; gap: 8px;">
+                                                    <input type="radio" id="radModeTaskLinked" name="radCollectionMode" value="task_linked" checked style="accent-color: #4338ca; width: 16px; height: 16px;">
+                                                    <span style="font-weight: 700; font-size: 12px; color: #1e1b4b;">Theo Công Việc (Tư Liệu 2)</span>
+                                                </div>
+                                            </div>
+                                            <div id="optCardFree" onclick="selectCollectionMode('free')" style="border: 2px solid #cbd5e1; background: white; border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: all 0.2s ease;">
+                                                <div style="display: flex; align-items: center; gap: 8px;">
+                                                    <input type="radio" id="radModeFree" name="radCollectionMode" value="free" style="accent-color: #4338ca; width: 16px; height: 16px;">
+                                                    <span style="font-weight: 700; font-size: 12px; color: #334155;">Tạo Tự Do</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div id="boxSelectTaskLinked" style="margin-top: 10px; background: white; padding: 10px 12px; border-radius: 8px; border: 1px solid #c7d2fe;">
+                                            <label style="display: block; font-size: 12px; font-weight: 700; color: #3730a3; margin-bottom: 4px;">🎯 Chọn Mã Công Việc: <span style="color: #ef4444;">*</span></label>
+                                            <select id="selCollectionTask" onchange="updateNameFromSelectedTask()" style="width: 100%; padding: 8px 10px; border: 1px solid #a5b4fc; border-radius: 8px; font-size: 13px; font-weight: 600; color: #1e1b4b; background: #fafafa;">
+                                                <option value="">-- Chọn mã công việc --</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
                                     <!-- Tên BST -->
                                     <div>
                                         <label style="display: block; font-weight: 700; font-size: 13px; color: #334155; margin-bottom: 6px;">
@@ -281,31 +306,7 @@ async function renderBosuutapPage(container) {
                                         </label>
                                         <input type="date" id="iptCollectionReleaseDate" style="width: 100%; padding: 11px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 600;">
                                     </div>
-
-                                    <!-- Phương thức tạo -->
-                                    <div style="background: #f1f5f9; border-radius: 12px; padding: 14px; border: 1px solid #e2e8f0;">
-                                        <label style="display: block; font-weight: 700; font-size: 12px; color: #334155; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">📌 Phương Thức Tạo:</label>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                            <div id="optCardTaskLinked" onclick="selectCollectionMode('task_linked')" style="border: 2px solid #4338ca; background: #eef2ff; border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: all 0.2s ease;">
-                                                <div style="display: flex; align-items: center; gap: 8px;">
-                                                    <input type="radio" id="radModeTaskLinked" name="radCollectionMode" value="task_linked" checked style="accent-color: #4338ca; width: 16px; height: 16px;">
-                                                    <span style="font-weight: 700; font-size: 12px; color: #1e1b4b;">Theo Công Việc (Tư Liệu 2)</span>
-                                                </div>
-                                            </div>
-                                            <div id="optCardFree" onclick="selectCollectionMode('free')" style="border: 2px solid #cbd5e1; background: white; border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: all 0.2s ease;">
-                                                <div style="display: flex; align-items: center; gap: 8px;">
-                                                    <input type="radio" id="radModeFree" name="radCollectionMode" value="free" style="accent-color: #4338ca; width: 16px; height: 16px;">
-                                                    <span style="font-weight: 700; font-size: 12px; color: #334155;">Tạo Tự Do</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div id="boxSelectTaskLinked" style="margin-top: 10px; background: white; padding: 10px 12px; border-radius: 8px; border: 1px solid #c7d2fe;">
-                                            <label style="display: block; font-size: 12px; font-weight: 700; color: #3730a3; margin-bottom: 4px;">🎯 Chọn Mã Công Việc: <span style="color: #ef4444;">*</span></label>
-                                            <select id="selCollectionTask" onchange="updateNameFromSelectedTask()" style="width: 100%; padding: 8px 10px; border: 1px solid #a5b4fc; border-radius: 8px; font-size: 13px; font-weight: 600; color: #1e1b4b; background: #fafafa;">
-                                                <option value="">-- Chọn mã công việc --</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                                </div>
                                 </div>
                             </div>
                         </div>
