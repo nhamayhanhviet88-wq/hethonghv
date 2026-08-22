@@ -1170,6 +1170,9 @@ function btnOpenCreateCollectionModal() {
         if (el) el.value = '';
     });
 
+    // Reset list tasks for creation (filtering out already linked tasks)
+    populateEligibleTaskSelect(_bsutData.eligibleTasks, null);
+
     // Reset mode to task_linked by default and lock name input
     selectCollectionMode('task_linked');
 
@@ -2160,9 +2163,15 @@ function openEditCollectionModal(id) {
     const btnSubmit = document.getElementById('btnSubmitCollection');
     if (btnSubmit) btnSubmit.innerHTML = '<span>💾</span> Cập Nhật Bộ Sưu Tập';
 
+    // Populate eligible tasks including current task_id
+    populateEligibleTaskSelect(_bsutData.eligibleTasks, col.task_id);
+
     // Populate basic fields
     const iptName = document.getElementById('iptCollectionName');
     if (iptName) iptName.value = col.name || '';
+
+    const selTask = document.getElementById('selCollectionTask');
+    if (selTask) selTask.value = col.task_id || '';
 
     const selLinhVuc = document.getElementById('selCollectionLinhVuc');
     if (selLinhVuc) selLinhVuc.value = col.linh_vuc || '';
@@ -2181,13 +2190,9 @@ function openEditCollectionModal(id) {
     selectCollectionMode(mode);
 
     if (mode === 'task_linked') {
-        const selTask = document.getElementById('selCollectionTask');
         if (selTask) selTask.value = col.task_id || '';
+        if (selLinhVuc && col.linh_vuc) selLinhVuc.value = col.linh_vuc;
         if (iptName) {
-            iptName.readOnly = false;
-            iptName.style.background = 'white';
-            iptName.style.color = '#0f172a';
-            iptName.style.cursor = 'text';
             iptName.value = col.name || '';
         }
     }
