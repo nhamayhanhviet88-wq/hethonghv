@@ -1567,27 +1567,36 @@ function _bcvResetCreateDocPicker(placeholderText) {
 // Kiểm tra xem phòng ban hiện tại có phải là PHÒNG MARKETING hay không
 function _bcvIsMarketingDept(deptId) {
     var dId = deptId;
-    if (!dId) {
-        var deptEl = document.getElementById('bcvCreateDept');
-        if (deptEl) dId = deptEl.value;
+    var deptEl = document.getElementById('bcvCreateDept');
+    if (deptEl && deptEl.value) {
+        dId = deptEl.value;
+        var selectedOpt = deptEl.options[deptEl.selectedIndex];
+        if (selectedOpt && selectedOpt.textContent && selectedOpt.textContent.toLowerCase().includes('marketing')) {
+            return true;
+        }
     }
-    if (!dId && _bcv.user) {
-        dId = _bcv.user.department_id;
-    }
-    if (!dId) {
-        var activeDeptFilter = _bcv.selectedDeptId || (document.getElementById('bcvDeptFilter') || {}).value || '';
-        dId = activeDeptFilter;
-    }
-    if (!dId) return false;
 
-    var depts = _bcv.departments || _bcv.enabledDepts || [];
-    var dept = depts.find(function(d) { return String(d.id) === String(dId); });
-    if (dept && dept.name) {
-        return dept.name.toLowerCase().includes('marketing');
+    var user = window._currentUser || _bcv.user || {};
+    if (user.department_name && user.department_name.toLowerCase().includes('marketing')) {
+        return true;
     }
-    if (_bcv.user && _bcv.user.department_name && String(_bcv.user.department_id) === String(dId)) {
-        return _bcv.user.department_name.toLowerCase().includes('marketing');
+
+    if (!dId) dId = user.department_id;
+    if (!dId) dId = _bcv.selectedDeptId || (document.getElementById('bcvDeptFilter') || {}).value || '';
+
+    if (dId) {
+        var depts = _bcv.departments || _bcv.enabledDepts || [];
+        var dept = depts.find(function(d) { return String(d.id) === String(dId); });
+        if (dept && dept.name && dept.name.toLowerCase().includes('marketing')) {
+            return true;
+        }
     }
+
+    var listEl = document.getElementById('bcvAssigneeCheckboxList');
+    if (listEl && listEl.textContent && listEl.textContent.toLowerCase().includes('marketing')) {
+        return true;
+    }
+
     return false;
 }
 
