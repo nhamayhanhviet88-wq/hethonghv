@@ -588,7 +588,61 @@ async function collectionsRoutes(fastify, options) {
         }
     });
 
-    // 5. PUT /api/collections/:id (Edit Collection - Creator or Giám Đốc)
+async function checkIsMediaAssignee(db, colId, colTaskId, colName, user) {
+    if (!user) return false;
+    const uIdStr = String(user.id);
+    const uNameStr = (user.username || '').toLowerCase();
+    const uFullNameStr = (user.full_name || '').toLowerCase();
+
+    const tasks = await db.all(`
+        SELECT id, collection_id, title, guide_link, assigned_to, assigned_to_ids
+        FROM board_tasks
+    `);
+
+    const colNameClean = (colName || '').toLowerCase();
+
+    for (const task of (tasks || [])) {
+        const isLinkedByColId = task.collection_id && (Number(task.collection_id) === Number(colId) || Number(task.collection_id) === Number(colTaskId));
+        let isLinkedByName = false;
+        const taskTitleLower = (task.title || '').toLowerCase();
+        if (colNameClean && taskTitleLower.includes(colNameClean)) isLinkedByName = true;
+        if (!isLinkedByName && colNameClean) {
+            const codeMatch = colNameClean.match(/([a-z]{2,4}\d+)/i);
+            if (codeMatch && codeMatch[1] && taskTitleLower.includes(codeMatch[1].toLowerCase())) {
+                isLinkedByName = true;
+            }
+        }
+
+        if (isLinkedByColId || isLinkedByName) {
+            let guideStr = '';
+            try { guideStr = typeof task.guide_link === 'string' ? task.guide_link : JSON.stringify(task.guide_link || ''); } catch(e){}
+
+            const isMediaTask = taskTitleLower.includes('chụp ảnh') || taskTitleLower.includes('quay video') ||
+                               taskTitleLower.includes('tạo ai') || guideStr.includes('Tư Liệu 3') ||
+                               guideStr.includes('Tư Liệu 4') || guideStr.includes('Chụp Ảnh') || guideStr.includes('Quay Video');
+
+            if (isMediaTask) {
+                if (task.assigned_to) {
+                    const aVal = String(task.assigned_to).trim().toLowerCase();
+                    if (aVal === uIdStr || aVal === uNameStr || aVal === uFullNameStr) return true;
+                }
+                if (task.assigned_to_ids) {
+                    let ids = [];
+                    try { ids = typeof task.assigned_to_ids === 'string' ? JSON.parse(task.assigned_to_ids) : (task.assigned_to_ids || []); } catch(e){}
+                    if (Array.isArray(ids)) {
+                        for (const uid of ids) {
+                            const sUid = String(uid).trim().toLowerCase();
+                            if (sUid === uIdStr || sUid === uNameStr || sUid === uFullNameStr) return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+    // 5. PUT /api/collections/:id (Edit Collection - Creator, Media Assignee, or Giám Đốc)
     fastify.put('/api/collections/:id', { preHandler: [authenticate] }, async (req, reply) => {
         try {
             const id = req.params.id;
@@ -597,23 +651,32 @@ async function collectionsRoutes(fastify, options) {
 
             const isGiamDoc = req.user.role === 'giam_doc' || req.user.role === 'admin' || !!req.user.is_admin;
             const isCreator = Number(req.user.id) === Number(existing.created_by);
-            if (!isGiamDoc && !isCreator) {
+            const isMediaAssignee = await checkIsMediaAssignee(db, existing.id, existing.task_id, existing.name, req.user);
+
+            if (!isGiamDoc && !isCreator && !isMediaAssignee) {
                 return reply.code(403).send({ error: 'Bạn không có quyền chỉnh sửa Bộ Sưu Tập này!' });
             }
 
             const body = req.body || {};
+            const isMediaAssigneeOnly = isMediaAssignee && !isCreator && !isGiamDoc;
 
-            // If collection is ALREADY APPROVED and user is NOT Giám Đốc/Admin: ONLY allow updating chup_anh_mau_bst (Item 8)!
-            if (existing.is_approved && !isGiamDoc) {
+            // If collection is ALREADY APPROVED (and not GiamDoc) OR user is MediaAssigneeOnly: ONLY allow updating chup_anh_mau_bst (Item 8) & video_bst!
+            if ((existing.is_approved && !isGiamDoc) || isMediaAssigneeOnly) {
                 const chup_anh_mau_bst = Array.isArray(body.chup_anh_mau_bst) ? body.chup_anh_mau_bst : [];
+                let video_bst = body.video_bst || existing.video_bst;
+                if (typeof video_bst === 'object' && video_bst !== null) {
+                    video_bst = JSON.stringify(video_bst);
+                }
+
                 const result = await db.get(`
                     UPDATE product_collections
-                    SET chup_anh_mau_bst = $1
-                    WHERE id = $2
+                    SET chup_anh_mau_bst = $1,
+                        video_bst = $2
+                    WHERE id = $3
                     RETURNING *
-                `, [JSON.stringify(chup_anh_mau_bst), id]);
+                `, [JSON.stringify(chup_anh_mau_bst), video_bst, id]);
 
-                return reply.send({ ok: true, collection: result, locked_notice: 'Bộ Sưu Tập đã duyệt: Chỉ cập nhật Mục 8 (Chụp Ảnh Mẫu BST).' });
+                return reply.send({ ok: true, collection: result, locked_notice: 'Chỉ cập nhật Mục 8 (Chụp Ảnh Mẫu BST) và Video BST.' });
             }
 
             if (!body.name || !body.name.trim()) {
@@ -696,8 +759,10 @@ async function collectionsRoutes(fastify, options) {
 
             const isGiamDoc = req.user.role === 'giam_doc' || req.user.role === 'admin' || !!req.user.is_admin;
             const isCreator = Number(req.user.id) === Number(existing.created_by);
-            if (!isGiamDoc && !isCreator) {
-                return reply.code(403).send({ error: 'Chỉ Người tạo Bộ Sưu Tập hoặc Giám Đốc / Admin mới có quyền cập nhật video!' });
+            const isMediaAssignee = await checkIsMediaAssignee(db, existing.id, existing.task_id, existing.name, req.user);
+
+            if (!isGiamDoc && !isCreator && !isMediaAssignee) {
+                return reply.code(403).send({ error: 'Chỉ Người tạo Bộ Sưu Tập, Người nhận việc Chụp Ảnh / Video BST hoặc Giám Đốc / Admin mới có quyền cập nhật video!' });
             }
 
             // Check if existing collection has video link and associated video task is completed
