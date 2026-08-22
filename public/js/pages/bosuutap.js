@@ -962,6 +962,7 @@ function extractCollectionNameFromTask(task) {
 function updateNameFromSelectedTask() {
     const nameInput = document.getElementById('iptCollectionName');
     const selTask = document.getElementById('selCollectionTask');
+    const selLinhVuc = document.getElementById('selCollectionLinhVuc');
     if (!nameInput || !selTask) return;
 
     if (_bsutData.activeMode !== 'task_linked') return;
@@ -969,16 +970,36 @@ function updateNameFromSelectedTask() {
     const taskId = selTask.value;
     if (!taskId) {
         nameInput.value = '';
+        if (selLinhVuc) selLinhVuc.value = '';
         return;
     }
 
+    let rawTitle = '';
     const task = (_bsutData.eligibleTasks || []).find(t => String(t.id) === String(taskId));
     if (task) {
         nameInput.value = extractCollectionNameFromTask(task);
+        rawTitle = task.title || task.cv_code || '';
     } else {
         const selectedOpt = selTask.options[selTask.selectedIndex];
         if (selectedOpt && selectedOpt.text) {
             nameInput.value = extractCollectionNameFromTask({ title: selectedOpt.text });
+            rawTitle = selectedOpt.text;
+        }
+    }
+
+    // Tự động suy ra và điền Lĩnh Vực từ Mã/Tiêu đề công việc được chọn
+    if (selLinhVuc && rawTitle) {
+        const list = _bsutData.linhVucList || [];
+        let matched = list.find(item => item.name && rawTitle.toLowerCase().includes(item.name.toLowerCase()));
+        if (!matched) {
+            const codeMatch = rawTitle.match(/\b([A-Za-z]{2,4})\d+/);
+            if (codeMatch && codeMatch[1]) {
+                const c = codeMatch[1].toUpperCase();
+                matched = list.find(item => item.code && item.code.toUpperCase() === c);
+            }
+        }
+        if (matched) {
+            selLinhVuc.value = matched.name;
         }
     }
 }
@@ -1018,6 +1039,7 @@ function selectCollectionMode(mode) {
     const radFree = document.getElementById('radModeFree');
     const boxTaskSelect = document.getElementById('boxSelectTaskLinked');
     const nameInput = document.getElementById('iptCollectionName');
+    const selLinhVuc = document.getElementById('selCollectionLinhVuc');
 
     if (mode === 'task_linked') {
         if (cardTask) { cardTask.style.borderColor = '#4338ca'; cardTask.style.background = '#eef2ff'; }
@@ -1032,8 +1054,18 @@ function selectCollectionMode(mode) {
             nameInput.style.cursor = 'not-allowed';
             nameInput.style.borderColor = '#cbd5e1';
             nameInput.placeholder = 'Tên BST sẽ tự động điền theo Mã công việc được chọn...';
-            updateNameFromSelectedTask();
         }
+
+        if (selLinhVuc) {
+            selLinhVuc.disabled = true;
+            selLinhVuc.style.backgroundColor = '#f1f5f9';
+            selLinhVuc.style.color = '#64748b';
+            selLinhVuc.style.cursor = 'not-allowed';
+            selLinhVuc.style.borderColor = '#cbd5e1';
+            selLinhVuc.title = 'Lĩnh vực tự động lấy từ công việc đã chọn, không thể tự chọn';
+        }
+
+        updateNameFromSelectedTask();
     } else {
         if (cardTask) { cardTask.style.borderColor = '#cbd5e1'; cardTask.style.background = 'white'; }
         if (cardFree) { cardFree.style.borderColor = '#4338ca'; cardFree.style.background = '#eef2ff'; }
@@ -1047,6 +1079,15 @@ function selectCollectionMode(mode) {
             nameInput.style.cursor = 'text';
             nameInput.style.borderColor = '#cbd5e1';
             nameInput.placeholder = 'Ví dụ: BST Áo Nhóm Mùa Hè 2026...';
+        }
+
+        if (selLinhVuc) {
+            selLinhVuc.disabled = false;
+            selLinhVuc.style.backgroundColor = '#ffffff';
+            selLinhVuc.style.color = '#0f172a';
+            selLinhVuc.style.cursor = 'pointer';
+            selLinhVuc.style.borderColor = '#cbd5e1';
+            selLinhVuc.title = '';
         }
     }
 }
