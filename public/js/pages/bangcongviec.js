@@ -1441,6 +1441,11 @@ function _bcvCleanCollectionName(colName) {
     // Loại bỏ các tiền tố lặp thừa như "Thiết Kế Mẫu - BST - " hoặc "Thiết Kế Mẫu - "
     clean = clean.replace(/^(Thiết Kế Mẫu\s*[\-\–\—]\s*BST\s*[\-\–\—]\s*)/i, '');
     clean = clean.replace(/^(Thiết Kế Mẫu\s*[\-\–\—]\s*)/i, '');
+
+    // Loại bỏ hậu tố ngày tháng (VD: - 22/08/26 hoặc - 22/08/2026) cho gọn
+    clean = clean.replace(/\s*[\-\–\—]\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*$/i, '');
+    clean = clean.replace(/\s*[\-\–\—]\s*\d{4}-\d{2}-\d{2}\s*$/i, '');
+
     return clean.trim() || colName.trim();
 }
 
@@ -1457,7 +1462,8 @@ async function _bcvLoadCollectionsForPicker() {
         cols.forEach(function(c) {
             var rawName = c.name || ('Bộ Sưu Tập #' + c.id);
             var cleanCode = _bcvCleanCollectionName(rawName);
-            var label = (cleanCode !== rawName && cleanCode) ? (cleanCode + ' (' + rawName + ')') : rawName;
+            var rawNameClean = rawName.replace(/\s*[\-\–\—]\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*$/i, '').replace(/\s*[\-\–\—]\s*\d{4}-\d{2}-\d{2}\s*$/i, '').trim();
+            var label = (cleanCode !== rawNameClean && cleanCode) ? (cleanCode + ' (' + rawNameClean + ')') : rawNameClean;
             if (c.linh_vuc) label += ' — ' + c.linh_vuc;
             h += '<option value="' + c.id + '" data-name="' + _escAttr(rawName) + '">📦 ' + _esc(label) + '</option>';
         });
