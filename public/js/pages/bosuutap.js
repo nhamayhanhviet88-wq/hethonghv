@@ -307,7 +307,6 @@ async function renderBosuutapPage(container) {
                                         <input type="date" id="iptCollectionReleaseDate" style="width: 100%; padding: 11px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 600;">
                                     </div>
                                 </div>
-                                </div>
                             </div>
                         </div>
                     </div>
