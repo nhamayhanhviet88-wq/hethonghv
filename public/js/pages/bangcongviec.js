@@ -986,6 +986,8 @@ function _bcvRenderCard(t) {
             ${isRejected ? `<span class="bcv-tag-rejected-flash">❌ KHÔNG DUYỆT</span>` : ''}
             <span class="bcv-tag bcv-tag-${t.task_type}">${t.task_type === 'chinh' ? '🔵 Chính' : '🟡 Phụ'}</span>
             <span class="bcv-tag bcv-tag-${t.priority}">${t.priority === 'cao' ? '🔴 Cao' : t.priority === 'trung_binh' ? '🟠 Trung bình' : '🟢 Thấp'}</span>
+            ${t.ads_linh_vuc ? `<span class="bcv-tag" style="background:#e0e7ff;color:#4338ca;border:1px solid #c7d2fe;font-weight:800">🏢 Ads: ${_esc(t.ads_linh_vuc)}</span>` : ''}
+            ${t.target_quantity ? `<span class="bcv-tag" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-weight:800">🔢 SL: ${t.target_quantity}</span>` : ''}
         </div>
         <div class="bcv-card-title">${_esc(t.title)}</div>
         <div class="bcv-card-progress"><div class="bcv-card-progress-bar" style="width:${progress}%"></div></div>
@@ -1124,7 +1126,7 @@ function _bcvBuildAssigneeCheckboxes(users) {
     users.forEach(function(u) {
         var label = _esc(u.full_name) + (u.department_name ? ' (' + _esc(u.department_name) + ')' : '');
         html += `<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1e293b;cursor:pointer;user-select:none;padding:3px 0">
-            <input type="checkbox" class="bcv-assignee-cb" value="${u.id}" onchange="_bcvUpdateAssigneeCount()" style="width:16px;height:16px;cursor:pointer">
+            <input type="checkbox" class="bcv-assignee-cb" value="${u.id}" data-dept-id="${u.department_id || ''}" onchange="_bcvUpdateAssigneeCount()" style="width:16px;height:16px;cursor:pointer">
             <span>${label}</span>
         </label>`;
     });
@@ -1136,6 +1138,29 @@ function _bcvUpdateAssigneeCount() {
     var el = document.getElementById('bcvAssigneeSelectedCount');
     if (el) {
         el.textContent = 'Đã chọn: ' + cbs.length + ' người';
+    }
+
+    if (cbs.length > 0) {
+        var firstCb = cbs[0];
+        var deptId = firstCb.getAttribute('data-dept-id');
+        if (deptId) {
+            var deptEl = document.getElementById('bcvCreateDept');
+            if (deptEl && (!deptEl.value || String(deptEl.value) !== String(deptId))) {
+                deptEl.value = deptId;
+                _bcvCreateDeptChange();
+            } else {
+                var badge = document.getElementById('bcvCreateNextCodeBadge');
+                if (badge && (badge.textContent.includes('—') || badge.textContent.includes('Chọn phòng ban'))) {
+                    badge.textContent = '⌛ Đang tải mã...';
+                    _bcvApi('/api/board-tasks/next-id?department_id=' + deptId).then(function(res) {
+                        if (res && res.nextCode) {
+                            badge.textContent = 'Mã: ' + res.nextCode;
+                        }
+                    });
+                    _bcvLoadCreateDocs(deptId);
+                }
+            }
+        }
     }
 }
 
@@ -1160,8 +1185,11 @@ async function _bcvShowCreate() {
         }
     }
 
+    // Auto-detect default department from active board filter if available
+    var activeDeptFilter = _bcv.selectedDeptId || (document.getElementById('bcvDeptFilter') || {}).value || '';
+    var deptId = isDirector ? (activeDeptFilter || '') : (user.department_id || activeDeptFilter || '');
+
     // Load users for assignment
-    var deptId = isDirector ? '' : (user.department_id || '');
     var usersRes = await _bcvApi('/api/board-tasks/users' + (deptId ? '?department_id=' + deptId : ''));
     var users = (usersRes && usersRes.users) || [];
 
@@ -1169,7 +1197,8 @@ async function _bcvShowCreate() {
     if (isDirector) {
         deptOptions = '<option value="">— Chọn phòng ban —</option>';
         (_bcv.enabledDepts || []).forEach(function(d) {
-            deptOptions += `<option value="${d.id}">${_esc(d.name)}</option>`;
+            var selected = String(d.id) === String(deptId) ? ' selected' : '';
+            deptOptions += `<option value="${d.id}"${selected}>${_esc(d.name)}</option>`;
         });
     }
 
@@ -1242,6 +1271,34 @@ async function _bcvShowCreate() {
                     <option value="">— Chọn Bộ Sưu Tập —</option>
                 </select>
             </div>
+            <!-- KHO ADS LĨNH VỰC & SỐ LƯỢNG SẢN XUẤT (Bắt buộc chọn riêng cho Video / Ảnh Ads ở PHÒNG MARKETING) -->
+            <div class="bcv-form-group" id="bcvCreateKhoAdsLinhVucGroup" style="display:none;margin-top:12px;background:#f5f3ff;padding:14px;border-radius:12px;border:1.5px solid #c7d2fe">
+                <div style="margin-bottom:12px">
+                    <label style="font-size:11px;font-weight:800;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px">
+                        📦 Chọn Lĩnh Vực Ads * <span style="font-size:10px;font-weight:700;color:#dc2626">(Bắt buộc chọn Lĩnh Vực Ads)</span>
+                    </label>
+                    <select class="bcv-form-select" id="bcvCreateKhoAdsLinhVucSelect" onchange="_bcvCreateKhoAdsLinhVucChange()" style="margin-top:6px;border:2px solid #4338ca;font-weight:700;background:#ffffff;max-width:100%;text-overflow:ellipsis;overflow:hidden;white-space:nowrap">
+                        <option value="">— Chọn Lĩnh Vực Ads —</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:800;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px">
+                        🔢 Số Lượng Cần Sản Xuất * <span style="font-size:10px;font-weight:700;color:#dc2626">(Bắt buộc nhập số lượng)</span>
+                    </label>
+                    <input type="number" min="1" id="bcvCreateTargetQuantity" class="bcv-form-input" placeholder="Nhập số lượng cần sản xuất (ví dụ: 5, 10, 20...)" style="margin-top:6px;border:2px solid #4338ca;font-weight:700;background:#ffffff">
+                </div>
+            </div>
+            <!-- LĨNH VỰC THIẾT KẾ MẪU - BST (Bắt buộc chọn riêng cho Tư Liệu 2 ở PHÒNG MARKETING) -->
+            <div class="bcv-form-group" id="bcvCreateTuLieu2LinhVucGroup" style="display:none;margin-top:12px;background:#f0f9ff;padding:14px;border-radius:12px;border:1.5px solid #60a5fa">
+                <div>
+                    <label style="font-size:11px;font-weight:800;color:#1e40af;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px">
+                        📦 CHỌN LĨNH VỰC * <span style="font-size:10px;font-weight:700;color:#dc2626">(BẮT BUỘC CHỌN LĨNH VỰC)</span>
+                    </label>
+                    <select class="bcv-form-select" id="bcvCreateTuLieu2LinhVucSelect" onchange="_bcvCreateTuLieu2LinhVucChange()" style="margin-top:6px;border:2px solid #2563eb;font-weight:700;background:#ffffff;max-width:100%;text-overflow:ellipsis;overflow:hidden;white-space:nowrap">
+                        <option value="">— Chọn Lĩnh Vực —</option>
+                    </select>
+                </div>
+            </div>
             <div class="bcv-form-group" id="bcvSubTitleGroup" style="display:none">
                 <label>Tiêu đề phụ * <span style="font-weight:400;color:#64748b;font-size:11px">(VD: BST 20, Áo Nhóm ABC...)</span></label>
                 <input class="bcv-form-input" id="bcvCreateSubTitle" placeholder="Nhập tiêu đề phụ bắt buộc..." oninput="_bcvUpdateAutoTitle()" style="border:2px solid #f59e0b;background:#fffbeb">
@@ -1304,15 +1361,14 @@ async function _bcvShowCreate() {
     document.body.appendChild(overlay);
     setTimeout(function() { var el = document.getElementById('bcvCreateTitle'); if(el) el.focus(); }, 100);
 
-    _bcvApi('/api/board-tasks/next-id').then(function(res) {
+    _bcvApi('/api/board-tasks/next-id' + (deptId ? '?department_id=' + deptId : '')).then(function(res) {
         if (res && res.nextCode) {
             var badge = document.getElementById('bcvCreateNextCodeBadge');
             if (badge) badge.textContent = 'Mã: ' + res.nextCode;
         }
     });
 
-    // NV thường: tự động load tư liệu phòng ban của mình
-    if (!isDirector && deptId) {
+    if (deptId) {
         _bcvLoadCreateDocs(deptId);
     }
 
@@ -1421,6 +1477,52 @@ function _bcvCreateCollectionChange() {
     _bcvUpdateAutoTitle();
 }
 
+async function _bcvLoadKhoAdsLinhVucForPicker() {
+    var sel = document.getElementById('bcvCreateKhoAdsLinhVucSelect');
+    if (!sel) return;
+    if (sel.options.length > 1) return;
+
+    sel.innerHTML = '<option value="">⏳ Đang tải Lĩnh Vực Ads...</option>';
+    try {
+        var res = await _bcvApi('/api/kho-ads/linh-vuc');
+        var list = (res && res.linh_vuc_list) || [];
+        var h = '<option value="">— Chọn Lĩnh Vực Ads —</option>';
+        list.forEach(function(item) {
+            var label = item.code ? (item.name + ' (' + item.code + ')') : item.name;
+            h += '<option value="' + _escAttr(item.name) + '" data-code="' + _escAttr(item.code || '') + '">🏢 ' + _esc(label) + '</option>';
+        });
+        sel.innerHTML = h;
+    } catch(e) {
+        sel.innerHTML = '<option value="">❌ Lỗi tải Lĩnh Vực Ads</option>';
+    }
+}
+
+async function _bcvCreateKhoAdsLinhVucChange() {
+    var sel = document.getElementById('bcvCreateKhoAdsLinhVucSelect');
+    if (!sel) return;
+    var linhVucName = sel.value || '';
+    _bcv._autoTitleKhoAdsLinhVucName = linhVucName;
+
+    var selectedOpt = sel.options[sel.selectedIndex];
+    var code = selectedOpt ? (selectedOpt.getAttribute('data-code') || '') : '';
+
+    if (linhVucName) {
+        try {
+            var res = await _bcvApi('/api/board-tasks/next-ads-code?linh_vuc=' + encodeURIComponent(linhVucName) + '&code=' + encodeURIComponent(code));
+            if (res && res.formattedCode) {
+                _bcv._autoTitleKhoAdsCode = res.formattedCode;
+            } else {
+                _bcv._autoTitleKhoAdsCode = '';
+            }
+        } catch(e) {
+            _bcv._autoTitleKhoAdsCode = '';
+        }
+    } else {
+        _bcv._autoTitleKhoAdsCode = '';
+    }
+    _bcvUpdateAutoTitle();
+}
+
 // Reset bộ chọn tư liệu
 function _bcvResetCreateDocPicker(placeholderText) {
     var mainSel = document.getElementById('bcvCreateDocMainCat');
@@ -1438,12 +1540,109 @@ function _bcvResetCreateDocPicker(placeholderText) {
     if (colSel) colSel.value = '';
     _bcv._autoTitleCollectionName = '';
 
+    var khoAdsGroup = document.getElementById('bcvCreateKhoAdsLinhVucGroup');
+    var khoAdsSel = document.getElementById('bcvCreateKhoAdsLinhVucSelect');
+    var targetQtyInp = document.getElementById('bcvCreateTargetQuantity');
+    if (khoAdsGroup) khoAdsGroup.style.display = 'none';
+    if (khoAdsSel) khoAdsSel.value = '';
+    if (targetQtyInp) targetQtyInp.value = '';
+    _bcv._autoTitleKhoAdsLinhVucName = '';
+    _bcv._autoTitleKhoAdsCode = '';
+
+    var tuLieu2Group = document.getElementById('bcvCreateTuLieu2LinhVucGroup');
+    var tuLieu2Sel = document.getElementById('bcvCreateTuLieu2LinhVucSelect');
+    if (tuLieu2Group) tuLieu2Group.style.display = 'none';
+    if (tuLieu2Sel) tuLieu2Sel.value = '';
+    _bcv._autoTitleTuLieu2LinhVucName = '';
+    _bcv._autoTitleTuLieu2Code = '';
+
     _bcvUpdateAutoTitle('');
     var subTitleEl = document.getElementById('bcvCreateSubTitle');
     if (subTitleEl) subTitleEl.value = '';
     _bcv._autoTitleDocName = '';
     _bcvUpdateTaskLinkLabel(false);
     _bcv._createDocs = [];
+}
+
+// Kiểm tra xem phòng ban hiện tại có phải là PHÒNG MARKETING hay không
+function _bcvIsMarketingDept(deptId) {
+    var dId = deptId;
+    if (!dId) {
+        var deptEl = document.getElementById('bcvCreateDept');
+        if (deptEl) dId = deptEl.value;
+    }
+    if (!dId && _bcv.user) {
+        dId = _bcv.user.department_id;
+    }
+    if (!dId) {
+        var activeDeptFilter = _bcv.selectedDeptId || (document.getElementById('bcvDeptFilter') || {}).value || '';
+        dId = activeDeptFilter;
+    }
+    if (!dId) return false;
+
+    var depts = _bcv.departments || _bcv.enabledDepts || [];
+    var dept = depts.find(function(d) { return String(d.id) === String(dId); });
+    if (dept && dept.name) {
+        return dept.name.toLowerCase().includes('marketing');
+    }
+    if (_bcv.user && _bcv.user.department_name && String(_bcv.user.department_id) === String(dId)) {
+        return _bcv.user.department_name.toLowerCase().includes('marketing');
+    }
+    return false;
+}
+
+// Load Lĩnh Vực cho Tư Liệu 2 ở PHÒNG MARKETING (lấy từ cấu hình Lĩnh Vực Bộ Sưu Tập)
+async function _bcvLoadTuLieu2LinhVucForPicker() {
+    var sel = document.getElementById('bcvCreateTuLieu2LinhVucSelect');
+    if (!sel) return;
+    if (sel.options.length > 1) return;
+
+    sel.innerHTML = '<option value="">⏳ Đang tải Lĩnh Vực...</option>';
+    try {
+        var res = await _bcvApi('/api/collections/linh-vuc');
+        var list = (res && res.linh_vuc_list) || [];
+        if (list.length === 0) {
+            var adsRes = await _bcvApi('/api/kho-ads/linh-vuc');
+            list = (adsRes && adsRes.linh_vuc_list) || [];
+        }
+        var h = '<option value="">— Chọn Lĩnh Vực —</option>';
+        list.forEach(function(item) {
+            var codeStr = item.code ? (' (' + item.code + ')') : '';
+            var label = item.name + codeStr;
+            var codeVal = item.code || item.name;
+            h += '<option value="' + _escAttr(codeVal) + '" data-name="' + _escAttr(item.name) + '" data-code="' + _escAttr(codeVal) + '">🏢 ' + _esc(label) + '</option>';
+        });
+        sel.innerHTML = h;
+    } catch(e) {
+        sel.innerHTML = '<option value="">❌ Lỗi tải Lĩnh Vực</option>';
+    }
+}
+
+async function _bcvCreateTuLieu2LinhVucChange() {
+    var sel = document.getElementById('bcvCreateTuLieu2LinhVucSelect');
+    if (!sel) return;
+    var codeVal = sel.value || '';
+    var selectedOpt = sel.options[sel.selectedIndex];
+    var linhVucName = selectedOpt ? (selectedOpt.getAttribute('data-name') || '') : '';
+    var code = selectedOpt ? (selectedOpt.getAttribute('data-code') || codeVal) : codeVal;
+
+    _bcv._autoTitleTuLieu2LinhVucName = linhVucName || codeVal;
+
+    if (codeVal) {
+        try {
+            var res = await _bcvApi('/api/board-tasks/next-design-code?code=' + encodeURIComponent(code) + '&linh_vuc=' + encodeURIComponent(linhVucName));
+            if (res && res.formattedCode) {
+                _bcv._autoTitleTuLieu2Code = res.formattedCode;
+            } else {
+                _bcv._autoTitleTuLieu2Code = code + '001';
+            }
+        } catch(e) {
+            _bcv._autoTitleTuLieu2Code = code + '001';
+        }
+    } else {
+        _bcv._autoTitleTuLieu2Code = '';
+    }
+    _bcvUpdateAutoTitle();
 }
 
 // Cập nhật nhãn Đường link công việc khi chọn tư liệu
@@ -1457,16 +1656,31 @@ function _bcvUpdateTaskLinkLabel(hasDocSelected) {
     }
 }
 
-// Lấy ngày hôm nay định dạng DD/MM/YYYY
-function _bcvGetTodayFormattedStr() {
+// Lấy ngày hôm nay định dạng DD/MM/YYYY hoặc DD/MM/YY
+function _bcvGetTodayFormattedStr(shortYear) {
     var now = new Date();
     var dd = String(now.getDate()).padStart(2, '0');
     var mm = String(now.getMonth() + 1).padStart(2, '0');
     var yyyy = now.getFullYear();
+    if (shortYear) {
+        var yy = String(yyyy).slice(-2);
+        return dd + '/' + mm + '/' + yy;
+    }
     return dd + '/' + mm + '/' + yyyy;
 }
 
-// Cập nhật tiêu đề tự động theo tên tư liệu + tiêu đề phụ / bộ sưu tập + ngày/tháng/năm và khóa chỉnh sửa
+function _bcvIsVideoAdsCat(catName) {
+    if (!catName) return false;
+    var lower = String(catName).toLowerCase();
+    return lower.includes('video / ảnh ads') ||
+           lower.includes('video/ảnh ads') ||
+           lower.includes('video ads') ||
+           lower.includes('ảnh ads') ||
+           (lower.includes('video') && lower.includes('ads')) ||
+           (lower.includes('ảnh') && lower.includes('ads'));
+}
+
+// Cập nhật tiêu đề tự động theo tên tư liệu + tiêu đề phụ / bộ sưu tập / lĩnh vực ads + ngày/tháng/năm và khóa chỉnh sửa
 function _bcvUpdateAutoTitle(docName) {
     // Nếu truyền docName thì lưu lại, nếu không thì dùng giá trị đã lưu
     if (docName !== undefined && typeof docName === 'string') {
@@ -1477,8 +1691,18 @@ function _bcvUpdateAutoTitle(docName) {
     var subTitleEl = document.getElementById('bcvCreateSubTitle');
     if (!titleEl) return;
 
-    var isPhotoAiBst = storedDocName.includes('Chụp Ảnh / Tạo AI');
+    var mainSel = document.getElementById('bcvCreateDocMainCat');
+    var mainCatVal = mainSel ? mainSel.value : '';
+    var isPhotoAiBst = storedDocName.includes('Chụp Ảnh / Tạo AI') || storedDocName.includes('Quay Video / Tạo AI') ||
+                       mainCatVal.includes('Chụp Ảnh / Tạo AI') || mainCatVal.includes('Quay Video / Tạo AI');
+    var isVideoAdsDoc = _bcvIsVideoAdsCat(storedDocName) || _bcvIsVideoAdsCat(mainCatVal);
+    var isTuLieu2Design = (storedDocName.includes('Thiết Kế Mẫu') || storedDocName.includes('Tư Liệu 2') || mainCatVal.includes('Thiết Kế Mẫu') || mainCatVal.includes('Tư Liệu 2')) &&
+                          !storedDocName.includes('Chụp Ảnh') && !storedDocName.includes('Tạo AI') && !storedDocName.includes('Video Ads') && !storedDocName.includes('Tư Liệu 3') && !storedDocName.includes('Tư Liệu 5');
+    var isMarketing = _bcvIsMarketingDept();
+    var isTuLieu2Mkt = isMarketing && isTuLieu2Design;
+
     var subTitleGroup = document.getElementById('bcvSubTitleGroup');
+
     if (!storedDocName.trim()) {
         titleEl.value = '';
         titleEl.readOnly = false;
@@ -1490,18 +1714,48 @@ function _bcvUpdateAutoTitle(docName) {
     }
 
     if (subTitleGroup) {
-        subTitleGroup.style.display = isPhotoAiBst ? 'none' : 'block';
+        subTitleGroup.style.display = (isPhotoAiBst || isVideoAdsDoc || isTuLieu2Mkt) ? 'none' : 'block';
     }
 
-    var cleanName = storedDocName.replace(/^\d+[\.\s\-]*/, '').trim();
-    var subTitle = isPhotoAiBst ? (_bcv._autoTitleCollectionName || '') : (subTitleEl ? subTitleEl.value.trim() : '');
-    var todayStr = _bcvGetTodayFormattedStr();
+    var targetName = (isPhotoAiBst && mainCatVal) ? mainCatVal : storedDocName;
+    var cleanName = targetName.replace(/^(\d+[\.\s\-]*|Tư Liệu \d+\s*:\s*)/gi, '').trim();
 
-    if (subTitle) {
-        titleEl.value = cleanName + ' - ' + subTitle + ' - ' + todayStr;
+    var subTitle = '';
+    if (isPhotoAiBst) {
+        subTitle = _bcv._autoTitleCollectionName || '';
+    } else if (isVideoAdsDoc) {
+        subTitle = _bcv._autoTitleKhoAdsLinhVucName || '';
     } else {
-        titleEl.value = cleanName + ' - ' + todayStr;
+        subTitle = subTitleEl ? subTitleEl.value.trim() : '';
     }
+
+    if (isTuLieu2Mkt) {
+        var designCode = _bcv._autoTitleTuLieu2Code || '';
+        var todayYYStr = _bcvGetTodayFormattedStr(true); // DD/MM/YY (VD: 22/08/26)
+        if (designCode) {
+            titleEl.value = cleanName + ' - ' + designCode + ' - ' + todayYYStr;
+        } else {
+            titleEl.value = cleanName + ' - ' + todayYYStr;
+        }
+    } else if (isVideoAdsDoc) {
+        var adsCodePrefix = _bcv._autoTitleKhoAdsCode || '';
+        var todayYYStr = _bcvGetTodayFormattedStr(true); // DD/MM/YY (VD: 22/08/26)
+
+        if (subTitle) {
+            var prefixStr = adsCodePrefix ? (adsCodePrefix + ' - ') : '';
+            titleEl.value = prefixStr + cleanName + ' - ' + subTitle + ' - ' + todayYYStr;
+        } else {
+            titleEl.value = cleanName + ' - ' + todayYYStr;
+        }
+    } else {
+        var todayStr = _bcvGetTodayFormattedStr();
+        if (subTitle) {
+            titleEl.value = cleanName + ' - ' + subTitle + ' - ' + todayStr;
+        } else {
+            titleEl.value = cleanName + ' - ' + todayStr;
+        }
+    }
+
     titleEl.readOnly = true;
     titleEl.style.background = '#f1f5f9';
     titleEl.style.cursor = 'not-allowed';
@@ -1572,9 +1826,9 @@ function _bcvCreateDocMainCatChange() {
     _bcvUpdateAutoTitle(selectedCat);
     _bcvUpdateTaskLinkLabel(true);
 
-    // Hiển thị / Ẩn dropdown chọn Bộ Sưu Tập cho tư liệu Chụp Ảnh / Tạo AI - BST
+    // Hiển thị / Ẩn dropdown chọn Bộ Sưu Tập cho tư liệu Chụp Ảnh / Tạo AI - BST & Quay Video / Tạo AI - BST
     var colGroup = document.getElementById('bcvCreateCollectionGroup');
-    var isPhotoAiBst = selectedCat && selectedCat.includes('Chụp Ảnh / Tạo AI');
+    var isPhotoAiBst = selectedCat && (selectedCat.includes('Chụp Ảnh / Tạo AI') || selectedCat.includes('Quay Video / Tạo AI'));
     if (isPhotoAiBst) {
         if (colGroup) colGroup.style.display = 'block';
         _bcvLoadCollectionsForPicker();
@@ -1585,6 +1839,43 @@ function _bcvCreateDocMainCatChange() {
             if (colSel) colSel.value = '';
         }
         _bcv._autoTitleCollectionName = '';
+        _bcvUpdateAutoTitle();
+    }
+
+    // Hiển thị / Ẩn dropdown chọn Lĩnh Vực Ads cho tư liệu Video / Ảnh Ads
+    var isVideoAdsDoc = _bcvIsVideoAdsCat(selectedCat);
+    var khoAdsGroup = document.getElementById('bcvCreateKhoAdsLinhVucGroup');
+    if (isVideoAdsDoc) {
+        if (khoAdsGroup) khoAdsGroup.style.display = 'block';
+        _bcvLoadKhoAdsLinhVucForPicker();
+    } else {
+        if (khoAdsGroup) {
+            khoAdsGroup.style.display = 'none';
+            var khoAdsSel = document.getElementById('bcvCreateKhoAdsLinhVucSelect');
+            if (khoAdsSel) khoAdsSel.value = '';
+        }
+        _bcv._autoTitleKhoAdsLinhVucName = '';
+        _bcvUpdateAutoTitle();
+    }
+
+    // Hiển thị / Ẩn dropdown chọn Lĩnh Vực cho tư liệu Thiết Kế Mẫu - BST ở PHÒNG MARKETING
+    var tuLieu2Group = document.getElementById('bcvCreateTuLieu2LinhVucGroup');
+    var isTuLieu2Design = selectedCat && (selectedCat.includes('Thiết Kế Mẫu') || selectedCat.includes('Tư Liệu 2')) &&
+                          !selectedCat.includes('Chụp Ảnh') && !selectedCat.includes('Tạo AI') && !selectedCat.includes('Video Ads') && !selectedCat.includes('Tư Liệu 3');
+    var isMarketing = _bcvIsMarketingDept();
+    var isTuLieu2Mkt = isMarketing && isTuLieu2Design;
+
+    if (isTuLieu2Mkt) {
+        if (tuLieu2Group) tuLieu2Group.style.display = 'block';
+        _bcvLoadTuLieu2LinhVucForPicker();
+    } else {
+        if (tuLieu2Group) {
+            tuLieu2Group.style.display = 'none';
+            var tuLieu2Sel = document.getElementById('bcvCreateTuLieu2LinhVucSelect');
+            if (tuLieu2Sel) tuLieu2Sel.value = '';
+        }
+        _bcv._autoTitleTuLieu2LinhVucName = '';
+        _bcv._autoTitleTuLieu2Code = '';
         _bcvUpdateAutoTitle();
     }
 
@@ -1837,8 +2128,10 @@ async function _bcvSubmitCreate() {
     if (!title.trim()) { alert('Vui lòng nhập tiêu đề'); return; }
 
     var docMainCatForSubTitle = (document.getElementById('bcvCreateDocMainCat') || {}).value || '';
-    var isPhotoAiBstDoc = docMainCatForSubTitle && docMainCatForSubTitle.includes('Chụp Ảnh / Tạo AI');
-    if (docMainCatForSubTitle && !isPhotoAiBstDoc) {
+    var isPhotoAiBstDoc = docMainCatForSubTitle && (docMainCatForSubTitle.includes('Chụp Ảnh / Tạo AI') || docMainCatForSubTitle.includes('Quay Video / Tạo AI'));
+    var isVideoAdsDoc = docMainCatForSubTitle && _bcvIsVideoAdsCat(docMainCatForSubTitle);
+
+    if (docMainCatForSubTitle && !isPhotoAiBstDoc && !isVideoAdsDoc) {
         var subTitle = (document.getElementById('bcvCreateSubTitle') || {}).value || '';
         if (!subTitle.trim()) { alert('Vui lòng nhập tiêu đề phụ (bắt buộc khi chọn tư liệu)'); return; }
     }
@@ -1868,17 +2161,52 @@ async function _bcvSubmitCreate() {
     var taskLink = (document.getElementById('bcvCreateLink') || {}).value || '';
     if (!docMainCat && !taskLink.trim()) { alert('Vui lòng nhập đường link công việc'); return; }
 
-    // Kiểm tra bắt buộc chọn Bộ Sưu Tập khi tạo task Chụp Ảnh / Tạo AI - BST
+    // Kiểm tra bắt buộc chọn Bộ Sưu Tập khi tạo task Chụp Ảnh / Tạo AI - BST hoặc Quay Video / Tạo AI - BST
     var colGroup = document.getElementById('bcvCreateCollectionGroup');
     var colSel = document.getElementById('bcvCreateCollectionSelect');
     var collectionId = null;
     if (colGroup && colGroup.style.display !== 'none') {
         collectionId = colSel ? colSel.value : '';
         if (!collectionId) {
-            alert('⚠️ Vui lòng chọn Bộ Sưu Tập cho công việc Chụp Ảnh / Tạo AI!');
+            alert('⚠️ Vui lòng chọn Bộ Sưu Tập cho công việc!');
             if (colSel) colSel.focus();
             return;
         }
+    }
+
+    // Kiểm tra bắt buộc chọn Lĩnh Vực Ads & Số lượng sản xuất khi tạo task Video / Ảnh Ads
+    var khoAdsGroup = document.getElementById('bcvCreateKhoAdsLinhVucGroup');
+    var khoAdsSel = document.getElementById('bcvCreateKhoAdsLinhVucSelect');
+    var targetQtyInp = document.getElementById('bcvCreateTargetQuantity');
+    var adsLinhVuc = null;
+    var targetQtyVal = null;
+    if (khoAdsGroup && khoAdsGroup.style.display !== 'none') {
+        adsLinhVuc = khoAdsSel ? khoAdsSel.value : '';
+        if (!adsLinhVuc) {
+            alert('⚠️ Vui lòng chọn Lĩnh Vực Ads cho công việc Video / Ảnh Ads!');
+            if (khoAdsSel) khoAdsSel.focus();
+            return;
+        }
+        var rawQty = targetQtyInp ? targetQtyInp.value.trim() : '';
+        targetQtyVal = Number(rawQty);
+        if (!rawQty || isNaN(targetQtyVal) || targetQtyVal <= 0) {
+            alert('⚠️ Vui lòng nhập Số Lượng Cần Sản Xuất bắt buộc cho công việc Video / Ảnh Ads!');
+            if (targetQtyInp) targetQtyInp.focus();
+            return;
+        }
+    }
+
+    // Kiểm tra bắt buộc chọn Lĩnh Vực cho công việc Thiết Kế Mẫu - BST ở PHÒNG MARKETING
+    var tuLieu2Group = document.getElementById('bcvCreateTuLieu2LinhVucGroup');
+    var tuLieu2Sel = document.getElementById('bcvCreateTuLieu2LinhVucSelect');
+    if (tuLieu2Group && tuLieu2Group.style.display !== 'none') {
+        var tuLieu2LinhVuc = tuLieu2Sel ? tuLieu2Sel.value : '';
+        if (!tuLieu2LinhVuc) {
+            alert('⚠️ Vui lòng chọn Lĩnh Vực bắt buộc cho công việc Thiết Kế Mẫu - BST!');
+            if (tuLieu2Sel) tuLieu2Sel.focus();
+            return;
+        }
+        if (!adsLinhVuc) adsLinhVuc = _bcv._autoTitleTuLieu2LinhVucName || tuLieu2LinhVuc;
     }
 
     var guideLink = (document.getElementById('bcvCreateGuideLink') || {}).value || '';
@@ -1933,7 +2261,9 @@ async function _bcvSubmitCreate() {
         task_link: taskLink.trim(),
         guide_link: guideLink.trim(),
         checklist: checklistItems,
-        collection_id: collectionId ? Number(collectionId) : null
+        collection_id: collectionId ? Number(collectionId) : null,
+        ads_linh_vuc: adsLinhVuc ? String(adsLinhVuc).trim() : null,
+        target_quantity: targetQtyVal ? Number(targetQtyVal) : null
     };
     if (deptEl) body.department_id = deptEl.value || null;
 
@@ -2156,6 +2486,15 @@ async function _bcvShowDetail(taskId) {
                 ${task.description ? `<div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
                     <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Mô tả công việc</div>
                     <div style="font-size:13px;font-weight:600;color:#334155;line-height:1.6;white-space:pre-wrap">${_esc(task.description)}</div>
+                </div>` : ''}
+
+                <!-- 3.5 SỐ LƯỢNG CẦN SẢN XUẤT (Cho Video / Ảnh Ads ở PHÒNG MARKETING) -->
+                ${(task.target_quantity && (_bcvIsVideoAdsCat(task.title) || task.ads_linh_vuc)) ? `<div style="background:#f5f3ff;border-radius:12px;padding:14px 16px;border:1.5px solid #c7d2fe;margin-bottom:16px">
+                    <div style="font-size:10.5px;font-weight:800;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔢 SỐ LƯỢNG CẦN SẢN XUẤT</div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="background:#4338ca;color:white;padding:4px 14px;border-radius:20px;font-size:16px;font-weight:900;box-shadow:0 2px 6px rgba(67,56,202,0.3)">${task.target_quantity}</span>
+                        <span style="font-size:13.5px;font-weight:700;color:#3730a3">sản phẩm / video / ảnh</span>
+                    </div>
                 </div>` : ''}
 
                 <!-- 4. ĐƯỜNG LINK CÔNG VIỆC -->
@@ -2420,6 +2759,15 @@ async function _bcvShowDetail(taskId) {
             ${(task.description || canEditSection1) ? `<div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
                 <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Mô tả công việc</div>
                 ${canEditSection1 ? `<textarea class="bcv-form-textarea-prominent" id="bcvDetailDesc" style="font-size:13px;font-weight:600;border:none;background:transparent;padding:0;width:100%;outline:none;min-height:60px">${_esc(task.description || '')}</textarea>` : `<div style="font-size:13px;font-weight:600;color:#334155;line-height:1.6;white-space:pre-wrap">${_esc(task.description)}</div>`}
+            </div>` : ''}
+
+            <!-- 3.5 SỐ LƯỢNG CẦN SẢN XUẤT (Cho Video / Ảnh Ads ở PHÒNG MARKETING) -->
+            ${(task.target_quantity && (_bcvIsVideoAdsCat(task.title) || task.ads_linh_vuc)) ? `<div style="background:#f5f3ff;border-radius:12px;padding:14px 16px;border:1.5px solid #c7d2fe;margin-bottom:16px">
+                <div style="font-size:10.5px;font-weight:800;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔢 SỐ LƯỢNG CẦN SẢN XUẤT</div>
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span style="background:#4338ca;color:white;padding:4px 14px;border-radius:20px;font-size:16px;font-weight:900;box-shadow:0 2px 6px rgba(67,56,202,0.3)">${task.target_quantity}</span>
+                    <span style="font-size:13.5px;font-weight:700;color:#3730a3">sản phẩm / video / ảnh</span>
+                </div>
             </div>` : ''}
 
             <!-- 4. ĐƯỜNG LINK CÔNG VIỆC (Ẩn khi không có link) -->
@@ -4896,6 +5244,168 @@ function _bcvShowTuLieu3ConditionWarningModal(opts) {
     document.body.appendChild(overlay);
 }
 
+function _bcvShowTuLieu4VideoWarningModal(opts) {
+    opts = opts || {};
+    var colName = opts.collectionName || 'Bộ Sưu Tập';
+
+    var old = document.getElementById('bcvTuLieu4WarningOverlay');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'bcv-overlay';
+    overlay.id = 'bcvTuLieu4WarningOverlay';
+    overlay.style.zIndex = '100020';
+    overlay.style.background = 'rgba(15, 23, 42, 0.75)';
+    overlay.style.backdropFilter = 'blur(10px)';
+
+    overlay.innerHTML = `
+        <div class="bcv-modal" style="max-width:560px;border-radius:20px;padding:0;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);background:#ffffff">
+            <!-- Modal Header -->
+            <div style="background:linear-gradient(135deg, #dc2626 0%, #991b1b 100%);padding:20px 24px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <span style="font-size:26px;background:rgba(255,255,255,0.2);width:44px;height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.15)">⚠️</span>
+                    <div>
+                        <div style="font-size:16px;font-weight:900;letter-spacing:-0.3px;color:#ffffff;text-transform:uppercase">KHÔNG THỂ DUYỆT CÔNG VIỆC</div>
+                        <div style="font-size:12px;opacity:0.9;margin-top:2px;font-weight:600">Yêu cầu hoàn thành mục VIDEO BỘ SƯU TẬP (Google Drive)</div>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('bcvTuLieu4WarningOverlay').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-weight:bold;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+            </div>
+
+            <!-- Modal Body -->
+            <div style="padding:22px 24px;display:flex;flex-direction:column;gap:16px">
+                <div style="font-size:13px;color:#334155;line-height:1.5;font-weight:600">
+                    Công việc <b style="color:#0284c7">"Tư Liệu 4 : Quay Video / Tạo AI - BST"</b> liên kết với Bộ Sưu Tập <b style="color:#4338ca">"${_esc(colName)}"</b> yêu cầu <b>bắt buộc phải có link video</b> tại mục <b>VIDEO BỘ SƯU TẬP (Google Drive):</b> trước khi Duyệt:
+                </div>
+
+                <!-- Condition Card -->
+                <div style="display:flex;flex-direction:column;gap:10px;background:#f8fafc;padding:14px;border-radius:14px;border:1px solid #e2e8f0">
+                    <div style="background:#ffffff;padding:12px 14px;border-radius:10px;border:1.5px solid #fecdd3;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 5px rgba(0,0,0,0.02)">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <span style="font-size:20px">❌</span>
+                            <div>
+                                <div style="font-size:13px;font-weight:800;color:#0f172a">🎥 Link Video Bộ Sưu Tập (Google Drive)</div>
+                                <div style="font-size:11.5px;color:#64748b;margin-top:2px">Chưa có link video nào được bổ sung cho Bộ Sưu Tập này</div>
+                            </div>
+                        </div>
+                        <span style="background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800;white-space:nowrap">
+                            ❌ CHƯA CÓ VIDEO
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Guidance Box -->
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:12px 14px;border-radius:10px;color:#1e40af;font-size:12px;line-height:1.5;display:flex;align-items:flex-start;gap:8px">
+                    <span style="font-size:16px;line-height:1">💡</span>
+                    <div>
+                        <b>Hướng dẫn khắc phục:</b><br>
+                        • Cần sang trang <b>"Bộ Sưu Tập / BST"</b> $\rightarrow$ mở Bộ Sưu Tập <b>"${_esc(colName)}"</b> $\rightarrow$ tại mục <b>🎥 VIDEO BỘ SƯU TẬP (Google Drive):</b> dán link video Google Drive và lưu lại.
+                    </div>
+                </div>
+
+                <!-- Action Footer Buttons -->
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">
+                    <button onclick="document.getElementById('bcvTuLieu4WarningOverlay').remove()" style="padding:9px 18px;border-radius:10px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;font-weight:700;font-size:12.5px;cursor:pointer">Đóng</button>
+                    <button onclick="document.getElementById('bcvTuLieu4WarningOverlay').remove(); window.location.href='/bosuutap';" style="padding:9px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#ffffff;font-weight:800;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px">📹 Thêm Link Video ↗</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+}
+
+function _bcvShowTuLieu5KhoAdsWarningModal(opts) {
+    opts = opts || {};
+    var cond1Met = !!opts.condition1Met;
+    var cond2Met = !!opts.condition2Met;
+    var currentItems = opts.currentItems || 0;
+    var targetQty = opts.targetQty || 1;
+    var assignerName = opts.assignerName || 'Người giao việc';
+
+    var old = document.getElementById('bcvTuLieu5WarningOverlay');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'bcv-overlay';
+    overlay.id = 'bcvTuLieu5WarningOverlay';
+    overlay.style.zIndex = '100020';
+    overlay.style.background = 'rgba(15, 23, 42, 0.75)';
+    overlay.style.backdropFilter = 'blur(10px)';
+
+    overlay.innerHTML = `
+        <div class="bcv-modal" style="max-width:580px;border-radius:20px;padding:0;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);background:#ffffff">
+            <!-- Modal Header -->
+            <div style="background:linear-gradient(135deg, #dc2626 0%, #991b1b 100%);padding:20px 24px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <span style="font-size:26px;background:rgba(255,255,255,0.2);width:44px;height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.15)">⚠️</span>
+                    <div>
+                        <div style="font-size:16px;font-weight:900;letter-spacing:-0.3px;color:#ffffff;text-transform:uppercase">CHƯA ĐỦ ĐIỀU KIỆN DUYỆT CÔNG VIỆC</div>
+                        <div style="font-size:12px;opacity:0.9;margin-top:2px;font-weight:600">Yêu cầu hoàn thành 2 Điều kiện tại Kho Video/Ảnh Ads</div>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('bcvTuLieu5WarningOverlay').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-weight:bold;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+            </div>
+
+            <!-- Modal Body -->
+            <div style="padding:22px 24px;display:flex;flex-direction:column;gap:16px">
+                <div style="font-size:13px;color:#334155;line-height:1.5;font-weight:600">
+                    Công việc thuộc loại <b style="color:#4338ca">"Tư Liệu 5 : Video / Ảnh Ads"</b> bắt buộc phải đáp ứng <b>đủ 2 điều kiện</b> trước khi bấm Phê Duyệt:
+                </div>
+
+                <!-- Condition Cards List -->
+                <div style="display:flex;flex-direction:column;gap:10px;background:#f8fafc;padding:14px;border-radius:14px;border:1px solid #e2e8f0">
+                    <!-- Condition 1 Card -->
+                    <div style="background:#ffffff;padding:12px 14px;border-radius:10px;border:1.5px solid ${cond1Met ? '#a7f3d0' : '#fecdd3'};display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 5px rgba(0,0,0,0.02)">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <span style="font-size:20px">${cond1Met ? '✅' : '❌'}</span>
+                            <div>
+                                <div style="font-size:13px;font-weight:800;color:#0f172a">1. 📦 Tạo & Nộp Tư Liệu Ads ở Kho Ads</div>
+                                <div style="font-size:11.5px;color:#64748b;margin-top:2px">Tiến độ tạo tư liệu: <strong>${currentItems} / ${targetQty}</strong> tư liệu</div>
+                            </div>
+                        </div>
+                        <span style="background:${cond1Met ? '#ecfdf5' : '#fff1f2'};color:${cond1Met ? '#059669' : '#e11d48'};border:1px solid ${cond1Met ? '#a7f3d0' : '#fecdd3'};padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800;white-space:nowrap">
+                            ${cond1Met ? '✅ ĐÃ ĐỦ' : '❌ CHƯA ĐỦ'}
+                        </span>
+                    </div>
+
+                    <!-- Condition 2 Card -->
+                    <div style="background:#ffffff;padding:12px 14px;border-radius:10px;border:1.5px solid ${cond2Met ? '#a7f3d0' : '#fecdd3'};display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 5px rgba(0,0,0,0.02)">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <span style="font-size:20px">${cond2Met ? '✅' : '❌'}</span>
+                            <div>
+                                <div style="font-size:13px;font-weight:800;color:#0f172a">2. 👑 Phê Duyệt từ Người Giao Việc</div>
+                                <div style="font-size:11.5px;color:#64748b;margin-top:2px">Người giao việc (<strong>${_esc(assignerName)}</strong>) vào Kho Ads bấm <i>"Duyệt Tư Liệu Ads"</i></div>
+                            </div>
+                        </div>
+                        <span style="background:${cond2Met ? '#ecfdf5' : '#fff1f2'};color:${cond2Met ? '#059669' : '#e11d48'};border:1px solid ${cond2Met ? '#a7f3d0' : '#fecdd3'};padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800;white-space:nowrap">
+                            ${cond2Met ? '✅ ĐÃ DUYỆT' : '❌ CHƯA DUYỆT'}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Guidance Box -->
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:12px 14px;border-radius:10px;color:#1e40af;font-size:12px;line-height:1.5;display:flex;align-items:flex-start;gap:8px">
+                    <span style="font-size:16px;line-height:1">💡</span>
+                    <div>
+                        <b>Hướng dẫn xử lý từng bước:</b><br>
+                        ${!cond1Met ? `• <b>Bước 1:</b> Mở trang <b>"Kho Video/Ảnh Ads"</b> $\rightarrow$ Bấm <i>"Thêm Tư Liệu Ads Mới"</i> để nộp đủ ${targetQty} tư liệu Ads.<br>` : ''}
+                        ${!cond2Met ? `• <b>Bước 2:</b> Yêu cầu Người Giao Việc (<b>${_esc(assignerName)}</b>) mở trang <b>"Kho Video/Ảnh Ads"</b> $\rightarrow$ Bấm <i>"Xem Chi Tiết"</i> công việc này $\rightarrow$ Bấm nút <b>"✅ DUYỆT TƯ LIỆU ADS CÔNG VIỆC"</b>.` : ''}
+                    </div>
+                </div>
+
+                <!-- Action Footer Buttons -->
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">
+                    <button onclick="document.getElementById('bcvTuLieu5WarningOverlay').remove()" style="padding:9px 18px;border-radius:10px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;font-weight:700;font-size:12.5px;cursor:pointer">Đóng</button>
+                    <button onclick="document.getElementById('bcvTuLieu5WarningOverlay').remove(); window.location.href='/khoads';" style="padding:9px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#4338ca,#3730a3);color:#ffffff;font-weight:800;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(67,56,202,0.3)">📦 Mở Kho Video/Ảnh Ads ↗</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+}
+
 // ========== HIỂN THỊ MODAL DUYỆT CÔNG VIỆC ==========
 async function _bcvShowApproveModal(taskId) {
     var task = (_bcv.tasks || []).find(function(t) { return t.id === taskId; });
@@ -4959,12 +5469,13 @@ async function _bcvShowApproveModal(taskId) {
                 const gMain = (g.mainCat || '').toLowerCase();
                 const gSub = (g.subCat || g.title || '').toLowerCase();
                 const fullStr = (gMain + ' ' + gSub).toLowerCase();
-                return fullStr.includes('tư liệu 3') || fullStr.includes('chụp ảnh') || fullStr.includes('tạo ai');
+                if (fullStr.includes('quay video') || fullStr.includes('tư liệu 4')) return false;
+                return fullStr.includes('tư liệu 3') || fullStr.includes('chụp ảnh');
             });
         }
         if (!isTuLieu3Task && task.title) {
             const tLower = task.title.toLowerCase();
-            if (tLower.includes('chụp ảnh') || tLower.includes('tạo ai') || tLower.includes('tư liệu 3')) {
+            if ((tLower.includes('chụp ảnh') || tLower.includes('tư liệu 3')) && !tLower.includes('quay video') && !tLower.includes('tư liệu 4')) {
                 isTuLieu3Task = true;
             }
         }
@@ -5031,13 +5542,147 @@ async function _bcvShowApproveModal(taskId) {
                 console.error('[pre-check approve task 3 error]', e);
             }
         }
+
+        // Pre-check video condition for "Tư Liệu 4 : Quay Video / Tạo AI - BST"
+        let isTuLieu4Task = false;
+        if (Array.isArray(guides) && guides.length > 0) {
+            isTuLieu4Task = guides.some(g => {
+                const gMain = (g.mainCat || '').toLowerCase();
+                const gSub = (g.subCat || g.title || '').toLowerCase();
+                const fullStr = (gMain + ' ' + gSub).toLowerCase();
+                return fullStr.includes('tư liệu 4') || fullStr.includes('quay video');
+            });
+        }
+        if (!isTuLieu4Task && task.title) {
+            const tLower = task.title.toLowerCase();
+            if (tLower.includes('quay video') || tLower.includes('tư liệu 4')) {
+                isTuLieu4Task = true;
+            }
+        }
+
+        if (isTuLieu4Task) {
+            try {
+                var colsRes4 = await _bcvApi('/api/collections');
+                var collections4 = (colsRes4 && colsRes4.collections) || [];
+                var linkedCol4 = collections4.find(function(c) {
+                    if (task.collection_id && Number(c.id) === Number(task.collection_id)) return true;
+                    if (Number(c.task_id) === Number(taskId)) return true;
+                    return false;
+                });
+
+                if (!linkedCol4) {
+                    _bcvShowTuLieu4VideoWarningModal({
+                        collectionName: 'Chưa chọn Bộ Sưu Tập'
+                    });
+                    return;
+                }
+
+                var vBst = linkedCol4.video_bst || {};
+                var vLink = '';
+                if (typeof vBst === 'string') { try { vBst = JSON.parse(vBst); } catch(e){} }
+                if (typeof vBst === 'object' && vBst !== null) {
+                    vLink = Array.isArray(vBst) ? (vBst[0] || '') : (vBst.link || '');
+                } else if (typeof vBst === 'string') {
+                    vLink = vBst;
+                }
+                var hasVideo = Boolean(vLink && String(vLink).trim());
+
+                if (!hasVideo) {
+                    _bcvShowTuLieu4VideoWarningModal({
+                        collectionName: linkedCol4.name
+                    });
+                    return;
+                }
+
+                var tuLieu4ApprovalHtml = `
+                    <div style="background:#f0fdf4;border:1.5px solid #86efac;padding:12px 14px;border-radius:12px;margin-bottom:14px;box-shadow:0 2px 6px rgba(22,163,74,0.06)">
+                        <div style="font-size:12.5px;font-weight:800;color:#166534;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+                            <span>🎉</span> ĐÃ XÁC NHẬN ĐỦ ĐIỀU KIỆN DUYỆT:
+                        </div>
+                        <div style="font-size:11.5px;color:#15803d;display:flex;flex-direction:column;gap:5px;font-weight:600">
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span style="color:#16a34a">✅</span> <b>Điều kiện Video:</b> 🎥 Đã có link Video Bộ Sưu Tập (Google Drive)
+                            </div>
+                        </div>
+                    </div>
+                `;
+                _bcv._currentTuLieu4ApprovalHtml = tuLieu4ApprovalHtml;
+            } catch(e) {
+                console.error('[pre-check approve task 4 error]', e);
+            }
+        }
+
+        // Pre-check 2 approval conditions for "Tư Liệu 5 : Video / Ảnh Ads"
+        let isTuLieu5Task = false;
+        if (Array.isArray(guides) && guides.length > 0) {
+            isTuLieu5Task = guides.some(g => {
+                const gMain = (g.mainCat || '').toLowerCase();
+                const gSub = (g.subCat || g.title || '').toLowerCase();
+                const fullStr = (gMain + ' ' + gSub).toLowerCase();
+                return fullStr.includes('tư liệu 5') || fullStr.includes('video / ảnh ads') || fullStr.includes('video/ảnh ads');
+            });
+        }
+        if (!isTuLieu5Task && task.title) {
+            const tLower = task.title.toLowerCase();
+            const gLinkLower = (task.guide_link || '').toLowerCase();
+            if (tLower.includes('tư liệu 5') || tLower.includes('video / ảnh ads') || tLower.includes('video/ảnh ads') ||
+                gLinkLower.includes('tư liệu 5') || gLinkLower.includes('video / ảnh ads') || gLinkLower.includes('video/ảnh ads')) {
+                isTuLieu5Task = true;
+            }
+        }
+
+        if (isTuLieu5Task) {
+            try {
+                var khoAdsRes = await _bcvApi('/api/kho-ads/tasks-grouped');
+                var khoAdsTasks = (khoAdsRes && khoAdsRes.tasks) || [];
+                var khoTask = khoAdsTasks.find(function(t) { return Number(t.id) === Number(taskId); });
+
+                var itemsCount = khoTask && khoTask.items ? khoTask.items.length : 0;
+                var targetQty = (khoTask && khoTask.target_quantity) || task.target_quantity || 1;
+                var cond1Met = itemsCount >= targetQty && itemsCount > 0;
+                var cond2Met = khoTask ? !!khoTask.kho_ads_approved : !!task.kho_ads_approved;
+                var assignerName = (khoTask && khoTask.creator_name) || task.creator_name || task.created_by_name || 'Người giao việc';
+
+                if (!cond1Met || !cond2Met) {
+                    _bcvShowTuLieu5KhoAdsWarningModal({
+                        condition1Met: cond1Met,
+                        condition2Met: cond2Met,
+                        currentItems: itemsCount,
+                        targetQty: targetQty,
+                        assignerName: assignerName
+                    });
+                    return;
+                }
+
+                var tuLieu5ApprovalHtml = `
+                    <div style="background:#f0fdf4;border:1.5px solid #86efac;padding:12px 14px;border-radius:12px;margin-bottom:14px;box-shadow:0 2px 6px rgba(22,163,74,0.06)">
+                        <div style="font-size:12.5px;font-weight:800;color:#166534;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+                            <span>🎉</span> ĐÃ XÁC NHẬN ĐỦ 2 ĐIỀU KIỆN DUYỆT KHO ADS:
+                        </div>
+                        <div style="font-size:11.5px;color:#15803d;display:flex;flex-direction:column;gap:5px;font-weight:600">
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span style="color:#16a34a">✅</span> <b>Điều kiện 1:</b> 📦 Đã tạo & nộp đủ ${itemsCount}/${targetQty} Tư Liệu Ads tại Kho Ads
+                            </div>
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span style="color:#16a34a">✅</span> <b>Điều kiện 2:</b> 👑 Người giao việc (${_esc(assignerName)}) đã bấm Phê Duyệt ở Kho Ads
+                            </div>
+                        </div>
+                    </div>
+                `;
+                _bcv._currentTuLieu5ApprovalHtml = tuLieu5ApprovalHtml;
+            } catch(e) {
+                console.error('[pre-check approve task 5 error]', e);
+            }
+        }
     }
 
     var old = document.getElementById('bcvApproveOverlay');
     if (old) old.remove();
 
-    var extraCondHtml = _bcv._currentTuLieu3ApprovalHtml || '';
+    var extraCondHtml = (_bcv._currentTuLieu3ApprovalHtml || '') + (_bcv._currentTuLieu4ApprovalHtml || '') + (_bcv._currentTuLieu5ApprovalHtml || '');
     _bcv._currentTuLieu3ApprovalHtml = '';
+    _bcv._currentTuLieu4ApprovalHtml = '';
+    _bcv._currentTuLieu5ApprovalHtml = '';
 
     var overlay = document.createElement('div');
     overlay.className = 'bcv-overlay';
@@ -5077,7 +5722,15 @@ async function _bcvConfirmApprove(taskId) {
         var ov2 = document.getElementById('bcvOverlay'); if (ov2) ov2.remove();
         _bcvLoadTasks();
     } else {
-        if (res && res.condition1_met !== undefined) {
+        if (res && res.is_tulieu5) {
+            _bcvShowTuLieu5KhoAdsWarningModal({
+                condition1Met: res.condition1_met,
+                condition2Met: res.condition2_met,
+                currentItems: res.current_items || 0,
+                targetQty: res.target_qty || 1,
+                assignerName: res.assigner_name || 'Người giao việc'
+            });
+        } else if (res && res.condition1_met !== undefined) {
             _bcvShowConditionWarningModal({
                 collectionName: res.collection_name || '',
                 collectionId: res.collection_id || null,

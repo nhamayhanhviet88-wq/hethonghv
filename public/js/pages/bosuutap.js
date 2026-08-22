@@ -165,13 +165,13 @@ async function renderBosuutapPage(container) {
 
         <!-- MODAL CẤU HÌNH LĨNH VỰC (DÀNH CHO GIÁM ĐỐC) -->
         <div id="modalManageLinhVuc" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 9999; justify-content: center; align-items: center; padding: 24px; overflow-y: auto;">
-            <div style="background: white; border-radius: 20px; width: 100%; max-width: 520px; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column;">
+            <div style="background: white; border-radius: 20px; width: 100%; max-width: 580px; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column;">
                 <div style="background: linear-gradient(135deg, #1e1b4b, #4338ca); padding: 20px 24px; color: white; display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="font-size: 22px;">⚙️</span>
                         <div>
                             <h3 style="margin: 0; font-size: 18px; font-weight: 800;">Cấu Hình Lĩnh Vực</h3>
-                            <div style="font-size: 12px; opacity: 0.8;">Chỉ Giám Đốc có quyền thêm hoặc xóa Lĩnh Vực</div>
+                            <div style="font-size: 12px; opacity: 0.8;">Chỉ Giám Đốc có quyền quản lý Cấu hình Lĩnh Vực</div>
                         </div>
                     </div>
                     <button onclick="closeModalManageLinhVuc()" style="background: rgba(255,255,255,0.2); border: none; font-size: 16px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: white; font-weight: bold;">✕</button>
@@ -180,10 +180,19 @@ async function renderBosuutapPage(container) {
                 <div style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
                     <!-- Form thêm Lĩnh Vực mới -->
                     <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                        <label style="display: block; font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Thêm Lĩnh Vực Mới:</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="iptNewLinhVucName" placeholder="Ví dụ: Đồng Phục Xưởng, Áo Nhóm..." style="flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 600;">
-                            <button onclick="addNewLinhVuc()" style="background: #4338ca; color: white; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; white-space: nowrap;">➕ Thêm</button>
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px;">➕ Thêm Lĩnh Vực Mới:</label>
+                        <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
+                            <div style="flex: 1.5; min-width: 180px;">
+                                <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px;">TÊN LĨNH VỰC *</label>
+                                <input type="text" id="iptNewLinhVucName" placeholder="VD: Đồng Phục Xưởng, Áo Nhóm..." style="width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; outline: none; background: white;">
+                            </div>
+                            <div style="flex: 1; min-width: 120px;">
+                                <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px;">MÃ (CODE) *</label>
+                                <input type="text" id="iptNewLinhVucCode" placeholder="VD: SPA, AL..." style="width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 800; text-transform: uppercase; outline: none; background: white;">
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end;">
+                            <button onclick="addNewLinhVuc()" style="background: #4338ca; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-weight: 800; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 10px rgba(67,56,202,0.25); transition: all 0.2s;" onmouseover="this.style.background='#3730a3'" onmouseout="this.style.background='#4338ca'">➕ Thêm Lĩnh Vực Mới</button>
                         </div>
                     </div>
 
@@ -555,7 +564,8 @@ function populateLinhVucSelect() {
     const curVal = sel.value;
     let html = '<option value="">-- Bắt buộc chọn Lĩnh Vực --</option>';
     list.forEach(item => {
-        html += `<option value="${escapeHtml(item.name)}">🏢 ${escapeHtml(item.name)}</option>`;
+        const label = item.code ? `🏢 ${escapeHtml(item.name)} (${escapeHtml(item.code)})` : `🏢 ${escapeHtml(item.name)}`;
+        html += `<option value="${escapeHtml(item.name)}">${label}</option>`;
     });
     sel.innerHTML = html;
     if (curVal) sel.value = curVal;
@@ -568,7 +578,8 @@ function populateLinhVucFilterSelect() {
     const curVal = sel.value;
     let html = '<option value="">🏢 Tất cả lĩnh vực</option>';
     list.forEach(item => {
-        html += `<option value="${escapeHtml(item.name)}">🏢 ${escapeHtml(item.name)}</option>`;
+        const label = item.code ? `🏢 ${escapeHtml(item.name)} (${escapeHtml(item.code)})` : `🏢 ${escapeHtml(item.name)}`;
+        html += `<option value="${escapeHtml(item.name)}">${label}</option>`;
     });
     sel.innerHTML = html;
     if (curVal) sel.value = curVal;
@@ -597,25 +608,86 @@ function renderLinhVucManageList() {
         return;
     }
 
-    container.innerHTML = list.map(item => `
-        <div style="background: white; border: 1px solid #cbd5e1; padding: 10px 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 14px; font-weight: 700; color: #0f172a;">🏢 ${escapeHtml(item.name)}</span>
-            <button onclick="deleteLinhVucItem(${item.id}, '${escapeHtml(item.name)}')" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">🗑️ Xóa</button>
-        </div>
-    `).join('');
+    container.innerHTML = list.map(item => {
+        const isEditing = _bsutData.editingLinhVucId === item.id;
+        if (isEditing) {
+            return `
+                <div style="background: #eef2ff; border: 1.5px solid #6366f1; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 12px rgba(99,102,241,0.15);">
+                    <div style="font-size: 12px; font-weight: 800; color: #4338ca;">✏️ Chỉnh Sửa Lĩnh Vực:</div>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="iptEditBsutLinhVucName_${item.id}" value="${escapeHtml(item.name)}" placeholder="Tên Lĩnh Vực..." style="flex: 1.5; padding: 8px 10px; border: 1px solid #c7d2fe; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; background: white;">
+                        <input type="text" id="iptEditBsutLinhVucCode_${item.id}" value="${escapeHtml(item.code || '')}" placeholder="Mã (VD: SPA...)" style="flex: 1; padding: 8px 10px; border: 1px solid #c7d2fe; border-radius: 6px; font-size: 13px; font-weight: 800; text-transform: uppercase; outline: none; background: white;">
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 2px;">
+                        <button onclick="cancelEditBsutLinhVuc()" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">✕ Hủy</button>
+                        <button onclick="saveEditBsutLinhVuc(${item.id})" style="background: #10b981; color: white; border: none; padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 6px rgba(16,185,129,0.3);">💾 Lưu Cập Nhật</button>
+                    </div>
+                </div>
+            `;
+        }
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    ${item.code ? `<span style="background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; padding: 3px 9px; border-radius: 6px; font-weight: 800; font-size: 11.5px;">🏷️ ${escapeHtml(item.code)}</span>` : '<span style="background: #f1f5f9; color: #94a3b8; padding: 3px 9px; border-radius: 6px; font-weight: 600; font-size: 11.5px; font-style: italic;">Chưa có mã</span>'}
+                    <span style="font-weight: 700; font-size: 13.5px; color: #1e293b;">🏢 ${escapeHtml(item.name)}</span>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button onclick="startEditBsutLinhVuc(${item.id})" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">✏️ Sửa</button>
+                    <button onclick="deleteLinhVucItem(${item.id}, '${escapeHtml(item.name)}')" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">🗑️ Xóa</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function startEditBsutLinhVuc(id) {
+    _bsutData.editingLinhVucId = id;
+    renderLinhVucManageList();
+}
+
+function cancelEditBsutLinhVuc() {
+    _bsutData.editingLinhVucId = null;
+    renderLinhVucManageList();
+}
+
+async function saveEditBsutLinhVuc(id) {
+    const iptName = document.getElementById(`iptEditBsutLinhVucName_${id}`);
+    const iptCode = document.getElementById(`iptEditBsutLinhVucCode_${id}`);
+    if (!iptName) return;
+
+    const nameVal = iptName.value.trim();
+    const codeVal = iptCode ? iptCode.value.trim().toUpperCase() : '';
+    if (!nameVal) return alert('Tên Lĩnh Vực không được để trống!');
+
+    try {
+        const res = await _bsutApi(`/api/collections/linh-vuc/${id}`, 'PUT', { name: nameVal, code: codeVal });
+        if (res && res.ok) {
+            _bsutData.editingLinhVucId = null;
+            await loadBosuutapData();
+            renderLinhVucManageList();
+            alert('🎉 Đã cập nhật Tên & Mã Lĩnh Vực thành công!');
+        } else {
+            alert('❌ Lỗi: ' + (res.error || 'Thất bại'));
+        }
+    } catch(e) {
+        alert('❌ Lỗi: ' + e.message);
+    }
 }
 
 async function addNewLinhVuc() {
-    const input = document.getElementById('iptNewLinhVucName');
-    if (!input) return;
-    const name = input.value.trim();
+    const iptName = document.getElementById('iptNewLinhVucName');
+    const iptCode = document.getElementById('iptNewLinhVucCode');
+    if (!iptName) return;
+    const name = iptName.value.trim();
+    const code = iptCode ? iptCode.value.trim().toUpperCase() : '';
     if (!name) return alert('Vui lòng nhập tên Lĩnh Vực!');
 
     try {
-        const res = await _bsutApi('/api/collections/linh-vuc', 'POST', { name });
+        const res = await _bsutApi('/api/collections/linh-vuc', 'POST', { name, code });
         if (!res.ok) throw new Error(res.error || 'Thêm thất bại');
         alert(`🎉 Đã thêm Lĩnh Vực "${name}" thành công!`);
-        input.value = '';
+        iptName.value = '';
+        if (iptCode) iptCode.value = '';
         await loadBosuutapData();
         renderLinhVucManageList();
     } catch(e) {
@@ -635,6 +707,10 @@ async function deleteLinhVucItem(id, name) {
         alert('❌ Lỗi khi xóa Lĩnh Vực: ' + e.message);
     }
 }
+
+window.startEditBsutLinhVuc = startEditBsutLinhVuc;
+window.cancelEditBsutLinhVuc = cancelEditBsutLinhVuc;
+window.saveEditBsutLinhVuc = saveEditBsutLinhVuc;
 
 function populateBsutCreatorFilter(collections) {
     const sel = document.getElementById('selFilterBsutCreator');
@@ -1648,8 +1724,19 @@ async function viewCollectionDetail(id) {
         (col.created_by && Number(window._currentUser.id) === Number(col.created_by)) ||
         (col.created_by_name && window._currentUser.full_name && col.created_by_name.trim() === window._currentUser.full_name.trim())
     );
-    const isGiamDoc = window._currentUser && window._currentUser.role === 'giam_doc';
+    const isGiamDoc = window._currentUser && (window._currentUser.role === 'giam_doc' || window._currentUser.role === 'admin' || window._currentUser.is_admin);
     const canEdit = isCreator || isGiamDoc;
+
+    let vBst = col.video_bst || {};
+    let vLink = '';
+    if (typeof vBst === 'string') { try { vBst = JSON.parse(vBst); } catch(e){} }
+    if (typeof vBst === 'object' && vBst !== null) {
+        vLink = Array.isArray(vBst) ? (vBst[0] || '') : (vBst.link || '');
+    } else if (typeof vBst === 'string') { vLink = vBst; }
+    const hasVideo = Boolean(vLink && String(vLink).trim());
+
+    const isVideoLocked = hasVideo && (col.task_status === 'hoan_thanh');
+    const canUpdateVideo = (isCreator || isGiamDoc) && (!isVideoLocked || isGiamDoc);
 
     const isAssignor = isGiamDoc || (col.task_created_by && window._currentUser && (
         Number(window._currentUser.id) === Number(col.task_created_by) ||
@@ -1805,6 +1892,11 @@ async function viewCollectionDetail(id) {
                         ✅ DUYỆT BỘ SƯU TẬP
                     </button>
                 ` : ''}
+                ${canUpdateVideo ? `
+                    <button onclick="openUpdateVideoModal(${col.id})" style="background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'" title="Cập nhật đường link Video Google Drive cho Bộ Sưu Tập này">
+                        🎥 Cập Nhật Video
+                    </button>
+                ` : ''}
                 ${canEdit ? `
                     <button onclick="openEditCollectionModal(${col.id})" style="background: linear-gradient(135deg, #4338ca, #6366f1); color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
                         ${(col.is_approved && !_bsutIsSuperUser()) ? '📷 Cập Nhật Ảnh Mẫu (Mục 8)' : '✏️ Chỉnh Sửa'}
@@ -1912,9 +2004,20 @@ async function viewCollectionDetail(id) {
                                 <span style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; width: 24px; height: 24px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">🎥</span>
                                 <span>VIDEO BỘ SƯU TẬP (Google Drive):</span>
                             </div>
-                            <span style="font-size: 11px; font-weight: 700; background: white; padding: 2px 8px; border-radius: 12px; color: #dc2626; border: 1px solid #fecaca;">
-                                ${videoObj.count ? `${videoObj.count} Video` : (videoObj.link ? 'Có Link Video' : 'Chưa có Video')}
-                            </span>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 11px; font-weight: 700; background: white; padding: 2px 8px; border-radius: 12px; color: #dc2626; border: 1px solid #fecaca;">
+                                    ${videoObj.count ? `${videoObj.count} Video` : (videoObj.link ? 'Có Link Video' : 'Chưa có Video')}
+                                </span>
+                                ${canUpdateVideo ? `
+                                    <button onclick="openUpdateVideoModal(${col.id})" style="padding: 4px 10px; background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; border: none; border-radius: 8px; font-size: 11.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 5px rgba(220,38,38,0.25);" title="Cập nhật link video Google Drive">
+                                        🎥 Cập Nhật Video
+                                    </button>
+                                ` : (isVideoLocked ? `
+                                    <span style="font-size: 11px; font-weight: 800; background: #fef2f2; color: #dc2626; padding: 3px 10px; border-radius: 8px; border: 1px solid #fecaca; display: inline-flex; align-items: center; gap: 4px;">
+                                        🔒 Đã Khóa (Công việc đã duyệt hoàn thành)
+                                    </span>
+                                ` : '')}
+                            </div>
                         </div>
                         ${videoObj.link ? `
                             <div style="display: flex; align-items: center; gap: 12px;">
@@ -2351,3 +2454,108 @@ async function removeDirectChupAnhMauBst(collectionId, index) {
         alert('Lỗi: ' + e.message);
     }
 }
+
+window.openUpdateVideoModal = function(colId) {
+    const col = (_bsutData.collections || []).find(c => Number(c.id) === Number(colId));
+    if (!col) return;
+
+    let videoObj = { count: 0, link: '' };
+    try {
+        const raw = typeof col.video_bst === 'string' ? JSON.parse(col.video_bst) : (col.video_bst || {});
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+            videoObj = raw;
+        } else if (Array.isArray(raw)) {
+            const validArr = raw.filter(Boolean);
+            videoObj = { count: validArr.length, link: validArr[0] || '' };
+        }
+    } catch(e){}
+
+    let old = document.getElementById('bsutUpdateVideoOverlay');
+    if (old) old.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'bsutUpdateVideoOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.75);backdrop-filter:blur(8px);z-index:100050;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    overlay.innerHTML = `
+        <div style="background:#ffffff;border-radius:20px;max-width:540px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,0.35);overflow:hidden;border:1px solid rgba(255,255,255,0.2)">
+            <div style="background:linear-gradient(135deg, #dc2626 0%, #991b1b 100%);padding:20px 24px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <span style="font-size:26px;background:rgba(255,255,255,0.2);width:44px;height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center">🎥</span>
+                    <div>
+                        <div style="font-size:16px;font-weight:900;color:#ffffff;text-transform:uppercase">CẬP NHẬT VIDEO BỘ SƯU TẬP</div>
+                        <div style="font-size:12px;opacity:0.9;margin-top:2px;font-weight:600">${escapeHtml(col.name)}</div>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('bsutUpdateVideoOverlay').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-weight:bold;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+            </div>
+            <div style="padding:24px;display:flex;flex-direction:column;gap:18px">
+                <div>
+                    <label style="font-size:13px;font-weight:800;color:#0f172a;display:block;margin-bottom:6px">🔗 Link Thư Mục / Video Google Drive <span style="color:#dc2626">*</span></label>
+                    <input type="url" id="bsutInputVideoLink" value="${escapeHtml(videoObj.link || '')}" placeholder="Dán đường link Google Drive (https://drive.google.com/...)" style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;outline:none;transition:all 0.2s" onfocus="this.style.borderColor='#dc2626';this.style.boxShadow='0 0 0 3px rgba(220,38,38,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
+                    <div style="font-size:11.5px;color:#64748b;margin-top:5px">💡 Dán đường dẫn thư mục Google Drive chứa các video của Bộ Sưu Tập này.</div>
+                </div>
+
+                <div>
+                    <label style="font-size:13px;font-weight:800;color:#0f172a;display:block;margin-bottom:6px">🔢 Số Lượng Video (Tùy chọn)</label>
+                    <input type="number" id="bsutInputVideoCount" value="${videoObj.count || ''}" placeholder="Số lượng video (ví dụ: 1, 2, 5...)" min="0" style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;outline:none;transition:all 0.2s" onfocus="this.style.borderColor='#dc2626';this.style.boxShadow='0 0 0 3px rgba(220,38,38,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px">
+                    <button onclick="document.getElementById('bsutUpdateVideoOverlay').remove()" style="padding:10px 20px;border-radius:10px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;font-weight:700;font-size:13px;cursor:pointer">Hủy</button>
+                    <button onclick="saveCollectionVideoSubmit(${col.id})" style="padding:10px 22px;border-radius:10px;border:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#ffffff;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(220,38,38,0.3);display:inline-flex;align-items:center;gap:6px">💾 Lưu Link Video</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+};
+
+window.saveCollectionVideoSubmit = async function(colId) {
+    const linkInput = document.getElementById('bsutInputVideoLink');
+    const countInput = document.getElementById('bsutInputVideoCount');
+    if (!linkInput) return;
+
+    const linkVal = linkInput.value.trim();
+    const countVal = parseInt(countInput ? countInput.value : 0, 10) || (linkVal ? 1 : 0);
+
+    if (linkVal) {
+        const driveRegex = /^https?:\/\/(?:drive|docs)\.google\.com\/.+/i;
+        if (!driveRegex.test(linkVal)) {
+            alert('⚠️ Đường dẫn Video phải là link Google Drive hợp lệ (https://drive.google.com/...)');
+            return;
+        }
+    }
+
+    try {
+        const videoData = { count: countVal, link: linkVal };
+        const res = await _bsutApi(`/api/collections/${colId}/video`, 'PUT', { video_bst: videoData });
+        
+        if (res && res.ok && res.collection) {
+            const colIdx = (_bsutData.collections || []).findIndex(c => Number(c.id) === Number(colId));
+            if (colIdx !== -1) {
+                _bsutData.collections[colIdx] = res.collection;
+            }
+
+            const overlay = document.getElementById('bsutUpdateVideoOverlay');
+            if (overlay) overlay.remove();
+
+            if (typeof viewCollectionDetail === 'function') {
+                viewCollectionDetail(colId);
+            } else if (typeof showViewCollectionDetailModal === 'function') {
+                showViewCollectionDetailModal(colId);
+            }
+
+            if (typeof renderCollectionsList === 'function') {
+                renderCollectionsList();
+            }
+
+            alert('🎉 Đã cập nhật Link Video Google Drive cho Bộ Sưu Tập thành công!');
+        } else {
+            alert('❌ Lỗi: ' + (res.error || 'Không thể cập nhật video'));
+        }
+    } catch(e) {
+        console.error('[saveCollectionVideoSubmit error]', e);
+        alert('❌ Đã xảy ra lỗi khi cập nhật video: ' + e.message);
+    }
+};

@@ -71,14 +71,23 @@ async function collectionsRoutes(fastify, options) {
             CREATE TABLE IF NOT EXISTS bsut_linh_vuc (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) UNIQUE NOT NULL,
+                code VARCHAR(50),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        await db.run(`ALTER TABLE bsut_linh_vuc ADD COLUMN IF NOT EXISTS code VARCHAR(50)`);
+
         const countRes = await db.get(`SELECT COUNT(*) as count FROM bsut_linh_vuc`);
         const count = parseInt((countRes && countRes.count) || 0);
         if (count === 0) {
-            await db.run(`INSERT INTO bsut_linh_vuc (name) VALUES ('Công Ty'), ('Áo Lớp'), ('Mầm Non') ON CONFLICT DO NOTHING`);
+            await db.run(`INSERT INTO bsut_linh_vuc (name, code) VALUES ('Công Ty', 'CT'), ('Áo Lớp', 'AL'), ('Mầm Non', 'MN') ON CONFLICT DO NOTHING`);
         }
+        // Gán mã mặc định nếu chưa có
+        await db.run(`UPDATE bsut_linh_vuc SET code = 'CT' WHERE (name ILIKE '%công ty%') AND (code IS NULL OR code = '')`);
+        await db.run(`UPDATE bsut_linh_vuc SET code = 'AL' WHERE (name ILIKE '%áo lớp%') AND (code IS NULL OR code = '')`);
+        await db.run(`UPDATE bsut_linh_vuc SET code = 'MN' WHERE (name ILIKE '%mầm non%') AND (code IS NULL OR code = '')`);
+        await db.run(`UPDATE bsut_linh_vuc SET code = 'XM' WHERE (name ILIKE '%xưởng%') AND (code IS NULL OR code = '')`);
+        await db.run(`UPDATE bsut_linh_vuc SET code = 'SPA' WHERE (name ILIKE '%spa%' OR name ILIKE '%mỹ phẩm%' OR name ILIKE '%thẩm mỹ%') AND (code IS NULL OR code = '')`);
     } catch(e) {
         console.error('[bsut_linh_vuc migration error]', e);
     }
@@ -100,18 +109,54 @@ async function collectionsRoutes(fastify, options) {
             if (req.user.role !== 'giam_doc') {
                 return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền quản lý Cấu hình Lĩnh Vực!' });
             }
-            const { name } = req.body || {};
+            const { name, code } = req.body || {};
             if (!name || !name.trim()) {
                 return reply.code(400).send({ error: 'Tên Lĩnh Vực không được để trống' });
             }
             const trimmedName = name.trim();
+            const trimmedCode = code ? code.trim().toUpperCase() : null;
             const result = await db.get(
-                `INSERT INTO bsut_linh_vuc (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING *`,
-                [trimmedName]
+                `INSERT INTO bsut_linh_vuc (name, code) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET code=EXCLUDED.code, name=EXCLUDED.name RETURNING *`,
+                [trimmedName, trimmedCode]
             );
             return reply.send({ ok: true, item: result });
         } catch (e) {
             console.error('[linh-vuc POST]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // 0b2. PUT /api/collections/linh-vuc/:id (Edit Linh Vuc Name & Code - Only Director)
+    fastify.put('/api/collections/linh-vuc/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            if (req.user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền quản lý Cấu hình Lĩnh Vực!' });
+            }
+            const id = req.params.id;
+            const { name, code } = req.body || {};
+            if (!name || !name.trim()) {
+                return reply.code(400).send({ error: 'Tên Lĩnh Vực không được để trống' });
+            }
+            const trimmedName = name.trim();
+            const trimmedCode = code ? code.trim().toUpperCase() : null;
+            const existing = await db.get(`SELECT * FROM bsut_linh_vuc WHERE id = $1`, [id]);
+            if (!existing) return reply.code(404).send({ error: 'Không tìm thấy Lĩnh Vực' });
+
+            const oldName = existing.name;
+
+            const result = await db.get(
+                `UPDATE bsut_linh_vuc SET name = $1, code = $2 WHERE id = $3 RETURNING *`,
+                [trimmedName, trimmedCode, id]
+            );
+
+            // Cascade update collections that used oldName
+            if (oldName !== trimmedName) {
+                await db.run(`UPDATE product_collections SET linh_vuc = $1 WHERE linh_vuc = $2`, [trimmedName, oldName]);
+            }
+
+            return reply.send({ ok: true, item: result });
+        } catch (e) {
+            console.error('[linh-vuc PUT]', e);
             return reply.code(500).send({ error: e.message });
         }
     });
@@ -558,6 +603,75 @@ async function collectionsRoutes(fastify, options) {
             return reply.send({ ok: true, collection: result });
         } catch (e) {
             console.error('[collections PUT]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // 5.5. PUT /api/collections/:id/video (Update Video Link - Creator or Giám Đốc/Admin)
+    fastify.put('/api/collections/:id/video', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const id = req.params.id;
+            const existing = await db.get(`SELECT * FROM product_collections WHERE id = $1`, [id]);
+            if (!existing) return reply.code(404).send({ error: 'Không tìm thấy Bộ Sưu Tập' });
+
+            const isGiamDoc = req.user.role === 'giam_doc' || req.user.role === 'admin' || !!req.user.is_admin;
+            const isCreator = Number(req.user.id) === Number(existing.created_by);
+            if (!isGiamDoc && !isCreator) {
+                return reply.code(403).send({ error: 'Chỉ Người tạo Bộ Sưu Tập hoặc Giám Đốc / Admin mới có quyền cập nhật video!' });
+            }
+
+            // Check if existing collection has video link and associated video task is completed
+            let video_bst_existing = existing.video_bst;
+            let vLink = '';
+            if (typeof video_bst_existing === 'string') { try { video_bst_existing = JSON.parse(video_bst_existing); } catch(e){} }
+            if (typeof video_bst_existing === 'object' && video_bst_existing !== null) {
+                vLink = Array.isArray(video_bst_existing) ? (video_bst_existing[0] || '') : (video_bst_existing.link || '');
+            } else if (typeof video_bst_existing === 'string') { vLink = video_bst_existing; }
+            const hasExistingVideo = Boolean(vLink && String(vLink).trim());
+
+            let isTaskCompleted = false;
+            if (existing.task_id) {
+                const linkedTask = await db.get(`SELECT status FROM board_tasks WHERE id = $1`, [existing.task_id]);
+                if (linkedTask && linkedTask.status === 'hoan_thanh') {
+                    isTaskCompleted = true;
+                }
+            }
+            if (!isTaskCompleted) {
+                const linkedTask2 = await db.get(`SELECT status FROM board_tasks WHERE collection_id = $1 AND status = 'hoan_thanh'`, [id]);
+                if (linkedTask2) isTaskCompleted = true;
+            }
+
+            if (hasExistingVideo && isTaskCompleted && !isGiamDoc) {
+                return reply.code(403).send({ error: 'Công việc Tư Liệu 4 đã được Phê Duyệt & Hoàn Thành. Không thể cập nhật Video nữa!' });
+            }
+
+            const body = req.body || {};
+            let video_bst = body.video_bst || {};
+            let videoLink = '';
+            if (typeof video_bst === 'string') {
+                try { video_bst = JSON.parse(video_bst); } catch(e){}
+            }
+            if (typeof video_bst === 'object' && video_bst !== null) {
+                videoLink = Array.isArray(video_bst) ? (video_bst[0] || '') : (video_bst.link || '');
+            } else if (typeof video_bst === 'string') {
+                videoLink = video_bst;
+            }
+
+            const driveRegex = /^https?:\/\/(?:drive|docs)\.google\.com\/.+/i;
+            if (videoLink && !driveRegex.test(String(videoLink).trim())) {
+                return reply.code(400).send({ error: 'Link Video Bộ Sưu Tập phải là đường link Google Drive hợp lệ (https://drive.google.com/...)' });
+            }
+
+            const result = await db.get(`
+                UPDATE product_collections
+                SET video_bst = $1
+                WHERE id = $2
+                RETURNING *
+            `, [JSON.stringify(video_bst), id]);
+
+            return reply.send({ ok: true, collection: result });
+        } catch (e) {
+            console.error('[collections video PUT]', e);
             return reply.code(500).send({ error: e.message });
         }
     });

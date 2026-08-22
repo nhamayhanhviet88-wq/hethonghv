@@ -108,6 +108,12 @@ const MENU_CONFIG = [
     { id: 'timkiemkhachhang', label: 'Tìm Kiếm Khách Hàng', icon: '🔍', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/timkiemkhachhanghv', permKey: 'tim_kiem_kh' },
     { id: 'dashboard-kdoanh', label: 'Dashboard P.Kinh Doanh', icon: '📈', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/dashboardkdoanh', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'dashboard_kdoanh' },
     { id: 'tong-doanh-so-sale', label: 'Tổng Doanh Số Sale KD', icon: '📊', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/tongdoansosale', permKey: 'tong_doanh_so_sale' },
+
+    // ========== BỘ PHẬN MARKETING ==========
+    { id: 'khoads', label: 'Kho Video/Ảnh Ads', icon: '🎬', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV MARKETING', href: '/khoads', permKey: 'kho_ads' },
+    { id: 'chiendichads', label: 'Chiến Dịch Video/Ảnh Ads', icon: '🚀', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV MARKETING', href: '/chiendichads', permKey: 'chien_dich_ads' },
+
+    // ========== BỘ PHẬN SALE ==========
     { id: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/chamsockhsale', permKey: 'chamsockhsale' },
     { id: 'chamsockhtempet', label: 'Chăm Sóc Khách TEM/PET', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/chamsockhtempet', permKey: 'chamsockhtempet' },
     { id: 'sokhachsale', label: 'Sổ Khách Sale', icon: '📖', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/sokhachsale', permKey: 'sokhachsale' },
@@ -1460,6 +1466,7 @@ var PARENT_SECTIONS = [
     { name: 'NỘI QUY & QUY TẮC LÀM VIỆC', sections: ['NỘI QUY & TƯ LIỆU NỘI BỘ', 'QUY TẮC & CHÍNH SÁCH KH'] },
     { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ'] },
     { name: 'BỘ PHẬN XƯỞNG SX', sections: ['QUẢN LÝ XƯỞNG', 'XƯỞNG SẢN XUẤT', 'MẪU & GIÁ SẢN XUẤT'] },
+    { name: 'BỘ PHẬN MARKETING', sections: ['CÔNG VIỆC NV MARKETING'] },
     { name: 'BỘ PHẬN SALE', sections: ['CÔNG VIỆC NV SALE'] },
     { name: 'BỘ PHẬN KINH DOANH', sections: ['CÔNG VIỆC NV KINH DOANH', 'KINH DOANH CHĂM SÓC', 'QUẢN LÝ AFFILIATE'] },
     { name: 'NHÂN SỰ & VẬN HÀNH', sections: ['HỖ TRỢ NHÂN VIÊN HV', 'QUẢN LÝ NHÂN VIÊN HV', 'HỆ THỐNG'] }
@@ -2471,6 +2478,20 @@ async function handleRoute() {
                                 renderBosuutapPage(content);
                             }
                         }, 150);
+                    }
+                    break;
+                case 'khoads': case 'kho-ads':
+                    if (typeof window.renderKhoadsPage === 'function') {
+                        window.renderKhoadsPage(content);
+                    } else if (typeof renderKhoadsPage === 'function') {
+                        renderKhoadsPage(content);
+                    }
+                    break;
+                case 'chiendichads': case 'chien-dich-ads':
+                    if (typeof window.renderChiendichadsPage === 'function') {
+                        window.renderChiendichadsPage(content);
+                    } else if (typeof renderChiendichadsPage === 'function') {
+                        renderChiendichadsPage(content);
                     }
                     break;
                 default:

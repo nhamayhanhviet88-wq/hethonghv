@@ -108,6 +108,8 @@ async function bangcongviecRoutes(fastify, options) {
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS guide_link TEXT`);
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS assigned_to_ids TEXT`);
         await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS collection_id INT`);
+        await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS ads_linh_vuc VARCHAR(255)`);
+        await db.run(`ALTER TABLE board_tasks ADD COLUMN IF NOT EXISTS target_quantity INT`);
     } catch(e) { /* already exists */ }
 
     // Add report columns if not exists
@@ -682,7 +684,7 @@ async function bangcongviecRoutes(fastify, options) {
                 return reply.code(403).send({ error: 'Bạn không có quyền tạo task' });
             }
 
-            const { title, description, priority, task_type, assigned_to, assigned_to_ids, department_id, deadline, task_link, guide_link, checklist, collection_id } = request.body;
+            const { title, description, priority, task_type, assigned_to, assigned_to_ids, department_id, deadline, task_link, guide_link, checklist, collection_id, ads_linh_vuc, target_quantity } = request.body;
             if (!title || !title.trim()) {
                 return reply.code(400).send({ error: 'Tiêu đề không được để trống' });
             }
@@ -757,8 +759,8 @@ async function bangcongviecRoutes(fastify, options) {
             }
 
             const result = await db.get(`
-                INSERT INTO board_tasks (title, description, status, priority, task_type, department_id, assigned_to, assigned_to_ids, created_by, deadline, task_link, guide_link, task_code, dept_task_no, collection_id)
-                VALUES ($1, $2, 'can_lam', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                INSERT INTO board_tasks (title, description, status, priority, task_type, department_id, assigned_to, assigned_to_ids, created_by, deadline, task_link, guide_link, task_code, dept_task_no, collection_id, ads_linh_vuc, target_quantity)
+                VALUES ($1, $2, 'can_lam', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                 RETURNING *
             `, [
                 title.trim(),
@@ -774,7 +776,9 @@ async function bangcongviecRoutes(fastify, options) {
                 guide_link || null,
                 taskCode,
                 deptTaskNo,
-                collection_id ? Number(collection_id) : null
+                collection_id ? Number(collection_id) : null,
+                ads_linh_vuc ? String(ads_linh_vuc).trim() : null,
+                target_quantity ? Number(target_quantity) : null
             ]);
 
             // Create checklist items if provided
@@ -852,6 +856,8 @@ async function bangcongviecRoutes(fastify, options) {
                 if (b.task_link !== undefined) { idx++; updates.push(`task_link = $${idx}`); vals.push(b.task_link || null); }
                 if (b.guide_link !== undefined) { idx++; updates.push(`guide_link = $${idx}`); vals.push(b.guide_link || null); }
                 if (b.collection_id !== undefined) { idx++; updates.push(`collection_id = $${idx}`); vals.push(b.collection_id ? Number(b.collection_id) : null); }
+                if (b.ads_linh_vuc !== undefined) { idx++; updates.push(`ads_linh_vuc = $${idx}`); vals.push(b.ads_linh_vuc ? String(b.ads_linh_vuc).trim() : null); }
+                if (b.target_quantity !== undefined) { idx++; updates.push(`target_quantity = $${idx}`); vals.push(b.target_quantity ? Number(b.target_quantity) : null); }
             }
 
             // Assignee, manager, or creator can update status & progress
@@ -972,12 +978,13 @@ async function bangcongviecRoutes(fastify, options) {
                         const gMain = (g.mainCat || '').toLowerCase();
                         const gSub = (g.subCat || g.title || '').toLowerCase();
                         const fullStr = (gMain + ' ' + gSub).toLowerCase();
-                        return fullStr.includes('tư liệu 3') || fullStr.includes('chụp ảnh') || fullStr.includes('tạo ai');
+                        if (fullStr.includes('quay video') || fullStr.includes('tư liệu 4')) return false;
+                        return fullStr.includes('tư liệu 3') || fullStr.includes('chụp ảnh');
                     });
                 }
                 if (!isTuLieu3Task && task.title) {
                     const tLower = task.title.toLowerCase();
-                    if (tLower.includes('chụp ảnh') || tLower.includes('tạo ai') || tLower.includes('tư liệu 3')) {
+                    if ((tLower.includes('chụp ảnh') || tLower.includes('tư liệu 3')) && !tLower.includes('quay video') && !tLower.includes('tư liệu 4')) {
                         isTuLieu3Task = true;
                     }
                 }
@@ -1031,6 +1038,106 @@ async function bangcongviecRoutes(fastify, options) {
                             collection_name: linkedCol.name,
                             collection_id: linkedCol.id,
                             error: `⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nCông việc "Tư Liệu 3 : Chụp Ảnh / Tạo AI - BST" liên kết với "${linkedCol.name}" yêu cầu đủ 2 điều kiện:\n\n1. 📷 Đã thêm ảnh mẫu BST tại Mục 8 (${cond1Met ? '✅ Đã có' : '❌ Chưa có'}).\n2. 🤝 Đã họp hoàn thành tại Quy trình cuộc họp ở Mục 9 & 10 (${cond2Met ? '✅ Đã họp' : '❌ Chưa họp'}).`
+                        });
+                    }
+                }
+
+                // Check if task belongs to "Tư Liệu 4 : Quay Video / Tạo AI - BST"
+                let isTuLieu4Task = false;
+                if (Array.isArray(guides)) {
+                    isTuLieu4Task = guides.some(g => {
+                        const gMain = (g.mainCat || '').toLowerCase();
+                        const gSub = (g.subCat || g.title || '').toLowerCase();
+                        const fullStr = (gMain + ' ' + gSub).toLowerCase();
+                        return fullStr.includes('tư liệu 4') || fullStr.includes('quay video');
+                    });
+                }
+                if (!isTuLieu4Task && task.title) {
+                    const tLower = task.title.toLowerCase();
+                    if (tLower.includes('quay video') || tLower.includes('tư liệu 4')) {
+                        isTuLieu4Task = true;
+                    }
+                }
+
+                if (isTuLieu4Task) {
+                    let linkedCol = null;
+                    if (task.collection_id) {
+                        linkedCol = await db.get(`SELECT * FROM product_collections WHERE id = $1 LIMIT 1`, [task.collection_id]);
+                    }
+                    if (!linkedCol) {
+                        linkedCol = await db.get(`SELECT * FROM product_collections WHERE task_id = $1 LIMIT 1`, [taskId]);
+                    }
+
+                    if (!linkedCol) {
+                        return reply.code(400).send({
+                            ok: false,
+                            condition_video_met: false,
+                            error: '⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nCông việc thuộc "Tư Liệu 4 : Quay Video / Tạo AI - BST" chưa chọn Bộ Sưu Tập liên kết.'
+                        });
+                    }
+
+                    let video_bst = linkedCol.video_bst || {};
+                    let videoLink = '';
+                    if (typeof video_bst === 'string') {
+                        try { video_bst = JSON.parse(video_bst); } catch(e){}
+                    }
+                    if (typeof video_bst === 'object' && video_bst !== null) {
+                        videoLink = Array.isArray(video_bst) ? (video_bst[0] || '') : (video_bst.link || '');
+                    } else if (typeof video_bst === 'string') {
+                        videoLink = video_bst;
+                    }
+
+                    const hasVideoLink = Boolean(videoLink && String(videoLink).trim());
+
+                    if (!hasVideoLink) {
+                        return reply.code(400).send({
+                            ok: false,
+                            condition_video_met: false,
+                            collection_name: linkedCol.name,
+                            collection_id: linkedCol.id,
+                            error: `⚠️ KHÔNG THỂ DUYỆT CÔNG VIỆC!\n\nCông việc "Tư Liệu 4 : Quay Video / Tạo AI - BST" liên kết với "${linkedCol.name}" yêu cầu phải hoàn thành mục VIDEO BỘ SƯU TẬP (Google Drive):\n\n❌ Chưa có link video nào cho bộ sưu tập này.`
+                        });
+                    }
+                }
+
+                // Check if task belongs to "Tư Liệu 5 : Video / Ảnh Ads"
+                let isTuLieu5Task = false;
+                if (Array.isArray(guides)) {
+                    isTuLieu5Task = guides.some(g => {
+                        const gMain = (g.mainCat || '').toLowerCase();
+                        const gSub = (g.subCat || g.title || '').toLowerCase();
+                        const fullStr = (gMain + ' ' + gSub).toLowerCase();
+                        return fullStr.includes('tư liệu 5') || fullStr.includes('video / ảnh ads') || fullStr.includes('video/ảnh ads');
+                    });
+                }
+                if (!isTuLieu5Task) {
+                    const tLower = (task.title || '').toLowerCase();
+                    const gLinkLower = (task.guide_link || '').toLowerCase();
+                    if (tLower.includes('tư liệu 5') || tLower.includes('video / ảnh ads') || tLower.includes('video/ảnh ads') ||
+                        gLinkLower.includes('tư liệu 5') || gLinkLower.includes('video / ảnh ads') || gLinkLower.includes('video/ảnh ads')) {
+                        isTuLieu5Task = true;
+                    }
+                }
+
+                if (isTuLieu5Task) {
+                    const adsItems = await db.all(`SELECT id FROM kho_ads_items WHERE task_id = $1`, [taskId]);
+                    const targetQty = task.target_quantity || 1;
+                    const cond1Met = (adsItems.length >= targetQty && adsItems.length > 0);
+                    const cond2Met = Boolean(task.kho_ads_approved);
+
+                    const assignerUser = await db.get(`SELECT full_name, username FROM users WHERE id = $1 LIMIT 1`, [task.created_by || 0]);
+                    const assignerName = (assignerUser && (assignerUser.full_name || assignerUser.username)) || 'Người giao việc';
+
+                    if (!cond1Met || !cond2Met) {
+                        return reply.code(400).send({
+                            ok: false,
+                            is_tulieu5: true,
+                            condition1_met: cond1Met,
+                            condition2_met: cond2Met,
+                            current_items: adsItems.length,
+                            target_qty: targetQty,
+                            assigner_name: assignerName,
+                            error: `⚠️ CHƯA ĐỦ ĐIỀU KIỆN DUYỆT CÔNG VIỆC!\n\nCông việc thuộc "Tư Liệu 5: Video / Ảnh Ads" yêu cầu bắt buộc đủ 2 điều kiện:\n\n1. 📦 Tạo và nộp đủ Tư Liệu Ads ở Kho Ads (${adsItems.length}/${targetQty} tư liệu): ${cond1Met ? '✅ Đã đủ' : '❌ Chưa đủ'}.\n2. 👑 Người Giao Việc (${assignerName}) đã bấm Duyệt ở Kho Ads: ${cond2Met ? '✅ Đã duyệt' : '❌ Chưa duyệt'}.\n\nVui lòng đáp ứng đầy đủ các điều kiện trên trước khi duyệt công việc!`
                         });
                     }
                 }
@@ -1355,6 +1462,111 @@ function getDeptShortCode(deptName) {
             return reply.send({ nextId: nextNo, nextCode, deptCode });
         } catch(e) {
             return reply.send({ nextId: 1, nextCode: 'CV-CHUNG-01' });
+        }
+    });
+
+    // GET /api/board-tasks/next-ads-code — Lấy mã tự tăng tiếp theo theo Lĩnh Vực Ads (VD: ADSCT001, ADSAL001)
+    fastify.get('/api/board-tasks/next-ads-code', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const linhVuc = (request.query.linh_vuc || '').trim();
+            let rawCode = (request.query.code || '').trim().toUpperCase();
+            let cleanCode = rawCode.replace(/^ADS/i, '').trim();
+
+            // Nếu không truyền code thì thử tìm trong kho_ads_linh_vuc
+            if (!cleanCode && linhVuc) {
+                const lvRow = await db.get(`SELECT code FROM kho_ads_linh_vuc WHERE name = $1`, [linhVuc]);
+                if (lvRow && lvRow.code) cleanCode = lvRow.code.trim().toUpperCase().replace(/^ADS/i, '').trim();
+            }
+
+            // Nếu vẫn không có code, tự trích xuất chữ cái viết tắt
+            if (!cleanCode && linhVuc) {
+                cleanCode = linhVuc.split(/\s+/).map(w => w[0]).join('').replace(/[^A-Z0-9]/gi, '').replace(/^ADS/i, '').toUpperCase() || 'CT';
+            }
+            if (!cleanCode) cleanCode = 'CT';
+
+            const prefix = 'ADS' + cleanCode;
+
+            // Tìm số lớn nhất trong tiêu đề có định dạng ADS[CODE][NUMBER]
+            const rows = await db.all(
+                `SELECT title FROM board_tasks WHERE (ads_linh_vuc = $1 OR title LIKE $2) AND title LIKE $3`,
+                [linhVuc, prefix + '%', prefix + '%']
+            );
+
+            let maxSeq = 0;
+            const regex = new RegExp('^' + prefix + '(\\d+)', 'i');
+            (rows || []).forEach(r => {
+                if (r.title) {
+                    const match = r.title.match(regex);
+                    if (match && match[1]) {
+                        const num = parseInt(match[1], 10);
+                        if (!isNaN(num) && num > maxSeq) maxSeq = num;
+                    }
+                }
+            });
+
+            const nextSeq = maxSeq + 1;
+            const seqStr = String(nextSeq).padStart(3, '0');
+            const formattedCode = prefix + seqStr;
+
+            return reply.send({ ok: true, code: cleanCode, seq: nextSeq, formattedCode });
+        } catch(e) {
+            console.error('[next-ads-code error]', e);
+            return reply.send({ ok: false, formattedCode: 'ADSCT001' });
+        }
+    });
+
+    // GET /api/board-tasks/next-design-code — Lấy mã tự tăng tiếp theo theo Lĩnh Vực Thiết Kế Mẫu - BST (VD: CT001, AL001, MN001)
+    fastify.get('/api/board-tasks/next-design-code', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const linhVuc = (request.query.linh_vuc || '').trim();
+            let rawCode = (request.query.code || '').trim().toUpperCase();
+            let cleanCode = rawCode.replace(/^ADS/i, '').trim();
+
+            if (!cleanCode && linhVuc) {
+                const lvRow = await db.get(`SELECT code FROM bsut_linh_vuc WHERE name = $1`, [linhVuc]) ||
+                              await db.get(`SELECT code FROM kho_ads_linh_vuc WHERE name = $1`, [linhVuc]);
+                if (lvRow && lvRow.code) cleanCode = lvRow.code.trim().toUpperCase().replace(/^ADS/i, '').trim();
+            }
+
+            if (!cleanCode && linhVuc) {
+                cleanCode = linhVuc.split(/\s+/).map(w => w[0]).join('').replace(/[^A-Z0-9]/gi, '').toUpperCase() || 'CT';
+            }
+            if (!cleanCode) cleanCode = 'CT';
+
+            // Tìm số lớn nhất trong tiêu đề board_tasks hoặc mã product_collections có chứa [CODE][NUMBER] (VD: CT001, CT002, CT1001, TT301)
+            const tasks = await db.all(
+                `SELECT title FROM board_tasks WHERE title ILIKE '%Thiết Kế Mẫu%' OR title ILIKE $1`,
+                ['%' + cleanCode + '%']
+            );
+
+            const collections = await db.all(
+                `SELECT name, code FROM product_collections WHERE linh_vuc = $1 OR name ILIKE $2 OR code ILIKE $2`,
+                [linhVuc, '%' + cleanCode + '%']
+            );
+
+            let maxSeq = 0;
+            const regex = new RegExp('\\b' + cleanCode + '(\\d+)\\b', 'i');
+
+            const checkText = (txt) => {
+                if (!txt) return;
+                const match = txt.match(regex);
+                if (match && match[1]) {
+                    const num = parseInt(match[1], 10);
+                    if (!isNaN(num) && num > maxSeq) maxSeq = num;
+                }
+            };
+
+            (tasks || []).forEach(t => checkText(t.title));
+            (collections || []).forEach(c => { checkText(c.name); checkText(c.code); });
+
+            const nextSeq = maxSeq + 1;
+            const seqStr = String(nextSeq).padStart(3, '0');
+            const formattedCode = cleanCode + seqStr;
+
+            return reply.send({ ok: true, code: cleanCode, seq: nextSeq, formattedCode });
+        } catch(e) {
+            console.error('[next-design-code error]', e);
+            return reply.send({ ok: false, formattedCode: 'CT001' });
         }
     });
 
@@ -1773,10 +1985,32 @@ function getDeptShortCode(deptName) {
 
             const documents = await db.all(query, params);
 
+            // Helper function định dạng Mã công việc cho danh mục Tư Liệu Hướng Dẫn
+            function formatDocTaskCode(t) {
+                if (!t) return 'CV-000';
+                if (t.task_code && t.task_code.trim()) return t.task_code.trim();
+                if (t.department_name) {
+                    let dCode = 'CV';
+                    const name = t.department_name.trim();
+                    if (name.toLowerCase().includes('marketing')) dCode = 'MKT';
+                    else {
+                        const clean = name.replace(/^PHÒNG\s+/i, '').replace(/^BỘ PHẬN\s+/i, '').trim();
+                        const words = clean.split(/\s+/).filter(Boolean);
+                        if (words.length === 1) dCode = words[0].substring(0, 3).toUpperCase();
+                        else dCode = words.map(w => w[0]).join('').replace(/[^A-Z0-9]/g, '');
+                    }
+                    const no = t.dept_task_no ? (t.dept_task_no < 10 ? ('0' + t.dept_task_no) : String(t.dept_task_no)) : String(t.id || 0).padStart(2, '0');
+                    return `CV-${dCode}-${no}`;
+                }
+                return 'CV-' + String(t.id || 0).padStart(3, '0');
+            }
+
             // Fetch all tasks with guide_link to match linked tasks
             const allTasksWithGuides = await db.all(`
-                SELECT id, title, guide_link FROM board_tasks 
-                WHERE guide_link IS NOT NULL AND guide_link != '' AND guide_link != '[]'
+                SELECT t.id, t.title, t.guide_link, t.task_code, t.dept_task_no, t.department_id, d.name as department_name 
+                FROM board_tasks t
+                LEFT JOIN departments d ON d.id = t.department_id
+                WHERE t.guide_link IS NOT NULL AND t.guide_link != '' AND t.guide_link != '[]'
             `);
 
             // Fetch attachments & linked tasks for each document
@@ -1791,8 +2025,9 @@ function getDeptShortCode(deptName) {
                 const docTaskCode = (doc.task_code || '').trim().toUpperCase();
 
                 allTasksWithGuides.forEach(task => {
-                    const cvCode = 'CV-' + String(task.id).padStart(3, '0');
-                    if (docTaskCode && (docTaskCode === cvCode || docTaskCode === String(task.id))) {
+                    const cvCode = formatDocTaskCode(task);
+                    const rawIdCode = 'CV-' + String(task.id).padStart(3, '0');
+                    if (docTaskCode && (docTaskCode === cvCode || docTaskCode === rawIdCode || docTaskCode === String(task.id))) {
                         if (!linked.some(x => x.id === task.id)) linked.push({ id: task.id, cv_code: cvCode, title: task.title });
                         return;
                     }

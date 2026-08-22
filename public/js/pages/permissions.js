@@ -30,6 +30,10 @@ const PERM_FEATURES = [
     { key: 'nhom_spam_zalo', label: 'Nhóm Spam Zalo', perms: ['view','create'], section: 'CÔNG VIỆC NV KINH DOANH' },
     { key: 'tuyen_dung_sv', label: 'Tuyển Dụng SV KD', perms: ['view','create','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
 
+    // ===== BỘ PHẬN MARKETING =====
+    { key: 'kho_ads', label: 'Kho Video/Ảnh Ads', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
+    { key: 'chien_dich_ads', label: 'Chiến Dịch Video/Ảnh Ads', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
+
     // ===== BỘ PHẬN SALE =====
     { key: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
     { key: 'chamsockhtempet', label: 'Chăm Sóc Khách TEM/PET', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
