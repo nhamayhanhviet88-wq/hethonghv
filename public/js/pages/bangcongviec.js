@@ -2139,8 +2139,11 @@ async function _bcvSubmitCreate() {
     var docMainCatForSubTitle = (document.getElementById('bcvCreateDocMainCat') || {}).value || '';
     var isPhotoAiBstDoc = docMainCatForSubTitle && (docMainCatForSubTitle.includes('Chụp Ảnh / Tạo AI') || docMainCatForSubTitle.includes('Quay Video / Tạo AI'));
     var isVideoAdsDoc = docMainCatForSubTitle && _bcvIsVideoAdsCat(docMainCatForSubTitle);
+    var isTuLieu2DesignDoc = docMainCatForSubTitle && (docMainCatForSubTitle.includes('Thiết Kế Mẫu') || docMainCatForSubTitle.includes('Tư Liệu 2')) &&
+                             !docMainCatForSubTitle.includes('Chụp Ảnh') && !docMainCatForSubTitle.includes('Tạo AI') && !docMainCatForSubTitle.includes('Video Ads') && !docMainCatForSubTitle.includes('Tư Liệu 3');
+    var isTuLieu2MktDoc = _bcvIsMarketingDept() && isTuLieu2DesignDoc;
 
-    if (docMainCatForSubTitle && !isPhotoAiBstDoc && !isVideoAdsDoc) {
+    if (docMainCatForSubTitle && !isPhotoAiBstDoc && !isVideoAdsDoc && !isTuLieu2MktDoc) {
         var subTitle = (document.getElementById('bcvCreateSubTitle') || {}).value || '';
         if (!subTitle.trim()) { alert('Vui lòng nhập tiêu đề phụ (bắt buộc khi chọn tư liệu)'); return; }
     }
