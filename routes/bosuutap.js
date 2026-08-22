@@ -179,7 +179,7 @@ async function collectionsRoutes(fastify, options) {
     // 1. GET /api/collections
     fastify.get('/api/collections', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            const [rows, completedSessions] = await Promise.all([
+            const [rows, completedSessions, allMediaTasks, allUsers] = await Promise.all([
                 db.all(`
                     SELECT c.*, 
                            t.title as task_title,
@@ -205,8 +205,20 @@ async function collectionsRoutes(fastify, options) {
                     LEFT JOIN users cp ON cp.id = s.chairperson_id
                     WHERE s.status = 'da_ket_thuc'
                     ORDER BY s.id DESC
-                `)
+                `),
+                db.all(`
+                    SELECT id, collection_id, title, guide_link, assigned_to, assigned_to_ids
+                    FROM board_tasks
+                `),
+                db.all(`SELECT id, username, full_name FROM users`)
             ]);
+
+            const userMapById = {};
+            const userMapByUsername = {};
+            (allUsers || []).forEach(u => {
+                userMapById[String(u.id)] = u;
+                if (u.username) userMapByUsername[u.username.toLowerCase()] = u;
+            });
 
             rows.forEach(col => {
                 if (col.task_id) {
@@ -222,6 +234,74 @@ async function collectionsRoutes(fastify, options) {
                     (s.title && col.name && s.title.trim().toLowerCase() === col.name.trim().toLowerCase())
                 );
                 col.completed_meeting = matchedSession || null;
+
+                // Tổng hợp danh sách người nhận việc cho các task Tư Liệu 3 & Tư Liệu 4 liên kết với BST này
+                const mediaAssigneesSet = new Set();
+                const colNameClean = (col.name || '').toLowerCase();
+                const colTaskCode = (col.task_code || '').toLowerCase();
+
+                (allMediaTasks || []).forEach(task => {
+                    const isLinkedByColId = task.collection_id && (Number(task.collection_id) === Number(col.id) || Number(task.collection_id) === Number(col.task_id));
+                    let isLinkedByName = false;
+                    const taskTitleLower = (task.title || '').toLowerCase();
+                    if (colNameClean && taskTitleLower.includes(colNameClean)) isLinkedByName = true;
+                    if (colTaskCode && taskTitleLower.includes(colTaskCode)) isLinkedByName = true;
+
+                    if (!isLinkedByName && colNameClean) {
+                        const codeMatch = colNameClean.match(/([a-z]{2,4}\d+)/i);
+                        if (codeMatch && codeMatch[1] && taskTitleLower.includes(codeMatch[1].toLowerCase())) {
+                            isLinkedByName = true;
+                        }
+                    }
+
+                    if (isLinkedByColId || isLinkedByName) {
+                        let guideStr = '';
+                        try {
+                            guideStr = typeof task.guide_link === 'string' ? task.guide_link : JSON.stringify(task.guide_link || '');
+                        } catch(e){}
+
+                        const isMediaTask = taskTitleLower.includes('chụp ảnh') || taskTitleLower.includes('quay video') ||
+                                           taskTitleLower.includes('tạo ai') || guideStr.includes('Tư Liệu 3') ||
+                                           guideStr.includes('Tư Liệu 4') || guideStr.includes('Chụp Ảnh') || guideStr.includes('Quay Video');
+
+                        if (isMediaTask) {
+                            if (task.assigned_to) {
+                                const aVal = String(task.assigned_to).trim();
+                                mediaAssigneesSet.add(aVal.toLowerCase());
+                                if (userMapById[aVal]) {
+                                    mediaAssigneesSet.add(userMapById[aVal].username.toLowerCase());
+                                    mediaAssigneesSet.add(userMapById[aVal].full_name.toLowerCase());
+                                    mediaAssigneesSet.add(String(userMapById[aVal].id));
+                                }
+                                if (userMapByUsername[aVal.toLowerCase()]) {
+                                    const uObj = userMapByUsername[aVal.toLowerCase()];
+                                    mediaAssigneesSet.add(uObj.username.toLowerCase());
+                                    mediaAssigneesSet.add(uObj.full_name.toLowerCase());
+                                    mediaAssigneesSet.add(String(uObj.id));
+                                }
+                            }
+                            if (task.assigned_to_ids) {
+                                let ids = [];
+                                try {
+                                    ids = typeof task.assigned_to_ids === 'string' ? JSON.parse(task.assigned_to_ids) : (task.assigned_to_ids || []);
+                                } catch(e){}
+                                if (Array.isArray(ids)) {
+                                    ids.forEach(uid => {
+                                        const sUid = String(uid);
+                                        mediaAssigneesSet.add(sUid.toLowerCase());
+                                        if (userMapById[sUid]) {
+                                            mediaAssigneesSet.add(userMapById[sUid].username.toLowerCase());
+                                            mediaAssigneesSet.add(userMapById[sUid].full_name.toLowerCase());
+                                            mediaAssigneesSet.add(String(userMapById[sUid].id));
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+
+                col.media_assignees = Array.from(mediaAssigneesSet);
             });
             return reply.send({ ok: true, collections: rows });
         } catch (e) {

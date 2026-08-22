@@ -1769,7 +1769,18 @@ async function viewCollectionDetail(id) {
         (col.created_by_name && window._currentUser.full_name && col.created_by_name.trim() === window._currentUser.full_name.trim())
     );
     const isGiamDoc = window._currentUser && (window._currentUser.role === 'giam_doc' || window._currentUser.role === 'admin' || window._currentUser.is_admin);
-    const canEdit = isCreator || isGiamDoc;
+
+    // Kiểm tra người nhận việc Tư liệu 3 (Chụp ảnh / Tạo AI) & Tư liệu 4 (Quay Video / Tạo AI)
+    const mediaAssignees = Array.isArray(col.media_assignees) ? col.media_assignees : [];
+    const isMediaAssignee = window._currentUser && mediaAssignees.some(a => {
+        const aLower = String(a).toLowerCase();
+        return (window._currentUser.username && window._currentUser.username.toLowerCase() === aLower) ||
+               (window._currentUser.full_name && window._currentUser.full_name.toLowerCase() === aLower) ||
+               (window._currentUser.id && String(window._currentUser.id) === aLower);
+    });
+
+    const isMediaAssigneeOnly = isMediaAssignee && !isCreator && !isGiamDoc;
+    const canEdit = isCreator || isGiamDoc || isMediaAssignee;
 
     let vBst = col.video_bst || {};
     let vLink = '';
@@ -1780,7 +1791,7 @@ async function viewCollectionDetail(id) {
     const hasVideo = Boolean(vLink && String(vLink).trim());
 
     const isVideoLocked = hasVideo && (col.task_status === 'hoan_thanh');
-    const canUpdateVideo = (isCreator || isGiamDoc) && (!isVideoLocked || isGiamDoc);
+    const canUpdateVideo = (isCreator || isGiamDoc || isMediaAssignee) && (!isVideoLocked || isGiamDoc || isMediaAssignee);
 
     const isAssignor = isGiamDoc || (col.task_created_by && window._currentUser && (
         Number(window._currentUser.id) === Number(col.task_created_by) ||
@@ -1943,7 +1954,7 @@ async function viewCollectionDetail(id) {
                 ` : ''}
                 ${canEdit ? `
                     <button onclick="openEditCollectionModal(${col.id})" style="background: linear-gradient(135deg, #4338ca, #6366f1); color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
-                        ${(col.is_approved && !_bsutIsSuperUser()) ? '📷 Cập Nhật Ảnh Mẫu (Mục 8)' : '✏️ Chỉnh Sửa'}
+                        ${((col.is_approved && !_bsutIsSuperUser()) || isMediaAssigneeOnly) ? '📷 Cập Nhật Ảnh Mẫu (Mục 8)' : '✏️ Chỉnh Sửa'}
                     </button>
                 ` : ''}
                 <button onclick="document.getElementById('modalViewCollectionDetail').style.display='none'" style="background: #f1f5f9; border: 1px solid #cbd5e1; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: #64748b; font-weight: bold; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#64748b'">✕</button>
@@ -2152,7 +2163,21 @@ function openEditCollectionModal(id) {
     if (!modal) return;
 
     // Change title and button text
-    const isLockedForUser = col.is_approved && !_bsutIsSuperUser();
+    const isCreator = window._currentUser && (
+        (col.created_by && Number(window._currentUser.id) === Number(col.created_by)) ||
+        (col.created_by_name && window._currentUser.full_name && col.created_by_name.trim() === window._currentUser.full_name.trim())
+    );
+    const isGiamDoc = window._currentUser && (window._currentUser.role === 'giam_doc' || window._currentUser.role === 'admin' || window._currentUser.is_admin);
+
+    const mediaAssignees = Array.isArray(col.media_assignees) ? col.media_assignees : [];
+    const isMediaAssigneeOnly = window._currentUser && mediaAssignees.some(a => {
+        const aLower = String(a).toLowerCase();
+        return (window._currentUser.username && window._currentUser.username.toLowerCase() === aLower) ||
+               (window._currentUser.full_name && window._currentUser.full_name.toLowerCase() === aLower) ||
+               (window._currentUser.id && String(window._currentUser.id) === aLower);
+    }) && !isCreator && !isGiamDoc;
+
+    const isLockedForUser = (col.is_approved && !_bsutIsSuperUser()) || isMediaAssigneeOnly;
     const headerTitle = modal.querySelector('h3');
     if (headerTitle) {
         headerTitle.innerText = isLockedForUser 
