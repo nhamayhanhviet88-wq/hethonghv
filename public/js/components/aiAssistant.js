@@ -22,6 +22,12 @@
         if (state.isEnabled) {
             createFloatingWidget();
         }
+        if (!document.getElementById('hvAdsConnScript') && !window.HVAdsConnWidgetInitialized) {
+            var s = document.createElement('script');
+            s.id = 'hvAdsConnScript';
+            s.src = '/js/components/adsConnectionWidget.js?v=20260823';
+            document.head.appendChild(s);
+        }
     }
 
     async function fetchAiConfig() {
@@ -322,20 +328,26 @@
             /* Responsive Mobile Styles */
             @media (max-width: 768px) {
                 .hv-ai-float-btn {
-                    bottom: 18px;
-                    right: 18px;
-                    padding: 10px 15px;
+                    bottom: 72px;
+                    right: 14px;
+                    padding: 10px 16px;
                     font-size: 12.5px;
                     box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
+                    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+                }
+                .hv-ai-float-btn.hv-mobile-hidden {
+                    transform: translateX(calc(100% + 20px));
+                    opacity: 0;
+                    pointer-events: none;
                 }
                 .hv-ai-chat-window {
-                    bottom: 70px;
+                    bottom: 130px;
                     right: 10px;
                     left: 10px;
                     width: auto;
                     max-width: calc(100vw - 20px);
                     height: 75vh;
-                    max-height: calc(100vh - 90px);
+                    max-height: calc(100vh - 150px);
                 }
             }
             

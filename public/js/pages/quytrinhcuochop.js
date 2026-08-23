@@ -1544,7 +1544,9 @@
 
         var cleanProcName = (procObj.name || '').replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]\s*/u, '').trim();
 
-        var targetDate = meetingDateStr ? meetingDateStr.substring(0, 10) : new Date().toISOString().substring(0, 10);
+        var _nowD = new Date();
+        var _localToday = _nowD.getFullYear() + '-' + String(_nowD.getMonth() + 1).padStart(2, '0') + '-' + String(_nowD.getDate()).padStart(2, '0');
+        var targetDate = meetingDateStr ? meetingDateStr.substring(0, 10) : _localToday;
 
         var matchingSessions = _mpSessions.filter(function(s) {
             if (String(s.process_id || 1) !== String(procId)) return false;
@@ -1713,7 +1715,10 @@
 
         html += '<div><label style="' + _labelStyle() + '">📋 Tiêu đề cuộc họp *</label><input type="text" id="mp-session-title" value="' + _escHtml((session && session.title) || '') + '" placeholder="VD: Họp tuần 33 — Tổng kết KPI tháng 8/2026" style="' + _inputStyle() + '" /></div>';
 
-        html += '<div><label style="' + _labelStyle() + '">📅 Ngày họp *</label><input type="date" id="mp-session-date" onchange="window._mpOnDateChange()" value="' + ((session && session.meeting_date) ? session.meeting_date.substring(0, 10) : new Date().toISOString().substring(0, 10)) + '" style="' + _inputStyle() + '" /></div>';
+        var _nowDate = new Date();
+        var _todayStr = _nowDate.getFullYear() + '-' + String(_nowDate.getMonth() + 1).padStart(2, '0') + '-' + String(_nowDate.getDate()).padStart(2, '0');
+        var sessionDateVal = (session && session.meeting_date) ? session.meeting_date.substring(0, 10) : _todayStr;
+        html += '<div><label style="' + _labelStyle() + '">📅 Ngày họp *</label><input type="date" id="mp-session-date" readonly disabled value="' + sessionDateVal + '" style="' + _inputStyle() + 'background:#f1f5f9;color:#475569;cursor:not-allowed;border:1px solid #cbd5e1;font-weight:600;pointer-events:none;" /></div>';
 
         // Chairperson & Secretary Unified Searchable Select
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';

@@ -110,8 +110,14 @@ const MENU_CONFIG = [
     { id: 'tong-doanh-so-sale', label: 'Tổng Doanh Số Sale KD', icon: '📊', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/tongdoansosale', permKey: 'tong_doanh_so_sale' },
 
     // ========== BỘ PHẬN MARKETING ==========
-    { id: 'khoads', label: 'Kho Video/Ảnh Ads', icon: '🎬', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV MARKETING', href: '/khoads', permKey: 'kho_ads' },
-    { id: 'chiendichads', label: 'Chiến Dịch Video/Ảnh Ads', icon: '🚀', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV MARKETING', href: '/chiendichads', permKey: 'chien_dich_ads' },
+    { id: 'khoads', label: 'Kho Video/Ảnh Ads', icon: '🎬', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Marketing Ads', href: '/khoads', permKey: 'kho_ads' },
+    { id: 'caidattkads', label: 'Cài Đặt Tài Khoản Ads', icon: '⚙️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Marketing Ads', href: '/caidattaikhoanads', mobileHref: '/m/caidattaikhoanads', permKey: 'cai_dat_ads' },
+    { id: 'chiendichads', label: 'Chiến Dịch Video/Ảnh Ads', icon: '🚀', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Marketing Ads', href: '/chiendichads', permKey: 'chien_dich_ads' },
+    { id: 'thongkeads', label: 'Thống Kê Camp Hiệu Quả', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Marketing Ads', href: '/thongkeads', mobileHref: '/m/thongkeads', permKey: 'thong_ke_ads' },
+
+    // ========== FACEBOOK ADS ==========
+    { id: 'gioihanchitieu', label: '1. Giới Hạn Chi Tiêu', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Facebook Ads', href: '/gioihanchitieu', mobileHref: '/m/gioihanchitieu', permKey: 'gioi_han_chi_tieu' },
+
 
     // ========== BỘ PHẬN SALE ==========
     { id: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/chamsockhsale', permKey: 'chamsockhsale' },
@@ -346,6 +352,14 @@ const _PAGE_SCRIPT_MAP = {
     'dashboardkdoanh': '/js/pages/dashboardkdoanh.js',
     'settings': '/js/pages/settings.js?v=20260730_v4',
     'caidatpancake': '/js/pages/caidatpancake.js?v=20260727_v382',
+    'caidattkads': '/js/pages/caidattaikhoanads.js',
+    'caidattaikhoanads': '/js/pages/caidattaikhoanads.js',
+    'cai-dat-tai-khoan-ads': '/js/pages/caidattaikhoanads.js',
+    'cai-dat-ads': '/js/pages/caidattaikhoanads.js',
+    'gioihanchitieu': '/js/pages/gioihanchitieu.js',
+    'gioi-han-chi-tieu': '/js/pages/gioihanchitieu.js',
+    'm/gioihanchitieu': '/js/pages/gioihanchitieu.js',
+    'm_gioihanchitieu': '/js/pages/gioihanchitieu.js',
     'tu-van-khach-aff': '/js/pages/baocaohoahong.js',
     'theo-doi-tu-van-aff': '/js/pages/baocaohoahong.js',
     'bao-cao-hoa-hong': '/js/pages/baocaohoahong.js',
@@ -1466,7 +1480,7 @@ var PARENT_SECTIONS = [
     { name: 'NỘI QUY & QUY TẮC LÀM VIỆC', sections: ['NỘI QUY & TƯ LIỆU NỘI BỘ', 'QUY TẮC & CHÍNH SÁCH KH'] },
     { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ'] },
     { name: 'BỘ PHẬN XƯỞNG SX', sections: ['QUẢN LÝ XƯỞNG', 'XƯỞNG SẢN XUẤT', 'MẪU & GIÁ SẢN XUẤT'] },
-    { name: 'BỘ PHẬN MARKETING', sections: ['CÔNG VIỆC NV MARKETING'] },
+    { name: 'BỘ PHẬN MARKETING', sections: ['Marketing Ads', 'Facebook Ads'] },
     { name: 'BỘ PHẬN SALE', sections: ['CÔNG VIỆC NV SALE'] },
     { name: 'BỘ PHẬN KINH DOANH', sections: ['CÔNG VIỆC NV KINH DOANH', 'KINH DOANH CHĂM SÓC', 'QUẢN LÝ AFFILIATE'] },
     { name: 'NHÂN SỰ & VẬN HÀNH', sections: ['HỖ TRỢ NHÂN VIÊN HV', 'QUẢN LÝ NHÂN VIÊN HV', 'HỆ THỐNG'] }
@@ -2017,8 +2031,11 @@ function findMenuItemForPage(pageId) {
     function isMatch(m, pid) {
         if (m.id === pid) return true;
         if (m.href && m.href.replace(/^\//, '') === pid) return true;
+        if (m.mobileHref && m.mobileHref.replace(/^\//, '') === pid) return true;
         
         var aliasMap = {
+            'm/gioihanchitieu': 'gioihanchitieu',
+            'gioi-han-chi-tieu': 'gioihanchitieu',
             'bangcongviec/hoanthanh': 'bangcongviec',
             'bang-cong-viec/hoan-thanh': 'bangcongviec',
             'bang_cong_viec/hoan_thanh': 'bangcongviec',
@@ -2487,11 +2504,25 @@ async function handleRoute() {
                         renderKhoadsPage(content);
                     }
                     break;
+                case 'caidattkads': case 'cai-dat-tai-khoan-ads': case 'caidattaikhoanads': case 'cai-dat-ads':
+                    if (typeof window.renderCaidattaikhoanadsPage === 'function') {
+                        window.renderCaidattaikhoanadsPage(content);
+                    } else if (typeof renderCaidattaikhoanadsPage === 'function') {
+                        renderCaidattaikhoanadsPage(content);
+                    }
+                    break;
                 case 'chiendichads': case 'chien-dich-ads':
                     if (typeof window.renderChiendichadsPage === 'function') {
                         window.renderChiendichadsPage(content);
                     } else if (typeof renderChiendichadsPage === 'function') {
                         renderChiendichadsPage(content);
+                    }
+                    break;
+                case 'gioihanchitieu': case 'gioi-han-chi-tieu': case 'm/gioihanchitieu': case 'm_gioihanchitieu':
+                    if (typeof window.renderGioihanchitieuPage === 'function') {
+                        window.renderGioihanchitieuPage(content);
+                    } else if (typeof renderGioihanchitieuPage === 'function') {
+                        renderGioihanchitieuPage(content);
                     }
                     break;
                 default:
@@ -6787,6 +6818,12 @@ var _PAGE_INIT_REGISTRY = {
     'chinh-sach-kh': 'renderChinhsachkhhvPage',
     'chuongtrinhkhhv': 'renderChuongtrinhkhhvPage',
     'chuong-trinh-kh': 'renderChuongtrinhkhhvPage',
+    'thongkeads': 'renderThongkeadsPage',
+    'thong-ke-ads': 'renderThongkeadsPage',
+    'caidattkads': 'renderCaidattaikhoanadsPage',
+    'caidattaikhoanads': 'renderCaidattaikhoanadsPage',
+    'gioihanchitieu': 'renderGioihanchitieuPage',
+    'gioi-han-chi-tieu': 'renderGioihanchitieuPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {

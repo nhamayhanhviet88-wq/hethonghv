@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>1. Giới Hạn Chi Tiêu Ads — Đồng Phục HV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    
+    <!-- Unified Mobile Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
+    
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            padding-bottom: 80px;
+        }
+        .container {
+            padding: 8px;
+            margin-top: 60px;
+        }
+    </style>
+</head>
+<body class="is-mobile-page">
+    <div id="mobileHeader"></div>
+
+    <div class="container">
+        <div id="mobile-content-root"></div>
+    </div>
+
+    <!-- Global Mobile Nav -->
+    <script src="/js/mobile-nav.js?v=20260823"></script>
+    <script src="/js/pages/gioihanchitieu.js?v=20260823"></script>
+    <script>
+        function _initMobilePage() {
+            const root = document.getElementById('mobile-content-root');
+            if (root && typeof window.renderGioihanchitieuPage === 'function') {
+                window.renderGioihanchitieuPage(root);
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _initMobilePage);
+        } else {
+            _initMobilePage();
+        }
+    </script>
+</body>
+</html>

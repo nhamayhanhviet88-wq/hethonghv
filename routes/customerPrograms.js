@@ -19,12 +19,19 @@ async function customerProgramsRoutes(fastify, options) {
             image_url       TEXT DEFAULT '',
             valid_from      DATE,
             valid_to        DATE,
+            valid_type      VARCHAR(50) DEFAULT 'date_range',
+            valid_days      INT,
+            include_customer_name BOOLEAN DEFAULT false,
             is_active       BOOLEAN DEFAULT true,
             display_order   INT DEFAULT 0,
             created_by      INTEGER REFERENCES users(id),
             created_at      TIMESTAMPTZ DEFAULT NOW(),
             updated_at      TIMESTAMPTZ DEFAULT NOW()
         )`);
+        await db.exec(`ALTER TABLE customer_programs ADD COLUMN IF NOT EXISTS valid_type VARCHAR(50) DEFAULT 'date_range'`);
+        await db.exec(`ALTER TABLE customer_programs ADD COLUMN IF NOT EXISTS valid_days INT`);
+        await db.exec(`ALTER TABLE customer_programs ADD COLUMN IF NOT EXISTS include_customer_name BOOLEAN DEFAULT false`);
+        await db.exec(`ALTER TABLE customer_programs ADD COLUMN IF NOT EXISTS theme_color VARCHAR(50) DEFAULT 'gold'`);
         await db.exec(`CREATE TABLE IF NOT EXISTS customer_program_tiers (
             id              SERIAL PRIMARY KEY,
             program_id      INTEGER NOT NULL REFERENCES customer_programs(id) ON DELETE CASCADE,
@@ -186,15 +193,29 @@ async function customerProgramsRoutes(fastify, options) {
         if (!canEdit(request.user)) return reply.code(403).send({ error: 'Không có quyền tạo chương trình' });
 
         try {
-            const { title, program_type, field_name, content, image_url, valid_from, valid_to, is_active, display_order, tiers } = request.body;
+            let { title, program_type, field_name, content, image_url, valid_type, valid_days, valid_from, valid_to, include_customer_name, theme_color, is_active, display_order, tiers } = request.body;
             if (!title) return reply.code(400).send({ error: 'Vui lòng nhập tên chương trình' });
-            if (valid_from && valid_to && valid_to < valid_from) {
-                return reply.code(400).send({ error: '📅 Đến Ngày phải lớn hơn hoặc bằng ngày 📅 Áp Dụng Từ!' });
+
+            valid_type = valid_type || 'date_range';
+            let vDays = (valid_days !== undefined && valid_days !== null && valid_days !== '') ? parseInt(valid_days, 10) : null;
+            if (isNaN(vDays)) vDays = null;
+            let themeColor = (theme_color === 'red') ? 'red' : 'gold';
+
+            let finalFrom = valid_from || null;
+            let finalTo = valid_to || null;
+
+            if (valid_type === 'days_from_sent' || valid_type === 'auto_days') {
+                finalFrom = null;
+                finalTo = null;
+            } else {
+                if (finalFrom && finalTo && finalTo < finalFrom) {
+                    return reply.code(400).send({ error: '📅 Đến Ngày phải lớn hơn hoặc bằng ngày 📅 Áp Dụng Từ!' });
+                }
             }
 
             const result = await db.run(`
-                INSERT INTO customer_programs (title, program_type, field_name, content, image_url, valid_from, valid_to, is_active, display_order, created_by)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                INSERT INTO customer_programs (title, program_type, field_name, content, image_url, valid_from, valid_to, valid_type, valid_days, include_customer_name, theme_color, is_active, display_order, created_by)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 RETURNING id
             `, [
                 title,
@@ -202,8 +223,12 @@ async function customerProgramsRoutes(fastify, options) {
                 field_name || '',
                 content || '',
                 image_url || '',
-                valid_from || null,
-                valid_to || null,
+                finalFrom,
+                finalTo,
+                valid_type,
+                vDays,
+                include_customer_name === true,
+                themeColor,
                 is_active !== false,
                 display_order || 0,
                 request.user.id
@@ -242,21 +267,35 @@ async function customerProgramsRoutes(fastify, options) {
         if (!canEdit(request.user)) return reply.code(403).send({ error: 'Không có quyền sửa chương trình' });
 
         try {
-            const { title, program_type, field_name, content, image_url, valid_from, valid_to, is_active, display_order, tiers } = request.body;
+            let { title, program_type, field_name, content, image_url, valid_type, valid_days, valid_from, valid_to, include_customer_name, theme_color, is_active, display_order, tiers } = request.body;
             const id = request.params.id;
+            if (!title) return reply.code(400).send({ error: 'Vui lòng nhập tên chương trình' });
 
-            if (valid_from && valid_to && valid_to < valid_from) {
-                return reply.code(400).send({ error: '📅 Đến Ngày phải lớn hơn hoặc bằng ngày 📅 Áp Dụng Từ!' });
+            valid_type = valid_type || 'date_range';
+            let vDays = (valid_days !== undefined && valid_days !== null && valid_days !== '') ? parseInt(valid_days, 10) : null;
+            if (isNaN(vDays)) vDays = null;
+            let themeColor = (theme_color === 'red') ? 'red' : 'gold';
+
+            let finalFrom = valid_from || null;
+            let finalTo = valid_to || null;
+
+            if (valid_type === 'days_from_sent' || valid_type === 'auto_days') {
+                finalFrom = null;
+                finalTo = null;
+            } else {
+                if (finalFrom && finalTo && finalTo < finalFrom) {
+                    return reply.code(400).send({ error: '📅 Đến Ngày phải lớn hơn hoặc bằng ngày 📅 Áp Dụng Từ!' });
+                }
             }
 
             await db.run(`
                 UPDATE customer_programs
                 SET title = $1, program_type = $2, field_name = $3, content = $4, image_url = $5,
-                    valid_from = $6, valid_to = $7, is_active = $8, display_order = $9, updated_at = NOW()
-                WHERE id = $10
+                    valid_from = $6, valid_to = $7, valid_type = $8, valid_days = $9, include_customer_name = $10, theme_color = $11, is_active = $12, display_order = $13, updated_at = NOW()
+                WHERE id = $14
             `, [
                 title, program_type || 'khach_hang', field_name || '', content || '', image_url || '',
-                valid_from || null, valid_to || null, is_active !== false, display_order || 0, id
+                finalFrom, finalTo, valid_type, vDays, include_customer_name === true, themeColor, is_active !== false, display_order || 0, id
             ]);
 
             await db.run(`DELETE FROM customer_program_tiers WHERE program_id = $1`, [id]);

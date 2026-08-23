@@ -131,6 +131,141 @@ function _ctkFormatDate(dStr) {
     return dd + '/' + mm + '/' + yyyy;
 }
 
+function _ctkFormatDateDisplay(dStr) {
+    if (!dStr) return '';
+    var d = new Date(dStr);
+    if (isNaN(d.getTime())) return dStr;
+    var dd = d.getDate();
+    var mm = d.getMonth() + 1;
+    var yyyy = d.getFullYear();
+    return dd + '/' + mm + '/' + yyyy;
+}
+
+function _ctkCapitalizeVnName(str) {
+    if (!str) return '';
+    return str.trim().toLowerCase().split(/\s+/).map(function(word) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join(' ');
+}
+
+window._ctkCopyKeyword = function(keyword) {
+    var text = keyword || '(khach_hang)';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            alert('📋 Đã sao chép từ khóa ' + text + ' vào bộ nhớ tạm!\nAnh/Chị có thể dán (Ctrl+V) vào ô Nội Dung Chương Trình.');
+        }).catch(function() {
+            _ctkFallbackCopy(text);
+        });
+    } else {
+        _ctkFallbackCopy(text);
+    }
+};
+
+function _ctkFallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+        alert('📋 Đã sao chép từ khóa ' + text + ' vào bộ nhớ tạm!\nAnh/Chị có thể dán (Ctrl+V) vào ô Nội Dung Chương Trình.');
+    } catch(e) {
+        alert('⚠️ Không thể tự động sao chép. Vui lòng chọn và chép thủ công: ' + text);
+    }
+    if (ta.parentNode) ta.parentNode.removeChild(ta);
+}
+
+window._ctkLimitTitleLines = function(e, el) {
+    if (e.key === 'Enter') {
+        var lines = (el.value || '').split('\n');
+        if (lines.length >= 2) {
+            e.preventDefault();
+            return false;
+        }
+    }
+};
+
+window._ctkCleanTitleLines = function(el) {
+    if (!el) return;
+    var lines = (el.value || '').split('\n');
+    if (lines.length > 2) {
+        el.value = lines.slice(0, 2).join('\n');
+    }
+};
+
+function _ctkGetNowVnDate() {
+    var now = new Date();
+    try {
+        var formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric'
+        });
+        var parts = formatter.formatToParts(now);
+        var y = 0, m = 0, d = 0;
+        for (var i = 0; i < parts.length; i++) {
+            if (parts[i].type === 'year') y = parseInt(parts[i].value, 10);
+            if (parts[i].type === 'month') m = parseInt(parts[i].value, 10) - 1;
+            if (parts[i].type === 'day') d = parseInt(parts[i].value, 10);
+        }
+        if (y && m >= 0 && d) {
+            return new Date(y, m, d);
+        }
+    } catch(e){}
+    return new Date();
+}
+
+function _ctkFormatValidityText(p) {
+    if (!p) return 'Thời gian áp dụng: Không giới hạn';
+    var vType = p.valid_type || 'date_range';
+
+    if (vType === 'days_from_sent') {
+        var numDays = (p.valid_days !== undefined && p.valid_days !== null && p.valid_days !== '') ? parseInt(p.valid_days, 10) : 30;
+        if (!numDays || numDays <= 0) numDays = 30;
+        return 'Thời hạn ưu đãi: ' + numDays + ' ngày kể từ ngày gửi chương trình';
+    }
+
+    if (vType === 'auto_days') {
+        var d = (p.valid_days !== undefined && p.valid_days !== null && p.valid_days !== '') ? parseInt(p.valid_days, 10) : 5;
+        if (!d || d <= 0) d = 5;
+
+        var nowVn = _ctkGetNowVnDate();
+        var day1 = String(nowVn.getDate()).padStart(2, '0');
+        var m1 = String(nowVn.getMonth() + 1).padStart(2, '0');
+        var y1 = nowVn.getFullYear();
+
+        var endVn = new Date(nowVn.getTime());
+        endVn.setDate(endVn.getDate() + d);
+        var day2 = String(endVn.getDate()).padStart(2, '0');
+        var m2 = String(endVn.getMonth() + 1).padStart(2, '0');
+        var y2 = endVn.getFullYear();
+
+        return 'Thời gian áp dụng từ ngày ' + day1 + '/' + m1 + '/' + y1 + ' - ' + day2 + '/' + m2 + '/' + y2;
+    }
+
+    // Default / date_range
+    if (p.valid_from) {
+        if (p.valid_to) {
+            return 'Thời gian áp dụng từ ngày ' + _ctkFormatDateDisplay(p.valid_from) + ' - ' + _ctkFormatDateDisplay(p.valid_to);
+        }
+        return 'Thời gian áp dụng từ ngày ' + _ctkFormatDateDisplay(p.valid_from) + ' trở đi';
+    }
+
+    // Fallback: Check if content has "Thời gian áp dụng: ..." line typed manually
+    if (p.content) {
+        var match = p.content.match(/(?:📅\s*)?Thời gian áp dụng[:\s]*([^<\n\r]+)/i);
+        if (match && match[1]) {
+            var extracted = _ctkStripTags(match[1]).trim();
+            if (extracted) {
+                return 'Thời gian áp dụng: ' + extracted.replace(/^(Từ\s*)/i, 'Từ ');
+            }
+        }
+    }
+
+    return 'Thời gian áp dụng: Không giới hạn';
+}
+
 function _ctkFormatMoney(val) {
     if (!val && val !== 0) return '';
     return Number(val).toLocaleString('vi-VN') + 'đ';
@@ -427,6 +562,12 @@ function _ctkRender() {
                 html += '<span class="ctk-badge ctk-badge-aff">Affiliate</span>';
             }
 
+            if (p.theme_color === 'red') {
+                html += '<span class="ctk-badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;font-weight:800">🔴 Tông Đỏ Đô</span>';
+            } else {
+                html += '<span class="ctk-badge" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-weight:800">🟡 Tông Vàng</span>';
+            }
+
             if (p.field_name) {
                 html += '<span class="ctk-badge" style="' + _ctkGetFieldBadgeStyle(p.field_name) + '">🏷️ ' + _ctkEsc(p.field_name) + '</span>';
             }
@@ -449,7 +590,11 @@ function _ctkRender() {
             html += '<h3 style="margin:0;font-size:15.5px;font-weight:800;color:#192951;line-height:1.4">' + _ctkEsc(p.title) + '</h3>';
             
             html += '<div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:6px;font-weight:700">';
-            html += '<span>📅 ' + _ctkFormatDate(p.valid_from) + ' &rarr; ' + _ctkFormatDate(p.valid_to) + '</span>';
+            if (p.valid_type === 'auto_days' && p.valid_days) {
+                html += '<span>📅 Áp dụng ' + p.valid_days + ' ngày (tính từ thời điểm tải ảnh)</span>';
+            } else {
+                html += '<span>📅 ' + _ctkEsc(_ctkFormatValidityText(p)) + '</span>';
+            }
             html += '</div>';
 
             // Clean text preview
@@ -513,10 +658,15 @@ window._ctkSearchDebounce = function(val) {
 window._ctkSyncDateMin = function() {
     var fromEl = document.getElementById('ctk-f-from');
     var toEl = document.getElementById('ctk-f-to');
-    if (fromEl && toEl && fromEl.value) {
-        toEl.min = fromEl.value;
-        if (toEl.value && toEl.value < fromEl.value) {
-            toEl.value = fromEl.value;
+    var today = _ctkGetVnToday();
+    if (fromEl) {
+        if (!fromEl.min) fromEl.min = today;
+    }
+    if (fromEl && toEl) {
+        var minTo = fromEl.value ? fromEl.value : (fromEl.min || today);
+        toEl.min = minTo;
+        if (toEl.value && toEl.value < minTo) {
+            toEl.value = minTo;
         }
     }
 };
@@ -712,97 +862,224 @@ function _ctkHighlightAmounts(text) {
 }
 
 // Build Preview HTML — Thiết kế Dáng Poster Dọc 540px Cân Đối & Cao Rỡ Sang Trọng
-function _ctkBuildPreviewHTML(p) {
+function _ctkBuildPreviewHTML(p, customCustomerName) {
     var logoUrl = '/images/logo.png';
-    var html = '<div id="ctk-export-area" style="background:#fff;padding:0;font-family:\'Plus Jakarta Sans\',\'Google Sans\',sans-serif;width:100%;box-sizing:border-box;border:3.5px solid #FAD14C;border-radius:4px;box-shadow:0 10px 30px rgba(0,0,0,0.08)">';
+    var isRed = p && p.theme_color === 'red';
 
-    // Header (Ảnh 1 & 2) — Pearl White & Warm Gold background: Logo icon + Brand text centered
-    html += '<div style="background:linear-gradient(135deg, #fffdfa 0%, #fef8ec 100%);padding:32px 24px 22px;text-align:center;border-radius:0">';
+    // Theme Variables
+    var outerBorder = isRed ? '3.5px solid #800a0c' : '3.5px solid #FAD14C';
+    var headerBg = isRed ? 'linear-gradient(135deg, #78080a 0%, #4a0204 100%)' : 'linear-gradient(135deg, #fffdfa 0%, #fef8ec 100%)';
+    var brandTitleColor = isRed ? '#ffffff' : '#192951';
+    var taglineColor = isRed ? '#fde047' : '#475569';
+    var dividerBg = isRed ? 'linear-gradient(90deg, #4a0204 0%, #c49a28 25%, #FAD14C 50%, #c49a28 75%, #4a0204 100%)' : 'linear-gradient(90deg, #fef8ec 0%, #c49a28 25%, #FAD14C 50%, #c49a28 75%, #fef8ec 100%)';
+    var titleTitleColor = isRed ? '#ffffff' : '#192951';
+    var underlineColor = isRed ? '#FAD14C' : '#192951';
+
+    var pillBg = isRed ? 'rgba(0,0,0,0.35)' : '#fef3c7';
+    var pillBorder = isRed ? '1.5px solid #FAD14C' : '1.5px solid #fde68a';
+    var pillTextColor = isRed ? '#fde047' : '#92400e';
+
+    var footerBg = isRed ? 'linear-gradient(135deg, #78080a 0%, #4a0204 100%)' : 'linear-gradient(135deg, #fffdfa 0%, #fef8ec 100%)';
+    var footerTitleColor = isRed ? '#ffffff' : '#192951';
+    var footerSubtextColor = isRed ? '#fde047' : '#64748b';
+    var footerDividerBorder = isRed ? '1px solid rgba(250,209,76,0.3)' : '1px solid rgba(234,179,8,0.25)';
+
+    var html = '<div id="ctk-export-area" style="background:#fff;padding:0;font-family:\'Plus Jakarta Sans\',\'Google Sans\',sans-serif;width:100%;box-sizing:border-box;border:' + outerBorder + ';border-radius:4px;box-shadow:0 10px 30px rgba(0,0,0,0.08)">';
+
+    // Header
+    html += '<div style="background:' + headerBg + ';padding:32px 24px 22px;text-align:center;border-radius:0">';
     html += '<div style="display:inline-flex;align-items:center;gap:14px;justify-content:center">';
     html += '<img src="' + logoUrl + '" style="width:62px;height:62px;object-fit:contain" />';
     html += '<div style="text-align:left">';
-    html += '<div style="font-size:21px;font-weight:900;color:#192951;letter-spacing:2px;line-height:1.2">ĐỒNG PHỤC HV</div>';
-    html += '<div style="font-size:10px;color:#475569;font-weight:700;font-style:italic;letter-spacing:0.5px">Tận tâm dựng xây giá trị</div>';
+    html += '<div style="font-size:21px;font-weight:900;color:' + brandTitleColor + ';letter-spacing:2px;line-height:1.2">ĐỒNG PHỤC HV</div>';
+    html += '<div style="font-size:10px;color:' + taglineColor + ';font-weight:700;font-style:italic;letter-spacing:0.5px">Tận tâm dựng xây giá trị</div>';
     html += '</div>';
     html += '</div>';
     html += '</div>';
 
-    // Đường viền mạ vàng Ánh Kim (Ảnh 3) mảnh thanh thoát 1.5px nằm GIỮA Khối Logo và Khối Tiêu Đề Header
-    html += '<div style="height:1.5px;background:linear-gradient(90deg, #fef8ec 0%, #c49a28 25%, #FAD14C 50%, #c49a28 75%, #fef8ec 100%)"></div>';
+    // Đường viền mạ vàng
+    html += '<div style="height:1.5px;background:' + dividerBg + '"></div>';
 
-    // Title bar (Ảnh 2)
-    html += '<div style="background:linear-gradient(135deg, #fffdfa 0%, #fef8ec 100%);padding:18px 24px 14px;text-align:center">';
-    html += '<div style="font-size:18.5px;font-weight:900;color:#192951;text-transform:uppercase;line-height:1.4;letter-spacing:0.4px">' + _ctkEsc(p.title) + '</div>';
+    // Title bar
+    var rawTitle = p.title || '';
+    var escapedTitle = _ctkEsc(rawTitle);
+    var custUnderline = customCustomerName ? ('<u style="text-decoration:underline;text-underline-offset:4px;font-weight:900;color:' + underlineColor + '">' + _ctkEsc(customCustomerName) + '</u>') : ('<u style="text-decoration:underline;text-underline-offset:4px;font-weight:900;color:' + underlineColor + '">Khách Hàng</u>');
+    escapedTitle = escapedTitle.replace(/\(khach_hang\)/g, custUnderline);
+
+    var titleLines = escapedTitle.split(/\r?\n/).filter(function(l){ return l.trim().length > 0; });
+    if (titleLines.length === 0) titleLines = [escapedTitle];
+
+    html += '<div style="background:' + headerBg + ';padding:18px 24px 14px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">';
+    titleLines.slice(0, 2).forEach(function(lineStr) {
+        html += '<div style="font-size:18.5px;font-weight:900;color:' + titleTitleColor + ';line-height:1.4;letter-spacing:0.4px;text-align:center;width:100%">' + lineStr + '</div>';
+    });
     html += '</div>';
 
-    // Validity date (Ảnh 1: Căn chữ cân bằng chính giữa khung bo tròn & thu nhỏ vừa vặn)
-    html += '<div style="background:linear-gradient(135deg, #fffdfa 0%, #fef8ec 100%);padding:0 24px 18px;text-align:center">';
-    html += '<div style="display:inline-flex;align-items:center;justify-content:center;padding:3.5px 13px;border-radius:20px;background:#fef3c7;border:1px solid #fde68a;box-shadow:0 2px 6px rgba(180,83,9,0.08);line-height:1.25">';
-    html += '<span style="font-size:10px;color:#92400e;font-weight:800;letter-spacing:0.2px">';
-    html += 'Thời Gian Áp Dụng : ';
-    if (p.valid_from) {
-        html += _ctkFormatDate(p.valid_from);
-        html += p.valid_to ? (' đến ' + _ctkFormatDate(p.valid_to)) : ' trở đi khi có thông tin mới nhất';
-    } else {
-        html += 'Không giới hạn';
-    }
+    // Validity date
+    var validityText = _ctkFormatValidityText(p);
+    html += '<div style="background:' + headerBg + ';padding:0 24px 18px;text-align:center">';
+    html += '<div style="display:inline-block;padding:6px 20px;border-radius:20px;background:' + pillBg + ';border:' + pillBorder + ';box-shadow:0 2px 6px rgba(0,0,0,0.12);text-align:center">';
+    html += '<span style="font-size:13px;color:' + pillTextColor + ';font-weight:800;letter-spacing:0.2px;display:inline;line-height:1.4">';
+    html += _ctkEsc(validityText);
     html += '</span>';
     html += '</div>';
     html += '</div>';
 
-    // Đường viền mạ vàng Ánh Kim vuốt dịu (kiểu Ảnh 3) 2px nằm phân cách GIỮA Header và Thân Bài
-    html += '<div style="height:2px;background:linear-gradient(90deg, #fef8ec 0%, #c49a28 25%, #FAD14C 50%, #c49a28 75%, #fef8ec 100%)"></div>';
+    // Đường viền mạ vàng
+    html += '<div style="height:2px;background:' + dividerBg + '"></div>';
 
-    // Body (Ảnh 5)
+    // Body
     html += '<div style="padding:30px 28px;border-left:2px solid #e2e8f0;border-right:2px solid #e2e8f0;background:#fff">';
 
-    // Subtitle
-    var typeLabel = p.program_type === 'ctv' ? 'CTV' : (p.program_type === 'affiliate' ? 'Affiliate' : 'Khách Hàng');
-    html += '<div style="font-size:13px;color:#475569;font-weight:600;margin-bottom:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>Áp dụng cho <b>' + typeLabel + '</b></span>';
-    if (p.field_name) {
-        html += ' • <span>Lĩnh vực:</span> <span class="ctk-badge" style="' + _ctkGetFieldBadgeStyle(p.field_name) + '">🏷️ ' + _ctkEsc(p.field_name) + '</span>';
-    }
-    html += '</div>';
-
-    // Content — auto formatted sạch đẹp với cỡ chữ 13px và khoảng cách dòng 1.65 thoáng cao
+    // Content
     if (p.content) {
-        html += '<div style="margin-bottom:18px;font-size:13px;line-height:1.65;color:#334155">' + _ctkAutoFormat(p.content) + '</div>';
+        var formattedContent = _ctkAutoFormat(p.content);
+        var custBoldColor = isRed ? '#78080a' : '#192951';
+        var custBold = customCustomerName ? ('<strong style="font-weight:900;color:' + custBoldColor + '">' + _ctkEsc(customCustomerName) + '</strong>') : ('<strong style="font-weight:900;color:' + custBoldColor + '">Khách Hàng</strong>');
+        formattedContent = formattedContent.replace(/\(khach_hang\)/g, custBold);
+        html += '<div style="margin-bottom:18px;font-size:13px;line-height:1.65;color:#334155">' + formattedContent + '</div>';
     }
 
     // Tiers
     if (p.tiers && p.tiers.length > 0) {
+        var tierBorderLeft = isRed ? '4px solid #78080a' : '4px solid #FAD14C';
+        var tierTitleColor = isRed ? '#78080a' : '#192951';
+        var tierBottomBorder = isRed ? '2px solid #78080a' : '2px solid #FAD14C';
+        var tierBg = isRed ? '#fffcfc' : '#fefdf8';
+
         p.tiers.forEach(function(t) {
-            html += '<div style="border:1.5px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:16px;border-left:4px solid #FAD14C;background:#fefdf8">';
+            html += '<div style="border:1.5px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:16px;border-left:' + tierBorderLeft + ';background:' + tierBg + '">';
+            var custBoldColor = isRed ? '#78080a' : '#192951';
+            var custBoldTier = customCustomerName ? ('<strong style="font-weight:900;color:' + custBoldColor + '">' + _ctkEsc(customCustomerName) + '</strong>') : ('<strong style="font-weight:900;color:' + custBoldColor + '">Khách Hàng</strong>');
             if (t.condition_label) {
-                html += '<div style="font-size:13.5px;font-weight:900;color:#192951;text-transform:uppercase;margin-bottom:8px;border-bottom:2px solid #FAD14C;padding-bottom:4px;display:inline-block">' + _ctkEsc(t.condition_label) + '</div>';
+                var cLabel = _ctkEsc(t.condition_label).replace(/\(khach_hang\)/g, custBoldTier);
+                html += '<div style="font-size:13.5px;font-weight:900;color:' + tierTitleColor + ';text-transform:uppercase;margin-bottom:8px;border-bottom:' + tierBottomBorder + ';padding-bottom:4px;display:inline-block">' + cLabel + '</div>';
             }
             if (t.benefit_text) {
-                html += '<div style="line-height:1.65;font-size:13px">' + _ctkAutoFormat(t.benefit_text) + '</div>';
+                var bText = _ctkAutoFormat(t.benefit_text).replace(/\(khach_hang\)/g, custBoldTier);
+                html += '<div style="line-height:1.65;font-size:13px">' + bText + '</div>';
             }
             html += '</div>';
         });
     }
+
+    // Subtitle
+    var typeLabel = p.program_type === 'ctv' ? 'CTV' : (p.program_type === 'affiliate' ? 'Affiliate' : 'Khách Hàng');
+    html += '<div style="margin-top:16px;padding-top:10px;border-top:1px dashed #f1f5f9;font-size:11px;color:#94a3b8;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap"><span>Áp dụng cho <b style="color:#64748b;font-weight:700">' + typeLabel + '</b></span>';
+    if (p.field_name) {
+        html += ' • <span>Lĩnh vực:</span> <span class="ctk-badge" style="font-size:10px;padding:2px 7px;font-weight:700;' + _ctkGetFieldBadgeStyle(p.field_name) + '">🏷️ ' + _ctkEsc(p.field_name) + '</span>';
+    }
     html += '</div>';
 
-    // Đường viền mạ vàng Ánh Kim vuốt dịu (kiểu Ảnh 3) 2px nằm GIỮA Thân Bài và Footer
-    html += '<div style="height:2px;background:linear-gradient(90deg, #fef8ec 0%, #c49a28 25%, #FAD14C 50%, #c49a28 75%, #fef8ec 100%)"></div>';
+    html += '</div>';
+
+    // Đường viền phân cách Footer
+    html += '<div style="height:2px;background:' + dividerBg + '"></div>';
 
     // Footer
-    html += '<div style="background:linear-gradient(135deg, #fffdfa 0%, #fef8ec 100%);padding:0;text-align:center">';
+    html += '<div style="background:' + footerBg + ';padding:0;text-align:center">';
     html += '<div style="padding:24px 24px 16px">';
-    html += '<div style="font-size:15px;color:#192951;font-weight:900;margin-bottom:6px;letter-spacing:0.8px">HV UNIFORM cảm ơn quý khách đã đặt hàng</div>';
-    html += '<div style="font-size:11.5px;color:#64748b;font-weight:700;font-style:italic">Chúc quý khách có một trải nghiệm tuyệt vời mua hàng tại HV</div>';
+    html += '<div style="font-size:15px;color:' + footerTitleColor + ';font-weight:900;margin-bottom:6px;letter-spacing:0.8px">HV UNIFORM cảm ơn quý khách đã đặt hàng</div>';
+    html += '<div style="font-size:11.5px;color:' + footerSubtextColor + ';font-weight:700;font-style:italic">Chúc quý khách có một trải nghiệm tuyệt vời mua hàng tại HV</div>';
     html += '</div>';
-    html += '<div style="margin:0 30px 16px;border-top:1px solid rgba(234,179,8,0.25)"></div>';
+    html += '<div style="margin:0 30px 16px;border-top:' + footerDividerBorder + '"></div>';
     html += '<div style="padding:0 24px 24px;display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap">';
-    html += '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:#fef3c7;border:1.5px solid #fde68a;color:#92400e;font-size:11.5px;font-weight:800;box-shadow:0 2px 6px rgba(180,83,9,0.08)">📞 09 2333 2333</div>';
-    html += '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:#fef3c7;border:1.5px solid #fde68a;color:#92400e;font-size:11.5px;font-weight:800;box-shadow:0 2px 6px rgba(180,83,9,0.08)">🌐 www.dongphuchv.vn</div>';
-    html += '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:#fef3c7;border:1.5px solid #fde68a;color:#92400e;font-size:11.5px;font-weight:800;box-shadow:0 2px 6px rgba(180,83,9,0.08)">📍 LK02–21 Khu Đô Thị Đô Nghĩa, Hà Đông, Hà Nội</div>';
+    html += '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:' + pillBg + ';border:' + pillBorder + ';color:' + pillTextColor + ';font-size:11.5px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.12)">📞 09 2333 2333</div>';
+    html += '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:' + pillBg + ';border:' + pillBorder + ';color:' + pillTextColor + ';font-size:11.5px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.12)">🌐 www.dongphuchv.vn</div>';
+    html += '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:' + pillBg + ';border:' + pillBorder + ';color:' + pillTextColor + ';font-size:11.5px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.12)">📍 LK02–21 Khu Đô Thị Đô Nghĩa, Hà Đông, Hà Nội</div>';
     html += '</div>';
     html += '</div>';
     html += '</div>';
     return html;
 }
+
+// Customer Name Prompt Modal for Exporting Image
+window._ctkPromptCustomerNameAndExport = function(p) {
+    var existingModal = document.getElementById('ctk-cust-prompt-overlay');
+    if (existingModal) existingModal.remove();
+
+    var ov = document.createElement('div');
+    ov.className = 'ctk-modal-overlay';
+    ov.id = 'ctk-cust-prompt-overlay';
+    ov.style.zIndex = '100000';
+
+    var html = '<div class="ctk-modal" style="max-width:440px">';
+    html += '<div class="ctk-modal-head">';
+    html += '<span style="font-size:17px;font-weight:900">👤 Nhập Thông Tin Khách Hàng Để Tải Ảnh</span>';
+    html += '<button onclick="document.getElementById(\'ctk-cust-prompt-overlay\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>';
+    html += '</div>';
+    html += '<div class="ctk-modal-body" style="padding:20px">';
+    
+    html += '<div style="font-size:13px;color:#475569;margin-bottom:14px;font-weight:600;line-height:1.5">';
+    html += 'Chương trình này yêu cầu cá nhân hóa tên khách hàng trên hình ảnh. Vui lòng chọn danh xưng và nhập tên khách hàng:';
+    html += '</div>';
+
+    // 1. Danh xưng (Bắt buộc)
+    html += '<div class="ctk-form-group" style="margin-bottom:14px">';
+    html += '<label class="ctk-form-label" style="font-weight:800;color:#192951">📌 Danh xưng *</label>';
+    html += '<div style="display:flex;gap:20px;margin-top:6px">';
+    html += '<label style="display:flex;align-items:center;gap:6px;font-weight:800;cursor:pointer;color:#192951;font-size:14px">';
+    html += '<input type="radio" name="ctk-cust-prefix" value="Anh" />';
+    html += '<span>Anh</span>';
+    html += '</label>';
+    html += '<label style="display:flex;align-items:center;gap:6px;font-weight:800;cursor:pointer;color:#192951;font-size:14px">';
+    html += '<input type="radio" name="ctk-cust-prefix" value="Chị" />';
+    html += '<span>Chị</span>';
+    html += '</label>';
+    html += '</div>';
+    html += '</div>';
+
+    // 2. Tên khách hàng (Bắt buộc)
+    html += '<div class="ctk-form-group" style="margin-bottom:18px">';
+    html += '<label class="ctk-form-label" style="font-weight:800;color:#192951">📝 Tên Khách Hàng *</label>';
+    html += '<input id="ctk-cust-name-input" type="text" class="ctk-form-input" placeholder="Ví dụ: Việt Trinh" style="font-size:14px;font-weight:700" />';
+    html += '<div style="font-size:11px;color:#64748b;margin-top:4px">Hệ thống sẽ tự động viết hoa chữ cái đầu (Ví dụ: việt trinh &rarr; Việt Trinh).</div>';
+    html += '</div>';
+
+    // Submit
+    html += '<div style="display:flex;gap:10px;justify-content:flex-end">';
+    html += '<button type="button" onclick="document.getElementById(\'ctk-cust-prompt-overlay\').remove()" style="padding:9px 18px;background:#f1f5f9;color:#475569;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Hủy</button>';
+    html += '<button type="button" id="ctk-btn-confirm-cust-export" style="padding:9px 20px;background:linear-gradient(135deg,#FAD14C,#f5c030);color:#192951;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(250,209,76,0.35)">🖼️ Xác Nhận Tải Ảnh</button>';
+    html += '</div>';
+
+    html += '</div></div>';
+    ov.innerHTML = html;
+    document.body.appendChild(ov);
+
+    setTimeout(function() {
+        var inputEl = document.getElementById('ctk-cust-name-input');
+        if (inputEl) inputEl.focus();
+    }, 100);
+
+    document.getElementById('ctk-btn-confirm-cust-export').onclick = function() {
+        var prefixEls = document.getElementsByName('ctk-cust-prefix');
+        var prefix = '';
+        for (var i = 0; i < prefixEls.length; i++) {
+            if (prefixEls[i].checked) {
+                prefix = prefixEls[i].value;
+                break;
+            }
+        }
+        if (!prefix) {
+            alert('⚠️ Vui lòng chọn danh xưng (Anh hoặc Chị)!');
+            return;
+        }
+
+        var inputEl = document.getElementById('ctk-cust-name-input');
+        var rawName = inputEl ? inputEl.value.trim() : '';
+        if (!rawName) {
+            alert('⚠️ Vui lòng nhập tên khách hàng!');
+            if (inputEl) inputEl.focus();
+            return;
+        }
+
+        var formattedName = _ctkCapitalizeVnName(rawName);
+        var fullCustomerText = prefix + ' ' + formattedName;
+
+        ov.remove();
+        _ctkDoExport(p, fullCustomerText);
+    };
+};
 
 // Export Image Functionality (Khung rộng 540px Poster Dọc)
 window._ctkExportImage = function(id) {
@@ -815,13 +1092,19 @@ window._ctkExportImage = function(id) {
         }
         var p = res.program;
         var now = _ctkGetVnToday();
-        var isNotStarted = p.valid_from && p.valid_from.split('T')[0] > now;
-        var isExpired = p.valid_to && p.valid_to.split('T')[0] < now;
+        var isNotStarted = p.valid_type !== 'auto_days' && p.valid_type !== 'days_from_sent' && p.valid_from && p.valid_from.split('T')[0] > now;
+        var isExpired = p.valid_type !== 'auto_days' && p.valid_type !== 'days_from_sent' && p.valid_to && p.valid_to.split('T')[0] < now;
         if (!p.is_active || isExpired || isNotStarted) {
             var reason = isExpired ? 'đã hết hạn' : (!p.is_active ? 'đang tạm dừng' : 'chưa đến ngày áp dụng');
             return alert('⚠️ Chương trình này ' + reason + ', không thể tải ảnh!');
         }
-        _ctkDoExport(p);
+
+        var hasCustomerNameTag = p.include_customer_name === true || (p.title && p.title.indexOf('(khach_hang)') !== -1) || (p.content && p.content.indexOf('(khach_hang)') !== -1);
+        if (hasCustomerNameTag) {
+            _ctkPromptCustomerNameAndExport(p);
+        } else {
+            _ctkDoExport(p);
+        }
     });
 };
 
@@ -870,22 +1153,24 @@ function _ctkDownloadDirectImage(imageUrl, title) {
         });
 }
 
-function _ctkDoExport(program) {
-    if (program && program.image_url && program.image_url.trim()) {
+function _ctkDoExport(program, customCustomerName) {
+    var hasCustTag = program.include_customer_name === true || (program.title && program.title.indexOf('(khach_hang)') !== -1) || (program.content && program.content.indexOf('(khach_hang)') !== -1);
+
+    if (program && program.image_url && program.image_url.trim() && program.valid_type !== 'auto_days' && program.valid_type !== 'days_from_sent' && !hasCustTag) {
         _ctkDownloadDirectImage(program.image_url, program.title);
         return;
     }
 
     var existingExportArea = document.getElementById('ctk-export-area');
-    if (existingExportArea && document.getElementById('ctk-modal-overlay')) {
+    if (existingExportArea && document.getElementById('ctk-modal-overlay') && !customCustomerName) {
         _ctkRunHtml2Canvas(existingExportArea, program);
         return;
     }
 
     var wrapper = document.createElement('div');
     wrapper.id = 'ctk-temp-export-wrapper';
-    wrapper.style.cssText = 'position:absolute;left:-9999px;top:0;width:540px;z-index:99999;opacity:1;background:#ffffff';
-    wrapper.innerHTML = _ctkBuildPreviewHTML(program);
+    wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;width:540px;z-index:-9999;opacity:1;pointer-events:none;background:#ffffff';
+    wrapper.innerHTML = _ctkBuildPreviewHTML(program, customCustomerName);
     document.body.appendChild(wrapper);
 
     _ctkRunHtml2Canvas(wrapper, program, function() {
@@ -906,7 +1191,17 @@ function _ctkRunHtml2Canvas(elementTarget, program, callback) {
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
-            logging: false
+            logging: false,
+            onclone: function(clonedDoc) {
+                var el = clonedDoc.getElementById('ctk-temp-export-wrapper');
+                if (el) {
+                    el.style.position = 'relative';
+                    el.style.left = '0';
+                    el.style.top = '0';
+                    el.style.opacity = '1';
+                    el.style.zIndex = '1';
+                }
+            }
         }).then(function(canvas) {
             var cleanTitle = (program.title || 'HV').replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g, '_').substring(0, 50);
             var filename = 'Chuong_Trinh_' + cleanTitle + '.png';
@@ -1010,6 +1305,63 @@ window._ctkViewDetail = function(id) {
     });
 };
 
+// Dynamic Helpers for Validity Conditions
+window._ctkSwitchValidType = function(type) {
+    var b1 = document.getElementById('ctk-valid-box-date_range');
+    var b2 = document.getElementById('ctk-valid-box-days_from_sent');
+    var b3 = document.getElementById('ctk-valid-box-auto_days');
+
+    if (b1) b1.style.display = (type === 'date_range') ? 'flex' : 'none';
+    if (b2) b2.style.display = (type === 'days_from_sent') ? 'block' : 'none';
+    if (b3) b3.style.display = (type === 'auto_days') ? 'block' : 'none';
+
+    if (type === 'days_from_sent') window._ctkUpdateDaysPreview('days_from_sent');
+    if (type === 'auto_days') window._ctkUpdateDaysPreview('auto_days');
+};
+
+window._ctkToggleCustNameBox = function(show) {
+    var box = document.getElementById('ctk-cust-name-box');
+    if (box) box.style.display = show ? 'block' : 'none';
+};
+
+function _ctkBuildAutoDaysPreviewText(daysVal) {
+    var d = parseInt(daysVal, 10);
+    if (!d || d <= 0) d = 5;
+    var nowVn = new Date();
+    try {
+        nowVn = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    } catch(e){}
+    var day1 = nowVn.getDate();
+    var m1 = nowVn.getMonth() + 1;
+    var y1 = nowVn.getFullYear();
+
+    var endVn = new Date(nowVn);
+    endVn.setDate(endVn.getDate() + d);
+    var day2 = endVn.getDate();
+    var m2 = endVn.getMonth() + 1;
+    var y2 = endVn.getFullYear();
+
+    return 'Mẫu hiển thị khi tải ảnh: Thời gian áp dụng từ ngày ' + day1 + '/' + m1 + '/' + y1 + ' - ' + day2 + '/' + m2 + '/' + y2;
+}
+
+window._ctkUpdateDaysPreview = function(type) {
+    if (type === 'days_from_sent') {
+        var input = document.getElementById('ctk-f-days-sent');
+        var prev = document.getElementById('ctk-preview-days_from_sent');
+        if (input && prev) {
+            var val = parseInt(input.value, 10);
+            var num = (val && val > 0) ? val : 30;
+            prev.innerText = 'Mẫu hiển thị: Thời hạn ưu đãi: ' + num + ' ngày kể từ ngày gửi chương trình';
+        }
+    } else if (type === 'auto_days') {
+        var inputA = document.getElementById('ctk-f-days-auto');
+        var prevA = document.getElementById('ctk-preview-auto_days');
+        if (inputA && prevA) {
+            prevA.innerText = _ctkBuildAutoDaysPreviewText(inputA.value);
+        }
+    }
+};
+
 // Create / Edit Modal (Form Giống Hệt Ảnh 1 - Chính Sách Mới)
 window._ctkOpenModal = function(id) {
     var p = id ? _ctk.programs.find(function(x){ return x.id === id; }) : null;
@@ -1018,10 +1370,15 @@ window._ctkOpenModal = function(id) {
     window._ctkCloseModal();
 
     var isEdit = !!_ctk.editingId;
+    var vType = p && p.valid_type ? p.valid_type : 'date_range';
+    var vDays = p && p.valid_days ? p.valid_days : '';
+
     var data = p ? {
         title: p.title || '',
-        program_type: p.program_type || 'khach_hang',
+        program_type: p.program_type || '',
         field_name: p.field_name || '',
+        valid_type: vType,
+        valid_days: vDays,
         valid_from: p.valid_from ? p.valid_from.split('T')[0] : '',
         valid_to: p.valid_to ? p.valid_to.split('T')[0] : '',
         content: _ctkCleanOrphanNumberLines(p.content || ''),
@@ -1029,8 +1386,10 @@ window._ctkOpenModal = function(id) {
         is_active: p.is_active !== false
     } : {
         title: '',
-        program_type: 'khach_hang',
+        program_type: '',
         field_name: '',
+        valid_type: 'date_range',
+        valid_days: '',
         valid_from: '',
         valid_to: '',
         content: '',
@@ -1053,6 +1412,7 @@ window._ctkOpenModal = function(id) {
     html += '<div class="ctk-form-group">';
     html += '<label class="ctk-form-label">📌 Đối Tượng Áp Dụng *</label>';
     html += '<select id="ctk-f-type" class="ctk-form-input">';
+    html += '<option value="">-- Chọn đối tượng áp dụng --</option>';
     html += '<option value="khach_hang"' + (data.program_type === 'khach_hang' ? ' selected' : '') + '>👤 Khách Hàng</option>';
     html += '<option value="ctv"' + (data.program_type === 'ctv' ? ' selected' : '') + '>🤝 CTV</option>';
     html += '<option value="affiliate"' + (data.program_type === 'affiliate' ? ' selected' : '') + '>🔗 Affiliate</option>';
@@ -1074,21 +1434,111 @@ window._ctkOpenModal = function(id) {
     }
     html += '</div>';
 
-    // 3. Tên Chương Trình & Quà Tặng *
+    // 3. Tên Chương Trình & Quà Tặng * (Tối đa 2 dòng)
     html += '<div class="ctk-form-group">';
-    html += '<label class="ctk-form-label">📝 Tên Chương Trình & Quà Tặng *</label>';
-    html += '<input id="ctk-f-title" class="ctk-form-input" placeholder="VD: Chi Phí Vận Chuyển Ra Nhà Xe - Máy Bay" value="' + _ctkEsc(data.title) + '" />';
+    html += '<label class="ctk-form-label">📝 Tên Chương Trình & Quà Tặng * <span style="font-size:11px;color:#64748b;font-weight:600">(tối đa 2 dòng - dòng 2 tự động căn giữa khi xuất ảnh)</span></label>';
+    html += '<textarea id="ctk-f-title" rows="2" class="ctk-form-input" style="min-height:58px;max-height:80px;resize:none;font-weight:700;font-size:13.5px;line-height:1.45" placeholder="VD: 🎁 Đồng Phục HV Trân Trọng Gửi Tặng (khach_hang)&#10;Chương Trình Ưu Đãi Đặc Biệt" onkeydown="window._ctkLimitTitleLines(event, this)" oninput="window._ctkCleanTitleLines(this)">' + _ctkEsc(data.title || '') + '</textarea>';
     html += '</div>';
 
-    // 4. Áp Dụng Từ & Đến Ngày
-    html += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
-    html += '<div class="ctk-form-group" style="flex:1;min-width:200px">';
-    html += '<label class="ctk-form-label">📅 Áp Dụng Từ</label>';
-    html += '<input id="ctk-f-from" type="date" class="ctk-form-input" value="' + (data.valid_from || '') + '" onchange="window._ctkSyncDateMin()" />';
+    // 4. Thời Gian Áp Dụng (Radio choice - bắt buộc chọn 1 trong 3 điều kiện)
+    html += '<div class="ctk-form-group" style="background:#f8fafc;padding:16px;border-radius:14px;border:1.5px solid #cbd5e1;margin-bottom:16px">';
+    html += '<label class="ctk-form-label" style="font-size:13.5px;font-weight:800;color:#192951;margin-bottom:12px;display:block">📅 Thời Gian Áp Dụng <span style="font-size:11px;color:#dc2626;font-weight:700">(Bắt buộc chỉ chọn 1 trong 3 điều kiện)</span></label>';
+
+    // Condition 1
+    var vnToday = _ctkGetVnToday();
+    var minFromDate = (isEdit && data.valid_from && data.valid_from < vnToday) ? data.valid_from : vnToday;
+
+    html += '<div style="margin-bottom:10px;padding:10px 14px;background:#ffffff;border-radius:10px;border:1px solid #cbd5e1">';
+    html += '<label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer;color:#192951;font-size:13px">';
+    html += '<input type="radio" name="ctk-valid-type-radio" value="date_range"' + (data.valid_type === 'date_range' ? ' checked' : '') + ' onchange="window._ctkSwitchValidType(\'date_range\')" />';
+    html += '<span>1️⃣ Chọn khoảng ngày cụ thể (Áp Dụng Từ &rarr; Đến Ngày)</span>';
+    html += '</label>';
+    html += '<div id="ctk-valid-box-date_range" style="margin-top:10px;display:' + (data.valid_type === 'date_range' ? 'flex' : 'none') + ';gap:12px;flex-wrap:wrap">';
+    html += '<div style="flex:1;min-width:180px">';
+    html += '<label style="font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;display:block">📅 Áp Dụng Từ</label>';
+    html += '<input id="ctk-f-from" type="date" class="ctk-form-input" value="' + (data.valid_from || '') + '" min="' + minFromDate + '" onchange="window._ctkSyncDateMin()" />';
     html += '</div>';
-    html += '<div class="ctk-form-group" style="flex:1;min-width:200px">';
-    html += '<label class="ctk-form-label">📅 Đến Ngày <span style="font-size:11px;color:#64748b">(bỏ trống = mãi mãi)</span></label>';
-    html += '<input id="ctk-f-to" type="date" class="ctk-form-input" value="' + (data.valid_to || '') + '" min="' + (data.valid_from || '') + '" onchange="window._ctkSyncDateMin()" />';
+    html += '<div style="flex:1;min-width:180px">';
+    html += '<label style="font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;display:block">📅 Đến Ngày <span style="font-size:10px;color:#64748b">(bỏ trống = mãi mãi)</span></label>';
+    html += '<input id="ctk-f-to" type="date" class="ctk-form-input" value="' + (data.valid_to || '') + '" min="' + (data.valid_from || minFromDate) + '" onchange="window._ctkSyncDateMin()" />';
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Condition 2
+    html += '<div style="margin-bottom:10px;padding:10px 14px;background:#ffffff;border-radius:10px;border:1px solid #cbd5e1">';
+    html += '<label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer;color:#192951;font-size:13px">';
+    html += '<input type="radio" name="ctk-valid-type-radio" value="days_from_sent"' + (data.valid_type === 'days_from_sent' ? ' checked' : '') + ' onchange="window._ctkSwitchValidType(\'days_from_sent\')" />';
+    html += '<span>2️⃣ Số ngày áp dụng tính từ thời điểm gửi (Ví dụ: 30 ngày)</span>';
+    html += '</label>';
+    html += '<div id="ctk-valid-box-days_from_sent" style="margin-top:10px;display:' + (data.valid_type === 'days_from_sent' ? 'block' : 'none') + '">';
+    html += '<div style="display:flex;align-items:center;gap:8px">';
+    html += '<input id="ctk-f-days-sent" type="number" min="1" class="ctk-form-input" placeholder="Ví dụ: 30" value="' + (data.valid_type === 'days_from_sent' ? (data.valid_days || '') : '') + '" style="max-width:200px" oninput="window._ctkUpdateDaysPreview(\'days_from_sent\')" />';
+    html += '<span style="font-size:13px;font-weight:700;color:#192951">ngày</span>';
+    html += '</div>';
+    html += '<div id="ctk-preview-days_from_sent" style="font-size:12px;color:#0284c7;margin-top:6px;font-weight:700">';
+    html += 'Mẫu hiển thị: ' + (data.valid_type === 'days_from_sent' && data.valid_days ? ('Thời hạn ưu đãi: ' + data.valid_days + ' ngày kể từ ngày gửi chương trình') : 'Thời hạn ưu đãi: 15 ngày kể từ ngày gửi chương trình');
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Condition 3
+    html += '<div style="padding:10px 14px;background:#ffffff;border-radius:10px;border:1px solid #cbd5e1">';
+    html += '<label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer;color:#192951;font-size:13px">';
+    html += '<input type="radio" name="ctk-valid-type-radio" value="auto_days"' + (data.valid_type === 'auto_days' ? ' checked' : '') + ' onchange="window._ctkSwitchValidType(\'auto_days\')" />';
+    html += '<span>3️⃣ Số ngày áp dụng (Tự động tính từ lúc tải ảnh)</span>';
+    html += '</label>';
+    html += '<div id="ctk-valid-box-auto_days" style="margin-top:10px;display:' + (data.valid_type === 'auto_days' ? 'block' : 'none') + '">';
+    html += '<div style="display:flex;align-items:center;gap:8px">';
+    html += '<input id="ctk-f-days-auto" type="number" min="1" class="ctk-form-input" placeholder="Ví dụ: 5" value="' + (data.valid_type === 'auto_days' ? (data.valid_days || '') : '') + '" style="max-width:200px" oninput="window._ctkUpdateDaysPreview(\'auto_days\')" />';
+    html += '<span style="font-size:13px;font-weight:700;color:#192951">ngày</span>';
+    html += '</div>';
+    html += '<div id="ctk-preview-auto_days" style="font-size:12px;color:#059669;margin-top:6px;font-weight:700">';
+    html += _ctkBuildAutoDaysPreviewText(data.valid_type === 'auto_days' ? data.valid_days : '');
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '</div>';
+
+    // 4b. Chèn Tên Khách Hàng ở nội dung? (Mặc định Không, tự động bật nếu chứa từ khóa (khach_hang))
+    var isCustName = (data && (data.include_customer_name === true || (data.title && data.title.indexOf('(khach_hang)') !== -1) || (data.content && data.content.indexOf('(khach_hang)') !== -1)));
+    html += '<div class="ctk-form-group" style="background:#f8fafc;padding:16px;border-radius:14px;border:1.5px solid #cbd5e1;margin-bottom:16px">';
+    html += '<label class="ctk-form-label" style="font-size:13.5px;font-weight:800;color:#192951;margin-bottom:10px;display:block">👤 Chèn Tên Khách Hàng ở Nội Dung?</label>';
+    html += '<div style="display:flex;gap:20px;align-items:center">';
+    html += '<label style="display:flex;align-items:center;gap:6px;font-weight:700;cursor:pointer;color:#192951;font-size:13px">';
+    html += '<input type="radio" name="ctk-inc-cust-name-radio" value="false"' + (!isCustName ? ' checked' : '') + ' onchange="window._ctkToggleCustNameBox(false)" />';
+    html += '<span>🔴 Không (Mặc định)</span>';
+    html += '</label>';
+    html += '<label style="display:flex;align-items:center;gap:6px;font-weight:700;cursor:pointer;color:#192951;font-size:13px">';
+    html += '<input type="radio" name="ctk-inc-cust-name-radio" value="true"' + (isCustName ? ' checked' : '') + ' onchange="window._ctkToggleCustNameBox(true)" />';
+    html += '<span>🟢 Có</span>';
+    html += '</label>';
+    html += '</div>';
+
+    html += '<div id="ctk-cust-name-box" style="margin-top:12px;padding:12px;background:#ffffff;border-radius:10px;border:1px solid #bae6fd;display:' + (isCustName ? 'block' : 'none') + '">';
+    html += '<div style="font-size:12.5px;color:#0369a1;font-weight:700;margin-bottom:8px">💡 Từ khóa cá nhân hóa tên khách hàng:</div>';
+    html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+    html += '<code style="background:#e0f2fe;color:#0369a1;padding:6px 12px;border-radius:8px;font-weight:800;font-size:13.5px;border:1px solid #bae6fd">(khach_hang)</code>';
+    html += '<button type="button" onclick="window._ctkCopyKeyword(\'(khach_hang)\')" style="padding:6px 14px;background:linear-gradient(135deg,#0284c7,#0369a1);color:#ffffff;border:none;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer;box-shadow:0 2px 6px rgba(2,132,199,0.25)">📋 Copy (khach_hang)</button>';
+    html += '</div>';
+    html += '<div style="font-size:11.5px;color:#64748b;margin-top:8px">Dán từ khóa <strong>(khach_hang)</strong> vào bất kỳ đâu trong ô Tên Chương Trình hoặc Nội Dung (Ví dụ: <i>🎁 Đồng Phục HV Trân Trọng Gửi Tặng (khach_hang) Chương Trình Ưu Đãi Đặc Biệt...</i>). Khi nhân viên ấn Tải Ảnh, hệ thống sẽ mở bảng hỏi tên để thay thế tự động!</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // 4c. Tông Màu Poster * (Bắt buộc chọn 1 trong 2 màu)
+    var activeTheme = (data && data.theme_color) ? data.theme_color : 'gold';
+    html += '<div class="ctk-form-group" style="background:#f8fafc;padding:16px;border-radius:14px;border:1.5px solid #cbd5e1;margin-bottom:16px">';
+    html += '<label class="ctk-form-label" style="font-size:13.5px;font-weight:800;color:#192951;margin-bottom:10px;display:block">🎨 Tông Màu Poster * <span style="font-size:11px;color:#dc2626;font-weight:700">(Bắt buộc chọn 1 trong 2 màu)</span></label>';
+    html += '<div style="display:flex;gap:16px;flex-wrap:wrap">';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:2px solid #FAD14C;background:#fffdfa;cursor:pointer;flex:1;min-width:180px">';
+    html += '<input type="radio" name="ctk-theme-color-radio" value="gold"' + (activeTheme === 'gold' ? ' checked' : '') + ' />';
+    html += '<span style="font-weight:800;color:#92400e;font-size:13.5px">🟡 Màu Vàng Hoàng Gia (Mặc định)</span>';
+    html += '</label>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:2px solid #991b1b;background:#fef2f2;cursor:pointer;flex:1;min-width:180px">';
+    html += '<input type="radio" name="ctk-theme-color-radio" value="red"' + (activeTheme === 'red' ? ' checked' : '') + ' />';
+    html += '<span style="font-weight:800;color:#991b1b;font-size:13.5px">🔴 Màu Đỏ Đô Sang Trọng</span>';
+    html += '</label>';
     html += '</div>';
     html += '</div>';
 
@@ -1164,8 +1614,49 @@ window._ctkSaveProgram = function() {
     var pType = document.getElementById('ctk-f-type').value;
     var field = document.getElementById('ctk-f-field').value;
     var title = (document.getElementById('ctk-f-title').value || '').trim();
-    var validFrom = document.getElementById('ctk-f-from').value;
-    var validTo = document.getElementById('ctk-f-to').value;
+
+    var radioEls = document.getElementsByName('ctk-valid-type-radio');
+    var validType = 'date_range';
+    for (var i = 0; i < radioEls.length; i++) {
+        if (radioEls[i].checked) {
+            validType = radioEls[i].value;
+            break;
+        }
+    }
+
+    var validFrom = null;
+    var validTo = null;
+    var validDays = null;
+
+    if (validType === 'date_range') {
+        var vnToday = _ctkGetVnToday();
+        validFrom = document.getElementById('ctk-f-from') ? document.getElementById('ctk-f-from').value : '';
+        validTo = document.getElementById('ctk-f-to') ? document.getElementById('ctk-f-to').value : '';
+        
+        if (!isEdit && validFrom && validFrom < vnToday) {
+            alert('⚠️ Nguyên tắc bắt buộc:\n📅 Áp Dụng Từ phải từ ngày hiện tại (' + _ctkFormatDateDisplay(vnToday) + ') trở đi, không được chọn ngày trong quá khứ!');
+            return;
+        }
+
+        if (validFrom && validTo && validTo < validFrom) {
+            alert('⚠️ Nguyên tắc bắt buộc:\n📅 Đến Ngày phải là ngày lớn hơn hoặc bằng ngày 📅 Áp Dụng Từ!\n\nKhông được nhỏ hơn ngày Áp Dụng Từ.');
+            return;
+        }
+    } else if (validType === 'days_from_sent') {
+        var dSent = document.getElementById('ctk-f-days-sent') ? parseInt(document.getElementById('ctk-f-days-sent').value, 10) : 0;
+        if (!dSent || dSent <= 0) {
+            alert('⚠️ Vui lòng nhập số ngày áp dụng tính từ ngày gửi (ví dụ: 30)');
+            return;
+        }
+        validDays = dSent;
+    } else if (validType === 'auto_days') {
+        var dAuto = document.getElementById('ctk-f-days-auto') ? parseInt(document.getElementById('ctk-f-days-auto').value, 10) : 0;
+        if (!dAuto || dAuto <= 0) {
+            alert('⚠️ Vui lòng nhập số ngày áp dụng tự tính từ hôm nay (ví dụ: 5)');
+            return;
+        }
+        validDays = dAuto;
+    }
     
     var editorEl = document.getElementById('ctk-f-content-editor');
     var content = editorEl ? editorEl.innerHTML.trim() : '';
@@ -1185,15 +1676,35 @@ window._ctkSaveProgram = function() {
         return;
     }
 
-    if (validFrom && validTo && validTo < validFrom) {
-        alert('⚠️ Nguyên tắc bắt buộc:\n📅 Đến Ngày phải là ngày lớn hơn hoặc bằng ngày 📅 Áp Dụng Từ!\n\nKhông được nhỏ hơn ngày Áp Dụng Từ.');
-        return;
+    var custNameEls = document.getElementsByName('ctk-inc-cust-name-radio');
+    var includeCustName = false;
+    for (var i = 0; i < custNameEls.length; i++) {
+        if (custNameEls[i].checked && custNameEls[i].value === 'true') {
+            includeCustName = true;
+            break;
+        }
+    }
+    if ((title && title.indexOf('(khach_hang)') !== -1) || (content && content.indexOf('(khach_hang)') !== -1)) {
+        includeCustName = true;
+    }
+
+    var themeEls = document.getElementsByName('ctk-theme-color-radio');
+    var themeColor = 'gold';
+    for (var i = 0; i < themeEls.length; i++) {
+        if (themeEls[i].checked) {
+            themeColor = themeEls[i].value;
+            break;
+        }
     }
 
     var bodyData = {
         title: title,
         program_type: pType,
         field_name: field,
+        valid_type: validType,
+        valid_days: validDays,
+        include_customer_name: includeCustName,
+        theme_color: themeColor,
         valid_from: validFrom || null,
         valid_to: validTo || null,
         content: content,

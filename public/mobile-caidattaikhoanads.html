@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cài Đặt Tài Khoản Ads — Đồng Phục HV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    
+    <!-- Unified Mobile Style -->
+    <link rel="stylesheet" href="/css/mobile-nav.css?v=20260621">
+    
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            padding-bottom: 80px;
+        }
+        .container {
+            padding: 16px;
+            margin-top: 60px;
+        }
+        .header-card {
+            background: linear-gradient(135deg, #1e1b4b, #4338ca);
+            border-radius: 16px;
+            padding: 24px;
+            color: white;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px -5px rgba(67, 56, 202, 0.3);
+        }
+        .header-card h2 {
+            margin: 0 0 8px;
+            font-size: 24px;
+            font-weight: 800;
+        }
+        .header-card p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div id="mobileHeader"></div>
+
+    <div class="container">
+        <div class="header-card">
+            <h2>⚙️ Cài Đặt Tài Khoản Ads</h2>
+            <p>Trung tâm quản lý tập trung toàn bộ tài khoản quảng cáo Facebook, TikTok, Google Ads và theo dõi trạng thái kết nối.</p>
+        </div>
+
+        <div id="mobile-content-root"></div>
+    </div>
+
+    <!-- Global Mobile Nav -->
+    <script src="/js/mobile-nav.js?v=20260823"></script>
+    <script src="/js/pages/caidattaikhoanads.js?v=20260823"></script>
+    <script>
+        async function _initMobilePage() {
+            let attempts = 0;
+            while (!window._currentUser && attempts < 20) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            const root = document.getElementById('mobile-content-root');
+            if (root && typeof window.renderCaidattaikhoanadsPage === 'function') {
+                window.renderCaidattaikhoanadsPage(root);
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _initMobilePage);
+        } else {
+            _initMobilePage();
+        }
+    </script>
+</body>
+</html>

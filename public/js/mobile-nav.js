@@ -34,7 +34,10 @@ const MOBILE_MENU_CONFIG = [
     { id: 'khuyenmaigiamgia', label: 'Tạo Mã Giảm Giá', icon: '🎁', href: '/m/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' },
     { id: 'noiquycongtyhv', label: 'Nội Quy & Điều Khoản', icon: '📜', href: '/m/noiquycongtyhv', permKey: 'noi_quy_cong_ty' },
     { id: 'tulieuxuongvp', label: 'Tư Liệu Xưởng & VP', icon: '📂', href: '/m/tulieuxuongvp', permKey: 'tu_lieu_xuong_vp' },
-    { id: 'bosuutap', label: 'Bộ Sưu Tập / BST', icon: '🖼️', href: '/m/bosuutap', permKey: 'bo_suu_tap' }
+    { id: 'bosuutap', label: 'Bộ Sưu Tập / BST', icon: '🖼️', href: '/m/bosuutap', permKey: 'bo_suu_tap' },
+    { id: 'caidattkads', label: 'Cài Đặt Tài Khoản Ads', icon: '⚙️', href: '/m/caidattaikhoanads', permKey: 'cai_dat_ads' },
+    { id: 'thongkeads', label: 'Thống Kê Camp Hiệu Quả', icon: '📊', href: '/m/thongkeads', permKey: 'thong_ke_ads' },
+    { id: 'gioihanchitieu', label: '1. Giới Hạn Chi Tiêu', icon: '💰', href: '/m/gioihanchitieu', permKey: 'gioi_han_chi_tieu' }
 ];
 
 
@@ -62,6 +65,7 @@ async function initMobileNavigation() {
             return;
         }
 
+        window._currentUser = data.user;
         const user = data.user;
         const perms = user.permissions || {};
         
@@ -239,6 +243,14 @@ if (!document.getElementById('hvAiScript') && !window.HVAiAssistantInitialized) 
     const s = document.createElement('script');
     s.id = 'hvAiScript';
     s.src = '/js/components/aiAssistant.js?v=20260815_v2100_STRICT_SLASH_SHORTCUT_FILTER';
+    document.head.appendChild(s);
+}
+
+// Auto-inject Kết Nối Tài Khoản Ads Widget
+if (!document.getElementById('hvAdsConnScript') && !window.HVAdsConnWidgetInitialized) {
+    const s = document.createElement('script');
+    s.id = 'hvAdsConnScript';
+    s.src = '/js/components/adsConnectionWidget.js?v=20260823';
     document.head.appendChild(s);
 }
 

@@ -1756,6 +1756,10 @@ async function start() {
     fastify.register(require('./routes/bangcongviec'));
     fastify.register(require('./routes/bosuutap'));
     fastify.register(require('./routes/khoads'));
+    fastify.register(require('./routes/chiendichads'));
+    fastify.register(require('./routes/thongkeads'));
+    fastify.register(require('./routes/gioihanchitieu'));
+    fastify.register(require('./routes/caidatads'));
     fastify.register(require('./routes/telegram'));
     fastify.register(require('./routes/paymentRecords'));
     fastify.register(require('./routes/cashflow'));
@@ -1850,6 +1854,19 @@ async function start() {
         return reply.sendFile('mobile-bosuutap.html');
     });
 
+    // Mobile Thống Kê Chiến Dịch Ads
+    fastify.get('/m/thongkeads', async (request, reply) => {
+        return reply.sendFile('mobile-thongkeads.html');
+    });
+
+    // Mobile Giới Hạn Chi Tiêu Ads
+    fastify.get('/m/gioihanchitieu', async (request, reply) => {
+        return reply.sendFile('mobile-gioihanchitieu.html');
+    });
+
+    fastify.get('/m/caidattaikhoanads', async (request, reply) => {
+        return reply.sendFile('mobile-caidattaikhoanads.html');
+    });
 
     // Mobile Chuyển Số — standalone touch-optimized page
     fastify.get('/m/chuyen-so', async (request, reply) => {
@@ -2048,7 +2065,7 @@ async function start() {
 
         // Build script tags for MISSING files only (inject before </body>)
         const buildVer = Date.now(); // Cache-bust: mỗi lần server restart = version mới
-        const allowedGlobalInjects = new Set(['notifications.js', 'emergency.js', 'topkhachhang.js', 'kpimarketing.js', 'kpimktview.js']);
+        const allowedGlobalInjects = new Set(['notifications.js', 'emergency.js', 'topkhachhang.js', 'kpimarketing.js', 'kpimktview.js', 'thongkeads.js', 'gioihanchitieu.js', 'caidattaikhoanads.js']);
         const missingScripts = pageFiles
             .filter(f => !alreadyIncluded.has(f) && allowedGlobalInjects.has(f))
             .map(f => {
