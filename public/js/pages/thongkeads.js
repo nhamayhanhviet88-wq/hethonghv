@@ -1010,9 +1010,9 @@ window.renderThongkeadsPage = function(container) {
                 threshold = parseFloat(acc.effectiveness_threshold) || 75000;
                 ignoreThresh = parseFloat(acc.ignore_no_msg_spend_threshold) || 70000;
             }
-        } else if (_campaigns.length > 0 && _campaigns[0].ignore_no_msg_spend_threshold != null) {
-            ignoreThresh = parseFloat(_campaigns[0].ignore_no_msg_spend_threshold) || 70000;
-            if (_campaigns[0].effectiveness_threshold) threshold = parseFloat(_campaigns[0].effectiveness_threshold) || 75000;
+        } else if (_campaigns.length > 0) {
+            if (_campaigns[0].ignore_no_msg_spend_threshold != null) ignoreThresh = parseFloat(_campaigns[0].ignore_no_msg_spend_threshold) || 70000;
+            if (_campaigns[0].effectiveness_threshold != null) threshold = parseFloat(_campaigns[0].effectiveness_threshold) || 75000;
         } else if (_accounts.length > 0) {
             ignoreThresh = parseFloat(_accounts[0].ignore_no_msg_spend_threshold) || 70000;
             threshold = parseFloat(_accounts[0].effectiveness_threshold) || 75000;

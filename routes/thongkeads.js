@@ -762,7 +762,11 @@ module.exports = async function (fastify, opts) {
                         THEN COALESCE(d.run_count, 1)
                         ELSE 0 
                     END) as filtered_run_count,
-                    SUM(CASE WHEN d.is_effective = TRUE THEN 1 ELSE 0 END) as total_effective_count,
+                    SUM(CASE 
+                        WHEN (COALESCE(d.messages, 0) > 0 AND (d.spend / d.messages) <= COALESCE(a.effectiveness_threshold, 75000))
+                        THEN 1 
+                        ELSE 0 
+                    END) as total_effective_count,
                     MAX(a.effectiveness_threshold) as effectiveness_threshold,
                     MAX(COALESCE(a.ignore_no_msg_spend_threshold, 70000)) as ignore_no_msg_spend_threshold
                 FROM ads_stats_daily d
