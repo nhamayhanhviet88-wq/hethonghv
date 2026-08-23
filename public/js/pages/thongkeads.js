@@ -1010,6 +1010,12 @@ window.renderThongkeadsPage = function(container) {
                 threshold = parseFloat(acc.effectiveness_threshold) || 75000;
                 ignoreThresh = parseFloat(acc.ignore_no_msg_spend_threshold) || 70000;
             }
+        } else if (_campaigns.length > 0 && _campaigns[0].ignore_no_msg_spend_threshold != null) {
+            ignoreThresh = parseFloat(_campaigns[0].ignore_no_msg_spend_threshold) || 70000;
+            if (_campaigns[0].effectiveness_threshold) threshold = parseFloat(_campaigns[0].effectiveness_threshold) || 75000;
+        } else if (_accounts.length > 0) {
+            ignoreThresh = parseFloat(_accounts[0].ignore_no_msg_spend_threshold) || 70000;
+            threshold = parseFloat(_accounts[0].effectiveness_threshold) || 75000;
         }
 
         const threshLabel = _fmtMoney(threshold).replace(' đ', '');
@@ -1745,7 +1751,7 @@ window.renderThongkeadsPage = function(container) {
                                     value="${_fmtNumber(acc.effectiveness_threshold || 75000)}"
                                     placeholder="75.000"
                                     style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');">
+                                    oninput="let raw = this.value.replace(/[^0-9]/g, ''); this.value = raw ? Number(raw).toLocaleString('vi-VN') : '';">
                             </div>
                         </div>
 
@@ -1757,7 +1763,7 @@ window.renderThongkeadsPage = function(container) {
                                 value="${_fmtNumber(acc.ignore_no_msg_spend_threshold || 70000)}"
                                 placeholder="70.000"
                                 style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"
-                                oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');">
+                                oninput="let raw = this.value.replace(/[^0-9]/g, ''); this.value = raw ? Number(raw).toLocaleString('vi-VN') : '';">
                             <div style="font-size: 11.5px; color: #64748b; margin-top: 5px;">
                                 💡 Các ngày chạy dở có Chi tiêu < số tiền này VÀ không ra tin nhắn sẽ không bị tính là 1 lần chạy.
                             </div>
@@ -1826,9 +1832,18 @@ window.renderThongkeadsPage = function(container) {
                     if (!data.ok) throw new Error(data.error);
 
                     _selectedAccountId = String(targetId);
+
+                    const targetAcc = _accounts.find(a => String(a.id) === String(targetId));
+                    if (targetAcc) {
+                        targetAcc.effectiveness_metric = metric;
+                        targetAcc.effectiveness_threshold = threshold;
+                        targetAcc.ignore_no_msg_spend_threshold = ignoreThresh;
+                    }
+
                     overlay.remove();
                     alert('✅ Đã lưu cài đặt hiệu quả thành công!');
                     _loadAccounts();
+                    _loadCampaignSummaryData();
                 } catch(e) {
                     alert(`❌ Lỗi: ${e.message}`);
                     saveBtn.disabled = false;
