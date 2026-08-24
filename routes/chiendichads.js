@@ -409,24 +409,32 @@ module.exports = async function (fastify, opts) {
             const queryParams = [];
 
             if (isGD) {
-                // Giám Đốc: xem TẤT CẢ
+                // Giám Đốc: xem được HẾT
                 permClause = '';
             } else if (isQL) {
-                // Quản Lý: xem chính mình + trưởng phòng + nhân viên trong bộ phận
+                // Quản Lý Phòng Marketing: xem chính mình + Trưởng phòng Marketing + Nhân viên Marketing
                 permClause = `AND (
-                    c.created_by IN (SELECT id FROM users WHERE department_id = $1 OR department_id IN (SELECT id FROM departments WHERE parent_id = $1))
+                    c.created_by IN (
+                        SELECT id FROM users 
+                        WHERE department_id = $1 
+                           OR department_id IN (SELECT id FROM departments WHERE parent_id = $1 OR LOWER(name) LIKE '%marketing%')
+                    )
                     OR c.created_by = $2
                 )`;
                 queryParams.push(deptId, userId);
             } else if (isTP) {
-                // Trưởng Phòng: xem chính mình + nhân viên trong team
+                // Trưởng Phòng Marketing: xem chính mình + Nhân viên Marketing của team mình
                 permClause = `AND (
-                    c.created_by IN (SELECT id FROM users WHERE department_id = $1 OR managed_by_user_id = $2)
+                    c.created_by IN (
+                        SELECT id FROM users 
+                        WHERE (department_id = $1 OR managed_by_user_id = $2)
+                          AND LOWER(role) NOT IN ('giam_doc', 'admin', 'quan_ly', 'quan_ly_cap_cao', 'quan_ly_xuong')
+                    )
                     OR c.created_by = $2
                 )`;
                 queryParams.push(deptId, userId);
             } else {
-                // Nhân Viên: chỉ xem chính mình
+                // Nhân Viên Marketing: chỉ được xem của chính mình
                 permClause = `AND c.created_by = $1`;
                 queryParams.push(userId);
             }
