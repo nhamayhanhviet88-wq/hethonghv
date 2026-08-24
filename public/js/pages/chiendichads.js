@@ -2057,14 +2057,28 @@ async function _cdAdsOnExtraAdAccountSelect() {
             return;
         }
 
-        const campaigns = res.campaigns || [];
+        const rawCampaigns = res.campaigns || [];
+
+        // Tập hợp tất cả các mã Camp ID đã được gắn ở bất kỳ mẫu nào trong hệ thống
+        const attachedCampIds = new Set();
+        (_cdAdsState.campaigns || []).forEach(c => {
+            if (c.camp_id) attachedCampIds.add(String(c.camp_id).trim());
+            if (c.extra_camps && Array.isArray(c.extra_camps)) {
+                c.extra_camps.forEach(ec => {
+                    if (ec.camp_id) attachedCampIds.add(String(ec.camp_id).trim());
+                });
+            }
+        });
+
+        // Lọc bỏ những chiến dịch có ID đã được gắn trong hệ thống
+        const campaigns = rawCampaigns.filter(c => !attachedCampIds.has(String(c.id).trim()));
         window._cdAdsExtraCurrentAccountCampaigns = campaigns;
 
         if (campSelect) {
             if (campaigns.length === 0) {
-                campSelect.innerHTML = '<option value="">⚠️ Không có chiến dịch nào trong tài khoản QC này</option>';
+                campSelect.innerHTML = '<option value="">⚠️ Tất cả chiến dịch trong tài khoản QC này đều đã được gắn trong hệ thống</option>';
             } else {
-                campSelect.innerHTML = `<option value="">-- Chọn Chiến Dịch (${campaigns.length} chiến dịch) --</option>` +
+                campSelect.innerHTML = `<option value="">-- Chọn Chiến Dịch (${campaigns.length} chiến dịch chưa gắn) --</option>` +
                     campaigns.map(c => `<option value="${c.id}">[${c.effective_status || c.status || 'OFF'}] ${c.name} (ID: ${c.id})</option>`).join('');
             }
         }
