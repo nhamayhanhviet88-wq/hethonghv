@@ -381,7 +381,7 @@ module.exports = async function (fastify, opts) {
             const sql = `
                 SELECT c.*, 
                        ch.name as legacy_channel_name, ch.icon as channel_icon, ch.color as channel_color,
-                       sa.account_name as ad_account_name, sa.fb_ad_account_id, sa.platform as ad_account_platform,
+                       sa.account_name as ad_account_name, sa.fb_ad_account_id, sa.fb_ad_account_link, sa.platform as ad_account_platform,
                        COALESCE(c.channel_name, sa.platform, ch.name, 'Facebook') as channel_name,
                        i.title as item_title, i.thumbnail_url, i.linh_vuc, i.media_type, i.drive_url,
                        u.full_name as created_by_name,

@@ -364,6 +364,12 @@ function _cdAdsRenderTable() {
             : 'background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:20px;';
         const thumbContent = c.thumbnail_url ? '' : (c.media_type === 'video' ? '🎥' : '🖼️');
 
+        let adAccountLink = c.fb_ad_account_link || '';
+        if (!adAccountLink && c.fb_ad_account_id) {
+            const rawId = String(c.fb_ad_account_id).replace(/^act_/i, '');
+            adAccountLink = `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${rawId}`;
+        }
+
         return `<tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fafbff'" onmouseout="this.style.background='white'" onclick="if(!event.target.closest('button') && !event.target.closest('a') && !event.target.closest('.no-row-click')) _cdAdsViewDetail(${c.id})">
             <td style="padding:10px 12px;font-size:12px;font-weight:800;color:#64748b;text-align:center;">${idx + 1}</td>
             <td class="no-row-click" onclick="event.stopPropagation(); _cdAdsGoToKhoAdsItem(${c.kho_ads_item_id || 'null'})" style="padding:10px 8px;cursor:pointer;" title="Xem mẫu tại Kho Video/Ảnh Ads">
@@ -375,7 +381,11 @@ function _cdAdsRenderTable() {
             </td>
             <td style="padding:10px 8px;text-align:center;">
                 <span style="background:${c.channel_color || '#6366f1'}22;color:${c.channel_color || '#6366f1'};padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;white-space:nowrap;">${c.channel_icon || '📺'} ${c.channel_name || '-'}</span>
-                ${c.ad_account_name ? `<div style="font-size:10.5px;font-weight:700;color:#0284c7;margin-top:3px;">💳 ${c.ad_account_name}</div>` : ''}
+                ${c.ad_account_name ? `
+                    <div class="no-row-click" ${adAccountLink ? `onclick="event.stopPropagation(); window.open('${adAccountLink}', '_blank')" style="font-size:10.5px;font-weight:700;color:#0284c7;margin-top:3px;cursor:pointer;text-decoration:underline;" title="Mở Trực Tiếp Tài Khoản Quảng Cáo Meta: ${adAccountLink}"` : `style="font-size:10.5px;font-weight:700;color:#0284c7;margin-top:3px;"`}>
+                        💳 ${c.ad_account_name}
+                    </div>
+                ` : ''}
             </td>
             ${c.post_id ? `
                 <td class="no-row-click" onclick="event.stopPropagation(); window.open('https://fb.com/${c.post_id}', '_blank')" style="padding:10px 8px;font-size:12px;font-weight:700;color:#2563eb;text-decoration:underline;text-align:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" title="Mở Facebook: https://fb.com/${c.post_id}">${c.post_id}</td>
@@ -401,20 +411,11 @@ function _cdAdsRenderTable() {
                 <div style="font-size:12px;font-weight:700;color:#334155;">${c.created_by_name || '-'}</div>
                 <div style="font-size:10px;color:#94a3b8;font-weight:600;">${c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '-'}</div>
             </td>
-            <td style="padding:10px 8px;text-align:center;" onclick="event.stopPropagation()">
-                <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-                    <button onclick="event.stopPropagation(); _cdAdsViewDetail(${c.id})" title="Xem chi tiết" style="padding:5px 8px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;font-size:12px;cursor:pointer;color:#4338ca;font-weight:700;">📋</button>
-                    ${canEdit ? `
-                        <button onclick="event.stopPropagation(); _cdAdsChangeStatus(${c.id})" title="Đánh dấu Win/Lose" style="padding:5px 8px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;font-size:12px;cursor:pointer;color:#a16207;font-weight:700;">🏆</button>
-                        <button onclick="event.stopPropagation(); _cdAdsDeleteCampaign(${c.id})" title="Xóa" style="padding:5px 8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:12px;cursor:pointer;color:#dc2626;font-weight:700;">🗑️</button>
-                    ` : ''}
-                </div>
-            </td>
         </tr>`;
     }).join('');
 
     container.innerHTML = `
-        <table style="width: 100%; border-collapse: collapse; min-width: 1500px;">
+        <table style="width: 100%; border-collapse: collapse; min-width: 1400px;">
             <thead>
                 <tr style="background: linear-gradient(135deg, #0f172a, #1e1b4b); border-bottom: 2px solid #334155;">
                     <th style="padding:12px 12px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">STT</th>
@@ -434,7 +435,6 @@ function _cdAdsRenderTable() {
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">SL CHẠY >70K</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">HIỆU QUẢ</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">NGƯỜI TẠO</th>
-                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">HÀNH ĐỘNG</th>
                 </tr>
             </thead>
             <tbody>${rows}</tbody>
