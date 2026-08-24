@@ -197,18 +197,19 @@ window.renderThongkeadsPage = function(container) {
                 <!-- Filters & Sync (ĐẶT NẰM DƯỚI THẺ TỔNG QUAN) -->
                 <div id="tka-filter-section" style="
                     background: white; border-radius: 16px; border: 1px solid #e2e8f0;
-                    padding: 20px; margin-bottom: 20px;
+                    padding: 16px 20px; margin-bottom: 20px;
                     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
                 ">
-                    <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                    <!-- Top Controls Row: All items 38px tall, perfectly balanced & aligned -->
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%;">
 
                         <!-- Filter Mode Selector -->
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
                             <label style="font-weight: 700; font-size: 13px; color: #1e293b; white-space: nowrap;">📅 Lọc theo:</label>
                             <select id="tka-filter-mode-select" style="
-                                padding: 9px 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                                height: 38px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #cbd5e1;
                                 font-size: 13px; font-weight: 700; background: #f8fafc; cursor: pointer; outline: none;
-                                color: #1d4ed8;
+                                color: #1d4ed8; box-sizing: border-box;
                             ">
                                 <option value="month">📅 Theo Tháng</option>
                                 <option value="quarter">📊 Theo Quý</option>
@@ -217,24 +218,24 @@ window.renderThongkeadsPage = function(container) {
                         </div>
 
                         <!-- Dynamic Filter Controls Container -->
-                        <div id="tka-dynamic-filters" style="display: flex; align-items: center; gap: 8px;">
+                        <div id="tka-dynamic-filters" style="display: flex; align-items: center; gap: 6px;">
                             <!-- Month Mode Controls -->
-                            <div id="tka-month-controls" style="display: flex; align-items: center; gap: 8px;">
+                            <div id="tka-month-controls" style="display: flex; align-items: center; gap: 6px;">
                                 <select id="tka-month-select" style="
-                                    padding: 9px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
-                                    font-size: 13px; font-weight: 600; background: white; cursor: pointer;
+                                    height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 600; background: white; cursor: pointer; box-sizing: border-box;
                                 "></select>
                                 <select id="tka-year-select" style="
-                                    padding: 9px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
-                                    font-size: 13px; font-weight: 600; background: white; cursor: pointer;
+                                    height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 600; background: white; cursor: pointer; box-sizing: border-box;
                                 "></select>
                             </div>
 
                             <!-- Quarter Mode Controls -->
-                            <div id="tka-quarter-controls" style="display: none; align-items: center; gap: 8px;">
+                            <div id="tka-quarter-controls" style="display: none; align-items: center; gap: 6px;">
                                 <select id="tka-quarter-select" style="
-                                    padding: 9px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
-                                    font-size: 13px; font-weight: 700; background: white; cursor: pointer; color: #0f172a;
+                                    height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 700; background: white; cursor: pointer; color: #0f172a; box-sizing: border-box;
                                 ">
                                     <option value="1">Quý 1 (Tháng 1 - Tháng 3)</option>
                                     <option value="2">Quý 2 (Tháng 4 - Tháng 6)</option>
@@ -242,18 +243,17 @@ window.renderThongkeadsPage = function(container) {
                                     <option value="4">Quý 4 (Tháng 10 - Tháng 12)</option>
                                 </select>
                                 <select id="tka-q-year-select" style="
-                                    padding: 9px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
-                                    font-size: 13px; font-weight: 600; background: white; cursor: pointer;
+                                    height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 600; background: white; cursor: pointer; box-sizing: border-box;
                                 "></select>
                             </div>
 
                             <!-- Date Range Calendar Mode Controls -->
-                            <div id="tka-daterange-controls" style="display: none; align-items: center; gap: 8px; position: relative;">
+                            <div id="tka-daterange-controls" style="display: none; align-items: center; gap: 6px; position: relative;">
                                 <button id="tka-btn-daterange-picker" style="
-                                    padding: 9px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                                    height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
                                     background: white; color: #0f172a; font-size: 13px; font-weight: 700;
-                                    cursor: pointer; display: flex; align-items: center; gap: 8px;
-                                    box-shadow: 0 2px 4px rgba(0,0,0,0.03); transition: all 0.15s;
+                                    cursor: pointer; display: flex; align-items: center; gap: 8px; box-sizing: border-box;
                                 " onmouseover="this.style.borderColor='#2563eb'" onmouseout="this.style.borderColor='#cbd5e1'">
                                     <span style="font-size: 15px;">📆</span>
                                     <span id="tka-daterange-text">Chọn từ bảng lịch...</span>
@@ -262,44 +262,51 @@ window.renderThongkeadsPage = function(container) {
                             </div>
                         </div>
 
-                        <div style="flex: 1; min-width: 260px; position: relative;">
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <input id="tka-search-input" type="text" placeholder="🔍 Tìm tên camp, ID camp, Post ID..."
-                                    style="
-                                        width: 100%; padding: 9px 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
-                                        font-size: 13px; outline: none; background: white; transition: all 0.2s;
-                                    ">
-                                <button id="tka-btn-search-suggestions" style="
-                                    font-family: inherit; padding: 9px 14px; border-radius: 10px; border: 1.5px solid #3b82f6;
-                                    background: #eff6ff; color: #1d4ed8; font-size: 12.5px; font-weight: 800;
-                                    cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px;
-                                    transition: all 0.15s; box-shadow: 0 2px 4px rgba(37,99,235,0.08);
-                                " onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" title="Bấm để chọn hoặc tự cài đặt từ khóa gợi ý tìm kiếm">
-                                    <span>💡</span> Gợi Ý <span style="font-size: 9px;">▼</span>
-                                </button>
-                            </div>
-                            <div id="tka-search-quick-chips" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px;"></div>
+                        <!-- Search Input -->
+                        <div style="flex: 1; min-width: 200px;">
+                            <input id="tka-search-input" type="text" placeholder="🔍 Tìm tên camp, ID camp, Post ID..."
+                                style="
+                                    width: 100%; height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; outline: none; background: white; box-sizing: border-box; transition: all 0.2s;
+                                ">
                         </div>
+
+                        <!-- Suggestion Button -->
+                        <button id="tka-btn-search-suggestions" style="
+                            font-family: inherit; height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #3b82f6;
+                            background: #eff6ff; color: #1d4ed8; font-size: 12.5px; font-weight: 800;
+                            cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
+                            box-sizing: border-box; transition: all 0.15s; box-shadow: 0 2px 4px rgba(37,99,235,0.08);
+                        " onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" title="Bấm để chọn hoặc tự cài đặt từ khóa gợi ý tìm kiếm">
+                            <span>💡</span> Gợi Ý <span style="font-size: 9px;">▼</span>
+                        </button>
+
                         ${_isGD ? `
+                        <!-- Schedule Button -->
                         <button id="tka-btn-schedule-settings" style="
-                            font-family: inherit; padding: 10px 18px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                            font-family: inherit; height: 38px; padding: 0 16px; border-radius: 10px; border: 1.5px solid #cbd5e1;
                             background: white; color: #1e293b; font-size: 13px; font-weight: 700;
-                            cursor: pointer; display: flex; align-items: center; gap: 6px;
+                            cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box;
                             transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.04);
                         " onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
                             <span>⏰</span> Lịch Đồng Bộ
                         </button>
+
+                        <!-- Sync Button -->
                         <button id="tka-btn-sync" style="
-                            font-family: inherit; padding: 10px 20px; border-radius: 10px; border: none;
+                            font-family: inherit; height: 38px; padding: 0 18px; border-radius: 10px; border: none;
                             background: linear-gradient(135deg, #059669, #10b981);
                             color: white; font-size: 13px; font-weight: 700;
-                            cursor: pointer; display: flex; align-items: center; gap: 6px;
+                            cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box;
                             transition: all 0.2s; box-shadow: 0 4px 12px rgba(5,150,105,0.3);
                         " onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
                             🔄 Đồng Bộ Từ Meta
                         </button>
                         ` : ''}
                     </div>
+
+                    <!-- Quick Chips Sub-row -->
+                    <div id="tka-search-quick-chips" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;"></div>
                 </div>
 
                 <!-- Table View Mode Switcher Tabs -->
