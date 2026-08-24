@@ -1365,7 +1365,7 @@ async function _cdAdsViewDetail(campaignId) {
                         </div>
                         <div style="font-size:12px;color:#64748b;font-weight:600;">
                             Post ID: ${camp.post_id ? `<a href="https://fb.com/${camp.post_id}" target="_blank" style="color:#2563eb;font-weight:700;text-decoration:underline;">${camp.post_id}</a>` : '<strong>-</strong>'} &nbsp;|&nbsp; 
-                            Camp ID: ${camp.camp_id && modalCampFbLink ? `<a href="${modalCampFbLink}" target="_blank" style="color:#2563eb;font-weight:700;text-decoration:underline;" title="Mở Trực Tiếp Chiến Dịch Meta Ads: ${modalCampFbLink}">${camp.camp_id}</a>` : `<strong>${camp.camp_id || '-'}</strong>`}
+                            Camp ID: <strong>${camp.camp_id || '-'}</strong>
                             &nbsp;|&nbsp; Người tạo: <strong>${camp.created_by_name || '-'}</strong>
                             &nbsp;|&nbsp; Ngày tạo: <strong>${camp.created_at ? new Date(camp.created_at).toLocaleDateString('vi-VN') : '-'}</strong>
                         </div>
@@ -1375,8 +1375,8 @@ async function _cdAdsViewDetail(campaignId) {
                         <div style="margin-top: 12px; padding: 12px 14px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; display: flex; flex-direction: column; gap: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                                 <span style="font-size: 13px; font-weight: 800; color: #1e1b4b; display: inline-flex; align-items: center; gap: 6px;">
-                                    <span>🏷️ Mã ID Camp / Post ID Bổ Sung</span>
-                                    <span style="background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${(camp.extra_camps || []).length} mã phụ</span>
+                                    <span>🏷️ Mã ID Camp / Post ID Gắn Chạy Ads</span>
+                                    <span style="background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${(camp.extra_camps || []).length + (camp.camp_id ? 1 : 0)} mã Camp (${camp.camp_id ? '1 chính, ' : ''}${(camp.extra_camps || []).length} phụ)</span>
                                 </span>
                                 <button onclick="_cdAdsOpenAddExtraCampModal(${camp.id})" style="padding: 6px 16px; background: #4338ca; color: white; border: none; border-radius: 8px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 800; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(67,56,202,0.25); transition: all 0.2s;" onmouseover="this.style.background='#3730a3'" onmouseout="this.style.background='#4338ca'">
                                     <span>➕</span> <span>Gắn Thêm ID Camp / Post ID</span>
@@ -1384,7 +1384,7 @@ async function _cdAdsViewDetail(campaignId) {
                             </div>
 
                             <div id="cdAdsExtraCampsList_${camp.id}" style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
-                                ${_cdAdsRenderExtraCampsHTML(camp.id, camp.extra_camps || [])}
+                                ${_cdAdsRenderExtraCampsHTML(camp)}
                             </div>
                         </div>
                     </div>
@@ -1979,21 +1979,49 @@ function _cdAdsSetupGlobalTooltip() {
 
 _cdAdsSetupGlobalTooltip();
 
-function _cdAdsRenderExtraCampsHTML(campaignId, extraCamps) {
-    if (!extraCamps || extraCamps.length === 0) {
-        return `<div style="font-size: 12px; color: #94a3b8; font-style: italic;">Chưa có Mã Camp ID / Post ID phụ nào được gắn. Bấm "+ Gắn Thêm ID Camp / Post ID" để bổ sung!</div>`;
-    }
-    return extraCamps.map(ec => `
-        <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px;">
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                ${ec.camp_id ? `<span style="font-family: monospace; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 8px; border-radius: 6px;">🆔 Camp: ${escapeHtml(ec.camp_id)}</span>` : ''}
-                ${ec.post_id ? `<span style="font-family: monospace; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px;">📌 Post: ${escapeHtml(ec.post_id)}</span>` : ''}
-                ${ec.note ? `<span style="color: #64748b; font-weight: 600;">📝 ${escapeHtml(ec.note)}</span>` : ''}
-                <span style="color: #94a3b8; font-size: 11px;">👤 ${escapeHtml(ec.created_by_name || 'Hệ thống')}</span>
+function _cdAdsRenderExtraCampsHTML(camp) {
+    if (!camp) return '';
+    const campaignId = camp.id;
+    const extraCamps = camp.extra_camps || [];
+    let items = [];
+
+    // 1. Hiển thị Camp ID chính
+    if (camp.camp_id || camp.post_id) {
+        items.push(`
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">⭐ Camp Chính</span>
+                    ${camp.camp_id ? `<span style="font-family: monospace; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 8px; border-radius: 6px;">🆔 Camp: ${escapeHtml(camp.camp_id)}</span>` : ''}
+                    ${camp.post_id ? `<span style="font-family: monospace; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px;">📌 Post: ${escapeHtml(camp.post_id)}</span>` : ''}
+                    <span style="color: #475569; font-weight: 700;">📝 ${escapeHtml(camp.campaign_name || 'Chiến dịch gốc')}</span>
+                    <span style="color: #94a3b8; font-size: 11px;">👤 ${escapeHtml(camp.created_by_name || 'Giám Đốc')}</span>
+                </div>
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 6px;" title="Mã Camp ID chính cố định theo chiến dịch">Cố định</span>
             </div>
-            <button onclick="_cdAdsDeleteExtraCamp(${ec.id}, ${campaignId})" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Gỡ mã Camp phụ này">🗑️ Gỡ</button>
-        </div>
-    `).join('');
+        `);
+    }
+
+    // 2. Hiển thị các Camp ID phụ
+    extraCamps.forEach(ec => {
+        items.push(`
+            <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">➕ Camp Phụ</span>
+                    ${ec.camp_id ? `<span style="font-family: monospace; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 8px; border-radius: 6px;">🆔 Camp: ${escapeHtml(ec.camp_id)}</span>` : ''}
+                    ${ec.post_id ? `<span style="font-family: monospace; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px;">📌 Post: ${escapeHtml(ec.post_id)}</span>` : ''}
+                    ${ec.note ? `<span style="color: #64748b; font-weight: 600;">📝 ${escapeHtml(ec.note)}</span>` : ''}
+                    <span style="color: #94a3b8; font-size: 11px;">👤 ${escapeHtml(ec.created_by_name || 'Hệ thống')}</span>
+                </div>
+                <button onclick="_cdAdsDeleteExtraCamp(${ec.id}, ${campaignId})" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Gỡ mã Camp phụ này">🗑️ Gỡ</button>
+            </div>
+        `);
+    });
+
+    if (items.length === 0) {
+        return `<div style="font-size: 12px; color: #94a3b8; font-style: italic;">Chưa có Mã Camp ID nào được gắn. Bấm "+ Gắn Thêm ID Camp / Post ID" để bổ sung!</div>`;
+    }
+
+    return items.join('');
 }
 
 async function _cdAdsOpenAddExtraCampModal(campaignId) {
