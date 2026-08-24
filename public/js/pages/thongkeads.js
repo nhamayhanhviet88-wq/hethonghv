@@ -527,7 +527,6 @@ window.renderThongkeadsPage = function(container) {
                             <span style="font-size: 11px; font-weight: 700; color: ${isSelected ? '#2563eb' : '#94a3b8'};">
                                 ${isSelected ? '✔ ĐANG THEO DÕI' : 'Bấm để xem thống kê'}
                             </span>
-                            ${_isGD ? `
                             <button onclick="event.stopPropagation(); window._tkaEditPerf('${acc.id}')" style="
                                 padding: 4px 10px; border-radius: 8px; border: 1px solid #bfdbfe;
                                 background: white; color: #1d4ed8; font-size: 11px; font-weight: 700;
@@ -535,7 +534,6 @@ window.renderThongkeadsPage = function(container) {
                             " onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='white'">
                                 ⚙️ Cài Đặt Hiệu Quả
                             </button>
-                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -1708,6 +1706,9 @@ window.renderThongkeadsPage = function(container) {
             animation: fadeIn 0.2s ease;
         `;
 
+        const isReadonly = !_isGD;
+        const disabledAttr = isReadonly ? 'disabled style="background:#f1f5f9;cursor:not-allowed;"' : '';
+
         const renderModalBody = (acc) => `
             <div style="
                 background: white; border-radius: 20px; width: 95%; max-width: 560px;
@@ -1718,6 +1719,7 @@ window.renderThongkeadsPage = function(container) {
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span style="font-size:22px;">📊</span>
                         <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #1e293b;">Cài Đặt Hiệu Quả Quảng Cáo</h3>
+                        ${isReadonly ? '<span style="font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:6px;margin-left:6px;">👁️ Chỉ xem</span>' : ''}
                     </div>
                     <button id="tka-modal-close" style="
                         width: 36px; height: 36px; border-radius: 10px; border: none;
@@ -1748,7 +1750,7 @@ window.renderThongkeadsPage = function(container) {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                             <div>
                                 <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">Tiêu chí hiệu quả</label>
-                                <select id="tka-f-metric" style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:600;background:white;">
+                                <select id="tka-f-metric" ${disabledAttr} style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:600;${isReadonly ? 'background:#f1f5f9;cursor:not-allowed;' : 'background:white;'}">
                                     <option value="cpa" ${(acc.effectiveness_metric || 'cpa') === 'cpa' ? 'selected' : ''}>CPA (Chi phí / Tin nhắn)</option>
                                     <option value="ctr" ${acc.effectiveness_metric === 'ctr' ? 'selected' : ''}>CTR (Tỷ lệ click)</option>
                                     <option value="cpm" ${acc.effectiveness_metric === 'cpm' ? 'selected' : ''}>CPM (Chi phí / 1000 hiển thị)</option>
@@ -1759,7 +1761,7 @@ window.renderThongkeadsPage = function(container) {
                                 <input id="tka-f-threshold" type="text"
                                     value="${_fmtNumber(acc.effectiveness_threshold || 75000)}"
                                     placeholder="75.000"
-                                    style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"
+                                    ${isReadonly ? 'disabled style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;cursor:not-allowed;outline:none;box-sizing:border-box;"' : 'style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"'}
                                     oninput="let raw = this.value.replace(/[^0-9]/g, ''); this.value = raw ? Number(raw).toLocaleString('vi-VN') : '';">
                             </div>
                         </div>
@@ -1771,7 +1773,7 @@ window.renderThongkeadsPage = function(container) {
                             <input id="tka-f-ignore-no-msg-thresh" type="text"
                                 value="${_fmtNumber(acc.ignore_no_msg_spend_threshold || 70000)}"
                                 placeholder="70.000"
-                                style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"
+                                ${isReadonly ? 'disabled style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;cursor:not-allowed;outline:none;box-sizing:border-box;"' : 'style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"'}
                                 oninput="let raw = this.value.replace(/[^0-9]/g, ''); this.value = raw ? Number(raw).toLocaleString('vi-VN') : '';">
                             <div style="font-size: 11.5px; color: #64748b; margin-top: 5px;">
                                 💡 Các ngày chạy dở có Chi tiêu < số tiền này VÀ không ra tin nhắn sẽ không bị tính là 1 lần chạy.
@@ -1785,14 +1787,22 @@ window.renderThongkeadsPage = function(container) {
                         padding: 11px 22px; border-radius: 12px; border: 1.5px solid #cbd5e1;
                         background: white; color: #475569; font-size: 13px; font-weight: 700;
                         cursor: pointer;
-                    ">Hủy</button>
-                    <button id="tka-modal-save" style="
-                        padding: 11px 24px; border-radius: 12px; border: none;
-                        background: linear-gradient(135deg, #1877f2, #2563eb);
-                        color: white; font-size: 13px; font-weight: 800;
-                        cursor: pointer; display: flex; align-items: center; gap: 8px;
-                        box-shadow: 0 4px 12px rgba(37,99,235,0.3);
-                    ">💾 Lưu Cấu Hình Hiệu Quả</button>
+                    ">${isReadonly ? 'Đóng' : 'Hủy'}</button>
+                    ${isReadonly ? `
+                        <button disabled style="
+                            padding: 11px 22px; border-radius: 12px; border: none;
+                            background: #e2e8f0; color: #64748b; font-size: 13px; font-weight: 700;
+                            cursor: not-allowed; display: flex; align-items: center; gap: 6px;
+                        ">🔒 Chỉ Giám Đốc/Admin Mới Có Quyền Chỉnh Sửa</button>
+                    ` : `
+                        <button id="tka-modal-save" style="
+                            padding: 11px 24px; border-radius: 12px; border: none;
+                            background: linear-gradient(135deg, #1877f2, #2563eb);
+                            color: white; font-size: 13px; font-weight: 800;
+                            cursor: pointer; display: flex; align-items: center; gap: 8px;
+                            box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+                        ">💾 Lưu Cấu Hình Hiệu Quả</button>
+                    `}
                 </div>
             </div>
         `;
@@ -1813,52 +1823,54 @@ window.renderThongkeadsPage = function(container) {
                 });
             }
 
-            overlay.querySelector('#tka-modal-close').addEventListener('click', () => overlay.remove());
-            overlay.querySelector('#tka-modal-cancel').addEventListener('click', () => overlay.remove());
+            overlay.querySelector('#tka-modal-close')?.addEventListener('click', () => overlay.remove());
+            overlay.querySelector('#tka-modal-cancel')?.addEventListener('click', () => overlay.remove());
 
-            overlay.querySelector('#tka-modal-save').addEventListener('click', async () => {
-                const targetId = overlay.querySelector('#tka-f-account-id').value;
-                const metric = overlay.querySelector('#tka-f-metric').value;
-                const threshold = _cleanNumber(overlay.querySelector('#tka-f-threshold').value, 75000);
-                const ignoreThresh = _cleanNumber(overlay.querySelector('#tka-f-ignore-no-msg-thresh').value, 70000);
+            const saveBtn = overlay.querySelector('#tka-modal-save');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', async () => {
+                    const targetId = overlay.querySelector('#tka-f-account-id').value;
+                    const metric = overlay.querySelector('#tka-f-metric').value;
+                    const threshold = _cleanNumber(overlay.querySelector('#tka-f-threshold').value, 75000);
+                    const ignoreThresh = _cleanNumber(overlay.querySelector('#tka-f-ignore-no-msg-thresh').value, 70000);
 
-                const saveBtn = overlay.querySelector('#tka-modal-save');
-                saveBtn.disabled = true;
-                saveBtn.textContent = '⏳ Đang lưu...';
+                    saveBtn.disabled = true;
+                    saveBtn.textContent = '⏳ Đang lưu...';
 
-                try {
-                    const res = await fetch(`/api/thongkeads/accounts/${targetId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({
-                            effectiveness_metric: metric,
-                            effectiveness_threshold: threshold,
-                            ignore_no_msg_spend_threshold: ignoreThresh
-                        })
-                    });
-                    const data = await res.json();
-                    if (!data.ok) throw new Error(data.error);
+                    try {
+                        const res = await fetch(`/api/thongkeads/accounts/${targetId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                effectiveness_metric: metric,
+                                effectiveness_threshold: threshold,
+                                ignore_no_msg_spend_threshold: ignoreThresh
+                            })
+                        });
+                        const data = await res.json();
+                        if (!data.ok) throw new Error(data.error);
 
-                    _selectedAccountId = String(targetId);
+                        _selectedAccountId = String(targetId);
 
-                    const targetAcc = _accounts.find(a => String(a.id) === String(targetId));
-                    if (targetAcc) {
-                        targetAcc.effectiveness_metric = metric;
-                        targetAcc.effectiveness_threshold = threshold;
-                        targetAcc.ignore_no_msg_spend_threshold = ignoreThresh;
+                        const targetAcc = _accounts.find(a => String(a.id) === String(targetId));
+                        if (targetAcc) {
+                            targetAcc.effectiveness_metric = metric;
+                            targetAcc.effectiveness_threshold = threshold;
+                            targetAcc.ignore_no_msg_spend_threshold = ignoreThresh;
+                        }
+
+                        overlay.remove();
+                        alert('✅ Đã lưu cài đặt hiệu quả thành công!');
+                        _loadAccounts();
+                        _loadCampaignSummaryData();
+                    } catch(e) {
+                        alert(`❌ Lỗi: ${e.message}`);
+                        saveBtn.disabled = false;
+                        saveBtn.textContent = '💾 Lưu Cấu Hình Hiệu Quả';
                     }
-
-                    overlay.remove();
-                    alert('✅ Đã lưu cài đặt hiệu quả thành công!');
-                    _loadAccounts();
-                    _loadCampaignSummaryData();
-                } catch(e) {
-                    alert(`❌ Lỗi: ${e.message}`);
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = '💾 Lưu Cấu Hình Hiệu Quả';
-                }
-            });
+                });
+            }
         };
 
         setupModalListeners();

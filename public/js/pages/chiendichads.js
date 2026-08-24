@@ -106,6 +106,9 @@ async function renderChiendichadsPage(container) {
                     </p>
                 </div>
                 <div style="z-index: 1; display: flex; gap: 12px; align-items: center;">
+                    <button onclick="_cdAdsOpenPerfModal()" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1.5px solid rgba(255,255,255,0.4); padding: 13px 22px; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(8px); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='rgba(255,255,255,0.2)';this.style.transform='translateY(0)'" title="Xem/Cài đặt tiêu chí & ngưỡng hiệu quả quảng cáo">
+                        <span style="font-size: 18px;">📊</span> Cài Đặt Hiệu Quả
+                    </button>
                     <button onclick="_cdAdsOpenCreateModal()" style="background: #10b981; color: white; border: none; padding: 14px 24px; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
                         <span style="font-size: 18px;">➕</span> Tạo Chiến Dịch Mới
                     </button>
@@ -1216,5 +1219,212 @@ async function _cdAdsGoToKhoAdsItem(khoAdsItemId) {
     }
 }
 
+async function _cdAdsOpenPerfModal(accIdSelect = null) {
+    let accounts = [];
+    try {
+        const res = await fetch('/api/thongkeads/accounts', { credentials: 'include' });
+        const data = await res.json();
+        if (data.ok) accounts = data.accounts || [];
+    } catch(e) {
+        console.error('[cdAds load accounts error]', e);
+    }
+
+    const fbAccs = accounts.filter(a => a.platform === 'facebook');
+    if (fbAccs.length === 0) {
+        alert('Chưa có tài khoản quảng cáo nào được cài đặt!');
+        return;
+    }
+
+    const selectedAcc = fbAccs.find(a => String(a.id) === String(accIdSelect)) || fbAccs[0];
+    const isGD = _cdAdsIsSuperUser();
+    const isReadonly = !isGD;
+    const disabledAttr = isReadonly ? 'disabled style="background:#f1f5f9;cursor:not-allowed;"' : '';
+
+    const existingModal = document.getElementById('cd-ads-perf-modal');
+    if (existingModal) existingModal.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'cd-ads-perf-modal';
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px);
+        z-index: 10000; display: flex; align-items: center; justify-content: center;
+        animation: fadeIn 0.2s ease;
+    `;
+
+    const fmtNum = (val) => {
+        if (val === null || val === undefined || val === '') return '0';
+        return Number(val).toLocaleString('vi-VN');
+    };
+
+    const cleanNum = (val, defaultVal = 0) => {
+        if (val === null || val === undefined || val === '') return defaultVal;
+        const str = String(val).replace(/\./g, '').replace(/,/g, '').trim();
+        const num = parseFloat(str);
+        return isNaN(num) ? defaultVal : num;
+    };
+
+    const renderModalBody = (acc) => `
+        <div style="
+            background: white; border-radius: 20px; width: 95%; max-width: 560px;
+            max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            animation: slideUp 0.3s ease; font-family: inherit;
+        ">
+            <div style="padding: 22px 28px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:22px;">📊</span>
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #1e293b;">Cài Đặt Hiệu Quả Quảng Cáo</h3>
+                    ${isReadonly ? '<span style="font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:6px;margin-left:6px;">👁️ Chỉ xem</span>' : ''}
+                </div>
+                <button id="cd-perf-modal-close" style="
+                    width: 36px; height: 36px; border-radius: 10px; border: none;
+                    background: #f1f5f9; cursor: pointer; font-size: 18px; display: flex;
+                    align-items: center; justify-content: center; color: #64748b;
+                ">✕</button>
+            </div>
+            <div style="padding: 24px 28px;">
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display:block;font-size:13px;font-weight:700;color:#1e293b;margin-bottom:6px;">
+                        Chọn Tài Khoản Quảng Cáo *
+                    </label>
+                    <select id="cd-perf-f-account-id" style="width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid #cbd5e1;font-size:14px;font-weight:700;color:#0f172a;background:white;outline:none;">
+                        ${fbAccs.map(a => `
+                            <option value="${a.id}" ${String(a.id) === String(acc.id) ? 'selected' : ''}>
+                                📘 ${a.account_name} (${a.fb_ad_account_id || 'ID chưa cài'})
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+
+                <div style="background: #fafbfc; padding: 20px; border-radius: 16px; border: 1.5px solid #e2e8f0; margin-bottom: 10px;">
+                    <h4 style="margin: 0 0 16px; font-size: 15px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                        📊 Tiêu Chí & Ngưỡng Đánh Giá
+                    </h4>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">Tiêu chí hiệu quả</label>
+                            <select id="cd-perf-f-metric" ${disabledAttr} style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:600;${isReadonly ? 'background:#f1f5f9;cursor:not-allowed;' : 'background:white;'}">
+                                <option value="cpa" ${(acc.effectiveness_metric || 'cpa') === 'cpa' ? 'selected' : ''}>CPA (Chi phí / Tin nhắn)</option>
+                                <option value="ctr" ${acc.effectiveness_metric === 'ctr' ? 'selected' : ''}>CTR (Tỷ lệ click)</option>
+                                <option value="cpm" ${acc.effectiveness_metric === 'cpm' ? 'selected' : ''}>CPM (Chi phí / 1000 hiển thị)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">Ngưỡng hiệu quả (đ)</label>
+                            <input id="cd-perf-f-threshold" type="text"
+                                value="${fmtNum(acc.effectiveness_threshold || 75000)}"
+                                placeholder="75.000"
+                                ${isReadonly ? 'disabled style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;cursor:not-allowed;outline:none;box-sizing:border-box;"' : 'style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"'}
+                                oninput="let raw = this.value.replace(/[^0-9]/g, ''); this.value = raw ? Number(raw).toLocaleString('vi-VN') : '';">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                        <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
+                            Không tính số lần chạy không ra tin nhắn < (đ)
+                        </label>
+                        <input id="cd-perf-f-ignore-no-msg-thresh" type="text"
+                            value="${fmtNum(acc.ignore_no_msg_spend_threshold || 70000)}"
+                            placeholder="70.000"
+                            ${isReadonly ? 'disabled style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;cursor:not-allowed;outline:none;box-sizing:border-box;"' : 'style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"'}
+                            oninput="let raw = this.value.replace(/[^0-9]/g, ''); this.value = raw ? Number(raw).toLocaleString('vi-VN') : '';">
+                        <div style="font-size: 11.5px; color: #64748b; margin-top: 5px;">
+                            💡 Các ngày chạy dở có Chi tiêu < số tiền này VÀ không ra tin nhắn sẽ không bị tính là 1 lần chạy.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding: 18px 28px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; background: white; border-radius: 0 0 20px 20px;">
+                <button id="cd-perf-modal-cancel" style="
+                    padding: 11px 22px; border-radius: 12px; border: 1.5px solid #cbd5e1;
+                    background: white; color: #475569; font-size: 13px; font-weight: 700;
+                    cursor: pointer;
+                ">${isReadonly ? 'Đóng' : 'Hủy'}</button>
+                ${isReadonly ? `
+                    <button disabled style="
+                        padding: 11px 22px; border-radius: 12px; border: none;
+                        background: #e2e8f0; color: #64748b; font-size: 13px; font-weight: 700;
+                        cursor: not-allowed; display: flex; align-items: center; gap: 6px;
+                    ">🔒 Chỉ Giám Đốc/Admin Mới Có Quyền Chỉnh Sửa</button>
+                ` : `
+                    <button id="cd-perf-modal-save" style="
+                        padding: 11px 24px; border-radius: 12px; border: none;
+                        background: linear-gradient(135deg, #1877f2, #2563eb);
+                        color: white; font-size: 13px; font-weight: 800;
+                        cursor: pointer; display: flex; align-items: center; gap: 8px;
+                        box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+                    ">💾 Lưu Cấu Hình Hiệu Quả</button>
+                `}
+            </div>
+        </div>
+    `;
+
+    overlay.innerHTML = renderModalBody(selectedAcc);
+    document.body.appendChild(overlay);
+
+    const setupModalListeners = () => {
+        const accSelect = overlay.querySelector('#cd-perf-f-account-id');
+        if (accSelect) {
+            accSelect.addEventListener('change', () => {
+                const newAccId = accSelect.value;
+                const found = fbAccs.find(a => String(a.id) === String(newAccId));
+                if (found) {
+                    overlay.innerHTML = renderModalBody(found);
+                    setupModalListeners();
+                }
+            });
+        }
+
+        overlay.querySelector('#cd-perf-modal-close')?.addEventListener('click', () => overlay.remove());
+        overlay.querySelector('#cd-perf-modal-cancel')?.addEventListener('click', () => overlay.remove());
+
+        const saveBtn = overlay.querySelector('#cd-perf-modal-save');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const targetId = overlay.querySelector('#cd-perf-f-account-id').value;
+                const metric = overlay.querySelector('#cd-perf-f-metric').value;
+                const threshold = cleanNum(overlay.querySelector('#cd-perf-f-threshold').value, 75000);
+                const ignoreThresh = cleanNum(overlay.querySelector('#cd-perf-f-ignore-no-msg-thresh').value, 70000);
+
+                saveBtn.disabled = true;
+                saveBtn.textContent = '⏳ Đang lưu...';
+
+                try {
+                    const res = await fetch(`/api/thongkeads/accounts/${targetId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ..._cdAdsGetAuthHeaders()
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            effectiveness_metric: metric,
+                            effectiveness_threshold: threshold,
+                            ignore_no_msg_spend_threshold: ignoreThresh
+                        })
+                    });
+                    const data = await res.json();
+                    if (!data.ok) throw new Error(data.error);
+
+                    overlay.remove();
+                    alert('✅ Đã lưu cài đặt hiệu quả thành công!');
+                    _cdAdsLoadCampaigns();
+                } catch(e) {
+                    alert(`❌ Lỗi: ${e.message}`);
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '💾 Lưu Cấu Hình Hiệu Quả';
+                }
+            });
+        }
+    };
+
+    setupModalListeners();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
 window.renderChiendichadsPage = renderChiendichadsPage;
 window._cdAdsGoToKhoAdsItem = _cdAdsGoToKhoAdsItem;
+window._cdAdsOpenPerfModal = _cdAdsOpenPerfModal;
