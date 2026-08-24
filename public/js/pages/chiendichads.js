@@ -620,16 +620,14 @@ function _cdAdsRenderTable() {
                     </div>
                 ` : ''}
             </td>
-            ${c.post_id ? `
-                <td class="no-row-click" onclick="event.stopPropagation(); window.open('https://fb.com/${c.post_id}', '_blank')" style="padding:10px 8px;font-size:12px;font-weight:700;color:#2563eb;text-decoration:underline;text-align:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" title="Mở Facebook: https://fb.com/${c.post_id}">${c.post_id}</td>
-            ` : `
-                <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#94a3b8;text-align:center;">-</td>
-            `}
-            ${c.camp_id ? `
-                <td class="no-row-click" ${campFbLink ? `onclick="event.stopPropagation(); window.open('${campFbLink}', '_blank')" style="padding:10px 8px;font-size:12px;font-weight:700;color:#2563eb;text-decoration:underline;text-align:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" title="Mở Trực Tiếp Chiến Dịch Meta Ads: ${campFbLink}"` : `style="padding:10px 8px;font-size:12px;font-weight:600;color:#334155;text-align:center;"`}>${c.camp_id}</td>
-            ` : `
-                <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#94a3b8;text-align:center;">-</td>
-            `}
+            <td class="no-row-click" style="padding:10px 8px;text-align:center;">
+                ${c.post_id ? `
+                    <a href="https://fb.com/${c.post_id}" target="_blank" onclick="event.stopPropagation();" style="font-size:12px;font-weight:700;color:#2563eb;text-decoration:underline;display:block;" title="Mở Facebook: https://fb.com/${c.post_id}">${c.post_id}</a>
+                ` : `<div style="font-size:12px;font-weight:600;color:#94a3b8;">-</div>`}
+                ${c.camp_id ? `
+                    <div style="font-family: monospace; font-size: 11px; color: #64748b; margin-top: 2px;" title="ID Camp: ${c.camp_id}">${c.camp_id}</div>
+                ` : ''}
+            </td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(c.total_spend)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(c.total_messages)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:${Number(c.avg_cpa) > 0 && Number(c.avg_cpa) <= 75000 ? '#16a34a' : '#334155'};text-align:right;">${fmtMoney(c.avg_cpa)}</td>
@@ -658,8 +656,7 @@ function _cdAdsRenderTable() {
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">ẢNH</th>
                     <th onclick="_cdAdsToggleSort('campaign_name')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:left;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Tên Chiến Dịch">TÊN CHIẾN DỊCH ${_cdAdsSortIcon('campaign_name')}</th>
                     <th onclick="_cdAdsToggleSort('channel_name')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Kênh / Tài Khoản">KÊNH ${_cdAdsSortIcon('channel_name')}</th>
-                    <th onclick="_cdAdsToggleSort('post_id')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Post ID">POST ID ${_cdAdsSortIcon('post_id')}</th>
-                    <th onclick="_cdAdsToggleSort('camp_id')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo ID Camp">ID CAMP ${_cdAdsSortIcon('camp_id')}</th>
+                    <th onclick="_cdAdsToggleSort('post_id')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo ID Post / ID Camp">ID POST / ID CAMP ${_cdAdsSortIcon('post_id')}</th>
                     <th onclick="_cdAdsToggleSort('total_spend')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Ngân Sách">NGÂN SÁCH ${_cdAdsSortIcon('total_spend')}</th>
                     <th onclick="_cdAdsToggleSort('total_messages')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Tin Nhắn">TIN NHẮN ${_cdAdsSortIcon('total_messages')}</th>
                     <th onclick="_cdAdsToggleSort('avg_cpa')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo CPA">CPA ${_cdAdsSortIcon('avg_cpa')}</th>
