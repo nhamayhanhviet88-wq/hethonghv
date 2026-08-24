@@ -23,7 +23,10 @@
     async function initAdsConnWidget() {
         injectStyles();
         createFloatingWidget();
+        updateWidgetUI();
         await fetchAccounts();
+        // Periodically check role in case user data finishes loading asynchronously
+        setInterval(updateWidgetUI, 2000);
         // Periodically refresh accounts connection status every 60 seconds
         setInterval(fetchAccounts, 60000);
     }
@@ -258,15 +261,33 @@
     }
 
     function isGiamDocUser() {
-        var u = window._currentUser || window.currentUser;
+        var u = window._currentUser || window.__currentUser || window.currentUser;
         if (!u) {
             try {
-                u = JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || '{}');
+                u = JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || localStorage.getItem('userData') || '{}');
             } catch(e){}
         }
-        if (!u || (!u.role && !u.id)) return false;
-        var r = (u.role || '').toLowerCase();
-        return r === 'giam_doc' || r === 'admin' || r === 'ban_giam_doc' || !!u.is_admin;
+        if (!u) return false;
+        
+        var r = String(u.role || u.user_role || u.chuc_vu || '').toLowerCase();
+        var username = String(u.username || u.name || u.fullname || '').toLowerCase();
+
+        // Allow Admin, Giám Đốc, Ban Giám Đốc, Quản Lý Cấp Cao, Quản Lý, or admin username
+        if (
+            r === 'giam_doc' || 
+            r === 'admin' || 
+            r === 'ban_giam_doc' || 
+            r === 'quan_ly_cap_cao' || 
+            r === 'quan_ly' ||
+            !!u.is_admin ||
+            username === 'admin' ||
+            username.includes('giamdoc') ||
+            username.includes('giam_doc')
+        ) {
+            return true;
+        }
+
+        return false;
     }
 
     function checkOverallHasError(platforms) {
