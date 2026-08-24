@@ -257,6 +257,18 @@
         });
     }
 
+    function isGiamDocUser() {
+        var u = window._currentUser || window.currentUser;
+        if (!u) {
+            try {
+                u = JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || '{}');
+            } catch(e){}
+        }
+        if (!u || (!u.role && !u.id)) return false;
+        var r = (u.role || '').toLowerCase();
+        return r === 'giam_doc' || r === 'admin' || r === 'ban_giam_doc' || !!u.is_admin;
+    }
+
     function checkOverallHasError(platforms) {
         if (!platforms || platforms.length === 0) return false;
         return platforms.some(function(p) { return p.hasError; });
@@ -264,8 +276,20 @@
 
     function updateWidgetUI() {
         var btn = document.getElementById('hvAdsConnFloatBtn');
+        if (!isGiamDocUser()) {
+            if (btn) btn.style.display = 'none';
+            var win = document.getElementById('hvAdsConnWindow');
+            if (win) win.remove();
+            return;
+        }
+
+        if (!btn) {
+            createFloatingWidget();
+            btn = document.getElementById('hvAdsConnFloatBtn');
+        }
         if (!btn) return;
 
+        btn.style.display = 'flex';
         var platforms = getGroupedPlatforms();
         var hasError = checkOverallHasError(platforms);
 
@@ -277,6 +301,8 @@
 
     function createFloatingWidget() {
         if (document.getElementById('hvAdsConnFloatBtn')) return;
+        if (!isGiamDocUser()) return;
+
         var btn = document.createElement('button');
         btn.className = 'hv-ads-conn-float-btn';
         btn.id = 'hvAdsConnFloatBtn';
