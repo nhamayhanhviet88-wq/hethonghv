@@ -964,46 +964,175 @@ async function _cdAdsDeleteCampaign(campaignId) {
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
+function _cdAdsEnsureKhoAdsModalInDOM() {
+    if (document.getElementById('modalCreateKhoAdsItem')) return;
+
+    const div = document.createElement('div');
+    div.id = 'cdAdsKhoModalContainer';
+    div.innerHTML = `
+        <div id="modalCreateKhoAdsItem" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 9999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
+            <div style="background: white; border-radius: 20px; width: 100%; max-width: 1100px; max-height: 92vh; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                <div style="background: linear-gradient(135deg, #0f172a, #4338ca); padding: 18px 24px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;" id="lblKhoAdsModalIcon">📋</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 18px; font-weight: 800;" id="lblKhoAdsModalTitle">Chi Tiết & Quản Lý Tư Liệu Ads Công Việc</h3>
+                            <div style="font-size: 12px; opacity: 0.8;">Đăng tài nguyên Video/Ảnh chạy Quảng Cáo</div>
+                        </div>
+                    </div>
+                    <button onclick="closeModalCreateKhoAdsItem()" style="background: rgba(255,255,255,0.2); border: none; font-size: 16px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: white; font-weight: bold;">✕</button>
+                </div>
+
+                <div style="padding: 16px 24px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🔗 Liên Kết Với Công Việc (PHÒNG MARKETING) <span style="color:#dc2626">*</span></label>
+                        <select id="selKhoAdsTaskId" onchange="onKhoAdsTaskSelectChange()" style="width: 100%; padding: 11px 12px; border: 1.5px solid #6366f1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #eef2ff; color: #3730a3;">
+                            <option value="">-- Vui lòng chọn Công Việc liên kết --</option>
+                        </select>
+                    </div>
+
+                    <div id="boxKhoAdsTargetInfo" style="display: none; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 10px 16px; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div style="font-size: 13px; font-weight: 800; color: #3730a3;" id="lblKhoAdsTargetQtyText">
+                                🔢 SỐ LƯỢNG CẦN SẢN XUẤT: <strong>1</strong> sản phẩm / video / ảnh
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <div style="font-size: 12px; font-weight: 800; color: #059669; background: #d1fae5; padding: 4px 12px; border-radius: 20px;" id="lblKhoAdsProgressCounter">
+                                    📊 Tiến độ hoàn thành: 0 / 1
+                                </div>
+                                <div id="boxKhoAdsApprovalStatus" style="display: flex; align-items: center; gap: 8px;"></div>
+                            </div>
+                        </div>
+
+                        <div id="boxKhoAdsSubItemTabs" style="display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px dashed #a5b4fc; padding-top: 8px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="boxKhoAdsMainFormBody" style="padding: 20px 24px; display: none; grid-template-columns: 360px 1fr; gap: 24px; overflow-y: auto; flex: 1;">
+                    <div style="display: flex; flex-direction: column; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; height: 100%;">
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a;">🖼️ Hình Ảnh / Thumbnail <span style="color:#dc2626">*</span></label>
+                        <div id="boxKhoAdsThumbPreview" style="width: 100%; flex: 1; min-height: 360px; border: 2px dashed #a5b4fc; border-radius: 12px; background: #eef2ff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; overflow: hidden; position: relative; padding: 10px; transition: border-color 0.2s;">
+                            <div style="font-size: 36px; margin-bottom: 8px;">🖼️</div>
+                            <div style="font-size: 13px; font-weight: 800; color: #4338ca; margin-bottom: 4px;">Dán ảnh qua Ctrl + V</div>
+                            <div style="font-size: 11.5px; color: #64748b; font-weight: 600;">(Bắt buộc dán ảnh cho từng tư liệu)</div>
+                        </div>
+                        <input type="hidden" id="iptKhoAdsThumbnailUrl">
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">📌 Tên Video/Ảnh Ads <span style="color:#dc2626">*</span> <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động)</span></label>
+                            <input type="text" id="iptKhoAdsTitle" readonly placeholder="Tự động sinh ra..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f1f5f9; color: #334155; cursor: not-allowed;">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div>
+                                <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🏢 Lĩnh Vực Ads <span style="color:#dc2626">*</span> <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động)</span></label>
+                                <select id="selKhoAdsLinhVuc" disabled style="width: 100%; padding: 11px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 700; outline: none; background: #f1f5f9; color: #334155; cursor: not-allowed;">
+                                    <option value="">-- Lĩnh Vực Tự Động --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🎬 Loại Tư Liệu <span style="color:#dc2626">*</span></label>
+                                <select id="selKhoAdsMediaType" onchange="onKhoAdsSubItemInput('media_type', this.value)" style="width: 100%; padding: 11px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; outline: none; background: white;">
+                                    <option value="video">🎥 Video Ads</option>
+                                    <option value="image">🖼️ Ảnh Ads</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label style="font-size: 13px; font-weight: 800; color: #0f172a; margin: 0;">📝 Content Ads <span style="color:#dc2626">*</span></label>
+                                <button id="btnCopyKhoAdsContent" onclick="copyKhoAdsContentText()" style="padding: 5px 12px; background: #eef2ff; color: #4338ca; border: 1.5px solid #c7d2fe; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                                    <span>📋</span> <span>Copy Content</span>
+                                </button>
+                            </div>
+                            <textarea id="txtKhoAdsDescription" oninput="onKhoAdsSubItemInput('description', this.value)" rows="10" placeholder="Mô tả Content Ads..." style="width: 100%; padding: 14px; border: 1.5px solid #cbd5e1; border-radius: 12px; font-size: 13.5px; outline: none; font-family: inherit; resize: vertical; min-height: 260px;"></textarea>
+                        </div>
+
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label style="font-size: 13px; font-weight: 800; color: #0f172a; margin: 0;">🔗 Link Google Drive <span style="color:#dc2626">*</span></label>
+                                <button id="btnOpenKhoAdsDriveUrl" onclick="openKhoAdsDriveUrlTab()" style="padding: 5px 12px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                                    <span>🔗</span> <span>Mở Link Drive ↗</span>
+                                </button>
+                            </div>
+                            <input type="url" id="iptKhoAdsDriveUrl" oninput="onKhoAdsSubItemInput('drive_url', this.value)" placeholder="https://drive.google.com/drive..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; outline: none;">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="boxKhoAdsFooterActions" style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: none; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btnKhoAdsPrevTab" onclick="navKhoAdsSubItemTab(-1)" style="padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; font-weight: 700; font-size: 12.5px; cursor: pointer;">⬅️ Tư liệu trước</button>
+                        <button id="btnKhoAdsNextTab" onclick="navKhoAdsSubItemTab(1)" style="padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; font-weight: 700; font-size: 12.5px; cursor: pointer;">Tư liệu tiếp ➡️</button>
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btnKhoAdsCloseModal" onclick="closeModalCreateKhoAdsItem()" style="padding: 10px 20px; border-radius: 10px; border: 1px solid #cbd5e1; background: white; color: #475569; font-weight: 700; font-size: 13px; cursor: pointer;">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(div);
+}
+
 async function _cdAdsGoToKhoAdsItem(khoAdsItemId) {
     if (!khoAdsItemId || khoAdsItemId === 'null') {
         return alert('⚠️ Chiến dịch này chưa được liên kết với Mẫu Kho Ads!');
     }
 
-    const modalEl = document.getElementById('modalCreateKhoAdsItem');
-    if (typeof openKhoAdsItemDetailFromPersonal === 'function' && modalEl) {
-        openKhoAdsItemDetailFromPersonal(khoAdsItemId);
-        return;
-    }
-
-    const menuLink = document.querySelector('[data-page="khoads"], a[href="/khoads"], a[href*="khoads"]');
-    if (menuLink) {
-        menuLink.click();
-    } else if (typeof handleRoute === 'function') {
-        history.pushState(null, '', '/khoads');
-        handleRoute();
-    } else {
-        window.location.href = '/khoads';
-        return;
-    }
-
-    let retries = 0;
-    const checkInterval = setInterval(async () => {
-        retries++;
-        if (typeof openKhoAdsItemDetailFromPersonal === 'function') {
-            clearInterval(checkInterval);
-            if (typeof _khoAdsData !== 'undefined' && (!_khoAdsData.items || _khoAdsData.items.length === 0)) {
-                try {
-                    const res = await fetch('/api/kho-ads/items', {
-                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
-                    }).then(r => r.json());
-                    if (res && res.ok) _khoAdsData.items = res.items || [];
-                } catch(e) {}
-            }
-            openKhoAdsItemDetailFromPersonal(khoAdsItemId);
-        } else if (retries > 30) {
-            clearInterval(checkInterval);
+    // Load khoads.js script if functions not available yet
+    if (typeof openKhoAdsTaskDetailModal !== 'function') {
+        if (typeof _loadScript === 'function') {
+            await _loadScript('/js/pages/khoads.js');
         }
-    }, 150);
+    }
+
+    _cdAdsEnsureKhoAdsModalInDOM();
+
+    window._khoAdsData = window._khoAdsData || {
+        activeMainTab: 'tasks',
+        tasks: [],
+        items: [],
+        linhVucList: [],
+        editingId: null
+    };
+
+    try {
+        const token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+        const headers = {};
+        if (token && token !== 'null') headers['Authorization'] = 'Bearer ' + token;
+
+        // Fetch tasks if empty
+        if (!_khoAdsData.tasks || _khoAdsData.tasks.length === 0) {
+            const res = await fetch('/api/kho-ads/tasks-grouped', { headers }).then(r => r.json());
+            if (res && res.ok) _khoAdsData.tasks = res.tasks || [];
+        }
+
+        // Find target task matching khoAdsItemId
+        let targetTask = null;
+        for (const t of (_khoAdsData.tasks || [])) {
+            if (t.items && t.items.some(i => Number(i.id) === Number(khoAdsItemId))) {
+                targetTask = t;
+                break;
+            }
+        }
+
+        if (targetTask && typeof openKhoAdsTaskDetailModal === 'function') {
+            openKhoAdsTaskDetailModal(targetTask.id, Number(khoAdsItemId));
+        } else if (typeof openKhoAdsItemDetailFromPersonal === 'function') {
+            openKhoAdsItemDetailFromPersonal(Number(khoAdsItemId));
+        } else {
+            alert('⚠️ Không tìm thấy chi tiết Mẫu Ads!');
+        }
+    } catch(e) {
+        console.error('[cdAdsGoToKhoAdsItem error]', e);
+        alert('⚠️ Lỗi tải dữ liệu Mẫu Ads: ' + e.message);
+    }
 }
 
 window.renderChiendichadsPage = renderChiendichadsPage;
