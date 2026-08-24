@@ -241,7 +241,7 @@ module.exports = async function (fastify, opts) {
                 fb_ad_account_id, fb_ad_account_link,
                 fb_dev_account_name, fb_dev_account_link, fb_dev_portal_link,
                 fb_access_token, token_expires_at, fanpage_id, fanpage_name,
-                effectiveness_metric, effectiveness_threshold,
+                effectiveness_metric, effectiveness_threshold, ignore_no_msg_spend_threshold,
                 spend_min, spend_max, assigned_staff_name
             } = req.body || {};
 
@@ -264,11 +264,11 @@ module.exports = async function (fastify, opts) {
                     fb_ad_account_id, fb_ad_account_link,
                     fb_dev_account_name, fb_dev_account_link, fb_dev_portal_link,
                     fb_access_token, token_expires_at, fanpage_id, fanpage_name,
-                    effectiveness_metric, effectiveness_threshold,
+                    effectiveness_metric, effectiveness_threshold, ignore_no_msg_spend_threshold,
                     spend_min, spend_max,
                     connection_status, connection_error, last_checked_at,
                     assigned_staff_name, created_by, created_at, updated_at
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW(),$19,$20,NOW(),NOW())
+                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW(),$20,$21,NOW(),NOW())
                 RETURNING *
             `, [
                 plat,
@@ -285,6 +285,7 @@ module.exports = async function (fastify, opts) {
                 (fanpage_name || '').trim() || null,
                 effectiveness_metric || 'cpa',
                 _cleanNumber(effectiveness_threshold, 75000),
+                _cleanNumber(ignore_no_msg_spend_threshold, 70000),
                 _cleanNumber(spend_min, 1),
                 _cleanNumber(spend_max, 20000000),
                 testRes.status,
@@ -317,7 +318,7 @@ module.exports = async function (fastify, opts) {
                 fb_ad_account_id, fb_ad_account_link,
                 fb_dev_account_name, fb_dev_account_link, fb_dev_portal_link,
                 fb_access_token, token_expires_at, fanpage_id, fanpage_name,
-                effectiveness_metric, effectiveness_threshold,
+                effectiveness_metric, effectiveness_threshold, ignore_no_msg_spend_threshold,
                 spend_min, spend_max, is_active, assigned_staff_name
             } = req.body || {};
 
@@ -356,15 +357,16 @@ module.exports = async function (fastify, opts) {
                     fanpage_name = COALESCE($12, fanpage_name),
                     effectiveness_metric = COALESCE($13, effectiveness_metric),
                     effectiveness_threshold = COALESCE($14, effectiveness_threshold),
-                    spend_min = COALESCE($15, spend_min),
-                    spend_max = COALESCE($16, spend_max),
-                    is_active = COALESCE($17, is_active),
-                    connection_status = $18,
-                    connection_error = $19,
-                    assigned_staff_name = COALESCE($20, assigned_staff_name),
+                    ignore_no_msg_spend_threshold = COALESCE($15, ignore_no_msg_spend_threshold),
+                    spend_min = COALESCE($16, spend_min),
+                    spend_max = COALESCE($17, spend_max),
+                    is_active = COALESCE($18, is_active),
+                    connection_status = $19,
+                    connection_error = $20,
+                    assigned_staff_name = COALESCE($21, assigned_staff_name),
                     last_checked_at = NOW(),
                     updated_at = NOW()
-                WHERE id = $21
+                WHERE id = $22
                 RETURNING *
             `, [
                 platform ? platform.toLowerCase() : null,
@@ -381,6 +383,7 @@ module.exports = async function (fastify, opts) {
                 fanpage_name != null ? fanpage_name.trim() : null,
                 effectiveness_metric || null,
                 effectiveness_threshold != null ? _cleanNumber(effectiveness_threshold, existing.effectiveness_threshold) : existing.effectiveness_threshold,
+                ignore_no_msg_spend_threshold != null ? _cleanNumber(ignore_no_msg_spend_threshold, existing.ignore_no_msg_spend_threshold || 70000) : existing.ignore_no_msg_spend_threshold || 70000,
                 spend_min != null ? _cleanNumber(spend_min, existing.spend_min) : existing.spend_min,
                 spend_max != null ? _cleanNumber(spend_max, existing.spend_max) : existing.spend_max,
                 is_active != null ? is_active : null,

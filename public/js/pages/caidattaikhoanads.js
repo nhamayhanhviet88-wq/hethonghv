@@ -83,12 +83,17 @@ window._formatDateVN = function(dateStr) {
     return d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-window._formatDateTimeVN = function(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+function _fmtNumber(val) {
+    if (val === null || val === undefined || val === '') return '0';
+    return Number(val).toLocaleString('vi-VN');
+}
+
+function _cleanNumber(val, defaultVal = 0) {
+    if (val === null || val === undefined || val === '') return defaultVal;
+    const str = String(val).replace(/\./g, '').replace(/,/g, '').trim();
+    const num = parseFloat(str);
+    return isNaN(num) ? defaultVal : num;
+}
 
 window.renderCaidattaikhoanadsPage = function(container) {
     // State
@@ -1648,6 +1653,46 @@ ${_escapeHtml(g.description)}
                             Nhập ngày hết hạn của Token. Hệ thống sẽ tự động hiển thị cảnh báo <strong>ĐỎ RỰC NHẤP NHÁY</strong> trên thẻ trước 7 ngày để Anh kịp gia hạn.
                         </div>
                     </div>
+
+                    <!-- Khối 📊 Tiêu Chí & Ngưỡng Đánh Giá (Liên kết trực tiếp với Thống Kê Camp & Chiến Dịch Test Ads) -->
+                    <div style="background: #fafbfc; padding: 20px; border-radius: 16px; border: 1.5px solid #e2e8f0; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 16px; font-size: 15px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                            📊 Tiêu Chí & Ngưỡng Đánh Giá
+                        </h4>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                            <div>
+                                <label style="display:block;font-size:12.5px;font-weight:700;color:#475569;margin-bottom:6px;">Tiêu chí hiệu quả *</label>
+                                <select id="cda-f-metric" style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:600;background:white;outline:none;">
+                                    <option value="cpa" ${(account?.effectiveness_metric || 'cpa') === 'cpa' ? 'selected' : ''}>CPA (Chi phí / Tin nhắn)</option>
+                                    <option value="ctr" ${account?.effectiveness_metric === 'ctr' ? 'selected' : ''}>CTR (Tỷ lệ click)</option>
+                                    <option value="cpm" ${account?.effectiveness_metric === 'cpm' ? 'selected' : ''}>CPM (Chi phí / 1000 hiển thị)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:12.5px;font-weight:700;color:#475569;margin-bottom:6px;">Ngưỡng hiệu quả (đ) * (Bắt buộc)</label>
+                                <input id="cda-f-threshold" type="text"
+                                    value="${_fmtNumber(account?.effectiveness_threshold || 75000)}"
+                                    placeholder="75.000"
+                                    style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"
+                                    oninput="let raw = this.value.replace(/[^0-9]/g, ''); this.value = raw ? Number(raw).toLocaleString('vi-VN') : '';">
+                            </div>
+                        </div>
+
+                        <div style="padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                            <label style="display:block;font-size:12.5px;font-weight:700;color:#475569;margin-bottom:6px;">
+                                Không tính số lần chạy không ra tin nhắn < (đ) * (Bắt buộc)
+                            </label>
+                            <input id="cda-f-ignore-no-msg-thresh" type="text"
+                                value="${_fmtNumber(account?.ignore_no_msg_spend_threshold || 70000)}"
+                                placeholder="70.000"
+                                style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"
+                                oninput="let raw = this.value.replace(/[^0-9]/g, ''); this.value = raw ? Number(raw).toLocaleString('vi-VN') : '';">
+                            <div style="font-size: 11.5px; color: #64748b; margin-top: 5px;">
+                                💡 Các ngày chạy dở có Chi tiêu < số tiền này VÀ không ra tin nhắn sẽ không bị tính là 1 lần chạy.
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="padding: 18px 28px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; background: white; border-radius: 0 0 24px 24px;">
@@ -1741,6 +1786,9 @@ ${_escapeHtml(g.description)}
             const fb_dev_portal_link = overlay.querySelector('#cda-f-devportal').value.trim();
             const fb_access_token = overlay.querySelector('#cda-f-token').value.trim();
             const token_expires_at = overlay.querySelector('#cda-f-token-expires').value;
+            const effectiveness_metric = overlay.querySelector('#cda-f-metric').value;
+            const effectiveness_threshold_raw = overlay.querySelector('#cda-f-threshold').value;
+            const ignore_no_msg_spend_threshold_raw = overlay.querySelector('#cda-f-ignore-no-msg-thresh').value;
 
             if (!assigned_staff_name) {
                 alert('⚠️ Vui lòng chọn Nhân Viên Phụ Trách bắt buộc!');
@@ -1787,6 +1835,16 @@ ${_escapeHtml(g.description)}
                 overlay.querySelector('#cda-f-token-expires').focus();
                 return;
             }
+            if (!effectiveness_threshold_raw || !effectiveness_threshold_raw.trim()) {
+                alert('⚠️ Vui lòng nhập Ngưỡng hiệu quả (đ) (Bắt buộc)!');
+                overlay.querySelector('#cda-f-threshold').focus();
+                return;
+            }
+            if (!ignore_no_msg_spend_threshold_raw || !ignore_no_msg_spend_threshold_raw.trim()) {
+                alert('⚠️ Vui lòng nhập Không tính số lần chạy không ra tin nhắn < (đ) (Bắt buộc)!');
+                overlay.querySelector('#cda-f-ignore-no-msg-thresh').focus();
+                return;
+            }
 
             const body = {
                 platform,
@@ -1797,7 +1855,10 @@ ${_escapeHtml(g.description)}
                 fb_dev_account_name,
                 fb_dev_account_link,
                 fb_dev_portal_link,
-                token_expires_at
+                token_expires_at,
+                effectiveness_metric,
+                effectiveness_threshold: _cleanNumber(effectiveness_threshold_raw, 75000),
+                ignore_no_msg_spend_threshold: _cleanNumber(ignore_no_msg_spend_threshold_raw, 70000)
             };
             if (fb_access_token) body.fb_access_token = fb_access_token;
 
