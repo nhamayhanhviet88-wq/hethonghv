@@ -995,6 +995,7 @@ window.renderThongkeadsPage = function(container) {
             <thead>
                 <tr style="background: #1e293b; color: white;">
                     <th onclick="window._tkaSortBy('report_date')" style="padding: 12px 10px; text-align: left; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Ngày chạy">NGÀY CHẠY ${_getSortIcon('report_date')}</th>
+                    <th onclick="window._tkaSortBy('mau_test')" style="padding: 12px 10px; text-align: left; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Mẫu Test">MẪU TEST ${_getSortIcon('mau_test')}</th>
                     <th onclick="window._tkaSortBy('link_post_id')" style="padding: 12px 10px; text-align: left; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Link Post ID">LINK POST ID ${_getSortIcon('link_post_id')}</th>
                     <th onclick="window._tkaSortBy('campaign_name')" style="padding: 12px 10px; text-align: left; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Tên Camp & ID Camp">CHIẾN DỊCH / ID CAMP ${_getSortIcon('campaign_name')}</th>
                     <th onclick="window._tkaSortBy('spend')" style="padding: 12px 10px; text-align: right; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số tiền chi cho quảng cáo chiến dịch.">NGÂN SÁCH CHI TIÊU ${_getSortIcon('spend')}</th>
@@ -1013,7 +1014,7 @@ window.renderThongkeadsPage = function(container) {
             tableEl.innerHTML = `
                 ${headersHtml}
                 <tbody id="tka-tbody">
-                    <tr><td colspan="12" style="padding: 60px 20px; text-align: center; color: #94a3b8;">
+                    <tr><td colspan="13" style="padding: 60px 20px; text-align: center; color: #94a3b8;">
                         <div style="font-size: 48px; margin-bottom: 12px;">📭</div>
                         <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">Chưa có dữ liệu thống kê</div>
                         <div style="font-size: 13px;">Bấm "🔄 Đồng Bộ Từ Meta" phía trên để tải dữ liệu chiến dịch mới nhất.</div>
@@ -1077,6 +1078,7 @@ window.renderThongkeadsPage = function(container) {
                 <tr style="border-bottom: 1px solid #f1f5f9; ${i % 2 === 0 ? 'background:#fafbfc;' : ''}transition:background 0.15s;"
                     onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='${i % 2 === 0 ? '#fafbfc' : 'white'}'">
                     <td style="padding: 10px; white-space: nowrap; font-weight: 500;">${dateStr}</td>
+                    <td style="padding: 10px; white-space: nowrap; font-size: 12px; color: #64748b; font-weight: 600;">${row.mau_test ? _escapeHtml(row.mau_test) : '<span style="color:#cbd5e1;">-</span>'}</td>
                     <td style="padding: 10px; white-space: nowrap; font-size: 12px;" title="${postId}">
                         ${postId ? `
                             <a href="http://fb.com/${postId}" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'" title="Bấm để xem bài viết Facebook (http://fb.com/${postId})">
@@ -1162,6 +1164,7 @@ window.renderThongkeadsPage = function(container) {
         const headersHtml = `
             <thead>
                 <tr style="background: linear-gradient(135deg, #1e293b, #334155); color: white; font-size: 12px;">
+                    <th onclick="window._tkaCampSortBy('mau_test')" style="padding: 10px 8px; text-align: left; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Mẫu Test">MẪU TEST ${_getCampSortIcon('mau_test')}</th>
                     <th onclick="window._tkaCampSortBy('link_post_id')" style="padding: 10px 8px; text-align: left; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Post ID">POST ID ${_getCampSortIcon('link_post_id')}</th>
                     <th onclick="window._tkaCampSortBy('campaign_name')" style="padding: 10px 8px; text-align: left; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Tên Chiến dịch & ID Camp">CHIẾN DỊCH / ID CAMP ${_getCampSortIcon('campaign_name')}</th>
                     <th onclick="window._tkaCampSortBy('total_spend')" style="padding: 10px 8px; text-align: right; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số tiền chi cho quảng cáo chiến dịch.">NGÂN SÁCH ${_getCampSortIcon('total_spend')}</th>
@@ -1182,7 +1185,7 @@ window.renderThongkeadsPage = function(container) {
             tableEl.innerHTML = `
                 ${headersHtml}
                 <tbody id="tka-tbody">
-                    <tr><td colspan="12" style="padding: 60px 20px; text-align: center; color: #94a3b8;">
+                    <tr><td colspan="13" style="padding: 60px 20px; text-align: center; color: #94a3b8;">
                         <div style="font-size: 48px; margin-bottom: 12px;">📭</div>
                         <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">Chưa có dữ liệu tổng hợp chiến dịch</div>
                         <div style="font-size: 13px;">Bấm "🔄 Đồng Bộ Từ Meta" phía trên để cập nhật chỉ số mới nhất.</div>
@@ -1276,6 +1279,7 @@ window.renderThongkeadsPage = function(container) {
             return `
                 <tr style="border-bottom: 1px solid #f1f5f9; ${i % 2 === 0 ? 'background:#fafbfc;' : ''}transition:background 0.15s;"
                     onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='${i % 2 === 0 ? '#fafbfc' : 'white'}'">
+                    <td style="padding: 8px 6px; white-space: nowrap; font-size: 12px; color: #64748b; font-weight: 600;">${row.mau_test ? _escapeHtml(row.mau_test) : '<span style="color:#cbd5e1;">-</span>'}</td>
                     <td style="padding: 8px 6px; white-space: nowrap; font-size: 12px;" title="${postId}">
                         ${postId ? `
                             <a href="http://fb.com/${postId}" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'" title="Bấm để xem bài viết Facebook (http://fb.com/${postId})">
