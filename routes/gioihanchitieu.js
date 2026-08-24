@@ -2130,8 +2130,31 @@ module.exports = async function (fastify, opts) {
             const daysStr = schedType === 'one_time' ? '' : (Array.isArray(days) ? days.join(',') : (days || '1,2,3,4,5,6,0'));
             const otDate = schedType === 'one_time' ? (one_time_date || null) : null;
 
-            if (schedType === 'one_time' && !otDate) {
-                return reply.code(400).send({ error: 'Vui lòng chọn ngày bật cho lịch hẹn 1 lần' });
+            if (schedType === 'one_time') {
+                if (!otDate) {
+                    return reply.code(400).send({ error: 'Vui lòng chọn ngày bật cho lịch hẹn 1 lần' });
+                }
+
+                // Lấy ngày & giờ Việt Nam hiện tại (UTC+7)
+                const now = new Date();
+                const vnDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
+                const vnTimeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh' }).slice(0, 5); // HH:mm
+
+                // 1. Không cho chọn ngày trong quá khứ
+                if (otDate < vnDateStr) {
+                    return reply.code(400).send({ error: `Ngày bật (${otDate}) đã ở trong quá khứ! Vui lòng chọn từ ngày hôm nay (${vnDateStr}) trở đi.` });
+                }
+
+                // 2. Không cho chọn Ngày Lễ (theo Setup Ngày Lễ)
+                const holiday = await db.get(`SELECT holiday_name FROM holidays WHERE holiday_date = $1::date`, [otDate]);
+                if (holiday) {
+                    return reply.code(400).send({ error: `Ngày ${otDate} là Ngày Lễ ("${holiday.holiday_name}") theo trang Setup Ngày Lễ. Không thể đặt lịch hẹn BẬT camp!` });
+                }
+
+                // 3. Nếu chọn HÔM NAY -> Khung giờ phải lớn hơn giờ hiện tại Việt Nam
+                if (otDate === vnDateStr && enable_time <= vnTimeStr) {
+                    return reply.code(400).send({ error: `Khung giờ BẬT (${enable_time}) phải lớn hơn thời gian hiện tại của giờ Việt Nam (${vnTimeStr} VN) cho ngày hôm nay!` });
+                }
             }
 
             if (id) {

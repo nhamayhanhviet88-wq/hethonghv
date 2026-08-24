@@ -8,10 +8,29 @@
     let _campaigns = [];
     let _schedules = [];
     let _logs = [];
-    let _isLoadingCampaigns = false;
+    let _holidaysMap = {}; // 'YYYY-MM-DD' => holiday_name
+
+    async function _loadHgbcHolidays() {
+        try {
+            const res = await fetch('/api/holidays', { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                const list = data.holidays || [];
+                _holidaysMap = {};
+                list.forEach(h => {
+                    const dateStr = String(h.holiday_date || '').slice(0, 10);
+                    if (dateStr) _holidaysMap[dateStr] = h.holiday_name || 'Ngày Lễ';
+                });
+            }
+        } catch(e) { console.error('[Hgbc Load Holidays Error]', e); }
+    }
 
     window.renderHengiobatcampPage = async function(container) {
         if (!container) return;
+
+        // Current Vietnam Date
+        const now = new Date();
+        const todayVnStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
 
         container.innerHTML = `
             <style>
@@ -385,10 +404,28 @@
                                 </select>
                             </div>
 
-                            <!-- KHUNG GIỜ BẬT -->
+                            <!-- KHUNG GIỜ BẬT (24h Custom Selector giống Ảnh 2) -->
                             <div class="hgbc-form-group">
                                 <label>Khung Giờ BẬT (HH:mm) *</label>
-                                <input type="time" id="hgbc-form-time" class="hgbc-input" value="03:00" required />
+                                <div style="display: flex; align-items: center; gap: 6px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 5px 10px; width: fit-content;">
+                                    <span style="font-size: 15px; color: #64748b;">⏰</span>
+                                    <select id="hgbc-form-hour" class="hgbc-select" style="padding: 4px 6px; font-weight: 800; font-size: 14px; font-family: monospace; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                        ${Array.from({length: 24}, (_, i) => {
+                                            const h = String(i).padStart(2, '0');
+                                            const sel = h === '03' ? 'selected' : '';
+                                            return `<option value="${h}" ${sel}>${h}</option>`;
+                                        }).join('')}
+                                    </select>
+                                    <span style="font-weight: 900; font-size: 16px; color: #334155;">:</span>
+                                    <select id="hgbc-form-minute" class="hgbc-select" style="padding: 4px 6px; font-weight: 800; font-size: 14px; font-family: monospace; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                        ${Array.from({length: 60}, (_, i) => {
+                                            const m = String(i).padStart(2, '0');
+                                            const sel = m === '00' ? 'selected' : '';
+                                            return `<option value="${m}" ${sel}>${m}</option>`;
+                                        }).join('')}
+                                    </select>
+                                    <span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 11px; font-weight: 800; padding: 3px 7px; border-radius: 6px; margin-left: 2px;">24h</span>
+                                </div>
                             </div>
                         </div>
 
@@ -422,8 +459,8 @@
                         <!-- NGÀY BẬT CỤ THỂ (1 Lần) -->
                         <div id="hgbc-onetime-section" class="hgbc-form-group" style="margin-top: 14px; display: none;">
                             <label>Ngày Bật Cụ Thể *</label>
-                            <input type="date" id="hgbc-form-onetime-date" class="hgbc-input" style="max-width: 260px;" />
-                            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">💡 Chiến dịch sẽ được BẬT đúng 1 lần vào ngày & giờ đã chọn, sau đó lịch hẹn tự động TẮT.</div>
+                            <input type="date" id="hgbc-form-onetime-date" class="hgbc-input" style="max-width: 260px;" min="${todayVnStr}" onchange="window._onHgbcDateChange(this.value)" />
+                            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">💡 Chỉ cho chọn ngày HÔM NAY hoặc TƯƠNG LAI (Chặn chọn Ngày Lễ theo Setup Ngày Lễ). Bật 1 lần rồi tự động TẮT.</div>
                         </div>
 
                         <div style="margin-top: 18px;">
@@ -448,7 +485,7 @@
                                     <th>Tài Khoản QC</th>
                                     <th>Chiến Dịch Chỉ Định</th>
                                     <th>Giờ Bật</th>
-                                    <th>Ngày Áp Dụng</th>
+                                    <th>Ngày Áp Dụng / Ngày Bật</th>
                                     <th>Lần Chạy Cuối</th>
                                     <th>Trạng Thái</th>
                                     <th>Hành Động</th>
@@ -488,6 +525,7 @@
         `;
 
         // Initial Data Fetching
+        await _loadHgbcHolidays();
         await window._loadHgbcAccounts();
         await window._loadHgbcSchedules();
         await window._loadHgbcLogs();
@@ -689,23 +727,53 @@
         const recurringSection = document.getElementById('hgbc-recurring-section');
         const oneTimeSection = document.getElementById('hgbc-onetime-section');
 
+        // Múi giờ Việt Nam hiện tại (UTC+7)
+        const now = new Date();
+        const vnDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
+
         if (mode === 'one_time') {
             recurringBtn.classList.remove('selected');
             oneTimeBtn.classList.add('selected');
             if (recurringSection) recurringSection.style.display = 'none';
             if (oneTimeSection) oneTimeSection.style.display = '';
-            // Set default date to today
+
             const dateInput = document.getElementById('hgbc-form-onetime-date');
-            if (dateInput && !dateInput.value) {
-                const now = new Date();
-                const vnStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
-                dateInput.value = vnStr;
+            if (dateInput) {
+                dateInput.min = vnDateStr; // Đặt ngày tối thiểu là ngày hôm nay
+                if (!dateInput.value || dateInput.value < vnDateStr) {
+                    dateInput.value = vnDateStr;
+                }
+                // Check if default value is a holiday
+                if (_holidaysMap[dateInput.value]) {
+                    window._onHgbcDateChange(dateInput.value);
+                }
             }
         } else {
             recurringBtn.classList.add('selected');
             oneTimeBtn.classList.remove('selected');
             if (recurringSection) recurringSection.style.display = '';
             if (oneTimeSection) oneTimeSection.style.display = 'none';
+        }
+    };
+
+    // Helper: Date Change Validation
+    window._onHgbcDateChange = function(val) {
+        if (!val) return;
+        const now = new Date();
+        const vnDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+        // 1. Kiểm tra ngày quá khứ
+        if (val < vnDateStr) {
+            alert(`⚠️ Không thể chọn ngày trong quá khứ (${val})!\nVui lòng chọn từ ngày hôm nay (${vnDateStr}) trở đi.`);
+            document.getElementById('hgbc-form-onetime-date').value = vnDateStr;
+            return;
+        }
+
+        // 2. Kiểm tra Ngày Lễ (theo trang Setup Ngày Lễ)
+        if (_holidaysMap[val]) {
+            alert(`⚠️ Ngày ${val} là Ngày Lễ ("${_holidaysMap[val]}") theo trang Setup Ngày Lễ!\nVui lòng chọn ngày làm việc khác.`);
+            document.getElementById('hgbc-form-onetime-date').value = '';
+            return;
         }
     };
 
@@ -718,12 +786,21 @@
         const campId = campSelect?.value;
         const selectedOption = campSelect?.options[campSelect.selectedIndex];
         const campName = selectedOption ? decodeURIComponent(selectedOption.getAttribute('data-name') || campId) : campId;
-        const enableTime = document.getElementById('hgbc-form-time')?.value;
+        
+        // 24h Time Selector values
+        const hour = document.getElementById('hgbc-form-hour')?.value || '03';
+        const minute = document.getElementById('hgbc-form-minute')?.value || '00';
+        const enableTime = `${hour}:${minute}`;
 
         if (!accId || !campId || !enableTime) {
             alert('Vui lòng điền đầy đủ Tài Khoản, Chiến Dịch và Khung Giờ Bật!');
             return;
         }
+
+        // Standard VN Time Validation
+        const now = new Date();
+        const vnDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
+        const vnTimeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh' }).slice(0, 5); // HH:mm
 
         const payload = {
             account_id: accId,
@@ -737,6 +814,19 @@
             const otDate = document.getElementById('hgbc-form-onetime-date')?.value;
             if (!otDate) {
                 alert('Vui lòng chọn Ngày Bật Cụ Thể cho lịch hẹn 1 lần!');
+                return;
+            }
+            if (otDate < vnDateStr) {
+                alert(`⚠️ Ngày bật (${otDate}) đã ở trong quá khứ! Vui lòng chọn từ ngày hôm nay (${vnDateStr}) trở đi.`);
+                return;
+            }
+            if (_holidaysMap[otDate]) {
+                alert(`⚠️ Ngày ${otDate} là Ngày Lễ ("${_holidaysMap[otDate]}") theo trang Setup Ngày Lễ!\nKhông thể đặt lịch hẹn BẬT camp vào ngày nghỉ lễ.`);
+                return;
+            }
+            // Nếu chọn HÔM NAY -> Giờ hẹn phải > giờ VN hiện tại
+            if (otDate === vnDateStr && enableTime <= vnTimeStr) {
+                alert(`⚠️ Khung giờ BẬT (${enableTime}) phải lớn hơn thời gian hiện tại của giờ Việt Nam (${vnTimeStr} VN) cho ngày hôm nay!`);
                 return;
             }
             payload.one_time_date = otDate;
