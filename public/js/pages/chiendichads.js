@@ -1989,14 +1989,14 @@ function _cdAdsRenderExtraCampsHTML(camp) {
     if (camp.camp_id || camp.post_id) {
         items.push(`
             <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px;">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">⭐ Camp Chính</span>
-                    ${camp.camp_id ? `<span style="font-family: monospace; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 8px; border-radius: 6px;">🆔 Camp: ${escapeHtml(camp.camp_id)}</span>` : ''}
-                    ${camp.post_id ? `<span style="font-family: monospace; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px;">📌 Post: ${escapeHtml(camp.post_id)}</span>` : ''}
-                    <span style="color: #64748b; font-weight: 600;">📝 ${escapeHtml(camp.campaign_name || 'Chiến dịch gốc')}</span>
-                    <span style="color: #94a3b8; font-size: 11px;">👤 ${escapeHtml(camp.created_by_name || 'Giám Đốc')}</span>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; overflow: hidden; flex: 1;">
+                    <span style="background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; flex-shrink: 0;">⭐ Camp Chính</span>
+                    ${camp.camp_id ? `<span style="font-family: monospace; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 8px; border-radius: 6px; flex-shrink: 0;">🆔 Camp: ${escapeHtml(camp.camp_id)}</span>` : ''}
+                    ${camp.post_id ? `<span style="font-family: monospace; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px; flex-shrink: 0;">📌 Post: ${escapeHtml(camp.post_id)}</span>` : ''}
+                    <span style="color: #64748b; font-weight: 600; max-width: 450px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;" title="${escapeHtml(camp.campaign_name || '')}">📝 ${escapeHtml(camp.campaign_name || 'Chiến dịch gốc')}</span>
+                    <span style="color: #94a3b8; font-size: 11px; flex-shrink: 0;">👤 ${escapeHtml(camp.created_by_name || 'Giám Đốc')}</span>
                 </div>
-                <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px;" title="Mã Camp ID chính cố định theo chiến dịch">🔒 Cố định</span>
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; flex-shrink: 0;" title="Mã Camp ID chính cố định theo chiến dịch">🔒 Cố định</span>
             </div>
         `);
     }
@@ -2005,14 +2005,14 @@ function _cdAdsRenderExtraCampsHTML(camp) {
     extraCamps.forEach(ec => {
         items.push(`
             <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px;">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">➕ Camp Phụ</span>
-                    ${ec.camp_id ? `<span style="font-family: monospace; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 8px; border-radius: 6px;">🆔 Camp: ${escapeHtml(ec.camp_id)}</span>` : ''}
-                    ${ec.post_id ? `<span style="font-family: monospace; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px;">📌 Post: ${escapeHtml(ec.post_id)}</span>` : ''}
-                    ${ec.note ? `<span style="color: #64748b; font-weight: 600;">📝 ${escapeHtml(ec.note)}</span>` : ''}
-                    <span style="color: #94a3b8; font-size: 11px;">👤 ${escapeHtml(ec.created_by_name || 'Hệ thống')}</span>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; overflow: hidden; flex: 1;">
+                    <span style="background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; flex-shrink: 0;">➕ Camp Phụ</span>
+                    ${ec.camp_id ? `<span style="font-family: monospace; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 8px; border-radius: 6px; flex-shrink: 0;">🆔 Camp: ${escapeHtml(ec.camp_id)}</span>` : ''}
+                    ${ec.post_id ? `<span style="font-family: monospace; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px; flex-shrink: 0;">📌 Post: ${escapeHtml(ec.post_id)}</span>` : ''}
+                    ${ec.note ? `<span style="color: #64748b; font-weight: 600; max-width: 450px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;" title="${escapeHtml(ec.note)}">📝 ${escapeHtml(ec.note)}</span>` : ''}
+                    <span style="color: #94a3b8; font-size: 11px; flex-shrink: 0;">👤 ${escapeHtml(ec.created_by_name || 'Hệ thống')}</span>
                 </div>
-                <button onclick="_cdAdsDeleteExtraCamp(${ec.id}, ${campaignId})" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Gỡ mã Camp phụ này">🗑️ Gỡ</button>
+                <button onclick="_cdAdsDeleteExtraCamp(${ec.id}, ${campaignId})" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer; flex-shrink: 0;" title="Gỡ mã Camp phụ này">🗑️ Gỡ</button>
             </div>
         `);
     });
