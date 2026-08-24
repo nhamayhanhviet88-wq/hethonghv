@@ -355,13 +355,16 @@ window.renderThongkeadsPage = function(container) {
         const qSel = document.getElementById('tka-quarter-select');
 
         if (monthSel) {
-            monthSel.innerHTML = '';
+            monthSel.innerHTML = '<option value="all">🌐 Tất cả các tháng</option>';
             for (let m = 1; m <= 12; m++) {
                 const opt = document.createElement('option');
                 opt.value = m;
                 opt.textContent = `Tháng ${m}`;
-                if (m === _selectedMonth) opt.selected = true;
+                if (String(m) === String(_selectedMonth)) opt.selected = true;
                 monthSel.appendChild(opt);
+            }
+            if (String(_selectedMonth) === 'all') {
+                monthSel.value = 'all';
             }
         }
 
@@ -1252,7 +1255,7 @@ window.renderThongkeadsPage = function(container) {
         // Month/Year selectors
         const monthSel = document.getElementById('tka-month-select');
         const yearSel = document.getElementById('tka-year-select');
-        if (monthSel) monthSel.addEventListener('change', () => { _selectedMonth = parseInt(monthSel.value); _currentPage = 1; _loadData(); });
+        if (monthSel) monthSel.addEventListener('change', () => { _selectedMonth = monthSel.value === 'all' ? 'all' : parseInt(monthSel.value); _currentPage = 1; _loadData(); });
         if (yearSel) yearSel.addEventListener('change', () => { _selectedYear = parseInt(yearSel.value); _currentPage = 1; _loadData(); });
 
         // Quarter selectors

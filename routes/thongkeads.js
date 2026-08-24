@@ -726,10 +726,15 @@ module.exports = async function (fastify, opts) {
                 const eDate = `${year}-${String(endM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
                 whereClauses.push('d.report_date >= ? AND d.report_date <= ?');
                 queryParams.push(sDate, eDate);
-            } else if (month && year) {
+            } else if (month && year && month !== 'all') {
                 const sDate = `${year}-${String(month).padStart(2, '0')}-01`;
                 const lastDay = new Date(year, month, 0).getDate();
                 const eDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+                whereClauses.push('d.report_date >= ? AND d.report_date <= ?');
+                queryParams.push(sDate, eDate);
+            } else if (year) {
+                const sDate = `${year}-01-01`;
+                const eDate = `${year}-12-31`;
                 whereClauses.push('d.report_date >= ? AND d.report_date <= ?');
                 queryParams.push(sDate, eDate);
             }
