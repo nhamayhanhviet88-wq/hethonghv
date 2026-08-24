@@ -775,8 +775,8 @@ module.exports = async function (fastify, opts) {
             }
 
             if (search) {
-                whereClauses.push('(d.campaign_name LIKE ? OR d.campaign_id LIKE ? OR d.link_post_id LIKE ?)');
-                const s = `%${search}%`;
+                whereClauses.push('(LOWER(d.campaign_name) LIKE ? OR LOWER(d.campaign_id) LIKE ? OR LOWER(d.link_post_id) LIKE ?)');
+                const s = `%${search.trim().toLowerCase()}%`;
                 queryParams.push(s, s, s);
             }
 

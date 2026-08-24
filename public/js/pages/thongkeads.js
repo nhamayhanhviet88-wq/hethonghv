@@ -3,6 +3,8 @@ function _escapeHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+const DEFAULT_SEARCH_KEYWORDS = ['CÔNG TY', 'DOANH', 'TIGER', 'VPBANK', 'HVV', 'TEST', 'CAMP NÂU', 'ÁO LỚP'];
+
 function _tkaGetAuthHeaders() {
     const headers = {};
     const token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
@@ -1445,8 +1447,6 @@ window.renderThongkeadsPage = function(container) {
     }
 
     // ========== SEARCH KEYWORDS SUGGESTIONS ==========
-
-    const DEFAULT_SEARCH_KEYWORDS = ['CÔNG TY', 'DOANH', 'TIGER', 'VPBANK', 'HVV', 'TEST', 'CAMP NÂU', 'ÁO LỚP'];
 
     function _getSearchKeywords() {
         try {
