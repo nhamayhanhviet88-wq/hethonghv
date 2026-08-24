@@ -112,7 +112,7 @@ const MENU_CONFIG = [
     // ========== BỘ PHẬN MARKETING ==========
     { id: 'khoads', label: 'Kho Video/Ảnh Ads', icon: '🎬', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Marketing Ads', href: '/khoads', permKey: 'kho_ads' },
     { id: 'caidattkads', label: 'Cài Đặt Tài Khoản Ads', icon: '⚙️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Marketing Ads', href: '/caidattaikhoanads', mobileHref: '/m/caidattaikhoanads', permKey: 'cai_dat_ads' },
-    { id: 'chiendichads', label: 'Chiến Dịch Video/Ảnh Ads', icon: '🚀', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Marketing Ads', href: '/chiendichads', permKey: 'chien_dich_ads' },
+    { id: 'chiendichads', label: 'Chiến Dịch Test Ads', icon: '🚀', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Marketing Ads', href: '/chiendichads', permKey: 'chien_dich_ads' },
     { id: 'thongkeads', label: 'Thống Kê Camp Hiệu Quả', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Marketing Ads', href: '/thongkeads', mobileHref: '/m/thongkeads', permKey: 'thong_ke_ads' },
 
     // ========== FACEBOOK ADS ==========

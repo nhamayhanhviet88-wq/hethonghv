@@ -77,7 +77,7 @@ async function renderChiendichadsPage(container) {
                     <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.18); backdrop-filter: blur(8px); padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 12px;">
                         <span>📢 Bộ Phận Marketing Ads</span>
                     </div>
-                    <h2 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">🚀 Chiến Dịch Video / Ảnh Ads</h2>
+                    <h2 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">🚀 Chiến Dịch Test Ads</h2>
                     <p style="margin: 0; font-size: 14px; opacity: 0.9; max-width: 650px; line-height: 1.5;">
                         Quản lý và theo dõi danh sách các Chiến Dịch Quảng Cáo Video & Hình Ảnh (Chi phí, hiệu quả, trạng thái chạy).
                     </p>
