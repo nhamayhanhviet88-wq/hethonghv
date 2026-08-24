@@ -485,6 +485,7 @@ module.exports = async function (fastify, opts) {
                        COALESCE(c.channel_name, sa.platform, ch.name, 'Facebook') as channel_name,
                        i.title as item_title, i.thumbnail_url, COALESCE(i.linh_vuc, sa.linh_vuc_name, '') as linh_vuc, i.media_type, i.drive_url,
                        u.full_name as created_by_name,
+                       bt.task_code as board_task_code, bt.title as board_task_title,
                        COALESCE(totals.total_spend, 0) as total_spend,
                        COALESCE(totals.total_messages, 0) as total_messages,
                        COALESCE(totals.avg_cpa, 0) as avg_cpa,
@@ -499,6 +500,7 @@ module.exports = async function (fastify, opts) {
                 LEFT JOIN ads_stats_accounts sa ON c.ad_account_id = sa.id
                 LEFT JOIN kho_ads_items i ON c.kho_ads_item_id = i.id
                 LEFT JOIN users u ON c.created_by = u.id
+                LEFT JOIN board_tasks bt ON c.board_task_id = bt.id
                 LEFT JOIN LATERAL (
                     SELECT 
                         SUM(COALESCE(d.spend, 0)) as total_spend,

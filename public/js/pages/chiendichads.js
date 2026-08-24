@@ -851,7 +851,12 @@ function _cdAdsRenderTable() {
                 ${(c.extra_camps && c.extra_camps.length > 0) ? c.extra_camps.map(ec => `
                     <div style="font-family: monospace; font-size: 11px; color: #64748b; margin-top: 2px;" title="ID Camp phụ: ${ec.camp_id || ec.post_id}${ec.note ? ' (' + ec.note + ')' : ''}">${ec.camp_id || ec.post_id}</div>
                 `).join('') : ''}
-                <div style="margin-top: 5px; display: flex; align-items: center; justify-content: center;">
+                <div style="margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
+                    ${c.board_task_code ? `
+                        <span style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border-radius: 6px; padding: 3px 8px; font-weight: 800; font-size: 11px; box-shadow: 0 2px 5px rgba(124,58,237,0.3); display: inline-flex; align-items: center; gap: 3px;" title="Công việc liên kết từ Bảng Công Việc: ${c.board_task_code}${c.board_task_title ? ' - ' + (c.board_task_title || '').replace(/"/g, '&quot;') : ''}">
+                            📋 ${c.board_task_code}
+                        </span>
+                    ` : ''}
                     <button onclick="event.stopPropagation(); _cdAdsOpenAddExtraCampModal(${c.id})" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; border-radius: 6px; padding: 3px 8px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 800; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="Gắn Thêm ID Camp / Post ID cho chiến dịch này" onmouseover="this.style.background='#4338ca';this.style.color='white'" onmouseout="this.style.background='#eef2ff';this.style.color='#4338ca'">
                         <span>➕ Gắn Camp</span>
                     </button>
@@ -1407,6 +1412,13 @@ async function _cdAdsViewDetail(campaignId) {
                             &nbsp;|&nbsp; Người tạo: <strong>${camp.created_by_name || '-'}</strong>
                             &nbsp;|&nbsp; Ngày tạo: <strong>${camp.created_at ? new Date(camp.created_at).toLocaleDateString('vi-VN') : '-'}</strong>
                         </div>
+                        ${camp.board_task_code ? `
+                            <div style="margin-top: 8px; background: #f3e8ff; border: 1.5px solid #d8b4fe; border-radius: 10px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 6px rgba(124,58,237,0.1);">
+                                <span style="font-size: 13px; font-weight: 900; color: #6b21a8;">📋 Liên kết Công việc:</span>
+                                <span style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; padding: 3px 10px; border-radius: 6px; font-weight: 900; font-size: 12px; box-shadow: 0 2px 5px rgba(124,58,237,0.3);">${camp.board_task_code}</span>
+                                ${camp.board_task_title ? `<span style="font-size: 12px; font-weight: 700; color: #581c87;">— ${camp.board_task_title}</span>` : ''}
+                            </div>
+                        ` : ''}
                         ${camp.drive_url ? `<div style="margin-top:6px;"><a href="${camp.drive_url}" target="_blank" style="font-size:12px;color:#2563eb;font-weight:700;text-decoration:none;">🔗 Mở Google Drive ↗</a></div>` : ''}
 
                         <!-- KHỐI QUẢN LÝ CAMP ID / POST ID BỔ SUNG -->
