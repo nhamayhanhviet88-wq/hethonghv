@@ -425,7 +425,7 @@ module.exports = async function (fastify, opts) {
                     WHERE (c.ad_account_id IS NULL OR d.account_id = c.ad_account_id)
                       AND (
                           (c.camp_id IS NOT NULL AND c.camp_id != '' AND d.campaign_id = c.camp_id)
-                          OR (c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
+                          OR ((c.camp_id IS NULL OR c.camp_id = '') AND c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
                       )
                 ) totals ON true
                 WHERE 1=1 ${permClause} ${filterClause}
@@ -592,7 +592,7 @@ module.exports = async function (fastify, opts) {
                     (c.ad_account_id IS NULL OR d.account_id = c.ad_account_id)
                     AND (
                         (c.camp_id IS NOT NULL AND c.camp_id != '' AND d.campaign_id = c.camp_id)
-                        OR (c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
+                        OR ((c.camp_id IS NULL OR c.camp_id = '') AND c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
                     )
                 )
                 LEFT JOIN ads_stats_accounts sa ON d.account_id = sa.id
