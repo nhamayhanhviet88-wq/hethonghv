@@ -37,7 +37,9 @@ const MOBILE_MENU_CONFIG = [
     { id: 'bosuutap', label: 'Bộ Sưu Tập / BST', icon: '🖼️', href: '/m/bosuutap', permKey: 'bo_suu_tap' },
     { id: 'caidattkads', label: 'Cài Đặt Tài Khoản Ads', icon: '⚙️', href: '/m/caidattaikhoanads', permKey: 'cai_dat_ads' },
     { id: 'thongkeads', label: 'Thống Kê Camp Hiệu Quả', icon: '📊', href: '/m/thongkeads', permKey: 'thong_ke_ads' },
-    { id: 'gioihanchitieu', label: '1. Giới Hạn Chi Tiêu', icon: '💰', href: '/m/gioihanchitieu', permKey: 'gioi_han_chi_tieu' }
+    { id: 'gioihanchitieu', label: '1. Giới Hạn Chi Tiêu', icon: '💰', href: '/m/gioihanchitieu', permKey: 'gioi_han_chi_tieu' },
+    { id: 'tatbatfbads', label: '2. Tắt / Bật FB Ads', icon: '🔌', href: '/m/tatbatfbads', permKey: 'tat_bat_fb_ads' },
+    { id: 'hengiobatcamp', label: '3. Hẹn Giờ Bật Camp', icon: '⏰', href: '/m/hengiobatcamp', permKey: 'hen_gio_bat_camp' }
 ];
 
 

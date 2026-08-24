@@ -12,6 +12,7 @@ module.exports = async function (fastify, opts) {
         await db.run("ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMPTZ");
         await db.run("ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS assigned_staff_name VARCHAR(255)");
         await db.run("ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS token_expires_at DATE");
+        await db.run("ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS auto_reenable_at TIMESTAMPTZ");
 
         // Migration: Bảng Video Hướng Dẫn Cài Đặt Ads
         await db.run(`

@@ -5,6 +5,7 @@ window.renderGioihanchitieuPage = function(container) {
     let _accounts = [];
     let _selectedAccountId = 'all'; // Default to 'all' to show all accounts on load
     let _configs = []; // { day_type, time_slot, spend_limit, is_active }
+    let _initialConfigsMap = new Map();
     let _logs = [];
     let _isGD = false;
     let _settings = {};
@@ -175,22 +176,266 @@ window.renderGioihanchitieuPage = function(container) {
         _renderContent();
     };
 
-    // ========== TOGGLE SPEND STATUS ==========
-    window._ghctToggleSpendStatus = async function(accountId, enableStatus) {
+    // ========== TOGGLE STATUS HELPER & MODAL ==========
+    function _getAccountStatusBtnInfo(acc) {
+        const isSpendEnabled = acc.spend_limit_enabled !== false;
+        let autoAt = null;
+        if (acc.auto_reenable_at) {
+            try { autoAt = new Date(acc.auto_reenable_at); } catch(e){}
+        }
+        const isFutureTimer = !isSpendEnabled && autoAt && autoAt.getTime() > Date.now();
+
+        if (isSpendEnabled) {
+            return {
+                isSpendEnabled: true,
+                isTimer: false,
+                cardBtnText: '⚡ BẬT (Đang chạy)',
+                cardBtnBg: 'linear-gradient(135deg, #059669, #10b981)',
+                tableBadgeText: '⚡ Đang Bật',
+                tableBadgeStyle: 'background: #dcfce7; color: #15803d; border: 1px solid #86efac;',
+                tooltip: 'Nhấp để DỪNG tự động giới hạn chi tiêu'
+            };
+        } else if (isFutureTimer) {
+            const timeStr = autoAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+            const dateStr = autoAt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+            return {
+                isSpendEnabled: false,
+                isTimer: true,
+                cardBtnText: `⏱️ DỪNG (Bật lại ${timeStr})`,
+                cardBtnBg: 'linear-gradient(135deg, #d97706, #f59e0b)',
+                tableBadgeText: `⏱️ Đã Dừng (Bật lại ${timeStr})`,
+                tableBadgeStyle: 'background: #fef3c7; color: #b45309; border: 1px solid #fde68a;',
+                tooltip: `Hẹn giờ tự động BẬT lại lúc ${timeStr} ngày ${dateStr}`
+            };
+        } else {
+            return {
+                isSpendEnabled: false,
+                isTimer: false,
+                cardBtnText: '⏸️ DỪNG (Thủ công)',
+                cardBtnBg: 'linear-gradient(135deg, #dc2626, #ef4444)',
+                tableBadgeText: '⏸️ Đã Dừng (Thủ công)',
+                tableBadgeStyle: 'background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;',
+                tooltip: 'Đã tắt thủ công. Nhấp để BẬT tự động giới hạn chi tiêu'
+            };
+        }
+    }
+
+    function _showDisableModal(acc) {
+        const old = document.getElementById('ghct-disable-modal');
+        if (old) old.remove();
+
+        const modalHtml = `
+            <div id="ghct-disable-modal" style="
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 99999; padding: 20px; box-sizing: border-box;
+            ">
+                <div style="
+                    background: white; border-radius: 20px; width: 100%; max-width: 520px;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #e2e8f0;
+                    overflow: hidden; display: flex; flex-direction: column;
+                ">
+                    <!-- Header -->
+                    <div style="
+                        background: linear-gradient(135deg, #1e293b, #0f172a);
+                        padding: 20px 24px; color: white; display: flex; align-items: center; justify-content: space-between;
+                    ">
+                        <div>
+                            <h3 style="margin: 0; font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                                <span>⏸️</span> Tắt Tự Động Giới Hạn Chi Tiêu
+                            </h3>
+                            <div style="font-size: 13px; color: #94a3b8; margin-top: 4px;">
+                                Tài khoản: <strong style="color: #38bdf8;">📘 ${acc.account_name || 'Quảng Cáo'}</strong>
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('ghct-disable-modal').remove()" style="
+                            background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px;
+                            border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+                        ">✕</button>
+                    </div>
+
+                    <!-- Body -->
+                    <div style="padding: 24px;">
+                        <p style="margin: 0 0 16px; font-size: 14px; color: #334155; font-weight: 600;">
+                            Vui lòng chọn phương thức tắt cho tài khoản này:
+                        </p>
+
+                        <!-- Option 1 Card -->
+                        <div id="ghct-card-manual" onclick="window._ghctSelectDisableOption('manual')" style="
+                            display: flex; align-items: flex-start; gap: 14px; padding: 16px; border-radius: 14px;
+                            border: 2px solid #0284c7; background: #f0f9ff; cursor: pointer; margin-bottom: 14px;
+                            transition: all 0.2s;
+                        ">
+                            <input type="radio" id="ghct-radio-manual" name="ghct_disable_mode" value="manual" checked style="margin-top: 3px; transform: scale(1.2); cursor: pointer;" />
+                            <div>
+                                <div style="font-weight: 800; font-size: 14px; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                                    ⏹️ Lựa Chọn 1: Tắt không tự động bật lại
+                                </div>
+                                <div style="font-size: 12px; color: #64748b; margin-top: 4px; line-height: 1.4;">
+                                    Tắt tự động giới hạn chi tiêu hoàn toàn. Bạn sẽ bật lại thủ công bằng tay khi muốn.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Option 2 Card -->
+                        <div id="ghct-card-timer" onclick="window._ghctSelectDisableOption('auto_timer')" style="
+                            display: flex; align-items: flex-start; gap: 14px; padding: 16px; border-radius: 14px;
+                            border: 2px solid #e2e8f0; background: #ffffff; cursor: pointer;
+                            transition: all 0.2s;
+                        ">
+                            <input type="radio" id="ghct-radio-timer" name="ghct_disable_mode" value="auto_timer" style="margin-top: 3px; transform: scale(1.2); cursor: pointer;" />
+                            <div style="flex: 1;">
+                                <div style="font-weight: 800; font-size: 14px; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                                    ⏱️ Lựa Chọn 2: Tắt tạm thời & Tự động BẬT lại sau số tiếng
+                                </div>
+                                <div style="font-size: 12px; color: #64748b; margin-top: 4px; line-height: 1.4;">
+                                    Tắt ngay và hẹn giờ hệ thống tự động BẬT lại sau số tiếng bạn nhập.
+                                </div>
+
+                                <!-- Input Container -->
+                                <div id="ghct-timer-input-container" style="display: none; margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #cbd5e1;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-size: 13px; font-weight: 700; color: #334155;">Nhập số tiếng:</span>
+                                        <input type="number" id="ghct-timer-hours" value="2" min="0.5" step="0.5" oninput="window._ghctUpdateTimerPreview()" onclick="event.stopPropagation();" style="
+                                            width: 80px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid #0284c7;
+                                            font-weight: 800; font-size: 14px; text-align: center; color: #0f172a; outline: none;
+                                        " />
+                                        <span style="font-size: 13px; font-weight: 700; color: #475569;">tiếng (giờ)</span>
+                                    </div>
+                                    <div id="ghct-timer-preview" style="font-size: 12px; font-weight: 700; color: #0284c7; margin-top: 8px; background: #e0f2fe; padding: 6px 10px; border-radius: 6px;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="
+                        padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0;
+                        display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+                    ">
+                        <button onclick="document.getElementById('ghct-disable-modal').remove()" style="
+                            padding: 10px 20px; border-radius: 10px; border: 1px solid #cbd5e1;
+                            background: white; color: #475569; font-weight: 700; font-size: 13px; cursor: pointer;
+                        ">❌ Hủy Bỏ</button>
+
+                        <button onclick="window._ghctSubmitDisableModal('${acc.id}')" style="
+                            padding: 10px 22px; border-radius: 10px; border: none;
+                            background: linear-gradient(135deg, #dc2626, #ef4444);
+                            color: white; font-weight: 800; font-size: 13px; cursor: pointer;
+                            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+                        ">✅ Xác Nhận Tắt</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        window._ghctUpdateTimerPreview();
+    }
+
+    window._ghctSelectDisableOption = function(mode) {
+        const manualCard = document.getElementById('ghct-card-manual');
+        const timerCard = document.getElementById('ghct-card-timer');
+        const container = document.getElementById('ghct-timer-input-container');
+
+        if (mode === 'manual') {
+            if (manualCard) { manualCard.style.borderColor = '#0284c7'; manualCard.style.background = '#f0f9ff'; }
+            if (timerCard) { timerCard.style.borderColor = '#e2e8f0'; timerCard.style.background = '#ffffff'; }
+            if (container) container.style.display = 'none';
+            const radio = document.getElementById('ghct-radio-manual');
+            if (radio) radio.checked = true;
+        } else {
+            if (manualCard) { manualCard.style.borderColor = '#e2e8f0'; manualCard.style.background = '#ffffff'; }
+            if (timerCard) { timerCard.style.borderColor = '#0284c7'; timerCard.style.background = '#f0f9ff'; }
+            if (container) container.style.display = 'block';
+            const radio = document.getElementById('ghct-radio-timer');
+            if (radio) radio.checked = true;
+            window._ghctUpdateTimerPreview();
+        }
+    };
+
+    window._ghctUpdateTimerPreview = function() {
+        const input = document.getElementById('ghct-timer-hours');
+        const preview = document.getElementById('ghct-timer-preview');
+        if (!input || !preview) return;
+
+        let h = parseFloat(input.value) || 0;
+        if (h < 0.1) h = 0.5;
+
+        const targetTime = new Date(Date.now() + h * 60 * 60 * 1000);
+        const timeStr = targetTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+        const dateStr = targetTime.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+
+        preview.innerHTML = `💡 Tự động <strong>BẬT lại vào lúc ${timeStr} ngày ${dateStr}</strong> (sau ${h} tiếng).`;
+    };
+
+    window._ghctSubmitDisableModal = async function(accountId) {
+        const selectedMode = document.querySelector('input[name="ghct_disable_mode"]:checked')?.value || 'manual';
+        let hours = 0;
+        if (selectedMode === 'auto_timer') {
+            const input = document.getElementById('ghct-timer-hours');
+            hours = parseFloat(input?.value) || 2;
+            if (hours <= 0) {
+                alert('Vui lòng nhập số tiếng hợp lệ (> 0)');
+                return;
+            }
+        }
+
+        const modal = document.getElementById('ghct-disable-modal');
+        if (modal) modal.remove();
+
         try {
             const res = await fetch('/api/gioihanchitieu/toggle-account-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ account_id: accountId, enabled: enableStatus })
+                body: JSON.stringify({
+                    account_id: accountId,
+                    enabled: false,
+                    mode: selectedMode,
+                    hours: hours
+                })
             });
             const data = await res.json();
             if (data.success) {
                 _showToast('✅ ' + data.message, 'success');
-                const acc = _accounts.find(a => String(a.id) === String(accountId));
-                if (acc) acc.spend_limit_enabled = data.enabled;
-                _renderAccountCards();
-                _renderContent();
+                await _loadAccounts();
+            } else {
+                _showToast('❌ ' + (data.error || 'Thao tác thất bại'), 'error');
+            }
+        } catch (e) {
+            _showToast('❌ Lỗi: ' + e.message, 'error');
+        }
+    };
+
+    // ========== TOGGLE SPEND STATUS ==========
+    window._ghctToggleSpendStatus = async function(accountId, enableStatus) {
+        const acc = _accounts.find(a => String(a.id) === String(accountId));
+
+        if (enableStatus === false) {
+            // Turning OFF -> show popup modal options
+            if (acc) {
+                _showDisableModal(acc);
+            } else {
+                _showDisableModal({ id: accountId, account_name: 'Tài Khoản' });
+            }
+            return;
+        }
+
+        // Turning ON -> call API directly
+        try {
+            const res = await fetch('/api/gioihanchitieu/toggle-account-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ account_id: accountId, enabled: true })
+            });
+            const data = await res.json();
+            if (data.success) {
+                _showToast('✅ ' + data.message, 'success');
+                await _loadAccounts();
             } else {
                 _showToast('❌ ' + (data.error || 'Thao tác thất bại'), 'error');
             }
@@ -316,17 +561,17 @@ window.renderGioihanchitieuPage = function(container) {
             }
 
             const staffName = acc.assigned_staff_name || 'Chưa phân công';
-            const isSpendEnabled = acc.spend_limit_enabled !== false;
+            const stInfo = _getAccountStatusBtnInfo(acc);
             const toggleBtn = hasAccess ? `
-                <button onclick="event.stopPropagation(); window._ghctToggleSpendStatus('${acc.id}', ${!isSpendEnabled})" style="
-                    background: ${isSpendEnabled ? 'linear-gradient(135deg, #059669, #10b981)' : 'linear-gradient(135deg, #dc2626, #ef4444)'};
+                <button onclick="event.stopPropagation(); window._ghctToggleSpendStatus('${acc.id}', ${!stInfo.isSpendEnabled})" style="
+                    background: ${stInfo.cardBtnBg};
                     color: white; border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700;
                     cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                     transition: all 0.2s;
-                " title="${isSpendEnabled ? 'Nhấp để DỪNG tự động giới hạn chi tiêu' : 'Nhấp để BẬT tự động giới hạn chi tiêu'}">
-                    ${isSpendEnabled ? '⚡ BẬT (Đang chạy)' : '⏸️ DỪNG (Đã tắt)'}
+                " title="${stInfo.tooltip}">
+                    ${stInfo.cardBtnText}
                 </button>
-            ` : `<span style="font-size: 11px; font-weight: 700; color: ${isSpendEnabled ? '#059669' : '#dc2626'};">${isSpendEnabled ? '⚡ Bật' : '⏸️ Dừng'}</span>`;
+            ` : `<span style="font-size: 11px; font-weight: 700;" title="${stInfo.tooltip}">${stInfo.cardBtnText}</span>`;
 
             return `
                 <div onclick="${hasAccess ? `window._ghctSelectAccount('${acc.id}')` : ''}" style="
@@ -389,6 +634,33 @@ window.renderGioihanchitieuPage = function(container) {
             const res = await fetch(`/api/gioihanchitieu/config?account_id=${_selectedAccountId}`, { credentials: 'include' });
             const data = await res.json();
             _configs = data.configs || [];
+            _initialConfigsMap.clear();
+
+            const dayTypeCount = { weekday: 0, sunday: 0 };
+            _configs.forEach(c => {
+                const dayType = c.day_type || 'weekday';
+                const idx = dayTypeCount[dayType] || 0;
+                dayTypeCount[dayType] = idx + 1;
+
+                const trueBaseLimit = (c.is_one_time_override && c.original_spend_limit != null)
+                    ? parseFloat(c.original_spend_limit)
+                    : (parseFloat(c.spend_limit) || 0);
+
+                const slotInfo = {
+                    id: c.id,
+                    day_type: dayType,
+                    time_slot: (c.time_slot || '').substring(0, 5),
+                    spend_limit: parseFloat(c.spend_limit) || 0,
+                    base_limit: trueBaseLimit,
+                    is_one_time_override: c.is_one_time_override === true
+                };
+
+                if (c.id) {
+                    _initialConfigsMap.set(`id_${c.id}`, slotInfo);
+                }
+                _initialConfigsMap.set(`idx_${dayType}_${idx}`, slotInfo);
+                _initialConfigsMap.set(`time_${dayType}_${(c.time_slot || '').substring(0, 5)}`, slotInfo);
+            });
         } catch (e) {
             console.error('[GHCT] Load config error:', e);
         }
@@ -459,7 +731,7 @@ window.renderGioihanchitieuPage = function(container) {
             const staffName = acc.assigned_staff_name || 'Chưa phân công';
             const accConfigs = _configs.filter(c => String(c.account_id) === String(acc.id));
             const activeSlotsCount = accConfigs.filter(c => c.is_active !== false).length;
-            const isSpendEnabled = acc.spend_limit_enabled !== false;
+            const stInfo = _getAccountStatusBtnInfo(acc);
 
             const connSt = acc.connection_status || 'unconfigured';
             let statusBadge = '<span style="color:#059669;font-weight:700;font-size:11px;background:#dcfce7;padding:3px 10px;border-radius:10px;">🟢 Kết Nối Tốt</span>';
@@ -482,18 +754,16 @@ window.renderGioihanchitieuPage = function(container) {
                     <td style="padding: 14px 16px; text-align: center;">${statusBadge}</td>
                     <td style="padding: 14px 16px; text-align: center;">
                         ${hasAccess ? `
-                        <button onclick="window._ghctToggleSpendStatus('${acc.id}', ${!isSpendEnabled})" style="
-                            background: ${isSpendEnabled ? '#dcfce7' : '#fee2e2'};
-                            color: ${isSpendEnabled ? '#15803d' : '#b91c1c'};
-                            border: 1px solid ${isSpendEnabled ? '#86efac' : '#fca5a5'};
+                        <button onclick="window._ghctToggleSpendStatus('${acc.id}', ${!stInfo.isSpendEnabled})" style="
+                            ${stInfo.tableBadgeStyle}
                             padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer;
                             transition: all 0.2s;
-                        " title="${isSpendEnabled ? 'Bấm để DỪNG tự động' : 'Bấm để BẬT tự động'}">
-                            ${isSpendEnabled ? '⚡ Đang Bật' : '⏸️ Đã Dừng'}
+                        " title="${stInfo.tooltip}">
+                            ${stInfo.tableBadgeText}
                         </button>
                         ` : `
-                        <span style="font-size: 11px; font-weight: 700; color: ${isSpendEnabled ? '#15803d' : '#b91c1c'}; background: ${isSpendEnabled ? '#dcfce7' : '#fee2e2'}; padding: 4px 10px; border-radius: 20px;">
-                            ${isSpendEnabled ? '⚡ Đang Bật' : '⏸️ Đã Dừng'}
+                        <span style="font-size: 11px; font-weight: 700; ${stInfo.tableBadgeStyle} padding: 4px 10px; border-radius: 20px;" title="${stInfo.tooltip}">
+                            ${stInfo.tableBadgeText}
                         </span>
                         `}
                     </td>
@@ -524,7 +794,7 @@ window.renderGioihanchitieuPage = function(container) {
             const staffName = acc.assigned_staff_name || 'Chưa phân công';
             const accConfigs = _configs.filter(c => String(c.account_id) === String(acc.id));
             const activeSlotsCount = accConfigs.filter(c => c.is_active !== false).length;
-            const isSpendEnabled = acc.spend_limit_enabled !== false;
+            const stInfo = _getAccountStatusBtnInfo(acc);
 
             const connSt = acc.connection_status || 'unconfigured';
             let statusBadge = '<span style="color:#059669;font-weight:700;font-size:11px;background:#dcfce7;padding:3px 8px;border-radius:10px;">🟢 Kết Nối Tốt</span>';
@@ -560,17 +830,15 @@ window.renderGioihanchitieuPage = function(container) {
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #f1f5f9;">
                         <span style="color: #64748b;">Tự Động Chi Tiêu:</span>
                         ${hasAccess ? `
-                        <button onclick="event.stopPropagation(); window._ghctToggleSpendStatus('${acc.id}', ${!isSpendEnabled})" style="
-                            background: ${isSpendEnabled ? '#dcfce7' : '#fee2e2'};
-                            color: ${isSpendEnabled ? '#15803d' : '#b91c1c'};
-                            border: 1px solid ${isSpendEnabled ? '#86efac' : '#fca5a5'};
+                        <button onclick="event.stopPropagation(); window._ghctToggleSpendStatus('${acc.id}', ${!stInfo.isSpendEnabled})" style="
+                            ${stInfo.tableBadgeStyle}
                             padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer;
-                        ">
-                            ${isSpendEnabled ? '⚡ Đang Bật' : '⏸️ Đã Dừng'}
+                        " title="${stInfo.tooltip}">
+                            ${stInfo.tableBadgeText}
                         </button>
                         ` : `
-                        <span style="font-size: 11px; font-weight: 700; color: ${isSpendEnabled ? '#15803d' : '#b91c1c'}; background: ${isSpendEnabled ? '#dcfce7' : '#fee2e2'}; padding: 4px 10px; border-radius: 20px;">
-                            ${isSpendEnabled ? '⚡ Đang Bật' : '⏸️ Đã Dừng'}
+                        <span style="font-size: 11px; font-weight: 700; ${stInfo.tableBadgeStyle} padding: 4px 10px; border-radius: 20px;" title="${stInfo.tooltip}">
+                            ${stInfo.tableBadgeText}
                         </span>
                         `}
                     </div>
@@ -785,11 +1053,35 @@ window.renderGioihanchitieuPage = function(container) {
             const minuteVal = (timeParts[1] || '00').padStart(2, '0');
             const limitVal = parseFloat(c.spend_limit) || 0;
             const isActive = c.is_active !== false;
+            const isOverride = c.is_one_time_override === true && c.original_spend_limit != null;
+            const fmtApplied = new Intl.NumberFormat('vi-VN').format(limitVal);
+            const fmtOrig = isOverride ? new Intl.NumberFormat('vi-VN').format(c.original_spend_limit) : '';
+
+            const overrideBadgeHtml = isOverride ? `
+                <div style="
+                    width: 100%; margin-top: 8px; padding: 8px 12px; border-radius: 10px;
+                    background: #fffbeb; border: 1px solid #fde68a; font-size: 12px;
+                    color: #92400e; display: flex; align-items: center; justify-content: space-between;
+                    gap: 8px; flex-wrap: wrap; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+                " title="Số tiền này là tạm thời hôm nay. Hệ thống sẽ tự động khôi phục về ${fmtOrig} đ sau khi thực thi thành công">
+                    <div style="display: flex; align-items: center; gap: 6px; font-weight: 700;">
+                        <span style="font-size: 14px;">⏳</span>
+                        <span>Cấu hình tạm thời hôm nay: <strong style="color: #b45309;">${fmtApplied} đ</strong></span>
+                    </div>
+                    <div style="
+                        background: #fef3c7; border: 1px solid #fcd34d; padding: 3px 10px;
+                        border-radius: 8px; font-size: 11px; font-weight: 800; color: #78350f;
+                    ">
+                        Khôi phục về mức gốc: ${fmtOrig} đ
+                    </div>
+                </div>
+            ` : '';
 
             return `
                 <div class="ghct-slot-row" style="
                     display: flex;
                     align-items: center;
+                    flex-wrap: wrap;
                     gap: 12px;
                     padding: 12px 16px;
                     margin-bottom: 8px;
@@ -918,6 +1210,8 @@ window.renderGioihanchitieuPage = function(container) {
                         align-items: center;
                         justify-content: center;
                     " title="Xóa khung giờ">🗑️</button>
+
+                    ${overrideBadgeHtml}
                 </div>
             `;
         }).join('');
@@ -1049,6 +1343,134 @@ window.renderGioihanchitieuPage = function(container) {
         }
     };
 
+    // ========== SAVE MODE SELECTION MODAL ==========
+    function _showSaveModeModal(hasChanges, onConfirm) {
+        const old = document.getElementById('ghct-save-mode-modal');
+        if (old) old.remove();
+
+        const modalHtml = `
+            <div id="ghct-save-mode-modal" style="
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(6px);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 99999; padding: 20px; box-sizing: border-box;
+            ">
+                <div style="
+                    background: white; border-radius: 20px; width: 100%; max-width: 560px;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3); border: 1px solid #e2e8f0;
+                    overflow: hidden; display: flex; flex-direction: column;
+                    animation: ghct-fadeIn 0.2s ease-out;
+                ">
+                    <!-- Header -->
+                    <div style="
+                        background: linear-gradient(135deg, #0c4a6e, #0284c7);
+                        padding: 20px 24px; color: white; display: flex; align-items: center; justify-content: space-between;
+                    ">
+                        <div>
+                            <h3 style="margin: 0; font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                                <span>⚙️</span> Chọn Chế Độ Lưu Giới Hạn Chi Tiêu
+                            </h3>
+                            <div style="font-size: 13px; color: #e0f2fe; margin-top: 4px;">
+                                Vui lòng chọn cách hệ thống thực thi số tiền giới hạn chi tiêu
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('ghct-save-mode-modal').remove()" style="
+                            background: rgba(255,255,255,0.15); border: none; color: white;
+                            width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px;
+                            display: flex; align-items: center; justify-content: center;
+                        ">✕</button>
+                    </div>
+
+                    <!-- Body Options -->
+                    <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px; background: #f8fafc;">
+
+                        <!-- Option 1: Permanent -->
+                        <div onclick="window._ghctSelectSaveOption('permanent')" id="ghct-opt-permanent" style="
+                            padding: 18px; border-radius: 16px; border: 2.5px solid #0284c7; background: #f0f9ff;
+                            cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(2,132,199,0.08);
+                        ">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <input type="radio" name="ghct_save_option" id="ghct-radio-permanent" value="permanent" checked style="width: 20px; height: 20px; cursor: pointer; accent-color: #0284c7;" />
+                                <label for="ghct-radio-permanent" style="font-weight: 800; font-size: 15px; color: #0369a1; cursor: pointer;">
+                                    📌 Lựa Chọn 1: Thay Đổi Hẳn (Vĩnh Viễn)
+                                </label>
+                            </div>
+                            <p style="margin: 10px 0 0 32px; font-size: 13px; color: #334155; line-height: 1.5;">
+                                Cập nhật số tiền mới cố định cho tất cả các ngày về sau. Mọi đợt chạy giới hạn chi tiêu từ nay sẽ áp dụng số tiền mới này.
+                            </p>
+                        </div>
+
+                        <!-- Option 2: Temporary One-time -->
+                        <div onclick="window._ghctSelectSaveOption('one_time')" id="ghct-opt-one_time" style="
+                            padding: 18px; border-radius: 16px; border: 2.5px solid #e2e8f0; background: #ffffff;
+                            cursor: pointer; transition: all 0.2s;
+                        ">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <input type="radio" name="ghct_save_option" id="ghct-radio-one_time" value="one_time" style="width: 20px; height: 20px; cursor: pointer; accent-color: #d97706;" />
+                                <label for="ghct-radio-one_time" style="font-weight: 800; font-size: 15px; color: #b45309; cursor: pointer;">
+                                    ⏳ Lựa Chọn 2: Thay Đổi Tạm Thời Hôm Nay (Tự Động Khôi Phục Về Mức Gốc)
+                                </label>
+                            </div>
+                            <p style="margin: 10px 0 0 32px; font-size: 13px; color: #334155; line-height: 1.5;">
+                                Áp dụng số tiền mới cho mốc giờ hôm nay. Ngay sau khi lệnh thực thi thành công lên Facebook Ads ở mốc giờ đó, hệ thống sẽ <strong>TỰ ĐỘNG KHÔI PHỤC</strong> số tiền về lại mức ban đầu để ngày mai tiếp tục chạy mức cũ.
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <!-- Footer Buttons -->
+                    <div style="
+                        padding: 16px 24px; background: white; border-top: 1px solid #e2e8f0;
+                        display: flex; gap: 12px; justify-content: flex-end; align-items: center;
+                    ">
+                        <button onclick="document.getElementById('ghct-save-mode-modal').remove()" style="
+                            padding: 11px 20px; border-radius: 12px; border: 1.5px solid #cbd5e1;
+                            background: white; color: #475569; font-size: 13px; font-weight: 700; cursor: pointer;
+                        ">Hủy Bỏ</button>
+                        <button onclick="window._ghctConfirmSaveMode()" style="
+                            padding: 11px 24px; border-radius: 12px; border: none;
+                            background: linear-gradient(135deg, #059669, #10b981); color: white;
+                            font-size: 14px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 14px rgba(5,150,105,0.3);
+                        ">💾 Xác Nhận Lưu Cấu Hình</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        window._ghctSelectSaveOption = function(opt) {
+            document.getElementById('ghct-radio-permanent').checked = (opt === 'permanent');
+            document.getElementById('ghct-radio-one_time').checked = (opt === 'one_time');
+
+            const elPerm = document.getElementById('ghct-opt-permanent');
+            const elOne = document.getElementById('ghct-opt-one_time');
+
+            if (opt === 'permanent') {
+                elPerm.style.borderColor = '#0284c7';
+                elPerm.style.background = '#f0f9ff';
+                elPerm.style.boxShadow = '0 4px 12px rgba(2,132,199,0.08)';
+                elOne.style.borderColor = '#e2e8f0';
+                elOne.style.background = '#ffffff';
+                elOne.style.boxShadow = 'none';
+            } else {
+                elOne.style.borderColor = '#d97706';
+                elOne.style.background = '#fffbeb';
+                elOne.style.boxShadow = '0 4px 12px rgba(217,119,6,0.1)';
+                elPerm.style.borderColor = '#e2e8f0';
+                elPerm.style.background = '#ffffff';
+                elPerm.style.boxShadow = 'none';
+            }
+        };
+
+        window._ghctConfirmSaveMode = function() {
+            const isOneTime = document.getElementById('ghct-radio-one_time').checked;
+            const mode = isOneTime ? 'one_time' : 'permanent';
+            document.getElementById('ghct-save-mode-modal').remove();
+            onConfirm(mode);
+        };
+    }
+
     // ========== SAVE CONFIG ==========
     window._ghctSaveConfig = async function() {
         if (!_selectedAccountId) {
@@ -1056,33 +1478,84 @@ window.renderGioihanchitieuPage = function(container) {
             return;
         }
 
-        try {
-            const res = await fetch('/api/gioihanchitieu/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    account_id: _selectedAccountId,
-                    configs: _configs.map(c => ({
-                        day_type: c.day_type,
-                        time_slot: (c.time_slot || '00:00:00').substring(0, 5),
-                        spend_limit: parseFloat(c.spend_limit) || 0,
-                        is_active: c.is_active !== false
-                    }))
-                })
-            });
+        _showSaveModeModal(true, async function(saveMode) {
+            try {
+                const dayTypeIdxMap = { weekday: 0, sunday: 0 };
+                const preparedConfigs = _configs.map(c => {
+                    const dayType = c.day_type || 'weekday';
+                    const dayIdx = dayTypeIdxMap[dayType] || 0;
+                    dayTypeIdxMap[dayType] = dayIdx + 1;
 
-            const data = await res.json();
-            if (data.success) {
-                _showToast('✅ ' + data.message, 'success');
-                await _loadConfig();
-                _renderContent();
-            } else {
-                _showToast('❌ ' + (data.error || 'Lỗi lưu cấu hình'), 'error');
+                    let init = null;
+                    if (c.id) {
+                        init = _initialConfigsMap.get(`id_${c.id}`);
+                    }
+                    if (!init) {
+                        init = _initialConfigsMap.get(`idx_${dayType}_${dayIdx}`);
+                    }
+                    if (!init) {
+                        init = _initialConfigsMap.get(`time_${dayType}_${(c.time_slot || '00:00:00').substring(0, 5)}`);
+                    }
+
+                    const currentLimit = parseFloat(c.spend_limit) || 0;
+                    const currentSlotTime = (c.time_slot || '00:00:00').substring(0, 5);
+
+                    let isOverride = false;
+                    let origLimit = null;
+
+                    if (saveMode === 'one_time') {
+                        if (init) {
+                            const baseLimit = init.base_limit;
+                            const initSlotTime = init.time_slot;
+                            const isMoneyChanged = currentLimit !== baseLimit;
+                            const isTimeChanged = currentSlotTime !== initSlotTime;
+
+                            if (isMoneyChanged || isTimeChanged || init.is_one_time_override) {
+                                isOverride = true;
+                                origLimit = baseLimit;
+                            } else {
+                                isOverride = false;
+                                origLimit = null;
+                            }
+                        } else {
+                            isOverride = false;
+                            origLimit = null;
+                        }
+                    }
+
+                    return {
+                        day_type: dayType,
+                        time_slot: currentSlotTime,
+                        spend_limit: currentLimit,
+                        is_active: c.is_active !== false,
+                        is_one_time_override: isOverride,
+                        original_spend_limit: origLimit
+                    };
+                });
+
+                const res = await fetch('/api/gioihanchitieu/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        account_id: _selectedAccountId,
+                        configs: preparedConfigs
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    const modeLabel = saveMode === 'one_time' ? ' (Áp dụng TẠM THỜI HÔM NAY)' : ' (Thay đổi VĨNH VIỄN)';
+                    _showToast('✅ ' + data.message + modeLabel, 'success');
+                    await _loadConfig();
+                    _renderContent();
+                } else {
+                    _showToast('❌ ' + (data.error || 'Lỗi lưu cấu hình'), 'error');
+                }
+            } catch (e) {
+                _showToast('❌ Lỗi: ' + e.message, 'error');
             }
-        } catch (e) {
-            _showToast('❌ Lỗi: ' + e.message, 'error');
-        }
+        });
     };
 
     // ========== TEST NOW ==========
@@ -1113,7 +1586,7 @@ window.renderGioihanchitieuPage = function(container) {
         }
 
         const limitVal = parseFloat(applicableSlot.spend_limit) || 0;
-        if (!confirm(`🧪 Test gửi spend_cap lên Meta?\n\nMức giới hạn: ${_fmtMoney(limitVal)}\nLoại ngày: ${dayType === 'sunday' ? 'Chủ Nhật' : 'Thứ 2-7'}\n\nBấm OK để tiếp tục.`)) return;
+        if (!confirm(`🧪 Test gửi spend_cap lên Meta?\n\nMức giới hạn: ${_fmtMoney(limitVal)}\nKhung giờ: ${applicableSlot.time_slot ? String(applicableSlot.time_slot).substring(0, 5) : ''}\nLoại ngày: ${dayType === 'sunday' ? 'Chủ Nhật' : 'Thứ 2-7'}\n\nBấm OK để tiếp tục.`)) return;
 
         try {
             const res = await fetch('/api/gioihanchitieu/test', {
@@ -1122,7 +1595,8 @@ window.renderGioihanchitieuPage = function(container) {
                 credentials: 'include',
                 body: JSON.stringify({
                     account_id: _selectedAccountId,
-                    spend_limit: limitVal
+                    spend_limit: limitVal,
+                    slot_id: applicableSlot.id
                 })
             });
 
@@ -1141,6 +1615,16 @@ window.renderGioihanchitieuPage = function(container) {
 
     // ========== LOGS TAB ==========
     function _renderLogsTab(el) {
+        function getLogStatusBadge(status) {
+            if (status === 'success') {
+                return `<span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0;">✅ Thành Công</span>`;
+            }
+            if (status === 'auto_revert') {
+                return `<span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd;">🔄 Khôi Phục</span>`;
+            }
+            return `<span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;">❌ Lỗi</span>`;
+        }
+
         const mobileLogsCards = _logs.length === 0 ? `
             <div style="padding: 30px; text-align: center; color: #94a3b8;">
                 <div style="font-size: 28px; margin-bottom: 6px;">📭</div>
@@ -1149,14 +1633,11 @@ window.renderGioihanchitieuPage = function(container) {
         ` : _logs.map((log, i) => {
             const dt = new Date(log.executed_at);
             const timeStr = dt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const isSuccess = log.status === 'success';
             return `
                 <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                         <span style="font-weight: 700; font-size: 13px; color: #1e293b;">${log.account_name || 'TK QC'}</span>
-                        <span style="padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; background: ${isSuccess ? '#dcfce7' : '#fee2e2'}; color: ${isSuccess ? '#16a34a' : '#dc2626'};">
-                            ${isSuccess ? '✅ Thành Công' : '❌ Lỗi'}
-                        </span>
+                        ${getLogStatusBadge(log.status)}
                     </div>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: 12px;">
                         <span style="color: #64748b;">Mức giới hạn:</span>
@@ -1217,7 +1698,6 @@ window.renderGioihanchitieuPage = function(container) {
                             ` : _logs.map((log, i) => {
                                 const dt = new Date(log.executed_at);
                                 const timeStr = dt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                                const isSuccess = log.status === 'success';
                                 return `
                                     <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s;" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='transparent'">
                                         <td style="padding: 10px 16px; color: #64748b;">${i + 1}</td>
@@ -1225,14 +1705,7 @@ window.renderGioihanchitieuPage = function(container) {
                                         <td style="padding: 10px 16px; color: #475569;">${log.account_name || ''}</td>
                                         <td style="padding: 10px 16px; text-align: right; font-weight: 700; color: #059669;">${_fmtMoney(log.spend_limit)}</td>
                                         <td style="padding: 10px 16px; text-align: center;">
-                                            <span style="
-                                                padding: 4px 12px;
-                                                border-radius: 20px;
-                                                font-size: 11px;
-                                                font-weight: 700;
-                                                background: ${isSuccess ? '#dcfce7' : '#fee2e2'};
-                                                color: ${isSuccess ? '#16a34a' : '#dc2626'};
-                                            ">${isSuccess ? '✅ Thành Công' : '❌ Lỗi'}</span>
+                                            ${getLogStatusBadge(log.status)}
                                         </td>
                                         <td style="padding: 10px 16px; font-size: 11px; color: #94a3b8; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${(log.response || '').replace(/"/g, '&quot;')}">${log.response || ''}</td>
                                     </tr>

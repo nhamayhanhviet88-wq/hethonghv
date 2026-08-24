@@ -36,6 +36,8 @@ const PERM_FEATURES = [
     { key: 'chien_dich_ads', label: 'Chiến Dịch Video/Ảnh Ads', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
     { key: 'thong_ke_ads', label: 'Thống Kê Camp Hiệu Quả', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
     { key: 'gioi_han_chi_tieu', label: '1. Giới Hạn Chi Tiêu', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
+    { key: 'tat_bat_fb_ads', label: '2. Tắt / Bật FB Ads', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
+    { key: 'hen_gio_bat_camp', label: '3. Hẹn Giờ Bật Camp', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
 
     // ===== BỘ PHẬN SALE =====
     { key: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },

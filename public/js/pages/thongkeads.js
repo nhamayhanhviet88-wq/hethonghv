@@ -851,6 +851,19 @@ window.renderThongkeadsPage = function(container) {
         const tableEl = document.getElementById('tka-table');
         if (!tableEl) return;
 
+        // Find threshold for the selected account
+        let threshold = 75000;
+        if (_selectedAccountId !== 'all') {
+            const acc = _accounts.find(a => String(a.id) === String(_selectedAccountId));
+            if (acc) threshold = parseFloat(acc.effectiveness_threshold) || 75000;
+        } else if (_stats.length > 0 && _stats[0].effectiveness_threshold != null) {
+            threshold = parseFloat(_stats[0].effectiveness_threshold) || 75000;
+        } else if (_accounts.length > 0) {
+            threshold = parseFloat(_accounts[0].effectiveness_threshold) || 75000;
+        }
+
+        const threshK = Math.round(threshold / 1000) + 'K';
+
         // Render Table Headers with sort triggers
         const headersHtml = `
             <thead>
@@ -866,7 +879,7 @@ window.renderThongkeadsPage = function(container) {
                     <th onclick="window._tkaSortBy('ctr')" style="padding: 12px 10px; text-align: right; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="CTR (Tỷ lệ click vào liên kết)">CTR ${_getSortIcon('ctr')}</th>
                     <th onclick="window._tkaSortBy('cpm')" style="padding: 12px 10px; text-align: right; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="CPM (Chi phí trên mỗi 1.000 lượt hiển thị)">CPM ${_getSortIcon('cpm')}</th>
                     <th onclick="window._tkaSortBy('run_count')" style="padding: 12px 10px; text-align: center; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Số lần chạy">SỐ LẦN CHẠY ${_getSortIcon('run_count')}</th>
-                    <th onclick="window._tkaSortBy('is_effective')" style="padding: 12px 10px; text-align: center; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Số hiệu quả">SỐ HIỆU QUẢ ${_getSortIcon('is_effective')}</th>
+                    <th onclick="window._tkaSortBy('is_effective')" style="padding: 12px 10px; text-align: center; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Số hiệu quả">SL HIỆU QUẢ &lt;${threshK} ${_getSortIcon('is_effective')}</th>
                 </tr>
             </thead>
         `;
@@ -886,19 +899,12 @@ window.renderThongkeadsPage = function(container) {
             return;
         }
 
-        // Find threshold for the selected account
-        let threshold = 75000;
-        if (_selectedAccountId !== 'all') {
-            const acc = _accounts.find(a => String(a.id) === String(_selectedAccountId));
-            if (acc) threshold = parseFloat(acc.effectiveness_threshold) || 75000;
-        }
-
         const rowsHtml = _stats.map((row, i) => {
             const rowThreshold = parseFloat(row.effectiveness_threshold) || threshold;
             const cpa = parseFloat(row.cpa) || 0;
-            const isEff = row.is_effective;
             const messages = parseInt(row.messages) || 0;
             const spend = parseFloat(row.spend) || 0;
+            const isEff = (messages > 0 && cpa > 0 && cpa <= rowThreshold);
 
             // CPA color
             let cpaStyle = '';

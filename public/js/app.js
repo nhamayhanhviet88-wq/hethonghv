@@ -117,6 +117,8 @@ const MENU_CONFIG = [
 
     // ========== FACEBOOK ADS ==========
     { id: 'gioihanchitieu', label: '1. Giới Hạn Chi Tiêu', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Facebook Ads', href: '/gioihanchitieu', mobileHref: '/m/gioihanchitieu', permKey: 'gioi_han_chi_tieu' },
+    { id: 'tatbatfbads', label: '2. Tắt / Bật FB Ads', icon: '🔌', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Facebook Ads', href: '/tatbatfbads', mobileHref: '/m/tatbatfbads', permKey: 'tat_bat_fb_ads' },
+    { id: 'hengiobatcamp', label: '3. Hẹn Giờ Bật Camp', icon: '⏰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'Facebook Ads', href: '/hengiobatcamp', mobileHref: '/m/hengiobatcamp', permKey: 'hen_gio_bat_camp' },
 
 
     // ========== BỘ PHẬN SALE ==========
@@ -6824,6 +6826,8 @@ var _PAGE_INIT_REGISTRY = {
     'caidattaikhoanads': 'renderCaidattaikhoanadsPage',
     'gioihanchitieu': 'renderGioihanchitieuPage',
     'gioi-han-chi-tieu': 'renderGioihanchitieuPage',
+    'hengiobatcamp': 'renderHengiobatcampPage',
+    'hen-gio-bat-camp': 'renderHengiobatcampPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {
