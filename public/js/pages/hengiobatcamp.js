@@ -11,6 +11,40 @@
     let _holidaysMap = {}; // 'YYYY-MM-DD' => holiday_name
     let _searchTimer = null;
 
+    function _formatVNFullDateTime(dateInput) {
+        if (!dateInput) return '—';
+        const d = new Date(dateInput);
+        if (isNaN(d.getTime())) return '—';
+
+        const daysArr = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayOfWeek = daysArr[d.getDay()];
+
+        const timeStr = d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const parts = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh' }).split('/');
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const year2 = parts[2].slice(-2);
+
+        return `${dayOfWeek} - ${timeStr} ${day}/${month}/${year2}`;
+    }
+
+    function _formatOneTimeBadgeDate(dateStr) {
+        if (!dateStr) return 'N/A';
+        const str = String(dateStr).slice(0, 10);
+        const parts = str.split('-');
+        if (parts.length !== 3) return dateStr;
+
+        const year2 = parts[0].slice(-2);
+        const month = parts[1];
+        const day = parts[2];
+
+        const d = new Date(`${parts[0]}-${parts[1]}-${parts[2]}T00:00:00`);
+        const daysArr = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayOfWeek = isNaN(d.getTime()) ? '' : daysArr[d.getDay()];
+
+        return `${dayOfWeek} - ${day}/${month}/${year2}`;
+    }
+
     async function _loadHgbcHolidays() {
         try {
             const res = await fetch('/api/holidays', { credentials: 'include' });
@@ -958,8 +992,8 @@
                 const isOneTime = s.schedule_type === 'one_time';
                 let daysList = '';
                 if (isOneTime) {
-                    const formattedDate = s.one_time_date ? String(s.one_time_date).slice(0, 10) : 'N/A';
-                    daysList = `<span style="display:inline-block; padding:3px 10px; border-radius:8px; font-size:11.5px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a;">1️⃣ 1 Lần (${formattedDate})</span>`;
+                    const formattedDate = s.one_time_date ? _formatOneTimeBadgeDate(s.one_time_date) : 'N/A';
+                    daysList = `<span style="display:inline-block; padding:3px 10px; border-radius:8px; font-size:11.5px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a;">1️⃣ 1 Lần ( ${formattedDate})</span>`;
                 } else {
                     daysList = (s.days || '').split(',').filter(Boolean).map(d => {
                         const label = dayNames[d.trim()] || d;
@@ -971,7 +1005,7 @@
                     }).join(' ');
                 }
                 const formattedTime = (s.enable_time || '').slice(0, 5); // 18:10 thay vì 18:10:00
-                const lastExec = s.last_executed_at ? new Date(s.last_executed_at).toLocaleString('vi-VN') : '—';
+                const lastExec = s.last_executed_at ? _formatVNFullDateTime(s.last_executed_at) : '—';
                 const isActive = s.is_active !== false;
 
                 html += `
@@ -1135,7 +1169,7 @@
 
             let html = '';
             _logs.forEach(l => {
-                const timeStr = new Date(l.executed_at).toLocaleString('vi-VN');
+                const timeStr = _formatVNFullDateTime(l.executed_at);
                 const isSuccess = l.status === 'success';
 
                 html += `
