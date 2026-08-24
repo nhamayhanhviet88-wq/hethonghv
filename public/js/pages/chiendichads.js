@@ -1557,10 +1557,19 @@ async function _cdAdsOpenPerfModal(accIdSelect = null) {
                         <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
                             🏆 Ngưỡng % Tỷ Lệ Mẫu Win (%)
                         </label>
-                        <input id="cd-perf-f-win-rate-thresh" type="number" min="0" max="100" step="1"
-                            value="${acc.win_rate_threshold != null ? acc.win_rate_threshold : (_cdAdsState.winRateThreshold || 50)}"
-                            placeholder="50"
-                            ${isReadonly ? 'disabled style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;cursor:not-allowed;outline:none;box-sizing:border-box;"' : 'style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"'}>
+                        ${(() => {
+                            let winVal = 50;
+                            if (acc.win_rate_threshold != null && acc.win_rate_threshold !== '') {
+                                const parsed = parseFloat(acc.win_rate_threshold);
+                                if (!isNaN(parsed) && parsed > 0 && parsed <= 100) winVal = Math.round(parsed);
+                            } else if (_cdAdsState.winRateThreshold) {
+                                winVal = Math.round(_cdAdsState.winRateThreshold);
+                            }
+                            return `<input id="cd-perf-f-win-rate-thresh" type="number" min="0" max="100" step="1"
+                                value="${winVal}"
+                                placeholder="50"
+                                ${isReadonly ? 'disabled style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;cursor:not-allowed;outline:none;box-sizing:border-box;"' : 'style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"'}>`;
+                        })()}
                         <div style="font-size: 11.5px; color: #64748b; margin-top: 5px;">
                             💡 Chiến dịch có % HIỆU QUẢ ≥ số này sẽ được xếp vào Mẫu Win, ngược lại là Mẫu Lose.
                         </div>
@@ -1619,7 +1628,10 @@ async function _cdAdsOpenPerfModal(accIdSelect = null) {
                 const metric = overlay.querySelector('#cd-perf-f-metric').value;
                 const threshold = cleanNum(overlay.querySelector('#cd-perf-f-threshold').value, 75000);
                 const ignoreThresh = cleanNum(overlay.querySelector('#cd-perf-f-ignore-no-msg-thresh').value, 70000);
-                const winThresh = cleanNum(overlay.querySelector('#cd-perf-f-win-rate-thresh')?.value, 50);
+
+                const winInputVal = overlay.querySelector('#cd-perf-f-win-rate-thresh')?.value;
+                const parsedWin = parseFloat(winInputVal);
+                const winThresh = (!isNaN(parsedWin) && parsedWin >= 0 && parsedWin <= 100) ? parsedWin : 50;
 
                 saveBtn.disabled = true;
                 saveBtn.textContent = '⏳ Đang lưu...';

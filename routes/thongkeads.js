@@ -31,11 +31,8 @@ module.exports = async function (fastify, opts) {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS ignore_no_msg_spend_threshold DECIMAL(15,2) DEFAULT 70000`);
-        await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS account_type VARCHAR(20) DEFAULT 'main'`);
-        await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS linh_vuc_id INT`);
-        await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS linh_vuc_name VARCHAR(100)`);
         await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS win_rate_threshold DECIMAL(8,2) DEFAULT 50`);
+        await db.run(`UPDATE ads_stats_accounts SET win_rate_threshold = 50 WHERE win_rate_threshold >= 100 OR win_rate_threshold <= 0 OR win_rate_threshold IS NULL`);
     } catch(e) { console.error('[ads_stats_accounts migration]', e.message); }
 
     // Bảng 2: ads_stats_daily — Thống kê hàng ngày theo campaign
@@ -209,6 +206,12 @@ module.exports = async function (fastify, opts) {
         return isNaN(num) ? defaultVal : num;
     }
 
+    function _cleanPercent(val, defaultVal = 50) {
+        if (val === null || val === undefined || val === '') return defaultVal;
+        const num = parseFloat(String(val).replace(',', '.'));
+        return isNaN(num) ? defaultVal : num;
+    }
+
     // PUT /api/thongkeads/accounts/:id — Sửa tài khoản (Giám Đốc)
     fastify.put('/api/thongkeads/accounts/:id', { preHandler: [authenticate] }, async (req, reply) => {
         try {
@@ -268,7 +271,7 @@ module.exports = async function (fastify, opts) {
                 effectiveness_metric || null,
                 effectiveness_threshold != null ? _cleanNumber(effectiveness_threshold, existing.effectiveness_threshold) : existing.effectiveness_threshold,
                 ignore_no_msg_spend_threshold != null ? _cleanNumber(ignore_no_msg_spend_threshold, existing.ignore_no_msg_spend_threshold || 70000) : existing.ignore_no_msg_spend_threshold || 70000,
-                win_rate_threshold != null ? _cleanNumber(win_rate_threshold, existing.win_rate_threshold || 50) : existing.win_rate_threshold || 50,
+                win_rate_threshold != null ? _cleanPercent(win_rate_threshold, _cleanPercent(existing.win_rate_threshold, 50)) : _cleanPercent(existing.win_rate_threshold, 50),
                 spend_min != null ? _cleanNumber(spend_min, existing.spend_min) : existing.spend_min,
                 spend_max != null ? _cleanNumber(spend_max, existing.spend_max) : existing.spend_max,
                 is_active != null ? is_active : null,

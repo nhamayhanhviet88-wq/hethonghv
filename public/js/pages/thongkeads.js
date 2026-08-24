@@ -1800,6 +1800,26 @@ window.renderThongkeadsPage = function(container) {
                                 💡 Các ngày chạy dở có Chi tiêu < số tiền này VÀ không ra tin nhắn sẽ không bị tính là 1 lần chạy.
                             </div>
                         </div>
+
+                        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                            <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
+                                🏆 Ngưỡng % Tỷ Lệ Mẫu Win (%)
+                            </label>
+                            ${(() => {
+                                let winVal = 50;
+                                if (acc.win_rate_threshold != null && acc.win_rate_threshold !== '') {
+                                    const parsed = parseFloat(acc.win_rate_threshold);
+                                    if (!isNaN(parsed) && parsed > 0 && parsed <= 100) winVal = Math.round(parsed);
+                                }
+                                return `<input id="tka-f-win-rate-thresh" type="number" min="0" max="100" step="1"
+                                    value="${winVal}"
+                                    placeholder="50"
+                                    ${isReadonly ? 'disabled style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;cursor:not-allowed;outline:none;box-sizing:border-box;"' : 'style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"'}>`;
+                            })()}
+                            <div style="font-size: 11.5px; color: #64748b; margin-top: 5px;">
+                                💡 Chiến dịch có % HIỆU QUẢ ≥ số này sẽ được xếp vào Mẫu Win, ngược lại là Mẫu Lose.
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1855,6 +1875,10 @@ window.renderThongkeadsPage = function(container) {
                     const threshold = _cleanNumber(overlay.querySelector('#tka-f-threshold').value, 75000);
                     const ignoreThresh = _cleanNumber(overlay.querySelector('#tka-f-ignore-no-msg-thresh').value, 70000);
 
+                    const winInputVal = overlay.querySelector('#tka-f-win-rate-thresh')?.value;
+                    const parsedWin = parseFloat(winInputVal);
+                    const winThresh = (!isNaN(parsedWin) && parsedWin >= 0 && parsedWin <= 100) ? parsedWin : 50;
+
                     saveBtn.disabled = true;
                     saveBtn.textContent = '⏳ Đang lưu...';
 
@@ -1866,7 +1890,8 @@ window.renderThongkeadsPage = function(container) {
                             body: JSON.stringify({
                                 effectiveness_metric: metric,
                                 effectiveness_threshold: threshold,
-                                ignore_no_msg_spend_threshold: ignoreThresh
+                                ignore_no_msg_spend_threshold: ignoreThresh,
+                                win_rate_threshold: winThresh
                             })
                         });
                         const data = await res.json();
