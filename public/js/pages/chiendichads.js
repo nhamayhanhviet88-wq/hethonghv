@@ -398,6 +398,63 @@ async function renderChiendichadsPage(container) {
                 </div>
             </div>
         </div>
+
+        <!-- MODAL: Gắn Thêm ID Camp / Post ID Bổ Sung -->
+        <div id="cdAdsAddExtraCampModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 10000; justify-content: center; align-items: center; padding: 24px;">
+            <div style="background: white; border-radius: 20px; width: 100%; max-width: 680px; max-height: 90vh; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column;">
+                <div style="background: linear-gradient(135deg, #1e1b4b, #4338ca); padding: 20px 24px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 22px;">➕</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 18px; font-weight: 800;">Gắn Thêm ID Camp / Post ID Bổ Sung</h3>
+                            <div id="cdAdsExtraModalSub" style="font-size: 12px; opacity: 0.85; margin-top: 2px;">Tải chiến dịch live từ Tài Khoản QC & Gắn số liệu cộng dồn</div>
+                        </div>
+                    </div>
+                    <button onclick="_cdAdsCloseAddExtraCampModal()" style="background: rgba(255,255,255,0.2); border: none; font-size: 16px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: white; font-weight: bold;">✕</button>
+                </div>
+                <input type="hidden" id="cdAdsExtraCampaignId">
+                <input type="hidden" id="cdAdsExtraPlatform">
+                <div style="padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px;">
+                    <!-- Bước 2 (Ảnh 3): Chọn Tài Khoản Quảng Cáo -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">💳 Chọn Tài Khoản Quảng Cáo <span style="color:#dc2626">*</span></label>
+                        <select id="cdAdsExtraAdAccountSelect" onchange="_cdAdsOnExtraAdAccountSelect()" style="width: 100%; padding: 11px 12px; border: 1.5px solid #0284c7; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f0f9ff; color: #0369a1;">
+                            <option value="">-- Chọn Tài Khoản QC đã liên kết --</option>
+                        </select>
+                    </div>
+
+                    <!-- Bước 3 (Ảnh 3): Chọn Chiến Dịch Camp Từ Tài Khoản QC -->
+                    <div id="cdAdsExtraStep3Box" style="display: none;">
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">🎯 Chọn Chiến Dịch Camp Từ Tài Khoản QC <span style="color:#dc2626">*</span></label>
+                        <select id="cdAdsExtraCampaignSelect" onchange="_cdAdsOnExtraCampaignSelect()" style="width: 100%; padding: 11px 12px; border: 1.5px solid #16a34a; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f0fdf4; color: #15803d;">
+                            <option value="">-- Chọn Chiến Dịch --</option>
+                        </select>
+                    </div>
+
+                    <!-- Post ID + ID Camp -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🆔 ID Post <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động điền hoặc nhập)</span></label>
+                            <input type="text" id="cdAdsExtraPostIdInput" placeholder="ID bài viết quảng cáo..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: white; color: #334155; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🏷️ ID Camp <span style="color:#dc2626">*</span> <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động điền)</span></label>
+                            <input type="text" id="cdAdsExtraCampIdInput" placeholder="ID chiến dịch quảng cáo..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: white; color: #334155; box-sizing: border-box;">
+                        </div>
+                    </div>
+
+                    <!-- Ghi chú / Tên gợi nhớ -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">📝 Ghi Chú / Tên Gợi Nhớ <span style="font-size:11px;font-weight:600;color:#64748b;">(Tùy chọn, ví dụ: Test lần 2 ở TK 005)</span></label>
+                        <input type="text" id="cdAdsExtraNoteInput" placeholder="Ví dụ: Test lần 2 ở TK Tuấn Hân 005" style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 600; outline: none; background: white; color: #334155; box-sizing: border-box;">
+                    </div>
+                </div>
+                <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
+                    <button onclick="_cdAdsCloseAddExtraCampModal()" style="padding: 10px 20px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 700; color: #475569; cursor: pointer;">Hủy</button>
+                    <button onclick="_cdAdsSubmitAddExtraCamp()" style="padding: 10px 24px; background: linear-gradient(135deg, #4338ca, #6366f1); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(67,56,202,0.3);">💾 Lưu & Gắn Camp Bổ Sung</button>
+                </div>
+            </div>
+        </div>
     `;
 
     // Init date selectors
@@ -784,11 +841,14 @@ function _cdAdsRenderTable() {
                 ${c.camp_id ? `
                     <div style="font-family: monospace; font-size: 11px; color: #64748b; margin-top: 2px;" title="ID Camp: ${c.camp_id}">${c.camp_id}</div>
                 ` : ''}
-                ${(c.extra_camps && c.extra_camps.length > 0) ? `
-                    <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 2px; align-items: center;" title="Các mã Camp ID phụ: ${c.extra_camps.map(ec => ec.camp_id || ec.post_id).join(', ')}">
-                        <span style="background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; padding: 2px 7px; border-radius: 6px; font-size: 10.5px; font-weight: 800;">+${c.extra_camps.length} Camp phụ</span>
-                    </div>
-                ` : ''}
+                <div style="margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
+                    ${(c.extra_camps && c.extra_camps.length > 0) ? `
+                        <span style="background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 800;" title="Các mã Camp ID phụ: ${c.extra_camps.map(ec => ec.camp_id || ec.post_id).join(', ')}">+${c.extra_camps.length} Camp phụ</span>
+                    ` : ''}
+                    <button onclick="event.stopPropagation(); _cdAdsOpenAddExtraCampModal(${c.id})" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; border-radius: 6px; padding: 2px 7px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="Gắn Thêm ID Camp / Post ID cho chiến dịch này" onmouseover="this.style.background='#4338ca';this.style.color='white'" onmouseout="this.style.background='#eef2ff';this.style.color='#4338ca'">
+                        <span>➕ Gắn Camp</span>
+                    </button>
+                </div>
             </td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(c.total_spend)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(c.total_messages)}</td>
@@ -1918,29 +1978,144 @@ function _cdAdsRenderExtraCampsHTML(campaignId, extraCamps) {
 }
 
 async function _cdAdsOpenAddExtraCampModal(campaignId) {
-    const campId = prompt('Nhập ID Camp (Mã chiến dịch Facebook/TikTok Quảng Cáo mới):');
-    if (campId === null) return;
-    const cleanCampId = campId.trim();
+    const camp = _cdAdsState.campaigns.find(c => c.id === campaignId);
+    if (!camp) return alert('Không tìm thấy thông tin chiến dịch!');
 
-    const postId = prompt('Nhập ID Post (ID Bài viết quảng cáo - Tùy chọn):');
+    const modal = document.getElementById('cdAdsAddExtraCampModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    document.getElementById('cdAdsExtraCampaignId').value = campaignId;
+    const platform = (camp.channel_name || 'facebook').toLowerCase().trim();
+    document.getElementById('cdAdsExtraPlatform').value = platform;
+    document.getElementById('cdAdsExtraModalSub').textContent = `Chiến dịch: ${camp.campaign_name || ''} • Kênh: ${camp.channel_icon || '📺'} ${camp.channel_name || 'Facebook'}`;
+
+    // Reset inputs
+    document.getElementById('cdAdsExtraPostIdInput').value = '';
+    document.getElementById('cdAdsExtraCampIdInput').value = '';
+    document.getElementById('cdAdsExtraNoteInput').value = '';
+    const step3Box = document.getElementById('cdAdsExtraStep3Box');
+    if (step3Box) step3Box.style.display = 'none';
+
+    // Load ad accounts for this platform
+    const accSelect = document.getElementById('cdAdsExtraAdAccountSelect');
+    accSelect.innerHTML = '<option value="">⏳ Đang tải tài khoản QC từ Cài Đặt Tài Khoản Ads...</option>';
+
+    try {
+        const res = await _cdAdsApi(`/api/ads-campaigns/accounts-by-platform?platform=${encodeURIComponent(platform)}`);
+        const accounts = res.accounts || [];
+        window._cdAdsExtraPlatformAccounts = accounts;
+
+        if (accounts.length === 0) {
+            accSelect.innerHTML = `<option value="">⚠️ Chưa có tài khoản QC nào cho kênh "${platform.toUpperCase()}" ở Cài Đặt Tài Khoản Ads</option>`;
+        } else {
+            accSelect.innerHTML = `<option value="">-- Chọn Tài Khoản QC Chạy Test (${accounts.length} tài khoản) --</option>` +
+                accounts.map(acc => `<option value="${acc.id}">🧪 ${acc.account_name} (${acc.fb_ad_account_id || acc.platform}) ${acc.linh_vuc_name ? '• LV: ' + acc.linh_vuc_name : ''}</option>`).join('');
+            
+            // Auto select if campaign already has ad_account_id
+            if (camp.ad_account_id && accounts.some(a => a.id === camp.ad_account_id)) {
+                accSelect.value = camp.ad_account_id;
+                _cdAdsOnExtraAdAccountSelect();
+            }
+        }
+    } catch(e) {
+        accSelect.innerHTML = '<option value="">🔴 Lỗi tải danh sách tài khoản QC</option>';
+    }
+}
+
+function _cdAdsCloseAddExtraCampModal() {
+    const modal = document.getElementById('cdAdsAddExtraCampModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function _cdAdsOnExtraAdAccountSelect() {
+    const accId = document.getElementById('cdAdsExtraAdAccountSelect')?.value;
+    const step3Box = document.getElementById('cdAdsExtraStep3Box');
+    const campSelect = document.getElementById('cdAdsExtraCampaignSelect');
+
+    document.getElementById('cdAdsExtraCampIdInput').value = '';
+    document.getElementById('cdAdsExtraPostIdInput').value = '';
+
+    if (!accId) {
+        if (step3Box) step3Box.style.display = 'none';
+        return;
+    }
+
+    if (step3Box) step3Box.style.display = 'block';
+    if (campSelect) campSelect.innerHTML = '<option value="">⏳ Đang tải danh sách chiến dịch Camp từ Facebook API...</option>';
+
+    try {
+        const res = await _cdAdsApi(`/api/ads-campaigns/ad-account-campaigns?account_id=${accId}`);
+        if (res.error) {
+            alert(res.error);
+            if (campSelect) campSelect.innerHTML = `<option value="">🔴 ${res.error}</option>`;
+            return;
+        }
+
+        const campaigns = res.campaigns || [];
+        window._cdAdsExtraCurrentAccountCampaigns = campaigns;
+
+        if (campSelect) {
+            if (campaigns.length === 0) {
+                campSelect.innerHTML = '<option value="">⚠️ Không có chiến dịch nào trong tài khoản QC này</option>';
+            } else {
+                campSelect.innerHTML = `<option value="">-- Chọn Chiến Dịch (${campaigns.length} chiến dịch) --</option>` +
+                    campaigns.map(c => `<option value="${c.id}">[${c.effective_status || c.status || 'OFF'}] ${c.name} (ID: ${c.id})</option>`).join('');
+            }
+        }
+    } catch(e) {
+        if (campSelect) campSelect.innerHTML = '<option value="">🔴 Lỗi kết nối lấy danh sách chiến dịch</option>';
+    }
+}
+
+function _cdAdsOnExtraCampaignSelect() {
+    const campId = document.getElementById('cdAdsExtraCampaignSelect')?.value;
+    const campInput = document.getElementById('cdAdsExtraCampIdInput');
+    const postInput = document.getElementById('cdAdsExtraPostIdInput');
+    const noteInput = document.getElementById('cdAdsExtraNoteInput');
+
+    if (campId) {
+        if (campInput) campInput.value = campId;
+        const campObj = (window._cdAdsExtraCurrentAccountCampaigns || []).find(c => String(c.id) === String(campId));
+        if (postInput) {
+            postInput.value = (campObj && campObj.post_id) ? campObj.post_id : '';
+        }
+        if (noteInput && campObj && campObj.name && !noteInput.value) {
+            noteInput.value = campObj.name;
+        }
+    }
+}
+
+async function _cdAdsSubmitAddExtraCamp() {
+    const campaignId = document.getElementById('cdAdsExtraCampaignId')?.value;
+    const campId = document.getElementById('cdAdsExtraCampIdInput')?.value;
+    const postId = document.getElementById('cdAdsExtraPostIdInput')?.value;
+    const note = document.getElementById('cdAdsExtraNoteInput')?.value;
+
+    const cleanCampId = (campId || '').trim();
     const cleanPostId = (postId || '').trim();
 
     if (!cleanCampId && !cleanPostId) {
-        return alert('Vui lòng nhập ít nhất ID Camp hoặc ID Post!');
+        return alert('Vui lòng chọn chiến dịch hoặc nhập ít nhất ID Camp hoặc ID Post!');
     }
-
-    const note = prompt('Ghi chú / Tên gợi nhớ (Ví dụ: Test lần 2 ở TK 005):');
 
     try {
         const res = await _cdAdsApi(`/api/ads-campaigns/${campaignId}/extra-camps`, 'POST', {
             camp_id: cleanCampId,
             post_id: cleanPostId,
-            note: note || ''
+            note: (note || '').trim()
         });
         if (res.error) return alert(res.error);
+
+        _cdAdsCloseAddExtraCampModal();
         alert('🎉 Gắn thêm Mã ID Camp / Post ID thành công!');
         await _cdAdsLoadCampaigns();
-        _cdAdsViewDetail(campaignId);
+
+        // Refresh detail modal if open
+        const detailModal = document.getElementById('cdAdsDetailModal');
+        if (detailModal && detailModal.style.display !== 'none') {
+            _cdAdsViewDetail(Number(campaignId));
+        }
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
@@ -1958,4 +2133,8 @@ window.renderChiendichadsPage = renderChiendichadsPage;
 window._cdAdsGoToKhoAdsItem = _cdAdsGoToKhoAdsItem;
 window._cdAdsOpenPerfModal = _cdAdsOpenPerfModal;
 window._cdAdsOpenAddExtraCampModal = _cdAdsOpenAddExtraCampModal;
+window._cdAdsCloseAddExtraCampModal = _cdAdsCloseAddExtraCampModal;
+window._cdAdsOnExtraAdAccountSelect = _cdAdsOnExtraAdAccountSelect;
+window._cdAdsOnExtraCampaignSelect = _cdAdsOnExtraCampaignSelect;
+window._cdAdsSubmitAddExtraCamp = _cdAdsSubmitAddExtraCamp;
 window._cdAdsDeleteExtraCamp = _cdAdsDeleteExtraCamp;
