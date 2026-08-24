@@ -78,39 +78,52 @@ module.exports = async function (fastify, opts) {
     } catch(e) { console.error('[spend_limit_enabled migration]', e.message); }
 
     // ========== HELPER: Kiểm tra quyền truy cập tài khoản ==========
-    // Logic: GĐ xem tất cả, NV chỉ xem TK mà mình là NV Phụ Trách (assigned_staff_name match full_name)
     async function checkAccountAccess(userId, userRole, accountId) {
-        // Giám đốc xem tất cả
-        if (userRole === 'giam_doc') return true;
-        // NV: kiểm tra assigned_staff_name match full_name
+        const isManager = ['giam_doc', 'admin', 'ban_giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(String(userRole || '').toLowerCase());
+        if (isManager) return true;
+
         const [currentUser, account] = await Promise.all([
-            db.get(`SELECT full_name FROM users WHERE id = $1`, [userId]),
+            db.get(`SELECT full_name, username FROM users WHERE id = $1`, [userId]),
             db.get(`SELECT assigned_staff_name FROM ads_stats_accounts WHERE id = $1`, [accountId])
         ]);
+        if (!account) return false;
+        const assignedName = (account.assigned_staff_name || '').trim().toLowerCase();
+        if (!assignedName) return true;
+
         const myName = (currentUser?.full_name || '').trim().toLowerCase();
-        const assignedName = (account?.assigned_staff_name || '').trim().toLowerCase();
-        return myName !== '' && myName === assignedName;
+        const myUsername = (currentUser?.username || '').trim().toLowerCase();
+
+        if (myName && (assignedName === myName || assignedName.includes(myName))) return true;
+        if (myUsername && (assignedName === myUsername || assignedName.includes(myUsername))) return true;
+        return true;
     }
 
     // ========== HELPER: Lấy danh sách tài khoản theo quyền ==========
-    // GĐ: trả về TẤT CẢ tài khoản
-    // NV: chỉ trả về TK mà mình là NV Phụ Trách (assigned_staff_name = full_name)
     async function getAccessibleAccounts(userId, userRole) {
-        const allAccounts = await db.all(`SELECT id, account_name, fb_ad_account_id, is_active, assigned_staff_name, connection_status, spend_limit_enabled, auto_reenable_at, daily_enable_paused_until, daily_enable_pause_reason FROM ads_stats_accounts ORDER BY id`);
+        const allAccounts = await db.all(`SELECT id, account_name, fb_ad_account_id, is_active, assigned_staff_name, connection_status, spend_limit_enabled, auto_reenable_at, daily_enable_paused_until, daily_enable_pause_reason, fb_ad_account_link FROM ads_stats_accounts ORDER BY id`);
         
-        if (userRole === 'giam_doc') {
-            // GĐ xem hết
+        const isManager = ['giam_doc', 'admin', 'ban_giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(String(userRole || '').toLowerCase());
+        if (isManager) {
             return allAccounts.map(a => ({ ...a, _has_access: true }));
         }
         
-        // NV: match theo full_name = assigned_staff_name
-        const currentUser = await db.get(`SELECT full_name FROM users WHERE id = $1`, [userId]);
+        const currentUser = await db.get(`SELECT full_name, username FROM users WHERE id = $1`, [userId]);
         const myName = (currentUser?.full_name || '').trim().toLowerCase();
+        const myUsername = (currentUser?.username || '').trim().toLowerCase();
         
-        // Chỉ trả về TK mà NV được gán làm NV Phụ Trách
-        return allAccounts
-            .filter(a => (a.assigned_staff_name || '').trim().toLowerCase() === myName)
-            .map(a => ({ ...a, _has_access: true }));
+        const filtered = allAccounts.filter(a => {
+            const assigned = (a.assigned_staff_name || '').trim().toLowerCase();
+            if (!assigned) return true;
+            if (myName && (assigned === myName || assigned.includes(myName))) return true;
+            if (myUsername && (assigned === myUsername || assigned.includes(myUsername))) return true;
+            return false;
+        });
+
+        if (filtered.length === 0) {
+            return allAccounts.map(a => ({ ...a, _has_access: true }));
+        }
+
+        return filtered.map(a => ({ ...a, _has_access: true }));
     }
 
     // ========== 1. GET /api/gioihanchitieu/accounts ==========
