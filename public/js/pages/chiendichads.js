@@ -206,6 +206,64 @@ async function renderChiendichadsPage(container) {
     const showUserFilter = isGD || isQL || isTP;
 
     container.innerHTML = `
+        <style id="cd-ads-custom-tooltip-css">
+            .cd-tooltip-host {
+                position: relative !important;
+            }
+            .cd-tooltip-host::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                transform: translateX(-50%) translateY(4px);
+                background: #0f172a;
+                color: #ffffff;
+                padding: 9px 13px;
+                border-radius: 9px;
+                font-size: 12px;
+                font-weight: 600;
+                line-height: 1.45;
+                white-space: pre-line;
+                width: max-content;
+                max-width: 250px;
+                text-align: left;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+                z-index: 99999;
+                box-shadow: 0 12px 28px -5px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
+                border: 1px solid #334155;
+                letter-spacing: normal;
+                text-transform: none;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            }
+            .cd-tooltip-host::before {
+                content: '';
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                transform: translateX(-50%) translateY(-2px);
+                border-width: 6px;
+                border-style: solid;
+                border-color: transparent transparent #0f172a transparent;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+                z-index: 99999;
+            }
+            .cd-tooltip-host:hover::after {
+                opacity: 1;
+                visibility: visible;
+                transform: translateX(-50%) translateY(8px);
+            }
+            .cd-tooltip-host:hover::before {
+                opacity: 1;
+                visibility: visible;
+                transform: translateX(-50%) translateY(2px);
+            }
+        </style>
         <div style="padding: 24px 32px; width: 100%; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;">
             <!-- Header Banner -->
             <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); border-radius: 20px; padding: 32px 40px; color: white; margin-bottom: 24px; box-shadow: 0 10px 25px -5px rgba(67, 56, 202, 0.3); position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: center;">
@@ -701,10 +759,10 @@ function _cdAdsRenderTable() {
                     <th onclick="_cdAdsToggleSort('avg_cpc')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo CPC">CPC ${_cdAdsSortIcon('avg_cpc')}</th>
                     <th onclick="_cdAdsToggleSort('avg_ctr')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo CTR">CTR ${_cdAdsSortIcon('avg_ctr')}</th>
                     <th onclick="_cdAdsToggleSort('avg_cpm')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo CPM">CPM ${_cdAdsSortIcon('avg_cpm')}</th>
-                    <th onclick="_cdAdsToggleSort('total_run_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Số lần quảng cáo chạy mất tiền, bao gồm cả những lần chạy vài nghìn, vài trăm đồng.">SL CHẠY TỔNG ${_cdAdsSortIcon('total_run_count')}</th>
-                    <th onclick="_cdAdsToggleSort('run_count_gt70k')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Số lần chạy thực tế đạt ngưỡng chi tiêu (loại bỏ các ngân sách chạy dở vài nghìn, vài trăm đồng không có tin nhắn).">SL CHẠY THỰC ${_cdAdsSortIcon('run_count_gt70k')}</th>
-                    <th onclick="_cdAdsToggleSort('total_effective_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Số Lần Hiệu Quả">SL HIỆU QUẢ ${_cdAdsSortIcon('total_effective_count')}</th>
-                    <th onclick="_cdAdsToggleSort('eff_rate')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Tỷ lệ % Hiệu Quả = (SL Hiệu Quả / SL Chạy >70K) * 100%">% HIỆU QUẢ ${_cdAdsSortIcon('eff_rate')}</th>
+                    <th onclick="_cdAdsToggleSort('total_run_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" class="cd-tooltip-host" data-tooltip="Số lần quảng cáo chạy mất tiền,&#10;bao gồm cả những lần chạy vài nghìn,&#10;vài trăm đồng.">SL CHẠY TỔNG ${_cdAdsSortIcon('total_run_count')}</th>
+                    <th onclick="_cdAdsToggleSort('run_count_gt70k')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" class="cd-tooltip-host" data-tooltip="Số lần chạy thực tế đạt ngưỡng chi tiêu&#10;(loại bỏ các ngân sách chạy dở vài nghìn,&#10;vài trăm đồng không có tin nhắn).">SL CHẠY THỰC ${_cdAdsSortIcon('run_count_gt70k')}</th>
+                    <th onclick="_cdAdsToggleSort('total_effective_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" class="cd-tooltip-host" data-tooltip="Số lần quảng cáo được đánh giá là đạt&#10;hiệu quả theo tiêu chí CPA.">SL HIỆU QUẢ ${_cdAdsSortIcon('total_effective_count')}</th>
+                    <th onclick="_cdAdsToggleSort('eff_rate')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" class="cd-tooltip-host" data-tooltip="Tỷ lệ % Hiệu Quả =&#10;(SL Hiệu Quả / SL Chạy Thực) * 100%">% HIỆU QUẢ ${_cdAdsSortIcon('eff_rate')}</th>
                     <th onclick="_cdAdsToggleSort('created_at')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Người Tạo / Ngày">NGƯỜI TẠO ${_cdAdsSortIcon('created_at')}</th>
                 </tr>
             </thead>
