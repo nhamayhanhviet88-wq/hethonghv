@@ -128,9 +128,10 @@ async function renderKhoadsPage(container) {
 
                 <!-- FILTER CONTROLS ROW: Dynamic Date Filter + Search + Dropdowns -->
                 <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                    <!-- Date Filter Controls (Giống Thống Kê Camp Hiệu Quả - Ảnh 3, 4, 5) -->
+                    <!-- Date Filter Controls (Ảnh 3: Tháng & Năm) -->
                     <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                        <div style="display: flex; align-items: center; gap: 6px; height: 38px;">
+                        <!-- Mode Select Dropdown (Ẩn theo yêu cầu Ảnh 2, giữ mặc định Theo Tháng) -->
+                        <div style="display: none; align-items: center; gap: 6px; height: 38px;">
                             <label style="font-weight: 700; font-size: 13px; color: #1e293b; white-space: nowrap;">📅 Lọc theo:</label>
                             <select id="khoAdsFilterModeSelect" onchange="onKhoAdsFilterModeChange()" style="
                                 height: 38px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #cbd5e1;
@@ -144,7 +145,7 @@ async function renderKhoadsPage(container) {
                         </div>
 
                         <div id="khoAdsDynamicFilters" style="display: flex; align-items: center; gap: 6px; height: 38px;">
-                            <!-- Month Mode Controls -->
+                            <!-- Month Mode Controls (Ảnh 3) -->
                             <div id="khoAdsMonthControls" style="display: flex; align-items: center; gap: 6px; height: 38px;">
                                 <select id="khoAdsMonthSelect" onchange="onKhoAdsDateSelectChange()" style="
                                     height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
@@ -228,8 +229,8 @@ async function renderKhoadsPage(container) {
                         </select>
                     </div>
 
-                    <!-- 5. Reset Button -->
-                    <div>
+                    <!-- 5. Reset Button (Ẩn theo yêu cầu Ảnh 4 cho gọn) -->
+                    <div style="display: none;">
                         <button onclick="resetKhoAdsFilters()" style="height: 38px; padding: 0 16px; background: #f1f5f9; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#475569'">🔄 Đặt Lại</button>
                     </div>
                 </div>
