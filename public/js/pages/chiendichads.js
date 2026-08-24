@@ -213,7 +213,7 @@ async function renderChiendichadsPage(container) {
             .cd-tooltip-host::after {
                 content: attr(data-tooltip);
                 position: absolute;
-                top: 100%;
+                bottom: 125%;
                 left: 50%;
                 transform: translateX(-50%) translateY(4px);
                 background: #0f172a;
@@ -241,12 +241,12 @@ async function renderChiendichadsPage(container) {
             .cd-tooltip-host::before {
                 content: '';
                 position: absolute;
-                top: 100%;
+                bottom: 110%;
                 left: 50%;
-                transform: translateX(-50%) translateY(-2px);
+                transform: translateX(-50%) translateY(4px);
                 border-width: 6px;
                 border-style: solid;
-                border-color: transparent transparent #0f172a transparent;
+                border-color: #0f172a transparent transparent transparent;
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
@@ -256,12 +256,12 @@ async function renderChiendichadsPage(container) {
             .cd-tooltip-host:hover::after {
                 opacity: 1;
                 visibility: visible;
-                transform: translateX(-50%) translateY(8px);
+                transform: translateX(-50%) translateY(-4px);
             }
             .cd-tooltip-host:hover::before {
                 opacity: 1;
                 visibility: visible;
-                transform: translateX(-50%) translateY(2px);
+                transform: translateX(-50%) translateY(-2px);
             }
         </style>
         <div style="padding: 24px 32px; width: 100%; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;">
@@ -355,8 +355,8 @@ async function renderChiendichadsPage(container) {
             <div id="cdAdsStatsSummary" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;"></div>
 
             <!-- Main Table -->
-            <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.04);">
-                <div id="cdAdsTableContainer" style="overflow-x: auto;">
+            <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.04);">
+                <div id="cdAdsTableContainer" style="overflow-x: auto; overflow-y: visible; border-radius: 16px;">
                     <div style="text-align: center; padding: 60px; color: #64748b; font-size: 15px;">⏳ Đang tải dữ liệu chiến dịch...</div>
                 </div>
             </div>
