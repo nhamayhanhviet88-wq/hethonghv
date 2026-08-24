@@ -83,11 +83,6 @@ async function renderChiendichadsPage(container) {
                     </p>
                 </div>
                 <div style="z-index: 1; display: flex; gap: 12px; align-items: center;">
-                    ${isGD ? `
-                        <button onclick="_cdAdsOpenChannelModal()" style="background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); color: white; border: 1px solid rgba(255, 255, 255, 0.4); padding: 12px 18px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                            <span style="font-size: 16px;">⚙️</span> Quản Lý Kênh
-                        </button>
-                    ` : ''}
                     <button onclick="_cdAdsOpenCreateModal()" style="background: #10b981; color: white; border: none; padding: 14px 24px; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
                         <span style="font-size: 18px;">➕</span> Tạo Chiến Dịch Mới
                     </button>
@@ -142,13 +137,13 @@ async function renderChiendichadsPage(container) {
 
         <!-- MODAL: Tạo Chiến Dịch Mới -->
         <div id="cdAdsCreateModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 9999; justify-content: center; align-items: center; padding: 24px;">
-            <div style="background: white; border-radius: 20px; width: 100%; max-width: 700px; max-height: 90vh; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column;">
+            <div style="background: white; border-radius: 20px; width: 100%; max-width: 720px; max-height: 90vh; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column;">
                 <div style="background: linear-gradient(135deg, #1e1b4b, #4338ca); padding: 20px 24px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 22px;">➕</span>
+                        <span style="font-size: 22px;">🚀</span>
                         <div>
                             <h3 style="margin: 0; font-size: 18px; font-weight: 800;">Tạo Chiến Dịch Ads Mới</h3>
-                            <div style="font-size: 12px; opacity: 0.8;">Chọn mẫu từ Kho Ads → Chọn kênh → Nhập Post ID & Camp ID</div>
+                            <div style="font-size: 12px; opacity: 0.85;">Chọn mẫu → Chọn kênh → Chọn tài khoản QC → Chọn chiến dịch Camp</div>
                         </div>
                     </div>
                     <button onclick="_cdAdsCloseCreateModal()" style="background: rgba(255,255,255,0.2); border: none; font-size: 16px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: white; font-weight: bold;">✕</button>
@@ -160,18 +155,32 @@ async function renderChiendichadsPage(container) {
                         <select id="cdAdsCreateItemSelect" onchange="_cdAdsOnItemSelect()" style="width: 100%; padding: 11px 12px; border: 1.5px solid #6366f1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #eef2ff; color: #3730a3;">
                             <option value="">-- Chọn mẫu Video/Ảnh Ads --</option>
                         </select>
-                        <div id="cdAdsCreateItemPreview" style="display: none; margin-top: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; display: none; gap: 12px; align-items: center;"></div>
+                        <div id="cdAdsCreateItemPreview" style="display: none; margin-top: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; gap: 12px; align-items: center;"></div>
                     </div>
                     <!-- Bước 2: Chọn kênh -->
                     <div>
-                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">📺 Bước 2: Chọn Kênh Quảng Cáo <span style="color:#dc2626">*</span></label>
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">📺 Bước 2: Chọn Kênh Quảng Cáo (Từ Cài Đặt Tài Khoản Ads) <span style="color:#dc2626">*</span></label>
                         <div id="cdAdsCreateChannelList" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
                     </div>
-                    <!-- Bước 3: Post ID + Camp ID -->
+                    <!-- Bước 3: Chọn Tài Khoản Quảng Cáo -->
+                    <div id="cdAdsStep3Box" style="display: none;">
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">💳 Bước 3: Chọn Tài Khoản Quảng Cáo <span style="color:#dc2626">*</span></label>
+                        <select id="cdAdsCreateAdAccountSelect" onchange="_cdAdsOnAdAccountSelect()" style="width: 100%; padding: 11px 12px; border: 1.5px solid #0284c7; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f0f9ff; color: #0369a1;">
+                            <option value="">-- Chọn Tài Khoản QC đã liên kết --</option>
+                        </select>
+                    </div>
+                    <!-- Bước 4: Chọn Chiến Dịch Camp từ Tài Khoản QC -->
+                    <div id="cdAdsStep4Box" style="display: none;">
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">🎯 Bước 4: Chọn Chiến Dịch Camp Từ Tài Khoản QC <span style="color:#dc2626">*</span></label>
+                        <select id="cdAdsCreateCampaignSelect" onchange="_cdAdsOnCampaignSelect()" style="width: 100%; padding: 11px 12px; border: 1.5px solid #16a34a; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f0fdf4; color: #15803d;">
+                            <option value="">-- Chọn Chiến Dịch --</option>
+                        </select>
+                    </div>
+                    <!-- Post ID + ID Camp -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                         <div>
                             <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🆔 Post ID</label>
-                            <input type="text" id="cdAdsCreatePostId" placeholder="Nhập Post ID..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 600; outline: none; box-sizing: border-box;">
+                            <input type="text" id="cdAdsCreatePostId" placeholder="Nhập Post ID (nếu có)..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 600; outline: none; box-sizing: border-box;">
                         </div>
                         <div>
                             <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🏷️ ID Camp</label>
@@ -180,44 +189,13 @@ async function renderChiendichadsPage(container) {
                     </div>
                     <!-- Tên chiến dịch (tự động) -->
                     <div>
-                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">📌 Tên Chiến Dịch <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động từ tên mẫu + kênh)</span></label>
-                        <input type="text" id="cdAdsCreateCampaignName" readonly style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f1f5f9; color: #334155; cursor: not-allowed; box-sizing: border-box;">
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">📌 Tên Chiến Dịch <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động liên kết mẫu + kênh/TK + camp)</span></label>
+                        <input type="text" id="cdAdsCreateCampaignName" style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f8fafc; color: #334155; box-sizing: border-box;">
                     </div>
                 </div>
                 <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
                     <button onclick="_cdAdsCloseCreateModal()" style="padding: 10px 20px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 700; color: #475569; cursor: pointer;">Hủy</button>
                     <button onclick="_cdAdsSubmitCreate()" style="padding: 10px 24px; background: linear-gradient(135deg, #4338ca, #6366f1); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(67,56,202,0.3);">🚀 Tạo Chiến Dịch</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- MODAL: Quản Lý Kênh -->
-        <div id="cdAdsChannelModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 9999; justify-content: center; align-items: center; padding: 24px;">
-            <div style="background: white; border-radius: 20px; width: 100%; max-width: 520px; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden;">
-                <div style="background: linear-gradient(135deg, #1e1b4b, #4338ca); padding: 20px 24px; color: white; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 22px;">⚙️</span>
-                        <div>
-                            <h3 style="margin: 0; font-size: 18px; font-weight: 800;">Quản Lý Kênh Quảng Cáo</h3>
-                            <div style="font-size: 12px; opacity: 0.8;">Thêm / Xóa kênh chạy ads</div>
-                        </div>
-                    </div>
-                    <button onclick="_cdAdsCloseChannelModal()" style="background: rgba(255,255,255,0.2); border: none; font-size: 16px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: white; font-weight: bold;">✕</button>
-                </div>
-                <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-                    <div style="background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px;">➕ Thêm Kênh Mới:</label>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <input type="text" id="cdAdsNewChannelName" placeholder="Tên kênh (VD: Google Ads)" style="flex: 2; min-width: 140px; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; outline: none;">
-                            <input type="text" id="cdAdsNewChannelIcon" placeholder="Icon (VD: 📱)" value="📺" style="flex: 0.5; min-width: 50px; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 16px; text-align: center; outline: none;">
-                            <input type="color" id="cdAdsNewChannelColor" value="#6366f1" style="width: 42px; height: 38px; border: 1.5px solid #cbd5e1; border-radius: 8px; cursor: pointer; padding: 2px;">
-                            <button onclick="_cdAdsAddChannel()" style="padding: 9px 16px; background: #4338ca; color: white; border: none; border-radius: 8px; font-weight: 800; font-size: 13px; cursor: pointer; white-space: nowrap;">➕ Thêm</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 10px;">Danh Sách Kênh Hiện Tại:</label>
-                        <div id="cdAdsChannelList" style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;"></div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -320,8 +298,8 @@ async function _cdAdsLoadAll() {
 
 async function _cdAdsLoadChannels() {
     try {
-        const data = await _cdAdsApi('/api/ads-campaigns/channels');
-        _cdAdsState.channels = data.channels || [];
+        const data = await _cdAdsApi('/api/ads-campaigns/linked-platforms');
+        _cdAdsState.channels = data.platforms || [];
         // Update filter dropdown
         const sel = document.getElementById('cdAdsFilterChannel');
         if (sel) {
@@ -477,6 +455,7 @@ function _cdAdsRenderTable() {
             </td>
             <td style="padding:10px 8px;text-align:center;">
                 <span style="background:${c.channel_color || '#6366f1'}22;color:${c.channel_color || '#6366f1'};padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;white-space:nowrap;">${c.channel_icon || '📺'} ${c.channel_name || '-'}</span>
+                ${c.ad_account_name ? `<div style="font-size:10.5px;font-weight:700;color:#0284c7;margin-top:3px;">💳 ${c.ad_account_name}</div>` : ''}
             </td>
             <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#334155;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${c.post_id || ''}">${c.post_id || '-'}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#334155;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${c.camp_id || ''}">${c.camp_id || '-'}</td>
@@ -567,68 +546,19 @@ function _cdAdsResetFilters() {
 
 // ========== CHANNEL MODAL ==========
 
-async function _cdAdsOpenChannelModal() {
-    document.getElementById('cdAdsChannelModal').style.display = 'flex';
-    await _cdAdsRenderChannelList();
+function _cdAdsOpenChannelModal() {
+    // Deprecated modal
 }
 
 function _cdAdsCloseChannelModal() {
-    document.getElementById('cdAdsChannelModal').style.display = 'none';
+    // Deprecated modal
 }
 
-async function _cdAdsRenderChannelList() {
-    const list = document.getElementById('cdAdsChannelList');
-    if (!list) return;
-    try {
-        const data = await _cdAdsApi('/api/ads-campaigns/channels');
-        const channels = data.channels || [];
-        if (channels.length === 0) {
-            list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:16px;font-size:13px;">Chưa có kênh nào</div>';
-            return;
-        }
-        list.innerHTML = channels.map(ch => `
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <span style="font-size:20px;">${ch.icon || '📺'}</span>
-                    <span style="font-size:14px;font-weight:700;color:#0f172a;">${ch.name}</span>
-                    <span style="width:16px;height:16px;border-radius:50%;background:${ch.color || '#6366f1'};display:inline-block;border:1px solid #e2e8f0;"></span>
-                </div>
-                <button onclick="_cdAdsDeleteChannel(${ch.id})" style="padding:5px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;color:#dc2626;cursor:pointer;">🗑️ Xóa</button>
-            </div>
-        `).join('');
-    } catch(e) { list.innerHTML = '<div style="color:red;padding:10px;">Lỗi tải danh sách</div>'; }
-}
-
-async function _cdAdsAddChannel() {
-    const name = document.getElementById('cdAdsNewChannelName')?.value?.trim();
-    const icon = document.getElementById('cdAdsNewChannelIcon')?.value?.trim() || '📺';
-    const color = document.getElementById('cdAdsNewChannelColor')?.value || '#6366f1';
-    if (!name) return alert('Vui lòng nhập tên kênh!');
-
-    try {
-        const res = await _cdAdsApi('/api/ads-campaigns/channels', 'POST', { name, icon, color });
-        if (res.error) return alert(res.error);
-        document.getElementById('cdAdsNewChannelName').value = '';
-        await _cdAdsRenderChannelList();
-        await _cdAdsLoadChannels();
-    } catch(e) { alert('Lỗi: ' + e.message); }
-}
-
-async function _cdAdsDeleteChannel(id) {
-    if (!confirm('Bạn có chắc muốn xóa kênh này?')) return;
-    try {
-        const res = await _cdAdsApi(`/api/ads-campaigns/channels/${id}`, 'DELETE');
-        if (res.error) return alert(res.error);
-        await _cdAdsRenderChannelList();
-        await _cdAdsLoadChannels();
-    } catch(e) { alert('Lỗi: ' + e.message); }
-}
-
-// ========== CREATE CAMPAIGN MODAL ==========
+// ========== CREATE CAMPAIGN MODAL (4 BƯỚC LIÊN KẾT TÀI KHOẢN ADS & META GRAPH API) ==========
 
 async function _cdAdsOpenCreateModal() {
     document.getElementById('cdAdsCreateModal').style.display = 'flex';
-    // Load items
+    // Load items từ kho ads
     try {
         const data = await _cdAdsApi('/api/ads-campaigns/my-items');
         _cdAdsState.myItems = data.items || [];
@@ -639,14 +569,26 @@ async function _cdAdsOpenCreateModal() {
         }
     } catch(e) { console.error(e); }
 
-    // Load channel buttons
+    // Load channel buttons từ Cài Đặt Tài Khoản Ads
     _cdAdsRenderCreateChannels();
 
-    // Reset form
-    document.getElementById('cdAdsCreatePostId').value = '';
-    document.getElementById('cdAdsCreateCampId').value = '';
-    document.getElementById('cdAdsCreateCampaignName').value = '';
-    window._cdAdsSelectedChannel = null;
+    // Reset form states
+    window._cdAdsSelectedPlatform = null;
+    window._cdAdsSelectedAdAccount = null;
+    window._cdAdsSelectedCampaign = null;
+    window._cdAdsCurrentAccountCampaigns = [];
+
+    const postIdInput = document.getElementById('cdAdsCreatePostId');
+    const campIdInput = document.getElementById('cdAdsCreateCampId');
+    const campNameInput = document.getElementById('cdAdsCreateCampaignName');
+    if (postIdInput) postIdInput.value = '';
+    if (campIdInput) campIdInput.value = '';
+    if (campNameInput) campNameInput.value = '';
+
+    const step3Box = document.getElementById('cdAdsStep3Box');
+    const step4Box = document.getElementById('cdAdsStep4Box');
+    if (step3Box) step3Box.style.display = 'none';
+    if (step4Box) step4Box.style.display = 'none';
 }
 
 function _cdAdsCloseCreateModal() {
@@ -657,16 +599,20 @@ function _cdAdsRenderCreateChannels() {
     const box = document.getElementById('cdAdsCreateChannelList');
     if (!box) return;
     box.innerHTML = _cdAdsState.channels.map(ch => `
-        <button onclick="_cdAdsSelectChannel(${ch.id}, this)" data-channel-id="${ch.id}" style="padding:10px 18px;border:2px solid #e2e8f0;border-radius:12px;background:white;cursor:pointer;font-size:14px;font-weight:700;color:#334155;display:flex;align-items:center;gap:8px;transition:all 0.2s;">
+        <button onclick="_cdAdsSelectChannel('${ch.id}', this)" data-channel-id="${ch.id}" style="padding:10px 18px;border:2px solid #e2e8f0;border-radius:12px;background:white;cursor:pointer;font-size:14px;font-weight:700;color:#334155;display:flex;align-items:center;gap:8px;transition:all 0.2s;">
             <span style="font-size:18px;">${ch.icon || '📺'}</span>
             <span>${ch.name}</span>
         </button>
     `).join('');
 }
 
-function _cdAdsSelectChannel(channelId, btn) {
-    window._cdAdsSelectedChannel = channelId;
-    // Highlight selected
+async function _cdAdsSelectChannel(platformId, btn) {
+    window._cdAdsSelectedPlatform = platformId;
+    window._cdAdsSelectedAdAccount = null;
+    window._cdAdsSelectedCampaign = null;
+    window._cdAdsCurrentAccountCampaigns = [];
+
+    // Highlight selected button
     const allBtns = document.querySelectorAll('#cdAdsCreateChannelList button');
     allBtns.forEach(b => {
         b.style.borderColor = '#e2e8f0';
@@ -678,6 +624,101 @@ function _cdAdsSelectChannel(channelId, btn) {
         btn.style.background = '#eef2ff';
         btn.style.color = '#4338ca';
     }
+
+    // Load ad accounts for this platform
+    await _cdAdsLoadAccountsForPlatform(platformId);
+}
+
+async function _cdAdsLoadAccountsForPlatform(platformId) {
+    const step3Box = document.getElementById('cdAdsStep3Box');
+    const accSelect = document.getElementById('cdAdsCreateAdAccountSelect');
+    const step4Box = document.getElementById('cdAdsStep4Box');
+
+    if (step4Box) step4Box.style.display = 'none';
+    const campIdInput = document.getElementById('cdAdsCreateCampId');
+    if (campIdInput) campIdInput.value = '';
+
+    if (!step3Box || !accSelect) return;
+    step3Box.style.display = 'block';
+    accSelect.innerHTML = '<option value="">⏳ Đang tải tài khoản QC từ Cài Đặt Tài Khoản Ads... </option>';
+
+    try {
+        const res = await _cdAdsApi(`/api/ads-campaigns/accounts-by-platform?platform=${encodeURIComponent(platformId)}`);
+        const accounts = res.accounts || [];
+        window._cdAdsPlatformAccounts = accounts;
+
+        if (accounts.length === 0) {
+            accSelect.innerHTML = `<option value="">⚠️ Chưa có tài khoản QC nào cho kênh "${platformId.toUpperCase()}" ở Cài Đặt Tài Khoản Ads</option>`;
+        } else {
+            accSelect.innerHTML = '<option value="">-- Chọn Tài Khoản QC đã liên kết --</option>' +
+                accounts.map(acc => `<option value="${acc.id}">${acc.account_name} (${acc.fb_ad_account_id || acc.platform}) ${acc.assigned_staff_name ? '• NV: ' + acc.assigned_staff_name : ''}</option>`).join('');
+        }
+    } catch(e) {
+        accSelect.innerHTML = '<option value="">🔴 Lỗi tải danh sách tài khoản QC</option>';
+    }
+
+    _cdAdsUpdateCampaignName();
+}
+
+async function _cdAdsOnAdAccountSelect() {
+    const accId = document.getElementById('cdAdsCreateAdAccountSelect')?.value;
+    window._cdAdsSelectedAdAccount = accId || null;
+    window._cdAdsSelectedCampaign = null;
+    window._cdAdsCurrentAccountCampaigns = [];
+
+    const step4Box = document.getElementById('cdAdsStep4Box');
+    const campSelect = document.getElementById('cdAdsCreateCampaignSelect');
+    const campIdInput = document.getElementById('cdAdsCreateCampId');
+    if (campIdInput) campIdInput.value = '';
+
+    if (!accId) {
+        if (step4Box) step4Box.style.display = 'none';
+        _cdAdsUpdateCampaignName();
+        return;
+    }
+
+    if (step4Box) step4Box.style.display = 'block';
+    if (campSelect) campSelect.innerHTML = '<option value="">⏳ Đang tải danh sách chiến dịch Camp từ Facebook API...</option>';
+
+    try {
+        const res = await _cdAdsApi(`/api/ads-campaigns/ad-account-campaigns?account_id=${accId}`);
+        if (res.error) {
+            alert(res.error);
+            if (campSelect) campSelect.innerHTML = `<option value="">🔴 ${res.error}</option>`;
+            _cdAdsUpdateCampaignName();
+            return;
+        }
+
+        const campaigns = res.campaigns || [];
+        window._cdAdsCurrentAccountCampaigns = campaigns;
+
+        if (campSelect) {
+            if (campaigns.length === 0) {
+                campSelect.innerHTML = '<option value="">⚠️ Không có chiến dịch nào trong tài khoản QC này</option>';
+            } else {
+                campSelect.innerHTML = `<option value="">-- Chọn Chiến Dịch (${campaigns.length} chiến dịch) --</option>` +
+                    campaigns.map(c => `<option value="${c.id}">[${c.effective_status || c.status || 'OFF'}] ${c.name} (ID: ${c.id})</option>`).join('');
+            }
+        }
+    } catch(e) {
+        if (campSelect) campSelect.innerHTML = '<option value="">🔴 Lỗi kết nối lấy danh sách chiến dịch</option>';
+    }
+
+    _cdAdsUpdateCampaignName();
+}
+
+function _cdAdsOnCampaignSelect() {
+    const campId = document.getElementById('cdAdsCreateCampaignSelect')?.value;
+    const campInput = document.getElementById('cdAdsCreateCampId');
+
+    if (campId) {
+        if (campInput) campInput.value = campId;
+        const campObj = (window._cdAdsCurrentAccountCampaigns || []).find(c => String(c.id) === String(campId));
+        window._cdAdsSelectedCampaign = campObj || null;
+    } else {
+        window._cdAdsSelectedCampaign = null;
+    }
+
     _cdAdsUpdateCampaignName();
 }
 
@@ -708,42 +749,54 @@ function _cdAdsOnItemSelect() {
 
 function _cdAdsUpdateCampaignName() {
     const itemId = document.getElementById('cdAdsCreateItemSelect')?.value;
-    const channelId = window._cdAdsSelectedChannel;
+    const platformId = window._cdAdsSelectedPlatform;
+    const accId = window._cdAdsSelectedAdAccount;
+    const campObj = window._cdAdsSelectedCampaign;
     const nameInput = document.getElementById('cdAdsCreateCampaignName');
     if (!nameInput) return;
 
     const item = _cdAdsState.myItems.find(i => String(i.id) === String(itemId));
-    const channel = _cdAdsState.channels.find(ch => ch.id === channelId);
+    const channel = _cdAdsState.channels.find(ch => String(ch.id) === String(platformId));
+    const accObj = (window._cdAdsPlatformAccounts || []).find(a => String(a.id) === String(accId));
 
-    if (item && channel) {
-        nameInput.value = `${item.title} - ${channel.name}`;
-    } else if (item) {
-        nameInput.value = item.title;
-    } else {
-        nameInput.value = '';
-    }
+    let parts = [];
+    if (item) parts.push(item.title);
+    if (accObj) parts.push(accObj.account_name);
+    else if (channel) parts.push(channel.name);
+
+    if (campObj && campObj.name) parts.push(campObj.name);
+
+    nameInput.value = parts.join(' - ');
 }
 
 async function _cdAdsSubmitCreate() {
     const itemId = document.getElementById('cdAdsCreateItemSelect')?.value;
-    const channelId = window._cdAdsSelectedChannel;
-    const postId = document.getElementById('cdAdsCreatePostId')?.value;
+    const platformId = window._cdAdsSelectedPlatform;
+    const accId = window._cdAdsSelectedAdAccount;
     const campId = document.getElementById('cdAdsCreateCampId')?.value;
+    const postId = document.getElementById('cdAdsCreatePostId')?.value;
+    const campaignName = document.getElementById('cdAdsCreateCampaignName')?.value;
 
-    if (!itemId) return alert('Vui lòng chọn mẫu từ Kho Ads!');
-    if (!channelId) return alert('Vui lòng chọn kênh quảng cáo!');
+    if (!itemId) return alert('Vui lòng chọn mẫu từ Kho Ads (Bước 1)!');
+    if (!platformId) return alert('Vui lòng chọn kênh quảng cáo (Bước 2)!');
+    if (!accId) return alert('Vui lòng chọn tài khoản quảng cáo (Bước 3)!');
+    if (!campId) return alert('Vui lòng chọn hoặc nhập ID Camp (Bước 4)!');
+
+    const channelObj = _cdAdsState.channels.find(ch => String(ch.id) === String(platformId));
 
     try {
         const res = await _cdAdsApi('/api/ads-campaigns', 'POST', {
             kho_ads_item_id: Number(itemId),
-            channel_id: channelId,
+            ad_account_id: Number(accId),
+            channel_name: channelObj ? channelObj.name : platformId,
             post_id: postId,
-            camp_id: campId
+            camp_id: campId,
+            campaign_name: campaignName
         });
         if (res.error) return alert(res.error);
         _cdAdsCloseCreateModal();
         await _cdAdsLoadAll();
-        alert('🎉 Tạo chiến dịch thành công!');
+        alert('🎉 Liên kết mẫu & chiến dịch camp thành công!');
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
 

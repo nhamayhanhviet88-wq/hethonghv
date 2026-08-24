@@ -35,7 +35,9 @@ module.exports = async function (fastify, opts) {
             CREATE TABLE IF NOT EXISTS ads_campaigns (
                 id SERIAL PRIMARY KEY,
                 kho_ads_item_id INT NOT NULL,
-                channel_id INT NOT NULL,
+                channel_id INT,
+                ad_account_id INT,
+                channel_name VARCHAR(100),
                 campaign_name VARCHAR(500) NOT NULL,
                 post_id VARCHAR(255),
                 camp_id VARCHAR(255),
@@ -45,6 +47,9 @@ module.exports = async function (fastify, opts) {
                 finished_at TIMESTAMP
             )
         `);
+        await db.run("ALTER TABLE ads_campaigns ADD COLUMN IF NOT EXISTS ad_account_id INT");
+        await db.run("ALTER TABLE ads_campaigns ADD COLUMN IF NOT EXISTS channel_name VARCHAR(100)");
+        try { await db.run("ALTER TABLE ads_campaigns ALTER COLUMN channel_id DROP NOT NULL"); } catch(e) {}
     } catch(e) { console.error('[ads_campaigns migration]', e.message); }
 
     // Bảng 3: ads_campaign_reports — Báo cáo hàng ngày
@@ -166,6 +171,118 @@ module.exports = async function (fastify, opts) {
         }
     });
 
+    // GET /api/ads-campaigns/linked-platforms — Lấy danh sách kênh/nền tảng từ Cài Đặt Tài Khoản Ads
+    fastify.get('/api/ads-campaigns/linked-platforms', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const rows = await db.all(`
+                SELECT DISTINCT platform, custom_platform_name
+                FROM ads_stats_accounts
+                WHERE platform IS NOT NULL AND TRIM(platform) != ''
+            `);
+            
+            const platformMeta = {
+                'facebook': { id: 'facebook', name: 'Facebook', icon: '📘', color: '#1877f2' },
+                'tiktok': { id: 'tiktok', name: 'TikTok', icon: '🎵', color: '#000000' },
+                'google_ads': { id: 'google_ads', name: 'Google Ads', icon: '🌐', color: '#4285f4' },
+                'youtube': { id: 'youtube', name: 'YouTube', icon: '▶️', color: '#ff0000' }
+            };
+
+            const resultPlatforms = [];
+            const seenKeys = new Set();
+
+            (rows || []).forEach(r => {
+                const key = (r.platform || '').toLowerCase().trim();
+                if (!key || seenKeys.has(key)) return;
+                seenKeys.add(key);
+
+                if (platformMeta[key]) {
+                    resultPlatforms.push(platformMeta[key]);
+                } else {
+                    resultPlatforms.push({
+                        id: key,
+                        name: r.custom_platform_name || key.toUpperCase(),
+                        icon: '📢',
+                        color: '#6366f1'
+                    });
+                }
+            });
+
+            // Mặc định luôn có TikTok, Facebook, YouTube nếu chưa cấu hình tài khoản nào
+            if (!seenKeys.has('tiktok')) resultPlatforms.push(platformMeta['tiktok']);
+            if (!seenKeys.has('facebook')) resultPlatforms.unshift(platformMeta['facebook']);
+            if (!seenKeys.has('youtube')) resultPlatforms.push(platformMeta['youtube']);
+
+            return reply.send({ ok: true, platforms: resultPlatforms });
+        } catch(e) {
+            console.error('[ads-campaigns linked-platforms GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // GET /api/ads-campaigns/accounts-by-platform — Lấy tài khoản QC theo kênh từ Cài Đặt Tài Khoản Ads
+    fastify.get('/api/ads-campaigns/accounts-by-platform', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const platform = (req.query.platform || 'facebook').toLowerCase().trim();
+            const rows = await db.all(`
+                SELECT id, platform, custom_platform_name, account_name, fb_ad_account_id, connection_status, assigned_staff_name
+                FROM ads_stats_accounts
+                WHERE LOWER(platform) = $1
+                ORDER BY id ASC
+            `, [platform]);
+
+            return reply.send({ ok: true, accounts: rows || [] });
+        } catch(e) {
+            console.error('[ads-campaigns accounts-by-platform GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // GET /api/ads-campaigns/ad-account-campaigns — Lấy live chiến dịch camp từ Tài khoản Quảng Cáo (Graph API Meta)
+    fastify.get('/api/ads-campaigns/ad-account-campaigns', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const accountId = parseInt(req.query.account_id);
+            if (!accountId) return reply.code(400).send({ error: 'Vui lòng cung cấp account_id!' });
+
+            const account = await db.get(`
+                SELECT id, platform, account_name, fb_ad_account_id, fb_access_token
+                FROM ads_stats_accounts
+                WHERE id = $1
+            `, [accountId]);
+
+            if (!account) return reply.code(404).send({ error: 'Không tìm thấy tài khoản quảng cáo!' });
+
+            if ((account.platform || '').toLowerCase() === 'facebook') {
+                if (!account.fb_access_token || !account.fb_ad_account_id) {
+                    return reply.code(400).send({ error: `Tài khoản "${account.account_name}" chưa được cấu hình Access Token hoặc Ad Account ID trong Cài Đặt Tài Khoản Ads.` });
+                }
+                const token = account.fb_access_token.trim();
+                const rawActId = account.fb_ad_account_id.replace(/^act_/i, '').trim();
+
+                const campaignsUrl = `https://graph.facebook.com/v24.0/act_${rawActId}/campaigns?fields=id,name,status,effective_status&limit=500&access_token=${encodeURIComponent(token)}`;
+                const res = await fetch(campaignsUrl);
+                const data = await res.json();
+
+                if (data.error) {
+                    return reply.code(400).send({ error: `🔴 Lỗi từ Facebook API: ${data.error.message || 'Không thể truy vấn danh sách chiến dịch'}` });
+                }
+
+                const campaigns = (data.data || []).map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    status: c.status,
+                    effective_status: c.effective_status
+                }));
+
+                return reply.send({ ok: true, campaigns, account_name: account.account_name });
+            } else {
+                return reply.send({ ok: true, campaigns: [], account_name: account.account_name, message: 'Nền tảng này chưa hỗ trợ API đồng bộ trực tiếp.' });
+            }
+        } catch(e) {
+            console.error('[ads-campaigns ad-account-campaigns GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     // ========== 2. MY ITEMS (Lấy mẫu từ Kho Ads của chính user) ==========
 
     fastify.get('/api/ads-campaigns/my-items', { preHandler: [authenticate] }, async (req, reply) => {
@@ -241,18 +358,20 @@ module.exports = async function (fastify, opts) {
                 filterClause += ` AND c.status = $${queryParams.length}`;
             }
             if (channel_id && channel_id !== 'all') {
-                queryParams.push(Number(channel_id));
-                filterClause += ` AND c.channel_id = $${queryParams.length}`;
+                queryParams.push(channel_id);
+                filterClause += ` AND (c.channel_id = $${queryParams.length} OR LOWER(c.channel_name) = LOWER($${queryParams.length}) OR LOWER(sa.platform) = LOWER($${queryParams.length}))`;
             }
             if (search && search.trim()) {
                 queryParams.push(`%${search.trim().toLowerCase()}%`);
                 const pIdx = queryParams.length;
-                filterClause += ` AND (LOWER(c.campaign_name) LIKE $${pIdx} OR LOWER(c.post_id) LIKE $${pIdx} OR LOWER(c.camp_id) LIKE $${pIdx} OR LOWER(u.full_name) LIKE $${pIdx})`;
+                filterClause += ` AND (LOWER(c.campaign_name) LIKE $${pIdx} OR LOWER(c.post_id) LIKE $${pIdx} OR LOWER(c.camp_id) LIKE $${pIdx} OR LOWER(u.full_name) LIKE $${pIdx} OR LOWER(sa.account_name) LIKE $${pIdx})`;
             }
 
             const sql = `
                 SELECT c.*, 
-                       ch.name as channel_name, ch.icon as channel_icon, ch.color as channel_color,
+                       ch.name as legacy_channel_name, ch.icon as channel_icon, ch.color as channel_color,
+                       sa.account_name as ad_account_name, sa.fb_ad_account_id, sa.platform as ad_account_platform,
+                       COALESCE(c.channel_name, sa.platform, ch.name, 'Facebook') as channel_name,
                        i.title as item_title, i.thumbnail_url, i.linh_vuc, i.media_type, i.drive_url,
                        u.full_name as created_by_name,
                        COALESCE(rpt.latest_tong_ngan_sach, 0) as latest_tong_ngan_sach,
@@ -270,6 +389,7 @@ module.exports = async function (fastify, opts) {
                        COALESCE(totals.report_count, 0) as report_count
                 FROM ads_campaigns c
                 LEFT JOIN ads_channels ch ON c.channel_id = ch.id
+                LEFT JOIN ads_stats_accounts sa ON c.ad_account_id = sa.id
                 LEFT JOIN kho_ads_items i ON c.kho_ads_item_id = i.id
                 LEFT JOIN users u ON c.created_by = u.id
                 LEFT JOIN LATERAL (
@@ -307,10 +427,12 @@ module.exports = async function (fastify, opts) {
     // POST /api/ads-campaigns — Tạo chiến dịch mới
     fastify.post('/api/ads-campaigns', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            const { kho_ads_item_id, channel_id, post_id, camp_id } = req.body || {};
+            const { kho_ads_item_id, channel_id, ad_account_id, channel_name, post_id, camp_id, campaign_name } = req.body || {};
 
             if (!kho_ads_item_id) return reply.code(400).send({ error: 'Vui lòng chọn mẫu từ Kho Ads!' });
-            if (!channel_id) return reply.code(400).send({ error: 'Vui lòng chọn kênh quảng cáo!' });
+            if (!ad_account_id && !channel_id && !channel_name) {
+                return reply.code(400).send({ error: 'Vui lòng chọn kênh quảng cáo / tài khoản quảng cáo!' });
+            }
 
             // Kiểm tra mẫu tồn tại
             const item = await db.get(`SELECT id, title, created_by FROM kho_ads_items WHERE id = $1`, [kho_ads_item_id]);
@@ -321,17 +443,23 @@ module.exports = async function (fastify, opts) {
                 return reply.code(403).send({ error: 'Bạn chỉ có thể tạo chiến dịch từ mẫu Ads do chính mình tạo!' });
             }
 
-            // Kiểm tra kênh tồn tại
-            const channel = await db.get(`SELECT id, name FROM ads_channels WHERE id = $1`, [channel_id]);
-            if (!channel) return reply.code(404).send({ error: 'Không tìm thấy kênh quảng cáo!' });
+            let adAccId = ad_account_id ? Number(ad_account_id) : null;
+            let cName = channel_name || 'Facebook';
+            let channelId = channel_id ? Number(channel_id) : null;
 
-            // Tự động tạo tên chiến dịch từ tên mẫu
-            const campaignName = `${item.title} - ${channel.name}`;
+            if (adAccId) {
+                const acc = await db.get(`SELECT id, account_name, platform FROM ads_stats_accounts WHERE id = $1`, [adAccId]);
+                if (acc && acc.platform) {
+                    cName = acc.platform.charAt(0).toUpperCase() + acc.platform.slice(1);
+                }
+            }
+
+            const finalCampName = (campaign_name && campaign_name.trim()) ? campaign_name.trim() : `${item.title} - ${cName}`;
 
             const result = await db.get(`
-                INSERT INTO ads_campaigns (kho_ads_item_id, channel_id, campaign_name, post_id, camp_id, status, created_by)
-                VALUES ($1, $2, $3, $4, $5, 'chay_test', $6) RETURNING *
-            `, [kho_ads_item_id, channel_id, campaignName, (post_id || '').trim(), (camp_id || '').trim(), req.user.id]);
+                INSERT INTO ads_campaigns (kho_ads_item_id, channel_id, ad_account_id, channel_name, campaign_name, post_id, camp_id, status, created_by)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, 'chay_test', $8) RETURNING *
+            `, [kho_ads_item_id, channelId, adAccId, cName, finalCampName, (post_id || '').trim(), (camp_id || '').trim(), req.user.id]);
 
             return reply.send({ ok: true, campaign: result });
         } catch (e) {
