@@ -52,6 +52,21 @@ module.exports = async function (fastify, opts) {
         try { await db.run("ALTER TABLE ads_campaigns ALTER COLUMN channel_id DROP NOT NULL"); } catch(e) {}
     } catch(e) { console.error('[ads_campaigns migration]', e.message); }
 
+    // Bảng 2b: ads_campaign_extra_camps — Các Mã Camp ID & Post ID bổ sung của chiến dịch
+    try {
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS ads_campaign_extra_camps (
+                id SERIAL PRIMARY KEY,
+                campaign_id INT NOT NULL,
+                camp_id VARCHAR(255),
+                post_id VARCHAR(255),
+                note VARCHAR(255),
+                created_by INT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    } catch(e) { console.error('[ads_campaign_extra_camps migration]', e.message); }
+
     // Bảng 3: ads_campaign_reports — Báo cáo hàng ngày
     try {
         await db.run(`
@@ -456,6 +471,8 @@ module.exports = async function (fastify, opts) {
                       AND (
                           (c.camp_id IS NOT NULL AND c.camp_id != '' AND d.campaign_id = c.camp_id)
                           OR ((c.camp_id IS NULL OR c.camp_id = '') AND c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
+                          OR (d.campaign_id IN (SELECT ec.camp_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND ec.camp_id IS NOT NULL AND ec.camp_id != ''))
+                          OR (d.link_post_id IN (SELECT ec.post_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND ec.post_id IS NOT NULL AND ec.post_id != ''))
                       )
                       ${dateFilterDaily}
                 ) totals ON true
@@ -464,7 +481,19 @@ module.exports = async function (fastify, opts) {
             `;
 
             const campaigns = await db.all(sql, queryParams);
-            return reply.send({ ok: true, campaigns });
+
+            const campaignsWithExtra = await Promise.all(campaigns.map(async (c) => {
+                const extraCamps = await db.all(`
+                    SELECT e.*, u.full_name as created_by_name 
+                    FROM ads_campaign_extra_camps e
+                    LEFT JOIN users u ON e.created_by = u.id
+                    WHERE e.campaign_id = $1 
+                    ORDER BY e.id ASC
+                `, [c.id]);
+                return { ...c, extra_camps: extraCamps };
+            }));
+
+            return reply.send({ ok: true, campaigns: campaignsWithExtra });
         } catch (e) {
             console.error('[ads-campaigns GET]', e);
             return reply.code(500).send({ error: e.message });
@@ -624,6 +653,8 @@ module.exports = async function (fastify, opts) {
                     AND (
                         (c.camp_id IS NOT NULL AND c.camp_id != '' AND d.campaign_id = c.camp_id)
                         OR ((c.camp_id IS NULL OR c.camp_id = '') AND c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
+                        OR (d.campaign_id IN (SELECT ec.camp_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND ec.camp_id IS NOT NULL AND ec.camp_id != ''))
+                        OR (d.link_post_id IN (SELECT ec.post_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND ec.post_id IS NOT NULL AND ec.post_id != ''))
                     )
                 )
                 LEFT JOIN ads_stats_accounts sa ON d.account_id = sa.id
@@ -633,6 +664,86 @@ module.exports = async function (fastify, opts) {
             return reply.send({ ok: true, reports: rows });
         } catch (e) {
             console.error('[ads-campaigns reports GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== 5. EXTRA CAMPS API (GẮN NHIỀU CAMP ID / POST ID BỔ SUNG) ==========
+
+    // GET /api/ads-campaigns/:id/extra-camps — Lấy danh sách Camp ID phụ
+    fastify.get('/api/ads-campaigns/:id/extra-camps', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const campaignId = Number(req.params.id);
+            const rows = await db.all(`
+                SELECT e.*, u.full_name as created_by_name 
+                FROM ads_campaign_extra_camps e
+                LEFT JOIN users u ON e.created_by = u.id
+                WHERE e.campaign_id = $1 
+                ORDER BY e.id ASC
+            `, [campaignId]);
+            return reply.send({ ok: true, extra_camps: rows });
+        } catch (e) {
+            console.error('[extra-camps GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // POST /api/ads-campaigns/:id/extra-camps — Gắn thêm Camp ID / Post ID mới
+    fastify.post('/api/ads-campaigns/:id/extra-camps', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const campaignId = Number(req.params.id);
+            const { camp_id, post_id, note } = req.body || {};
+            const cleanCampId = (camp_id || '').trim();
+            const cleanPostId = (post_id || '').trim();
+
+            if (!cleanCampId && !cleanPostId) {
+                return reply.code(400).send({ error: 'Vui lòng nhập ít nhất ID Camp hoặc ID Post bổ sung!' });
+            }
+
+            const camp = await db.get(`SELECT * FROM ads_campaigns WHERE id = $1`, [campaignId]);
+            if (!camp) return reply.code(404).send({ error: 'Không tìm thấy chiến dịch!' });
+
+            const isGD = _isGiamDoc(req.user);
+            const isCreator = Number(req.user.id) === Number(camp.created_by);
+            if (!isGD && !isCreator) {
+                return reply.code(403).send({ error: 'Bạn không có quyền gắn thêm mã Camp cho chiến dịch này!' });
+            }
+
+            const result = await db.get(`
+                INSERT INTO ads_campaign_extra_camps (campaign_id, camp_id, post_id, note, created_by)
+                VALUES ($1, $2, $3, $4, $5) RETURNING *
+            `, [campaignId, cleanCampId, cleanPostId, (note || '').trim(), req.user.id]);
+
+            return reply.send({ ok: true, extra_camp: result });
+        } catch (e) {
+            console.error('[extra-camps POST]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // DELETE /api/ads-campaigns/extra-camps/:extraId — Gỡ Mã Camp phụ
+    fastify.delete('/api/ads-campaigns/extra-camps/:extraId', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const extraId = Number(req.params.extraId);
+            const existing = await db.get(`
+                SELECT e.*, c.created_by as campaign_creator 
+                FROM ads_campaign_extra_camps e
+                JOIN ads_campaigns c ON e.campaign_id = c.id
+                WHERE e.id = $1
+            `, [extraId]);
+
+            if (!existing) return reply.code(404).send({ error: 'Không tìm thấy mã Camp phụ!' });
+
+            const isGD = _isGiamDoc(req.user);
+            const isCreator = Number(req.user.id) === Number(existing.created_by) || Number(req.user.id) === Number(existing.campaign_creator);
+            if (!isGD && !isCreator) {
+                return reply.code(403).send({ error: 'Bạn không có quyền gỡ mã Camp phụ này!' });
+            }
+
+            await db.run(`DELETE FROM ads_campaign_extra_camps WHERE id = $1`, [extraId]);
+            return reply.send({ ok: true });
+        } catch (e) {
+            console.error('[extra-camps DELETE]', e);
             return reply.code(500).send({ error: e.message });
         }
     });
