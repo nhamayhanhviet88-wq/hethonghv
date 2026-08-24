@@ -997,7 +997,7 @@
                                 display: inline-flex; align-items: center; justify-content: center; gap: 4px;
                                 background: ${isActive ? '#dcfce7' : '#fee2e2'}; color: ${isActive ? '#15803d' : '#b91c1c'};
                                 border: 1px solid ${isActive ? '#86efac' : '#fca5a5'}; padding: 5px 14px; border-radius: 20px;
-                                font-size: 11.5px; font-weight: 800; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+                                font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all 0.2s; white-space: nowrap;
                             ">${isActive ? '✅ Đang BẬT' : '⏸️ Đã TẮT'}</button>
                         </td>
                         <td style="white-space: nowrap;">
