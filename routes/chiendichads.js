@@ -282,23 +282,33 @@ module.exports = async function (fastify, opts) {
                     return reply.code(400).send({ error: `🔴 Lỗi từ Facebook API: ${data.error.message || 'Không thể truy vấn danh sách chiến dịch'}` });
                 }
 
-                const campaigns = (data.data || []).map(c => {
-                    let postId = '';
-                    if (c.ads && c.ads.data && c.ads.data.length > 0) {
-                        const creative = c.ads.data[0].creative || {};
-                        const storyId = creative.object_story_id || creative.effective_object_story_id || '';
-                        if (storyId) {
-                            postId = storyId.includes('_') ? storyId.split('_')[1] : storyId;
+                // Lấy tất cả các mã Camp ID đã được liên kết trong toàn bộ CSDL (mọi tài khoản / mọi nhân sự)
+                const attachedMain = await db.all(`SELECT camp_id FROM ads_campaigns WHERE camp_id IS NOT NULL AND TRIM(camp_id) != ''`);
+                const attachedExtra = await db.all(`SELECT camp_id FROM ads_campaign_extra_camps WHERE camp_id IS NOT NULL AND TRIM(camp_id) != ''`);
+
+                const attachedSet = new Set();
+                attachedMain.forEach(row => { if (row.camp_id) attachedSet.add(String(row.camp_id).trim()); });
+                attachedExtra.forEach(row => { if (row.camp_id) attachedSet.add(String(row.camp_id).trim()); });
+
+                const campaigns = (data.data || [])
+                    .map(c => {
+                        let postId = '';
+                        if (c.ads && c.ads.data && c.ads.data.length > 0) {
+                            const creative = c.ads.data[0].creative || {};
+                            const storyId = creative.object_story_id || creative.effective_object_story_id || '';
+                            if (storyId) {
+                                postId = storyId.includes('_') ? storyId.split('_')[1] : storyId;
+                            }
                         }
-                    }
-                    return {
-                        id: c.id,
-                        name: c.name,
-                        status: c.status,
-                        effective_status: c.effective_status,
-                        post_id: postId
-                    };
-                });
+                        return {
+                            id: c.id,
+                            name: c.name,
+                            status: c.status,
+                            effective_status: c.effective_status,
+                            post_id: postId
+                        };
+                    })
+                    .filter(c => !attachedSet.has(String(c.id).trim()));
 
                 return reply.send({ ok: true, campaigns, account_name: account.account_name });
             } else {
