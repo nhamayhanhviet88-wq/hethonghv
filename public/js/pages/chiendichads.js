@@ -586,10 +586,21 @@ function _cdAdsRenderTable() {
     // Client-side linh_vuc filter
     const linhVucFilter = document.getElementById('cdAdsFilterLinhVuc')?.value || 'all';
     if (linhVucFilter !== 'all') {
+        const targetStr = linhVucFilter.toLowerCase().trim();
+        let keywords = [targetStr];
+        if (targetStr.includes('spa') || targetStr.includes('thẩm mỹ')) {
+            keywords.push('spa', 'thẩm mỹ');
+        } else if (targetStr.includes('công ty')) {
+            keywords.push('công ty');
+        } else if (targetStr.includes('áo lớp')) {
+            keywords.push('áo lớp');
+        } else if (targetStr.includes('mầm non')) {
+            keywords.push('mầm non');
+        }
+
         filtered = filtered.filter(c => {
-            const lv = (c.linh_vuc || c.item_linh_vuc || c.ads_linh_vuc || '').toLowerCase().trim();
-            const target = linhVucFilter.toLowerCase().trim();
-            return lv === target || lv.includes(target);
+            const lvStr = (c.linh_vuc || c.item_linh_vuc || c.linh_vuc_name || c.campaign_name || '').toLowerCase();
+            return keywords.some(kw => lvStr.includes(kw));
         });
     }
 

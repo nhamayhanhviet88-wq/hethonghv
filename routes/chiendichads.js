@@ -373,13 +373,31 @@ module.exports = async function (fastify, opts) {
                 filterClause += ` AND (c.channel_id = $${queryParams.length} OR LOWER(c.channel_name) = LOWER($${queryParams.length}) OR LOWER(sa.platform) = LOWER($${queryParams.length}))`;
             }
             if (linh_vuc && linh_vuc !== 'all') {
-                queryParams.push(`%${linh_vuc.trim().toLowerCase()}%`);
-                filterClause += ` AND (LOWER(COALESCE(i.linh_vuc, sa.ads_linh_vuc, '')) LIKE $${queryParams.length})`;
+                const lvClean = linh_vuc.trim().toLowerCase();
+                queryParams.push(`%${lvClean}%`);
+                const pIdx = queryParams.length;
+
+                let extraOr = '';
+                if (lvClean.includes('spa') || lvClean.includes('thẩm mỹ')) {
+                    queryParams.push('%spa%');
+                    extraOr += ` OR LOWER(COALESCE(i.linh_vuc, sa.linh_vuc_name, c.campaign_name, '')) LIKE $${queryParams.length}`;
+                } else if (lvClean.includes('công ty')) {
+                    queryParams.push('%công ty%');
+                    extraOr += ` OR LOWER(COALESCE(i.linh_vuc, sa.linh_vuc_name, c.campaign_name, '')) LIKE $${queryParams.length}`;
+                } else if (lvClean.includes('áo lớp')) {
+                    queryParams.push('%áo lớp%');
+                    extraOr += ` OR LOWER(COALESCE(i.linh_vuc, sa.linh_vuc_name, c.campaign_name, '')) LIKE $${queryParams.length}`;
+                } else if (lvClean.includes('mầm non')) {
+                    queryParams.push('%mầm non%');
+                    extraOr += ` OR LOWER(COALESCE(i.linh_vuc, sa.linh_vuc_name, c.campaign_name, '')) LIKE $${queryParams.length}`;
+                }
+
+                filterClause += ` AND (LOWER(COALESCE(i.linh_vuc, sa.linh_vuc_name, c.campaign_name, '')) LIKE $${pIdx}${extraOr})`;
             }
             if (search && search.trim()) {
                 queryParams.push(`%${search.trim().toLowerCase()}%`);
                 const pIdx = queryParams.length;
-                filterClause += ` AND (LOWER(c.campaign_name) LIKE $${pIdx} OR LOWER(c.post_id) LIKE $${pIdx} OR LOWER(c.camp_id) LIKE $${pIdx} OR LOWER(u.full_name) LIKE $${pIdx} OR LOWER(sa.account_name) LIKE $${pIdx} OR LOWER(COALESCE(i.linh_vuc, sa.ads_linh_vuc, '')) LIKE $${pIdx})`;
+                filterClause += ` AND (LOWER(c.campaign_name) LIKE $${pIdx} OR LOWER(c.post_id) LIKE $${pIdx} OR LOWER(c.camp_id) LIKE $${pIdx} OR LOWER(u.full_name) LIKE $${pIdx} OR LOWER(sa.account_name) LIKE $${pIdx} OR LOWER(COALESCE(i.linh_vuc, sa.linh_vuc_name, '')) LIKE $${pIdx})`;
             }
 
             let dateFilterDaily = '';
@@ -395,7 +413,7 @@ module.exports = async function (fastify, opts) {
                        ch.name as legacy_channel_name, ch.icon as channel_icon, ch.color as channel_color,
                        sa.account_name as ad_account_name, sa.fb_ad_account_id, sa.fb_ad_account_link, sa.platform as ad_account_platform,
                        COALESCE(c.channel_name, sa.platform, ch.name, 'Facebook') as channel_name,
-                       i.title as item_title, i.thumbnail_url, i.linh_vuc, i.media_type, i.drive_url,
+                       i.title as item_title, i.thumbnail_url, COALESCE(i.linh_vuc, sa.linh_vuc_name, '') as linh_vuc, i.media_type, i.drive_url,
                        u.full_name as created_by_name,
                        COALESCE(totals.total_spend, 0) as total_spend,
                        COALESCE(totals.total_messages, 0) as total_messages,
