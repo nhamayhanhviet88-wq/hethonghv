@@ -364,12 +364,12 @@ function _cdAdsRenderTable() {
             : 'background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:20px;';
         const thumbContent = c.thumbnail_url ? '' : (c.media_type === 'video' ? '🎥' : '🖼️');
 
-        return `<tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#fafbff'" onmouseout="this.style.background='white'">
+        return `<tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fafbff'" onmouseout="this.style.background='white'" onclick="if(!event.target.closest('button') && !event.target.closest('a') && !event.target.closest('.no-row-click')) _cdAdsViewDetail(${c.id})">
             <td style="padding:10px 12px;font-size:12px;font-weight:800;color:#64748b;text-align:center;">${idx + 1}</td>
-            <td style="padding:10px 8px;">
+            <td class="no-row-click" onclick="event.stopPropagation(); _cdAdsGoToKhoAdsItem(${c.kho_ads_item_id || 'null'})" style="padding:10px 8px;cursor:pointer;" title="Xem mẫu tại Kho Video/Ảnh Ads">
                 <div style="width:44px;height:44px;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;${thumbStyle}">${thumbContent}</div>
             </td>
-            <td style="padding:10px 8px;">
+            <td class="no-row-click" onclick="event.stopPropagation(); _cdAdsGoToKhoAdsItem(${c.kho_ads_item_id || 'null'})" style="padding:10px 8px;cursor:pointer;" title="Xem mẫu tại Kho Video/Ảnh Ads">
                 <div style="font-size:13px;font-weight:800;color:#0f172a;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(c.campaign_name || '').replace(/"/g, '&quot;')}">${c.campaign_name || '-'}</div>
                 <div style="font-size:11px;color:#64748b;font-weight:600;">${c.linh_vuc || ''} ${c.media_type === 'video' ? '🎥' : '🖼️'}</div>
             </td>
@@ -377,7 +377,11 @@ function _cdAdsRenderTable() {
                 <span style="background:${c.channel_color || '#6366f1'}22;color:${c.channel_color || '#6366f1'};padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;white-space:nowrap;">${c.channel_icon || '📺'} ${c.channel_name || '-'}</span>
                 ${c.ad_account_name ? `<div style="font-size:10.5px;font-weight:700;color:#0284c7;margin-top:3px;">💳 ${c.ad_account_name}</div>` : ''}
             </td>
-            <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#334155;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${c.post_id || ''}">${c.post_id || '-'}</td>
+            ${c.post_id ? `
+                <td class="no-row-click" onclick="event.stopPropagation(); window.open('https://fb.com/${c.post_id}', '_blank')" style="padding:10px 8px;font-size:12px;font-weight:700;color:#2563eb;text-decoration:underline;text-align:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" title="Mở Facebook: https://fb.com/${c.post_id}">${c.post_id}</td>
+            ` : `
+                <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#94a3b8;text-align:center;">-</td>
+            `}
             <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#334155;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${c.camp_id || ''}">${c.camp_id || '-'}</td>
             <td style="padding:10px 8px;text-align:center;">${statusBadge(c.status)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(c.total_spend)}</td>
@@ -397,12 +401,12 @@ function _cdAdsRenderTable() {
                 <div style="font-size:12px;font-weight:700;color:#334155;">${c.created_by_name || '-'}</div>
                 <div style="font-size:10px;color:#94a3b8;font-weight:600;">${c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '-'}</div>
             </td>
-            <td style="padding:10px 8px;text-align:center;">
+            <td style="padding:10px 8px;text-align:center;" onclick="event.stopPropagation()">
                 <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-                    <button onclick="_cdAdsViewDetail(${c.id})" title="Xem chi tiết" style="padding:5px 8px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;font-size:12px;cursor:pointer;color:#4338ca;font-weight:700;">📋</button>
+                    <button onclick="event.stopPropagation(); _cdAdsViewDetail(${c.id})" title="Xem chi tiết" style="padding:5px 8px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;font-size:12px;cursor:pointer;color:#4338ca;font-weight:700;">📋</button>
                     ${canEdit ? `
-                        <button onclick="_cdAdsChangeStatus(${c.id})" title="Đánh dấu Win/Lose" style="padding:5px 8px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;font-size:12px;cursor:pointer;color:#a16207;font-weight:700;">🏆</button>
-                        <button onclick="_cdAdsDeleteCampaign(${c.id})" title="Xóa" style="padding:5px 8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:12px;cursor:pointer;color:#dc2626;font-weight:700;">🗑️</button>
+                        <button onclick="event.stopPropagation(); _cdAdsChangeStatus(${c.id})" title="Đánh dấu Win/Lose" style="padding:5px 8px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;font-size:12px;cursor:pointer;color:#a16207;font-weight:700;">🏆</button>
+                        <button onclick="event.stopPropagation(); _cdAdsDeleteCampaign(${c.id})" title="Xóa" style="padding:5px 8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:12px;cursor:pointer;color:#dc2626;font-weight:700;">🗑️</button>
                     ` : ''}
                 </div>
             </td>
@@ -960,4 +964,47 @@ async function _cdAdsDeleteCampaign(campaignId) {
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
+async function _cdAdsGoToKhoAdsItem(khoAdsItemId) {
+    if (!khoAdsItemId || khoAdsItemId === 'null') {
+        return alert('⚠️ Chiến dịch này chưa được liên kết với Mẫu Kho Ads!');
+    }
+
+    const modalEl = document.getElementById('modalCreateKhoAdsItem');
+    if (typeof openKhoAdsItemDetailFromPersonal === 'function' && modalEl) {
+        openKhoAdsItemDetailFromPersonal(khoAdsItemId);
+        return;
+    }
+
+    const menuLink = document.querySelector('[data-page="khoads"], a[href="/khoads"], a[href*="khoads"]');
+    if (menuLink) {
+        menuLink.click();
+    } else if (typeof handleRoute === 'function') {
+        history.pushState(null, '', '/khoads');
+        handleRoute();
+    } else {
+        window.location.href = '/khoads';
+        return;
+    }
+
+    let retries = 0;
+    const checkInterval = setInterval(async () => {
+        retries++;
+        if (typeof openKhoAdsItemDetailFromPersonal === 'function') {
+            clearInterval(checkInterval);
+            if (typeof _khoAdsData !== 'undefined' && (!_khoAdsData.items || _khoAdsData.items.length === 0)) {
+                try {
+                    const res = await fetch('/api/kho-ads/items', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+                    }).then(r => r.json());
+                    if (res && res.ok) _khoAdsData.items = res.items || [];
+                } catch(e) {}
+            }
+            openKhoAdsItemDetailFromPersonal(khoAdsItemId);
+        } else if (retries > 30) {
+            clearInterval(checkInterval);
+        }
+    }, 150);
+}
+
 window.renderChiendichadsPage = renderChiendichadsPage;
+window._cdAdsGoToKhoAdsItem = _cdAdsGoToKhoAdsItem;
