@@ -258,7 +258,7 @@ module.exports = async function (fastify, opts) {
                 const token = account.fb_access_token.trim();
                 const rawActId = account.fb_ad_account_id.replace(/^act_/i, '').trim();
 
-                const campaignsUrl = `https://graph.facebook.com/v24.0/act_${rawActId}/campaigns?fields=id,name,status,effective_status&limit=500&access_token=${encodeURIComponent(token)}`;
+                const campaignsUrl = `https://graph.facebook.com/v24.0/act_${rawActId}/campaigns?fields=id,name,status,effective_status,ads.limit(1){creative{object_story_id,effective_object_story_id}}&limit=500&access_token=${encodeURIComponent(token)}`;
                 const res = await fetch(campaignsUrl);
                 const data = await res.json();
 
@@ -266,12 +266,23 @@ module.exports = async function (fastify, opts) {
                     return reply.code(400).send({ error: `🔴 Lỗi từ Facebook API: ${data.error.message || 'Không thể truy vấn danh sách chiến dịch'}` });
                 }
 
-                const campaigns = (data.data || []).map(c => ({
-                    id: c.id,
-                    name: c.name,
-                    status: c.status,
-                    effective_status: c.effective_status
-                }));
+                const campaigns = (data.data || []).map(c => {
+                    let postId = '';
+                    if (c.ads && c.ads.data && c.ads.data.length > 0) {
+                        const creative = c.ads.data[0].creative || {};
+                        const storyId = creative.object_story_id || creative.effective_object_story_id || '';
+                        if (storyId) {
+                            postId = storyId.includes('_') ? storyId.split('_')[1] : storyId;
+                        }
+                    }
+                    return {
+                        id: c.id,
+                        name: c.name,
+                        status: c.status,
+                        effective_status: c.effective_status,
+                        post_id: postId
+                    };
+                });
 
                 return reply.send({ ok: true, campaigns, account_name: account.account_name });
             } else {

@@ -179,18 +179,18 @@ async function renderChiendichadsPage(container) {
                     <!-- Post ID + ID Camp -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                         <div>
-                            <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🆔 Post ID</label>
-                            <input type="text" id="cdAdsCreatePostId" placeholder="Nhập Post ID (nếu có)..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 600; outline: none; box-sizing: border-box;">
+                            <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🆔 Post ID <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động liên kết)</span></label>
+                            <input type="text" id="cdAdsCreatePostId" readonly placeholder="Tự động liên kết..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f1f5f9; color: #334155; cursor: not-allowed; box-sizing: border-box;">
                         </div>
                         <div>
-                            <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🏷️ ID Camp</label>
-                            <input type="text" id="cdAdsCreateCampId" placeholder="Nhập ID Camp..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 600; outline: none; box-sizing: border-box;">
+                            <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🏷️ ID Camp <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động liên kết)</span></label>
+                            <input type="text" id="cdAdsCreateCampId" readonly placeholder="Tự động liên kết..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f1f5f9; color: #334155; cursor: not-allowed; box-sizing: border-box;">
                         </div>
                     </div>
                     <!-- Tên chiến dịch (tự động) -->
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">📌 Tên Chiến Dịch <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động liên kết mẫu + kênh/TK + camp)</span></label>
-                        <input type="text" id="cdAdsCreateCampaignName" style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f8fafc; color: #334155; box-sizing: border-box;">
+                        <input type="text" id="cdAdsCreateCampaignName" readonly placeholder="Tự động liên kết..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f1f5f9; color: #334155; cursor: not-allowed; box-sizing: border-box;">
                     </div>
                 </div>
                 <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
@@ -710,13 +710,19 @@ async function _cdAdsOnAdAccountSelect() {
 function _cdAdsOnCampaignSelect() {
     const campId = document.getElementById('cdAdsCreateCampaignSelect')?.value;
     const campInput = document.getElementById('cdAdsCreateCampId');
+    const postInput = document.getElementById('cdAdsCreatePostId');
 
     if (campId) {
         if (campInput) campInput.value = campId;
         const campObj = (window._cdAdsCurrentAccountCampaigns || []).find(c => String(c.id) === String(campId));
         window._cdAdsSelectedCampaign = campObj || null;
+        if (postInput) {
+            postInput.value = (campObj && campObj.post_id) ? campObj.post_id : campId;
+        }
     } else {
         window._cdAdsSelectedCampaign = null;
+        if (campInput) campInput.value = '';
+        if (postInput) postInput.value = '';
     }
 
     _cdAdsUpdateCampaignName();
