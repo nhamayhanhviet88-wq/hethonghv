@@ -294,17 +294,17 @@ module.exports = async function (fastify, opts) {
         }
     });
 
-    // ========== 2. MY ITEMS (Lấy mẫu từ Kho Ads của chính user) ==========
+    // ========== 2. MY ITEMS (Lấy mẫu từ Kho Ads chưa liên kết chiến dịch) ==========
 
     fastify.get('/api/ads-campaigns/my-items', { preHandler: [authenticate] }, async (req, reply) => {
         try {
             const userId = Number(req.user.id);
             const isGD = _isGiamDoc(req.user);
 
-            let whereClause = '';
+            let whereClause = `WHERE i.id NOT IN (SELECT DISTINCT kho_ads_item_id FROM ads_campaigns WHERE kho_ads_item_id IS NOT NULL)`;
             const params = [];
             if (!isGD) {
-                whereClause = `WHERE i.created_by = $1`;
+                whereClause += ` AND i.created_by = $1`;
                 params.push(userId);
             }
 
@@ -448,6 +448,12 @@ module.exports = async function (fastify, opts) {
             // Kiểm tra mẫu tồn tại
             const item = await db.get(`SELECT id, title, created_by FROM kho_ads_items WHERE id = $1`, [kho_ads_item_id]);
             if (!item) return reply.code(404).send({ error: 'Không tìm thấy mẫu Ads!' });
+
+            // Kiểm tra mẫu đã được tạo chiến dịch chưa
+            const existingCamp = await db.get(`SELECT id FROM ads_campaigns WHERE kho_ads_item_id = $1`, [kho_ads_item_id]);
+            if (existingCamp) {
+                return reply.code(400).send({ error: 'Mẫu Ads này đã được tạo chiến dịch và liên kết rồi, không thể tạo lặp lại!' });
+            }
 
             // Kiểm tra quyền: chỉ lấy mẫu của chính mình (trừ Giám Đốc)
             if (!_isGiamDoc(req.user) && Number(item.created_by) !== Number(req.user.id)) {
