@@ -50,6 +50,12 @@ var _cdAdsState = window._cdAdsState || {
     filterStatus: 'all',
     filterChannel: 'all',
     filterSearch: '',
+    filterDateMode: 'month',
+    filterMonth: 'all',
+    filterYear: new Date().getFullYear(),
+    filterQuarter: Math.ceil((new Date().getMonth() + 1) / 3),
+    filterStartDate: '',
+    filterEndDate: '',
     currentPage: 1,
     pageSize: 20,
     sortField: null,
@@ -77,6 +83,113 @@ function _cdAdsToggleSort(field) {
     _cdAdsFilterAndRender();
 }
 window._cdAdsToggleSort = _cdAdsToggleSort;
+
+// ========== DATE FILTER HELPERS ==========
+
+function _cdAdsGetDateRange() {
+    const mode = _cdAdsState.filterDateMode || 'month';
+    const year = _cdAdsState.filterYear || new Date().getFullYear();
+
+    if (mode === 'month') {
+        const m = _cdAdsState.filterMonth;
+        if (m === 'all') {
+            return { startDate: `${year}-01-01`, endDate: `${year}-12-31` };
+        }
+        const mNum = parseInt(m, 10) || (new Date().getMonth() + 1);
+        const mm = String(mNum).padStart(2, '0');
+        const lastDay = new Date(year, mNum, 0).getDate();
+        return { startDate: `${year}-${mm}-01`, endDate: `${year}-${mm}-${String(lastDay).padStart(2, '0')}` };
+    }
+
+    if (mode === 'quarter') {
+        const q = parseInt(_cdAdsState.filterQuarter, 10) || 1;
+        const qYear = _cdAdsState.filterYear || new Date().getFullYear();
+        if (q === 1) return { startDate: `${qYear}-01-01`, endDate: `${qYear}-03-31` };
+        if (q === 2) return { startDate: `${qYear}-04-01`, endDate: `${qYear}-06-30` };
+        if (q === 3) return { startDate: `${qYear}-07-01`, endDate: `${qYear}-09-30` };
+        if (q === 4) return { startDate: `${qYear}-10-01`, endDate: `${qYear}-12-31` };
+    }
+
+    if (mode === 'daterange') {
+        return {
+            startDate: _cdAdsState.filterStartDate || '',
+            endDate: _cdAdsState.filterEndDate || ''
+        };
+    }
+
+    return { startDate: '', endDate: '' };
+}
+
+function _cdAdsPopulateDateSelectors() {
+    const monthSel = document.getElementById('cdAdsMonthSelect');
+    const yearSel = document.getElementById('cdAdsYearSelect');
+    const qYearSel = document.getElementById('cdAdsQYearSelect');
+    const qSel = document.getElementById('cdAdsQuarterSelect');
+
+    const curYear = new Date().getFullYear();
+
+    if (monthSel && monthSel.options.length === 0) {
+        monthSel.innerHTML = '<option value="all">🌐 Tất cả các tháng</option>';
+        for (let m = 1; m <= 12; m++) {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = `Tháng ${m}`;
+            if (String(m) === String(_cdAdsState.filterMonth)) opt.selected = true;
+            monthSel.appendChild(opt);
+        }
+        if (String(_cdAdsState.filterMonth) === 'all') monthSel.value = 'all';
+    }
+
+    const fillYears = (sel, curVal) => {
+        if (!sel || sel.options.length > 0) return;
+        sel.innerHTML = '';
+        for (let y = curYear; y >= curYear - 3; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            if (y === curVal) opt.selected = true;
+            sel.appendChild(opt);
+        }
+    };
+
+    fillYears(yearSel, _cdAdsState.filterYear);
+    fillYears(qYearSel, _cdAdsState.filterYear);
+
+    if (qSel) qSel.value = String(_cdAdsState.filterQuarter);
+}
+
+function _cdAdsOnDateModeChange() {
+    const mode = document.getElementById('cdAdsDateModeSelect')?.value || 'month';
+    _cdAdsState.filterDateMode = mode;
+
+    const monthBox = document.getElementById('cdAdsMonthControls');
+    const quarterBox = document.getElementById('cdAdsQuarterControls');
+    const rangeBox = document.getElementById('cdAdsDateRangeControls');
+
+    if (monthBox) monthBox.style.display = mode === 'month' ? 'flex' : 'none';
+    if (quarterBox) quarterBox.style.display = mode === 'quarter' ? 'flex' : 'none';
+    if (rangeBox) rangeBox.style.display = mode === 'daterange' ? 'flex' : 'none';
+
+    _cdAdsLoadCampaigns();
+}
+
+function _cdAdsOnDateChange() {
+    const mode = _cdAdsState.filterDateMode || 'month';
+    if (mode === 'month') {
+        _cdAdsState.filterMonth = document.getElementById('cdAdsMonthSelect')?.value || 'all';
+        _cdAdsState.filterYear = parseInt(document.getElementById('cdAdsYearSelect')?.value, 10) || new Date().getFullYear();
+    } else if (mode === 'quarter') {
+        _cdAdsState.filterQuarter = parseInt(document.getElementById('cdAdsQuarterSelect')?.value, 10) || 1;
+        _cdAdsState.filterYear = parseInt(document.getElementById('cdAdsQYearSelect')?.value, 10) || new Date().getFullYear();
+    } else if (mode === 'daterange') {
+        _cdAdsState.filterStartDate = document.getElementById('cdAdsStartDate')?.value || '';
+        _cdAdsState.filterEndDate = document.getElementById('cdAdsEndDate')?.value || '';
+    }
+    _cdAdsLoadCampaigns();
+}
+
+window._cdAdsOnDateModeChange = _cdAdsOnDateModeChange;
+window._cdAdsOnDateChange = _cdAdsOnDateChange;
 
 // ========== MAIN RENDER ==========
 
@@ -121,25 +234,54 @@ async function renderChiendichadsPage(container) {
             <!-- Filter Toolbar -->
             <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.04);">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
-                    <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: #0f172a;">
-                        <span>🔍</span> TÌM KIẾM & LỌC CHIẾN DỊCH ADS
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: #0f172a;">
+                            <span>🔍</span> TÌM KIẾM & LỌC CHIẾN DỊCH ADS
+                        </div>
+                        <!-- Date Filter Mode & Controls -->
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #f8fafc; padding: 4px 10px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                            <label style="font-weight: 700; font-size: 12.5px; color: #1e293b; white-space: nowrap;">📅 Lọc theo:</label>
+                            <select id="cdAdsDateModeSelect" onchange="_cdAdsOnDateModeChange()" style="padding: 6px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 12.5px; font-weight: 700; background: white; cursor: pointer; color: #1d4ed8; outline: none;">
+                                <option value="month">📅 Theo Tháng</option>
+                                <option value="quarter">📊 Theo Quý</option>
+                                <option value="daterange">📆 Theo Ngày (Bảng Lịch)</option>
+                            </select>
+
+                            <!-- Month Controls -->
+                            <div id="cdAdsMonthControls" style="display: flex; align-items: center; gap: 6px;">
+                                <select id="cdAdsMonthSelect" onchange="_cdAdsOnDateChange()" style="padding: 6px 10px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 12.5px; font-weight: 700; background: white; cursor: pointer; outline: none;"></select>
+                                <select id="cdAdsYearSelect" onchange="_cdAdsOnDateChange()" style="padding: 6px 10px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 12.5px; font-weight: 700; background: white; cursor: pointer; outline: none;"></select>
+                            </div>
+
+                            <!-- Quarter Controls -->
+                            <div id="cdAdsQuarterControls" style="display: none; align-items: center; gap: 6px;">
+                                <select id="cdAdsQuarterSelect" onchange="_cdAdsOnDateChange()" style="padding: 6px 10px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 12.5px; font-weight: 700; background: white; cursor: pointer; color: #0f172a; outline: none;">
+                                    <option value="1">Quý 1 (Tháng 1 - Tháng 3)</option>
+                                    <option value="2">Quý 2 (Tháng 4 - Tháng 6)</option>
+                                    <option value="3">Quý 3 (Tháng 7 - Tháng 9)</option>
+                                    <option value="4">Quý 4 (Tháng 10 - Tháng 12)</option>
+                                </select>
+                                <select id="cdAdsQYearSelect" onchange="_cdAdsOnDateChange()" style="padding: 6px 10px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 12.5px; font-weight: 700; background: white; cursor: pointer; outline: none;"></select>
+                            </div>
+
+                            <!-- Date Range Controls -->
+                            <div id="cdAdsDateRangeControls" style="display: none; align-items: center; gap: 6px;">
+                                <input type="date" id="cdAdsStartDate" onchange="_cdAdsOnDateChange()" style="padding: 5px 8px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 700;">
+                                <span style="font-size: 12px; font-weight: 700; color: #64748b;">➔</span>
+                                <input type="date" id="cdAdsEndDate" onchange="_cdAdsOnDateChange()" style="padding: 5px 8px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 700;">
+                            </div>
+                        </div>
                     </div>
                     <div id="cdAdsResultCount" style="font-size: 12px; font-weight: 800; color: #4338ca; background: #eef2ff; padding: 6px 14px; border-radius: 20px; border: 1px solid #c7d2fe;">
                         Hiển thị 0 chiến dịch
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr ${showUserFilter ? '1fr' : ''} auto; gap: 12px; align-items: center;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr ${showUserFilter ? '1fr' : ''} auto; gap: 12px; align-items: center;">
                     <div style="position: relative;">
-                        <input type="text" id="cdAdsSearchInput" onkeyup="_cdAdsApplyFilters()" placeholder="🔍 Tìm tên chiến dịch, Post ID, ID Camp..." style="width: 100%; padding: 10px 14px 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; background: #fafafa; outline: none; box-sizing: border-box;" onfocus="this.style.borderColor='#4338ca';this.style.background='white'" onblur="this.style.borderColor='#cbd5e1'">
+                        <input type="text" id="cdAdsSearchInput" onkeyup="_cdAdsApplyFilters()" placeholder="🔍 Tìm tên chiến dịch, Post ID, ID Camp..." style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; background: #fafafa; outline: none; box-sizing: border-box;" onfocus="this.style.borderColor='#4338ca';this.style.background='white'" onblur="this.style.borderColor='#cbd5e1'">
                     </div>
                     <select id="cdAdsFilterChannel" onchange="_cdAdsApplyFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none;">
                         <option value="all">📺 Tất cả kênh</option>
-                    </select>
-                    <select id="cdAdsFilterStatus" onchange="_cdAdsApplyFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none;">
-                        <option value="all">📊 Tất cả trạng thái</option>
-                        <option value="chay_test">🔵 Chạy Test</option>
-                        <option value="mau_win">✅ Mẫu Win</option>
-                        <option value="mau_lose">❌ Mẫu Lose</option>
                     </select>
                     ${showUserFilter ? `
                     <select id="cdAdsFilterUser" onchange="_cdAdsApplyFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none;">
@@ -246,10 +388,8 @@ async function renderChiendichadsPage(container) {
         </div>
     `;
 
-    // Init default date for report modal
-    const today = new Date().toISOString().split('T')[0];
-    const rptDateInput = document.getElementById('cdAdsReportDate');
-    if (rptDateInput) rptDateInput.value = today;
+    // Init date selectors
+    _cdAdsPopulateDateSelectors();
 
     // Load data
     await _cdAdsLoadAll();
@@ -282,12 +422,14 @@ async function _cdAdsLoadCampaigns() {
     try {
         const params = new URLSearchParams();
         const search = document.getElementById('cdAdsSearchInput')?.value || '';
-        const status = document.getElementById('cdAdsFilterStatus')?.value || 'all';
         const channel = document.getElementById('cdAdsFilterChannel')?.value || 'all';
 
         if (search) params.set('search', search);
-        if (status !== 'all') params.set('status', status);
         if (channel !== 'all') params.set('channel_id', channel);
+
+        const { startDate, endDate } = _cdAdsGetDateRange();
+        if (startDate) params.set('start_date', startDate);
+        if (endDate) params.set('end_date', endDate);
 
         const data = await _cdAdsApi(`/api/ads-campaigns?${params.toString()}`);
         _cdAdsState.campaigns = data.campaigns || [];
@@ -315,23 +457,45 @@ function _cdAdsRenderStats() {
     const win = all.filter(c => c.status === 'mau_win').length;
     const lose = all.filter(c => c.status === 'mau_lose').length;
 
+    const curStatus = _cdAdsState.filterStatus || 'all';
+
     const cards = [
-        { label: 'Tổng Chiến Dịch', value: all.length, icon: '📊', bg: 'linear-gradient(135deg, #eef2ff, #e0e7ff)', color: '#4338ca', borderColor: '#c7d2fe' },
-        { label: 'Đang Chạy Test', value: testing, icon: '🔵', bg: 'linear-gradient(135deg, #eff6ff, #dbeafe)', color: '#2563eb', borderColor: '#93c5fd' },
-        { label: 'Mẫu Win', value: win, icon: '✅', bg: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', color: '#16a34a', borderColor: '#86efac' },
-        { label: 'Mẫu Lose', value: lose, icon: '❌', bg: 'linear-gradient(135deg, #fef2f2, #fee2e2)', color: '#dc2626', borderColor: '#fca5a5' }
+        { key: 'all', label: 'Tổng Chiến Dịch', value: all.length, icon: '📊', bg: 'linear-gradient(135deg, #eef2ff, #e0e7ff)', activeBg: 'linear-gradient(135deg, #c7d2fe, #a5b4fc)', color: '#3730a3', borderColor: '#818cf8' },
+        { key: 'chay_test', label: 'Đang Chạy Test', value: testing, icon: '🔵', bg: 'linear-gradient(135deg, #eff6ff, #dbeafe)', activeBg: 'linear-gradient(135deg, #bfdbfe, #93c5fd)', color: '#1e40af', borderColor: '#60a5fa' },
+        { key: 'mau_win', label: 'Mẫu Win', value: win, icon: '✅', bg: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', activeBg: 'linear-gradient(135deg, #bbf7d0, #86efac)', color: '#166534', borderColor: '#4ade80' },
+        { key: 'mau_lose', label: 'Mẫu Lose', value: lose, icon: '❌', bg: 'linear-gradient(135deg, #fef2f2, #fee2e2)', activeBg: 'linear-gradient(135deg, #fecaca, #fca5a5)', color: '#991b1b', borderColor: '#f87171' }
     ];
 
-    box.innerHTML = cards.map(c => `
-        <div style="background: ${c.bg}; border: 1.5px solid ${c.borderColor}; border-radius: 14px; padding: 16px 20px; display: flex; align-items: center; gap: 14px;">
-            <span style="font-size: 28px;">${c.icon}</span>
-            <div>
-                <div style="font-size: 24px; font-weight: 800; color: ${c.color};">${c.value}</div>
-                <div style="font-size: 12px; font-weight: 700; color: ${c.color}; opacity: 0.8;">${c.label}</div>
+    box.innerHTML = cards.map(c => {
+        const isActive = curStatus === c.key;
+        return `
+            <div onclick="_cdAdsSelectStatusFilter('${c.key}')" style="
+                background: ${isActive ? c.activeBg : c.bg};
+                border: ${isActive ? '2.5px solid ' + c.borderColor : '1.5px solid ' + c.borderColor};
+                border-radius: 14px; padding: 16px 20px; display: flex; align-items: center;
+                justify-content: space-between; cursor: pointer; transition: all 0.2s ease;
+                box-shadow: ${isActive ? '0 6px 20px rgba(0,0,0,0.12)' : '0 2px 6px rgba(0,0,0,0.03)'};
+                transform: ${isActive ? 'translateY(-2px)' : 'none'};
+            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="if(!${isActive}) this.style.transform='none'" title="Bấm để lọc theo: ${c.label}">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <span style="font-size: 28px;">${c.icon}</span>
+                    <div>
+                        <div style="font-size: 24px; font-weight: 800; color: ${c.color};">${c.value}</div>
+                        <div style="font-size: 12px; font-weight: 700; color: ${c.color}; opacity: 0.9;">${c.label}</div>
+                    </div>
+                </div>
+                ${isActive ? `<span style="font-size: 14px; background: ${c.color}; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: 800;">✓</span>` : ''}
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
+
+function _cdAdsSelectStatusFilter(statusKey) {
+    _cdAdsState.filterStatus = statusKey;
+    _cdAdsRenderStats();
+    _cdAdsRenderTable();
+}
+window._cdAdsSelectStatusFilter = _cdAdsSelectStatusFilter;
 
 // ========== RENDER TABLE ==========
 
@@ -340,6 +504,12 @@ function _cdAdsRenderTable() {
     if (!container) return;
 
     let filtered = [..._cdAdsState.campaigns];
+
+    // Client-side status filter (from Stat Cards)
+    const statusFilter = _cdAdsState.filterStatus || 'all';
+    if (statusFilter !== 'all') {
+        filtered = filtered.filter(c => c.status === statusFilter);
+    }
 
     // Client-side user filter
     const userFilter = document.getElementById('cdAdsFilterUser')?.value || 'all';
@@ -529,15 +699,29 @@ function _cdAdsApplyFilters() {
 }
 
 function _cdAdsResetFilters() {
-    const search = document.getElementById('cdAdsSearchInput');
-    const status = document.getElementById('cdAdsFilterStatus');
-    const channel = document.getElementById('cdAdsFilterChannel');
-    const user = document.getElementById('cdAdsFilterUser');
-    if (search) search.value = '';
-    if (status) status.value = 'all';
-    if (channel) channel.value = 'all';
-    if (user) user.value = 'all';
-    _cdAdsLoadCampaigns();
+    _cdAdsState.filterStatus = 'all';
+    _cdAdsState.filterChannel = 'all';
+    _cdAdsState.filterSearch = '';
+    _cdAdsState.filterDateMode = 'month';
+    _cdAdsState.filterMonth = 'all';
+    _cdAdsState.filterYear = new Date().getFullYear();
+    _cdAdsState.filterQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+    _cdAdsState.filterStartDate = '';
+    _cdAdsState.filterEndDate = '';
+
+    const searchInput = document.getElementById('cdAdsSearchInput');
+    const channelSel = document.getElementById('cdAdsFilterChannel');
+    const userSel = document.getElementById('cdAdsFilterUser');
+    const dateModeSel = document.getElementById('cdAdsDateModeSelect');
+    const monthSel = document.getElementById('cdAdsMonthSelect');
+
+    if (searchInput) searchInput.value = '';
+    if (channelSel) channelSel.value = 'all';
+    if (userSel) userSel.value = 'all';
+    if (dateModeSel) dateModeSel.value = 'month';
+    if (monthSel) monthSel.value = 'all';
+
+    _cdAdsOnDateModeChange();
 }
 
 // ========== CHANNEL MODAL ==========

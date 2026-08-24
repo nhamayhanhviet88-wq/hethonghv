@@ -362,7 +362,7 @@ module.exports = async function (fastify, opts) {
             }
 
             // Filter params
-            const { status, channel_id, search } = req.query || {};
+            const { status, channel_id, search, start_date, end_date } = req.query || {};
             let filterClause = '';
             if (status && status !== 'all') {
                 queryParams.push(status);
@@ -376,6 +376,14 @@ module.exports = async function (fastify, opts) {
                 queryParams.push(`%${search.trim().toLowerCase()}%`);
                 const pIdx = queryParams.length;
                 filterClause += ` AND (LOWER(c.campaign_name) LIKE $${pIdx} OR LOWER(c.post_id) LIKE $${pIdx} OR LOWER(c.camp_id) LIKE $${pIdx} OR LOWER(u.full_name) LIKE $${pIdx} OR LOWER(sa.account_name) LIKE $${pIdx})`;
+            }
+
+            let dateFilterDaily = '';
+            if (start_date && end_date) {
+                queryParams.push(start_date, end_date);
+                const idx1 = queryParams.length - 1;
+                const idx2 = queryParams.length;
+                dateFilterDaily = ` AND d.report_date >= $${idx1} AND d.report_date <= $${idx2}`;
             }
 
             const sql = `
@@ -427,6 +435,7 @@ module.exports = async function (fastify, opts) {
                           (c.camp_id IS NOT NULL AND c.camp_id != '' AND d.campaign_id = c.camp_id)
                           OR ((c.camp_id IS NULL OR c.camp_id = '') AND c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
                       )
+                      ${dateFilterDaily}
                 ) totals ON true
                 WHERE 1=1 ${permClause} ${filterClause}
                 ORDER BY c.id DESC
