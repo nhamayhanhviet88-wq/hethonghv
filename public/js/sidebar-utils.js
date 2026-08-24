@@ -129,7 +129,6 @@ function _sidebarShouldShow() {
  */
 function enhanceAllYearSelects(minYear = 2024) {
     const curYear = new Date().getFullYear();
-    const startYear = curYear + 1;
 
     const selects = document.querySelectorAll('select');
     selects.forEach(select => {
@@ -142,16 +141,20 @@ function enhanceAllYearSelects(minYear = 2024) {
 
         if (isYearFilter) {
             const currentSelectedValue = select.value;
+            const hasAllOption = Array.from(select.options).some(opt => opt.value === 'all' || (opt.text || '').includes('Tất cả'));
+            const allOptionText = select.querySelector('option[value="all"]')?.textContent || '🌐 Tất cả các năm';
             const hasYearPrefix = Array.from(select.options).some(opt => (opt.value || '').startsWith('year_'));
             const hasDefaultPlaceholder = Array.from(select.options).some(opt => opt.value === '' || (opt.text || '').includes('--'));
 
             let html = '';
-            if (hasDefaultPlaceholder) {
+            if (hasAllOption) {
+                html += `<option value="all">${allOptionText}</option>`;
+            } else if (hasDefaultPlaceholder) {
                 const placeholderText = select.options[0]?.text || '-- Chọn Năm --';
                 html += `<option value="">${placeholderText}</option>`;
             }
 
-            for (let y = startYear; y >= minYear; y--) {
+            for (let y = curYear; y >= minYear; y--) {
                 const val = hasYearPrefix ? `year_${y}` : `${y}`;
                 html += `<option value="${val}">Năm ${y}</option>`;
             }
