@@ -15,136 +15,144 @@
 
         container.innerHTML = `
             <style>
+                @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
                 .hgbc-wrapper {
-                    padding: 16px;
+                    padding: 24px;
                     max-width: 1400px;
                     margin: 0 auto;
-                    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-                }
-                .hgbc-header {
-                    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
-                    color: #ffffff;
-                    padding: 24px;
-                    border-radius: 16px;
-                    box-shadow: 0 10px 25px -5px rgba(49, 46, 129, 0.3);
-                    margin-bottom: 24px;
-                }
-                .hgbc-title {
-                    font-size: 22px;
-                    font-weight: 800;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    margin: 0 0 6px 0;
-                }
-                .hgbc-subtitle {
-                    font-size: 13px;
-                    opacity: 0.88;
-                    margin: 0;
                 }
 
-                /* ACC CARDS CONTAINER */
-                .hgbc-acc-section {
-                    background: #ffffff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 16px;
-                    padding: 20px;
+                /* HEADER BANNER */
+                .hgbc-header {
+                    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #312e81 75%, #4338ca 100%);
+                    color: #ffffff;
+                    padding: 32px;
+                    border-radius: 20px;
+                    box-shadow: 0 20px 40px -12px rgba(49, 46, 129, 0.5);
                     margin-bottom: 24px;
-                    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);
+                    position: relative;
+                    overflow: hidden;
                 }
-                .hgbc-acc-sec-title {
-                    font-size: 16px;
-                    font-weight: 700;
-                    color: #0f172a;
-                    margin-bottom: 14px;
+                .hgbc-header::before {
+                    content: '';
+                    position: absolute;
+                    top: -60px; right: -60px;
+                    width: 220px; height: 220px;
+                    background: rgba(255,255,255,0.06);
+                    border-radius: 50%;
+                }
+                .hgbc-header::after {
+                    content: '';
+                    position: absolute;
+                    bottom: -40px; left: -40px;
+                    width: 160px; height: 160px;
+                    background: rgba(255,255,255,0.04);
+                    border-radius: 50%;
+                }
+                .hgbc-header-inner {
+                    position: relative;
+                    z-index: 1;
+                }
+                .hgbc-header-badges {
                     display: flex;
                     align-items: center;
                     gap: 8px;
+                    margin-bottom: 8px;
+                }
+                .hgbc-badge-fb {
+                    background: rgba(255,255,255,0.2);
+                    border: 1px solid rgba(255,255,255,0.25);
+                    backdrop-filter: blur(12px);
+                    padding: 6px 14px;
+                    border-radius: 20px;
+                    font-size: 11px;
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                    text-transform: uppercase;
+                    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                }
+                .hgbc-badge-tz {
+                    background: rgba(99,102,241,0.3);
+                    border: 1px solid rgba(255,255,255,0.15);
+                    padding: 4px 10px;
+                    border-radius: 12px;
+                    font-size: 10px;
+                    font-weight: 700;
+                    color: #c7d2fe;
+                }
+                .hgbc-title {
+                    font-size: 28px;
+                    font-weight: 900;
+                    letter-spacing: -0.5px;
+                    text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+                    margin: 0;
+                }
+                .hgbc-subtitle {
+                    margin: 8px 0 0;
+                    color: #e0e7ff;
+                    font-size: 14px;
+                    font-weight: 500;
+                    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+                }
+
+                /* ACC CARDS SECTION */
+                .hgbc-acc-section {
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 20px;
+                    padding: 24px;
+                    margin-bottom: 24px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+                }
+                .hgbc-acc-sec-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin-bottom: 16px;
+                }
+                .hgbc-acc-sec-title {
+                    margin: 0;
+                    font-size: 17px;
+                    font-weight: 800;
+                    color: #0f172a;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .hgbc-acc-sec-subtitle {
+                    font-size: 12px;
+                    color: #64748b;
+                    margin-top: 2px;
+                }
+                .hgbc-count-badge {
+                    background: #eef2ff;
+                    color: #4338ca;
+                    font-weight: 800;
+                    font-size: 12px;
+                    padding: 3px 10px;
+                    border-radius: 20px;
+                    border: 1px solid #c7d2fe;
                 }
                 .hgbc-acc-grid {
                     display: grid;
                     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
                     gap: 14px;
-                }
-                .hgbc-acc-card {
-                    border: 2px solid #e2e8f0;
-                    border-radius: 14px;
-                    padding: 16px;
-                    background: #ffffff;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    position: relative;
-                }
-                .hgbc-acc-card:hover {
-                    border-color: #818cf8;
-                    transform: translateY(-2px);
-                    box-shadow: 0 6px 12px -2px rgba(99, 102, 241, 0.12);
-                }
-                .hgbc-acc-card.active {
-                    border-color: #6366f1;
-                    background: #f0f3ff;
-                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-                }
-                .hgbc-card-header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    margin-bottom: 8px;
-                }
-                .hgbc-acc-name {
-                    font-size: 15px;
-                    font-weight: 700;
-                    color: #1e293b;
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                }
-                .hgbc-acc-id {
-                    font-size: 11px;
-                    color: #64748b;
-                    font-family: monospace;
-                }
-                .hgbc-link-ads {
-                    font-size: 11px;
-                    color: #3b82f6;
-                    text-decoration: none;
-                    font-weight: 600;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 3px;
-                }
-                .hgbc-link-ads:hover { text-decoration: underline; }
-                .hgbc-acc-meta {
-                    font-size: 12px;
-                    color: #475569;
-                    margin-top: 10px;
-                    padding-top: 8px;
-                    border-top: 1px dashed #e2e8f0;
-                    display: flex;
-                    justify-content: space-between;
-                }
-                .hgbc-badge-active {
-                    display: inline-block;
-                    padding: 2px 8px;
-                    border-radius: 12px;
-                    font-size: 11px;
-                    font-weight: 700;
-                    background: #dcfce7;
-                    color: #15803d;
+                    margin-top: 14px;
                 }
 
-                /* CONTENT LAYOUT */
+                /* PANELS */
                 .hgbc-panel {
                     background: #ffffff;
                     border: 1px solid #e2e8f0;
-                    border-radius: 16px;
-                    padding: 20px;
+                    border-radius: 20px;
+                    padding: 24px;
                     margin-bottom: 24px;
-                    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
                 }
                 .hgbc-panel-title {
-                    font-size: 16px;
-                    font-weight: 700;
+                    font-size: 17px;
+                    font-weight: 800;
                     color: #0f172a;
                     margin-bottom: 16px;
                     display: flex;
@@ -173,6 +181,7 @@
                     border: 1.5px solid #cbd5e1;
                     border-radius: 8px;
                     font-size: 13.5px;
+                    font-family: inherit;
                     outline: none;
                     transition: border 0.15s;
                 }
@@ -197,6 +206,7 @@
                     cursor: pointer;
                     user-select: none;
                     transition: all 0.15s;
+                    font-family: inherit;
                 }
                 .hgbc-day-btn.selected {
                     background: #4f46e5;
@@ -216,14 +226,17 @@
                     align-items: center;
                     gap: 6px;
                     transition: all 0.15s;
+                    font-family: inherit;
                 }
                 .hgbc-btn-primary {
-                    background: #4f46e5;
+                    background: linear-gradient(135deg, #4338ca, #6366f1);
                     color: #ffffff;
+                    font-weight: 800;
+                    box-shadow: 0 4px 15px rgba(67,56,202,0.35);
                 }
                 .hgbc-btn-primary:hover {
-                    background: #4338ca;
-                    box-shadow: 0 4px 10px -2px rgba(79, 70, 229, 0.4);
+                    transform: translateY(-1px);
+                    box-shadow: 0 6px 20px rgba(67,56,202,0.45);
                 }
                 .hgbc-btn-success {
                     background: #10b981;
@@ -239,11 +252,19 @@
                     padding: 5px 10px;
                     font-size: 12px;
                 }
+                .hgbc-btn-ghost {
+                    background: #e2e8f0;
+                    color: #1e293b;
+                    font-weight: 700;
+                }
+                .hgbc-btn-ghost:hover {
+                    background: #cbd5e1;
+                }
 
                 /* TABLE STYLES */
                 .hgbc-table-container {
                     overflow-x: auto;
-                    border-radius: 10px;
+                    border-radius: 12px;
                     border: 1px solid #e2e8f0;
                 }
                 .hgbc-table {
@@ -256,11 +277,12 @@
                     background: #f1f5f9;
                     color: #334155;
                     font-weight: 700;
-                    padding: 10px 14px;
+                    padding: 12px 14px;
                     border-bottom: 1.5px solid #cbd5e1;
+                    white-space: nowrap;
                 }
                 .hgbc-table td {
-                    padding: 10px 14px;
+                    padding: 12px 14px;
                     border-bottom: 1px solid #f1f5f9;
                     color: #1e293b;
                 }
@@ -278,26 +300,69 @@
                 .hgbc-status-paused { background: #fee2e2; color: #b91c1c; }
                 .hgbc-status-success { background: #dcfce7; color: #166534; }
                 .hgbc-status-failed { background: #fef2f2; color: #991b1b; }
+
+                /* MOBILE RESPONSIVE */
+                @media (max-width: 768px), body.is-mobile-page {
+                    .hgbc-wrapper {
+                        padding: 8px 6px 160px 6px !important;
+                    }
+                    .hgbc-header {
+                        padding: 16px 14px !important;
+                        border-radius: 16px !important;
+                        margin-bottom: 12px !important;
+                    }
+                    .hgbc-title {
+                        font-size: 19px !important;
+                    }
+                    .hgbc-subtitle {
+                        display: none !important;
+                    }
+                    .hgbc-acc-section, .hgbc-panel {
+                        padding: 12px 10px !important;
+                        border-radius: 16px !important;
+                        margin-bottom: 12px !important;
+                    }
+                    .hgbc-acc-grid {
+                        grid-template-columns: 1fr !important;
+                        gap: 8px !important;
+                    }
+                    .hgbc-table {
+                        min-width: 700px !important;
+                    }
+                }
             </style>
 
             <div class="hgbc-wrapper">
-                <!-- HEADER -->
+                <!-- HEADER BANNER -->
                 <div class="hgbc-header">
-                    <h1 class="hgbc-title">⏰ 3. Hẹn Giờ Bật Camp Chỉ Định</h1>
-                    <p class="hgbc-subtitle">Quản lý & tự động BẬT các chiến dịch Facebook Ads chỉ định theo khung giờ & ngày tùy chọn</p>
+                    <div class="hgbc-header-inner">
+                        <div class="hgbc-header-badges">
+                            <span class="hgbc-badge-fb">Facebook Ads</span>
+                            <span class="hgbc-badge-tz">🕐 Múi Giờ: Việt Nam (UTC+7)</span>
+                        </div>
+                        <h1 class="hgbc-title">⏰ 3. Hẹn Giờ Bật Camp Chỉ Định</h1>
+                        <p class="hgbc-subtitle">Quản lý & tự động BẬT các chiến dịch Facebook Ads chỉ định theo khung giờ & ngày tùy chọn</p>
+                    </div>
                 </div>
 
                 <!-- CARDS TÀI KHOẢN QC -->
                 <div class="hgbc-acc-section">
-                    <div class="hgbc-acc-sec-title">
-                        📡 Danh Sách Tài Khoản Facebook Ads <span id="hgbc-acc-count-badge" class="hgbc-badge-active">... TK</span>
+                    <div class="hgbc-acc-sec-header">
+                        <span style="font-size: 22px;">📡</span>
+                        <div>
+                            <h3 class="hgbc-acc-sec-title">
+                                Danh Sách Tài Khoản Facebook Ads
+                                <span id="hgbc-acc-count-badge" class="hgbc-count-badge">... TK</span>
+                            </h3>
+                            <div class="hgbc-acc-sec-subtitle">Bấm vào thẻ tài khoản bên dưới để chọn cấu hình cho tài khoản đó.</div>
+                        </div>
                     </div>
                     <div id="hgbc-acc-grid" class="hgbc-acc-grid">
                         <div style="padding: 20px; text-align: center; color: #64748b;">🔄 Đang tải tài khoản QC...</div>
                     </div>
                 </div>
 
-                <!-- TẠO LỊCH HẸN GIỜ MÓI -->
+                <!-- TẠO LỊCH HẸN GIỜ MỚI -->
                 <div class="hgbc-panel">
                     <div class="hgbc-panel-title">
                         ➕ Tạo Lịch Hẹn Giờ Bật Chiến Dịch Mới
@@ -353,7 +418,7 @@
                 <div class="hgbc-panel">
                     <div class="hgbc-panel-title" style="justify-content: space-between;">
                         <span>📋 Danh Sách Lịch Hẹn Giờ Đang Cấu Hình</span>
-                        <button class="hgbc-btn hgbc-btn-sm" style="background:#e2e8f0; color:#1e293b;" onclick="window._loadHgbcSchedules()">🔄 Tải lại</button>
+                        <button class="hgbc-btn hgbc-btn-sm hgbc-btn-ghost" onclick="window._loadHgbcSchedules()">🔄 Tải lại</button>
                     </div>
                     <div class="hgbc-table-container">
                         <table class="hgbc-table">
@@ -380,7 +445,7 @@
                 <div class="hgbc-panel">
                     <div class="hgbc-panel-title" style="justify-content: space-between;">
                         <span>📜 Nhật Ký Thực Thi Hẹn Giờ Bật Camp</span>
-                        <button class="hgbc-btn hgbc-btn-sm" style="background:#e2e8f0; color:#1e293b;" onclick="window._loadHgbcLogs()">🔄 Tải lại Nhật Ký</button>
+                        <button class="hgbc-btn hgbc-btn-sm hgbc-btn-ghost" onclick="window._loadHgbcLogs()">🔄 Tải lại Nhật Ký</button>
                     </div>
                     <div class="hgbc-table-container">
                         <table class="hgbc-table">
@@ -408,7 +473,7 @@
         await window._loadHgbcLogs();
     };
 
-    // Helper: Fetch Accounts
+    // Helper: Fetch Accounts & Render Cards (Giống ảnh 2 - tatbatfbads style)
     window._loadHgbcAccounts = async function() {
         try {
             const res = await fetch('/api/hengiobatcamp/accounts', { credentials: 'include' });
@@ -416,7 +481,7 @@
             _accounts = data.accounts || [];
 
             const countBadge = document.getElementById('hgbc-acc-count-badge');
-            if (countBadge) countBadge.innerText = `${_accounts.length} TK`;
+            if (countBadge) countBadge.textContent = `${_accounts.length} TK`;
 
             // Populate Form Select
             const formAccSelect = document.getElementById('hgbc-form-acc-select');
@@ -425,51 +490,120 @@
                     _accounts.map(a => `<option value="${a.id}">${a.account_name} (${a.fb_ad_account_id || 'Chưa link ID'})</option>`).join('');
             }
 
-            // Render Account Grid Cards (Ảnh 2 Style)
-            const grid = document.getElementById('hgbc-acc-grid');
-            if (!grid) return;
-
-            let html = `
-                <div class="hgbc-acc-card ${_selectedAccountId === 'all' ? 'active' : ''}" onclick="window._selectHgbcAccount('all')">
-                    <div class="hgbc-card-header">
-                        <span class="hgbc-acc-name">📋 Tất Cả Tài Khoản</span>
-                        <span class="hgbc-badge-active">ĐANG XEM</span>
-                    </div>
-                    <div class="hgbc-acc-id">Tổng hợp ${_accounts.length} tài khoản QC</div>
-                    <div class="hgbc-acc-meta">
-                        <span>Bấm để xem tất cả lịch hẹn</span>
-                    </div>
-                </div>
-            `;
-
-            _accounts.forEach(acc => {
-                const isSelected = String(_selectedAccountId) === String(acc.id);
-                const adLink = acc.fb_ad_account_link || (acc.fb_ad_account_id ? `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${acc.fb_ad_account_id.replace('act_','')}` : '#');
-                html += `
-                    <div class="hgbc-acc-card ${isSelected ? 'active' : ''}" onclick="window._selectHgbcAccount(${acc.id})">
-                        <div class="hgbc-card-header">
-                            <span class="hgbc-acc-name">📊 ${acc.account_name}</span>
-                            ${adLink !== '#' ? `<a href="${adLink}" target="_blank" class="hgbc-link-ads" onclick="event.stopPropagation()">🔗 Mở Link Ads</a>` : ''}
-                        </div>
-                        <div class="hgbc-acc-id">${acc.fb_ad_account_id || 'Chưa gắn ID'}</div>
-                        <div class="hgbc-acc-meta">
-                            <span>👤 NV Phụ Trách: <strong>${acc.assigned_staff_name || 'Giám Đốc'}</strong></span>
-                        </div>
-                    </div>
-                `;
-            });
-
-            grid.innerHTML = html;
+            // Render Account Grid Cards (matching tatbatfbads style)
+            _renderHgbcAccountCards();
         } catch (e) {
             console.error('[Hgbc Load Accounts Error]', e);
         }
     };
 
+    function _renderHgbcAccountCards() {
+        const grid = document.getElementById('hgbc-acc-grid');
+        if (!grid) return;
+
+        if (_accounts.length === 0) {
+            grid.innerHTML = `
+                <div style="grid-column: 1 / -1; padding: 24px; text-align: center; background: #f8fafc; border-radius: 14px; border: 1.5px dashed #cbd5e1; color: #64748b;">
+                    <div style="font-size: 28px; margin-bottom: 6px;">📭</div>
+                    <div style="font-size: 14px; font-weight: 700; color: #1e293b;">Chưa có tài khoản quảng cáo nào!</div>
+                    <div style="font-size: 12px; margin-top: 4px;">Vui lòng thêm tài khoản ở trang <strong>"Cài Đặt Tài Khoản Ads"</strong>.</div>
+                </div>
+            `;
+            return;
+        }
+
+        const isAllSelected = _selectedAccountId === 'all';
+
+        // "Tất Cả Tài Khoản" card
+        let cardsHtml = `
+            <div onclick="window._selectHgbcAccount('all')" style="
+                padding: 14px 16px; border-radius: 14px; cursor: pointer; transition: all 0.2s;
+                border: 2px solid ${isAllSelected ? '#4338ca' : '#e2e8f0'};
+                background: ${isAllSelected ? '#eef2ff' : '#ffffff'};
+                box-shadow: ${isAllSelected ? '0 4px 12px rgba(67,56,202,0.15)' : 'none'};
+                display: flex; flex-direction: column; justify-content: space-between;
+            " onmouseover="if(!${isAllSelected}) this.style.borderColor='#a5b4fc'" onmouseout="if(!${isAllSelected}) this.style.borderColor='#e2e8f0'">
+                <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-weight: 800; font-size: 14px; color: ${isAllSelected ? '#3730a3' : '#1e293b'};">📋 Tất Cả Tài Khoản</span>
+                        ${isAllSelected ? '<span style="background: #4338ca; color: white; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px;">ĐANG XEM</span>' : ''}
+                    </div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 8px;">Tổng hợp <strong>${_accounts.length}</strong> tài khoản QC</div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <span style="font-size: 11px; font-weight: 700; color: ${isAllSelected ? '#4338ca' : '#94a3b8'};">
+                        ${isAllSelected ? '✔ ĐANG XEM TỔNG HỢP' : 'Bấm để xem tất cả'}
+                    </span>
+                </div>
+            </div>
+        `;
+
+        // Individual account cards
+        cardsHtml += _accounts.map(acc => {
+            const isSelected = String(_selectedAccountId) === String(acc.id);
+            const rawId = (acc.fb_ad_account_id || '').replace(/^act_/, '');
+            const displayId = rawId ? `act_${rawId}` : 'chưa cài';
+            const adsManagerUrl = acc.fb_ad_account_link || (rawId ? `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${rawId}` : '');
+            const staffName = acc.assigned_staff_name || 'Giám Đốc';
+
+            // Count schedules for this account
+            const accSchedules = _schedules.filter(s => s.account_id === acc.id);
+            const activeCount = accSchedules.filter(s => s.is_active !== false).length;
+
+            return `
+                <div onclick="window._selectHgbcAccount(${acc.id})" style="
+                    padding: 14px 16px; border-radius: 14px; cursor: pointer; transition: all 0.2s;
+                    border: 2px solid ${isSelected ? '#4338ca' : '#e2e8f0'};
+                    background: ${isSelected ? '#eef2ff' : '#ffffff'};
+                    box-shadow: ${isSelected ? '0 4px 12px rgba(67,56,202,0.15)' : 'none'};
+                    display: flex; flex-direction: column; justify-content: space-between;
+                " onmouseover="if(!${isSelected}) this.style.borderColor='#a5b4fc'" onmouseout="if(!${isSelected}) this.style.borderColor='#e2e8f0'">
+                    <div>
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; margin-bottom: 4px;">
+                            <div style="font-weight: 800; font-size: 14px; color: ${isSelected ? '#3730a3' : '#0f172a'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📘 ${acc.account_name}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
+                            <div style="font-family: monospace; font-size: 11px; color: #64748b;">${displayId}</div>
+                            ${adsManagerUrl ? `
+                            <a href="${adsManagerUrl}" target="_blank" onclick="event.stopPropagation();" style="
+                                color: #0369a1; font-weight: 700; text-decoration: none; font-size: 11px;
+                                background: #e0f2fe; border: 1px solid #bae6fd; padding: 2px 8px; border-radius: 6px;
+                                display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;
+                            " title="Mở trang Quản Lý Ads Manager Meta">
+                                🔗 Mở Link Ads ↗
+                            </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; color: #334155; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #64748b;">👤 NV Phụ Trách:</span>
+                            <strong style="color: #1e1b4b; background: #e0e7ff; padding: 1px 8px; border-radius: 6px; font-size: 11px;">${staffName}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                            <span style="color: #64748b; font-size: 11px;">⏰ Lịch Hẹn Active:</span>
+                            <span style="font-size: 11px; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 6px; border-radius: 6px;">
+                                ${activeCount} lịch hẹn
+                            </span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                        <span style="font-size: 11px; font-weight: 700; color: ${isSelected ? '#4338ca' : '#94a3b8'};">
+                            ${isSelected ? '✔ ĐANG CẤU HÌNH' : 'Bấm để chọn'}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        grid.innerHTML = cardsHtml;
+    }
+
     // Helper: Select Account Card
     window._selectHgbcAccount = function(accId) {
         _selectedAccountId = accId;
-        window._loadHgbcAccounts();
-        
+        _renderHgbcAccountCards();
+
         // Update form account select if specific
         if (accId !== 'all') {
             const formSelect = document.getElementById('hgbc-form-acc-select');
@@ -478,7 +612,7 @@
                 window._onHgbcFormAccChange(accId);
             }
         }
-        
+
         window._loadHgbcSchedules();
         window._loadHgbcLogs();
     };
@@ -587,6 +721,9 @@
             const data = await res.json();
             _schedules = data.schedules || [];
 
+            // Re-render account cards to update schedule counts
+            _renderHgbcAccountCards();
+
             if (_schedules.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#64748b;">Chưa có lịch hẹn giờ bật chiến dịch nào.</td></tr>`;
                 return;
@@ -596,33 +733,41 @@
 
             let html = '';
             _schedules.forEach((s, idx) => {
-                const daysList = (s.days || '').split(',').map(d => dayNames[d.trim()] || d).join(', ');
+                const daysList = (s.days || '').split(',').map(d => {
+                    const label = dayNames[d.trim()] || d;
+                    const isWeekend = d.trim() === '0';
+                    const bg = isWeekend ? '#fef3c7' : '#e0f2fe';
+                    const color = isWeekend ? '#b45309' : '#0369a1';
+                    const border = isWeekend ? '#fde68a' : '#bae6fd';
+                    return `<span style="display:inline-block; padding:2px 7px; border-radius:6px; font-size:11px; font-weight:700; background:${bg}; color:${color}; border:1px solid ${border};">${label}</span>`;
+                }).join(' ');
                 const lastExec = s.last_executed_at ? new Date(s.last_executed_at).toLocaleString('vi-VN') : '—';
                 const isActive = s.is_active !== false;
 
                 html += `
-                    <tr>
-                        <td><strong>#${idx + 1}</strong></td>
-                        <td><strong>${s.account_name || 'TK #' + s.account_id}</strong></td>
+                    <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s;" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='transparent'">
+                        <td style="text-align: center; font-weight: 600; color: #64748b;">${idx + 1}</td>
+                        <td><strong style="font-size: 13px; color: #0f172a;">${s.account_name || 'TK #' + s.account_id}</strong></td>
                         <td>
-                            <div style="font-weight:700; color:#1e293b;">${s.campaign_name}</div>
-                            <div style="font-size:11px; color:#64748b; font-family:monospace;">ID: ${s.campaign_id}</div>
+                            <div style="font-weight: 800; font-size: 13px; color: #1e293b;">${s.campaign_name}</div>
+                            <div style="font-size: 11px; color: #64748b; font-family: monospace;">ID: ${s.campaign_id}</div>
                         </td>
-                        <td><span style="font-size:14px; font-weight:800; color:#4f46e5;">⏰ ${s.enable_time}</span></td>
-                        <td><span style="font-size:12px; font-weight:600; color:#0f172a;">${daysList}</span></td>
-                        <td><span style="font-size:12px; color:#475569;">${lastExec}</span></td>
+                        <td style="text-align: center;">
+                            <span style="background: #312e81; color: white; padding: 4px 12px; border-radius: 8px; font-weight: 800; font-size: 13px; font-family: monospace;">⏰ ${s.enable_time}</span>
+                        </td>
+                        <td><div style="display: flex; gap: 3px; flex-wrap: wrap;">${daysList}</div></td>
+                        <td><span style="font-size: 12px; color: #475569;">${lastExec}</span></td>
                         <td>
-                            <span class="hgbc-status-badge ${isActive ? 'hgbc-status-active' : 'hgbc-status-paused'}">
-                                ${isActive ? '🟢 BẬT HẸN' : '🔴 TẠM DỪNG'}
-                            </span>
+                            <button onclick="event.stopPropagation(); window._toggleHgbcSchedule(${s.id})" style="
+                                background: ${isActive ? '#dcfce7' : '#fee2e2'}; color: ${isActive ? '#15803d' : '#b91c1c'};
+                                border: 1px solid ${isActive ? '#86efac' : '#fca5a5'}; padding: 4px 14px; border-radius: 20px;
+                                font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+                            ">${isActive ? '✅ Đang BẬT' : '⏸️ Đã TẮT'}</button>
                         </td>
                         <td>
                             <div style="display:flex; gap:6px;">
                                 <button class="hgbc-btn hgbc-btn-sm hgbc-btn-success" onclick="window._executeNowHgbcSchedule(${s.id})" title="Kích hoạt BẬT ngay lập tức">
                                     ⚡ Bật Ngay
-                                </button>
-                                <button class="hgbc-btn hgbc-btn-sm" style="background:#cbd5e1; color:#1e293b;" onclick="window._toggleHgbcSchedule(${s.id})">
-                                    ${isActive ? '⏸️ Dừng' : '▶️ Bật'}
                                 </button>
                                 <button class="hgbc-btn hgbc-btn-sm hgbc-btn-danger" onclick="window._deleteHgbcSchedule(${s.id})">
                                     🗑️ Xóa
@@ -718,18 +863,18 @@
 
                 html += `
                     <tr>
-                        <td><span style="font-size:12px; font-weight:600; color:#475569;">${timeStr}</span></td>
+                        <td><span style="font-size: 12px; font-weight: 600; color: #475569;">${timeStr}</span></td>
                         <td><strong>${l.account_name || 'TK #' + l.account_id}</strong></td>
                         <td>
-                            <div style="font-weight:700; color:#1e293b;">${l.campaign_name || 'N/A'}</div>
-                            <div style="font-size:11px; color:#64748b; font-family:monospace;">ID: ${l.campaign_id || '—'}</div>
+                            <div style="font-weight: 700; color: #1e293b;">${l.campaign_name || 'N/A'}</div>
+                            <div style="font-size: 11px; color: #64748b; font-family: monospace;">ID: ${l.campaign_id || '—'}</div>
                         </td>
                         <td>
                             <span class="hgbc-status-badge ${isSuccess ? 'hgbc-status-success' : 'hgbc-status-failed'}">
                                 ${isSuccess ? '✅ THÀNH CÔNG' : '❌ THẤT BẠI'}
                             </span>
                         </td>
-                        <td><span style="font-size:12.5px; color:#334155;">${l.reason || '—'}</span></td>
+                        <td><span style="font-size: 12.5px; color: #334155;">${l.reason || '—'}</span></td>
                     </tr>
                 `;
             });
