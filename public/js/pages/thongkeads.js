@@ -200,11 +200,11 @@ window.renderThongkeadsPage = function(container) {
                     padding: 16px 20px; margin-bottom: 20px;
                     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
                 ">
-                    <!-- Top Controls Row: All items 38px tall, perfectly balanced & aligned -->
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%;">
+                    <!-- Top Controls Row: All items 38px tall, perfectly aligned -->
+                    <div style="display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; width: 100%;">
 
                         <!-- Filter Mode Selector -->
-                        <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="display: flex; align-items: center; gap: 6px; height: 38px;">
                             <label style="font-weight: 700; font-size: 13px; color: #1e293b; white-space: nowrap;">📅 Lọc theo:</label>
                             <select id="tka-filter-mode-select" style="
                                 height: 38px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #cbd5e1;
@@ -218,9 +218,9 @@ window.renderThongkeadsPage = function(container) {
                         </div>
 
                         <!-- Dynamic Filter Controls Container -->
-                        <div id="tka-dynamic-filters" style="display: flex; align-items: center; gap: 6px;">
+                        <div id="tka-dynamic-filters" style="display: flex; align-items: center; gap: 6px; height: 38px;">
                             <!-- Month Mode Controls -->
-                            <div id="tka-month-controls" style="display: flex; align-items: center; gap: 6px;">
+                            <div id="tka-month-controls" style="display: flex; align-items: center; gap: 6px; height: 38px;">
                                 <select id="tka-month-select" style="
                                     height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
                                     font-size: 13px; font-weight: 600; background: white; cursor: pointer; box-sizing: border-box;
@@ -232,7 +232,7 @@ window.renderThongkeadsPage = function(container) {
                             </div>
 
                             <!-- Quarter Mode Controls -->
-                            <div id="tka-quarter-controls" style="display: none; align-items: center; gap: 6px;">
+                            <div id="tka-quarter-controls" style="display: none; align-items: center; gap: 6px; height: 38px;">
                                 <select id="tka-quarter-select" style="
                                     height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
                                     font-size: 13px; font-weight: 700; background: white; cursor: pointer; color: #0f172a; box-sizing: border-box;
@@ -249,7 +249,7 @@ window.renderThongkeadsPage = function(container) {
                             </div>
 
                             <!-- Date Range Calendar Mode Controls -->
-                            <div id="tka-daterange-controls" style="display: none; align-items: center; gap: 6px; position: relative;">
+                            <div id="tka-daterange-controls" style="display: none; align-items: center; gap: 6px; position: relative; height: 38px;">
                                 <button id="tka-btn-daterange-picker" style="
                                     height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
                                     background: white; color: #0f172a; font-size: 13px; font-weight: 700;
@@ -262,13 +262,15 @@ window.renderThongkeadsPage = function(container) {
                             </div>
                         </div>
 
-                        <!-- Search Input -->
-                        <div style="flex: 1; min-width: 200px;">
+                        <!-- Search Column: Search Input + Quick Chips (ĐẶT ĐÚNG VỊ TRÍ KHUNG Ô ĐỎ ẢNH 4) -->
+                        <div style="flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 6px;">
                             <input id="tka-search-input" type="text" placeholder="🔍 Tìm tên camp, ID camp, Post ID..."
                                 style="
                                     width: 100%; height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
                                     font-size: 13px; outline: none; background: white; box-sizing: border-box; transition: all 0.2s;
                                 ">
+                            <!-- Dải thẻ từ khóa gợi ý nằm ngay dưới ô nhập tìm kiếm theo đúng ô đỏ ảnh 4 -->
+                            <div id="tka-search-quick-chips" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"></div>
                         </div>
 
                         <!-- Suggestion Button -->
@@ -304,9 +306,6 @@ window.renderThongkeadsPage = function(container) {
                         </button>
                         ` : ''}
                     </div>
-
-                    <!-- Quick Chips Sub-row -->
-                    <div id="tka-search-quick-chips" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;"></div>
                 </div>
 
                 <!-- Table View Mode Switcher Tabs -->
@@ -417,7 +416,7 @@ window.renderThongkeadsPage = function(container) {
         const fillYears = (sel, curVal) => {
             if (!sel) return;
             sel.innerHTML = '<option value="all">🌐 Tất cả các năm</option>';
-            for (let y = curYear + 1; y >= curYear - 5; y--) {
+            for (let y = curYear; y >= curYear - 5; y--) {
                 const opt = document.createElement('option');
                 opt.value = y;
                 opt.textContent = `Năm ${y}`;

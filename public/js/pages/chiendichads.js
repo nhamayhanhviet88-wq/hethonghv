@@ -149,9 +149,9 @@ function _cdAdsPopulateDateSelectors() {
     }
 
     const fillYears = (sel, curVal) => {
-        if (!sel || sel.options.length > 0) return;
+        if (!sel) return;
         sel.innerHTML = '<option value="all">🌐 Tất cả các năm</option>';
-        for (let y = curYear + 1; y >= curYear - 5; y--) {
+        for (let y = curYear; y >= curYear - 5; y--) {
             const opt = document.createElement('option');
             opt.value = y;
             opt.textContent = `Năm ${y}`;
