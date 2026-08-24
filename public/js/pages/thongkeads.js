@@ -23,7 +23,7 @@ window.renderThongkeadsPage = function(container) {
 
     // Campaign Summary State
     let _campaigns = [];
-    let _campSortColumn = 'total_effective_count';
+    let _campSortColumn = 'effective_rate';
     let _campSortDir = 'desc';
 
     let _stats = [];
@@ -1217,11 +1217,24 @@ window.renderThongkeadsPage = function(container) {
                         ">${effCount}</span>
                     </td>
                     <td style="padding: 8px 6px; text-align: center;">
-                        <span style="
-                            display: inline-block; padding: 4px 10px; border-radius: 10px;
-                            font-size: 12.5px; font-weight: 800;
-                            background: #eff6ff; color: #2563eb;
-                        ">${filteredRunCount > 0 ? (row.effective_rate.toFixed(2).replace('.', ',') + '%') : '-'}</span>
+                        ${(() => {
+                            const effRate = row.effective_rate || 0;
+                            let effRateBadgeStyle = '';
+                            if (filteredRunCount === 0) {
+                                effRateBadgeStyle = 'background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; font-weight: 700;';
+                            } else if (effRate >= 100) {
+                                effRateBadgeStyle = 'background: #eff6ff; color: #1d4ed8; border: 1.5px solid #93c5fd; font-weight: 900; box-shadow: 0 2px 6px rgba(29,78,216,0.15);';
+                            } else if (effRate >= 80) {
+                                effRateBadgeStyle = 'background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; font-weight: 800;';
+                            } else if (effRate >= 65) {
+                                effRateBadgeStyle = 'background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-weight: 800;';
+                            } else if (effRate >= 50) {
+                                effRateBadgeStyle = 'background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-weight: 800;';
+                            } else {
+                                effRateBadgeStyle = 'background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: 800;';
+                            }
+                            return `<span style="display: inline-block; padding: 4px 10px; border-radius: 10px; font-size: 12.5px; ${effRateBadgeStyle}">${filteredRunCount > 0 ? (effRate.toFixed(2).replace('.', ',') + '%') : '-'}</span>`;
+                        })()}
                     </td>
                 </tr>
             `;

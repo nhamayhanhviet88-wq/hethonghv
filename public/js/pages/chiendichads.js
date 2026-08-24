@@ -59,7 +59,7 @@ var _cdAdsState = window._cdAdsState || {
     winRateThreshold: 50,
     currentPage: 1,
     pageSize: 20,
-    sortField: null,
+    sortField: 'eff_rate',
     sortDir: 'desc'
 };
 window._cdAdsState = _cdAdsState;
@@ -559,6 +559,20 @@ function _cdAdsRenderTable() {
                 const effB = Number(b.total_effective_count) || 0;
                 const rateB = gtB > 0 ? (effB / gtB) * 100 : 0;
 
+                if (rateA !== rateB) return (rateA - rateB) * dir;
+                return (effA - effB) * dir;
+            }
+
+            if (field === 'total_effective_count') {
+                const gtA = Number(a.run_count_gt70k) || 0;
+                const effA = Number(a.total_effective_count) || 0;
+                const rateA = gtA > 0 ? (effA / gtA) * 100 : 0;
+
+                const gtB = Number(b.run_count_gt70k) || 0;
+                const effB = Number(b.total_effective_count) || 0;
+                const rateB = gtB > 0 ? (effB / gtB) * 100 : 0;
+
+                if (effA !== effB) return (effA - effB) * dir;
                 return (rateA - rateB) * dir;
             }
 
@@ -607,6 +621,8 @@ function _cdAdsRenderTable() {
         return Number(n).toLocaleString('vi-VN') + 'đ';
     };
 
+    const maxEffCount = Math.max(1, ...filtered.map(c => Number(c.total_effective_count) || 0));
+
     let rows = filtered.map((c, idx) => {
         const isCreator = Number(c.created_by) === Number(curUser.id);
         const canEdit = isGD || isCreator;
@@ -630,6 +646,48 @@ function _cdAdsRenderTable() {
             } else {
                 campFbLink = `https://adsmanager.facebook.com/adsmanager/manage/campaigns?selected_campaign_ids=${campId}`;
             }
+        }
+
+        const effCount = Number(c.total_effective_count) || 0;
+        const ratio = maxEffCount > 0 ? effCount / maxEffCount : 0;
+        let effBadgeStyle = '';
+        if (effCount === 0) {
+            effBadgeStyle = 'background: #fee2e2; color: #dc2626; font-weight: 700; border: 1px solid #fca5a5;';
+        } else if (effCount === maxEffCount || ratio >= 0.95) {
+            effBadgeStyle = 'background: linear-gradient(135deg, #d946ef, #ec4899); color: white; font-weight: 900; box-shadow: 0 4px 12px rgba(217,70,239,0.45); text-shadow: 0 1px 2px rgba(0,0,0,0.3);';
+        } else if (ratio >= 0.85) {
+            effBadgeStyle = 'background: #00ff66; color: #052e16; font-weight: 900; box-shadow: 0 0 10px rgba(0,255,102,0.45);';
+        } else if (ratio >= 0.75) {
+            effBadgeStyle = 'background: #10b981; color: white; font-weight: 800; box-shadow: 0 2px 6px rgba(16,185,129,0.3);';
+        } else if (ratio >= 0.65) {
+            effBadgeStyle = 'background: #34d399; color: #064e3b; font-weight: 800;';
+        } else if (ratio >= 0.50) {
+            effBadgeStyle = 'background: #6ee7b7; color: #064e3b; font-weight: 800;';
+        } else if (ratio >= 0.35) {
+            effBadgeStyle = 'background: #a7f3d0; color: #065f46; font-weight: 800;';
+        } else if (ratio >= 0.20) {
+            effBadgeStyle = 'background: #dcfce7; color: #15803d; font-weight: 700;';
+        } else {
+            effBadgeStyle = 'background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; font-weight: 700;';
+        }
+
+        const gt70k = Number(c.run_count_gt70k) || 0;
+        const effRate = gt70k > 0 ? (effCount / gt70k) * 100 : 0;
+        const effRateStr = gt70k > 0 ? effRate.toFixed(2).replace('.', ',') + '%' : '-';
+
+        let effRateBadgeStyle = '';
+        if (gt70k === 0) {
+            effRateBadgeStyle = 'background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; font-weight: 700;';
+        } else if (effRate >= 100) {
+            effRateBadgeStyle = 'background: #eff6ff; color: #1d4ed8; border: 1.5px solid #93c5fd; font-weight: 900; box-shadow: 0 2px 6px rgba(29,78,216,0.15);';
+        } else if (effRate >= 80) {
+            effRateBadgeStyle = 'background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; font-weight: 800;';
+        } else if (effRate >= 65) {
+            effRateBadgeStyle = 'background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-weight: 800;';
+        } else if (effRate >= 50) {
+            effRateBadgeStyle = 'background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-weight: 800;';
+        } else {
+            effRateBadgeStyle = 'background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: 800;';
         }
 
         return `<tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fafbff'" onmouseout="this.style.background='white'" onclick="if(!event.target.closest('button') && !event.target.closest('a') && !event.target.closest('.no-row-click')) _cdAdsViewDetail(${c.id})">
@@ -668,16 +726,10 @@ function _cdAdsRenderTable() {
                 <span style="background:#f3e8ff;color:#7e22ce;padding:3px 8px;border-radius:10px;font-size:11.5px;font-weight:800;">${fmtNum(c.run_count_gt70k)}</span>
             </td>
             <td style="padding:10px 8px;text-align:center;">
-                <span style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:10px;font-size:11.5px;font-weight:800;">${fmtNum(c.total_effective_count)}</span>
+                <span style="display:inline-block;padding:4px 12px;border-radius:8px;font-size:12.5px;${effBadgeStyle}">${fmtNum(effCount)}</span>
             </td>
             <td style="padding:10px 8px;text-align:center;">
-                ${(() => {
-                    const gt70k = Number(c.run_count_gt70k) || 0;
-                    const effCount = Number(c.total_effective_count) || 0;
-                    const effRate = gt70k > 0 ? (effCount / gt70k) * 100 : 0;
-                    const effRateStr = gt70k > 0 ? effRate.toFixed(2).replace('.', ',') + '%' : '0,00%';
-                    return `<span style="background:#eff6ff;color:#1d4ed8;padding:3px 8px;border-radius:10px;font-size:11.5px;font-weight:800;">${effRateStr}</span>`;
-                })()}
+                <span style="display:inline-block;padding:4px 10px;border-radius:10px;font-size:12.5px;${effRateBadgeStyle}">${effRateStr}</span>
             </td>
             <td style="padding:10px 8px;text-align:center;">
                 <div style="font-size:12px;font-weight:700;color:#334155;">${c.created_by_name || '-'}</div>
