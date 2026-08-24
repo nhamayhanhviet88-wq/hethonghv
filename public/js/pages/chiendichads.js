@@ -1541,7 +1541,7 @@ async function _cdAdsOpenPerfModal(accIdSelect = null) {
 
                     <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
                         <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
-                            Không tính số lần chạy không ra tin nhắn < (đ)
+                            SL Chạy Thực (Không tính số lần chạy không ra tin nhắn < đ)
                         </label>
                         <input id="cd-perf-f-ignore-no-msg-thresh" type="text"
                             value="${fmtNum(acc.ignore_no_msg_spend_threshold || 70000)}"

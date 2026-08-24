@@ -1743,7 +1743,7 @@ ${_escapeHtml(g.description)}
 
                         <div style="padding-top: 12px; border-top: 1px dashed #cbd5e1;">
                             <label style="display:block;font-size:12.5px;font-weight:700;color:#475569;margin-bottom:6px;">
-                                Không tính số lần chạy không ra tin nhắn < (đ) * (Bắt buộc)
+                                SL Chạy Thực (Không tính số lần chạy không ra tin nhắn < đ) * (Bắt buộc)
                             </label>
                             <input id="cda-f-ignore-no-msg-thresh" type="text"
                                 value="${_fmtNumber(account?.ignore_no_msg_spend_threshold || 70000)}"
@@ -1919,7 +1919,7 @@ ${_escapeHtml(g.description)}
                 return;
             }
             if (!ignore_no_msg_spend_threshold_raw || !ignore_no_msg_spend_threshold_raw.trim()) {
-                alert('⚠️ Vui lòng nhập Không tính số lần chạy không ra tin nhắn < (đ) (Bắt buộc)!');
+                alert('⚠️ Vui lòng nhập SL Chạy Thực (Không tính số lần chạy không ra tin nhắn < đ) (Bắt buộc)!');
                 overlay.querySelector('#cda-f-ignore-no-msg-thresh').focus();
                 return;
             }
