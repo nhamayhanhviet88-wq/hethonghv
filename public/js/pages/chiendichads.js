@@ -200,63 +200,6 @@ async function renderChiendichadsPage(container) {
             </div>
         </div>
 
-        <!-- MODAL: Báo Cáo Hàng Ngày -->
-        <div id="cdAdsReportModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 9999; justify-content: center; align-items: center; padding: 24px;">
-            <div style="background: white; border-radius: 20px; width: 100%; max-width: 600px; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden;">
-                <div style="background: linear-gradient(135deg, #059669, #10b981); padding: 20px 24px; color: white; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 22px;">📊</span>
-                        <div>
-                            <h3 style="margin: 0; font-size: 18px; font-weight: 800;">Báo Cáo Hàng Ngày</h3>
-                            <div style="font-size: 12px; opacity: 0.8;" id="cdAdsReportModalSub">Nhập số liệu chiến dịch</div>
-                        </div>
-                    </div>
-                    <button onclick="_cdAdsCloseReportModal()" style="background: rgba(255,255,255,0.2); border: none; font-size: 16px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: white; font-weight: bold;">✕</button>
-                </div>
-                <div style="padding: 24px; display: flex; flex-direction: column; gap: 14px;">
-                    <input type="hidden" id="cdAdsReportCampaignId">
-                    <div>
-                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">📅 Ngày Báo Cáo</label>
-                        <input type="date" id="cdAdsReportDate" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 700; outline: none; box-sizing: border-box;">
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 5px;">💰 Tổng Ngân Sách (VNĐ)</label>
-                            <input type="number" id="cdAdsRptNganSach" placeholder="0" min="0" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; outline: none; box-sizing: border-box;">
-                        </div>
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 5px;">💬 Tin Nhắn</label>
-                            <input type="number" id="cdAdsRptTinNhan" placeholder="0" min="0" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; outline: none; box-sizing: border-box;">
-                        </div>
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 5px;">📈 CPA</label>
-                            <input type="number" id="cdAdsRptCpa" placeholder="0" min="0" step="0.01" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; outline: none; box-sizing: border-box;">
-                        </div>
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 5px;">👆 CTR (%)</label>
-                            <input type="number" id="cdAdsRptCtr" placeholder="0" min="0" step="0.0001" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; outline: none; box-sizing: border-box;">
-                        </div>
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 5px;">📊 CPM</label>
-                            <input type="number" id="cdAdsRptCpm" placeholder="0" min="0" step="0.01" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; outline: none; box-sizing: border-box;">
-                        </div>
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 5px;">🔄 Số Lần Chạy</label>
-                            <input type="number" id="cdAdsRptSoLanChay" placeholder="0" min="0" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; outline: none; box-sizing: border-box;">
-                        </div>
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 5px;">⭐ Số Lần Hiệu Quả</label>
-                        <input type="number" id="cdAdsRptHieuQua" placeholder="0" min="0" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; outline: none; box-sizing: border-box;">
-                    </div>
-                </div>
-                <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button onclick="_cdAdsCloseReportModal()" style="padding: 10px 20px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 700; color: #475569; cursor: pointer;">Hủy</button>
-                    <button onclick="_cdAdsSubmitReport()" style="padding: 10px 24px; background: linear-gradient(135deg, #059669, #10b981); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(16,185,129,0.3);">💾 Lưu Báo Cáo</button>
-                </div>
-            </div>
-        </div>
-
         <!-- MODAL: Xem Chi Tiết -->
         <div id="cdAdsDetailModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 9999; justify-content: center; align-items: center; padding: 24px; overflow-y: auto;">
             <div style="background: white; border-radius: 20px; width: 100%; max-width: 900px; max-height: 90vh; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column;">
@@ -332,31 +275,8 @@ async function _cdAdsLoadCampaigns() {
 }
 
 async function _cdAdsCheckUnreported() {
-    try {
-        const data = await _cdAdsApi('/api/ads-campaigns/check-unreported');
-        const list = data.unreported || [];
-        const box = document.getElementById('cdAdsUnreportedWarning');
-        if (!box) return;
-        if (list.length === 0) {
-            box.style.display = 'none';
-            return;
-        }
-        box.style.display = 'block';
-        box.innerHTML = `
-            <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 2px solid #fca5a5; border-radius: 16px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 12px;">
-                <span style="font-size: 24px; flex-shrink: 0;">⚠️</span>
-                <div style="flex: 1;">
-                    <div style="font-size: 14px; font-weight: 800; color: #991b1b; margin-bottom: 6px;">BẠN CÓ ${list.length} CHIẾN DỊCH CHƯA BÁO CÁO HÔM NAY!</div>
-                    <div style="font-size: 12px; color: #b91c1c; font-weight: 600; line-height: 1.6;">
-                        ${list.map(c => `• <strong>${c.campaign_name}</strong>${c.channel_name ? ` (${c.channel_name})` : ''}`).join('<br>')}
-                    </div>
-                    <div style="font-size: 11px; color: #dc2626; font-weight: 700; margin-top: 8px; background: rgba(220,38,38,0.1); padding: 6px 10px; border-radius: 6px;">
-                        💰 Nếu không báo cáo → Phạt 100,000đ/ngày + 🔒 Khóa tài khoản
-                    </div>
-                </div>
-            </div>
-        `;
-    } catch(e) { /* ignore */ }
+    const box = document.getElementById('cdAdsUnreportedWarning');
+    if (box) box.style.display = 'none';
 }
 
 // ========== RENDER STATS ==========
@@ -474,11 +394,10 @@ function _cdAdsRenderTable() {
             <td style="padding:10px 8px;text-align:center;">
                 <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
                     <button onclick="_cdAdsViewDetail(${c.id})" title="Xem chi tiết" style="padding:5px 8px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;font-size:12px;cursor:pointer;color:#4338ca;font-weight:700;">📋</button>
-                    ${canEdit && c.status === 'chay_test' ? `
-                        <button onclick="_cdAdsOpenReportModal(${c.id},'${(c.campaign_name || '').replace(/'/g, "\\'")}')" title="Báo cáo hôm nay" style="padding:5px 8px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;font-size:12px;cursor:pointer;color:#16a34a;font-weight:700;">📝</button>
+                    ${canEdit ? `
                         <button onclick="_cdAdsChangeStatus(${c.id})" title="Đánh dấu Win/Lose" style="padding:5px 8px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;font-size:12px;cursor:pointer;color:#a16207;font-weight:700;">🏆</button>
+                        <button onclick="_cdAdsDeleteCampaign(${c.id})" title="Xóa" style="padding:5px 8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:12px;cursor:pointer;color:#dc2626;font-weight:700;">🗑️</button>
                     ` : ''}
-                    ${canEdit ? `<button onclick="_cdAdsDeleteCampaign(${c.id})" title="Xóa" style="padding:5px 8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:12px;cursor:pointer;color:#dc2626;font-weight:700;">🗑️</button>` : ''}
                 </div>
             </td>
         </tr>`;
