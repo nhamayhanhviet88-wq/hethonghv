@@ -126,46 +126,6 @@ async function renderKpimarketingPage(container) {
             .kpi-pill-green { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
             .kpi-negative-badge { background: #fef2f2 !important; color: #991b1b !important; border: 1.5px solid #fca5a5 !important; padding: 3px 10px; border-radius: 8px; font-weight: 800 !important; display: inline-block; box-shadow: 0 1px 4px rgba(220, 38, 38, 0.15); }
 
-            /* Custom Instant Formula Tooltip */
-            [data-tooltip] { position: relative; cursor: pointer !important; }
-            [data-tooltip]::after {
-                content: attr(data-tooltip);
-                position: absolute;
-                bottom: 125%;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #0f172a;
-                color: #ffffff;
-                padding: 6px 12px;
-                border-radius: 8px;
-                font-size: 11.5px;
-                font-weight: 700;
-                white-space: nowrap;
-                opacity: 0;
-                pointer-events: none;
-                transition: opacity 0.15s ease-in-out;
-                z-index: 9999;
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
-                border: 1px solid #334155;
-            }
-            [data-tooltip]::before {
-                content: '';
-                position: absolute;
-                bottom: 110%;
-                left: 50%;
-                transform: translateX(-50%);
-                border-width: 6px;
-                border-style: solid;
-                border-color: #0f172a transparent transparent transparent;
-                opacity: 0;
-                pointer-events: none;
-                transition: opacity 0.15s ease-in-out;
-                z-index: 9999;
-            }
-            [data-tooltip]:hover::after,
-            [data-tooltip]:hover::before {
-                opacity: 1;
-            }
 
             /* Modal Style */
             .kpi-v2-modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 16px; }
