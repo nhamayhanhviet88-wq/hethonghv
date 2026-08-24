@@ -638,6 +638,8 @@ module.exports = async function (fastify, opts) {
             const rows = await db.all(`
                 SELECT 
                     d.report_date,
+                    COALESCE(d.campaign_id, c.camp_id, '') as row_camp_id,
+                    COALESCE(ec.note, d.campaign_name, c.campaign_name, '-') as row_camp_name,
                     d.spend as tong_ngan_sach,
                     d.messages as tin_nhan,
                     d.cpa,
@@ -657,9 +659,10 @@ module.exports = async function (fastify, opts) {
                         OR (d.link_post_id IN (SELECT ec.post_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND ec.post_id IS NOT NULL AND ec.post_id != ''))
                     )
                 )
+                LEFT JOIN ads_campaign_extra_camps ec ON (ec.campaign_id = c.id AND (ec.camp_id = d.campaign_id OR ec.post_id = d.link_post_id))
                 LEFT JOIN ads_stats_accounts sa ON d.account_id = sa.id
                 WHERE c.id = $1
-                ORDER BY d.report_date DESC
+                ORDER BY d.report_date DESC, d.spend DESC
             `, [campId]);
             return reply.send({ ok: true, reports: rows });
         } catch (e) {

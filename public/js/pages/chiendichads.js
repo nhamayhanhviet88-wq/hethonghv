@@ -1417,21 +1417,26 @@ async function _cdAdsViewDetail(campaignId) {
                     <table style="width:100%;border-collapse:collapse;min-width:750px;">
                         <thead>
                             <tr style="background: linear-gradient(135deg, #0f172a, #1e1b4b);">
-                                <th style="padding:10px 12px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">NGÀY</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">NGÂN SÁCH</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">TIN NHẮN</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">CPA</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">CPC</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">CTR</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">CPM</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">SL CHẠY</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">HIỆU QUẢ</th>
+                                <th style="padding:10px 12px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;white-space:nowrap;">NGÀY</th>
+                                <th style="padding:10px 12px;font-size:11px;font-weight:800;color:#ffffff;text-align:left;border-bottom:1px solid #334155;white-space:nowrap;">CHIẾN DỊCH / ID CAMP <span style="font-size:10px;opacity:0.6;">↕</span></th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;white-space:nowrap;">NGÂN SÁCH</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;white-space:nowrap;">TIN NHẮN</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;white-space:nowrap;">CPA</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;white-space:nowrap;">CPC</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;white-space:nowrap;">CTR</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;white-space:nowrap;">CPM</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;white-space:nowrap;">SL CHẠY</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;white-space:nowrap;">HIỆU QUẢ</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${reports.map(r => `
                                 <tr style="border-bottom:1px solid #f1f5f9;">
-                                    <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${r.report_date ? new Date(r.report_date).toLocaleDateString('vi-VN') : '-'}</td>
+                                    <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#334155;text-align:center;white-space:nowrap;">${r.report_date ? new Date(r.report_date).toLocaleDateString('vi-VN') : '-'}</td>
+                                    <td style="padding:8px 12px;text-align:left;">
+                                        <div style="font-size:12.5px;font-weight:800;color:#0f172a;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(r.row_camp_name || '-').replace(/"/g, '&quot;')}">${r.row_camp_name || '-'}</div>
+                                        <div style="font-family:monospace;font-size:11px;color:#64748b;font-weight:600;margin-top:1px;">${r.row_camp_id || '-'}</div>
+                                    </td>
                                     <td style="padding:8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(r.tong_ngan_sach)}</td>
                                     <td style="padding:8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(r.tin_nhan)}</td>
                                     <td style="padding:8px;font-size:12px;font-weight:700;color:${Number(r.cpa) > 0 && Number(r.cpa) <= 75000 ? '#16a34a' : '#334155'};text-align:right;">${fmtMoney(r.cpa)}</td>
