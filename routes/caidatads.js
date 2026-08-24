@@ -242,7 +242,8 @@ module.exports = async function (fastify, opts) {
                 fb_dev_account_name, fb_dev_account_link, fb_dev_portal_link,
                 fb_access_token, token_expires_at, fanpage_id, fanpage_name,
                 effectiveness_metric, effectiveness_threshold, ignore_no_msg_spend_threshold,
-                spend_min, spend_max, assigned_staff_name
+                spend_min, spend_max, assigned_staff_name,
+                account_type, linh_vuc_id, linh_vuc_name
             } = req.body || {};
 
             if (!account_name || !account_name.trim()) {
@@ -267,8 +268,10 @@ module.exports = async function (fastify, opts) {
                     effectiveness_metric, effectiveness_threshold, ignore_no_msg_spend_threshold,
                     spend_min, spend_max,
                     connection_status, connection_error, last_checked_at,
-                    assigned_staff_name, created_by, created_at, updated_at
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW(),$20,$21,NOW(),NOW())
+                    assigned_staff_name, created_by,
+                    account_type, linh_vuc_id, linh_vuc_name,
+                    created_at, updated_at
+                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW(),$20,$21,$22,$23,$24,NOW(),NOW())
                 RETURNING *
             `, [
                 plat,
@@ -291,7 +294,10 @@ module.exports = async function (fastify, opts) {
                 testRes.status,
                 testRes.status === 'error' ? testRes.message : null,
                 assigned_staff_name ? assigned_staff_name.trim() : null,
-                req.user.id
+                req.user.id,
+                account_type || 'main',
+                linh_vuc_id ? Number(linh_vuc_id) : null,
+                linh_vuc_name ? String(linh_vuc_name).trim() : null
             ]);
 
             return reply.send({ ok: true, account: result, test_result: testRes });
@@ -319,7 +325,8 @@ module.exports = async function (fastify, opts) {
                 fb_dev_account_name, fb_dev_account_link, fb_dev_portal_link,
                 fb_access_token, token_expires_at, fanpage_id, fanpage_name,
                 effectiveness_metric, effectiveness_threshold, ignore_no_msg_spend_threshold,
-                spend_min, spend_max, is_active, assigned_staff_name
+                spend_min, spend_max, is_active, assigned_staff_name,
+                account_type, linh_vuc_id, linh_vuc_name
             } = req.body || {};
 
             const cleanAdAccId = fb_ad_account_id != null ? _cleanAdAccountId(fb_ad_account_id) : existing.fb_ad_account_id;
@@ -364,9 +371,12 @@ module.exports = async function (fastify, opts) {
                     connection_status = $19,
                     connection_error = $20,
                     assigned_staff_name = COALESCE($21, assigned_staff_name),
+                    account_type = COALESCE($22, account_type),
+                    linh_vuc_id = COALESCE($23, linh_vuc_id),
+                    linh_vuc_name = COALESCE($24, linh_vuc_name),
                     last_checked_at = NOW(),
                     updated_at = NOW()
-                WHERE id = $22
+                WHERE id = $25
                 RETURNING *
             `, [
                 platform ? platform.toLowerCase() : null,
@@ -390,6 +400,9 @@ module.exports = async function (fastify, opts) {
                 statusVal,
                 errorVal,
                 assigned_staff_name != null ? assigned_staff_name.trim() : null,
+                account_type || null,
+                linh_vuc_id ? Number(linh_vuc_id) : null,
+                linh_vuc_name ? String(linh_vuc_name).trim() : null,
                 id
             ]);
 

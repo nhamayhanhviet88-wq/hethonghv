@@ -294,11 +294,24 @@ window.renderCaidattaikhoanadsPage = function(container) {
     // ========== INIT DATA & LISTENERS ==========
     _initData();
 
+    let _linhVucList = [];
+
+    async function _loadLinhVucList() {
+        try {
+            const res = await fetch('/api/kho-ads/linh-vuc', { credentials: 'include' });
+            const data = await res.json();
+            if (data.ok) _linhVucList = data.linh_vuc_list || [];
+        } catch(e) {
+            console.error('[cda _loadLinhVucList error]', e);
+        }
+    }
+
     async function _initData() {
         await Promise.all([
             _loadStaffList(),
             _loadCustomPlatforms(),
-            _loadGuides()
+            _loadGuides(),
+            _loadLinhVucList()
         ]);
         _renderPlatformTabs();
         _renderStaffFilterSelect();
@@ -696,6 +709,20 @@ window.renderCaidattaikhoanadsPage = function(container) {
                     <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px;">
                         <span style="color: #64748b;">Nhân Viên Phụ Trách:</span>
                         <strong style="color: #2563eb; font-size: 13px;">👤 ${_escapeHtml(acc.assigned_staff_name || 'Chưa gán')}</strong>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px; align-items: center;">
+                        <span style="color: #64748b;">Loại Tài Khoản:</span>
+                        ${acc.account_type === 'test' ? `
+                            <span style="background: #f3e8ff; color: #7e22ce; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;">🧪 Chạy Test</span>
+                        ` : `
+                            <span style="background: #eff6ff; color: #1d4ed8; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;">🚀 Chạy Chính</span>
+                        `}
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px; align-items: center;">
+                        <span style="color: #64748b;">Lĩnh Vực Ads:</span>
+                        <strong style="color: #0f172a; font-size: 12px; font-weight: 800;">🏷️ ${_escapeHtml(acc.linh_vuc_name || 'Chưa chọn')}</strong>
                     </div>
 
                     <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px;">
@@ -1470,6 +1497,13 @@ ${_escapeHtml(g.description)}
             staffOptionsHTML += `<option value="${_escapeHtml(name)}" ${isSel}>👤 ${_escapeHtml(name)}${_escapeHtml(dept)}</option>`;
         });
 
+        // Prepare Linh Vuc Options (Required - Ads Fields from Kho Video/Ảnh Ads)
+        let linhVucOptionsHTML = `<option value="">-- Chọn Lĩnh Vực Ads Chuyên Phục Vụ (Bắt buộc) --</option>`;
+        _linhVucList.forEach(lv => {
+            const isSel = String(account?.linh_vuc_id) === String(lv.id) ? 'selected' : '';
+            linhVucOptionsHTML += `<option value="${lv.id}" data-name="${_escapeHtml(lv.name)}" ${isSel}>🏷️ ${_escapeHtml(lv.name)} (${_escapeHtml(lv.code || '')})</option>`;
+        });
+
         // Prepare Platform Select Options (NO "Mạng Xã Hội Khác", includes Facebook, TikTok, Google + custom platforms)
         let platOptionsHTML = `
             <option value="facebook" ${(account?.platform || 'facebook') === 'facebook' ? 'selected' : ''}>📘 Meta Facebook Ads</option>
@@ -1532,6 +1566,34 @@ ${_escapeHtml(g.description)}
                         </select>
                         <div style="font-size:11px; color:#3b82f6; margin-top:4px;">
                             Bắt buộc chọn nhân viên phòng Marketing (đồng bộ từ Cơ Cấu Tổ Chức) quản lý tài khoản này. Có thể chỉnh sửa chọn nhân viên khác bất kỳ lúc nào.
+                        </div>
+                    </div>
+
+                    <!-- Trường Loại Tài Khoản Quảng Cáo (Bắt buộc chọn 1 trong 2: Chạy Chính hoặc Chạy Test) -->
+                    <div style="margin-bottom: 20px; background: #faf5ff; border: 1.5px solid #e9d5ff; padding: 14px 16px; border-radius: 14px;">
+                        <label style="display:block; font-size:13px; font-weight:800; color:#6b21a8; margin-bottom:6px;">
+                            🎯 Loại Tài Khoản Quảng Cáo * (Bắt buộc chọn 1 trong 2)
+                        </label>
+                        <select id="cda-f-account-type" style="width:100%; padding:11px 14px; border-radius:12px; border:1.5px solid #c084fc; font-size:14px; font-weight:700; color:#581c87; background:white; outline:none;">
+                            <option value="">-- Chọn Loại Tài Khoản Ads (Bắt buộc) --</option>
+                            <option value="main" ${(account?.account_type || 'main') === 'main' ? 'selected' : ''}>🚀 Tài khoản chạy quảng cáo chính</option>
+                            <option value="test" ${account?.account_type === 'test' ? 'selected' : ''}>🧪 Tài khoản chạy quảng cáo test</option>
+                        </select>
+                        <div style="font-size:11px; color:#7e22ce; margin-top:4px;">
+                            💡 Phân loại rõ ràng: Chỉ các "Tài khoản chạy quảng cáo test" mới xuất hiện ở trang <strong>Chiến Dịch Test Ads</strong>.
+                        </div>
+                    </div>
+
+                    <!-- Trường Lĩnh Vực Ads Chuyên Phục Vụ (Lấy từ Cấu Hình Lĩnh Vực Ads ở Kho Ads) -->
+                    <div style="margin-bottom: 20px; background: #f0fdf4; border: 1.5px solid #bbf7d0; padding: 14px 16px; border-radius: 14px;">
+                        <label style="display:block; font-size:13px; font-weight:800; color:#15803d; margin-bottom:6px;">
+                            🏷️ Lĩnh Vực Ads Chuyên Phục Vụ * (Bắt buộc chọn)
+                        </label>
+                        <select id="cda-f-linh-vuc" style="width:100%; padding:11px 14px; border-radius:12px; border:1.5px solid #86efac; font-size:14px; font-weight:700; color:#14532d; background:white; outline:none;">
+                            ${linhVucOptionsHTML}
+                        </select>
+                        <div style="font-size:11px; color:#16a34a; margin-top:4px;">
+                            Đánh dấu lĩnh vực sản phẩm tài khoản chuyên phục vụ (Lấy từ Cấu Hình Lĩnh Vực Ads ở Kho Video/Ảnh Ads).
                         </div>
                     </div>
 
@@ -1778,6 +1840,12 @@ ${_escapeHtml(g.description)}
         overlay.querySelector('#cda-modal-save').addEventListener('click', async () => {
             const platform = overlay.querySelector('#cda-f-platform').value;
             const assigned_staff_name = overlay.querySelector('#cda-f-staff').value;
+            const account_type = overlay.querySelector('#cda-f-account-type').value;
+            const linhVucSel = overlay.querySelector('#cda-f-linh-vuc');
+            const linh_vuc_id = linhVucSel ? linhVucSel.value : '';
+            const selectedLvOpt = linhVucSel && linhVucSel.selectedIndex >= 0 ? linhVucSel.options[linhVucSel.selectedIndex] : null;
+            const linh_vuc_name = selectedLvOpt ? (selectedLvOpt.getAttribute('data-name') || selectedLvOpt.text.replace(/^🏷️\s*/, '').replace(/\s*\([^)]*\)$/, '')) : '';
+
             const account_name = overlay.querySelector('#cda-f-name').value.trim();
             const fb_ad_account_id = overlay.querySelector('#cda-f-adid').value.trim();
             const fb_ad_account_link = overlay.querySelector('#cda-f-adlink').value.trim();
@@ -1793,6 +1861,16 @@ ${_escapeHtml(g.description)}
             if (!assigned_staff_name) {
                 alert('⚠️ Vui lòng chọn Nhân Viên Phụ Trách bắt buộc!');
                 overlay.querySelector('#cda-f-staff').focus();
+                return;
+            }
+            if (!account_type) {
+                alert('⚠️ Vui lòng chọn Loại Tài Khoản Quảng Cáo (Chạy chính hoặc Chạy test)!');
+                overlay.querySelector('#cda-f-account-type').focus();
+                return;
+            }
+            if (!linh_vuc_id) {
+                alert('⚠️ Vui lòng chọn Lĩnh Vực Ads Chuyên Phục Vụ bắt buộc!');
+                overlay.querySelector('#cda-f-linh-vuc').focus();
                 return;
             }
             if (!account_name) {
@@ -1849,6 +1927,9 @@ ${_escapeHtml(g.description)}
             const body = {
                 platform,
                 assigned_staff_name,
+                account_type,
+                linh_vuc_id: Number(linh_vuc_id),
+                linh_vuc_name: linh_vuc_name ? linh_vuc_name.trim() : '',
                 account_name,
                 fb_ad_account_id,
                 fb_ad_account_link,

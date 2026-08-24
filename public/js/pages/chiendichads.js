@@ -646,10 +646,10 @@ async function _cdAdsLoadAccountsForPlatform(platformId) {
         window._cdAdsPlatformAccounts = accounts;
 
         if (accounts.length === 0) {
-            accSelect.innerHTML = `<option value="">⚠️ Chưa có tài khoản QC nào cho kênh "${platformId.toUpperCase()}" ở Cài Đặt Tài Khoản Ads</option>`;
+            accSelect.innerHTML = `<option value="">⚠️ Chưa có "Tài khoản chạy test" nào cho kênh "${platformId.toUpperCase()}" ở Cài Đặt Tài Khoản Ads</option>`;
         } else {
-            accSelect.innerHTML = '<option value="">-- Chọn Tài Khoản QC đã liên kết --</option>' +
-                accounts.map(acc => `<option value="${acc.id}">${acc.account_name} (${acc.fb_ad_account_id || acc.platform}) ${acc.assigned_staff_name ? '• NV: ' + acc.assigned_staff_name : ''}</option>`).join('');
+            accSelect.innerHTML = `<option value="">-- Chọn Tài Khoản QC Chạy Test (${accounts.length} tài khoản) --</option>` +
+                accounts.map(acc => `<option value="${acc.id}">🧪 ${acc.account_name} (${acc.fb_ad_account_id || acc.platform}) ${acc.linh_vuc_name ? '• LV: ' + acc.linh_vuc_name : ''} ${acc.assigned_staff_name ? '• NV: ' + acc.assigned_staff_name : ''}</option>`).join('');
         }
     } catch(e) {
         accSelect.innerHTML = '<option value="">🔴 Lỗi tải danh sách tài khoản QC</option>';

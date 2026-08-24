@@ -32,6 +32,9 @@ module.exports = async function (fastify, opts) {
             )
         `);
         await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS ignore_no_msg_spend_threshold DECIMAL(15,2) DEFAULT 70000`);
+        await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS account_type VARCHAR(20) DEFAULT 'main'`);
+        await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS linh_vuc_id INT`);
+        await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS linh_vuc_name VARCHAR(100)`);
     } catch(e) { console.error('[ads_stats_accounts migration]', e.message); }
 
     // Bảng 2: ads_stats_daily — Thống kê hàng ngày theo campaign

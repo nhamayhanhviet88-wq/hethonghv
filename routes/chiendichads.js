@@ -224,9 +224,9 @@ module.exports = async function (fastify, opts) {
         try {
             const platform = (req.query.platform || 'facebook').toLowerCase().trim();
             const rows = await db.all(`
-                SELECT id, platform, custom_platform_name, account_name, fb_ad_account_id, connection_status, assigned_staff_name
+                SELECT id, platform, custom_platform_name, account_name, fb_ad_account_id, connection_status, assigned_staff_name, account_type, linh_vuc_id, linh_vuc_name
                 FROM ads_stats_accounts
-                WHERE LOWER(platform) = $1
+                WHERE LOWER(platform) = $1 AND (COALESCE(account_type, 'test') = 'test')
                 ORDER BY id ASC
             `, [platform]);
 
