@@ -37,7 +37,14 @@ var _khoAdsData = window._khoAdsData || {
     tasks: [],
     items: [],
     linhVucList: [],
-    editingId: null
+    editingId: null,
+    filterMode: 'month',
+    selectedMonth: 'all',
+    selectedYear: String(new Date().getFullYear()),
+    selectedQuarter: Math.ceil((new Date().getMonth() + 1) / 3),
+    selectedQYear: String(new Date().getFullYear()),
+    startDate: null,
+    endDate: null
 };
 window._khoAdsData = _khoAdsData;
 
@@ -46,6 +53,15 @@ async function renderKhoadsPage(container) {
         container = document.getElementById('mainContent') || document.getElementById('app') || document.querySelector('.main-content') || document.body;
     }
     if (!container) return;
+
+    // Reset date filters to requested default when entering page: Theo Tháng, Tất cả các tháng, Năm hiện tại
+    _khoAdsData.filterMode = 'month';
+    _khoAdsData.selectedMonth = 'all';
+    _khoAdsData.selectedYear = String(new Date().getFullYear());
+    _khoAdsData.selectedQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+    _khoAdsData.selectedQYear = String(new Date().getFullYear());
+    _khoAdsData.startDate = null;
+    _khoAdsData.endDate = null;
 
     const isGiamDoc = _khoAdsIsSuperUser();
 
@@ -110,23 +126,84 @@ async function renderKhoadsPage(container) {
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr auto; gap: 12px; align-items: center;">
+                <!-- FILTER CONTROLS ROW: Dynamic Date Filter + Search + Dropdowns -->
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <!-- Date Filter Controls (Giống Thống Kê Camp Hiệu Quả - Ảnh 3, 4, 5) -->
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 6px; height: 38px;">
+                            <label style="font-weight: 700; font-size: 13px; color: #1e293b; white-space: nowrap;">📅 Lọc theo:</label>
+                            <select id="khoAdsFilterModeSelect" onchange="onKhoAdsFilterModeChange()" style="
+                                height: 38px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                                font-size: 13px; font-weight: 700; background: #f8fafc; cursor: pointer; outline: none;
+                                color: #1d4ed8; box-sizing: border-box;
+                            ">
+                                <option value="month">📅 Theo Tháng</option>
+                                <option value="quarter">📊 Theo Quý</option>
+                                <option value="daterange">📆 Theo Ngày (Bảng Lịch)</option>
+                            </select>
+                        </div>
+
+                        <div id="khoAdsDynamicFilters" style="display: flex; align-items: center; gap: 6px; height: 38px;">
+                            <!-- Month Mode Controls -->
+                            <div id="khoAdsMonthControls" style="display: flex; align-items: center; gap: 6px; height: 38px;">
+                                <select id="khoAdsMonthSelect" onchange="onKhoAdsDateSelectChange()" style="
+                                    height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 600; background: white; cursor: pointer; box-sizing: border-box;
+                                "></select>
+                                <select id="khoAdsYearSelect" onchange="onKhoAdsDateSelectChange()" style="
+                                    height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 600; background: white; cursor: pointer; box-sizing: border-box;
+                                "></select>
+                            </div>
+
+                            <!-- Quarter Mode Controls -->
+                            <div id="khoAdsQuarterControls" style="display: none; align-items: center; gap: 6px; height: 38px;">
+                                <select id="khoAdsQuarterSelect" onchange="onKhoAdsDateSelectChange()" style="
+                                    height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 700; background: white; cursor: pointer; color: #0f172a; box-sizing: border-box;
+                                ">
+                                    <option value="1">Quý 1 (Tháng 1 - Tháng 3)</option>
+                                    <option value="2">Quý 2 (Tháng 4 - Tháng 6)</option>
+                                    <option value="3">Quý 3 (Tháng 7 - Tháng 9)</option>
+                                    <option value="4">Quý 4 (Tháng 10 - Tháng 12)</option>
+                                </select>
+                                <select id="khoAdsQYearSelect" onchange="onKhoAdsDateSelectChange()" style="
+                                    height: 38px; padding: 0 12px; border-radius: 8px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 600; background: white; cursor: pointer; box-sizing: border-box;
+                                "></select>
+                            </div>
+
+                            <!-- Date Range Calendar Mode Controls -->
+                            <div id="khoAdsDaterangeControls" style="display: none; align-items: center; gap: 6px; position: relative; height: 38px;">
+                                <button id="btnKhoAdsDaterangePicker" onclick="openKhoAdsCalendarPicker()" style="
+                                    height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                                    background: white; color: #0f172a; font-size: 13px; font-weight: 700;
+                                    cursor: pointer; display: flex; align-items: center; gap: 8px; box-sizing: border-box;
+                                " onmouseover="this.style.borderColor='#2563eb'" onmouseout="this.style.borderColor='#cbd5e1'">
+                                    <span style="font-size: 15px;">📆</span>
+                                    <span id="lblKhoAdsDaterangeText">Chọn từ bảng lịch...</span>
+                                    <span style="font-size: 10px; color: #64748b;">▼</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- 1. Search Box -->
-                    <div style="position: relative;">
-                        <input type="text" id="iptSearchKhoAds" onkeyup="applyKhoAdsFilters()" placeholder="🔍 Tìm mã công việc, tên công việc, tư liệu..." style="width: 100%; padding: 10px 14px 10px 36px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; background: #fafafa; outline: none; transition: all 0.2s;" onfocus="this.style.borderColor='#4338ca';this.style.background='white';this.style.boxShadow='0 0 0 3px rgba(67,56,202,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
+                    <div style="flex: 1; min-width: 220px; position: relative;">
+                        <input type="text" id="iptSearchKhoAds" onkeyup="applyKhoAdsFilters()" placeholder="🔍 Tìm mã công việc, tên công việc, tư liệu..." style="width: 100%; height: 38px; padding: 0 14px 0 36px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; background: #fafafa; outline: none; transition: all 0.2s; box-sizing: border-box;" onfocus="this.style.borderColor='#4338ca';this.style.background='white';this.style.boxShadow='0 0 0 3px rgba(67,56,202,0.1)'" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none'">
                         <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; opacity: 0.5;">🔍</span>
                     </div>
 
                     <!-- 2. Select Lĩnh Vực -->
-                    <div>
-                        <select id="selFilterKhoAdsLinhVuc" onchange="applyKhoAdsFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none;">
+                    <div style="min-width: 160px;">
+                        <select id="selFilterKhoAdsLinhVuc" onchange="applyKhoAdsFilters()" style="width: 100%; height: 38px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none; box-sizing: border-box;">
                             <option value="">🏢 Tất cả Lĩnh Vực Ads</option>
                         </select>
                     </div>
 
                     <!-- 3. Select Loại Tư Liệu -->
-                    <div>
-                        <select id="selFilterKhoAdsMediaType" onchange="applyKhoAdsFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none;">
+                    <div style="min-width: 150px;">
+                        <select id="selFilterKhoAdsMediaType" onchange="applyKhoAdsFilters()" style="width: 100%; height: 38px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none; box-sizing: border-box;">
                             <option value="">🎬 Tất cả loại tư liệu</option>
                             <option value="video">🎥 Video Ads</option>
                             <option value="image">🖼️ Ảnh Ads</option>
@@ -134,8 +211,8 @@ async function renderKhoadsPage(container) {
                     </div>
 
                     <!-- 4. Select Sắp Xếp -->
-                    <div>
-                        <select id="selFilterKhoAdsSort" onchange="applyKhoAdsFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none;">
+                    <div style="min-width: 140px;">
+                        <select id="selFilterKhoAdsSort" onchange="applyKhoAdsFilters()" style="width: 100%; height: 38px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none; box-sizing: border-box;">
                             <option value="newest">🕒 Mới nhất trước</option>
                             <option value="oldest">⏳ Cũ nhất trước</option>
                             <option value="az">🔤 Tên A - Z</option>
@@ -144,7 +221,7 @@ async function renderKhoadsPage(container) {
 
                     <!-- 5. Reset Button -->
                     <div>
-                        <button onclick="resetKhoAdsFilters()" style="padding: 10px 16px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#475569'">🔄 Đặt Lại</button>
+                        <button onclick="resetKhoAdsFilters()" style="height: 38px; padding: 0 16px; background: #f1f5f9; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box;" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#475569'">🔄 Đặt Lại</button>
                     </div>
                 </div>
             </div>
@@ -347,6 +424,7 @@ async function loadKhoAdsData() {
 
         updateKhoAdsMainTabBadges();
         populateKhoAdsLinhVucSelects();
+        populateKhoAdsDateSelectors();
         switchKhoAdsMainTab(_khoAdsData.activeMainTab || 'tasks', false);
         applyKhoAdsFilters();
     } catch(e) {
@@ -466,6 +544,442 @@ function populateKhoAdsLinhVucSelects() {
         modalSel.innerHTML = html;
         if (curVal) modalSel.value = curVal;
     }
+}
+
+function populateKhoAdsDateSelectors() {
+    const monthSel = document.getElementById('khoAdsMonthSelect');
+    const yearSel = document.getElementById('khoAdsYearSelect');
+    const qYearSel = document.getElementById('khoAdsQYearSelect');
+    const qSel = document.getElementById('khoAdsQuarterSelect');
+
+    const curYear = new Date().getFullYear();
+
+    if (monthSel) {
+        monthSel.innerHTML = '<option value="all">🌐 Tất cả các tháng</option>';
+        for (let m = 1; m <= 12; m++) {
+            const opt = document.createElement('option');
+            opt.value = String(m);
+            opt.textContent = `Tháng ${m}`;
+            if (String(m) === String(_khoAdsData.selectedMonth)) opt.selected = true;
+            monthSel.appendChild(opt);
+        }
+        if (_khoAdsData.selectedMonth === 'all') {
+            monthSel.value = 'all';
+        }
+    }
+
+    const fillYears = (sel, curVal) => {
+        if (!sel) return;
+        sel.innerHTML = '<option value="all">🌐 Tất cả các năm</option>';
+        for (let y = curYear; y >= curYear - 5; y--) {
+            const opt = document.createElement('option');
+            opt.value = String(y);
+            opt.textContent = `Năm ${y}`;
+            if (String(y) === String(curVal)) opt.selected = true;
+            sel.appendChild(opt);
+        }
+        if (String(curVal) === 'all') sel.value = 'all';
+    };
+
+    fillYears(yearSel, _khoAdsData.selectedYear);
+    fillYears(qYearSel, _khoAdsData.selectedQYear);
+
+    if (qSel) qSel.value = String(_khoAdsData.selectedQuarter);
+
+    const modeSel = document.getElementById('khoAdsFilterModeSelect');
+    if (modeSel) modeSel.value = _khoAdsData.filterMode || 'month';
+
+    onKhoAdsFilterModeChange(false);
+}
+
+function onKhoAdsFilterModeChange(triggerFilter = true) {
+    const modeSel = document.getElementById('khoAdsFilterModeSelect');
+    if (modeSel) {
+        _khoAdsData.filterMode = modeSel.value;
+    }
+
+    const mCtl = document.getElementById('khoAdsMonthControls');
+    const qCtl = document.getElementById('khoAdsQuarterControls');
+    const drCtl = document.getElementById('khoAdsDaterangeControls');
+
+    if (mCtl) mCtl.style.display = _khoAdsData.filterMode === 'month' ? 'flex' : 'none';
+    if (qCtl) qCtl.style.display = _khoAdsData.filterMode === 'quarter' ? 'flex' : 'none';
+    if (drCtl) drCtl.style.display = _khoAdsData.filterMode === 'daterange' ? 'flex' : 'none';
+
+    updateKhoAdsDaterangeButtonText();
+    if (triggerFilter) applyKhoAdsFilters();
+}
+
+function onKhoAdsDateSelectChange() {
+    const mSel = document.getElementById('khoAdsMonthSelect');
+    const ySel = document.getElementById('khoAdsYearSelect');
+    const qSel = document.getElementById('khoAdsQuarterSelect');
+    const qySel = document.getElementById('khoAdsQYearSelect');
+
+    if (mSel) _khoAdsData.selectedMonth = mSel.value;
+    if (ySel) _khoAdsData.selectedYear = ySel.value;
+    if (qSel) _khoAdsData.selectedQuarter = qSel.value;
+    if (qySel) _khoAdsData.selectedQYear = qySel.value;
+
+    applyKhoAdsFilters();
+}
+
+function updateKhoAdsDaterangeButtonText() {
+    const txt = document.getElementById('lblKhoAdsDaterangeText');
+    if (!txt) return;
+
+    if (_khoAdsData.startDate && _khoAdsData.endDate) {
+        if (_khoAdsData.startDate === _khoAdsData.endDate) {
+            txt.textContent = `Ngày ${_formatKhoAdsDateVN(_khoAdsData.startDate)}`;
+        } else {
+            txt.textContent = `${_formatKhoAdsDateVN(_khoAdsData.startDate)} → ${_formatKhoAdsDateVN(_khoAdsData.endDate)}`;
+        }
+    } else {
+        txt.textContent = 'Chọn từ bảng lịch...';
+    }
+}
+
+function _formatKhoAdsDateVN(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function _formatKhoAdsDateToYYYYMMDD(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function _checkKhoAdsDateMatch(dateStr) {
+    if (!dateStr) return true;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return true;
+
+    const mode = _khoAdsData.filterMode || 'month';
+
+    if (mode === 'month') {
+        const selM = _khoAdsData.selectedMonth || 'all';
+        const selY = _khoAdsData.selectedYear || 'all';
+
+        const itemYear = d.getFullYear();
+        const itemMonth = d.getMonth() + 1;
+
+        if (selY !== 'all' && itemYear !== Number(selY)) return false;
+        if (selM !== 'all' && itemMonth !== Number(selM)) return false;
+        return true;
+    } else if (mode === 'quarter') {
+        const selQ = _khoAdsData.selectedQuarter || '1';
+        const selY = _khoAdsData.selectedQYear || 'all';
+
+        const itemYear = d.getFullYear();
+        const itemQuarter = Math.ceil((d.getMonth() + 1) / 3);
+
+        if (selY !== 'all' && itemYear !== Number(selY)) return false;
+        if (itemQuarter !== Number(selQ)) return false;
+        return true;
+    } else if (mode === 'daterange') {
+        const start = _khoAdsData.startDate;
+        const end = _khoAdsData.endDate;
+        if (!start && !end) return true;
+
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const itemDateStr = `${year}-${month}-${day}`;
+
+        if (start && itemDateStr < start) return false;
+        if (end && itemDateStr > end) return false;
+        return true;
+    }
+
+    return true;
+}
+
+function openKhoAdsCalendarPicker() {
+    const existingPopover = document.getElementById('khoAdsCalendarModal');
+    if (existingPopover) existingPopover.remove();
+
+    let tempStart = _khoAdsData.startDate;
+    let tempEnd = _khoAdsData.endDate;
+
+    let viewDate = tempStart ? new Date(tempStart) : new Date();
+    let viewYear = viewDate.getFullYear();
+    let viewMonth = viewDate.getMonth();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'khoAdsCalendarModal';
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(15,23,42,0.4); backdrop-filter: blur(4px);
+        z-index: 10000; display: flex; align-items: center; justify-content: center;
+        animation: fadeIn 0.15s ease;
+    `;
+
+    const popover = document.createElement('div');
+    popover.style.cssText = `
+        background: white; border-radius: 20px; width: 95%; max-width: 440px;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.2); overflow: hidden;
+        border: 1px solid #e2e8f0; animation: slideUp 0.2s ease;
+    `;
+
+    function renderCalendarHTML() {
+        const firstDay = new Date(viewYear, viewMonth, 1);
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+        let startDayOfWeek = firstDay.getDay(); // 0 is Sunday
+        let offset = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1; // 0 for Monday
+
+        const monthNames = [
+            'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+            'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+        ];
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        let daysHtml = '';
+
+        for (let i = 0; i < offset; i++) {
+            daysHtml += `<div style="padding:10px;text-align:center;color:#cbd5e1;font-size:12px;"></div>`;
+        }
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const mStr = String(viewMonth + 1).padStart(2, '0');
+            const dStr = String(d).padStart(2, '0');
+            const dateStr = `${viewYear}-${mStr}-${dStr}`;
+
+            const isStart = tempStart === dateStr;
+            const isEnd = tempEnd === dateStr;
+            const isInRange = tempStart && tempEnd && dateStr > tempStart && dateStr < tempEnd;
+            const isToday = dateStr === todayStr;
+
+            let cellBg = 'transparent';
+            let cellColor = '#1e293b';
+            let cellWeight = '500';
+            let borderRadius = '8px';
+
+            if (isStart && isEnd) {
+                cellBg = '#4338ca';
+                cellColor = 'white';
+                cellWeight = '800';
+                borderRadius = '50%';
+            } else if (isStart) {
+                cellBg = '#4338ca';
+                cellColor = 'white';
+                cellWeight = '800';
+                borderRadius = '10px 0 0 10px';
+            } else if (isEnd) {
+                cellBg = '#4338ca';
+                cellColor = 'white';
+                cellWeight = '800';
+                borderRadius = '0 10px 10px 0';
+            } else if (isInRange) {
+                cellBg = '#eef2ff';
+                cellColor = '#3730a3';
+                cellWeight = '700';
+                borderRadius = '0';
+            }
+
+            daysHtml += `
+                <div class="khoads-cal-day-cell" data-date="${dateStr}" style="
+                    height: 38px; display: flex; align-items: center; justify-content: center;
+                    background: ${cellBg}; color: ${cellColor}; font-weight: ${cellWeight};
+                    font-size: 13px; cursor: pointer; border-radius: ${borderRadius};
+                    user-select: none; transition: all 0.1s;
+                    ${isToday && !isStart && !isEnd ? 'border: 1.5px solid #4338ca; font-weight:700;' : ''}
+                " onmouseover="if(!'${isStart||isEnd}') this.style.background='#f1f5f9'" onmouseout="if(!'${isStart||isEnd}') this.style.background='${cellBg}'">
+                    ${d}
+                </div>
+            `;
+        }
+
+        let selRangeText = 'Chưa chọn ngày';
+        if (tempStart && tempEnd) {
+            if (tempStart === tempEnd) {
+                selRangeText = `🎯 Ngày: ${_formatKhoAdsDateVN(tempStart)}`;
+            } else {
+                selRangeText = `🎯 Từ ${_formatKhoAdsDateVN(tempStart)} → ${_formatKhoAdsDateVN(tempEnd)}`;
+            }
+        } else if (tempStart) {
+            selRangeText = `🎯 Bắt đầu: ${_formatKhoAdsDateVN(tempStart)} (Chọn tiếp ngày kết thúc)`;
+        }
+
+        popover.innerHTML = `
+            <div style="padding: 16px 20px; background: linear-gradient(135deg, #0f172a, #4338ca); color: white; display: flex; align-items: center; justify-content: space-between;">
+                <div style="font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+                    <span>📆</span> Chọn Khoảng Thời Gian (Bảng Lịch)
+                </div>
+                <button id="khoads-cal-close" style="background:transparent;border:none;color:white;font-size:18px;cursor:pointer;">✕</button>
+            </div>
+
+            <!-- Quick Presets -->
+            <div style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; gap: 6px; flex-wrap: wrap;">
+                <button class="khoads-preset-btn" data-preset="today" style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:white;font-size:11px;font-weight:700;cursor:pointer;">Hôm Nay</button>
+                <button class="khoads-preset-btn" data-preset="yesterday" style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:white;font-size:11px;font-weight:700;cursor:pointer;">Hôm Qua</button>
+                <button class="khoads-preset-btn" data-preset="last7" style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:white;font-size:11px;font-weight:700;cursor:pointer;">7 Ngày Qua</button>
+                <button class="khoads-preset-btn" data-preset="last30" style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:white;font-size:11px;font-weight:700;cursor:pointer;">30 Ngày Qua</button>
+                <button class="khoads-preset-btn" data-preset="thisMonth" style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:white;font-size:11px;font-weight:700;cursor:pointer;">Tháng Này</button>
+            </div>
+
+            <div style="padding: 16px 20px;">
+                <!-- Month Navigation -->
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+                    <button id="khoads-cal-prev-m" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 700;">◀</button>
+                    <div style="font-weight: 800; font-size: 15px; color: #0f172a;">
+                        ${monthNames[viewMonth]} — Năm ${viewYear}
+                    </div>
+                    <button id="khoads-cal-next-m" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 700;">▶</button>
+                </div>
+
+                <div style="font-size: 11px; color: #64748b; margin-bottom: 10px; text-align: center;">
+                    💡 <em>Nhấp vào 1 ngày hoặc chọn khoảng 2 ngày để lọc.</em>
+                </div>
+
+                <!-- Days Header -->
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; font-weight: 800; color: #475569; margin-bottom: 8px;">
+                    <div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div>CN</div>
+                </div>
+
+                <!-- Days Grid -->
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;">
+                    ${daysHtml}
+                </div>
+            </div>
+
+            <!-- Footer Summary & Actions -->
+            <div style="padding: 14px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div style="font-size: 12px; font-weight: 700; color: #1e293b; flex: 1;">
+                    ${selRangeText}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="khoads-cal-clear" style="padding: 7px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; font-size: 12px; font-weight: 700; cursor: pointer;">Xóa</button>
+                    <button id="khoads-cal-apply" style="padding: 7px 18px; border-radius: 8px; border: none; background: #4338ca; color: white; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 10px rgba(67,56,202,0.3);">Áp Dụng</button>
+                </div>
+            </div>
+        `;
+
+        bindCalendarEvents();
+    }
+
+    function bindCalendarEvents() {
+        popover.querySelector('#khoads-cal-close').addEventListener('click', () => overlay.remove());
+
+        popover.querySelector('#khoads-cal-prev-m').addEventListener('click', () => {
+            viewMonth--;
+            if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+            renderCalendarHTML();
+        });
+
+        popover.querySelector('#khoads-cal-next-m').addEventListener('click', () => {
+            viewMonth++;
+            if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+            renderCalendarHTML();
+        });
+
+        popover.querySelectorAll('.khoads-preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const preset = btn.dataset.preset;
+                const now = new Date();
+                const todayStr = _formatKhoAdsDateToYYYYMMDD(now);
+
+                if (preset === 'today') {
+                    tempStart = todayStr;
+                    tempEnd = todayStr;
+                } else if (preset === 'yesterday') {
+                    const y = new Date(now);
+                    y.setDate(y.getDate() - 1);
+                    const yStr = _formatKhoAdsDateToYYYYMMDD(y);
+                    tempStart = yStr;
+                    tempEnd = yStr;
+                } else if (preset === 'last7') {
+                    const l7 = new Date(now);
+                    l7.setDate(l7.getDate() - 6);
+                    tempStart = _formatKhoAdsDateToYYYYMMDD(l7);
+                    tempEnd = todayStr;
+                } else if (preset === 'last30') {
+                    const l30 = new Date(now);
+                    l30.setDate(l30.getDate() - 29);
+                    tempStart = _formatKhoAdsDateToYYYYMMDD(l30);
+                    tempEnd = todayStr;
+                } else if (preset === 'thisMonth') {
+                    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    tempStart = _formatKhoAdsDateToYYYYMMDD(first);
+                    tempEnd = _formatKhoAdsDateToYYYYMMDD(last);
+                }
+                renderCalendarHTML();
+            });
+        });
+
+        popover.querySelectorAll('.khoads-cal-day-cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+                const dateStr = cell.dataset.date;
+                if (!dateStr) return;
+
+                if (!tempStart || (tempStart && tempEnd)) {
+                    tempStart = dateStr;
+                    tempEnd = dateStr;
+                } else {
+                    if (dateStr < tempStart) {
+                        tempEnd = tempStart;
+                        tempStart = dateStr;
+                    } else {
+                        tempEnd = dateStr;
+                    }
+                }
+                renderCalendarHTML();
+            });
+        });
+
+        popover.querySelector('#khoads-cal-clear').addEventListener('click', () => {
+            tempStart = null;
+            tempEnd = null;
+            renderCalendarHTML();
+        });
+
+        popover.querySelector('#khoads-cal-apply').addEventListener('click', () => {
+            _khoAdsData.startDate = tempStart;
+            _khoAdsData.endDate = tempEnd;
+            updateKhoAdsDaterangeButtonText();
+            applyKhoAdsFilters();
+            overlay.remove();
+        });
+    }
+
+    renderCalendarHTML();
+    overlay.appendChild(popover);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
+function resetKhoAdsFilters() {
+    _khoAdsData.filterMode = 'month';
+    _khoAdsData.selectedMonth = 'all';
+    _khoAdsData.selectedYear = String(new Date().getFullYear());
+    _khoAdsData.selectedQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+    _khoAdsData.selectedQYear = String(new Date().getFullYear());
+    _khoAdsData.startDate = null;
+    _khoAdsData.endDate = null;
+    _khoAdsData.currentPage = 1;
+
+    const iptSearch = document.getElementById('iptSearchKhoAds');
+    if (iptSearch) iptSearch.value = '';
+
+    const modeSel = document.getElementById('khoAdsFilterModeSelect');
+    if (modeSel) modeSel.value = 'month';
+
+    const selLV = document.getElementById('selFilterKhoAdsLinhVuc');
+    if (selLV) selLV.value = '';
+
+    const selType = document.getElementById('selFilterKhoAdsMediaType');
+    if (selType) selType.value = '';
+
+    const selSort = document.getElementById('selFilterKhoAdsSort');
+    if (selSort) selSort.value = 'newest';
+
+    populateKhoAdsDateSelectors();
+    applyKhoAdsFilters();
 }
 
 function applyKhoAdsFilters() {
@@ -707,6 +1221,25 @@ function renderKhoAdsTasksGroupedView() {
         );
     }
 
+    if (selectedLinhVuc) {
+        tasks = tasks.filter(t => 
+            (t.ads_linh_vuc === selectedLinhVuc) ||
+            (t.items && t.items.some(i => i.linh_vuc === selectedLinhVuc))
+        );
+    }
+
+    if (selectedType) {
+        tasks = tasks.filter(t => 
+            t.items && t.items.some(i => i.media_type === selectedType)
+        );
+    }
+
+    tasks = tasks.filter(t => {
+        const taskMatch = _checkKhoAdsDateMatch(t.created_at);
+        const itemsMatch = t.items && t.items.some(i => _checkKhoAdsDateMatch(i.created_at));
+        return taskMatch || itemsMatch;
+    });
+
     if (countBadge) {
         countBadge.innerText = `Hiển thị ${tasks.length} công việc`;
     }
@@ -803,6 +1336,9 @@ function renderKhoAdsItemsGridCardsView() {
     if (selectedType) {
         filtered = filtered.filter(item => item.media_type === selectedType);
     }
+
+    // Date Filter
+    filtered = filtered.filter(item => _checkKhoAdsDateMatch(item.created_at));
 
     // Sort items
     if (sortVal === 'newest') {
