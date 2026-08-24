@@ -35,6 +35,7 @@ module.exports = async function (fastify, opts) {
         await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS account_type VARCHAR(20) DEFAULT 'main'`);
         await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS linh_vuc_id INT`);
         await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS linh_vuc_name VARCHAR(100)`);
+        await db.run(`ALTER TABLE ads_stats_accounts ADD COLUMN IF NOT EXISTS win_rate_threshold DECIMAL(8,2) DEFAULT 50`);
     } catch(e) { console.error('[ads_stats_accounts migration]', e.message); }
 
     // Bảng 2: ads_stats_daily — Thống kê hàng ngày theo campaign
@@ -224,6 +225,7 @@ module.exports = async function (fastify, opts) {
                 fb_dev_account_name, fb_dev_account_link, fb_dev_portal_link,
                 fb_access_token, fanpage_id, fanpage_name,
                 effectiveness_metric, effectiveness_threshold, ignore_no_msg_spend_threshold,
+                win_rate_threshold,
                 spend_min, spend_max, is_active
             } = req.body || {};
 
@@ -246,11 +248,12 @@ module.exports = async function (fastify, opts) {
                     effectiveness_metric = COALESCE($10, effectiveness_metric),
                     effectiveness_threshold = COALESCE($11, effectiveness_threshold),
                     ignore_no_msg_spend_threshold = COALESCE($12, ignore_no_msg_spend_threshold),
-                    spend_min = COALESCE($13, spend_min),
-                    spend_max = COALESCE($14, spend_max),
-                    is_active = COALESCE($15, is_active),
+                    win_rate_threshold = COALESCE($13, win_rate_threshold),
+                    spend_min = COALESCE($14, spend_min),
+                    spend_max = COALESCE($15, spend_max),
+                    is_active = COALESCE($16, is_active),
                     updated_at = NOW()
-                WHERE id = $16
+                WHERE id = $17
                 RETURNING *
             `, [
                 account_name?.trim() || null,
@@ -265,6 +268,7 @@ module.exports = async function (fastify, opts) {
                 effectiveness_metric || null,
                 effectiveness_threshold != null ? _cleanNumber(effectiveness_threshold, existing.effectiveness_threshold) : existing.effectiveness_threshold,
                 ignore_no_msg_spend_threshold != null ? _cleanNumber(ignore_no_msg_spend_threshold, existing.ignore_no_msg_spend_threshold || 70000) : existing.ignore_no_msg_spend_threshold || 70000,
+                win_rate_threshold != null ? _cleanNumber(win_rate_threshold, existing.win_rate_threshold || 50) : existing.win_rate_threshold || 50,
                 spend_min != null ? _cleanNumber(spend_min, existing.spend_min) : existing.spend_min,
                 spend_max != null ? _cleanNumber(spend_max, existing.spend_max) : existing.spend_max,
                 is_active != null ? is_active : null,

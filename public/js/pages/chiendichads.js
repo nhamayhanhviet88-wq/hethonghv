@@ -56,6 +56,7 @@ var _cdAdsState = window._cdAdsState || {
     filterQuarter: Math.ceil((new Date().getMonth() + 1) / 3),
     filterStartDate: '',
     filterEndDate: '',
+    winRateThreshold: 50,
     currentPage: 1,
     pageSize: 20,
     sortField: null,
@@ -293,7 +294,7 @@ async function renderChiendichadsPage(container) {
             </div>
 
             <!-- Stats Summary -->
-            <div id="cdAdsStatsSummary" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;"></div>
+            <div id="cdAdsStatsSummary" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;"></div>
 
             <!-- Main Table -->
             <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.04);">
@@ -453,17 +454,23 @@ function _cdAdsRenderStats() {
     const box = document.getElementById('cdAdsStatsSummary');
     if (!box) return;
     const all = _cdAdsState.campaigns;
-    const testing = all.filter(c => c.status === 'chay_test').length;
-    const win = all.filter(c => c.status === 'mau_win').length;
-    const lose = all.filter(c => c.status === 'mau_lose').length;
+    const winThreshold = _cdAdsState.winRateThreshold || 50;
+
+    const calcEffRate = (c) => {
+        const gt = Number(c.run_count_gt70k) || 0;
+        const eff = Number(c.total_effective_count) || 0;
+        return gt > 0 ? (eff / gt) * 100 : 0;
+    };
+
+    const win = all.filter(c => calcEffRate(c) >= winThreshold).length;
+    const lose = all.filter(c => calcEffRate(c) < winThreshold).length;
 
     const curStatus = _cdAdsState.filterStatus || 'all';
 
     const cards = [
         { key: 'all', label: 'Tổng Chiến Dịch', value: all.length, icon: '📊', bg: 'linear-gradient(135deg, #eef2ff, #e0e7ff)', activeBg: 'linear-gradient(135deg, #c7d2fe, #a5b4fc)', color: '#3730a3', borderColor: '#818cf8' },
-        { key: 'chay_test', label: 'Đang Chạy Test', value: testing, icon: '🔵', bg: 'linear-gradient(135deg, #eff6ff, #dbeafe)', activeBg: 'linear-gradient(135deg, #bfdbfe, #93c5fd)', color: '#1e40af', borderColor: '#60a5fa' },
-        { key: 'mau_win', label: 'Mẫu Win', value: win, icon: '✅', bg: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', activeBg: 'linear-gradient(135deg, #bbf7d0, #86efac)', color: '#166534', borderColor: '#4ade80' },
-        { key: 'mau_lose', label: 'Mẫu Lose', value: lose, icon: '❌', bg: 'linear-gradient(135deg, #fef2f2, #fee2e2)', activeBg: 'linear-gradient(135deg, #fecaca, #fca5a5)', color: '#991b1b', borderColor: '#f87171' }
+        { key: 'mau_win', label: `Mẫu Win ≥ ${winThreshold}%`, value: win, icon: '✅', bg: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', activeBg: 'linear-gradient(135deg, #bbf7d0, #86efac)', color: '#166534', borderColor: '#4ade80' },
+        { key: 'mau_lose', label: `Mẫu Lose < ${winThreshold}%`, value: lose, icon: '❌', bg: 'linear-gradient(135deg, #fef2f2, #fee2e2)', activeBg: 'linear-gradient(135deg, #fecaca, #fca5a5)', color: '#991b1b', borderColor: '#f87171' }
     ];
 
     box.innerHTML = cards.map(c => {
@@ -507,8 +514,18 @@ function _cdAdsRenderTable() {
 
     // Client-side status filter (from Stat Cards)
     const statusFilter = _cdAdsState.filterStatus || 'all';
-    if (statusFilter !== 'all') {
-        filtered = filtered.filter(c => c.status === statusFilter);
+    const winThreshold = _cdAdsState.winRateThreshold || 50;
+
+    const calcRate = (c) => {
+        const gt = Number(c.run_count_gt70k) || 0;
+        const eff = Number(c.total_effective_count) || 0;
+        return gt > 0 ? (eff / gt) * 100 : 0;
+    };
+
+    if (statusFilter === 'mau_win') {
+        filtered = filtered.filter(c => calcRate(c) >= winThreshold);
+    } else if (statusFilter === 'mau_lose') {
+        filtered = filtered.filter(c => calcRate(c) < winThreshold);
     }
 
     // Client-side user filter
@@ -684,8 +701,8 @@ function _cdAdsRenderTable() {
                     <th onclick="_cdAdsToggleSort('avg_cpc')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo CPC">CPC ${_cdAdsSortIcon('avg_cpc')}</th>
                     <th onclick="_cdAdsToggleSort('avg_ctr')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo CTR">CTR ${_cdAdsSortIcon('avg_ctr')}</th>
                     <th onclick="_cdAdsToggleSort('avg_cpm')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo CPM">CPM ${_cdAdsSortIcon('avg_cpm')}</th>
-                    <th onclick="_cdAdsToggleSort('total_run_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo SL Chạy">SL CHẠY ${_cdAdsSortIcon('total_run_count')}</th>
-                    <th onclick="_cdAdsToggleSort('run_count_gt70k')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo SL Chạy >70K">SL CHẠY >70K ${_cdAdsSortIcon('run_count_gt70k')}</th>
+                    <th onclick="_cdAdsToggleSort('total_run_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Số lần quảng cáo chạy mất tiền, bao gồm cả những lần chạy vài nghìn, vài trăm đồng.">SL CHẠY TỔNG ${_cdAdsSortIcon('total_run_count')}</th>
+                    <th onclick="_cdAdsToggleSort('run_count_gt70k')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Số lần chạy thực tế đạt ngưỡng chi tiêu (loại bỏ các ngân sách chạy dở vài nghìn, vài trăm đồng không có tin nhắn).">SL CHẠY THỰC ${_cdAdsSortIcon('run_count_gt70k')}</th>
                     <th onclick="_cdAdsToggleSort('total_effective_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Số Lần Hiệu Quả">SL HIỆU QUẢ ${_cdAdsSortIcon('total_effective_count')}</th>
                     <th onclick="_cdAdsToggleSort('eff_rate')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Tỷ lệ % Hiệu Quả = (SL Hiệu Quả / SL Chạy >70K) * 100%">% HIỆU QUẢ ${_cdAdsSortIcon('eff_rate')}</th>
                     <th onclick="_cdAdsToggleSort('created_at')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Người Tạo / Ngày">NGƯỜI TẠO ${_cdAdsSortIcon('created_at')}</th>
@@ -1535,6 +1552,19 @@ async function _cdAdsOpenPerfModal(accIdSelect = null) {
                             💡 Các ngày chạy dở có Chi tiêu < số tiền này VÀ không ra tin nhắn sẽ không bị tính là 1 lần chạy.
                         </div>
                     </div>
+
+                    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                        <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
+                            🏆 Ngưỡng % Tỷ Lệ Mẫu Win (%)
+                        </label>
+                        <input id="cd-perf-f-win-rate-thresh" type="number" min="0" max="100" step="1"
+                            value="${acc.win_rate_threshold != null ? acc.win_rate_threshold : (_cdAdsState.winRateThreshold || 50)}"
+                            placeholder="50"
+                            ${isReadonly ? 'disabled style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;cursor:not-allowed;outline:none;box-sizing:border-box;"' : 'style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #cbd5e1;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;"'}>
+                        <div style="font-size: 11.5px; color: #64748b; margin-top: 5px;">
+                            💡 Chiến dịch có % HIỆU QUẢ ≥ số này sẽ được xếp vào Mẫu Win, ngược lại là Mẫu Lose.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1589,6 +1619,7 @@ async function _cdAdsOpenPerfModal(accIdSelect = null) {
                 const metric = overlay.querySelector('#cd-perf-f-metric').value;
                 const threshold = cleanNum(overlay.querySelector('#cd-perf-f-threshold').value, 75000);
                 const ignoreThresh = cleanNum(overlay.querySelector('#cd-perf-f-ignore-no-msg-thresh').value, 70000);
+                const winThresh = cleanNum(overlay.querySelector('#cd-perf-f-win-rate-thresh')?.value, 50);
 
                 saveBtn.disabled = true;
                 saveBtn.textContent = '⏳ Đang lưu...';
@@ -1604,11 +1635,14 @@ async function _cdAdsOpenPerfModal(accIdSelect = null) {
                         body: JSON.stringify({
                             effectiveness_metric: metric,
                             effectiveness_threshold: threshold,
-                            ignore_no_msg_spend_threshold: ignoreThresh
+                            ignore_no_msg_spend_threshold: ignoreThresh,
+                            win_rate_threshold: winThresh
                         })
                     });
                     const data = await res.json();
                     if (!data.ok) throw new Error(data.error);
+
+                    _cdAdsState.winRateThreshold = winThresh;
 
                     overlay.remove();
                     alert('✅ Đã lưu cài đặt hiệu quả thành công!');
