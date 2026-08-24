@@ -5147,7 +5147,12 @@ async function _bcvSubmitTask(taskId) {
             return;
         }
     } else {
-        if (progressVal <= 0) progressVal = 100;
+        // Test Ads Task: bắt buộc phải hoàn thành 100% tiến độ và test toàn bộ số lượng camp mới cho nộp
+        var reqCount = Number(task.target_quantity || 1);
+        if (progressVal < 100) {
+            alert('⚠️ Công việc chưa thể nộp!\n\nBạn bắt buộc phải hoàn thành 100% tiến độ và hoàn tất toàn bộ số lượng Chiến Dịch Test Ads (' + reqCount + ' Camp Test) mới được phép nộp công việc.');
+            return;
+        }
     }
 
     var submitBtn = document.getElementById('bcvSubmitTaskBtn');
