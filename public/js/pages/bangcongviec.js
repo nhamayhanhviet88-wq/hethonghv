@@ -2990,10 +2990,13 @@ async function _bcvShowDetail(taskId) {
             <!-- Khối 1: Tiến Độ Hoàn Thành -->
             <div class="bcv-report-area">
                 <div class="bcv-form-group" style="margin-bottom:14px">
-                    <label style="font-weight:700;color:#0f172a">📊 TIẾN ĐỘ HOÀN THÀNH</label>
+                    <label style="font-weight:700;color:#0f172a">
+                        📊 TIẾN ĐỘ HOÀN THÀNH
+                        ${isTestAdsTask ? '<span style="font-size:10.5px;font-weight:700;color:#6b21a8;margin-left:6px;">🔒 (Tự động tính theo Camp Test - Khóa chỉnh tay)</span>' : ''}
+                    </label>
                     <div class="bcv-progress-single-wrap">
-                        <input type="range" class="bcv-progress-single-slider" id="bcvDetailProgress" min="0" max="100" value="${task.progress || 0}" ${!canEditReport ? 'disabled style="cursor:not-allowed"' : ''} oninput="_bcvUpdateProgressDisplay(this.value)">
-                        <div class="bcv-progress-badge" id="bcvProgressDisplay" style="background:${(task.progress||0) < 30 ? '#ef4444' : (task.progress||0) < 70 ? '#f59e0b' : '#22c55e'}">${task.progress || 0}%</div>
+                        <input type="range" class="bcv-progress-single-slider" id="bcvDetailProgress" min="0" max="100" value="${isTestAdsTask ? (typeof progressPercent !== 'undefined' ? progressPercent : (task.progress || 0)) : (task.progress || 0)}" ${(!canEditReport || isTestAdsTask) ? 'disabled style="cursor:not-allowed;opacity:0.85;pointer-events:none;"' : ''} oninput="_bcvUpdateProgressDisplay(this.value)">
+                        <div class="bcv-progress-badge" id="bcvProgressDisplay" style="background:${((isTestAdsTask && typeof progressPercent !== 'undefined' ? progressPercent : (task.progress||0)) < 30) ? '#ef4444' : ((isTestAdsTask && typeof progressPercent !== 'undefined' ? progressPercent : (task.progress||0)) < 70) ? '#f59e0b' : '#22c55e'}">${isTestAdsTask && typeof progressPercent !== 'undefined' ? progressPercent : (task.progress || 0)}%</div>
                     </div>
                 </div>
 
