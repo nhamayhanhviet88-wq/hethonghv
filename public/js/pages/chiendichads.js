@@ -460,7 +460,6 @@ function _cdAdsRenderTable() {
             ` : `
                 <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#94a3b8;text-align:center;">-</td>
             `}
-            <td style="padding:10px 8px;text-align:center;">${statusBadge(c.status)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(c.total_spend)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(c.total_messages)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:${Number(c.avg_cpa) > 0 && Number(c.avg_cpa) <= 75000 ? '#16a34a' : '#334155'};text-align:right;">${fmtMoney(c.avg_cpa)}</td>
@@ -491,7 +490,6 @@ function _cdAdsRenderTable() {
                     <th onclick="_cdAdsToggleSort('channel_name')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Kênh / Tài Khoản">KÊNH ${_cdAdsSortIcon('channel_name')}</th>
                     <th onclick="_cdAdsToggleSort('post_id')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Post ID">POST ID ${_cdAdsSortIcon('post_id')}</th>
                     <th onclick="_cdAdsToggleSort('camp_id')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo ID Camp">ID CAMP ${_cdAdsSortIcon('camp_id')}</th>
-                    <th onclick="_cdAdsToggleSort('status')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Trạng Thái">TRẠNG THÁI ${_cdAdsSortIcon('status')}</th>
                     <th onclick="_cdAdsToggleSort('total_spend')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Ngân Sách">NGÂN SÁCH ${_cdAdsSortIcon('total_spend')}</th>
                     <th onclick="_cdAdsToggleSort('total_messages')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Tin Nhắn">TIN NHẮN ${_cdAdsSortIcon('total_messages')}</th>
                     <th onclick="_cdAdsToggleSort('avg_cpa')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo CPA">CPA ${_cdAdsSortIcon('avg_cpa')}</th>
@@ -500,7 +498,7 @@ function _cdAdsRenderTable() {
                     <th onclick="_cdAdsToggleSort('avg_cpm')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo CPM">CPM ${_cdAdsSortIcon('avg_cpm')}</th>
                     <th onclick="_cdAdsToggleSort('total_run_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Số Lần Chạy">SỐ LẦN CHẠY ${_cdAdsSortIcon('total_run_count')}</th>
                     <th onclick="_cdAdsToggleSort('run_count_gt70k')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo SL Chạy >70K">SL CHẠY >70K ${_cdAdsSortIcon('run_count_gt70k')}</th>
-                    <th onclick="_cdAdsToggleSort('total_effective_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Hiệu Quả">HIỆU QUẢ ${_cdAdsSortIcon('total_effective_count')}</th>
+                    <th onclick="_cdAdsToggleSort('total_effective_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Số Lần Hiệu Quả">SL HIỆU QUẢ ${_cdAdsSortIcon('total_effective_count')}</th>
                     <th onclick="_cdAdsToggleSort('created_at')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Người Tạo / Ngày">NGƯỜI TẠO ${_cdAdsSortIcon('created_at')}</th>
                 </tr>
             </thead>
