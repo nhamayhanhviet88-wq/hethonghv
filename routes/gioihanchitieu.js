@@ -79,49 +79,45 @@ module.exports = async function (fastify, opts) {
 
     // ========== HELPER: Kiểm tra quyền truy cập tài khoản ==========
     async function checkAccountAccess(userId, userRole, accountId) {
-        const isManager = ['giam_doc', 'admin', 'ban_giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(String(userRole || '').toLowerCase());
-        if (isManager) return true;
+        const isSuperAdmin = ['giam_doc', 'admin', 'ban_giam_doc', 'quan_ly_cap_cao'].includes(String(userRole || '').toLowerCase());
+        if (isSuperAdmin) return true;
 
         const [currentUser, account] = await Promise.all([
-            db.get(`SELECT full_name, username FROM users WHERE id = $1`, [userId]),
+            db.get(`SELECT full_name, username, role FROM users WHERE id = $1`, [userId]),
             db.get(`SELECT assigned_staff_name FROM ads_stats_accounts WHERE id = $1`, [accountId])
         ]);
         if (!account) return false;
         const assignedName = (account.assigned_staff_name || '').trim().toLowerCase();
-        if (!assignedName) return true;
+        if (!assignedName) return false; // Chưa phân công NV phụ trách thì NV thường / TP / QL không xem được
 
         const myName = (currentUser?.full_name || '').trim().toLowerCase();
         const myUsername = (currentUser?.username || '').trim().toLowerCase();
 
         if (myName && (assignedName === myName || assignedName.includes(myName))) return true;
         if (myUsername && (assignedName === myUsername || assignedName.includes(myUsername))) return true;
-        return true;
+        return false;
     }
 
     // ========== HELPER: Lấy danh sách tài khoản theo quyền ==========
     async function getAccessibleAccounts(userId, userRole) {
         const allAccounts = await db.all(`SELECT id, account_name, fb_ad_account_id, is_active, assigned_staff_name, connection_status, spend_limit_enabled, auto_reenable_at, daily_enable_paused_until, daily_enable_pause_reason, fb_ad_account_link FROM ads_stats_accounts ORDER BY id`);
         
-        const isManager = ['giam_doc', 'admin', 'ban_giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(String(userRole || '').toLowerCase());
-        if (isManager) {
+        const isSuperAdmin = ['giam_doc', 'admin', 'ban_giam_doc', 'quan_ly_cap_cao'].includes(String(userRole || '').toLowerCase());
+        if (isSuperAdmin) {
             return allAccounts.map(a => ({ ...a, _has_access: true }));
         }
         
-        const currentUser = await db.get(`SELECT full_name, username FROM users WHERE id = $1`, [userId]);
+        const currentUser = await db.get(`SELECT full_name, username, role FROM users WHERE id = $1`, [userId]);
         const myName = (currentUser?.full_name || '').trim().toLowerCase();
         const myUsername = (currentUser?.username || '').trim().toLowerCase();
         
         const filtered = allAccounts.filter(a => {
             const assigned = (a.assigned_staff_name || '').trim().toLowerCase();
-            if (!assigned) return true;
+            if (!assigned) return false; // Chưa phân công -> chỉ GD/Admin xem được
             if (myName && (assigned === myName || assigned.includes(myName))) return true;
             if (myUsername && (assigned === myUsername || assigned.includes(myUsername))) return true;
             return false;
         });
-
-        if (filtered.length === 0) {
-            return allAccounts.map(a => ({ ...a, _has_access: true }));
-        }
 
         return filtered.map(a => ({ ...a, _has_access: true }));
     }
