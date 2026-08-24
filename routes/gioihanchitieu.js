@@ -704,6 +704,12 @@ module.exports = async function (fastify, opts) {
         `);
     } catch(e) { console.error('[ads_scheduled_campaign_enables migration]', e.message); }
 
+    // Migration: add schedule_type and one_time_date columns
+    try {
+        await db.run(`ALTER TABLE ads_scheduled_campaign_enables ADD COLUMN IF NOT EXISTS schedule_type VARCHAR(20) DEFAULT 'recurring'`);
+        await db.run(`ALTER TABLE ads_scheduled_campaign_enables ADD COLUMN IF NOT EXISTS one_time_date DATE`);
+    } catch(e) { console.error('[ads_scheduled_campaign_enables schedule_type migration]', e.message); }
+
     try {
         await db.run(`
             CREATE TABLE IF NOT EXISTS ads_scheduled_campaign_enable_logs (
@@ -2115,7 +2121,7 @@ module.exports = async function (fastify, opts) {
     // ========== API 4: POST /api/hengiobatcamp/schedules — Tạo/Sửa lịch hẹn ==========
     fastify.post('/api/hengiobatcamp/schedules', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            const { id, account_id, campaign_id, campaign_name, enable_time, days, is_active } = req.body;
+            const { id, account_id, campaign_id, campaign_name, enable_time, days, is_active, schedule_type, one_time_date } = req.body;
             const accId = parseInt(account_id);
             if (!accId || !campaign_id || !enable_time) {
                 return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc (account_id, campaign_id, enable_time)' });
@@ -2124,23 +2130,29 @@ module.exports = async function (fastify, opts) {
             const hasAccess = await checkAccountAccess(req.user.id, req.user.role, accId);
             if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền' });
 
-            const daysStr = Array.isArray(days) ? days.join(',') : (days || '1,2,3,4,5,6,0');
+            const schedType = schedule_type === 'one_time' ? 'one_time' : 'recurring';
+            const daysStr = schedType === 'one_time' ? '' : (Array.isArray(days) ? days.join(',') : (days || '1,2,3,4,5,6,0'));
+            const otDate = schedType === 'one_time' ? (one_time_date || null) : null;
+
+            if (schedType === 'one_time' && !otDate) {
+                return reply.code(400).send({ error: 'Vui lòng chọn ngày bật cho lịch hẹn 1 lần' });
+            }
 
             if (id) {
                 // Sửa
                 await db.run(`
                     UPDATE ads_scheduled_campaign_enables
-                    SET campaign_id = $1, campaign_name = $2, enable_time = $3, days = $4, is_active = $5, updated_at = NOW()
-                    WHERE id = $6 AND account_id = $7
-                `, [campaign_id, campaign_name || campaign_id, enable_time, daysStr, is_active !== false, id, accId]);
+                    SET campaign_id = $1, campaign_name = $2, enable_time = $3, days = $4, is_active = $5, schedule_type = $6, one_time_date = $7, updated_at = NOW()
+                    WHERE id = $8 AND account_id = $9
+                `, [campaign_id, campaign_name || campaign_id, enable_time, daysStr, is_active !== false, schedType, otDate, id, accId]);
                 return { success: true, message: 'Đã cập nhật lịch hẹn giờ thành công' };
             } else {
                 // Tạo mới
                 await db.run(`
-                    INSERT INTO ads_scheduled_campaign_enables (account_id, campaign_id, campaign_name, enable_time, days, is_active, created_by)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                `, [accId, campaign_id, campaign_name || campaign_id, enable_time, daysStr, is_active !== false, req.user.id]);
-                return { success: true, message: 'Đã tạo lịch hẹn giờ bật chiến dịch thành công' };
+                    INSERT INTO ads_scheduled_campaign_enables (account_id, campaign_id, campaign_name, enable_time, days, is_active, created_by, schedule_type, one_time_date)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                `, [accId, campaign_id, campaign_name || campaign_id, enable_time, daysStr, is_active !== false, req.user.id, schedType, otDate]);
+                return { success: true, message: schedType === 'one_time' ? `Đã tạo lịch hẹn BẬT 1 LẦN vào ${otDate} lúc ${enable_time}` : 'Đã tạo lịch hẹn giờ bật chiến dịch thành công' };
             }
         } catch (e) {
             console.error('[hengiobatcamp schedules POST]', e);
@@ -2284,9 +2296,14 @@ module.exports = async function (fastify, opts) {
             const eData = await enableRes.json();
 
             if (eData.success || eData.id) {
-                const note = isManual ? 'Kích hoạt BẬT thủ công thành công' : 'Tự động BẬT chiến dịch thành công qua hẹn giờ';
+                const note = isManual ? 'Kích hoạt BẬT thủ công thành công' : (sched.schedule_type === 'one_time' ? `Tự động BẬT 1 LẦN thành công (ngày ${sched.one_time_date || 'N/A'})` : 'Tự động BẬT chiến dịch thành công qua hẹn giờ');
                 console.log(`[ScheduledEnable] ✅ BẬT THÀNH CÔNG campaign ${sched.campaign_name} (${campaignId})`);
                 await db.run(`UPDATE ads_scheduled_campaign_enables SET last_executed_at = NOW() WHERE id = $1`, [sched.id]);
+                // Nếu là lịch hẹn 1 lần → tự động tắt sau khi chạy xong
+                if (sched.schedule_type === 'one_time' && !isManual) {
+                    await db.run(`UPDATE ads_scheduled_campaign_enables SET is_active = false, updated_at = NOW() WHERE id = $1`, [sched.id]);
+                    console.log(`[ScheduledEnable] 🔒 Lịch hẹn 1 lần #${sched.id} đã tự động TẮT sau khi chạy xong`);
+                }
                 await db.run(`
                     INSERT INTO ads_scheduled_campaign_enable_logs (schedule_id, account_id, account_name, campaign_id, campaign_name, status, reason)
                     VALUES ($1, $2, $3, $4, $5, 'success', $6)
@@ -2324,12 +2341,22 @@ module.exports = async function (fastify, opts) {
                 `);
 
                 for (const sched of activeSchedules) {
-                    if (!sched.days || !sched.enable_time) continue;
-                    const dayList = sched.days.split(',').map(d => d.trim());
-                    if (!dayList.includes(currentDayOfWeek)) continue;
-
+                    if (!sched.enable_time) continue;
                     const schedTimeShort = sched.enable_time.slice(0, 5); // "HH:MM"
                     if (schedTimeShort !== currentHourMin) continue;
+
+                    // Kiểm tra loại lịch hẹn
+                    if (sched.schedule_type === 'one_time') {
+                        // Lịch hẹn 1 lần: so sánh ngày cụ thể
+                        if (!sched.one_time_date) continue;
+                        const vnDateStr2 = vnDate.getFullYear() + '-' + String(vnDate.getMonth() + 1).padStart(2, '0') + '-' + String(vnDate.getDate()).padStart(2, '0');
+                        if (sched.one_time_date.slice(0, 10) !== vnDateStr2) continue;
+                    } else {
+                        // Lịch hẹn lặp lại: so sánh ngày trong tuần
+                        if (!sched.days) continue;
+                        const dayList = sched.days.split(',').map(d => d.trim());
+                        if (!dayList.includes(currentDayOfWeek)) continue;
+                    }
 
                     // Tránh chạy lại 2 lần trong cùng 1 phút
                     if (sched.last_executed_at) {

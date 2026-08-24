@@ -392,8 +392,21 @@
                             </div>
                         </div>
 
-                        <!-- NGÀY ÁP DỤNG -->
-                        <div class="hgbc-form-group" style="margin-top: 14px;">
+                        <!-- CHẾ ĐỘ HẸN GIỜ: Lặp lại / 1 Lần -->
+                        <div class="hgbc-form-group" style="margin-top: 16px;">
+                            <label>Chế Độ Hẹn Giờ *</label>
+                            <div style="display: flex; gap: 6px; margin-top: 4px;">
+                                <button type="button" id="hgbc-mode-recurring" onclick="window._toggleScheduleMode('recurring')" class="hgbc-day-btn selected" style="padding: 8px 16px; font-size: 13px;">
+                                    🔄 Lặp Lại Hàng Tuần
+                                </button>
+                                <button type="button" id="hgbc-mode-one_time" onclick="window._toggleScheduleMode('one_time')" class="hgbc-day-btn" style="padding: 8px 16px; font-size: 13px;">
+                                    1️⃣ Chỉ Bật 1 Lần
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- NGÀY ÁP DỤNG (Lặp lại) -->
+                        <div id="hgbc-recurring-section" class="hgbc-form-group" style="margin-top: 14px;">
                             <label>Ngày Áp Dụng *</label>
                             <div id="hgbc-days-selector" class="hgbc-days-group">
                                 <span class="hgbc-day-btn selected" data-day="1" onclick="window._toggleDayBtn(this)">Thứ 2</span>
@@ -404,6 +417,13 @@
                                 <span class="hgbc-day-btn selected" data-day="6" onclick="window._toggleDayBtn(this)">Thứ 7</span>
                                 <span class="hgbc-day-btn selected" data-day="0" onclick="window._toggleDayBtn(this)">Chủ Nhật</span>
                             </div>
+                        </div>
+
+                        <!-- NGÀY BẬT CỤ THỂ (1 Lần) -->
+                        <div id="hgbc-onetime-section" class="hgbc-form-group" style="margin-top: 14px; display: none;">
+                            <label>Ngày Bật Cụ Thể *</label>
+                            <input type="date" id="hgbc-form-onetime-date" class="hgbc-input" style="max-width: 260px;" />
+                            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">💡 Chiến dịch sẽ được BẬT đúng 1 lần vào ngày & giờ đã chọn, sau đó lịch hẹn tự động TẮT.</div>
                         </div>
 
                         <div style="margin-top: 18px;">
@@ -660,6 +680,35 @@
         btn.classList.toggle('selected');
     };
 
+    // Helper: Toggle schedule mode (recurring vs one_time)
+    let _scheduleMode = 'recurring';
+    window._toggleScheduleMode = function(mode) {
+        _scheduleMode = mode;
+        const recurringBtn = document.getElementById('hgbc-mode-recurring');
+        const oneTimeBtn = document.getElementById('hgbc-mode-one_time');
+        const recurringSection = document.getElementById('hgbc-recurring-section');
+        const oneTimeSection = document.getElementById('hgbc-onetime-section');
+
+        if (mode === 'one_time') {
+            recurringBtn.classList.remove('selected');
+            oneTimeBtn.classList.add('selected');
+            if (recurringSection) recurringSection.style.display = 'none';
+            if (oneTimeSection) oneTimeSection.style.display = '';
+            // Set default date to today
+            const dateInput = document.getElementById('hgbc-form-onetime-date');
+            if (dateInput && !dateInput.value) {
+                const now = new Date();
+                const vnStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
+                dateInput.value = vnStr;
+            }
+        } else {
+            recurringBtn.classList.add('selected');
+            oneTimeBtn.classList.remove('selected');
+            if (recurringSection) recurringSection.style.display = '';
+            if (oneTimeSection) oneTimeSection.style.display = 'none';
+        }
+    };
+
     // Helper: Save Schedule
     window._handleSaveHgbcSchedule = async function(e) {
         e.preventDefault();
@@ -671,18 +720,35 @@
         const campName = selectedOption ? decodeURIComponent(selectedOption.getAttribute('data-name') || campId) : campId;
         const enableTime = document.getElementById('hgbc-form-time')?.value;
 
-        // Days
-        const dayBtns = document.querySelectorAll('#hgbc-days-selector .hgbc-day-btn.selected');
-        const days = Array.from(dayBtns).map(b => b.getAttribute('data-day'));
-
         if (!accId || !campId || !enableTime) {
             alert('Vui lòng điền đầy đủ Tài Khoản, Chiến Dịch và Khung Giờ Bật!');
             return;
         }
 
-        if (days.length === 0) {
-            alert('Vui lòng chọn ít nhất 1 Ngày áp dụng!');
-            return;
+        const payload = {
+            account_id: accId,
+            campaign_id: campId,
+            campaign_name: campName,
+            enable_time: enableTime,
+            schedule_type: _scheduleMode
+        };
+
+        if (_scheduleMode === 'one_time') {
+            const otDate = document.getElementById('hgbc-form-onetime-date')?.value;
+            if (!otDate) {
+                alert('Vui lòng chọn Ngày Bật Cụ Thể cho lịch hẹn 1 lần!');
+                return;
+            }
+            payload.one_time_date = otDate;
+            payload.days = [];
+        } else {
+            const dayBtns = document.querySelectorAll('#hgbc-days-selector .hgbc-day-btn.selected');
+            const days = Array.from(dayBtns).map(b => b.getAttribute('data-day'));
+            if (days.length === 0) {
+                alert('Vui lòng chọn ít nhất 1 Ngày áp dụng!');
+                return;
+            }
+            payload.days = days;
         }
 
         try {
@@ -690,13 +756,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({
-                    account_id: accId,
-                    campaign_id: campId,
-                    campaign_name: campName,
-                    enable_time: enableTime,
-                    days: days
-                })
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (data.success) {
@@ -733,14 +793,21 @@
 
             let html = '';
             _schedules.forEach((s, idx) => {
-                const daysList = (s.days || '').split(',').map(d => {
-                    const label = dayNames[d.trim()] || d;
-                    const isWeekend = d.trim() === '0';
-                    const bg = isWeekend ? '#fef3c7' : '#e0f2fe';
-                    const color = isWeekend ? '#b45309' : '#0369a1';
-                    const border = isWeekend ? '#fde68a' : '#bae6fd';
-                    return `<span style="display:inline-block; padding:2px 7px; border-radius:6px; font-size:11px; font-weight:700; background:${bg}; color:${color}; border:1px solid ${border};">${label}</span>`;
-                }).join(' ');
+                const isOneTime = s.schedule_type === 'one_time';
+                let daysList = '';
+                if (isOneTime) {
+                    const formattedDate = s.one_time_date ? String(s.one_time_date).slice(0, 10) : 'N/A';
+                    daysList = `<span style="display:inline-block; padding:3px 10px; border-radius:8px; font-size:11.5px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a;">1️⃣ 1 Lần (${formattedDate})</span>`;
+                } else {
+                    daysList = (s.days || '').split(',').filter(Boolean).map(d => {
+                        const label = dayNames[d.trim()] || d;
+                        const isWeekend = d.trim() === '0';
+                        const bg = isWeekend ? '#fef3c7' : '#e0f2fe';
+                        const color = isWeekend ? '#b45309' : '#0369a1';
+                        const border = isWeekend ? '#fde68a' : '#bae6fd';
+                        return `<span style="display:inline-block; padding:2px 7px; border-radius:6px; font-size:11px; font-weight:700; background:${bg}; color:${color}; border:1px solid ${border};">${label}</span>`;
+                    }).join(' ');
+                }
                 const lastExec = s.last_executed_at ? new Date(s.last_executed_at).toLocaleString('vi-VN') : '—';
                 const isActive = s.is_active !== false;
 
