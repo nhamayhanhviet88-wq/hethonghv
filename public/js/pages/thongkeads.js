@@ -893,8 +893,8 @@ window.renderThongkeadsPage = function(container) {
                     <th onclick="window._tkaSortBy('cpc')" style="padding: 12px 10px; text-align: right; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="CPC (Chi phí trên mỗi lượt click vào liên kết)">CPC ${_getSortIcon('cpc')}</th>
                     <th onclick="window._tkaSortBy('ctr')" style="padding: 12px 10px; text-align: right; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="CTR (Tỷ lệ click vào liên kết)">CTR ${_getSortIcon('ctr')}</th>
                     <th onclick="window._tkaSortBy('cpm')" style="padding: 12px 10px; text-align: right; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="CPM (Chi phí trên mỗi 1.000 lượt hiển thị)">CPM ${_getSortIcon('cpm')}</th>
-                    <th onclick="window._tkaSortBy('run_count')" style="padding: 12px 10px; text-align: center; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Số lần chạy">SL CHẠY ${_getSortIcon('run_count')}</th>
-                    <th onclick="window._tkaSortBy('is_effective')" style="padding: 12px 10px; text-align: center; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Số hiệu quả">SL HIỆU QUẢ &lt;${threshK} ${_getSortIcon('is_effective')}</th>
+                    <th onclick="window._tkaSortBy('run_count')" style="padding: 12px 10px; text-align: center; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số lần quảng cáo chạy mất tiền,&#10;bao gồm cả những lần chạy vài nghìn,&#10;vài trăm đồng.">SL CHẠY TỔNG ${_getSortIcon('run_count')}</th>
+                    <th onclick="window._tkaSortBy('is_effective')" style="padding: 12px 10px; text-align: center; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số lần quảng cáo được đánh giá là đạt&#10;hiệu quả theo tiêu chí CPA.">SL HIỆU QUẢ ${_getSortIcon('is_effective')}</th>
                 </tr>
             </thead>
         `;
@@ -1060,9 +1060,9 @@ window.renderThongkeadsPage = function(container) {
                     <th onclick="window._tkaCampSortBy('avg_cpc')" style="padding: 10px 8px; text-align: right; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="CPC (Chi phí trên mỗi lượt click vào liên kết)">CPC ${_getCampSortIcon('avg_cpc')}</th>
                     <th onclick="window._tkaCampSortBy('avg_ctr')" style="padding: 10px 8px; text-align: right; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="CTR (Tỷ lệ click vào liên kết)">CTR ${_getCampSortIcon('avg_ctr')}</th>
                     <th onclick="window._tkaCampSortBy('avg_cpm')" style="padding: 10px 8px; text-align: right; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="CPM (Chi phí trên mỗi 1.000 lượt hiển thị)">CPM ${_getCampSortIcon('avg_cpm')}</th>
-                    <th onclick="window._tkaCampSortBy('total_run_count')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Số lần chạy">SL CHẠY ${_getCampSortIcon('total_run_count')}</th>
-                    <th onclick="window._tkaCampSortBy('filtered_run_count')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Số lần chạy hợp lệ (Đã loại trừ các ngày chạy dở < ${ignoreThreshLabel} không có tin nhắn)">SL CHẠY >${ignoreThreshK} ${_getCampSortIcon('filtered_run_count')}</th>
-                    <th onclick="window._tkaCampSortBy('total_effective_count')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Số lần hiệu quả">SL HIỆU QUẢ &lt;${threshK} ${_getCampSortIcon('total_effective_count')}</th>
+                    <th onclick="window._tkaCampSortBy('total_run_count')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số lần quảng cáo chạy mất tiền,&#10;bao gồm cả những lần chạy vài nghìn,&#10;vài trăm đồng.">SL CHẠY TỔNG ${_getCampSortIcon('total_run_count')}</th>
+                    <th onclick="window._tkaCampSortBy('filtered_run_count')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số lần chạy thực tế đạt ngưỡng chi tiêu&#10;(loại bỏ các ngân sách chạy dở vài nghìn,&#10;vài trăm đồng không có tin nhắn).">SL CHẠY THỰC ${_getCampSortIcon('filtered_run_count')}</th>
+                    <th onclick="window._tkaCampSortBy('total_effective_count')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số lần quảng cáo được đánh giá là đạt&#10;hiệu quả theo tiêu chí CPA.">SL HIỆU QUẢ ${_getCampSortIcon('total_effective_count')}</th>
                 </tr>
             </thead>
         `;
@@ -2255,4 +2255,75 @@ window.renderThongkeadsPage = function(container) {
 };
 
 window.renderThongKeAdsPage = window.renderThongkeadsPage;
+
+function _tkaSetupGlobalTooltip() {
+    if (window._cdAdsTooltipInitialized) return;
+    window._cdAdsTooltipInitialized = true;
+
+    let tip = document.getElementById('cd-global-tooltip');
+    if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'cd-global-tooltip';
+        tip.style.cssText = `
+            position: fixed;
+            background: #0f172a;
+            color: #ffffff;
+            padding: 9px 13px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.45;
+            white-space: pre-line;
+            width: max-content;
+            max-width: 260px;
+            text-align: left;
+            pointer-events: none;
+            z-index: 999999;
+            box-shadow: 0 12px 28px -5px rgba(0,0,0,0.5), 0 4px 10px -2px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            display: none;
+        `;
+        document.body.appendChild(tip);
+    }
+
+    document.addEventListener('mouseover', (e) => {
+        const target = e.target.closest('[data-tooltip]');
+        if (!target) return;
+        const text = target.getAttribute('data-tooltip');
+        if (!text) return;
+
+        tip.innerText = text;
+        tip.style.display = 'block';
+
+        const rect = target.getBoundingClientRect();
+        const tipRect = tip.getBoundingClientRect();
+
+        let top = rect.top - tipRect.height - 8;
+        let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+
+        if (top < 10) top = rect.bottom + 8;
+        if (left < 10) left = 10;
+        if (left + tipRect.width > window.innerWidth - 10) left = window.innerWidth - tipRect.width - 10;
+
+        tip.style.top = `${top}px`;
+        tip.style.left = `${left}px`;
+        requestAnimationFrame(() => {
+            tip.style.opacity = '1';
+            tip.style.transform = 'translateY(0)';
+        });
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        const target = e.target.closest('[data-tooltip]');
+        if (!target) return;
+        tip.style.opacity = '0';
+        tip.style.transform = 'translateY(4px)';
+    });
+}
+
+_tkaSetupGlobalTooltip();
 
