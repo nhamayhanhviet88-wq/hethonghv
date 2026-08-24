@@ -344,15 +344,10 @@ module.exports = async function (fastify, opts) {
         try {
             const user = req.user || {};
             const userId = Number(user.id);
-            const isGD = _isGiamDoc(user);
-
+            // CHỈ LẤY công việc mà NGUỜI ĐANG ĐĂNG NHẬP LÀ NGUỜI NHẬN VIỆC (assigned_to)
             let whereClause = `t.status = 'dang_lam' AND (t.title LIKE '%Test Ads%' OR t.guide_link LIKE '%Test Ads%' OR t.guide_link LIKE '%Tư Liệu 6%')`;
-            let params = [];
-
-            if (!isGD) {
-                params.push(userId);
-                whereClause += ` AND (t.assigned_to = $1 OR (t.assigned_to_ids IS NOT NULL AND $1::text = ANY(string_to_array(t.assigned_to_ids, ','))) OR t.created_by = $1)`;
-            }
+            let params = [userId];
+            whereClause += ` AND (t.assigned_to = $1 OR (t.assigned_to_ids IS NOT NULL AND $1::text = ANY(string_to_array(t.assigned_to_ids, ','))))`;
 
             const tasks = await db.all(`
                 SELECT t.id, t.task_code, t.title, t.guide_link, t.target_quantity, t.assigned_to, t.created_at, t.department_id,
