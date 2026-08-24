@@ -490,6 +490,13 @@ async function openKhoAdsTaskDetailModal(taskId, initialItemId = null) {
 
     setKhoAdsModalReadonlyMode(true);
 
+    if (!_khoAdsData.linhVucList || _khoAdsData.linhVucList.length === 0) {
+        try {
+            const resLV = await _khoAdsApi('/api/kho-ads/linh-vuc');
+            if (resLV && resLV.ok) _khoAdsData.linhVucList = resLV.linh_vuc_list || [];
+        } catch(e) {}
+    }
+
     populateKhoAdsLinhVucSelects();
     window.removeEventListener('paste', handlePasteKhoAdsThumbnail);
     window.addEventListener('paste', handlePasteKhoAdsThumbnail);

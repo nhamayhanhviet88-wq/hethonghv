@@ -1409,6 +1409,12 @@ async function _cdAdsGoToKhoAdsItem(khoAdsItemId) {
         const headers = {};
         if (token && token !== 'null') headers['Authorization'] = 'Bearer ' + token;
 
+        // Fetch linh_vuc if empty
+        if (!_khoAdsData.linhVucList || _khoAdsData.linhVucList.length === 0) {
+            const resLV = await fetch('/api/kho-ads/linh-vuc', { headers }).then(r => r.json());
+            if (resLV && resLV.ok) _khoAdsData.linhVucList = resLV.linh_vuc_list || [];
+        }
+
         // Fetch tasks if empty
         if (!_khoAdsData.tasks || _khoAdsData.tasks.length === 0) {
             const res = await fetch('/api/kho-ads/tasks-grouped', { headers }).then(r => r.json());
