@@ -993,7 +993,12 @@
                 let daysList = '';
                 if (isOneTime) {
                     const formattedDate = s.one_time_date ? _formatOneTimeBadgeDate(s.one_time_date) : 'N/A';
-                    daysList = `<span style="display:inline-block; padding:3px 10px; border-radius:8px; font-size:11.5px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a;">1️⃣ 1 Lần ( ${formattedDate})</span>`;
+                    daysList = `
+                        <div style="display:inline-flex; flex-direction:column; align-items:flex-start; padding:4px 10px; border-radius:8px; font-size:11.5px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a; line-height:1.3; white-space:nowrap;">
+                            <div>1️⃣ 1 Lần</div>
+                            <div style="font-size:11px; opacity:0.95;">${formattedDate}</div>
+                        </div>
+                    `;
                 } else {
                     daysList = (s.days || '').split(',').filter(Boolean).map(d => {
                         const label = dayNames[d.trim()] || d;
