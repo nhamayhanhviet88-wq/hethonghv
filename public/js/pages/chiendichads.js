@@ -566,8 +566,35 @@ async function _cdAdsCheckUnreported() {
 function _cdAdsRenderStats() {
     const box = document.getElementById('cdAdsStatsSummary');
     if (!box) return;
-    const all = _cdAdsState.campaigns;
+    let all = [..._cdAdsState.campaigns];
     const winThreshold = _cdAdsState.winRateThreshold || 50;
+
+    // Client-side user filter
+    const userFilter = document.getElementById('cdAdsFilterUser')?.value || 'all';
+    if (userFilter !== 'all') {
+        all = all.filter(c => String(c.created_by) === String(userFilter));
+    }
+
+    // Client-side linh_vuc filter
+    const linhVucFilter = document.getElementById('cdAdsFilterLinhVuc')?.value || 'all';
+    if (linhVucFilter !== 'all') {
+        const targetStr = linhVucFilter.toLowerCase().trim();
+        let keywords = [targetStr];
+        if (targetStr.includes('spa') || targetStr.includes('thẩm mỹ')) {
+            keywords.push('spa', 'thẩm mỹ');
+        } else if (targetStr.includes('công ty')) {
+            keywords.push('công ty');
+        } else if (targetStr.includes('áo lớp')) {
+            keywords.push('áo lớp');
+        } else if (targetStr.includes('mầm non')) {
+            keywords.push('mầm non');
+        }
+
+        all = all.filter(c => {
+            const lvStr = (c.linh_vuc || c.item_linh_vuc || c.linh_vuc_name || c.campaign_name || '').toLowerCase();
+            return keywords.some(kw => lvStr.includes(kw));
+        });
+    }
 
     const calcEffRate = (c) => {
         const gt = Number(c.run_count_gt70k) || 0;
@@ -933,6 +960,7 @@ function _cdAdsPopulateUserFilter() {
         window._cdAdsDefaultUserSet = true;
         if (myId && userMap[myId]) {
             sel.value = myId;
+            _cdAdsRenderStats();
             _cdAdsRenderTable();
             return;
         }
@@ -946,7 +974,8 @@ function _cdAdsPopulateUserFilter() {
 // ========== FILTERS ==========
 
 function _cdAdsApplyFilters() {
-    _cdAdsLoadCampaigns();
+    _cdAdsRenderStats();
+    _cdAdsRenderTable();
 }
 
 function _cdAdsResetFilters() {
