@@ -839,12 +839,12 @@ function _cdAdsRenderTable() {
                     <a href="https://fb.com/${c.post_id}" target="_blank" onclick="event.stopPropagation();" style="font-size:12px;font-weight:700;color:#2563eb;text-decoration:underline;display:block;" title="Mở Facebook: https://fb.com/${c.post_id}">${c.post_id}</a>
                 ` : `<div style="font-size:12px;font-weight:600;color:#94a3b8;">-</div>`}
                 ${c.camp_id ? `
-                    <div style="font-family: monospace; font-size: 11px; color: #64748b; margin-top: 2px;" title="ID Camp: ${c.camp_id}">${c.camp_id}</div>
+                    <div style="font-family: monospace; font-size: 11px; color: #64748b; margin-top: 2px;" title="ID Camp chính: ${c.camp_id}">${c.camp_id}</div>
                 ` : ''}
-                <div style="margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
-                    ${(c.extra_camps && c.extra_camps.length > 0) ? `
-                        <span style="background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 800;" title="Các mã Camp ID phụ: ${c.extra_camps.map(ec => ec.camp_id || ec.post_id).join(', ')}">+${c.extra_camps.length} Camp phụ</span>
-                    ` : ''}
+                ${(c.extra_camps && c.extra_camps.length > 0) ? c.extra_camps.map(ec => `
+                    <div style="font-family: monospace; font-size: 11px; color: #64748b; margin-top: 2px;" title="ID Camp phụ: ${ec.camp_id || ec.post_id}${ec.note ? ' (' + ec.note + ')' : ''}">${ec.camp_id || ec.post_id}</div>
+                `).join('') : ''}
+                <div style="margin-top: 5px; display: flex; align-items: center; justify-content: center;">
                     <button onclick="event.stopPropagation(); _cdAdsOpenAddExtraCampModal(${c.id})" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; border-radius: 6px; padding: 3px 8px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 800; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="Gắn Thêm ID Camp / Post ID cho chiến dịch này" onmouseover="this.style.background='#4338ca';this.style.color='white'" onmouseout="this.style.background='#eef2ff';this.style.color='#4338ca'">
                         <span>➕ Gắn Camp</span>
                     </button>
