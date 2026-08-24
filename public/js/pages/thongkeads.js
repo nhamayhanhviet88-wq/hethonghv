@@ -1,4 +1,7 @@
-// ========== THỐNG KÊ CHIẾN DỊCH ADS — FRONTEND ==========
+function _escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 window.renderThongkeadsPage = function(container) {
     // State
@@ -928,6 +931,7 @@ window.renderThongkeadsPage = function(container) {
             // Post ID display (truncated) & clickable Facebook link
             const postId = row.link_post_id || '';
             const postIdDisplay = postId.length > 18 ? postId.substring(0, 18) + '...' : postId;
+            const accName = row.account_name || '';
 
             // Camp name display (truncated)
             const campName = row.campaign_name || '';
@@ -957,6 +961,7 @@ window.renderThongkeadsPage = function(container) {
                             <a href="http://fb.com/${postId}" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'" title="Bấm để xem bài viết Facebook (http://fb.com/${postId})">
                                 ${postIdDisplay} ↗
                             </a>
+                            ${accName ? `<div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 3px;">📘 ${_escapeHtml(accName)}</div>` : ''}
                         ` : '-'}
                     </td>
                     <td style="padding: 10px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${campName}">${campDisplay}</td>
@@ -1124,6 +1129,7 @@ window.renderThongkeadsPage = function(container) {
             // Post ID display & clickable link
             const postId = row.link_post_id || '';
             const postIdDisplay = postId.length > 18 ? postId.substring(0, 18) + '...' : postId;
+            const accName = row.account_name || '';
 
             // Camp name display
             const campName = row.campaign_name || '';
@@ -1152,6 +1158,7 @@ window.renderThongkeadsPage = function(container) {
                             <a href="http://fb.com/${postId}" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'" title="Bấm để xem bài viết Facebook (http://fb.com/${postId})">
                                 ${postIdDisplay} ↗
                             </a>
+                            ${accName ? `<div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 3px;">📘 ${_escapeHtml(accName)}</div>` : ''}
                         ` : '-'}
                     </td>
                     <td style="padding: 8px 6px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;" title="${campName}">${campDisplay}</td>

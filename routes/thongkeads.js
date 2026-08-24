@@ -773,7 +773,8 @@ module.exports = async function (fastify, opts) {
                         ELSE 0 
                     END) as total_effective_count,
                     MAX(a.effectiveness_threshold) as effectiveness_threshold,
-                    MAX(COALESCE(a.ignore_no_msg_spend_threshold, 70000)) as ignore_no_msg_spend_threshold
+                    MAX(COALESCE(a.ignore_no_msg_spend_threshold, 70000)) as ignore_no_msg_spend_threshold,
+                    MAX(a.account_name) as account_name
                 FROM ads_stats_daily d
                 LEFT JOIN ads_stats_accounts a ON a.id = d.account_id
                 ${whereClause}
