@@ -1733,6 +1733,34 @@ function _bcvIsTestAdsDoc(catName) {
            (lower.includes('tư liệu 6') && lower.includes('test'));
 }
 
+function _bcvRenderTargetQuantityBoxHTML(task) {
+    if (!task || !task.target_quantity) return '';
+    var isTestAds = _bcvIsTestAdsDoc(task.title) || _bcvIsTestAdsDoc(task.guide_link);
+    var isVideoAds = _bcvIsVideoAdsCat(task.title) || task.ads_linh_vuc;
+
+    if (isTestAds) {
+        return `<div style="background:#f5f3ff;border-radius:12px;padding:14px 16px;border:1.5px solid #c7d2fe;margin-bottom:16px">
+            <div style="font-size:10.5px;font-weight:800;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔢 SỐ LƯỢNG CHIẾN DỊCH TEST ADS</div>
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="background:#4338ca;color:white;padding:4px 14px;border-radius:20px;font-size:16px;font-weight:900;box-shadow:0 2px 6px rgba(67,56,202,0.3)">${task.target_quantity}</span>
+                <span style="font-size:13.5px;font-weight:700;color:#3730a3">Camp Test</span>
+            </div>
+        </div>`;
+    }
+
+    if (isVideoAds) {
+        return `<div style="background:#f5f3ff;border-radius:12px;padding:14px 16px;border:1.5px solid #c7d2fe;margin-bottom:16px">
+            <div style="font-size:10.5px;font-weight:800;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔢 SỐ LƯỢNG CẦN SẢN XUẤT</div>
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="background:#4338ca;color:white;padding:4px 14px;border-radius:20px;font-size:16px;font-weight:900;box-shadow:0 2px 6px rgba(67,56,202,0.3)">${task.target_quantity}</span>
+                <span style="font-size:13.5px;font-weight:700;color:#3730a3">sản phẩm / video / ảnh</span>
+            </div>
+        </div>`;
+    }
+
+    return '';
+}
+
 // Cập nhật tiêu đề tự động theo tên tư liệu + tiêu đề phụ / bộ sưu tập / lĩnh vực ads + ngày/tháng/năm và khóa chỉnh sửa
 function _bcvUpdateAutoTitle(docName) {
     // Nếu truyền docName thì lưu lại, nếu không thì dùng giá trị đã lưu
@@ -2571,14 +2599,8 @@ async function _bcvShowDetail(taskId) {
                     <div style="font-size:13px;font-weight:600;color:#334155;line-height:1.6;white-space:pre-wrap">${_esc(task.description)}</div>
                 </div>` : ''}
 
-                <!-- 3.5 SỐ LƯỢNG CẦN SẢN XUẤT (Cho Video / Ảnh Ads ở PHÒNG MARKETING) -->
-                ${(task.target_quantity && (_bcvIsVideoAdsCat(task.title) || task.ads_linh_vuc)) ? `<div style="background:#f5f3ff;border-radius:12px;padding:14px 16px;border:1.5px solid #c7d2fe;margin-bottom:16px">
-                    <div style="font-size:10.5px;font-weight:800;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔢 SỐ LƯỢNG CẦN SẢN XUẤT</div>
-                    <div style="display:flex;align-items:center;gap:10px">
-                        <span style="background:#4338ca;color:white;padding:4px 14px;border-radius:20px;font-size:16px;font-weight:900;box-shadow:0 2px 6px rgba(67,56,202,0.3)">${task.target_quantity}</span>
-                        <span style="font-size:13.5px;font-weight:700;color:#3730a3">sản phẩm / video / ảnh</span>
-                    </div>
-                </div>` : ''}
+                <!-- 3.5 SỐ LƯỢNG CẦN SẢN XUẤT / CHIẾN DỊCH TEST ADS -->
+                ${_bcvRenderTargetQuantityBoxHTML(task)}
 
                 <!-- 4. ĐƯỜNG LINK CÔNG VIỆC -->
                 ${task.task_link ? `<div style="margin-bottom:16px">
@@ -2844,14 +2866,8 @@ async function _bcvShowDetail(taskId) {
                 ${canEditSection1 ? `<textarea class="bcv-form-textarea-prominent" id="bcvDetailDesc" style="font-size:13px;font-weight:600;border:none;background:transparent;padding:0;width:100%;outline:none;min-height:60px">${_esc(task.description || '')}</textarea>` : `<div style="font-size:13px;font-weight:600;color:#334155;line-height:1.6;white-space:pre-wrap">${_esc(task.description)}</div>`}
             </div>` : ''}
 
-            <!-- 3.5 SỐ LƯỢNG CẦN SẢN XUẤT (Cho Video / Ảnh Ads ở PHÒNG MARKETING) -->
-            ${(task.target_quantity && (_bcvIsVideoAdsCat(task.title) || task.ads_linh_vuc)) ? `<div style="background:#f5f3ff;border-radius:12px;padding:14px 16px;border:1.5px solid #c7d2fe;margin-bottom:16px">
-                <div style="font-size:10.5px;font-weight:800;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔢 SỐ LƯỢNG CẦN SẢN XUẤT</div>
-                <div style="display:flex;align-items:center;gap:10px">
-                    <span style="background:#4338ca;color:white;padding:4px 14px;border-radius:20px;font-size:16px;font-weight:900;box-shadow:0 2px 6px rgba(67,56,202,0.3)">${task.target_quantity}</span>
-                    <span style="font-size:13.5px;font-weight:700;color:#3730a3">sản phẩm / video / ảnh</span>
-                </div>
-            </div>` : ''}
+            <!-- 3.5 SỐ LƯỢNG CẦN SẢN XUẤT / CHIẾN DỊCH TEST ADS -->
+            ${_bcvRenderTargetQuantityBoxHTML(task)}
 
             <!-- 4. ĐƯỜNG LINK CÔNG VIỆC (Ẩn khi không có link) -->
             ${(task.task_link || canEditSection1) ? `<div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
