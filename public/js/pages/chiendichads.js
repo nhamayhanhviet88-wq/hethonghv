@@ -434,19 +434,19 @@ async function renderChiendichadsPage(container) {
                     <!-- Post ID + ID Camp -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                         <div>
-                            <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🆔 ID Post <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động điền hoặc nhập)</span></label>
-                            <input type="text" id="cdAdsExtraPostIdInput" placeholder="ID bài viết quảng cáo..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: white; color: #334155; box-sizing: border-box;">
+                            <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🆔 ID Post <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động điền)</span></label>
+                            <input type="text" id="cdAdsExtraPostIdInput" readonly placeholder="Tự động lấy theo chiến dịch..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f1f5f9; color: #475569; cursor: not-allowed; box-sizing: border-box;">
                         </div>
                         <div>
                             <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🏷️ ID Camp <span style="color:#dc2626">*</span> <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động điền)</span></label>
-                            <input type="text" id="cdAdsExtraCampIdInput" placeholder="ID chiến dịch quảng cáo..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: white; color: #334155; box-sizing: border-box;">
+                            <input type="text" id="cdAdsExtraCampIdInput" readonly placeholder="Tự động lấy theo chiến dịch..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f1f5f9; color: #475569; cursor: not-allowed; box-sizing: border-box;">
                         </div>
                     </div>
 
                     <!-- Ghi chú / Tên gợi nhớ -->
                     <div>
-                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">📝 Ghi Chú / Tên Gợi Nhớ <span style="font-size:11px;font-weight:600;color:#64748b;">(Tùy chọn, ví dụ: Test lần 2 ở TK 005)</span></label>
-                        <input type="text" id="cdAdsExtraNoteInput" placeholder="Ví dụ: Test lần 2 ở TK Tuấn Hân 005" style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 600; outline: none; background: white; color: #334155; box-sizing: border-box;">
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">📝 Ghi Chú / Tên Gợi Nhớ <span style="font-size:11px;font-weight:600;color:#64748b;">(Tự động lấy tên chiến dịch)</span></label>
+                        <input type="text" id="cdAdsExtraNoteInput" readonly placeholder="Tự động lấy tên chiến dịch..." style="width: 100%; padding: 11px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f1f5f9; color: #475569; cursor: not-allowed; box-sizing: border-box;">
                     </div>
                 </div>
                 <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
@@ -2080,9 +2080,13 @@ function _cdAdsOnExtraCampaignSelect() {
         if (postInput) {
             postInput.value = (campObj && campObj.post_id) ? campObj.post_id : '';
         }
-        if (noteInput && campObj && campObj.name && !noteInput.value) {
-            noteInput.value = campObj.name;
+        if (noteInput) {
+            noteInput.value = (campObj && campObj.name) ? campObj.name : '';
         }
+    } else {
+        if (campInput) campInput.value = '';
+        if (postInput) postInput.value = '';
+        if (noteInput) noteInput.value = '';
     }
 }
 
