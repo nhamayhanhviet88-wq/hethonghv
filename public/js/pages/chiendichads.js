@@ -940,17 +940,36 @@ function _cdAdsRenderTable() {
     `;
 }
 
+function _cdAdsGetCurrentUser() {
+    if (window._currentUser) return window._currentUser;
+    if (window.__currentUser) return window.__currentUser;
+    if (window.currentUser) return window.currentUser;
+    try {
+        const stored = localStorage.getItem('currentUser');
+        if (stored) return JSON.parse(stored);
+    } catch(e) {}
+    return {};
+}
+
 function _cdAdsPopulateUserFilter() {
     const sel = document.getElementById('cdAdsFilterUser');
     if (!sel) return;
+    const curUser = _cdAdsGetCurrentUser();
+    const myId = String(curUser.id || curUser.user_id || '');
+    const myName = curUser.fullname || curUser.username || curUser.name || '';
+
     const userMap = {};
+
+    // Always include current logged-in user so they can be selected by default even if 0 campaigns created
+    if (myId && myName) {
+        userMap[myId] = myName;
+    }
+
     _cdAdsState.campaigns.forEach(c => {
         if (c.created_by && c.created_by_name) {
-            userMap[c.created_by] = c.created_by_name;
+            userMap[String(c.created_by)] = c.created_by_name;
         }
     });
-    const curUser = window._currentUser || window.currentUser || {};
-    const myId = String(curUser.id || '');
     const current = sel.value;
 
     sel.innerHTML = '<option value="all">👤 Tất cả nhân viên</option>' +
