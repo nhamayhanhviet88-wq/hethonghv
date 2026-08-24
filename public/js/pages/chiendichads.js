@@ -745,7 +745,7 @@ function _cdAdsRenderTable() {
 
     const fmtMoney = (n) => {
         if (!n && n !== 0) return '-';
-        return Number(n).toLocaleString('vi-VN') + 'đ';
+        return Math.round(Number(n)).toLocaleString('vi-VN') + 'đ';
     };
 
     const maxEffCount = Math.max(1, ...filtered.map(c => Number(c.total_effective_count) || 0));
@@ -1319,7 +1319,7 @@ async function _cdAdsViewDetail(campaignId) {
         };
 
         const fmtNum = (n) => n ? Number(n).toLocaleString('vi-VN') : '0';
-        const fmtMoney = (n) => n ? Number(n).toLocaleString('vi-VN') + 'đ' : '0đ';
+        const fmtMoney = (n) => n ? Math.round(Number(n)).toLocaleString('vi-VN') + 'đ' : '0đ';
 
         // Summary section
         let html = '';
