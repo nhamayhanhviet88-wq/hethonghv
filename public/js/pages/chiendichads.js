@@ -533,6 +533,18 @@ function _cdAdsRenderTable() {
                 return (dA - dB) * dir;
             }
 
+            if (field === 'eff_rate') {
+                const gtA = Number(a.run_count_gt70k) || 0;
+                const effA = Number(a.total_effective_count) || 0;
+                const rateA = gtA > 0 ? (effA / gtA) * 100 : 0;
+
+                const gtB = Number(b.run_count_gt70k) || 0;
+                const effB = Number(b.total_effective_count) || 0;
+                const rateB = gtB > 0 ? (effB / gtB) * 100 : 0;
+
+                return (rateA - rateB) * dir;
+            }
+
             const numA = Number(valA);
             const numB = Number(valB);
             if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '' && typeof valA !== 'boolean' && typeof valB !== 'boolean') {
@@ -642,6 +654,15 @@ function _cdAdsRenderTable() {
                 <span style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:10px;font-size:11.5px;font-weight:800;">${fmtNum(c.total_effective_count)}</span>
             </td>
             <td style="padding:10px 8px;text-align:center;">
+                ${(() => {
+                    const gt70k = Number(c.run_count_gt70k) || 0;
+                    const effCount = Number(c.total_effective_count) || 0;
+                    const effRate = gt70k > 0 ? (effCount / gt70k) * 100 : 0;
+                    const effRateStr = gt70k > 0 ? effRate.toFixed(2).replace('.', ',') + '%' : '0,00%';
+                    return `<span style="background:#eff6ff;color:#1d4ed8;padding:3px 8px;border-radius:10px;font-size:11.5px;font-weight:800;">${effRateStr}</span>`;
+                })()}
+            </td>
+            <td style="padding:10px 8px;text-align:center;">
                 <div style="font-size:12px;font-weight:700;color:#334155;">${c.created_by_name || '-'}</div>
                 <div style="font-size:10px;color:#94a3b8;font-weight:600;">${c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '-'}</div>
             </td>
@@ -666,6 +687,7 @@ function _cdAdsRenderTable() {
                     <th onclick="_cdAdsToggleSort('total_run_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo SL Chạy">SL CHẠY ${_cdAdsSortIcon('total_run_count')}</th>
                     <th onclick="_cdAdsToggleSort('run_count_gt70k')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo SL Chạy >70K">SL CHẠY >70K ${_cdAdsSortIcon('run_count_gt70k')}</th>
                     <th onclick="_cdAdsToggleSort('total_effective_count')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Số Lần Hiệu Quả">SL HIỆU QUẢ ${_cdAdsSortIcon('total_effective_count')}</th>
+                    <th onclick="_cdAdsToggleSort('eff_rate')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Tỷ lệ % Hiệu Quả = (SL Hiệu Quả / SL Chạy >70K) * 100%">% HIỆU QUẢ ${_cdAdsSortIcon('eff_rate')}</th>
                     <th onclick="_cdAdsToggleSort('created_at')" style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;cursor:pointer;user-select:none;" title="Sắp xếp theo Người Tạo / Ngày">NGƯỜI TẠO ${_cdAdsSortIcon('created_at')}</th>
                 </tr>
             </thead>
