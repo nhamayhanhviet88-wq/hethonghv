@@ -958,8 +958,8 @@ window.renderThongkeadsPage = function(container) {
 
         // Find threshold for the selected account
         let threshold = 75000;
-        if (_selectedAccountId !== 'all') {
-            const acc = _accounts.find(a => String(a.id) === String(_selectedAccountId));
+        if (_selectedAccountIds && _selectedAccountIds.length === 1) {
+            const acc = _accounts.find(a => String(a.id) === String(_selectedAccountIds[0]));
             if (acc) threshold = parseFloat(acc.effectiveness_threshold) || 75000;
         } else if (_stats.length > 0 && _stats[0].effectiveness_threshold != null) {
             threshold = parseFloat(_stats[0].effectiveness_threshold) || 75000;
@@ -1118,8 +1118,8 @@ window.renderThongkeadsPage = function(container) {
         // Find threshold & ignore threshold for selected account
         let threshold = 75000;
         let ignoreThresh = 70000;
-        if (_selectedAccountId !== 'all') {
-            const acc = _accounts.find(a => String(a.id) === String(_selectedAccountId));
+        if (_selectedAccountIds && _selectedAccountIds.length === 1) {
+            const acc = _accounts.find(a => String(a.id) === String(_selectedAccountIds[0]));
             if (acc) {
                 threshold = parseFloat(acc.effectiveness_threshold) || 75000;
                 ignoreThresh = parseFloat(acc.ignore_no_msg_spend_threshold) || 70000;
@@ -1363,10 +1363,7 @@ window.renderThongkeadsPage = function(container) {
         const accSel = document.getElementById('tka-account-select');
         if (accSel) {
             accSel.addEventListener('change', () => {
-                _selectedAccountId = accSel.value;
-                _currentPage = 1;
-                _renderAccountSelector();
-                _loadData();
+                window._tkaToggleAcc(accSel.value);
             });
         }
 
@@ -1756,7 +1753,8 @@ window.renderThongkeadsPage = function(container) {
     // ========== SYNC ==========
 
     async function _handleSync() {
-        if (_selectedAccountId === 'all') {
+        const targetSyncId = (_selectedAccountIds && _selectedAccountIds.length === 1) ? _selectedAccountIds[0] : null;
+        if (!targetSyncId) {
             alert('Vui lòng chọn 1 tài khoản cụ thể để đồng bộ!');
             return;
         }
@@ -1790,7 +1788,7 @@ window.renderThongkeadsPage = function(container) {
         }
 
         try {
-            const res = await fetch(`/api/thongkeads/accounts/${_selectedAccountId}/sync`, {
+            const res = await fetch(`/api/thongkeads/accounts/${targetSyncId}/sync`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
