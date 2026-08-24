@@ -362,7 +362,7 @@ module.exports = async function (fastify, opts) {
             }
 
             // Filter params
-            const { status, channel_id, search, start_date, end_date } = req.query || {};
+            const { status, channel_id, search, start_date, end_date, linh_vuc } = req.query || {};
             let filterClause = '';
             if (status && status !== 'all') {
                 queryParams.push(status);
@@ -372,10 +372,14 @@ module.exports = async function (fastify, opts) {
                 queryParams.push(channel_id);
                 filterClause += ` AND (c.channel_id = $${queryParams.length} OR LOWER(c.channel_name) = LOWER($${queryParams.length}) OR LOWER(sa.platform) = LOWER($${queryParams.length}))`;
             }
+            if (linh_vuc && linh_vuc !== 'all') {
+                queryParams.push(`%${linh_vuc.trim().toLowerCase()}%`);
+                filterClause += ` AND (LOWER(COALESCE(i.linh_vuc, sa.ads_linh_vuc, '')) LIKE $${queryParams.length})`;
+            }
             if (search && search.trim()) {
                 queryParams.push(`%${search.trim().toLowerCase()}%`);
                 const pIdx = queryParams.length;
-                filterClause += ` AND (LOWER(c.campaign_name) LIKE $${pIdx} OR LOWER(c.post_id) LIKE $${pIdx} OR LOWER(c.camp_id) LIKE $${pIdx} OR LOWER(u.full_name) LIKE $${pIdx} OR LOWER(sa.account_name) LIKE $${pIdx})`;
+                filterClause += ` AND (LOWER(c.campaign_name) LIKE $${pIdx} OR LOWER(c.post_id) LIKE $${pIdx} OR LOWER(c.camp_id) LIKE $${pIdx} OR LOWER(u.full_name) LIKE $${pIdx} OR LOWER(sa.account_name) LIKE $${pIdx} OR LOWER(COALESCE(i.linh_vuc, sa.ads_linh_vuc, '')) LIKE $${pIdx})`;
             }
 
             let dateFilterDaily = '';

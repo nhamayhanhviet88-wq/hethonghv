@@ -240,7 +240,10 @@ async function renderChiendichadsPage(container) {
             <!-- Cảnh báo chưa báo cáo -->
             <div id="cdAdsUnreportedWarning" style="display: none;"></div>
 
-            <!-- Filter Toolbar -->
+            <!-- Stats Summary (Ảnh 3: Đặt lên trên Thanh Bộ Lọc) -->
+            <div id="cdAdsStatsSummary" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;"></div>
+
+            <!-- Filter Toolbar (Ảnh 2) -->
             <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.04);">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
                     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -285,10 +288,13 @@ async function renderChiendichadsPage(container) {
                         Hiển thị 0 chiến dịch
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 2fr 1fr ${showUserFilter ? '1fr' : ''} auto; gap: 12px; align-items: center;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr ${showUserFilter ? '1fr' : ''} auto; gap: 12px; align-items: center;">
                     <div style="position: relative;">
                         <input type="text" id="cdAdsSearchInput" onkeyup="_cdAdsApplyFilters()" placeholder="🔍 Tìm tên chiến dịch, Post ID, ID Camp..." style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; background: #fafafa; outline: none; box-sizing: border-box;" onfocus="this.style.borderColor='#4338ca';this.style.background='white'" onblur="this.style.borderColor='#cbd5e1'">
                     </div>
+                    <select id="cdAdsFilterLinhVuc" onchange="_cdAdsApplyFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none;">
+                        <option value="all">🏢 Tất cả Lĩnh Vực Ads</option>
+                    </select>
                     <select id="cdAdsFilterChannel" onchange="_cdAdsApplyFilters()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none;">
                         <option value="all">📺 Tất cả kênh</option>
                     </select>
@@ -300,9 +306,6 @@ async function renderChiendichadsPage(container) {
                     <button onclick="_cdAdsResetFilters()" style="padding: 10px 16px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; white-space: nowrap;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">🔄 Đặt Lại</button>
                 </div>
             </div>
-
-            <!-- Stats Summary -->
-            <div id="cdAdsStatsSummary" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;"></div>
 
             <!-- Main Table -->
             <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.04);">
@@ -408,10 +411,27 @@ async function renderChiendichadsPage(container) {
 
 async function _cdAdsLoadAll() {
     await Promise.all([
+        _cdAdsLoadLinhVuc(),
         _cdAdsLoadChannels(),
         _cdAdsLoadCampaigns(),
         _cdAdsCheckUnreported()
     ]);
+}
+
+async function _cdAdsLoadLinhVuc() {
+    try {
+        const res = await _cdAdsApi('/api/kho-ads/linh-vuc');
+        const list = res.linh_vuc_list || res.items || res.data || [];
+        const sel = document.getElementById('cdAdsFilterLinhVuc');
+        if (sel) {
+            sel.innerHTML = '<option value="all">🏢 Tất cả Lĩnh Vực Ads</option>' +
+                list.map(item => {
+                    const name = typeof item === 'string' ? item : (item.name || item.title || '');
+                    const code = typeof item === 'object' && item.code ? `[${item.code}] ` : '';
+                    return `<option value="${name}">${code}${name}</option>`;
+                }).join('');
+        }
+    } catch(e) { console.error('[cdAds loadLinhVuc]', e); }
 }
 
 async function _cdAdsLoadChannels() {
@@ -431,9 +451,11 @@ async function _cdAdsLoadCampaigns() {
     try {
         const params = new URLSearchParams();
         const search = document.getElementById('cdAdsSearchInput')?.value || '';
+        const linhVuc = document.getElementById('cdAdsFilterLinhVuc')?.value || 'all';
         const channel = document.getElementById('cdAdsFilterChannel')?.value || 'all';
 
         if (search) params.set('search', search);
+        if (linhVuc !== 'all') params.set('linh_vuc', linhVuc);
         if (channel !== 'all') params.set('channel_id', channel);
 
         const { startDate, endDate } = _cdAdsGetDateRange();
@@ -450,6 +472,25 @@ async function _cdAdsLoadCampaigns() {
         console.error('[cdAds loadCampaigns]', e);
     }
 }
+
+function _cdAdsApplyFilters() {
+    _cdAdsLoadCampaigns();
+}
+window._cdAdsApplyFilters = _cdAdsApplyFilters;
+
+function _cdAdsResetFilters() {
+    const searchInp = document.getElementById('cdAdsSearchInput');
+    const lvSel = document.getElementById('cdAdsFilterLinhVuc');
+    const chSel = document.getElementById('cdAdsFilterChannel');
+    const uSel = document.getElementById('cdAdsFilterUser');
+    if (searchInp) searchInp.value = '';
+    if (lvSel) lvSel.value = 'all';
+    if (chSel) chSel.value = 'all';
+    if (uSel) uSel.value = 'all';
+    _cdAdsState.filterStatus = 'all';
+    _cdAdsLoadCampaigns();
+}
+window._cdAdsResetFilters = _cdAdsResetFilters;
 
 async function _cdAdsCheckUnreported() {
     const box = document.getElementById('cdAdsUnreportedWarning');
@@ -540,6 +581,16 @@ function _cdAdsRenderTable() {
     const userFilter = document.getElementById('cdAdsFilterUser')?.value || 'all';
     if (userFilter !== 'all') {
         filtered = filtered.filter(c => String(c.created_by) === String(userFilter));
+    }
+
+    // Client-side linh_vuc filter
+    const linhVucFilter = document.getElementById('cdAdsFilterLinhVuc')?.value || 'all';
+    if (linhVucFilter !== 'all') {
+        filtered = filtered.filter(c => {
+            const lv = (c.linh_vuc || c.item_linh_vuc || c.ads_linh_vuc || '').toLowerCase().trim();
+            const target = linhVucFilter.toLowerCase().trim();
+            return lv === target || lv.includes(target);
+        });
     }
 
     // Sort logic
