@@ -89,22 +89,29 @@ window._cdAdsToggleSort = _cdAdsToggleSort;
 
 function _cdAdsGetDateRange() {
     const mode = _cdAdsState.filterDateMode || 'month';
-    const year = _cdAdsState.filterYear || new Date().getFullYear();
+    const year = _cdAdsState.filterYear;
 
     if (mode === 'month') {
         const m = _cdAdsState.filterMonth;
+        if (year === 'all') {
+            return { startDate: '', endDate: '' };
+        }
+        const yNum = parseInt(year, 10) || new Date().getFullYear();
         if (m === 'all') {
-            return { startDate: `${year}-01-01`, endDate: `${year}-12-31` };
+            return { startDate: `${yNum}-01-01`, endDate: `${yNum}-12-31` };
         }
         const mNum = parseInt(m, 10) || (new Date().getMonth() + 1);
         const mm = String(mNum).padStart(2, '0');
-        const lastDay = new Date(year, mNum, 0).getDate();
-        return { startDate: `${year}-${mm}-01`, endDate: `${year}-${mm}-${String(lastDay).padStart(2, '0')}` };
+        const lastDay = new Date(yNum, mNum, 0).getDate();
+        return { startDate: `${yNum}-${mm}-01`, endDate: `${yNum}-${mm}-${String(lastDay).padStart(2, '0')}` };
     }
 
     if (mode === 'quarter') {
+        if (year === 'all') {
+            return { startDate: '', endDate: '' };
+        }
         const q = parseInt(_cdAdsState.filterQuarter, 10) || 1;
-        const qYear = _cdAdsState.filterYear || new Date().getFullYear();
+        const qYear = parseInt(year, 10) || new Date().getFullYear();
         if (q === 1) return { startDate: `${qYear}-01-01`, endDate: `${qYear}-03-31` };
         if (q === 2) return { startDate: `${qYear}-04-01`, endDate: `${qYear}-06-30` };
         if (q === 3) return { startDate: `${qYear}-07-01`, endDate: `${qYear}-09-30` };
@@ -143,14 +150,15 @@ function _cdAdsPopulateDateSelectors() {
 
     const fillYears = (sel, curVal) => {
         if (!sel || sel.options.length > 0) return;
-        sel.innerHTML = '';
-        for (let y = curYear; y >= curYear - 3; y--) {
+        sel.innerHTML = '<option value="all">🌐 Tất cả các năm</option>';
+        for (let y = curYear + 1; y >= curYear - 5; y--) {
             const opt = document.createElement('option');
             opt.value = y;
-            opt.textContent = y;
-            if (y === curVal) opt.selected = true;
+            opt.textContent = `Năm ${y}`;
+            if (String(y) === String(curVal)) opt.selected = true;
             sel.appendChild(opt);
         }
+        if (String(curVal) === 'all') sel.value = 'all';
     };
 
     fillYears(yearSel, _cdAdsState.filterYear);

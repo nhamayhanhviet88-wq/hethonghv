@@ -20,7 +20,7 @@ window.renderThongkeadsPage = function(container) {
     let _linhVucList = [];
     let _filterMode = 'month'; // 'month', 'quarter', 'daterange'
     let _selectedYear = new Date().getFullYear();
-    let _selectedMonth = new Date().getMonth() + 1;
+    let _selectedMonth = 'all'; // Mặc định tất cả các tháng
     let _selectedQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
     let _startDate = null; // 'YYYY-MM-DD'
     let _endDate = null;   // 'YYYY-MM-DD'
@@ -186,7 +186,13 @@ window.renderThongkeadsPage = function(container) {
                     <div id="tka-account-info" style="margin-top: 12px;"></div>
                 </div>
 
-                <!-- Filters & Sync -->
+                <!-- Summary Cards (ĐẶT LÊN TRÊN BỘ LỌC THEO YÊU CẦU NGUYÊN BẢN) -->
+                <div id="tka-summary" style="
+                    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                    gap: 16px; margin-bottom: 20px;
+                "></div>
+
+                <!-- Filters & Sync (ĐẶT NẰM DƯỚI THẺ TỔNG QUAN) -->
                 <div id="tka-filter-section" style="
                     background: white; border-radius: 16px; border: 1px solid #e2e8f0;
                     padding: 20px; margin-bottom: 20px;
@@ -254,12 +260,23 @@ window.renderThongkeadsPage = function(container) {
                             </div>
                         </div>
 
-                        <div style="flex: 1; min-width: 200px;">
-                            <input id="tka-search-input" type="text" placeholder="🔍 Tìm tên camp, ID camp, Post ID..."
-                                style="
-                                    width: 100%; padding: 9px 14px; border-radius: 8px; border: 1.5px solid #e2e8f0;
-                                    font-size: 13px; outline: none;
-                                ">
+                        <div style="flex: 1; min-width: 260px; position: relative;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <input id="tka-search-input" type="text" placeholder="🔍 Tìm tên camp, ID camp, Post ID..."
+                                    style="
+                                        width: 100%; padding: 9px 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                                        font-size: 13px; outline: none; background: white; transition: all 0.2s;
+                                    ">
+                                <button id="tka-btn-search-suggestions" style="
+                                    font-family: inherit; padding: 9px 14px; border-radius: 10px; border: 1.5px solid #3b82f6;
+                                    background: #eff6ff; color: #1d4ed8; font-size: 12.5px; font-weight: 800;
+                                    cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px;
+                                    transition: all 0.15s; box-shadow: 0 2px 4px rgba(37,99,235,0.08);
+                                " onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" title="Bấm để chọn hoặc tự cài đặt từ khóa gợi ý tìm kiếm">
+                                    <span>💡</span> Gợi Ý <span style="font-size: 9px;">▼</span>
+                                </button>
+                            </div>
+                            <div id="tka-search-quick-chips" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px;"></div>
                         </div>
                         ${_isGD ? `
                         <button id="tka-btn-schedule-settings" style="
@@ -282,12 +299,6 @@ window.renderThongkeadsPage = function(container) {
                         ` : ''}
                     </div>
                 </div>
-
-                <!-- Summary Cards -->
-                <div id="tka-summary" style="
-                    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-                    gap: 16px; margin-bottom: 20px;
-                "></div>
 
                 <!-- Table View Mode Switcher Tabs -->
                 <div style="display: flex; gap: 10px; margin-bottom: 16px;">
@@ -340,6 +351,7 @@ window.renderThongkeadsPage = function(container) {
     _populateDateSelectors();
     _loadAccounts();
     _bindEvents();
+    _renderSearchQuickChips();
 
     // ========== HELPERS ==========
 
@@ -395,14 +407,15 @@ window.renderThongkeadsPage = function(container) {
         const curYear = new Date().getFullYear();
         const fillYears = (sel, curVal) => {
             if (!sel) return;
-            sel.innerHTML = '';
-            for (let y = curYear; y >= curYear - 3; y--) {
+            sel.innerHTML = '<option value="all">🌐 Tất cả các năm</option>';
+            for (let y = curYear + 1; y >= curYear - 5; y--) {
                 const opt = document.createElement('option');
                 opt.value = y;
-                opt.textContent = y;
-                if (y === curVal) opt.selected = true;
+                opt.textContent = `Năm ${y}`;
+                if (String(y) === String(curVal)) opt.selected = true;
                 sel.appendChild(opt);
             }
+            if (String(curVal) === 'all') sel.value = 'all';
         };
 
         fillYears(yearSel, _selectedYear);
@@ -1382,13 +1395,13 @@ window.renderThongkeadsPage = function(container) {
         const monthSel = document.getElementById('tka-month-select');
         const yearSel = document.getElementById('tka-year-select');
         if (monthSel) monthSel.addEventListener('change', () => { _selectedMonth = monthSel.value === 'all' ? 'all' : parseInt(monthSel.value); _currentPage = 1; _loadData(); });
-        if (yearSel) yearSel.addEventListener('change', () => { _selectedYear = parseInt(yearSel.value); _currentPage = 1; _loadData(); });
+        if (yearSel) yearSel.addEventListener('change', () => { _selectedYear = yearSel.value === 'all' ? 'all' : parseInt(yearSel.value); _currentPage = 1; _loadData(); });
 
         // Quarter selectors
         const qSel = document.getElementById('tka-quarter-select');
         const qYearSel = document.getElementById('tka-q-year-select');
         if (qSel) qSel.addEventListener('change', () => { _selectedQuarter = parseInt(qSel.value); _currentPage = 1; _loadData(); });
-        if (qYearSel) qYearSel.addEventListener('change', () => { _selectedYear = parseInt(qYearSel.value); _currentPage = 1; _loadData(); });
+        if (qYearSel) qYearSel.addEventListener('change', () => { _selectedYear = qYearSel.value === 'all' ? 'all' : parseInt(qYearSel.value); _currentPage = 1; _loadData(); });
 
         // Date Range Picker Button
         const daterangeBtn = document.getElementById('tka-btn-daterange-picker');
@@ -1410,6 +1423,10 @@ window.renderThongkeadsPage = function(container) {
             });
         }
 
+        // Search suggestions button
+        const sugBtn = document.getElementById('tka-btn-search-suggestions');
+        if (sugBtn) sugBtn.addEventListener('click', _showSearchKeywordsModal);
+
         // Sync button
         const syncBtn = document.getElementById('tka-btn-sync');
         if (syncBtn) {
@@ -1425,6 +1442,198 @@ window.renderThongkeadsPage = function(container) {
         // Performance settings modal button
         const perfBtn = document.getElementById('tka-btn-perf-account');
         if (perfBtn) perfBtn.addEventListener('click', () => _showPerfModal());
+    }
+
+    // ========== SEARCH KEYWORDS SUGGESTIONS ==========
+
+    const DEFAULT_SEARCH_KEYWORDS = ['CÔNG TY', 'DOANH', 'TIGER', 'VPBANK', 'HVV', 'TEST', 'CAMP NÂU', 'ÁO LỚP'];
+
+    function _getSearchKeywords() {
+        try {
+            const saved = localStorage.getItem('tka_search_keywords');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch(e) {}
+        return [...DEFAULT_SEARCH_KEYWORDS];
+    }
+
+    function _saveSearchKeywords(list) {
+        try {
+            localStorage.setItem('tka_search_keywords', JSON.stringify(list));
+        } catch(e) {}
+        _renderSearchQuickChips();
+    }
+
+    function _renderSearchQuickChips() {
+        const container = document.getElementById('tka-search-quick-chips');
+        if (!container) return;
+
+        const keywords = _getSearchKeywords();
+        if (keywords.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        container.innerHTML = keywords.map(kw => `
+            <span class="tka-kw-chip" data-keyword="${_escapeHtml(kw)}" style="
+                display: inline-flex; align-items: center; gap: 4px;
+                padding: 3px 10px; border-radius: 12px; background: #f1f5f9;
+                color: #334155; font-size: 11.5px; font-weight: 700; cursor: pointer;
+                border: 1px solid #cbd5e1; transition: all 0.15s; user-select: none;
+            " onmouseover="this.style.background='#e2e8f0';this.style.color='#1d4ed8'" onmouseout="this.style.background='#f1f5f9';this.style.color='#334155'">
+                🏷️ ${_escapeHtml(kw)}
+            </span>
+        `).join('');
+
+        container.querySelectorAll('.tka-kw-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const kw = chip.getAttribute('data-keyword');
+                const searchInput = document.getElementById('tka-search-input');
+                if (searchInput) {
+                    searchInput.value = kw;
+                    _searchQuery = kw;
+                    _currentPage = 1;
+                    _loadData();
+                }
+            });
+        });
+    }
+
+    function _showSearchKeywordsModal() {
+        const existing = document.getElementById('tka-kw-modal');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'tka-kw-modal';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15,23,42,0.45); backdrop-filter: blur(4px);
+            z-index: 10000; display: flex; align-items: center; justify-content: center;
+            animation: fadeIn 0.15s ease;
+        `;
+
+        const renderModal = () => {
+            const keywords = _getSearchKeywords();
+            return `
+                <div style="
+                    background: white; border-radius: 20px; width: 95%; max-width: 480px;
+                    box-shadow: 0 25px 50px rgba(0,0,0,0.2); overflow: hidden;
+                    border: 1px solid #e2e8f0; animation: slideUp 0.2s ease;
+                ">
+                    <div style="padding: 18px 24px; background: linear-gradient(135deg, #1e293b, #334155); color: white; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                            <span>💡</span> Từ Khóa Tìm Kiếm Gợi Ý
+                        </div>
+                        <button id="tka-kw-close" style="background:transparent;border:none;color:white;font-size:18px;cursor:pointer;">✕</button>
+                    </div>
+
+                    <div style="padding: 20px 24px;">
+                        <div style="font-size: 13px; color: #64748b; margin-bottom: 14px; line-height: 1.5;">
+                            Bấm vào từ khóa để tìm kiếm ngay, hoặc tự thêm/xóa từ khóa yêu thích của bạn bên dưới:
+                        </div>
+
+                        <!-- Add new keyword input -->
+                        <div style="display: flex; gap: 8px; margin-bottom: 18px;">
+                            <input id="tka-kw-new-input" type="text" placeholder="Nhập từ khóa mới (vd: DOANH, TIGER...)" style="
+                                flex: 1; padding: 9px 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                                font-size: 13px; font-weight: 600; outline: none;
+                            ">
+                            <button id="tka-kw-btn-add" style="
+                                padding: 9px 16px; border-radius: 10px; border: none;
+                                background: #2563eb; color: white; font-size: 13px; font-weight: 800;
+                                cursor: pointer; white-space: nowrap;
+                            ">➕ Thêm</button>
+                        </div>
+
+                        <!-- Keywords List Grid -->
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 220px; overflow-y: auto; padding: 4px;">
+                            ${keywords.length > 0 ? keywords.map((kw, idx) => `
+                                <div style="
+                                    display: inline-flex; align-items: center; gap: 6px;
+                                    padding: 6px 12px; border-radius: 10px; background: #eff6ff;
+                                    border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 13px; font-weight: 700;
+                                ">
+                                    <span class="tka-kw-select-btn" data-kw="${_escapeHtml(kw)}" style="cursor: pointer;" title="Bấm để lọc ngay">${_escapeHtml(kw)}</span>
+                                    <button class="tka-kw-del-btn" data-idx="${idx}" style="
+                                        background: transparent; border: none; color: #ef4444; font-size: 14px;
+                                        cursor: pointer; padding: 0 2px; font-weight: 800; line-height: 1;
+                                    " title="Xóa từ khóa này">✕</button>
+                                </div>
+                            `).join('') : '<div style="color: #94a3b8; font-size: 13px;">Chưa có từ khóa nào. Hãy nhập từ khóa trên để thêm mới!</div>'}
+                        </div>
+                    </div>
+
+                    <div style="padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                        <button id="tka-kw-btn-reset" style="background: transparent; border: none; color: #64748b; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: underline;">🔄 Khôi phục mặc định</button>
+                        <button id="tka-kw-btn-done" style="padding: 8px 18px; border-radius: 8px; border: 1.5px solid #cbd5e1; background: white; font-weight: 700; font-size: 13px; cursor: pointer;">Đóng</button>
+                    </div>
+                </div>
+            `;
+        };
+
+        overlay.innerHTML = renderModal();
+        document.body.appendChild(overlay);
+
+        const bindModalEvents = () => {
+            overlay.querySelector('#tka-kw-close')?.addEventListener('click', () => overlay.remove());
+            overlay.querySelector('#tka-kw-btn-done')?.addEventListener('click', () => overlay.remove());
+
+            const newInput = overlay.querySelector('#tka-kw-new-input');
+            const addBtn = overlay.querySelector('#tka-kw-btn-add');
+
+            const doAdd = () => {
+                const val = (newInput.value || '').trim().toUpperCase();
+                if (!val) return;
+                const current = _getSearchKeywords();
+                if (!current.includes(val)) {
+                    current.push(val);
+                    _saveSearchKeywords(current);
+                    overlay.innerHTML = renderModal();
+                    bindModalEvents();
+                }
+            };
+
+            if (addBtn) addBtn.addEventListener('click', doAdd);
+            if (newInput) newInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+
+            overlay.querySelectorAll('.tka-kw-select-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const kw = btn.getAttribute('data-kw');
+                    const searchInput = document.getElementById('tka-search-input');
+                    if (searchInput) {
+                        searchInput.value = kw;
+                        _searchQuery = kw;
+                        _currentPage = 1;
+                        _loadData();
+                    }
+                    overlay.remove();
+                });
+            });
+
+            overlay.querySelectorAll('.tka-kw-del-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.getAttribute('data-idx'));
+                    const current = _getSearchKeywords();
+                    if (!isNaN(idx) && idx >= 0 && idx < current.length) {
+                        current.splice(idx, 1);
+                        _saveSearchKeywords(current);
+                        overlay.innerHTML = renderModal();
+                        bindModalEvents();
+                    }
+                });
+            });
+
+            overlay.querySelector('#tka-kw-btn-reset')?.addEventListener('click', () => {
+                _saveSearchKeywords([...DEFAULT_SEARCH_KEYWORDS]);
+                overlay.innerHTML = renderModal();
+                bindModalEvents();
+            });
+        };
+
+        bindModalEvents();
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     }
 
     function _updateFilterControlsVisibility() {

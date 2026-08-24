@@ -572,7 +572,7 @@ module.exports = async function (fastify, opts) {
                 whereClause += ` AND d.report_date >= $${queryParams.length}`;
                 queryParams.push(req.query.end_date);
                 whereClause += ` AND d.report_date <= $${queryParams.length}`;
-            } else if (req.query.quarter && year) {
+            } else if (req.query.quarter && year && year !== 'all') {
                 const targetYear = parseInt(year);
                 const q = parseInt(req.query.quarter);
                 let startM = 1, endM = 3;
@@ -586,7 +586,7 @@ module.exports = async function (fastify, opts) {
                 whereClause += ` AND d.report_date >= $${queryParams.length}`;
                 queryParams.push(untilDate);
                 whereClause += ` AND d.report_date <= $${queryParams.length}`;
-            } else if (year && month && month !== 'all') {
+            } else if (year && year !== 'all' && month && month !== 'all') {
                 const targetYear = parseInt(year);
                 const targetMonth = parseInt(month);
                 const sinceDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
@@ -596,7 +596,7 @@ module.exports = async function (fastify, opts) {
                 whereClause += ` AND d.report_date >= $${queryParams.length}`;
                 queryParams.push(untilDate);
                 whereClause += ` AND d.report_date <= $${queryParams.length}`;
-            } else if (year) {
+            } else if (year && year !== 'all') {
                 const targetYear = parseInt(year);
                 queryParams.push(`${targetYear}-01-01`);
                 whereClause += ` AND d.report_date >= $${queryParams.length}`;
@@ -672,7 +672,7 @@ module.exports = async function (fastify, opts) {
                 whereClause += ` AND d.report_date >= $${queryParams.length}`;
                 queryParams.push(end_date);
                 whereClause += ` AND d.report_date <= $${queryParams.length}`;
-            } else if (quarter && year) {
+            } else if (quarter && year && year !== 'all') {
                 const targetYear = parseInt(year);
                 const q = parseInt(quarter);
                 let startM = 1, endM = 3;
@@ -686,7 +686,7 @@ module.exports = async function (fastify, opts) {
                 whereClause += ` AND d.report_date >= $${queryParams.length}`;
                 queryParams.push(untilDate);
                 whereClause += ` AND d.report_date <= $${queryParams.length}`;
-            } else if (year && month && month !== 'all') {
+            } else if (year && year !== 'all' && month && month !== 'all') {
                 const targetYear = parseInt(year);
                 const targetMonth = parseInt(month);
                 const sinceDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
@@ -696,7 +696,7 @@ module.exports = async function (fastify, opts) {
                 whereClause += ` AND d.report_date >= $${queryParams.length}`;
                 queryParams.push(untilDate);
                 whereClause += ` AND d.report_date <= $${queryParams.length}`;
-            } else if (year) {
+            } else if (year && year !== 'all') {
                 const targetYear = parseInt(year);
                 queryParams.push(`${targetYear}-01-01`);
                 whereClause += ` AND d.report_date >= $${queryParams.length}`;
@@ -750,7 +750,7 @@ module.exports = async function (fastify, opts) {
             if (start_date && end_date) {
                 whereClauses.push('d.report_date >= ? AND d.report_date <= ?');
                 queryParams.push(start_date, end_date);
-            } else if (quarter && year) {
+            } else if (quarter && year && year !== 'all') {
                 const q = parseInt(quarter);
                 let startM = 1, endM = 3;
                 if (q === 2) { startM = 4; endM = 6; }
@@ -761,13 +761,13 @@ module.exports = async function (fastify, opts) {
                 const eDate = `${year}-${String(endM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
                 whereClauses.push('d.report_date >= ? AND d.report_date <= ?');
                 queryParams.push(sDate, eDate);
-            } else if (month && year && month !== 'all') {
+            } else if (month && year && month !== 'all' && year !== 'all') {
                 const sDate = `${year}-${String(month).padStart(2, '0')}-01`;
                 const lastDay = new Date(year, month, 0).getDate();
                 const eDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
                 whereClauses.push('d.report_date >= ? AND d.report_date <= ?');
                 queryParams.push(sDate, eDate);
-            } else if (year) {
+            } else if (year && year !== 'all') {
                 const sDate = `${year}-01-01`;
                 const eDate = `${year}-12-31`;
                 whereClauses.push('d.report_date >= ? AND d.report_date <= ?');
