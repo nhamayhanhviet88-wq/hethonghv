@@ -470,9 +470,9 @@ module.exports = async function (fastify, opts) {
                     WHERE (c.ad_account_id IS NULL OR d.account_id = c.ad_account_id)
                       AND (
                           (c.camp_id IS NOT NULL AND c.camp_id != '' AND d.campaign_id = c.camp_id)
-                          OR ((c.camp_id IS NULL OR c.camp_id = '') AND c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
                           OR (d.campaign_id IN (SELECT ec.camp_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND ec.camp_id IS NOT NULL AND ec.camp_id != ''))
-                          OR (d.link_post_id IN (SELECT ec.post_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND ec.post_id IS NOT NULL AND ec.post_id != ''))
+                          OR ((c.camp_id IS NULL OR c.camp_id = '') AND c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
+                          OR (d.link_post_id IN (SELECT ec.post_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND (ec.camp_id IS NULL OR ec.camp_id = '') AND ec.post_id IS NOT NULL AND ec.post_id != ''))
                       )
                       ${dateFilterDaily}
                 ) totals ON true
@@ -654,9 +654,9 @@ module.exports = async function (fastify, opts) {
                     (c.ad_account_id IS NULL OR d.account_id = c.ad_account_id)
                     AND (
                         (c.camp_id IS NOT NULL AND c.camp_id != '' AND d.campaign_id = c.camp_id)
-                        OR ((c.camp_id IS NULL OR c.camp_id = '') AND c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
                         OR (d.campaign_id IN (SELECT ec.camp_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND ec.camp_id IS NOT NULL AND ec.camp_id != ''))
-                        OR (d.link_post_id IN (SELECT ec.post_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND ec.post_id IS NOT NULL AND ec.post_id != ''))
+                        OR ((c.camp_id IS NULL OR c.camp_id = '') AND c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
+                        OR (d.link_post_id IN (SELECT ec.post_id FROM ads_campaign_extra_camps ec WHERE ec.campaign_id = c.id AND (ec.camp_id IS NULL OR ec.camp_id = '') AND ec.post_id IS NOT NULL AND ec.post_id != ''))
                     )
                 )
                 LEFT JOIN ads_campaign_extra_camps ec ON (ec.campaign_id = c.id AND (ec.camp_id = d.campaign_id OR ec.post_id = d.link_post_id))
