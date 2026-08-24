@@ -700,10 +700,11 @@ module.exports = async function (fastify, opts) {
         `);
     } catch(e) { console.error('[ads_scheduled_campaign_enables migration]', e.message); }
 
-    // Migration: add schedule_type and one_time_date columns
+    // Migration: add schedule_type, one_time_date, and is_deleted columns
     try {
         await db.run(`ALTER TABLE ads_scheduled_campaign_enables ADD COLUMN IF NOT EXISTS schedule_type VARCHAR(20) DEFAULT 'recurring'`);
         await db.run(`ALTER TABLE ads_scheduled_campaign_enables ADD COLUMN IF NOT EXISTS one_time_date DATE`);
+        await db.run(`ALTER TABLE ads_scheduled_campaign_enables ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE`);
     } catch(e) { console.error('[ads_scheduled_campaign_enables schedule_type migration]', e.message); }
 
     try {
@@ -2234,37 +2235,65 @@ module.exports = async function (fastify, opts) {
         }
     });
 
-    // ========== API 8: GET /api/hengiobatcamp/logs ==========
+    // ========== API 8: GET /api/hengiobatcamp/logs — Với bộ lọc Tháng/Quý/Ngày & Tìm kiếm ==========
     fastify.get('/api/hengiobatcamp/logs', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            const rawAccId = req.query.account_id;
-            if (rawAccId === 'all') {
-                const accessibleAccounts = await getAccessibleAccounts(req.user.id, req.user.role);
-                const accIds = accessibleAccounts.map(a => a.id);
-                if (accIds.length === 0) return { logs: [] };
+            const { account_id, filter_type, month, quarter, year, from_date, to_date, search } = req.query;
+            let accessibleAccIds = [];
 
-                const logs = await db.all(`
-                    SELECT l.*
-                    FROM ads_scheduled_campaign_enable_logs l
-                    WHERE l.account_id = ANY($1::int[])
-                    ORDER BY l.executed_at DESC
-                    LIMIT 200
-                `, [accIds]);
-                return { logs };
+            if (account_id === 'all') {
+                const accessibleAccounts = await getAccessibleAccounts(req.user.id, req.user.role);
+                accessibleAccIds = accessibleAccounts.map(a => a.id);
+                if (accessibleAccIds.length === 0) return { logs: [] };
+            } else {
+                const accId = parseInt(account_id);
+                if (!accId) return reply.code(400).send({ error: 'Thiếu account_id' });
+                const hasAccess = await checkAccountAccess(req.user.id, req.user.role, accId);
+                if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền' });
+                accessibleAccIds = [accId];
             }
 
-            const accountId = parseInt(rawAccId);
-            if (!accountId) return reply.code(400).send({ error: 'Thiếu account_id' });
+            let sql = `SELECT * FROM ads_scheduled_campaign_enable_logs WHERE account_id = ANY($1::int[])`;
+            const params = [accessibleAccIds];
 
-            const hasAccess = await checkAccountAccess(req.user.id, req.user.role, accountId);
-            if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền' });
+            // Search filter
+            if (search && String(search).trim()) {
+                const term = `%${String(search).trim().toLowerCase()}%`;
+                params.push(term);
+                sql += ` AND (LOWER(campaign_name) LIKE $${params.length} OR LOWER(campaign_id) LIKE $${params.length} OR LOWER(account_name) LIKE $${params.length})`;
+            }
 
-            const logs = await db.all(`
-                SELECT * FROM ads_scheduled_campaign_enable_logs
-                WHERE account_id = $1
-                ORDER BY executed_at DESC
-                LIMIT 200
-            `, [accountId]);
+            // Date / Period filters (UTC+7)
+            if (filter_type === 'month' && month && year) {
+                const m = parseInt(month);
+                const y = parseInt(year);
+                const start = `${y}-${String(m).padStart(2, '0')}-01 00:00:00+07`;
+                const nextM = m === 12 ? 1 : m + 1;
+                const nextY = m === 12 ? y + 1 : y;
+                const end = `${nextY}-${String(nextM).padStart(2, '0')}-01 00:00:00+07`;
+                params.push(start, end);
+                sql += ` AND executed_at >= $${params.length - 1} AND executed_at < $${params.length}`;
+            } else if (filter_type === 'quarter' && quarter && year) {
+                const q = parseInt(quarter);
+                const y = parseInt(year);
+                const startMonth = (q - 1) * 3 + 1;
+                const endMonth = startMonth + 3;
+                const start = `${y}-${String(startMonth).padStart(2, '0')}-01 00:00:00+07`;
+                const endY = endMonth > 12 ? y + 1 : y;
+                const endM = endMonth > 12 ? 1 : endMonth;
+                const end = `${endY}-${String(endM).padStart(2, '0')}-01 00:00:00+07`;
+                params.push(start, end);
+                sql += ` AND executed_at >= $${params.length - 1} AND executed_at < $${params.length}`;
+            } else if (filter_type === 'date_range' && from_date && to_date) {
+                const start = `${from_date} 00:00:00+07`;
+                const end = `${to_date} 23:59:59+07`;
+                params.push(start, end);
+                sql += ` AND executed_at >= $${params.length - 1} AND executed_at <= $${params.length}`;
+            }
+
+            sql += ` ORDER BY executed_at DESC LIMIT 500`;
+
+            const logs = await db.all(sql, params);
             return { logs };
         } catch (e) {
             console.error('[hengiobatcamp logs GET]', e);
@@ -2296,6 +2325,11 @@ module.exports = async function (fastify, opts) {
             if (sData.status === 'ACTIVE' || sData.effective_status === 'ACTIVE') {
                 const note = isManual ? 'Bật thủ công: Chiến dịch đã ở trạng thái ACTIVE sẵn trên Facebook' : 'Chiến dịch đã ở trạng thái ACTIVE sẵn trên Facebook';
                 await db.run(`UPDATE ads_scheduled_campaign_enables SET last_executed_at = NOW() WHERE id = $1`, [sched.id]);
+                // Nếu là lịch hẹn 1 lần -> Tự động ĐÁNH DẤU XÓA để ẩn khỏi bảng Cấu hình
+                if (sched.schedule_type === 'one_time') {
+                    await db.run(`UPDATE ads_scheduled_campaign_enables SET is_deleted = true, is_active = false, updated_at = NOW() WHERE id = $1`, [sched.id]);
+                    console.log(`[ScheduledEnable] 🗑️ Lịch hẹn 1 lần #${sched.id} đã tự động XÓA khỏi danh sách cấu hình sau khi hoàn thành`);
+                }
                 await db.run(`
                     INSERT INTO ads_scheduled_campaign_enable_logs (schedule_id, account_id, account_name, campaign_id, campaign_name, status, reason)
                     VALUES ($1, $2, $3, $4, $5, 'success', $6)
@@ -2318,10 +2352,10 @@ module.exports = async function (fastify, opts) {
                 const note = isManual ? 'Kích hoạt BẬT thủ công thành công' : (sched.schedule_type === 'one_time' ? `Tự động BẬT 1 LẦN thành công (ngày ${sched.one_time_date || 'N/A'})` : 'Tự động BẬT chiến dịch thành công qua hẹn giờ');
                 console.log(`[ScheduledEnable] ✅ BẬT THÀNH CÔNG campaign ${sched.campaign_name} (${campaignId})`);
                 await db.run(`UPDATE ads_scheduled_campaign_enables SET last_executed_at = NOW() WHERE id = $1`, [sched.id]);
-                // Nếu là lịch hẹn 1 lần → tự động tắt sau khi chạy xong
-                if (sched.schedule_type === 'one_time' && !isManual) {
-                    await db.run(`UPDATE ads_scheduled_campaign_enables SET is_active = false, updated_at = NOW() WHERE id = $1`, [sched.id]);
-                    console.log(`[ScheduledEnable] 🔒 Lịch hẹn 1 lần #${sched.id} đã tự động TẮT sau khi chạy xong`);
+                // Nếu là lịch hẹn 1 lần -> Tự động ĐÁNH DẤU XÓA để ẩn khỏi bảng Cấu hình (biến mất ở ảnh 2)
+                if (sched.schedule_type === 'one_time') {
+                    await db.run(`UPDATE ads_scheduled_campaign_enables SET is_deleted = true, is_active = false, updated_at = NOW() WHERE id = $1`, [sched.id]);
+                    console.log(`[ScheduledEnable] 🗑️ Lịch hẹn 1 lần #${sched.id} đã tự động XÓA khỏi danh sách cấu hình sau khi hoàn thành`);
                 }
                 await db.run(`
                     INSERT INTO ads_scheduled_campaign_enable_logs (schedule_id, account_id, account_name, campaign_id, campaign_name, status, reason)
@@ -2331,6 +2365,10 @@ module.exports = async function (fastify, opts) {
             } else {
                 const errReason = eData.error?.message || JSON.stringify(eData);
                 console.error(`[ScheduledEnable] ❌ Lỗi BẬT campaign ${sched.campaign_name}:`, errReason);
+                // Với trường hợp thất bại của lịch 1 lần, cũng đánh dấu là xong & ẩn khỏi bảng cấu hình
+                if (sched.schedule_type === 'one_time') {
+                    await db.run(`UPDATE ads_scheduled_campaign_enables SET is_deleted = true, is_active = false, updated_at = NOW() WHERE id = $1`, [sched.id]);
+                }
                 await db.run(`
                     INSERT INTO ads_scheduled_campaign_enable_logs (schedule_id, account_id, account_name, campaign_id, campaign_name, status, reason)
                     VALUES ($1, $2, $3, $4, $5, 'failed', 'Lỗi Graph API: ' || $6)

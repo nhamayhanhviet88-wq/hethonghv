@@ -9,6 +9,7 @@
     let _schedules = [];
     let _logs = [];
     let _holidaysMap = {}; // 'YYYY-MM-DD' => holiday_name
+    let _searchTimer = null;
 
     async function _loadHgbcHolidays() {
         try {
@@ -28,9 +29,15 @@
     window.renderHengiobatcampPage = async function(container) {
         if (!container) return;
 
-        // Current Vietnam Date
+        // Current Vietnam Date & Month info
         const now = new Date();
         const todayVnStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1; // 1-12
+        const currentQuarter = Math.ceil(currentMonth / 3); // 1-4
+
+        // Default Date Range: 1st of month to today
+        const firstDayOfMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
 
         container.innerHTML = `
             <style>
@@ -446,7 +453,7 @@
                         <div id="hgbc-onetime-section" class="hgbc-form-group" style="margin-top: 14px;">
                             <label>Ngày Bật Cụ Thể *</label>
                             <input type="date" id="hgbc-form-onetime-date" class="hgbc-input" style="max-width: 260px;" value="${todayVnStr}" min="${todayVnStr}" onchange="window._onHgbcDateChange(this.value)" />
-                            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">💡 Chỉ cho chọn ngày HÔM NAY hoặc TƯƠNG LAI (Chặn chọn Ngày Lễ theo Setup Ngày Lễ). Bật 1 lần rồi tự động TẮT.</div>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">💡 Chỉ cho chọn ngày HÔM NAY hoặc TƯƠNG LAI (Chặn chọn Ngày Lễ theo Setup Ngày Lễ). Bật 1 lần rồi tự động TẮT & XÓA khỏi danh sách cấu hình.</div>
                         </div>
 
                         <!-- NGÀY ÁP DỤNG (Lặp lại - Ẩn mặc định) -->
@@ -498,12 +505,73 @@
                     </div>
                 </div>
 
-                <!-- LOGS LỊCH SỬ -->
+                <!-- LOGS LỊCH SỬ KÈM BỘ LỌC CHUẨN ĐẸP GIỐNG THỐNG KÊ CAMP (ẢNH 5) -->
                 <div class="hgbc-panel">
                     <div class="hgbc-panel-title" style="justify-content: space-between;">
                         <span>📜 Nhật Ký Thực Thi Hẹn Giờ Bật Camp</span>
                         <button class="hgbc-btn hgbc-btn-sm hgbc-btn-ghost" onclick="window._loadHgbcLogs()">🔄 Tải lại Nhật Ký</button>
                     </div>
+
+                    <!-- BỘ LỌC ĐA NĂNG (Tháng, Quý, Ngày & Search) -->
+                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <!-- Filter Mode Selector -->
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-weight: 700; font-size: 13px; color: #1e293b; white-space: nowrap;">📅 Lọc theo:</label>
+                                <select id="hgbc-filter-mode" onchange="window._onHgbcFilterModeChange(this.value)" style="
+                                    padding: 8px 12px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 700; background: #ffffff; color: #1d4ed8; outline: none; cursor: pointer;
+                                ">
+                                    <option value="month" selected>📅 Theo Tháng</option>
+                                    <option value="quarter">📊 Theo Quý</option>
+                                    <option value="date_range">📆 Theo Ngày (Bảng Lịch)</option>
+                                </select>
+                            </div>
+
+                            <!-- Month Mode Controls -->
+                            <div id="hgbc-filter-month-wrap" style="display: flex; align-items: center; gap: 8px;">
+                                <select id="hgbc-filter-month" onchange="window._loadHgbcLogs()" style="padding: 8px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 13px; font-weight: 600; background: white; cursor: pointer;">
+                                    ${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${i+1 === currentMonth ? 'selected' : ''}>Tháng ${i+1}</option>`).join('')}
+                                </select>
+                                <select id="hgbc-filter-year" onchange="window._loadHgbcLogs()" style="padding: 8px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 13px; font-weight: 600; background: white; cursor: pointer;">
+                                    <option value="2025" ${currentYear === 2025 ? 'selected' : ''}>Năm 2025</option>
+                                    <option value="2026" ${currentYear === 2026 ? 'selected' : ''}>Năm 2026</option>
+                                    <option value="2027" ${currentYear === 2027 ? 'selected' : ''}>Năm 2027</option>
+                                </select>
+                            </div>
+
+                            <!-- Quarter Mode Controls -->
+                            <div id="hgbc-filter-quarter-wrap" style="display: none; align-items: center; gap: 8px;">
+                                <select id="hgbc-filter-quarter" onchange="window._loadHgbcLogs()" style="padding: 8px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 13px; font-weight: 700; background: white; cursor: pointer; color: #0f172a;">
+                                    <option value="1" ${currentQuarter === 1 ? 'selected' : ''}>Quý 1 (Tháng 1 - Tháng 3)</option>
+                                    <option value="2" ${currentQuarter === 2 ? 'selected' : ''}>Quý 2 (Tháng 4 - Tháng 6)</option>
+                                    <option value="3" ${currentQuarter === 3 ? 'selected' : ''}>Quý 3 (Tháng 7 - Tháng 9)</option>
+                                    <option value="4" ${currentQuarter === 4 ? 'selected' : ''}>Quý 4 (Tháng 10 - Tháng 12)</option>
+                                </select>
+                                <select id="hgbc-filter-qyear" onchange="window._loadHgbcLogs()" style="padding: 8px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 13px; font-weight: 600; background: white; cursor: pointer;">
+                                    <option value="2025" ${currentYear === 2025 ? 'selected' : ''}>Năm 2025</option>
+                                    <option value="2026" ${currentYear === 2026 ? 'selected' : ''}>Năm 2026</option>
+                                    <option value="2027" ${currentYear === 2027 ? 'selected' : ''}>Năm 2027</option>
+                                </select>
+                            </div>
+
+                            <!-- Date Range Calendar Mode Controls -->
+                            <div id="hgbc-filter-daterange-wrap" style="display: none; align-items: center; gap: 8px;">
+                                <input type="date" id="hgbc-filter-fromdate" value="${firstDayOfMonth}" onchange="window._loadHgbcLogs()" style="padding: 7px 10px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 13px;" />
+                                <span style="font-size: 12px; color: #64748b; font-weight: 600;">đến</span>
+                                <input type="date" id="hgbc-filter-todate" value="${todayVnStr}" onchange="window._loadHgbcLogs()" style="padding: 7px 10px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                        </div>
+
+                        <!-- Ô Tìm kiếm tên camp, ID camp -->
+                        <div style="display: flex; align-items: center; gap: 8px; flex: 1; max-width: 380px; min-width: 240px;">
+                            <div style="position: relative; width: 100%;">
+                                <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 14px;">🔍</span>
+                                <input type="text" id="hgbc-filter-search" oninput="window._onHgbcSearchInput()" placeholder="Tìm tên camp, ID camp, Post ID..." style="width: 100%; padding: 8px 12px 8px 32px; border-radius: 10px; border: 1.5px solid #cbd5e1; font-size: 13px; outline: none; background: white; transition: border 0.15s;" />
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="hgbc-table-container">
                         <table class="hgbc-table">
                             <thead>
@@ -855,6 +923,7 @@
             if (data.success) {
                 alert('✅ ' + data.message);
                 window._loadHgbcSchedules();
+                window._loadHgbcLogs();
             } else {
                 alert('❌ Lỗi: ' + (data.error || 'Không thể lưu lịch hẹn'));
             }
@@ -956,6 +1025,7 @@
             const data = await res.json();
             if (data.success) {
                 alert('✅ ' + data.message + '\nKết quả: ' + (data.result?.reason || 'Thành công'));
+                // Re-load Schedules (will auto remove 1-time schedule) and Logs
                 window._loadHgbcSchedules();
                 window._loadHgbcLogs();
             } else {
@@ -1001,18 +1071,58 @@
         }
     };
 
-    // Helper: Load Logs
+    // Helper: Search Input Debounce
+    window._onHgbcSearchInput = function() {
+        if (_searchTimer) clearTimeout(_searchTimer);
+        _searchTimer = setTimeout(() => {
+            window._loadHgbcLogs();
+        }, 300);
+    };
+
+    // Helper: Filter Mode Change (Month / Quarter / Date Range)
+    window._onHgbcFilterModeChange = function(mode) {
+        const monthWrap = document.getElementById('hgbc-filter-month-wrap');
+        const quarterWrap = document.getElementById('hgbc-filter-quarter-wrap');
+        const daterangeWrap = document.getElementById('hgbc-filter-daterange-wrap');
+
+        if (monthWrap) monthWrap.style.display = mode === 'month' ? 'flex' : 'none';
+        if (quarterWrap) quarterWrap.style.display = mode === 'quarter' ? 'flex' : 'none';
+        if (daterangeWrap) daterangeWrap.style.display = mode === 'date_range' ? 'flex' : 'none';
+
+        window._loadHgbcLogs();
+    };
+
+    // Helper: Load Logs with Filter Support
     window._loadHgbcLogs = async function() {
         const tbody = document.getElementById('hgbc-logs-tbody');
         if (!tbody) return;
 
+        const filterMode = document.getElementById('hgbc-filter-mode')?.value || 'month';
+        const search = document.getElementById('hgbc-filter-search')?.value || '';
+
+        let url = `/api/hengiobatcamp/logs?account_id=${_selectedAccountId}&filter_type=${filterMode}&search=${encodeURIComponent(search)}`;
+
+        if (filterMode === 'month') {
+            const m = document.getElementById('hgbc-filter-month')?.value;
+            const y = document.getElementById('hgbc-filter-year')?.value;
+            if (m && y) url += `&month=${m}&year=${y}`;
+        } else if (filterMode === 'quarter') {
+            const q = document.getElementById('hgbc-filter-quarter')?.value;
+            const y = document.getElementById('hgbc-filter-qyear')?.value;
+            if (q && y) url += `&quarter=${q}&year=${y}`;
+        } else if (filterMode === 'date_range') {
+            const fromDate = document.getElementById('hgbc-filter-fromdate')?.value;
+            const toDate = document.getElementById('hgbc-filter-todate')?.value;
+            if (fromDate && toDate) url += `&from_date=${fromDate}&to_date=${toDate}`;
+        }
+
         try {
-            const res = await fetch(`/api/hengiobatcamp/logs?account_id=${_selectedAccountId}`, { credentials: 'include' });
+            const res = await fetch(url, { credentials: 'include' });
             const data = await res.json();
             _logs = data.logs || [];
 
             if (_logs.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">Chưa có nhật ký thực thi nào.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:24px; color:#64748b;">Chưa có nhật ký thực thi nào khớp với bộ lọc.</td></tr>`;
                 return;
             }
 
