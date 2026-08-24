@@ -427,8 +427,14 @@ module.exports = async function (fastify, opts) {
                 permClause = `AND (
                     c.created_by IN (
                         SELECT id FROM users 
-                        WHERE (department_id = $1 OR managed_by_user_id = $2)
-                          AND LOWER(role) NOT IN ('giam_doc', 'admin', 'quan_ly', 'quan_ly_cap_cao', 'quan_ly_xuong')
+                        WHERE (
+                            department_id = $1 
+                            OR department_id IN (SELECT id FROM departments WHERE parent_id = $1 OR parent_id IN (SELECT parent_id FROM departments WHERE id = $1) OR LOWER(name) LIKE '%marketing%')
+                            OR managed_by_user_id = $2
+                            OR LOWER(role) LIKE '%nhan_vien%'
+                            OR LOWER(role) LIKE '%marketing%'
+                        )
+                        AND LOWER(role) NOT IN ('giam_doc', 'admin', 'quan_ly', 'quan_ly_cap_cao', 'quan_ly_xuong')
                     )
                     OR c.created_by = $2
                 )`;

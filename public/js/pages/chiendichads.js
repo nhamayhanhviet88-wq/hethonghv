@@ -922,10 +922,25 @@ function _cdAdsPopulateUserFilter() {
             userMap[c.created_by] = c.created_by_name;
         }
     });
+    const curUser = window._currentUser || window.currentUser || {};
+    const myId = String(curUser.id || '');
     const current = sel.value;
+
     sel.innerHTML = '<option value="all">👤 Tất cả nhân viên</option>' +
         Object.entries(userMap).map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
-    sel.value = current;
+
+    if (!window._cdAdsDefaultUserSet) {
+        window._cdAdsDefaultUserSet = true;
+        if (myId && userMap[myId]) {
+            sel.value = myId;
+            _cdAdsRenderTable();
+            return;
+        }
+    }
+
+    if (current && (current === 'all' || userMap[current])) {
+        sel.value = current;
+    }
 }
 
 // ========== FILTERS ==========
