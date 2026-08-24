@@ -1988,15 +1988,15 @@ function _cdAdsRenderExtraCampsHTML(camp) {
     // 1. Hiển thị Camp ID chính
     if (camp.camp_id || camp.post_id) {
         items.push(`
-            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px;">
+            <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px;">
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <span style="background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">⭐ Camp Chính</span>
                     ${camp.camp_id ? `<span style="font-family: monospace; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 8px; border-radius: 6px;">🆔 Camp: ${escapeHtml(camp.camp_id)}</span>` : ''}
                     ${camp.post_id ? `<span style="font-family: monospace; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px;">📌 Post: ${escapeHtml(camp.post_id)}</span>` : ''}
-                    <span style="color: #475569; font-weight: 700;">📝 ${escapeHtml(camp.campaign_name || 'Chiến dịch gốc')}</span>
+                    <span style="color: #64748b; font-weight: 600;">📝 ${escapeHtml(camp.campaign_name || 'Chiến dịch gốc')}</span>
                     <span style="color: #94a3b8; font-size: 11px;">👤 ${escapeHtml(camp.created_by_name || 'Giám Đốc')}</span>
                 </div>
-                <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 6px;" title="Mã Camp ID chính cố định theo chiến dịch">Cố định</span>
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px;" title="Mã Camp ID chính cố định theo chiến dịch">🔒 Cố định</span>
             </div>
         `);
     }
