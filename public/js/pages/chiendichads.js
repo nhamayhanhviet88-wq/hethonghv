@@ -1709,6 +1709,13 @@ function _cdAdsSetupGlobalTooltip() {
     document.addEventListener('mouseover', (e) => {
         const target = e.target.closest('[data-tooltip]');
         if (!target) return;
+
+        // Skip sidebar menu items when sidebar is expanded
+        if (target.closest('.nav-item, #sidebar, .sidebar')) {
+            const sidebar = target.closest('#sidebar, .sidebar') || document.querySelector('#sidebar, .sidebar');
+            if (!sidebar || !sidebar.classList.contains('collapsed')) return;
+        }
+
         const text = target.getAttribute('data-tooltip');
         if (!text) return;
 
