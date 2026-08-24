@@ -348,7 +348,7 @@ async function _cdAdsCheckUnreported() {
                 <div style="flex: 1;">
                     <div style="font-size: 14px; font-weight: 800; color: #991b1b; margin-bottom: 6px;">BẠN CÓ ${list.length} CHIẾN DỊCH CHƯA BÁO CÁO HÔM NAY!</div>
                     <div style="font-size: 12px; color: #b91c1c; font-weight: 600; line-height: 1.6;">
-                        ${list.map(c => `• <strong>${c.campaign_name}</strong> (${c.channel_name || ''})`).join('<br>')}
+                        ${list.map(c => `• <strong>${c.campaign_name}</strong>${c.channel_name ? ` (${c.channel_name})` : ''}`).join('<br>')}
                     </div>
                     <div style="font-size: 11px; color: #dc2626; font-weight: 700; margin-top: 8px; background: rgba(220,38,38,0.1); padding: 6px 10px; border-radius: 6px;">
                         💰 Nếu không báo cáo → Phạt 100,000đ/ngày + 🔒 Khóa tài khoản

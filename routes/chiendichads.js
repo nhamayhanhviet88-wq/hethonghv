@@ -638,8 +638,10 @@ module.exports = async function (fastify, opts) {
             const today = new Date().toISOString().split('T')[0];
 
             const unreported = await db.all(`
-                SELECT c.id, c.campaign_name, c.created_at, ch.name as channel_name
+                SELECT c.id, c.campaign_name, c.created_at, 
+                       COALESCE(c.channel_name, sa.platform, ch.name, 'Facebook') as channel_name
                 FROM ads_campaigns c
+                LEFT JOIN ads_stats_accounts sa ON c.ad_account_id = sa.id
                 LEFT JOIN ads_channels ch ON c.channel_id = ch.id
                 WHERE c.status = 'chay_test'
                   AND c.created_by = $1
