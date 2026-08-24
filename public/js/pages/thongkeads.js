@@ -682,6 +682,12 @@ window.renderThongkeadsPage = function(container) {
             const data = await res.json();
             if (!data.ok) throw new Error(data.error);
             _campaigns = data.campaigns || [];
+            _campaigns.forEach(c => {
+                const effCount = parseInt(c.total_effective_count) || 0;
+                const runCount = parseInt(c.total_run_count) || 1;
+                const filteredRunCount = c.filtered_run_count !== undefined && c.filtered_run_count !== null ? parseInt(c.filtered_run_count) : runCount;
+                c.effective_rate = filteredRunCount > 0 ? (effCount / filteredRunCount * 100) : 0;
+            });
             _sortCampaignsData();
             _renderCampaignTable();
         } catch(e) {
@@ -792,10 +798,22 @@ window.renderThongkeadsPage = function(container) {
             if (valB === null || valB === undefined) valB = '';
 
             // Numbers
-            if (['total_spend', 'total_messages', 'avg_cpa', 'avg_cpc', 'avg_ctr', 'avg_cpm', 'total_run_count', 'filtered_run_count', 'total_effective_count'].includes(_campSortColumn)) {
+            if (['total_spend', 'total_messages', 'avg_cpa', 'avg_cpc', 'avg_ctr', 'avg_cpm', 'total_run_count', 'filtered_run_count', 'total_effective_count', 'effective_rate'].includes(_campSortColumn)) {
                 const numA = parseFloat(valA) || 0;
                 const numB = parseFloat(valB) || 0;
-                return _campSortDir === 'desc' ? numB - numA : numA - numB;
+                if (numA !== numB) {
+                    return _campSortDir === 'desc' ? numB - numA : numA - numB;
+                }
+                if (_campSortColumn === 'total_effective_count') {
+                    const rateA = parseFloat(a.effective_rate) || 0;
+                    const rateB = parseFloat(b.effective_rate) || 0;
+                    if (rateA !== rateB) return rateB - rateA;
+                }
+                if (_campSortColumn === 'effective_rate') {
+                    const effA = parseFloat(a.total_effective_count) || 0;
+                    const effB = parseFloat(b.total_effective_count) || 0;
+                    if (effA !== effB) return effB - effA;
+                }
             }
 
             // Text
@@ -1063,6 +1081,7 @@ window.renderThongkeadsPage = function(container) {
                     <th onclick="window._tkaCampSortBy('total_run_count')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số lần quảng cáo chạy mất tiền,&#10;bao gồm cả những lần chạy vài nghìn,&#10;vài trăm đồng.">SL CHẠY TỔNG ${_getCampSortIcon('total_run_count')}</th>
                     <th onclick="window._tkaCampSortBy('filtered_run_count')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số lần chạy thực tế đạt ngưỡng chi tiêu&#10;(loại bỏ các ngân sách chạy dở vài nghìn,&#10;vài trăm đồng không có tin nhắn).">SL CHẠY THỰC ${_getCampSortIcon('filtered_run_count')}</th>
                     <th onclick="window._tkaCampSortBy('total_effective_count')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Số lần quảng cáo được đánh giá là đạt&#10;hiệu quả theo tiêu chí CPA.">SL HIỆU QUẢ ${_getCampSortIcon('total_effective_count')}</th>
+                    <th onclick="window._tkaCampSortBy('effective_rate')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" data-tooltip="Tỷ lệ % Hiệu Quả =&#10;(SL Hiệu Quả / SL Chạy Thực) * 100%">% HIỆU QUẢ ${_getCampSortIcon('effective_rate')}</th>
                 </tr>
             </thead>
         `;
@@ -1196,6 +1215,13 @@ window.renderThongkeadsPage = function(container) {
                             display: inline-block; padding: 4px 12px; border-radius: 8px;
                             font-size: 13px; ${effBadgeStyle}
                         ">${effCount}</span>
+                    </td>
+                    <td style="padding: 8px 6px; text-align: center;">
+                        <span style="
+                            display: inline-block; padding: 4px 10px; border-radius: 10px;
+                            font-size: 12.5px; font-weight: 800;
+                            background: #eff6ff; color: #2563eb;
+                        ">${filteredRunCount > 0 ? (row.effective_rate.toFixed(2).replace('.', ',') + '%') : '-'}</span>
                     </td>
                 </tr>
             `;
