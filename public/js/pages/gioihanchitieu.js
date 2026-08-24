@@ -28,6 +28,50 @@ window.renderGioihanchitieuPage = function(container) {
 
     // ========== RENDER MAIN LAYOUT ==========
     container.innerHTML = `
+        <style>
+            .ghct-toggle-switch {
+                position: relative;
+                display: inline-block;
+                width: 46px;
+                height: 24px;
+                flex-shrink: 0;
+                cursor: pointer;
+                user-select: none;
+            }
+            .ghct-toggle-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+                position: absolute;
+            }
+            .ghct-toggle-slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background-color: #cbd5e1;
+                transition: all 0.25s ease-in-out;
+                border-radius: 24px;
+                box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
+            }
+            .ghct-toggle-slider:before {
+                position: absolute;
+                content: "";
+                height: 18px;
+                width: 18px;
+                left: 3px;
+                bottom: 3px;
+                background-color: white;
+                transition: all 0.25s ease-in-out;
+                border-radius: 50%;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            .ghct-toggle-switch input:checked + .ghct-toggle-slider {
+                background-color: #059669;
+            }
+            .ghct-toggle-switch input:checked + .ghct-toggle-slider:before {
+                transform: translateX(22px);
+            }
+        </style>
         <div id="ghct-root" style="padding: 24px; max-width: 1400px; margin: 0 auto;">
             <!-- Header -->
             <div id="ghct-header" style="
@@ -1176,35 +1220,10 @@ window.renderGioihanchitieuPage = function(container) {
                     </div>
 
                     <!-- Toggle Active -->
-                    <label style="
-                        position: relative;
-                        display: inline-block;
-                        width: 44px;
-                        height: 24px;
-                        flex-shrink: 0;
-                        cursor: pointer;
-                    ">
+                    <label class="ghct-toggle-switch" title="${isActive ? 'Đang BẬT khung giờ này. Bấm để TẮT' : 'Đang TẮT khung giờ này. Bấm để BẬT'}">
                         <input type="checkbox" ${isActive ? 'checked' : ''} 
-                            onchange="window._ghctUpdateSlot('${dayType}', ${i}, 'active', this.checked)"
-                            style="opacity: 0; width: 0; height: 0;" />
-                        <span style="
-                            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-                            background-color: ${isActive ? '#059669' : '#cbd5e1'};
-                            transition: 0.3s;
-                            border-radius: 24px;
-                        ">
-                            <span style="
-                                position: absolute;
-                                content: '';
-                                height: 18px; width: 18px;
-                                left: ${isActive ? '22px' : '3px'};
-                                bottom: 3px;
-                                background-color: white;
-                                transition: 0.3s;
-                                border-radius: 50%;
-                                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                            "></span>
-                        </span>
+                            onchange="window._ghctUpdateSlot('${dayType}', ${i}, 'active', this.checked)" />
+                        <span class="ghct-toggle-slider"></span>
                     </label>
 
                     <!-- Delete -->
@@ -1309,6 +1328,7 @@ window.renderGioihanchitieuPage = function(container) {
             target.spend_limit = parseInt(cleaned) || 0;
         } else if (field === 'active') {
             target.is_active = value;
+            _renderContent();
         }
     };
 
