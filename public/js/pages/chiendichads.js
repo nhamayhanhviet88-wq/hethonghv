@@ -824,13 +824,14 @@ function _cdAdsRenderTable() {
             effRateBadgeStyle = 'background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: 800;';
         }
 
+        const shortCampName = c.item_title || (c.campaign_name ? c.campaign_name.split(' - ').slice(0, 2).join(' - ') : '-');
         return `<tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fafbff'" onmouseout="this.style.background='white'" onclick="if(!event.target.closest('button') && !event.target.closest('a') && !event.target.closest('.no-row-click')) _cdAdsViewDetail(${c.id})">
             <td style="padding:10px 12px;font-size:12px;font-weight:800;color:#64748b;text-align:center;">${idx + 1}</td>
             <td class="no-row-click" onclick="event.stopPropagation(); _cdAdsGoToKhoAdsItem(${c.kho_ads_item_id || 'null'})" style="padding:10px 8px;cursor:pointer;" title="Xem mẫu tại Kho Video/Ảnh Ads">
                 <div style="width:44px;height:44px;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;${thumbStyle}">${thumbContent}</div>
             </td>
-            <td class="no-row-click" onclick="event.stopPropagation(); _cdAdsGoToKhoAdsItem(${c.kho_ads_item_id || 'null'})" style="padding:10px 8px;cursor:pointer;" title="Xem mẫu tại Kho Video/Ảnh Ads">
-                <div style="font-size:13px;font-weight:800;color:#0f172a;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(c.campaign_name || '').replace(/"/g, '&quot;')}">${c.campaign_name || '-'}</div>
+            <td class="no-row-click" onclick="event.stopPropagation(); _cdAdsGoToKhoAdsItem(${c.kho_ads_item_id || 'null'})" style="padding:10px 8px;cursor:pointer;" title="Xem mẫu tại Kho Video/Ảnh Ads: ${(c.campaign_name || '').replace(/"/g, '&quot;')}">
+                <div style="font-size:13px;font-weight:800;color:#0f172a;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(c.campaign_name || '').replace(/"/g, '&quot;')}">${shortCampName}</div>
                 <div style="font-size:11px;color:#64748b;font-weight:600;">${c.linh_vuc || ''} ${c.media_type === 'video' ? '🎥' : '🖼️'}</div>
             </td>
             <td style="padding:10px 8px;text-align:center;">
