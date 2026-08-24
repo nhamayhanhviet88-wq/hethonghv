@@ -640,21 +640,20 @@ window.renderThongkeadsPage = function(container) {
     };
 
     window._tkaEditPerf = function(accId) {
-        _selectedAccountId = String(accId);
-        _showPerfModal();
+        _showPerfModal(accId);
     };
 
     function _updateAccountButtons() {
         const infoDiv = document.getElementById('tka-account-info');
         const accountSec = document.getElementById('tka-account-section');
-        const hasSelected = _selectedAccountId && _selectedAccountId !== 'all';
+        const singleSelectedId = (_selectedAccountIds && _selectedAccountIds.length === 1) ? _selectedAccountIds[0] : null;
 
         // Remove old warning banner if exists
         const oldBanner = document.getElementById('tka-conn-warning-banner');
         if (oldBanner) oldBanner.remove();
 
-        if (infoDiv && hasSelected) {
-            const acc = _accounts.find(a => String(a.id) === String(_selectedAccountId));
+        if (infoDiv && singleSelectedId) {
+            const acc = _accounts.find(a => String(a.id) === String(singleSelectedId));
             if (acc) {
                 const st = acc.connection_status || 'unconfigured';
 
@@ -1815,14 +1814,14 @@ window.renderThongkeadsPage = function(container) {
 
     // ========== PERFORMANCE MODAL ==========
 
-    async function _showPerfModal() {
+    async function _showPerfModal(targetAccId) {
         const fbAccs = _accounts.filter(a => a.platform === 'facebook');
         if (!fbAccs || fbAccs.length === 0) {
             alert('⚠️ Chưa có tài khoản quảng cáo nào! Vui lòng sang trang "Cài Đặt Tài Khoản Ads" để tạo tài khoản trước.');
             return;
         }
 
-        let currentTargetId = (_selectedAccountId && _selectedAccountId !== 'all') ? _selectedAccountId : String(fbAccs[0].id);
+        let currentTargetId = targetAccId || (_selectedAccountIds && _selectedAccountIds.length === 1 ? _selectedAccountIds[0] : String(fbAccs[0].id));
         let account = fbAccs.find(a => String(a.id) === String(currentTargetId)) || fbAccs[0];
 
         // Remove existing modal
@@ -2008,7 +2007,7 @@ window.renderThongkeadsPage = function(container) {
                         const data = await res.json();
                         if (!data.ok) throw new Error(data.error);
 
-                        _selectedAccountId = String(targetId);
+                        _selectedAccountIds = [String(targetId)];
 
                         const targetAcc = _accounts.find(a => String(a.id) === String(targetId));
                         if (targetAcc) {
