@@ -1315,6 +1315,15 @@ async function _bcvShowCreate() {
                     </select>
                 </div>
             </div>
+            <!-- SỐ LƯỢNG CHIẾN DỊCH TEST ADS (Bắt buộc nhập số lượng cho Tư Liệu 6 : Chiến Dịch Test Ads ở PHÒNG MARKETING) -->
+            <div class="bcv-form-group" id="bcvCreateTestAdsGroup" style="display:none;margin-top:12px;background:#f5f3ff;padding:14px;border-radius:12px;border:1.5px solid #c7d2fe">
+                <div>
+                    <label style="font-size:11px;font-weight:800;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px">
+                        🔢 SỐ LƯỢNG CHIẾN DỊCH TEST ADS * <span style="font-size:10px;font-weight:700;color:#dc2626">(BẮT BUỘC NHẬP SỐ LƯỢNG)</span>
+                    </label>
+                    <input type="number" min="1" id="bcvCreateTestAdsQuantity" class="bcv-form-input" placeholder="Nhập số lượng chiến dịch test ads (ví dụ: 5, 10, 20...)" style="margin-top:6px;border:2px solid #4338ca;font-weight:700;background:#ffffff">
+                </div>
+            </div>
             <div class="bcv-form-group" id="bcvSubTitleGroup" style="display:none">
                 <label>Tiêu đề phụ * <span style="font-weight:400;color:#64748b;font-size:11px">(VD: BST 20, Áo Nhóm ABC...)</span></label>
                 <input class="bcv-form-input" id="bcvCreateSubTitle" placeholder="Nhập tiêu đề phụ bắt buộc..." oninput="_bcvUpdateAutoTitle()" style="border:2px solid #f59e0b;background:#fffbeb">
@@ -1578,6 +1587,11 @@ function _bcvResetCreateDocPicker(placeholderText) {
     _bcv._autoTitleTuLieu2LinhVucName = '';
     _bcv._autoTitleTuLieu2Code = '';
 
+    var testAdsGroup = document.getElementById('bcvCreateTestAdsGroup');
+    var testAdsQtyInp = document.getElementById('bcvCreateTestAdsQuantity');
+    if (testAdsGroup) testAdsGroup.style.display = 'none';
+    if (testAdsQtyInp) testAdsQtyInp.value = '';
+
     _bcvUpdateAutoTitle('');
     var subTitleEl = document.getElementById('bcvCreateSubTitle');
     if (subTitleEl) subTitleEl.value = '';
@@ -1709,6 +1723,14 @@ function _bcvIsVideoAdsCat(catName) {
            lower.includes('ảnh ads') ||
            (lower.includes('video') && lower.includes('ads')) ||
            (lower.includes('ảnh') && lower.includes('ads'));
+}
+
+function _bcvIsTestAdsDoc(catName) {
+    if (!catName) return false;
+    var lower = String(catName).toLowerCase();
+    return lower.includes('chiến dịch test ads') ||
+           lower.includes('chiến dịch test') ||
+           (lower.includes('tư liệu 6') && lower.includes('test'));
 }
 
 // Cập nhật tiêu đề tự động theo tên tư liệu + tiêu đề phụ / bộ sưu tập / lĩnh vực ads + ngày/tháng/năm và khóa chỉnh sửa
@@ -1908,6 +1930,19 @@ function _bcvCreateDocMainCatChange() {
         _bcv._autoTitleTuLieu2LinhVucName = '';
         _bcv._autoTitleTuLieu2Code = '';
         _bcvUpdateAutoTitle();
+    }
+
+    // Hiển thị / Ẩn ô nhập Số Lượng Chiến Dịch Test Ads cho Tư Liệu 6 : Chiến Dịch Test Ads ở PHÒNG MARKETING
+    var isTestAds = isMarketing && _bcvIsTestAdsDoc(selectedCat);
+    var testAdsGroup = document.getElementById('bcvCreateTestAdsGroup');
+    if (isTestAds) {
+        if (testAdsGroup) testAdsGroup.style.display = 'block';
+    } else {
+        if (testAdsGroup) {
+            testAdsGroup.style.display = 'none';
+            var testAdsQtyInp = document.getElementById('bcvCreateTestAdsQuantity');
+            if (testAdsQtyInp) testAdsQtyInp.value = '';
+        }
     }
 
     // Lọc documents theo main_category
@@ -2241,6 +2276,20 @@ async function _bcvSubmitCreate() {
             return;
         }
         if (!adsLinhVuc) adsLinhVuc = _bcv._autoTitleTuLieu2LinhVucName || tuLieu2LinhVuc;
+    }
+
+    // Kiểm tra bắt buộc nhập Số Lượng Chiến Dịch Test Ads cho Tư Liệu 6 ở PHÒNG MARKETING
+    var testAdsGroup = document.getElementById('bcvCreateTestAdsGroup');
+    var testAdsQtyInp = document.getElementById('bcvCreateTestAdsQuantity');
+    if (testAdsGroup && testAdsGroup.style.display !== 'none') {
+        var rawQtyTest = testAdsQtyInp ? testAdsQtyInp.value.trim() : '';
+        var testQtyVal = Number(rawQtyTest);
+        if (!rawQtyTest || isNaN(testQtyVal) || testQtyVal <= 0) {
+            alert('⚠️ Vui lòng nhập Số Lượng Chiến Dịch Test Ads bắt buộc!');
+            if (testAdsQtyInp) testAdsQtyInp.focus();
+            return;
+        }
+        targetQtyVal = testQtyVal;
     }
 
     var guideLink = (document.getElementById('bcvCreateGuideLink') || {}).value || '';
