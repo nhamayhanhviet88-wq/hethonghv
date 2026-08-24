@@ -49,6 +49,7 @@ module.exports = async function (fastify, opts) {
         `);
         await db.run("ALTER TABLE ads_campaigns ADD COLUMN IF NOT EXISTS ad_account_id INT");
         await db.run("ALTER TABLE ads_campaigns ADD COLUMN IF NOT EXISTS channel_name VARCHAR(100)");
+        await db.run("ALTER TABLE ads_campaigns ADD COLUMN IF NOT EXISTS board_task_id INT");
         try { await db.run("ALTER TABLE ads_campaigns ALTER COLUMN channel_id DROP NOT NULL"); } catch(e) {}
     } catch(e) { console.error('[ads_campaigns migration]', e.message); }
 
@@ -338,6 +339,55 @@ module.exports = async function (fastify, opts) {
         }
     });
 
+    // GET /api/chiendich-ads/pending-test-tasks — Lấy danh sách công việc Test Ads đang ở ĐANG LÀM
+    fastify.get('/api/chiendich-ads/pending-test-tasks', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const user = req.user || {};
+            const userId = Number(user.id);
+            const isGD = _isGiamDoc(user);
+
+            let whereClause = `t.status = 'dang_lam' AND (t.title LIKE '%Test Ads%' OR t.guide_link LIKE '%Test Ads%' OR t.guide_link LIKE '%Tư Liệu 6%')`;
+            let params = [];
+
+            if (!isGD) {
+                params.push(userId);
+                whereClause += ` AND (t.assigned_to = $1 OR (t.assigned_to_ids IS NOT NULL AND $1::text = ANY(string_to_array(t.assigned_to_ids, ','))) OR t.created_by = $1)`;
+            }
+
+            const tasks = await db.all(`
+                SELECT t.id, t.task_code, t.title, t.guide_link, t.target_quantity, t.assigned_to, t.created_at, t.department_id,
+                       u.full_name as assigned_to_name
+                FROM board_tasks t
+                LEFT JOIN users u ON t.assigned_to = u.id
+                WHERE ${whereClause}
+                ORDER BY t.id DESC
+            `, params);
+
+            const resultTasks = [];
+            for (const task of tasks) {
+                const countRow = await db.get(`SELECT COUNT(*) as count FROM ads_campaigns WHERE board_task_id = $1`, [task.id]);
+                const linkedCount = countRow ? Number(countRow.count) : 0;
+                const targetQty = Math.max(1, Number(task.target_quantity || 1));
+
+                if (linkedCount < targetQty) {
+                    resultTasks.push({
+                        id: task.id,
+                        task_code: task.task_code,
+                        title: task.title,
+                        target_quantity: targetQty,
+                        linked_count: linkedCount,
+                        created_at: task.created_at
+                    });
+                }
+            }
+
+            return reply.send({ ok: true, tasks: resultTasks });
+        } catch(e) {
+            console.error('[pending-test-tasks GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     // ========== 3. CAMPAIGNS CRUD ==========
 
     // GET /api/ads-campaigns — Lấy danh sách chiến dịch (phân quyền 4 cấp)
@@ -503,11 +553,25 @@ module.exports = async function (fastify, opts) {
     // POST /api/ads-campaigns — Tạo chiến dịch mới
     fastify.post('/api/ads-campaigns', { preHandler: [authenticate] }, async (req, reply) => {
         try {
-            const { kho_ads_item_id, channel_id, ad_account_id, channel_name, post_id, camp_id, campaign_name } = req.body || {};
+            const { kho_ads_item_id, channel_id, ad_account_id, channel_name, post_id, camp_id, campaign_name, board_task_id } = req.body || {};
 
             if (!kho_ads_item_id) return reply.code(400).send({ error: 'Vui lòng chọn mẫu từ Kho Ads!' });
             if (!ad_account_id && !channel_id && !channel_name) {
                 return reply.code(400).send({ error: 'Vui lòng chọn kênh quảng cáo / tài khoản quảng cáo!' });
+            }
+
+            let bTaskId = board_task_id ? Number(board_task_id) : null;
+            if (bTaskId) {
+                const bTask = await db.get(`SELECT id, target_quantity FROM board_tasks WHERE id = $1`, [bTaskId]);
+                if (!bTask) {
+                    return reply.code(400).send({ error: 'Công việc liên kết không tồn tại!' });
+                }
+                const countRow = await db.get(`SELECT COUNT(*) as count FROM ads_campaigns WHERE board_task_id = $1`, [bTaskId]);
+                const linkedCount = countRow ? Number(countRow.count) : 0;
+                const targetQty = Math.max(1, Number(bTask.target_quantity || 1));
+                if (linkedCount >= targetQty) {
+                    return reply.code(400).send({ error: `Công việc này đã hoàn thành đủ ${targetQty}/${targetQty} chiến dịch test, vui lòng chọn công việc khác!` });
+                }
             }
 
             // Kiểm tra mẫu tồn tại
@@ -539,9 +603,21 @@ module.exports = async function (fastify, opts) {
             const finalCampName = (campaign_name && campaign_name.trim()) ? campaign_name.trim() : `${item.title} - ${cName}`;
 
             const result = await db.get(`
-                INSERT INTO ads_campaigns (kho_ads_item_id, channel_id, ad_account_id, channel_name, campaign_name, post_id, camp_id, status, created_by)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, 'chay_test', $8) RETURNING *
-            `, [kho_ads_item_id, channelId, adAccId, cName, finalCampName, (post_id || '').trim(), (camp_id || '').trim(), req.user.id]);
+                INSERT INTO ads_campaigns (kho_ads_item_id, channel_id, ad_account_id, channel_name, campaign_name, post_id, camp_id, status, created_by, board_task_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, 'chay_test', $8, $9) RETURNING *
+            `, [kho_ads_item_id, channelId, adAccId, cName, finalCampName, (post_id || '').trim(), (camp_id || '').trim(), req.user.id, bTaskId]);
+
+            if (bTaskId) {
+                const bTask = await db.get(`SELECT id, target_quantity FROM board_tasks WHERE id = $1`, [bTaskId]);
+                if (bTask) {
+                    const countRow = await db.get(`SELECT COUNT(*) as count FROM ads_campaigns WHERE board_task_id = $1`, [bTaskId]);
+                    const linkedCount = countRow ? Number(countRow.count) : 0;
+                    const targetQty = Math.max(1, Number(bTask.target_quantity || 1));
+                    const newProgress = Math.min(100, Math.round((linkedCount / targetQty) * 100));
+
+                    await db.run(`UPDATE board_tasks SET progress = $1 WHERE id = $2`, [newProgress, bTaskId]);
+                }
+            }
 
             return reply.send({ ok: true, campaign: result });
         } catch (e) {

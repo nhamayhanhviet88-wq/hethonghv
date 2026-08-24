@@ -656,16 +656,24 @@ async function bangcongviecRoutes(fastify, options) {
                 }
             }
 
-            // Enrich assigned_to_name for tasks with multiple assignees
-            for (const task of tasks) {
-                if (task.assigned_to_ids) {
-                    const ids = task.assigned_to_ids.split(',').map(id => Number(id.trim())).filter(id => !isNaN(id));
-                    if (ids.length > 0) {
-                        const assignees = await db.all(`SELECT full_name FROM users WHERE id = ANY($1::int[])`, [ids]);
-                        if (assignees && assignees.length > 0) {
-                            task.assigned_to_name = assignees.map(a => a.full_name).join(', ');
-                        }
-                    }
+            // Enrich linked_campaigns for Test Ads tasks
+            const taskIds = tasks.map(t => t.id);
+            if (taskIds.length > 0) {
+                const linkedCamps = await db.all(`
+                    SELECT id, board_task_id, kho_ads_item_id, channel_name, campaign_name, post_id, camp_id, status, created_at
+                    FROM ads_campaigns
+                    WHERE board_task_id = ANY($1::int[])
+                    ORDER BY id ASC
+                `, [taskIds]);
+
+                const campMap = {};
+                for (const camp of linkedCamps) {
+                    if (!campMap[camp.board_task_id]) campMap[camp.board_task_id] = [];
+                    campMap[camp.board_task_id].push(camp);
+                }
+
+                for (const task of tasks) {
+                    task.linked_campaigns = campMap[task.id] || [];
                 }
             }
 

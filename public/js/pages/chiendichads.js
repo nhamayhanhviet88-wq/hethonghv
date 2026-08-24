@@ -329,6 +329,13 @@ async function renderChiendichadsPage(container) {
                     <button onclick="_cdAdsCloseCreateModal()" style="background: rgba(255,255,255,0.2); border: none; font-size: 16px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: white; font-weight: bold;">✕</button>
                 </div>
                 <div style="padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px;">
+                    <!-- Chọn Công Việc Test Camp -->
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">📋 Chọn Công Việc Test Camp (Từ Bảng Công Việc) <span id="cdAdsTaskReqStar" style="color:#dc2626;display:none">* (BẮT BUỘC CHỌN)</span></label>
+                        <select id="cdAdsCreateTaskSelect" style="width: 100%; padding: 11px 12px; border: 1.5px solid #8b5cf6; border-radius: 10px; font-size: 13.5px; font-weight: 700; outline: none; background: #f5f3ff; color: #5b21b6;">
+                            <option value="">-- Tải danh sách công việc... --</option>
+                        </select>
+                    </div>
                     <!-- Bước 1: Chọn mẫu -->
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">📦 Bước 1: Chọn Mẫu Từ Kho Ads <span style="color:#dc2626">*</span></label>
@@ -961,6 +968,30 @@ function _cdAdsCloseChannelModal() {
 
 async function _cdAdsOpenCreateModal() {
     document.getElementById('cdAdsCreateModal').style.display = 'flex';
+    // Load pending test tasks từ Bảng Công Việc
+    const taskSel = document.getElementById('cdAdsCreateTaskSelect');
+    const taskReqStar = document.getElementById('cdAdsTaskReqStar');
+    if (taskSel) {
+        taskSel.innerHTML = '<option value="">⏳ Đang tải danh sách công việc từ Bảng Công Việc...</option>';
+        try {
+            const tData = await _cdAdsApi('/api/chiendich-ads/pending-test-tasks');
+            const pendingTasks = tData.tasks || [];
+            window._cdAdsPendingTasks = pendingTasks;
+
+            if (pendingTasks.length > 0) {
+                if (taskReqStar) taskReqStar.style.display = 'inline';
+                taskSel.innerHTML = '<option value="">-- Chọn Công Việc Test Camp liên kết --</option>' +
+                    pendingTasks.map(t => `<option value="${t.id}">${t.task_code} (${t.linked_count}/${t.target_quantity} Test Camp) - ${t.title}</option>`).join('');
+            } else {
+                if (taskReqStar) taskReqStar.style.display = 'none';
+                taskSel.innerHTML = '<option value="">-- Không có công việc test camp cần liên kết --</option>';
+            }
+        } catch(e) {
+            console.error('Pending tasks fetch error:', e);
+            if (taskSel) taskSel.innerHTML = '<option value="">-- Không có công việc test camp cần liên kết --</option>';
+        }
+    }
+
     // Load items từ kho ads
     try {
         const data = await _cdAdsApi('/api/ads-campaigns/my-items');
@@ -1193,12 +1224,18 @@ function _cdAdsUpdateCampaignName() {
 }
 
 async function _cdAdsSubmitCreate() {
+    const taskSelVal = document.getElementById('cdAdsCreateTaskSelect')?.value;
     const itemId = document.getElementById('cdAdsCreateItemSelect')?.value;
     const platformId = window._cdAdsSelectedPlatform;
     const accId = window._cdAdsSelectedAdAccount;
     const campId = document.getElementById('cdAdsCreateCampId')?.value;
     const postId = document.getElementById('cdAdsCreatePostId')?.value;
     const campaignName = document.getElementById('cdAdsCreateCampaignName')?.value;
+
+    const pendingTasks = window._cdAdsPendingTasks || [];
+    if (pendingTasks.length > 0 && !taskSelVal) {
+        return alert('⚠️ Vui lòng chọn Công Việc Test Camp liên kết từ Bảng Công Việc!');
+    }
 
     if (!itemId) return alert('Vui lòng chọn mẫu từ Kho Ads (Bước 1)!');
     if (!platformId) return alert('Vui lòng chọn kênh quảng cáo (Bước 2)!');
@@ -1209,6 +1246,7 @@ async function _cdAdsSubmitCreate() {
 
     try {
         const res = await _cdAdsApi('/api/ads-campaigns', 'POST', {
+            board_task_id: taskSelVal ? Number(taskSelVal) : null,
             kho_ads_item_id: Number(itemId),
             ad_account_id: Number(accId),
             channel_name: channelObj ? channelObj.name : platformId,

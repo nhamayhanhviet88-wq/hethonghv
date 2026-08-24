@@ -2737,20 +2737,39 @@ async function _bcvShowDetail(taskId) {
     var testAdsProgressHtml = '';
     if (isTestAdsTask) {
         var count = Math.max(1, Number(task.target_quantity || 1));
+        var linkedCamps = task.linked_campaigns || [];
         var itemsHtml = '';
+
         for (var i = 1; i <= count; i++) {
-            itemsHtml += `<div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:12px;padding:12px 16px;box-shadow:0 2px 6px rgba(67,56,202,0.05);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-                <div style="display:flex;align-items:center;gap:10px">
-                    <span style="background:linear-gradient(135deg,#4338ca,#3730a3);color:#ffffff;font-size:11px;font-weight:900;padding:4px 10px;border-radius:14px;box-shadow:0 2px 6px rgba(67,56,202,0.25)">CAMP TEST #${i}</span>
-                    <span style="font-size:13px;font-weight:800;color:#1e293b">Chiến dịch Test Ads #${i}</span>
-                </div>
-                <span style="font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;padding:4px 10px;border-radius:8px;border:1px solid #e2e8f0">⏳ Chờ liên kết tiến độ</span>
-            </div>`;
+            var camp = linkedCamps[i - 1];
+            if (camp) {
+                var cName = _esc(camp.campaign_name || ('Chiến dịch Test Ads #' + i));
+                var cId = camp.camp_id ? ` (ID: ${_esc(camp.camp_id)})` : '';
+                itemsHtml += `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:12px 16px;box-shadow:0 2px 6px rgba(22,163,74,0.08);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="background:linear-gradient(135deg,#16a34a,#15803d);color:#ffffff;font-size:11px;font-weight:900;padding:4px 10px;border-radius:14px;box-shadow:0 2px 6px rgba(22,163,74,0.25)">CAMP TEST #${i}</span>
+                        <span style="font-size:13px;font-weight:800;color:#14532d">Chiến dịch: ${cName}${cId}</span>
+                    </div>
+                    <span style="font-size:11px;font-weight:800;color:#15803d;background:#dcfce7;padding:4px 10px;border-radius:8px;border:1px solid #bbf7d0">✅ Đã tạo chiến dịch test</span>
+                </div>`;
+            } else {
+                itemsHtml += `<div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:12px;padding:12px 16px;box-shadow:0 2px 6px rgba(67,56,202,0.05);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="background:linear-gradient(135deg,#4338ca,#3730a3);color:#ffffff;font-size:11px;font-weight:900;padding:4px 10px;border-radius:14px;box-shadow:0 2px 6px rgba(67,56,202,0.25)">CAMP TEST #${i}</span>
+                        <span style="font-size:13px;font-weight:800;color:#1e293b">Chiến dịch Test Ads #${i}</span>
+                    </div>
+                    <span style="font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;padding:4px 10px;border-radius:8px;border:1px solid #e2e8f0">⏳ Chờ liên kết tiến độ</span>
+                </div>`;
+            }
         }
+
+        var doneCount = Math.min(count, linkedCamps.length);
+        var progressPercent = Math.min(100, Math.round((doneCount / count) * 100));
+
         testAdsProgressHtml = `<div style="margin-top:16px;background:#f5f3ff;border:1.5px solid #c7d2fe;border-radius:14px;padding:16px">
             <div style="font-size:12px;font-weight:900;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
-                <span>🔢 TIẾN ĐỘ SỐ LƯỢNG CHIẾN DỊCH TEST ADS (${count} Camp Test)</span>
-                <span style="font-size:10px;font-weight:800;background:#e0e7ff;color:#3730a3;padding:3px 10px;border-radius:12px">BẢN THIẾT KẾ TIẾN ĐỘ</span>
+                <span>🔢 TIẾN ĐỘ SỐ LƯỢNG CHIẾN DỊCH TEST ADS (${doneCount}/${count} Camp Test • ${progressPercent}%)</span>
+                <span style="font-size:10px;font-weight:800;background:${doneCount === count ? '#dcfce7' : '#e0e7ff'};color:${doneCount === count ? '#15803d' : '#3730a3'};padding:3px 10px;border-radius:12px">${doneCount === count ? '✅ ĐÃ HOÀN THÀNH ĐỦ' : 'BẢN THIẾT KẾ TIẾN ĐỘ'}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px">
                 ${itemsHtml}
