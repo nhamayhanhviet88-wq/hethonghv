@@ -1122,8 +1122,24 @@ function _bcvBuildAssigneeCheckboxes(users) {
     if (!users || users.length === 0) {
         return '<div style="font-size:12px;color:#94a3b8;font-style:italic">Không có nhân sự nào trong phòng ban</div>';
     }
+
+    var currentUser = window._currentUser || window.__currentUser || {};
+    var currentUserId = currentUser.id ? String(currentUser.id) : null;
+    var currentUsername = currentUser.username ? String(currentUser.username).toLowerCase() : null;
+
+    // Quy tắc: Lọc bỏ chính tài khoản đang đăng nhập (không giao việc cho chính mình)
+    var assignableUsers = users.filter(function(u) {
+        if (currentUserId && String(u.id) === currentUserId) return false;
+        if (currentUsername && u.username && String(u.username).toLowerCase() === currentUsername) return false;
+        return true;
+    });
+
+    if (assignableUsers.length === 0) {
+        return '<div style="font-size:12px;color:#dc2626;font-weight:700;font-style:italic;padding:4px 0">⚠️ Không có nhân sự khác trong phòng ban để giao việc (Không được giao việc cho chính mình)</div>';
+    }
+
     var html = '';
-    users.forEach(function(u) {
+    assignableUsers.forEach(function(u) {
         var label = _esc(u.full_name) + (u.department_name ? ' (' + _esc(u.department_name) + ')' : '');
         html += `<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1e293b;cursor:pointer;user-select:none;padding:3px 0">
             <input type="checkbox" class="bcv-assignee-cb" value="${u.id}" data-dept-id="${u.department_id || ''}" onchange="_bcvUpdateAssigneeCount()" style="width:16px;height:16px;cursor:pointer">

@@ -689,20 +689,24 @@ async function bangcongviecRoutes(fastify, options) {
                 return reply.code(400).send({ error: 'Tiêu đề không được để trống' });
             }
 
-            let assignedToPrimary = assigned_to;
-            let assignedToIdsStr = null;
-
+            // Quy tắc: Không được phép giao việc cho chính mình
+            let rawAssigneeIds = [];
             if (Array.isArray(assigned_to_ids) && assigned_to_ids.length > 0) {
-                assignedToPrimary = Number(assigned_to_ids[0]);
-                assignedToIdsStr = assigned_to_ids.map(id => String(id).trim()).filter(Boolean).join(',');
+                rawAssigneeIds = assigned_to_ids.map(id => Number(id)).filter(id => !isNaN(id));
             } else if (typeof assigned_to_ids === 'string' && assigned_to_ids.trim()) {
-                assignedToIdsStr = assigned_to_ids.trim();
-                const parts = assignedToIdsStr.split(',');
-                if (parts[0]) assignedToPrimary = Number(parts[0]);
+                rawAssigneeIds = assigned_to_ids.split(',').map(s => Number(s.trim())).filter(id => !isNaN(id));
             } else if (assigned_to) {
-                assignedToPrimary = Number(assigned_to);
-                assignedToIdsStr = String(assigned_to);
+                rawAssigneeIds = [Number(assigned_to)];
             }
+
+            // Filter out current user ID
+            const cleanAssigneeIds = rawAssigneeIds.filter(id => id !== user.id);
+            if (cleanAssigneeIds.length === 0) {
+                return reply.code(400).send({ error: 'Không được phép giao việc cho chính mình! Vui lòng chọn nhân sự khác trong phòng ban.' });
+            }
+
+            let assignedToPrimary = cleanAssigneeIds[0];
+            let assignedToIdsStr = cleanAssigneeIds.join(',');
 
             // Department validation
             let deptId = department_id;
@@ -715,19 +719,17 @@ async function bangcongviecRoutes(fastify, options) {
             }
 
             // Validate assignment hierarchy permission rules:
-            if (assignedToPrimary && Number(assignedToPrimary) !== user.id && !['giam_doc', 'quan_ly_cap_cao'].includes(user.role)) {
+            if (assignedToPrimary && !['giam_doc', 'quan_ly_cap_cao'].includes(user.role)) {
                 const targetUser = await db.get(`SELECT id, role FROM users WHERE id = $1`, [assignedToPrimary]);
                 if (targetUser) {
                     if (['quan_ly_cap_cao', 'quan_ly', 'quan_ly_xuong'].includes(user.role)) {
                         if (!['truong_phong', 'nhan_vien'].includes(targetUser.role)) {
-                            return reply.code(403).send({ error: 'Quản lý chỉ được giao việc cho chính mình, Trưởng phòng và Nhân viên' });
+                            return reply.code(403).send({ error: 'Quản lý chỉ được giao việc cho Trưởng phòng và Nhân viên' });
                         }
                     } else if (user.role === 'truong_phong') {
                         if (targetUser.role !== 'nhan_vien') {
-                            return reply.code(403).send({ error: 'Trưởng phòng chỉ được giao việc cho chính mình và Nhân viên' });
+                            return reply.code(403).send({ error: 'Trưởng phòng chỉ được giao việc cho Nhân viên' });
                         }
-                    } else {
-                        return reply.code(403).send({ error: 'Nhân viên chỉ được giao việc cho chính mình' });
                     }
                 }
             }

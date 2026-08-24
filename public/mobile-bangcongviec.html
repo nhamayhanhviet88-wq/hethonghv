@@ -385,8 +385,14 @@
 
     // ========== CREATE ==========
     function mShowCreate() {
+        var currentUser = window._currentUser || window.__currentUser || {};
+        var currentUserId = currentUser.id ? String(currentUser.id) : null;
+        var currentUsername = currentUser.username ? String(currentUser.username).toLowerCase() : null;
+
         var userOpts = '<option value="">— Chọn người —</option>';
         _m.users.forEach(function(u) {
+            if (currentUserId && String(u.id) === currentUserId) return;
+            if (currentUsername && u.username && String(u.username).toLowerCase() === currentUsername) return;
             userOpts += '<option value="' + u.id + '">' + esc(u.full_name) + '</option>';
         });
 
