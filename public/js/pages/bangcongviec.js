@@ -2732,6 +2732,32 @@ async function _bcvShowDetail(taskId) {
         ? readers.map(function(r){ return _esc(r.full_name) + ' (' + _bcvFormatVNTime(r.read_at, true) + ')'; }).join(', ')
         : 'Chưa có ai đọc';
 
+    var isTestAdsTask = _bcvIsMarketingDept(task.department_id) && (_bcvIsTestAdsDoc(task.title) || _bcvIsTestAdsDoc(task.guide_link));
+
+    var testAdsProgressHtml = '';
+    if (isTestAdsTask) {
+        var count = Math.max(1, Number(task.target_quantity || 1));
+        var itemsHtml = '';
+        for (var i = 1; i <= count; i++) {
+            itemsHtml += `<div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:12px;padding:12px 16px;box-shadow:0 2px 6px rgba(67,56,202,0.05);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span style="background:linear-gradient(135deg,#4338ca,#3730a3);color:#ffffff;font-size:11px;font-weight:900;padding:4px 10px;border-radius:14px;box-shadow:0 2px 6px rgba(67,56,202,0.25)">CAMP TEST #${i}</span>
+                    <span style="font-size:13px;font-weight:800;color:#1e293b">Chiến dịch Test Ads #${i}</span>
+                </div>
+                <span style="font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;padding:4px 10px;border-radius:8px;border:1px solid #e2e8f0">⏳ Chờ liên kết tiến độ</span>
+            </div>`;
+        }
+        testAdsProgressHtml = `<div style="margin-top:16px;background:#f5f3ff;border:1.5px solid #c7d2fe;border-radius:14px;padding:16px">
+            <div style="font-size:12px;font-weight:900;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+                <span>🔢 TIẾN ĐỘ SỐ LƯỢNG CHIẾN DỊCH TEST ADS (${count} Camp Test)</span>
+                <span style="font-size:10px;font-weight:800;background:#e0e7ff;color:#3730a3;padding:3px 10px;border-radius:12px">BẢN THIẾT KẾ TIẾN ĐỘ</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+                ${itemsHtml}
+            </div>
+        </div>`;
+    }
+
     var directorReadBannerHtml = '';
     if (_bcv.tab === 'ban_giao' && _bcvCanSeeReadStatus(user)) {
         directorReadBannerHtml = `
@@ -2935,6 +2961,167 @@ async function _bcvShowDetail(taskId) {
                 </div>` : ''}
             </div>
 
+            <!-- ═══ KHỐI THÔNG BÁO ĐÁNH GIÁ HOÀN THÀNH (NẾU ĐÃ HOÀN THÀNH) ═══ -->
+            ${task.status === 'hoan_thanh' ? `<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px 16px;margin-bottom:16px;box-shadow:0 4px 12px rgba(22,163,74,0.08)">
+                <div style="font-size:13px;font-weight:800;color:#16a34a;display:flex;align-items:center;gap:6px">
+                    <span>⭐ ĐÁNH GIÁ HOÀN THÀNH CỦA QUẢN LÝ</span>
+                    ${task.reviewed_at ? `<span style="font-size:11px;font-weight:600;color:#15803d">(${new Date(task.reviewed_at).toLocaleString('vi-VN')})</span>` : ''}
+                </div>
+                ${task.review_comment ? `<div style="font-size:13px;font-weight:600;color:#334155;margin-top:8px;line-height:1.5;white-space:pre-wrap">${_esc(task.review_comment)}</div>` : '<div style="font-size:12px;font-weight:600;color:#16a34a;margin-top:4px">Đã nghiệm thu công việc thành công.</div>'}
+            </div>` : ''}
+
+            <!-- ═══ KHỐI THÔNG BÁO YÊU CẦU SỬA LẠI & LỊCH SỬ CÁC LẦN SỬA (TIMELINE) ═══ -->
+            ${feedbacks.length > 0 ? (function() {
+                var latestFb = feedbacks[0];
+                var olderFbs = feedbacks.slice(1);
+                var latestRevNum = feedbacks.length;
+                var latestTimeStr = latestFb.created_at ? new Date(latestFb.created_at).toLocaleString('vi-VN') : '';
+                var latestRevName = latestFb.reviewer_name || 'Quản Lý';
+
+                return `<div style="background:#fff1f2;border:1.5px solid #fecdd3;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 4px 14px rgba(225,29,72,0.1)">
+                    <div style="font-size:14px;font-weight:900;color:#e11d48;display:flex;align-items:center;justify-content:space-between;border-bottom:1px dashed #fca5a5;padding-bottom:10px;margin-bottom:12px">
+                        <div style="display:flex;align-items:center;gap:6px">
+                            <span style="font-size:16px">⚠️</span> YÊU CẦU SỬA LẠI TỪ QUẢN LÝ (${feedbacks.length} lần)
+                        </div>
+                        <span style="font-size:11px;font-weight:800;background:#ffe4e6;color:#be123c;padding:3px 10px;border-radius:12px;border:1px solid #fecdd3">Lần mới nhất: ${latestTimeStr}</span>
+                    </div>
+
+                    <!-- LẦN MỚI NHẤT (HIỂN THỊ MẶC ĐỊNH) -->
+                    <div style="background:#ffffff;border:1.5px solid #e11d48;border-radius:10px;padding:12px 14px;box-shadow:0 2px 8px rgba(225,29,72,0.12)">
+                        <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span style="background:#e11d48;color:#ffffff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;letter-spacing:0.5px">LẦN ${latestRevNum} (MỚI NHẤT)</span>
+                                <span style="font-weight:800;color:#1e293b">👤 ${_esc(latestRevName)}</span>
+                            </div>
+                            <span style="font-size:11px;font-weight:700;color:#64748b">🕒 ${latestTimeStr}</span>
+                        </div>
+                        <div style="font-size:13px;font-weight:600;color:#334155;line-height:1.5;white-space:pre-wrap;margin-top:4px">${_esc(latestFb.feedback_content)}</div>
+                        ${latestFb.feedback_link ? `<div style="margin-top:8px"><a href="${_escAttr(latestFb.feedback_link)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#be123c;background:#ffe4e6;padding:4px 10px;border-radius:6px;border:1px solid #fecdd3;text-decoration:none">🔗 Link Feedback sửa ↗</a></div>` : ''}
+                    </div>
+
+                    <!-- CÁC LẦN CŨ HƠN (THU GỌN MẶC ĐỊNH) -->
+                    ${olderFbs.length > 0 ? `
+                        <div style="margin-top:10px">
+                            <button type="button" onclick="_bcvToggleFeedbackHistory(this)" style="background:#ffe4e6;color:#9f1239;border:1px solid #fecdd3;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;width:100%;justify-content:center;transition:all 0.2s">
+                                📜 Xem lịch sử yêu cầu sửa (${olderFbs.length} lần) ▾
+                            </button>
+                            <div class="bcv-older-feedbacks" style="display:none;margin-top:10px;flex-direction:column;gap:10px">
+                                ${olderFbs.map(function(fb, idx) {
+                                    var revNum = olderFbs.length - idx;
+                                    var timeStr = fb.created_at ? new Date(fb.created_at).toLocaleString('vi-VN') : '';
+                                    var revName = fb.reviewer_name || 'Quản Lý';
+
+                                    return `<div style="background:#fff8f8;border:1px solid #fecdd3;border-radius:10px;padding:12px 14px">
+                                        <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                                            <div style="display:flex;align-items:center;gap:6px">
+                                                <span style="background:#9f1239;color:#ffffff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;letter-spacing:0.5px">LẦN ${revNum}</span>
+                                                <span style="font-weight:800;color:#1e293b">👤 ${_esc(revName)}</span>
+                                            </div>
+                                            <span style="font-size:11px;font-weight:700;color:#64748b">🕒 ${timeStr}</span>
+                                        </div>
+                                        <div style="font-size:13px;font-weight:600;color:#334155;line-height:1.5;white-space:pre-wrap;margin-top:4px">${_esc(fb.feedback_content)}</div>
+                                        ${fb.feedback_link ? `<div style="margin-top:8px"><a href="${_escAttr(fb.feedback_link)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#be123c;background:#ffe4e6;padding:4px 10px;border-radius:6px;border:1px solid #fecdd3;text-decoration:none">🔗 Link Feedback sửa ↗</a></div>` : ''}
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>`;
+            })() : ''}
+
+            <!-- 1. Grid 2 cột: LOẠI / ƯU TIÊN (lên trên Tiêu đề) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+                <div style="background:#f8fafc;border-radius:10px;padding:12px;border:1px solid #e2e8f0;text-align:center">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Loại</div>
+                    ${canEditSection1 ? `<select class="bcv-form-select" id="bcvDetailType" style="font-size:13px;font-weight:700;text-align:center">${['chinh','phu'].map(function(t){ return '<option value="' + t + '" ' + (task.task_type === t ? 'selected' : '') + '>' + (t === 'chinh' ? '🔵 Chính' : '🟡 Phụ') + '</option>'; }).join('')}</select>` : `<div style="font-size:13px;font-weight:700">${typeLabel}</div>`}
+                </div>
+                <div style="background:#f8fafc;border-radius:10px;padding:12px;border:1px solid #e2e8f0;text-align:center">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Ưu tiên</div>
+                    ${canEditSection1 ? `<select class="bcv-form-select" id="bcvDetailPriority" style="font-size:13px;font-weight:700;text-align:center">${priorityOptions}</select>` : `<div style="font-size:13px;font-weight:700">${priorityLabel}</div>`}
+                </div>
+            </div>
+
+            <!-- 2. TIÊU ĐỀ -->
+            <div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tiêu đề</div>
+                ${canEditSection1 ? `<input class="bcv-form-input-prominent" id="bcvDetailTitle" value="${_escAttr(task.title)}" style="font-size:15px;font-weight:800;border:none;background:transparent;padding:0;width:100%;outline:none">` : `<div style="font-size:15px;font-weight:800;color:#1e293b;line-height:1.4">${_esc(task.title)}</div>`}
+            </div>
+
+            <!-- 3. MÔ TẢ CÔNG VIỆC -->
+            ${(task.description || canEditSection1) ? `<div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Mô tả công việc</div>
+                ${canEditSection1 ? `<textarea class="bcv-form-textarea-prominent" id="bcvDetailDesc" style="font-size:13px;font-weight:600;border:none;background:transparent;padding:0;width:100%;outline:none;min-height:60px">${_esc(task.description || '')}</textarea>` : `<div style="font-size:13px;font-weight:600;color:#334155;line-height:1.6;white-space:pre-wrap">${_esc(task.description)}</div>`}
+            </div>` : ''}
+
+            <!-- 3.5 SỐ LƯỢNG CẦN SẢN XUẤT / CHIẾN DỊCH TEST ADS -->
+            ${_bcvRenderTargetQuantityBoxHTML(task)}
+
+            <!-- 4. ĐƯỜNG LINK CÔNG VIỆC (Ẩn khi không có link) -->
+            ${(task.task_link || canEditSection1) ? `<div style="background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔗 Đường link công việc</div>
+                ${canEditSection1 ? `<div>
+                    <input class="bcv-form-input-prominent" id="bcvDetailLink" value="${_escAttr(task.task_link || '')}" placeholder="https://..." style="font-size:13px;font-weight:600;border:none;background:transparent;padding:0;width:100%;outline:none">
+                    ${task.task_link ? `<a href="${_escAttr(task.task_link)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#2563eb;margin-top:8px;text-decoration:underline;word-break:break-all">${_esc(task.task_link)} ↗</a>` : ''}
+                </div>` : `<a href="${_escAttr(task.task_link)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;color:#2563eb;text-decoration:underline;word-break:break-all">${_esc(task.task_link)} ↗</a>`}
+            </div>` : ''}
+
+            <!-- 5. LINK HƯỚNG DẪN / BIỂU MẪU -->
+            ${(task.guide_link || canEditSection1) ? `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fff;margin-bottom:14px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📚 LINK HƯỚNG DẪN / BIỂU MẪU</div>
+                ${canEditSection1 ? `<div>
+                    <input class="bcv-form-input" id="bcvDetailGuideLink" value="${_escAttr(task.guide_link || '')}" placeholder="https://... (link Google Docs, Drive, Video hướng dẫn...)" style="font-size:12px;font-weight:600">
+                    <div style="margin-top:6px">${_bcvGetFriendlyGuideLinkHtml(task.guide_link, task.department_id)}</div>
+                </div>` : _bcvGetFriendlyGuideLinkHtml(task.guide_link, task.department_id)}
+            </div>` : ''}
+
+            <!-- 7. HÌNH ẢNH ĐÍNH KÈM (Ẩn khi không có hình ảnh) -->
+            ${attachments.length > 0 ? `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fff;margin-bottom:14px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🖼️ Hình ảnh đính kèm (${attachments.length})</div>
+                <div class="bcv-att-gallery">
+                    ${attachments.map(function(att) {
+                        var isImg = (att.file_name || '').match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                        var canManageAtt = isAssignee || isManager || isCreator;
+                        if (isImg) {
+                            return '<div class="bcv-att-thumb" onclick="_bcvOpenLightbox(\'' + _escAttr(att.file_path) + '\')">' +
+                                '<img src="' + _escAttr(att.file_path) + '" alt="' + _escAttr(att.file_name) + '" loading="lazy">' +
+                                (canManageAtt ? '<button class="bcv-att-thumb-del" onclick="event.stopPropagation();_bcvDeleteAttachment(' + task.id + ',' + att.id + ')" title="Xóa">✕</button>' : '') +
+                            '</div>';
+                        } else {
+                            var icon = (att.file_name || '').match(/\.pdf$/i) ? '📄' : '📎';
+                            return '<div class="bcv-att-thumb" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;cursor:default" onclick="window.open(\'' + _escAttr(att.file_path) + '\',\'_blank\')">' +
+                                '<span style="font-size:24px">' + icon + '</span>' +
+                                '<span style="font-size:8px;font-weight:600;color:#64748b;text-align:center;padding:0 4px;word-break:break-all">' + _esc(att.file_name) + '</span>' +
+                                (canManageAtt ? '<button class="bcv-att-thumb-del" onclick="event.stopPropagation();_bcvDeleteAttachment(' + task.id + ',' + att.id + ')" title="Xóa">✕</button>' : '') +
+                            '</div>';
+                        }
+                    }).join('')}
+                </div>
+            </div>` : ''}
+
+            <!-- 8. Box Thông tin Giao/Nhận/Deadline/Phòng ban (nằm dưới Hình ảnh đính kèm) -->
+            <div class="bcv-card-info-box" style="margin-bottom:16px">
+                <div class="bcv-card-info-row">
+                    <span class="info-icon">📤</span>
+                    <span class="info-label">Giao việc</span>
+                    <span class="info-value">${_esc(task.created_by_name || '?')}</span>
+                </div>
+                <div class="bcv-card-info-row">
+                    <span class="info-icon">📥</span>
+                    <span class="info-label">Nhận việc</span>
+                    <span class="info-value" style="color:#16a34a">${_esc(task.assigned_to_name || 'Chưa giao')}</span>
+                </div>
+                <div class="bcv-card-info-row${isOverdue ? ' overdue' : ''}">
+                    <span class="info-icon">📅</span>
+                    <span class="info-label">Deadline</span>
+                    <span class="info-value">${canEditSection1 ? `<input class="bcv-form-input" type="date" id="bcvDetailDeadline" value="${task.deadline ? task.deadline.split('T')[0] : ''}" style="padding:2px 6px;font-size:11px;font-weight:700;border:none;background:transparent">` : (deadlineText || (task.deadline ? task.deadline.split('T')[0] : '—'))}</span>
+                </div>
+                ${task.department_name ? `<div class="bcv-card-info-row">
+                    <span class="info-icon">🏢</span>
+                    <span class="info-label">Phòng ban</span>
+                    <span class="info-value">${_esc(task.department_name)}</span>
+                </div>` : ''}
+            </div>
+
             <!-- ═══ SECTION 2: BÁO CÁO TIẾN ĐỘ ═══ -->
             <div class="bcv-card-section2">
             <div class="bcv-section-divider">
@@ -2942,7 +3129,7 @@ async function _bcvShowDetail(taskId) {
                 ${!isAssignee ? '<span style="margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:8px;letter-spacing:.3px">👁️ Chế độ chỉ xem</span>' : ''}
             </div>
 
-            <!-- Khối 1: Tiến Độ & Checklist -->
+            <!-- Khối 1: Tiến Độ Hoàn Thành -->
             <div class="bcv-report-area">
                 <div class="bcv-form-group" style="margin-bottom:14px">
                     <label style="font-weight:700;color:#0f172a">📊 TIẾN ĐỘ HOÀN THÀNH</label>
@@ -2952,7 +3139,7 @@ async function _bcvShowDetail(taskId) {
                     </div>
                 </div>
 
-                <!-- Checklist Cards -->
+                ${isTestAdsTask ? testAdsProgressHtml : `<!-- Checklist Cards -->
                 <div class="bcv-form-group">
                     <label style="font-weight:700;color:#0f172a">✅ CHECKLIST CÔNG VIỆC (${checklist.filter(c => c.is_done).length}/${checklist.length})</label>
                     <div id="bcvReportChecklist">
@@ -3021,10 +3208,10 @@ async function _bcvShowDetail(taskId) {
                         }).join('')}
                     </div>
                     ${canEditReport ? '<div style="display:flex;gap:6px;margin-top:6px"><input class="bcv-form-input" id="bcvNewCheckItem" placeholder="Thêm mục mới..." style="font-size:12px" onkeydown="if(event.key===\'Enter\')_bcvAddChecklist(' + task.id + ')"><button class="bcv-btn" data-no-debounce="true" style="padding:6px 14px;font-size:11px;font-weight:700;background:#2563eb;color:#fff;border-radius:8px;border:none;cursor:pointer" onclick="_bcvAddChecklist(' + task.id + ')">Thêm</button></div>' : ''}
-                </div>
+                </div>`}
             </div>
 
-            <!-- Khối 2: Báo Cáo Tổng Thể Công Việc (Độc Lập Độc Tôn với Hiệu Ứng Lấp Lánh) -->
+            ${!isTestAdsTask ? `<!-- Khối 2: Báo Cáo Tổng Thể Công Việc (Độc Lập Độc Tôn với Hiệu Ứng Lấp Lánh) -->
             <div class="bcv-overall-report-card">
                 <div class="bcv-overall-report-header">
                     <div style="display:flex;align-items:center;gap:8px">
@@ -3045,10 +3232,8 @@ async function _bcvShowDetail(taskId) {
                         ${task.report_link ? '<div style="margin-top:8px"><a href="' + _escAttr(task.report_link) + '" target="_blank" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#ffffff;font-weight:800;background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:8px 16px;border-radius:8px;box-shadow:0 3px 10px rgba(37,99,235,0.3);text-decoration:none">🔗 Mở link nộp báo cáo tổng thể ↗</a></div>' : ''}
                     </div>
                 </div>
+            </div>` : ''}
             </div>
-            </div>
-
-
 
             <div class="bcv-comments">
                 <div class="bcv-comments-title">💬 Bình luận (${comments.length})</div>
@@ -5086,6 +5271,9 @@ async function _bcvSubmitEditTask(taskId) {
 
 // ========== NỘP CÔNG VIỆC (CHUYỂN SANG CHỜ DUYỆT) ==========
 async function _bcvSubmitTask(taskId) {
+    var task = _bcv.tasks.find(t => t.id === taskId);
+    var isTestAdsTask = task && _bcvIsMarketingDept(task.department_id) && (_bcvIsTestAdsDoc(task.title) || _bcvIsTestAdsDoc(task.guide_link));
+
     var reportContentEl = document.getElementById('bcvDetailReportContent');
     var reportLinkEl = document.getElementById('bcvDetailReportLink');
     var progressEl = document.getElementById('bcvDetailProgress');
@@ -5093,30 +5281,34 @@ async function _bcvSubmitTask(taskId) {
     var reportLink = reportLinkEl ? reportLinkEl.value.trim() : '';
     var progressVal = progressEl ? parseInt(progressEl.value, 10) : 100;
 
-    // Check checklist progress
-    var clCards = document.querySelectorAll('.bcv-cl-card');
-    var totalCl = clCards.length;
-    var doneCl = document.querySelectorAll('.bcv-cl-card.done').length;
+    if (!isTestAdsTask) {
+        // Check checklist progress for normal tasks
+        var clCards = document.querySelectorAll('.bcv-cl-card');
+        var totalCl = clCards.length;
+        var doneCl = document.querySelectorAll('.bcv-cl-card.done').length;
 
-    if (totalCl > 0 && doneCl < totalCl) {
-        alert('⚠️ Vui lòng hoàn thành 100% mục Checklist công việc trước khi nộp!');
-        return;
-    }
+        if (totalCl > 0 && doneCl < totalCl) {
+            alert('⚠️ Vui lòng hoàn thành 100% mục Checklist công việc trước khi nộp!');
+            return;
+        }
 
-    if (totalCl > 0 && doneCl === totalCl) {
-        progressVal = 100;
-    }
+        if (totalCl > 0 && doneCl === totalCl) {
+            progressVal = 100;
+        }
 
-    if (!reportContent) {
-        alert('⚠️ Vui lòng nhập Nội dung báo cáo toàn bộ công việc trước khi nộp!');
-        if (reportContentEl) reportContentEl.focus();
-        return;
-    }
+        if (!reportContent) {
+            alert('⚠️ Vui lòng nhập Nội dung báo cáo toàn bộ công việc trước khi nộp!');
+            if (reportContentEl) reportContentEl.focus();
+            return;
+        }
 
-    if (!reportLink) {
-        alert('⚠️ Vui lòng dán Đường link nộp báo cáo tổng thể trước khi nộp!');
-        if (reportLinkEl) reportLinkEl.focus();
-        return;
+        if (!reportLink) {
+            alert('⚠️ Vui lòng dán Đường link nộp báo cáo tổng thể trước khi nộp!');
+            if (reportLinkEl) reportLinkEl.focus();
+            return;
+        }
+    } else {
+        if (progressVal <= 0) progressVal = 100;
     }
 
     var submitBtn = document.getElementById('bcvSubmitTaskBtn');
