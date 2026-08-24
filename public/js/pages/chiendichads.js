@@ -228,10 +228,10 @@ async function renderChiendichadsPage(container) {
                     </p>
                 </div>
                 <div style="z-index: 1; display: flex; gap: 12px; align-items: center;">
-                    <button onclick="_cdAdsOpenPerfModal()" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1.5px solid rgba(255,255,255,0.4); padding: 13px 22px; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(8px); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='rgba(255,255,255,0.2)';this.style.transform='translateY(0)'" title="Xem/Cài đặt tiêu chí & ngưỡng hiệu quả quảng cáo">
+                    <button onclick="_cdAdsOpenPerfModal()" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1.5px solid rgba(255,255,255,0.4); padding: 13px 22px; border-radius: 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 800; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(8px); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='rgba(255,255,255,0.2)';this.style.transform='translateY(0)'" title="Xem/Cài đặt tiêu chí & ngưỡng hiệu quả quảng cáo">
                         <span style="font-size: 18px;">📊</span> Cài Đặt Hiệu Quả
                     </button>
-                    <button onclick="_cdAdsOpenCreateModal()" style="background: #10b981; color: white; border: none; padding: 14px 24px; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <button onclick="_cdAdsOpenCreateModal()" style="background: #10b981; color: white; border: none; padding: 14px 24px; border-radius: 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
                         <span style="font-size: 18px;">➕</span> Tạo Chiến Dịch Mới
                     </button>
                 </div>
@@ -845,7 +845,7 @@ function _cdAdsRenderTable() {
                     ${(c.extra_camps && c.extra_camps.length > 0) ? `
                         <span style="background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 800;" title="Các mã Camp ID phụ: ${c.extra_camps.map(ec => ec.camp_id || ec.post_id).join(', ')}">+${c.extra_camps.length} Camp phụ</span>
                     ` : ''}
-                    <button onclick="event.stopPropagation(); _cdAdsOpenAddExtraCampModal(${c.id})" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; border-radius: 6px; padding: 2px 7px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="Gắn Thêm ID Camp / Post ID cho chiến dịch này" onmouseover="this.style.background='#4338ca';this.style.color='white'" onmouseout="this.style.background='#eef2ff';this.style.color='#4338ca'">
+                    <button onclick="event.stopPropagation(); _cdAdsOpenAddExtraCampModal(${c.id})" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; border-radius: 6px; padding: 3px 8px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 800; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="Gắn Thêm ID Camp / Post ID cho chiến dịch này" onmouseover="this.style.background='#4338ca';this.style.color='white'" onmouseout="this.style.background='#eef2ff';this.style.color='#4338ca'">
                         <span>➕ Gắn Camp</span>
                     </button>
                 </div>
@@ -1364,7 +1364,7 @@ async function _cdAdsViewDetail(campaignId) {
                                     <span>🏷️ Mã ID Camp / Post ID Bổ Sung</span>
                                     <span style="background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${(camp.extra_camps || []).length} mã phụ</span>
                                 </span>
-                                <button onclick="_cdAdsOpenAddExtraCampModal(${camp.id})" style="padding: 5px 14px; background: #4338ca; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(67,56,202,0.25); transition: all 0.2s;" onmouseover="this.style.background='#3730a3'" onmouseout="this.style.background='#4338ca'">
+                                <button onclick="_cdAdsOpenAddExtraCampModal(${camp.id})" style="padding: 6px 16px; background: #4338ca; color: white; border: none; border-radius: 8px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 800; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(67,56,202,0.25); transition: all 0.2s;" onmouseover="this.style.background='#3730a3'" onmouseout="this.style.background='#4338ca'">
                                     <span>➕</span> <span>Gắn Thêm ID Camp / Post ID</span>
                                 </button>
                             </div>
