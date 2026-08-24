@@ -370,6 +370,17 @@ function _cdAdsRenderTable() {
             adAccountLink = `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${rawId}`;
         }
 
+        let campFbLink = '';
+        if (c.camp_id) {
+            const campId = String(c.camp_id).trim();
+            if (adAccountLink) {
+                const sep = adAccountLink.includes('?') ? '&' : '?';
+                campFbLink = `${adAccountLink}${sep}selected_campaign_ids=${campId}`;
+            } else {
+                campFbLink = `https://adsmanager.facebook.com/adsmanager/manage/campaigns?selected_campaign_ids=${campId}`;
+            }
+        }
+
         return `<tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fafbff'" onmouseout="this.style.background='white'" onclick="if(!event.target.closest('button') && !event.target.closest('a') && !event.target.closest('.no-row-click')) _cdAdsViewDetail(${c.id})">
             <td style="padding:10px 12px;font-size:12px;font-weight:800;color:#64748b;text-align:center;">${idx + 1}</td>
             <td class="no-row-click" onclick="event.stopPropagation(); _cdAdsGoToKhoAdsItem(${c.kho_ads_item_id || 'null'})" style="padding:10px 8px;cursor:pointer;" title="Xem mẫu tại Kho Video/Ảnh Ads">
@@ -392,7 +403,11 @@ function _cdAdsRenderTable() {
             ` : `
                 <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#94a3b8;text-align:center;">-</td>
             `}
-            <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#334155;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${c.camp_id || ''}">${c.camp_id || '-'}</td>
+            ${c.camp_id ? `
+                <td class="no-row-click" ${campFbLink ? `onclick="event.stopPropagation(); window.open('${campFbLink}', '_blank')" style="padding:10px 8px;font-size:12px;font-weight:700;color:#2563eb;text-decoration:underline;text-align:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" title="Mở Trực Tiếp Chiến Dịch Meta Ads: ${campFbLink}"` : `style="padding:10px 8px;font-size:12px;font-weight:600;color:#334155;text-align:center;"`}>${c.camp_id}</td>
+            ` : `
+                <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#94a3b8;text-align:center;">-</td>
+            `}
             <td style="padding:10px 8px;text-align:center;">${statusBadge(c.status)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(c.total_spend)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(c.total_messages)}</td>
@@ -852,6 +867,22 @@ async function _cdAdsViewDetail(campaignId) {
         // Summary section
         let html = '';
         if (camp) {
+            let modalAdAccLink = camp.fb_ad_account_link || '';
+            if (!modalAdAccLink && camp.fb_ad_account_id) {
+                const rawId = String(camp.fb_ad_account_id).replace(/^act_/i, '');
+                modalAdAccLink = `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${rawId}`;
+            }
+            let modalCampFbLink = '';
+            if (camp.camp_id) {
+                const campId = String(camp.camp_id).trim();
+                if (modalAdAccLink) {
+                    const sep = modalAdAccLink.includes('?') ? '&' : '?';
+                    modalCampFbLink = `${modalAdAccLink}${sep}selected_campaign_ids=${campId}`;
+                } else {
+                    modalCampFbLink = `https://adsmanager.facebook.com/adsmanager/manage/campaigns?selected_campaign_ids=${campId}`;
+                }
+            }
+
             html += `
                 <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
                     ${camp.thumbnail_url ? `<div style="width:100px;height:100px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;flex-shrink:0;background-image:url('${camp.thumbnail_url}');background-size:cover;background-position:center;"></div>` : ''}
@@ -862,7 +893,8 @@ async function _cdAdsViewDetail(campaignId) {
                             ${statusBadge(camp.status)}
                         </div>
                         <div style="font-size:12px;color:#64748b;font-weight:600;">
-                            Post ID: <strong>${camp.post_id || '-'}</strong> &nbsp;|&nbsp; Camp ID: <strong>${camp.camp_id || '-'}</strong>
+                            Post ID: ${camp.post_id ? `<a href="https://fb.com/${camp.post_id}" target="_blank" style="color:#2563eb;font-weight:700;text-decoration:underline;">${camp.post_id}</a>` : '<strong>-</strong>'} &nbsp;|&nbsp; 
+                            Camp ID: ${camp.camp_id && modalCampFbLink ? `<a href="${modalCampFbLink}" target="_blank" style="color:#2563eb;font-weight:700;text-decoration:underline;" title="Mở Trực Tiếp Chiến Dịch Meta Ads: ${modalCampFbLink}">${camp.camp_id}</a>` : `<strong>${camp.camp_id || '-'}</strong>`}
                             &nbsp;|&nbsp; Người tạo: <strong>${camp.created_by_name || '-'}</strong>
                             &nbsp;|&nbsp; Ngày tạo: <strong>${camp.created_at ? new Date(camp.created_at).toLocaleDateString('vi-VN') : '-'}</strong>
                         </div>
