@@ -852,7 +852,7 @@ function _cdAdsRenderTable() {
             </td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(c.total_spend)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(c.total_messages)}</td>
-            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:${Number(c.avg_cpa) > 0 && Number(c.avg_cpa) <= 75000 ? '#16a34a' : '#334155'};text-align:right;">${fmtMoney(c.avg_cpa)}</td>
+            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:${Number(c.avg_cpa) > 0 && Number(c.avg_cpa) <= 75000 ? '#16a34a' : '#334155'};text-align:right;">${(!c.total_messages || Number(c.total_messages) === 0 || Number(c.avg_cpa) >= 999999 || Number(c.avg_cpa) <= 0) ? '<span style="color:#94a3b8;font-weight:600;">-</span>' : fmtMoney(c.avg_cpa)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:right;">${fmtMoney(c.avg_cpc)}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${c.avg_ctr ? Number(c.avg_ctr).toFixed(2) + '%' : '-'}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:right;">${fmtMoney(c.avg_cpm)}</td>
