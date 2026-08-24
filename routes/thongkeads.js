@@ -624,9 +624,27 @@ module.exports = async function (fastify, opts) {
 
             // Get data
             const stats = await db.all(`
-                SELECT d.*, a.account_name, a.effectiveness_threshold, a.effectiveness_metric
+                SELECT d.*, a.account_name, a.effectiveness_threshold, a.effectiveness_metric,
+                       ki.item_id as kho_ads_item_id, ki.thumbnail_url, ki.mau_test, ki.media_type
                 FROM ads_stats_daily d
                 LEFT JOIN ads_stats_accounts a ON d.account_id = a.id
+                LEFT JOIN LATERAL (
+                    SELECT c.kho_ads_item_id as item_id, i.thumbnail_url, i.title as mau_test, i.media_type
+                    FROM ads_campaigns c
+                    JOIN kho_ads_items i ON c.kho_ads_item_id = i.id
+                    WHERE (
+                        (d.campaign_id IS NOT NULL AND d.campaign_id != '' AND (
+                            c.camp_id = d.campaign_id
+                            OR c.id IN (SELECT campaign_id FROM ads_campaign_extra_camps WHERE camp_id = d.campaign_id)
+                        ))
+                        OR
+                        ((d.campaign_id IS NULL OR d.campaign_id = '') AND d.link_post_id IS NOT NULL AND d.link_post_id != '' AND (
+                            c.post_id = d.link_post_id
+                            OR c.id IN (SELECT campaign_id FROM ads_campaign_extra_camps WHERE post_id = d.link_post_id)
+                        ))
+                    )
+                    LIMIT 1
+                ) ki ON TRUE
                 ${whereClause}
                 ORDER BY d.report_date DESC, d.campaign_name ASC
                 LIMIT ${limitVal} OFFSET ${offset}
@@ -787,6 +805,10 @@ module.exports = async function (fastify, opts) {
                     d.link_post_id,
                     d.campaign_name,
                     d.campaign_id,
+                    MAX(ki.item_id) as kho_ads_item_id,
+                    MAX(ki.thumbnail_url) as thumbnail_url,
+                    MAX(ki.mau_test) as mau_test,
+                    MAX(ki.media_type) as media_type,
                     SUM(d.spend) as total_spend,
                     SUM(d.messages) as total_messages,
                     CASE 
@@ -812,6 +834,23 @@ module.exports = async function (fastify, opts) {
                     MAX(a.account_name) as account_name
                 FROM ads_stats_daily d
                 LEFT JOIN ads_stats_accounts a ON a.id = d.account_id
+                LEFT JOIN LATERAL (
+                    SELECT c.kho_ads_item_id as item_id, i.thumbnail_url, i.title as mau_test, i.media_type
+                    FROM ads_campaigns c
+                    JOIN kho_ads_items i ON c.kho_ads_item_id = i.id
+                    WHERE (
+                        (d.campaign_id IS NOT NULL AND d.campaign_id != '' AND (
+                            c.camp_id = d.campaign_id
+                            OR c.id IN (SELECT campaign_id FROM ads_campaign_extra_camps WHERE camp_id = d.campaign_id)
+                        ))
+                        OR
+                        ((d.campaign_id IS NULL OR d.campaign_id = '') AND d.link_post_id IS NOT NULL AND d.link_post_id != '' AND (
+                            c.post_id = d.link_post_id
+                            OR c.id IN (SELECT campaign_id FROM ads_campaign_extra_camps WHERE post_id = d.link_post_id)
+                        ))
+                    )
+                    LIMIT 1
+                ) ki ON TRUE
                 ${whereClause}
                 GROUP BY d.link_post_id, d.campaign_name, d.campaign_id
                 ORDER BY total_effective_count DESC, avg_cpa ASC, avg_ctr DESC

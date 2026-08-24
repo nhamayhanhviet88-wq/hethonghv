@@ -3,6 +3,65 @@ function _escapeHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function _renderMauTestCellHTML(row) {
+    const thumbUrl = row.thumbnail_url || '';
+    const itemId = row.kho_ads_item_id || null;
+    const mauTestName = row.mau_test || '';
+
+    if (itemId && thumbUrl) {
+        return `
+            <div onclick="event.stopPropagation(); window._tkaOpenKhoAdsItemModal(${itemId})" 
+                 style="width: 42px; height: 42px; border-radius: 8px; overflow: hidden; border: 1.5px solid #cbd5e1; cursor: pointer; background-image: url('${_escapeHtml(thumbUrl)}'); background-size: cover; background-position: center; transition: transform 0.15s, box-shadow 0.15s; margin: 0 auto;" 
+                 onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)';" 
+                 onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none';" 
+                 title="Bấm để xem Chi Tiết & Quản Lý Tư Liệu Ads Công Việc (${_escapeHtml(mauTestName)})">
+            </div>
+        `;
+    }
+    if (itemId) {
+        return `
+            <div onclick="event.stopPropagation(); window._tkaOpenKhoAdsItemModal(${itemId})" 
+                 style="width: 42px; height: 42px; border-radius: 8px; border: 1.5px solid #a5b4fc; background: #eef2ff; color: #4338ca; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; transition: transform 0.15s; margin: 0 auto;" 
+                 onmouseover="this.style.transform='scale(1.1)';" 
+                 onmouseout="this.style.transform='scale(1)';" 
+                 title="Bấm để xem Chi Tiết & Quản Lý Tư Liệu Ads Công Việc (${_escapeHtml(mauTestName)})">
+                 ${row.media_type === 'video' ? '🎥' : '🖼️'}
+            </div>
+        `;
+    }
+    return '<span style="color:#cbd5e1; font-weight: 600;">-</span>';
+}
+
+window._tkaOpenKhoAdsItemModal = async function(khoAdsItemId) {
+    if (!khoAdsItemId || khoAdsItemId === 'null') {
+        return alert('⚠️ Dòng này chưa có Mẫu Test liên kết!');
+    }
+
+    if (typeof _cdAdsGoToKhoAdsItem === 'function') {
+        return _cdAdsGoToKhoAdsItem(khoAdsItemId);
+    }
+
+    try {
+        if (typeof _loadScript === 'function') {
+            await _loadScript('/js/pages/chiendichads.js');
+        } else {
+            await new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = '/js/pages/chiendichads.js';
+                s.onload = resolve;
+                s.onerror = reject;
+                document.body.appendChild(s);
+            });
+        }
+        if (typeof _cdAdsGoToKhoAdsItem === 'function') {
+            return _cdAdsGoToKhoAdsItem(khoAdsItemId);
+        }
+    } catch (e) {
+        console.error('[ThongKeAds Modal Error]', e);
+        alert('⚠️ Lỗi nạp Mẫu Test: ' + e.message);
+    }
+};
+
 const DEFAULT_SEARCH_KEYWORDS = ['CÔNG TY', 'DOANH', 'TIGER', 'VPBANK', 'HVV', 'TEST', 'CAMP NÂU', 'ÁO LỚP'];
 
 function _tkaGetAuthHeaders() {
@@ -1078,7 +1137,7 @@ window.renderThongkeadsPage = function(container) {
                 <tr style="border-bottom: 1px solid #f1f5f9; ${i % 2 === 0 ? 'background:#fafbfc;' : ''}transition:background 0.15s;"
                     onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='${i % 2 === 0 ? '#fafbfc' : 'white'}'">
                     <td style="padding: 10px; white-space: nowrap; font-weight: 500;">${dateStr}</td>
-                    <td style="padding: 10px; white-space: nowrap; font-size: 12px; color: #64748b; font-weight: 600;">${row.mau_test ? _escapeHtml(row.mau_test) : '<span style="color:#cbd5e1;">-</span>'}</td>
+                    <td style="padding: 6px; text-align: center; white-space: nowrap;">${_renderMauTestCellHTML(row)}</td>
                     <td style="padding: 10px; white-space: nowrap; font-size: 12px;" title="${postId}">
                         ${postId ? `
                             <a href="http://fb.com/${postId}" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'" title="Bấm để xem bài viết Facebook (http://fb.com/${postId})">
@@ -1279,7 +1338,7 @@ window.renderThongkeadsPage = function(container) {
             return `
                 <tr style="border-bottom: 1px solid #f1f5f9; ${i % 2 === 0 ? 'background:#fafbfc;' : ''}transition:background 0.15s;"
                     onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='${i % 2 === 0 ? '#fafbfc' : 'white'}'">
-                    <td style="padding: 8px 6px; white-space: nowrap; font-size: 12px; color: #64748b; font-weight: 600;">${row.mau_test ? _escapeHtml(row.mau_test) : '<span style="color:#cbd5e1;">-</span>'}</td>
+                    <td style="padding: 6px; text-align: center; white-space: nowrap;">${_renderMauTestCellHTML(row)}</td>
                     <td style="padding: 8px 6px; white-space: nowrap; font-size: 12px;" title="${postId}">
                         ${postId ? `
                             <a href="http://fb.com/${postId}" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline; transition: color 0.15s;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'" title="Bấm để xem bài viết Facebook (http://fb.com/${postId})">
