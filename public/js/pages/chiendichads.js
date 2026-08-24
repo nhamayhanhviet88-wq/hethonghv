@@ -382,7 +382,7 @@ async function renderChiendichadsPage(container) {
 
         <!-- MODAL: Xem Chi Tiết -->
         <div id="cdAdsDetailModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 9999; justify-content: center; align-items: center; padding: 24px; overflow-y: auto;">
-            <div style="background: white; border-radius: 20px; width: 100%; max-width: 900px; max-height: 90vh; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column;">
+            <div style="background: white; border-radius: 20px; width: 94vw; max-width: 1280px; max-height: 90vh; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35); overflow: hidden; display: flex; flex-direction: column;">
                 <div style="background: linear-gradient(135deg, #0f172a, #4338ca); padding: 20px 24px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="font-size: 22px;">📋</span>
@@ -1414,7 +1414,7 @@ async function _cdAdsViewDetail(campaignId) {
         } else {
             html += `
                 <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;">
-                    <table style="width:100%;border-collapse:collapse;min-width:750px;">
+                    <table style="width:100%;border-collapse:collapse;min-width:1150px;">
                         <thead>
                             <tr style="background: linear-gradient(135deg, #0f172a, #1e1b4b);">
                                 <th style="padding:10px 12px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;white-space:nowrap;">NGÀY</th>
