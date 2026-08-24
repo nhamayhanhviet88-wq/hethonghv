@@ -385,43 +385,48 @@ module.exports = async function (fastify, opts) {
                        COALESCE(c.channel_name, sa.platform, ch.name, 'Facebook') as channel_name,
                        i.title as item_title, i.thumbnail_url, i.linh_vuc, i.media_type, i.drive_url,
                        u.full_name as created_by_name,
-                       COALESCE(rpt.latest_tong_ngan_sach, 0) as latest_tong_ngan_sach,
-                       COALESCE(rpt.latest_tin_nhan, 0) as latest_tin_nhan,
-                       COALESCE(rpt.latest_cpa, 0) as latest_cpa,
-                       COALESCE(rpt.latest_ctr, 0) as latest_ctr,
-                       COALESCE(rpt.latest_cpm, 0) as latest_cpm,
-                       COALESCE(rpt.latest_so_lan_chay, 0) as latest_so_lan_chay,
-                       COALESCE(rpt.latest_so_lan_hieu_qua, 0) as latest_so_lan_hieu_qua,
-                       COALESCE(rpt.latest_report_date, NULL) as latest_report_date,
-                       COALESCE(totals.total_ngan_sach, 0) as total_ngan_sach,
-                       COALESCE(totals.total_tin_nhan, 0) as total_tin_nhan,
-                       COALESCE(totals.total_so_lan_chay, 0) as total_so_lan_chay,
-                       COALESCE(totals.total_so_lan_hieu_qua, 0) as total_so_lan_hieu_qua,
-                       COALESCE(totals.report_count, 0) as report_count
+                       COALESCE(totals.total_spend, 0) as total_spend,
+                       COALESCE(totals.total_messages, 0) as total_messages,
+                       COALESCE(totals.avg_cpa, 0) as avg_cpa,
+                       COALESCE(totals.avg_cpc, 0) as avg_cpc,
+                       COALESCE(totals.avg_ctr, 0) as avg_ctr,
+                       COALESCE(totals.avg_cpm, 0) as avg_cpm,
+                       COALESCE(totals.total_run_count, 0) as total_run_count,
+                       COALESCE(totals.run_count_gt70k, 0) as run_count_gt70k,
+                       COALESCE(totals.total_effective_count, 0) as total_effective_count
                 FROM ads_campaigns c
                 LEFT JOIN ads_channels ch ON c.channel_id = ch.id
                 LEFT JOIN ads_stats_accounts sa ON c.ad_account_id = sa.id
                 LEFT JOIN kho_ads_items i ON c.kho_ads_item_id = i.id
                 LEFT JOIN users u ON c.created_by = u.id
                 LEFT JOIN LATERAL (
-                    SELECT r.tong_ngan_sach as latest_tong_ngan_sach, 
-                           r.tin_nhan as latest_tin_nhan,
-                           r.cpa as latest_cpa, r.ctr as latest_ctr, r.cpm as latest_cpm,
-                           r.so_lan_chay as latest_so_lan_chay, 
-                           r.so_lan_hieu_qua as latest_so_lan_hieu_qua,
-                           r.report_date as latest_report_date
-                    FROM ads_campaign_reports r 
-                    WHERE r.campaign_id = c.id 
-                    ORDER BY r.report_date DESC LIMIT 1
-                ) rpt ON true
-                LEFT JOIN LATERAL (
-                    SELECT SUM(r2.tong_ngan_sach) as total_ngan_sach,
-                           SUM(r2.tin_nhan) as total_tin_nhan,
-                           SUM(r2.so_lan_chay) as total_so_lan_chay,
-                           SUM(r2.so_lan_hieu_qua) as total_so_lan_hieu_qua,
-                           COUNT(*) as report_count
-                    FROM ads_campaign_reports r2 
-                    WHERE r2.campaign_id = c.id
+                    SELECT 
+                        SUM(COALESCE(d.spend, 0)) as total_spend,
+                        SUM(COALESCE(d.messages, 0)) as total_messages,
+                        CASE 
+                            WHEN SUM(COALESCE(d.messages, 0)) > 0 THEN ROUND(SUM(COALESCE(d.spend, 0)) / SUM(COALESCE(d.messages, 0)), 0)
+                            ELSE 0 
+                        END as avg_cpa,
+                        ROUND(AVG(COALESCE(NULLIF(d.cpc, 0), CASE WHEN d.ctr > 0 AND d.cpm > 0 THEN d.cpm / (d.ctr * 10) ELSE 0 END)), 0) as avg_cpc,
+                        ROUND(AVG(d.ctr), 2) as avg_ctr,
+                        ROUND(AVG(d.cpm), 0) as avg_cpm,
+                        SUM(COALESCE(d.run_count, 1)) as total_run_count,
+                        SUM(CASE 
+                            WHEN (COALESCE(d.messages, 0) > 0 OR COALESCE(d.spend, 0) >= COALESCE(sa.ignore_no_msg_spend_threshold, 70000))
+                            THEN COALESCE(d.run_count, 1)
+                            ELSE 0 
+                        END) as run_count_gt70k,
+                        SUM(CASE 
+                            WHEN (COALESCE(d.messages, 0) > 0 AND (d.spend / d.messages) <= COALESCE(sa.effectiveness_threshold, 75000))
+                            THEN 1 
+                            ELSE 0 
+                        END) as total_effective_count
+                    FROM ads_stats_daily d
+                    WHERE (c.ad_account_id IS NULL OR d.account_id = c.ad_account_id)
+                      AND (
+                          (c.camp_id IS NOT NULL AND c.camp_id != '' AND d.campaign_id = c.camp_id)
+                          OR (c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
+                      )
                 ) totals ON true
                 WHERE 1=1 ${permClause} ${filterClause}
                 ORDER BY c.id DESC
@@ -571,11 +576,28 @@ module.exports = async function (fastify, opts) {
         try {
             const campId = Number(req.params.id);
             const rows = await db.all(`
-                SELECT r.*, u.full_name as created_by_name
-                FROM ads_campaign_reports r
-                LEFT JOIN users u ON r.created_by = u.id
-                WHERE r.campaign_id = $1
-                ORDER BY r.report_date DESC
+                SELECT 
+                    d.report_date,
+                    d.spend as tong_ngan_sach,
+                    d.messages as tin_nhan,
+                    d.cpa,
+                    COALESCE(NULLIF(d.cpc, 0), CASE WHEN d.ctr > 0 AND d.cpm > 0 THEN d.cpm / (d.ctr * 10) ELSE 0 END) as cpc,
+                    d.ctr,
+                    d.cpm,
+                    COALESCE(d.run_count, 1) as so_lan_chay,
+                    CASE WHEN (COALESCE(d.messages, 0) > 0 AND (d.spend / d.messages) <= COALESCE(sa.effectiveness_threshold, 75000)) THEN 1 ELSE 0 END as so_lan_hieu_qua,
+                    CASE WHEN (COALESCE(d.messages, 0) > 0 OR COALESCE(d.spend, 0) >= COALESCE(sa.ignore_no_msg_spend_threshold, 70000)) THEN 1 ELSE 0 END as is_gt70k
+                FROM ads_campaigns c
+                JOIN ads_stats_daily d ON (
+                    (c.ad_account_id IS NULL OR d.account_id = c.ad_account_id)
+                    AND (
+                        (c.camp_id IS NOT NULL AND c.camp_id != '' AND d.campaign_id = c.camp_id)
+                        OR (c.post_id IS NOT NULL AND c.post_id != '' AND d.link_post_id = c.post_id)
+                    )
+                )
+                LEFT JOIN ads_stats_accounts sa ON d.account_id = sa.id
+                WHERE c.id = $1
+                ORDER BY d.report_date DESC
             `, [campId]);
             return reply.send({ ok: true, reports: rows });
         } catch (e) {

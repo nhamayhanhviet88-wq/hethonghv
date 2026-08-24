@@ -380,13 +380,19 @@ function _cdAdsRenderTable() {
             <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#334155;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${c.post_id || ''}">${c.post_id || '-'}</td>
             <td style="padding:10px 8px;font-size:12px;font-weight:600;color:#334155;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${c.camp_id || ''}">${c.camp_id || '-'}</td>
             <td style="padding:10px 8px;text-align:center;">${statusBadge(c.status)}</td>
-            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(c.latest_tong_ngan_sach)}</td>
-            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(c.latest_tin_nhan)}</td>
-            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:right;">${fmtMoney(c.latest_cpa)}</td>
-            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${c.latest_ctr ? Number(c.latest_ctr).toFixed(2) + '%' : '-'}</td>
-            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:right;">${fmtMoney(c.latest_cpm)}</td>
-            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(c.latest_so_lan_chay)}</td>
-            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#16a34a;text-align:center;">${fmtNum(c.latest_so_lan_hieu_qua)}</td>
+            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(c.total_spend)}</td>
+            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(c.total_messages)}</td>
+            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:${Number(c.avg_cpa) > 0 && Number(c.avg_cpa) <= 75000 ? '#16a34a' : '#334155'};text-align:right;">${fmtMoney(c.avg_cpa)}</td>
+            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:right;">${fmtMoney(c.avg_cpc)}</td>
+            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${c.avg_ctr ? Number(c.avg_ctr).toFixed(2) + '%' : '-'}</td>
+            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:right;">${fmtMoney(c.avg_cpm)}</td>
+            <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(c.total_run_count)}</td>
+            <td style="padding:10px 8px;text-align:center;">
+                <span style="background:#f3e8ff;color:#7e22ce;padding:3px 8px;border-radius:10px;font-size:11.5px;font-weight:800;">${fmtNum(c.run_count_gt70k)}</span>
+            </td>
+            <td style="padding:10px 8px;text-align:center;">
+                <span style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:10px;font-size:11.5px;font-weight:800;">${fmtNum(c.total_effective_count)}</span>
+            </td>
             <td style="padding:10px 8px;text-align:center;">
                 <div style="font-size:12px;font-weight:700;color:#334155;">${c.created_by_name || '-'}</div>
                 <div style="font-size:10px;color:#94a3b8;font-weight:600;">${c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '-'}</div>
@@ -404,7 +410,7 @@ function _cdAdsRenderTable() {
     }).join('');
 
     container.innerHTML = `
-        <table style="width: 100%; border-collapse: collapse; min-width: 1400px;">
+        <table style="width: 100%; border-collapse: collapse; min-width: 1500px;">
             <thead>
                 <tr style="background: linear-gradient(135deg, #0f172a, #1e1b4b); border-bottom: 2px solid #334155;">
                     <th style="padding:12px 12px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">STT</th>
@@ -417,9 +423,11 @@ function _cdAdsRenderTable() {
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;">NGÂN SÁCH</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">TIN NHẮN</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;">CPA</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;">CPC</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">CTR</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;">CPM</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">SỐ LẦN CHẠY</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">SL CHẠY >70K</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">HIỆU QUẢ</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">NGƯỜI TẠO</th>
                     <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">HÀNH ĐỘNG</th>
@@ -861,21 +869,25 @@ async function _cdAdsViewDetail(campaignId) {
 
             // Totals
             html += `
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;">
                     <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 14px;text-align:center;">
-                        <div style="font-size:16px;font-weight:800;color:#4338ca;">${fmtMoney(camp.total_ngan_sach)}</div>
+                        <div style="font-size:15px;font-weight:800;color:#4338ca;">${fmtMoney(camp.total_spend)}</div>
                         <div style="font-size:10px;font-weight:700;color:#6366f1;">Tổng Ngân Sách</div>
                     </div>
                     <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 14px;text-align:center;">
-                        <div style="font-size:16px;font-weight:800;color:#16a34a;">${fmtNum(camp.total_tin_nhan)}</div>
+                        <div style="font-size:15px;font-weight:800;color:#16a34a;">${fmtNum(camp.total_messages)}</div>
                         <div style="font-size:10px;font-weight:700;color:#22c55e;">Tổng Tin Nhắn</div>
                     </div>
                     <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:10px 14px;text-align:center;">
-                        <div style="font-size:16px;font-weight:800;color:#2563eb;">${fmtNum(camp.total_so_lan_chay)}</div>
+                        <div style="font-size:15px;font-weight:800;color:#2563eb;">${fmtNum(camp.total_run_count)}</div>
                         <div style="font-size:10px;font-weight:700;color:#3b82f6;">Tổng Lần Chạy</div>
                     </div>
+                    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:10px 14px;text-align:center;">
+                        <div style="font-size:15px;font-weight:800;color:#7e22ce;">${fmtNum(camp.run_count_gt70k)}</div>
+                        <div style="font-size:10px;font-weight:700;color:#9333ea;">Lần Chạy >70K</div>
+                    </div>
                     <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;text-align:center;">
-                        <div style="font-size:16px;font-weight:800;color:#a16207;">${fmtNum(camp.total_so_lan_hieu_qua)}</div>
+                        <div style="font-size:15px;font-weight:800;color:#a16207;">${fmtNum(camp.total_effective_count)}</div>
                         <div style="font-size:10px;font-weight:700;color:#ca8a04;">Tổng Hiệu Quả</div>
                     </div>
                 </div>
@@ -884,21 +896,22 @@ async function _cdAdsViewDetail(campaignId) {
 
         // Reports table
         html += `
-            <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">📅 Lịch Sử Báo Cáo Hàng Ngày (${reports.length} báo cáo)</div>
+            <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">📅 Nhật Ký Đồng Bộ Theo Ngày (${reports.length} bản ghi)</div>
         `;
 
         if (reports.length === 0) {
-            html += '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px;">Chưa có báo cáo nào</div>';
+            html += '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px;">Chưa có dữ liệu đồng bộ</div>';
         } else {
             html += `
                 <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;">
-                    <table style="width:100%;border-collapse:collapse;min-width:700px;">
+                    <table style="width:100%;border-collapse:collapse;min-width:750px;">
                         <thead>
                             <tr style="background: linear-gradient(135deg, #0f172a, #1e1b4b);">
                                 <th style="padding:10px 12px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">NGÀY</th>
                                 <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">NGÂN SÁCH</th>
                                 <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">TIN NHẮN</th>
                                 <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">CPA</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">CPC</th>
                                 <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">CTR</th>
                                 <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">CPM</th>
                                 <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">SỐ LẦN CHẠY</th>
@@ -911,11 +924,12 @@ async function _cdAdsViewDetail(campaignId) {
                                     <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${r.report_date ? new Date(r.report_date).toLocaleDateString('vi-VN') : '-'}</td>
                                     <td style="padding:8px;font-size:12px;font-weight:700;color:#0f172a;text-align:right;">${fmtMoney(r.tong_ngan_sach)}</td>
                                     <td style="padding:8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(r.tin_nhan)}</td>
-                                    <td style="padding:8px;font-size:12px;font-weight:700;color:#334155;text-align:right;">${fmtMoney(r.cpa)}</td>
+                                    <td style="padding:8px;font-size:12px;font-weight:700;color:${Number(r.cpa) > 0 && Number(r.cpa) <= 75000 ? '#16a34a' : '#334155'};text-align:right;">${fmtMoney(r.cpa)}</td>
+                                    <td style="padding:8px;font-size:12px;font-weight:700;color:#334155;text-align:right;">${fmtMoney(r.cpc)}</td>
                                     <td style="padding:8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${r.ctr ? Number(r.ctr).toFixed(2) + '%' : '0%'}</td>
                                     <td style="padding:8px;font-size:12px;font-weight:700;color:#334155;text-align:right;">${fmtMoney(r.cpm)}</td>
                                     <td style="padding:8px;font-size:12px;font-weight:700;color:#334155;text-align:center;">${fmtNum(r.so_lan_chay)}</td>
-                                    <td style="padding:8px;font-size:12px;font-weight:700;color:#16a34a;text-align:center;">${fmtNum(r.so_lan_hieu_qua)}</td>
+                                    <td style="padding:8px;font-size:12px;font-weight:700;text-align:center;">${r.so_lan_hieu_qua ? '<span style="color:#16a34a;">✅ Đạt</span>' : '<span style="color:#94a3b8;">-</span>'}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
