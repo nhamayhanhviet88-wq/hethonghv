@@ -453,7 +453,7 @@
                                     <select id="hgbc-form-hour" class="hgbc-select" style="padding: 4px 6px; font-weight: 800; font-size: 14px; font-family: monospace; border: 1px solid #cbd5e1; border-radius: 6px;">
                                         ${Array.from({length: 24}, (_, i) => {
                                             const h = String(i).padStart(2, '0');
-                                            const sel = h === '03' ? 'selected' : '';
+                                            const sel = h === '00' ? 'selected' : '';
                                             return `<option value="${h}" ${sel}>${h}</option>`;
                                         }).join('')}
                                     </select>
@@ -461,7 +461,7 @@
                                     <select id="hgbc-form-minute" class="hgbc-select" style="padding: 4px 6px; font-weight: 800; font-size: 14px; font-family: monospace; border: 1px solid #cbd5e1; border-radius: 6px;">
                                         ${Array.from({length: 60}, (_, i) => {
                                             const m = String(i).padStart(2, '0');
-                                            const sel = m === '00' ? 'selected' : '';
+                                            const sel = m === '15' ? 'selected' : '';
                                             return `<option value="${m}" ${sel}>${m}</option>`;
                                         }).join('')}
                                     </select>
