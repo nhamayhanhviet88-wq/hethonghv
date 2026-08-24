@@ -705,6 +705,8 @@ module.exports = async function (fastify, opts) {
         await db.run(`ALTER TABLE ads_scheduled_campaign_enables ADD COLUMN IF NOT EXISTS schedule_type VARCHAR(20) DEFAULT 'recurring'`);
         await db.run(`ALTER TABLE ads_scheduled_campaign_enables ADD COLUMN IF NOT EXISTS one_time_date DATE`);
         await db.run(`ALTER TABLE ads_scheduled_campaign_enables ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE`);
+        // Clean up any previously executed 1-time schedules
+        await db.run(`UPDATE ads_scheduled_campaign_enables SET is_deleted = TRUE WHERE schedule_type = 'one_time' AND last_executed_at IS NOT NULL`);
     } catch(e) { console.error('[ads_scheduled_campaign_enables schedule_type migration]', e.message); }
 
     try {
@@ -2090,6 +2092,8 @@ module.exports = async function (fastify, opts) {
                     FROM ads_scheduled_campaign_enables s
                     JOIN ads_stats_accounts a ON a.id = s.account_id
                     WHERE s.account_id = ANY($1::int[])
+                      AND (s.is_deleted IS NOT TRUE)
+                      AND NOT (s.schedule_type = 'one_time' AND s.last_executed_at IS NOT NULL)
                     ORDER BY s.enable_time ASC, s.created_at DESC
                 `, [accIds]);
                 return { schedules };
@@ -2106,6 +2110,8 @@ module.exports = async function (fastify, opts) {
                 FROM ads_scheduled_campaign_enables s
                 JOIN ads_stats_accounts a ON a.id = s.account_id
                 WHERE s.account_id = $1
+                  AND (s.is_deleted IS NOT TRUE)
+                  AND NOT (s.schedule_type = 'one_time' AND s.last_executed_at IS NOT NULL)
                 ORDER BY s.enable_time ASC, s.created_at DESC
             `, [accountId]);
             return { schedules };
