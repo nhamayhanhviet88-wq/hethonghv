@@ -6,7 +6,9 @@ function _escapeHtml(str) {
 window.renderThongkeadsPage = function(container) {
     // State
     let _accounts = [];
-    let _selectedAccountId = 'all';
+    let _selectedAccountIds = []; // [] = Tất cả tài khoản, hoặc ['1', '2', '3']
+    let _selectedLinhVuc = 'all'; // 'all' hoặc tên Lĩnh Vực Ads
+    let _linhVucList = [];
     let _filterMode = 'month'; // 'month', 'quarter', 'daterange'
     let _selectedYear = new Date().getFullYear();
     let _selectedMonth = new Date().getMonth() + 1;
@@ -131,12 +133,22 @@ window.renderThongkeadsPage = function(container) {
                             </div>
                         </div>
 
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <label style="font-weight: 700; font-size: 13px; color: #475569; white-space: nowrap;">Lọc TK:</label>
-                                <select id="tka-account-select" style="
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <label style="font-weight: 700; font-size: 13px; color: #475569; white-space: nowrap;">🏢 Lĩnh Vực Ads:</label>
+                                <select id="tka-linh-vuc-select" onchange="window._tkaSelectLinhVuc(this.value)" style="
                                     padding: 8px 12px; border-radius: 10px; border: 1.5px solid #cbd5e1;
-                                    font-size: 13px; font-weight: 600; background: #f8fafc;
+                                    font-size: 13px; font-weight: 700; background: #f8fafc; color: #0f172a;
+                                    outline: none; cursor: pointer;
+                                ">
+                                    <option value="all">🏢 Tất cả Lĩnh Vực Ads</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <label style="font-weight: 700; font-size: 13px; color: #475569; white-space: nowrap;">Lọc TK:</label>
+                                <select id="tka-account-select" onchange="window._tkaToggleAcc(this.value)" style="
+                                    padding: 8px 12px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+                                    font-size: 13px; font-weight: 700; background: #eff6ff; color: #1d4ed8;
                                     outline: none; cursor: pointer;
                                 ">
                                     <option value="all">📋 Tất cả tài khoản</option>
@@ -392,12 +404,28 @@ window.renderThongkeadsPage = function(container) {
 
     // ========== DATA LOADING ==========
 
+    function _getAccountParam() {
+        if (_selectedAccountIds && _selectedAccountIds.length > 0) {
+            return _selectedAccountIds.join(',');
+        }
+        if (_selectedLinhVuc && _selectedLinhVuc !== 'all') {
+            const fbAccs = _accounts.filter(a => (a.platform || 'facebook') === 'facebook');
+            const matched = fbAccs.filter(a => String(a.linh_vuc_name || '').trim().toLowerCase() === _selectedLinhVuc.trim().toLowerCase());
+            if (matched.length > 0) {
+                return matched.map(a => a.id).join(',');
+            }
+        }
+        return 'all';
+    }
+
     async function _loadAccounts() {
         try {
-            const res = await fetch('/api/thongkeads/accounts', { credentials: 'include' });
-            const data = await res.json();
-            if (!data.ok) throw new Error(data.error);
-            _accounts = data.accounts || [];
+            const [resAcc, resLV] = await Promise.all([
+                fetch('/api/thongkeads/accounts', { credentials: 'include' }).then(r => r.json()),
+                fetch('/api/kho-ads/linh-vuc', { headers: _tkaGetAuthHeaders() }).then(r => r.json()).catch(() => ({}))
+            ]);
+            if (resAcc && resAcc.ok) _accounts = resAcc.accounts || [];
+            if (resLV && resLV.ok) _linhVucList = resLV.linh_vuc_list || [];
             _renderAccountSelector();
             _loadData();
         } catch(e) {
@@ -407,70 +435,86 @@ window.renderThongkeadsPage = function(container) {
 
     function _renderAccountSelector() {
         const sel = document.getElementById('tka-account-select');
+        const lvSel = document.getElementById('tka-linh-vuc-select');
         const grid = document.getElementById('tka-account-cards-grid');
         const badgeCount = document.getElementById('tka-account-count-badge');
-        const fbAccs = _accounts.filter(a => a.platform === 'facebook');
+        const fbAccs = _accounts.filter(a => (a.platform || 'facebook') === 'facebook');
 
-        if (badgeCount) badgeCount.textContent = `${fbAccs.length} TK`;
+        // Populate Lĩnh Vực select dropdown
+        if (lvSel) {
+            const currentLv = _selectedLinhVuc;
+            let lvOptionsHtml = `<option value="all" ${currentLv === 'all' ? 'selected' : ''}>🏢 Tất cả Lĩnh Vực Ads</option>`;
+            _linhVucList.forEach(item => {
+                const label = item.code ? `🏢 ${_escapeHtml(item.name)} (${_escapeHtml(item.code)})` : `🏢 ${_escapeHtml(item.name)}`;
+                lvOptionsHtml += `<option value="${_escapeHtml(item.name)}" ${currentLv === item.name ? 'selected' : ''}>${label}</option>`;
+            });
+            lvSel.innerHTML = lvOptionsHtml;
+        }
 
+        // Filter accounts by selected Lĩnh Vực
+        let displayedAccounts = [...fbAccs];
+        if (_selectedLinhVuc && _selectedLinhVuc !== 'all') {
+            displayedAccounts = fbAccs.filter(a => String(a.linh_vuc_name || '').trim().toLowerCase() === _selectedLinhVuc.trim().toLowerCase());
+        }
+
+        if (badgeCount) badgeCount.textContent = `${displayedAccounts.length} TK`;
+
+        // Populate header dropdown (for mobile/compact view)
         if (sel) {
-            sel.innerHTML = '<option value="all">📋 Tất cả tài khoản</option>';
-            fbAccs.forEach(a => {
+            sel.innerHTML = '';
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = 'all';
+            defaultOpt.textContent = `📋 Tất cả tài khoản (${displayedAccounts.length})`;
+            if (_selectedAccountIds.length === 0) defaultOpt.selected = true;
+            sel.appendChild(defaultOpt);
+
+            displayedAccounts.forEach(a => {
                 const opt = document.createElement('option');
                 opt.value = a.id;
-                const st = a.connection_status || 'unconfigured';
-                let icon = '🟢';
-                let statusSuffix = '';
-                if (st === 'error') {
-                    icon = '🔴';
-                    statusSuffix = ' (Mất kết nối)';
-                } else if (st === 'unconfigured') {
-                    icon = '🟡';
-                    statusSuffix = ' (Chưa kết nối)';
-                }
-                opt.textContent = `${icon} 📘 ${a.account_name}${statusSuffix}`;
-                if (String(a.id) === String(_selectedAccountId)) opt.selected = true;
+                opt.textContent = `📘 ${a.account_name}`;
+                if (_selectedAccountIds.includes(String(a.id))) opt.selected = true;
                 sel.appendChild(opt);
             });
         }
 
         // Render Tracked Cards Grid
         if (grid) {
-            if (fbAccs.length === 0) {
+            if (displayedAccounts.length === 0) {
                 grid.innerHTML = `
                     <div style="grid-column: 1 / -1; padding: 24px; text-align: center; background: #f8fafc; border-radius: 14px; border: 1.5px dashed #cbd5e1; color: #64748b;">
                         <div style="font-size: 28px; margin-bottom: 6px;">📭</div>
-                        <div style="font-size: 14px; font-weight: 700; color: #1e293b;">Chưa có tài khoản quảng cáo nào!</div>
-                        <div style="font-size: 12px; margin-top: 4px;">Vui lòng thêm tài khoản ở trang <strong>"Cài Đặt Tài Khoản Ads"</strong> để bắt đầu theo dõi.</div>
+                        <div style="font-size: 14px; font-weight: 700; color: #1e293b;">Chưa có tài khoản quảng cáo nào thuộc Lĩnh Vực "${_escapeHtml(_selectedLinhVuc)}"!</div>
+                        <div style="font-size: 12px; margin-top: 4px;">Vui lòng chọn Lĩnh Vực khác hoặc gán Lĩnh Vực Ads cho tài khoản ở trang <strong>"Cài Đặt Tài Khoản Ads"</strong>.</div>
                     </div>
                 `;
                 return;
             }
 
-            const isAllSelected = !_selectedAccountId || _selectedAccountId === 'all';
+            const isAllActive = _selectedAccountIds.length === 0;
 
             let cardsHtml = `
-                <div onclick="window._tkaSelectAcc('all')" style="
+                <div onclick="window._tkaToggleAcc('all')" style="
                     padding: 14px 16px; border-radius: 14px; cursor: pointer; transition: all 0.2s;
-                    border: 2px solid ${isAllSelected ? '#2563eb' : '#e2e8f0'};
-                    background: ${isAllSelected ? '#eff6ff' : '#ffffff'};
-                    box-shadow: ${isAllSelected ? '0 4px 12px rgba(37,99,235,0.15)' : 'none'};
+                    border: ${isAllActive ? '2.5px solid #2563eb' : '1.5px solid #e2e8f0'};
+                    background: ${isAllActive ? '#eff6ff' : '#ffffff'};
+                    box-shadow: ${isAllActive ? '0 4px 12px rgba(37,99,235,0.15)' : 'none'};
                     display: flex; flex-direction: column; justify-content: space-between;
-                " onmouseover="if(!${isAllSelected}) this.style.borderColor='#93c5fd'" onmouseout="if(!${isAllSelected}) this.style.borderColor='#e2e8f0'">
+                " onmouseover="if(!${isAllActive}) this.style.borderColor='#93c5fd'" onmouseout="if(!${isAllActive}) this.style.borderColor='#e2e8f0'">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-weight: 800; font-size: 14px; color: ${isAllSelected ? '#1d4ed8' : '#1e293b'};">
+                        <span style="font-weight: 800; font-size: 14px; color: ${isAllActive ? '#1d4ed8' : '#1e293b'};">
                             📋 Tất Cả Tài Khoản
                         </span>
-                        ${isAllSelected ? '<span style="background: #2563eb; color: white; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px;">ĐANG THEO DÕI</span>' : ''}
+                        ${isAllActive ? '<span style="background: #2563eb; color: white; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px;">✓ ĐANG THEO DÕI TẤT CẢ</span>' : ''}
                     </div>
                     <div style="font-size: 12px; color: #64748b; margin-top: 8px;">
-                        Tổng hợp chỉ số của <strong>${fbAccs.length}</strong> tài khoản QC
+                        Tổng hợp chỉ số của <strong>${displayedAccounts.length}</strong> tài khoản QC${_selectedLinhVuc !== 'all' ? ` (${_escapeHtml(_selectedLinhVuc)})` : ''}
                     </div>
                 </div>
             `;
 
-            cardsHtml += fbAccs.map(acc => {
-                const isSelected = String(acc.id) === String(_selectedAccountId);
+            cardsHtml += displayedAccounts.map(acc => {
+                const isSelected = _selectedAccountIds.length === 0 || _selectedAccountIds.includes(String(acc.id));
+                const isExplicitlySelected = _selectedAccountIds.includes(String(acc.id));
                 const st = acc.connection_status || 'unconfigured';
                 let statusBadge = '<span style="color:#059669;font-weight:700;font-size:11px;background:#dcfce7;padding:2px 8px;border-radius:10px;">🟢 Kết Nối Tốt</span>';
                 if (st === 'error') {
@@ -485,16 +529,17 @@ window.renderThongkeadsPage = function(container) {
                 const adsManagerUrl = acc.fb_ads_manager_url || (acc.fb_ad_account_id ? `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${acc.fb_ad_account_id.replace('act_', '')}` : '');
 
                 return `
-                    <div onclick="window._tkaSelectAcc('${acc.id}')" style="
+                    <div onclick="window._tkaToggleAcc('${acc.id}')" style="
                         padding: 14px 16px; border-radius: 14px; cursor: pointer; transition: all 0.2s;
-                        border: 2px solid ${isSelected ? '#2563eb' : '#e2e8f0'};
-                        background: ${isSelected ? '#eff6ff' : '#ffffff'};
-                        box-shadow: ${isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : 'none'};
+                        border: ${isExplicitlySelected ? '2.5px solid #2563eb' : '1.5px solid #e2e8f0'};
+                        background: ${isExplicitlySelected ? '#eff6ff' : '#ffffff'};
+                        opacity: ${!isAllActive && !isExplicitlySelected ? '0.7' : '1'};
+                        box-shadow: ${isExplicitlySelected ? '0 4px 12px rgba(37,99,235,0.15)' : 'none'};
                         display: flex; flex-direction: column; justify-content: space-between;
-                    " onmouseover="if(!${isSelected}) this.style.borderColor='#93c5fd'" onmouseout="if(!${isSelected}) this.style.borderColor='#e2e8f0'">
+                    " onmouseover="if(!${isExplicitlySelected}) this.style.borderColor='#93c5fd'" onmouseout="if(!${isExplicitlySelected}) this.style.borderColor='#e2e8f0'">
                         <div>
                             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; margin-bottom: 4px;">
-                                <div style="font-weight: 800; font-size: 14px; color: ${isSelected ? '#1d4ed8' : '#0f172a'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <div style="font-weight: 800; font-size: 14px; color: ${isExplicitlySelected ? '#1d4ed8' : '#0f172a'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                     📘 ${acc.account_name}
                                 </div>
                                 <div style="flex-shrink:0;">${statusBadge}</div>
@@ -539,8 +584,8 @@ window.renderThongkeadsPage = function(container) {
                         </div>
 
                         <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 11px; font-weight: 700; color: ${isSelected ? '#2563eb' : '#94a3b8'};">
-                                ${isSelected ? '✔ ĐANG THEO DÕI' : 'Bấm để xem thống kê'}
+                            <span style="font-size: 11px; font-weight: 700; color: ${isExplicitlySelected ? '#2563eb' : '#94a3b8'};">
+                                ${isExplicitlySelected ? '✓ ĐANG THEO DÕI' : (isAllActive ? 'Bấm để gộp theo dõi' : 'Bấm để thêm vào gộp')}
                             </span>
                             <button onclick="event.stopPropagation(); window._tkaEditPerf('${acc.id}')" style="
                                 padding: 4px 10px; border-radius: 8px; border: 1px solid #bfdbfe;
@@ -560,8 +605,26 @@ window.renderThongkeadsPage = function(container) {
         _updateAccountButtons();
     }
 
-    window._tkaSelectAcc = function(accId) {
-        _selectedAccountId = String(accId);
+    window._tkaToggleAcc = function(accId) {
+        if (accId === 'all') {
+            _selectedAccountIds = [];
+        } else {
+            const strId = String(accId);
+            const idx = _selectedAccountIds.indexOf(strId);
+            if (idx > -1) {
+                _selectedAccountIds.splice(idx, 1);
+            } else {
+                _selectedAccountIds.push(strId);
+            }
+        }
+        _currentPage = 1;
+        _renderAccountSelector();
+        _loadData();
+    };
+
+    window._tkaSelectLinhVuc = function(lvName) {
+        _selectedLinhVuc = lvName || 'all';
+        _selectedAccountIds = [];
         _currentPage = 1;
         _renderAccountSelector();
         _loadData();
@@ -627,7 +690,7 @@ window.renderThongkeadsPage = function(container) {
     async function _loadStats() {
         try {
             const params = new URLSearchParams({
-                account_id: _selectedAccountId,
+                account_id: _getAccountParam(),
                 page: _currentPage,
                 limit: 200
             });
@@ -662,7 +725,7 @@ window.renderThongkeadsPage = function(container) {
     async function _loadCampaignSummaryData() {
         try {
             const params = new URLSearchParams({
-                account_id: _selectedAccountId
+                account_id: _getAccountParam()
             });
 
             if (_filterMode === 'daterange' && _startDate && _endDate) {
@@ -700,7 +763,7 @@ window.renderThongkeadsPage = function(container) {
     async function _loadSummary() {
         try {
             const params = new URLSearchParams({
-                account_id: _selectedAccountId
+                account_id: _getAccountParam()
             });
 
             if (_filterMode === 'daterange' && _startDate && _endDate) {

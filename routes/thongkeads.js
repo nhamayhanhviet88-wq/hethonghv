@@ -554,8 +554,17 @@ module.exports = async function (fastify, opts) {
             let whereClause = 'WHERE 1=1';
 
             if (account_id && account_id !== 'all') {
-                queryParams.push(Number(account_id));
-                whereClause += ` AND d.account_id = $${queryParams.length}`;
+                const ids = String(account_id).split(',').map(s => Number(s.trim())).filter(n => !isNaN(n));
+                if (ids.length === 1) {
+                    queryParams.push(ids[0]);
+                    whereClause += ` AND d.account_id = $${queryParams.length}`;
+                } else if (ids.length > 1) {
+                    const placeholders = ids.map(id => {
+                        queryParams.push(id);
+                        return `$${queryParams.length}`;
+                    }).join(', ');
+                    whereClause += ` AND d.account_id IN (${placeholders})`;
+                }
             }
 
             if (req.query.start_date && req.query.end_date) {
@@ -645,8 +654,17 @@ module.exports = async function (fastify, opts) {
             let whereClause = 'WHERE 1=1';
 
             if (account_id && account_id !== 'all') {
-                queryParams.push(Number(account_id));
-                whereClause += ` AND d.account_id = $${queryParams.length}`;
+                const ids = String(account_id).split(',').map(s => Number(s.trim())).filter(n => !isNaN(n));
+                if (ids.length === 1) {
+                    queryParams.push(ids[0]);
+                    whereClause += ` AND d.account_id = $${queryParams.length}`;
+                } else if (ids.length > 1) {
+                    const placeholders = ids.map(id => {
+                        queryParams.push(id);
+                        return `$${queryParams.length}`;
+                    }).join(', ');
+                    whereClause += ` AND d.account_id IN (${placeholders})`;
+                }
             }
 
             if (start_date && end_date) {
@@ -718,8 +736,15 @@ module.exports = async function (fastify, opts) {
             let queryParams = [];
 
             if (account_id && account_id !== 'all') {
-                whereClauses.push('d.account_id = ?');
-                queryParams.push(account_id);
+                const ids = String(account_id).split(',').map(s => Number(s.trim())).filter(n => !isNaN(n));
+                if (ids.length === 1) {
+                    whereClauses.push('d.account_id = ?');
+                    queryParams.push(ids[0]);
+                } else if (ids.length > 1) {
+                    const placeholders = ids.map(() => '?').join(', ');
+                    whereClauses.push(`d.account_id IN (${placeholders})`);
+                    queryParams.push(...ids);
+                }
             }
 
             if (start_date && end_date) {
