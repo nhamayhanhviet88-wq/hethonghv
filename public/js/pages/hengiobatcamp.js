@@ -429,21 +429,28 @@
                             </div>
                         </div>
 
-                        <!-- CHẾ ĐỘ HẸN GIỜ: Lặp lại / 1 Lần -->
+                        <!-- CHẾ ĐỘ HẸN GIỜ: 1 Lần / Lặp lại -->
                         <div class="hgbc-form-group" style="margin-top: 16px;">
                             <label>Chế Độ Hẹn Giờ *</label>
                             <div style="display: flex; gap: 6px; margin-top: 4px;">
-                                <button type="button" id="hgbc-mode-recurring" onclick="window._toggleScheduleMode('recurring')" class="hgbc-day-btn selected" style="padding: 8px 16px; font-size: 13px;">
-                                    🔄 Lặp Lại Hàng Tuần
-                                </button>
-                                <button type="button" id="hgbc-mode-one_time" onclick="window._toggleScheduleMode('one_time')" class="hgbc-day-btn" style="padding: 8px 16px; font-size: 13px;">
+                                <button type="button" id="hgbc-mode-one_time" onclick="window._toggleScheduleMode('one_time')" class="hgbc-day-btn selected" style="padding: 8px 16px; font-size: 13px;">
                                     1️⃣ Chỉ Bật 1 Lần
+                                </button>
+                                <button type="button" id="hgbc-mode-recurring" onclick="window._toggleScheduleMode('recurring')" class="hgbc-day-btn" style="padding: 8px 16px; font-size: 13px;">
+                                    🔄 Lặp Lại Hàng Tuần
                                 </button>
                             </div>
                         </div>
 
-                        <!-- NGÀY ÁP DỤNG (Lặp lại) -->
-                        <div id="hgbc-recurring-section" class="hgbc-form-group" style="margin-top: 14px;">
+                        <!-- NGÀY BẬT CỤ THỂ (1 Lần - Hiển thị mặc định) -->
+                        <div id="hgbc-onetime-section" class="hgbc-form-group" style="margin-top: 14px;">
+                            <label>Ngày Bật Cụ Thể *</label>
+                            <input type="date" id="hgbc-form-onetime-date" class="hgbc-input" style="max-width: 260px;" value="${todayVnStr}" min="${todayVnStr}" onchange="window._onHgbcDateChange(this.value)" />
+                            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">💡 Chỉ cho chọn ngày HÔM NAY hoặc TƯƠNG LAI (Chặn chọn Ngày Lễ theo Setup Ngày Lễ). Bật 1 lần rồi tự động TẮT.</div>
+                        </div>
+
+                        <!-- NGÀY ÁP DỤNG (Lặp lại - Ẩn mặc định) -->
+                        <div id="hgbc-recurring-section" class="hgbc-form-group" style="margin-top: 14px; display: none;">
                             <label>Ngày Áp Dụng *</label>
                             <div id="hgbc-days-selector" class="hgbc-days-group">
                                 <span class="hgbc-day-btn selected" data-day="1" onclick="window._toggleDayBtn(this)">Thứ 2</span>
@@ -456,16 +463,9 @@
                             </div>
                         </div>
 
-                        <!-- NGÀY BẬT CỤ THỂ (1 Lần) -->
-                        <div id="hgbc-onetime-section" class="hgbc-form-group" style="margin-top: 14px; display: none;">
-                            <label>Ngày Bật Cụ Thể *</label>
-                            <input type="date" id="hgbc-form-onetime-date" class="hgbc-input" style="max-width: 260px;" min="${todayVnStr}" onchange="window._onHgbcDateChange(this.value)" />
-                            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">💡 Chỉ cho chọn ngày HÔM NAY hoặc TƯƠNG LAI (Chặn chọn Ngày Lễ theo Setup Ngày Lễ). Bật 1 lần rồi tự động TẮT.</div>
-                        </div>
-
                         <div style="margin-top: 18px;">
-                            <button type="submit" class="hgbc-btn hgbc-btn-primary">
-                                ➕ Lưu Lịch Hẹn Giờ Bật
+                            <button type="submit" id="hgbc-submit-btn" class="hgbc-btn hgbc-btn-primary">
+                                ⚡ Kích Hoạt Hẹn Giờ
                             </button>
                         </div>
                     </form>
@@ -719,23 +719,25 @@
     };
 
     // Helper: Toggle schedule mode (recurring vs one_time)
-    let _scheduleMode = 'recurring';
+    let _scheduleMode = 'one_time';
     window._toggleScheduleMode = function(mode) {
         _scheduleMode = mode;
         const recurringBtn = document.getElementById('hgbc-mode-recurring');
         const oneTimeBtn = document.getElementById('hgbc-mode-one_time');
         const recurringSection = document.getElementById('hgbc-recurring-section');
         const oneTimeSection = document.getElementById('hgbc-onetime-section');
+        const submitBtn = document.getElementById('hgbc-submit-btn');
 
         // Múi giờ Việt Nam hiện tại (UTC+7)
         const now = new Date();
         const vnDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
 
         if (mode === 'one_time') {
-            recurringBtn.classList.remove('selected');
             oneTimeBtn.classList.add('selected');
+            recurringBtn.classList.remove('selected');
             if (recurringSection) recurringSection.style.display = 'none';
             if (oneTimeSection) oneTimeSection.style.display = '';
+            if (submitBtn) submitBtn.innerHTML = '⚡ Kích Hoạt Hẹn Giờ';
 
             const dateInput = document.getElementById('hgbc-form-onetime-date');
             if (dateInput) {
@@ -753,6 +755,7 @@
             oneTimeBtn.classList.remove('selected');
             if (recurringSection) recurringSection.style.display = '';
             if (oneTimeSection) oneTimeSection.style.display = 'none';
+            if (submitBtn) submitBtn.innerHTML = '➕ Lưu Lịch Hẹn Giờ Bật';
         }
     };
 
