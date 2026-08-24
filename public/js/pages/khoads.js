@@ -210,6 +210,15 @@ async function renderKhoadsPage(container) {
                         </select>
                     </div>
 
+                    <!-- 3b. Select Trạng Thái Test Ads -->
+                    <div style="min-width: 180px;">
+                        <select id="selFilterKhoAdsTestStatus" onchange="applyKhoAdsFilters()" style="width: 100%; height: 38px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none; box-sizing: border-box;">
+                            <option value="">🌐 Tất cả trạng thái Test</option>
+                            <option value="has_test">🚀 Đã lên Chiến Dịch Test Ads</option>
+                            <option value="no_test">⏳ Chưa lên Chiến Dịch Test Ads</option>
+                        </select>
+                    </div>
+
                     <!-- 4. Select Sắp Xếp -->
                     <div style="min-width: 140px;">
                         <select id="selFilterKhoAdsSort" onchange="applyKhoAdsFilters()" style="width: 100%; height: 38px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-weight: 600; color: #1e293b; background: #fafafa; cursor: pointer; outline: none; box-sizing: border-box;">
@@ -975,6 +984,9 @@ function resetKhoAdsFilters() {
     const selType = document.getElementById('selFilterKhoAdsMediaType');
     if (selType) selType.value = '';
 
+    const selTest = document.getElementById('selFilterKhoAdsTestStatus');
+    if (selTest) selTest.value = '';
+
     const selSort = document.getElementById('selFilterKhoAdsSort');
     if (selSort) selSort.value = 'newest';
 
@@ -1234,6 +1246,13 @@ function renderKhoAdsTasksGroupedView() {
         );
     }
 
+    const selectedTestStatus = document.getElementById('selFilterKhoAdsTestStatus')?.value || '';
+    if (selectedTestStatus === 'has_test') {
+        tasks = tasks.filter(t => t.items && t.items.some(i => Number(i.has_test_campaign) > 0));
+    } else if (selectedTestStatus === 'no_test') {
+        tasks = tasks.filter(t => t.items && t.items.some(i => !i.has_test_campaign || Number(i.has_test_campaign) === 0));
+    }
+
     tasks = tasks.filter(t => {
         const taskMatch = _checkKhoAdsDateMatch(t.created_at);
         const itemsMatch = t.items && t.items.some(i => _checkKhoAdsDateMatch(i.created_at));
@@ -1248,7 +1267,7 @@ function renderKhoAdsTasksGroupedView() {
         gridContainer.innerHTML = `
             <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 48px 24px; text-align: center; color: #64748b;">
                 <div style="font-size: 44px; margin-bottom: 12px;">📋</div>
-                <div style="font-size: 16px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">Chưa Có Công Việc Marketing Ads Nào Đã Tạo Tư Liệu</div>
+                <div style="font-size: 16px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">Chưa Có Công Việc Marketing Ads Nào Phù Hợp Bộ Lọc</div>
                 <div style="font-size: 13px;">Khi có tư liệu Ads mới được nộp cho công việc, công việc sẽ tự động xuất hiện tại đây!</div>
             </div>
         `;
@@ -1317,6 +1336,7 @@ function renderKhoAdsItemsGridCardsView() {
     const keyword = (document.getElementById('iptSearchKhoAds')?.value || '').trim().toLowerCase();
     const selectedLinhVuc = document.getElementById('selFilterKhoAdsLinhVuc')?.value || '';
     const selectedType = document.getElementById('selFilterKhoAdsMediaType')?.value || '';
+    const selectedTestStatus = document.getElementById('selFilterKhoAdsTestStatus')?.value || '';
     const sortVal = document.getElementById('selFilterKhoAdsSort')?.value || 'newest';
 
     let filtered = _khoAdsData.items || [];
@@ -1325,7 +1345,8 @@ function renderKhoAdsItemsGridCardsView() {
         filtered = filtered.filter(item => 
             (item.title && item.title.toLowerCase().includes(keyword)) ||
             (item.linh_vuc && item.linh_vuc.toLowerCase().includes(keyword)) ||
-            (item.description && item.description.toLowerCase().includes(keyword))
+            (item.description && item.description.toLowerCase().includes(keyword)) ||
+            (item.test_campaign_name && item.test_campaign_name.toLowerCase().includes(keyword))
         );
     }
 
@@ -1335,6 +1356,12 @@ function renderKhoAdsItemsGridCardsView() {
 
     if (selectedType) {
         filtered = filtered.filter(item => item.media_type === selectedType);
+    }
+
+    if (selectedTestStatus === 'has_test') {
+        filtered = filtered.filter(item => Number(item.has_test_campaign) > 0);
+    } else if (selectedTestStatus === 'no_test') {
+        filtered = filtered.filter(item => !item.has_test_campaign || Number(item.has_test_campaign) === 0);
     }
 
     // Date Filter
@@ -1357,8 +1384,8 @@ function renderKhoAdsItemsGridCardsView() {
         gridContainer.innerHTML = `
             <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 48px 24px; text-align: center; color: #64748b;">
                 <div style="font-size: 44px; margin-bottom: 12px;">📭</div>
-                <div style="font-size: 16px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">Chưa Có Tư Liệu Ads Nào</div>
-                <div style="font-size: 13px;">Hãy bấm "➕ Thêm Tư Liệu Ads Mới" để đăng tải tư liệu đầu tiên!</div>
+                <div style="font-size: 16px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">Chưa Có Tư Liệu Ads Nào Phù Hợp Bộ Lọc</div>
+                <div style="font-size: 13px;">Hãy thử bấm "🔄 Đặt Lại" hoặc chọn từ khóa khác!</div>
             </div>
         `;
         return;
@@ -1406,6 +1433,11 @@ function renderKhoAdsItemsGridCardsView() {
                 ? `<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 800; font-family: 'Inter', sans-serif; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">🎥 Video Ads</span>`
                 : `<span style="background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; padding: 4px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 800; font-family: 'Inter', sans-serif; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">🖼️ Ảnh Ads</span>`;
             
+            const hasTest = Number(item.has_test_campaign) > 0;
+            const testStatusBadge = hasTest
+                ? `<span style="background: linear-gradient(135deg, #7c3aed, #4338ca); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; font-family: 'Inter', sans-serif; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(124,58,237,0.25);" title="Đã lên chiến dịch test: ${escapeHtml(item.test_campaign_name || '')}">🚀 ĐÃ CHẠY TEST</span>`
+                : `<span style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; font-family: 'Inter', sans-serif; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">⏳ CHƯA CHẠY TEST</span>`;
+
             const defaultThumb = isVideo 
                 ? 'https://images.unsplash.com/photo-1536240478700-b869070f9279?auto=format&fit=crop&w=600&q=80'
                 : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
@@ -1419,14 +1451,17 @@ function renderKhoAdsItemsGridCardsView() {
                 <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
                     <td style="padding: 12px 16px; text-align: center; font-weight: 700; color: #64748b;">${startIndex + idx + 1}</td>
                     <td style="padding: 12px 16px; text-align: center;">
-                        <div onclick="openKhoAdsItemDetailFromPersonal(${item.id})" style="width: 52px; height: 52px; border-radius: 8px; overflow: hidden; background: #0f172a; cursor: pointer; margin: 0 auto; border: 1px solid #cbd5e1; box-shadow: 0 2px 5px rgba(0,0,0,0.08);">
+                        <div onclick="openKhoAdsItemDetailFromPersonal(${item.id})" style="width: 52px; height: 52px; border-radius: 8px; overflow: hidden; background: #0f172a; cursor: pointer; margin: 0 auto; border: 1px solid #cbd5e1; box-shadow: 0 2px 5px rgba(0,0,0,0.08); position: relative;">
                             <img src="${escapeHtml(thumbUrl)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                     </td>
                     <td style="padding: 12px 16px;">
                         <div onclick="openKhoAdsItemDetailFromPersonal(${item.id})" style="cursor: pointer;">
-                            <div style="font-weight: 800; color: #0f172a; font-size: 14px; margin-bottom: 3px; font-family: 'Inter', sans-serif;">${escapeHtml(item.title)}</div>
-                            ${item.description ? `<div style="font-size: 12px; color: #64748b; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(item.description)}</div>` : ''}
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span style="font-weight: 800; color: #0f172a; font-size: 14px; font-family: 'Inter', sans-serif;">${escapeHtml(item.title)}</span>
+                                ${testStatusBadge}
+                            </div>
+                            ${item.description ? `<div style="font-size: 12px; color: #64748b; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; margin-top: 3px;">${escapeHtml(item.description)}</div>` : ''}
                         </div>
                     </td>
                     <td style="padding: 12px 16px;">
@@ -1479,6 +1514,11 @@ function renderKhoAdsItemsGridCardsView() {
                 ? `<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 800;">🎥 Video Ads</span>`
                 : `<span style="background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 800;">🖼️ Ảnh Ads</span>`;
             
+            const hasTest = Number(item.has_test_campaign) > 0;
+            const testBadgeOnThumb = hasTest
+                ? `<span style="background: linear-gradient(135deg, #7c3aed, #4338ca); color: white; padding: 4px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 800; border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 4px 12px rgba(124,58,237,0.4);" title="Đã chạy ở Chiến Dịch Test Ads: ${escapeHtml(item.test_campaign_name || '')}">🚀 ĐÃ CHẠY TEST ADS</span>`
+                : `<span style="background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(8px); color: #cbd5e1; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid rgba(255,255,255,0.15);">⏳ CHƯA CHẠY TEST</span>`;
+
             const defaultThumb = isVideo 
                 ? 'https://images.unsplash.com/photo-1536240478700-b869070f9279?auto=format&fit=crop&w=600&q=80'
                 : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
@@ -1492,10 +1532,11 @@ function renderKhoAdsItemsGridCardsView() {
                 <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); display: flex; flex-direction: column; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 25px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'">
                     <div onclick="openKhoAdsItemDetailFromPersonal(${item.id})" style="height: 180px; position: relative; background: #0f172a; overflow: hidden; cursor: pointer;">
                         <img src="${escapeHtml(thumbUrl)}" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.85;">
-                        <div style="position: absolute; top: 12px; left: 12px; display: flex; gap: 6px;">
+                        <div style="position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 2;">
                             <span style="background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); color: white; padding: 4px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 800; border: 1px solid rgba(255,255,255,0.2);">🏢 ${escapeHtml(item.linh_vuc)}</span>
+                            ${testBadgeOnThumb}
                         </div>
-                        <div style="position: absolute; top: 12px; right: 12px;">
+                        <div style="position: absolute; top: 12px; right: 12px; z-index: 2;">
                             ${typeBadge}
                         </div>
                     </div>
@@ -1503,6 +1544,14 @@ function renderKhoAdsItemsGridCardsView() {
                         <div onclick="openKhoAdsItemDetailFromPersonal(${item.id})" style="cursor: pointer;">
                             <h4 style="margin: 0 0 8px; font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.4;">${escapeHtml(item.title)}</h4>
                             ${item.description ? `<p style="margin: 0; font-size: 12.5px; color: #64748b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(item.description)}</p>` : ''}
+                            ${hasTest ? `
+                                <div style="background: #f3e8ff; border: 1px solid #d8b4fe; border-radius: 8px; padding: 6px 10px; font-size: 11.5px; color: #6b21a8; font-weight: 800; display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 8px;" title="Chiến dịch test: ${escapeHtml(item.test_campaign_name || '')}">
+                                    <span style="display: flex; align-items: center; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        🚀 Camp Test: <strong style="color: #4c1d95;">${escapeHtml(item.test_campaign_name || 'Chiến dịch test')}</strong>
+                                    </span>
+                                    ${item.test_channel_name ? `<span style="background: #4c1d95; color: white; padding: 2px 7px; border-radius: 6px; font-size: 10.5px; font-weight: 800; flex-shrink: 0;">${escapeHtml(item.test_channel_name)}</span>` : ''}
+                                </div>
+                            ` : ''}
                         </div>
 
                         <div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 12px;">

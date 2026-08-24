@@ -295,9 +295,24 @@ module.exports = async function (fastify, opts) {
 
             const tasksWithItems = await Promise.all(tasks.map(async (task) => {
                 const items = await db.all(`
-                    SELECT i.*, u.full_name as created_by_name
+                    SELECT i.*, u.full_name as created_by_name,
+                           c.id as test_campaign_id,
+                           c.campaign_name as test_campaign_name,
+                           c.channel_name as test_channel_name,
+                           c.post_id as test_post_id,
+                           c.camp_id as test_camp_id,
+                           c.status as test_campaign_status,
+                           c.created_at as test_campaign_created_at,
+                           (CASE WHEN c.id IS NOT NULL THEN 1 ELSE 0 END) as has_test_campaign
                     FROM kho_ads_items i
                     LEFT JOIN users u ON i.created_by = u.id
+                    LEFT JOIN LATERAL (
+                        SELECT id, campaign_name, channel_name, post_id, camp_id, status, created_at
+                        FROM ads_campaigns
+                        WHERE kho_ads_item_id = i.id
+                        ORDER BY id DESC
+                        LIMIT 1
+                    ) c ON TRUE
                     WHERE i.task_id = $1
                     ORDER BY i.id ASC
                 `, [task.id]);
@@ -384,11 +399,32 @@ module.exports = async function (fastify, opts) {
             }
 
             const sql = `
-                SELECT i.*, u.full_name as created_by_name, t.task_code, t.title as task_title, t.dept_task_no, t.kho_ads_approved, d.name as department_name
+                SELECT i.*, 
+                       u.full_name as created_by_name, 
+                       t.task_code, 
+                       t.title as task_title, 
+                       t.dept_task_no, 
+                       t.kho_ads_approved, 
+                       d.name as department_name,
+                       c.id as test_campaign_id,
+                       c.campaign_name as test_campaign_name,
+                       c.channel_name as test_channel_name,
+                       c.post_id as test_post_id,
+                       c.camp_id as test_camp_id,
+                       c.status as test_campaign_status,
+                       c.created_at as test_campaign_created_at,
+                       (CASE WHEN c.id IS NOT NULL THEN 1 ELSE 0 END) as has_test_campaign
                 FROM kho_ads_items i
                 LEFT JOIN users u ON i.created_by = u.id
                 LEFT JOIN board_tasks t ON i.task_id = t.id
                 LEFT JOIN departments d ON t.department_id = d.id
+                LEFT JOIN LATERAL (
+                    SELECT id, campaign_name, channel_name, post_id, camp_id, status, created_at
+                    FROM ads_campaigns
+                    WHERE kho_ads_item_id = i.id
+                    ORDER BY id DESC
+                    LIMIT 1
+                ) c ON TRUE
                 ${whereClause}
                 ORDER BY i.id DESC
             `;
