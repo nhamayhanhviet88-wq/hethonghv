@@ -3,6 +3,15 @@ function _escapeHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function _tkaGetAuthHeaders() {
+    const headers = {};
+    const token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+    if (token && token !== 'null' && token !== 'undefined') {
+        headers['Authorization'] = 'Bearer ' + token;
+    }
+    return headers;
+}
+
 window.renderThongkeadsPage = function(container) {
     // State
     let _accounts = [];
