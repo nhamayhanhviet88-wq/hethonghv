@@ -1535,7 +1535,6 @@ function renderKhoAdsItemsGridCardsView() {
                         <img src="${escapeHtml(thumbUrl)}" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.85;">
                         <div style="position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 2;">
                             <span style="background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); color: white; padding: 4px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 800; border: 1px solid rgba(255,255,255,0.2);">🏢 ${escapeHtml(item.linh_vuc)}</span>
-                            ${testBadgeOnThumb}
                         </div>
                         <div style="position: absolute; top: 12px; right: 12px; z-index: 2;">
                             ${typeBadge}
@@ -1543,6 +1542,13 @@ function renderKhoAdsItemsGridCardsView() {
                     </div>
                     <div style="padding: 18px; display: flex; flex-direction: column; flex: 1; justify-content: space-between; gap: 14px;">
                         <div onclick="openKhoAdsItemDetailFromPersonal(${item.id})" style="cursor: pointer;">
+                            <div style="margin-bottom: 8px;">
+                                ${hasTest ? `
+                                    <span style="background: linear-gradient(135deg, #7c3aed, #4338ca); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(124,58,237,0.25);" title="Đã lên chiến dịch test: ${escapeHtml(item.test_campaign_name || '')}">🚀 ĐÃ CHẠY TEST ADS</span>
+                                ` : `
+                                    <span style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 4px;">⏳ CHƯA CHẠY TEST</span>
+                                `}
+                            </div>
                             <h4 style="margin: 0 0 8px; font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.4;">${escapeHtml(item.title)}</h4>
                             ${item.description ? `<p style="margin: 0; font-size: 12.5px; color: #64748b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(item.description)}</p>` : ''}
                             ${hasTest ? `
