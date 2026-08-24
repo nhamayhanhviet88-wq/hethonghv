@@ -970,6 +970,7 @@
                         return `<span style="display:inline-block; padding:2px 7px; border-radius:6px; font-size:11px; font-weight:700; background:${bg}; color:${color}; border:1px solid ${border};">${label}</span>`;
                     }).join(' ');
                 }
+                const formattedTime = (s.enable_time || '').slice(0, 5); // 18:10 thay vì 18:10:00
                 const lastExec = s.last_executed_at ? new Date(s.last_executed_at).toLocaleString('vi-VN') : '—';
                 const isActive = s.is_active !== false;
 
@@ -981,19 +982,25 @@
                             <div style="font-weight: 800; font-size: 13px; color: #1e293b;">${s.campaign_name}</div>
                             <div style="font-size: 11px; color: #64748b; font-family: monospace;">ID: ${s.campaign_id}</div>
                         </td>
-                        <td style="text-align: center;">
-                            <span style="background: #312e81; color: white; padding: 4px 12px; border-radius: 8px; font-weight: 800; font-size: 13px; font-family: monospace;">⏰ ${s.enable_time}</span>
+                        <td style="text-align: center; white-space: nowrap;">
+                            <span style="
+                                display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+                                background: #312e81; color: #ffffff; padding: 5px 14px; border-radius: 20px;
+                                font-weight: 800; font-size: 13px; font-family: monospace; white-space: nowrap;
+                                box-shadow: 0 2px 6px rgba(49, 46, 129, 0.25);
+                            ">⏰ ${formattedTime}</span>
                         </td>
                         <td><div style="display: flex; gap: 3px; flex-wrap: wrap;">${daysList}</div></td>
                         <td><span style="font-size: 12px; color: #475569;">${lastExec}</span></td>
-                        <td>
+                        <td style="text-align: center; white-space: nowrap;">
                             <button onclick="event.stopPropagation(); window._toggleHgbcSchedule(${s.id})" style="
+                                display: inline-flex; align-items: center; justify-content: center; gap: 4px;
                                 background: ${isActive ? '#dcfce7' : '#fee2e2'}; color: ${isActive ? '#15803d' : '#b91c1c'};
-                                border: 1px solid ${isActive ? '#86efac' : '#fca5a5'}; padding: 4px 14px; border-radius: 20px;
-                                font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+                                border: 1px solid ${isActive ? '#86efac' : '#fca5a5'}; padding: 5px 14px; border-radius: 20px;
+                                font-size: 11.5px; font-weight: 800; cursor: pointer; transition: all 0.2s; white-space: nowrap;
                             ">${isActive ? '✅ Đang BẬT' : '⏸️ Đã TẮT'}</button>
                         </td>
-                        <td>
+                        <td style="white-space: nowrap;">
                             <div style="display:flex; gap:6px;">
                                 <button class="hgbc-btn hgbc-btn-sm hgbc-btn-success" onclick="window._executeNowHgbcSchedule(${s.id})" title="Kích hoạt BẬT ngay lập tức">
                                     ⚡ Bật Ngay
