@@ -610,6 +610,18 @@ window.renderGioihanchitieuPage = function(container) {
                             <span style="color: #64748b;">👤 NV Phụ Trách:</span>
                             <strong style="color: #1e1b4b; background: #e0e7ff; padding: 1px 8px; border-radius: 6px; font-size: 11px;">${staffName}</strong>
                         </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #64748b;">Loại Tài Khoản:</span>
+                            ${acc.account_type === 'test' ? `
+                                <span style="background: #f3e8ff; color: #7e22ce; font-weight: 800; padding: 1px 7px; border-radius: 6px; font-size: 11px;">🧪 Chạy Test</span>
+                            ` : `
+                                <span style="background: #eff6ff; color: #1d4ed8; font-weight: 800; padding: 1px 7px; border-radius: 6px; font-size: 11px;">🚀 Chạy Chính</span>
+                            `}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #64748b;">Lĩnh Vực Ads:</span>
+                            <strong style="color: #0f172a; font-weight: 800; font-size: 11px;">🏷️ ${(acc.linh_vuc_name || 'Chưa chọn').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</strong>
+                        </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                             <span style="color: #64748b; font-size: 11px;">⚙️ Tự Động Chi Tiêu:</span>
                             ${toggleBtn}

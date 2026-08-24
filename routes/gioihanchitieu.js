@@ -100,7 +100,7 @@ module.exports = async function (fastify, opts) {
 
     // ========== HELPER: Lấy danh sách tài khoản theo quyền ==========
     async function getAccessibleAccounts(userId, userRole) {
-        const allAccounts = await db.all(`SELECT id, account_name, fb_ad_account_id, is_active, assigned_staff_name, connection_status, spend_limit_enabled, auto_reenable_at, daily_enable_paused_until, daily_enable_pause_reason, fb_ad_account_link FROM ads_stats_accounts ORDER BY id`);
+        const allAccounts = await db.all(`SELECT id, account_name, fb_ad_account_id, is_active, assigned_staff_name, connection_status, spend_limit_enabled, auto_reenable_at, daily_enable_paused_until, daily_enable_pause_reason, fb_ad_account_link, account_type, linh_vuc_id, linh_vuc_name FROM ads_stats_accounts ORDER BY id`);
         
         const isSuperAdmin = ['giam_doc', 'admin', 'ban_giam_doc', 'quan_ly_cap_cao'].includes(String(userRole || '').toLowerCase());
         if (isSuperAdmin) {
