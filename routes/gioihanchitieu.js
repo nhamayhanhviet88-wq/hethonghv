@@ -672,6 +672,41 @@ module.exports = async function (fastify, opts) {
         `);
     } catch(e) { console.error('[ads_auto_enable_logs migration]', e.message); }
 
+    // =========== 3. HẸN GIỜ BẬT CAMP CHỈ ĐỊNH — MIGRATIONS =============
+    try {
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS ads_scheduled_campaign_enables (
+                id SERIAL PRIMARY KEY,
+                account_id INT NOT NULL REFERENCES ads_stats_accounts(id) ON DELETE CASCADE,
+                campaign_id VARCHAR(100) NOT NULL,
+                campaign_name VARCHAR(500) NOT NULL,
+                enable_time TIME NOT NULL DEFAULT '03:00',
+                days TEXT NOT NULL DEFAULT '1,2,3,4,5,6,0',
+                is_active BOOLEAN DEFAULT TRUE,
+                last_executed_at TIMESTAMPTZ,
+                created_by INT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+    } catch(e) { console.error('[ads_scheduled_campaign_enables migration]', e.message); }
+
+    try {
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS ads_scheduled_campaign_enable_logs (
+                id SERIAL PRIMARY KEY,
+                schedule_id INT,
+                account_id INT,
+                account_name VARCHAR(255),
+                campaign_id VARCHAR(100),
+                campaign_name VARCHAR(500),
+                status VARCHAR(30) DEFAULT 'success',
+                reason TEXT,
+                executed_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+    } catch(e) { console.error('[ads_scheduled_campaign_enable_logs migration]', e.message); }
+
     // ========== HELPER: Lấy giờ VN hiện tại ==========
     function getVietnamNow() {
         const now = new Date();
@@ -1970,6 +2005,341 @@ module.exports = async function (fastify, opts) {
     }
 
     startAutoEnableCron();
+
+    // ======================================================================
+    // =========== 3. HẸN GIỜ BẬT CAMP CHỈ ĐỊNH — APIS & CRON ==============
+    // ======================================================================
+
+    // ========== API 1: GET /api/hengiobatcamp/accounts ==========
+    fastify.get('/api/hengiobatcamp/accounts', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const accounts = await getAccessibleAccounts(req.user.id, req.user.role);
+            return { accounts };
+        } catch (e) {
+            console.error('[hengiobatcamp accounts GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== API 2: GET /api/hengiobatcamp/fb-campaigns ==========
+    fastify.get('/api/hengiobatcamp/fb-campaigns', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const accountId = parseInt(req.query.account_id);
+            if (!accountId) return reply.code(400).send({ error: 'Thiếu account_id' });
+
+            const hasAccess = await checkAccountAccess(req.user.id, req.user.role, accountId);
+            if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền truy cập tài khoản này' });
+
+            const account = await db.get(`SELECT id, account_name, fb_ad_account_id, fb_access_token FROM ads_stats_accounts WHERE id = $1`, [accountId]);
+            if (!account || !account.fb_access_token || !account.fb_ad_account_id) {
+                return reply.code(400).send({ error: 'Tài khoản chưa được cấu hình FB Access Token hoặc Ad Account ID' });
+            }
+
+            const token = account.fb_access_token.trim();
+            const rawActId = account.fb_ad_account_id.replace('act_', '').trim();
+
+            const campaignsUrl = `https://graph.facebook.com/v24.0/act_${rawActId}/campaigns?fields=id,name,status,effective_status&limit=500&access_token=${encodeURIComponent(token)}`;
+            const res = await fetch(campaignsUrl);
+            const data = await res.json();
+
+            if (data.error) {
+                return reply.code(400).send({ error: data.error.message || 'Lỗi kết nối Facebook Graph API' });
+            }
+
+            const campaigns = (data.data || []).map(c => ({
+                id: c.id,
+                name: c.name,
+                status: c.status,
+                effective_status: c.effective_status
+            }));
+
+            return { campaigns, account_name: account.account_name };
+        } catch (e) {
+            console.error('[hengiobatcamp fb-campaigns GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== API 3: GET /api/hengiobatcamp/schedules ==========
+    fastify.get('/api/hengiobatcamp/schedules', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const rawAccId = req.query.account_id;
+            if (rawAccId === 'all') {
+                const accessibleAccounts = await getAccessibleAccounts(req.user.id, req.user.role);
+                const accIds = accessibleAccounts.map(a => a.id);
+                if (accIds.length === 0) return { schedules: [] };
+
+                const schedules = await db.all(`
+                    SELECT s.*, a.account_name, a.fb_ad_account_id
+                    FROM ads_scheduled_campaign_enables s
+                    JOIN ads_stats_accounts a ON a.id = s.account_id
+                    WHERE s.account_id = ANY($1::int[])
+                    ORDER BY s.enable_time ASC, s.created_at DESC
+                `, [accIds]);
+                return { schedules };
+            }
+
+            const accountId = parseInt(rawAccId);
+            if (!accountId) return reply.code(400).send({ error: 'Thiếu account_id' });
+
+            const hasAccess = await checkAccountAccess(req.user.id, req.user.role, accountId);
+            if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền' });
+
+            const schedules = await db.all(`
+                SELECT s.*, a.account_name, a.fb_ad_account_id
+                FROM ads_scheduled_campaign_enables s
+                JOIN ads_stats_accounts a ON a.id = s.account_id
+                WHERE s.account_id = $1
+                ORDER BY s.enable_time ASC, s.created_at DESC
+            `, [accountId]);
+            return { schedules };
+        } catch (e) {
+            console.error('[hengiobatcamp schedules GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== API 4: POST /api/hengiobatcamp/schedules — Tạo/Sửa lịch hẹn ==========
+    fastify.post('/api/hengiobatcamp/schedules', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const { id, account_id, campaign_id, campaign_name, enable_time, days, is_active } = req.body;
+            const accId = parseInt(account_id);
+            if (!accId || !campaign_id || !enable_time) {
+                return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc (account_id, campaign_id, enable_time)' });
+            }
+
+            const hasAccess = await checkAccountAccess(req.user.id, req.user.role, accId);
+            if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền' });
+
+            const daysStr = Array.isArray(days) ? days.join(',') : (days || '1,2,3,4,5,6,0');
+
+            if (id) {
+                // Sửa
+                await db.run(`
+                    UPDATE ads_scheduled_campaign_enables
+                    SET campaign_id = $1, campaign_name = $2, enable_time = $3, days = $4, is_active = $5, updated_at = NOW()
+                    WHERE id = $6 AND account_id = $7
+                `, [campaign_id, campaign_name || campaign_id, enable_time, daysStr, is_active !== false, id, accId]);
+                return { success: true, message: 'Đã cập nhật lịch hẹn giờ thành công' };
+            } else {
+                // Tạo mới
+                await db.run(`
+                    INSERT INTO ads_scheduled_campaign_enables (account_id, campaign_id, campaign_name, enable_time, days, is_active, created_by)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                `, [accId, campaign_id, campaign_name || campaign_id, enable_time, daysStr, is_active !== false, req.user.id]);
+                return { success: true, message: 'Đã tạo lịch hẹn giờ bật chiến dịch thành công' };
+            }
+        } catch (e) {
+            console.error('[hengiobatcamp schedules POST]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== API 5: DELETE /api/hengiobatcamp/schedules/:id ==========
+    fastify.delete('/api/hengiobatcamp/schedules/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const id = parseInt(req.params.id);
+            const sched = await db.get(`SELECT account_id FROM ads_scheduled_campaign_enables WHERE id = $1`, [id]);
+            if (!sched) return reply.code(404).send({ error: 'Không tìm thấy lịch hẹn' });
+
+            const hasAccess = await checkAccountAccess(req.user.id, req.user.role, sched.account_id);
+            if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền' });
+
+            await db.run(`DELETE FROM ads_scheduled_campaign_enables WHERE id = $1`, [id]);
+            return { success: true, message: 'Đã xóa lịch hẹn thành công' };
+        } catch (e) {
+            console.error('[hengiobatcamp schedules DELETE]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== API 6: POST /api/hengiobatcamp/schedules/:id/toggle ==========
+    fastify.post('/api/hengiobatcamp/schedules/:id/toggle', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const id = parseInt(req.params.id);
+            const sched = await db.get(`SELECT account_id, is_active FROM ads_scheduled_campaign_enables WHERE id = $1`, [id]);
+            if (!sched) return reply.code(404).send({ error: 'Không tìm thấy lịch hẹn' });
+
+            const hasAccess = await checkAccountAccess(req.user.id, req.user.role, sched.account_id);
+            if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền' });
+
+            const newActive = !sched.is_active;
+            await db.run(`UPDATE ads_scheduled_campaign_enables SET is_active = $1, updated_at = NOW() WHERE id = $2`, [newActive, id]);
+            return { success: true, is_active: newActive };
+        } catch (e) {
+            console.error('[hengiobatcamp schedules toggle POST]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== API 7: POST /api/hengiobatcamp/schedules/:id/execute-now — Bật ngay lập tức ==========
+    fastify.post('/api/hengiobatcamp/schedules/:id/execute-now', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const id = parseInt(req.params.id);
+            const sched = await db.get(`SELECT * FROM ads_scheduled_campaign_enables WHERE id = $1`, [id]);
+            if (!sched) return reply.code(404).send({ error: 'Không tìm thấy lịch hẹn' });
+
+            const hasAccess = await checkAccountAccess(req.user.id, req.user.role, sched.account_id);
+            if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền' });
+
+            const resLog = await executeScheduledEnable(sched, true);
+            return { success: true, message: 'Đã phát lệnh BẬT chiến dịch ngay lập tức', result: resLog };
+        } catch (e) {
+            console.error('[hengiobatcamp execute-now POST]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== API 8: GET /api/hengiobatcamp/logs ==========
+    fastify.get('/api/hengiobatcamp/logs', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const rawAccId = req.query.account_id;
+            if (rawAccId === 'all') {
+                const accessibleAccounts = await getAccessibleAccounts(req.user.id, req.user.role);
+                const accIds = accessibleAccounts.map(a => a.id);
+                if (accIds.length === 0) return { logs: [] };
+
+                const logs = await db.all(`
+                    SELECT l.*
+                    FROM ads_scheduled_campaign_enable_logs l
+                    WHERE l.account_id = ANY($1::int[])
+                    ORDER BY l.executed_at DESC
+                    LIMIT 200
+                `, [accIds]);
+                return { logs };
+            }
+
+            const accountId = parseInt(rawAccId);
+            if (!accountId) return reply.code(400).send({ error: 'Thiếu account_id' });
+
+            const hasAccess = await checkAccountAccess(req.user.id, req.user.role, accountId);
+            if (!hasAccess) return reply.code(403).send({ error: 'Không có quyền' });
+
+            const logs = await db.all(`
+                SELECT * FROM ads_scheduled_campaign_enable_logs
+                WHERE account_id = $1
+                ORDER BY executed_at DESC
+                LIMIT 200
+            `, [accountId]);
+            return { logs };
+        } catch (e) {
+            console.error('[hengiobatcamp logs GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ========== HELPER: Thực thi BẬT Chiến dịch qua FB Graph API ==========
+    async function executeScheduledEnable(sched, isManual = false) {
+        try {
+            const acc = await db.get(`SELECT account_name, fb_ad_account_id, fb_access_token FROM ads_stats_accounts WHERE id = $1`, [sched.account_id]);
+            if (!acc || !acc.fb_access_token) {
+                const errMsg = 'Tài khoản QC không tồn tại hoặc chưa cấu hình Access Token';
+                await db.run(`
+                    INSERT INTO ads_scheduled_campaign_enable_logs (schedule_id, account_id, account_name, campaign_id, campaign_name, status, reason)
+                    VALUES ($1, $2, $3, $4, $5, 'failed', $6)
+                `, [sched.id, sched.account_id, acc?.account_name || 'N/A', sched.campaign_id, sched.campaign_name, errMsg]);
+                return { success: false, reason: errMsg };
+            }
+
+            const token = acc.fb_access_token.trim();
+            const campaignId = sched.campaign_id.trim();
+
+            // 1. Kiểm tra trạng thái hiện tại trên Facebook
+            const statusUrl = `https://graph.facebook.com/v24.0/${campaignId}?fields=status,effective_status&access_token=${encodeURIComponent(token)}`;
+            const sRes = await fetch(statusUrl);
+            const sData = await sRes.json();
+
+            if (sData.status === 'ACTIVE' || sData.effective_status === 'ACTIVE') {
+                const note = isManual ? 'Bật thủ công: Chiến dịch đã ở trạng thái ACTIVE sẵn trên Facebook' : 'Chiến dịch đã ở trạng thái ACTIVE sẵn trên Facebook';
+                await db.run(`UPDATE ads_scheduled_campaign_enables SET last_executed_at = NOW() WHERE id = $1`, [sched.id]);
+                await db.run(`
+                    INSERT INTO ads_scheduled_campaign_enable_logs (schedule_id, account_id, account_name, campaign_id, campaign_name, status, reason)
+                    VALUES ($1, $2, $3, $4, $5, 'success', $6)
+                `, [sched.id, sched.account_id, acc.account_name, campaignId, sched.campaign_name, note]);
+                return { success: true, reason: note };
+            }
+
+            // 2. Gửi request HTTP POST đến FB Graph API để BẬT campaign (status = ACTIVE)
+            const enableRes = await fetch(`https://graph.facebook.com/v24.0/${campaignId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    access_token: token,
+                    status: 'ACTIVE'
+                })
+            });
+            const eData = await enableRes.json();
+
+            if (eData.success || eData.id) {
+                const note = isManual ? 'Kích hoạt BẬT thủ công thành công' : 'Tự động BẬT chiến dịch thành công qua hẹn giờ';
+                console.log(`[ScheduledEnable] ✅ BẬT THÀNH CÔNG campaign ${sched.campaign_name} (${campaignId})`);
+                await db.run(`UPDATE ads_scheduled_campaign_enables SET last_executed_at = NOW() WHERE id = $1`, [sched.id]);
+                await db.run(`
+                    INSERT INTO ads_scheduled_campaign_enable_logs (schedule_id, account_id, account_name, campaign_id, campaign_name, status, reason)
+                    VALUES ($1, $2, $3, $4, $5, 'success', $6)
+                `, [sched.id, sched.account_id, acc.account_name, campaignId, sched.campaign_name, note]);
+                return { success: true, reason: note };
+            } else {
+                const errReason = eData.error?.message || JSON.stringify(eData);
+                console.error(`[ScheduledEnable] ❌ Lỗi BẬT campaign ${sched.campaign_name}:`, errReason);
+                await db.run(`
+                    INSERT INTO ads_scheduled_campaign_enable_logs (schedule_id, account_id, account_name, campaign_id, campaign_name, status, reason)
+                    VALUES ($1, $2, $3, $4, $5, 'failed', 'Lỗi Graph API: ' || $6)
+                `, [sched.id, sched.account_id, acc.account_name, campaignId, sched.campaign_name, errReason]);
+                return { success: false, reason: errReason };
+            }
+        } catch (e) {
+            console.error('[executeScheduledEnable Error]', e);
+            return { success: false, reason: e.message };
+        }
+    }
+
+    // ========== CRON WORKER: Hẹn Giờ Bật Camp Tự Động ==========
+    function startScheduledEnableCron() {
+        setInterval(async () => {
+            try {
+                // Thời gian Việt Nam (UTC+7)
+                const now = new Date();
+                const vnDateStr = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+                const vnDate = new Date(vnDateStr);
+                const currentHourMin = String(vnDate.getHours()).padStart(2, '0') + ':' + String(vnDate.getMinutes()).padStart(2, '0');
+                const currentDayOfWeek = String(vnDate.getDay()); // 0 = Chủ Nhật, 1 = T2, ...
+
+                const activeSchedules = await db.all(`
+                    SELECT * FROM ads_scheduled_campaign_enables
+                    WHERE is_active = true
+                `);
+
+                for (const sched of activeSchedules) {
+                    if (!sched.days || !sched.enable_time) continue;
+                    const dayList = sched.days.split(',').map(d => d.trim());
+                    if (!dayList.includes(currentDayOfWeek)) continue;
+
+                    const schedTimeShort = sched.enable_time.slice(0, 5); // "HH:MM"
+                    if (schedTimeShort !== currentHourMin) continue;
+
+                    // Tránh chạy lại 2 lần trong cùng 1 phút
+                    if (sched.last_executed_at) {
+                        const lastExecVn = new Date(new Date(sched.last_executed_at).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+                        if (lastExecVn.getFullYear() === vnDate.getFullYear() &&
+                            lastExecVn.getMonth() === vnDate.getMonth() &&
+                            lastExecVn.getDate() === vnDate.getDate() &&
+                            lastExecVn.getHours() === vnDate.getHours() &&
+                            lastExecVn.getMinutes() === vnDate.getMinutes()) {
+                            continue;
+                        }
+                    }
+
+                    console.log(`[ScheduledEnable CRON] ⏰ BẬT CAMPAIGN: ${sched.campaign_name} (${sched.campaign_id}) | Giờ hẹn: ${sched.enable_time}`);
+                    await executeScheduledEnable(sched, false);
+                }
+            } catch (e) {
+                console.error('[ScheduledEnable CRON Error]', e.message);
+            }
+        }, 60 * 1000); // Quét mỗi 60s
+    }
+
+    startScheduledEnableCron();
 
     // ========== PAGE ROUTES ==========
     fastify.get('/gioihanchitieu', async (req, reply) => {
