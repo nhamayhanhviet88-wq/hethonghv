@@ -487,23 +487,23 @@ function _cdAdsRenderTable() {
     container.innerHTML = `
         <table style="width: 100%; border-collapse: collapse; min-width: 1400px;">
             <thead>
-                <tr style="background: linear-gradient(135deg, #f8fafc, #eef2ff); border-bottom: 2px solid #e2e8f0;">
-                    <th style="padding:12px 12px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">STT</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">ẢNH</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:left;white-space:nowrap;">TÊN CHIẾN DỊCH</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">KÊNH</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">POST ID</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">ID CAMP</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">TRẠNG THÁI</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:right;white-space:nowrap;">NGÂN SÁCH</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">TIN NHẮN</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:right;white-space:nowrap;">CPA</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">CTR</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:right;white-space:nowrap;">CPM</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">SỐ LẦN CHẠY</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">HIỆU QUẢ</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">NGƯỜI TẠO</th>
-                    <th style="padding:12px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;white-space:nowrap;">HÀNH ĐỘNG</th>
+                <tr style="background: linear-gradient(135deg, #0f172a, #1e1b4b); border-bottom: 2px solid #334155;">
+                    <th style="padding:12px 12px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">STT</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">ẢNH</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:left;white-space:nowrap;letter-spacing:0.5px;">TÊN CHIẾN DỊCH</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">KÊNH</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">POST ID</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">ID CAMP</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">TRẠNG THÁI</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;">NGÂN SÁCH</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">TIN NHẮN</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;">CPA</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">CTR</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:right;white-space:nowrap;letter-spacing:0.5px;">CPM</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">SỐ LẦN CHẠY</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">HIỆU QUẢ</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">NGƯỜI TẠO</th>
+                    <th style="padding:12px 8px;font-size:11.5px;font-weight:800;color:#ffffff;text-align:center;white-space:nowrap;letter-spacing:0.5px;">HÀNH ĐỘNG</th>
                 </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -975,15 +975,15 @@ async function _cdAdsViewDetail(campaignId) {
                 <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;">
                     <table style="width:100%;border-collapse:collapse;min-width:700px;">
                         <thead>
-                            <tr style="background:#f8fafc;">
-                                <th style="padding:10px 12px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;border-bottom:1px solid #e2e8f0;">NGÀY</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:right;border-bottom:1px solid #e2e8f0;">NGÂN SÁCH</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;border-bottom:1px solid #e2e8f0;">TIN NHẮN</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:right;border-bottom:1px solid #e2e8f0;">CPA</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;border-bottom:1px solid #e2e8f0;">CTR</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:right;border-bottom:1px solid #e2e8f0;">CPM</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;border-bottom:1px solid #e2e8f0;">SỐ LẦN CHẠY</th>
-                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#4338ca;text-align:center;border-bottom:1px solid #e2e8f0;">HIỆU QUẢ</th>
+                            <tr style="background: linear-gradient(135deg, #0f172a, #1e1b4b);">
+                                <th style="padding:10px 12px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">NGÀY</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">NGÂN SÁCH</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">TIN NHẮN</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">CPA</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">CTR</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:right;border-bottom:1px solid #334155;">CPM</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">SỐ LẦN CHẠY</th>
+                                <th style="padding:10px 8px;font-size:11px;font-weight:800;color:#ffffff;text-align:center;border-bottom:1px solid #334155;">HIỆU QUẢ</th>
                             </tr>
                         </thead>
                         <tbody>
