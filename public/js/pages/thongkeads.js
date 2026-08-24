@@ -874,8 +874,7 @@ window.renderThongkeadsPage = function(container) {
                 <tr style="background: #1e293b; color: white;">
                     <th onclick="window._tkaSortBy('report_date')" style="padding: 12px 10px; text-align: left; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Ngày chạy">NGÀY CHẠY ${_getSortIcon('report_date')}</th>
                     <th onclick="window._tkaSortBy('link_post_id')" style="padding: 12px 10px; text-align: left; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Link Post ID">LINK POST ID ${_getSortIcon('link_post_id')}</th>
-                    <th onclick="window._tkaSortBy('campaign_name')" style="padding: 12px 10px; text-align: left; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Tên Camp">TÊN CAMP ${_getSortIcon('campaign_name')}</th>
-                    <th onclick="window._tkaSortBy('campaign_id')" style="padding: 12px 10px; text-align: left; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo ID Camp">ID CAMP ${_getSortIcon('campaign_id')}</th>
+                    <th onclick="window._tkaSortBy('campaign_name')" style="padding: 12px 10px; text-align: left; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Tên Camp & ID Camp">CHIẾN DỊCH / ID CAMP ${_getSortIcon('campaign_name')}</th>
                     <th onclick="window._tkaSortBy('spend')" style="padding: 12px 10px; text-align: right; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Ngân sách chi tiêu">NGÂN SÁCH CHI TIÊU ${_getSortIcon('spend')}</th>
                     <th onclick="window._tkaSortBy('messages')" style="padding: 12px 10px; text-align: center; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Tin nhắn">TIN NHẮN ${_getSortIcon('messages')}</th>
                     <th onclick="window._tkaSortBy('cpa')" style="padding: 12px 10px; text-align: right; font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none;" title="CPA (Số Tiền / Tin Nhắn)">CPA ${_getSortIcon('cpa')}</th>
@@ -964,8 +963,10 @@ window.renderThongkeadsPage = function(container) {
                             ${accName ? `<div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 3px;">📘 ${_escapeHtml(accName)}</div>` : ''}
                         ` : '-'}
                     </td>
-                    <td style="padding: 10px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${campName}">${campDisplay}</td>
-                    <td style="padding: 10px; font-size: 12px; color: #64748b; white-space: nowrap;" title="${campId}">${campIdDisplay}</td>
+                    <td style="padding: 10px; max-width: 320px;" title="${campName}${campId ? ' (' + campId + ')' : ''}">
+                        <div style="font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${campDisplay}</div>
+                        ${campId ? `<div style="font-size: 11px; color: #64748b; font-weight: 500; font-family: monospace; margin-top: 2px;">${campId}</div>` : ''}
+                    </td>
                     <td style="padding: 10px; text-align: right; font-weight: 600; white-space: nowrap;">${_fmtMoney(spend)}</td>
                     <td style="padding: 10px; text-align: center; font-weight: 700; color: ${messages > 0 ? '#0891b2' : '#94a3b8'};">${messages}</td>
                     <td style="padding: 10px; text-align: right; white-space: nowrap; ${cpaStyle}">${formattedCpa}</td>
@@ -1040,8 +1041,7 @@ window.renderThongkeadsPage = function(container) {
             <thead>
                 <tr style="background: linear-gradient(135deg, #1e293b, #334155); color: white; font-size: 12px;">
                     <th onclick="window._tkaCampSortBy('link_post_id')" style="padding: 10px 8px; text-align: left; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Post ID">POST ID ${_getCampSortIcon('link_post_id')}</th>
-                    <th onclick="window._tkaCampSortBy('campaign_name')" style="padding: 10px 8px; text-align: left; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Tên Chiến dịch">CHIẾN DỊCH ${_getCampSortIcon('campaign_name')}</th>
-                    <th onclick="window._tkaCampSortBy('campaign_id')" style="padding: 10px 8px; text-align: left; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo ID Camp">ID CAMP ${_getCampSortIcon('campaign_id')}</th>
+                    <th onclick="window._tkaCampSortBy('campaign_name')" style="padding: 10px 8px; text-align: left; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Tên Chiến dịch & ID Camp">CHIẾN DỊCH / ID CAMP ${_getCampSortIcon('campaign_name')}</th>
                     <th onclick="window._tkaCampSortBy('total_spend')" style="padding: 10px 8px; text-align: right; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Ngân Sách">NGÂN SÁCH ${_getCampSortIcon('total_spend')}</th>
                     <th onclick="window._tkaCampSortBy('total_messages')" style="padding: 10px 8px; text-align: center; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="Bấm để lọc/sắp xếp theo Tin nhắn">TIN NHẮN ${_getCampSortIcon('total_messages')}</th>
                     <th onclick="window._tkaCampSortBy('avg_cpa')" style="padding: 10px 8px; text-align: right; font-weight: 800; white-space: nowrap; cursor: pointer; user-select: none;" title="CPA (Số Tiền / Tin Nhắn)">CPA ${_getCampSortIcon('avg_cpa')}</th>
@@ -1161,8 +1161,10 @@ window.renderThongkeadsPage = function(container) {
                             ${accName ? `<div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 3px;">📘 ${_escapeHtml(accName)}</div>` : ''}
                         ` : '-'}
                     </td>
-                    <td style="padding: 8px 6px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;" title="${campName}">${campDisplay}</td>
-                    <td style="padding: 8px 6px; font-size: 12px; color: #64748b; white-space: nowrap;" title="${campId}">${campIdDisplay}</td>
+                    <td style="padding: 8px 6px; max-width: 260px;" title="${campName}${campId ? ' (' + campId + ')' : ''}">
+                        <div style="font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${campDisplay}</div>
+                        ${campId ? `<div style="font-size: 11px; color: #64748b; font-weight: 500; font-family: monospace; margin-top: 2px;">${campId}</div>` : ''}
+                    </td>
                     <td style="padding: 8px 6px; text-align: right; font-weight: 700; color: #1e1b4b; white-space: nowrap;">${_fmtMoney(spend)}</td>
                     <td style="padding: 8px 6px; text-align: center; font-weight: 800; color: ${messages > 0 ? '#0891b2' : '#94a3b8'};">${messages}</td>
                     <td style="padding: 8px 6px; text-align: right; white-space: nowrap; ${cpaStyle}">${formattedCpa}</td>
