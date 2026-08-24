@@ -57,6 +57,22 @@ window.renderTatbatfbadsPage = function(container) {
         return String(t).slice(0, 5);
     }
 
+    function _formatTbfaDateTime(dateInput) {
+        if (!dateInput) return '—';
+        const d = new Date(dateInput);
+        if (isNaN(d.getTime())) return '—';
+
+        const daysArr = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const dayOfWeek = daysArr[d.getDay()];
+
+        const timeStr = d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh' }).slice(0, 5);
+        const parts = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh' }).split('/');
+        const day = parts[0].padStart(2, '0');
+        const month = parts[1].padStart(2, '0');
+
+        return `${dayOfWeek} - ${timeStr} ${day}/${month}`;
+    }
+
     function _showToast(msg, type) {
         const old = document.getElementById('tbfa-toast');
         if (old) old.remove();
@@ -552,7 +568,7 @@ window.renderTatbatfbadsPage = function(container) {
 
         const rows = filteredConfigs.map((cfg, i) => {
             const isActive = cfg.is_active !== false;
-            const lastExec = cfg.last_executed_at ? new Date(cfg.last_executed_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—';
+            const lastExec = _formatTbfaDateTime(cfg.last_executed_at);
 
             return `
                 <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s;" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='transparent'">
@@ -673,7 +689,7 @@ window.renderTatbatfbadsPage = function(container) {
 
         const rows = filteredConfigs.map((cfg, i) => {
             const isActive = cfg.is_active !== false;
-            const lastExec = cfg.last_executed_at ? new Date(cfg.last_executed_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—';
+            const lastExec = _formatTbfaDateTime(cfg.last_executed_at);
             const intervalText = `${cfg.interval_minutes || 3} phút/lần`;
             const windowText = `${_formatTimeSlot(cfg.start_time || '08:00')} - ${_formatTimeSlot(cfg.end_time || '18:00')}`;
 
@@ -773,7 +789,7 @@ window.renderTatbatfbadsPage = function(container) {
         }
 
         const rows = filteredLogs.map((log, i) => {
-            const execTime = log.executed_at ? new Date(log.executed_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+            const execTime = _formatTbfaDateTime(log.executed_at);
             const count = log.enabled_count || (log.details ? log.details.length : 1);
             const configName = log.config_name || (log.config_type === 'daily' ? 'Bật Trong Ngày' : 'Bật Full Chiến Dịch');
             const typeBadge = log.config_type === 'daily' ?
@@ -883,7 +899,7 @@ window.renderTatbatfbadsPage = function(container) {
 
         const rows = filteredConfigs.map((cfg, i) => {
             const isActive = cfg.is_active !== false;
-            const lastExec = cfg.last_executed_at ? new Date(cfg.last_executed_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—';
+            const lastExec = _formatTbfaDateTime(cfg.last_executed_at);
 
             return `
                 <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s;" onmouseenter="this.style.background='#fff1f2'" onmouseleave="this.style.background='transparent'">
@@ -1002,7 +1018,7 @@ window.renderTatbatfbadsPage = function(container) {
 
         const rows = filteredConfigs.map((cfg, i) => {
             const isActive = cfg.is_active !== false;
-            const lastExec = cfg.last_executed_at ? new Date(cfg.last_executed_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—';
+            const lastExec = _formatTbfaDateTime(cfg.last_executed_at);
 
             return `
                 <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s;" onmouseenter="this.style.background='#fff7ed'" onmouseleave="this.style.background='transparent'">
@@ -1123,7 +1139,7 @@ window.renderTatbatfbadsPage = function(container) {
 
         const rows = filteredConfigs.map((cfg, i) => {
             const isActive = cfg.is_active !== false;
-            const lastExec = cfg.last_executed_at ? new Date(cfg.last_executed_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—';
+            const lastExec = _formatTbfaDateTime(cfg.last_executed_at);
             const intervalText = `${cfg.interval_minutes || 3} phút/lần`;
             const windowText = `${_formatTimeSlot(cfg.start_time || '00:00')} - ${_formatTimeSlot(cfg.end_time || '23:59')}`;
 
@@ -1223,7 +1239,7 @@ window.renderTatbatfbadsPage = function(container) {
         }
 
         const rows = filteredLogs.map((log, i) => {
-            const execTime = log.created_at ? new Date(log.created_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+            const execTime = _formatTbfaDateTime(log.created_at);
             const count = log.disabled_count || 0;
             const configName = log.config_name || (log.disable_type === 'no_message' ? 'Tắt Camp Không Tin Nhắn' : (log.disable_type === 'daily' ? 'Tắt Chiến Dịch Trong Ngày' : 'Tắt Full Chiến Dịch'));
             let typeBadge = '';
