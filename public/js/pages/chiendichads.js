@@ -1979,21 +1979,41 @@ function _cdAdsSetupGlobalTooltip() {
 
 _cdAdsSetupGlobalTooltip();
 
+function _cdAdsGetShortCampName(fullName) {
+    if (!fullName) return 'Chiến dịch gốc';
+    const str = String(fullName).trim();
+
+    // Nếu tên chứa ' - CÔNG TY', loại bỏ phần tiền tố mẫu/tài khoản phía trước
+    const idx = str.indexOf(' - CÔNG TY');
+    if (idx !== -1) {
+        return str.substring(idx + 3).trim();
+    }
+    if (str.startsWith('CÔNG TY')) return str;
+
+    // Nếu có 4 phần trở lên tách bởi ' - ', chỉ lấy phần tên Meta Campaign ở sau
+    const parts = str.split(' - ');
+    if (parts.length >= 4) {
+        return parts.slice(3).join(' - ').trim();
+    }
+    return str;
+}
+
 function _cdAdsRenderExtraCampsHTML(camp) {
     if (!camp) return '';
     const campaignId = camp.id;
     const extraCamps = camp.extra_camps || [];
     let items = [];
 
-    // 1. Hiển thị Camp ID chính
+    // 1. Hiển thị Camp ID chính (đã được rút gọn tiền tố mẫu / tài khoản QC)
     if (camp.camp_id || camp.post_id) {
+        const shortName = _cdAdsGetShortCampName(camp.campaign_name);
         items.push(`
             <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px;">
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; overflow: hidden; flex: 1;">
                     <span style="background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; flex-shrink: 0;">⭐ Camp Chính</span>
                     ${camp.camp_id ? `<span style="font-family: monospace; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 8px; border-radius: 6px; flex-shrink: 0;">🆔 Camp: ${escapeHtml(camp.camp_id)}</span>` : ''}
                     ${camp.post_id ? `<span style="font-family: monospace; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px; flex-shrink: 0;">📌 Post: ${escapeHtml(camp.post_id)}</span>` : ''}
-                    <span style="color: #64748b; font-weight: 600; max-width: 450px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;" title="${escapeHtml(camp.campaign_name || '')}">📝 ${escapeHtml(camp.campaign_name || 'Chiến dịch gốc')}</span>
+                    <span style="color: #64748b; font-weight: 600; max-width: 450px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1;" title="${escapeHtml(camp.campaign_name || '')}">📝 ${escapeHtml(shortName)}</span>
                     <span style="color: #94a3b8; font-size: 11px; flex-shrink: 0;">👤 ${escapeHtml(camp.created_by_name || 'Giám Đốc')}</span>
                 </div>
                 <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; flex-shrink: 0;" title="Mã Camp ID chính cố định theo chiến dịch">🔒 Cố định</span>
