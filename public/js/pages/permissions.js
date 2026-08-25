@@ -72,6 +72,7 @@ const PERM_FEATURES = [
     { key: 'cai_dat_pancake', label: 'Cài Đặt Pancake', perms: ['view','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'khoa_tk_nv', label: 'Nhân Viên Bị Phạt Tiền', perms: ['view'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'xin_nghi_nv', label: 'Xin Nghỉ NV', perms: ['view','create'], section: 'HỖ TRỢ NHÂN VIÊN' },
+    { key: 'xin_nghi_nv_stats', label: '  ↳ Nút: 📊 Xem Thống Kê Phòng Ban', perms: ['view'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'mo_khoa_tk_phat', label: 'Mở Khóa Phạt Tài Khoản', perms: ['view','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'setup_ngay_le', label: 'Setup Ngày Lễ', perms: ['view','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
 

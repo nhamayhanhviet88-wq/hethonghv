@@ -3,7 +3,7 @@
 let _leaveMonth = '';
 
 async function renderXinNghiPage(container) {
-    const canViewStats = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role);
+    const canViewStats = currentUser.role === 'giam_doc' || canDo('xin_nghi_nv_stats', 'view');
     const now = vnNow();
     _leaveMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 

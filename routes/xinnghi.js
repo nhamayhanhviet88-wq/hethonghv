@@ -174,9 +174,32 @@ async function xinnghiRoutes(fastify, options) {
         let deptFilter = '';
         let params = [monthStart, monthEnd];
 
+        let hasStatsPerm = userRole === 'giam_doc';
+        if (!hasStatsPerm) {
+            const userPerm = await db.get(
+                `SELECT can_view FROM user_permissions WHERE user_id = $1 AND feature_key = 'xin_nghi_nv_stats'`,
+                [userId]
+            );
+            if (userPerm && userPerm.can_view > 0) {
+                hasStatsPerm = true;
+            } else if (!userPerm || userPerm.can_view !== -1) {
+                const deptPerm = await db.get(
+                    `SELECT dp.can_view FROM department_permissions dp
+                     JOIN users u ON u.department_id = dp.department_id
+                     WHERE u.id = $1 AND dp.feature_key = 'xin_nghi_nv_stats'`,
+                    [userId]
+                );
+                if (deptPerm && deptPerm.can_view > 0) hasStatsPerm = true;
+            }
+        }
+
+        if (!hasStatsPerm) {
+            return reply.code(403).send({ error: '🔒 Bạn không có quyền xem thống kê nghỉ phép phòng ban' });
+        }
+
         if (userRole === 'giam_doc') {
             // See all
-        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
+        } else {
             const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
             if (!user || !user.department_id) return { stats: [], departments: [] };
 
@@ -191,8 +214,6 @@ async function xinnghiRoutes(fastify, options) {
             const placeholders = deptIds.map((_, i) => `$${i + 3}`).join(',');
             deptFilter = ` AND lr.department_id IN (${placeholders})`;
             params.push(...deptIds);
-        } else {
-            return reply.code(403).send({ error: 'Không có quyền' });
         }
 
         const stats = await db.all(

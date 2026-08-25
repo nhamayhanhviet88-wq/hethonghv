@@ -543,8 +543,8 @@
                 if (!res.user) return;
                 currentUser = res.user;
 
-                // Show stats tab for managers/GD
-                const canViewStats = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role);
+                // Show stats tab for users with xin_nghi_nv_stats permission or GD
+                const canViewStats = currentUser.role === 'giam_doc' || (currentUser.permissions && currentUser.permissions['xin_nghi_nv_stats'] && currentUser.permissions['xin_nghi_nv_stats'].can_view > 0);
                 if (canViewStats) {
                     document.getElementById('statsTabBtn').style.display = 'block';
                 }
@@ -766,7 +766,8 @@
                 const histTabBtn = document.querySelectorAll('.tab-btn')[1];
                 switchTab('history', histTabBtn);
 
-                if (['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
+                const canViewStats = currentUser.role === 'giam_doc' || (currentUser.permissions && currentUser.permissions['xin_nghi_nv_stats'] && currentUser.permissions['xin_nghi_nv_stats'].can_view > 0);
+                if (canViewStats) {
                     document.getElementById('statsMonth').value = subMonth;
                     loadStats();
                 }
