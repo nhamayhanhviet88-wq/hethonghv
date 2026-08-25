@@ -199,7 +199,7 @@ async function xinnghiRoutes(fastify, options) {
              LEFT JOIN users u ON lr.user_id = u.id
              LEFT JOIN departments d ON lr.department_id = d.id
              LEFT JOIN users h ON lr.handover_user_id = h.id
-             WHERE lr.status = 'active' AND lr.date_from <= $2 AND lr.date_to >= $1${deptFilter}
+             WHERE lr.status IN ('active', 'cancelled') AND lr.date_from <= $2 AND lr.date_to >= $1${deptFilter}
              ORDER BY d.name, u.full_name, lr.date_from`,
             params
         );

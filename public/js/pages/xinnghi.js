@@ -441,9 +441,13 @@ async function _leaveLoadStats() {
             const deptName = s.dept_name || 'Không phòng ban';
             if (!byDept[deptName]) byDept[deptName] = {};
             const userKey = s.user_id;
-            if (!byDept[deptName][userKey]) byDept[deptName][userKey] = { name: s.user_name, username: s.username, items: [], total: 0 };
+            if (!byDept[deptName][userKey]) byDept[deptName][userKey] = { name: s.user_name, username: s.username, items: [], total: 0, cancelledCount: 0 };
             byDept[deptName][userKey].items.push(s);
-            byDept[deptName][userKey].total += parseFloat(s.total_days);
+            if (s.status === 'active') {
+                byDept[deptName][userKey].total += parseFloat(s.total_days);
+            } else if (s.status === 'cancelled') {
+                byDept[deptName][userKey].cancelledCount += 1;
+            }
         });
 
         let html = '';
@@ -462,23 +466,27 @@ async function _leaveLoadStats() {
                     const fromF = item.date_from.split('-').reverse().join('/');
                     const toF = item.date_to.split('-').reverse().join('/');
                     const dateRange = item.date_from === item.date_to ? fromF : `${fromF} → ${toF}`;
+                    const isCancelled = item.status === 'cancelled';
 
                     rows += `
-                    <tr style="border-bottom:1px solid #f1f5f9;${i % 2 ? 'background:#fafbfc;' : ''}">
+                    <tr style="border-bottom:1px solid #f1f5f9;${isCancelled ? 'background:#fff5f5;opacity:0.85;' : (i % 2 ? 'background:#fafbfc;' : '')}">
                         ${i === 0 ? `<td rowspan="${u.items.length}" style="padding:8px 10px;font-size:12px;font-weight:700;color:#1e293b;vertical-align:top;border-right:1px solid #e5e7eb;">${u.name}</td>` : ''}
-                        <td style="padding:8px 10px;font-size:12px;color:#374151;">${dateRange}</td>
-                        <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#2563eb;text-align:center;">${parseFloat(item.total_days)}</td>
-                        <td style="padding:8px 10px;font-size:11px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${(item.reason||'').replace(/"/g,'&quot;')}">${item.reason}</td>
+                        <td style="padding:8px 10px;font-size:12px;color:#374151;${isCancelled ? 'text-decoration:line-through;color:#94a3b8;' : ''}">${dateRange}</td>
+                        <td style="padding:8px 10px;font-size:12px;font-weight:700;text-align:center;">
+                            ${isCancelled ? `<span style="background:#fee2e2;color:#dc2626;padding:3px 8px;border-radius:6px;font-size:10.5px;font-weight:800;border:1px solid #fca5a5;display:inline-block;">❌ Đã hủy (${parseFloat(item.total_days)} buổi)</span>` : `<span style="color:#2563eb;">${parseFloat(item.total_days)}</span>`}
+                        </td>
+                        <td style="padding:8px 10px;font-size:11px;color:${isCancelled ? '#94a3b8' : '#64748b'};max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${(item.reason||'').replace(/"/g,'&quot;')}">${item.reason}</td>
                         <td style="padding:8px 10px;font-size:11px;color:#6b7280;">${item.handover_name || '—'}</td>
                         <td style="padding:8px 10px;text-align:center;">${item.proof_image ? `<a href="${item.proof_image}" target="_blank" style="font-size:11px;color:#2563eb;">📷</a>` : '—'}</td>
                     </tr>`;
                 });
 
                 // Subtotal per user
+                const cancelledBadge = u.cancelledCount > 0 ? `<span style="color:#dc2626;font-size:11px;font-weight:700;margin-left:6px;">(Đã hủy: ${u.cancelledCount} đơn)</span>` : '';
                 rows += `
                 <tr style="background:#eff6ff;border-bottom:2px solid #bfdbfe;">
-                    <td colspan="2" style="padding:6px 10px;font-size:11px;font-weight:700;color:#1d4ed8;text-align:right;">Tổng ${u.name}:</td>
-                    <td style="padding:6px 10px;font-size:13px;font-weight:800;color:#1d4ed8;text-align:center;">${u.total}</td>
+                    <td colspan="2" style="padding:6px 10px;font-size:11px;font-weight:700;color:#1d4ed8;text-align:right;">Tổng ${u.name}${cancelledBadge}:</td>
+                    <td style="padding:6px 10px;font-size:13px;font-weight:800;color:#1d4ed8;text-align:center;">${u.total} buổi</td>
                     <td colspan="3"></td>
                 </tr>`;
             });
