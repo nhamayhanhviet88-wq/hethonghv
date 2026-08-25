@@ -873,6 +873,37 @@
         _qtnsRenderCurrentMainTab();
     };
 
+    function _qtnsFormatDateTime(isoStr) {
+        if (!isoStr) return '';
+        try {
+            const d = new Date(isoStr);
+            if (isNaN(d.getTime())) return isoStr;
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mo = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return `${hh}:${mm} ${dd}/${mo}/${yyyy}`;
+        } catch (e) {
+            return isoStr;
+        }
+    }
+
+    window._qtnsTogglePinLink = function(id, subId) {
+        let links = _qtnsGetCustomSubtabLinks(subId);
+        let isPinnedNow = false;
+        links = links.map(l => {
+            if (l.id === id) {
+                isPinnedNow = !l.isPinned;
+                return { ...l, isPinned: isPinnedNow };
+            }
+            return l;
+        });
+        _qtnsSaveCustomSubtabLinks(subId, links);
+        _qtnsShowToast(isPinnedNow ? '📌⭐ Đã ghim tài liệu quan trọng lên vị trí ĐẦU TIÊN!' : '📌 Đã bỏ ghim tài liệu!');
+        _qtnsRenderCurrentMainTab();
+    };
+
     function _qtnsRenderSubTabContent(subId) {
         const body = document.getElementById('qtnsTabContentBody');
         if (!body) return;
@@ -913,11 +944,12 @@
 
         body.innerHTML = `
             ${pinnedLinks.length > 0 ? `
-                <div style="margin-bottom:26px;">
-                    <div style="font-size:13px; font-weight:900; color:#b45309; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-                        <span>📌⭐ MỤC QUAN TRỌNG (${pinnedLinks.length})</span>
+                <div style="margin-bottom:28px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; font-size:13.5px; font-weight:900; color:#b45309; background:linear-gradient(135deg, #fffbe6 0%, #fef3c7 100%); padding:9px 16px; border-radius:12px; border:1.5px solid #fde68a; width:fit-content; box-shadow:0 4px 12px rgba(217, 119, 6, 0.1);">
+                        <span style="font-size:16px;">📌⭐</span>
+                        <span>MỤC QUAN TRỌNG (${pinnedLinks.length})</span>
                     </div>
-                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
+                    <div class="qtns-link-grid">
                         ${pinnedLinks.map(link => _qtnsRenderCardHTML(link, subId)).join('')}
                     </div>
                 </div>
@@ -926,11 +958,12 @@
             ${normalLinks.length > 0 ? `
                 <div>
                     ${pinnedLinks.length > 0 ? `
-                        <div style="font-size:13px; font-weight:900; color:#334155; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-                            <span>📑 DANH SÁCH TÀI LIỆU BÌNH THƯỜNG (${normalLinks.length})</span>
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; font-size:13px; font-weight:850; color:#64748b; padding-top:4px;">
+                            <span>📁</span>
+                            <span>DANH SÁCH TÀI LIỆU BÌNH THƯỜNG (${normalLinks.length})</span>
                         </div>
                     ` : ''}
-                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
+                    <div class="qtns-link-grid">
                         ${normalLinks.map(link => _qtnsRenderCardHTML(link, subId)).join('')}
                     </div>
                 </div>
@@ -941,37 +974,63 @@
     function _qtnsRenderCardHTML(link, subId) {
         const hasValidUrl = _qtnsHasValidUrl(link.url);
         const themeName = link.theme || 'purple';
+        const linkCats = _qtnsGetLinkCategories(link);
 
         return `
-            <div class="qtns-card-item theme-${themeName} ${link.isPinned ? 'is-pinned-card' : ''}" style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:20px; padding:20px; box-shadow:0 6px 20px rgba(109,40,217,0.06); display:flex; flex-direction:column; justify-content:space-between; position:relative;">
-                <div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:24px;">${link.icon || '👔'}</span>
-                            <span style="background:#f3e8ff; color:#6b21a8; font-size:11.5px; font-weight:850; padding:3px 10px; border-radius:12px; border:1px solid #d8b4fe;">📌 ${link.category || 'Chung'}</span>
+            <div class="qtns-card-item theme-${themeName} ${link.isPinned ? 'is-pinned-card' : ''}">
+                <div class="card-accent-bar theme-${themeName}"></div>
+                <div class="card-inner">
+                    <div class="card-head-row">
+                        <div class="card-icon-box theme-${themeName}">${link.icon || '👔'}</div>
+                        <div class="card-badge-box" style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
+                            ${link.isPinned ? `
+                                <span class="card-badge pinned-badge" style="background: linear-gradient(135deg, #fffbe6 0%, #fef3c7 100%); color:#b45309; border:1px solid #fcd34d; font-weight:900; box-shadow:0 2px 6px rgba(217, 119, 6, 0.12); display:inline-flex; align-items:center; gap:3px; padding:3px 8px; border-radius:6px; font-size:11px; white-space:nowrap; flex-shrink:0;">
+                                    📌⭐ Quan Trọng
+                                </span>
+                            ` : ''}
+                            ${linkCats.map(cat => `
+                                <span class="card-badge theme-${themeName}">
+                                    📌 ${cat}
+                                </span>
+                            `).join('')}
                         </div>
                         ${_qtnsCanManage() ? `
-                            <div style="display:flex; gap:6px;">
-                                <button onclick="window._qtnsOpenEditLinkModal('${link.id}', '${subId}')" style="background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe; border-radius:8px; padding:4px 8px; font-size:12px; cursor:pointer;">✏️</button>
-                                <button onclick="window._qtnsDeleteLink('${link.id}', '${subId}')" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:8px; padding:4px 8px; font-size:12px; cursor:pointer;">🗑️</button>
+                            <div class="card-quick-actions">
+                                <button class="card-action-btn pin ${link.isPinned ? 'active-pin' : ''}" 
+                                    title="${link.isPinned ? 'Bỏ ghim quan trọng' : 'Ghim quan trọng lên đầu'}" 
+                                    onclick="window._qtnsTogglePinLink('${link.id}', '${subId}')"
+                                    style="${link.isPinned ? 'background:#fef3c7; color:#d97706; border-color:#fde68a; font-weight:900;' : ''}">
+                                    ${link.isPinned ? '⭐' : '📌'}
+                                </button>
+                                <button class="card-action-btn edit" title="Chỉnh sửa link" onclick="window._qtnsOpenEditLinkModal('${link.id}', '${subId}')">✏️</button>
+                                <button class="card-action-btn delete" title="Xóa link" onclick="window._qtnsDeleteLink('${link.id}', '${subId}')">🗑️</button>
                             </div>
                         ` : ''}
                     </div>
-                    <h3 style="font-size:16.5px; font-weight:900; color:#1e1b4b; margin:0 0 8px 0; line-height:1.4;">${_qtnsFormatTitle(link.title)}</h3>
-                    <p style="font-size:13.5px; color:#475569; margin:0 0 16px 0; line-height:1.55; white-space:pre-line;">${link.subtitle || ''}</p>
-                </div>
+                    <div class="card-main-content" style="cursor:pointer;" onclick="window._qtnsOpenDetailModal('${link.id}', '${subId}')" title="Nhấp để xem chi tiết đầy đủ quy trình">
+                        <h3 class="card-title">${_qtnsFormatTitle(link.title)}</h3>
+                        <div class="card-desc">${_qtnsFormatDescription(link.subtitle || link.url)}</div>
+                    </div>
 
-                <!-- Side-by-Side 1-Row Compact Buttons -->
-                <div style="display:flex; gap:8px; margin-top:14px; align-items:center;">
-                    <button type="button" onclick="window._qtnsOpenDetailModal('${link.id}', '${subId}')" 
-                        style="flex:1; min-width:0; border:none; background:linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%); color:#ffffff; font-weight:850; font-size:12.5px; padding:10px 10px; border-radius:12px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:4px; box-shadow:0 4px 12px rgba(109,40,217,0.25); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Xem Chi Tiết Quy Trình">
-                        📋 <span>${hasValidUrl ? 'Xem Chi Tiết ➔' : 'Xem Chi Tiết Quy Trình ➔'}</span>
-                    </button>
-                    ${hasValidUrl ? `
-                        <a href="${link.url}" target="_blank" rel="noopener" style="flex:1; min-width:0; padding:10px 10px; font-size:12.5px; font-weight:850; border-radius:12px; background:#f3e8ff; color:#6b21a8; border:1.5px solid #c084fc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-decoration:none; display:flex; justify-content:center; align-items:center; gap:4px;" title="Mở Bản Gốc Tài Liệu">
-                            🔗 <span>Mở Bản Gốc ↗</span>
-                        </a>
-                    ` : ''}
+                    <!-- Side-by-Side 1-Row Compact Buttons -->
+                    <div style="display:flex; gap:8px; margin-top:14px; align-items:center;">
+                        <button type="button" onclick="window._qtnsOpenDetailModal('${link.id}', '${subId}')" 
+                            style="flex:1; min-width:0; border:none; background:linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%); color:#ffffff; font-weight:850; font-size:12.5px; padding:10px 10px; border-radius:12px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:4px; box-shadow:0 4px 12px rgba(109,40,217,0.25); transition:all 0.2s ease; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Xem Chi Tiết Quy Trình">
+                            📋 <span>${hasValidUrl ? 'Xem Chi Tiết ➔' : 'Xem Chi Tiết Quy Trình ➔'}</span>
+                        </button>
+                        ${hasValidUrl ? `
+                            <a href="${link.url}" target="_blank" rel="noopener" class="card-btn-open theme-${themeName}" style="flex:1; min-width:0; padding:10px 10px; font-size:12.5px; font-weight:850; border-radius:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-decoration:none; display:flex; justify-content:center; align-items:center; gap:4px;" title="Mở Bản Gốc Tài Liệu">
+                                🔗 <span>Mở Bản Gốc ↗</span>
+                            </a>
+                        ` : ''}
+                    </div>
+
+                    <div class="card-updated-info" style="font-size:10.5px; color:#94a3b8; font-weight:600; margin-top:12px; display:flex; align-items:center; gap:5px; flex-wrap:wrap; background:#f8fafc; padding:4px 10px; border-radius:8px; border:1px solid #f1f5f9; width:fit-content;">
+                        <span>🕒 Cập nhật:</span>
+                        <strong style="color:#475569; font-weight:750;">${link.updatedBy || link.createdBy || 'Giám Đốc'}</strong>
+                        <span style="color:#cbd5e1;">•</span>
+                        <span style="color:#64748b;">${_qtnsFormatDateTime(link.updatedAt || link.createdAt)}</span>
+                    </div>
                 </div>
             </div>
         `;
@@ -1612,6 +1671,134 @@
                     color: #ffffff !important;
                     border-color: #6d28d9 !important;
                     box-shadow: 0 4px 12px rgba(109, 40, 217, 0.3) !important;
+                }
+
+                /* Dynamic Card Grid & Item Styling */
+                .qtns-link-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+                    gap: 22px;
+                    margin-bottom: 24px;
+                }
+                .qtns-card-item {
+                    background: #ffffff;
+                    border-radius: 20px;
+                    border: 1.5px solid #e2e8f0;
+                    box-shadow: 0 8px 25px rgba(15, 23, 42, 0.04);
+                    position: relative;
+                    overflow: hidden;
+                    transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+                    display: flex;
+                    flex-direction: column;
+                }
+                .qtns-card-item:hover {
+                    transform: translateY(-5px);
+                    box-shadow: 0 18px 40px rgba(109, 40, 217, 0.12);
+                    border-color: #c084fc;
+                }
+                .qtns-card-item.is-pinned-card {
+                    border: 2px solid #f59e0b !important;
+                    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.18) !important;
+                    background: linear-gradient(180deg, #fffdf5 0%, #ffffff 100%) !important;
+                }
+                .card-accent-bar {
+                    height: 5px;
+                    width: 100%;
+                }
+                .card-accent-bar.theme-purple { background: linear-gradient(90deg, #6b21a8, #a855f7); }
+                .card-accent-bar.theme-green { background: linear-gradient(90deg, #107c41, #22c55e); }
+                .card-accent-bar.theme-blue { background: linear-gradient(90deg, #1e40af, #3b82f6); }
+                .card-accent-bar.theme-amber { background: linear-gradient(90deg, #b45309, #f59e0b); }
+                .card-accent-bar.theme-rose { background: linear-gradient(90deg, #be123c, #f43f5e); }
+
+                .card-inner {
+                    padding: 22px 24px;
+                    display: flex;
+                    flex-direction: column;
+                    flex: 1;
+                }
+                .card-head-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 16px;
+                    gap: 10px;
+                }
+                .card-icon-box {
+                    width: 52px;
+                    height: 52px;
+                    border-radius: 16px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 26px;
+                    box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+                    flex-shrink: 0;
+                }
+                .card-icon-box.theme-purple { background: #faf5ff; border: 1px solid #e9d5ff; color: #6b21a8; }
+                .card-icon-box.theme-green { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+                .card-icon-box.theme-blue { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+                .card-icon-box.theme-amber { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; }
+                .card-icon-box.theme-rose { background: #fff1f2; border: 1px solid #fecdd3; color: #be123c; }
+
+                .card-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 3px;
+                    font-size: 10.5px;
+                    font-weight: 800;
+                    letter-spacing: 0.2px;
+                    padding: 3px 8px;
+                    border-radius: 8px;
+                    opacity: 0.88;
+                }
+                .card-badge.theme-purple { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+                .card-badge.theme-green { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+                .card-badge.theme-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+                .card-badge.theme-amber { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+                .card-badge.theme-rose { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+
+                .card-quick-actions {
+                    display: flex;
+                    gap: 6px;
+                    margin-left: auto;
+                }
+                .card-action-btn {
+                    width: 34px;
+                    height: 34px;
+                    border-radius: 10px;
+                    border: 1px solid #cbd5e1;
+                    background: #ffffff;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 14px;
+                    transition: all 0.2s ease;
+                }
+                .card-action-btn.edit:hover { background: #fef3c7; border-color: #fde68a; transform: scale(1.08); }
+                .card-action-btn.delete:hover { background: #ffe4e6; border-color: #fecdd3; transform: scale(1.08); }
+                .card-action-btn.pin { color: #d97706; }
+                .card-action-btn.pin:hover { background: #fef3c7; color: #b45309; }
+
+                .card-main-content {
+                    flex: 1;
+                    margin-bottom: 18px;
+                }
+                .card-title {
+                    font-size: 19px;
+                    font-weight: 950;
+                    color: #0f172a;
+                    margin: 8px 0 10px 0;
+                    line-height: 1.35;
+                    letter-spacing: -0.4px;
+                }
+                .card-desc {
+                    font-size: 13px;
+                    color: #64748b;
+                    margin: 0;
+                    line-height: 1.55;
+                    font-weight: 600;
                 }
 
                 .qtns-toast {
