@@ -129,11 +129,13 @@ const PERM_FEATURES = [
     { key: 'noi_quy_cong_ty', label: 'Nội Quy & Điều Khoản', perms: ['view'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
     { key: 'tu_lieu_xuong_vp', label: 'Tư Liệu Xưởng & VP', perms: ['view'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
     { key: 'bo_suu_tap', label: 'Bộ Sưu Tập / BST', perms: ['view', 'create', 'edit', 'delete'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
+    { key: 'quan_tri_nhan_su', label: 'Quản Trị Nhân Sự', perms: ['view', 'create', 'edit', 'delete'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ' },
 
     // ===== QUY TẮC & CHÍNH SÁCH KH =====
     { key: 'chinh_sach_kh', label: 'Chính Sách Khách Hàng', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
     { key: 'chuong_trinh_kh', label: 'Chương Trình & Quà Tặng KH', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
     { key: 'khuyen_mai_giam_gia', label: 'Tạo Mã Giảm Giá', perms: ['view', 'create', 'edit', 'delete'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
+    { key: 'hop_dong_khach_hang', label: 'Hợp Đồng KH & Chứng Từ', perms: ['view', 'create', 'edit', 'delete'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
 
 
     // ===== VĂN PHÒNG QUẢN LÝ =====

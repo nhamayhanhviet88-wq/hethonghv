@@ -13,10 +13,27 @@
 
     // Helper: Check Management Permissions
     function _qtnsCanManage() {
-        if (!window.currentUser) return true;
-        const role = window.currentUser.role;
-        const uname = (window.currentUser.username || '').toLowerCase();
-        return role === 'giam_doc' || role === 'quan_ly_cap_cao' || role === 'quan_ly' || uname === 'leviettrinh';
+        let user = window.currentUser;
+        if (!user) {
+            try {
+                user = JSON.parse(localStorage.getItem('user_info') || '{}');
+            } catch (e) {
+                user = {};
+            }
+        }
+        const role = user.role || user.chucvu || '';
+        const name = (user.fullname || user.name || user.username || '').toLowerCase();
+        const isLeVietTrinh = name.includes('trinh') || name.includes('lê việt trinh') || name.includes('le viet trinh');
+
+        // Check explicit permissions system if configured by Giám Đốc in Phân Quyền
+        if (typeof window.canDo === 'function' && role !== 'giam_doc') {
+            const hasPerm = window.canDo('quan_tri_nhan_su', 'create') || window.canDo('quan_tri_nhan_su', 'edit') || window.canDo('quan_tri_nhan_su', 'delete');
+            if (hasPerm) return true;
+        }
+
+        // Strict rule: Only Giám Đốc, Quản Lý Cấp Cao, or Lê Việt Trinh can manage.
+        // All other staff (quản lý, trưởng phòng, nhân viên, v.v.) are View-Only!
+        return role === 'giam_doc' || role === 'quan_ly_cap_cao' || isLeVietTrinh;
     }
 
     function _qtnsHasValidUrl(url) {

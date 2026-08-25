@@ -178,9 +178,22 @@
     }
 
     function _hdkhCanManage() {
-        const user = _hdkhGetCurrentUser();
+        let user = window.currentUser || _hdkhGetCurrentUser();
+        if (!user) return false;
+
         const role = user.role || user.chucvu || '';
-        return ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'admin'].includes(role) || !role;
+        const name = (user.fullname || user.name || user.username || '').toLowerCase();
+        const isLeVietTrinh = name.includes('trinh') || name.includes('lê việt trinh') || name.includes('le viet trinh');
+
+        // Check explicit permissions system if configured by Giám Đốc in Phân Quyền
+        if (typeof window.canDo === 'function' && role !== 'giam_doc') {
+            const hasPerm = window.canDo('hop_dong_khach_hang', 'create') || window.canDo('hop_dong_khach_hang', 'edit') || window.canDo('hop_dong_khach_hang', 'delete');
+            if (hasPerm) return true;
+        }
+
+        // Strict rule: Only Giám Đốc, Quản Lý Cấp Cao, or Lê Việt Trinh can manage.
+        // All other staff (quản lý, trưởng phòng, nhân viên, v.v.) are View-Only!
+        return role === 'giam_doc' || role === 'quan_ly_cap_cao' || isLeVietTrinh;
     }
 
     function _hdkhGetSubtabs(scope) {
