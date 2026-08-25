@@ -2542,9 +2542,7 @@
                         oninput="window._xldlOnGlobalSearchInput(this.value, 'xldlSearchInput')"
                         onfocus="this.style.borderColor='#0284c7'; this.style.boxShadow='0 6px 20px rgba(2, 132, 199, 0.2)';"
                         onblur="this.style.borderColor='#bae6fd'; this.style.boxShadow='0 4px 16px rgba(2, 132, 199, 0.08)';">
-                    ${(globalSearchQuery || currentSearchQuery) ? `
-                        <button onclick="window._xldlClearGlobalSearch()" style="position:absolute; right:16px; background:#e2e8f0; border:none; border-radius:50%; width:24px; height:24px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-weight:bold; color:#475569;" title="Xóa tìm kiếm">✕</button>
-                    ` : ''}
+                    <button id="xldlSearchInputClearBtn" onclick="window._xldlClearGlobalSearch()" style="position:absolute; right:16px; background:#e2e8f0; border:none; border-radius:50%; width:24px; height:24px; display:${(globalSearchQuery || currentSearchQuery) ? 'flex' : 'none'}; align-items:center; justify-content:center; cursor:pointer; font-weight:bold; color:#475569;" title="Xóa tìm kiếm">✕</button>
                 </div>
             </div>
 
@@ -2637,21 +2635,49 @@
     let currentSearchQuery = '';
 
     window._xldlOnGlobalSearchInput = function(val, inputId) {
-        globalSearchQuery = (val || '').toLowerCase().trim();
+        globalSearchQuery = (val || '').trim();
         errorSearchQuery = globalSearchQuery;
         currentSearchQuery = globalSearchQuery;
         currentSearchQuery3 = globalSearchQuery;
 
-        _xldlRenderCurrentMainTab();
+        ['errorSearchClearBtn', 'xldlSearchInput3ClearBtn', 'xldlSearchInputClearBtn'].forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn) btn.style.display = globalSearchQuery ? 'flex' : 'none';
+        });
 
-        if (inputId) {
-            setTimeout(() => {
-                const inp = document.getElementById(inputId);
-                if (inp) {
-                    inp.focus();
-                    inp.setSelectionRange(inp.value.length, inp.value.length);
-                }
-            }, 10);
+        ['errorSearchInput', 'xldlSearchInput3', 'xldlSearchInput'].forEach(id => {
+            if (id !== inputId) {
+                const el = document.getElementById(id);
+                if (el && el.value !== val) el.value = val;
+            }
+        });
+
+        const q = globalSearchQuery.toLowerCase();
+
+        let targetBody = null;
+        if (currentMainTab === 'muc1_error' || currentMainTab === 'muc3') {
+            targetBody = document.getElementById('xldlMuc3ContentBody');
+        } else if (currentMainTab === 'muc3_official' || currentMainTab === 'muc2') {
+            targetBody = document.getElementById('xldlMuc2Content');
+        } else {
+            targetBody = document.getElementById('xldlMuc1Content');
+        }
+
+        if (!targetBody) {
+            _xldlRenderCurrentMainTab();
+            return;
+        }
+
+        if (q !== '') {
+            _xldlRenderGlobalSearchResults(targetBody, q);
+        } else {
+            if (currentMainTab === 'muc1_error' || currentMainTab === 'muc3') {
+                _xldlRenderMuc3Body(targetBody);
+            } else if (currentMainTab === 'muc3_official' || currentMainTab === 'muc2') {
+                _xldlRenderSubTab2();
+            } else {
+                _xldlRenderSubTab1();
+            }
         }
     };
 
@@ -2664,6 +2690,17 @@
         errorSearchQuery = '';
         currentSearchQuery = '';
         currentSearchQuery3 = '';
+
+        ['errorSearchInput', 'xldlSearchInput3', 'xldlSearchInput'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+
+        ['errorSearchClearBtn', 'xldlSearchInput3ClearBtn', 'xldlSearchInputClearBtn'].forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn) btn.style.display = 'none';
+        });
+
         _xldlRenderCurrentMainTab();
     };
 
@@ -3379,21 +3416,11 @@
     let currentSearchQuery3 = '';
 
     window._xldlOnSearchInput3 = function(val) {
-        currentSearchQuery3 = val;
-        _xldlRenderSubTab2();
-
-        setTimeout(() => {
-            const inp = document.getElementById('xldlSearchInput3');
-            if (inp) {
-                inp.focus();
-                inp.setSelectionRange(inp.value.length, inp.value.length);
-            }
-        }, 10);
+        window._xldlOnGlobalSearchInput(val, 'xldlSearchInput3');
     };
 
     window._xldlClearSearch3 = function() {
-        currentSearchQuery3 = '';
-        _xldlRenderCurrentMainTab();
+        window._xldlClearGlobalSearch();
     };
 
     function _xldlRenderMuc2(container) {
@@ -3407,15 +3434,13 @@
             <div style="margin-bottom:20px; position:relative;">
                 <div style="position:relative; display:flex; align-items:center;">
                     <span style="position:absolute; left:18px; font-size:18px; color:#0284c7; pointer-events:none; z-index:2;">🔍</span>
-                    <input type="text" id="xldlSearchInput3" value="${currentSearchQuery3 || ''}" 
-                        placeholder="Nhập từ khóa, kịch bản, câu thoại hoặc tình huống từ chối cần tra cứu (Tìm toàn bộ Mục 3)..." 
+                    <input type="text" id="xldlSearchInput3" value="${globalSearchQuery || currentSearchQuery3 || ''}" 
+                        placeholder="Nhập tên lỗi, từ khóa, tiêu đề, kịch bản hoặc mã sự cố cần tra cứu (Tìm toàn bộ 3 Mục)..." 
                         style="width:100%; border:2px solid #bae6fd; border-radius:18px; padding:13px 48px 13px 48px; font-size:14.5px; font-weight:700; background:#ffffff; outline:none; color:#0f172a; box-shadow:0 4px 16px rgba(2, 132, 199, 0.08); transition:all 0.2s ease;"
-                        oninput="window._xldlOnSearchInput3(this.value)"
+                        oninput="window._xldlOnGlobalSearchInput(this.value, 'xldlSearchInput3')"
                         onfocus="this.style.borderColor='#0284c7'; this.style.boxShadow='0 6px 20px rgba(2, 132, 199, 0.2)';"
                         onblur="this.style.borderColor='#bae6fd'; this.style.boxShadow='0 4px 16px rgba(2, 132, 199, 0.08)';">
-                    ${currentSearchQuery3 ? `
-                        <button onclick="window._xldlClearSearch3()" style="position:absolute; right:16px; background:#e2e8f0; border:none; border-radius:50%; width:24px; height:24px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-weight:bold; color:#475569;" title="Xóa tìm kiếm">✕</button>
-                    ` : ''}
+                    <button id="xldlSearchInput3ClearBtn" onclick="window._xldlClearGlobalSearch()" style="position:absolute; right:16px; background:#e2e8f0; border:none; border-radius:50%; width:24px; height:24px; display:${(globalSearchQuery || currentSearchQuery3) ? 'flex' : 'none'}; align-items:center; justify-content:center; cursor:pointer; font-weight:bold; color:#475569;" title="Xóa tìm kiếm">✕</button>
                 </div>
             </div>
 
@@ -3675,12 +3700,6 @@
             currentSubTab1Error = subtabs[0] ? subtabs[0].id : 'all_error';
         }
 
-        const scope = 'muc1_error';
-        const categories = _xldlGetCategories(scope);
-        const activeCat = activeCatFilter[scope] || 'all';
-
-        const activeSearchQuery = (globalSearchQuery || errorSearchQuery || '').trim().toLowerCase();
-
         container.innerHTML = `
             <!-- Global Search Bar for Section 1 (Nằm Trên Thanh Sub-tabs) -->
             <div style="margin-bottom:20px; position:relative;">
@@ -3692,9 +3711,7 @@
                         oninput="window._xldlOnGlobalSearchInput(this.value, 'errorSearchInput')"
                         onfocus="this.style.borderColor='#0284c7'; this.style.boxShadow='0 6px 20px rgba(2, 132, 199, 0.2)';"
                         onblur="this.style.borderColor='#bae6fd'; this.style.boxShadow='0 4px 16px rgba(2, 132, 199, 0.08)';">
-                    ${(globalSearchQuery || errorSearchQuery) ? `
-                        <button onclick="window._xldlClearGlobalSearch()" style="position:absolute; right:16px; background:#e2e8f0; border:none; border-radius:50%; width:24px; height:24px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-weight:bold; color:#475569;" title="Xóa tìm kiếm">✕</button>
-                    ` : ''}
+                    <button id="errorSearchClearBtn" onclick="window._xldlClearGlobalSearch()" style="position:absolute; right:16px; background:#e2e8f0; border:none; border-radius:50%; width:24px; height:24px; display:${(globalSearchQuery || errorSearchQuery) ? 'flex' : 'none'}; align-items:center; justify-content:center; cursor:pointer; font-weight:bold; color:#475569;" title="Xóa tìm kiếm">✕</button>
                 </div>
             </div>
 
@@ -3704,10 +3721,20 @@
         const body = document.getElementById('xldlMuc3ContentBody');
         if (!body) return;
 
+        const activeSearchQuery = (globalSearchQuery || errorSearchQuery || '').trim().toLowerCase();
         if (activeSearchQuery !== '') {
             _xldlRenderGlobalSearchResults(body, activeSearchQuery);
-            return;
+        } else {
+            _xldlRenderMuc3Body(body);
         }
+    }
+
+    function _xldlRenderMuc3Body(body) {
+        if (!body) return;
+        const subtabs = _xldlGetSubtabs('muc1_error');
+        const scope = 'muc1_error';
+        const categories = _xldlGetCategories(scope);
+        const activeCat = activeCatFilter[scope] || 'all';
 
         // Gather custom links for Section 1
         let section1Links = [];
