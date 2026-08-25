@@ -1434,8 +1434,13 @@
     function _qtnsGetStyles() {
         return `
             <style>
+                @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Comfortaa:wght@500;600;700&display=swap');
+
+                .qtns-wrapper, .qtns-wrapper button, .qtns-wrapper input, .qtns-wrapper select, .qtns-wrapper textarea, .qtns-wrapper div, .qtns-wrapper span,
+                .qtns-modal-overlay, .qtns-modal-overlay button, .qtns-modal-overlay input, .qtns-modal-overlay select, .qtns-modal-overlay textarea, .qtns-modal-overlay div, .qtns-modal-overlay span {
+                    font-family: 'Nunito', 'Comfortaa', system-ui, -apple-system, sans-serif !important;
+                }
                 .qtns-wrapper {
-                    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
                     padding: 24px;
                     background: #f8fafc;
                     min-height: 100vh;
