@@ -2256,21 +2256,28 @@ async function handleRoute() {
     var targetMenuItem = findPermissionMenuItem(currentPage);
     if (targetMenuItem) {
         if (!hasMenuPermission(targetMenuItem)) {
-            if (typeof showToast === 'function') {
-                showToast('🔒 Bạn không có quyền truy cập trang này!', 'error');
+            // Find the first menu item that this user HAS permission to view
+            var firstAllowedItem = null;
+            for (var mi = 0; mi < MENU_CONFIG.length; mi++) {
+                var mItem = MENU_CONFIG[mi];
+                if (hasMenuPermission(mItem)) {
+                    firstAllowedItem = mItem;
+                    break;
+                }
             }
-            // If already on root/dashboard path, avoid infinite recursion
-            if (pathname === 'dashboard' || pathname === '') {
+
+            if (firstAllowedItem) {
+                var targetHref = firstAllowedItem.href || ('/' + firstAllowedItem.id);
+                history.replaceState({ page: firstAllowedItem.id }, '', targetHref);
+                currentPage = firstAllowedItem.id;
+                targetMenuItem = firstAllowedItem;
+            } else {
                 const content = document.getElementById('contentArea');
                 if (content) {
-                    content.innerHTML = '<div style="text-align:center;padding:50px;color:#94a3b8;">Bạn không có quyền truy cập bất kỳ trang nào. Vui lòng liên hệ quản lý.</div>';
+                    content.innerHTML = '<div style="text-align:center;padding:50px;color:#94a3b8;font-size:14px;font-weight:700;">🔒 Bạn không có quyền truy cập bất kỳ trang nào. Vui lòng liên hệ quản lý.</div>';
                 }
                 return;
             }
-            // Redirect to dashboard (which will resolve to first visible allowed page)
-            history.replaceState({ page: 'dashboard' }, '', '/');
-            handleRoute();
-            return;
         }
     }
 
