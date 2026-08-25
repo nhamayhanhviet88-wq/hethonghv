@@ -1443,6 +1443,47 @@ async function runDeadlineCheck(forceFullCheck = false) {
         console.error('  ❌ Error checking customer penalties:', e.message);
     }
 
+    // ========== 8c. AUTO-CHECK UNREPORTED ADS CAMPAIGNS ==========
+    // Chạy lúc 23:45+ — kiểm tra chiến dịch Ads đang chạy (chay_test) nhưng chưa nộp báo cáo hàng ngày
+    try {
+        const _adsHour = now.getUTCHours();
+        const _adsMin = now.getUTCMinutes();
+        if ((_adsHour === 23 && _adsMin >= 45) || forceFullCheck || _timeOverrideActive) {
+            let adsToday = (_adsHour === 23 && _adsMin >= 45) ? toDateStr(now) : toDateStr(new Date(now.getTime() - 86400000));
+            const holidays = await getHolidays();
+            if (!holidays.has(adsToday)) {
+                const adsPenaltyAmt = GPC.ads_campaign_khong_bao_cao || 100000;
+                const unreportedCamps = await db.all(`
+                    SELECT c.id, c.campaign_name, c.created_by, u.full_name
+                    FROM ads_campaigns c
+                    JOIN users u ON c.created_by = u.id AND u.status = 'active' AND u.role != 'giam_doc'
+                    WHERE c.status = 'chay_test'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM ads_campaign_reports r 
+                          WHERE r.campaign_id = c.id AND r.report_date::date = $1::date
+                      )
+                `, [adsToday]);
+
+                for (const camp of unreportedCamps) {
+                    if (await isUserOnLeave(camp.created_by, adsToday)) continue;
+                    const { writeLedger } = require('../utils/penaltyLedger');
+                    await writeLedger(
+                        camp.created_by,
+                        adsToday,
+                        'ads_campaign_unreported',
+                        'camp_' + camp.id,
+                        'Chiến dịch Ads không báo cáo: ' + camp.campaign_name,
+                        adsPenaltyAmt,
+                        'Không gửi báo cáo chỉ số hàng ngày cho chiến dịch Ads đang chạy'
+                    );
+                    console.log(`  ⚠️ [Ads Báo Cáo] Phạt user=${camp.created_by} (${camp.full_name}) — ${camp.campaign_name} (${adsPenaltyAmt.toLocaleString()}đ)`);
+                }
+            }
+        }
+    } catch(e) {
+        console.error('  ❌ Error checking unreported Ads campaigns:', e.message);
+    }
+
     if (penaltyCount > 0) {
         console.log(`  ✅ Tổng: ${penaltyCount} lỗi vi phạm`);
     }
