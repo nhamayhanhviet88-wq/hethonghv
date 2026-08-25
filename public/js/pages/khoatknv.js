@@ -103,8 +103,7 @@ async function _penaltyLoadConfig() {
             { title: '🏭 Quản Lý Xưởng', icon: '🏭', keys: ['phat_qlx_tre_don_hom_nay', 'qlx_cutoff_time'] },
             { title: '🖨️ Gia Công In', icon: '🖨️', keys: ['gc_print_khong_bao_cao', 'gc_penalty_check_time'] },
             { title: '📌 Bảng Công Việc', icon: '📌', keys: ['bcv_overdue_task'] },
-            { title: '🛠️ Kho Chưa Xử Lý Hôm Nay', icon: '🛠️', keys: ['cay_le_chua_xep_ke', 'cay_le_cutoff_time'] },
-            { title: '📢 Chiến Dịch Ads', icon: '📢', keys: ['ads_campaign_khong_bao_cao'] }
+            { title: '🛠️ Kho Chưa Xử Lý Hôm Nay', icon: '🛠️', keys: ['cay_le_chua_xep_ke', 'cay_le_cutoff_time'] }
         ];
 
         const configMap = {};
@@ -127,8 +126,7 @@ async function _penaltyLoadConfig() {
                     gc_penalty_check_time: 'Giờ tính phạt đơn GC In (HH:MM)',
                     bcv_overdue_task: 'Bảng Công Việc — Chậm Deadline Công Việc (Tính gộp 1 lần/ngày)',
                     cay_le_chua_xep_ke: 'Cây lẻ chưa xếp kệ kho — Toàn bộ NV đã chọn',
-                    cay_le_cutoff_time: 'Giờ chốt kiểm tra cây lẻ (HH:MM)',
-                    ads_campaign_khong_bao_cao: 'Chiến dịch Ads không báo cáo hàng ngày'
+                    cay_le_cutoff_time: 'Giờ chốt kiểm tra cây lẻ (HH:MM)'
                 };
                 const amount = cfg ? cfg.amount : (key === 'phieu_qlx_qua_han' ? 50000 : (key === 'phat_qlx_tre_don_hom_nay' ? 100000 : (key === 'qlx_cutoff_time' ? 1080 : 0)));
                 const rawLabel = cfg ? cfg.label : (DEFAULT_LABELS[key] || key);

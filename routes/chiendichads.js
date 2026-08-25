@@ -89,14 +89,10 @@ module.exports = async function (fastify, opts) {
         `);
     } catch(e) { console.error('[ads_campaign_reports migration]', e.message); }
 
-    // Seed penalty config cho chiến dịch ads
+    // Clean up deprecated penalty config for ads_campaign_khong_bao_cao (since system auto-syncs Facebook Ads)
     try {
-        await db.run(`
-            INSERT INTO global_penalty_config (key, label, amount)
-            VALUES ('ads_campaign_khong_bao_cao', 'Chiến dịch Ads không báo cáo hàng ngày', 100000)
-            ON CONFLICT (key) DO NOTHING
-        `);
-    } catch(e) { /* ignore — table or constraint may not exist yet */ }
+        await db.run("DELETE FROM global_penalty_config WHERE key = 'ads_campaign_khong_bao_cao'");
+    } catch(e) {}
 
     // ========== HELPER FUNCTIONS ==========
 

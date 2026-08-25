@@ -103,27 +103,6 @@ async function syncLedgerForDate(dateStr) {
     } catch (e) { console.error('  ❌ [Ledger] Sếp HT Phạt Chồng:', e.message); }
     }
 
-    // Source: Chiến dịch Ads không báo cáo hàng ngày
-    try {
-        const adsPenaltyAmt = GPC.ads_campaign_khong_bao_cao || 100000;
-        const rows = await db.all(
-            `SELECT c.id, c.campaign_name, c.created_by
-             FROM ads_campaigns c
-             JOIN users u ON c.created_by = u.id AND u.status = 'active' AND u.role != 'giam_doc'
-             WHERE c.status = 'chay_test'
-               AND NOT EXISTS (
-                   SELECT 1 FROM ads_campaign_reports r 
-                   WHERE r.campaign_id = c.id AND r.report_date = $1::date
-               )`, [dateStr]
-        );
-        for (const r of rows) {
-            await writeLedger(r.created_by, dateStr, 'ads_campaign_unreported', 'camp_' + r.id,
-                'Chiến dịch Ads không báo cáo: ' + r.campaign_name,
-                adsPenaltyAmt, 'Không gửi báo cáo chỉ số hàng ngày cho chiến dịch Ads đang chạy');
-            count++;
-        }
-    } catch (e) { console.error('  ❌ [Ledger] Ads Campaign Unreported:', e.message); }
-
     // Source 5: Phạt chồng QL CV Khóa — ongoing từ ngày trước
     // ★ Skip ngày nghỉ
     if (!isDateOff) {
