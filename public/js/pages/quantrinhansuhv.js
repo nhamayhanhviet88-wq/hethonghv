@@ -1384,8 +1384,25 @@
         const theme = document.getElementById('qtnsFormTheme').value;
         const subtabId = document.getElementById('qtnsFormSubtab').value;
 
+        const checkedInputs = document.querySelectorAll('input[name="qtnsCategoryCheck"]:checked');
+        const categories = Array.from(checkedInputs).map(cb => cb.value);
+
+        if (!subtabId) {
+            alert('⚠️ BẮT BUỘC: Vui lòng chọn Danh Mục Quản Trị!');
+            window._qtnsSwitchModalTab('basic');
+            return;
+        }
+
+        if (categories.length === 0) {
+            alert('⚠️ BẮT BUỘC: Vui lòng chọn ít nhất 1 Lĩnh Vực Tài Liệu!');
+            window._qtnsSwitchModalTab('basic');
+            return;
+        }
+
         if (!title) {
             alert('⚠️ BẮT BUỘC: Vui lòng nhập tiêu đề đường link tài liệu!');
+            window._qtnsSwitchModalTab('basic');
+            document.getElementById('qtnsFormTitle').focus();
             return;
         }
 
@@ -1402,17 +1419,45 @@
             if (w.value.trim()) warrantyItems.push(w.value.trim());
         });
 
+        const hasValidUrl = url !== '';
+        const hasFullTab2 = (steps.length > 0) && (saleGuideItems.length > 0) && (warrantyItems.length > 0);
+
+        // Validation rule: Condition 1 (URL present) OR Condition 2 (All 3 parts of TAB 2 filled)
+        if (!hasValidUrl && !hasFullTab2) {
+            let missingTab2Details = [];
+            if (steps.length === 0) missingTab2Details.push('• 📋 QUY TRÌNH THỰC THI TỪNG BƯỚC');
+            if (saleGuideItems.length === 0) missingTab2Details.push('• 🗣️ HƯỚNG DẪN TRAO ĐỔI & CÂU HỎI MẪU');
+            if (warrantyItems.length === 0) missingTab2Details.push('• ⚖️ ĐIỀU KHOẢN QUY ĐỊNH & CAM KẾT');
+
+            let msg = '⚠️ YÊU CẦU ĐIỀU KIỆN LƯU TÀI LIỆU:\n\n';
+            msg += 'Bạn cần hoàn thành 1 trong 2 Lựa Chọn sau:\n\n';
+            msg += '👉 ĐIỀU KIỆN 1: Nhập "Đường link URL tài liệu" ở TAB 1 (Link Google Sheets, Word hoặc link ngoài).\n';
+            msg += '👉 ĐIỀU KIỆN 2: Nếu không nhập URL, bạn phải điền ĐẦY ĐỦ CẢ 3 MỤC ở TAB 2 (Quy Trình & Hướng Dẫn).\n\n';
+            if (missingTab2Details.length > 0) {
+                msg += 'Hiện tại TAB 2 của bạn chưa điền đủ các mục sau:\n' + missingTab2Details.join('\n');
+            }
+            alert(msg);
+            return;
+        }
+
+        let finalUrl = url;
+        if (!hasValidUrl && hasFullTab2) {
+            finalUrl = '#'; // Fallback link when Tab 2 is fully filled
+        }
+
+        const category = categories[0] || 'Chung';
+
         let links = _qtnsGetCustomSubtabLinks(subtabId);
         if (id) {
             links = links.map(l => {
                 if (l.id === id) {
-                    return { ...l, title, subtitle, url, icon, theme, steps, saleGuide: saleGuideItems, warranty: warrantyItems, updatedAt: new Date().toISOString() };
+                    return { ...l, title, subtitle, url: finalUrl, icon, theme, category, categories, steps, saleGuide: saleGuideItems, warranty: warrantyItems, updatedAt: new Date().toISOString() };
                 }
                 return l;
             });
         } else {
             const newId = 'qtns_link_' + Date.now();
-            links.push({ id: newId, title, subtitle, url, icon, theme, steps, saleGuide: saleGuideItems, warranty: warrantyItems, createdAt: new Date().toISOString() });
+            links.push({ id: newId, title, subtitle, url: finalUrl, icon, theme, category, categories, steps, saleGuide: saleGuideItems, warranty: warrantyItems, createdAt: new Date().toISOString() });
         }
 
         _qtnsSaveCustomSubtabLinks(subtabId, links);

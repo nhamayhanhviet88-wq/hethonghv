@@ -1306,18 +1306,6 @@
             return;
         }
 
-        // URL validation: Required ONLY for Muc 2 & Muc 3, OPTIONAL for Muc 1
-        if (!isMuc1 && !url) {
-            alert('⚠️ BẮT BUỘC MỤC 2 & MỤC 3: Vui lòng nhập URL đường link!');
-            window._xldlSwitchModalTab('basic');
-            document.getElementById('xldlFormUrl').focus();
-            return;
-        }
-
-        if (isMuc1 && !url) {
-            url = '#';
-        }
-
         let finalTitle = title;
         if (!id && !/^\d+\.\s*/.test(finalTitle)) {
             const nextNum = _xldlGetNextSubtabSTT(subtabId);
@@ -1350,33 +1338,32 @@
             }
         });
 
-        // MANDATORY VALIDATION FOR MỤC 1 (Tình Huống Xử Lý Lỗi)
-        if (isMuc1) {
-            // 1. Step-by-Step validation
-            const validSteps = steps.filter(s => s !== 'Bước 1:' && s !== 'Bước 2:' && s.length > 5);
-            if (steps.length === 0 || validSteps.length === 0) {
-                window._xldlSwitchModalTab('script');
-                alert('⚠️ BẮT BUỘC RIÊNG MỤC 1:\n\nVui lòng nhập nội dung tại 📋 QUY TRÌNH XỬ LÝ TỪNG BƯỚC (STEP-BY-STEP) (ở TAB 2: Kịch Bản & Bảo Hành)!');
-                const stepsEl = document.getElementById('xldlFormSteps');
-                if (stepsEl) stepsEl.focus();
-                return;
-            }
+        const hasValidUrl = url !== '';
+        const validSteps = steps.filter(s => s !== 'Bước 1:' && s !== 'Bước 2:' && s.length > 2);
+        const validGuide = saleGuideItems.filter(g => (g.goal && g.goal.length > 2) || (g.question && g.question.length > 2));
+        const validWarranty = warrantyItems.filter(w => w.length > 2);
+        const hasFullTab2 = (validSteps.length > 0) && (validGuide.length > 0) && (validWarranty.length > 0);
 
-            // 2. Hướng Dẫn Ứng Xử Cho Sale validation
-            const validGuide = saleGuideItems.filter(g => (g.goal && g.goal.length > 2) || (g.question && g.question.length > 2));
-            if (saleGuideItems.length === 0 || validGuide.length === 0) {
-                window._xldlSwitchModalTab('script');
-                alert('⚠️ BẮT BUỘC RIÊNG MỤC 1:\n\nVui lòng điền ít nhất 01 câu hỏi và mục tiêu tại 🗣️ HƯỚNG DẪN SALE TRAO ĐỔI VỚI KHÁCH (ở TAB 2: Kịch Bản & Bảo Hành)!');
-                return;
-            }
+        // Flexible Validation: Condition 1 (Valid URL present) OR Condition 2 (Full Tab 2 data filled)
+        if (!hasValidUrl && !hasFullTab2) {
+            let missingTab2Details = [];
+            if (validSteps.length === 0) missingTab2Details.push('• 📋 QUY TRÌNH THỰC THI TỪNG BƯỚC');
+            if (validGuide.length === 0) missingTab2Details.push('• 🗣️ HƯỚNG DẪN TRAO ĐỔI & CÂU HỎI MẪU');
+            if (validWarranty.length === 0) missingTab2Details.push('• ⚖️ ĐIỀU KHOẢN QUY ĐỊNH & CAM KẾT');
 
-            // 3. Trách Nhiệm & Bảo Hành validation
-            const validWarranty = warrantyItems.filter(w => w.length > 2);
-            if (warrantyItems.length === 0 || validWarranty.length === 0) {
-                window._xldlSwitchModalTab('script');
-                alert('⚠️ BẮT BUỘC RIÊNG MỤC 1:\n\nVui lòng điền ít nhất 01 điều khoản tại ⚖️ TRÁCH NHIỆM & BẢO HÀNH (ở TAB 2: Kịch Bản & Bảo Hành)!');
-                return;
+            let msg = '⚠️ YÊU CẦU ĐIỀU KIỆN LƯU TÀI LIỆU:\n\n';
+            msg += 'Bạn cần hoàn thành 1 trong 2 Lựa Chọn sau:\n\n';
+            msg += '👉 ĐIỀU KIỆN 1: Nhập "Đường link URL tài liệu" ở TAB 1 (Link Google Sheets, Word hoặc link ngoài).\n';
+            msg += '👉 ĐIỀU KIỆN 2: Nếu không nhập URL, bạn phải điền ĐẦY ĐỦ CẢ 3 MỤC ở TAB 2 (Quy Trình & Hướng Dẫn).\n\n';
+            if (missingTab2Details.length > 0) {
+                msg += 'Hiện tại TAB 2 của bạn chưa điền đủ các mục sau:\n' + missingTab2Details.join('\n');
             }
+            alert(msg);
+            return;
+        }
+
+        if (!hasValidUrl && hasFullTab2) {
+            url = '#';
         }
 
         const currentUser = _xldlGetCurrentUser();
