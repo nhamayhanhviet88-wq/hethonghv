@@ -1090,7 +1090,7 @@
         } else if (typeof selectedCategories === 'string' && selectedCategories) {
             selectedArr = [selectedCategories];
         } else {
-            selectedArr = [...cats];
+            selectedArr = []; // Un-checked by default when creating a new link
         }
 
         if (cats.length === 0) {
