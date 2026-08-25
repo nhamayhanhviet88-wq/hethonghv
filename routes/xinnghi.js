@@ -137,11 +137,12 @@ async function xinnghiRoutes(fastify, options) {
         if (!lr) return reply.code(404).send({ error: 'Không tìm thấy đơn' });
         if (lr.status === 'cancelled') return reply.code(400).send({ error: 'Đơn đã hủy' });
 
-        // Check before leave date
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (new Date(lr.date_from) <= today) {
-            return reply.code(400).send({ error: 'Không thể hủy đơn nghỉ đã qua hoặc trong ngày nghỉ' });
+        // Check if leave date has passed (blocked from 00:01 of next day)
+        const nowVN = new Date(Date.now() + 7 * 3600 * 1000);
+        const todayStr = nowVN.toISOString().split('T')[0];
+        const maxLeaveDate = lr.date_to || lr.date_from;
+        if (maxLeaveDate < todayStr) {
+            return reply.code(400).send({ error: 'Đơn xin nghỉ đã qua ngày xin nghỉ, không thể hủy đơn' });
         }
 
         await db.run(

@@ -360,7 +360,8 @@ async function _leaveLoadMyHistory() {
             const dateRange = item.date_from === item.date_to ? fromF : `${fromF} → ${toF}`;
             const isCancelled = item.status === 'cancelled';
             const todayStr = vnISOStr().split('T')[0];
-            const canCancel = !isCancelled && item.date_from > todayStr;
+            const maxLeaveDate = item.date_to || item.date_from;
+            const canCancel = !isCancelled && maxLeaveDate >= todayStr;
 
             let sessionInfo = '';
             if (item.date_from !== item.date_to) {
