@@ -186,6 +186,7 @@ const MENU_CONFIG = [
     { id: 'chinh-sach-kh', label: 'Chính Sách Khách Hàng', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chinhsachkhhv', permKey: 'chinh_sach_kh' },
     { id: 'chuong-trinh-kh', label: 'Chương Trình & Quà Tặng KH', icon: '🎁', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chuongtrinhkhhv', permKey: 'chuong_trinh_kh' },
     { id: 'khuyenmaigiamgia', label: 'Tạo Mã Giảm Giá', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' },
+    { id: 'hop-dong-khach-hang', label: 'Hợp Đồng KH & Chứng Từ', icon: '📑', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/hopdongkhachhang', permKey: 'hop_dong_khach_hang' },
 
     // ========== HÀNH CHÍNH & NHÂN SỰ ==========
     { id: 'quan-tri-nhan-su', label: 'Quản Trị Nhân Sự', icon: '👔', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN TRỊ NHÂN SỰ', href: '/quantrinhansuhv', permKey: 'quan_tri_nhan_su' },
@@ -582,7 +583,9 @@ const _PAGE_SCRIPT_MAP = {
     'xulydonloihv': '/js/pages/xulydonloihv.js?v=' + Date.now(),
     'xu-ly-don-loi': '/js/pages/xulydonloihv.js?v=' + Date.now(),
     'quantrinhansuhv': '/js/pages/quantrinhansuhv.js?v=' + Date.now(),
-    'quan-tri-nhan-su': '/js/pages/quantrinhansuhv.js?v=' + Date.now()
+    'quan-tri-nhan-su': '/js/pages/quantrinhansuhv.js?v=' + Date.now(),
+    'hopdongkhachhang': '/js/pages/hopdongkhachhang.js?v=' + Date.now(),
+    'hop-dong-khach-hang': '/js/pages/hopdongkhachhang.js?v=' + Date.now()
 };
 
 const _loadedScripts = new Set();
@@ -2548,6 +2551,13 @@ async function handleRoute() {
                         window.renderQuantrinhansuhvPage(content);
                     } else if (typeof renderQuantrinhansuhvPage === 'function') {
                         renderQuantrinhansuhvPage(content);
+                    }
+                    break;
+                case 'hopdongkhachhang': case 'hop-dong-khach-hang':
+                    if (typeof window.renderHopdongkhachhangPage === 'function') {
+                        window.renderHopdongkhachhangPage(content);
+                    } else if (typeof renderHopdongkhachhangPage === 'function') {
+                        renderHopdongkhachhangPage(content);
                     }
                     break;
                 default:
