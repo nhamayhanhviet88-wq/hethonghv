@@ -889,6 +889,27 @@
         }
     }
 
+    function _qtnsFormatDescription(text) {
+        if (!text) return '';
+        let str = String(text).trim();
+        if (!str) return '';
+
+        if (str.startsWith('http')) {
+            return str.includes('docs.google.com') ? 'Tài liệu Bảng tính / Văn bản Google' : 'Tài liệu liên kết quy trình nhân sự';
+        }
+
+        let escaped = str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#0f172a; font-weight:800;">$1</strong>');
+        escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        escaped = escaped.replace(/\n/g, '<br>');
+
+        return escaped;
+    }
+
     window._qtnsTogglePinLink = function(id, subId) {
         let links = _qtnsGetCustomSubtabLinks(subId);
         let isPinnedNow = false;
