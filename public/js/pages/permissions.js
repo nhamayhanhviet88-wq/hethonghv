@@ -71,8 +71,7 @@ const PERM_FEATURES = [
     { key: 'chuyen_so_sale', label: 'Chuyển Số Sale', perms: ['view','create','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'cai_dat_pancake', label: 'Cài Đặt Pancake', perms: ['view','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'khoa_tk_nv', label: 'Nhân Viên Bị Phạt Tiền', perms: ['view'], section: 'HỖ TRỢ NHÂN VIÊN' },
-    { key: 'xin_nghi_nv', label: 'Xin Nghỉ NV', perms: ['view','create'], section: 'HỖ TRỢ NHÂN VIÊN' },
-    { key: 'xin_nghi_nv_stats', label: '  ↳ Nút: 📊 Xem Thống Kê Phòng Ban', perms: ['view'], section: 'HỖ TRỢ NHÂN VIÊN' },
+    { key: 'xin_nghi_nv', label: 'Xin Nghỉ NV', perms: ['view','create','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'mo_khoa_tk_phat', label: 'Mở Khóa Phạt Tài Khoản', perms: ['view','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'setup_ngay_le', label: 'Setup Ngày Lễ', perms: ['view','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
 
@@ -172,6 +171,13 @@ const PERM_LABELS = { view: 'Xem', create: 'Thêm', edit: 'Sửa', delete: 'Xóa
 let _permOrgData = { departments: [], users: [] };
 let _permSelected = { type: null, id: null, name: '' };
 let _permCollapsed = new Set();
+
+function _getPermLabel(featKey, pk) {
+    if (featKey === 'xin_nghi_nv' && pk === 'edit') {
+        return '📊 Xem Thống Kê Phòng Ban';
+    }
+    return PERM_LABELS[pk] || pk;
+}
 
 function _escName(s) { return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
@@ -461,7 +467,7 @@ async function loadPermPanel() {
                                 ${p['can_' + pk] > 0 ? 'checked' : ''}
                                 onchange="syncRowAllCheckbox('${feat.key}')"
                                 style="width:16px;height:16px;accent-color:#6366f1;">
-                            ${PERM_LABELS[pk]}
+                            ${_getPermLabel(feat.key, pk)}
                         </label>
                     `).join('')}
                 </div>
@@ -480,25 +486,26 @@ async function loadPermPanel() {
                     const fromDept = deptVal > 0;
                     const fromUser = userVal > 0;
 
+                    const baseLbl = _getPermLabel(feat.key, pk);
                     let checked, labelHTML, color, stateAttr;
                     if (isDenied) {
                         checked = false;
-                        labelHTML = PERM_LABELS[pk] + ' <span style="font-size:10px;color:#ef4444;">&#128683; chặn</span>';
+                        labelHTML = baseLbl + ' <span style="font-size:10px;color:#ef4444;">&#128683; chặn</span>';
                         color = '#ef4444';
                         stateAttr = 'denied';
                     } else if (fromDept && !fromUser) {
                         checked = true;
-                        labelHTML = PERM_LABELS[pk] + ' <span style="font-size:10px;color:#a78bfa;">(kế thừa)</span>';
+                        labelHTML = baseLbl + ' <span style="font-size:10px;color:#a78bfa;">(kế thừa)</span>';
                         color = '#a78bfa';
                         stateAttr = 'inherited';
                     } else if (fromUser) {
                         checked = true;
-                        labelHTML = PERM_LABELS[pk] + (fromDept ? ' <span style="font-size:10px;color:#a78bfa;">(kế thừa)</span>' : '');
+                        labelHTML = baseLbl + (fromDept ? ' <span style="font-size:10px;color:#a78bfa;">(kế thừa)</span>' : '');
                         color = '#6366f1';
                         stateAttr = 'user';
                     } else {
                         checked = false;
-                        labelHTML = PERM_LABELS[pk];
+                        labelHTML = baseLbl;
                         color = '#6366f1';
                         stateAttr = 'none';
                     }

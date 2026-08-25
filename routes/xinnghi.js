@@ -177,19 +177,19 @@ async function xinnghiRoutes(fastify, options) {
         let hasStatsPerm = userRole === 'giam_doc';
         if (!hasStatsPerm) {
             const userPerm = await db.get(
-                `SELECT can_view FROM user_permissions WHERE user_id = $1 AND feature_key = 'xin_nghi_nv_stats'`,
+                `SELECT can_edit FROM user_permissions WHERE user_id = $1 AND feature_key = 'xin_nghi_nv'`,
                 [userId]
             );
-            if (userPerm && userPerm.can_view > 0) {
+            if (userPerm && userPerm.can_edit > 0) {
                 hasStatsPerm = true;
-            } else if (!userPerm || userPerm.can_view !== -1) {
+            } else if (!userPerm || userPerm.can_edit !== -1) {
                 const deptPerm = await db.get(
-                    `SELECT dp.can_view FROM department_permissions dp
+                    `SELECT dp.can_edit FROM department_permissions dp
                      JOIN users u ON u.department_id = dp.department_id
-                     WHERE u.id = $1 AND dp.feature_key = 'xin_nghi_nv_stats'`,
+                     WHERE u.id = $1 AND dp.feature_key = 'xin_nghi_nv'`,
                     [userId]
                 );
-                if (deptPerm && deptPerm.can_view > 0) hasStatsPerm = true;
+                if (deptPerm && deptPerm.can_edit > 0) hasStatsPerm = true;
             }
         }
 
