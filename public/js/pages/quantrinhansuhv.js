@@ -1040,8 +1040,8 @@
                             📋 <span>${hasValidUrl ? 'Xem Chi Tiết ➔' : 'Xem Chi Tiết Quy Trình ➔'}</span>
                         </button>
                         ${hasValidUrl ? `
-                            <a href="${link.url}" target="_blank" rel="noopener" class="card-btn-open theme-${themeName}" style="flex:1; min-width:0; padding:10px 10px; font-size:12.5px; font-weight:850; border-radius:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-decoration:none; display:flex; justify-content:center; align-items:center; gap:4px;" title="Mở Bản Gốc Tài Liệu">
-                                🔗 <span>Mở Bản Gốc ↗</span>
+                            <a href="${link.url}" target="_blank" rel="noopener" class="card-btn-open" title="Mở Tài Liệu Trực Tiếp">
+                                🔗 <span>Mở Tài Liệu ↗</span>
                             </a>
                         ` : ''}
                     </div>
@@ -1877,6 +1877,34 @@
                     margin: 0;
                     line-height: 1.55;
                     font-weight: 600;
+                }
+
+                .card-btn-open {
+                    flex: 1;
+                    min-width: 0;
+                    padding: 10px 12px;
+                    font-size: 12.5px;
+                    font-weight: 850;
+                    border-radius: 12px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    text-decoration: none;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 5px;
+                    color: #ffffff !important;
+                    background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+                    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+                    border: none !important;
+                    transition: all 0.2s ease;
+                }
+                .card-btn-open:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.5);
+                    color: #ffffff !important;
+                    background: linear-gradient(135deg, #047857 0%, #059669 100%) !important;
                 }
 
                 .qtns-toast {

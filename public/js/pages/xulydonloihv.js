@@ -2881,8 +2881,8 @@
                             📋 <span>${hasValidUrl ? 'Xem Chi Tiết ➔' : 'Xem Chi Tiết Kịch Bản & Quy Trình ➔'}</span>
                         </button>
                         ${hasValidUrl ? `
-                            <a href="${link.url}" target="_blank" rel="noopener" class="card-btn-open theme-${themeName}" style="flex:1; min-width:0; padding:10px 10px; font-size:12.5px; font-weight:850; border-radius:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-decoration:none; display:flex; justify-content:center; align-items:center; gap:4px;" title="Mở Bản Gốc Tài Liệu">
-                                🔗 <span>Mở Bản Gốc ↗</span>
+                            <a href="${link.url}" target="_blank" rel="noopener" class="card-btn-open theme-${themeName}" style="flex:1; min-width:0; padding:10px 10px; font-size:12.5px; font-weight:850; border-radius:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-decoration:none; display:flex; justify-content:center; align-items:center; gap:4px;" title="Mở Tài Liệu Trực Tiếp">
+                                🔗 <span>Mở Tài Liệu ↗</span>
                             </a>
                         ` : ''}
                     </div>
