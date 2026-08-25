@@ -1344,6 +1344,15 @@
         document.getElementById('qtnsFormSubtitle').value = '';
         document.getElementById('qtnsFormUrl').value = '';
 
+        const stepsInput = document.getElementById('qtnsFormSteps');
+        if (stepsInput) stepsInput.value = '';
+
+        const guideContainer = document.getElementById('qtnsGuideQuestionsContainer');
+        if (guideContainer) guideContainer.innerHTML = '';
+
+        const warrantyContainer = document.getElementById('qtnsWarrantyContainer');
+        if (warrantyContainer) warrantyContainer.innerHTML = '';
+
         window._qtnsSwitchModalTab('basic');
         window._qtnsPopulateSubtabOptions(targetSub);
         modal.style.display = 'flex';
@@ -1364,8 +1373,38 @@
         document.getElementById('qtnsFormIcon').value = item.icon || '👔';
         document.getElementById('qtnsFormTheme').value = item.theme || 'purple';
 
+        // Populate Tab 2 fields
+        const stepsText = Array.isArray(item.steps) ? item.steps.join('\n') : (item.steps || '');
+        const stepsInput = document.getElementById('qtnsFormSteps');
+        if (stepsInput) stepsInput.value = stepsText;
+
+        const guideContainer = document.getElementById('qtnsGuideQuestionsContainer');
+        if (guideContainer) {
+            guideContainer.innerHTML = '';
+            const guides = Array.isArray(item.saleGuide) ? item.saleGuide : [];
+            if (guides.length > 0) {
+                guides.forEach(g => {
+                    const qText = typeof g === 'object' ? (g.question || '') : String(g);
+                    window._qtnsAddGuideQuestionItem(qText);
+                });
+            }
+        }
+
+        const warrantyContainer = document.getElementById('qtnsWarrantyContainer');
+        if (warrantyContainer) {
+            warrantyContainer.innerHTML = '';
+            const warranty = Array.isArray(item.warranty) ? item.warranty : [];
+            if (warranty.length > 0) {
+                warranty.forEach(w => {
+                    const wText = typeof w === 'object' ? (w.text || '') : String(w);
+                    window._qtnsAddWarrantyItem(wText);
+                });
+            }
+        }
+
         window._qtnsSwitchModalTab('basic');
-        window._qtnsPopulateSubtabOptions(targetSub);
+        const selectedCats = _qtnsGetLinkCategories(item);
+        window._qtnsPopulateSubtabOptions(targetSub, selectedCats);
         modal.style.display = 'flex';
     };
 
@@ -1374,7 +1413,7 @@
         if (modal) modal.style.display = 'none';
     };
 
-    window._qtnsPopulateSubtabOptions = function(selectedSub) {
+    window._qtnsPopulateSubtabOptions = function(selectedSub, selectedCategories) {
         const subSelect = document.getElementById('qtnsFormSubtab');
         const box = document.getElementById('qtnsFormCategoryCheckboxes');
         if (!subSelect || !box) return;
@@ -1388,12 +1427,30 @@
         subSelect.innerHTML = subtabs.map(s => `<option value="${s.id}" ${s.id === activeSub ? 'selected' : ''}>📁 ${s.title}</option>`).join('');
 
         const cats = _qtnsGetCategories(scope);
-        box.innerHTML = cats.map(c => `
-            <label style="display:inline-flex; align-items:center; gap:7px; background:#ffffff; border:1.5px solid #d8b4fe; padding:7px 14px; border-radius:12px; font-size:13.5px; font-weight:800; color:#5b21b6; cursor:pointer;">
-                <input type="checkbox" name="qtnsCategoryCheck" value="${c}" checked style="width:16px; height:16px; accent-color:#7c3aed;">
-                <span>📌 ${c}</span>
-            </label>
-        `).join('');
+
+        let selectedArr = [];
+        if (Array.isArray(selectedCategories)) {
+            selectedArr = selectedCategories;
+        } else if (typeof selectedCategories === 'string' && selectedCategories) {
+            selectedArr = [selectedCategories];
+        } else {
+            selectedArr = [...cats]; // Default checked all when creating new link
+        }
+
+        if (cats.length === 0) {
+            box.innerHTML = `<div style="color:#64748b; font-size:13px; font-weight:600; padding:4px;">Chưa có lĩnh vực nào. Hãy bấm Cài Đặt Lĩnh Vực để tạo thêm!</div>`;
+            return;
+        }
+
+        box.innerHTML = cats.map(c => {
+            const isChecked = selectedArr.includes(c);
+            return `
+                <label style="display:inline-flex; align-items:center; gap:7px; background:${isChecked ? '#f3e8ff' : '#ffffff'}; border:1.5px solid ${isChecked ? '#7c3aed' : '#d8b4fe'}; padding:7px 14px; border-radius:12px; font-size:13.5px; font-weight:800; color:${isChecked ? '#5b21b6' : '#334155'}; cursor:pointer; user-select:none; transition:all 0.15s ease;">
+                    <input type="checkbox" name="qtnsCategoryCheck" value="${c.replace(/"/g, '&quot;')}" ${isChecked ? 'checked' : ''} style="width:16px; height:16px; accent-color:#7c3aed; cursor:pointer;" onchange="this.parentElement.style.background=this.checked?'#f3e8ff':'#ffffff'; this.parentElement.style.borderColor=this.checked?'#7c3aed':'#d8b4fe'; this.parentElement.style.color=this.checked?'#5b21b6':'#334155';">
+                    <span>📌 ${c}</span>
+                </label>
+            `;
+        }).join('');
     };
 
     window._qtnsOnFormSubtabChange = function() {
