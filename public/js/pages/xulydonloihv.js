@@ -1917,9 +1917,9 @@
                                 <label style="color:#334155; font-weight:850; display:block; margin-bottom:6px;">
                                     📝 Mô tả tình huống (không bắt buộc - hỗ trợ xuống dòng):
                                 </label>
-                                <textarea id="xldlFormSubtitle" rows="3" 
+                                <textarea id="xldlFormSubtitle" rows="6" 
                                     placeholder="Ví dụ: Mô tả chi tiết tình huống lỗi hoặc kịch bản hướng dẫn nhân viên tiếp cận..." 
-                                    style="width:100%; border:2px solid #bae6fd; border-radius:14px; padding:10px 14px; font-size:13.5px; font-weight:600; line-height:1.55; outline:none; resize:vertical; min-height:75px; color:#0f172a; font-family:inherit;"></textarea>
+                                    style="width:100%; border:2px solid #bae6fd; border-radius:16px; padding:12px 16px; font-size:13.5px; font-weight:600; line-height:1.55; outline:none; resize:vertical; min-height:160px; color:#0f172a; font-family:inherit; background:#ffffff; box-sizing:border-box;"></textarea>
                             </div>
                             <div class="xldl-form-group" style="margin-bottom:14px;">
                                 <label id="xldlUrlLabel" style="color:#0f172a; font-weight:850; display:block; margin-bottom:6px;">Đường link URL (không bắt buộc cho Mục 1):</label>

@@ -1025,7 +1025,7 @@
                             </div>
                             <div class="qtns-form-group" style="margin-bottom:14px;">
                                 <label style="color:#334155; font-weight:850; display:block; margin-bottom:6px;">📝 Mô tả / Ghi chú (tự động xuống dòng):</label>
-                                <textarea id="qtnsFormSubtitle" rows="3" placeholder="Mô tả tóm tắt nội dung quy trình hoặc cẩm nang hướng dẫn..." style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13.5px; font-weight:600; line-height:1.55; outline:none; resize:vertical; min-height:75px; color:#0f172a; font-family:inherit;"></textarea>
+                                <textarea id="qtnsFormSubtitle" rows="6" placeholder="Mô tả tóm tắt nội dung quy trình hoặc cẩm nang hướng dẫn..." style="width:100%; border:2px solid #e9d5ff; border-radius:16px; padding:12px 16px; font-size:13.5px; font-weight:600; line-height:1.55; outline:none; resize:vertical; min-height:160px; color:#0f172a; font-family:inherit; background:#ffffff; box-sizing:border-box;"></textarea>
                             </div>
                             <div class="qtns-form-group" style="margin-bottom:14px;">
                                 <label id="qtnsUrlLabel" style="color:#0f172a; font-weight:850; display:block; margin-bottom:6px;">Đường link URL tài liệu (Google Sheets / Word / Link ngoài):</label>
