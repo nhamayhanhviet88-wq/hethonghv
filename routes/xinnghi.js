@@ -132,6 +132,7 @@ async function xinnghiRoutes(fastify, options) {
     fastify.post('/api/leave/cancel/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
         const leaveId = Number(request.params.id);
+        const cancelReason = (request.body && request.body.cancel_reason) ? String(request.body.cancel_reason).trim() : '';
 
         const lr = await db.get('SELECT * FROM leave_requests WHERE id = $1 AND user_id = $2', [leaveId, userId]);
         if (!lr) return reply.code(404).send({ error: 'Không tìm thấy đơn' });
@@ -145,9 +146,13 @@ async function xinnghiRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Đơn xin nghỉ đã qua ngày xin nghỉ, không thể hủy đơn' });
         }
 
+        try {
+            await db.run("ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS cancel_reason TEXT");
+        } catch(e) {}
+
         await db.run(
-            "UPDATE leave_requests SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1",
-            [leaveId]
+            "UPDATE leave_requests SET status = 'cancelled', cancelled_at = NOW(), cancel_reason = $1 WHERE id = $2",
+            [cancelReason, leaveId]
         );
 
         return { success: true, message: 'Đã hủy đơn xin nghỉ' };

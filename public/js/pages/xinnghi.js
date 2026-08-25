@@ -333,7 +333,55 @@ async function _leaveSubmit() {
     }
 }
 
-// ===== MY HISTORY =====
+// Helper: Format date with day of week in Vietnamese (e.g. Thứ 4 - 26/08/26)
+function _leaveFormatDateWithDay(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    const dateObj = new Date(y, m - 1, d);
+    const dayOfWeek = dateObj.getDay();
+    const daysMap = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const dayName = daysMap[dayOfWeek] || '';
+    const y2 = String(y).slice(-2);
+    const dStr = String(d).padStart(2, '0');
+    const mStr = String(m).padStart(2, '0');
+    return `${dayName} - ${dStr}/${mStr}/${y2}`;
+}
+
+// Helper: Open image directly in modal on page
+function _leaveOpenImageModal(imgUrl) {
+    if (!imgUrl) return;
+    let modal = document.getElementById('leaveImagePreviewModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'leaveImagePreviewModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+        modal.onclick = function(e) {
+            if (e.target === modal || e.target.id === 'leaveImgCloseBtn') {
+                modal.style.display = 'none';
+            }
+        };
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div style="position:relative;max-width:92vw;max-height:92vh;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);display:flex;flex-direction:column;">
+            <div style="padding:14px 20px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#ffffff;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;">
+                <span style="font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px;">📷 Ảnh Xin Phép Quản Lý</span>
+                <button id="leaveImgCloseBtn" style="background:rgba(255,255,255,0.15);border:none;color:#ffffff;font-size:16px;font-weight:800;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            <div style="padding:16px;overflow:auto;max-height:calc(92vh - 60px);display:flex;justify-content:center;align-items:center;background:#0f172a;">
+                <img src="${imgUrl}" style="max-width:100%;max-height:80vh;object-fit:contain;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.5);" />
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+// ===== HISTORY (MY LEAVES) =====
 async function _leaveLoadMyHistory() {
     const body = document.getElementById('leaveMyHistory');
     if (!body) return;
@@ -355,9 +403,10 @@ async function _leaveLoadMyHistory() {
         }
 
         let html = items.map(item => {
-            const fromF = item.date_from.split('-').reverse().join('/');
-            const toF = item.date_to.split('-').reverse().join('/');
-            const dateRange = item.date_from === item.date_to ? fromF : `${fromF} → ${toF}`;
+            const dateRange = item.date_from === item.date_to 
+                ? _leaveFormatDateWithDay(item.date_from)
+                : `${_leaveFormatDateWithDay(item.date_from)} → ${_leaveFormatDateWithDay(item.date_to)}`;
+
             const isCancelled = item.status === 'cancelled';
             const todayStr = vnISOStr().split('T')[0];
             const maxLeaveDate = item.date_to || item.date_from;
@@ -374,25 +423,41 @@ async function _leaveLoadMyHistory() {
             }
 
             return `
-            <div style="padding:12px;border:1px solid ${isCancelled ? '#fecaca' : '#e2e8f0'};border-radius:10px;margin-bottom:8px;${isCancelled ? 'opacity:0.6;background:#fef2f2;' : 'background:#fafbfc;'}">
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-                    <div style="flex:1;">
-                        <div style="font-weight:700;color:#1e293b;font-size:13px;">📅 ${dateRange}${sessionInfo}</div>
-                        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
-                            <span style="background:${isCancelled ? '#fecaca' : '#dbeafe'};color:${isCancelled ? '#dc2626' : '#2563eb'};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">${isCancelled ? '❌ Đã hủy' : parseFloat(item.total_days) + ' buổi'}</span>
-                            ${item.handover_name ? `<span style="font-size:11px;color:#6b7280;">🤝 ${item.handover_name}</span>` : ''}
+            <div style="padding:14px 16px;border:1.5px solid ${isCancelled ? '#fca5a5' : '#cbd5e1'};border-left:5px solid ${isCancelled ? '#ef4444' : '#2563eb'};border-radius:12px;margin-bottom:10px;${isCancelled ? 'background:#fff5f5;' : 'background:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.03);'}">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:220px;">
+                        <div style="font-weight:800;color:#0f172a;font-size:14px;display:flex;align-items:center;gap:6px;${isCancelled ? 'text-decoration:line-through;color:#64748b;' : ''}">
+                            📅 ${dateRange}${sessionInfo}
                         </div>
-                        <div style="font-size:11px;color:#64748b;margin-top:4px;">💬 ${item.reason}</div>
+                        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center;">
+                            <span style="background:${isCancelled ? '#fee2e2' : '#dbeafe'};color:${isCancelled ? '#dc2626' : '#1d4ed8'};padding:3px 10px;border-radius:6px;font-size:11.5px;font-weight:800;border:1px solid ${isCancelled ? '#fca5a5' : '#93c5fd'};">
+                                ${isCancelled ? '❌ Đã hủy' : parseFloat(item.total_days) + ' buổi'}
+                            </span>
+                            ${item.handover_name ? `<span style="font-size:11.5px;color:#475569;background:#f1f5f9;padding:3px 8px;border-radius:6px;font-weight:600;border:1px solid #e2e8f0;">🤝 Bàn giao: ${item.handover_name}</span>` : ''}
+                        </div>
+                        <div style="font-size:12px;color:${isCancelled ? '#64748b' : '#334155'};margin-top:6px;line-height:1.4;">
+                            💬 <b>Lý do xin nghỉ:</b> ${item.reason || '—'}
+                        </div>
+                        ${isCancelled && item.cancel_reason ? `
+                        <div style="font-size:12px;color:#dc2626;margin-top:4px;font-weight:700;background:#fee2e2;padding:4px 8px;border-radius:6px;display:inline-block;border:1px solid #fca5a5;">
+                            ❌ <b>Lý do hủy:</b> ${item.cancel_reason}
+                        </div>
+                        ` : ''}
                     </div>
-                    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
-                        ${item.proof_image ? `<a href="${item.proof_image}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;">📷</a>` : ''}
-                        ${canCancel ? `<button onclick="_leaveCancelRequest(${item.id})" style="padding:3px 8px;font-size:10px;border:1px solid #fca5a5;border-radius:5px;background:#fef2f2;color:#dc2626;cursor:pointer;font-weight:600;">Hủy</button>` : ''}
+                    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                        ${item.proof_image ? `
+                            <button type="button" onclick="_leaveOpenImageModal('${item.proof_image.replace(/'/g, "\\'")}')" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;color:#1d4ed8;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(37,99,235,0.1);font-family:inherit;">
+                                <img src="${item.proof_image}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;border:1px solid #bfdbfe;" />
+                                <span>📷 Xem ảnh</span>
+                            </button>
+                        ` : ''}
+                        ${canCancel ? `<button type="button" onclick="_leaveCancelRequest(${item.id})" style="padding:6px 14px;font-size:12px;border:1.5px solid #fca5a5;border-radius:8px;background:#fef2f2;color:#dc2626;cursor:pointer;font-weight:800;transition:all 0.15s;font-family:inherit;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">❌ Hủy</button>` : ''}
                     </div>
                 </div>
             </div>`;
         }).join('');
 
-        html += `<div style="text-align:right;padding:8px 0;border-top:2px solid #e2e8f0;margin-top:8px;">
+        html += `<div style="text-align:right;padding:10px 0;border-top:2px solid #e2e8f0;margin-top:8px;">
             <span style="font-size:13px;font-weight:700;color:#1e293b;">Tổng tháng: </span>
             <span style="font-size:18px;font-weight:800;color:#2563eb;">${total}</span>
             <span style="font-size:12px;color:#6b7280;"> buổi</span>
@@ -405,11 +470,18 @@ async function _leaveLoadMyHistory() {
 }
 
 async function _leaveCancelRequest(id) {
-    if (!confirm('Bạn có chắc muốn hủy đơn xin nghỉ này?')) return;
+    const reason = prompt('Vui lòng nhập lý do tại sao bạn lại hủy đơn xin nghỉ này:');
+    if (reason === null) return; // User clicked cancel
+    const cancelReason = (reason || '').trim();
+    if (!cancelReason) {
+        alert('Vui lòng nhập lý do tại sao bạn muốn hủy đơn xin nghỉ!');
+        return;
+    }
+
     try {
-        const res = await apiCall(`/api/leave/cancel/${id}`, 'POST');
+        const res = await apiCall(`/api/leave/cancel/${id}`, 'POST', { cancel_reason: cancelReason });
         if (res.error) { alert(res.error); return; }
-        showToast('✅ Đã hủy đơn');
+        showToast('✅ Đã hủy đơn xin nghỉ');
         _leaveLoadMyHistory();
         if (document.getElementById('leaveStatsBody')) _leaveLoadStats();
     } catch(e) { alert(e.message); }
@@ -463,10 +535,15 @@ async function _leaveLoadStats() {
                 deptTotal += u.total;
 
                 u.items.forEach((item, i) => {
-                    const fromF = item.date_from.split('-').reverse().join('/');
-                    const toF = item.date_to.split('-').reverse().join('/');
-                    const dateRange = item.date_from === item.date_to ? fromF : `${fromF} → ${toF}`;
+                    const dateRange = item.date_from === item.date_to 
+                        ? _leaveFormatDateWithDay(item.date_from)
+                        : `${_leaveFormatDateWithDay(item.date_from)} → ${_leaveFormatDateWithDay(item.date_to)}`;
                     const isCancelled = item.status === 'cancelled';
+
+                    let reasonContent = item.reason || '—';
+                    if (isCancelled && item.cancel_reason) {
+                        reasonContent += `<br><span style="color:#dc2626;font-size:10.5px;font-weight:700;">❌ Lý do hủy: ${item.cancel_reason}</span>`;
+                    }
 
                     rows += `
                     <tr style="border-bottom:1px solid #f1f5f9;${isCancelled ? 'background:#fff5f5;opacity:0.85;' : (i % 2 ? 'background:#fafbfc;' : '')}">
@@ -475,9 +552,16 @@ async function _leaveLoadStats() {
                         <td style="padding:8px 10px;font-size:12px;font-weight:700;text-align:center;">
                             ${isCancelled ? `<span style="background:#fee2e2;color:#dc2626;padding:3px 8px;border-radius:6px;font-size:10.5px;font-weight:800;border:1px solid #fca5a5;display:inline-block;">❌ Đã hủy (${parseFloat(item.total_days)} buổi)</span>` : `<span style="color:#2563eb;">${parseFloat(item.total_days)}</span>`}
                         </td>
-                        <td style="padding:8px 10px;font-size:11px;color:${isCancelled ? '#94a3b8' : '#64748b'};max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${(item.reason||'').replace(/"/g,'&quot;')}">${item.reason}</td>
+                        <td style="padding:8px 10px;font-size:11px;color:${isCancelled ? '#94a3b8' : '#64748b'};max-width:200px;" title="${(item.reason||'').replace(/"/g,'&quot;')}">${reasonContent}</td>
                         <td style="padding:8px 10px;font-size:11px;color:#6b7280;">${item.handover_name || '—'}</td>
-                        <td style="padding:8px 10px;text-align:center;">${item.proof_image ? `<a href="${item.proof_image}" target="_blank" style="font-size:11px;color:#2563eb;">📷</a>` : '—'}</td>
+                        <td style="padding:8px 10px;text-align:center;">
+                            ${item.proof_image ? `
+                                <button type="button" onclick="_leaveOpenImageModal('${item.proof_image.replace(/'/g, "\\'")}')" style="background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:3px 8px;color:#1d4ed8;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-family:inherit;">
+                                    <img src="${item.proof_image}" style="width:20px;height:20px;object-fit:cover;border-radius:3px;" />
+                                    <span>📷 Xem</span>
+                                </button>
+                            ` : '—'}
+                        </td>
                     </tr>`;
                 });
 
