@@ -179,6 +179,478 @@
         _qtnsSyncSaveToServer();
     }
 
+    // Category & Subtab Management State
+    let activeCatFilter = { muc1_tuyendung: 'all', muc2_daotao: 'all', muc3_chedo: 'all' };
+
+    function _qtnsGetLinkCategories(link) {
+        if (!link) return ['Chung'];
+        if (Array.isArray(link.categories) && link.categories.length > 0) return link.categories;
+        if (link.category) return [link.category];
+        return ['Chung'];
+    }
+
+    function _qtnsSaveSubtabs(scope, subtabs) {
+        localStorage.setItem('qtns_subtabs_' + scope, JSON.stringify(subtabs));
+        _qtnsSyncSaveToServer();
+    }
+
+    function _qtnsSaveCategories(scope, cats) {
+        localStorage.setItem('qtns_categories_' + scope, JSON.stringify(cats));
+        _qtnsSyncSaveToServer();
+    }
+
+    window._qtnsSelectCatFilter = function(scope, cat) {
+        activeCatFilter[scope] = cat;
+        _qtnsRenderCurrentMainTab();
+    };
+
+    // Category Modal Handlers (Match Image 5)
+    let editingCatIndex = -1;
+
+    window._qtnsOpenManageCatModal = function(scope = null) {
+        if (!_qtnsCanManage()) {
+            alert('Chỉ Giám Đốc và Quản Lý mới có quyền cài đặt lĩnh vực!');
+            return;
+        }
+        if (!scope) scope = currentMainTab;
+
+        const modal = _qtnsEnsureCategoryModalInDOM();
+        let scopeTitle = 'MỤC 1: QUY TRÌNH HÀNH CHÍNH & TUYỂN DỤNG';
+        if (scope === 'muc2_daotao') scopeTitle = 'MỤC 2: ĐÀO TẠO & PHÁT TRIỂN NHÂN SỰ';
+        else if (scope === 'muc3_chedo') scopeTitle = 'MỤC 3: CHẾ ĐỘ, LƯƠNG THƯỞNG & ĐÁNH GIÁ';
+
+        document.getElementById('qtnsCatModalTitle').innerText = `⚙️ CÀI ĐẶT LĨNH VỰC (${scopeTitle})`;
+        document.getElementById('qtnsCatFormScope').value = scope;
+        document.getElementById('qtnsCatFormName').value = '';
+        editingCatIndex = -1;
+
+        _qtnsRenderCatListInModal(scope);
+        modal.style.display = 'flex';
+    };
+
+    window._qtnsCloseCatModal = function() {
+        editingCatIndex = -1;
+        const modal = document.getElementById('qtnsCategoryModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    function _qtnsRenderCatListInModal(scope) {
+        const container = document.getElementById('qtnsCatListContainer');
+        if (!container) return;
+
+        const cats = _qtnsGetCategories(scope);
+        if (cats.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:16px; color:#94a3b8; font-weight:600;">Chưa có lĩnh vực nào</div>`;
+            return;
+        }
+
+        container.innerHTML = cats.map((cat, idx) => {
+            if (editingCatIndex === idx) {
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#fffbeb; padding:10px 14px; border-radius:14px; border:2px solid #f59e0b; box-shadow:0 4px 12px rgba(245, 158, 11, 0.15); gap:10px;">
+                        <div style="display:flex; align-items:center; gap:8px; flex:1;">
+                            <span style="font-size:16px;">📌</span>
+                            <input type="text" id="qtnsEditCatInput_${idx}" value="${cat.replace(/"/g, '&quot;')}" style="flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid #f59e0b; font-size:14px; font-weight:800; color:#0f172a; outline:none; background:#ffffff;" onkeypress="if(event.key==='Enter') window._qtnsSaveCategoryEditFromModal('${scope}', ${idx})">
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="window._qtnsSaveCategoryEditFromModal('${scope}', ${idx})" title="Lưu tên mới" style="background:#22c55e; color:#ffffff; border:none; border-radius:10px; padding:7px 14px; font-size:12.5px; font-weight:900; cursor:pointer; box-shadow:0 2px 6px rgba(34, 197, 94, 0.3);">💾 Lưu</button>
+                            <button onclick="window._qtnsCancelCategoryEditFromModal('${scope}')" title="Hủy bỏ" style="background:#e2e8f0; color:#475569; border:none; border-radius:10px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer;">✕ Hủy</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:12px 16px; border-radius:14px; border:1.5px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.02); transition:all 0.2s ease;" onmouseover="this.style.borderColor='#c084fc'; this.style.boxShadow='0 4px 12px rgba(109,40,217,0.08)'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.02)'">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="width:32px; height:32px; background:#f3e8ff; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; color:#6d28d9; border:1px solid #e9d5ff; flex-shrink:0;">📌</div>
+                        <span style="font-size:14.5px; font-weight:800; color:#0f172a;">${cat}</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="window._qtnsStartCategoryEditFromModal('${scope}', ${idx})" title="Chỉnh sửa tên lĩnh vực" style="background:#fef3c7; color:#d97706; border:1px solid #fde047; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer; transition:all 0.15s ease;" onmouseover="this.style.background='#fde047'" onmouseout="this.style.background='#fef3c7'">✏️ Sửa Tên</button>
+                        <button onclick="window._qtnsDeleteCategoryFromModal('${scope}', ${idx})" title="Xóa lĩnh vực" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer; transition:all 0.15s ease;" onmouseover="this.style.background='#fca5a5'" onmouseout="this.style.background='#fee2e2'">🗑️ Xóa</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window._qtnsAddCategoryFromModal = function() {
+        const input = document.getElementById('qtnsCatFormName');
+        const scope = document.getElementById('qtnsCatFormScope')?.value || currentMainTab;
+        if (!input) return;
+        const name = input.value.trim();
+        if (!name) {
+            alert('Vui lòng nhập tên lĩnh vực mới!');
+            return;
+        }
+
+        let cats = _qtnsGetCategories(scope);
+        if (cats.includes(name)) {
+            alert('Lĩnh vực này đã tồn tại!');
+            return;
+        }
+
+        cats.push(name);
+        _qtnsSaveCategories(scope, cats);
+        input.value = '';
+        _qtnsRenderCatListInModal(scope);
+        _qtnsRenderCurrentMainTab();
+        _qtnsShowToast(`✅ Đã thêm lĩnh vực mới "${name}"!`);
+    };
+
+    window._qtnsStartCategoryEditFromModal = function(scope, index) {
+        editingCatIndex = index;
+        _qtnsRenderCatListInModal(scope);
+        setTimeout(() => {
+            const input = document.getElementById(`qtnsEditCatInput_${index}`);
+            if (input) { input.focus(); input.select(); }
+        }, 50);
+    };
+
+    window._qtnsCancelCategoryEditFromModal = function(scope) {
+        editingCatIndex = -1;
+        _qtnsRenderCatListInModal(scope);
+    };
+
+    window._qtnsSaveCategoryEditFromModal = function(scope, index) {
+        const input = document.getElementById(`qtnsEditCatInput_${index}`);
+        if (!input) return;
+        const newName = input.value.trim();
+        let cats = _qtnsGetCategories(scope);
+        const oldName = cats[index];
+
+        if (!newName) {
+            alert('Vui lòng nhập tên lĩnh vực hợp lệ!');
+            return;
+        }
+
+        if (newName !== oldName && cats.includes(newName)) {
+            alert('Tên lĩnh vực này đã tồn tại!');
+            return;
+        }
+
+        cats[index] = newName;
+        _qtnsSaveCategories(scope, cats);
+
+        if (activeCatFilter[scope] === oldName) {
+            activeCatFilter[scope] = newName;
+        }
+
+        editingCatIndex = -1;
+        _qtnsRenderCatListInModal(scope);
+        _qtnsRenderCurrentMainTab();
+        _qtnsShowToast('💾 Đã cập nhật tên lĩnh vực!');
+    };
+
+    window._qtnsDeleteCategoryFromModal = function(scope, index) {
+        let cats = _qtnsGetCategories(scope);
+        const catName = cats[index];
+        if (!catName) return;
+
+        if (!confirm(`Bạn có chắc muốn xóa lĩnh vực "${catName}" không?`)) return;
+
+        cats = cats.filter((_, i) => i !== index);
+        _qtnsSaveCategories(scope, cats);
+
+        if (activeCatFilter[scope] === catName) {
+            activeCatFilter[scope] = 'all';
+        }
+
+        _qtnsRenderCatListInModal(scope);
+        _qtnsRenderCurrentMainTab();
+        _qtnsShowToast(`🗑️ Đã xóa lĩnh vực "${catName}"!`);
+    };
+
+    function _qtnsEnsureCategoryModalInDOM() {
+        let modal = document.getElementById('qtnsCategoryModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.className = 'qtns-modal-overlay';
+            modal.id = 'qtnsCategoryModal';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+                <div class="qtns-modal-card" style="max-height:88vh; display:flex; flex-direction:column; width:100%; max-width:600px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(109,40,217,0.35);">
+                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #4c1d95, #6d28d9); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                        <h3 id="qtnsCatModalTitle" style="margin:0; font-size:17.5px; font-weight:900;">⚙️ CÀI ĐẶT LĨNH VỰC</h3>
+                        <button onclick="window._qtnsCloseCatModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                    </div>
+
+                    <div style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; background:#fcfafc;">
+                        <input type="hidden" id="qtnsCatFormScope" value="">
+                        
+                        <!-- Form Add New Category -->
+                        <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; box-shadow:0 4px 14px rgba(109,40,217,0.05);">
+                            <label style="font-size:13.5px; font-weight:900; color:#5b21b6; display:block; margin-bottom:8px;">➕ Tạo Lĩnh Vực Mới:</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="qtnsCatFormName" placeholder="Nhập tên lĩnh vực mới (ví dụ: Quy Trình Giao Việc, Tuyển Dụng...)" style="flex:1; border:2px solid #e9d5ff; border-radius:12px; padding:10px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none;" onkeypress="if(event.key==='Enter') window._qtnsAddCategoryFromModal()">
+                                <button onclick="window._qtnsAddCategoryFromModal()" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; border-radius:12px; padding:10px 18px; font-size:13.5px; font-weight:900; cursor:pointer; box-shadow:0 4px 12px rgba(109,40,217,0.3); white-space:nowrap;">➕ Thêm Mới</button>
+                            </div>
+                        </div>
+
+                        <!-- Current Categories List -->
+                        <div>
+                            <div style="font-size:13.5px; font-weight:900; color:#334155; margin-bottom:10px;">📌 Danh Sách Lĩnh Vực Hiện Tại:</div>
+                            <div id="qtnsCatListContainer" style="display:flex; flex-direction:column; gap:10px;"></div>
+                        </div>
+                    </div>
+
+                    <div style="flex-shrink:0; padding:14px 24px; background:#ffffff; border-top:1.5px solid #e2e8f0; display:flex; justify-content:flex-end;">
+                        <button onclick="window._qtnsCloseCatModal()" style="padding:10px 22px; border-radius:12px; font-weight:900; background:#f1f5f9; color:#475569; border:none; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        return modal;
+    }
+
+    // Modal Subtab Manager
+    let currentSubtabScope = 'muc1_tuyendung';
+    let editingSubtabId = null;
+
+    window._qtnsOpenManageSubtabModal = function(scope = null) {
+        if (!_qtnsCanManage()) {
+            alert('Chỉ Giám Đốc và Quản Lý mới có quyền cài đặt mục!');
+            return;
+        }
+        if (!scope) scope = currentMainTab;
+        currentSubtabScope = scope;
+        editingSubtabId = null;
+
+        const modal = _qtnsEnsureSubtabModalInDOM();
+        const titleInput = document.getElementById('qtnsSubtabFormTitle');
+        if (titleInput) titleInput.value = '';
+
+        let scopeTitle = 'MỤC 1: QUY TRÌNH HÀNH CHÍNH & TUYỂN DỤNG';
+        if (scope === 'muc2_daotao') scopeTitle = 'MỤC 2: ĐÀO TẠO & PHÁT TRIỂN NHÂN SỰ';
+        else if (scope === 'muc3_chedo') scopeTitle = 'MỤC 3: CHẾ ĐỘ, LƯƠNG THƯỞNG & ĐÁNH GIÁ';
+
+        const titleEl = document.getElementById('qtnsSubtabModalTitle');
+        if (titleEl) titleEl.innerText = `⚙️ CÀI ĐẶT MỤC (${scopeTitle})`;
+
+        _qtnsRenderSubtabListInModal();
+        modal.style.display = 'flex';
+    };
+
+    window._qtnsCloseSubtabModal = function() {
+        const modal = document.getElementById('qtnsSubtabModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    function _qtnsRenderSubtabListInModal() {
+        const container = document.getElementById('qtnsSubtabListContainer');
+        if (!container) return;
+
+        const subtabs = _qtnsGetSubtabs(currentSubtabScope);
+        container.innerHTML = subtabs.map(st => {
+            if (editingSubtabId === st.id) {
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#fffbeb; padding:10px 14px; border-radius:14px; border:2px solid #f59e0b; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:8px; flex:1;">
+                            <input type="text" id="qtnsEditSubtabTitle_${st.id}" value="${st.title.replace(/"/g, '&quot;')}" style="flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid #f59e0b; font-size:14px; font-weight:800; color:#0f172a; outline:none; background:#ffffff;">
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="window._qtnsSaveSubtabEdit('${st.id}')" style="background:#22c55e; color:#ffffff; border:none; border-radius:10px; padding:7px 14px; font-size:12.5px; font-weight:900; cursor:pointer;">💾 Lưu</button>
+                            <button onclick="window._qtnsCancelSubtabEdit()" style="background:#e2e8f0; color:#475569; border:none; border-radius:10px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer;">✕ Hủy</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:12px 16px; border-radius:14px; border:1.5px solid #e2e8f0;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:18px;">${st.icon || '📌'}</span>
+                        <span style="font-size:14.5px; font-weight:800; color:#0f172a;">${st.title}</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="window._qtnsStartSubtabEdit('${st.id}')" style="background:#fef3c7; color:#d97706; border:1px solid #fde047; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">✏️ Sửa Tên</button>
+                        <button onclick="window._qtnsDeleteSubtabFromModal('${st.id}')" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">🗑️ Xóa</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window._qtnsAddSubtabFromModal = function() {
+        const titleInput = document.getElementById('qtnsSubtabFormTitle');
+        if (!titleInput) return;
+        const title = titleInput.value.trim();
+        if (!title) {
+            alert('Vui lòng nhập tên mục mới!');
+            return;
+        }
+
+        const subtabs = _qtnsGetSubtabs(currentSubtabScope);
+        const newId = 'qtns_sub_' + Date.now();
+        subtabs.push({ id: newId, title: title, icon: '📋', isCustom: true });
+
+        _qtnsSaveSubtabs(currentSubtabScope, subtabs);
+        titleInput.value = '';
+        _qtnsRenderSubtabListInModal();
+        _qtnsRenderCurrentMainTab();
+        _qtnsShowToast(`✅ Đã tạo mục mới "${title}"!`);
+    };
+
+    window._qtnsStartSubtabEdit = function(subId) {
+        editingSubtabId = subId;
+        _qtnsRenderSubtabListInModal();
+    };
+
+    window._qtnsSaveSubtabEdit = function(subId) {
+        const titleInput = document.getElementById('qtnsEditSubtabTitle_' + subId);
+        if (!titleInput) return;
+        const newTitle = titleInput.value.trim();
+        if (!newTitle) {
+            alert('Tên mục không được để trống!');
+            return;
+        }
+
+        const subtabs = _qtnsGetSubtabs(currentSubtabScope);
+        const item = subtabs.find(s => s.id === subId);
+        if (item) {
+            item.title = newTitle;
+            _qtnsSaveSubtabs(currentSubtabScope, subtabs);
+        }
+
+        editingSubtabId = null;
+        _qtnsRenderSubtabListInModal();
+        _qtnsRenderCurrentMainTab();
+        _qtnsShowToast('💾 Đã cập nhật mục!');
+    };
+
+    window._qtnsCancelSubtabEdit = function() {
+        editingSubtabId = null;
+        _qtnsRenderSubtabListInModal();
+    };
+
+    window._qtnsDeleteSubtabFromModal = function(subId) {
+        let subtabs = _qtnsGetSubtabs(currentSubtabScope);
+        const item = subtabs.find(s => s.id === subId);
+        if (!item) return;
+
+        if (!confirm(`Bạn có chắc muốn xóa mục "${item.title}" không?`)) return;
+
+        subtabs = subtabs.filter(s => s.id !== subId);
+        _qtnsSaveSubtabs(currentSubtabScope, subtabs);
+
+        _qtnsRenderSubtabListInModal();
+        _qtnsRenderCurrentMainTab();
+        _qtnsShowToast(`🗑️ Đã xóa mục "${item.title}"!`);
+    };
+
+    function _qtnsEnsureSubtabModalInDOM() {
+        let modal = document.getElementById('qtnsSubtabModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.className = 'qtns-modal-overlay';
+            modal.id = 'qtnsSubtabModal';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+                <div class="qtns-modal-card" style="max-height:88vh; display:flex; flex-direction:column; width:100%; max-width:600px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(109,40,217,0.35);">
+                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #4c1d95, #6d28d9); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                        <h3 id="qtnsSubtabModalTitle" style="margin:0; font-size:17.5px; font-weight:900;">⚙️ CÀI ĐẶT MỤC</h3>
+                        <button onclick="window._qtnsCloseSubtabModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                    </div>
+
+                    <div style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; background:#fcfafc;">
+                        <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px;">
+                            <label style="font-size:13.5px; font-weight:900; color:#5b21b6; display:block; margin-bottom:8px;">➕ Tạo Mục Mới:</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="qtnsSubtabFormTitle" placeholder="Nhập tên mục mới..." style="flex:1; border:2px solid #e9d5ff; border-radius:12px; padding:10px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none;" onkeypress="if(event.key==='Enter') window._qtnsAddSubtabFromModal()">
+                                <button onclick="window._qtnsAddSubtabFromModal()" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; border-radius:12px; padding:10px 18px; font-size:13.5px; font-weight:900; cursor:pointer;">➕ Thêm Mới</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style="font-size:13.5px; font-weight:900; color:#334155; margin-bottom:10px;">📌 Danh Sách Mục Hiện Tại:</div>
+                            <div id="qtnsSubtabListContainer" style="display:flex; flex-direction:column; gap:10px;"></div>
+                        </div>
+                    </div>
+
+                    <div style="flex-shrink:0; padding:14px 24px; background:#ffffff; border-top:1.5px solid #e2e8f0; display:flex; justify-content:flex-end;">
+                        <button onclick="window._qtnsCloseSubtabModal()" style="padding:10px 22px; border-radius:12px; font-weight:900; background:#f1f5f9; color:#475569; border:none; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        return modal;
+    }
+
+    // Global Search Renderer for HR
+    function _qtnsRenderGlobalSearchResults(container, query) {
+        if (!container) return;
+        const q = (query || '').toLowerCase().trim();
+
+        const allSections = [
+            { scope: 'muc1_tuyendung', title: 'MỤC 1: QUY TRÌNH HÀNH CHÍNH & TUYỂN DỤNG', icon: '📋' },
+            { scope: 'muc2_daotao', title: 'MỤC 2: ĐÀO TẠO & PHÁT TRIỂN NHÂN SỰ', icon: '💼' },
+            { scope: 'muc3_chedo', title: 'MỤC 3: CHẾ ĐỘ, LƯƠNG THƯỞNG & ĐÁNH GIÁ', icon: '⚖️' }
+        ];
+
+        let totalMatches = 0;
+        const sectionResults = allSections.map(sec => {
+            const subtabs = _qtnsGetSubtabs(sec.scope);
+            let matches = [];
+            subtabs.forEach(st => {
+                const links = _qtnsGetCustomSubtabLinks(st.id);
+                links.forEach(l => {
+                    const title = (l.title || '').toLowerCase();
+                    const subtitle = (l.subtitle || '').toLowerCase();
+                    const categories = _qtnsGetLinkCategories(l).join(' ').toLowerCase();
+                    const steps = (l.steps || []).join(' ').toLowerCase();
+
+                    if (title.includes(q) || subtitle.includes(q) || categories.includes(q) || steps.includes(q)) {
+                        matches.push({ ...l, subtabId: st.id, subtabTitle: st.title });
+                    }
+                });
+            });
+            totalMatches += matches.length;
+            return { ...sec, matches };
+        });
+
+        if (totalMatches === 0) {
+            container.innerHTML = `
+                <div style="background:#ffffff; border:2px dashed #e9d5ff; border-radius:20px; padding:40px 20px; text-align:center; margin-top:10px;">
+                    <div style="font-size:40px; margin-bottom:10px;">🔍</div>
+                    <h4 style="margin:0 0 6px 0; font-size:16px; font-weight:850; color:#4c1d95;">
+                        Không tìm thấy nội dung phù hợp với từ khóa "${query}"
+                    </h4>
+                    <p style="margin:0; font-size:13px; color:#64748b; font-weight:600;">
+                        Anh/Chị hãy thử tra cứu với từ khóa khác xem sao nhé.
+                    </p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="background:linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border:1.5px solid #d8b4fe; border-radius:18px; padding:16px 20px; margin-bottom:20px;">
+                <div style="font-size:15px; font-weight:900; color:#4c1d95;">
+                    🔍 KẾT QUẢ TÌM KIẾM TOÀN BỘ TRANG NHÂN SỰ: "${query}"
+                </div>
+                <div style="font-size:13px; font-weight:700; color:#6b21a8; margin-top:4px;">
+                    Tìm thấy ${totalMatches} nội dung phù hợp (${sectionResults.map(s => `${s.title.split(':')[0]}: ${s.matches.length}`).join(', ')}).
+                </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:24px;">
+                ${sectionResults.filter(s => s.matches.length > 0).map(sec => `
+                    <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:20px; padding:20px; box-shadow:0 4px 16px rgba(109,40,217,0.05);">
+                        <div style="font-size:14px; font-weight:900; color:#4c1d95; margin-bottom:14px; padding-bottom:8px; border-bottom:2px solid #f3e8ff;">
+                            ${sec.icon} ${sec.title} (${sec.matches.length})
+                        </div>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:18px;">
+                            ${sec.matches.map(link => _qtnsRenderCardHTML(link, link.subtabId)).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
     // Toast Alert Notification
     function _qtnsShowToast(msg) {
         let toast = document.getElementById('qtnsToast');
@@ -282,6 +754,10 @@
         }
 
         const activeSubtab = subtabs.find(s => s.id === currentSub) || subtabs[0] || { id: '', title: '' };
+        const categories = _qtnsGetCategories(currentMainTab);
+        const activeCat = activeCatFilter[currentMainTab] || 'all';
+
+        const subtabLinks = _qtnsGetCustomSubtabLinks(activeSubtab.id);
 
         container.innerHTML = `
             <!-- Search Bar -->
@@ -289,12 +765,10 @@
                 <div style="position:relative; display:flex; align-items:center;">
                     <span style="position:absolute; left:18px; font-size:18px; color:#7c3aed; pointer-events:none; z-index:2;">🔍</span>
                     <input type="text" id="qtnsSearchInput" value="${currentSearchQuery || ''}" 
-                        placeholder="Nhập tên quy trình, cẩm nang nhân sự, từ khóa hoặc tiêu đề cần tìm kiếm..." 
+                        placeholder="Nhập tên quy trình, cẩm nang nhân sự, từ khóa hoặc tiêu đề cần tìm kiếm (Tìm toàn bộ 3 Mục)..." 
                         style="width:100%; border:2px solid #e9d5ff; border-radius:18px; padding:13px 48px 13px 48px; font-size:14.5px; font-weight:700; background:#ffffff; outline:none; color:#0f172a; box-shadow:0 4px 16px rgba(124,58,237,0.08);"
                         oninput="window._qtnsOnSearchInput(this.value)">
-                    ${currentSearchQuery ? `
-                        <button onclick="window._qtnsClearSearch()" style="position:absolute; right:16px; background:#e2e8f0; border:none; border-radius:50%; width:24px; height:24px; cursor:pointer; font-weight:bold; color:#475569;">✕</button>
-                    ` : ''}
+                    <button id="qtnsSearchClearBtn" onclick="window._qtnsClearSearch()" style="position:absolute; right:16px; background:#e2e8f0; border:none; border-radius:50%; width:24px; height:24px; display:${currentSearchQuery ? 'flex' : 'none'}; align-items:center; justify-content:center; cursor:pointer; font-weight:bold; color:#475569;" title="Xóa tìm kiếm">✕</button>
                 </div>
             </div>
 
@@ -309,30 +783,79 @@
                     `).join('')}
                 </div>
                 <div style="display:flex; align-items:center; gap:12px;">
-                    <button class="qtns-btn primary" onclick="window._qtnsOpenAddLinkModal('${activeSubtab.id}')" style="border-radius:14px; padding:10px 22px; font-size:13.5px; font-weight:900; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.35); cursor:pointer;">
-                        ➕ Tạo Đường Link Mới
-                    </button>
+                    ${_qtnsCanManage() ? `
+                        <button class="qtns-btn primary" onclick="window._qtnsOpenAddLinkModal('${activeSubtab.id}')" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.35); cursor:pointer;">
+                            ➕ Tạo Đường Link Mới
+                        </button>
+                        <button class="qtns-btn secondary" onclick="window._qtnsOpenManageSubtabModal('${currentMainTab}')" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:rgba(255,255,255,0.95); color:#6d28d9; border:1.5px solid #d8b4fe; box-shadow:0 4px 14px rgba(109,40,217,0.15); cursor:pointer;">
+                            ⚙️ Cài Đặt Mục
+                        </button>
+                    ` : ''}
                 </div>
+            </div>
+
+            <!-- Category Filter Bar (Thanh Lĩnh Vực Động - Giống Ảnh 1, 2, 3) -->
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:14px 22px; border-radius:18px; border:1.5px solid #e9d5ff; margin-bottom:22px; box-shadow:0 4px 14px rgba(109,40,217,0.04); flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="font-size:13.5px; font-weight:900; color:#4c1d95; margin-right:4px;">📌 Lĩnh vực:</span>
+                    <button class="dept-pill ${activeCat === 'all' ? 'active' : ''}" onclick="window._qtnsSelectCatFilter('${currentMainTab}', 'all')">
+                        🌐 Tất Cả Lĩnh Vực (${subtabLinks.length})
+                    </button>
+                    ${categories.map(cat => {
+                        const count = subtabLinks.filter(l => _qtnsGetLinkCategories(l).includes(cat)).length;
+                        return `
+                            <button class="dept-pill ${activeCat === cat ? 'active' : ''}" onclick="window._qtnsSelectCatFilter('${currentMainTab}', '${cat.replace(/'/g, "\\'")}')">
+                                📌 ${cat} (${count})
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+                ${_qtnsCanManage() ? `
+                    <button class="qtns-btn secondary" onclick="window._qtnsOpenManageCatModal('${currentMainTab}')" style="border-radius:12px; padding:9px 18px; font-size:13.5px; font-weight:800; border-color:#d8b4fe; color:#6d28d9; background:#ffffff; cursor:pointer;">
+                        ⚙️ Cài Đặt Lĩnh Vực
+                    </button>
+                ` : ''}
             </div>
 
             <!-- Content Grid Area -->
             <div id="qtnsTabContentBody" class="qtns-tab-body"></div>
         `;
 
-        _qtnsRenderSubTabContent(activeSubtab.id);
+        if (currentSearchQuery && currentSearchQuery.trim() !== '') {
+            const body = document.getElementById('qtnsTabContentBody');
+            _qtnsRenderGlobalSearchResults(body, currentSearchQuery.trim().toLowerCase());
+        } else {
+            _qtnsRenderSubTabContent(activeSubtab.id);
+        }
     }
 
     let currentSearchQuery = '';
     window._qtnsOnSearchInput = function(val) {
-        currentSearchQuery = val;
-        let currentSub = currentSubTab1;
-        if (currentMainTab === 'muc2_daotao') currentSub = currentSubTab2;
-        else if (currentMainTab === 'muc3_chedo') currentSub = currentSubTab3;
-        _qtnsRenderSubTabContent(currentSub);
+        currentSearchQuery = (val || '').trim();
+        const clearBtn = document.getElementById('qtnsSearchClearBtn');
+        if (clearBtn) clearBtn.style.display = currentSearchQuery ? 'flex' : 'none';
+
+        const body = document.getElementById('qtnsTabContentBody');
+        if (!body) return;
+
+        const q = currentSearchQuery.toLowerCase();
+        if (q !== '') {
+            _qtnsRenderGlobalSearchResults(body, q);
+        } else {
+            let currentSub = currentSubTab1;
+            if (currentMainTab === 'muc2_daotao') currentSub = currentSubTab2;
+            else if (currentMainTab === 'muc3_chedo') currentSub = currentSubTab3;
+            _qtnsRenderSubTabContent(currentSub);
+        }
     };
 
     window._qtnsClearSearch = function() {
         currentSearchQuery = '';
+        const inp = document.getElementById('qtnsSearchInput');
+        if (inp) inp.value = '';
+        const clearBtn = document.getElementById('qtnsSearchClearBtn');
+        if (clearBtn) clearBtn.style.display = 'none';
+
         _qtnsRenderCurrentMainTab();
     };
 
@@ -355,28 +878,33 @@
         if (!body) return;
 
         let links = _qtnsGetCustomSubtabLinks(subId);
+        const activeCat = activeCatFilter[currentMainTab] || 'all';
 
-        // Filter search query
+        // Filter category filter
+        if (activeCat !== 'all') {
+            links = links.filter(l => _qtnsGetLinkCategories(l).includes(activeCat));
+        }
+
+        // Filter search query if present
         if (currentSearchQuery && currentSearchQuery.trim()) {
             const q = currentSearchQuery.toLowerCase().trim();
             links = links.filter(l => {
                 const title = (l.title || '').toLowerCase();
                 const desc = (l.subtitle || '').toLowerCase();
-                const cat = (l.category || '').toLowerCase();
-                return title.includes(q) || desc.includes(q) || cat.includes(q);
+                const categories = _qtnsGetLinkCategories(l).join(' ').toLowerCase();
+                return title.includes(q) || desc.includes(q) || categories.includes(q);
             });
         }
 
         // Separate Pinned and Unpinned
         const pinnedLinks = links.filter(l => l.isPinned);
         const normalLinks = links.filter(l => !l.isPinned);
-        const sortedLinks = [...pinnedLinks, ...normalLinks];
 
-        if (sortedLinks.length === 0) {
+        if (links.length === 0) {
             body.innerHTML = `
                 <div style="text-align:center; padding:48px 20px; background:#ffffff; border-radius:20px; border:2px dashed #e9d5ff; margin-top:10px;">
                     <div style="font-size:48px; margin-bottom:12px;">📁</div>
-                    <h3 style="font-size:18px; font-weight:850; color:#4c1d95; margin:0 0 6px 0;">Chưa Có Link Tài Liệu Nhân Sự Nào</h3>
+                    <h3 style="font-size:18px; font-weight:850; color:#4c1d95; margin:0 0 6px 0;">Chưa Có Link Tài Liệu Nhân Sự Nào thuộc Lĩnh Vực "${activeCat === 'all' ? 'Tất cả' : activeCat}"</h3>
                     <p style="font-size:14px; color:#64748b; margin:0 0 16px 0;">Hãy bấm "➕ Tạo Đường Link Mới" ở trên để bổ sung quy trình hoặc cẩm nang nhân sự!</p>
                 </div>
             `;
@@ -384,9 +912,29 @@
         }
 
         body.innerHTML = `
-            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
-                ${sortedLinks.map(link => _qtnsRenderCardHTML(link, subId)).join('')}
-            </div>
+            ${pinnedLinks.length > 0 ? `
+                <div style="margin-bottom:26px;">
+                    <div style="font-size:13px; font-weight:900; color:#b45309; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                        <span>📌⭐ MỤC QUAN TRỌNG (${pinnedLinks.length})</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
+                        ${pinnedLinks.map(link => _qtnsRenderCardHTML(link, subId)).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            ${normalLinks.length > 0 ? `
+                <div>
+                    ${pinnedLinks.length > 0 ? `
+                        <div style="font-size:13px; font-weight:900; color:#334155; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                            <span>📑 DANH SÁCH TÀI LIỆU BÌNH THƯỜNG (${normalLinks.length})</span>
+                        </div>
+                    ` : ''}
+                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
+                        ${normalLinks.map(link => _qtnsRenderCardHTML(link, subId)).join('')}
+                    </div>
+                </div>
+            ` : ''}
         `;
     }
 
@@ -988,6 +1536,28 @@
                 }
                 .qtns-tab-btn.active .tab-label {
                     color: #ffffff !important;
+                }
+
+                .dept-pill {
+                    background: rgba(255, 255, 255, 0.9);
+                    border: 1.5px solid #d8b4fe;
+                    color: #6b21a8;
+                    padding: 6px 14px;
+                    border-radius: 20px;
+                    font-size: 13px;
+                    font-weight: 800;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                .dept-pill:hover {
+                    background: #f3e8ff;
+                    transform: translateY(-1px);
+                }
+                .dept-pill.active {
+                    background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%) !important;
+                    color: #ffffff !important;
+                    border-color: #6d28d9 !important;
+                    box-shadow: 0 4px 12px rgba(109, 40, 217, 0.3) !important;
                 }
 
                 .qtns-toast {
