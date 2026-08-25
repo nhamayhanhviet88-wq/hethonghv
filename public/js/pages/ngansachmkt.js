@@ -143,7 +143,7 @@ async function renderNgansachmktPage(container) {
                                     <th style="min-width:260px;">Kênh Marketing</th>
                                     <th style="text-align:right;">Chi Phí</th>
                                     <th style="text-align:center;">Tin Nhắn</th>
-                                    <th style="text-align:right;">CPL</th>
+                                    <th style="text-align:right;">CPA</th>
                                     <th style="text-align:center;">Đơn Hàng</th>
                                     <th style="text-align:right;">Doanh Số</th>
                                     <th style="text-align:center;">📉 % CHI PHÍ / DOANH THU ADS</th>
@@ -273,54 +273,65 @@ async function renderNgansachmktPage(container) {
             </div>
         </div>
 
-        <!-- MODAL: META ADS CONFIG (REQUIRED: NAME, LINK, ID, TOKEN) -->
+        <!-- MODAL: LINK CENTRALIZED ADS ACCOUNTS (MULTI-SELECTION PER FANPAGE) -->
         <div id="mktMetaModalOverlay" class="mkt-modal-overlay" style="display:none;" onclick="if(event.target===this)_mktCloseMetaConfigModal()">
-            <div class="mkt-modal" style="width:580px;">
+            <div class="mkt-modal" style="width:620px; max-width: 95vw;">
                 <div class="mkt-modal-hdr">
-                    <h3>⚙️ Cấu Hình Facebook Graph API Token & Ad Account</h3>
-                    <button class="mkt-modal-close" onclick="_mktCloseMetaConfigModal()">✕</button>
+                    <h3>⚙️ Liên Kết Tài Khoản Quảng Cáo Meta & Mạng Xã Hội</h3>
+                    <button type="button" class="mkt-modal-close" onclick="_mktCloseMetaConfigModal()">✕</button>
                 </div>
                 <form onsubmit="_mktSaveMetaConfig(event)">
+                    <!-- FIELD 1: SELECT CATEGORY / FANPAGE -->
                     <div class="mkt-fg">
-                        <label>Kênh / Fanpage Cần Kết Nối *</label>
+                        <label style="font-weight:800;color:#0f172a;font-size:13.5px;">Kênh / Fanpage Cần Kết Nối *</label>
                         <select id="mktMetaCatSelect" class="mkt-select" required onchange="_mktOnMetaCatChange(this.value)"></select>
                     </div>
+
+                    <!-- FIELD 2: PLATFORM FILTER SELECTOR (Tất cả / Facebook / TikTok / Google Ads) -->
                     <div class="mkt-fg">
-                        <label>Tên Tài Khoản Quảng Cáo Meta *</label>
-                        <input type="text" id="mktMetaAdAccountName" class="mkt-input" required placeholder="Vd: Tk QC HV 01 - Nguyễn Văn A">
+                        <label style="font-weight:800;color:#1e40af;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
+                            <span>🌐 Chọn Loại Mạng Xã Hội Kết Nối *</span>
+                            <span id="mktMetaPlatformCount" style="font-size:11px;font-weight:normal;color:#64748b;">(Tài khoản từ Cài Đặt Ads)</span>
+                        </label>
+                        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+                            <button type="button" class="mkt-platform-btn active" data-platform="all" onclick="_mktFilterAdsPlatform('all', this)" style="padding:6px 14px;border-radius:20px;border:1px solid #cbd5e1;background:#eff6ff;color:#1d4ed8;font-size:12.5px;font-weight:700;cursor:pointer;transition:all 0.2s;">
+                                📋 Tất Cả
+                            </button>
+                            <button type="button" class="mkt-platform-btn" data-platform="facebook" onclick="_mktFilterAdsPlatform('facebook', this)" style="padding:6px 14px;border-radius:20px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;font-size:12.5px;font-weight:700;cursor:pointer;transition:all 0.2s;">
+                                📘 Facebook Ads
+                            </button>
+                            <button type="button" class="mkt-platform-btn" data-platform="tiktok" onclick="_mktFilterAdsPlatform('tiktok', this)" style="padding:6px 14px;border-radius:20px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;font-size:12.5px;font-weight:700;cursor:pointer;transition:all 0.2s;">
+                                🎵 TikTok Ads
+                            </button>
+                            <button type="button" class="mkt-platform-btn" data-platform="google" onclick="_mktFilterAdsPlatform('google', this)" style="padding:6px 14px;border-radius:20px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;font-size:12.5px;font-weight:700;cursor:pointer;transition:all 0.2s;">
+                                🌐 Google Ads
+                            </button>
+                        </div>
                     </div>
+
+                    <!-- FIELD 3: MULTI-SELECT CHECKBOXES OF CONFIGURED ADS ACCOUNTS FROM CAIDATTAIKHOANADS -->
                     <div class="mkt-fg">
-                        <label>Mã Tài Khoản Quảng Cáo Meta (Ad Account ID) *</label>
-                        <input type="text" id="mktMetaAdAccountId" class="mkt-input" required placeholder="Vd: act_721397883965307">
-                        <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Nhập ID tài khoản quảng cáo Meta (bắt đầu bằng act_).</span>
+                        <label style="font-weight:800;color:#047857;font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+                            <span>✅ Tích Chọn Các Tài Khoản Quảng Cáo Sử Dụng Cho Fanpage Này:</span>
+                            <span id="mktSelectedAccCount" style="font-size:11.5px;color:#059669;font-weight:bold;">Đã chọn 0 tài khoản</span>
+                        </label>
+                        <div id="mktAdsAccountsListContainer" style="max-height:220px;overflow-y:auto;background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:10px;padding:10px;margin-top:6px;display:flex;flex-direction:column;gap:8px;">
+                            <!-- Populated dynamically with checkboxes -->
+                            <div style="text-align:center;color:#64748b;font-size:12.5px;padding:12px;">Đang tải danh sách tài khoản QC...</div>
+                        </div>
+                        <div style="font-size:11px;color:#475569;margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
+                            <span>💡 Bạn có thể chọn 1 hoặc nhiều tài khoản cho 1 Fanpage. Hệ thống sẽ tự động cộng dồn chỉ số từ các tài khoản này.</span>
+                            <a href="/caidattaikhoanads" target="_blank" style="color:#0284c7;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px;">
+                                ⚙️ Quản lý Ads Accounts ↗
+                            </a>
+                        </div>
                     </div>
-                    <div class="mkt-fg">
-                        <label>Link Trực Tiếp Tài Khoản Quảng Cáo Meta *</label>
-                        <input type="url" id="mktMetaAdAccountLink" class="mkt-input" required placeholder="Vd: https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=721397883965307">
-                        <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Dán đường link truy cập trực tiếp Trình quản lý quảng cáo Meta.</span>
-                    </div>
-                    <div class="mkt-fg">
-                        <label>Tên Tài Khoản FB Developer</label>
-                        <input type="text" id="mktMetaDevAccountName" class="mkt-input" placeholder="Vd: Nguyễn Văn A (FB Developer)">
-                    </div>
-                    <div class="mkt-fg">
-                        <label>Link Facebook Tài Khoản</label>
-                        <input type="url" id="mktMetaDevAccountLink" class="mkt-input" placeholder="Vd: https://facebook.com/profile.php?id=...">
-                        <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Dán đường link Facebook cá nhân của tài khoản Developer.</span>
-                    </div>
-                    <div class="mkt-fg">
-                        <label>Link Meta Developer</label>
-                        <input type="url" id="mktMetaDevPortalLink" class="mkt-input" placeholder="Vd: https://developers.facebook.com/apps/...">
-                        <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Dán đường link truy cập ứng dụng / trang Meta Developer.</span>
-                    </div>
-                    <div class="mkt-fg">
-                        <label>Access Token Meta (Trình khám phá API Đồ thị) *</label>
-                        <textarea id="mktMetaAccessToken" class="mkt-input" rows="3" required placeholder="Dán mã EAAV3... tại đây"></textarea>
-                        <span style="font-size:11px;color:#64748b;margin-top:2px;display:block;">Mã truy cập tạo từ Meta Developer Explorer kèm các quyền: ads_read, read_insights, pages_show_list.</span>
-                    </div>
+
                     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
                         <button type="button" class="mkt-btn mkt-btn-secondary" onclick="_mktCloseMetaConfigModal()">Hủy</button>
-                        <button type="submit" class="mkt-btn mkt-btn-primary" style="background:linear-gradient(135deg, #10b981, #059669);">💾 Lưu Cấu Hình Meta</button>
+                        <button type="submit" class="mkt-btn mkt-btn-primary" style="background:linear-gradient(135deg, #10b981, #059669);font-weight:800;">
+                            💾 Lưu Liên Kết Tài Khoản Ads
+                        </button>
                     </div>
                 </form>
             </div>
@@ -702,6 +713,7 @@ function _mktRenderSidebar() {
                                         <div style="display:flex;flex-direction:column;min-width:0;flex:1;">
                                             <span style="display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cCat.icon || '📄'} ${cCat.name}</span>
                                             ${cCat.linked_source_name ? (cCat.channel_link ? `<a href="${cCat.channel_link}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="font-size:9.5px;color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;text-decoration:none;" title="Mở link kênh trong tab mới">🔗 ${cCat.linked_source_name} ↗</a>` : `<span style="font-size:9.5px;color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;">🔗 ${cCat.linked_source_name}</span>`) : ''}
+                                            ${cCat.linked_accounts && cCat.linked_accounts.length > 0 ? `<span style="font-size:9px;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;padding:1px 5px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;" title="Tài khoản QC Ads liên kết: ${cCat.linked_accounts.map(a => a.account_name).join(', ')}">💳 ${cCat.linked_accounts.map(a => a.account_name).join(' | ')}</span>` : (cCat.fb_ad_account_name ? `<span style="font-size:9px;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;padding:1px 5px;border-radius:4px;font-weight:700;margin-top:2px;width:fit-content;">💳 ${cCat.fb_ad_account_name}</span>` : '')}
                                             ${cCat.ads_handler_name ? `<span onclick="event.stopPropagation();_mktOpenResourceModal('${cCat.ads_handler_name.replace(/'/g, "\\'")}')" style="font-size:9px;color:#7c3aed;font-weight:700;cursor:pointer;background:#f3e8ff;padding:1px 6px;border-radius:4px;border:1px solid #d8b4fe;display:inline-flex;align-items:center;gap:3px;margin-top:2px;width:fit-content;" title="Click để xem Nguyên Liệu Tài Khoản của ${cCat.ads_handler_name}">👤 ${cCat.ads_handler_name} 📝</span>` : ''}
                                         </div>
                                         ${isDirector ? `
@@ -2324,7 +2336,13 @@ window._mktCloseCostModal = function(e) {
 };
 function _mktCloseCostModal(e) { return window._mktCloseCostModal(e); }
 
-function _mktOpenMetaConfigModal() {
+let _mktAdsConfigState = {
+    allAccounts: [],
+    linkedAccountIds: [],
+    selectedPlatform: 'all'
+};
+
+async function _mktOpenMetaConfigModal() {
     if (!_mktIsGiamDoc()) {
         showToast('⚠️ Bạn không có quyền truy cập! Chỉ Giám Đốc mới được cấu hình.', 'error');
         return;
@@ -2334,22 +2352,31 @@ function _mktOpenMetaConfigModal() {
     const catSelect = document.getElementById('mktMetaCatSelect');
     if (!modal) return;
 
+    try {
+        const accRes = await apiCall('/api/marketing-categories/all-ads-accounts');
+        if (accRes && accRes.success) {
+            _mktAdsConfigState.allAccounts = accRes.accounts || [];
+        }
+    } catch(e) {
+        console.error('Lỗi khi tải danh sách tài khoản Ads:', e);
+    }
+
     const targetCats = _mktNavState.categories.filter(c => {
         if (c.pancake_page_id) return true;
         if (c.parent_id) {
             const p = _mktNavState.categories.find(parent => Number(parent.id) === Number(c.parent_id));
             if (p) {
                 const pName = (p.name || '').toLowerCase();
-                return pName.includes('facebook') || pName.includes('tiktok');
+                return pName.includes('facebook') || pName.includes('tiktok') || pName.includes('google');
             }
             return true;
         }
         const nameLower = (c.name || '').toLowerCase();
-        return nameLower.includes('facebook') || nameLower.includes('tiktok');
+        return nameLower.includes('facebook') || nameLower.includes('tiktok') || nameLower.includes('google');
     });
 
     if (targetCats.length === 0) {
-        catSelect.innerHTML = '<option value="">-- Chưa có Fanpage / Kênh Facebook Ads / Tiktok Ads nào --</option>';
+        catSelect.innerHTML = '<option value="">-- Chưa có Fanpage / Kênh Quảng Cáo nào --</option>';
     } else {
         catSelect.innerHTML = targetCats.map(c => `
             <option value="${c.id}">${c.parent_id ? '  └── 📄 ' : '📂 '}${c.name}</option>
@@ -2361,7 +2388,8 @@ function _mktOpenMetaConfigModal() {
     } else if (targetCats.length > 0) {
         catSelect.value = targetCats[0].id;
     }
-    _mktOnMetaCatChange(catSelect.value);
+
+    await _mktOnMetaCatChange(catSelect.value);
 
     modal.style.setProperty('display', 'flex', 'important');
 }
@@ -2375,24 +2403,144 @@ window._mktCloseMetaConfigModal = function(e) {
 };
 function _mktCloseMetaConfigModal(e) { return window._mktCloseMetaConfigModal(e); }
 
-function _mktOnMetaCatChange(catId) {
-    const nameInput = document.getElementById('mktMetaAdAccountName');
-    const accInput = document.getElementById('mktMetaAdAccountId');
-    const linkInput = document.getElementById('mktMetaAdAccountLink');
-    const devNameInput = document.getElementById('mktMetaDevAccountName');
-    const devLinkInput = document.getElementById('mktMetaDevAccountLink');
-    const devPortalInput = document.getElementById('mktMetaDevPortalLink');
-    const tokenInput = document.getElementById('mktMetaAccessToken');
+async function _mktOnMetaCatChange(catId) {
+    if (!catId) return;
+    try {
+        const res = await apiCall(`/api/marketing-categories/${catId}/linked-accounts`);
+        if (res && res.success) {
+            _mktAdsConfigState.linkedAccountIds = (res.accountIds || []).map(Number);
+        } else {
+            _mktAdsConfigState.linkedAccountIds = [];
+        }
+    } catch(e) {
+        console.error('Lỗi khi lấy tài khoản Ads liên kết:', e);
+        _mktAdsConfigState.linkedAccountIds = [];
+    }
 
-    const cat = _mktNavState.categories.find(c => Number(c.id) === Number(catId));
-    if (cat) {
-        if (nameInput) nameInput.value = cat.fb_ad_account_name || '';
-        if (accInput) accInput.value = cat.fb_ad_account_id || '';
-        if (linkInput) linkInput.value = cat.fb_ad_account_link || '';
-        if (devNameInput) devNameInput.value = cat.fb_dev_account_name || '';
-        if (devLinkInput) devLinkInput.value = cat.fb_dev_account_link || '';
-        if (devPortalInput) devPortalInput.value = cat.fb_dev_portal_link || '';
-        if (tokenInput) tokenInput.value = cat.fb_access_token || '';
+    _mktRenderAdsAccountsList();
+}
+
+function _mktFilterAdsPlatform(platform, btnEl) {
+    _mktAdsConfigState.selectedPlatform = platform;
+    const buttons = document.querySelectorAll('.mkt-platform-btn');
+    buttons.forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.background = '#f8fafc';
+        btn.style.color = '#334155';
+        btn.style.borderColor = '#cbd5e1';
+    });
+
+    if (btnEl) {
+        btnEl.classList.add('active');
+        btnEl.style.background = '#eff6ff';
+        btnEl.style.color = '#1d4ed8';
+        btnEl.style.borderColor = '#93c5fd';
+    }
+
+    _mktRenderAdsAccountsList();
+}
+
+function _mktRenderAdsAccountsList() {
+    const container = document.getElementById('mktAdsAccountsListContainer');
+    const selectedCountEl = document.getElementById('mktSelectedAccCount');
+    const currentCatSelect = document.getElementById('mktMetaCatSelect');
+    const currentCatId = currentCatSelect ? Number(currentCatSelect.value) : null;
+    if (!container) return;
+
+    let filtered = _mktAdsConfigState.allAccounts || [];
+    if (_mktAdsConfigState.selectedPlatform !== 'all') {
+        filtered = filtered.filter(a => (a.platform || 'facebook').toLowerCase() === _mktAdsConfigState.selectedPlatform);
+    }
+
+    if (filtered.length === 0) {
+        const platformName = _mktAdsConfigState.selectedPlatform === 'all' ? 'bất kỳ' : _mktAdsConfigState.selectedPlatform.toUpperCase();
+        container.innerHTML = `
+            <div style="text-align:center;color:#64748b;font-size:12.5px;padding:16px;background:white;border-radius:8px;border:1px dashed #cbd5e1;">
+                ⚠️ Chưa có tài khoản quảng cáo <strong>${platformName}</strong> nào được thêm trong <a href="/caidattaikhoanads" target="_blank" style="color:#0284c7;font-weight:700;">Cài Đặt Ads</a>.
+            </div>
+        `;
+        if (selectedCountEl) selectedCountEl.textContent = `Đã chọn 0 tài khoản`;
+        return;
+    }
+
+    let checkedCount = 0;
+
+    container.innerHTML = filtered.map(acc => {
+        const isChecked = _mktAdsConfigState.linkedAccountIds.includes(Number(acc.id));
+        if (isChecked) checkedCount++;
+
+        const isLinkedToOther = acc.linked_category_id && Number(acc.linked_category_id) !== currentCatId;
+        const platformBadge = (acc.platform || 'facebook').toLowerCase() === 'facebook' ? '📘 FB' : ((acc.platform || '').toLowerCase() === 'tiktok' ? '🎵 TikTok' : '🌐 Google');
+        const connBadge = acc.connection_status === 'connected' ? '<span style="color:#059669;font-weight:700;font-size:11px;">🟢 Đang kết nối</span>' : '<span style="color:#64748b;font-size:11px;">⚪ Chưa kiểm tra</span>';
+
+        if (isLinkedToOther) {
+            return `
+                <label style="display:flex;align-items:center;justify-content:space-between;background:#f8fafc;padding:10px 12px;border-radius:8px;border:1.5px dashed #cbd5e1;opacity:0.75;cursor:not-allowed;" title="Tài khoản này đã được liên kết với kênh: ${acc.linked_category_name}">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <input type="checkbox" value="${acc.id}" disabled style="width:17px;height:17px;cursor:not-allowed;">
+                        <div>
+                            <div style="font-weight:800;color:#64748b;font-size:13px;display:flex;align-items:center;gap:6px;">
+                                <span style="text-decoration:line-through;">${acc.account_name}</span>
+                                <span style="font-size:10px;background:#e2e8f0;color:#475569;padding:1px 6px;border-radius:10px;font-weight:700;">${platformBadge}</span>
+                            </div>
+                            <div style="font-size:11.5px;color:#94a3b8;margin-top:2px;">
+                                ID: <strong style="font-family:monospace;color:#64748b;">${acc.fb_ad_account_id || '—'}</strong> | 👤 Phụ trách: <strong>${acc.assigned_staff_name || 'Chưa gán'}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="font-size:11px;color:#dc2626;background:#fef2f2;border:1px solid #fca5a5;padding:2px 8px;border-radius:6px;font-weight:700;display:inline-flex;align-items:center;gap:3px;">
+                            🔒 Đã gắn với: ${acc.linked_category_name || 'Kênh khác'}
+                        </span>
+                    </div>
+                </label>
+            `;
+        }
+
+        return `
+            <label style="display:flex;align-items:center;justify-content:space-between;background:white;padding:10px 12px;border-radius:8px;border:1.5px solid ${isChecked ? '#10b981' : '#e2e8f0'};cursor:pointer;transition:all 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" value="${acc.id}" ${isChecked ? 'checked' : ''} onchange="_mktOnAdsAccountCheckChange(this)" style="width:17px;height:17px;accent-color:#10b981;cursor:pointer;">
+                    <div>
+                        <div style="font-weight:800;color:#0f172a;font-size:13px;display:flex;align-items:center;gap:6px;">
+                            <span>${acc.account_name}</span>
+                            <span style="font-size:10px;background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:10px;font-weight:700;">${platformBadge}</span>
+                        </div>
+                        <div style="font-size:11.5px;color:#64748b;margin-top:2px;">
+                            ID: <strong style="font-family:monospace;color:#334155;">${acc.fb_ad_account_id || '—'}</strong> | 👤 Phụ trách: <strong>${acc.assigned_staff_name || 'Chưa gán'}</strong>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    ${connBadge}
+                </div>
+            </label>
+        `;
+    }).join('');
+
+    if (selectedCountEl) {
+        selectedCountEl.textContent = `Đã chọn ${checkedCount} tài khoản`;
+    }
+}
+
+function _mktOnAdsAccountCheckChange(checkboxEl) {
+    const accId = Number(checkboxEl.value);
+    if (checkboxEl.checked) {
+        if (!_mktAdsConfigState.linkedAccountIds.includes(accId)) {
+            _mktAdsConfigState.linkedAccountIds.push(accId);
+        }
+    } else {
+        _mktAdsConfigState.linkedAccountIds = _mktAdsConfigState.linkedAccountIds.filter(id => id !== accId);
+    }
+
+    const selectedCountEl = document.getElementById('mktSelectedAccCount');
+    if (selectedCountEl) {
+        selectedCountEl.textContent = `Đã chọn ${_mktAdsConfigState.linkedAccountIds.length} tài khoản`;
+    }
+
+    const label = checkboxEl.closest('label');
+    if (label) {
+        label.style.borderColor = checkboxEl.checked ? '#10b981' : '#e2e8f0';
     }
 }
 
@@ -2405,42 +2553,25 @@ async function _mktSaveMetaConfig(e) {
 
     const catId = document.getElementById('mktMetaCatSelect').value;
     if (!catId) {
-        showToast('⚠️ Vui lòng chọn Kênh / Page!', 'error');
-        return;
-    }
-
-    const fb_ad_account_name = document.getElementById('mktMetaAdAccountName').value;
-    const fb_ad_account_id = document.getElementById('mktMetaAdAccountId').value;
-    const fb_ad_account_link = document.getElementById('mktMetaAdAccountLink').value;
-    const fb_dev_account_name = document.getElementById('mktMetaDevAccountName')?.value || '';
-    const fb_dev_account_link = document.getElementById('mktMetaDevAccountLink')?.value || '';
-    const fb_dev_portal_link = document.getElementById('mktMetaDevPortalLink')?.value || '';
-    const fb_access_token = document.getElementById('mktMetaAccessToken').value;
-
-    if (!fb_ad_account_name || !fb_ad_account_id || !fb_ad_account_link || !fb_access_token) {
-        showToast('⚠️ Vui lòng điền đầy đủ các thông tin bắt buộc!', 'error');
+        showToast('⚠️ Vui lòng chọn Kênh / Fanpage!', 'error');
         return;
     }
 
     try {
-        const res = await apiCall(`/api/marketing-categories/${catId}/meta-config`, 'POST', {
-            fb_ad_account_name,
-            fb_ad_account_id,
-            fb_ad_account_link,
-            fb_dev_account_name,
-            fb_dev_account_link,
-            fb_dev_portal_link,
-            fb_access_token
+        const res = await apiCall(`/api/marketing-categories/${catId}/link-ads-accounts`, 'POST', {
+            account_ids: _mktAdsConfigState.linkedAccountIds
         });
 
-        if (res.success) {
-            showToast('✅ Đã lưu đầy đủ cấu hình Meta API!', 'success');
+        if (res && res.success) {
+            showToast(`✅ ${res.message}`, 'success');
             _mktCloseMetaConfigModal();
             const catRes = await apiCall('/api/marketing-categories');
-            if (catRes.success) {
+            if (catRes && catRes.success) {
                 _mktNavState.categories = catRes.data || [];
             }
             _mktLoadBudgets();
+        } else {
+            showToast('❌ ' + (res?.error || 'Lỗi lưu liên kết tài khoản Ads'), 'error');
         }
     } catch(err) {
         showToast('❌ Lỗi: ' + err.message, 'error');

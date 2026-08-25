@@ -340,18 +340,28 @@ module.exports = async function(fastify) {
     function extractImageUrls(obj) {
         const urls = [];
         if (!obj) return urls;
-        Object.values(obj).forEach(v => {
-            if (typeof v === 'string' && v.startsWith('/uploads/tlxvp/')) {
-                urls.push(v);
+
+        function processVal(v) {
+            if (!v) return;
+            if (typeof v === 'string') {
+                const str = v.trim();
+                if (str.startsWith('/uploads/tlxvp/')) {
+                    urls.push(str);
+                } else if (str.startsWith('[') || str.startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(str);
+                        processVal(parsed);
+                    } catch(e) {}
+                }
             } else if (Array.isArray(v)) {
-                v.forEach(item => { if (typeof item === 'string' && item.startsWith('/uploads/tlxvp/')) urls.push(item); });
-            } else if (typeof v === 'string' && v.startsWith('[')) {
-                try {
-                    const arr = JSON.parse(v);
-                    if (Array.isArray(arr)) arr.forEach(item => { if (typeof item === 'string' && item.startsWith('/uploads/tlxvp/')) urls.push(item); });
-                } catch(e) {}
+                v.forEach(processVal);
+            } else if (typeof v === 'object' && v !== null) {
+                if (v.url && typeof v.url === 'string' && v.url.startsWith('/uploads/tlxvp/')) urls.push(v.url);
+                if (v.raw_url && typeof v.raw_url === 'string' && v.raw_url.startsWith('/uploads/tlxvp/')) urls.push(v.raw_url);
             }
-        });
+        }
+
+        Object.values(obj).forEach(processVal);
         return urls;
     }
 

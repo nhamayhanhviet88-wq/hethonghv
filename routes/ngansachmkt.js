@@ -138,6 +138,16 @@ async function nganSachMktRoutes(fastify, options) {
             )
         `);
 
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS mkt_category_ads_accounts (
+                id SERIAL PRIMARY KEY,
+                category_id INT NOT NULL REFERENCES mkt_categories(id) ON DELETE CASCADE,
+                account_id INT NOT NULL REFERENCES ads_stats_accounts(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(category_id, account_id)
+            )
+        `);
+
         // Seed default categories if table is empty
         const countRow = await db.get('SELECT COUNT(*) as cnt FROM mkt_categories');
         if (Number(countRow?.cnt || 0) === 0) {
@@ -417,7 +427,114 @@ async function nganSachMktRoutes(fastify, options) {
         }
     });
 
-    // POST /api/marketing-categories/:id/meta-config (Lưu cấu hình Ad Acc ID, Ad Acc Name, Link, Token Meta)
+    // GET /api/marketing-categories/all-ads-accounts (Lấy danh sách tất cả tài khoản QC từ trang Cài Đặt Ads kèm Kênh đã liên kết)
+    fastify.get('/api/marketing-categories/all-ads-accounts', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const rows = await db.all(`
+                SELECT a.id, a.platform, a.account_name, a.fb_ad_account_id, a.fb_ad_account_link, a.assigned_staff_name, a.connection_status, a.is_active,
+                       ca.category_id as linked_category_id, c.name as linked_category_name
+                FROM ads_stats_accounts a
+                LEFT JOIN mkt_category_ads_accounts ca ON a.id = ca.account_id
+                LEFT JOIN mkt_categories c ON ca.category_id = c.id
+                WHERE a.is_active = TRUE
+                ORDER BY a.platform ASC, a.account_name ASC
+            `);
+            return { success: true, accounts: rows };
+        } catch(err) {
+            console.error('Error fetching all ads accounts:', err);
+            return reply.code(500).send({ error: 'Lỗi khi lấy danh sách tài khoản Ads' });
+        }
+    });
+
+    // GET /api/marketing-categories/:id/linked-accounts (Lấy danh sách ID tài khoản Ads được liên kết với Category)
+    fastify.get('/api/marketing-categories/:id/linked-accounts', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            const catId = Number(request.params.id);
+            const linkedRows = await db.all(`
+                SELECT a.id, a.account_name, a.fb_ad_account_id, a.platform, a.assigned_staff_name, a.connection_status, a.is_active, a.fb_ad_account_link
+                FROM mkt_category_ads_accounts ca
+                JOIN ads_stats_accounts a ON ca.account_id = a.id
+                WHERE ca.category_id = ?
+                ORDER BY a.id ASC
+            `, [catId]);
+
+            const accountIds = linkedRows.map(r => Number(r.id));
+            return { success: true, accountIds, accounts: linkedRows };
+        } catch(err) {
+            console.error('Error fetching linked ads accounts for category:', err);
+            return reply.code(500).send({ error: 'Lỗi khi lấy tài khoản Ads liên kết' });
+        }
+    });
+
+    // POST /api/marketing-categories/:id/link-ads-accounts (Lưu liên kết danh sách tài khoản Ads với Category, 1 tài khoản chỉ được gán 1 kênh)
+    fastify.post('/api/marketing-categories/:id/link-ads-accounts', { preHandler: [authenticate] }, async (request, reply) => {
+        try {
+            if (!isGiamDoc(request.user)) {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền liên kết Tài Khoản Ads!' });
+            }
+
+            const catId = Number(request.params.id);
+            const { account_ids } = request.body || {};
+            const ids = Array.isArray(account_ids) ? account_ids.map(Number).filter(n => !isNaN(n) && n > 0) : [];
+
+            // Clear previous links for this category
+            await db.run('DELETE FROM mkt_category_ads_accounts WHERE category_id = ?', [catId]);
+
+            // Insert new links (Ensure 1 account belongs to ONLY 1 channel by clearing any previous links of that account)
+            for (const accId of ids) {
+                await db.run('DELETE FROM mkt_category_ads_accounts WHERE account_id = ?', [accId]);
+                await db.run('INSERT INTO mkt_category_ads_accounts (category_id, account_id) VALUES (?, ?) ON CONFLICT DO NOTHING', [catId, accId]);
+            }
+
+            // Sync legacy fields on mkt_categories for backward compatibility
+            if (ids.length > 0) {
+                const linkedAccs = await db.all(`
+                    SELECT a.*
+                    FROM mkt_category_ads_accounts ca
+                    JOIN ads_stats_accounts a ON ca.account_id = a.id
+                    WHERE ca.category_id = ?
+                    ORDER BY a.id ASC
+                `, [catId]);
+
+                if (linkedAccs.length > 0) {
+                    const firstAcc = linkedAccs[0];
+                    const namesStr = linkedAccs.map(a => a.account_name).join(', ');
+                    const idsStr = linkedAccs.map(a => a.fb_ad_account_id).filter(Boolean).join(', ');
+
+                    await db.run(`
+                        UPDATE mkt_categories SET
+                            fb_ad_account_id = ?,
+                            fb_access_token = ?,
+                            fb_ad_account_name = ?,
+                            fb_ad_account_link = ?
+                        WHERE id = ?
+                    `, [
+                        idsStr || firstAcc.fb_ad_account_id,
+                        firstAcc.fb_access_token,
+                        namesStr || firstAcc.account_name,
+                        firstAcc.fb_ad_account_link,
+                        catId
+                    ]);
+                }
+            } else {
+                await db.run(`
+                    UPDATE mkt_categories SET
+                        fb_ad_account_id = NULL,
+                        fb_access_token = NULL,
+                        fb_ad_account_name = NULL,
+                        fb_ad_account_link = NULL
+                    WHERE id = ?
+                `, [catId]);
+            }
+
+            return { success: true, message: `Đã liên kết thành công ${ids.length} Tài Khoản Quảng Cáo với Kênh / Fanpage!` };
+        } catch(err) {
+            console.error('Error linking ads accounts to category:', err);
+            return reply.code(500).send({ error: 'Lỗi khi lưu liên kết Tài Khoản Ads' });
+        }
+    });
+
+    // POST /api/marketing-categories/:id/meta-config (Lưu cấu hình legacy)
     fastify.post('/api/marketing-categories/:id/meta-config', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             if (!isGiamDoc(request.user)) {
@@ -461,26 +578,6 @@ async function nganSachMktRoutes(fastify, options) {
                 id
             ]);
 
-            // Also update existing marketing_budgets for this category to inherit ad account & developer info
-            await db.run(`
-                UPDATE marketing_budgets SET
-                    fb_ad_account_id = ?,
-                    fb_ad_account_name = ?,
-                    fb_ad_account_link = ?,
-                    fb_dev_account_name = ?,
-                    fb_dev_account_link = ?,
-                    fb_dev_portal_link = ?
-                WHERE category_id = ?
-            `, [
-                cleanAdAccId,
-                fb_ad_account_name.trim(),
-                fb_ad_account_link.trim(),
-                devNameVal,
-                devLinkVal,
-                devPortalLinkVal,
-                id
-            ]);
-
             return { success: true, message: 'Đã lưu cấu hình Facebook Ads API cho kênh này!' };
         } catch(err) {
             console.error('Error updating Meta config for category:', err);
@@ -488,7 +585,7 @@ async function nganSachMktRoutes(fastify, options) {
         }
     });
 
-    // POST /api/marketing-budgets/sync-facebook-insights
+    // POST /api/marketing-budgets/sync-facebook-insights (Rút dữ liệu Meta Ads tự động cộng dồn từ tất cả tài khoản QC đã liên kết)
     fastify.post('/api/marketing-budgets/sync-facebook-insights', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             if (!isGiamDoc(request.user)) {
@@ -503,18 +600,24 @@ async function nganSachMktRoutes(fastify, options) {
             const lastDay = new Date(targetYear, targetMonth, 0).getDate();
             const untilDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-            let sql = "SELECT * FROM mkt_categories WHERE is_active = TRUE AND fb_ad_account_id IS NOT NULL AND fb_access_token IS NOT NULL";
+            let sql = `
+                SELECT DISTINCT c.*
+                FROM mkt_categories c
+                LEFT JOIN mkt_category_ads_accounts ca ON c.id = ca.category_id
+                WHERE c.is_active = TRUE
+                  AND (ca.id IS NOT NULL OR (c.fb_ad_account_id IS NOT NULL AND c.fb_access_token IS NOT NULL))
+            `;
             const params = [];
 
             if (category_id && category_id !== 'all') {
                 params.push(Number(category_id));
-                sql += " AND id = ?";
+                sql += " AND c.id = ?";
             }
 
             const targetCats = await db.all(sql, params);
 
             if (!targetCats || targetCats.length === 0) {
-                return reply.code(400).send({ error: 'Chưa có kênh nào được cấu hình ID Tài Khoản Ads (act_...) và Access Token Meta! Vui lòng bấm "⚙️ Cấu Hình Token Ads" để cài đặt.' });
+                return reply.code(400).send({ error: 'Chưa có kênh nào được liên kết với Tài Khoản Ads! Vui lòng bấm "⚙️ Cấu Hình Token Ads" để chọn tài khoản quảng cáo.' });
             }
 
             for (const cat of targetCats) {
@@ -528,73 +631,119 @@ async function nganSachMktRoutes(fastify, options) {
 
             for (const cat of targetCats) {
                 try {
-                    const adAccId = cat.fb_ad_account_id;
-                    const token = cat.fb_access_token;
-                    const adAccName = cat.fb_ad_account_name || null;
-                    const adAccLink = cat.fb_ad_account_link || null;
+                    let linkedAccs = await db.all(`
+                        SELECT a.*
+                        FROM mkt_category_ads_accounts ca
+                        JOIN ads_stats_accounts a ON ca.account_id = a.id
+                        WHERE ca.category_id = ? AND a.is_active = TRUE
+                    `, [cat.id]);
 
-                    const fbUrl = `https://graph.facebook.com/v20.0/${adAccId}/insights?fields=spend,actions&time_range=${encodeURIComponent(JSON.stringify({ since: sinceDate, until: untilDate }))}&time_increment=1&limit=100&access_token=${encodeURIComponent(token)}`;
+                    if ((!linkedAccs || linkedAccs.length === 0) && cat.fb_ad_account_id && cat.fb_access_token) {
+                        linkedAccs = [{
+                            id: 0,
+                            account_name: cat.fb_ad_account_name || 'Legacy Account',
+                            fb_ad_account_id: cat.fb_ad_account_id,
+                            fb_access_token: cat.fb_access_token,
+                            fb_ad_account_link: cat.fb_ad_account_link
+                        }];
+                    }
 
-                    const resp = await fetch(fbUrl);
-                    const json = await resp.json();
-
-                    if (json.error) {
-                        console.error(`Meta API Error for cat ${cat.name}:`, json.error.message);
-                        lastErrorMessage = json.error.message;
-                        results.push({ category: cat.name, success: false, error: json.error.message });
+                    if (!linkedAccs || linkedAccs.length === 0) {
+                        results.push({ category: cat.name, success: false, error: 'Chưa liên kết tài khoản quảng cáo nào' });
                         continue;
                     }
 
-                    let dataArr = json.data || [];
+                    const dailyMap = {};
+                    const combinedAccNames = linkedAccs.map(a => a.account_name).join(', ');
+                    const firstAdAccId = linkedAccs[0].fb_ad_account_id;
+                    const firstAdAccLink = linkedAccs[0].fb_ad_account_link;
 
-                    const now = new Date();
-                    const currDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-                    const yesterday = new Date(now.getTime() - 86400000);
-                    const yestDateStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+                    let catErrors = [];
 
-                    const datesToCheck = [yestDateStr, currDateStr];
-                    for (const dt of datesToCheck) {
-                        if (dt.startsWith(`${targetYear}-${String(targetMonth).padStart(2, '0')}`)) {
-                            const hasDt = dataArr.some(d => d.date_start === dt);
-                            if (!hasDt) {
-                                try {
-                                    const singleUrl = `https://graph.facebook.com/v20.0/${adAccId}/insights?fields=spend,actions&time_range=${encodeURIComponent(JSON.stringify({ since: dt, until: dt }))}&access_token=${encodeURIComponent(token)}`;
-                                    const singleResp = await fetch(singleUrl);
-                                    const singleJson = await singleResp.json();
-                                    if (singleJson.data && singleJson.data.length > 0) {
-                                        dataArr.push(singleJson.data[0]);
+                    for (const acc of linkedAccs) {
+                        const adAccId = acc.fb_ad_account_id ? (acc.fb_ad_account_id.startsWith('act_') ? acc.fb_ad_account_id : 'act_' + acc.fb_ad_account_id) : '';
+                        const token = acc.fb_access_token;
+                        if (!adAccId || !token) continue;
+
+                        try {
+                            const fbUrl = `https://graph.facebook.com/v20.0/${adAccId}/insights?fields=spend,actions&time_range=${encodeURIComponent(JSON.stringify({ since: sinceDate, until: untilDate }))}&time_increment=1&limit=100&access_token=${encodeURIComponent(token)}`;
+                            const resp = await fetch(fbUrl);
+                            const json = await resp.json();
+
+                            if (json.error) {
+                                console.error(`Meta API Error for acc ${acc.account_name} (${cat.name}):`, json.error.message);
+                                catErrors.push(`${acc.account_name}: ${json.error.message}`);
+                                continue;
+                            }
+
+                            let dataArr = json.data || [];
+
+                            const now = new Date();
+                            const currDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                            const yesterday = new Date(now.getTime() - 86400000);
+                            const yestDateStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+                            const datesToCheck = [yestDateStr, currDateStr];
+                            for (const dt of datesToCheck) {
+                                if (dt.startsWith(`${targetYear}-${String(targetMonth).padStart(2, '0')}`)) {
+                                    const hasDt = dataArr.some(d => d.date_start === dt);
+                                    if (!hasDt) {
+                                        try {
+                                            const singleUrl = `https://graph.facebook.com/v20.0/${adAccId}/insights?fields=spend,actions&time_range=${encodeURIComponent(JSON.stringify({ since: dt, until: dt }))}&access_token=${encodeURIComponent(token)}`;
+                                            const singleResp = await fetch(singleUrl);
+                                            const singleJson = await singleResp.json();
+                                            if (singleJson.data && singleJson.data.length > 0) {
+                                                dataArr.push(singleJson.data[0]);
+                                            }
+                                        } catch(e) {
+                                            console.error(`Error fetching single date ${dt}:`, e.message);
+                                        }
                                     }
-                                } catch(e) {
-                                    console.error(`Error fetching single date ${dt}:`, e.message);
                                 }
                             }
+
+                            for (const dayObj of dataArr) {
+                                const dayDate = dayObj.date_start;
+                                const daySpent = Number(dayObj.spend || 0);
+                                let dayMsgs = 0;
+
+                                if (Array.isArray(dayObj.actions)) {
+                                    const msgStartedAct = dayObj.actions.find(a => 
+                                        a.action_type === 'onsite_conversion.messaging_conversation_started_7d' || 
+                                        a.action_type === 'messaging_conversation_started_7d' ||
+                                        a.action_type === 'messaging_conversation_started'
+                                    );
+
+                                    if (msgStartedAct) {
+                                        dayMsgs = Number(msgStartedAct.value || 0);
+                                    } else {
+                                        const totalConnAct = dayObj.actions.find(a => a.action_type === 'onsite_conversion.total_messaging_connection');
+                                        const leadAct = dayObj.actions.find(a => a.action_type === 'lead');
+                                        if (totalConnAct) dayMsgs = Number(totalConnAct.value || 0);
+                                        else if (leadAct) dayMsgs = Number(leadAct.value || 0);
+                                    }
+                                }
+
+                                if (!dailyMap[dayDate]) {
+                                    dailyMap[dayDate] = { spend: 0, msgs: 0 };
+                                }
+                                dailyMap[dayDate].spend += daySpent;
+                                dailyMap[dayDate].msgs += dayMsgs;
+                            }
+                        } catch(accErr) {
+                            console.error(`Error fetching account ${acc.account_name}:`, accErr.message);
+                            catErrors.push(`${acc.account_name}: ${accErr.message}`);
                         }
                     }
 
+                    const syncedDates = Object.keys(dailyMap).sort();
                     let catTotalSpent = 0;
                     let catTotalMsgs = 0;
 
-                    for (const dayObj of dataArr) {
-                        const dayDate = dayObj.date_start;
-                        const daySpent = Number(dayObj.spend || 0);
-                        let dayMsgs = 0;
-
-                        if (Array.isArray(dayObj.actions)) {
-                            const msgStartedAct = dayObj.actions.find(a => 
-                                a.action_type === 'onsite_conversion.messaging_conversation_started_7d' || 
-                                a.action_type === 'messaging_conversation_started_7d' ||
-                                a.action_type === 'messaging_conversation_started'
-                            );
-
-                            if (msgStartedAct) {
-                                dayMsgs = Number(msgStartedAct.value || 0);
-                            } else {
-                                const totalConnAct = dayObj.actions.find(a => a.action_type === 'onsite_conversion.total_messaging_connection');
-                                const leadAct = dayObj.actions.find(a => a.action_type === 'lead');
-                                if (totalConnAct) dayMsgs = Number(totalConnAct.value || 0);
-                                else if (leadAct) dayMsgs = Number(leadAct.value || 0);
-                            }
-                        }
+                    for (const dayDate of syncedDates) {
+                        const aggregate = dailyMap[dayDate];
+                        const daySpent = aggregate.spend;
+                        const dayMsgs = aggregate.msgs;
 
                         catTotalSpent += daySpent;
                         catTotalMsgs += dayMsgs;
@@ -611,7 +760,7 @@ async function nganSachMktRoutes(fastify, options) {
                                     fb_ad_account_link = ?,
                                     updated_at = NOW()
                                 WHERE id = ?
-                            `, [daySpent, dayMsgs, adAccId, adAccName, adAccLink, existingRecord.id]);
+                            `, [daySpent, dayMsgs, firstAdAccId, combinedAccNames, firstAdAccLink, existingRecord.id]);
                         } else {
                             await db.run(`
                                 INSERT INTO marketing_budgets 
@@ -631,17 +780,22 @@ async function nganSachMktRoutes(fastify, options) {
                                 cat.pancake_page_name,
                                 cat.linked_source_name,
                                 cat.ads_handler_name,
-                                adAccId,
-                                adAccName,
-                                adAccLink,
+                                firstAdAccId,
+                                combinedAccNames,
+                                firstAdAccLink,
                                 request.user.id
                             ]);
                         }
                         totalDaysSynced++;
                     }
 
-                    successCount++;
-                    results.push({ category: cat.name, success: true, spent: catTotalSpent, leads: catTotalMsgs, daysCount: dataArr.length });
+                    if (syncedDates.length > 0) {
+                        successCount++;
+                        results.push({ category: cat.name, success: true, spent: catTotalSpent, leads: catTotalMsgs, daysCount: syncedDates.length, accountsCount: linkedAccs.length });
+                    } else if (catErrors.length > 0) {
+                        lastErrorMessage = catErrors.join('; ');
+                        results.push({ category: cat.name, success: false, error: lastErrorMessage });
+                    }
                 } catch(catErr) {
                     console.error(`Error syncing Meta insights for ${cat.name}:`, catErr.message);
                     lastErrorMessage = catErr.message;
@@ -670,7 +824,26 @@ async function nganSachMktRoutes(fastify, options) {
     fastify.get('/api/marketing-categories', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             const rows = await db.all('SELECT * FROM mkt_categories WHERE is_active = TRUE ORDER BY group_type ASC, parent_id ASC NULLS FIRST, sort_order ASC, id ASC');
-            return { success: true, data: rows };
+
+            const linkedMap = {};
+            const links = await db.all(`
+                SELECT ca.category_id, a.id as account_id, a.account_name, a.fb_ad_account_id, a.platform, a.assigned_staff_name, a.connection_status
+                FROM mkt_category_ads_accounts ca
+                JOIN ads_stats_accounts a ON ca.account_id = a.id
+                WHERE a.is_active = TRUE
+                ORDER BY a.id ASC
+            `);
+            for (const l of links) {
+                if (!linkedMap[l.category_id]) linkedMap[l.category_id] = [];
+                linkedMap[l.category_id].push(l);
+            }
+
+            const dataWithLinks = rows.map(r => ({
+                ...r,
+                linked_accounts: linkedMap[r.id] || []
+            }));
+
+            return { success: true, data: dataWithLinks };
         } catch(err) {
             console.error('Error fetching marketing categories:', err);
             return reply.code(500).send({ error: 'Lỗi khi lấy danh mục Marketing' });

@@ -21,6 +21,30 @@ function _tlNormalizeDriveUrl(url) {
     return u;
 }
 
+function _tlParseImageUrl(val) {
+    if (!val) return { url: '', raw_url: '' };
+    if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+        var u = val.url || '';
+        var r = val.raw_url || u;
+        return { url: u, raw_url: r };
+    }
+    if (typeof val === 'string') {
+        var str = val.trim();
+        if (str.startsWith('{')) {
+            try {
+                var parsed = JSON.parse(str);
+                if (parsed && typeof parsed === 'object' && parsed !== null) {
+                    var u2 = parsed.url || '';
+                    var r2 = parsed.raw_url || u2;
+                    return { url: u2, raw_url: r2 };
+                }
+            } catch(e) {}
+        }
+        return { url: str, raw_url: str };
+    }
+    return { url: String(val), raw_url: String(val) };
+}
+
 async function renderTulieuxuongvpPage(content) {
     if (!document.getElementById('tlStyles')) {
         var st = document.createElement('style'); st.id = 'tlStyles';
@@ -230,9 +254,10 @@ function _tlRenderTable() {
                 if (imgUrls.length > 0) {
                     var imgsHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center" onclick="event.stopPropagation()">';
                     imgUrls.forEach(function(u) {
-                        var displayUrl = (typeof u === 'object' && u.url) ? u.url : String(u);
-                        var rawUrl = (typeof u === 'object' && u.raw_url) ? u.raw_url : displayUrl;
-                        imgsHtml += '<img src="' + displayUrl + '" style="max-height:50px;max-width:80px;border-radius:4px;cursor:pointer;object-fit:cover;border:1px solid #cbd5e1" onclick="event.stopPropagation();_tlShowLightbox(\'' + displayUrl.replace(/'/g,"\\'") + '\',\'' + rawUrl.replace(/'/g,"\\'") + '\')" title="Click để xem & tải ảnh gốc nét">';
+                        var parsedImg = _tlParseImageUrl(u);
+                        if (parsedImg.url) {
+                            imgsHtml += '<img src="' + parsedImg.url + '" style="max-height:50px;max-width:80px;border-radius:4px;cursor:pointer;object-fit:cover;border:1px solid #cbd5e1" onclick="event.stopPropagation();_tlShowLightbox(\'' + parsedImg.url.replace(/'/g,"\\'") + '\',\'' + parsedImg.raw_url.replace(/'/g,"\\'") + '\')" title="Click để xem & tải ảnh gốc nét">';
+                        }
                     });
                     imgsHtml += '</div>';
                     row += '<td>' + imgsHtml + '</td>';
@@ -404,8 +429,8 @@ function _tlShowDetailModal(id) {
                 if (imgUrls.length > 0) {
                     var rawUrlsArr = [];
                     imgUrls.forEach(function(u) {
-                        var rawUrl = (typeof u === 'object' && u.raw_url) ? u.raw_url : ((typeof u === 'object' && u.url) ? u.url : String(u));
-                        rawUrlsArr.push(rawUrl);
+                        var parsedImg = _tlParseImageUrl(u);
+                        if (parsedImg.raw_url) rawUrlsArr.push(parsedImg.raw_url);
                     });
                     var zipTitle = fabricName;
                     var downloadAllBtn = imgUrls.length > 1 ? '<button type="button" onclick="_tlDownloadAllImagesZip(' + String(JSON.stringify(rawUrlsArr)).replace(/"/g,'&quot;') + ', \'' + String(zipTitle).replace(/'/g,"\\'") + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-weight:700;font-size:11px;text-decoration:none;border:none;cursor:pointer" title="Nén & Tải toàn bộ ' + imgUrls.length + ' ảnh gốc vào 1 file ZIP">📦 Tải Về Tất Cả File .ZIP (' + imgUrls.length + ' Ảnh Gốc)</button>' : '';
@@ -417,12 +442,15 @@ function _tlShowDetailModal(id) {
                         + '</div>'
                         + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">';
                     imgUrls.forEach(function(u) {
-                        var displayUrl = (typeof u === 'object' && u.url) ? u.url : String(u);
-                        var rawUrl = (typeof u === 'object' && u.raw_url) ? u.raw_url : displayUrl;
-                        body += '<div style="display:flex;flex-direction:column;gap:6px;background:#fff;padding:6px;border-radius:8px;border:1px solid #cbd5e1;align-items:center">'
-                            + '<img src="' + displayUrl + '" style="width:100%;height:110px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="_tlShowLightbox(\'' + displayUrl.replace(/'/g,"\\'") + '\',\'' + rawUrl.replace(/'/g,"\\'") + '\')" title="Click để phóng to">'
-                            + '<a href="' + rawUrl + '" download style="display:inline-flex;align-items:center;justify-content:center;gap:4px;width:100%;padding:4px 6px;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-weight:700;font-size:10px;text-decoration:none" title="Tải ảnh gốc 100% về máy">⬇️ Tải Ảnh Gốc</a>'
-                            + '</div>';
+                        var parsedImg = _tlParseImageUrl(u);
+                        var displayUrl = parsedImg.url;
+                        var rawUrl = parsedImg.raw_url;
+                        if (displayUrl) {
+                            body += '<div style="display:flex;flex-direction:column;gap:6px;background:#fff;padding:6px;border-radius:8px;border:1px solid #cbd5e1;align-items:center">'
+                                + '<img src="' + displayUrl + '" style="width:100%;height:110px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="_tlShowLightbox(\'' + displayUrl.replace(/'/g,"\\'") + '\',\'' + rawUrl.replace(/'/g,"\\'") + '\')" title="Click để phóng to">'
+                                + '<a href="' + rawUrl + '" download style="display:inline-flex;align-items:center;justify-content:center;gap:4px;width:100%;padding:4px 6px;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-weight:700;font-size:10px;text-decoration:none" title="Tải ảnh gốc 100% về máy">⬇️ Tải Ảnh Gốc</a>'
+                                + '</div>';
+                        }
                     });
                     body += '</div></div>';
                 }
@@ -844,7 +872,7 @@ async function _tlSaveNewItem() {
 
         if (inp.type === 'number') {
             data[key] = Number(val) || 0;
-        } else if (val && typeof val === 'string' && val.startsWith('[')) {
+        } else if (val && typeof val === 'string' && (val.trim().startsWith('[') || val.trim().startsWith('{'))) {
             try { data[key] = JSON.parse(val); } catch(e) { data[key] = val; }
         } else {
             data[key] = val || '';
@@ -882,13 +910,15 @@ function _tlEditItem(id) {
                 + '</div>';
             setTimeout(function() { _tlRenderMultiImagesZone(c.key); }, 50);
         } else if (c.type === 'image') {
-            var hasImg = val && val.length > 0;
+            var parsedImg = _tlParseImageUrl(val);
+            var hasImg = !!parsedImg.url;
+            var valToSave = hasImg ? (typeof val === 'object' ? JSON.stringify(val) : String(val)) : '';
             body += '<div style="margin-bottom:8px"><label style="font-weight:700;font-size:12px">' + c.label + ':</label>'
                 + '<div class="tl-paste-zone' + (hasImg ? ' has-img' : '') + '" id="tlPaste_' + c.key + '" data-key="' + c.key + '" onclick="document.getElementById(\'tlFile_' + c.key + '\').click()" style="margin-top:4px">'
-                + (hasImg ? '<img src="' + val + '"><button class="tl-paste-remove" onclick="event.stopPropagation();_tlRemovePasteImg(\'' + c.key + '\')" title="Xóa">✕</button>' : '<div class="tl-paste-hint">📷 Click để chọn ảnh</div>')
+                + (hasImg ? '<img src="' + parsedImg.url + '" onclick="event.stopPropagation();_tlShowLightbox(\'' + parsedImg.url.replace(/'/g,"\\'") + '\',\'' + parsedImg.raw_url.replace(/'/g,"\\'") + '\')"><button class="tl-paste-remove" onclick="event.stopPropagation();_tlRemovePasteImg(\'' + c.key + '\')" title="Xóa">✕</button>' : '<div class="tl-paste-hint">📷 Click để chọn ảnh</div>')
                 + '</div>'
                 + '<input type="file" id="tlFile_' + c.key + '" accept="image/*" style="display:none" onchange="_tlHandleFileSelect(this,\'' + c.key + '\')">'
-                + '<input type="hidden" class="tl-edit-field" data-key="' + c.key + '" value="' + String(val).replace(/"/g,'&quot;') + '">'
+                + '<input type="hidden" class="tl-edit-field" data-key="' + c.key + '" value="' + valToSave.replace(/"/g,'&quot;') + '">'
                 + '</div>';
         } else if (c.type === 'video') {
             var isLocalVideo = val && (String(val).startsWith('/uploads/tlxvp/videos/') || String(val).startsWith('/uploads/tlxvp/'));
@@ -953,7 +983,7 @@ async function _tlSaveEditItem(id) {
 
         if (inp.type === 'number') {
             data[key] = Number(val) || 0;
-        } else if (val && typeof val === 'string' && val.startsWith('[')) {
+        } else if (val && typeof val === 'string' && (val.trim().startsWith('[') || val.trim().startsWith('{'))) {
             try { data[key] = JSON.parse(val); } catch(e) { data[key] = val; }
         } else {
             data[key] = val || '';
@@ -1090,12 +1120,15 @@ function _tlRenderMultiImagesZone(key) {
     var urls = _tlMultiImages[key] || [];
     var html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
     urls.forEach(function(u, idx) {
-        var displayUrl = (typeof u === 'object' && u.url) ? u.url : String(u);
-        var rawUrl = (typeof u === 'object' && u.raw_url) ? u.raw_url : displayUrl;
-        html += '<div style="position:relative;display:inline-block;width:70px;height:70px;border-radius:6px;overflow:hidden;border:1px solid #cbd5e1;background:#f8fafc">'
-            + '<img src="' + displayUrl + '" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="_tlShowLightbox(\'' + displayUrl.replace(/'/g,"\\'") + '\',\'' + rawUrl.replace(/'/g,"\\'") + '\')" title="Click xem lớn">'
-            + '<button onclick="event.stopPropagation();_tlRemoveMultiImg(\'' + key + '\',' + idx + ')" style="position:absolute;top:2px;right:2px;background:rgba(220,38,38,0.85);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Xóa ảnh">✕</button>'
-            + '</div>';
+        var parsedImg = _tlParseImageUrl(u);
+        var displayUrl = parsedImg.url;
+        var rawUrl = parsedImg.raw_url;
+        if (displayUrl) {
+            html += '<div style="position:relative;display:inline-block;width:70px;height:70px;border-radius:6px;overflow:hidden;border:1px solid #cbd5e1;background:#f8fafc">'
+                + '<img src="' + displayUrl + '" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="_tlShowLightbox(\'' + displayUrl.replace(/'/g,"\\'") + '\',\'' + rawUrl.replace(/'/g,"\\'") + '\')" title="Click xem lớn">'
+                + '<button onclick="event.stopPropagation();_tlRemoveMultiImg(\'' + key + '\',' + idx + ')" style="position:absolute;top:2px;right:2px;background:rgba(220,38,38,0.85);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Xóa ảnh">✕</button>'
+                + '</div>';
+        }
     });
     html += '</div>';
     html += '<button type="button" onclick="document.getElementById(\'tlFileMulti_' + key + '\').click()" style="background:#eef2ff;color:#4f46e5;border:1px dashed #a5b4fc;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🖼️ Chọn Ảnh (Có thể chọn nhiều)</button>'
@@ -1142,7 +1175,30 @@ function _tlRemoveMultiImg(key, index) {
 }
 
 // ===== IMAGE PASTE/UPLOAD HELPERS =====
-function _tlBindPasteZones() { /* no-op */ }
+function _tlBindPasteZones() {
+    if (window._tlPasteBound) return;
+    window._tlPasteBound = true;
+    document.addEventListener('paste', function(e) {
+        var items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        var imageItem = null;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                imageItem = items[i];
+                break;
+            }
+        }
+        if (!imageItem) return;
+        var file = imageItem.getAsFile();
+        if (!file) return;
+
+        var activeZone = document.querySelector('.tl-paste-zone');
+        if (activeZone) {
+            var key = activeZone.dataset.key;
+            if (key) _tlUploadImage(file, key);
+        }
+    });
+}
 
 async function _tlUploadImage(file, key) {
     var zone = document.getElementById('tlPaste_' + key);

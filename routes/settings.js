@@ -375,6 +375,56 @@ async function settingsRoutes(fastify, options) {
         return results;
     });
 
+    // ===== ĐÀO TẠO SALE & XỬ LÝ LỖI — CENTRAL SYNC STORE =====
+    fastify.get('/api/daotaosalekd/config', async (request, reply) => {
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'xldl_store'");
+            return { value: row ? row.value : null };
+        } catch (e) {
+            return { value: null };
+        }
+    });
+
+    fastify.post('/api/daotaosalekd/config', async (request, reply) => {
+        try {
+            const { value } = request.body || {};
+            const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+            await db.run(
+                `INSERT INTO app_config (key, value, updated_at) VALUES ('xldl_store', ?, NOW())
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+                [strValue]
+            );
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // ===== QUẢN TRỊ NHÂN SỰ — CENTRAL SYNC STORE =====
+    fastify.get('/api/quantrinhansuhv/config', async (request, reply) => {
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'qtns_store'");
+            return { value: row ? row.value : null };
+        } catch (e) {
+            return { value: null };
+        }
+    });
+
+    fastify.post('/api/quantrinhansuhv/config', async (request, reply) => {
+        try {
+            const { value } = request.body || {};
+            const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+            await db.run(
+                `INSERT INTO app_config (key, value, updated_at) VALUES ('qtns_store', ?, NOW())
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+                [strValue]
+            );
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     // ===== PRODUCTION MODE — Chế Độ Thực Chiến =====
     // GET: Check current production mode status + test accounts
     fastify.get('/api/production-mode', { preHandler: [authenticate] }, async (request, reply) => {

@@ -40,6 +40,7 @@ const PERM_FEATURES = [
     { key: 'hen_gio_bat_camp', label: '3. Hẹn Giờ Bật Camp', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
 
     // ===== BỘ PHẬN SALE =====
+    { key: 'xu_ly_don_loi', label: 'Đào Tạo Sale/KD & Xử Lý Lỗi', perms: ['view'], section: 'BỘ PHẬN SALE' },
     { key: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
     { key: 'chamsockhtempet', label: 'Chăm Sóc Khách TEM/PET', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
     { key: 'sokhachsale', label: 'Sổ Khách Sale', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
@@ -132,7 +133,6 @@ const PERM_FEATURES = [
     // ===== QUY TẮC & CHÍNH SÁCH KH =====
     { key: 'chinh_sach_kh', label: 'Chính Sách Khách Hàng', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
     { key: 'chuong_trinh_kh', label: 'Chương Trình & Quà Tặng KH', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
-    { key: 'xu_ly_don_loi', label: 'Kịch Bản Tư Vấn & Xử Lý Lỗi', perms: ['view'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
     { key: 'khuyen_mai_giam_gia', label: 'Tạo Mã Giảm Giá', perms: ['view', 'create', 'edit', 'delete'], section: 'QUY TẮC & CHÍNH SÁCH KH' },
 
 

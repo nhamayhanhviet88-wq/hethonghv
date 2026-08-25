@@ -122,6 +122,7 @@ const MENU_CONFIG = [
 
 
     // ========== BỘ PHẬN SALE ==========
+    { id: 'xu-ly-don-loi', label: 'Đào Tạo Sale/KD & Xử Lý Lỗi', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/daotaosalekd', permKey: 'xu_ly_don_loi' },
     { id: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/chamsockhsale', permKey: 'chamsockhsale' },
     { id: 'chamsockhtempet', label: 'Chăm Sóc Khách TEM/PET', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/chamsockhtempet', permKey: 'chamsockhtempet' },
     { id: 'sokhachsale', label: 'Sổ Khách Sale', icon: '📖', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC NV SALE', href: '/sokhachsale', permKey: 'sokhachsale' },
@@ -184,8 +185,10 @@ const MENU_CONFIG = [
     { id: 'bo-suu-tap', label: 'Bộ Sưu Tập / BST', icon: '🖼️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'NỘI QUY & TƯ LIỆU NỘI BỘ', href: '/bosuutap', permKey: 'bo_suu_tap' },
     { id: 'chinh-sach-kh', label: 'Chính Sách Khách Hàng', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chinhsachkhhv', permKey: 'chinh_sach_kh' },
     { id: 'chuong-trinh-kh', label: 'Chương Trình & Quà Tặng KH', icon: '🎁', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/chuongtrinhkhhv', permKey: 'chuong_trinh_kh' },
-    { id: 'xu-ly-don-loi', label: 'Kịch Bản Tư Vấn & Xử Lý Lỗi', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/xulydonloihv', permKey: 'xu_ly_don_loi' },
     { id: 'khuyenmaigiamgia', label: 'Tạo Mã Giảm Giá', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao'], section: 'QUY TẮC & CHÍNH SÁCH KH', href: '/khuyenmaigiamgia', permKey: 'khuyen_mai_giam_gia' },
+
+    // ========== HÀNH CHÍNH & NHÂN SỰ ==========
+    { id: 'quan-tri-nhan-su', label: 'Quản Trị Nhân Sự', icon: '👔', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN TRỊ NHÂN SỰ', href: '/quantrinhansuhv', permKey: 'quan_tri_nhan_su' },
 
 
     // ========== BỘ PHẬN VĂN PHÒNG ==========
@@ -574,7 +577,12 @@ const _PAGE_SCRIPT_MAP = {
     'chinhsachkhhv': '/js/pages/chinhsachkhhv.js?v=' + Date.now(),
     'chinh-sach-kh': '/js/pages/chinhsachkhhv.js?v=' + Date.now(),
     'chuongtrinhkhhv': '/js/pages/chuongtrinhkhhv.js?v=' + Date.now(),
-    'chuong-trinh-kh': '/js/pages/chuongtrinhkhhv.js?v=' + Date.now()
+    'chuong-trinh-kh': '/js/pages/chuongtrinhkhhv.js?v=' + Date.now(),
+    'daotaosalekd': '/js/pages/xulydonloihv.js?v=' + Date.now(),
+    'xulydonloihv': '/js/pages/xulydonloihv.js?v=' + Date.now(),
+    'xu-ly-don-loi': '/js/pages/xulydonloihv.js?v=' + Date.now(),
+    'quantrinhansuhv': '/js/pages/quantrinhansuhv.js?v=' + Date.now(),
+    'quan-tri-nhan-su': '/js/pages/quantrinhansuhv.js?v=' + Date.now()
 };
 
 const _loadedScripts = new Set();
@@ -1480,6 +1488,7 @@ var PARENT_SECTIONS = [
     { name: 'KẾT QUẢ & VINH DANH', sections: ['BÁO CÁO', 'TỔNG QUAN', 'BXH & GIẢI THƯỞNG'] },
     { name: 'QUẢN LÝ CÔNG VIỆC', sections: ['CÔNG VIỆC HẰNG NGÀY', 'CÔNG VIỆC CHĂM SÓC KHÁCH'] },
     { name: 'NỘI QUY & QUY TẮC LÀM VIỆC', sections: ['NỘI QUY & TƯ LIỆU NỘI BỘ', 'QUY TẮC & CHÍNH SÁCH KH'] },
+    { name: 'HÀNH CHÍNH & NHÂN SỰ', sections: ['QUẢN TRỊ NHÂN SỰ'] },
     { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ'] },
     { name: 'BỘ PHẬN XƯỞNG SX', sections: ['QUẢN LÝ XƯỞNG', 'XƯỞNG SẢN XUẤT', 'MẪU & GIÁ SẢN XUẤT'] },
     { name: 'BỘ PHẬN MARKETING', sections: ['Marketing Ads', 'Facebook Ads'] },
@@ -2525,6 +2534,20 @@ async function handleRoute() {
                         window.renderGioihanchitieuPage(content);
                     } else if (typeof renderGioihanchitieuPage === 'function') {
                         renderGioihanchitieuPage(content);
+                    }
+                    break;
+                case 'daotaosalekd': case 'xulydonloihv': case 'xu-ly-don-loi':
+                    if (typeof window.renderXulydonloihvPage === 'function') {
+                        window.renderXulydonloihvPage(content);
+                    } else if (typeof renderXulydonloihvPage === 'function') {
+                        renderXulydonloihvPage(content);
+                    }
+                    break;
+                case 'quantrinhansuhv': case 'quan-tri-nhan-su':
+                    if (typeof window.renderQuantrinhansuhvPage === 'function') {
+                        window.renderQuantrinhansuhvPage(content);
+                    } else if (typeof renderQuantrinhansuhvPage === 'function') {
+                        renderQuantrinhansuhvPage(content);
                     }
                     break;
                 default:
@@ -6828,6 +6851,9 @@ var _PAGE_INIT_REGISTRY = {
     'gioi-han-chi-tieu': 'renderGioihanchitieuPage',
     'hengiobatcamp': 'renderHengiobatcampPage',
     'hen-gio-bat-camp': 'renderHengiobatcampPage',
+    'daotaosalekd': 'renderXulydonloihvPage',
+    'xulydonloihv': 'renderXulydonloihvPage',
+    'xu-ly-don-loi': 'renderXulydonloihvPage',
 };
 
 function _tryAutoRenderPage(pageId, content) {
