@@ -99,22 +99,11 @@ async function renderXinNghiPage(container) {
                         <button onclick="_leaveSubmit()" style="width:100%;padding:14px;font-size:15px;border:none;border-radius:12px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:800;box-shadow:0 4px 12px rgba(5,150,105,0.3);transition:all .15s;font-family:inherit;" onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='none'">🔔 GỬI ĐƠN XIN NGHỈ</button>
                     </div>
                 </div>
-
-                <!-- LỊCH SỬ CỦA TÔI -->
-                <div style="background:white;border:2px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-                    <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
-                        <span style="color:white;font-weight:800;font-size:14px;">📊 LỊCH SỬ NGHỈ CỦA TÔI</span>
-                        <input type="month" id="leaveMyMonth" value="${_leaveMonth}" onchange="_leaveLoadMyHistory()" style="padding:4px 8px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:11px;background:rgba(255,255,255,0.15);color:white;font-weight:600;">
-                    </div>
-                    <div id="leaveMyHistory" style="padding:14px;">
-                        <div style="text-align:center;color:#9ca3af;font-size:12px;padding:16px;">Đang tải...</div>
-                    </div>
-                </div>
             </div>
 
-            <!-- RIGHT: STATS (GĐ/QL only) -->
-            ${canViewStats ? `
-            <div style="flex:2;min-width:500px;">
+            <!-- RIGHT: STATS & LỊCH SỬ NGHỈ CỦA TÔI -->
+            <div style="flex:2;min-width:460px;display:flex;flex-direction:column;gap:16px;">
+                ${canViewStats ? `
                 <div style="background:white;border:2px solid #c4b5fd;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(124,58,237,0.08);">
                     <div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
                         <span style="color:white;font-weight:800;font-size:14px;">📊 THỐNG KÊ NGHỈ PHÉP PHÒNG BAN</span>
@@ -126,8 +115,19 @@ async function renderXinNghiPage(container) {
                         <div style="text-align:center;color:#9ca3af;font-size:12px;padding:20px;">Đang tải...</div>
                     </div>
                 </div>
+                ` : ''}
+
+                <!-- LỊCH SỬ NGHỈ CỦA TÔI -->
+                <div style="background:white;border:2px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
+                        <span style="color:white;font-weight:800;font-size:14px;">📊 LỊCH SỬ NGHỈ CỦA TÔI</span>
+                        <input type="month" id="leaveMyMonth" value="${_leaveMonth}" onchange="_leaveLoadMyHistory()" style="padding:4px 8px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:11px;background:rgba(255,255,255,0.15);color:white;font-weight:600;">
+                    </div>
+                    <div id="leaveMyHistory" style="padding:14px;">
+                        <div style="text-align:center;color:#9ca3af;font-size:12px;padding:16px;">Đang tải...</div>
+                    </div>
+                </div>
             </div>
-            ` : ''}
         </div>
     </div>`;
 
