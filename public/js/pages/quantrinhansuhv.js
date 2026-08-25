@@ -1504,7 +1504,7 @@
                     background: #ffffff;
                     border: 2px solid #e2e8f0;
                     border-radius: 18px;
-                    padding: 16px 20px;
+                    padding: 20px 24px;
                     display: flex;
                     flex-direction: column;
                     align-items: flex-start;
@@ -1522,22 +1522,26 @@
                     box-shadow: 0 8px 24px rgba(109, 40, 217, 0.45) !important;
                 }
                 .qtns-tab-btn .tab-num {
-                    font-size: 11px;
+                    font-size: 13.5px;
                     font-weight: 900;
                     color: #7c3aed;
                     background: #f3e8ff;
-                    padding: 3px 10px;
+                    padding: 4px 12px;
                     border-radius: 12px;
                     margin-bottom: 8px;
+                    letter-spacing: 0.8px;
+                    text-transform: uppercase;
                 }
                 .qtns-tab-btn.active .tab-num {
                     color: #ffffff !important;
                     background: rgba(255, 255, 255, 0.25) !important;
                 }
                 .qtns-tab-btn .tab-label {
-                    font-size: 14.5px;
-                    font-weight: 850;
+                    font-size: 18.5px;
+                    font-weight: 900;
                     color: #1e293b;
+                    line-height: 1.35;
+                    letter-spacing: -0.2px;
                 }
                 .qtns-tab-btn.active .tab-label {
                     color: #ffffff !important;
