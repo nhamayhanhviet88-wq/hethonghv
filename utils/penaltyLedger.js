@@ -646,7 +646,7 @@ async function syncLedgerForDate(dateStr) {
             const qlxUsers = await db.all(`
                 SELECT u.id FROM users u
                 JOIN departments d ON u.department_id = d.id
-                WHERE (d.name ILIKE '%quản lý xưởng%' OR d.name ILIKE '%quan ly xuong%' OR d.name ILIKE '%qlx%')
+                WHERE (d.name ILIKE '%quản lý xưởng%' OR d.name ILIKE '%quan ly xuong%' OR d.name ILIKE '%qlx%' OR d.name ILIKE '%hệ thống xưởng%' OR d.name ILIKE '%he thong xuong%' OR u.role = 'quan_ly_xuong')
                   AND u.status = 'active' AND u.role != 'giam_doc'
             `);
             for (const qlx of qlxUsers) {
