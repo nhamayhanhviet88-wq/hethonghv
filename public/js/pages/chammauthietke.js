@@ -320,7 +320,15 @@
             const matchQ = !q || (item.title || '').toLowerCase().includes(q) || (item.customerName || '').toLowerCase().includes(q) || (item.fabricMaterial || '').toLowerCase().includes(q);
             const matchMat = selectedMaterialFilter === 'all' || item.fabricMaterial === selectedMaterialFilter;
             const matchDept = activeCategoryFilter === 'all' || (item.departments || []).includes(activeCategoryFilter) || item.category === activeCategoryFilter;
-            return matchQ && matchMat && matchDept;
+
+            let matchSubtab = true;
+            if (activeSubtab === 'mk_thuvien') {
+                matchSubtab = !item.category || item.category === 'Kho Lưu Trữ Bản Maket';
+            } else if (activeSubtab === 'mk_quytrinh') {
+                matchSubtab = item.category === 'Quy Trình & Hướng Dẫn';
+            }
+
+            return matchQ && matchMat && matchDept && matchSubtab;
         });
 
         if (filtered.length === 0) {
@@ -372,15 +380,12 @@
                 </div>
             </div>
 
-            <!-- Subtabs Bar + Action Buttons (Matched Image 3 100%) -->
+            <!-- Header Control Bar của MỤC 2: Chấm Màu Thiết Kế & Kho Vải -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(250,245,255,0.95), rgba(243,232,255,0.98)); backdrop-filter: blur(16px); padding: 14px 22px; border-radius: 20px; border: 1.5px solid #e9d5ff; box-shadow: 0 12px 32px -8px rgba(109,40,217,0.15);">
-                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                    ${subtabs.map(st => `
-                        <button type="button" class="cmtk-subtab-btn ${activeSubtab === st.id ? 'active' : ''}" onclick="window._cmtkSwitchSubtab('${st.id}')"
-                            style="display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:850; padding:10px 22px; border-radius:30px; cursor:pointer; ${activeSubtab === st.id ? 'background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.45);' : 'background:#ffffff; color:#0f172a; border:1.5px solid #cbd5e1;'}">
-                            ${st.icon || '🧵'} ${st.title}
-                        </button>
-                    `).join('')}
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 15px; font-weight: 900; color: #6d28d9; background: #ffffff; padding: 8px 20px; border-radius: 30px; border: 1.5px solid #d8b4fe; box-shadow: 0 4px 14px rgba(109,40,217,0.1); display: inline-flex; align-items: center; gap: 8px;">
+                        🧵 BẢNG CHẤM MÃ MÀU THIẾT KẾ & KHO VẢI THỰC TẾ (#HEX)
+                    </span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <button type="button" onclick="window._cmtkOpenAddMaketModal()" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.35); cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
