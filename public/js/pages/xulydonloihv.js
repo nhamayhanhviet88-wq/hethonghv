@@ -2917,12 +2917,6 @@
                             style="flex:1; min-width:0; border:none; background:linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); color:#ffffff; font-weight:850; font-size:12.5px; padding:10px 10px; border-radius:12px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:4px; box-shadow:0 4px 12px rgba(37,99,235,0.25); transition:all 0.2s ease; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Xem Chi Tiết Kịch Bản & Quy Trình">
                             📋 <span>${hasValidUrl ? 'Xem Chi Tiết ➔' : 'Xem Chi Tiết Kịch Bản & Quy Trình ➔'}</span>
                         </button>
-                        ${link.imageUrl ? `
-                            <button type="button" onclick="window._xldlOpenLightbox('${link.id}', '${subId}')" 
-                                style="border:1.5px solid #93c5fd; background:#eff6ff; color:#1e40af; font-weight:850; font-size:12.5px; padding:10px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 8px rgba(37,99,235,0.1); white-space:nowrap;" title="Xem Ảnh Minh Họa Sắc Nét">
-                                🖼️ <span>Xem Ảnh</span>
-                            </button>
-                        ` : ''}
                         ${hasValidUrl ? `
                             <a href="${link.url}" target="_blank" rel="noopener" class="card-btn-open theme-${themeName}" style="flex:1; min-width:0; padding:10px 10px; font-size:12.5px; font-weight:850; border-radius:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-decoration:none; display:flex; justify-content:center; align-items:center; gap:4px;" title="Mở Tài Liệu Trực Tiếp">
                                 🔗 <span>Mở Tài Liệu ↗</span>
