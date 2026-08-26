@@ -357,6 +357,8 @@ function startHeartbeatSystem() {
 
 // ==================== DYNAMIC LAZY LOADER ====================
 const _PAGE_SCRIPT_MAP = {
+    'chammauthietke': '/js/pages/chammauthietke.js',
+    'cham-mau-thiet-ke': '/js/pages/chammauthietke.js',
     'accounts': '/js/pages/accounts.js',
     'teams': '/js/pages/teams.js',
     'permissions': '/js/pages/permissions.js?v=20260726_v381',
