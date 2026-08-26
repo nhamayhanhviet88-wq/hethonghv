@@ -155,7 +155,14 @@
         const container = document.getElementById('cmtkContentContainer');
         if (!container) return;
 
-        if (currentMainTab === '    // ==========================================
+        if (currentMainTab === 'muc1_maket') {
+            renderTab1Maket(container);
+        } else {
+            renderTab2Chammau(container);
+        }
+    }
+
+    // ==========================================
     // TAB 1: KHO LƯU TRỮ BẢN MAKET
     // ==========================================
     function renderTab1Maket(container) {

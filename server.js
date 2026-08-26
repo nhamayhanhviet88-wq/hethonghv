@@ -313,8 +313,7 @@ async function start() {
 
     // Migration: add 'test_hidden' to users status check constraint (Production Mode)
     try {
-        await db.exec(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check`);
-        await db.exec(`ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('active','resigned','locked','deleted','probation_locked','test_hidden'))`);
+        await db.exec(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check; ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('active','resigned','locked','deleted','probation_locked','test_hidden'));`);
     } catch(e) { /* already done */ }
 
     // Migration: rescheduled_ship_date for don_gui_ao_mau (sample orders reschedule support)
