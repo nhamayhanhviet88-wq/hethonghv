@@ -106,8 +106,8 @@ module.exports = async function (fastify) {
                 const swatchInfo = swatches[key] || swatches[c.id] || swatches[`name_${c.material_name}_${c.color_name}`] || {};
                 return {
                     ...c,
-                    hex_code: swatchInfo.hex_code || swatchInfo.hex || '#3b82f6',
-                    swatch_image: swatchInfo.swatch_image || swatchInfo.imageUrl || ''
+                    hex_code: swatchInfo.hex_code || swatchInfo.hex || c.hex_code || null,
+                    swatch_image: swatchInfo.swatch_image || swatchInfo.imageUrl || null
                 };
             });
 
