@@ -925,9 +925,27 @@
         return modal;
     }
 
-    window._hdkhOpenDetailModal = function(id, subId) {
-        let links = _hdkhGetCustomSubtabLinks(subId);
-        let item = links.find(l => String(l.id) === String(id));
+    window._hdkhOpenDetailModal = function(id, subId = null) {
+        let item = null;
+        if (subId) {
+            let links = _hdkhGetCustomSubtabLinks(subId);
+            item = links.find(l => String(l.id) === String(id));
+        }
+        if (!item) {
+            const allScopes = ['muc1_hopdong', 'muc2_biendan', 'muc3_thanhly'];
+            for (const scope of allScopes) {
+                const subtabs = _hdkhGetSubtabs(scope);
+                for (const sub of subtabs) {
+                    const links = _hdkhGetCustomSubtabLinks(sub.id);
+                    const found = links.find(l => String(l.id) === String(id));
+                    if (found) {
+                        item = found;
+                        break;
+                    }
+                }
+                if (item) break;
+            }
+        }
         if (!item) return;
 
         const modal = _hdkhEnsureDetailModalInDOM();

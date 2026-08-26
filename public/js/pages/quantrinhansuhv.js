@@ -1290,8 +1290,26 @@
     }
 
     window._qtnsOpenDetailModal = function(id, targetSub = null) {
-        let links = _qtnsGetCustomSubtabLinks(targetSub);
-        let item = links.find(l => String(l.id) === String(id));
+        let item = null;
+        if (targetSub) {
+            const links = _qtnsGetCustomSubtabLinks(targetSub);
+            item = links.find(l => String(l.id) === String(id));
+        }
+        if (!item) {
+            const allScopes = ['muc1_tuyendung', 'muc2_daotao', 'muc3_chedo'];
+            for (const scope of allScopes) {
+                const subtabs = _qtnsGetSubtabs(scope);
+                for (const sub of subtabs) {
+                    const links = _qtnsGetCustomSubtabLinks(sub.id);
+                    const found = links.find(l => String(l.id) === String(id));
+                    if (found) {
+                        item = found;
+                        break;
+                    }
+                }
+                if (item) break;
+            }
+        }
         if (!item) return;
 
         const modal = _qtnsEnsureDetailModalInDOM();

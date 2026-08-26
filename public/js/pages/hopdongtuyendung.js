@@ -674,7 +674,7 @@
                         ` : ''}
                     </div>
 
-                    <div class="card-main-content">
+                    <div class="card-main-content" style="cursor:pointer;" onclick="window._hdtdOpenDetailModal('${link.id}', '${subId}')" title="Nhấp để xem chi tiết đầy đủ tài liệu">
                         <div class="card-title">${_hdtdFormatTitle(link.title)}</div>
                         <div class="card-desc">${_hdtdFormatDescription(link.subtitle || link.url)}</div>
                     </div>
@@ -1201,9 +1201,27 @@
         return modal;
     }
 
-    window._hdtdOpenDetailModal = function(id, subId) {
-        const links = _hdtdGetCustomSubtabLinks(subId);
-        const link = links.find(l => String(l.id) === String(id));
+    window._hdtdOpenDetailModal = function(id, subId = null) {
+        let link = null;
+        if (subId) {
+            const links = _hdtdGetCustomSubtabLinks(subId);
+            link = links.find(l => String(l.id) === String(id));
+        }
+        if (!link) {
+            const allScopes = ['muc1_hopdong', 'muc2_tuyendung', 'muc3_bieumau'];
+            for (const scope of allScopes) {
+                const subtabs = _hdtdGetSubtabs(scope);
+                for (const sub of subtabs) {
+                    const links = _hdtdGetCustomSubtabLinks(sub.id);
+                    const found = links.find(l => String(l.id) === String(id));
+                    if (found) {
+                        link = found;
+                        break;
+                    }
+                }
+                if (link) break;
+            }
+        }
         if (!link) return;
 
         const modal = _hdtdEnsureDetailModalInDOM();
