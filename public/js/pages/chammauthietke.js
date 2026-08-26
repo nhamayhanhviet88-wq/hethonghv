@@ -83,12 +83,11 @@
     }
 
     // Main Init Function matching Quản Trị Nhân Sự
-    async function initPage(targetContainer = null) {
+    function initPage(targetContainer = null) {
         const root = targetContainer || document.getElementById('mainContent');
         if (!root) return;
 
-        await loadData();
-
+        // Render UI layout immediately (0ms delay)
         root.innerHTML = `
             <div class="cmtk-wrapper">
                 <!-- Top Executive Banner Header (Matched with Quản Trị Nhân Sự) -->
@@ -128,6 +127,11 @@
         `;
 
         renderCurrentMainTab();
+
+        // Async load API data in background & refresh tab view mượt mà
+        loadData().then(() => {
+            renderCurrentMainTab();
+        });
     }
 
     // Switch Main Tabs
