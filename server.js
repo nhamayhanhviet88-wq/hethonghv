@@ -1756,6 +1756,7 @@ async function start() {
     fastify.register(require('./routes/aiAssistant'));
     fastify.register(require('./routes/bangcongviec'));
     fastify.register(require('./routes/bosuutap'));
+    fastify.register(require('./routes/chammauthietke'));
     fastify.register(require('./routes/khoads'));
     fastify.register(require('./routes/chiendichads'));
     fastify.register(require('./routes/thongkeads'));

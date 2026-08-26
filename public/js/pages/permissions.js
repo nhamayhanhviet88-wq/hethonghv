@@ -162,6 +162,9 @@ const PERM_FEATURES = [
     { key: 'don_loi_khach_hang', label: 'Đơn Lỗi Khách & Nội Bộ', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_loi_noi_bo', label: 'Lỗi Thường Gặp \u0026 Xử Lý', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
 
+    // ===== BỘ PHẬN THIẾT KẾ =====
+    { key: 'cham_mau_thiet_ke', label: 'Maket & Chấm Màu Thiết Kế', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+
     // ===== HỆ THỐNG =====
     { key: 'cai_dat', label: 'Cài Đặt Phân Tầng', perms: ['view','edit'], section: 'HỆ THỐNG' },
     { key: 'cai_dat_san_xuat', label: 'Cài Đặt Sản Xuất', perms: ['view','edit'], section: 'HỆ THỐNG' },

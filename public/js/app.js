@@ -213,6 +213,9 @@ const MENU_CONFIG = [
     { id: 'don-loi-khach-hang', label: 'Đơn Lỗi Khách & Nội Bộ', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donloikhachhang', permKey: 'don_loi_khach_hang' },
     { id: 'loi-thuong-gap', label: 'Lỗi Thường Gặp \u0026 Xử Lý', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/loithuonggap', permKey: 'don_loi_noi_bo' },
 
+    // ========== BỘ PHẬN THIẾT KẾ ==========
+    { id: 'cham-mau-thiet-ke', label: 'Maket & Chấm Màu Thiết Kế', icon: '🎨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'BỘ PHẬN THIẾT KẾ', href: '/chammauthietke', permKey: 'cham_mau_thiet_ke' },
+
     // ========== BỘ PHẬN XƯỞNG SX ==========
     { id: 'bao-gia-goc', label: 'Báo Giá Gốc', icon: '🧮', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/baogiagoc', permKey: 'gia_nhap_goc' },
     { id: 'bao-gia-ctv-hh', label: 'Báo Giá Khách / CTV', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/baogiactvhh', permKey: 'gia_nhap_goc' },
@@ -591,7 +594,9 @@ const _PAGE_SCRIPT_MAP = {
     'hopdongtuyendung': '/js/pages/hopdongtuyendung.js?v=' + Date.now(),
     'hop-dong-tuyen-dung': '/js/pages/hopdongtuyendung.js?v=' + Date.now(),
     'hopdongkhachhang': '/js/pages/hopdongkhachhang.js?v=' + Date.now(),
-    'hop-dong-khach-hang': '/js/pages/hopdongkhachhang.js?v=' + Date.now()
+    'hop-dong-khach-hang': '/js/pages/hopdongkhachhang.js?v=' + Date.now(),
+    'chammauthietke': '/js/pages/chammauthietke.js?v=' + Date.now(),
+    'cham-mau-thiet-ke': '/js/pages/chammauthietke.js?v=' + Date.now()
 };
 
 const _loadedScripts = new Set();
@@ -1498,7 +1503,7 @@ var PARENT_SECTIONS = [
     { name: 'QUẢN LÝ CÔNG VIỆC', sections: ['CÔNG VIỆC HẰNG NGÀY', 'CÔNG VIỆC CHĂM SÓC KHÁCH'] },
     { name: 'NỘI QUY & QUY TẮC LÀM VIỆC', sections: ['NỘI QUY & TƯ LIỆU NỘI BỘ', 'QUY TẮC & CHÍNH SÁCH KH'] },
     { name: 'HÀNH CHÍNH & NHÂN SỰ', sections: ['QUẢN TRỊ NHÂN SỰ'] },
-    { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ'] },
+    { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ', 'BỘ PHẬN THIẾT KẾ'] },
     { name: 'BỘ PHẬN XƯỞNG SX', sections: ['QUẢN LÝ XƯỞNG', 'XƯỞNG SẢN XUẤT', 'MẪU & GIÁ SẢN XUẤT'] },
     { name: 'BỘ PHẬN MARKETING', sections: ['Marketing Ads', 'Facebook Ads'] },
     { name: 'BỘ PHẬN SALE', sections: ['CÔNG VIỆC NV SALE'] },
