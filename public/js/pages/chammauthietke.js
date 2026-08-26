@@ -151,24 +151,10 @@
         const container = document.getElementById('cmtkContentContainer');
         if (!container) return;
 
-        if (currentMainTab === 'muc1_maket') {
-            renderTab1Maket(container);
-        } else {
-            renderTab2Chammau(container);
-        }
-    }
-
-    // ==========================================
+        if (currentMainTab === '    // ==========================================
     // TAB 1: KHO LƯU TRỮ BẢN MAKET
     // ==========================================
     function renderTab1Maket(container) {
-        let filtered = maketList.filter(item => {
-            const q = currentSearchQuery.toLowerCase().trim();
-            const matchQ = !q || (item.title || '').toLowerCase().includes(q) || (item.customerName || '').toLowerCase().includes(q) || (item.fabricMaterial || '').toLowerCase().includes(q);
-            const matchMat = selectedMaterialFilter === 'all' || item.fabricMaterial === selectedMaterialFilter;
-            return matchQ && matchMat;
-        });
-
         const matSet = new Set(maketList.map(m => m.fabricMaterial).filter(Boolean));
 
         container.innerHTML = `
@@ -197,8 +183,23 @@
                 </div>
             </div>
 
-            <!-- Maket Cards Grid -->
-            ${filtered.length === 0 ? `
+            <!-- Dedicated Grid Container for Maket Cards -->
+            <div id="cmtkCardGridContainer">
+                ${_cmtkRenderMaketCardsHTML()}
+            </div>
+        `;
+    }
+
+    function _cmtkRenderMaketCardsHTML() {
+        let filtered = maketList.filter(item => {
+            const q = currentSearchQuery.toLowerCase().trim();
+            const matchQ = !q || (item.title || '').toLowerCase().includes(q) || (item.customerName || '').toLowerCase().includes(q) || (item.fabricMaterial || '').toLowerCase().includes(q);
+            const matchMat = selectedMaterialFilter === 'all' || item.fabricMaterial === selectedMaterialFilter;
+            return matchQ && matchMat;
+        });
+
+        if (filtered.length === 0) {
+            return `
                 <div style="text-align: center; padding: 60px 20px; background: #ffffff; border-radius: 24px; border: 2px dashed #cbd5e1;">
                     <div style="font-size: 48px; margin-bottom: 12px;">🎨</div>
                     <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 900; color: #334155;">Chưa có bản thiết kế Maket nào trong thư viện</h3>
@@ -207,77 +208,69 @@
                         ➕ Tạo Bản Maket Mới Ngay
                     </button>
                 </div>
-            ` : `
-                <div class="cmtk-card-grid">
-                    ${filtered.map(item => `
-                        <div class="cmtk-card-item">
-                            <div class="card-accent-bar theme-purple"></div>
-                            
-                            <!-- Header Thumbnail Banner -->
-                            <div style="position: relative; width: 100%; height: 210px; background: #0f172a; cursor: pointer; overflow: hidden;" onclick="window._cmtkOpenDetailModal('${item.id}')" title="Nhấp để xem chi tiết bản Maket">
-                                ${item.imageUrl ? `
-                                    <img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: contain; display: block; transition: transform 0.3s ease;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
-                                ` : `
-                                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 48px; background: linear-gradient(135deg, #1e293b, #0f172a); color: #64748b;">🎨</div>
-                                `}
-                                <div style="position: absolute; top: 12px; right: 12px; background: rgba(15,23,42,0.85); color: #ffffff; font-size: 11px; font-weight: 850; padding: 4px 10px; border-radius: 10px; backdrop-filter: blur(4px);">
-                                    📋 Xem Chi Tiết
+            `;
+        }
+
+        return `
+            <div class="cmtk-card-grid">
+                ${filtered.map(item => `
+                    <div class="cmtk-card-item">
+                        <div class="card-accent-bar theme-purple"></div>
+                        
+                        <!-- Header Thumbnail Banner -->
+                        <div style="position: relative; width: 100%; height: 210px; background: #0f172a; cursor: pointer; overflow: hidden;" onclick="window._cmtkOpenDetailModal('${item.id}')" title="Nhấp để xem chi tiết bản Maket">
+                            ${item.imageUrl ? `
+                                <img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: contain; display: block; transition: transform 0.3s ease;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+                            ` : `
+                                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 48px; background: linear-gradient(135deg, #1e293b, #0f172a); color: #64748b;">🎨</div>
+                            `}
+                            <div style="position: absolute; top: 12px; right: 12px; background: rgba(15,23,42,0.85); color: #ffffff; font-size: 11px; font-weight: 850; padding: 4px 10px; border-radius: 10px; backdrop-filter: blur(4px);">
+                                📋 Xem Chi Tiết
+                            </div>
+                            ${item.hexCode ? `
+                                <div style="position: absolute; bottom: 12px; left: 12px; background: #ffffff; color: #0f172a; font-size: 11.5px; font-weight: 900; padding: 4px 10px; border-radius: 10px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${item.hexCode}; display: inline-block; border: 1px solid rgba(0,0,0,0.2);"></span>
+                                    <span>${item.hexCode}</span>
                                 </div>
-                                ${item.hexCode ? `
-                                    <div style="position: absolute; bottom: 12px; left: 12px; background: #ffffff; color: #0f172a; font-size: 11.5px; font-weight: 900; padding: 4px 10px; border-radius: 10px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-                                        <span style="width: 12px; height: 12px; border-radius: 50%; background: ${item.hexCode}; display: inline-block; border: 1px solid rgba(0,0,0,0.2);"></span>
-                                        <span>${item.hexCode}</span>
-                                    </div>
-                                ` : ''}
+                            ` : ''}
+                        </div>
+
+                        <!-- Card Inner Content -->
+                        <div class="card-inner">
+                            <div class="card-main-content">
+                                <div style="font-size: 12px; font-weight: 850; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                                    🏢 ${item.customerName || 'Khách Hàng Doanh Nghiệp / Trường Học'}
+                                </div>
+                                <h3 class="card-title">
+                                    ${item.title || 'Mẫu Maket Áo Đồng Phục'}
+                                </h3>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                                    ${item.fabricMaterial ? `<span class="card-badge theme-purple">🧵 ${item.fabricMaterial}</span>` : ''}
+                                    ${item.fabricColor ? `<span class="card-badge theme-blue">🎨 Màu: ${item.fabricColor}</span>` : ''}
+                                </div>
                             </div>
 
-                            <!-- Card Inner Content -->
-                            <div class="card-inner">
-                                <div class="card-main-content">
-                                    <div style="font-size: 12px; font-weight: 850; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
-                                        🏢 ${item.customerName || 'Khách Hàng Doanh Nghiệp / Trường Học'}
-                                    </div>
-                                    <h3 class="card-title">
-                                        ${item.title || 'Mẫu Maket Áo Đồng Phục'}
-                                    </h3>
-                                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
-                                        ${item.fabricMaterial ? `<span class="card-badge theme-purple">🧵 ${item.fabricMaterial}</span>` : ''}
-                                        ${item.fabricColor ? `<span class="card-badge theme-blue">🎨 Màu: ${item.fabricColor}</span>` : ''}
-                                    </div>
-                                </div>
-
-                                <!-- Card Footer Action Buttons -->
-                                <div style="display: flex; gap: 8px; margin-top: auto;">
-                                    <button type="button" onclick="window._cmtkOpenDetailModal('${item.id}')" class="card-btn-open" title="Xem Chi Tiết Quy Trình">
-                                        📋 <span>Xem Chi Tiết ➔</span>
-                                    </button>
-                                    ${item.docUrl ? `
-                                        <a href="${item.docUrl}" target="_blank" rel="noopener" 
-                                            style="border: 1.5px solid #a855f7; background: #faf5ff; color: #6b21a8; font-weight: 850; font-size: 12.5px; padding: 9px 12px; border-radius: 12px; text-decoration: none; display: flex; align-items: center; gap: 4px;" title="Mở File Gốc Drive/Vector">
-                                            🔗 <span>File Gốc ↗</span>
-                                        </a>
-                                    ` : ''}
-                                    <button type="button" onclick="window._cmtkDeleteMaket('${item.id}')" style="border: 1.5px solid #fecdd3; background: #fff1f2; color: #be123c; padding: 9px 12px; border-radius: 12px; cursor: pointer; font-size: 12px;" title="Xóa Maket">
-                                        🗑️
-                                    </button>
-                                </div>
+                            <!-- Card Footer Action Buttons -->
+                            <div style="display: flex; gap: 8px; margin-top: auto;">
+                                <button type="button" onclick="window._cmtkOpenDetailModal('${item.id}')" class="card-btn-open" title="Xem Chi Tiết Quy Trình">
+                                    📋 <span>Xem Chi Tiết ➔</span>
+                                </button>
+                                ${item.docUrl ? `
+                                    <a href="${item.docUrl}" target="_blank" rel="noopener" 
+                                        style="border: 1.5px solid #a855f7; background: #faf5ff; color: #6b21a8; font-weight: 850; font-size: 12.5px; padding: 9px 12px; border-radius: 12px; text-decoration: none; display: flex; align-items: center; gap: 4px;" title="Mở File Gốc Drive/Vector">
+                                        🔗 <span>File Gốc ↗</span>
+                                    </a>
+                                ` : ''}
+                                <button type="button" onclick="window._cmtkDeleteMaket('${item.id}')" style="border: 1.5px solid #fecdd3; background: #fff1f2; color: #be123c; padding: 9px 12px; border-radius: 12px; cursor: pointer; font-size: 12px;" title="Xóa Maket">
+                                    🗑️
+                                </button>
                             </div>
                         </div>
-                    `).join('')}
-                </div>
-            `}
+                    </div>
+                `).join('')}
+            </div>
         `;
     }
-
-    window._cmtkOnSearchMaket = function (val) {
-        currentSearchQuery = val || '';
-        renderCurrentMainTab();
-    };
-
-    window._cmtkOnFilterMatChange = function (val) {
-        selectedMaterialFilter = val || 'all';
-        renderCurrentMainTab();
-    };
 
     // ==========================================
     // TAB 2: CHẤM MÀU THIẾT KẾ & KHO VẢI
@@ -285,22 +278,6 @@
     function renderTab2Chammau(container) {
         const warehouses = fabricsData.warehouses || [];
         const materials = fabricsData.materials || [];
-        const colors = fabricsData.colors || [];
-
-        let filteredColors = colors.filter(c => {
-            const q = currentSearchQuery.toLowerCase().trim();
-            const matchQ = !q || (c.color_name || '').toLowerCase().includes(q) || (c.material_name || '').toLowerCase().includes(q) || (c.hex_code || '').toLowerCase().includes(q);
-            const matchW = selectedWarehouseFilter === 'all' || String(c.warehouse_id) === String(selectedWarehouseFilter);
-            const matchM = selectedMaterialFilter === 'all' || String(c.material_id) === String(selectedMaterialFilter);
-            return matchQ && matchW && matchM;
-        });
-
-        const groupedByMat = {};
-        filteredColors.forEach(c => {
-            const matName = c.material_name || 'Khác';
-            if (!groupedByMat[matName]) groupedByMat[matName] = [];
-            groupedByMat[matName].push(c);
-        });
 
         container.innerHTML = `
             <!-- Search Bar (Matched with Quản Trị Nhân Sự) -->
@@ -333,58 +310,125 @@
                 </div>
             </div>
 
-            <!-- Fabrics Colors Swatch Display -->
-            ${Object.keys(groupedByMat).length === 0 ? `
+            <!-- Dedicated Grid Container for Swatches -->
+            <div id="cmtkSwatchesGridContainer">
+                ${_cmtkRenderSwatchesCardsHTML()}
+            </div>
+        `;
+    }
+
+    function _cmtkRenderSwatchesCardsHTML() {
+        const colors = fabricsData.colors || [];
+        let filteredColors = colors.filter(c => {
+            const q = currentSearchQuery.toLowerCase().trim();
+            const matchQ = !q || (c.color_name || '').toLowerCase().includes(q) || (c.material_name || '').toLowerCase().includes(q) || (c.hex_code || '').toLowerCase().includes(q);
+            const matchW = selectedWarehouseFilter === 'all' || String(c.warehouse_id) === String(selectedWarehouseFilter);
+            const matchM = selectedMaterialFilter === 'all' || String(c.material_id) === String(selectedMaterialFilter);
+            return matchQ && matchW && matchM;
+        });
+
+        const groupedByMat = {};
+        filteredColors.forEach(c => {
+            const matName = c.material_name || 'Khác';
+            if (!groupedByMat[matName]) groupedByMat[matName] = [];
+            groupedByMat[matName].push(c);
+        });
+
+        if (Object.keys(groupedByMat).length === 0) {
+            return `
                 <div style="text-align: center; padding: 60px 20px; background: #ffffff; border-radius: 24px; border: 2px dashed #cbd5e1;">
                     <div style="font-size: 48px; margin-bottom: 12px;">🧵</div>
                     <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 900; color: #334155;">Không tìm thấy màu vải nào khớp với bộ lọc</h3>
                 </div>
-            ` : `
-                <div style="display: flex; flex-direction: column; gap: 26px;">
-                    ${Object.keys(groupedByMat).map(matName => {
-                        const colorsInMat = groupedByMat[matName];
-                        return `
-                            <div style="background: #ffffff; border-radius: 22px; border: 1.5px solid #e2e8f0; padding: 22px 24px; box-shadow: 0 8px 25px rgba(15,23,42,0.04);">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">
-                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                        <span style="font-size: 22px; background: #faf5ff; padding: 6px 12px; border-radius: 12px; border: 1px solid #e9d5ff;">🧵</span>
-                                        <h3 style="margin: 0; font-size: 18.5px; font-weight: 950; color: #4c1d95; letter-spacing: -0.3px;">CHẤT LIỆU: ${matName}</h3>
-                                        <span style="background: #f3e8ff; color: #6d28d9; font-weight: 850; font-size: 12px; padding: 4px 12px; border-radius: 20px;">${colorsInMat.length} Màu Vải</span>
-                                    </div>
+            `;
+        }
+
+        return `
+            <div style="display: flex; flex-direction: column; gap: 26px;">
+                ${Object.keys(groupedByMat).map(matName => {
+                    const colorsInMat = groupedByMat[matName];
+                    return `
+                        <div style="background: #ffffff; border-radius: 22px; border: 1.5px solid #e2e8f0; padding: 22px 24px; box-shadow: 0 8px 25px rgba(15,23,42,0.04);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-size: 22px; background: #faf5ff; padding: 6px 12px; border-radius: 12px; border: 1px solid #e9d5ff;">🧵</span>
+                                    <h3 style="margin: 0; font-size: 18.5px; font-weight: 950; color: #4c1d95; letter-spacing: -0.3px;">CHẤT LIỆU: ${matName}</h3>
+                                    <span style="background: #f3e8ff; color: #6d28d9; font-weight: 850; font-size: 12px; padding: 4px 12px; border-radius: 20px;">${colorsInMat.length} Màu Vải</span>
                                 </div>
+                            </div>
 
-                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;">
-                                    ${colorsInMat.map(c => {
-                                        const hex = c.hex_code || '#3b82f6';
-                                        return `
-                                            <div class="cmtk-swatch-card" style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.25s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.02);" onmouseover="this.style.borderColor='#c084fc'; this.style.boxShadow='0 10px 24px rgba(109,40,217,0.12)';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.02)';">
-                                                <div>
-                                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                                                        <div style="position: relative; width: 48px; height: 48px; border-radius: 50%; background: ${hex}; border: 3px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.18); flex-shrink: 0;" title="Digital HEX Swatch: ${hex}"></div>
-                                                        <div style="flex: 1; min-width: 0;">
-                                                            <div style="font-size: 15px; font-weight: 900; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                                                🎨 ${c.color_name}
-                                                            </div>
-                                                            <div style="font-size: 11.5px; font-weight: 750; color: #64748b;">
-                                                                🏬 ${c.warehouse_name || 'Kho Vải'}
-                                                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;">
+                                ${colorsInMat.map(c => {
+                                    const hex = c.hex_code || '#3b82f6';
+                                    return `
+                                        <div class="cmtk-swatch-card" style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.25s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.02);" onmouseover="this.style.borderColor='#c084fc'; this.style.boxShadow='0 10px 24px rgba(109,40,217,0.12)';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.02)';">
+                                            <div>
+                                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                                    <div style="position: relative; width: 48px; height: 48px; border-radius: 50%; background: ${hex}; border: 3px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.18); flex-shrink: 0;" title="Digital HEX Swatch: ${hex}"></div>
+                                                    <div style="flex: 1; min-width: 0;">
+                                                        <div style="font-size: 15px; font-weight: 900; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                            🎨 ${c.color_name}
                                                         </div>
-                                                    </div>
-
-                                                    <div style="background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                                                        <span style="font-size: 11px; font-weight: 850; color: #6b21a8; text-transform: uppercase;">MÃ #HEX:</span>
-                                                        <strong style="font-size: 13px; font-weight: 900; color: #0f172a; font-family: monospace;">${hex}</strong>
+                                                        <div style="font-size: 11.5px; font-weight: 750; color: #64748b;">
+                                                            🏬 ${c.warehouse_name || 'Kho Vải'}
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                <div style="display: flex; gap: 6px; margin-top: 8px;">
-                                                    <button type="button" onclick="window._cmtkCopyHex('${hex}', '${c.color_name}')" class="card-btn-open" title="Sao chép mã màu #HEX dán vào Photoshop / Illustrator">
-                                                        📋 <span>Sao Chép #HEX</span>
-                                                    </button>
-                                                    <button type="button" onclick="window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${c.color_name}', '${hex}', '${c.swatch_image || ''}')" 
-                                                        style="border: 1.5px solid #d8b4fe; background: #faf5ff; color: #6b21a8; font-weight: 850; font-size: 12px; padding: 9px 12px; border-radius: 12px; cursor: pointer;" title="Chấm màu mới">
-                                                        ⚙️ Chấm Màu
-                                                    </button>
+                                                <div style="background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                                                    <span style="font-size: 11px; font-weight: 850; color: #6b21a8; text-transform: uppercase;">MÃ #HEX:</span>
+                                                    <strong style="font-size: 13px; font-weight: 900; color: #0f172a; font-family: monospace;">${hex}</strong>
+                                                </div>
+                                            </div>
+
+                                            <div style="display: flex; gap: 6px; margin-top: 8px;">
+                                                <button type="button" onclick="window._cmtkCopyHex('${hex}', '${c.color_name}')" class="card-btn-open" title="Sao chép mã màu #HEX dán vào Photoshop / Illustrator">
+                                                    📋 <span>Sao Chép #HEX</span>
+                                                </button>
+                                                <button type="button" onclick="window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${c.color_name}', '${hex}', '${c.swatch_image || ''}')" 
+                                                    style="border: 1.5px solid #d8b4fe; background: #faf5ff; color: #6b21a8; font-weight: 850; font-size: 12.5px; padding: 9px 12px; border-radius: 12px; cursor: pointer;" title="Chấm màu mới">
+                                                    ⚙️ Chấm Màu
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    // Dynamic Search Handler without destroying search input focus!
+    window._cmtkOnSearchMaket = function (val) {
+        currentSearchQuery = val || '';
+        const grid1 = document.getElementById('cmtkCardGridContainer');
+        const grid2 = document.getElementById('cmtkSwatchesGridContainer');
+
+        if (grid1) {
+            grid1.innerHTML = _cmtkRenderMaketCardsHTML();
+        } else if (grid2) {
+            grid2.innerHTML = _cmtkRenderSwatchesCardsHTML();
+        } else {
+            renderCurrentMainTab();
+        }
+    };
+
+    window._cmtkOnFilterMatChange = function (val) {
+        selectedMaterialFilter = val || 'all';
+        const grid1 = document.getElementById('cmtkCardGridContainer');
+        const grid2 = document.getElementById('cmtkSwatchesGridContainer');
+
+        if (grid1) {
+            grid1.innerHTML = _cmtkRenderMaketCardsHTML();
+        } else if (grid2) {
+            grid2.innerHTML = _cmtkRenderSwatchesCardsHTML();
+        } else {
+            renderCurrentMainTab();
+        }
+    };                               </button>
                                                 </div>
                                             </div>
                                         `;
