@@ -935,6 +935,15 @@
         document.getElementById('hdkhDetailIcon').innerText = item.icon || '📜';
         document.getElementById('hdkhDetailTitle').innerText = _hdkhFormatTitle(item.title || 'Chi Tiết Hợp Đồng');
 
+        const imgBox = document.getElementById('hdkhDetailImageBox');
+        const imgEl = document.getElementById('hdkhDetailImg');
+        if (item.imageUrl && imgBox && imgEl) {
+            imgEl.src = item.imageUrl;
+            imgBox.style.display = 'block';
+        } else if (imgBox) {
+            imgBox.style.display = 'none';
+        }
+
         const subtitleBox = document.getElementById('hdkhDetailSubtitleBox');
         const subtitleText = document.getElementById('hdkhDetailSubtitleText');
         if (item.subtitle && item.subtitle.trim()) {
