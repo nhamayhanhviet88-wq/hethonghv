@@ -81,8 +81,8 @@
     }
 
     // Main Init Function
-    async function initPage() {
-        const root = document.getElementById('mainContent');
+    async function initPage(targetContainer = null) {
+        const root = targetContainer || document.getElementById('mainContent');
         if (!root) return;
 
         root.innerHTML = `
@@ -804,8 +804,16 @@
         }
     };
 
+    // Export Page Renderer for App Router
+    window.renderChammauthietkePage = function(targetContainer) {
+        initPage(targetContainer);
+    };
+    window.renderChamMauThietKePage = function(targetContainer) {
+        initPage(targetContainer);
+    };
+
     // Auto-init on page load
-    document.addEventListener('DOMContentLoaded', initPage);
+    document.addEventListener('DOMContentLoaded', () => initPage());
     if (document.readyState === 'interactive' || document.readyState === 'complete') {
         initPage();
     }

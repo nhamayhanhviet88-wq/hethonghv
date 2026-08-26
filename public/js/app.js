@@ -2602,6 +2602,13 @@ async function handleRoute() {
                         renderHopdongkhachhangPage(content);
                     }
                     break;
+                case 'chammauthietke': case 'cham-mau-thiet-ke':
+                    if (typeof window.renderChammauthietkePage === 'function') {
+                        window.renderChammauthietkePage(content);
+                    } else if (typeof renderChammauthietkePage === 'function') {
+                        renderChammauthietkePage(content);
+                    }
+                    break;
                 default:
                     // ========== CONVENTION-BASED AUTO-RENDER ==========
                     // Try multiple naming patterns to auto-discover page render functions
