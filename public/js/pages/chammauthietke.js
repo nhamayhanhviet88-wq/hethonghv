@@ -804,21 +804,29 @@
     function _cmtkGetStyles() {
         return `
             <style>
-                .cmtk-wrapper {
-                    padding: 24px 28px;
-                    max-width: 1600px;
-                    margin: 0 auto;
-                    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Comfortaa:wght@500;600;700&display=swap');
+
+                .cmtk-wrapper, .cmtk-wrapper button, .cmtk-wrapper input, .cmtk-wrapper select, .cmtk-wrapper textarea, .cmtk-wrapper div, .cmtk-wrapper span, .cmtk-wrapper h1, .cmtk-wrapper h2, .cmtk-wrapper h3, .cmtk-wrapper h4, .cmtk-wrapper p, .cmtk-wrapper a, .cmtk-wrapper option, .cmtk-wrapper strong,
+                #cmtkMaketModal, #cmtkMaketModal button, #cmtkMaketModal input, #cmtkMaketModal select, #cmtkMaketModal textarea, #cmtkMaketModal div, #cmtkMaketModal span, #cmtkMaketModal h3,
+                #cmtkDetailModal, #cmtkDetailModal button, #cmtkDetailModal input, #cmtkDetailModal select, #cmtkDetailModal textarea, #cmtkDetailModal div, #cmtkDetailModal span, #cmtkDetailModal h3,
+                #cmtkEditColorModal, #cmtkEditColorModal button, #cmtkEditColorModal input, #cmtkEditColorModal select, #cmtkEditColorModal textarea, #cmtkEditColorModal div, #cmtkEditColorModal span, #cmtkEditColorModal h3 {
+                    font-family: 'Nunito', 'Comfortaa', system-ui, -apple-system, sans-serif !important;
                 }
 
-                /* Executive Banner Header (Matched with Quản Trị Nhân Sự) */
+                .cmtk-wrapper {
+                    padding: 24px;
+                    background: #f8fafc;
+                    min-height: 100vh;
+                }
+
+                /* Executive Banner Header (Matched 100% with Quản Trị Nhân Sự) */
                 .cmtk-header {
-                    background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
+                    background: linear-gradient(135deg, #3b0764 0%, #5b21b6 50%, #6d28d9 100%);
                     border-radius: 24px;
-                    padding: 26px 32px;
+                    padding: 28px 32px;
                     color: #ffffff;
                     margin-bottom: 24px;
-                    box-shadow: 0 16px 40px -10px rgba(76, 29, 149, 0.4);
+                    box-shadow: 0 14px 35px rgba(91, 33, 182, 0.25);
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
@@ -828,37 +836,38 @@
                 .cmtk-header-left {
                     display: flex;
                     align-items: center;
-                    gap: 18px;
+                    gap: 20px;
                 }
                 .cmtk-icon-bg {
-                    width: 56px;
-                    height: 56px;
-                    background: rgba(255, 255, 255, 0.18);
-                    backdrop-filter: blur(10px);
-                    border-radius: 18px;
+                    font-size: 38px;
+                    background: rgba(255, 255, 255, 0.15);
+                    width: 68px;
+                    height: 68px;
+                    border-radius: 20px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 28px;
+                    border: 1.5px solid rgba(255, 255, 255, 0.25);
                     flex-shrink: 0;
                 }
                 .cmtk-title {
-                    margin: 0;
-                    font-size: 24px;
+                    font-size: 22px;
                     font-weight: 900;
-                    letter-spacing: -0.5px;
+                    margin: 0 0 6px 0;
+                    letter-spacing: 0.5px;
                     color: #ffffff;
                 }
                 .cmtk-subtitle {
-                    margin: 4px 0 0 0;
                     font-size: 13.5px;
-                    color: #e9d5ff;
+                    margin: 0;
+                    opacity: 0.9;
                     font-weight: 500;
+                    color: #ffffff;
                 }
                 .cmtk-btn-header-action {
                     background: rgba(255, 255, 255, 0.2);
                     color: #ffffff;
-                    border: 1.5px solid rgba(255, 255, 255, 0.4);
+                    border: 1.5px solid rgba(255, 255, 255, 0.35);
                     font-weight: 900;
                     font-size: 13.5px;
                     padding: 12px 22px;
