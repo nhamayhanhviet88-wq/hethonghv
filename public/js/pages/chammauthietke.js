@@ -448,23 +448,6 @@
                 </div>
             </div>
 
-            <!-- Header Control Bar của MỤC 2: Chấm Màu Thiết Kế & Kho Vải -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(250,245,255,0.95), rgba(243,232,255,0.98)); backdrop-filter: blur(16px); padding: 14px 22px; border-radius: 20px; border: 1.5px solid #e9d5ff; box-shadow: 0 12px 32px -8px rgba(109,40,217,0.15);">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 15px; font-weight: 900; color: #6d28d9; background: #ffffff; padding: 8px 20px; border-radius: 30px; border: 1.5px solid #d8b4fe; box-shadow: 0 4px 14px rgba(109,40,217,0.1); display: inline-flex; align-items: center; gap: 8px;">
-                        🧵 BẢNG CHẤM MÃ MÀU THIẾT KẾ & KHO VẢI THỰC TẾ (#HEX)
-                    </span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <button type="button" onclick="window._cmtkOpenAddMaketModal()" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.35); cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-                        ➕ Tạo Bản Maket Mới
-                    </button>
-                    <button type="button" onclick="window._cmtkOpenSubtabModal()" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:rgba(255,255,255,0.95); color:#6d28d9; border:1.5px solid #d8b4fe; box-shadow:0 4px 14px rgba(109,40,217,0.15); cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-                        ⚙️ Cài Đặt Mục
-                    </button>
-                </div>
-            </div>
-
             <!-- Warehouse & Material Filters Bar -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: #ffffff; padding: 14px 22px; border-radius: 18px; border: 1.5px solid #e9d5ff; box-shadow: 0 4px 14px rgba(109,40,217,0.04);">
                 <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
