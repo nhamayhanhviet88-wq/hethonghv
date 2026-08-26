@@ -661,10 +661,10 @@
             <div class="hdkh-card-item theme-${themeName} ${link.isPinned ? 'is-pinned-card' : ''}">
                 <div class="card-accent-bar theme-${themeName}"></div>
                 ${link.imageUrl ? `
-                    <div style="position:relative; width:100%; height:140px; overflow:hidden; background:#f1f5f9; cursor:pointer;" onclick="window._hdkhOpenLightbox('${link.id}', '${subId}')" title="Click để xem ảnh phóng to sắc nét">
+                    <div style="position:relative; width:100%; height:140px; overflow:hidden; background:#f1f5f9; cursor:pointer;" onclick="window._hdkhOpenDetailModal('${link.id}', '${subId}')" title="Click để xem chi tiết hợp đồng & chứng từ">
                         <img src="${link.imageUrl}" style="width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.3s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                         <div style="position:absolute; bottom:8px; right:8px; background:rgba(15,23,42,0.75); color:#ffffff; font-size:11px; font-weight:800; padding:4px 10px; border-radius:8px; backdrop-filter:blur(4px); display:flex; align-items:center; gap:4px;">
-                            🔍 Phóng To
+                            📋 Xem Chi Tiết
                         </div>
                     </div>
                 ` : ''}
