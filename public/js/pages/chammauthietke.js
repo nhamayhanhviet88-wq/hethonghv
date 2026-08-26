@@ -224,6 +224,70 @@
         renderCurrentMainTab();
     };
 
+    // Filter Change Handlers
+    window._cmtkOnFilterWarehouseChange = function(whId) {
+        selectedWarehouseFilter = whId;
+        // Kiểm tra xem chất liệu đang chọn có thuộc Kho Vải mới chọn không, nếu không thì reset về 'all'
+        if (selectedWarehouseFilter !== 'all' && selectedMaterialFilter !== 'all') {
+            const allMaterials = fabricsData.materials || [];
+            const isMatValid = allMaterials.some(m => String(m.warehouse_id) === String(selectedWarehouseFilter) && (String(m.id) === String(selectedMaterialFilter) || m.name === selectedMaterialFilter));
+            if (!isMatValid) {
+                selectedMaterialFilter = 'all';
+            }
+        }
+        const container = document.getElementById('cmtkContentContainer');
+        if (container) renderTab2Chammau(container);
+    };
+
+    window._cmtkOnFilterMatChange = function(matId) {
+        selectedMaterialFilter = matId;
+        const container = document.getElementById('cmtkContentContainer');
+        if (currentMainTab === 'muc1_maket') {
+            const grid = document.getElementById('cmtkCardGridContainer');
+            if (grid) grid.innerHTML = _cmtkRenderMaketCardsHTML();
+        } else {
+            if (container) renderTab2Chammau(container);
+        }
+    };
+
+    window._cmtkOnSearchMaket = function(val) {
+        currentSearchQuery = val || '';
+        if (currentMainTab === 'muc1_maket') {
+            const grid = document.getElementById('cmtkCardGridContainer');
+            if (grid) grid.innerHTML = _cmtkRenderMaketCardsHTML();
+        } else {
+            const grid = document.getElementById('cmtkSwatchesGridContainer');
+            if (grid) grid.innerHTML = _cmtkRenderSwatchesCardsHTML();
+        }
+    };
+
+    window._cmtkCopyHex = function(hex, colorName) {
+        if (!hex) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(hex).then(() => {
+                showToast(`✅ Đã sao chép mã màu ${hex} (${colorName})!`);
+            }).catch(() => {
+                _fallbackCopyText(hex, colorName);
+            });
+        } else {
+            _fallbackCopyText(hex, colorName);
+        }
+    };
+
+    function _fallbackCopyText(hex, colorName) {
+        const input = document.createElement('input');
+        input.value = hex;
+        document.body.appendChild(input);
+        input.select();
+        try {
+            document.execCommand('copy');
+            showToast(`✅ Đã sao chép mã màu ${hex} (${colorName})!`);
+        } catch (e) {
+            showToast(`Mã màu: ${hex}`);
+        }
+        document.body.removeChild(input);
+    }
+
     // ==========================================
     // TAB 1: KHO LƯU TRỮ BẢN MAKET
     // ==========================================
@@ -365,8 +429,12 @@
 
     function renderTab2Chammau(container) {
         const warehouses = fabricsData.warehouses || [];
-        const materials = fabricsData.materials || [];
-        const subtabs = getSubtabs();
+        const allMaterials = fabricsData.materials || [];
+        
+        // Lọc danh sách chất liệu ĐỘNG theo Kho Vải được chọn!
+        const materials = selectedWarehouseFilter === 'all'
+            ? allMaterials
+            : allMaterials.filter(m => String(m.warehouse_id) === String(selectedWarehouseFilter));
 
         container.innerHTML = `
             <!-- Search Bar -->
