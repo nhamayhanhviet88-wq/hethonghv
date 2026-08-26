@@ -157,13 +157,14 @@
         }
     }
 
-    // Main Init Function matching Quản Trị Nhân Sự
+    // Main Init Function matching Quản Trị Nhân Sự (Ảnh 4)
     function initPage(targetContainer = null) {
         const root = targetContainer || document.getElementById('contentArea') || document.getElementById('mainContent') || document.querySelector('.content-area') || document.querySelector('.main-content');
         if (!root) return;
 
         root.innerHTML = `
             <div class="cmtk-wrapper">
+                <!-- Top Executive Banner Header (Matched with Quản Trị Nhân Sự) -->
                 <div class="cmtk-header">
                     <div class="cmtk-header-left">
                         <div class="cmtk-icon-bg">🎨</div>
@@ -173,34 +174,23 @@
                         </div>
                     </div>
                     <div class="cmtk-header-right">
-                        <button type="button" onclick="window._cmtkOpenAddMaketModal()" class="cmtk-btn-header-action">
-                            ➕ Tạo Bản Maket Mới
-                        </button>
+                        <span style="background:#22c55e; color:#ffffff; font-weight:850; font-size:12px; padding:6px 14px; border-radius:20px; box-shadow:0 4px 12px rgba(34,197,94,0.3);">● Hệ Thống Hoạt Động</span>
                     </div>
                 </div>
 
-                <div class="cmtk-tabs-main" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-                        <button class="cmtk-tab-btn ${currentMainTab === 'muc1_maket' ? 'active' : ''}" data-maintab="muc1_maket" onclick="window._cmtkSwitchMainTab('muc1_maket')">
-                            <span class="tab-num">MỤC 1</span>
-                            <span class="tab-label">🎨 1. Kho Lưu Trữ Bản Maket</span>
-                        </button>
-                        <button class="cmtk-tab-btn ${currentMainTab === 'muc2_chammau' ? 'active' : ''}" data-maintab="muc2_chammau" onclick="window._cmtkSwitchMainTab('muc2_chammau')">
-                            <span class="tab-num">MỤC 2</span>
-                            <span class="tab-label">🧵 2. Chấm Màu Thiết Kế & Kho Vải</span>
-                        </button>
-                    </div>
-
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <button type="button" onclick="window._cmtkOpenAddMaketModal()" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; font-weight:900; font-size:13.5px; padding:10px 18px; border-radius:14px; cursor:pointer; box-shadow:0 4px 14px rgba(109,40,217,0.35); display:inline-flex; align-items:center; gap:6px;">
-                            ➕ Tạo Bản Maket Mới
-                        </button>
-                        <button type="button" onclick="window._cmtkOpenSubtabModal()" style="background:#ffffff; color:#475569; border:1.5px solid #cbd5e1; font-weight:800; font-size:13px; padding:9px 16px; border-radius:14px; cursor:pointer; transition:all 0.2s ease; display:inline-flex; align-items:center; gap:6px;" onmouseover="this.style.borderColor='#7c3aed'; this.style.color='#7c3aed';" onmouseout="this.style.borderColor='#cbd5e1'; this.style.color='#475569';">
-                            ⚙️ Cài Đặt Mục
-                        </button>
-                    </div>
+                <!-- Level 1 Main Tabs Navigation (Grid 2 Card Lớn Matched Image 4 100%) -->
+                <div class="cmtk-tabs-main">
+                    <button class="cmtk-tab-btn ${currentMainTab === 'muc1_maket' ? 'active' : ''}" data-maintab="muc1_maket" onclick="window._cmtkSwitchMainTab('muc1_maket')">
+                        <span class="tab-num">MỤC 1</span>
+                        <span class="tab-label">🎨 1. Kho Lưu Trữ Bản Maket</span>
+                    </button>
+                    <button class="cmtk-tab-btn ${currentMainTab === 'muc2_chammau' ? 'active' : ''}" data-maintab="muc2_chammau" onclick="window._cmtkSwitchMainTab('muc2_chammau')">
+                        <span class="tab-num">MỤC 2</span>
+                        <span class="tab-label">🧵 2. Chấm Màu Thiết Kế & Kho Vải</span>
+                    </button>
                 </div>
 
+                <!-- Main Dynamic Content Container -->
                 <div class="cmtk-content-container" id="cmtkContentContainer">
                 </div>
             </div>
@@ -228,12 +218,23 @@
         else renderTab2Chammau(container);
     }
 
+    window._cmtkSwitchSubtab = function(subId) {
+        activeSubtab = subId;
+        localStorage.setItem('cmtk_active_subtab', subId);
+        renderCurrentMainTab();
+    };
+
+    // ==========================================
+    // TAB 1: KHO LƯU TRỮ BẢN MAKET
+    // ==========================================
     function renderTab1Maket(container) {
         const matSet = new Set(maketList.map(m => m.fabricMaterial).filter(Boolean));
         const depts = getDepartments();
+        const subtabs = getSubtabs();
 
         container.innerHTML = `
-            <div style="margin-bottom: 18px; position: relative;">
+            <!-- Search Bar (Matched Image 3) -->
+            <div style="margin-bottom: 20px; position: relative;">
                 <div style="position: relative; display: flex; align-items: center;">
                     <span style="position: absolute; left: 18px; font-size: 18px; color: #7c3aed; pointer-events: none; z-index: 2;">🔍</span>
                     <input type="text" id="cmtkSearchMaketInput" value="${currentSearchQuery}" 
@@ -243,12 +244,30 @@
                 </div>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; background: linear-gradient(135deg, rgba(250,245,255,0.95), rgba(243,232,255,0.98)); backdrop-filter: blur(16px); padding: 12px 20px; border-radius: 20px; border: 1.5px solid #e9d5ff; box-shadow: 0 8px 24px -6px rgba(109,40,217,0.12);">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <span style="font-size: 13.5px; font-weight: 850; color: #5b21b6; display: flex; align-items: center; gap: 6px; margin-right: 4px;">
-                        🏢 <span>Bộ phận / Loại:</span>
-                    </span>
+            <!-- Subtabs Bar + Action Buttons (Matched Image 3 100%) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(250,245,255,0.95), rgba(243,232,255,0.98)); backdrop-filter: blur(16px); padding: 14px 22px; border-radius: 20px; border: 1.5px solid #e9d5ff; box-shadow: 0 12px 32px -8px rgba(109,40,217,0.15);">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                    ${subtabs.map(st => `
+                        <button type="button" class="cmtk-subtab-btn ${activeSubtab === st.id ? 'active' : ''}" onclick="window._cmtkSwitchSubtab('${st.id}')"
+                            style="display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:850; padding:10px 22px; border-radius:30px; cursor:pointer; ${activeSubtab === st.id ? 'background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.45);' : 'background:#ffffff; color:#0f172a; border:1.5px solid #cbd5e1;'}">
+                            ${st.icon || '🎨'} ${st.title}
+                        </button>
+                    `).join('')}
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button type="button" onclick="window._cmtkOpenAddMaketModal()" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.35); cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                        ➕ Tạo Bản Maket Mới
+                    </button>
+                    <button type="button" onclick="window._cmtkOpenSubtabModal()" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:rgba(255,255,255,0.95); color:#6d28d9; border:1.5px solid #d8b4fe; box-shadow:0 4px 14px rgba(109,40,217,0.15); cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                        ⚙️ Cài Đặt Mục
+                    </button>
+                </div>
+            </div>
 
+            <!-- Department / Category Filter Bar (Matched Image 3 100%) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 14px 22px; border-radius: 18px; border: 1.5px solid #e9d5ff; margin-bottom: 22px; box-shadow: 0 4px 14px rgba(109,40,217,0.04); flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-size: 13.5px; font-weight: 900; color: #4c1d95; margin-right: 4px;">🏢 Bộ phận / Loại:</span>
                     <button type="button" class="cmtk-dept-pill ${activeCategoryFilter === 'all' ? 'active' : ''}" onclick="window._cmtkSetCategoryFilter('all')">
                         🌐 Tất Cả (${maketList.length})
                     </button>
@@ -261,14 +280,14 @@
                         `;
                     }).join('')}
                 </div>
-
                 <div>
-                    <button type="button" onclick="window._cmtkOpenDepartmentModal()" style="background:#ffffff; color:#475569; border:1.5px solid #cbd5e1; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:12px; cursor:pointer; transition:all 0.2s ease; display:inline-flex; align-items:center; gap:6px;" onmouseover="this.style.borderColor='#7c3aed'; this.style.color='#7c3aed';" onmouseout="this.style.borderColor='#cbd5e1'; this.style.color='#475569';">
+                    <button type="button" onclick="window._cmtkOpenDepartmentModal()" style="border-radius:12px; padding:9px 18px; font-size:13.5px; font-weight:800; border:1.5px solid #d8b4fe; color:#6d28d9; background:#ffffff; cursor:pointer;">
                         ⚙️ Cài Đặt Bộ Phận
                     </button>
                 </div>
             </div>
 
+            <!-- Material Sub-Filter Bar -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 13.5px; font-weight: 850; color: #475569;">Lọc Theo Chất Liệu Vải:</span>
@@ -339,8 +358,11 @@
     function renderTab2Chammau(container) {
         const warehouses = fabricsData.warehouses || [];
         const materials = fabricsData.materials || [];
+        const subtabs = getSubtabs();
+
         container.innerHTML = `
-            <div style="margin-bottom: 18px; position: relative;">
+            <!-- Search Bar -->
+            <div style="margin-bottom: 20px; position: relative;">
                 <div style="position: relative; display: flex; align-items: center;">
                     <span style="position: absolute; left: 18px; font-size: 18px; color: #7c3aed; pointer-events: none; z-index: 2;">🔍</span>
                     <input type="text" id="cmtkSearchColorInput" value="${currentSearchQuery}" 
@@ -350,7 +372,28 @@
                 </div>
             </div>
 
+            <!-- Subtabs Bar + Action Buttons (Matched Image 3 100%) -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(250,245,255,0.95), rgba(243,232,255,0.98)); backdrop-filter: blur(16px); padding: 14px 22px; border-radius: 20px; border: 1.5px solid #e9d5ff; box-shadow: 0 12px 32px -8px rgba(109,40,217,0.15);">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                    ${subtabs.map(st => `
+                        <button type="button" class="cmtk-subtab-btn ${activeSubtab === st.id ? 'active' : ''}" onclick="window._cmtkSwitchSubtab('${st.id}')"
+                            style="display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:850; padding:10px 22px; border-radius:30px; cursor:pointer; ${activeSubtab === st.id ? 'background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.45);' : 'background:#ffffff; color:#0f172a; border:1.5px solid #cbd5e1;'}">
+                            ${st.icon || '🧵'} ${st.title}
+                        </button>
+                    `).join('')}
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button type="button" onclick="window._cmtkOpenAddMaketModal()" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.35); cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                        ➕ Tạo Bản Maket Mới
+                    </button>
+                    <button type="button" onclick="window._cmtkOpenSubtabModal()" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:rgba(255,255,255,0.95); color:#6d28d9; border:1.5px solid #d8b4fe; box-shadow:0 4px 14px rgba(109,40,217,0.15); cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                        ⚙️ Cài Đặt Mục
+                    </button>
+                </div>
+            </div>
+
+            <!-- Warehouse & Material Filters Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: #ffffff; padding: 14px 22px; border-radius: 18px; border: 1.5px solid #e9d5ff; box-shadow: 0 4px 14px rgba(109,40,217,0.04);">
                 <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 13.5px; font-weight: 850; color: #5b21b6;">Kho Vải:</span>
@@ -1143,59 +1186,67 @@
                     transform: translateY(-2px);
                 }
 
-                /* Level 1 Main Tabs Navigation Bar */
+                /* Level 1 Main Tabs Navigation Bar (Matched Image 4 100%) */
                 .cmtk-tabs-main {
-                    background: #ffffff;
-                    border-radius: 22px;
-                    padding: 12px;
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 16px;
                     margin-bottom: 24px;
-                    border: 1.5px solid #e2e8f0;
-                    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
                 }
 
                 .cmtk-tab-btn {
-                    border: 1.5px solid #e9d5ff;
                     background: #ffffff;
-                    padding: 12px 22px;
-                    border-radius: 16px;
+                    border: 2px solid #e2e8f0;
+                    border-radius: 18px;
+                    padding: 20px 24px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-start;
                     cursor: pointer;
-                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 10px;
+                    transition: all 0.25s ease;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+                    width: 100%;
+                    box-sizing: border-box;
                 }
 
-                .cmtk-tab-btn .tab-num {
-                    background: #faf5ff;
-                    color: #7c3aed;
-                    font-size: 10.5px;
-                    font-weight: 900;
-                    padding: 3px 9px;
-                    border-radius: 20px;
-                    border: 1px solid #e9d5ff;
-                    text-transform: uppercase;
-                }
-
-                .cmtk-tab-btn .tab-label {
-                    font-size: 14.5px;
-                    font-weight: 850;
-                    color: #475569;
+                .cmtk-tab-btn:hover {
+                    border-color: #c084fc;
+                    transform: translateY(-2px);
                 }
 
                 .cmtk-tab-btn.active {
-                    background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
-                    border-color: #6d28d9;
-                    box-shadow: 0 8px 20px rgba(109, 40, 217, 0.3);
+                    background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%) !important;
+                    border-color: #6d28d9 !important;
+                    box-shadow: 0 8px 24px rgba(109, 40, 217, 0.45) !important;
+                }
+
+                .cmtk-tab-btn .tab-num {
+                    font-size: 13.5px;
+                    font-weight: 900;
+                    color: #7c3aed;
+                    background: #f3e8ff;
+                    padding: 4px 12px;
+                    border-radius: 12px;
+                    margin-bottom: 8px;
+                    letter-spacing: 0.8px;
+                    text-transform: uppercase;
                 }
 
                 .cmtk-tab-btn.active .tab-num {
-                    background: rgba(255, 255, 255, 0.25);
-                    color: #ffffff;
-                    border-color: rgba(255, 255, 255, 0.3);
+                    color: #ffffff !important;
+                    background: rgba(255, 255, 255, 0.25) !important;
+                }
+
+                .cmtk-tab-btn .tab-label {
+                    font-size: 18.5px;
+                    font-weight: 900;
+                    color: #1e293b;
+                    line-height: 1.35;
+                    letter-spacing: -0.2px;
                 }
 
                 .cmtk-tab-btn.active .tab-label {
-                    color: #ffffff;
+                    color: #ffffff !important;
                 }
 
                 /* Department Pills */
