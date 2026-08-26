@@ -1202,7 +1202,7 @@ window.renderGioihanchitieuPage = function(container) {
                     <div style="display: flex; align-items: center; gap: 4px; flex: 1;">
                         <span style="font-size: 16px;">💵</span>
                         <input type="text" value="${new Intl.NumberFormat('vi-VN').format(limitVal)}" 
-                            oninput="window._ghctFormatMoneyInput(this)"
+                            oninput="window._ghctFormatMoneyInput(this, '${dayType}', ${i})"
                             onchange="window._ghctUpdateSlot('${dayType}', ${i}, 'money', this.value)" 
                             style="
                                 padding: 8px 12px;
@@ -1368,10 +1368,15 @@ window.renderGioihanchitieuPage = function(container) {
         input.value = String(num).padStart(2, '0');
     };
 
-    window._ghctFormatMoneyInput = function(input) {
+    window._ghctFormatMoneyInput = function(input, dayType, index) {
         const raw = input.value.replace(/[^\d]/g, '');
         if (raw) {
-            input.value = new Intl.NumberFormat('vi-VN').format(parseInt(raw));
+            input.value = new Intl.NumberFormat('vi-VN').format(parseInt(raw, 10));
+        } else {
+            input.value = '0';
+        }
+        if (dayType !== undefined && index !== undefined) {
+            window._ghctUpdateSlot(dayType, index, 'money', raw);
         }
     };
 
@@ -1503,6 +1508,36 @@ window.renderGioihanchitieuPage = function(container) {
         };
     }
 
+    function _syncDOMInputsToConfigs() {
+        document.querySelectorAll('.ghct-slot-row').forEach(row => {
+            const dayType = row.dataset.daytype;
+            const index = parseInt(row.dataset.index, 10);
+            if (!dayType || isNaN(index)) return;
+
+            const filtered = _configs.filter(c => c.day_type === dayType);
+            const target = filtered[index];
+            if (!target) return;
+
+            const moneyInput = row.querySelector('input[oninput*="_ghctFormatMoneyInput"]');
+            if (moneyInput) {
+                const cleaned = moneyInput.value.replace(/[^\d]/g, '');
+                if (cleaned) {
+                    target.spend_limit = parseInt(cleaned, 10) || 0;
+                }
+            }
+
+            const hourInput = row.querySelector('input[onblur*="hour"]');
+            const minuteInput = row.querySelector('input[onblur*="minute"]');
+            if (hourInput && minuteInput) {
+                let h = parseInt(hourInput.value.replace(/[^\d]/g, ''), 10) || 0;
+                let m = parseInt(minuteInput.value.replace(/[^\d]/g, ''), 10) || 0;
+                if (h > 23) h = 23;
+                if (m > 59) m = 59;
+                target.time_slot = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+            }
+        });
+    }
+
     // ========== SAVE CONFIG ==========
     window._ghctSaveConfig = async function() {
         if (!_selectedAccountId) {
@@ -1510,8 +1545,11 @@ window.renderGioihanchitieuPage = function(container) {
             return;
         }
 
+        _syncDOMInputsToConfigs();
+
         _showSaveModeModal(true, async function(saveMode) {
             try {
+                _syncDOMInputsToConfigs();
                 const dayTypeIdxMap = { weekday: 0, sunday: 0 };
                 const preparedConfigs = _configs.map(c => {
                     const dayType = c.day_type || 'weekday';
@@ -1550,8 +1588,8 @@ window.renderGioihanchitieuPage = function(container) {
                                 origLimit = null;
                             }
                         } else {
-                            isOverride = false;
-                            origLimit = null;
+                            isOverride = true;
+                            origLimit = currentLimit;
                         }
                     }
 

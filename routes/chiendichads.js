@@ -89,10 +89,37 @@ module.exports = async function (fastify, opts) {
         `);
     } catch(e) { console.error('[ads_campaign_reports migration]', e.message); }
 
-    // Clean up deprecated penalty config for ads_campaign_khong_bao_cao (since system auto-syncs Facebook Ads)
+    // Clean up deprecated penalty config & old ledger records for ads_campaign_khong_bao_cao (since system auto-syncs Facebook Ads)
     try {
         await db.run("DELETE FROM global_penalty_config WHERE key = 'ads_campaign_khong_bao_cao'");
-    } catch(e) {}
+        await db.run(`DELETE FROM daily_penalty_ledger 
+                      WHERE source_type = 'ads_campaign_khong_bao_cao' 
+                         OR task_name ILIKE '%Chiến dịch Ads không báo cáo%' 
+                         OR task_name ILIKE '%Không gửi báo cáo chỉ số hàng ngày cho chiến dịch Ads%'`);
+
+        // Clean up users blocked solely due to deprecated ads penalties
+        const blockedUsers = await db.all("SELECT id, access_blocked_reason FROM users WHERE access_blocked = true");
+        for (const u of blockedUsers) {
+            if (!u.access_blocked_reason) continue;
+            try {
+                let penalties = JSON.parse(u.access_blocked_reason);
+                if (Array.isArray(penalties)) {
+                    const filtered = penalties.filter(p => 
+                        !p.task_name?.includes('Chiến dịch Ads không báo cáo') &&
+                        !p.task_name?.includes('Không gửi báo cáo chỉ số hàng ngày cho chiến dịch Ads') &&
+                        p.source_type !== 'ads_campaign_khong_bao_cao'
+                    );
+                    if (filtered.length === 0) {
+                        await db.run("UPDATE users SET access_blocked = false, access_blocked_at = NULL, access_blocked_reason = NULL WHERE id = $1", [u.id]);
+                        console.log(`🔓 [Clean Deprecated Ads Penalty] Auto-unblocked user id=${u.id}`);
+                    } else if (filtered.length !== penalties.length) {
+                        await db.run("UPDATE users SET access_blocked_reason = $1 WHERE id = $2", [JSON.stringify(filtered), u.id]);
+                        console.log(`🧹 [Clean Deprecated Ads Penalty] Cleaned deprecated ads penalties for user id=${u.id}`);
+                    }
+                }
+            } catch(e) {}
+        }
+    } catch(e) { console.error('[ads_campaign_khong_bao_cao cleanup error]', e.message); }
 
     // ========== HELPER FUNCTIONS ==========
 

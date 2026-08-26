@@ -270,7 +270,9 @@ window.renderThongkeadsPage = function(container) {
                                 font-size: 13px; font-weight: 700; background: #f8fafc; cursor: pointer; outline: none;
                                 color: #1d4ed8; box-sizing: border-box;
                             ">
-                                <option value="month">📅 Theo Tháng</option>
+                                <option value="today">☀️ Hôm Nay</option>
+                                <option value="yesterday">🌙 Hôm Qua</option>
+                                <option value="month" selected>📅 Theo Tháng</option>
                                 <option value="quarter">📊 Theo Quý</option>
                                 <option value="daterange">📆 Theo Ngày (Bảng Lịch)</option>
                             </select>
@@ -628,7 +630,7 @@ window.renderThongkeadsPage = function(container) {
                     " onmouseover="if(!${isExplicitlySelected}) this.style.borderColor='#93c5fd'" onmouseout="if(!${isExplicitlySelected}) this.style.borderColor='#e2e8f0'">
                         <div>
                             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; margin-bottom: 4px;">
-                                <div style="font-weight: 800; font-size: 14px; color: ${isExplicitlySelected ? '#1d4ed8' : '#0f172a'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <div style="font-weight: 800; font-size: 14px; color: ${isExplicitlySelected ? '#1d4ed8' : '#0f172a'}; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                     📘 ${acc.account_name}
                                 </div>
                                 <div style="flex-shrink:0;">${statusBadge}</div>
@@ -767,6 +769,42 @@ window.renderThongkeadsPage = function(container) {
         }
     }
 
+    function _getTodayVNStr() {
+        const d = new Date();
+        return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+    }
+
+    function _getYesterdayVNStr() {
+        const d = new Date();
+        const vnDate = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        vnDate.setDate(vnDate.getDate() - 1);
+        const y = vnDate.getFullYear();
+        const m = String(vnDate.getMonth() + 1).padStart(2, '0');
+        const day = String(vnDate.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function _applyDateParams(params) {
+        if (_filterMode === 'today') {
+            const todayStr = _getTodayVNStr();
+            params.set('start_date', todayStr);
+            params.set('end_date', todayStr);
+        } else if (_filterMode === 'yesterday') {
+            const yestStr = _getYesterdayVNStr();
+            params.set('start_date', yestStr);
+            params.set('end_date', yestStr);
+        } else if (_filterMode === 'daterange' && _startDate && _endDate) {
+            params.set('start_date', _startDate);
+            params.set('end_date', _endDate);
+        } else if (_filterMode === 'quarter') {
+            params.set('quarter', _selectedQuarter);
+            params.set('year', _selectedYear);
+        } else {
+            params.set('month', _selectedMonth);
+            params.set('year', _selectedYear);
+        }
+    }
+
     async function _loadData() {
         if (_viewMode === 'campaign') {
             await Promise.all([_loadCampaignSummaryData(), _loadSummary()]);
@@ -783,16 +821,7 @@ window.renderThongkeadsPage = function(container) {
                 limit: 200
             });
 
-            if (_filterMode === 'daterange' && _startDate && _endDate) {
-                params.set('start_date', _startDate);
-                params.set('end_date', _endDate);
-            } else if (_filterMode === 'quarter') {
-                params.set('quarter', _selectedQuarter);
-                params.set('year', _selectedYear);
-            } else {
-                params.set('month', _selectedMonth);
-                params.set('year', _selectedYear);
-            }
+            _applyDateParams(params);
 
             if (_searchQuery) params.set('search', _searchQuery);
 
@@ -816,16 +845,7 @@ window.renderThongkeadsPage = function(container) {
                 account_id: _getAccountParam()
             });
 
-            if (_filterMode === 'daterange' && _startDate && _endDate) {
-                params.set('start_date', _startDate);
-                params.set('end_date', _endDate);
-            } else if (_filterMode === 'quarter') {
-                params.set('quarter', _selectedQuarter);
-                params.set('year', _selectedYear);
-            } else {
-                params.set('month', _selectedMonth);
-                params.set('year', _selectedYear);
-            }
+            _applyDateParams(params);
 
             if (_searchQuery) params.set('search', _searchQuery);
 
@@ -854,16 +874,7 @@ window.renderThongkeadsPage = function(container) {
                 account_id: _getAccountParam()
             });
 
-            if (_filterMode === 'daterange' && _startDate && _endDate) {
-                params.set('start_date', _startDate);
-                params.set('end_date', _endDate);
-            } else if (_filterMode === 'quarter') {
-                params.set('quarter', _selectedQuarter);
-                params.set('year', _selectedYear);
-            } else {
-                params.set('month', _selectedMonth);
-                params.set('year', _selectedYear);
-            }
+            _applyDateParams(params);
 
             const res = await fetch(`/api/thongkeads/summary?${params}`, { credentials: 'include' });
             const data = await res.json();

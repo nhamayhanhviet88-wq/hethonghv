@@ -425,6 +425,31 @@ async function settingsRoutes(fastify, options) {
         }
     });
 
+    // ===== HỢP ĐỒNG & TUYỂN DỤNG CÁC BỘ PHẬN — CENTRAL SYNC STORE =====
+    fastify.get('/api/hopdongtuyendung/config', async (request, reply) => {
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'hdtd_store'");
+            return { value: row ? row.value : null };
+        } catch (e) {
+            return { value: null };
+        }
+    });
+
+    fastify.post('/api/hopdongtuyendung/config', async (request, reply) => {
+        try {
+            const { value } = request.body || {};
+            const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+            await db.run(
+                `INSERT INTO app_config (key, value, updated_at) VALUES ('hdtd_store', ?, NOW())
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+                [strValue]
+            );
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     // ===== HỢP ĐỒNG KHÁCH HÀNG & CHỨNG TỪ — CENTRAL SYNC STORE =====
     fastify.get('/api/hopdongkhachhang/config', async (request, reply) => {
         try {

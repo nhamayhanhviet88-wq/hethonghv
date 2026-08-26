@@ -116,14 +116,14 @@ async function initMobileNavigation() {
         const header = document.createElement('header');
         header.className = 'mobile-nav-header';
         header.innerHTML = `
-            <div class="logo-group" onclick="window.location.href='/m'">
-                <img src="/images/logo.png" alt="HV Logo">
-                <h1>Đồng Phục <span>HV</span></h1>
-            </div>
+            <button class="menu-toggle" id="mobileMenuToggle" title="Mở danh mục menu">☰</button>
             <div style="color: #fbbf24; font-weight: 800; font-size: 13px; text-transform: uppercase; text-shadow: 0 1px 4px rgba(0,0,0,0.3); max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 ${pageTitle}
             </div>
-            <button class="menu-toggle" id="mobileMenuToggle">☰</button>
+            <div class="logo-group" onclick="window.location.href='/m'" style="cursor: pointer;">
+                <img src="/images/logo.png" alt="HV Logo">
+                <h1>Đồng Phục <span>HV</span></h1>
+            </div>
         `;
         document.body.insertBefore(header, document.body.firstChild);
 

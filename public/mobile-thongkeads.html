@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Thống Kê Camp Hiệu Quả — Đồng Phục HV</title>
+    <title>📊 Thống Kê Camp Hiệu Quả — Đồng Phục HV</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
@@ -19,59 +19,166 @@
             font-family: 'Outfit', sans-serif;
             background-color: #f8fafc;
             color: #0f172a;
-            padding-bottom: 80px;
+            padding-bottom: 85px;
         }
         .container {
-            padding: 16px;
+            padding: 8px 10px;
             margin-top: 60px;
         }
-        .header-card {
-            background: linear-gradient(135deg, #1e1b4b, #4338ca);
-            border-radius: 16px;
-            padding: 24px;
-            color: white;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 25px -5px rgba(67, 56, 202, 0.3);
+
+        /* Mobile Adjustments for ThongKeAds Component */
+        #thongkeads-root {
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
         }
-        .header-card h2 {
-            margin: 0 0 8px;
-            font-size: 24px;
-            font-weight: 800;
+        
+        #tka-header {
+            padding: 16px 14px !important;
+            border-radius: 16px !important;
+            margin-bottom: 14px !important;
+            box-shadow: 0 10px 25px -5px rgba(67, 56, 202, 0.3) !important;
         }
-        .header-card p {
-            margin: 0;
-            font-size: 14px;
-            opacity: 0.9;
-            line-height: 1.5;
+        #tka-header h2 {
+            font-size: 19px !important;
+            margin: 6px 0 4px !important;
+            line-height: 1.3 !important;
         }
-        .card {
-            background: white;
-            border-radius: 16px;
-            border: 1px solid #e2e8f0;
-            padding: 40px 20px;
-            text-align: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        #tka-header p {
+            font-size: 12px !important;
+            opacity: 0.9 !important;
+        }
+
+        #tka-platform-tabs {
+            gap: 6px !important;
+            margin-bottom: 14px !important;
+        }
+        .tka-platform-btn {
+            padding: 10px 8px !important;
+            font-size: 12.5px !important;
+            border-radius: 12px !important;
+        }
+
+        #tka-account-section {
+            padding: 14px 12px !important;
+            border-radius: 16px !important;
+            margin-bottom: 14px !important;
+        }
+
+        /* FORCE SINGLE COLUMN FOR ACCOUNT CARDS ON MOBILE */
+        #tka-account-cards-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px !important;
+        }
+        #tka-account-cards-grid > div {
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Clean stacked dropdowns for mobile filters */
+        #tka-account-section > div:first-child > div:last-child {
+            width: 100% !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+            margin-top: 10px !important;
+        }
+        #tka-account-section > div:first-child > div:last-child > div {
+            width: 100% !important;
+            justify-content: space-between !important;
+        }
+        #tka-account-section select {
+            flex: 1 !important;
+            max-width: 100% !important;
+        }
+
+        /* Mobile summary stats grid: 2 columns, compact */
+        #tka-summary {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+            margin-bottom: 14px !important;
+        }
+        #tka-summary > div {
+            padding: 12px 10px !important;
+            border-radius: 12px !important;
+        }
+        #tka-summary > div > div:first-child {
+            font-size: 11px !important;
+            margin-bottom: 3px !important;
+        }
+        #tka-summary > div > div:last-child {
+            font-size: 16px !important;
+            font-weight: 900 !important;
+        }
+
+        /* Filter Controls Bar on Mobile */
+        .tka-controls-bar, #tka-facebook-content > div[style*="background: white"] {
+            padding: 12px !important;
+            border-radius: 16px !important;
+        }
+        
+        /* Flex rows in filter bar */
+        #tka-facebook-content div[style*="display: flex"] {
+            flex-wrap: wrap !important;
+        }
+
+        /* Responsive tables with smooth scroll */
+        #tka-table-container, .tka-table-scroll {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            border-radius: 14px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+        }
+        #tka-table {
+            min-width: 850px !important;
+        }
+        #tka-table th, #tka-table td {
+            font-size: 12px !important;
+            padding: 8px 6px !important;
+        }
+
+        /* Pagination area */
+        #tka-pagination {
+            flex-direction: column !important;
+            gap: 8px !important;
+            text-align: center !important;
+        }
+
+        @media (max-width: 600px) {
+            #tka-account-section h3 {
+                font-size: 15px !important;
+            }
+            .tka-platform-btn span {
+                display: none;
+            }
         }
     </style>
 </head>
-<body>
+<body class="is-mobile-page">
     <div id="mobileHeader"></div>
 
     <div class="container">
-        <!-- Header Card -->
-        <div class="header-card">
-            <h2>📊 Thống Kê Camp Hiệu Quả</h2>
-            <p>Thống kê và phân tích hiệu quả các Chiến Dịch Quảng Cáo Video & Hình Ảnh.</p>
-        </div>
-
-        <div class="card">
-            <div style="font-size: 48px; margin-bottom: 12px;">📊</div>
-            <h3 style="margin: 0 0 8px; font-size: 18px; color: #1e293b;">Tính năng đang phát triển</h3>
-            <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">Giao diện Thống Kê Camp Hiệu Quả trên di động sẽ sớm được cập nhật.</p>
-        </div>
+        <div id="mobile-content-root"></div>
     </div>
 
-    <!-- Unified Mobile Drawer -->
-    <script src="/js/mobile-nav.js"></script>
+    <!-- Unified Mobile Nav -->
+    <script src="/js/mobile-nav.js?v=20260823"></script>
+    <script src="/js/pages/thongkeads.js?v=20260826_v2800_MOBILE_CLEAN_UI"></script>
+    <script>
+        function _initMobileThongKeAds() {
+            const root = document.getElementById('mobile-content-root');
+            if (root && typeof window.renderThongkeadsPage === 'function') {
+                window.renderThongkeadsPage(root);
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _initMobileThongKeAds);
+        } else {
+            _initMobileThongKeAds();
+        }
+    </script>
 </body>
 </html>

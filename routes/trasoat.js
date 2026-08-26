@@ -598,7 +598,8 @@ module.exports = async function(fastify) {
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date < COALESCE(rescheduled_ship_date, expected_ship_date)) AS early,
                 COUNT(*) FILTER (
-                    WHERE shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date)
+                    WHERE (shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date))
+                       OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) >= $1::date)
                 ) AS on_time,
                 COUNT(*) FILTER (
                     WHERE (shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date))
@@ -623,7 +624,8 @@ module.exports = async function(fastify) {
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE shipping_status = 'shipped' AND shipped_at::date < COALESCE(rescheduled_ship_date, expected_ship_date)) AS early,
                 COUNT(*) FILTER (
-                    WHERE shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date)
+                    WHERE (shipping_status = 'shipped' AND shipped_at::date = COALESCE(rescheduled_ship_date, expected_ship_date))
+                       OR (shipping_status != 'shipped' AND COALESCE(rescheduled_ship_date, expected_ship_date) >= $1::date)
                 ) AS on_time,
                 COUNT(*) FILTER (
                     WHERE (shipping_status = 'shipped' AND shipped_at::date > COALESCE(rescheduled_ship_date, expected_ship_date))
@@ -1711,7 +1713,7 @@ function _processOrderWithItems(o, items, todayStr) {
             } else {
                 deviationDays = 0;
                 deviationLabel = 'Trong hạn';
-                deviationClass = 'pending';
+                deviationClass = 'on_time';
             }
         }
     }

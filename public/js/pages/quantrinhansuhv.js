@@ -811,25 +811,25 @@
                 </div>
             </div>
 
-            <!-- Category Filter Bar (Thanh Lĩnh Vực Động - Giống Ảnh 1, 2, 3) -->
+            <!-- Department Filter Bar (Thanh Bộ Phận Động - Giống Hợp Đồng & Tuyển Dụng) -->
             <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:14px 22px; border-radius:18px; border:1.5px solid #e9d5ff; margin-bottom:22px; box-shadow:0 4px 14px rgba(109,40,217,0.04); flex-wrap:wrap; gap:12px;">
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    <span style="font-size:13.5px; font-weight:900; color:#4c1d95; margin-right:4px;">📌 Lĩnh vực:</span>
+                    <span style="font-size:13.5px; font-weight:900; color:#4c1d95; margin-right:4px;">🏢 Bộ phận:</span>
                     <button class="dept-pill ${activeCat === 'all' ? 'active' : ''}" onclick="window._qtnsSelectCatFilter('${currentMainTab}', 'all')">
-                        🌐 Tất Cả Lĩnh Vực (${subtabLinks.length})
+                        🌐 Tất Cả Bộ Phận (${subtabLinks.length})
                     </button>
                     ${categories.map(cat => {
                         const count = subtabLinks.filter(l => _qtnsGetLinkCategories(l).includes(cat)).length;
                         return `
                             <button class="dept-pill ${activeCat === cat ? 'active' : ''}" onclick="window._qtnsSelectCatFilter('${currentMainTab}', '${cat.replace(/'/g, "\\'")}')">
-                                📌 ${cat} (${count})
+                                🏢 ${cat} (${count})
                             </button>
                         `;
                     }).join('')}
                 </div>
                 ${_qtnsCanManage() ? `
                     <button class="qtns-btn secondary" onclick="window._qtnsOpenManageCatModal('${currentMainTab}')" style="border-radius:12px; padding:9px 18px; font-size:13.5px; font-weight:800; border-color:#d8b4fe; color:#6d28d9; background:#ffffff; cursor:pointer;">
-                        ⚙️ Cài Đặt Lĩnh Vực
+                        ⚙️ Cài Đặt Bộ Phận
                     </button>
                 ` : ''}
             </div>
@@ -1017,6 +1017,14 @@
         return `
             <div class="qtns-card-item theme-${themeName} ${link.isPinned ? 'is-pinned-card' : ''}">
                 <div class="card-accent-bar theme-${themeName}"></div>
+                ${link.imageUrl ? `
+                    <div style="position:relative; width:100%; height:140px; overflow:hidden; background:#f1f5f9; cursor:pointer;" onclick="window._qtnsOpenLightbox('${link.id}', '${subId}')" title="Click để xem ảnh phóng to sắc nét">
+                        <img src="${link.imageUrl}" style="width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.3s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        <div style="position:absolute; bottom:8px; right:8px; background:rgba(15,23,42,0.75); color:#ffffff; font-size:11px; font-weight:800; padding:4px 10px; border-radius:8px; backdrop-filter:blur(4px); display:flex; align-items:center; gap:4px;">
+                            🔍 Phóng To
+                        </div>
+                    </div>
+                ` : ''}
                 <div class="card-inner">
                     <div class="card-head-row">
                         <div class="card-icon-box theme-${themeName}">${link.icon || '👔'}</div>
@@ -1056,6 +1064,12 @@
                             style="flex:1; min-width:0; border:none; background:linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%); color:#ffffff; font-weight:850; font-size:12.5px; padding:10px 10px; border-radius:12px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:4px; box-shadow:0 4px 12px rgba(109,40,217,0.25); transition:all 0.2s ease; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Xem Chi Tiết Quy Trình">
                             📋 <span>${hasValidUrl ? 'Xem Chi Tiết ➔' : 'Xem Chi Tiết Quy Trình ➔'}</span>
                         </button>
+                        ${link.imageUrl ? `
+                            <button type="button" onclick="window._qtnsOpenLightbox('${link.id}', '${subId}')" 
+                                style="border:1.5px solid #d8b4fe; background:#faf5ff; color:#6b21a8; font-weight:850; font-size:12.5px; padding:10px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 8px rgba(109,40,217,0.1); white-space:nowrap;" title="Xem Ảnh Minh Họa Sắc Nét">
+                                🖼️ <span>Xem Ảnh</span>
+                            </button>
+                        ` : ''}
                         ${hasValidUrl ? `
                             <a href="${link.url}" target="_blank" rel="noopener" class="card-btn-open" title="Mở Tài Liệu Trực Tiếp">
                                 🔗 <span>Mở Tài Liệu ↗</span>
@@ -1111,7 +1125,7 @@
                             </div>
                             <div class="qtns-form-group" style="margin-bottom:14px;">
                                 <label style="color:#6b21a8; font-weight:900; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                    <span>📌 Lĩnh Vực Tài Liệu (* BẮT BUỘC - Chọn nhiều):</span>
+                                    <span>🏢 Bộ Phận Tài Liệu (* BẮT BUỘC - Chọn nhiều):</span>
                                 </label>
                                 <div id="qtnsFormCategoryCheckboxes" style="display:flex; flex-wrap:wrap; gap:10px; padding:12px; border:2px solid #a855f7; background:#faf5ff; border-radius:16px; max-height:150px; overflow-y:auto;">
                                 </div>
@@ -1127,6 +1141,24 @@
                             <div class="qtns-form-group" style="margin-bottom:14px;">
                                 <label id="qtnsUrlLabel" style="color:#0f172a; font-weight:850; display:block; margin-bottom:6px;">Đường link URL tài liệu (Google Sheets / Word / Link ngoài):</label>
                                 <input type="url" id="qtnsFormUrl" placeholder="https://docs.google.com/..." style="width:100%; border:2px solid #e9d5ff; border-radius:12px; padding:10px 14px; font-size:13.5px; font-weight:700; color:#0f172a;">
+                            </div>
+                            <div class="qtns-form-group" style="margin-bottom:14px;">
+                                <label style="color:#0f172a; font-weight:850; display:block; margin-bottom:6px;">🖼️ Hình Ảnh Minh Họa / Sơ Đồ / Mẫu (Không bắt buộc):</label>
+                                <div style="display:flex; flex-direction:column; gap:8px;">
+                                    <input type="file" id="qtnsFormImageFile" accept="image/*" style="display:none;" onchange="window._qtnsOnImageSelected(this)">
+                                    <input type="hidden" id="qtnsFormImageUrl" value="">
+                                    <div style="display:flex; gap:10px; align-items:center;">
+                                        <button type="button" onclick="document.getElementById('qtnsFormImageFile').click()" style="background:#f3e8ff; color:#6b21a8; border:1.5px solid #d8b4fe; border-radius:12px; padding:9px 16px; font-size:13px; font-weight:800; cursor:pointer;">
+                                            📷 Chọn Hình Ảnh Từ Máy Tính
+                                        </button>
+                                        <button type="button" id="qtnsFormImageRemoveBtn" onclick="window._qtnsRemoveSelectedImage()" style="display:none; background:#fee2e2; color:#dc2626; border:none; border-radius:10px; padding:8px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">
+                                            ✕ Xóa Ảnh
+                                        </button>
+                                    </div>
+                                    <div id="qtnsFormImagePreviewBox" style="display:none; margin-top:6px; border:1.5px dashed #c084fc; border-radius:14px; padding:8px; background:#faf5ff; width:fit-content; max-width:100%;">
+                                        <img id="qtnsFormImagePreviewImg" src="" style="max-height:160px; border-radius:10px; object-fit:contain;">
+                                    </div>
+                                </div>
                             </div>
                             <div class="qtns-form-row" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
                                 <div class="qtns-form-group">
@@ -1226,6 +1258,11 @@
                     </div>
 
                     <div class="qtns-modal-body" style="flex:1; overflow-y:auto; padding:22px 26px; display:flex; flex-direction:column; gap:18px; background:#fcfafc;">
+                        <div id="qtnsDetailImageBox" style="display:none; background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; text-align:center;">
+                            <div style="font-size:13px; font-weight:850; color:#6b21a8; margin-bottom:8px; text-align:left;">🖼️ HÌNH ẢNH MINH HỌA:</div>
+                            <img id="qtnsDetailImg" src="" style="max-height:300px; max-width:100%; border-radius:12px; cursor:pointer; object-fit:contain;" onclick="window._qtnsOpenLightbox(this.src)" title="Click để phóng to ảnh nét căng">
+                        </div>
+
                         <div id="qtnsDetailSubtitleBox" style="display:none; background:#ffffff; border:1.5px solid #e9d5ff; border-radius:16px; padding:16px 20px;">
                             <div style="font-size:13px; font-weight:850; color:#6b21a8; margin-bottom:6px;">📝 MÔ TẢ & GHI CHÚ:</div>
                             <div id="qtnsDetailSubtitleText" style="font-size:14px; font-weight:600; color:#1e293b; line-height:1.65; white-space:pre-line;"></div>
@@ -1267,6 +1304,15 @@
 
         document.getElementById('qtnsDetailIcon').innerText = item.icon || '👔';
         document.getElementById('qtnsDetailTitle').innerText = _qtnsFormatTitle(item.title || 'Chi Tiết Tài Liệu');
+
+        const imgBox = document.getElementById('qtnsDetailImageBox');
+        const imgEl = document.getElementById('qtnsDetailImg');
+        if (item.imageUrl && imgBox && imgEl) {
+            imgEl.src = item.imageUrl;
+            imgBox.style.display = 'block';
+        } else if (imgBox) {
+            imgBox.style.display = 'none';
+        }
 
         const subtitleBox = document.getElementById('qtnsDetailSubtitleBox');
         const subtitleText = document.getElementById('qtnsDetailSubtitleText');
@@ -1360,6 +1406,7 @@
         document.getElementById('qtnsFormTitle').value = '';
         document.getElementById('qtnsFormSubtitle').value = '';
         document.getElementById('qtnsFormUrl').value = '';
+        window._qtnsRemoveSelectedImage();
 
         const stepsInput = document.getElementById('qtnsFormSteps');
         if (stepsInput) stepsInput.value = '';
@@ -1389,6 +1436,18 @@
         document.getElementById('qtnsFormUrl').value = item.url || '';
         document.getElementById('qtnsFormIcon').value = item.icon || '👔';
         document.getElementById('qtnsFormTheme').value = item.theme || 'purple';
+
+        if (item.imageUrl) {
+            document.getElementById('qtnsFormImageUrl').value = item.imageUrl;
+            const previewBox = document.getElementById('qtnsFormImagePreviewBox');
+            const previewImg = document.getElementById('qtnsFormImagePreviewImg');
+            const removeBtn = document.getElementById('qtnsFormImageRemoveBtn');
+            if (previewImg) previewImg.src = item.imageUrl;
+            if (previewBox) previewBox.style.display = 'block';
+            if (removeBtn) removeBtn.style.display = 'inline-flex';
+        } else {
+            window._qtnsRemoveSelectedImage();
+        }
 
         // Populate Tab 2 fields
         const stepsText = Array.isArray(item.steps) ? item.steps.join('\n') : (item.steps || '');
@@ -1455,7 +1514,7 @@
         }
 
         if (cats.length === 0) {
-            box.innerHTML = `<div style="color:#64748b; font-size:13px; font-weight:600; padding:4px;">Chưa có lĩnh vực nào. Hãy bấm Cài Đặt Lĩnh Vực để tạo thêm!</div>`;
+            box.innerHTML = `<div style="color:#64748b; font-size:13px; font-weight:600; padding:4px;">Chưa có bộ phận nào. Hãy bấm Cài Đặt Bộ Phận để tạo thêm!</div>`;
             return;
         }
 
@@ -1534,6 +1593,7 @@
         const title = document.getElementById('qtnsFormTitle').value.trim();
         const subtitle = document.getElementById('qtnsFormSubtitle').value.trim();
         const url = document.getElementById('qtnsFormUrl').value.trim();
+        const imageUrl = document.getElementById('qtnsFormImageUrl')?.value || '';
         const icon = document.getElementById('qtnsFormIcon').value;
         const theme = document.getElementById('qtnsFormTheme').value;
         const subtabId = document.getElementById('qtnsFormSubtab').value;
@@ -1548,7 +1608,7 @@
         }
 
         if (categories.length === 0) {
-            alert('⚠️ BẮT BUỘC: Vui lòng chọn ít nhất 1 Lĩnh Vực Tài Liệu!');
+            alert('⚠️ BẮT BUỘC: Vui lòng chọn ít nhất 1 Bộ Phận Tài Liệu!');
             window._qtnsSwitchModalTab('basic');
             return;
         }
@@ -1605,13 +1665,13 @@
         if (id) {
             links = links.map(l => {
                 if (l.id === id) {
-                    return { ...l, title, subtitle, url: finalUrl, icon, theme, category, categories, steps, saleGuide: saleGuideItems, warranty: warrantyItems, updatedAt: new Date().toISOString() };
+                    return { ...l, title, subtitle, url: finalUrl, imageUrl, icon, theme, category, categories, steps, saleGuide: saleGuideItems, warranty: warrantyItems, updatedAt: new Date().toISOString() };
                 }
                 return l;
             });
         } else {
             const newId = 'qtns_link_' + Date.now();
-            links.push({ id: newId, title, subtitle, url: finalUrl, icon, theme, category, categories, steps, saleGuide: saleGuideItems, warranty: warrantyItems, createdAt: new Date().toISOString() });
+            links.push({ id: newId, title, subtitle, url: finalUrl, imageUrl, icon, theme, category, categories, steps, saleGuide: saleGuideItems, warranty: warrantyItems, createdAt: new Date().toISOString() });
         }
 
         _qtnsSaveCustomSubtabLinks(subtabId, links);
@@ -1952,6 +2012,155 @@
                 }
             </style>
         `;
+    }
+
+    // Lightbox & Image Processing Engine
+    let currentLightboxScale = 1;
+
+    window._qtnsOnImageSelected = async function(input) {
+        if (!input || !input.files || !input.files[0]) return;
+        const file = input.files[0];
+        try {
+            const compressedDataUrl = await _qtnsCompressImageToDataUrl(file, 1200, 0.82);
+            if (compressedDataUrl) {
+                document.getElementById('qtnsFormImageUrl').value = compressedDataUrl;
+                const previewBox = document.getElementById('qtnsFormImagePreviewBox');
+                const previewImg = document.getElementById('qtnsFormImagePreviewImg');
+                const removeBtn = document.getElementById('qtnsFormImageRemoveBtn');
+                if (previewImg) previewImg.src = compressedDataUrl;
+                if (previewBox) previewBox.style.display = 'block';
+                if (removeBtn) removeBtn.style.display = 'inline-flex';
+                _qtnsShowToast('📷 Đã tải và nén hình ảnh mượt mà!');
+            }
+        } catch (e) {
+            console.error('Lỗi nén ảnh:', e);
+            alert('Có lỗi xảy ra khi nén hình ảnh, vui lòng thử lại!');
+        }
+    };
+
+    window._qtnsRemoveSelectedImage = function() {
+        const hiddenInput = document.getElementById('qtnsFormImageUrl');
+        const fileInput = document.getElementById('qtnsFormImageFile');
+        const previewBox = document.getElementById('qtnsFormImagePreviewBox');
+        const removeBtn = document.getElementById('qtnsFormImageRemoveBtn');
+
+        if (hiddenInput) hiddenInput.value = '';
+        if (fileInput) fileInput.value = '';
+        if (previewBox) previewBox.style.display = 'none';
+        if (removeBtn) removeBtn.style.display = 'none';
+    };
+
+    function _qtnsCompressImageToDataUrl(file, maxDimension = 1200, quality = 0.82) {
+        return new Promise((resolve) => {
+            if (!file || !file.type.startsWith('image/')) {
+                resolve(null);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = Math.round((height * maxDimension) / width);
+                            width = maxDimension;
+                        } else {
+                            width = Math.round((width * maxDimension) / height);
+                            height = maxDimension;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedBase64);
+                };
+                img.onerror = () => resolve(null);
+                img.src = e.target.result;
+            };
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    window._qtnsOpenLightbox = function(imageUrlOrId, subId) {
+        let imgUrl = imageUrlOrId;
+        let title = 'Hình Ảnh Minh Họa';
+        if (subId) {
+            const links = _qtnsGetCustomSubtabLinks(subId);
+            const link = links.find(l => String(l.id) === String(imageUrlOrId));
+            if (link && link.imageUrl) {
+                imgUrl = link.imageUrl;
+                title = link.title || title;
+            }
+        }
+
+        if (!imgUrl) return;
+
+        const modal = _qtnsEnsureLightboxInDOM();
+        const imgEl = document.getElementById('qtnsLightboxImg');
+        const dlBtn = document.getElementById('qtnsLightboxDownloadBtn');
+        const titleEl = document.getElementById('qtnsLightboxTitle');
+
+        imgEl.src = imgUrl;
+        dlBtn.href = imgUrl;
+        if (titleEl) titleEl.innerText = title;
+
+        currentLightboxScale = 1;
+        imgEl.style.transform = 'scale(1)';
+        modal.style.display = 'flex';
+    };
+
+    window._qtnsCloseLightbox = function() {
+        const modal = document.getElementById('qtnsLightboxModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window._qtnsZoomLightbox = function(factor) {
+        currentLightboxScale *= factor;
+        if (currentLightboxScale < 0.4) currentLightboxScale = 0.4;
+        if (currentLightboxScale > 4) currentLightboxScale = 4;
+        const imgEl = document.getElementById('qtnsLightboxImg');
+        if (imgEl) imgEl.style.transform = `scale(${currentLightboxScale})`;
+    };
+
+    window._qtnsResetLightboxZoom = function() {
+        currentLightboxScale = 1;
+        const imgEl = document.getElementById('qtnsLightboxImg');
+        if (imgEl) imgEl.style.transform = 'scale(1)';
+    };
+
+    function _qtnsEnsureLightboxInDOM() {
+        let modal = document.getElementById('qtnsLightboxModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.className = 'qtns-modal-overlay';
+            modal.id = 'qtnsLightboxModal';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.92); backdrop-filter:blur(10px); z-index:100000; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+                <div style="position:relative; max-width:94vw; max-height:94vh; display:flex; flex-direction:column; align-items:center;">
+                    <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:rgba(255,255,255,0.1); padding:10px 18px; border-radius:14px; backdrop-filter:blur(8px);">
+                        <span id="qtnsLightboxTitle" style="color:#ffffff; font-size:15px; font-weight:850; max-width:60%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🖼️ Xem Ảnh Minh Họa</span>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <button onclick="window._qtnsZoomLightbox(1.25)" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; padding:6px 14px; border-radius:10px; font-weight:850; font-size:13px; cursor:pointer;" title="Phóng to">🔍 Zoom +</button>
+                            <button onclick="window._qtnsZoomLightbox(0.8)" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; padding:6px 14px; border-radius:10px; font-weight:850; font-size:13px; cursor:pointer;" title="Thu nhỏ">🔍 Zoom -</button>
+                            <button onclick="window._qtnsResetLightboxZoom()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; padding:6px 14px; border-radius:10px; font-weight:850; font-size:13px; cursor:pointer;" title="Đặt lại size">🔄 Reset</button>
+                            <a id="qtnsLightboxDownloadBtn" href="" download="hinh-anh-tai-lieu.jpg" style="background:linear-gradient(135deg, #10b981, #059669); color:#ffffff; padding:6px 16px; border-radius:10px; font-weight:900; text-decoration:none; font-size:13px; box-shadow:0 4px 12px rgba(16,185,129,0.3);">⬇️ Tải Ảnh Về</a>
+                            <button onclick="window._qtnsCloseLightbox()" style="background:#ef4444; color:#ffffff; border:none; width:34px; height:34px; border-radius:50%; font-weight:bold; cursor:pointer; font-size:16px;">✕</button>
+                        </div>
+                    </div>
+                    <div style="overflow:auto; max-height:82vh; max-width:92vw; border-radius:18px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; padding:10px;" onclick="if(event.target===this) window._qtnsCloseLightbox()">
+                        <img id="qtnsLightboxImg" src="" style="display:block; max-width:100%; max-height:78vh; object-fit:contain; border-radius:12px; transition:transform 0.2s ease;">
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        return modal;
     }
 
 })();

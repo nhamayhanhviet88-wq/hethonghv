@@ -5,8 +5,10 @@ if (window.location.protocol === 'http:' && window.location.hostname !== 'localh
 
 // ========== MOBILE DEVICE REDIRECT ==========
 if (window.innerWidth < 768 && localStorage.getItem('preferDesktop') !== 'true') {
-    if (window.location.hostname.indexOf('dongphuchv.net') === -1) {
-        window.location.href = '/m';
+    if (!window.location.pathname.startsWith('/m')) {
+        if (window.location.hostname.indexOf('dongphuchv.net') === -1) {
+            window.location.href = '/m';
+        }
     }
 }
 
@@ -99,6 +101,7 @@ const MENU_CONFIG = [
     { id: 'muc-tieu-nam', label: 'Mục Tiêu Năm', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/muctieunam', mobileHref: '/m/muctieunam', permKey: 'muc_tieu_nam' },
     { id: 'topkhachhang', label: 'Top Khách & Sale KD', icon: '👑', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/topkhachhang', permKey: 'top_khach_hang' },
     { id: 'kpikdoanh', label: 'KPI P.Kinh Doanh', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpikdoanh', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_kdoanh' },
+    { id: 'kpitilechamdon', label: 'KPI Tỉ Lệ Chậm Đơn', icon: '⏱️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/kpitilechamdon', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_tile_cham_don' },
     { id: 'kpisale', label: 'KPI P.Sale', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpisale', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_sale' },
     { id: 'kpimarketing', label: 'KPI Marketing Ads', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/kpimarketing', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_marketing' },
     { id: 'kpimktview', label: 'KPI Marketing View', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/kpimktview', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_marketing_view' },
@@ -190,6 +193,7 @@ const MENU_CONFIG = [
 
     // ========== HÀNH CHÍNH & NHÂN SỰ ==========
     { id: 'quan-tri-nhan-su', label: 'Quản Trị Nhân Sự', icon: '👔', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN TRỊ NHÂN SỰ', href: '/quantrinhansuhv', permKey: 'quan_tri_nhan_su' },
+    { id: 'hop-dong-tuyen-dung', label: 'Hợp Đồng & Tuyển Dụng', icon: '📝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN TRỊ NHÂN SỰ', href: '/hopdongtuyendung', permKey: 'hop_dong_tuyen_dung' },
 
 
     // ========== BỘ PHẬN VĂN PHÒNG ==========
@@ -584,6 +588,8 @@ const _PAGE_SCRIPT_MAP = {
     'xu-ly-don-loi': '/js/pages/xulydonloihv.js?v=' + Date.now(),
     'quantrinhansuhv': '/js/pages/quantrinhansuhv.js?v=' + Date.now(),
     'quan-tri-nhan-su': '/js/pages/quantrinhansuhv.js?v=' + Date.now(),
+    'hopdongtuyendung': '/js/pages/hopdongtuyendung.js?v=' + Date.now(),
+    'hop-dong-tuyen-dung': '/js/pages/hopdongtuyendung.js?v=' + Date.now(),
     'hopdongkhachhang': '/js/pages/hopdongkhachhang.js?v=' + Date.now(),
     'hop-dong-khach-hang': '/js/pages/hopdongkhachhang.js?v=' + Date.now()
 };
@@ -2459,6 +2465,21 @@ async function handleRoute() {
                         }, 150);
                     }
                     break;
+                case 'kpitilechamdon': case 'kpi-tile-cham-don':
+                    if (typeof window.renderKpitilechamdonPage === 'function') {
+                        window.renderKpitilechamdonPage(content);
+                    } else if (typeof renderKpitilechamdonPage === 'function') {
+                        renderKpitilechamdonPage(content);
+                    } else {
+                        _loadScript('/js/pages/kpitilechamdon.js').then(function() {
+                            if (typeof window.renderKpitilechamdonPage === 'function') {
+                                window.renderKpitilechamdonPage(content);
+                            } else if (typeof renderKpitilechamdonPage === 'function') {
+                                renderKpitilechamdonPage(content);
+                            }
+                        });
+                    }
+                    break;
                 case 'kpisale': case 'kpi-sale':
                     if (typeof window.renderKpisalePage === 'function') {
                         window.renderKpisalePage(content);
@@ -2558,6 +2579,13 @@ async function handleRoute() {
                         window.renderQuantrinhansuhvPage(content);
                     } else if (typeof renderQuantrinhansuhvPage === 'function') {
                         renderQuantrinhansuhvPage(content);
+                    }
+                    break;
+                case 'hopdongtuyendung': case 'hop-dong-tuyen-dung':
+                    if (typeof window.renderHopdongtuyendungPage === 'function') {
+                        window.renderHopdongtuyendungPage(content);
+                    } else if (typeof renderHopdongtuyendungPage === 'function') {
+                        renderHopdongtuyendungPage(content);
                     }
                     break;
                 case 'hopdongkhachhang': case 'hop-dong-khach-hang':

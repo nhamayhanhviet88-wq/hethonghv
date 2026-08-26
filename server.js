@@ -1744,6 +1744,7 @@ async function start() {
     fastify.register(require('./routes/topCustomers'));
     fastify.register(require('./routes/kpiTargets'));
     fastify.register(require('./routes/yearlyTargets'));
+    fastify.register(require('./routes/kpiDelay'));
     fastify.register(require('./routes/kpiKdoanh'));
     fastify.register(require('./routes/kpiSale'));
     fastify.register(require('./routes/kpiMarketing'));

@@ -30,29 +30,124 @@
             padding: 16px;
         }
         
+        /* Gold Sparkling Navy Premium Theme */
+        @keyframes goldShimmerSweep {
+            0% { transform: translateX(-150%) rotate(25deg); opacity: 0; }
+            20% { opacity: 0.85; }
+            40% { transform: translateX(180%) rotate(25deg); opacity: 0; }
+            100% { transform: translateX(180%) rotate(25deg); opacity: 0; }
+        }
+
+        @keyframes goldSparkleTwinkle {
+            0%, 100% { transform: scale(0.7) rotate(0deg); opacity: 0.25; filter: drop-shadow(0 0 2px #fbbf24); }
+            50% { transform: scale(1.35) rotate(15deg); opacity: 1; filter: drop-shadow(0 0 10px #fde047); }
+        }
+
+        @keyframes goldAuraPulse {
+            0%, 100% { opacity: 0.45; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(1.1); }
+        }
+
         /* Welcome card */
         .welcome-card {
-            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            background: radial-gradient(circle at 85% 15%, rgba(251, 191, 36, 0.2) 0%, transparent 55%),
+                        radial-gradient(circle at 10% 85%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                        linear-gradient(135deg, #0b132b 0%, #1c2541 50%, #0f172a 100%) !important;
             border-radius: 20px;
             padding: 24px;
             color: white;
-            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+            box-shadow: 0 12px 35px rgba(15, 23, 42, 0.35), inset 0 1px 1px rgba(254, 240, 138, 0.25) !important;
             position: relative;
             overflow: hidden;
             margin-bottom: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1.5px solid rgba(251, 191, 36, 0.35) !important;
             animation: fadeInDown 0.5s ease-out;
+        }
+        .welcome-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 60%;
+            height: 200%;
+            background: linear-gradient(
+                90deg, 
+                transparent 0%, 
+                rgba(251, 191, 36, 0.05) 25%, 
+                rgba(254, 240, 138, 0.35) 50%, 
+                rgba(251, 191, 36, 0.05) 75%, 
+                transparent 100%
+            );
+            animation: goldShimmerSweep 4.5s infinite ease-in-out;
+            pointer-events: none;
+            z-index: 1;
         }
         .welcome-card::after {
             content: '';
             position: absolute;
-            bottom: -30px;
-            right: -30px;
-            width: 130px;
-            height: 130px;
-            background: radial-gradient(circle, rgba(251, 191, 36, 0.12) 0%, transparent 70%);
+            bottom: -35px;
+            right: -35px;
+            width: 140px;
+            height: 140px;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.35) 0%, rgba(245, 158, 11, 0.12) 45%, transparent 75%);
+            animation: goldAuraPulse 3.5s infinite ease-in-out;
             pointer-events: none;
+            z-index: 1;
         }
+        .sparkle-star {
+            position: absolute;
+            pointer-events: none;
+            z-index: 2;
+            color: #fbbf24;
+            font-size: 11px;
+            animation: goldSparkleTwinkle 2.8s infinite ease-in-out;
+        }
+        .sparkle-star.star-1 { top: 14px; left: 45%; animation-delay: 0s; }
+        .sparkle-star.star-2 { bottom: 16px; right: 110px; font-size: 9px; animation-delay: 0.9s; }
+        .sparkle-star.star-3 { top: 60%; left: 35%; font-size: 10px; animation-delay: 1.7s; }
+        
+        /* Executive Card Brand Tag */
+        .card-brand-tag {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(8px);
+            padding: 6px 12px;
+            border-radius: 12px;
+            border: 1.5px solid rgba(251, 191, 36, 0.4);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            z-index: 5;
+        }
+        .card-brand-tag img {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        .card-brand-tag .brand-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .card-brand-tag .brand-title {
+            font-size: 11px;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            line-height: 1;
+        }
+        .card-brand-tag .vip-badge {
+            font-size: 8px;
+            font-weight: 900;
+            color: #fbbf24;
+            letter-spacing: 0.8px;
+            margin-top: 2px;
+            text-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+        }
+
         .welcome-title {
             font-size: 15px;
             font-weight: 500;
@@ -66,14 +161,19 @@
             text-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         .welcome-role {
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.15);
-            padding: 4px 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #0f172a;
+            padding: 4px 14px;
             border-radius: 30px;
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 11.5px;
+            font-weight: 900;
             margin-top: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1.5px solid #fef08a;
+            box-shadow: 0 3px 10px rgba(245, 158, 11, 0.4);
+            letter-spacing: 0.3px;
         }
         .welcome-date {
             font-size: 12px;
@@ -280,13 +380,26 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <div class="hub-container">
-        <!-- Profile Greeting -->
+        <!-- Profile Greeting (Executive Business Card Layout) -->
         <div class="welcome-card">
+            <span class="sparkle-star star-1">✨</span>
+            <span class="sparkle-star star-2">✦</span>
+            <span class="sparkle-star star-3">✨</span>
+
+            <div class="card-brand-tag">
+                <img src="/images/logo.png" alt="HV Logo">
+                <div class="brand-info">
+                    <div class="brand-title">ĐỒNG PHỤC HV</div>
+                    <div class="vip-badge">VIP EXECUTIVE</div>
+                </div>
+            </div>
+
             <div class="welcome-title">Xin chào,</div>
             <div class="welcome-name" id="userFullName">Đang tải...</div>
             <div class="welcome-role" id="userRoleBadge">...</div>
             <div class="welcome-date">
                 <span>📅</span> <span id="currentDateStr">Đang tải ngày...</span>
+                <span style="margin-left: auto; font-weight: 800; color: #fbbf24; opacity: 0.85; font-size: 11px; letter-spacing: 0.5px;">ID: #HV-VIP</span>
             </div>
         </div>
 
@@ -361,7 +474,8 @@
                 document.getElementById('userFullName').textContent = user.full_name;
                 
                 const roleBadge = document.getElementById('userRoleBadge');
-                roleBadge.textContent = ROLE_MAP[user.role] || user.role;
+                const roleTitle = ROLE_MAP[user.role] || user.role;
+                roleBadge.innerHTML = `👑 ${roleTitle} • Đồng Phục HV`;
                 roleBadge.className = `welcome-role profile-role-${user.role}`;
 
                 // Setup Pin/Unpin data structures & dynamic render

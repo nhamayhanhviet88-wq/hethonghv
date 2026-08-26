@@ -932,6 +932,18 @@
         document.getElementById('xldlFormIcon').value = item.icon || '📊';
         document.getElementById('xldlFormTheme').value = item.theme || 'green';
 
+        if (item.imageUrl) {
+            document.getElementById('xldlFormImageUrl').value = item.imageUrl;
+            const previewBox = document.getElementById('xldlFormImagePreviewBox');
+            const previewImg = document.getElementById('xldlFormImagePreviewImg');
+            const removeBtn = document.getElementById('xldlFormImageRemoveBtn');
+            if (previewImg) previewImg.src = item.imageUrl;
+            if (previewBox) previewBox.style.display = 'block';
+            if (removeBtn) removeBtn.style.display = 'inline-flex';
+        } else {
+            window._xldlRemoveSelectedImage();
+        }
+
         // Populate Subtabs Dropdown (Danh Mục) cho đúng Scope
         const subtabs = _xldlGetSubtabs(scope);
         const subSelect = document.getElementById('xldlFormSubtab');
@@ -1027,6 +1039,11 @@
 
                     <!-- Modal Body Cuộn Độc Lập -->
                     <div class="xldl-modal-body" style="flex:1; overflow-y:auto; padding:22px 26px; display:flex; flex-direction:column; gap:18px; background:#f8fafc;">
+                        <div id="xldlDetailImageBox" style="display:none; background:#ffffff; border:1.5px solid #bae6fd; border-radius:18px; padding:16px; text-align:center;">
+                            <div style="font-size:13px; font-weight:850; color:#0284c7; margin-bottom:8px; text-align:left;">🖼️ HÌNH ẢNH MINH HỌA:</div>
+                            <img id="xldlDetailImg" src="" style="max-height:300px; max-width:100%; border-radius:12px; cursor:pointer; object-fit:contain;" onclick="window._xldlOpenLightbox(this.src)" title="Click để phóng to ảnh nét căng">
+                        </div>
+
                         <!-- Mô Tả Tình Huống -->
                         <div id="xldlDetailSubtitleBox" style="display:none; background:#ffffff; border:1.5px solid #e2e8f0; border-radius:16px; padding:16px 20px; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
                             <div style="font-size:13px; font-weight:850; color:#334155; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
@@ -1118,6 +1135,15 @@
         // Title & Icon
         document.getElementById('xldlDetailIcon').innerText = item.icon || '📖';
         document.getElementById('xldlDetailTitle').innerText = _xldlFormatTitle(item.title || 'Chi Tiết Kịch Bản');
+
+        const imgBox = document.getElementById('xldlDetailImageBox');
+        const imgEl = document.getElementById('xldlDetailImg');
+        if (item.imageUrl && imgBox && imgEl) {
+            imgEl.src = item.imageUrl;
+            imgBox.style.display = 'block';
+        } else if (imgBox) {
+            imgBox.style.display = 'none';
+        }
 
         // Categories Badges
         const catsBox = document.getElementById('xldlDetailCategories');
@@ -1282,6 +1308,7 @@
         const title = document.getElementById('xldlFormTitle').value.trim();
         const subtitle = document.getElementById('xldlFormSubtitle').value.trim();
         let url = document.getElementById('xldlFormUrl').value.trim();
+        const imageUrl = document.getElementById('xldlFormImageUrl')?.value || '';
         const icon = document.getElementById('xldlFormIcon').value;
         const theme = document.getElementById('xldlFormTheme').value;
         const subtabId = document.getElementById('xldlFormSubtab') ? document.getElementById('xldlFormSubtab').value : '';
@@ -1390,6 +1417,7 @@
                         title: finalTitle,
                         subtitle,
                         url,
+                        imageUrl,
                         icon,
                         theme,
                         category,
@@ -1412,6 +1440,7 @@
                     title: finalTitle,
                     subtitle,
                     url,
+                    imageUrl,
                     icon,
                     theme,
                     category,
@@ -2841,6 +2870,14 @@
         return `
             <div class="xldl-card-item theme-${themeName} ${link.isPinned ? 'is-pinned-card' : ''}">
                 <div class="card-accent-bar theme-${themeName}"></div>
+                ${link.imageUrl ? `
+                    <div style="position:relative; width:100%; height:140px; overflow:hidden; background:#f1f5f9; cursor:pointer;" onclick="window._xldlOpenLightbox('${link.id}', '${subId}')" title="Click để xem ảnh phóng to sắc nét">
+                        <img src="${link.imageUrl}" style="width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.3s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        <div style="position:absolute; bottom:8px; right:8px; background:rgba(15,23,42,0.75); color:#ffffff; font-size:11px; font-weight:800; padding:4px 10px; border-radius:8px; backdrop-filter:blur(4px); display:flex; align-items:center; gap:4px;">
+                            🔍 Phóng To
+                        </div>
+                    </div>
+                ` : ''}
                 <div class="card-inner">
                     <div class="card-head-row">
                         <div class="card-icon-box theme-${themeName}">${link.icon || '📞'}</div>
@@ -2880,6 +2917,12 @@
                             style="flex:1; min-width:0; border:none; background:linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); color:#ffffff; font-weight:850; font-size:12.5px; padding:10px 10px; border-radius:12px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:4px; box-shadow:0 4px 12px rgba(37,99,235,0.25); transition:all 0.2s ease; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Xem Chi Tiết Kịch Bản & Quy Trình">
                             📋 <span>${hasValidUrl ? 'Xem Chi Tiết ➔' : 'Xem Chi Tiết Kịch Bản & Quy Trình ➔'}</span>
                         </button>
+                        ${link.imageUrl ? `
+                            <button type="button" onclick="window._xldlOpenLightbox('${link.id}', '${subId}')" 
+                                style="border:1.5px solid #93c5fd; background:#eff6ff; color:#1e40af; font-weight:850; font-size:12.5px; padding:10px 12px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 8px rgba(37,99,235,0.1); white-space:nowrap;" title="Xem Ảnh Minh Họa Sắc Nét">
+                                🖼️ <span>Xem Ảnh</span>
+                            </button>
+                        ` : ''}
                         ${hasValidUrl ? `
                             <a href="${link.url}" target="_blank" rel="noopener" class="card-btn-open theme-${themeName}" style="flex:1; min-width:0; padding:10px 10px; font-size:12.5px; font-weight:850; border-radius:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-decoration:none; display:flex; justify-content:center; align-items:center; gap:4px;" title="Mở Tài Liệu Trực Tiếp">
                                 🔗 <span>Mở Tài Liệu ↗</span>
@@ -5422,6 +5465,155 @@
                 }
             </style>
         `;
+    }
+
+    // Lightbox & Image Processing Engine
+    let currentLightboxScale = 1;
+
+    window._xldlOnImageSelected = async function(input) {
+        if (!input || !input.files || !input.files[0]) return;
+        const file = input.files[0];
+        try {
+            const compressedDataUrl = await _xldlCompressImageToDataUrl(file, 1200, 0.82);
+            if (compressedDataUrl) {
+                document.getElementById('xldlFormImageUrl').value = compressedDataUrl;
+                const previewBox = document.getElementById('xldlFormImagePreviewBox');
+                const previewImg = document.getElementById('xldlFormImagePreviewImg');
+                const removeBtn = document.getElementById('xldlFormImageRemoveBtn');
+                if (previewImg) previewImg.src = compressedDataUrl;
+                if (previewBox) previewBox.style.display = 'block';
+                if (removeBtn) removeBtn.style.display = 'inline-flex';
+                _xldlShowToast('📷 Đã tải và nén hình ảnh mượt mà!');
+            }
+        } catch (e) {
+            console.error('Lỗi nén ảnh:', e);
+            alert('Có lỗi xảy ra khi nén hình ảnh, vui lòng thử lại!');
+        }
+    };
+
+    window._xldlRemoveSelectedImage = function() {
+        const hiddenInput = document.getElementById('xldlFormImageUrl');
+        const fileInput = document.getElementById('xldlFormImageFile');
+        const previewBox = document.getElementById('xldlFormImagePreviewBox');
+        const removeBtn = document.getElementById('xldlFormImageRemoveBtn');
+
+        if (hiddenInput) hiddenInput.value = '';
+        if (fileInput) fileInput.value = '';
+        if (previewBox) previewBox.style.display = 'none';
+        if (removeBtn) removeBtn.style.display = 'none';
+    };
+
+    function _xldlCompressImageToDataUrl(file, maxDimension = 1200, quality = 0.82) {
+        return new Promise((resolve) => {
+            if (!file || !file.type.startsWith('image/')) {
+                resolve(null);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = Math.round((height * maxDimension) / width);
+                            width = maxDimension;
+                        } else {
+                            width = Math.round((width * maxDimension) / height);
+                            height = maxDimension;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedBase64);
+                };
+                img.onerror = () => resolve(null);
+                img.src = e.target.result;
+            };
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    window._xldlOpenLightbox = function(imageUrlOrId, subId) {
+        let imgUrl = imageUrlOrId;
+        let title = 'Hình Ảnh Minh Họa';
+        if (subId) {
+            const links = _xldlGetCustomSubtabLinks(subId);
+            const link = links.find(l => String(l.id) === String(imageUrlOrId));
+            if (link && link.imageUrl) {
+                imgUrl = link.imageUrl;
+                title = link.title || title;
+            }
+        }
+
+        if (!imgUrl) return;
+
+        const modal = _xldlEnsureLightboxInDOM();
+        const imgEl = document.getElementById('xldlLightboxImg');
+        const dlBtn = document.getElementById('xldlLightboxDownloadBtn');
+        const titleEl = document.getElementById('xldlLightboxTitle');
+
+        imgEl.src = imgUrl;
+        dlBtn.href = imgUrl;
+        if (titleEl) titleEl.innerText = title;
+
+        currentLightboxScale = 1;
+        imgEl.style.transform = 'scale(1)';
+        modal.style.display = 'flex';
+    };
+
+    window._xldlCloseLightbox = function() {
+        const modal = document.getElementById('xldlLightboxModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window._xldlZoomLightbox = function(factor) {
+        currentLightboxScale *= factor;
+        if (currentLightboxScale < 0.4) currentLightboxScale = 0.4;
+        if (currentLightboxScale > 4) currentLightboxScale = 4;
+        const imgEl = document.getElementById('xldlLightboxImg');
+        if (imgEl) imgEl.style.transform = `scale(${currentLightboxScale})`;
+    };
+
+    window._xldlResetLightboxZoom = function() {
+        currentLightboxScale = 1;
+        const imgEl = document.getElementById('xldlLightboxImg');
+        if (imgEl) imgEl.style.transform = 'scale(1)';
+    };
+
+    function _xldlEnsureLightboxInDOM() {
+        let modal = document.getElementById('xldlLightboxModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.className = 'xldl-modal-overlay';
+            modal.id = 'xldlLightboxModal';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.92); backdrop-filter:blur(10px); z-index:100000; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+                <div style="position:relative; max-width:94vw; max-height:94vh; display:flex; flex-direction:column; align-items:center;">
+                    <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:rgba(255,255,255,0.1); padding:10px 18px; border-radius:14px; backdrop-filter:blur(8px);">
+                        <span id="xldlLightboxTitle" style="color:#ffffff; font-size:15px; font-weight:850; max-width:60%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🖼️ Xem Ảnh Minh Họa</span>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <button onclick="window._xldlZoomLightbox(1.25)" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; padding:6px 14px; border-radius:10px; font-weight:850; font-size:13px; cursor:pointer;" title="Phóng to">🔍 Zoom +</button>
+                            <button onclick="window._xldlZoomLightbox(0.8)" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; padding:6px 14px; border-radius:10px; font-weight:850; font-size:13px; cursor:pointer;" title="Thu nhỏ">🔍 Zoom -</button>
+                            <button onclick="window._xldlResetLightboxZoom()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; padding:6px 14px; border-radius:10px; font-weight:850; font-size:13px; cursor:pointer;" title="Đặt lại size">🔄 Reset</button>
+                            <a id="xldlLightboxDownloadBtn" href="" download="hinh-anh-tai-lieu.jpg" style="background:linear-gradient(135deg, #10b981, #059669); color:#ffffff; padding:6px 16px; border-radius:10px; font-weight:900; text-decoration:none; font-size:13px; box-shadow:0 4px 12px rgba(16,185,129,0.3);">⬇️ Tải Ảnh Về</a>
+                            <button onclick="window._xldlCloseLightbox()" style="background:#ef4444; color:#ffffff; border:none; width:34px; height:34px; border-radius:50%; font-weight:bold; cursor:pointer; font-size:16px;">✕</button>
+                        </div>
+                    </div>
+                    <div style="overflow:auto; max-height:82vh; max-width:92vw; border-radius:18px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; padding:10px;" onclick="if(event.target===this) window._xldlCloseLightbox()">
+                        <img id="xldlLightboxImg" src="" style="display:block; max-width:100%; max-height:78vh; object-fit:contain; border-radius:12px; transition:transform 0.2s ease;">
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        return modal;
     }
 
 })();
