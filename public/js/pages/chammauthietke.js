@@ -439,19 +439,7 @@
         } else {
             renderCurrentMainTab();
         }
-    };                               </button>
-                                                </div>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `}
-        `;
-    }
+    };
 
     window._cmtkOnFilterWarehouseChange = function (val) {
         selectedWarehouseFilter = val || 'all';
