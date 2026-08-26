@@ -1,15 +1,83 @@
 // ========== MAKET & CHẤM MÀU THIẾT KẾ — BỘ PHẬN THIẾT KẾ HV ==========
-// Executive Design & Font matched 100% with Quản Trị Nhân Sự & Hành Chính HV
+// Executive Design & Font matched 100% with Quản Trị Nhân Sự & Hành Chính HV (Ảnh 2, 3, 4, 5)
 (function () {
     'use strict';
 
     let currentMainTab = localStorage.getItem('cmtk_main_tab') || 'muc1_maket'; // 'muc1_maket' | 'muc2_chammau'
+    let activeSubtab = localStorage.getItem('cmtk_active_subtab') || 'all';
+    let activeCategoryFilter = 'all'; // Department/Category Filter
+
     let maketList = [];
     let fabricsData = { warehouses: [], materials: [], colors: [] };
     let swatchesMap = {};
     let currentSearchQuery = '';
     let selectedMaterialFilter = 'all';
     let selectedWarehouseFilter = 'all';
+
+    // State management for Categories (Bộ Phận / Loại Maket) and Subtabs (Mục)
+    const DEFAULT_DEPARTMENTS = ['Chung', 'Áo Phông', 'Áo Khoác', 'Đồng Phục Công Ty', 'Áo Lớp / Trường Học', 'Áo Mẫu / BST'];
+    const DEFAULT_SUBTABS = [
+        { id: 'mk_thuvien', title: 'Kho Lưu Trữ Bản Maket', icon: '🎨', isCustom: false },
+        { id: 'mk_quytrinh', title: 'Quy Trình & Hướng Dẫn Thiết Kế', icon: '📋', isCustom: false }
+    ];
+
+    let editingSubtabIndex = -1;
+    let editingDeptIndex = -1;
+    let activeModalTab = 'tab1';
+
+    function getSubtabs() {
+        try {
+            const raw = localStorage.getItem('cmtk_subtabs_store');
+            if (raw !== null) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch (e) {}
+        return DEFAULT_SUBTABS;
+    }
+
+    function saveSubtabs(subtabs) {
+        localStorage.setItem('cmtk_subtabs_store', JSON.stringify(subtabs));
+        syncSaveToServer();
+    }
+
+    function getDepartments() {
+        try {
+            const raw = localStorage.getItem('cmtk_depts_store');
+            if (raw !== null) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch (e) {}
+        return DEFAULT_DEPARTMENTS;
+    }
+
+    function saveDepartments(depts) {
+        localStorage.setItem('cmtk_depts_store', JSON.stringify(depts));
+        syncSaveToServer();
+    }
+
+    // Sync state to server config
+    let _syncSaveTimer = null;
+    function syncSaveToServer() {
+        if (_syncSaveTimer) clearTimeout(_syncSaveTimer);
+        _syncSaveTimer = setTimeout(async () => {
+            try {
+                const payload = {
+                    makets: maketList,
+                    subtabs: getSubtabs(),
+                    departments: getDepartments()
+                };
+                await fetch('/api/chammauthietke/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: payload })
+                });
+            } catch (e) {
+                console.warn('[CMTK Sync Save Error]', e);
+            }
+        }, 500);
+    }
 
     // Toast Notification Utility
     function showToast(msg, type = 'success') {
@@ -26,7 +94,7 @@
         setTimeout(() => { toast.classList.remove('show'); }, 2800);
     }
 
-    // Helper: Canvas Image Compression (<150KB JPEG, keeping high resolution for download)
+    // Canvas Image Compression (<150KB JPEG)
     function compressImage(file, maxDimension = 1400, quality = 0.82) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -71,7 +139,14 @@
             const fabData = await fabRes.json();
 
             if (cfgData && cfgData.success) {
-                maketList = cfgData.makets || [];
+                const val = cfgData.makets || cfgData.value || [];
+                if (Array.isArray(val)) {
+                    maketList = val;
+                } else if (typeof val === 'object') {
+                    maketList = val.makets || [];
+                    if (val.subtabs) localStorage.setItem('cmtk_subtabs_store', JSON.stringify(val.subtabs));
+                    if (val.departments) localStorage.setItem('cmtk_depts_store', JSON.stringify(val.departments));
+                }
                 swatchesMap = cfgData.swatches || {};
             }
             if (fabData && fabData.success) {
@@ -87,10 +162,8 @@
         const root = targetContainer || document.getElementById('contentArea') || document.getElementById('mainContent') || document.querySelector('.content-area') || document.querySelector('.main-content');
         if (!root) return;
 
-        // Render UI layout immediately (0ms delay)
         root.innerHTML = `
             <div class="cmtk-wrapper">
-                <!-- Top Executive Banner Header (Matched with Quản Trị Nhân Sự) -->
                 <div class="cmtk-header">
                     <div class="cmtk-header-left">
                         <div class="cmtk-icon-bg">🎨</div>
@@ -100,25 +173,34 @@
                         </div>
                     </div>
                     <div class="cmtk-header-right">
-                        <button type="button" id="cmtkBtnAddMaket" onclick="window._cmtkOpenAddMaketModal()" class="cmtk-btn-header-action">
+                        <button type="button" onclick="window._cmtkOpenAddMaketModal()" class="cmtk-btn-header-action">
                             ➕ Tạo Bản Maket Mới
                         </button>
                     </div>
                 </div>
 
-                <!-- Level 1 Main Tabs Navigation (Matched MỤC 1 & MỤC 2 Cards in Quản Trị Nhân Sự) -->
-                <div class="cmtk-tabs-main">
-                    <button class="cmtk-tab-btn ${currentMainTab === 'muc1_maket' ? 'active' : ''}" data-maintab="muc1_maket" onclick="window._cmtkSwitchMainTab('muc1_maket')">
-                        <span class="tab-num">MỤC 1</span>
-                        <span class="tab-label">🎨 1. Kho Lưu Trữ Bản Maket</span>
-                    </button>
-                    <button class="cmtk-tab-btn ${currentMainTab === 'muc2_chammau' ? 'active' : ''}" data-maintab="muc2_chammau" onclick="window._cmtkSwitchMainTab('muc2_chammau')">
-                        <span class="tab-num">MỤC 2</span>
-                        <span class="tab-label">🧵 2. Chấm Màu Thiết Kế & Kho Vải</span>
-                    </button>
+                <div class="cmtk-tabs-main" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <button class="cmtk-tab-btn ${currentMainTab === 'muc1_maket' ? 'active' : ''}" data-maintab="muc1_maket" onclick="window._cmtkSwitchMainTab('muc1_maket')">
+                            <span class="tab-num">MỤC 1</span>
+                            <span class="tab-label">🎨 1. Kho Lưu Trữ Bản Maket</span>
+                        </button>
+                        <button class="cmtk-tab-btn ${currentMainTab === 'muc2_chammau' ? 'active' : ''}" data-maintab="muc2_chammau" onclick="window._cmtkSwitchMainTab('muc2_chammau')">
+                            <span class="tab-num">MỤC 2</span>
+                            <span class="tab-label">🧵 2. Chấm Màu Thiết Kế & Kho Vải</span>
+                        </button>
+                    </div>
+
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <button type="button" onclick="window._cmtkOpenAddMaketModal()" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; font-weight:900; font-size:13.5px; padding:10px 18px; border-radius:14px; cursor:pointer; box-shadow:0 4px 14px rgba(109,40,217,0.35); display:inline-flex; align-items:center; gap:6px;">
+                            ➕ Tạo Bản Maket Mới
+                        </button>
+                        <button type="button" onclick="window._cmtkOpenSubtabModal()" style="background:#ffffff; color:#475569; border:1.5px solid #cbd5e1; font-weight:800; font-size:13px; padding:9px 16px; border-radius:14px; cursor:pointer; transition:all 0.2s ease; display:inline-flex; align-items:center; gap:6px;" onmouseover="this.style.borderColor='#7c3aed'; this.style.color='#7c3aed';" onmouseout="this.style.borderColor='#cbd5e1'; this.style.color='#475569';">
+                            ⚙️ Cài Đặt Mục
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Main Dynamic Content Container -->
                 <div class="cmtk-content-container" id="cmtkContentContainer">
                 </div>
             </div>
@@ -127,50 +209,31 @@
         `;
 
         renderCurrentMainTab();
-
-        // Async load API data in background & refresh tab view mượt mà
-        loadData().then(() => {
-            renderCurrentMainTab();
-        });
+        loadData().then(() => renderCurrentMainTab());
     }
 
-    // Switch Main Tabs
     window._cmtkSwitchMainTab = function (tabId) {
         currentMainTab = tabId;
         localStorage.setItem('cmtk_main_tab', tabId);
-
         document.querySelectorAll('.cmtk-tab-btn').forEach(btn => {
-            if (btn.getAttribute('data-maintab') === tabId) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
+            btn.classList.toggle('active', btn.getAttribute('data-maintab') === tabId);
         });
-
         renderCurrentMainTab();
     };
 
-    // Render Current Main Tab
     function renderCurrentMainTab() {
         const container = document.getElementById('cmtkContentContainer');
         if (!container) return;
-
-        if (currentMainTab === 'muc1_maket') {
-            renderTab1Maket(container);
-        } else {
-            renderTab2Chammau(container);
-        }
+        if (currentMainTab === 'muc1_maket') renderTab1Maket(container);
+        else renderTab2Chammau(container);
     }
 
-    // ==========================================
-    // TAB 1: KHO LƯU TRỮ BẢN MAKET
-    // ==========================================
     function renderTab1Maket(container) {
         const matSet = new Set(maketList.map(m => m.fabricMaterial).filter(Boolean));
+        const depts = getDepartments();
 
         container.innerHTML = `
-            <!-- Search Bar (Matched with Quản Trị Nhân Sự) -->
-            <div style="margin-bottom: 20px; position: relative;">
+            <div style="margin-bottom: 18px; position: relative;">
                 <div style="position: relative; display: flex; align-items: center;">
                     <span style="position: absolute; left: 18px; font-size: 18px; color: #7c3aed; pointer-events: none; z-index: 2;">🔍</span>
                     <input type="text" id="cmtkSearchMaketInput" value="${currentSearchQuery}" 
@@ -180,33 +243,65 @@
                 </div>
             </div>
 
-            <!-- Subtabs / Filter Control Bar -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(250,245,255,0.95), rgba(243,232,255,0.98)); backdrop-filter: blur(16px); padding: 14px 22px; border-radius: 20px; border: 1.5px solid #e9d5ff; box-shadow: 0 12px 32px -8px rgba(109,40,217,0.15);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; background: linear-gradient(135deg, rgba(250,245,255,0.95), rgba(243,232,255,0.98)); backdrop-filter: blur(16px); padding: 12px 20px; border-radius: 20px; border: 1.5px solid #e9d5ff; box-shadow: 0 8px 24px -6px rgba(109,40,217,0.12);">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-size: 13.5px; font-weight: 850; color: #5b21b6; display: flex; align-items: center; gap: 6px; margin-right: 4px;">
+                        🏢 <span>Bộ phận / Loại:</span>
+                    </span>
+
+                    <button type="button" class="cmtk-dept-pill ${activeCategoryFilter === 'all' ? 'active' : ''}" onclick="window._cmtkSetCategoryFilter('all')">
+                        🌐 Tất Cả (${maketList.length})
+                    </button>
+                    ${depts.map(dept => {
+                        const count = maketList.filter(m => (m.departments || []).includes(dept) || m.category === dept).length;
+                        return `
+                            <button type="button" class="cmtk-dept-pill ${activeCategoryFilter === dept ? 'active' : ''}" onclick="window._cmtkSetCategoryFilter('${dept.replace(/'/g, "\\'")}')">
+                                📋 ${dept} (${count})
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div>
+                    <button type="button" onclick="window._cmtkOpenDepartmentModal()" style="background:#ffffff; color:#475569; border:1.5px solid #cbd5e1; font-weight:800; font-size:12.5px; padding:7px 14px; border-radius:12px; cursor:pointer; transition:all 0.2s ease; display:inline-flex; align-items:center; gap:6px;" onmouseover="this.style.borderColor='#7c3aed'; this.style.color='#7c3aed';" onmouseout="this.style.borderColor='#cbd5e1'; this.style.color='#475569';">
+                        ⚙️ Cài Đặt Bộ Phận
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 14px; font-weight: 850; color: #5b21b6;">Lọc Theo Chất Liệu Vải:</span>
+                    <span style="font-size: 13.5px; font-weight: 850; color: #475569;">Lọc Theo Chất Liệu Vải:</span>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <select id="cmtkFilterMatSelect" onchange="window._cmtkOnFilterMatChange(this.value)" 
-                        style="border: 2px solid #e9d5ff; border-radius: 14px; padding: 9px 16px; font-size: 13.5px; font-weight: 800; color: #6d28d9; background: #ffffff; outline: none; cursor: pointer;">
+                        style="border: 2px solid #e9d5ff; border-radius: 14px; padding: 8px 16px; font-size: 13px; font-weight: 800; color: #6d28d9; background: #ffffff; outline: none; cursor: pointer;">
                         <option value="all">🌐 Tất Cả Chất Liệu (${maketList.length})</option>
                         ${Array.from(matSet).map(mat => `<option value="${mat}" ${selectedMaterialFilter === mat ? 'selected' : ''}>🧵 ${mat}</option>`).join('')}
                     </select>
                 </div>
             </div>
 
-            <!-- Dedicated Grid Container for Maket Cards -->
             <div id="cmtkCardGridContainer">
                 ${_cmtkRenderMaketCardsHTML()}
             </div>
         `;
     }
 
+    window._cmtkSetCategoryFilter = function(dept) {
+        activeCategoryFilter = dept;
+        const grid = document.getElementById('cmtkCardGridContainer');
+        if (grid) grid.innerHTML = _cmtkRenderMaketCardsHTML();
+        else renderCurrentMainTab();
+    };
+
     function _cmtkRenderMaketCardsHTML() {
         let filtered = maketList.filter(item => {
             const q = currentSearchQuery.toLowerCase().trim();
             const matchQ = !q || (item.title || '').toLowerCase().includes(q) || (item.customerName || '').toLowerCase().includes(q) || (item.fabricMaterial || '').toLowerCase().includes(q);
             const matchMat = selectedMaterialFilter === 'all' || item.fabricMaterial === selectedMaterialFilter;
-            return matchQ && matchMat;
+            const matchDept = activeCategoryFilter === 'all' || (item.departments || []).includes(activeCategoryFilter) || item.category === activeCategoryFilter;
+            return matchQ && matchMat && matchDept;
         });
 
         if (filtered.length === 0) {
@@ -214,10 +309,6 @@
                 <div style="text-align: center; padding: 60px 20px; background: #ffffff; border-radius: 24px; border: 2px dashed #cbd5e1;">
                     <div style="font-size: 48px; margin-bottom: 12px;">🎨</div>
                     <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 900; color: #334155;">Chưa có bản thiết kế Maket nào trong thư viện</h3>
-                    <p style="margin: 0 0 20px 0; font-size: 14px; color: #64748b; font-weight: 600;">Hãy bấm nút bên dưới để lưu trữ mẫu thiết kế Maket mới nhất cho khách hàng!</p>
-                    <button type="button" onclick="window._cmtkOpenAddMaketModal()" style="background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; font-weight: 900; font-size: 14px; padding: 12px 24px; border-radius: 14px; cursor: pointer; box-shadow: 0 6px 18px rgba(109,40,217,0.35);">
-                        ➕ Tạo Bản Maket Mới Ngay
-                    </button>
                 </div>
             `;
         }
@@ -227,55 +318,17 @@
                 ${filtered.map(item => `
                     <div class="cmtk-card-item">
                         <div class="card-accent-bar theme-purple"></div>
-                        
-                        <!-- Header Thumbnail Banner -->
-                        <div style="position: relative; width: 100%; height: 210px; background: #0f172a; cursor: pointer; overflow: hidden;" onclick="window._cmtkOpenDetailModal('${item.id}')" title="Nhấp để xem chi tiết bản Maket">
-                            ${item.imageUrl ? `
-                                <img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: contain; display: block; transition: transform 0.3s ease;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
-                            ` : `
-                                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 48px; background: linear-gradient(135deg, #1e293b, #0f172a); color: #64748b;">🎨</div>
-                            `}
-                            <div style="position: absolute; top: 12px; right: 12px; background: rgba(15,23,42,0.85); color: #ffffff; font-size: 11px; font-weight: 850; padding: 4px 10px; border-radius: 10px; backdrop-filter: blur(4px);">
-                                📋 Xem Chi Tiết
-                            </div>
-                            ${item.hexCode ? `
-                                <div style="position: absolute; bottom: 12px; left: 12px; background: #ffffff; color: #0f172a; font-size: 11.5px; font-weight: 900; padding: 4px 10px; border-radius: 10px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-                                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${item.hexCode}; display: inline-block; border: 1px solid rgba(0,0,0,0.2);"></span>
-                                    <span>${item.hexCode}</span>
-                                </div>
-                            ` : ''}
+                        <div style="position: relative; width: 100%; height: 210px; background: #0f172a; cursor: pointer; overflow: hidden;" onclick="window._cmtkOpenDetailModal('${item.id}')">
+                            ${item.imageUrl ? `<img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: contain;">` : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 48px; background: #1e293b; color: #475569;">🎨</div>`}
                         </div>
-
-                        <!-- Card Inner Content -->
                         <div class="card-inner">
-                            <div class="card-main-content">
-                                <div style="font-size: 12px; font-weight: 850; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
-                                    🏢 ${item.customerName || 'Khách Hàng Doanh Nghiệp / Trường Học'}
-                                </div>
-                                <h3 class="card-title">
-                                    ${item.title || 'Mẫu Maket Áo Đồng Phục'}
-                                </h3>
-                                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
-                                    ${item.fabricMaterial ? `<span class="card-badge theme-purple">🧵 ${item.fabricMaterial}</span>` : ''}
-                                    ${item.fabricColor ? `<span class="card-badge theme-blue">🎨 Màu: ${item.fabricColor}</span>` : ''}
-                                </div>
+                            <div style="font-size: 11px; font-weight: 850; color: #7c3aed; text-transform: uppercase; margin-bottom: 4px;">🏢 ${item.customerName || 'Khách Hàng'}</div>
+                            <h3 class="card-title">${item.title || 'Mẫu Maket'}</h3>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
+                                ${(item.departments || []).map(dept => `<span class="card-badge theme-purple">📌 ${dept}</span>`).join('')}
+                                ${item.fabricMaterial ? `<span class="card-badge theme-blue">🧵 ${item.fabricMaterial}</span>` : ''}
                             </div>
-
-                            <!-- Card Footer Action Buttons -->
-                            <div style="display: flex; gap: 8px; margin-top: auto;">
-                                <button type="button" onclick="window._cmtkOpenDetailModal('${item.id}')" class="card-btn-open" title="Xem Chi Tiết Quy Trình">
-                                    📋 <span>Xem Chi Tiết ➔</span>
-                                </button>
-                                ${item.docUrl ? `
-                                    <a href="${item.docUrl}" target="_blank" rel="noopener" 
-                                        style="border: 1.5px solid #a855f7; background: #faf5ff; color: #6b21a8; font-weight: 850; font-size: 12.5px; padding: 9px 12px; border-radius: 12px; text-decoration: none; display: flex; align-items: center; gap: 4px;" title="Mở File Gốc Drive/Vector">
-                                        🔗 <span>File Gốc ↗</span>
-                                    </a>
-                                ` : ''}
-                                <button type="button" onclick="window._cmtkDeleteMaket('${item.id}')" style="border: 1.5px solid #fecdd3; background: #fff1f2; color: #be123c; padding: 9px 12px; border-radius: 12px; cursor: pointer; font-size: 12px;" title="Xóa Maket">
-                                    🗑️
-                                </button>
-                            </div>
+                            <button type="button" onclick="window._cmtkOpenDetailModal('${item.id}')" class="card-btn-open">📋 Xem Chi Tiết ➔</button>
                         </div>
                     </div>
                 `).join('')}
@@ -283,16 +336,11 @@
         `;
     }
 
-    // ==========================================
-    // TAB 2: CHẤM MÀU THIẾT KẾ & KHO VẢI
-    // ==========================================
     function renderTab2Chammau(container) {
         const warehouses = fabricsData.warehouses || [];
         const materials = fabricsData.materials || [];
-
         container.innerHTML = `
-            <!-- Search Bar (Matched with Quản Trị Nhân Sự) -->
-            <div style="margin-bottom: 20px; position: relative;">
+            <div style="margin-bottom: 18px; position: relative;">
                 <div style="position: relative; display: flex; align-items: center;">
                     <span style="position: absolute; left: 18px; font-size: 18px; color: #7c3aed; pointer-events: none; z-index: 2;">🔍</span>
                     <input type="text" id="cmtkSearchColorInput" value="${currentSearchQuery}" 
@@ -302,26 +350,28 @@
                 </div>
             </div>
 
-            <!-- Subtabs / Filter Control Bar -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(250,245,255,0.95), rgba(243,232,255,0.98)); backdrop-filter: blur(16px); padding: 14px 22px; border-radius: 20px; border: 1.5px solid #e9d5ff; box-shadow: 0 12px 32px -8px rgba(109,40,217,0.15);">
-                <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
-                    <span style="font-size: 13.5px; font-weight: 850; color: #5b21b6;">Kho vải:</span>
-                    <select id="cmtkFilterWarehouseSelect" onchange="window._cmtkOnFilterWarehouseChange(this.value)" 
-                        style="border: 2px solid #e9d5ff; border-radius: 14px; padding: 9px 16px; font-size: 13.5px; font-weight: 800; color: #6d28d9; background: #ffffff; outline: none; cursor: pointer;">
-                        <option value="all">🏬 Tất Cả Kho Vải (${warehouses.length})</option>
-                        ${warehouses.map(w => `<option value="${w.id}" ${selectedWarehouseFilter === String(w.id) ? 'selected' : ''}>🏬 ${w.name}</option>`).join('')}
-                    </select>
+                <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 13.5px; font-weight: 850; color: #5b21b6;">Kho Vải:</span>
+                        <select id="cmtkFilterWhSelect" onchange="window._cmtkOnFilterWarehouseChange(this.value)" 
+                            style="border: 2px solid #e9d5ff; border-radius: 14px; padding: 8px 14px; font-size: 13px; font-weight: 800; color: #6d28d9; background: #ffffff; outline: none; cursor: pointer;">
+                            <option value="all">🏬 Tất Cả Kho Vải (${warehouses.length})</option>
+                            ${warehouses.map(w => `<option value="${w.id}" ${String(selectedWarehouseFilter) === String(w.id) ? 'selected' : ''}>🏬 ${w.name}</option>`).join('')}
+                        </select>
+                    </div>
 
-                    <span style="font-size: 13.5px; font-weight: 850; color: #5b21b6;">Chất liệu:</span>
-                    <select id="cmtkFilterMaterialSelect" onchange="window._cmtkOnFilterMatChange(this.value)" 
-                        style="border: 2px solid #e9d5ff; border-radius: 14px; padding: 9px 16px; font-size: 13.5px; font-weight: 800; color: #6d28d9; background: #ffffff; outline: none; cursor: pointer;">
-                        <option value="all">🧵 Tất Cả Chất Liệu (${materials.length})</option>
-                        ${materials.map(m => `<option value="${m.id}" ${selectedMaterialFilter === String(m.id) ? 'selected' : ''}>🧵 ${m.name}</option>`).join('')}
-                    </select>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 13.5px; font-weight: 850; color: #5b21b6;">Chất Liệu:</span>
+                        <select id="cmtkFilterMatSelect2" onchange="window._cmtkOnFilterMatChange(this.value)" 
+                            style="border: 2px solid #e9d5ff; border-radius: 14px; padding: 8px 14px; font-size: 13px; font-weight: 800; color: #6d28d9; background: #ffffff; outline: none; cursor: pointer;">
+                            <option value="all">🧵 Tất Cả Chất Liệu (${materials.length})</option>
+                            ${materials.map(m => `<option value="${m.id}" ${String(selectedMaterialFilter) === String(m.id) ? 'selected' : ''}>🧵 ${m.name}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <!-- Dedicated Grid Container for Swatches -->
             <div id="cmtkSwatchesGridContainer">
                 ${_cmtkRenderSwatchesCardsHTML()}
             </div>
@@ -345,85 +395,25 @@
             groupedByMat[matName].push(c);
         });
 
-        if (Object.keys(groupedByMat).length === 0) {
-            return `
-                <div style="text-align: center; padding: 60px 20px; background: #ffffff; border-radius: 24px; border: 2px dashed #cbd5e1;">
-                    <div style="font-size: 48px; margin-bottom: 12px;">🧵</div>
-                    <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 900; color: #334155;">Không tìm thấy màu vải nào khớp với bộ lọc</h3>
-                </div>
-            `;
-        }
+        if (Object.keys(groupedByMat).length === 0) return `<div style="text-align:center; padding:40px;">🧵 Không tìm thấy màu vải nào khớp.</div>`;
 
         return `
             <div style="display: flex; flex-direction: column; gap: 26px;">
                 ${Object.keys(groupedByMat).map(matName => {
                     const colorsInMat = groupedByMat[matName];
                     return `
-                        <div style="background: #ffffff; border-radius: 22px; border: 1.5px solid #e2e8f0; padding: 22px 24px; box-shadow: 0 8px 25px rgba(15,23,42,0.04);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <span style="font-size: 22px; background: #faf5ff; padding: 6px 12px; border-radius: 12px; border: 1px solid #e9d5ff;">🧵</span>
-                                    <h3 style="margin: 0; font-size: 18.5px; font-weight: 950; color: #4c1d95; letter-spacing: -0.3px;">CHẤT LIỆU: ${matName}</h3>
-                                    <span style="background: #f3e8ff; color: #6d28d9; font-weight: 850; font-size: 12px; padding: 4px 12px; border-radius: 20px;">${colorsInMat.length} Màu Vải</span>
-                                </div>
-                            </div>
-
-                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;">
+                        <div style="background: #ffffff; border-radius: 22px; border: 1.5px solid #e2e8f0; padding: 20px;">
+                            <h3 style="margin:0 0 16px 0; color: #4c1d95; font-size: 17px;">🧵 CHẤT LIỆU: ${matName}</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;">
                                 ${colorsInMat.map(c => {
                                     const hex = (c.hex_code && c.hex_code.trim()) ? c.hex_code.trim().toUpperCase() : null;
-                                    const hasHex = !!hex;
-
                                     return `
-                                        <div class="cmtk-swatch-card" style="background: #ffffff; border: 1.5px solid ${hasHex ? '#e2e8f0' : '#fed7aa'}; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.25s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.02);" onmouseover="this.style.borderColor='#c084fc'; this.style.boxShadow='0 10px 24px rgba(109,40,217,0.12)';" onmouseout="this.style.borderColor='${hasHex ? '#e2e8f0' : '#fed7aa'}'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.02)';">
-                                            <div>
-                                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                                                    ${hasHex ? `
-                                                        <div style="position: relative; width: 48px; height: 48px; border-radius: 50%; background: ${hex}; border: 3px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.18); flex-shrink: 0;" title="Digital HEX Swatch: ${hex}"></div>
-                                                    ` : `
-                                                        <div style="position: relative; width: 48px; height: 48px; border-radius: 50%; background: #f8fafc; border: 2.5px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #94a3b8; flex-shrink: 0;" title="Vải này chưa được chấm mã màu HEX">🎨</div>
-                                                    `}
-                                                    <div style="flex: 1; min-width: 0;">
-                                                        <div style="font-size: 15px; font-weight: 900; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                                            🎨 ${c.color_name}
-                                                        </div>
-                                                        <div style="font-size: 11.5px; font-weight: 750; color: #64748b;">
-                                                            🏬 ${c.warehouse_name || 'Kho Vải'}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                ${hasHex ? `
-                                                    <div style="background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                                                        <span style="font-size: 11px; font-weight: 850; color: #6b21a8; text-transform: uppercase;">MÃ #HEX:</span>
-                                                        <strong style="font-size: 13px; font-weight: 900; color: #0f172a; font-family: monospace;">${hex}</strong>
-                                                    </div>
-                                                ` : `
-                                                    <div style="background: #fff7ed; border: 1.5px solid #ffedd5; border-radius: 10px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                                                        <span style="font-size: 11px; font-weight: 850; color: #c2410c; text-transform: uppercase;">TRẠNG THÁI:</span>
-                                                        <strong style="font-size: 12px; font-weight: 900; color: #ea580c;">⚠️ Chưa Chấm Màu</strong>
-                                                    </div>
-                                                `}
+                                        <div style="border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 14px; background: #fcfcfc;">
+                                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                                <div style="width: 32px; height: 32px; border-radius: 50%; background: ${hex || '#cbd5e1'}; border: 2px solid #ffffff; box-shadow: 0 0 0 1px #e2e8f0;"></div>
+                                                <div style="font-weight: 850; font-size: 13.5px;">${c.color_name}</div>
                                             </div>
-
-                                            <div style="display: flex; gap: 6px; margin-top: 8px;">
-                                                ${hasHex ? `
-                                                    <button type="button" onclick="window._cmtkCopyHex('${hex}', '${c.color_name}')" class="card-btn-open" title="Sao chép mã màu #HEX dán vào Photoshop / Illustrator">
-                                                        📋 <span>Sao Chép #HEX</span>
-                                                    </button>
-                                                    <button type="button" onclick="window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${c.color_name}', '${hex}', '${c.swatch_image || ''}')" 
-                                                        style="border: 1.5px solid #d8b4fe; background: #faf5ff; color: #6b21a8; font-weight: 850; font-size: 12.5px; padding: 9px 12px; border-radius: 12px; cursor: pointer;" title="Sửa mã màu">
-                                                        ⚙️ Sửa Mã
-                                                    </button>
-                                                ` : `
-                                                    <button type="button" disabled style="border: 1.5px solid #e2e8f0; background: #f8fafc; color: #94a3b8; font-weight: 800; font-size: 12px; padding: 9px 12px; border-radius: 12px; cursor: not-allowed; flex: 1;" title="Vui lòng bấm Chấm Màu Ngay để chọn mã HEX">
-                                                        🚫 Chưa Có Mã
-                                                    </button>
-                                                    <button type="button" onclick="window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${c.color_name}', '', '${c.swatch_image || ''}')" 
-                                                        style="border: none; background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%); color: #ffffff; font-weight: 900; font-size: 12.5px; padding: 9px 14px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 14px rgba(109,40,217,0.35); flex: 1; text-align: center;" title="Bấm để chọn mã màu HEX cho vải này">
-                                                        ⚙️ Chấm Màu Ngay
-                                                    </button>
-                                                `}
-                                            </div>
+                                            <button type="button" onclick="window._cmtkCopyHex('${hex || '#000000'}', '${c.color_name}')" style="width:100%; border:none; background:#7c3aed; color:#ffffff; padding:8px; border-radius:8px; font-weight:800; cursor:pointer;">${hex || 'Chấm Màu'}</button>
                                         </div>
                                     `;
                                 }).join('')}
@@ -435,33 +425,22 @@
         `;
     }
 
-    // Dynamic Search Handler without destroying search input focus!
     window._cmtkOnSearchMaket = function (val) {
         currentSearchQuery = val || '';
         const grid1 = document.getElementById('cmtkCardGridContainer');
         const grid2 = document.getElementById('cmtkSwatchesGridContainer');
-
-        if (grid1) {
-            grid1.innerHTML = _cmtkRenderMaketCardsHTML();
-        } else if (grid2) {
-            grid2.innerHTML = _cmtkRenderSwatchesCardsHTML();
-        } else {
-            renderCurrentMainTab();
-        }
+        if (grid1) grid1.innerHTML = _cmtkRenderMaketCardsHTML();
+        else if (grid2) grid2.innerHTML = _cmtkRenderSwatchesCardsHTML();
+        else renderCurrentMainTab();
     };
 
     window._cmtkOnFilterMatChange = function (val) {
         selectedMaterialFilter = val || 'all';
         const grid1 = document.getElementById('cmtkCardGridContainer');
         const grid2 = document.getElementById('cmtkSwatchesGridContainer');
-
-        if (grid1) {
-            grid1.innerHTML = _cmtkRenderMaketCardsHTML();
-        } else if (grid2) {
-            grid2.innerHTML = _cmtkRenderSwatchesCardsHTML();
-        } else {
-            renderCurrentMainTab();
-        }
+        if (grid1) grid1.innerHTML = _cmtkRenderMaketCardsHTML();
+        else if (grid2) grid2.innerHTML = _cmtkRenderSwatchesCardsHTML();
+        else renderCurrentMainTab();
     };
 
     window._cmtkOnFilterWarehouseChange = function (val) {
@@ -469,24 +448,12 @@
         renderCurrentMainTab();
     };
 
-    // 1-Click Copy HEX Code to Clipboard
     window._cmtkCopyHex = function (hex, colorName) {
         navigator.clipboard.writeText(hex).then(() => {
-            showToast(`✅ Đã sao chép mã màu ${hex} (${colorName})! Dán ngay vào Photoshop/Illustrator.`);
-        }).catch(err => {
-            const input = document.createElement('input');
-            input.value = hex;
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand('copy');
-            document.body.removeChild(input);
             showToast(`✅ Đã sao chép mã màu ${hex} (${colorName})!`);
         });
     };
 
-    // ==========================================
-    // MODAL 1: TẠO / SỬA MAKET
-    // ==========================================
     function ensureMaketModalInDOM() {
         let modal = document.getElementById('cmtkMaketModal');
         if (!modal) {
@@ -494,62 +461,85 @@
             modal.id = 'cmtkMaketModal';
             modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
             modal.innerHTML = `
-                <div style="max-height:90vh; display:flex; flex-direction:column; width:100%; max-width:640px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(91,33,182,0.35);">
-                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #4c1d95, #6d28d9); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
-                        <h3 id="cmtkMaketModalTitle" style="margin:0; font-size:17.5px; font-weight:900;">🎨 ➕ TẠO BẢN THIẾT KẾ MAKET MỚI</h3>
-                        <button type="button" onclick="window._cmtkCloseMaketModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                <div style="max-height:92vh; display:flex; flex-direction:column; width:100%; max-width:680px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1.5px solid #d8b4fe;">
+                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:22px;">➕</span>
+                            <h3 id="cmtkMaketModalTitle" style="margin:0; font-size:17.5px; font-weight:900; color:#ffffff; text-transform:uppercase; letter-spacing:-0.2px;">TẠO BẢN MAKET MỚI</h3>
+                        </div>
+                        <button type="button" onclick="window._cmtkCloseMaketModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
                     </div>
 
-                    <form id="cmtkMaketForm" onsubmit="window._cmtkSaveMaket(event)" style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:14px; background:#fcfafc;">
+                    <div style="display:flex; gap:10px; padding:16px 24px 8px 24px; background:#fcfafc; border-bottom:1.5px solid #f1f5f9;">
+                        <button type="button" id="cmtkModalTabBtn1" onclick="window._cmtkSwitchModalTab('tab1')" style="flex:1; padding:10px 16px; border-radius:14px; font-weight:900; font-size:13.5px; border:none; background:#7c3aed; color:#ffffff; cursor:pointer; box-shadow:0 4px 12px rgba(124,58,237,0.25);">
+                            📁 TAB 1: Thông Tin & Link (*)
+                        </button>
+                        <button type="button" id="cmtkModalTabBtn2" onclick="window._cmtkSwitchModalTab('tab2')" style="flex:1; padding:10px 16px; border-radius:14px; font-weight:850; font-size:13.5px; border:1.5px solid #e9d5ff; background:#ffffff; color:#6d28d9; cursor:pointer;">
+                            📝 TAB 2: Quy Trình & Hướng Dẫn*
+                        </button>
+                    </div>
+
+                    <form id="cmtkMaketForm" onsubmit="window._cmtkSaveMaket(event)" style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; background:#fcfafc;">
                         <input type="hidden" id="cmtkFormMaketId" value="">
-                        
-                        <div class="qtns-form-group">
-                            <label style="color:#0f172a; font-weight:850; display:block; margin-bottom:6px;">Tiêu đề bản thiết kế Maket (* BẮT BUỘC):</label>
-                            <input type="text" id="cmtkFormTitle" placeholder="Ví dụ: Maket Áo Polo Đồng Phục Trường THPT Chuyên..." required style="width:100%; border:2px solid #e9d5ff; border-radius:12px; padding:10px 14px; font-size:13.5px; font-weight:700; color:#0f172a;">
-                        </div>
 
-                        <div class="qtns-form-group">
-                            <label style="color:#5b21b6; font-weight:850; display:block; margin-bottom:6px;">🏢 Tên Khách Hàng / Công Ty / Trường Học (*):</label>
-                            <input type="text" id="cmtkFormCustomer" placeholder="Ví dụ: Công ty May Đồng Phục HV / Trường Nguyễn Trãi..." required style="width:100%; border:2px solid #e9d5ff; border-radius:12px; padding:10px 14px; font-size:13.5px; font-weight:700; color:#0f172a;">
-                        </div>
-
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                        <div id="cmtkModalTabContent1" style="display:flex; flex-direction:column; gap:16px;">
                             <div class="qtns-form-group">
-                                <label style="color:#334155; font-weight:850; display:block; margin-bottom:6px;">🧵 Chất Liệu Vải Thực Tế:</label>
-                                <select id="cmtkFormMaterial" style="width:100%; border:2px solid #e9d5ff; border-radius:12px; padding:10px 12px; font-size:13px; font-weight:750; color:#4c1d95; background:#ffffff;">
+                                <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📁 Danh Mục Quản Trị (* BẮT BUỘC):</label>
+                                <select id="cmtkFormCategory" style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13.5px; font-weight:800; color:#0f172a; background:#ffffff; outline:none;">
+                                    <option value="Kho Lưu Trữ Bản Maket">📁 Kho Lưu Trữ Bản Maket</option>
+                                    <option value="Quy Trình & Hướng Dẫn">📋 Quy Trình & Hướng Dẫn</option>
                                 </select>
                             </div>
+
                             <div class="qtns-form-group">
-                                <label style="color:#334155; font-weight:850; display:block; margin-bottom:6px;">🎨 Mã Màu Chấm (#HEX):</label>
-                                <input type="text" id="cmtkFormHex" placeholder="#E63946" style="width:100%; border:2px solid #e9d5ff; border-radius:12px; padding:10px 12px; font-size:13px; font-weight:750; color:#0f172a;">
+                                <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:8px; font-size:13.5px;">🏢 Bộ Phận / Loại Maket (* BẮT BUỘC - Chọn nhiều):</label>
+                                <div id="cmtkDeptPillCheckboxes" style="display:flex; flex-wrap:wrap; gap:8px; background:#ffffff; border:1.5px solid #e9d5ff; border-radius:16px; padding:12px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                                </div>
+                            </div>
+
+                            <div class="qtns-form-group">
+                                <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">Tiêu đề mẫu Maket (*):</label>
+                                <input type="text" id="cmtkFormTitle" placeholder="Ví dụ: Quy trình thiết kế mẫu áo lớp / Maket Áo Polo Chuyên..." required style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:11px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none; background:#ffffff;">
+                            </div>
+
+                            <div class="qtns-form-group">
+                                <label style="color:#5b21b6; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">🏢 Tên Khách Hàng / Trường Học / Công Ty (*):</label>
+                                <input type="text" id="cmtkFormCustomer" placeholder="Ví dụ: Công ty Đồng Phục HV / THPT Chu Văn An..." required style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:11px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none; background:#ffffff;">
+                            </div>
+
+                            <div class="qtns-form-group">
+                                <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📝 Mô tả / Ghi chú (tự động xuống dòng):</label>
+                                <textarea id="cmtkFormNotes" rows="3" placeholder="Mô tả tóm tắt nội dung quy trình hoặc cẩm nang hướng dẫn mẫu thiết kế..." style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:600; color:#0f172a; font-family:inherit; outline:none; resize:vertical; background:#ffffff;"></textarea>
+                            </div>
+
+                            <div class="qtns-form-group">
+                                <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">Đường link URL tài liệu (Google Sheets / Word / Canva / Link ngoài):</label>
+                                <input type="url" id="cmtkFormDocUrl" placeholder="https://docs.google.com/... hoặc link Canva / Drive" style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:11px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none; background:#ffffff;">
+                            </div>
+
+                            <div class="qtns-form-group">
+                                <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">🖼️ Hình Ảnh Minh Họa / Sơ Đồ / Mẫu (Không bắt buộc):</label>
+                                <input type="file" id="cmtkFormImageFile" accept="image/*" style="display:none;" onchange="window._cmtkOnMaketImageSelected(this)">
+                                <button type="button" onclick="document.getElementById('cmtkFormImageFile').click()" style="border:1.5px dashed #a855f7; background:#faf5ff; color:#6b21a8; padding:11px 16px; border-radius:14px; font-weight:850; cursor:pointer; width:100%; text-align:center; font-size:13.5px;">
+                                    📷 Chọn Hình Ảnh Từ Máy Tính
+                                </button>
+                                <input type="hidden" id="cmtkFormImageUrl" value="">
+                                <div id="cmtkFormImagePreviewBox" style="display:none; margin-top:8px; text-align:center; border:1.5px solid #e9d5ff; border-radius:14px; padding:10px; background:#ffffff;">
+                                    <img id="cmtkFormImagePreviewImg" src="" style="max-height:160px; max-width:100%; border-radius:8px; object-fit:contain;">
+                                </div>
                             </div>
                         </div>
 
-                        <div class="qtns-form-group">
-                            <label style="color:#0f172a; font-weight:850; display:block; margin-bottom:6px;">🖼️ Hình Ảnh Bản Vẽ Maket (Ảnh chụp/xử lý tự động nén nét căng):</label>
-                            <input type="file" id="cmtkFormImageFile" accept="image/*" style="display:none;" onchange="window._cmtkOnMaketImageSelected(this)">
-                            <button type="button" onclick="document.getElementById('cmtkFormImageFile').click()" style="border:1.5px dashed #a855f7; background:#faf5ff; color:#6b21a8; padding:10px 16px; border-radius:12px; font-weight:800; cursor:pointer; width:100%; text-align:center;">
-                                📷 Tải Hình Ảnh Maket Từ Máy / Điện Thoại
-                            </button>
-                            <input type="hidden" id="cmtkFormImageUrl" value="">
-                            <div id="cmtkFormImagePreviewBox" style="display:none; margin-top:8px; text-align:center; border:1px solid #cbd5e1; border-radius:12px; padding:8px; background:#ffffff;">
-                                <img id="cmtkFormImagePreviewImg" src="" style="max-height:160px; max-width:100%; border-radius:8px; object-fit:contain;">
+                        <div id="cmtkModalTabContent2" style="display:none; flex-direction:column; gap:16px;">
+                            <div class="qtns-form-group">
+                                <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📝 Quy Trình & Hướng Dẫn Chi Tiết / Cảnh Báo In Ấn:</label>
+                                <textarea id="cmtkFormDetailGuide" rows="8" placeholder="Nhập quy trình từng bước, lưu ý màu vải, thông số thiết kế vector..." style="width:100%; border:2px solid #e9d5ff; border-radius:16px; padding:12px 16px; font-size:13.5px; font-weight:600; color:#0f172a; font-family:inherit; outline:none; resize:vertical; background:#ffffff;"></textarea>
                             </div>
                         </div>
 
-                        <div class="qtns-form-group">
-                            <label style="color:#0f172a; font-weight:850; display:block; margin-bottom:6px;">🔗 Link File Thiết Kế Gốc (Google Drive / Illustrator / PDF):</label>
-                            <input type="url" id="cmtkFormDocUrl" placeholder="https://drive.google.com/..." style="width:100%; border:2px solid #e9d5ff; border-radius:12px; padding:10px 14px; font-size:13.5px; font-weight:700; color:#0f172a;">
-                        </div>
-
-                        <div class="qtns-form-group">
-                            <label style="color:#334155; font-weight:850; display:block; margin-bottom:6px;">📝 Ghi Chú Kỹ Thuật (Vị trí in, kích thước logo, yêu cầu):</label>
-                            <textarea id="cmtkFormNotes" rows="3" placeholder="Ghi chú về kiểu may,bo cổ, viền tay, vị trí logo trước ngực..." style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:600; color:#0f172a; font-family:inherit; outline:none; resize:vertical;"></textarea>
-                        </div>
-
-                        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:10px;">
-                            <button type="button" onclick="window._cmtkCloseMaketModal()" style="padding:10px 20px; border-radius:12px; font-weight:800; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155; cursor:pointer;">Hủy Bỏ</button>
-                            <button type="submit" style="padding:10px 24px; border-radius:12px; font-weight:900; border:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; cursor:pointer; box-shadow:0 4px 14px rgba(109,40,217,0.35);">💾 Lưu Bản Maket</button>
+                        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:12px; border-top:1.5px solid #e2e8f0; padding-top:16px;">
+                            <button type="button" onclick="window._cmtkCloseMaketModal()" style="padding:10px 22px; border-radius:12px; font-weight:800; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155; cursor:pointer;">Hủy Bỏ</button>
+                            <button type="submit" style="padding:10px 24px; border-radius:12px; font-weight:900; border:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; cursor:pointer; box-shadow:0 4px 14px rgba(109,40,217,0.35);">💾 Lưu Đường Link</button>
                         </div>
                     </form>
                 </div>
@@ -559,23 +549,48 @@
         return modal;
     }
 
+    window._cmtkSwitchModalTab = function (tabKey) {
+        activeModalTab = tabKey;
+        const btn1 = document.getElementById('cmtkModalTabBtn1');
+        const btn2 = document.getElementById('cmtkModalTabBtn2');
+        const content1 = document.getElementById('cmtkModalTabContent1');
+        const content2 = document.getElementById('cmtkModalTabContent2');
+
+        if (tabKey === 'tab1') {
+            btn1.style.background = '#7c3aed'; btn1.style.color = '#ffffff'; btn1.style.border = 'none';
+            btn2.style.background = '#ffffff'; btn2.style.color = '#6d28d9'; btn2.style.border = '1.5px solid #e9d5ff';
+            content1.style.display = 'flex'; content2.style.display = 'none';
+        } else {
+            btn2.style.background = '#7c3aed'; btn2.style.color = '#ffffff'; btn2.style.border = 'none';
+            btn1.style.background = '#ffffff'; btn1.style.color = '#6d28d9'; btn1.style.border = '1.5px solid #e9d5ff';
+            content2.style.display = 'flex'; content1.style.display = 'none';
+        }
+    };
+
     window._cmtkOpenAddMaketModal = function () {
         const modal = ensureMaketModalInDOM();
-        document.getElementById('cmtkMaketModalTitle').innerText = '🎨 ➕ TẠO BẢN THIẾT KẾ MAKET MỚI';
+        document.getElementById('cmtkMaketModalTitle').innerText = 'TẠO BẢN MAKET MỚI';
         document.getElementById('cmtkFormMaketId').value = '';
         document.getElementById('cmtkFormTitle').value = '';
         document.getElementById('cmtkFormCustomer').value = '';
-        document.getElementById('cmtkFormHex').value = '';
         document.getElementById('cmtkFormImageUrl').value = '';
         document.getElementById('cmtkFormDocUrl').value = '';
         document.getElementById('cmtkFormNotes').value = '';
+        document.getElementById('cmtkFormDetailGuide').value = '';
         document.getElementById('cmtkFormImagePreviewBox').style.display = 'none';
 
-        const matSelect = document.getElementById('cmtkFormMaterial');
-        const materials = fabricsData.materials || [];
-        matSelect.innerHTML = `<option value="">-- Chọn chất liệu vải --</option>` + 
-            materials.map(m => `<option value="${m.name}">🧵 ${m.name}</option>`).join('');
+        const depts = getDepartments();
+        const box = document.getElementById('cmtkDeptPillCheckboxes');
+        if (box) {
+            box.innerHTML = depts.map(d => `
+                <label style="display:inline-flex; align-items:center; gap:6px; background:#faf5ff; border:1.5px solid #e9d5ff; padding:6px 14px; border-radius:14px; font-size:13px; font-weight:800; color:#6d28d9; cursor:pointer;">
+                    <input type="checkbox" name="cmtkDeptCheck" value="${d.replace(/"/g, '&quot;')}" style="accent-color:#7c3aed; width:16px; height:16px;">
+                    <span>📌 ${d}</span>
+                </label>
+            `).join('');
+        }
 
+        window._cmtkSwitchModalTab('tab1');
         modal.style.display = 'flex';
     };
 
@@ -584,32 +599,18 @@
         if (modal) modal.style.display = 'none';
     };
 
-    window._cmtkOnMaketImageSelected = async function (input) {
-        if (!input || !input.files || !input.files[0]) return;
-        try {
-            const compressed = await compressImage(input.files[0], 1400, 0.82);
-            document.getElementById('cmtkFormImageUrl').value = compressed;
-            const previewImg = document.getElementById('cmtkFormImagePreviewImg');
-            const previewBox = document.getElementById('cmtkFormImagePreviewBox');
-            if (previewImg) previewImg.src = compressed;
-            if (previewBox) previewBox.style.display = 'block';
-            showToast('✅ Đã nén ảnh Maket độ nét cao thành công!');
-        } catch (e) {
-            console.error('[Image Compression Error]', e);
-            showToast('⚠️ Nén ảnh thất bại', 'error');
-        }
-    };
-
     window._cmtkSaveMaket = async function (e) {
         e.preventDefault();
         const id = document.getElementById('cmtkFormMaketId').value || 'mkt_' + Date.now();
+        const category = document.getElementById('cmtkFormCategory').value;
         const title = document.getElementById('cmtkFormTitle').value.trim();
         const customerName = document.getElementById('cmtkFormCustomer').value.trim();
-        const fabricMaterial = document.getElementById('cmtkFormMaterial').value;
-        const hexCode = document.getElementById('cmtkFormHex').value.trim();
         const imageUrl = document.getElementById('cmtkFormImageUrl').value;
         const docUrl = document.getElementById('cmtkFormDocUrl').value.trim();
         const notes = document.getElementById('cmtkFormNotes').value.trim();
+        const detailGuide = document.getElementById('cmtkFormDetailGuide').value.trim();
+
+        const checkedDepts = Array.from(document.querySelectorAll('input[name="cmtkDeptCheck"]:checked')).map(cb => cb.value);
 
         if (!title || !customerName) {
             showToast('⚠️ Vui lòng nhập tiêu đề và tên khách hàng!', 'error');
@@ -618,21 +619,19 @@
 
         const idx = maketList.findIndex(m => String(m.id) === String(id));
         const newItem = {
-            id, title, customerName, fabricMaterial, hexCode, imageUrl, docUrl, notes,
+            id, category, title, customerName, imageUrl, docUrl, notes, detailGuide,
+            departments: checkedDepts.length > 0 ? checkedDepts : ['Chung'],
             createdAt: idx !== -1 ? maketList[idx].createdAt : new Date().toISOString()
         };
 
-        if (idx !== -1) {
-            maketList[idx] = newItem;
-        } else {
-            maketList.unshift(newItem);
-        }
+        if (idx !== -1) maketList[idx] = newItem;
+        else maketList.unshift(newItem);
 
         try {
             await fetch('/api/chammauthietke/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ value: maketList })
+                body: JSON.stringify({ value: { makets: maketList, subtabs: getSubtabs(), departments: getDepartments() } })
             });
             showToast('✅ Đã lưu bản Maket thành công!');
             window._cmtkCloseMaketModal();
@@ -642,25 +641,251 @@
         }
     };
 
-    window._cmtkDeleteMaket = async function (id) {
-        if (!confirm('Bạn có chắc chắn muốn xóa bản Maket này không?')) return;
-        maketList = maketList.filter(m => String(m.id) !== String(id));
-        try {
-            await fetch('/api/chammauthietke/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ value: maketList })
-            });
-            showToast('🗑️ Đã xóa bản Maket!');
-            renderCurrentMainTab();
-        } catch (err) {
-            showToast('❌ Xóa thất bại: ' + err.message, 'error');
+    function ensureSubtabModalInDOM() {
+        let modal = document.getElementById('cmtkSubtabModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'cmtkSubtabModal';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+                <div style="max-height:90vh; display:flex; flex-direction:column; width:100%; max-width:580px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1.5px solid #d8b4fe;">
+                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:22px;">⚙️</span>
+                            <h3 style="margin:0; font-size:16.5px; font-weight:900; color:#ffffff; text-transform:uppercase;">CÀI ĐẶT MỤC (MAKET & CHẤM MÀU THIẾT KẾ)</h3>
+                        </div>
+                        <button type="button" onclick="window._cmtkCloseSubtabModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                    </div>
+                    <div style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:18px; background:#fcfafc;">
+                        <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; box-shadow:0 4px 12px rgba(0,0,0,0.02);">
+                            <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:8px; font-size:13.5px;">➕ Tạo Mục Mới:</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="cmtkSubtabFormName" placeholder="Nhập tên mục mới..." style="flex:1; border:2px solid #e9d5ff; border-radius:12px; padding:9px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none;" onkeypress="if(event.key==='Enter') window._cmtkAddSubtabFromModal()">
+                                <button type="button" onclick="window._cmtkAddSubtabFromModal()" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; border-radius:12px; padding:9px 18px; font-size:13.5px; font-weight:900; cursor:pointer; box-shadow:0 4px 12px rgba(109,40,217,0.3); display:inline-flex; align-items:center; gap:4px;">
+                                    ➕ Thêm Mới
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:10px; font-size:13.5px;">📌 Danh Sách Mục Hiện Tại:</label>
+                            <div id="cmtkSubtabListContainer" style="display:flex; flex-direction:column; gap:10px;">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex-shrink:0; padding:14px 24px; background:#ffffff; border-top:1.5px solid #e2e8f0; display:flex; justify-content:flex-end;">
+                        <button type="button" onclick="window._cmtkCloseSubtabModal()" style="padding:9px 24px; border-radius:12px; font-weight:800; border:none; background:#f1f5f9; color:#334155; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
         }
+        return modal;
+    }
+
+    window._cmtkOpenSubtabModal = function () {
+        const modal = ensureSubtabModalInDOM();
+        _cmtkRenderSubtabListInModal();
+        modal.style.display = 'flex';
     };
 
-    // ==========================================
-    // DETAIL VIEW MODAL & LIGHTBOX
-    // ==========================================
+    window._cmtkCloseSubtabModal = function () {
+        const modal = document.getElementById('cmtkSubtabModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    function _cmtkRenderSubtabListInModal() {
+        const container = document.getElementById('cmtkSubtabListContainer');
+        if (!container) return;
+        const subtabs = getSubtabs();
+        container.innerHTML = subtabs.map((sub, idx) => {
+            if (editingSubtabIndex === idx) {
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#fffbeb; padding:10px 14px; border-radius:14px; border:2px solid #f59e0b; gap:10px;">
+                        <input type="text" id="cmtkEditSubtabInput_${idx}" value="${sub.title.replace(/"/g, '&quot;')}" style="flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid #f59e0b; font-size:13.5px; font-weight:800; outline:none;" onkeypress="if(event.key==='Enter') window._cmtkSaveSubtabEditFromModal(${idx})">
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="window._cmtkSaveSubtabEditFromModal(${idx})" style="background:#22c55e; color:#ffffff; border:none; border-radius:10px; padding:7px 14px; font-size:12.5px; font-weight:900; cursor:pointer;">💾 Lưu</button>
+                            <button onclick="window._cmtkCancelSubtabEditFromModal()" style="background:#e2e8f0; color:#475569; border:none; border-radius:10px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer;">✕ Hủy</button>
+                        </div>
+                    </div>
+                `;
+            }
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:12px 16px; border-radius:14px; border:1.5px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:18px;">${sub.icon || '📁'}</span>
+                        <span style="font-size:14.5px; font-weight:850; color:#0f172a;">${sub.title}</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="window._cmtkStartSubtabEditFromModal(${idx})" style="background:#fef3c7; color:#d97706; border:1px solid #fde047; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">✏️ Sửa Tên</button>
+                        <button onclick="window._cmtkDeleteSubtabFromModal(${idx})" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">🗑️ Xóa</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window._cmtkAddSubtabFromModal = function () {
+        const input = document.getElementById('cmtkSubtabFormName');
+        if (!input) return;
+        const title = input.value.trim();
+        if (!title) { showToast('⚠️ Vui lòng nhập tên mục mới!', 'error'); return; }
+        let subtabs = getSubtabs();
+        subtabs.push({ id: 'custom_' + Date.now(), title, icon: '📁', isCustom: true });
+        saveSubtabs(subtabs);
+        input.value = '';
+        _cmtkRenderSubtabListInModal();
+        renderCurrentMainTab();
+        showToast(`✅ Đã thêm mục mới "${title}"!`);
+    };
+
+    window._cmtkStartSubtabEditFromModal = function (index) { editingSubtabIndex = index; _cmtkRenderSubtabListInModal(); };
+    window._cmtkCancelSubtabEditFromModal = function () { editingSubtabIndex = -1; _cmtkRenderSubtabListInModal(); };
+    window._cmtkSaveSubtabEditFromModal = function (index) {
+        const input = document.getElementById(`cmtkEditSubtabInput_${index}`);
+        if (!input) return;
+        const newTitle = input.value.trim();
+        if (!newTitle) return;
+        let subtabs = getSubtabs();
+        subtabs[index].title = newTitle;
+        saveSubtabs(subtabs);
+        editingSubtabIndex = -1;
+        _cmtkRenderSubtabListInModal();
+        renderCurrentMainTab();
+        showToast('💾 Đã cập nhật tên mục!');
+    };
+    window._cmtkDeleteSubtabFromModal = function (index) {
+        let subtabs = getSubtabs();
+        if (!confirm(`Bạn có chắc muốn xóa mục "${subtabs[index].title}" không?`)) return;
+        subtabs.splice(index, 1);
+        saveSubtabs(subtabs);
+        _cmtkRenderSubtabListInModal();
+        renderCurrentMainTab();
+        showToast('🗑️ Đã xóa mục!');
+    };
+
+    function ensureDepartmentModalInDOM() {
+        let modal = document.getElementById('cmtkDeptModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'cmtkDeptModal';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+                <div style="max-height:90vh; display:flex; flex-direction:column; width:100%; max-width:580px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1.5px solid #d8b4fe;">
+                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:22px;">⚙️</span>
+                            <h3 style="margin:0; font-size:16.5px; font-weight:900; color:#ffffff; text-transform:uppercase;">CÀI ĐẶT BỘ PHẬN (LOẠI MAKET)</h3>
+                        </div>
+                        <button type="button" onclick="window._cmtkCloseDepartmentModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                    </div>
+                    <div style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:18px; background:#fcfafc;">
+                        <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; box-shadow:0 4px 12px rgba(0,0,0,0.02);">
+                            <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:8px; font-size:13.5px;">➕ Tạo Bộ Phận Mới:</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="cmtkDeptFormName" placeholder="Nhập tên bộ phận mới..." style="flex:1; border:2px solid #e9d5ff; border-radius:12px; padding:9px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none;" onkeypress="if(event.key==='Enter') window._cmtkAddDeptFromModal()">
+                                <button type="button" onclick="window._cmtkAddDeptFromModal()" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; border-radius:12px; padding:9px 18px; font-size:13.5px; font-weight:900; cursor:pointer; box-shadow:0 4px 12px rgba(109,40,217,0.3); display:inline-flex; align-items:center; gap:4px;">
+                                    ➕ Thêm Mới
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:10px; font-size:13.5px;">📌 Danh Sách Bộ Phận Hiện Tại:</label>
+                            <div id="cmtkDeptListContainer" style="display:flex; flex-direction:column; gap:10px;">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex-shrink:0; padding:14px 24px; background:#ffffff; border-top:1.5px solid #e2e8f0; display:flex; justify-content:flex-end;">
+                        <button type="button" onclick="window._cmtkCloseDepartmentModal()" style="padding:9px 24px; border-radius:12px; font-weight:800; border:none; background:#f1f5f9; color:#334155; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        return modal;
+    }
+
+    window._cmtkOpenDepartmentModal = function () {
+        const modal = ensureDepartmentModalInDOM();
+        _cmtkRenderDeptListInModal();
+        modal.style.display = 'flex';
+    };
+
+    window._cmtkCloseDepartmentModal = function () {
+        const modal = document.getElementById('cmtkDeptModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    function _cmtkRenderDeptListInModal() {
+        const container = document.getElementById('cmtkDeptListContainer');
+        if (!container) return;
+        const depts = getDepartments();
+        container.innerHTML = depts.map((dept, idx) => {
+            if (editingDeptIndex === idx) {
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#fffbeb; padding:10px 14px; border-radius:14px; border:2px solid #f59e0b; gap:10px;">
+                        <input type="text" id="cmtkEditDeptInput_${idx}" value="${dept.replace(/"/g, '&quot;')}" style="flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid #f59e0b; font-size:13.5px; font-weight:800; outline:none;" onkeypress="if(event.key==='Enter') window._cmtkSaveDeptEditFromModal(${idx})">
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="window._cmtkSaveDeptEditFromModal(${idx})" style="background:#22c55e; color:#ffffff; border:none; border-radius:10px; padding:7px 14px; font-size:12.5px; font-weight:900; cursor:pointer;">💾 Lưu</button>
+                            <button onclick="window._cmtkCancelDeptEditFromModal()" style="background:#e2e8f0; color:#475569; border:none; border-radius:10px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer;">✕ Hủy</button>
+                        </div>
+                    </div>
+                `;
+            }
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:12px 16px; border-radius:14px; border:1.5px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:16px; color:#be185d;">📌</span>
+                        <span style="font-size:14.5px; font-weight:850; color:#0f172a;">${dept}</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="window._cmtkStartDeptEditFromModal(${idx})" style="background:#fef3c7; color:#d97706; border:1px solid #fde047; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">✏️ Sửa Tên</button>
+                        <button onclick="window._cmtkDeleteDeptFromModal(${idx})" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">🗑️ Xóa</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window._cmtkAddDeptFromModal = function () {
+        const input = document.getElementById('cmtkDeptFormName');
+        if (!input) return;
+        const name = input.value.trim();
+        if (!name) { showToast('⚠️ Vui lòng nhập tên bộ phận mới!', 'error'); return; }
+        let depts = getDepartments();
+        if (depts.includes(name)) { showToast('⚠️ Bộ phận này đã tồn tại!', 'error'); return; }
+        depts.push(name);
+        saveDepartments(depts);
+        input.value = '';
+        _cmtkRenderDeptListInModal();
+        renderCurrentMainTab();
+        showToast(`✅ Đã thêm bộ phận mới "${name}"!`);
+    };
+
+    window._cmtkStartDeptEditFromModal = function (index) { editingDeptIndex = index; _cmtkRenderDeptListInModal(); };
+    window._cmtkCancelDeptEditFromModal = function () { editingDeptIndex = -1; _cmtkRenderDeptListInModal(); };
+    window._cmtkSaveDeptEditFromModal = function (index) {
+        const input = document.getElementById(`cmtkEditDeptInput_${index}`);
+        if (!input) return;
+        const newName = input.value.trim();
+        if (!newName) return;
+        let depts = getDepartments();
+        depts[index] = newName;
+        saveDepartments(depts);
+        editingDeptIndex = -1;
+        _cmtkRenderDeptListInModal();
+        renderCurrentMainTab();
+        showToast('💾 Đã cập nhật tên bộ phận!');
+    };
+    window._cmtkDeleteDeptFromModal = function (index) {
+        let depts = getDepartments();
+        if (!confirm(`Bạn có chắc muốn xóa bộ phận "${depts[index]}" không?`)) return;
+        depts.splice(index, 1);
+        saveDepartments(depts);
+        _cmtkRenderDeptListInModal();
+        renderCurrentMainTab();
+        showToast('🗑️ Đã xóa bộ phận!');
+    };
+
     function ensureDetailModalInDOM() {
         let modal = document.getElementById('cmtkDetailModal');
         if (!modal) {
@@ -670,28 +895,17 @@
             modal.innerHTML = `
                 <div style="max-height:90vh; display:flex; flex-direction:column; width:100%; max-width:720px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1.5px solid #d8b4fe;">
                     <div style="flex-shrink:0; padding:20px 26px; background:linear-gradient(135deg, #4c1d95, #6d28d9); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
-                        <div style="display:flex; align-items:center; gap:12px;">
-                            <span style="font-size:26px; background:rgba(255,255,255,0.2); padding:8px 12px; border-radius:14px;">🎨</span>
-                            <div>
-                                <h3 id="cmtkDetailTitle" style="margin:0; font-size:18px; font-weight:900; color:#ffffff;">Chi Tiết Bản Maket</h3>
-                            </div>
-                        </div>
+                        <h3 id="cmtkDetailTitle" style="margin:0; font-size:18px; font-weight:900;">Chi Tiết Bản Maket</h3>
                         <button type="button" onclick="window._cmtkCloseDetailModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:18px; font-weight:bold;">✕</button>
                     </div>
-
                     <div style="flex:1; overflow-y:auto; padding:22px 26px; display:flex; flex-direction:column; gap:18px; background:#fcfafc;">
-                        <!-- Image Box -->
-                        <div id="cmtkDetailImageBox" style="display:none; background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; text-align:center;">
-                            <div style="font-size:13px; font-weight:850; color:#6b21a8; margin-bottom:8px; text-align:left;">🖼️ HÌNH ẢNH MAKET MINH HỌA:</div>
-                            <img id="cmtkDetailImg" src="" style="max-height:360px; max-width:100%; border-radius:12px; cursor:pointer; object-fit:contain;" onclick="window._cmtkOpenLightbox(this.src)" title="Click để phóng to ảnh nét căng">
+                        <div id="cmtkDetailImageBox" style="display:none; text-align:center; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; background:#ffffff;">
+                            <img id="cmtkDetailImg" src="" style="max-height:360px; max-width:100%; border-radius:12px; cursor:pointer; object-fit:contain;" onclick="window._cmtkOpenLightbox(this.src)">
                         </div>
-
-                        <div id="cmtkDetailSubtitleBox" style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:16px; padding:16px 20px;">
-                            <div style="font-size:13px; font-weight:850; color:#6b21a8; margin-bottom:6px;">📝 MÔ TẢ & GHI CHÚ KỸ THUẬT:</div>
+                        <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:16px; padding:16px 20px;">
                             <div id="cmtkDetailNotesText" style="font-size:14px; font-weight:600; color:#1e293b; line-height:1.65; white-space:pre-line;"></div>
                         </div>
                     </div>
-
                     <div style="flex-shrink:0; padding:16px 26px; background:#ffffff; border-top:1.5px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
                         <button type="button" onclick="window._cmtkCloseDetailModal()" style="padding:10px 22px; border-radius:12px; font-weight:800; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155; cursor:pointer;">Đóng Chi Tiết</button>
                         <div id="cmtkDetailFooterBtn"></div>
@@ -706,33 +920,15 @@
     window._cmtkOpenDetailModal = function (id) {
         const item = maketList.find(m => String(m.id) === String(id));
         if (!item) return;
-
         const modal = ensureDetailModalInDOM();
         document.getElementById('cmtkDetailTitle').innerText = item.title;
-
         const imgBox = document.getElementById('cmtkDetailImageBox');
         const imgEl = document.getElementById('cmtkDetailImg');
-        if (item.imageUrl) {
-            imgEl.src = item.imageUrl;
-            imgBox.style.display = 'block';
-        } else {
-            imgBox.style.display = 'none';
-        }
-
-        const notesText = document.getElementById('cmtkDetailNotesText');
-        notesText.innerText = item.notes || item.customerName || 'Không có ghi chú thêm.';
-
+        if (item.imageUrl) { imgEl.src = item.imageUrl; imgBox.style.display = 'block'; } else { imgBox.style.display = 'none'; }
+        document.getElementById('cmtkDetailNotesText').innerText = item.notes || 'Không có ghi chú thêm.';
         const footerBtn = document.getElementById('cmtkDetailFooterBtn');
-        if (item.docUrl) {
-            footerBtn.innerHTML = `
-                <a href="${item.docUrl}" target="_blank" rel="noopener" style="background:linear-gradient(135deg, #059669, #10b981); color:#ffffff; padding:10px 22px; border-radius:12px; font-weight:900; font-size:13.5px; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-                    🔗 Mở File Thiết Kế Gốc ↗
-                </a>
-            `;
-        } else {
-            footerBtn.innerHTML = '';
-        }
-
+        if (item.docUrl) footerBtn.innerHTML = `<a href="${item.docUrl}" target="_blank" rel="noopener" style="background:linear-gradient(135deg, #059669, #10b981); color:#ffffff; padding:10px 22px; border-radius:12px; font-weight:900; font-size:13.5px; text-decoration:none;">🔗 Mở File Gốc ↗</a>`;
+        else footerBtn.innerHTML = '';
         modal.style.display = 'flex';
     };
 
@@ -741,7 +937,6 @@
         if (modal) modal.style.display = 'none';
     };
 
-    // Lightbox Engine
     function ensureLightboxInDOM() {
         let lightbox = document.getElementById('cmtkLightboxModal');
         if (!lightbox) {
@@ -750,34 +945,31 @@
             lightbox.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.92); backdrop-filter:blur(10px); z-index:999999; flex-direction:column; align-items:center; justify-content:center; padding:20px;';
             lightbox.innerHTML = `
                 <div style="position:absolute; top:20px; right:24px; display:flex; gap:12px; z-index:10;">
-                    <a id="cmtkLbDownloadBtn" href="" download="bap_ve_maket.jpg" style="background:rgba(255,255,255,0.2); color:#ffffff; text-decoration:none; border-radius:10px; padding:8px 16px; font-weight:800; font-size:13px; display:flex; align-items:center; gap:6px;">💾 Tải Ảnh Về</a>
-                    <button type="button" onclick="window._cmtkCloseLightbox()" style="background:rgba(255,255,255,0.25); border:none; color:#ffffff; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:18px; font-weight:bold;">✕</button>
+                    <a id="cmtkLightboxDownloadBtn" href="" download="maket_image.jpg" target="_blank" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; padding:9px 18px; border-radius:12px; font-weight:900; text-decoration:none; font-size:13px; box-shadow:0 4px 14px rgba(109,40,217,0.4); display:flex; align-items:center; gap:6px;">
+                        ⬇️ Tải Ảnh Về
+                    </a>
+                    <button type="button" onclick="window._cmtkCloseLightbox()" style="background:rgba(255,255,255,0.25); border:none; color:#ffffff; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:20px; font-weight:bold;">✕</button>
                 </div>
-                <div style="max-width:92vw; max-height:85vh; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    <img id="cmtkLbImage" src="" style="max-width:100%; max-height:85vh; border-radius:12px; object-fit:contain; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
-                </div>
+                <img id="cmtkLightboxImg" src="" style="max-width:92vw; max-height:88vh; object-fit:contain; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); border:2px solid rgba(255,255,255,0.2);">
             `;
             document.body.appendChild(lightbox);
         }
         return lightbox;
     }
 
-    window._cmtkOpenLightbox = function (imgSrc) {
-        if (!imgSrc) return;
-        const lb = ensureLightboxInDOM();
-        document.getElementById('cmtkLbImage').src = imgSrc;
-        document.getElementById('cmtkLbDownloadBtn').href = imgSrc;
-        lb.style.display = 'flex';
+    window._cmtkOpenLightbox = function (src) {
+        if (!src) return;
+        const lightbox = ensureLightboxInDOM();
+        document.getElementById('cmtkLightboxImg').src = src;
+        document.getElementById('cmtkLightboxDownloadBtn').href = src;
+        lightbox.style.display = 'flex';
     };
 
     window._cmtkCloseLightbox = function () {
-        const lb = document.getElementById('cmtkLightboxModal');
-        if (lb) lb.style.display = 'none';
+        const lightbox = document.getElementById('cmtkLightboxModal');
+        if (lightbox) lightbox.style.display = 'none';
     };
 
-    // ==========================================
-    // MODAL 2: CHẤM MÀU VẢI (PICK HEX COLOR)
-    // ==========================================
     function ensureEditColorModalInDOM() {
         let modal = document.getElementById('cmtkEditColorModal');
         if (!modal) {
@@ -785,25 +977,28 @@
             modal.id = 'cmtkEditColorModal';
             modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
             modal.innerHTML = `
-                <div style="max-height:90vh; display:flex; flex-direction:column; width:100%; max-width:520px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(91,33,182,0.35);">
-                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #4c1d95, #6d28d9); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
-                        <h3 id="cmtkColorModalTitle" style="margin:0; font-size:17px; font-weight:900;">⚙️ CHẤM MÀU THIẾT KẾ CHO MÀU VẢI</h3>
-                        <button type="button" onclick="window._cmtkCloseEditColorModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                <div style="max-height:90vh; display:flex; flex-direction:column; width:100%; max-width:480px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1.5px solid #d8b4fe;">
+                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:22px;">🎨</span>
+                            <h3 style="margin:0; font-size:16.5px; font-weight:900; color:#ffffff;">CHẤM MÃ MÀU THIẾT KẾ #HEX</h3>
+                        </div>
+                        <button type="button" onclick="window._cmtkCloseEditColorModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
                     </div>
 
-                    <form onsubmit="window._cmtkSaveColorHex(event)" style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:14px; background:#fcfafc;">
+                    <form id="cmtkEditColorForm" onsubmit="window._cmtkSaveColorHex(event)" style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; background:#fcfafc;">
                         <input type="hidden" id="cmtkFormColorKey" value="">
                         
                         <div class="qtns-form-group">
-                            <label style="color:#0f172a; font-weight:850; display:block; margin-bottom:4px;">Tên Màu Vải:</label>
-                            <input type="text" id="cmtkFormColorNameDisplay" readonly style="width:100%; border:1.5px solid #cbd5e1; border-radius:12px; padding:10px 14px; font-size:14px; font-weight:800; color:#4c1d95; background:#f1f5f9;">
+                            <label style="color:#0f172a; font-weight:850; display:block; margin-bottom:6px;">Tên Màu Vải:</label>
+                            <input type="text" id="cmtkFormColorNameDisplay" readonly disabled style="width:100%; border:1.5px solid #cbd5e1; border-radius:12px; padding:10px 14px; font-size:13.5px; font-weight:800; color:#475569; background:#f1f5f9;">
                         </div>
 
                         <div class="qtns-form-group">
                             <label style="color:#5b21b6; font-weight:900; display:block; margin-bottom:6px;">🎨 Chọn Mã Màu Chấm (#HEX):</label>
                             <div style="display:flex; gap:12px; align-items:center;">
                                 <input type="color" id="cmtkFormColorPicker" style="width:54px; height:44px; border:none; border-radius:10px; cursor:pointer; background:none;" onchange="document.getElementById('cmtkFormHexInput').value = this.value.toUpperCase();">
-                                <input type="text" id="cmtkFormHexInput" placeholder="#E63946" required style="flex:1; border:2px solid #e9d5ff; border-radius:12px; padding:10px 14px; font-size:14px; font-weight:850; color:#0f172a; text-transform:uppercase;" oninput="document.getElementById('cmtkFormColorPicker').value = this.value;">
+                                <input type="text" id="cmtkFormHexInput" placeholder="Ví dụ: #E63946" required style="flex:1; border:2px solid #e9d5ff; border-radius:12px; padding:10px 14px; font-size:14px; font-weight:850; color:#0f172a; text-transform:uppercase;" oninput="document.getElementById('cmtkFormColorPicker').value = this.value;">
                             </div>
                         </div>
 
@@ -824,7 +1019,7 @@
         const key = `${materialId}_${colorId}`;
         document.getElementById('cmtkFormColorKey').value = key;
         document.getElementById('cmtkFormColorNameDisplay').value = colorName;
-        document.getElementById('cmtkFormHexInput').value = hex || '#3B82F6';
+        document.getElementById('cmtkFormHexInput').value = hex || '';
         document.getElementById('cmtkFormColorPicker').value = hex || '#3B82F6';
 
         modal.style.display = 'flex';
@@ -839,25 +1034,18 @@
         e.preventDefault();
         const key = document.getElementById('cmtkFormColorKey').value;
         const hex = document.getElementById('cmtkFormHexInput').value.trim().toUpperCase();
-
         if (!key || !hex) return;
-
         swatchesMap[key] = { hex_code: hex };
-
         try {
             await fetch('/api/chammauthietke/swatches', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ swatches: swatchesMap })
             });
-
             fabricsData.colors = fabricsData.colors.map(c => {
-                if (`${c.material_id}_${c.id}` === key) {
-                    c.hex_code = hex;
-                }
+                if (`${c.material_id}_${c.id}` === key) c.hex_code = hex;
                 return c;
             });
-
             showToast(`✅ Đã cập nhật mã màu ${hex} thành công!`);
             window._cmtkCloseEditColorModal();
             renderCurrentMainTab();
@@ -866,7 +1054,6 @@
         }
     };
 
-    // CSS Styles matching Quản Trị Nhân Sự & Hành Chính HV 100%
     function _cmtkGetStyles() {
         return `
             <style>
@@ -875,7 +1062,9 @@
                 .cmtk-wrapper, .cmtk-wrapper button, .cmtk-wrapper input, .cmtk-wrapper select, .cmtk-wrapper textarea, .cmtk-wrapper div, .cmtk-wrapper span, .cmtk-wrapper h1, .cmtk-wrapper h2, .cmtk-wrapper h3, .cmtk-wrapper h4, .cmtk-wrapper p, .cmtk-wrapper a, .cmtk-wrapper option, .cmtk-wrapper strong,
                 #cmtkMaketModal, #cmtkMaketModal button, #cmtkMaketModal input, #cmtkMaketModal select, #cmtkMaketModal textarea, #cmtkMaketModal div, #cmtkMaketModal span, #cmtkMaketModal h3,
                 #cmtkDetailModal, #cmtkDetailModal button, #cmtkDetailModal input, #cmtkDetailModal select, #cmtkDetailModal textarea, #cmtkDetailModal div, #cmtkDetailModal span, #cmtkDetailModal h3,
-                #cmtkEditColorModal, #cmtkEditColorModal button, #cmtkEditColorModal input, #cmtkEditColorModal select, #cmtkEditColorModal textarea, #cmtkEditColorModal div, #cmtkEditColorModal span, #cmtkEditColorModal h3 {
+                #cmtkEditColorModal, #cmtkEditColorModal button, #cmtkEditColorModal input, #cmtkEditColorModal select, #cmtkEditColorModal textarea, #cmtkEditColorModal div, #cmtkEditColorModal span, #cmtkEditColorModal h3,
+                #cmtkSubtabModal, #cmtkSubtabModal button, #cmtkSubtabModal input, #cmtkSubtabModal div, #cmtkSubtabModal span, #cmtkSubtabModal h3,
+                #cmtkDeptModal, #cmtkDeptModal button, #cmtkDeptModal input, #cmtkDeptModal div, #cmtkDeptModal span, #cmtkDeptModal h3 {
                     font-family: 'Nunito', 'Comfortaa', system-ui, -apple-system, sans-serif !important;
                 }
 
@@ -883,230 +1072,260 @@
                     padding: 24px;
                     background: #f8fafc;
                     min-height: 100vh;
+                    box-sizing: border-box;
                 }
 
-                /* Executive Banner Header (Matched 100% with Quản Trị Nhân Sự) */
+                /* Executive Header Banner */
                 .cmtk-header {
-                    background: linear-gradient(135deg, #3b0764 0%, #5b21b6 50%, #6d28d9 100%);
+                    background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 50%, #8b5cf6 100%);
                     border-radius: 24px;
-                    padding: 28px 32px;
-                    color: #ffffff;
+                    padding: 24px 32px;
                     margin-bottom: 24px;
-                    box-shadow: 0 14px 35px rgba(91, 33, 182, 0.25);
+                    box-shadow: 0 16px 36px -10px rgba(109, 40, 217, 0.4);
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    flex-wrap: wrap;
-                    gap: 16px;
+                    color: #ffffff;
                 }
+
                 .cmtk-header-left {
                     display: flex;
                     align-items: center;
                     gap: 20px;
                 }
+
                 .cmtk-icon-bg {
-                    font-size: 38px;
-                    background: rgba(255, 255, 255, 0.15);
-                    width: 68px;
-                    height: 68px;
+                    width: 60px;
+                    height: 60px;
+                    background: rgba(255, 255, 255, 0.2);
                     border-radius: 20px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    border: 1.5px solid rgba(255, 255, 255, 0.25);
-                    flex-shrink: 0;
+                    font-size: 32px;
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255, 255, 255, 0.3);
                 }
+
                 .cmtk-title {
-                    font-size: 22px;
-                    font-weight: 900;
+                    font-size: 23px;
+                    font-weight: 950;
                     margin: 0 0 6px 0;
-                    letter-spacing: 0.5px;
+                    letter-spacing: -0.3px;
                     color: #ffffff;
                 }
+
                 .cmtk-subtitle {
                     font-size: 13.5px;
+                    font-weight: 600;
+                    opacity: 0.92;
                     margin: 0;
-                    opacity: 0.9;
-                    font-weight: 500;
-                    color: #ffffff;
+                    color: #f3e8ff;
                 }
+
                 .cmtk-btn-header-action {
                     background: rgba(255, 255, 255, 0.2);
+                    border: 1.5px solid rgba(255, 255, 255, 0.4);
                     color: #ffffff;
-                    border: 1.5px solid rgba(255, 255, 255, 0.35);
                     font-weight: 900;
                     font-size: 13.5px;
-                    padding: 12px 22px;
-                    border-radius: 18px;
+                    padding: 11px 22px;
+                    border-radius: 16px;
                     cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
                     backdrop-filter: blur(8px);
-                    transition: all 0.2s ease;
+                    transition: all 0.25s ease;
                 }
+
                 .cmtk-btn-header-action:hover {
                     background: #ffffff;
                     color: #6d28d9;
+                    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
                     transform: translateY(-2px);
-                    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
                 }
 
-                /* Level 1 Main Tab Buttons Grid (Matched with Quản Trị Nhân Sự) */
+                /* Level 1 Main Tabs Navigation Bar */
                 .cmtk-tabs-main {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 16px;
-                    margin-bottom: 24px;
-                }
-                .cmtk-tab-btn {
                     background: #ffffff;
-                    border: 2px solid #e2e8f0;
-                    border-radius: 18px;
-                    padding: 20px 24px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: flex-start;
-                    cursor: pointer;
-                    transition: all 0.25s ease;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-                }
-                .cmtk-tab-btn:hover {
-                    border-color: #c084fc;
-                    transform: translateY(-2px);
-                }
-                .cmtk-tab-btn.active {
-                    background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%) !important;
-                    border-color: #6d28d9 !important;
-                    box-shadow: 0 8px 24px rgba(109, 40, 217, 0.45) !important;
-                }
-                .cmtk-tab-btn .tab-num {
-                    font-size: 13.5px;
-                    font-weight: 900;
-                    color: #7c3aed;
-                    background: #f3e8ff;
-                    padding: 4px 12px;
-                    border-radius: 12px;
-                    margin-bottom: 8px;
-                    letter-spacing: 0.8px;
-                    text-transform: uppercase;
-                }
-                .cmtk-tab-btn.active .tab-num {
-                    color: #ffffff !important;
-                    background: rgba(255, 255, 255, 0.25) !important;
-                }
-                .cmtk-tab-btn .tab-label {
-                    font-size: 18.5px;
-                    font-weight: 900;
-                    color: #1e293b;
-                    line-height: 1.35;
-                    letter-spacing: -0.2px;
-                }
-                .cmtk-tab-btn.active .tab-label {
-                    color: #ffffff !important;
-                }
-
-                /* Dynamic Card Grid & Item Styling */
-                .cmtk-card-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-                    gap: 22px;
+                    border-radius: 22px;
+                    padding: 12px;
                     margin-bottom: 24px;
-                }
-                .cmtk-card-item {
-                    background: #ffffff;
-                    border-radius: 20px;
                     border: 1.5px solid #e2e8f0;
-                    box-shadow: 0 8px 25px rgba(15, 23, 42, 0.04);
-                    position: relative;
-                    overflow: hidden;
-                    transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-                    display: flex;
-                    flex-direction: column;
+                    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
                 }
-                .cmtk-card-item:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 18px 40px rgba(109, 40, 217, 0.12);
-                    border-color: #c084fc;
-                }
-                .card-accent-bar {
-                    height: 5px;
-                    width: 100%;
-                }
-                .card-accent-bar.theme-purple { background: linear-gradient(90deg, #6b21a8, #a855f7); }
 
-                .card-inner {
-                    padding: 20px 22px;
-                    display: flex;
-                    flex-direction: column;
-                    flex: 1;
-                }
-                .card-main-content {
-                    flex: 1;
-                    margin-bottom: 14px;
-                }
-                .card-title {
-                    font-size: 17.5px;
-                    font-weight: 950;
-                    color: #0f172a;
-                    margin: 6px 0 10px 0;
-                    line-height: 1.35;
-                    letter-spacing: -0.3px;
-                }
-                .card-badge {
+                .cmtk-tab-btn {
+                    border: 1.5px solid #e9d5ff;
+                    background: #ffffff;
+                    padding: 12px 22px;
+                    border-radius: 16px;
+                    cursor: pointer;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                     display: inline-flex;
                     align-items: center;
-                    gap: 3px;
-                    font-size: 11px;
+                    gap: 10px;
+                }
+
+                .cmtk-tab-btn .tab-num {
+                    background: #faf5ff;
+                    color: #7c3aed;
+                    font-size: 10.5px;
+                    font-weight: 900;
+                    padding: 3px 9px;
+                    border-radius: 20px;
+                    border: 1px solid #e9d5ff;
+                    text-transform: uppercase;
+                }
+
+                .cmtk-tab-btn .tab-label {
+                    font-size: 14.5px;
+                    font-weight: 850;
+                    color: #475569;
+                }
+
+                .cmtk-tab-btn.active {
+                    background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
+                    border-color: #6d28d9;
+                    box-shadow: 0 8px 20px rgba(109, 40, 217, 0.3);
+                }
+
+                .cmtk-tab-btn.active .tab-num {
+                    background: rgba(255, 255, 255, 0.25);
+                    color: #ffffff;
+                    border-color: rgba(255, 255, 255, 0.3);
+                }
+
+                .cmtk-tab-btn.active .tab-label {
+                    color: #ffffff;
+                }
+
+                /* Department Pills */
+                .cmtk-dept-pill {
+                    border: 1.5px solid #e9d5ff;
+                    background: #ffffff;
+                    color: #6d28d9;
                     font-weight: 800;
+                    font-size: 12.5px;
+                    padding: 7px 14px;
+                    border-radius: 14px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+
+                .cmtk-dept-pill:hover {
+                    border-color: #7c3aed;
+                    background: #faf5ff;
+                }
+
+                .cmtk-dept-pill.active {
+                    background: #7c3aed;
+                    color: #ffffff;
+                    border-color: #7c3aed;
+                    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+                }
+
+                /* Card Grid & Items */
+                .cmtk-card-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+                    gap: 22px;
+                }
+
+                .cmtk-card-item {
+                    background: #ffffff;
+                    border-radius: 22px;
+                    border: 1.5px solid #e2e8f0;
+                    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    position: relative;
+                }
+
+                .cmtk-card-item:hover {
+                    transform: translateY(-4px);
+                    border-color: #c084fc;
+                    box-shadow: 0 20px 40px -12px rgba(109, 40, 217, 0.18);
+                }
+
+                .card-accent-bar.theme-purple {
+                    height: 5px;
+                    background: linear-gradient(90deg, #6d28d9, #a855f7);
+                }
+
+                .card-inner {
+                    padding: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    flex: 1;
+                }
+
+                .card-title {
+                    font-size: 16px;
+                    font-weight: 900;
+                    color: #0f172a;
+                    margin: 0 0 10px 0;
+                    line-height: 1.4;
+                }
+
+                .card-badge {
+                    font-size: 11.5px;
+                    font-weight: 850;
                     padding: 4px 10px;
                     border-radius: 8px;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
                 }
-                .card-badge.theme-purple { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
-                .card-badge.theme-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+                .card-badge.theme-purple {
+                    background: #faf5ff;
+                    color: #6d28d9;
+                    border: 1px solid #e9d5ff;
+                }
+
+                .card-badge.theme-blue {
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    border: 1px solid #bfdbfe;
+                }
 
                 .card-btn-open {
-                    flex: 1;
-                    min-width: 0;
-                    padding: 10px 12px;
-                    font-size: 12.5px;
+                    background: linear-gradient(135deg, #6d28d9, #7c3aed);
+                    color: #ffffff;
+                    border: none;
                     font-weight: 850;
+                    font-size: 12.5px;
+                    padding: 9px 14px;
                     border-radius: 12px;
-                    text-decoration: none;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    gap: 5px;
-                    color: #ffffff !important;
-                    background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
-                    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
-                    border: none !important;
-                    transition: all 0.2s ease;
                     cursor: pointer;
-                }
-                .card-btn-open:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.5);
-                    background: linear-gradient(135deg, #047857 0%, #059669 100%) !important;
+                    box-shadow: 0 4px 14px rgba(109,40,217,0.3);
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    flex: 1;
+                    justify-content: center;
                 }
 
+                /* Toast notification */
                 .cmtk-toast {
                     position: fixed;
-                    bottom: 30px;
-                    right: 30px;
+                    bottom: 28px;
+                    right: 28px;
                     background: #10b981;
                     color: #ffffff;
-                    padding: 14px 24px;
-                    border-radius: 14px;
-                    font-weight: 800;
+                    padding: 12px 24px;
+                    border-radius: 16px;
+                    font-weight: 850;
                     font-size: 14px;
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.18);
+                    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
                     z-index: 999999;
                     opacity: 0;
                     transform: translateY(20px);
-                    transition: all 0.3s ease;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     pointer-events: none;
                 }
+
                 .cmtk-toast.show {
                     opacity: 1;
                     transform: translateY(0);
