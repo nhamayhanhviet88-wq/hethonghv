@@ -357,8 +357,8 @@ function startHeartbeatSystem() {
 
 // ==================== DYNAMIC LAZY LOADER ====================
 const _PAGE_SCRIPT_MAP = {
-    'chammauthietke': '/js/pages/chammauthietke.js',
-    'cham-mau-thiet-ke': '/js/pages/chammauthietke.js',
+    'chammauthietke': '/js/pages/chammauthietke.js?v=' + Date.now(),
+    'cham-mau-thiet-ke': '/js/pages/chammauthietke.js?v=' + Date.now(),
     'accounts': '/js/pages/accounts.js',
     'teams': '/js/pages/teams.js',
     'permissions': '/js/pages/permissions.js?v=20260726_v381',
@@ -604,14 +604,23 @@ const _PAGE_SCRIPT_MAP = {
 const _loadedScripts = new Set();
 async function _loadScript(src) {
     const cleanSrc = src.split('?')[0];
-    if (_loadedScripts.has(cleanSrc) || document.querySelector(`script[src^="${cleanSrc}"]`)) {
-        return Promise.resolve();
+    const isVersioned = src.includes('?v=');
+    const existing = document.querySelector(`script[data-src="${cleanSrc}"], script[src^="${cleanSrc}"]`);
+    
+    if (existing) {
+        if (isVersioned) {
+            existing.remove();
+            _loadedScripts.delete(cleanSrc);
+        } else {
+            return Promise.resolve();
+        }
     }
 
     return new Promise((resolve, reject) => {
         const s = document.createElement('script');
+        s.setAttribute('data-src', cleanSrc);
         const ts = Date.now();
-        s.src = src.includes('?') ? (src + '&_t=' + ts) : (src + '?_t=' + ts);
+        s.src = src.includes('?') ? (src + '&_t=' + ts) : (src + '?v=' + ts);
         s.async = true;
         s.onload = () => {
             _loadedScripts.add(cleanSrc);

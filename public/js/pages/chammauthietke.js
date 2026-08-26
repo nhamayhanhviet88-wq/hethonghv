@@ -84,7 +84,7 @@
 
     // Main Init Function matching Quản Trị Nhân Sự
     function initPage(targetContainer = null) {
-        const root = targetContainer || document.getElementById('mainContent');
+        const root = targetContainer || document.getElementById('contentArea') || document.getElementById('mainContent') || document.querySelector('.content-area') || document.querySelector('.main-content');
         if (!root) return;
 
         // Render UI layout immediately (0ms delay)
