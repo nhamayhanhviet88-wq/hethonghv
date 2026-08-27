@@ -258,21 +258,32 @@
     }
 
     async function loadKpiDelayData() {
+        console.log('[KPI Delay] loadKpiDelayData starting... year:', _kpiDelayState.year, 'segment:', _kpiDelayState.segment);
         const bodyArea = document.getElementById('kpiDelayBodyArea');
-        if (!bodyArea) return;
+        if (!bodyArea) {
+            console.error('[KPI Delay] ERROR: kpiDelayBodyArea element NOT found in DOM!');
+            return;
+        }
 
         try {
+            console.log('[KPI Delay] Fetching API...');
             const res = await fetch(`/api/kpi-delay/stats?year=${_kpiDelayState.year}&segment=${_kpiDelayState.segment}`);
+            console.log('[KPI Delay] HTTP Status:', res.status);
             const data = await res.json();
+            console.log('[KPI Delay] Data received:', data);
 
             if (!data.ok) {
                 bodyArea.innerHTML = `<div style="color:#ef4444; font-weight:800; text-align:center; padding:40px;">❌ Lỗi: ${data.error || 'Không thể tải dữ liệu'}</div>`;
                 return;
             }
 
+            _kpiDelayState.data = data;
+            console.log('[KPI Delay] Rendering dashboard...');
+            renderKpiDelayDashboard(data);
+            console.log('[KPI Delay] Dashboard render finished!');
         } catch (e) {
-            console.error('loadKpiDelayData error:', e);
-            bodyArea.innerHTML = `<div style="color:#ef4444; font-weight:800; text-align:center; padding:40px;">❌ Lỗi kết nối máy chủ!</div>`;
+            console.error('[KPI Delay] loadKpiDelayData error:', e);
+            bodyArea.innerHTML = `<div style="color:#ef4444; font-weight:800; text-align:center; padding:40px;">❌ Lỗi kết nối máy chủ: ${e.message}</div>`;
         }
     }
 

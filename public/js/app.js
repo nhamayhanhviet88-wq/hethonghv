@@ -2487,13 +2487,13 @@ async function handleRoute() {
                     } else if (typeof renderKpitilechamdonPage === 'function') {
                         renderKpitilechamdonPage(content);
                     } else {
-                        _loadScript('/js/pages/kpitilechamdon.js').then(function() {
+                        setTimeout(function() {
                             if (typeof window.renderKpitilechamdonPage === 'function') {
                                 window.renderKpitilechamdonPage(content);
                             } else if (typeof renderKpitilechamdonPage === 'function') {
                                 renderKpitilechamdonPage(content);
                             }
-                        });
+                        }, 150);
                     }
                     break;
                 case 'kpisale': case 'kpi-sale':
