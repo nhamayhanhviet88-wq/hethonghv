@@ -348,10 +348,11 @@
                     </div>
 
                     <!-- Modal Body -->
-                    <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:16px;">
+                    <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
                         <div id="kpiEvalModalHeaderInfo" style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px 14px; border-radius:10px;"></div>
+                        <div id="kpiEvalErrorBox"></div>
                         <div>
-                            <div style="font-size:13px; font-weight:900; color:#0f172a; margin-bottom:8px;">📋 Đánh Giá Từng Cam Kết (Chọn ✅ Hoàn Thành hoặc ❌ Chưa Hoàn Thành + Ghi Chú):</div>
+                            <div style="font-size:13px; font-weight:900; color:#0f172a; margin-bottom:8px;">📋 Đánh Giá Từng Cam Kết :</div>
                             <div id="kpiEvalItemsList" style="display:flex; flex-direction:column; gap:10px;"></div>
                         </div>
                     </div>
@@ -1663,11 +1664,11 @@
             `;
         }
 
-        const listEl = document.getElementById('kpiEvalItemsList');
-        if (listEl) {
+        const errBox = document.getElementById('kpiEvalErrorBox');
+        if (errBox) {
             const currentErrVal = targetObj.actual_total_errors !== undefined ? targetObj.actual_total_errors : 0;
-            const errorInputHeader = `
-                <div style="background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%); border:1.5px solid #fed7aa; border-radius:10px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 2px 6px rgba(154,52,18,0.06);">
+            errBox.innerHTML = `
+                <div style="background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%); border:1.5px solid #fed7aa; border-radius:10px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 2px 6px rgba(154,52,18,0.06);">
                     <div style="font-size:12.5px; font-weight:800; color:#9a3412; display:flex; align-items:center; gap:6px;">
                         ⚠️ <span>Số Đơn Lỗi Thực Tế Trong Tháng:</span>
                         <span style="font-size:11px; font-weight:700; color:#c2410c;">(Nhập tay thực tế)</span>
@@ -1678,8 +1679,11 @@
                     </div>
                 </div>
             `;
+        }
 
-            const evalItemsHtml = commitments.map((cText, idx) => {
+        const listEl = document.getElementById('kpiEvalItemsList');
+        if (listEl) {
+            listEl.innerHTML = commitments.map((cText, idx) => {
                 const existing = existingEvals[idx] || { passed: true, note: '' };
                 const isPassed = existing.passed !== false;
                 const noteVal = existing.note || '';
@@ -1706,8 +1710,6 @@
                 </div>
                 `;
             }).join('');
-
-            listEl.innerHTML = errorInputHeader + evalItemsHtml;
         }
 
         window.updateEvalSummary();
