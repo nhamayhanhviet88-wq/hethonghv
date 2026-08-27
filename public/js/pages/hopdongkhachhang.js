@@ -831,8 +831,7 @@
                                 </div>
                                 <textarea id="hdkhFormSteps" rows="8" placeholder="Bước 1: Tiếp nhận thông tin pháp nhân khách hàng&#10;Bước 2: Soạn thảo hợp đồng..." style="width:100%; border:2px solid #bae6fd; border-radius:16px; padding:14px 18px; font-size:13.5px; font-weight:700; line-height:1.6; outline:none; resize:vertical; min-height:180px; color:#0369a1; font-family:inherit; background:#ffffff;"
                                     onfocus="window._hdkhOnStepsFocus(this)"
-                                    onkeydown="window._hdkhOnStepsKeyDown(event, this)"
-                                    oninput="window._hdkhOnStepsInput(this)"></textarea>
+                                    onkeydown="window._hdkhOnStepsKeyDown(event, this)"></textarea>
                                 <div style="display:flex; justify-content:flex-end; margin-top:4px;">
                                     <button type="button" onclick="window._hdkhAddStepLine()" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:800; cursor:pointer;">
                                         ➕ Thêm Bước Thực Thi
