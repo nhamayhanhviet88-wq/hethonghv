@@ -730,6 +730,27 @@
         }
     };
 
+    window._cmtkOnMaketImageSelected = async function (input) {
+        if (!input || !input.files || !input.files[0]) return;
+        const file = input.files[0];
+        showToast('⏳ Đang xử lý và nén hình ảnh...', 'info');
+        try {
+            const compressedDataUrl = await compressImage(file, 1400, 0.82);
+            const imageUrlInput = document.getElementById('cmtkFormImageUrl');
+            const previewBox = document.getElementById('cmtkFormImagePreviewBox');
+            const previewImg = document.getElementById('cmtkFormImagePreviewImg');
+
+            if (imageUrlInput) imageUrlInput.value = compressedDataUrl;
+            if (previewImg) previewImg.src = compressedDataUrl;
+            if (previewBox) previewBox.style.display = 'block';
+
+            showToast('✅ Đã tải và nén hình ảnh thành công!');
+        } catch (e) {
+            console.error('[CMTK Image Upload Error]', e);
+            showToast('❌ Lỗi xử lý hình ảnh: ' + e.message, 'error');
+        }
+    };
+
     window._cmtkOpenAddMaketModal = function () {
         const modal = ensureMaketModalInDOM();
         document.getElementById('cmtkMaketModalTitle').innerText = 'TẠO BẢN MAKET MỚI';
