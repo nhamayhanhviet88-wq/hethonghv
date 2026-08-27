@@ -300,7 +300,7 @@
                         <!-- Reward Input -->
                         <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; padding:14px; border-radius:10px;">
                             <label style="font-size:12.5px; font-weight:900; color:#166534; display:block; margin-bottom:6px;">🎁 Phần Thưởng Cho Quản Lý Xưởng Khi Đạt KPI:</label>
-                            <input type="text" id="kpiModalReward" placeholder="Ví dụ: Thưởng 3.000.000đ cho Quản Lý Xưởng..." style="width:100%; padding:9px 12px; border:1.5px solid #86efac; border-radius:8px; font-size:13px; font-weight:700; color:#14532d; outline:none;">
+                            <input type="text" id="kpiModalReward" oninput="window._formatRewardInput(this)" placeholder="Ví dụ: 1.000.000 hoặc Thưởng 3.000.000đ..." style="width:100%; padding:9px 12px; border:1.5px solid #86efac; border-radius:8px; font-size:13px; font-weight:700; color:#14532d; outline:none;">
                         </div>
 
                         <!-- Commitments Section -->
@@ -574,7 +574,7 @@
             const targetPct = targetObj ? targetObj.target_max_delay_pct : 5.0;
             const targetErr = targetObj ? (targetObj.target_max_total_errors || 0) : 0;
             const evalRule = targetObj ? (targetObj.eval_rule || 'ALL') : 'ALL';
-            const rewardText = targetObj ? (targetObj.reward_text || '') : '';
+            const rewardText = targetObj ? formatRewardText(targetObj.reward_text || '') : '';
             const commitments = targetObj ? (targetObj.commitments || []) : [];
             const status = targetObj ? (targetObj.status || 'active') : 'not_created';
             const commitmentEvals = targetObj ? (targetObj.commitment_evals || []) : [];
@@ -1351,6 +1351,39 @@
         }
     };
 
+    function formatRewardText(val) {
+        if (!val) return '';
+        const str = String(val).trim();
+        if (!str) return '';
+        const cleanedNoDots = str.replace(/\./g, '');
+        if (/^\d+$/.test(cleanedNoDots)) {
+            return Number(cleanedNoDots).toLocaleString('vi-VN');
+        }
+        if (/^\d+\s*[đVNĐvnd]+$/i.test(cleanedNoDots)) {
+            const num = cleanedNoDots.replace(/[^\d]/g, '');
+            return Number(num).toLocaleString('vi-VN') + 'đ';
+        }
+        return str.replace(/(\d+)/g, function(numStr) {
+            if (numStr.length >= 4) {
+                return Number(numStr).toLocaleString('vi-VN');
+            }
+            return numStr;
+        });
+    }
+
+    window._formatRewardInput = function(ipt) {
+        if (!ipt) return;
+        const val = ipt.value;
+        if (!val) return;
+        const cleanedNoDots = val.replace(/\./g, '');
+        if (/^\d+$/.test(cleanedNoDots)) {
+            ipt.value = Number(cleanedNoDots).toLocaleString('vi-VN');
+        } else if (/^\d+\s*[đVNĐvnd]+$/i.test(cleanedNoDots)) {
+            const digits = cleanedNoDots.replace(/[^\d]/g, '');
+            ipt.value = Number(digits).toLocaleString('vi-VN') + 'đ';
+        }
+    };
+
     // ========== GLOBAL MODAL CONTROLLERS ==========
     var _editingModalTarget = { period_type: 'month', period_value: 1, title: '' };
 
@@ -1373,7 +1406,7 @@
         if (radio) radio.checked = true;
 
         const rewardIpt = document.getElementById('kpiModalReward');
-        if (rewardIpt) rewardIpt.value = targetObj.reward_text || '';
+        if (rewardIpt) rewardIpt.value = formatRewardText(targetObj.reward_text || '');
 
         // Render commitments list
         const commitments = Array.isArray(targetObj.commitments) ? targetObj.commitments : [];
@@ -1539,7 +1572,7 @@
         const delayPct = parseFloat(document.getElementById('kpiModalDelayPct')?.value) || 0;
         const totalErr = parseInt(document.getElementById('kpiModalTotalErr')?.value, 10) || 0;
         const evalRule = document.querySelector('input[name="kpiEvalRule"]:checked')?.value || 'ALL';
-        const rewardText = (document.getElementById('kpiModalReward')?.value || '').trim();
+        const rewardText = formatRewardText((document.getElementById('kpiModalReward')?.value || '').trim());
 
         const commitmentInputs = document.querySelectorAll('.commitment-item-ipt');
         const commitments = [];
