@@ -787,8 +787,8 @@
 
                                     return `
                                         <div class="pantone-swatch-chip" 
-                                            onclick="window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${safeName}', '${hex || ''}', '')"
-                                            title="Click để chấm màu / sửa mã HEX cho ${c.color_name}"
+                                            onclick="${hasHex ? `window._cmtkCopyHex('${hex}', '${safeName}')` : `window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${safeName}', '', '')`}"
+                                            title="${hasHex ? `Click để sao chép mã màu ${hex} cho ${c.color_name}` : `Click để chọn / chấm mã màu #HEX cho ${c.color_name}`}"
                                             style="position: relative; width: 112px; background: #ffffff; border: 1.5px solid ${hasHex ? '#e2e8f0' : '#fdba74'}; border-radius: 18px; padding: 8px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 12px rgba(0,0,0,0.03);"
                                             onmouseover="this.style.transform='translateY(-5px) scale(1.04)'; this.style.borderColor='#a855f7'; this.style.boxShadow='0 12px 24px rgba(168,85,247,0.25)';"
                                             onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.borderColor='${hasHex ? '#e2e8f0' : '#fdba74'}'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.03)';">
@@ -801,14 +801,14 @@
                                                         <div style="font-size: 9.5px; font-weight: 850; color: #ea580c; margin-top: 2px;">Chưa Chấm</div>
                                                     </div>
                                                 ` : `
-                                                    <!-- Quick Copy Button on Hover/Corner -->
+                                                    <!-- Edit Icon Button on Corner (Ảnh 2: Icon Chỉnh Sửa ✏️) -->
                                                     <button type="button" 
-                                                        onclick="event.stopPropagation(); window._cmtkCopyHex('${hex}', '${safeName}')"
-                                                        title="Sao chép #${hex}"
+                                                        onclick="event.stopPropagation(); window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${safeName}', '${hex}', '')"
+                                                        title="Sửa / chấm lại mã màu #HEX cho ${c.color_name}"
                                                         style="position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.45); color: #ffffff; border: none; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); opacity: 0.85; transition: all 0.2s;"
                                                         onmouseover="this.style.opacity='1'; this.style.transform='scale(1.15)';"
                                                         onmouseout="this.style.opacity='0.85'; this.style.transform='scale(1)';">
-                                                        📋
+                                                        ✏️
                                                     </button>
                                                 `}
                                             </div>
