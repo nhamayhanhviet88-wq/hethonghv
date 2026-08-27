@@ -150,12 +150,51 @@ function _ceoRenderTable() {
     var cNVP = allItems.filter(_isStep3).length;
     var cDone = allItems.filter(_isStep4).length;
 
+    // Calculate aggregated error stats
+    var internalCount = 0, customerCount = 0, totalCount = allItems.length;
+    var internalQty = 0, customerQty = 0, totalQty = 0;
+
+    allItems.forEach(function(item) {
+        var qty = Number(item.error_quantity) || 0;
+        var errTypeDisp = _ceoGetErrorTypeDisplay(item);
+        if (errTypeDisp.indexOf('Nội Bộ') !== -1) {
+            internalCount++;
+            internalQty += qty;
+        } else {
+            customerCount++;
+            customerQty += qty;
+        }
+        totalQty += qty;
+    });
+
     var h = '<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;background:#fff">' +
         '<div style="font-size:14px;font-weight:800;color:#1e293b">⚠️ ĐƠN LỖI KHÁCH & NỘI BỘ — ' + title + ' <span style="color:#9ca3af;font-weight:500;font-size:12px">(' + items.length + '/' + allItems.length + ')</span></div>' +
         '<div style="display:flex;gap:8px">' +
         '<button onclick="_ceoSetFilter(null)" style="padding:8px 14px;background:' + (!_ceo.filter ? '#1e293b' : '#f1f5f9') + ';color:' + (!_ceo.filter ? '#fff' : '#64748b') + ';border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Tất Cả</button>' +
+        '<button onclick="location.hash=\'#kpitilechamdon\'" style="padding:8px 14px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🎯 Cấu Hình KPI Lỗi</button>' +
         (currentUser && currentUser.role==='giam_doc' ? '<button onclick="_ceoOpenExtViolators()" style="padding:8px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🏭 Bên Gia Công</button>' : '') +
         '<button onclick="_ceoOpenUpdatePicker()" style="padding:8px 16px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Cập Nhật Lỗi</button>' +
+        '</div></div>';
+
+    // === KPI ERROR SUMMARY BANNER ===
+    h += '<div style="padding:10px 16px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-bottom:1px solid #cbd5e1;display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+        '<div style="font-size:12.5px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:6px">📊 Thống Kê Chỉ Số Lỗi (' + title + '):</div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+        '<div style="background:#f3e8ff;border:1px solid #d8b4fe;padding:5px 12px;border-radius:8px;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:15px">🟣</span>' +
+        '<div><div style="font-size:9.5px;font-weight:700;color:#6b21a8;text-transform:uppercase">Lỗi Nội Bộ</div>' +
+        '<div style="font-size:13px;font-weight:900;color:#7c3aed">' + internalCount + ' <span style="font-size:10.5px;font-weight:700;color:#6b21a8">đơn (' + internalQty + ' sp)</span></div></div>' +
+        '</div>' +
+        '<div style="background:#fee2e2;border:1px solid #fca5a5;padding:5px 12px;border-radius:8px;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:15px">🔴</span>' +
+        '<div><div style="font-size:9.5px;font-weight:700;color:#991b1b;text-transform:uppercase">Lỗi Khách Hàng</div>' +
+        '<div style="font-size:13px;font-weight:900;color:#dc2626">' + customerCount + ' <span style="font-size:10.5px;font-weight:700;color:#991b1b">đơn (' + customerQty + ' sp)</span></div></div>' +
+        '</div>' +
+        '<div style="background:#fffbeb;border:1px solid #fde68a;padding:5px 12px;border-radius:8px;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:15px">⚠️</span>' +
+        '<div><div style="font-size:9.5px;font-weight:700;color:#92400e;text-transform:uppercase">Tổng Đơn Lỗi</div>' +
+        '<div style="font-size:13px;font-weight:900;color:#b45309">' + totalCount + ' <span style="font-size:10.5px;font-weight:700;color:#92400e">đơn (' + totalQty + ' sp)</span></div></div>' +
+        '</div>' +
         '</div></div>';
 
     // === 4 STAT CARDS ===

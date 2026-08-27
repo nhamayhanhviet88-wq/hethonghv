@@ -1061,8 +1061,162 @@ async function routes(fastify) {
 
         return { success: true };
     });
+
+    // ========== GET /api/customer-errors/kpi-summary — Aggregate KPI stats for Customer & Internal Errors ==========
+    fastify.get('/api/customer-errors/kpi-summary', { preHandler: authenticate }, async (request, reply) => {
+        try {
+            const year = parseInt(request.query.year || new Date().getFullYear(), 10);
+            const segment = request.query.segment || 'all';
+
+            const conditions = [`EXTRACT(YEAR FROM ceo.report_date) = $1`];
+            const params = [year];
+
+            if (segment === 'dongphuc' || segment === 'dong_phuc') {
+                conditions.push(`(
+                    (COALESCE(cat.id, o.category_id) IS NULL OR (COALESCE(cat.id, o.category_id) != 8 AND COALESCE(cat.id, o.category_id) != 9))
+                    AND UPPER(COALESCE(ceo.order_code, '')) NOT LIKE '%PET%'
+                    AND UPPER(COALESCE(ceo.order_code, '')) NOT LIKE '%TEM%'
+                )`);
+            } else if (segment === 'tempet' || segment === 'tem_pet') {
+                conditions.push(`(
+                    COALESCE(cat.id, o.category_id) = 8 OR COALESCE(cat.id, o.category_id) = 9
+                    OR UPPER(COALESCE(ceo.order_code, '')) LIKE '%PET%'
+                    OR UPPER(COALESCE(ceo.order_code, '')) LIKE '%TEM%'
+                )`);
+            }
+
+            const whereClause = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+            const rawErrors = await db.all(`
+                SELECT ceo.id, ceo.report_date, ceo.error_type, ceo.error_quantity, ceo.dht_order_id, ceo.order_code
+                FROM customer_error_orders ceo
+                LEFT JOIN dht_orders o ON (o.id = ceo.dht_order_id OR (ceo.dht_order_id IS NULL AND o.order_code = ceo.order_code))
+                LEFT JOIN dht_categories cat ON o.category_id = cat.id
+                ${whereClause}
+            `, params);
+
+            const monthlyData = {};
+            for (let m = 1; m <= 12; m++) {
+                monthlyData[m] = {
+                    month: m,
+                    internal_errors: 0,
+                    customer_errors: 0,
+                    total_errors: 0,
+                    internal_error_qty: 0,
+                    customer_error_qty: 0,
+                    total_error_qty: 0
+                };
+            }
+
+            const { vnDateStr } = require('../utils/timezone');
+
+            rawErrors.forEach(err => {
+                if (!err.report_date) return;
+                let m = 1;
+                try {
+                    const dStr = vnDateStr(err.report_date);
+                    m = parseInt(dStr.split('-')[1], 10);
+                } catch(e) { return; }
+                if (m < 1 || m > 12) return;
+
+                const qty = Number(err.error_quantity) || 0;
+                const errType = err.error_type || (err.dht_order_id ? 'Khách Hàng' : 'Nội Bộ');
+                if (errType === 'Nội Bộ') {
+                    monthlyData[m].internal_errors++;
+                    monthlyData[m].internal_error_qty += qty;
+                } else {
+                    monthlyData[m].customer_errors++;
+                    monthlyData[m].customer_error_qty += qty;
+                }
+                monthlyData[m].total_errors++;
+                monthlyData[m].total_error_qty += qty;
+            });
+
+            const monthsList = Object.values(monthlyData);
+
+            const quartersList = [1, 2, 3, 4].map(q => {
+                const startM = (q - 1) * 3 + 1;
+                const endM = q * 3;
+                let qInternal = 0, qCustomer = 0, qTotal = 0;
+                let qInternalQty = 0, qCustomerQty = 0, qTotalQty = 0;
+                for (let m = startM; m <= endM; m++) {
+                    qInternal += monthlyData[m].internal_errors;
+                    qCustomer += monthlyData[m].customer_errors;
+                    qTotal += monthlyData[m].total_errors;
+                    qInternalQty += monthlyData[m].internal_error_qty;
+                    qCustomerQty += monthlyData[m].customer_error_qty;
+                    qTotalQty += monthlyData[m].total_error_qty;
+                }
+                return {
+                    quarter: q,
+                    name: `Quý ${q}`,
+                    internal_errors: qInternal,
+                    customer_errors: qCustomer,
+                    total_errors: qTotal,
+                    internal_error_qty: qInternalQty,
+                    customer_error_qty: qCustomerQty,
+                    total_error_qty: qTotalQty
+                };
+            });
+
+            let yInternal = 0, yCustomer = 0, yTotal = 0;
+            let yInternalQty = 0, yCustomerQty = 0, yTotalQty = 0;
+            monthsList.forEach(m => {
+                yInternal += m.internal_errors;
+                yCustomer += m.customer_errors;
+                yTotal += m.total_errors;
+                yInternalQty += m.internal_error_qty;
+                yCustomerQty += m.customer_error_qty;
+                yTotalQty += m.total_error_qty;
+            });
+
+            const fullYearData = {
+                year,
+                internal_errors: yInternal,
+                customer_errors: yCustomer,
+                total_errors: yTotal,
+                internal_error_qty: yInternalQty,
+                customer_error_qty: yCustomerQty,
+                total_error_qty: yTotalQty
+            };
+
+            const targetRows = await db.all(`
+                SELECT period_type, period_value, target_max_delay_pct, target_max_delay_orders,
+                       target_max_internal_errors, target_max_customer_errors, target_max_total_errors, notes
+                FROM kpi_delay_targets
+                WHERE year = $1 AND segment = $2
+            `, [year, segment]);
+
+            const targetsMap = {};
+            targetRows.forEach(r => {
+                const key = `${r.period_type}_${r.period_value}`;
+                targetsMap[key] = {
+                    target_max_delay_pct: parseFloat(r.target_max_delay_pct || 5.0),
+                    target_max_delay_orders: parseInt(r.target_max_delay_orders || 0, 10),
+                    target_max_internal_errors: parseInt(r.target_max_internal_errors || 0, 10),
+                    target_max_customer_errors: parseInt(r.target_max_customer_errors || 0, 10),
+                    target_max_total_errors: parseInt(r.target_max_total_errors || 0, 10),
+                    notes: r.notes || ''
+                };
+            });
+
+            return reply.send({
+                ok: true,
+                year,
+                segment,
+                months: monthsList,
+                quarters: quartersList,
+                fullYear: fullYearData,
+                targets: targetsMap
+            });
+        } catch (e) {
+            console.error('[customer-errors/kpi-summary GET]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
 }
 
 module.exports = routes;
-// Trigger restart: 2026-06-16 v2
+// Trigger restart: 2026-08-27 KPI
+
 

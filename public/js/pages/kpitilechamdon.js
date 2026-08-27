@@ -1,4 +1,4 @@
-/* ===== KPI TỈ LỆ CHẬM ĐƠN — DESKTOP PAGE (COMPACT BADGE PILLS MATCHING IMAGE 3) ===== */
+/* ===== KPI TỈ LỆ CHẬM ĐƠN & ĐƠN LỖI — DESKTOP PAGE ===== */
 
 (function () {
     var _kpiDelayState = {
@@ -9,7 +9,8 @@
         lines: {
             late: true,     // Mặc định BẬT đường tỉ lệ Trễ Hẹn % (🔴)
             on_time: false, // Mặc định TẮT đường tỉ lệ Đúng Hẹn % (🔵)
-            early: false    // Mặc định TẮT đường tỉ lệ Gửi Sớm % (🟢)
+            early: false,   // Mặc định TẮT đường tỉ lệ Gửi Sớm % (🟢)
+            errors: true    // Mặc định BẬT đường Tổng Đơn Lỗi (⚠️)
         }
     };
 
@@ -114,13 +115,13 @@
 
                 /* Table Responsive */
                 .kpi-table-responsive { width: 100%; overflow-x: auto; border-radius: 14px; border: 1.5px solid #1e293b; box-shadow: 0 4px 18px rgba(15, 23, 42, 0.2); }
-                .kpi-quarter-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
+                .kpi-quarter-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
                 
                 /* Static Dark Navy Header with Vertical 3D Glossy Reflection */
                 .kpi-quarter-table th {
                     background: linear-gradient(180deg, #283a62 0%, #172554 48%, #0f172a 100%);
                     color: #ffffff;
-                    padding: 11px 8px;
+                    padding: 10px 6px;
                     text-align: center;
                     border-bottom: 2px solid #0f172a;
                     white-space: nowrap;
@@ -137,21 +138,21 @@
                     box-shadow: inset 0 1px 0 rgba(255,255,255,0.2) !important;
                 }
 
-                .kpi-quarter-table td { padding: 9.5px 8px; text-align: center; border-bottom: 1px solid #f1f5f9; font-weight: 700; vertical-align: middle; white-space: nowrap; color: #1e293b; }
+                .kpi-quarter-table td { padding: 8px 5px; text-align: center; border-bottom: 1px solid #f1f5f9; font-weight: 700; vertical-align: middle; white-space: nowrap; color: #1e293b; }
                 .kpi-quarter-table tbody tr:hover { background: #f8fafc; }
 
                 /* Soft Cream Yellow Summary Row for Full Year */
                 .kpi-quarter-table tr.row-total { background: #fef3c7 !important; font-weight: 900; color: #92400e !important; border-top: 2px solid #fde68a; }
-                .kpi-quarter-table tr.row-total td { color: #92400e; border-bottom: none; font-size: 12.5px; }
+                .kpi-quarter-table tr.row-total td { color: #92400e; border-bottom: none; font-size: 12px; }
 
-                /* Compact Badge Pills Matching Image 3 (Khung be bé xinh xắn) */
+                /* Compact Badge Pills */
                 .badge-status {
                     display: inline-flex;
                     align-items: center;
                     justify-content: center;
-                    padding: 3.5px 12px;
+                    padding: 3px 10px;
                     border-radius: 8px;
-                    font-size: 11px;
+                    font-size: 10.5px;
                     font-weight: 900;
                     text-transform: uppercase;
                     white-space: nowrap;
@@ -172,7 +173,7 @@
                     background: #ffffff;
                     border: 1.5px solid #cbd5e1;
                     border-radius: 16px;
-                    padding: 18px;
+                    padding: 16px;
                     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                     position: relative;
                     box-shadow: 0 4px 18px rgba(15, 23, 42, 0.03);
@@ -184,7 +185,6 @@
                     box-shadow: 0 10px 28px rgba(99, 102, 241, 0.12);
                 }
 
-                /* Highlighted Glowing Border for Current Month Card */
                 @keyframes _kpiGlowPulse {
                     0% { border-color: #f59e0b; box-shadow: 0 0 0 3.5px rgba(245, 158, 11, 0.35), 0 8px 24px rgba(245, 158, 11, 0.18); }
                     50% { border-color: #fbbf24; box-shadow: 0 0 0 5.5px rgba(251, 191, 36, 0.55), 0 10px 30px rgba(251, 191, 36, 0.28); }
@@ -197,19 +197,20 @@
                     z-index: 2;
                 }
 
-                .m-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1.5px solid #f1f5f9; padding-bottom: 10px; }
-                .m-card-title { font-size: 15px; font-weight: 900; color: #0f172a; letter-spacing: -0.2px; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
+                .m-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1.5px solid #f1f5f9; padding-bottom: 8px; }
+                .m-card-title { font-size: 14.5px; font-weight: 900; color: #0f172a; letter-spacing: -0.2px; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
                 
-                .m-progress-bar { height: 9px; width: 100%; background: #f1f5f9; border-radius: 5px; overflow: hidden; display: flex; margin: 10px 0 14px 0; border: 1px solid #e2e8f0; }
+                .m-progress-bar { height: 9px; width: 100%; background: #f1f5f9; border-radius: 5px; overflow: hidden; display: flex; margin: 8px 0 12px 0; border: 1px solid #e2e8f0; }
                 .m-progress-seg { height: 100%; transition: width 0.3s ease; }
 
-                .m-stat-row { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; margin-bottom: 7px; }
+                .m-stat-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 6px; }
                 .m-stat-label { color: #64748b; font-weight: 600; }
                 .m-stat-val { font-weight: 800; color: #0f172a; }
 
-                .m-kpi-input-wrap { margin-top: 14px; padding-top: 12px; border-top: 1.5px dashed #cbd5e1; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-                .m-kpi-label { font-size: 12px; font-weight: 800; color: #475569; }
-                .m-kpi-input { width: 70px; padding: 6px 8px; border: 1.5px solid #cbd5e1; border-radius: 99px; font-size: 13.5px; font-weight: 900; color: #4338ca; text-align: center; outline: none; background: #ffffff; transition: all 0.2s; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
+                .m-kpi-input-wrap { margin-top: 10px; padding-top: 10px; border-top: 1.5px dashed #cbd5e1; display: flex; flex-direction: column; gap: 6px; }
+                .m-kpi-input-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+                .m-kpi-label { font-size: 11.5px; font-weight: 800; color: #475569; }
+                .m-kpi-input { width: 64px; padding: 4px 6px; border: 1.5px solid #cbd5e1; border-radius: 99px; font-size: 12.5px; font-weight: 900; color: #4338ca; text-align: center; outline: none; background: #ffffff; transition: all 0.2s; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
                 .m-kpi-input:focus { border-color: #6366f1; background: #faf5ff; box-shadow: 0 0 0 3.5px rgba(99,102,241,0.18); }
                 .m-kpi-input.saved-flash { border-color: #10b981 !important; box-shadow: 0 0 0 3.5px rgba(16, 185, 129, 0.35) !important; background: #f0fdf4 !important; }
             </style>
@@ -217,7 +218,7 @@
             <!-- Top Header -->
             <div class="kpi-delay-header">
                 <h1 class="kpi-delay-title">
-                    <span>⏱️</span> KPI Tỉ Lệ Chậm Đơn Hàng
+                    <span>⏱️</span> KPI Tỉ Lệ Chậm Đơn & Thống Kê Đơn Lỗi
                 </h1>
                 <div class="kpi-delay-actions">
                     <!-- Segment Tabs -->
@@ -242,7 +243,7 @@
             <!-- Content Container -->
             <div id="kpiDelayBodyArea">
                 <div style="text-align:center; padding: 50px; color: #94a3b8; font-weight: 700;">
-                    ⏳ Đang tải dữ liệu Tra Soát Đơn Hàng & Chỉ số KPI...
+                    ⏳ Đang tải dữ liệu Tra Soát & Thống Kê KPI...
                 </div>
             </div>
         </div>
@@ -282,26 +283,34 @@
         const realCurrentMonth = now.getMonth() + 1;
         const realCurrentYear = now.getFullYear();
 
-        // Quarter Start/End Month Mapping
         const quarterMonths = { 1: [1, 3], 2: [4, 6], 3: [7, 9], 4: [10, 12] };
 
-        // Build Quarter Rows with High Contrast Text Colors & Smart "Chưa Tới" Logic
+        // Build Quarter Rows
         const quarterRowsHtml = quarters.map(q => {
             const tKey = `quarter_${q.quarter}`;
             const targetPct = targets[tKey] ? targets[tKey].target_max_delay_pct : 5.0;
+            const targetErr = targets[tKey] ? (targets[tKey].target_max_total_errors || 0) : 0;
 
-            const [startM, endM] = quarterMonths[q.quarter];
-
-            // Is Quarter Future with 0 orders?
+            const [startM] = quarterMonths[q.quarter];
             const isFutureQ = (data.year > realCurrentYear) || (data.year === realCurrentYear && startM > realCurrentMonth);
             const isFutureOrZeroQ = isFutureQ && q.total === 0;
 
-            let badgeHtml = '';
+            let badgeDelayHtml = '';
+            let badgeErrHtml = '';
+
             if (isFutureOrZeroQ) {
-                badgeHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+                badgeDelayHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+                badgeErrHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
             } else {
-                const isPass = q.delay_pct <= targetPct;
-                badgeHtml = `<span class="badge-status ${isPass ? 'badge-success' : 'badge-danger'}">${isPass ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+                const isPassDelay = q.delay_pct <= targetPct;
+                badgeDelayHtml = `<span class="badge-status ${isPassDelay ? 'badge-success' : 'badge-danger'}">${isPassDelay ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+
+                if (targetErr > 0) {
+                    const isPassErr = q.total_errors <= targetErr;
+                    badgeErrHtml = `<span class="badge-status ${isPassErr ? 'badge-success' : 'badge-danger'}">${isPassErr ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+                } else {
+                    badgeErrHtml = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
+                }
             }
 
             return `
@@ -313,49 +322,81 @@
                 <td style="color:#dc2626; font-weight:800;">${q.late}</td>
                 <td style="font-weight:900; color:${q.delay_pct > 0 ? '#b91c1c' : '#15803d'}">${q.delay_pct}%</td>
                 <td style="color:#3730a3; font-weight:900;">
-                    <input type="number" step="0.1" class="kpi-q-input" data-period="quarter" data-val="${q.quarter}" value="${targetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:48px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:900; padding:3px 3px; color:#3730a3; background:#ffffff;">%
+                    <input type="number" step="0.1" class="kpi-q-input" data-period="quarter" data-val="${q.quarter}" value="${targetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:900; padding:2px 2px; color:#3730a3; background:#ffffff;">%
                 </td>
                 <td id="qBadgeWrap_${q.quarter}">
-                    ${badgeHtml}
+                    ${badgeDelayHtml}
+                </td>
+                <!-- Error Columns -->
+                <td style="color:#7c3aed; font-weight:800; background:#f3e8ff;">${q.internal_errors} <span style="font-size:10px; color:#6b21a8;">(${q.internal_error_qty} sp)</span></td>
+                <td style="color:#dc2626; font-weight:800; background:#fee2e2;">${q.customer_errors} <span style="font-size:10px; color:#991b1b;">(${q.customer_error_qty} sp)</span></td>
+                <td style="color:#b45309; font-weight:900; background:#fffbeb;">${q.total_errors} <span style="font-size:10px; color:#92400e;">(${q.total_error_qty} sp)</span></td>
+                <td>
+                    <input type="number" step="1" class="kpi-q-err-input" data-period="quarter" data-val="${q.quarter}" value="${targetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; color:#b45309; background:#ffffff;">
+                </td>
+                <td id="qBadgeErrWrap_${q.quarter}">
+                    ${badgeErrHtml}
                 </td>
             </tr>
             `;
         }).join('');
 
-        // Full Year Row with High Contrast Dark Colors on Soft Yellow Background & Smart "Chưa Tới" Logic
+        // Full Year Row
         const yTargetKey = `year_0`;
         const yTargetPct = targets[yTargetKey] ? targets[yTargetKey].target_max_delay_pct : 5.0;
+        const yTargetErr = targets[yTargetKey] ? (targets[yTargetKey].target_max_total_errors || 0) : 0;
 
         const isFutureYear = (data.year > realCurrentYear) && fullYear.total === 0;
         let yBadgeHtml = '';
+        let yBadgeErrHtml = '';
+
         if (isFutureYear) {
             yBadgeHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+            yBadgeErrHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
         } else {
             const isYPass = fullYear.delay_pct <= yTargetPct;
             yBadgeHtml = `<span class="badge-status ${isYPass ? 'badge-success' : 'badge-danger'}">${isYPass ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+
+            if (yTargetErr > 0) {
+                const isPassErr = fullYear.total_errors <= yTargetErr;
+                yBadgeErrHtml = `<span class="badge-status ${isPassErr ? 'badge-success' : 'badge-danger'}">${isPassErr ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+            } else {
+                yBadgeErrHtml = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
+            }
         }
 
         const fullYearRowHtml = `
         <tr class="row-total">
             <td style="text-align:left; font-weight:900; color:#92400e;">Cả Năm ${fullYear.year}</td>
-            <td style="font-weight:900; font-size:13px; color:#b45309;">${fullYear.total}</td>
+            <td style="font-weight:900; font-size:12.5px; color:#b45309;">${fullYear.total}</td>
             <td style="color:#059669; font-weight:900;">${fullYear.early}</td>
             <td style="color:#4338ca; font-weight:900;">${fullYear.on_time}</td>
             <td style="color:#b91c1c; font-weight:900;">${fullYear.late}</td>
-            <td style="font-size:13px; font-weight:900; color:${fullYear.delay_pct > 0 ? '#b91c1c' : '#15803d'}">${fullYear.delay_pct}%</td>
+            <td style="font-size:12.5px; font-weight:900; color:${fullYear.delay_pct > 0 ? '#b91c1c' : '#15803d'}">${fullYear.delay_pct}%</td>
             <td>
-                <input type="number" step="0.1" class="kpi-q-input" data-period="year" data-val="0" value="${yTargetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:48px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:3px 3px; background:#ffffff; color:#92400e;">%
+                <input type="number" step="0.1" class="kpi-q-input" data-period="year" data-val="0" value="${yTargetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; background:#ffffff; color:#92400e;">%
             </td>
             <td id="yBadgeWrap_0">
                 ${yBadgeHtml}
             </td>
+            <!-- Full Year Error Columns -->
+            <td style="color:#7c3aed; font-weight:900;">${fullYear.internal_errors} <span style="font-size:10px; opacity:0.8;">(${fullYear.internal_error_qty} sp)</span></td>
+            <td style="color:#dc2626; font-weight:900;">${fullYear.customer_errors} <span style="font-size:10px; opacity:0.8;">(${fullYear.customer_error_qty} sp)</span></td>
+            <td style="color:#b45309; font-weight:900;">${fullYear.total_errors} <span style="font-size:10px; opacity:0.8;">(${fullYear.total_error_qty} sp)</span></td>
+            <td>
+                <input type="number" step="1" class="kpi-q-err-input" data-period="year" data-val="0" value="${yTargetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; background:#ffffff; color:#92400e;">
+            </td>
+            <td id="yBadgeErrWrap_0">
+                ${yBadgeErrHtml}
+            </td>
         </tr>
         `;
 
-        // Monthly Cards Html with Glowing Current Month Border & Future Month "Chưa Tới" Badge
+        // Monthly Cards Html
         const monthlyCardsHtml = months.map(m => {
             const mKey = `month_${m.month}`;
             const targetPct = targets[mKey] ? targets[mKey].target_max_delay_pct : 5.0;
+            const targetErr = targets[mKey] ? (targets[mKey].target_max_total_errors || 0) : 0;
 
             const isCurrentMonth = (data.year === realCurrentYear) && (m.month === realCurrentMonth);
             const isFutureMonth = (data.year > realCurrentYear) || (data.year === realCurrentYear && m.month > realCurrentMonth);
@@ -403,11 +444,36 @@
                     <span class="m-stat-val" style="color:#dc2626">${m.late} đơn (${m.delay_pct}%)</span>
                 </div>
 
+                <!-- Error Stat Summary Section -->
+                <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1;">
+                    <div class="m-stat-row">
+                        <span class="m-stat-label">🟣 Lỗi Nội Bộ:</span>
+                        <span class="m-stat-val" style="color:#7c3aed">${m.internal_errors} đơn <span style="font-size:10px; font-weight:600; color:#6b21a8;">(${m.internal_error_qty} sp)</span></span>
+                    </div>
+                    <div class="m-stat-row">
+                        <span class="m-stat-label">🔴 Lỗi Khách Hàng:</span>
+                        <span class="m-stat-val" style="color:#dc2626">${m.customer_errors} đơn <span style="font-size:10px; font-weight:600; color:#991b1b;">(${m.customer_error_qty} sp)</span></span>
+                    </div>
+                    <div class="m-stat-row">
+                        <span class="m-stat-label">⚠️ Tổng Đơn Lỗi:</span>
+                        <span class="m-stat-val" style="color:#b45309; background:#fff7ed; padding:1px 6px; border-radius:4px; border:1px solid #fed7aa">${m.total_errors} đơn <span style="font-size:10px; font-weight:600;">(${m.total_error_qty} sp)</span></span>
+                    </div>
+                </div>
+
                 <div class="m-kpi-input-wrap">
-                    <span class="m-kpi-label">🎯 KPI Trễ Tối Đa:</span>
-                    <div>
-                        <input type="number" step="0.1" class="m-kpi-input kpi-m-input" data-period="month" data-val="${m.month}" value="${targetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)">
-                        <span style="font-size:12px; font-weight:800; color:#475569">%</span>
+                    <div class="m-kpi-input-row">
+                        <span class="m-kpi-label">🎯 KPI Trễ Tối Đa:</span>
+                        <div>
+                            <input type="number" step="0.1" class="m-kpi-input kpi-m-input" data-period="month" data-val="${m.month}" value="${targetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)">
+                            <span style="font-size:12px; font-weight:800; color:#475569">%</span>
+                        </div>
+                    </div>
+                    <div class="m-kpi-input-row">
+                        <span class="m-kpi-label">⚠️ KPI Lỗi Tối Đa:</span>
+                        <div>
+                            <input type="number" step="1" class="m-kpi-input kpi-m-err-input" data-period="month" data-val="${m.month}" value="${targetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="color:#b45309; border-color:#f59e0b;">
+                            <span style="font-size:12px; font-weight:800; color:#475569">đơn</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -418,8 +484,8 @@
         <!-- Card 1: Donut & Quarter Summary Table (Full Row Top Card) -->
         <div class="kpi-card">
             <div class="kpi-card-title">
-                <span>📊 Tổng Quan Tỉ Lệ & Phân Kỳ (${data.year})</span>
-                <span style="font-size:11px; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 8px; border-radius:6px;">Dữ liệu tự động từ Tra Soát</span>
+                <span>📊 Tổng Quan Tiến Độ & Thống Kê Đơn Lỗi Phân Kỳ (${data.year})</span>
+                <span style="font-size:11px; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 8px; border-radius:6px;">Dữ liệu tự động từ Tra Soát & Quản Lý Đơn Lỗi</span>
             </div>
             <div class="kpi-top-row">
                 <!-- Framed Donut Box -->
@@ -446,8 +512,13 @@
                                 <th style="color:#38bdf8;">Đúng Hẹn</th>
                                 <th style="color:#f87171;">Trễ Hẹn</th>
                                 <th style="color:#fca5a5;">% Trễ Hẹn</th>
-                                <th style="color:#c7d2fe;">KPI (%)</th>
-                                <th style="color:#ffffff;">Đánh giá</th>
+                                <th style="color:#c7d2fe;">KPI Trễ</th>
+                                <th style="color:#ffffff;">ĐG Trễ</th>
+                                <th style="color:#c084fc;">Lỗi Nội Bộ</th>
+                                <th style="color:#fca5a5;">Lỗi Khách</th>
+                                <th style="color:#fde047;">Tổng Lỗi</th>
+                                <th style="color:#fde047;">KPI Lỗi</th>
+                                <th style="color:#ffffff;">ĐG Lỗi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -462,13 +533,13 @@
         <!-- Card 2: Full-Width 12-Month Bar & Trend Line Chart with Interactive Line Toggles -->
         <div class="kpi-card" style="display:flex; flex-direction:column;">
             <div class="kpi-card-title">
-                <span>📈 Biểu Đồ Tiến Độ & Tỉ Lệ Chậm Đơn Hàng 12 Tháng (${data.year})</span>
+                <span>📈 Biểu Đồ Tiến Độ & Tỉ Lệ Chậm / Đơn Lỗi 12 Tháng (${data.year})</span>
                 <div style="font-size:12px; font-weight:700; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                     <span style="color:#10b981; font-weight:800;">■ Sớm</span>
                     <span style="color:#6366f1; font-weight:800;">■ Đúng</span>
                     <span style="color:#ef4444; font-weight:800;">■ Trễ</span>
                     <span style="color:#cbd5e1; font-weight:400; margin:0 2px;">|</span>
-                    <span style="color:#475569; font-weight:800;">Hiển thị Đường Line (%):</span>
+                    <span style="color:#475569; font-weight:800;">Hiển thị Đường Line (% / Đơn):</span>
 
                     <!-- Interactive Toggle Labels -->
                     <label style="cursor:pointer; display:inline-flex; align-items:center; gap:4px; background:${_kpiDelayState.lines.late ? '#fee2e2' : '#f1f5f9'}; color:${_kpiDelayState.lines.late ? '#dc2626' : '#64748b'}; padding:4px 9px; border-radius:7px; border:1.5px solid ${_kpiDelayState.lines.late ? '#fca5a5' : '#cbd5e1'}; font-weight:800; user-select:none; transition:all 0.2s;">
@@ -485,6 +556,11 @@
                         <input type="checkbox" ${_kpiDelayState.lines.early ? 'checked' : ''} onchange="window._kpiDelayToggleLine('early', this.checked)" style="cursor:pointer; accent-color:#15803d;">
                         ━ 🟢 Sớm (%)
                     </label>
+
+                    <label style="cursor:pointer; display:inline-flex; align-items:center; gap:4px; background:${_kpiDelayState.lines.errors ? '#fff7ed' : '#f1f5f9'}; color:${_kpiDelayState.lines.errors ? '#c2410c' : '#64748b'}; padding:4px 9px; border-radius:7px; border:1.5px solid ${_kpiDelayState.lines.errors ? '#fdba74' : '#cbd5e1'}; font-weight:800; user-select:none; transition:all 0.2s;">
+                        <input type="checkbox" ${_kpiDelayState.lines.errors ? 'checked' : ''} onchange="window._kpiDelayToggleLine('errors', this.checked)" style="cursor:pointer; accent-color:#c2410c;">
+                        ━ ⚠️ Tổng Lỗi (đơn)
+                    </label>
                 </div>
             </div>
 
@@ -498,9 +574,9 @@
         <div class="kpi-card kpi-monthly-section">
             <div class="kpi-card-title">
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <span>🗓️ Chi Tiết Dữ Liệu Tra Soát & Cấu Hình KPI Mục Tiêu 12 Tháng</span>
+                    <span>🗓️ Chi Tiết Dữ Liệu Tra Soát & Chỉ Số KPI 12 Tháng</span>
                 </div>
-                <span style="font-size:11.5px; font-weight:700; color:#4338ca; background:#faf5ff; border:1px solid #e9d5ff; padding:4px 10px; border-radius:8px;">⚡ Tự động lưu tức thì khi gõ % mới</span>
+                <span style="font-size:11.5px; font-weight:700; color:#4338ca; background:#faf5ff; border:1px solid #e9d5ff; padding:4px 10px; border-radius:8px;">⚡ Tự động lưu tức thì khi nhập chỉ số KPI mới</span>
             </div>
             <div class="kpi-monthly-grid">
                 ${monthlyCardsHtml}
@@ -577,7 +653,6 @@
         const canvas = document.getElementById('kpiMonthlyBarCanvas');
         if (!canvas) return;
 
-        // Dynamic 100% full width resize based on parent container
         const parentWidth = canvas.parentElement ? canvas.parentElement.getBoundingClientRect().width : 1100;
         canvas.width = parentWidth || 1100;
         canvas.height = 350;
@@ -590,7 +665,6 @@
 
         ctx.clearRect(0, 0, W, H);
 
-        // Find max orders for Y-axis
         const maxOrders = Math.max(...months.map(m => m.total), 10);
         const yMax = Math.ceil(maxOrders * 1.25);
 
@@ -612,13 +686,15 @@
             ctx.fillText(val, padL - 10, y + 4);
         }
 
-        // Draw Bars & Record Trend Points for all 12 Months
         const colGap = chartW / 12;
         const barW = Math.min(colGap - 14, 40);
 
         const pointsLate = [];
         const pointsOnTime = [];
         const pointsEarly = [];
+        const pointsErrors = [];
+
+        const maxErrVal = Math.max(...months.map(m => m.total_errors), 5);
 
         months.forEach((m, idx) => {
             const cx = padL + colGap * idx + colGap / 2;
@@ -626,7 +702,6 @@
             const isCur = viewYear === curRealYear && m.month === curRealMonth;
 
             if (m.total > 0) {
-                // Stacked Rounded Bar Columns
                 const hEarly = (m.early / yMax) * chartH;
                 const yEarly = padT + chartH - hEarly;
 
@@ -636,7 +711,6 @@
                 const hLate = (m.late / yMax) * chartH;
                 const yLate = yOnTime - hLate;
 
-                // Total Bar Height
                 const hTotal = hEarly + hOnTime + hLate;
                 const yTop = padT + chartH - hTotal;
 
@@ -653,20 +727,17 @@
                     drawRoundedRect(ctx, x, yLate, barW, hLate, 5);
                 }
 
-                // Draw total count label on top of bar
                 ctx.fillStyle = '#0f172a';
                 ctx.font = '900 12px "Plus Jakarta Sans", "Inter", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(m.total, cx, yTop - 8);
             }
 
-            // Draw Month Label (X-axis) - Gold star ⭐ for current month label
             ctx.fillStyle = isCur ? '#d97706' : '#475569';
             ctx.font = isCur ? '900 13px "Plus Jakarta Sans", "Inter", sans-serif' : '700 12px "Plus Jakarta Sans", "Inter", sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText(`T${m.month}${isCur ? ' ⭐' : ''}`, cx, H - 12);
 
-            // Record trend points for 3 percentage lines
             const yLatePct = padT + chartH - (m.delay_pct / 100) * chartH;
             pointsLate.push({ x: cx, y: yLatePct, pct: m.delay_pct, isCur });
 
@@ -675,6 +746,9 @@
 
             const yEarlyPct = padT + chartH - (m.early_pct / 100) * chartH;
             pointsEarly.push({ x: cx, y: yEarlyPct, pct: m.early_pct, isCur });
+
+            const yErrVal = padT + chartH - (m.total_errors / (maxErrVal * 1.25)) * chartH;
+            pointsErrors.push({ x: cx, y: yErrVal, val: m.total_errors, isCur });
         });
 
         // Draw Right Y-Axis Labels (%)
@@ -682,13 +756,13 @@
         ctx.font = '700 11px "Plus Jakarta Sans", "Inter", sans-serif';
         ctx.textAlign = 'left';
         for (let i = 0; i <= 4; i++) {
-            const val = i * 25; // 0%, 25%, 50%, 75%, 100%
+            const val = i * 25;
             const y = padT + chartH - (i / 4) * chartH;
             ctx.fillText(val + '%', W - padR + 8, y + 4);
         }
 
-        // Helper Function to Render A Smooth Curved Trend Line + Dots + Percentage Pills
-        function renderSingleTrendLine(pts, lineColor, dotBorderColor, pillBg, pillBorder, pillTextColor) {
+        // Helper Function to Render Trend Lines
+        function renderSingleTrendLine(pts, lineColor, dotBorderColor, pillBg, pillBorder, pillTextColor, isValMode) {
             if (!pts || pts.length === 0) return;
 
             ctx.beginPath();
@@ -697,7 +771,6 @@
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
 
-            // Draw smooth bezier curve between points
             ctx.moveTo(pts[0].x, pts[0].y);
             for (let i = 0; i < pts.length - 1; i++) {
                 const xc = (pts[i].x + pts[i + 1].x) / 2;
@@ -707,8 +780,8 @@
             ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
             ctx.stroke();
 
-            // Draw Dots & Pill Badges
             pts.forEach(p => {
+                const displayVal = isValMode ? p.val : p.pct;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
                 ctx.fillStyle = p.isCur ? '#f59e0b' : '#ffffff';
@@ -717,8 +790,8 @@
                 ctx.strokeStyle = dotBorderColor;
                 ctx.stroke();
 
-                if (p.pct > 0) {
-                    const txt = p.pct + '%';
+                if (displayVal > 0) {
+                    const txt = isValMode ? (displayVal + ' lỗi') : (displayVal + '%');
                     ctx.font = '800 10.5px "Plus Jakarta Sans", "Inter", sans-serif';
                     const txtW = ctx.measureText(txt).width;
 
@@ -743,41 +816,20 @@
             });
         }
 
-        // Render Toggled Lines in Logical Order
-        // 1. Tỉ lệ Gửi Sớm (🟢 Green Line)
         if (_kpiDelayState.lines.early) {
-            renderSingleTrendLine(
-                pointsEarly,
-                '#059669', // line
-                '#059669', // dot
-                'rgba(240, 253, 244, 0.95)', // pill bg
-                '#86efac', // pill border
-                '#15803d'  // pill text
-            );
+            renderSingleTrendLine(pointsEarly, '#059669', '#059669', 'rgba(240, 253, 244, 0.95)', '#86efac', '#15803d', false);
         }
 
-        // 2. Tỉ lệ Đúng Hẹn (🔵 Blue Line)
         if (_kpiDelayState.lines.on_time) {
-            renderSingleTrendLine(
-                pointsOnTime,
-                '#4338ca', // line
-                '#4338ca', // dot
-                'rgba(238, 242, 255, 0.95)', // pill bg
-                '#a5b4fc', // pill border
-                '#3730a3'  // pill text
-            );
+            renderSingleTrendLine(pointsOnTime, '#4338ca', '#4338ca', 'rgba(238, 242, 255, 0.95)', '#a5b4fc', '#3730a3', false);
         }
 
-        // 3. Tỉ lệ Trễ Hẹn (🔴 Red Line)
         if (_kpiDelayState.lines.late) {
-            renderSingleTrendLine(
-                pointsLate,
-                '#dc2626', // line
-                '#dc2626', // dot
-                'rgba(254, 242, 242, 0.95)', // pill bg
-                '#fca5a5', // pill border
-                '#b91c1c'  // pill text
-            );
+            renderSingleTrendLine(pointsLate, '#dc2626', '#dc2626', 'rgba(254, 242, 242, 0.95)', '#fca5a5', '#b91c1c', false);
+        }
+
+        if (_kpiDelayState.lines.errors) {
+            renderSingleTrendLine(pointsErrors, '#ea580c', '#c2410c', 'rgba(255, 247, 237, 0.95)', '#fdba74', '#9a3412', true);
         }
     }
 
@@ -803,7 +855,6 @@
         renderKpitilechamdonPage(container);
     };
 
-    // Dynamic Realtime Badge Update when typing
     window._kpiDelayUpdateBadgeRealtime = function (inputEl) {
         if (!inputEl || !_kpiDelayState.data) return;
         const now = typeof vnNow === 'function' ? vnNow() : new Date();
@@ -812,28 +863,19 @@
 
         const pType = inputEl.dataset.period;
         const pVal = parseInt(inputEl.dataset.val, 10);
-        const targetPct = parseFloat(inputEl.value) || 0;
 
-        if (pType === 'month') {
-            const mData = _kpiDelayState.data.months.find(m => m.month === pVal);
-            if (mData) {
-                const isFutureMonth = (_kpiDelayState.year > realCurrentYear) || (_kpiDelayState.year === realCurrentYear && pVal > realCurrentMonth);
-                const wrap = document.getElementById(`mBadgeWrap_${pVal}`);
-                if (wrap) {
-                    if (isFutureMonth && mData.total === 0) {
-                        wrap.innerHTML = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
-                    } else {
-                        const isPass = mData.delay_pct <= targetPct;
-                        wrap.innerHTML = `<span class="badge-status ${isPass ? 'badge-success' : 'badge-danger'}">${isPass ? '🔥 Đạt KPI' : '🚨 Không Đạt'}</span>`;
-                    }
-                }
-            }
-        } else if (pType === 'quarter') {
+        if (pType === 'quarter') {
             const qData = _kpiDelayState.data.quarters.find(q => q.quarter === pVal);
             if (qData) {
+                const qIptDelay = document.querySelector(`.kpi-q-input[data-period="quarter"][data-val="${pVal}"]`);
+                const qIptErr = document.querySelector(`.kpi-q-err-input[data-period="quarter"][data-val="${pVal}"]`);
+                const targetPct = qIptDelay ? (parseFloat(qIptDelay.value) || 0) : 5.0;
+                const targetErr = qIptErr ? (parseInt(qIptErr.value, 10) || 0) : 0;
+
                 const quarterMonths = { 1: [1, 3], 2: [4, 6], 3: [7, 9], 4: [10, 12] };
                 const [startM] = quarterMonths[pVal];
                 const isFutureQ = (_kpiDelayState.year > realCurrentYear) || (_kpiDelayState.year === realCurrentYear && startM > realCurrentMonth);
+
                 const wrap = document.getElementById(`qBadgeWrap_${pVal}`);
                 if (wrap) {
                     if (isFutureQ && qData.total === 0) {
@@ -843,11 +885,29 @@
                         wrap.innerHTML = `<span class="badge-status ${isPass ? 'badge-success' : 'badge-danger'}">${isPass ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
                     }
                 }
+
+                const wrapErr = document.getElementById(`qBadgeErrWrap_${pVal}`);
+                if (wrapErr) {
+                    if (isFutureQ && qData.total === 0) {
+                        wrapErr.innerHTML = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+                    } else if (targetErr > 0) {
+                        const isPassErr = qData.total_errors <= targetErr;
+                        wrapErr.innerHTML = `<span class="badge-status ${isPassErr ? 'badge-success' : 'badge-danger'}">${isPassErr ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+                    } else {
+                        wrapErr.innerHTML = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
+                    }
+                }
             }
         } else if (pType === 'year') {
             const yData = _kpiDelayState.data.fullYear;
             if (yData) {
+                const yIptDelay = document.querySelector(`.kpi-q-input[data-period="year"][data-val="0"]`);
+                const yIptErr = document.querySelector(`.kpi-q-err-input[data-period="year"][data-val="0"]`);
+                const targetPct = yIptDelay ? (parseFloat(yIptDelay.value) || 0) : 5.0;
+                const targetErr = yIptErr ? (parseInt(yIptErr.value, 10) || 0) : 0;
+
                 const isFutureYear = (_kpiDelayState.year > realCurrentYear) && yData.total === 0;
+
                 const wrap = document.getElementById(`yBadgeWrap_0`);
                 if (wrap) {
                     if (isFutureYear) {
@@ -857,19 +917,26 @@
                         wrap.innerHTML = `<span class="badge-status ${isPass ? 'badge-success' : 'badge-danger'}">${isPass ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
                     }
                 }
+
+                const wrapErr = document.getElementById(`yBadgeErrWrap_0`);
+                if (wrapErr) {
+                    if (isFutureYear) {
+                        wrapErr.innerHTML = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+                    } else if (targetErr > 0) {
+                        const isPassErr = yData.total_errors <= targetErr;
+                        wrapErr.innerHTML = `<span class="badge-status ${isPassErr ? 'badge-success' : 'badge-danger'}">${isPassErr ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+                    } else {
+                        wrapErr.innerHTML = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
+                    }
+                }
             }
         }
     };
 
-    // Auto-save a single target field immediately when changed
     window._kpiDelayAutoSaveSingle = async function (inputEl) {
         if (!inputEl) return;
-
-        // Flash green border to give instant visual feedback
         inputEl.classList.add('saved-flash');
         setTimeout(() => inputEl.classList.remove('saved-flash'), 1200);
-
-        // Run full target save in background
         await window._kpiDelaySaveTargets(true);
     };
 
@@ -877,31 +944,43 @@
         const year = _kpiDelayState.year;
         const segment = _kpiDelayState.segment;
 
-        const targets = [];
+        const targetsMap = {};
 
         // Collect quarterly & yearly inputs
         document.querySelectorAll('.kpi-q-input').forEach(ipt => {
             const pType = ipt.dataset.period;
             const pVal = parseInt(ipt.dataset.val, 10);
-            const pPct = parseFloat(ipt.value) || 0;
-            targets.push({
-                period_type: pType,
-                period_value: pVal,
-                target_max_delay_pct: pPct
-            });
+            const key = `${pType}_${pVal}`;
+            if (!targetsMap[key]) targetsMap[key] = { period_type: pType, period_value: pVal };
+            targetsMap[key].target_max_delay_pct = parseFloat(ipt.value) || 0;
+        });
+
+        document.querySelectorAll('.kpi-q-err-input').forEach(ipt => {
+            const pType = ipt.dataset.period;
+            const pVal = parseInt(ipt.dataset.val, 10);
+            const key = `${pType}_${pVal}`;
+            if (!targetsMap[key]) targetsMap[key] = { period_type: pType, period_value: pVal };
+            targetsMap[key].target_max_total_errors = parseInt(ipt.value, 10) || 0;
         });
 
         // Collect monthly inputs
         document.querySelectorAll('.kpi-m-input').forEach(ipt => {
             const pType = ipt.dataset.period;
             const pVal = parseInt(ipt.dataset.val, 10);
-            const pPct = parseFloat(ipt.value) || 0;
-            targets.push({
-                period_type: pType,
-                period_value: pVal,
-                target_max_delay_pct: pPct
-            });
+            const key = `${pType}_${pVal}`;
+            if (!targetsMap[key]) targetsMap[key] = { period_type: pType, period_value: pVal };
+            targetsMap[key].target_max_delay_pct = parseFloat(ipt.value) || 0;
         });
+
+        document.querySelectorAll('.kpi-m-err-input').forEach(ipt => {
+            const pType = ipt.dataset.period;
+            const pVal = parseInt(ipt.dataset.val, 10);
+            const key = `${pType}_${pVal}`;
+            if (!targetsMap[key]) targetsMap[key] = { period_type: pType, period_value: pVal };
+            targetsMap[key].target_max_total_errors = parseInt(ipt.value, 10) || 0;
+        });
+
+        const targets = Object.values(targetsMap);
 
         try {
             const res = await fetch('/api/kpi-delay/targets', {
@@ -914,9 +993,9 @@
             if (data.ok) {
                 if (!isSilent) {
                     if (typeof showToast === 'function') {
-                        showToast('✅ Đã lưu KPI Mục Tiêu Tỉ Lệ Chậm Đơn thành công!', 'success');
+                        showToast('✅ Đã lưu KPI Mục Tiêu Tỉ Lệ Chậm Đơn & Chỉ Tiêu Lỗi thành công!', 'success');
                     } else {
-                        alert('✅ Đã lưu KPI Mục Tiêu Tỉ Lệ Chậm Đơn thành công!');
+                        alert('✅ Đã lưu KPI Mục Tiêu Tỉ Lệ Chậm Đơn & Chỉ Tiêu Lỗi thành công!');
                     }
                 }
             } else {
@@ -930,3 +1009,4 @@
 
     window.renderKpitilechamdonPage = renderKpitilechamdonPage;
 })();
+
