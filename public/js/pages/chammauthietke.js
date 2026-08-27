@@ -910,9 +910,10 @@
     window._cmtkOpenSortMaterialsModal = function () {
         const modal = ensureSortMaterialsModalInDOM();
         const container = document.getElementById('cmtkSortMatListContainer');
-        const allMaterials = fabricsData.materials || [];
+        // Sắp xếp danh sách chất liệu theo STT tùy chỉnh đã lưu trước khi hiển thị trong Modal
+        const sortedMaterials = [...(fabricsData.materials || [])].sort((a, b) => getMatSTT(a, 0) - getMatSTT(b, 0));
         
-        container.innerHTML = allMaterials.map((m, idx) => {
+        container.innerHTML = sortedMaterials.map((m, idx) => {
             const currentSTT = getMatSTT(m, idx);
             return `
                 <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; gap:12px;">
