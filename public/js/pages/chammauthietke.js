@@ -332,13 +332,15 @@
             <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 14px 22px; border-radius: 18px; border: 1.5px solid #e9d5ff; margin-bottom: 22px; box-shadow: 0 4px 14px rgba(109,40,217,0.04); flex-wrap: wrap; gap: 12px;">
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <span style="font-size: 13.5px; font-weight: 900; color: #4c1d95; margin-right: 4px;">🏢 Bộ phận / Loại:</span>
-                    <button type="button" class="cmtk-dept-pill ${activeCategoryFilter === 'all' ? 'active' : ''}" onclick="window._cmtkSetCategoryFilter('all')">
+                    <button type="button" class="cmtk-dept-pill ${activeCategoryFilter === 'all' ? 'active' : ''}" data-dept="all" onclick="window._cmtkSetCategoryFilter('all')">
                         🌐 Tất Cả (${maketList.length})
                     </button>
                     ${depts.map(dept => {
                         const count = maketList.filter(m => (m.departments || []).includes(dept) || m.category === dept).length;
+                        const safeDept = dept.replace(/'/g, "\\'");
+                        const attrDept = dept.replace(/"/g, '&quot;');
                         return `
-                            <button type="button" class="cmtk-dept-pill ${activeCategoryFilter === dept ? 'active' : ''}" onclick="window._cmtkSetCategoryFilter('${dept.replace(/'/g, "\\'")}')">
+                            <button type="button" class="cmtk-dept-pill ${activeCategoryFilter === dept ? 'active' : ''}" data-dept="${attrDept}" onclick="window._cmtkSetCategoryFilter('${safeDept}')">
                                 📋 ${dept} (${count})
                             </button>
                         `;
@@ -373,6 +375,17 @@
 
     window._cmtkSetCategoryFilter = function(dept) {
         activeCategoryFilter = dept;
+        
+        // Cập nhật trạng thái active cho tất cả các button bộ phận / loại
+        document.querySelectorAll('.cmtk-dept-pill').forEach(btn => {
+            const bDept = btn.getAttribute('data-dept');
+            if (bDept === String(dept)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
         const grid = document.getElementById('cmtkCardGridContainer');
         if (grid) grid.innerHTML = _cmtkRenderMaketCardsHTML();
         else renderCurrentMainTab();
@@ -1356,29 +1369,39 @@
                     color: #ffffff !important;
                 }
 
-                /* Department Pills */
+                /* Department / Category Pills (Matched Image 4 100%) */
                 .cmtk-dept-pill {
                     border: 1.5px solid #e9d5ff;
                     background: #ffffff;
                     color: #6d28d9;
                     font-weight: 800;
-                    font-size: 12.5px;
-                    padding: 7px 14px;
-                    border-radius: 14px;
+                    font-size: 13px;
+                    padding: 8px 18px;
+                    border-radius: 9999px;
                     cursor: pointer;
-                    transition: all 0.2s ease;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    box-shadow: 0 2px 8px rgba(109, 40, 217, 0.04);
+                    user-select: none;
                 }
 
                 .cmtk-dept-pill:hover {
-                    border-color: #7c3aed;
-                    background: #faf5ff;
+                    border-color: #a855f7;
+                    background: #f3e8ff;
+                    color: #6d28d9;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 14px rgba(109, 40, 217, 0.12);
                 }
 
                 .cmtk-dept-pill.active {
-                    background: #7c3aed;
-                    color: #ffffff;
-                    border-color: #7c3aed;
-                    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+                    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+                    color: #ffffff !important;
+                    border-color: #6d28d9 !important;
+                    box-shadow: 0 6px 18px rgba(124, 58, 237, 0.45), 0 2px 6px rgba(109, 40, 217, 0.3) !important;
+                    font-weight: 900 !important;
+                    transform: translateY(-1px);
                 }
 
                 /* Card Grid & Items */
