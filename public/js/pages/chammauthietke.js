@@ -508,8 +508,8 @@
                                     ${item.title || 'Mẫu Maket'}
                                 </h3>
 
-                                <!-- Description / Notes Text Snippet (Matched Image 3) -->
-                                <div style="font-size: 13px; font-weight: 600; color: #475569; line-height: 1.6; margin-bottom: 16px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; flex: 1;">
+                                <!-- Description / Notes Full Text -->
+                                <div style="font-size: 13px; font-weight: 600; color: #475569; line-height: 1.65; margin-bottom: 16px; white-space: pre-line; word-break: break-word; flex: 1;">
                                     ${item.notes || item.detailGuide || 'Chưa có mô tả tóm tắt.'}
                                 </div>
 
