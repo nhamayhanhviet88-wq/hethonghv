@@ -739,31 +739,47 @@
                 </div>
 
                 <!-- Commitments Box Section -->
-                <div style="margin-top:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-                        <span style="font-size:11px; font-weight:900; color:#1e293b;">📋 Cam Kết Quản Lý Xưởng (${commitments.length})</span>
+                <div style="margin-top:10px; background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%); border:1.5px solid #e2e8f0; border-radius:12px; padding:10px 12px; box-shadow:0 2px 8px rgba(15,23,42,0.03);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                        <span style="font-size:11.5px; font-weight:900; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                            📋 Cam Kết Quản Lý Xưởng <span style="background:#e0e7ff; color:#4338ca; font-size:10px; padding:1px 6px; border-radius:99px; font-weight:900;">${commitments.length}</span>
+                        </span>
                         ${(isDirector && status !== 'completed') ? `
-                            <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:800; color:#4338ca; background:none; border:none; cursor:pointer; text-decoration:underline;">Sửa Cam Kết</button>
+                            <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:800; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:2px 8px; border-radius:6px; cursor:pointer;" title="Chỉnh sửa danh sách cam kết">✏️ Sửa Cam Kết</button>
                         ` : ''}
                     </div>
 
                     ${commitments.length > 0 ? `
-                        <ul style="margin:0; padding-left:16px; font-size:11px; font-weight:600; color:#334155; line-height:1.4;">
+                        <div style="display:flex; flex-direction:column; gap:6px;">
                             ${commitments.map((c, idx) => {
                                 const ev = commitmentEvals[idx];
-                                let evBadge = '';
+                                let badgeHtml = '<span style="font-size:10px; font-weight:800; color:#94a3b8; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #e2e8f0; white-space:nowrap;">⏳ Chưa đánh giá</span>';
+                                let rowBorder = 'border-left:3px solid #cbd5e1;';
                                 if (ev) {
-                                    evBadge = ev.passed ? '<span style="color:#16a34a; font-weight:800; font-size:10px; margin-left:4px;">[✅ Đạt' + (ev.note ? ': ' + ev.note : '') + ']</span>' : '<span style="color:#dc2626; font-weight:800; font-size:10px; margin-left:4px;">[❌ Chưa đạt' + (ev.note ? ': ' + ev.note : '') + ']</span>';
+                                    if (ev.passed) {
+                                        badgeHtml = `<span style="font-size:10px; font-weight:900; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:6px; border:1px solid #86efac; white-space:nowrap; box-shadow:0 1px 3px rgba(21,128,61,0.1);">✅ ĐẠT ${ev.note ? `<span style="color:#166534; font-weight:700;">(${ev.note})</span>` : ''}</span>`;
+                                        rowBorder = 'border-left:3px solid #22c55e; background:#f0fdf4;';
+                                    } else {
+                                        badgeHtml = `<span style="font-size:10px; font-weight:900; color:#b91c1c; background:#fee2e2; padding:2px 8px; border-radius:6px; border:1px solid #fca5a5; white-space:nowrap; box-shadow:0 1px 3px rgba(185,28,28,0.1);">❌ CHƯA ĐẠT ${ev.note ? `<span style="color:#991b1b; font-weight:700;">(${ev.note})</span>` : ''}</span>`;
+                                        rowBorder = 'border-left:3px solid #ef4444; background:#fef2f2;';
+                                    }
                                 }
-                                return `<li style="margin-bottom:3px;">${c} ${evBadge}</li>`;
+                                return `
+                                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:6px; ${rowBorder} font-size:11px; line-height:1.35;">
+                                    <div style="font-weight:700; color:#1e293b; flex:1;">
+                                        <span style="color:#64748b; font-weight:800;">${idx + 1}.</span> ${c}
+                                    </div>
+                                    <div>${badgeHtml}</div>
+                                </div>
+                                `;
                             }).join('')}
-                        </ul>
-                    ` : `<div style="font-size:10.5px; font-style:italic; color:#94a3b8;">Chưa lập điều cam kết.</div>`}
+                        </div>
+                    ` : `<div style="font-size:10.5px; font-style:italic; color:#94a3b8; text-align:center; padding:6px 0;">Chưa lập điều cam kết.</div>`}
 
                     ${(status === 'completed' || status === 'evaluating') && commitments.length > 0 ? `
-                        <div style="margin-top:6px; padding-top:6px; border-top:1px dashed #cbd5e1; font-size:11px; font-weight:800; color:#4338ca; display:flex; justify-content:space-between;">
-                            <span>📊 Hoàn thành cam kết: ${completionPct}%</span>
-                            <span>(${commitmentEvals.filter(e => e.passed).length}/${commitments.length} điều)</span>
+                        <div style="margin-top:8px; padding-top:6px; border-top:1px dashed #cbd5e1; font-size:11px; font-weight:900; color:#4338ca; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="display:flex; align-items:center; gap:4px;">📊 Hoàn thành cam kết: <b style="color:#1e1b4b; font-size:11.5px;">${completionPct}%</b></span>
+                            <span style="background:#e0e7ff; color:#3730a3; padding:2px 7px; border-radius:99px; font-size:10px;">(${commitmentEvals.filter(e => e.passed).length}/${commitments.length} điều đạt)</span>
                         </div>
                     ` : ''}
                 </div>
