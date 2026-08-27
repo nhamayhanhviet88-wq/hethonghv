@@ -503,11 +503,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Customer / School Subtitle -->
-                                <div style="font-size: 12px; font-weight: 900; color: #7c3aed; text-transform: uppercase; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
-                                    🏢 ${item.customerName || 'Khách Hàng / Trường Học'}
-                                </div>
-
                                 <!-- Main Title (Bold & Clean) -->
                                 <h3 class="card-title" style="font-size: 16.5px; font-weight: 900; color: #0f172a; margin: 0 0 10px 0; line-height: 1.4; letter-spacing: -0.2px;">
                                     ${item.title || 'Mẫu Maket'}
@@ -523,9 +518,9 @@
                                     <button type="button" onclick="window._cmtkOpenDetailModal('${item.id}')" style="flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; font-weight: 850; font-size: 12px; white-space: nowrap; background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(109,40,217,0.25); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
                                         📋 Xem Chi Tiết ➔
                                     </button>
-                                    ${item.docUrl ? `
-                                        <a href="${item.docUrl}" target="_blank" rel="noopener" style="flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; font-weight: 850; font-size: 12px; white-space: nowrap; background: linear-gradient(135deg, #059669, #10b981); color: #ffffff; text-decoration: none; cursor: pointer; box-shadow: 0 4px 12px rgba(16,185,129,0.25); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                                            🔗 Mở Tài Liệu ↗
+                                    ${(item.pdfUrl || item.docUrl) ? `
+                                        <a href="${item.pdfUrl || item.docUrl}" download="${item.pdfName || 'file_dinh_kem.pdf'}" target="_blank" rel="noopener" style="flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; font-weight: 850; font-size: 12px; white-space: nowrap; background: linear-gradient(135deg, #059669, #10b981); color: #ffffff; text-decoration: none; cursor: pointer; box-shadow: 0 4px 12px rgba(16,185,129,0.25); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                                            📄 Tải File PDF ↗
                                         </a>
                                     ` : ''}
                                 </div>
@@ -769,30 +764,33 @@
                             </div>
 
                             <div class="qtns-form-group">
-                                <label style="color:#5b21b6; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">🏢 Tên Khách Hàng / Trường Học / Công Ty (*):</label>
-                                <input type="text" id="cmtkFormCustomer" placeholder="Ví dụ: Công ty Đồng Phục HV / THPT Chu Văn An..." required style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:11px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none; background:#ffffff;">
-                            </div>
-
-                            <div class="qtns-form-group">
                                 <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📝 Mô tả / Ghi chú (tự động xuống dòng):</label>
                                 <textarea id="cmtkFormNotes" rows="3" placeholder="Mô tả tóm tắt nội dung quy trình hoặc cẩm nang hướng dẫn mẫu thiết kế..." style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:600; color:#0f172a; font-family:inherit; outline:none; resize:vertical; background:#ffffff;"></textarea>
                             </div>
 
                             <div class="qtns-form-group">
-                                <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">Đường link URL tài liệu (Google Sheets / Word / Canva / Link ngoài):</label>
-                                <input type="url" id="cmtkFormDocUrl" placeholder="https://docs.google.com/... hoặc link Canva / Drive" style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:11px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none; background:#ffffff;">
-                            </div>
-
-                            <div class="qtns-form-group">
-                                <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">🖼️ Hình Ảnh Minh Họa / Sơ Đồ / Mẫu (Không bắt buộc):</label>
+                                <label style="color:#be185d; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">🖼️ Hình Ảnh Minh Họa / Sơ Đồ / Mẫu (* BẮT BUỘC CÓ ÁNH):</label>
                                 <input type="file" id="cmtkFormImageFile" accept="image/*" style="display:none;" onchange="window._cmtkOnMaketImageSelected(this)">
-                                <button type="button" onclick="document.getElementById('cmtkFormImageFile').click()" style="border:1.5px dashed #a855f7; background:#faf5ff; color:#6b21a8; padding:11px 16px; border-radius:14px; font-weight:850; cursor:pointer; width:100%; text-align:center; font-size:13.5px;">
-                                    📷 Chọn Hình Ảnh Từ Máy Tính
+                                <button type="button" onclick="document.getElementById('cmtkFormImageFile').click()" style="border:1.5px dashed #a855f7; background:#faf5ff; color:#6b21a8; padding:11px 16px; border-radius:14px; font-weight:850; cursor:pointer; width:100%; text-align:center; font-size:13.5px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                                    📷 Chọn Hình Ảnh Từ Máy Tính (*.jpg, *.png)
                                 </button>
                                 <input type="hidden" id="cmtkFormImageUrl" value="">
                                 <input type="hidden" id="cmtkFormOriginalImageUrl" value="">
                                 <div id="cmtkFormImagePreviewBox" style="display:none; margin-top:8px; text-align:center; border:1.5px solid #e9d5ff; border-radius:14px; padding:10px; background:#ffffff;">
                                     <img id="cmtkFormImagePreviewImg" src="" style="max-height:160px; max-width:100%; border-radius:8px; object-fit:contain;">
+                                </div>
+                            </div>
+
+                            <div class="qtns-form-group">
+                                <label style="color:#047857; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📄 File Đính Kèm Chi Tiết / Vector (* BẮT BUỘC CHỌN FILE PDF):</label>
+                                <input type="file" id="cmtkFormPdfFile" accept="application/pdf" style="display:none;" onchange="window._cmtkOnMaketPdfSelected(this)">
+                                <button type="button" onclick="document.getElementById('cmtkFormPdfFile').click()" style="border:1.5px dashed #059669; background:#ecfdf5; color:#047857; padding:11px 16px; border-radius:14px; font-weight:850; cursor:pointer; width:100%; text-align:center; font-size:13.5px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                                    📄 Chọn File PDF Từ Máy Tính (*.pdf)
+                                </button>
+                                <input type="hidden" id="cmtkFormPdfUrl" value="">
+                                <input type="hidden" id="cmtkFormPdfName" value="">
+                                <div id="cmtkFormPdfPreviewBox" style="display:none; margin-top:8px; border:1.5px solid #a7f3d0; border-radius:14px; padding:10px 14px; background:#f0fdf4; color:#065f46; font-size:13px; font-weight:800;">
+                                    <span id="cmtkFormPdfFileName">📄 Chưa chọn file PDF</span>
                                 </div>
                             </div>
                         </div>
@@ -806,7 +804,7 @@
 
                         <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:12px; border-top:1.5px solid #e2e8f0; padding-top:16px;">
                             <button type="button" onclick="window._cmtkCloseMaketModal()" style="padding:10px 22px; border-radius:12px; font-weight:800; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155; cursor:pointer;">Hủy Bỏ</button>
-                            <button type="submit" style="padding:10px 24px; border-radius:12px; font-weight:900; border:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; cursor:pointer; box-shadow:0 4px 14px rgba(109,40,217,0.35);">💾 Lưu Đường Link</button>
+                            <button type="submit" style="padding:10px 24px; border-radius:12px; font-weight:900; border:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; cursor:pointer; box-shadow:0 4px 14px rgba(109,40,217,0.35);">💾 Lưu Bản Maket</button>
                         </div>
                     </form>
                 </div>
@@ -855,19 +853,51 @@
         }
     };
 
+    window._cmtkOnMaketPdfSelected = async function (input) {
+        if (!input || !input.files || !input.files[0]) return;
+        const file = input.files[0];
+        if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+            showToast('❌ Chỉ chấp nhận file đính kèm định dạng PDF (*.pdf)!', 'error');
+            input.value = '';
+            return;
+        }
+        showToast('⏳ Đang đọc và tải file PDF...', 'info');
+        try {
+            const pdfDataUrl = await readFileAsDataURL(file);
+            const pdfUrlInput = document.getElementById('cmtkFormPdfUrl');
+            const pdfNameInput = document.getElementById('cmtkFormPdfName');
+            const previewBox = document.getElementById('cmtkFormPdfPreviewBox');
+            const previewName = document.getElementById('cmtkFormPdfFileName');
+
+            if (pdfUrlInput) pdfUrlInput.value = pdfDataUrl;
+            if (pdfNameInput) pdfNameInput.value = file.name;
+            if (previewName) previewName.innerText = `✅ File PDF đã chọn: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            if (previewBox) previewBox.style.display = 'block';
+
+            showToast('✅ Đã đính kèm file PDF thành công!');
+        } catch (e) {
+            console.error('[CMTK PDF Upload Error]', e);
+            showToast('❌ Lỗi tải file PDF: ' + e.message, 'error');
+        }
+    };
+
     window._cmtkOpenAddMaketModal = function () {
         const modal = ensureMaketModalInDOM();
         document.getElementById('cmtkMaketModalTitle').innerText = 'TẠO BẢN MAKET MỚI';
         document.getElementById('cmtkFormMaketId').value = '';
         document.getElementById('cmtkFormTitle').value = '';
-        document.getElementById('cmtkFormCustomer').value = '';
         document.getElementById('cmtkFormImageUrl').value = '';
         const origUrlInput = document.getElementById('cmtkFormOriginalImageUrl');
         if (origUrlInput) origUrlInput.value = '';
-        document.getElementById('cmtkFormDocUrl').value = '';
+        const pdfUrlInput = document.getElementById('cmtkFormPdfUrl');
+        if (pdfUrlInput) pdfUrlInput.value = '';
+        const pdfNameInput = document.getElementById('cmtkFormPdfName');
+        if (pdfNameInput) pdfNameInput.value = '';
         document.getElementById('cmtkFormNotes').value = '';
         document.getElementById('cmtkFormDetailGuide').value = '';
         document.getElementById('cmtkFormImagePreviewBox').style.display = 'none';
+        const pdfPreviewBox = document.getElementById('cmtkFormPdfPreviewBox');
+        if (pdfPreviewBox) pdfPreviewBox.style.display = 'none';
 
         const depts = getDepartments();
         const box = document.getElementById('cmtkDeptPillCheckboxes');
@@ -894,23 +924,31 @@
         const id = document.getElementById('cmtkFormMaketId').value || 'mkt_' + Date.now();
         const category = document.getElementById('cmtkFormCategory').value;
         const title = document.getElementById('cmtkFormTitle').value.trim();
-        const customerName = document.getElementById('cmtkFormCustomer').value.trim();
         const imageUrl = document.getElementById('cmtkFormImageUrl').value;
         const originalImageUrl = document.getElementById('cmtkFormOriginalImageUrl')?.value || imageUrl;
-        const docUrl = document.getElementById('cmtkFormDocUrl').value.trim();
+        const pdfUrl = document.getElementById('cmtkFormPdfUrl')?.value || '';
+        const pdfName = document.getElementById('cmtkFormPdfName')?.value || '';
         const notes = document.getElementById('cmtkFormNotes').value.trim();
         const detailGuide = document.getElementById('cmtkFormDetailGuide').value.trim();
 
         const checkedDepts = Array.from(document.querySelectorAll('input[name="cmtkDeptCheck"]:checked')).map(cb => cb.value);
 
-        if (!title || !customerName) {
-            showToast('⚠️ Vui lòng nhập tiêu đề và tên khách hàng!', 'error');
+        if (!title) {
+            showToast('⚠️ Vui lòng nhập tiêu đề mẫu Maket!', 'error');
+            return;
+        }
+        if (!imageUrl) {
+            showToast('⚠️ Bắt buộc phải có hình ảnh minh họa mới cho lưu!', 'error');
+            return;
+        }
+        if (!pdfUrl) {
+            showToast('⚠️ Bắt buộc phải chọn 1 file đính kèm dạng PDF (*.pdf)!', 'error');
             return;
         }
 
         const idx = maketList.findIndex(m => String(m.id) === String(id));
         const newItem = {
-            id, category, title, customerName, imageUrl, originalImageUrl, docUrl, notes, detailGuide,
+            id, category, title, imageUrl, originalImageUrl, pdfUrl, pdfName, notes, detailGuide,
             departments: checkedDepts.length > 0 ? checkedDepts : ['Chung'],
             createdAt: idx !== -1 ? maketList[idx].createdAt : new Date().toISOString()
         };
@@ -940,11 +978,13 @@
         document.getElementById('cmtkFormMaketId').value = item.id;
         document.getElementById('cmtkFormCategory').value = item.category || 'Kho Lưu Trữ Bản Maket';
         document.getElementById('cmtkFormTitle').value = item.title || '';
-        document.getElementById('cmtkFormCustomer').value = item.customerName || '';
         document.getElementById('cmtkFormImageUrl').value = item.imageUrl || '';
         const origUrlInput = document.getElementById('cmtkFormOriginalImageUrl');
         if (origUrlInput) origUrlInput.value = item.originalImageUrl || item.imageUrl || '';
-        document.getElementById('cmtkFormDocUrl').value = item.docUrl || '';
+        const pdfUrlInput = document.getElementById('cmtkFormPdfUrl');
+        if (pdfUrlInput) pdfUrlInput.value = item.pdfUrl || item.docUrl || '';
+        const pdfNameInput = document.getElementById('cmtkFormPdfName');
+        if (pdfNameInput) pdfNameInput.value = item.pdfName || 'file_dinh_kem.pdf';
         document.getElementById('cmtkFormNotes').value = item.notes || '';
         document.getElementById('cmtkFormDetailGuide').value = item.detailGuide || '';
 
@@ -955,6 +995,15 @@
             if (previewBox) previewBox.style.display = 'block';
         } else {
             if (previewBox) previewBox.style.display = 'none';
+        }
+
+        const pdfPreviewBox = document.getElementById('cmtkFormPdfPreviewBox');
+        const pdfFileName = document.getElementById('cmtkFormPdfFileName');
+        if (item.pdfUrl || item.docUrl) {
+            if (pdfFileName) pdfFileName.innerText = `✅ File PDF đã chọn: ${item.pdfName || 'file_dinh_kem.pdf'}`;
+            if (pdfPreviewBox) pdfPreviewBox.style.display = 'block';
+        } else {
+            if (pdfPreviewBox) pdfPreviewBox.style.display = 'none';
         }
 
         const depts = getDepartments();
@@ -1289,8 +1338,9 @@
         if (origUrl) {
             btnsHtml += `<a href="${origUrl}" download="maket_goc_${(item.title || 'thiet_ke').replace(/[^a-zA-Z0-9_\-]/g, '_')}.jpg" target="_blank" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; padding:10px 18px; border-radius:12px; font-weight:900; font-size:13px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(109,40,217,0.35);">⬇️ Tải Ảnh Nét Gốc</a>`;
         }
-        if (item.docUrl) {
-            btnsHtml += `<a href="${item.docUrl}" target="_blank" rel="noopener" style="background:linear-gradient(135deg, #059669, #10b981); color:#ffffff; padding:10px 18px; border-radius:12px; font-weight:900; font-size:13px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; margin-left:8px;">🔗 Mở File Gốc ↗</a>`;
+        const pdfFileUrl = item.pdfUrl || item.docUrl;
+        if (pdfFileUrl) {
+            btnsHtml += `<a href="${pdfFileUrl}" download="${item.pdfName || 'file_dinh_kem.pdf'}" target="_blank" rel="noopener" style="background:linear-gradient(135deg, #059669, #10b981); color:#ffffff; padding:10px 18px; border-radius:12px; font-weight:900; font-size:13px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; margin-left:8px;">📄 Tải File PDF ↗</a>`;
         }
         footerBtn.innerHTML = btnsHtml;
         modal.style.display = 'flex';
