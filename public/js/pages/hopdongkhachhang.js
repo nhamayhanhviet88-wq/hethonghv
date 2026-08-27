@@ -829,7 +829,10 @@
                                     <label style="color:#0284c7; font-weight:900; font-size:13.5px;">📋 QUY TRÌNH THỰC THI TỪNG BƯỚC:</label>
                                     <span style="font-size:11px; color:#64748b; font-weight:700;">(Xuống dòng tự động tạo Bước)</span>
                                 </div>
-                                <textarea id="hdkhFormSteps" rows="8" placeholder="Bước 1: Tiếp nhận thông tin pháp nhân khách hàng&#10;Bước 2: Soạn thảo hợp đồng..." style="width:100%; border:2px solid #bae6fd; border-radius:16px; padding:14px 18px; font-size:13.5px; font-weight:700; line-height:1.6; outline:none; resize:vertical; min-height:180px; color:#0369a1; font-family:inherit; background:#ffffff;"></textarea>
+                                <textarea id="hdkhFormSteps" rows="8" placeholder="Bước 1: Tiếp nhận thông tin pháp nhân khách hàng&#10;Bước 2: Soạn thảo hợp đồng..." style="width:100%; border:2px solid #bae6fd; border-radius:16px; padding:14px 18px; font-size:13.5px; font-weight:700; line-height:1.6; outline:none; resize:vertical; min-height:180px; color:#0369a1; font-family:inherit; background:#ffffff;"
+                                    onfocus="window._hdkhOnStepsFocus(this)"
+                                    onkeydown="window._hdkhOnStepsKeyDown(event, this)"
+                                    oninput="window._hdkhOnStepsInput(this)"></textarea>
                             </div>
 
                             <div style="border:1.5px dashed #38bdf8; background:#ffffff; border-radius:16px; padding:16px; margin-bottom:14px;">
@@ -1989,7 +1992,75 @@
             `;
             document.body.appendChild(modal);
         }
-        return modal;
-    }
+    window._hdkhOnStepsFocus = function (el) {
+        if (!el || el.value.trim()) return;
+        el.value = 'Bước 1: ';
+    };
+
+    window._hdkhOnStepsKeyDown = function (e, el) {
+        if (e.key === 'Enter') {
+            const cursorStart = el.selectionStart;
+            const text = el.value;
+            const textBefore = text.substring(0, cursorStart);
+            const lines = textBefore.split('\n');
+            const currentLine = lines[lines.length - 1];
+
+            const emptyStepMatch = currentLine.match(/^Bước\s*(\d+)[\:\.\s]*$/i);
+            if (emptyStepMatch) {
+                e.preventDefault();
+                const lastLineStart = cursorStart - currentLine.length;
+                el.value = text.substring(0, lastLineStart) + text.substring(cursorStart);
+                el.selectionStart = el.selectionEnd = lastLineStart;
+                return;
+            }
+
+            const allLines = text.split('\n');
+            let maxStepNum = 0;
+            allLines.forEach(l => {
+                const m = l.match(/^Bước\s*(\d+)/i);
+                if (m) {
+                    const num = parseInt(m[1], 10);
+                    if (num > maxStepNum) maxStepNum = num;
+                }
+            });
+
+            e.preventDefault();
+            const nextNum = maxStepNum > 0 ? maxStepNum + 1 : (lines.length + 1);
+            const prefix = `\nBước ${nextNum}: `;
+            el.value = text.substring(0, cursorStart) + prefix + text.substring(cursorStart);
+            el.selectionStart = el.selectionEnd = cursorStart + prefix.length;
+        }
+    };
+
+    window._hdkhOnStepsInput = function (el) {
+        if (!el || !el.value.trim()) return;
+        const cursor = el.selectionStart;
+        const lines = el.value.split('\n');
+        let stepCount = 1;
+        let modified = false;
+
+        const formatted = lines.map((line, idx) => {
+            if (!line.trim() && idx === lines.length - 1) return line;
+            if (!line.trim()) return line;
+
+            const stepMatch = line.match(/^Bước\s*(\d+)[\:\.\s]*(.*)/i);
+            if (stepMatch) {
+                const content = stepMatch[2];
+                const num = stepCount++;
+                return `Bước ${num}: ${content}`;
+            } else {
+                modified = true;
+                const num = stepCount++;
+                return `Bước ${num}: ${line.trim()}`;
+            }
+        });
+
+        if (modified) {
+            const newText = formatted.join('\n');
+            const diffLength = newText.length - el.value.length;
+            el.value = newText;
+            el.selectionStart = el.selectionEnd = Math.max(0, Math.min(cursor + diffLength, el.value.length));
+        }
+    };
 
 })();
