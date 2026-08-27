@@ -396,7 +396,7 @@
                     <div class="qtns-header-left">
                         <div class="qtns-icon-bg">📝</div>
                         <div>
-                            <h1 class="qtns-title">HỢP ĐỒNG & TUYỂN DỤNG CÁC BỘ PHẬN HV</h1>
+                            <h1 class="qtns-title">HỢP ĐỒNG & TUYỂN DỤNG NV CÁC BỘ PHẬN HV</h1>
                             <p class="qtns-subtitle">Hệ Thống Quản Lý Quy Trình Hợp Đồng Lao Động, Biểu Mẫu Pháp Lý, Kịch Bản Tuyển Dụng & Đón Nhân Sự Các Phòng Ban Doanh Nghiệp</p>
                         </div>
                     </div>

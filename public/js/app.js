@@ -193,7 +193,7 @@ const MENU_CONFIG = [
 
     // ========== HÀNH CHÍNH & NHÂN SỰ ==========
     { id: 'quan-tri-nhan-su', label: 'Quản Trị Nhân Sự', icon: '👔', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN TRỊ NHÂN SỰ', href: '/quantrinhansuhv', permKey: 'quan_tri_nhan_su' },
-    { id: 'hop-dong-tuyen-dung', label: 'Hợp Đồng & Tuyển Dụng', icon: '📝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN TRỊ NHÂN SỰ', href: '/hopdongtuyendung', permKey: 'hop_dong_tuyen_dung' },
+    { id: 'hop-dong-tuyen-dung', label: 'Hợp Đồng & Tuyển Dụng NV', icon: '📝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN TRỊ NHÂN SỰ', href: '/hopdongtuyendung', permKey: 'hop_dong_tuyen_dung' },
 
 
     // ========== BỘ PHẬN VĂN PHÒNG ==========
