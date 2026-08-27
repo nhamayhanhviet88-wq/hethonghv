@@ -13,6 +13,7 @@
     let currentSearchQuery = '';
     let selectedMaterialFilter = 'all';
     let selectedWarehouseFilter = 'all';
+    let sidebarSortMode = 'stt'; // 'stt' | 'count_desc' | 'name_asc' | 'uncolorized'
 
     // State management for Categories (Bộ Phận / Loại Maket) and Subtabs (Mục)
     const DEFAULT_DEPARTMENTS = ['Chung', 'Áo Phông', 'Áo Khoác', 'Đồng Phục Công Ty', 'Áo Lớp / Trường Học', 'Áo Mẫu / BST'];
@@ -544,9 +545,27 @@
         const colors = fabricsData.colors || [];
         
         // Lọc danh sách chất liệu ĐỘNG theo Kho Vải được chọn!
-        const materials = selectedWarehouseFilter === 'all'
+        const rawMaterials = selectedWarehouseFilter === 'all'
             ? allMaterials
             : allMaterials.filter(m => String(m.warehouse_id) === String(selectedWarehouseFilter));
+
+        // Sắp xếp danh sách Chất Liệu theo sidebarSortMode
+        const materials = [...rawMaterials].sort((a, b) => {
+            const colorsA = colors.filter(c => String(c.material_id) === String(a.id));
+            const colorsB = colors.filter(c => String(c.material_id) === String(b.id));
+            if (sidebarSortMode === 'count_desc') {
+                return colorsB.length - colorsA.length;
+            } else if (sidebarSortMode === 'name_asc') {
+                return (a.name || '').localeCompare(b.name || '', 'vi');
+            } else if (sidebarSortMode === 'uncolorized') {
+                const uncolA = colorsA.filter(c => !c.hex_code).length;
+                const uncolB = colorsB.filter(c => !c.hex_code).length;
+                return uncolB - uncolA;
+            } else {
+                // Default: STT (display_order)
+                return (a.display_order || 0) - (b.display_order || 0);
+            }
+        });
 
         container.innerHTML = `
             <!-- Main 2-Column Split View Layout -->
@@ -585,24 +604,37 @@
 
                     <!-- Material Filter Box (Scrollable) -->
                     <div style="background: #ffffff; border-radius: 20px; border: 1.5px solid #e9d5ff; padding: 18px; box-shadow: 0 4px 16px rgba(109,40,217,0.04);">
-                        <div style="font-size: 14px; font-weight: 950; color: #4c1d95; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="font-size: 13.5px; font-weight: 950; color: #4c1d95; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
                             <span>🧵 CHẤT LIỆU VẢI</span>
-                            <span style="font-size: 11px; background: #faf5ff; color: #7c3aed; padding: 2px 8px; border-radius: 10px; border: 1px solid #e9d5ff;">${materials.length} Loại</span>
+                            <select onchange="window._cmtkOnSortModeChange(this.value)" title="Sắp xếp danh sách STT từ trên xuống dưới"
+                                style="border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 3px 8px; font-size: 11px; font-weight: 850; color: #6d28d9; background: #faf5ff; outline: none; cursor: pointer;">
+                                <option value="stt" ${sidebarSortMode === 'stt' ? 'selected' : ''}>🔢 Theo STT</option>
+                                <option value="count_desc" ${sidebarSortMode === 'count_desc' ? 'selected' : ''}>📊 Màu: Nhiều ➔ Ít</option>
+                                <option value="name_asc" ${sidebarSortMode === 'name_asc' ? 'selected' : ''}>🔤 Tên: A ➔ Z</option>
+                                <option value="uncolorized" ${sidebarSortMode === 'uncolorized' ? 'selected' : ''}>⚠️ Chờ Chấm Màu</option>
+                            </select>
                         </div>
                         <div style="max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
                             <button type="button" 
                                 onclick="window._cmtkOnFilterMatChange('all')" 
                                 style="width: 100%; text-align: left; padding: 9px 12px; border-radius: 12px; font-size: 12.5px; font-weight: 850; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; ${selectedMaterialFilter === 'all' ? 'background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(109,40,217,0.25);' : 'background: #ffffff; border: 1.5px solid #f1f5f9; color: #475569;'}">
-                                <span>🧵 Tất Cả Chất Liệu</span>
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 11px; opacity: 0.75; font-family: monospace; min-width: 16px;">*</span>
+                                    <span>🧵 Tất Cả Chất Liệu</span>
+                                </span>
+                                <span style="font-size: 11px; padding: 2px 6px; border-radius: 8px; ${selectedMaterialFilter === 'all' ? 'background: rgba(255,255,255,0.25); color: #fff;' : 'background: #f3e8ff; color: #6d28d9;'}">${materials.length} Loại</span>
                             </button>
-                            ${materials.map(m => {
+                            ${materials.map((m, idx) => {
                                 const isSelected = String(selectedMaterialFilter) === String(m.id);
                                 const matColorCount = colors.filter(c => String(c.material_id) === String(m.id)).length;
                                 return `
                                     <button type="button" 
                                         onclick="window._cmtkOnFilterMatChange('${m.id}')" 
                                         style="width: 100%; text-align: left; padding: 9px 12px; border-radius: 12px; font-size: 12.5px; font-weight: 850; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; ${isSelected ? 'background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(109,40,217,0.25);' : 'background: #ffffff; border: 1.5px solid #f1f5f9; color: #475569;'}">
-                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🧵 ${m.name}</span>
+                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-size: 11px; opacity: 0.85; font-family: monospace; font-weight: 900; min-width: 20px; color: ${isSelected ? '#ffffff' : '#7c3aed'};">${idx + 1}.</span>
+                                            <span>🧵 ${m.name}</span>
+                                        </span>
                                         <span style="font-size: 11px; padding: 2px 6px; border-radius: 8px; ${isSelected ? 'background: rgba(255,255,255,0.25); color: #fff;' : 'background: #f3e8ff; color: #6d28d9;'}">${matColorCount}</span>
                                     </button>
                                 `;
@@ -652,9 +684,28 @@
 
         if (Object.keys(groupedByMat).length === 0) return `<div style="text-align:center; padding:40px; font-size:15px; font-weight:700; color:#64748b;">🧵 Không tìm thấy màu vải nào khớp với bộ lọc.</div>`;
 
+        // Sắp xếp các khối chất liệu ở Cột Phải theo đúng sidebarSortMode tương ứng Cột Trái
+        const sortedMatNames = Object.keys(groupedByMat).sort((aName, bName) => {
+            const colorsA = groupedByMat[aName];
+            const colorsB = groupedByMat[bName];
+            if (sidebarSortMode === 'count_desc') {
+                return colorsB.length - colorsA.length;
+            } else if (sidebarSortMode === 'name_asc') {
+                return aName.localeCompare(bName, 'vi');
+            } else if (sidebarSortMode === 'uncolorized') {
+                const uncolA = colorsA.filter(c => !c.hex_code).length;
+                const uncolB = colorsB.filter(c => !c.hex_code).length;
+                return uncolB - uncolA;
+            } else {
+                const matA = (fabricsData.materials || []).find(m => m.name === aName);
+                const matB = (fabricsData.materials || []).find(m => m.name === bName);
+                return ((matA && matA.display_order) || 0) - ((matB && matB.display_order) || 0);
+            }
+        });
+
         return `
             <div style="display: flex; flex-direction: column; gap: 24px;">
-                ${Object.keys(groupedByMat).map(matName => {
+                ${sortedMatNames.map(matName => {
                     const colorsInMat = groupedByMat[matName];
                     const colorizedCount = colorsInMat.filter(c => !!c.hex_code).length;
 
@@ -747,6 +798,11 @@
     window._cmtkOnFilterWarehouseChange = function (val) {
         selectedWarehouseFilter = val || 'all';
         selectedMaterialFilter = 'all';
+        renderCurrentMainTab();
+    };
+
+    window._cmtkOnSortModeChange = function (val) {
+        sidebarSortMode = val || 'stt';
         renderCurrentMainTab();
     };
 
