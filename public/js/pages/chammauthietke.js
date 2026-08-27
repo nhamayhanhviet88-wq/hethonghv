@@ -541,6 +541,7 @@
     function renderTab2Chammau(container) {
         const warehouses = fabricsData.warehouses || [];
         const allMaterials = fabricsData.materials || [];
+        const colors = fabricsData.colors || [];
         
         // Lọc danh sách chất liệu ĐỘNG theo Kho Vải được chọn!
         const materials = selectedWarehouseFilter === 'all'
@@ -548,42 +549,86 @@
             : allMaterials.filter(m => String(m.warehouse_id) === String(selectedWarehouseFilter));
 
         container.innerHTML = `
-            <!-- Search Bar -->
-            <div style="margin-bottom: 20px; position: relative;">
-                <div style="position: relative; display: flex; align-items: center;">
-                    <span style="position: absolute; left: 18px; font-size: 18px; color: #7c3aed; pointer-events: none; z-index: 2;">🔍</span>
-                    <input type="text" id="cmtkSearchColorInput" value="${currentSearchQuery}" 
-                        placeholder="Tìm mã màu HEX, tên màu vải, chất liệu..." 
-                        style="width: 100%; border: 2px solid #e9d5ff; border-radius: 18px; padding: 13px 48px 13px 48px; font-size: 14.5px; font-weight: 700; background: #ffffff; outline: none; color: #0f172a; box-shadow: 0 4px 16px rgba(124,58,237,0.08);"
-                        oninput="window._cmtkOnSearchMaket(this.value)">
-                </div>
-            </div>
-
-            <!-- Warehouse & Material Filters Bar -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: #ffffff; padding: 14px 22px; border-radius: 18px; border: 1.5px solid #e9d5ff; box-shadow: 0 4px 14px rgba(109,40,217,0.04);">
-                <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 13.5px; font-weight: 850; color: #5b21b6;">Kho Vải:</span>
-                        <select id="cmtkFilterWhSelect" onchange="window._cmtkOnFilterWarehouseChange(this.value)" 
-                            style="border: 2px solid #e9d5ff; border-radius: 14px; padding: 8px 14px; font-size: 13px; font-weight: 800; color: #6d28d9; background: #ffffff; outline: none; cursor: pointer;">
-                            <option value="all">🏬 Tất Cả Kho Vải (${warehouses.length})</option>
-                            ${warehouses.map(w => `<option value="${w.id}" ${String(selectedWarehouseFilter) === String(w.id) ? 'selected' : ''}>🏬 ${w.name}</option>`).join('')}
-                        </select>
+            <!-- Main 2-Column Split View Layout -->
+            <div style="display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap;">
+                
+                <!-- Left Sidebar (Width ~280px) -->
+                <div id="cmtkSidebarLeft" style="width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 18px;">
+                    
+                    <!-- Warehouse Filter Box -->
+                    <div style="background: #ffffff; border-radius: 20px; border: 1.5px solid #e9d5ff; padding: 18px; box-shadow: 0 4px 16px rgba(109,40,217,0.04);">
+                        <div style="font-size: 14px; font-weight: 950; color: #4c1d95; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>🏬 KHO VẢI</span>
+                            <span style="font-size: 11px; background: #faf5ff; color: #7c3aed; padding: 2px 8px; border-radius: 10px; border: 1px solid #e9d5ff;">${warehouses.length} Kho</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <button type="button" 
+                                onclick="window._cmtkOnFilterWarehouseChange('all')" 
+                                style="width: 100%; text-align: left; padding: 10px 14px; border-radius: 14px; font-size: 13px; font-weight: 850; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; ${selectedWarehouseFilter === 'all' ? 'background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(109,40,217,0.25);' : 'background: #ffffff; border: 1.5px solid #e9d5ff; color: #475569;'}">
+                                <span>🏬 Tất Cả Kho Vải</span>
+                                <span style="font-size: 11px; opacity: 0.9;">(${colors.length})</span>
+                            </button>
+                            ${warehouses.map(w => {
+                                const isSelected = String(selectedWarehouseFilter) === String(w.id);
+                                const whColorCount = colors.filter(c => String(c.warehouse_id) === String(w.id)).length;
+                                return `
+                                    <button type="button" 
+                                        onclick="window._cmtkOnFilterWarehouseChange('${w.id}')" 
+                                        style="width: 100%; text-align: left; padding: 10px 14px; border-radius: 14px; font-size: 13px; font-weight: 850; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; ${isSelected ? 'background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(109,40,217,0.25);' : 'background: #ffffff; border: 1.5px solid #e9d5ff; color: #475569;'}">
+                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🏬 ${w.name}</span>
+                                        <span style="font-size: 11px; opacity: 0.9;">(${whColorCount})</span>
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
                     </div>
 
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 13.5px; font-weight: 850; color: #5b21b6;">Chất Liệu:</span>
-                        <select id="cmtkFilterMatSelect2" onchange="window._cmtkOnFilterMatChange(this.value)" 
-                            style="border: 2px solid #e9d5ff; border-radius: 14px; padding: 8px 14px; font-size: 13px; font-weight: 800; color: #6d28d9; background: #ffffff; outline: none; cursor: pointer;">
-                            <option value="all">🧵 Tất Cả Chất Liệu (${materials.length})</option>
-                            ${materials.map(m => `<option value="${m.id}" ${String(selectedMaterialFilter) === String(m.id) ? 'selected' : ''}>🧵 ${m.name}</option>`).join('')}
-                        </select>
+                    <!-- Material Filter Box (Scrollable) -->
+                    <div style="background: #ffffff; border-radius: 20px; border: 1.5px solid #e9d5ff; padding: 18px; box-shadow: 0 4px 16px rgba(109,40,217,0.04);">
+                        <div style="font-size: 14px; font-weight: 950; color: #4c1d95; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>🧵 CHẤT LIỆU VẢI</span>
+                            <span style="font-size: 11px; background: #faf5ff; color: #7c3aed; padding: 2px 8px; border-radius: 10px; border: 1px solid #e9d5ff;">${materials.length} Loại</span>
+                        </div>
+                        <div style="max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+                            <button type="button" 
+                                onclick="window._cmtkOnFilterMatChange('all')" 
+                                style="width: 100%; text-align: left; padding: 9px 12px; border-radius: 12px; font-size: 12.5px; font-weight: 850; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; ${selectedMaterialFilter === 'all' ? 'background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(109,40,217,0.25);' : 'background: #ffffff; border: 1.5px solid #f1f5f9; color: #475569;'}">
+                                <span>🧵 Tất Cả Chất Liệu</span>
+                            </button>
+                            ${materials.map(m => {
+                                const isSelected = String(selectedMaterialFilter) === String(m.id);
+                                const matColorCount = colors.filter(c => String(c.material_id) === String(m.id)).length;
+                                return `
+                                    <button type="button" 
+                                        onclick="window._cmtkOnFilterMatChange('${m.id}')" 
+                                        style="width: 100%; text-align: left; padding: 9px 12px; border-radius: 12px; font-size: 12.5px; font-weight: 850; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; ${isSelected ? 'background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(109,40,217,0.25);' : 'background: #ffffff; border: 1.5px solid #f1f5f9; color: #475569;'}">
+                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🧵 ${m.name}</span>
+                                        <span style="font-size: 11px; padding: 2px 6px; border-radius: 8px; ${isSelected ? 'background: rgba(255,255,255,0.25); color: #fff;' : 'background: #f3e8ff; color: #6d28d9;'}">${matColorCount}</span>
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div id="cmtkSwatchesGridContainer">
-                ${_cmtkRenderSwatchesCardsHTML()}
+                <!-- Right Main Content Area -->
+                <div id="cmtkMainRight" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 18px;">
+                    <!-- Search Bar -->
+                    <div style="position: relative;">
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <span style="position: absolute; left: 18px; font-size: 18px; color: #7c3aed; pointer-events: none; z-index: 2;">🔍</span>
+                            <input type="text" id="cmtkSearchColorInput" value="${currentSearchQuery}" 
+                                placeholder="Tìm mã màu HEX, tên màu vải, chất liệu..." 
+                                style="width: 100%; border: 2px solid #e9d5ff; border-radius: 18px; padding: 13px 48px 13px 48px; font-size: 14.5px; font-weight: 700; background: #ffffff; outline: none; color: #0f172a; box-shadow: 0 4px 16px rgba(124,58,237,0.08);"
+                                oninput="window._cmtkOnSearchMaket(this.value)">
+                        </div>
+                    </div>
+
+                    <!-- Pantone Grid Container -->
+                    <div id="cmtkSwatchesGridContainer">
+                        ${_cmtkRenderSwatchesCardsHTML()}
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -696,15 +741,12 @@
 
     window._cmtkOnFilterMatChange = function (val) {
         selectedMaterialFilter = val || 'all';
-        const grid1 = document.getElementById('cmtkCardGridContainer');
-        const grid2 = document.getElementById('cmtkSwatchesGridContainer');
-        if (grid1) grid1.innerHTML = _cmtkRenderMaketCardsHTML();
-        else if (grid2) grid2.innerHTML = _cmtkRenderSwatchesCardsHTML();
-        else renderCurrentMainTab();
+        renderCurrentMainTab();
     };
 
     window._cmtkOnFilterWarehouseChange = function (val) {
         selectedWarehouseFilter = val || 'all';
+        selectedMaterialFilter = 'all';
         renderCurrentMainTab();
     };
 
