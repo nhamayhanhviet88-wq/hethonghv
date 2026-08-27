@@ -39,6 +39,7 @@ module.exports = async function (fastify, opts) {
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS final_reward_granted BOOLEAN DEFAULT FALSE`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS completed_by INT`);
+        await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS actual_total_errors INT DEFAULT 0`);
     } catch (e) {
         console.error('[Migration] kpi_delay_targets error:', e.message);
     }
@@ -146,56 +147,62 @@ module.exports = async function (fastify, opts) {
                 else if (status === 'late') monthlyData[m].late++;
             });
 
-            // Query Error Orders from customer_error_orders for the same year and segment
-            const errorConditions = [`EXTRACT(YEAR FROM ceo.report_date) = $1`];
-            const errorParams = [year];
+            // Query saved KPI targets first
+            const targetRows = await db.all(`
+                SELECT period_type, period_value, target_max_delay_pct, target_max_delay_orders,
+                       target_max_internal_errors, target_max_customer_errors, target_max_total_errors, notes,
+                       eval_rule, reward_text, commitments,
+                       status, commitment_evals, commitment_completion_pct, final_reward_granted, completed_at, completed_by,
+                       actual_total_errors
+                FROM kpi_delay_targets
+                WHERE year = $1 AND segment = $2
+            `, [year, segment]);
 
-            if (segment === 'dongphuc' || segment === 'dong_phuc') {
-                errorConditions.push(`(
-                    (COALESCE(cat.id, o.category_id) IS NULL OR (COALESCE(cat.id, o.category_id) != 8 AND COALESCE(cat.id, o.category_id) != 9))
-                    AND UPPER(COALESCE(ceo.order_code, '')) NOT LIKE '%PET%'
-                    AND UPPER(COALESCE(ceo.order_code, '')) NOT LIKE '%TEM%'
-                )`);
-            } else if (segment === 'tempet' || segment === 'tem_pet') {
-                errorConditions.push(`(
-                    COALESCE(cat.id, o.category_id) = 8 OR COALESCE(cat.id, o.category_id) = 9
-                    OR UPPER(COALESCE(ceo.order_code, '')) LIKE '%PET%'
-                    OR UPPER(COALESCE(ceo.order_code, '')) LIKE '%TEM%'
-                )`);
-            }
-
-            const errorWhere = errorConditions.length ? 'WHERE ' + errorConditions.join(' AND ') : '';
-
-            const rawErrors = await db.all(`
-                SELECT ceo.id, ceo.report_date, ceo.error_type, ceo.error_quantity, ceo.dht_order_id, ceo.order_code
-                FROM customer_error_orders ceo
-                LEFT JOIN dht_orders o ON (o.id = ceo.dht_order_id OR (ceo.dht_order_id IS NULL AND o.order_code = ceo.order_code))
-                LEFT JOIN dht_categories cat ON o.category_id = cat.id
-                ${errorWhere}
-            `, errorParams);
-
-            // Process error orders
-            rawErrors.forEach(err => {
-                if (!err.report_date) return;
-                let m = 1;
+            const targetsMap = {};
+            targetRows.forEach(r => {
+                const key = `${r.period_type}_${r.period_value}`;
+                let parsedCommitments = [];
                 try {
-                    const dStr = vnDateStr(err.report_date);
-                    m = parseInt(dStr.split('-')[1], 10);
-                } catch(e) { return; }
-                if (m < 1 || m > 12) return;
-
-                const qty = Number(err.error_quantity) || 0;
-                const errType = err.error_type || (err.dht_order_id ? 'Khách Hàng' : 'Nội Bộ');
-                if (errType === 'Nội Bộ') {
-                    monthlyData[m].internal_errors++;
-                    monthlyData[m].internal_error_qty += qty;
-                } else {
-                    monthlyData[m].customer_errors++;
-                    monthlyData[m].customer_error_qty += qty;
+                    parsedCommitments = typeof r.commitments === 'string' ? JSON.parse(r.commitments || '[]') : (r.commitments || []);
+                } catch (err) {
+                    parsedCommitments = [];
                 }
-                monthlyData[m].total_errors++;
-                monthlyData[m].total_error_qty += qty;
+                let parsedEvals = [];
+                try {
+                    parsedEvals = typeof r.commitment_evals === 'string' ? JSON.parse(r.commitment_evals || '[]') : (r.commitment_evals || []);
+                } catch (err) {
+                    parsedEvals = [];
+                }
+                targetsMap[key] = {
+                    target_max_delay_pct: parseFloat(r.target_max_delay_pct || 5.0),
+                    target_max_delay_orders: parseInt(r.target_max_delay_orders || 0, 10),
+                    target_max_internal_errors: parseInt(r.target_max_internal_errors || 0, 10),
+                    target_max_customer_errors: parseInt(r.target_max_customer_errors || 0, 10),
+                    target_max_total_errors: parseInt(r.target_max_total_errors || 0, 10),
+                    notes: r.notes || '',
+                    eval_rule: r.eval_rule || 'ALL',
+                    reward_text: r.reward_text || '',
+                    commitments: Array.isArray(parsedCommitments) ? parsedCommitments : [],
+                    status: r.status || 'active',
+                    commitment_evals: Array.isArray(parsedEvals) ? parsedEvals : [],
+                    commitment_completion_pct: parseFloat(r.commitment_completion_pct || 0),
+                    final_reward_granted: !!r.final_reward_granted,
+                    completed_at: r.completed_at || null,
+                    completed_by: r.completed_by || null,
+                    actual_total_errors: parseInt(r.actual_total_errors || 0, 10)
+                };
             });
+
+            // Populate monthly errors from manually entered actual_total_errors
+            for (let m = 1; m <= 12; m++) {
+                const t = targetsMap[`month_${m}`];
+                monthlyData[m].internal_errors = 0;
+                monthlyData[m].customer_errors = 0;
+                monthlyData[m].total_errors = t ? (t.actual_total_errors || 0) : 0;
+                monthlyData[m].internal_error_qty = 0;
+                monthlyData[m].customer_error_qty = 0;
+                monthlyData[m].total_error_qty = 0;
+            }
 
             // Compute monthly percentages
             const monthsList = [];
@@ -282,50 +289,6 @@ module.exports = async function (fastify, opts) {
                 customer_error_qty: yCustomerErrQty,
                 total_error_qty: yTotalErrQty
             };
-
-            // Query saved KPI targets
-            const targetRows = await db.all(`
-                SELECT period_type, period_value, target_max_delay_pct, target_max_delay_orders,
-                       target_max_internal_errors, target_max_customer_errors, target_max_total_errors, notes,
-                       eval_rule, reward_text, commitments,
-                       status, commitment_evals, commitment_completion_pct, final_reward_granted, completed_at, completed_by
-                FROM kpi_delay_targets
-                WHERE year = $1 AND segment = $2
-            `, [year, segment]);
-
-            const targetsMap = {};
-            targetRows.forEach(r => {
-                const key = `${r.period_type}_${r.period_value}`;
-                let parsedCommitments = [];
-                try {
-                    parsedCommitments = typeof r.commitments === 'string' ? JSON.parse(r.commitments || '[]') : (r.commitments || []);
-                } catch (err) {
-                    parsedCommitments = [];
-                }
-                let parsedEvals = [];
-                try {
-                    parsedEvals = typeof r.commitment_evals === 'string' ? JSON.parse(r.commitment_evals || '[]') : (r.commitment_evals || []);
-                } catch (err) {
-                    parsedEvals = [];
-                }
-                targetsMap[key] = {
-                    target_max_delay_pct: parseFloat(r.target_max_delay_pct || 5.0),
-                    target_max_delay_orders: parseInt(r.target_max_delay_orders || 0, 10),
-                    target_max_internal_errors: parseInt(r.target_max_internal_errors || 0, 10),
-                    target_max_customer_errors: parseInt(r.target_max_customer_errors || 0, 10),
-                    target_max_total_errors: parseInt(r.target_max_total_errors || 0, 10),
-                    notes: r.notes || '',
-                    eval_rule: r.eval_rule || 'ALL',
-                    reward_text: r.reward_text || '',
-                    commitments: Array.isArray(parsedCommitments) ? parsedCommitments : [],
-                    status: r.status || 'active',
-                    commitment_evals: Array.isArray(parsedEvals) ? parsedEvals : [],
-                    commitment_completion_pct: parseFloat(r.commitment_completion_pct || 0),
-                    final_reward_granted: !!r.final_reward_granted,
-                    completed_at: r.completed_at || null,
-                    completed_by: r.completed_by || null
-                };
-            });
 
             return reply.send({
                 ok: true,
@@ -460,7 +423,7 @@ module.exports = async function (fastify, opts) {
             if (!req.user || req.user.role !== 'giam_doc') {
                 return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền đánh giá cam kết!' });
             }
-            const { year, segment = 'all', period_type, period_value, commitment_evals = [] } = req.body || {};
+            const { year, segment = 'all', period_type, period_value, commitment_evals = [], actual_total_errors = 0 } = req.body || {};
             if (!year || !period_type || period_value === undefined) {
                 return reply.code(400).send({ error: 'Dữ liệu không hợp lệ!' });
             }
@@ -469,12 +432,13 @@ module.exports = async function (fastify, opts) {
             const totalEvals = Array.isArray(commitment_evals) ? commitment_evals.length : 0;
             const passedCount = Array.isArray(commitment_evals) ? commitment_evals.filter(e => e.passed).length : 0;
             const completionPct = totalEvals > 0 ? parseFloat((passedCount / totalEvals * 100).toFixed(1)) : 0;
+            const actualErrorsNum = parseInt(actual_total_errors || 0, 10);
 
             await db.run(`
                 UPDATE kpi_delay_targets
-                SET commitment_evals = $1, commitment_completion_pct = $2, status = 'evaluating', updated_at = NOW()
-                WHERE year = $3 AND segment = $4 AND period_type = $5 AND period_value = $6
-            `, [evalsJson, completionPct, parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]);
+                SET commitment_evals = $1, commitment_completion_pct = $2, actual_total_errors = $3, status = 'evaluating', updated_at = NOW()
+                WHERE year = $4 AND segment = $5 AND period_type = $6 AND period_value = $7
+            `, [evalsJson, completionPct, actualErrorsNum, parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]);
 
             return reply.send({ ok: true, message: `Đã lưu đánh giá cam kết! Tỉ lệ hoàn thành: ${completionPct}%` });
         } catch (e) {

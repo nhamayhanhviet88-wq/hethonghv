@@ -493,10 +493,7 @@
                 <td id="qBadgeWrap_${q.quarter}">
                     ${badgeDelayHtml}
                 </td>
-                <!-- Error Columns -->
-                <td style="color:#7c3aed; font-weight:800; background:#f3e8ff;">${q.internal_errors || 0} <span style="font-size:10px; color:#6b21a8;">(${q.internal_error_qty || 0} sp)</span></td>
-                <td style="color:#dc2626; font-weight:800; background:#fee2e2;">${q.customer_errors || 0} <span style="font-size:10px; color:#991b1b;">(${q.customer_error_qty || 0} sp)</span></td>
-                <td style="color:#b45309; font-weight:900; background:#fffbeb;">${q.total_errors || 0} <span style="font-size:10px; color:#92400e;">(${q.total_error_qty || 0} sp)</span></td>
+                <td style="color:#b45309; font-weight:900; background:#fffbeb;">${q.total_errors || 0} đơn</td>
                 <td>
                     <input type="number" step="1" class="kpi-q-err-input" data-period="quarter" data-val="${q.quarter}" value="${targetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; color:#b45309; background:#ffffff;">
                 </td>
@@ -548,10 +545,7 @@
             <td id="yBadgeWrap_0">
                 ${yBadgeHtml}
             </td>
-            <!-- Full Year Error Columns -->
-            <td style="color:#7c3aed; font-weight:900;">${fullYear.internal_errors || 0} <span style="font-size:10px; opacity:0.8;">(${fullYear.internal_error_qty || 0} sp)</span></td>
-            <td style="color:#dc2626; font-weight:900;">${fullYear.customer_errors || 0} <span style="font-size:10px; opacity:0.8;">(${fullYear.customer_error_qty || 0} sp)</span></td>
-            <td style="color:#b45309; font-weight:900;">${fullYear.total_errors || 0} <span style="font-size:10px; opacity:0.8;">(${fullYear.total_error_qty || 0} sp)</span></td>
+            <td style="color:#b45309; font-weight:900;">${fullYear.total_errors || 0} đơn</td>
             <td>
                 <input type="number" step="1" class="kpi-q-err-input" data-period="year" data-val="0" value="${yTargetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; background:#ffffff; color:#92400e;">
             </td>
@@ -580,7 +574,7 @@
             const commitmentEvals = targetObj ? (targetObj.commitment_evals || []) : [];
             const completionPct = targetObj ? (targetObj.commitment_completion_pct || 0) : 0;
 
-            const isCurrentMonth = (data.year === realCurrentYear) && (m.month === realCurrentMonth);
+            const isCurrentMonth = m.month === realCurrentMonth && data.year === realCurrentYear;
             const isFutureMonth = (data.year > realCurrentYear) || (data.year === realCurrentYear && m.month > realCurrentMonth);
 
             // Check sequential unlocking
@@ -595,28 +589,14 @@
 
             // === 1. State: not_created (Chưa Tạo KPI) ===
             if (status === 'not_created') {
-                if (!isUnlocked) {
-                    return `
-                    <div class="m-card" style="opacity:0.6; background:#f8fafc; border:1.5px dashed #cbd5e1;" id="mCard_${m.month}">
-                        <div class="m-card-header">
-                            <div class="m-card-title" style="color:#64748b;">Tháng ${m.month}/${fullYear.year}</div>
-                            <span class="badge-status badge-future">🔒 Chưa Mở Khoá</span>
-                        </div>
-                        <div style="padding:24px 10px; text-align:center; color:#94a3b8; font-size:12px; font-weight:700;">
-                            <div>🔒 KPI Tháng ${m.month} chưa được mở khoá.</div>
-                            <div style="font-size:11px; margin-top:4px; font-weight:600; color:#64748b;">Cần bấm <b>✅ Hoàn Thành KPI Tháng ${m.month - 1}</b> trước.</div>
-                        </div>
-                    </div>
-                    `;
-                }
-
                 return `
-                <div class="m-card" style="border:2px dashed #6366f1; background:#faf5ff;" id="mCard_${m.month}">
+                <div class="m-card ${isCurrentMonth ? 'is-current-month' : ''}" style="opacity:0.85; border:2px dashed #cbd5e1 !important; background:#f8fafc !important;">
                     <div class="m-card-header">
-                        <div class="m-card-title" style="color:#4338ca;">Tháng ${m.month}/${fullYear.year}</div>
-                        <span class="badge-status badge-warning">🔲 CHƯA TẠO KPI</span>
+                        <div class="m-card-title" style="color:#64748b;">Tháng ${m.month}/${fullYear.year}</div>
+                        <span class="badge-status badge-future" style="background:#f1f5f9; color:#64748b; border-color:#cbd5e1;">🔒 CHƯA TẠO KPI</span>
                     </div>
-                    <div style="padding:16px 10px; text-align:center; color:#475569; font-size:12px;">
+                    <div style="padding:20px 10px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                        <div style="font-size:24px; margin-bottom:6px;">🔒</div>
                         <div style="font-weight:800; color:#3730a3; margin-bottom:6px;">✨ Đã mở khoá tạo KPI Tháng ${m.month}!</div>
                         <div style="font-size:11.5px; font-weight:600; color:#64748b; margin-bottom:14px;">Thiết lập chỉ tiêu Trễ, Chỉ tiêu Lỗi & các cam kết của Quản Lý Xưởng.</div>
                         ${canCreateKpi ? `
@@ -699,16 +679,8 @@
                 <!-- Error Stat Summary Section -->
                 <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1;">
                     <div class="m-stat-row">
-                        <span class="m-stat-label">🟣 Lỗi Nội Bộ:</span>
-                        <span class="m-stat-val" style="color:#7c3aed">${m.internal_errors || 0} đơn <span style="font-size:10px; font-weight:600; color:#6b21a8;">(${m.internal_error_qty || 0} sp)</span></span>
-                    </div>
-                    <div class="m-stat-row">
-                        <span class="m-stat-label">🔴 Lỗi Khách Hàng:</span>
-                        <span class="m-stat-val" style="color:#dc2626">${m.customer_errors || 0} đơn <span style="font-size:10px; font-weight:600; color:#991b1b;">(${m.customer_error_qty || 0} sp)</span></span>
-                    </div>
-                    <div class="m-stat-row">
                         <span class="m-stat-label">⚠️ Tổng Đơn Lỗi:</span>
-                        <span class="m-stat-val" style="color:#b45309; background:#fff7ed; padding:1px 6px; border-radius:4px; border:1px solid #fed7aa">${m.total_errors || 0} đơn <span style="font-size:10px; font-weight:600;">(${m.total_error_qty || 0} sp)</span></span>
+                        <span class="m-stat-val" style="color:#b45309; background:#fff7ed; padding:2px 8px; border-radius:6px; border:1px solid #fed7aa; font-weight:900;">${m.total_errors || 0} đơn</span>
                     </div>
                 </div>
 
@@ -735,7 +707,7 @@
                     <span style="font-size:10px; font-weight:800; color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #e2e8f0;">
                         ${evalRule === 'ANY' ? '⚖️ Quy tắc: Đạt 1 Trong 2' : '⚖️ Quy tắc: Đạt Cả 2'}
                     </span>
-                    ${rewardText ? `<span style="font-size:10px; font-weight:900; color:#166534; background:#dcfce7; border:1px solid #86efac; padding:2px 6px; border-radius:4px;">🎁 ${rewardText}</span>` : ''}
+                    ${rewardText ? `<span style="font-size:10px; font-weight:900; color:#166534; background:#dcfce7; border:1.5px solid #86efac; padding:2px 6px; border-radius:4px;">🎁 ${rewardText}</span>` : ''}
                 </div>
 
                 <!-- Commitments Box Section -->
@@ -845,7 +817,7 @@
         <div class="kpi-card">
             <div class="kpi-card-title">
                 <span>📊 Tổng Quan Tiến Độ & Thống Kê Đơn Lỗi Phân Kỳ (${data.year})</span>
-                <span style="font-size:11px; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 8px; border-radius:6px;">Dữ liệu tự động từ Tra Soát & Quản Lý Đơn Lỗi</span>
+                <span style="font-size:11px; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 8px; border-radius:6px;">Dữ liệu tự động Tra Soát Chậm Đơn & Tổng Lỗi Đánh Giá</span>
             </div>
             <div class="kpi-top-row">
                 <!-- Framed Donut Box -->
@@ -874,8 +846,6 @@
                                 <th style="color:#fca5a5;">% Trễ Hẹn</th>
                                 <th style="color:#c7d2fe;">KPI Trễ</th>
                                 <th style="color:#ffffff;">ĐG Trễ</th>
-                                <th style="color:#c084fc;">Lỗi Nội Bộ</th>
-                                <th style="color:#fca5a5;">Lỗi Khách</th>
                                 <th style="color:#fde047;">Tổng Lỗi</th>
                                 <th style="color:#fde047;">KPI Lỗi</th>
                                 <th style="color:#ffffff;">ĐG Lỗi</th>
@@ -1688,14 +1658,28 @@
             infoEl.innerHTML = `
                 <div style="font-size:12.5px; font-weight:800; color:#1e293b; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                     <span>📦 Tổng đơn: <b>${mData.total || 0}</b> | 🔴 Trễ: <b>${mData.delay_pct || 0}%</b> (Target &le; ${targetObj.target_max_delay_pct || 5.0}%)</span>
-                    <span>⚠️ Tổng lỗi: <b>${mData.total_errors || 0} đơn</b> (Target &le; ${targetObj.target_max_total_errors || 0} đơn)</span>
+                    <span>⚠️ Target KPI Lỗi &le; <b>${targetObj.target_max_total_errors || 0} đơn</b></span>
                 </div>
             `;
         }
 
         const listEl = document.getElementById('kpiEvalItemsList');
         if (listEl) {
-            listEl.innerHTML = commitments.map((cText, idx) => {
+            const currentErrVal = targetObj.actual_total_errors !== undefined ? targetObj.actual_total_errors : 0;
+            const errorInputHeader = `
+                <div style="background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%); border:1.5px solid #fed7aa; border-radius:10px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 2px 6px rgba(154,52,18,0.06);">
+                    <div style="font-size:12.5px; font-weight:800; color:#9a3412; display:flex; align-items:center; gap:6px;">
+                        ⚠️ <span>Số Đơn Lỗi Thực Tế Trong Tháng:</span>
+                        <span style="font-size:11px; font-weight:700; color:#c2410c;">(Nhập tay thực tế)</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <input type="number" id="eval_actual_total_errors" value="${currentErrVal}" min="0" style="width:90px; padding:6px 10px; border:1.5px solid #fdba74; border-radius:8px; font-size:13.5px; font-weight:900; color:#9a3412; outline:none; text-align:center; background:#ffffff;">
+                        <span style="font-size:12px; font-weight:900; color:#9a3412;">đơn</span>
+                    </div>
+                </div>
+            `;
+
+            const evalItemsHtml = commitments.map((cText, idx) => {
                 const existing = existingEvals[idx] || { passed: true, note: '' };
                 const isPassed = existing.passed !== false;
                 const noteVal = existing.note || '';
@@ -1722,6 +1706,8 @@
                 </div>
                 `;
             }).join('');
+
+            listEl.innerHTML = errorInputHeader + evalItemsHtml;
         }
 
         window.updateEvalSummary();
@@ -1770,6 +1756,8 @@
             });
         });
 
+        const actual_total_errors = parseInt(document.getElementById('eval_actual_total_errors')?.value, 10) || 0;
+
         const btnSave = document.getElementById('btnSaveKpiEval');
         const btnComp = document.getElementById('btnCompleteKpiEval');
         if (btnSave) btnSave.disabled = true;
@@ -1785,7 +1773,8 @@
                     segment: _kpiDelayState.segment,
                     period_type: _evaluatingModalTarget.period_type,
                     period_value: _evaluatingModalTarget.period_value,
-                    commitment_evals: commitment_evals
+                    commitment_evals: commitment_evals,
+                    actual_total_errors: actual_total_errors
                 })
             });
             const data = await res.json();
