@@ -316,11 +316,11 @@
             return `
             <tr>
                 <td style="text-align:left; font-weight:800; color:#0f172a;">${q.name}</td>
-                <td style="font-weight:900; color:#b45309; background:#fffbeb; border-radius:6px;">${q.total}</td>
-                <td style="color:#059669; font-weight:800;">${q.early}</td>
-                <td style="color:#4338ca; font-weight:800;">${q.on_time}</td>
-                <td style="color:#dc2626; font-weight:800;">${q.late}</td>
-                <td style="font-weight:900; color:${q.delay_pct > 0 ? '#b91c1c' : '#15803d'}">${q.delay_pct}%</td>
+                <td style="font-weight:900; color:#b45309; background:#fffbeb; border-radius:6px;">${q.total || 0}</td>
+                <td style="color:#059669; font-weight:800;">${q.early || 0}</td>
+                <td style="color:#4338ca; font-weight:800;">${q.on_time || 0}</td>
+                <td style="color:#dc2626; font-weight:800;">${q.late || 0}</td>
+                <td style="font-weight:900; color:${(q.delay_pct || 0) > 0 ? '#b91c1c' : '#15803d'}">${q.delay_pct || 0}%</td>
                 <td style="color:#3730a3; font-weight:900;">
                     <input type="number" step="0.1" class="kpi-q-input" data-period="quarter" data-val="${q.quarter}" value="${targetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:900; padding:2px 2px; color:#3730a3; background:#ffffff;">%
                 </td>
@@ -328,9 +328,9 @@
                     ${badgeDelayHtml}
                 </td>
                 <!-- Error Columns -->
-                <td style="color:#7c3aed; font-weight:800; background:#f3e8ff;">${q.internal_errors} <span style="font-size:10px; color:#6b21a8;">(${q.internal_error_qty} sp)</span></td>
-                <td style="color:#dc2626; font-weight:800; background:#fee2e2;">${q.customer_errors} <span style="font-size:10px; color:#991b1b;">(${q.customer_error_qty} sp)</span></td>
-                <td style="color:#b45309; font-weight:900; background:#fffbeb;">${q.total_errors} <span style="font-size:10px; color:#92400e;">(${q.total_error_qty} sp)</span></td>
+                <td style="color:#7c3aed; font-weight:800; background:#f3e8ff;">${q.internal_errors || 0} <span style="font-size:10px; color:#6b21a8;">(${q.internal_error_qty || 0} sp)</span></td>
+                <td style="color:#dc2626; font-weight:800; background:#fee2e2;">${q.customer_errors || 0} <span style="font-size:10px; color:#991b1b;">(${q.customer_error_qty || 0} sp)</span></td>
+                <td style="color:#b45309; font-weight:900; background:#fffbeb;">${q.total_errors || 0} <span style="font-size:10px; color:#92400e;">(${q.total_error_qty || 0} sp)</span></td>
                 <td>
                     <input type="number" step="1" class="kpi-q-err-input" data-period="quarter" data-val="${q.quarter}" value="${targetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; color:#b45309; background:#ffffff;">
                 </td>
@@ -358,7 +358,7 @@
             yBadgeHtml = `<span class="badge-status ${isYPass ? 'badge-success' : 'badge-danger'}">${isYPass ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
 
             if (yTargetErr > 0) {
-                const isPassErr = fullYear.total_errors <= yTargetErr;
+                const isPassErr = (fullYear.total_errors || 0) <= yTargetErr;
                 yBadgeErrHtml = `<span class="badge-status ${isPassErr ? 'badge-success' : 'badge-danger'}">${isPassErr ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
             } else {
                 yBadgeErrHtml = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
@@ -368,11 +368,11 @@
         const fullYearRowHtml = `
         <tr class="row-total">
             <td style="text-align:left; font-weight:900; color:#92400e;">Cả Năm ${fullYear.year}</td>
-            <td style="font-weight:900; font-size:12.5px; color:#b45309;">${fullYear.total}</td>
-            <td style="color:#059669; font-weight:900;">${fullYear.early}</td>
-            <td style="color:#4338ca; font-weight:900;">${fullYear.on_time}</td>
-            <td style="color:#b91c1c; font-weight:900;">${fullYear.late}</td>
-            <td style="font-size:12.5px; font-weight:900; color:${fullYear.delay_pct > 0 ? '#b91c1c' : '#15803d'}">${fullYear.delay_pct}%</td>
+            <td style="font-weight:900; font-size:12.5px; color:#b45309;">${fullYear.total || 0}</td>
+            <td style="color:#059669; font-weight:900;">${fullYear.early || 0}</td>
+            <td style="color:#4338ca; font-weight:900;">${fullYear.on_time || 0}</td>
+            <td style="color:#b91c1c; font-weight:900;">${fullYear.late || 0}</td>
+            <td style="font-size:12.5px; font-weight:900; color:${(fullYear.delay_pct || 0) > 0 ? '#b91c1c' : '#15803d'}">${fullYear.delay_pct || 0}%</td>
             <td>
                 <input type="number" step="0.1" class="kpi-q-input" data-period="year" data-val="0" value="${yTargetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; background:#ffffff; color:#92400e;">%
             </td>
@@ -380,9 +380,9 @@
                 ${yBadgeHtml}
             </td>
             <!-- Full Year Error Columns -->
-            <td style="color:#7c3aed; font-weight:900;">${fullYear.internal_errors} <span style="font-size:10px; opacity:0.8;">(${fullYear.internal_error_qty} sp)</span></td>
-            <td style="color:#dc2626; font-weight:900;">${fullYear.customer_errors} <span style="font-size:10px; opacity:0.8;">(${fullYear.customer_error_qty} sp)</span></td>
-            <td style="color:#b45309; font-weight:900;">${fullYear.total_errors} <span style="font-size:10px; opacity:0.8;">(${fullYear.total_error_qty} sp)</span></td>
+            <td style="color:#7c3aed; font-weight:900;">${fullYear.internal_errors || 0} <span style="font-size:10px; opacity:0.8;">(${fullYear.internal_error_qty || 0} sp)</span></td>
+            <td style="color:#dc2626; font-weight:900;">${fullYear.customer_errors || 0} <span style="font-size:10px; opacity:0.8;">(${fullYear.customer_error_qty || 0} sp)</span></td>
+            <td style="color:#b45309; font-weight:900;">${fullYear.total_errors || 0} <span style="font-size:10px; opacity:0.8;">(${fullYear.total_error_qty || 0} sp)</span></td>
             <td>
                 <input type="number" step="1" class="kpi-q-err-input" data-period="year" data-val="0" value="${yTargetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; background:#ffffff; color:#92400e;">
             </td>
@@ -422,41 +422,41 @@
                 </div>
 
                 <div class="m-progress-bar">
-                    <div class="m-progress-seg" style="width: ${m.early_pct}%; background: #10b981;" title="Gửi Sớm ${m.early_pct}%"></div>
-                    <div class="m-progress-seg" style="width: ${m.on_time_pct}%; background: #6366f1;" title="Đúng Hẹn ${m.on_time_pct}%"></div>
-                    <div class="m-progress-seg" style="width: ${m.delay_pct}%; background: #ef4444;" title="Trễ Hẹn ${m.delay_pct}%"></div>
+                    <div class="m-progress-seg" style="width: ${m.early_pct || 0}%; background: #10b981;" title="Gửi Sớm ${m.early_pct || 0}%"></div>
+                    <div class="m-progress-seg" style="width: ${m.on_time_pct || 0}%; background: #6366f1;" title="Đúng Hẹn ${m.on_time_pct || 0}%"></div>
+                    <div class="m-progress-seg" style="width: ${m.delay_pct || 0}%; background: #ef4444;" title="Trễ Hẹn ${m.delay_pct || 0}%"></div>
                 </div>
 
                 <div class="m-stat-row">
                     <span class="m-stat-label">📦 Tổng số đơn:</span>
-                    <span class="m-stat-val" style="color:#b45309; background:#fffbeb; padding:1px 8px; border-radius:6px; border:1px solid #fef3c7">${m.total} đơn</span>
+                    <span class="m-stat-val" style="color:#b45309; background:#fffbeb; padding:1px 8px; border-radius:6px; border:1px solid #fef3c7">${m.total || 0} đơn</span>
                 </div>
                 <div class="m-stat-row">
                     <span class="m-stat-label">🟢 Gửi Sớm:</span>
-                    <span class="m-stat-val" style="color:#059669">${m.early} đơn (${m.early_pct}%)</span>
+                    <span class="m-stat-val" style="color:#059669">${m.early || 0} đơn (${m.early_pct || 0}%)</span>
                 </div>
                 <div class="m-stat-row">
                     <span class="m-stat-label">🟡 Đúng Hẹn:</span>
-                    <span class="m-stat-val" style="color:#4338ca">${m.on_time} đơn (${m.on_time_pct}%)</span>
+                    <span class="m-stat-val" style="color:#4338ca">${m.on_time || 0} đơn (${m.on_time_pct || 0}%)</span>
                 </div>
                 <div class="m-stat-row">
                     <span class="m-stat-label">🔴 Trễ Hẹn:</span>
-                    <span class="m-stat-val" style="color:#dc2626">${m.late} đơn (${m.delay_pct}%)</span>
+                    <span class="m-stat-val" style="color:#dc2626">${m.late || 0} đơn (${m.delay_pct || 0}%)</span>
                 </div>
 
                 <!-- Error Stat Summary Section -->
                 <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1;">
                     <div class="m-stat-row">
                         <span class="m-stat-label">🟣 Lỗi Nội Bộ:</span>
-                        <span class="m-stat-val" style="color:#7c3aed">${m.internal_errors} đơn <span style="font-size:10px; font-weight:600; color:#6b21a8;">(${m.internal_error_qty} sp)</span></span>
+                        <span class="m-stat-val" style="color:#7c3aed">${m.internal_errors || 0} đơn <span style="font-size:10px; font-weight:600; color:#6b21a8;">(${m.internal_error_qty || 0} sp)</span></span>
                     </div>
                     <div class="m-stat-row">
                         <span class="m-stat-label">🔴 Lỗi Khách Hàng:</span>
-                        <span class="m-stat-val" style="color:#dc2626">${m.customer_errors} đơn <span style="font-size:10px; font-weight:600; color:#991b1b;">(${m.customer_error_qty} sp)</span></span>
+                        <span class="m-stat-val" style="color:#dc2626">${m.customer_errors || 0} đơn <span style="font-size:10px; font-weight:600; color:#991b1b;">(${m.customer_error_qty || 0} sp)</span></span>
                     </div>
                     <div class="m-stat-row">
                         <span class="m-stat-label">⚠️ Tổng Đơn Lỗi:</span>
-                        <span class="m-stat-val" style="color:#b45309; background:#fff7ed; padding:1px 6px; border-radius:4px; border:1px solid #fed7aa">${m.total_errors} đơn <span style="font-size:10px; font-weight:600;">(${m.total_error_qty} sp)</span></span>
+                        <span class="m-stat-val" style="color:#b45309; background:#fff7ed; padding:1px 6px; border-radius:4px; border:1px solid #fed7aa">${m.total_errors || 0} đơn <span style="font-size:10px; font-weight:600;">(${m.total_error_qty || 0} sp)</span></span>
                     </div>
                 </div>
 
