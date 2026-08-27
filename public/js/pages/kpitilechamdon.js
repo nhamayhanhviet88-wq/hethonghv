@@ -6,6 +6,7 @@
         segment: 'all', // 'all', 'dongphuc', 'tempet'
         data: null,
         loading: false,
+        userRole: 'unknown', // Role from API: 'giam_doc', 'quan_ly', etc.
         lines: {
             late: true,     // Mặc định BẬT đường tỉ lệ Trễ Hẹn % (🔴)
             on_time: false, // Mặc định TẮT đường tỉ lệ Đúng Hẹn % (🔵)
@@ -336,6 +337,36 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Modal Đánh Giá Cam Kết Quản Lý Xưởng (Chỉ Giám Đốc) -->
+            <div id="kpiEvalModalOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+                <div style="background:#ffffff; width:100%; max-width:680px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0; overflow:hidden; display:flex; flex-direction:column; max-height:90vh;">
+                    <!-- Modal Header -->
+                    <div style="background:linear-gradient(135deg,#312e81,#4338ca); color:#ffffff; padding:16px 20px; display:flex; align-items:center; justify-content:space-between;">
+                        <div id="kpiEvalModalTitle" style="font-size:15px; font-weight:900; letter-spacing:.2px;">📊 Đánh Giá Cam Kết Quản Lý Xưởng</div>
+                        <button onclick="window.closeKpiEvalModal()" style="background:none; border:none; color:#c7d2fe; font-size:20px; font-weight:900; cursor:pointer; line-height:1;">✕</button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:16px;">
+                        <div id="kpiEvalModalHeaderInfo" style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px 14px; border-radius:10px;"></div>
+                        <div>
+                            <div style="font-size:13px; font-weight:900; color:#0f172a; margin-bottom:8px;">📋 Đánh Giá Từng Cam Kết (Chọn ✅ Hoàn Thành hoặc ❌ Chưa Hoàn Thành + Ghi Chú):</div>
+                            <div id="kpiEvalItemsList" style="display:flex; flex-direction:column; gap:10px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div style="background:#f1f5f9; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; border-top:1px solid #e2e8f0; flex-wrap:wrap; gap:10px;">
+                        <div id="kpiEvalProgressSummary" style="font-size:12.5px; font-weight:900; color:#4338ca;"></div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button onclick="window.closeKpiEvalModal()" style="padding:8px 14px; background:#ffffff; border:1.5px solid #cbd5e1; color:#475569; font-weight:800; border-radius:8px; cursor:pointer;">Hủy</button>
+                            <button id="btnSaveKpiEval" onclick="window.saveKpiEvalModal(false)" style="padding:8px 16px; background:linear-gradient(135deg,#4f46e5,#4338ca); color:#ffffff; border:none; font-weight:900; border-radius:8px; cursor:pointer; box-shadow:0 4px 12px rgba(79,70,229,0.25);">💾 Lưu Đánh Giá</button>
+                            <button id="btnCompleteKpiEval" onclick="window.saveKpiEvalModal(true)" style="padding:8px 18px; background:linear-gradient(135deg,#059669,#10b981); color:#ffffff; border:none; font-weight:900; border-radius:8px; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.3);">✅ Hoàn Thành KPI Tháng</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         `;
 
@@ -363,7 +394,9 @@
             }
 
             _kpiDelayState.data = data;
-            console.log('[KPI Delay] Rendering dashboard...');
+            if (data.userRole) _kpiDelayState.userRole = data.userRole;
+            else if (typeof currentUser !== 'undefined' && currentUser) _kpiDelayState.userRole = currentUser.role || 'unknown';
+            console.log('[KPI Delay] Rendering dashboard... userRole:', _kpiDelayState.userRole);
             renderKpiDelayDashboard(data);
             console.log('[KPI Delay] Dashboard render finished!');
         } catch (e) {
@@ -531,29 +564,109 @@
         </tr>
         `;
 
+        const isDirector = (_kpiDelayState.userRole === 'giam_doc' || (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc'));
+        const canCreateKpi = isDirector || ['quan_ly', 'quan_ly_cap_cao'].includes(_kpiDelayState.userRole) || (typeof currentUser !== 'undefined' && currentUser && ['quan_ly', 'quan_ly_cap_cao'].includes(currentUser.role));
+
         // Monthly Cards Html
         const monthlyCardsHtml = months.map(m => {
             const mKey = `month_${m.month}`;
-            const targetPct = targets[mKey] ? targets[mKey].target_max_delay_pct : 5.0;
-            const targetErr = targets[mKey] ? (targets[mKey].target_max_total_errors || 0) : 0;
-            const evalRule = targets[mKey] ? (targets[mKey].eval_rule || 'ALL') : 'ALL';
-            const rewardText = targets[mKey] ? (targets[mKey].reward_text || '') : '';
-            const commitments = targets[mKey] ? (targets[mKey].commitments || []) : [];
+            const targetObj = targets[mKey];
+            const targetPct = targetObj ? targetObj.target_max_delay_pct : 5.0;
+            const targetErr = targetObj ? (targetObj.target_max_total_errors || 0) : 0;
+            const evalRule = targetObj ? (targetObj.eval_rule || 'ALL') : 'ALL';
+            const rewardText = targetObj ? (targetObj.reward_text || '') : '';
+            const commitments = targetObj ? (targetObj.commitments || []) : [];
+            const status = targetObj ? (targetObj.status || 'active') : 'not_created';
+            const commitmentEvals = targetObj ? (targetObj.commitment_evals || []) : [];
+            const completionPct = targetObj ? (targetObj.commitment_completion_pct || 0) : 0;
 
             const isCurrentMonth = (data.year === realCurrentYear) && (m.month === realCurrentMonth);
             const isFutureMonth = (data.year > realCurrentYear) || (data.year === realCurrentYear && m.month > realCurrentMonth);
 
+            // Check sequential unlocking
+            let isUnlocked = true;
+            if (m.month > 1) {
+                const prevKey = `month_${m.month - 1}`;
+                const prevTarget = targets[prevKey];
+                if (!prevTarget || prevTarget.status !== 'completed') {
+                    isUnlocked = false;
+                }
+            }
+
+            // === 1. State: not_created (Chưa Tạo KPI) ===
+            if (status === 'not_created') {
+                if (!isUnlocked) {
+                    return `
+                    <div class="m-card" style="opacity:0.6; background:#f8fafc; border:1.5px dashed #cbd5e1;" id="mCard_${m.month}">
+                        <div class="m-card-header">
+                            <div class="m-card-title" style="color:#64748b;">Tháng ${m.month}/${fullYear.year}</div>
+                            <span class="badge-status badge-future">🔒 Chưa Mở Khoá</span>
+                        </div>
+                        <div style="padding:24px 10px; text-align:center; color:#94a3b8; font-size:12px; font-weight:700;">
+                            <div>🔒 KPI Tháng ${m.month} chưa được mở khoá.</div>
+                            <div style="font-size:11px; margin-top:4px; font-weight:600; color:#64748b;">Cần bấm <b>✅ Hoàn Thành KPI Tháng ${m.month - 1}</b> trước.</div>
+                        </div>
+                    </div>
+                    `;
+                }
+
+                return `
+                <div class="m-card" style="border:2px dashed #6366f1; background:#faf5ff;" id="mCard_${m.month}">
+                    <div class="m-card-header">
+                        <div class="m-card-title" style="color:#4338ca;">Tháng ${m.month}/${fullYear.year}</div>
+                        <span class="badge-status badge-warning">🔲 CHƯA TẠO KPI</span>
+                    </div>
+                    <div style="padding:16px 10px; text-align:center; color:#475569; font-size:12px;">
+                        <div style="font-weight:800; color:#3730a3; margin-bottom:6px;">✨ Đã mở khoá tạo KPI Tháng ${m.month}!</div>
+                        <div style="font-size:11.5px; font-weight:600; color:#64748b; margin-bottom:14px;">Thiết lập chỉ tiêu Trễ, Chỉ tiêu Lỗi & các cam kết của Quản Lý Xưởng.</div>
+                        ${canCreateKpi ? `
+                            <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="padding:8px 16px; background:linear-gradient(135deg,#4f46e5,#6366f1); color:#fff; border:none; font-weight:900; border-radius:8px; cursor:pointer; font-size:12.5px; box-shadow:0 4px 12px rgba(79,70,229,0.3);">
+                                🆕 Tạo KPI Tháng ${m.month}
+                            </button>
+                        ` : `
+                            <div style="font-size:11px; font-weight:700; color:#94a3b8;">(Cần tài khoản Quản Lý / Giám Đốc để tạo KPI)</div>
+                        `}
+                    </div>
+                </div>
+                `;
+            }
+
+            // === 2. Combined Badge & Reward check ===
+            const isPassDelay = (m.delay_pct || 0) <= targetPct;
+            const isPassErr = targetErr > 0 ? ((m.total_errors || 0) <= targetErr) : true;
+            let isOverallAchieved = false;
+            if (evalRule === 'ANY') {
+                isOverallAchieved = isPassDelay || isPassErr;
+            } else {
+                isOverallAchieved = isPassDelay && isPassErr;
+            }
+
             const mBadgeHtml = getCombinedKpiBadgeHtml(isFutureMonth, m.total || 0, m.delay_pct || 0, targetPct, m.total_errors || 0, targetErr, evalRule);
 
+            // Card Header Badge Status & Border
+            let statusBadgeHtml = '';
+            let cardBorderStyle = '';
+            if (status === 'completed') {
+                statusBadgeHtml = `<span class="badge-status badge-success" style="background:#dcfce7; color:#15803d; border-color:#86efac;">✅ ĐÃ HOÀN THÀNH</span>`;
+                cardBorderStyle = `border:2px solid #10b981 !important; background:linear-gradient(180deg,#f0fdf4 0%,#ffffff 100%) !important;`;
+            } else if (status === 'evaluating') {
+                statusBadgeHtml = `<span class="badge-status badge-warning" style="background:#f3e8ff; color:#6b21a8; border-color:#d8b4fe;">📊 ĐANG ĐÁNH GIÁ</span>`;
+                cardBorderStyle = `border:2px solid #a855f7 !important;`;
+            } else {
+                statusBadgeHtml = isCurrentMonth ? '<span style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#ffffff; font-size:9.5px; font-weight:900; padding:2px 6px; border-radius:6px; box-shadow:0 2px 6px rgba(245,158,11,0.3); letter-spacing:.3px;">⭐ HIỆN TẠI</span>' : '<span class="badge-status badge-warning" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">📝 ĐANG THỰC HIỆN</span>';
+            }
+
             return `
-            <div class="m-card ${isCurrentMonth ? 'is-current-month' : ''}" id="mCard_${m.month}">
+            <div class="m-card ${isCurrentMonth && status === 'active' ? 'is-current-month' : ''}" id="mCard_${m.month}" style="${cardBorderStyle}">
                 <div class="m-card-header">
                     <div style="display:flex; align-items:center; gap:6px;">
                         <div class="m-card-title">Tháng ${m.month}/${fullYear.year}</div>
-                        ${isCurrentMonth ? '<span style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#ffffff; font-size:9.5px; font-weight:900; padding:2px 6px; border-radius:6px; box-shadow:0 2px 6px rgba(245,158,11,0.3); letter-spacing:.3px;">⭐ HIỆN TẠI</span>' : ''}
+                        ${statusBadgeHtml}
                     </div>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:900; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 8px; border-radius:6px; cursor:pointer; transition:all 0.2s;" title="Cấu hình KPI, Quy tắc đánh giá, Phần thưởng & Điều cam kết">⚙️ Cấu Hình KPI</button>
+                        ${status !== 'completed' ? `
+                            <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:900; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 8px; border-radius:6px; cursor:pointer;" title="Cấu hình KPI, Quy tắc đánh giá, Phần thưởng & Điều cam kết">⚙️ Cấu Hình KPI</button>
+                        ` : ''}
                         <div id="mBadgeWrap_${m.month}">
                             ${mBadgeHtml}
                         </div>
@@ -599,18 +712,19 @@
                     </div>
                 </div>
 
+                <!-- KPI Inputs Row -->
                 <div class="m-kpi-input-wrap">
                     <div class="m-kpi-input-row">
                         <span class="m-kpi-label">🎯 KPI Trễ Tối Đa:</span>
                         <div>
-                            <input type="number" step="0.1" class="m-kpi-input kpi-m-input" data-period="month" data-val="${m.month}" value="${targetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)">
+                            <input type="number" step="0.1" class="m-kpi-input kpi-m-input" data-period="month" data-val="${m.month}" value="${targetPct}" ${status === 'completed' ? 'disabled' : ''} onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)">
                             <span style="font-size:12px; font-weight:800; color:#475569">%</span>
                         </div>
                     </div>
                     <div class="m-kpi-input-row">
                         <span class="m-kpi-label">⚠️ KPI Lỗi Tối Đa:</span>
                         <div>
-                            <input type="number" step="1" class="m-kpi-input kpi-m-err-input" data-period="month" data-val="${m.month}" value="${targetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="color:#b45309; border-color:#f59e0b;">
+                            <input type="number" step="1" class="m-kpi-input kpi-m-err-input" data-period="month" data-val="${m.month}" value="${targetErr}" ${status === 'completed' ? 'disabled' : ''} onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="color:#b45309; border-color:#f59e0b;">
                             <span style="font-size:12px; font-weight:800; color:#475569">đơn</span>
                         </div>
                     </div>
@@ -628,13 +742,63 @@
                 <div style="margin-top:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
                         <span style="font-size:11px; font-weight:900; color:#1e293b;">📋 Cam Kết Quản Lý Xưởng (${commitments.length})</span>
-                        <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:800; color:#4338ca; background:none; border:none; cursor:pointer; text-decoration:underline;">Sửa Cam Kết</button>
+                        ${(isDirector && status !== 'completed') ? `
+                            <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:800; color:#4338ca; background:none; border:none; cursor:pointer; text-decoration:underline;">Sửa Cam Kết</button>
+                        ` : ''}
                     </div>
+
                     ${commitments.length > 0 ? `
                         <ul style="margin:0; padding-left:16px; font-size:11px; font-weight:600; color:#334155; line-height:1.4;">
-                            ${commitments.map(c => `<li style="margin-bottom:2px;">${c}</li>`).join('')}
+                            ${commitments.map((c, idx) => {
+                                const ev = commitmentEvals[idx];
+                                let evBadge = '';
+                                if (ev) {
+                                    evBadge = ev.passed ? '<span style="color:#16a34a; font-weight:800; font-size:10px; margin-left:4px;">[✅ Đạt' + (ev.note ? ': ' + ev.note : '') + ']</span>' : '<span style="color:#dc2626; font-weight:800; font-size:10px; margin-left:4px;">[❌ Chưa đạt' + (ev.note ? ': ' + ev.note : '') + ']</span>';
+                                }
+                                return `<li style="margin-bottom:3px;">${c} ${evBadge}</li>`;
+                            }).join('')}
                         </ul>
-                    ` : `<div style="font-size:10.5px; font-style:italic; color:#94a3b8;">Chưa lập điều cam kết. Bấm <b>⚙️ Cấu Hình KPI</b> để thêm.</div>`}
+                    ` : `<div style="font-size:10.5px; font-style:italic; color:#94a3b8;">Chưa lập điều cam kết.</div>`}
+
+                    ${(status === 'completed' || status === 'evaluating') && commitments.length > 0 ? `
+                        <div style="margin-top:6px; padding-top:6px; border-top:1px dashed #cbd5e1; font-size:11px; font-weight:800; color:#4338ca; display:flex; justify-content:space-between;">
+                            <span>📊 Hoàn thành cam kết: ${completionPct}%</span>
+                            <span>(${commitmentEvals.filter(e => e.passed).length}/${commitments.length} điều)</span>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Final Result Banner for Completed Months -->
+                ${status === 'completed' ? `
+                    <div style="margin-top:10px; padding:8px 10px; border-radius:8px; text-align:center; font-size:11.5px; font-weight:900; ${isOverallAchieved ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;'}">
+                        ${isOverallAchieved ? `🎉 ĐẠT KPI THÁNG — ${rewardText ? 'THƯỞNG: ' + rewardText : 'ĐẠT CHỈ TIÊU!'}` : `❌ KHÔNG ĐẠT KPI THÁNG — KHÔNG CÓ THƯỞNG`}
+                    </div>
+                ` : ''}
+
+                <!-- Action Buttons Footer -->
+                <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end; align-items:center;">
+                    ${isDirector ? `
+                        ${status === 'active' ? `
+                            <button onclick="window.openKpiEvalModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="width:100%; padding:7px 12px; background:linear-gradient(135deg,#4f46e5,#4338ca); color:#ffffff; border:none; border-radius:8px; font-size:11.5px; font-weight:900; cursor:pointer; box-shadow:0 2px 8px rgba(79,70,229,0.25);">
+                                📊 Bắt Đầu Đánh Giá Cam Kết
+                            </button>
+                        ` : ''}
+
+                        ${status === 'evaluating' ? `
+                            <button onclick="window.openKpiEvalModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="flex:1; padding:7px 10px; background:linear-gradient(135deg,#7c3aed,#6d28d9); color:#ffffff; border:none; border-radius:8px; font-size:11px; font-weight:900; cursor:pointer;">
+                                📊 Đánh Giá Tiếp
+                            </button>
+                            <button onclick="window.completeKpiMonth('month', ${m.month})" style="flex:1; padding:7px 10px; background:linear-gradient(135deg,#059669,#10b981); color:#ffffff; border:none; border-radius:8px; font-size:11px; font-weight:900; cursor:pointer;">
+                                ✅ Hoàn Thành KPI
+                            </button>
+                        ` : ''}
+
+                        ${status === 'completed' ? `
+                            <button onclick="window.reopenKpiMonth('month', ${m.month})" style="width:100%; padding:6px 12px; background:#ffffff; color:#dc2626; border:1.5px solid #fca5a5; border-radius:8px; font-size:11px; font-weight:800; cursor:pointer;" title="Giám Đốc mở lại KPI để điều chỉnh">
+                                🔓 Mở Lại KPI Tháng ${m.month}
+                            </button>
+                        ` : ''}
+                    ` : ''}
                 </div>
             </div>
             `;
@@ -1428,6 +1592,224 @@
                 btnSave.disabled = false;
                 btnSave.innerText = '💾 Lưu KPI & Cam Kết';
             }
+        }
+    };
+
+    // ========== EVALUATION MODAL CONTROLLERS (GIÁM ĐỐC) ==========
+    var _evaluatingModalTarget = { period_type: 'month', period_value: 1, title: '' };
+
+    window.openKpiEvalModal = function(periodType, periodValue, titleLabel) {
+        _evaluatingModalTarget = { period_type: periodType, period_value: periodValue, title: titleLabel };
+        const key = `${periodType}_${periodValue}`;
+        const targetObj = (_kpiDelayState.data && _kpiDelayState.data.targets && _kpiDelayState.data.targets[key]) || {};
+        const commitments = Array.isArray(targetObj.commitments) ? targetObj.commitments : [];
+        const existingEvals = Array.isArray(targetObj.commitment_evals) ? targetObj.commitment_evals : [];
+
+        if (commitments.length === 0) {
+            alert('⚠️ Tháng này chưa có điều cam kết nào để đánh giá! Vui lòng bấm "⚙️ Cấu Hình KPI" để thêm các điều cam kết trước.');
+            return;
+        }
+
+        const titleEl = document.getElementById('kpiEvalModalTitle');
+        if (titleEl) titleEl.innerText = `📊 Đánh Giá Cam Kết Quản Lý Xưởng — ${titleLabel}`;
+
+        const infoEl = document.getElementById('kpiEvalModalHeaderInfo');
+        if (infoEl) {
+            const mData = (_kpiDelayState.data && _kpiDelayState.data.months) ? (_kpiDelayState.data.months.find(m => m.month === periodValue) || {}) : {};
+            infoEl.innerHTML = `
+                <div style="font-size:12.5px; font-weight:800; color:#1e293b; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                    <span>📦 Tổng đơn: <b>${mData.total || 0}</b> | 🔴 Trễ: <b>${mData.delay_pct || 0}%</b> (Target &le; ${targetObj.target_max_delay_pct || 5.0}%)</span>
+                    <span>⚠️ Tổng lỗi: <b>${mData.total_errors || 0} đơn</b> (Target &le; ${targetObj.target_max_total_errors || 0} đơn)</span>
+                </div>
+            `;
+        }
+
+        const listEl = document.getElementById('kpiEvalItemsList');
+        if (listEl) {
+            listEl.innerHTML = commitments.map((cText, idx) => {
+                const existing = existingEvals[idx] || { passed: true, note: '' };
+                const isPassed = existing.passed !== false;
+                const noteVal = existing.note || '';
+
+                return `
+                <div class="kpi-eval-item-row" data-index="${idx}" style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="font-size:12.5px; font-weight:800; color:#0f172a;">
+                        📌 <span class="eval-commitment-text">${cText}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                        <!-- Pass / Fail Toggle -->
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:800; background:${isPassed ? '#dcfce7' : '#ffffff'}; color:${isPassed ? '#15803d' : '#64748b'}; border:1.5px solid ${isPassed ? '#86efac' : '#cbd5e1'};">
+                                <input type="radio" name="eval_passed_${idx}" value="true" ${isPassed ? 'checked' : ''} onchange="window.updateEvalSummary()" style="accent-color:#16a34a;"> ✅ ĐẠT
+                            </label>
+                            <label style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:800; background:${!isPassed ? '#fee2e2' : '#ffffff'}; color:${!isPassed ? '#dc2626' : '#64748b'}; border:1.5px solid ${!isPassed ? '#fca5a5' : '#cbd5e1'};">
+                                <input type="radio" name="eval_passed_${idx}" value="false" ${!isPassed ? 'checked' : ''} onchange="window.updateEvalSummary()" style="accent-color:#dc2626;"> ❌ CHƯA ĐẠT
+                            </label>
+                        </div>
+
+                        <!-- Note input -->
+                        <input type="text" class="eval-note-ipt" value="${noteVal.replace(/"/g, '&quot;')}" placeholder="Ghi chú đánh giá ngắn (tuỳ chọn)..." style="flex:1; min-width:200px; padding:6px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:600; outline:none;">
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        window.updateEvalSummary();
+
+        const overlay = document.getElementById('kpiEvalModalOverlay');
+        if (overlay) overlay.style.display = 'flex';
+    };
+
+    window.closeKpiEvalModal = function() {
+        const overlay = document.getElementById('kpiEvalModalOverlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+
+    window.updateEvalSummary = function() {
+        const rows = document.querySelectorAll('.kpi-eval-item-row');
+        let total = rows.length;
+        let passed = 0;
+        rows.forEach(r => {
+            const idx = r.dataset.index;
+            const checked = r.querySelector(`input[name="eval_passed_${idx}"]:checked`);
+            if (checked && checked.value === 'true') passed++;
+        });
+        const pct = total > 0 ? ((passed / total) * 100).toFixed(1) : 0;
+
+        const sumEl = document.getElementById('kpiEvalProgressSummary');
+        if (sumEl) {
+            sumEl.innerText = `📊 Tỉ lệ hoàn thành: ${passed}/${total} điều cam kết (${pct}%)`;
+        }
+    };
+
+    window.saveKpiEvalModal = async function(shouldComplete = false) {
+        const rows = document.querySelectorAll('.kpi-eval-item-row');
+        const commitment_evals = [];
+
+        rows.forEach(r => {
+            const idx = r.dataset.index;
+            const text = r.querySelector('.eval-commitment-text')?.innerText || '';
+            const checked = r.querySelector(`input[name="eval_passed_${idx}"]:checked`);
+            const isPassed = checked ? (checked.value === 'true') : true;
+            const note = (r.querySelector('.eval-note-ipt')?.value || '').trim();
+
+            commitment_evals.push({
+                text: text,
+                passed: isPassed,
+                note: note
+            });
+        });
+
+        const btnSave = document.getElementById('btnSaveKpiEval');
+        const btnComp = document.getElementById('btnCompleteKpiEval');
+        if (btnSave) btnSave.disabled = true;
+        if (btnComp) btnComp.disabled = true;
+
+        try {
+            // Save evaluations
+            const res = await fetch('/api/kpi-delay/evaluate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    year: _kpiDelayState.year,
+                    segment: _kpiDelayState.segment,
+                    period_type: _evaluatingModalTarget.period_type,
+                    period_value: _evaluatingModalTarget.period_value,
+                    commitment_evals: commitment_evals
+                })
+            });
+            const data = await res.json();
+            if (!data.ok) {
+                alert('❌ Lỗi lưu đánh giá: ' + (data.error || 'Không xác định'));
+                return;
+            }
+
+            if (shouldComplete) {
+                // Call complete API
+                const compRes = await fetch('/api/kpi-delay/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        year: _kpiDelayState.year,
+                        segment: _kpiDelayState.segment,
+                        period_type: _evaluatingModalTarget.period_type,
+                        period_value: _evaluatingModalTarget.period_value
+                    })
+                });
+                const compData = await compRes.json();
+                if (compData.ok) {
+                    window.closeKpiEvalModal();
+                    await loadKpiDelayData();
+                    if (typeof showToast === 'function') showToast(compData.message || '✅ Đã hoàn thành KPI!', 'success');
+                } else {
+                    alert('❌ Lỗi hoàn thành KPI: ' + (compData.error || 'Không xác định'));
+                }
+            } else {
+                window.closeKpiEvalModal();
+                await loadKpiDelayData();
+                if (typeof showToast === 'function') showToast('✅ Đã lưu đánh giá cam kết!', 'success');
+            }
+        } catch (e) {
+            console.error('saveKpiEvalModal error:', e);
+            alert('❌ Lỗi kết nối máy chủ!');
+        } finally {
+            if (btnSave) btnSave.disabled = false;
+            if (btnComp) btnComp.disabled = false;
+        }
+    };
+
+    window.completeKpiMonth = async function(periodType, periodValue) {
+        if (!confirm(`Anh/Chị có chắc chắn muốn HOÀN THÀNH KPI Tháng ${periodValue} không?\n(Thao tác này sẽ khoá chỉ số Tháng ${periodValue} và mở khoá tạo KPI Tháng ${periodValue + 1})`)) return;
+
+        try {
+            const res = await fetch('/api/kpi-delay/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    year: _kpiDelayState.year,
+                    segment: _kpiDelayState.segment,
+                    period_type: periodType,
+                    period_value: periodValue
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                await loadKpiDelayData();
+                if (typeof showToast === 'function') showToast(data.message, 'success');
+            } else {
+                alert('❌ Lỗi: ' + (data.error || 'Không thể hoàn thành KPI'));
+            }
+        } catch (e) {
+            console.error('completeKpiMonth error:', e);
+            alert('❌ Lỗi kết nối máy chủ!');
+        }
+    };
+
+    window.reopenKpiMonth = async function(periodType, periodValue) {
+        if (!confirm(`Anh/Chị Giám Đốc có chắc chắn muốn MỞ LẠI KPI Tháng ${periodValue} để điều chỉnh không?`)) return;
+
+        try {
+            const res = await fetch('/api/kpi-delay/reopen', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    year: _kpiDelayState.year,
+                    segment: _kpiDelayState.segment,
+                    period_type: periodType,
+                    period_value: periodValue
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                await loadKpiDelayData();
+                if (typeof showToast === 'function') showToast(data.message, 'info');
+            } else {
+                alert('❌ Lỗi: ' + (data.error || 'Không thể mở lại KPI'));
+            }
+        } catch (e) {
+            console.error('reopenKpiMonth error:', e);
+            alert('❌ Lỗi kết nối máy chủ!');
         }
     };
 
