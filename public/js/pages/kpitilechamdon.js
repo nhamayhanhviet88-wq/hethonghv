@@ -17,6 +17,9 @@
     var _resizeHandler = null;
 
     async function renderKpitilechamdonPage(container) {
+        if (!container) {
+            container = document.querySelector('.kpi-delay-wrap')?.parentElement || document.getElementById('contentArea') || document.getElementById('ceoMain') || document.getElementById('mainContent');
+        }
         if (!container) return;
 
         // Dynamic Realtime System Year Range
@@ -824,7 +827,11 @@
                     ctx.lineWidth = 1;
 
                     ctx.beginPath();
-                    ctx.roundRect(pillX, pillY, pillW, pillH, 4);
+                    if (typeof ctx.roundRect === 'function') {
+                        ctx.roundRect(pillX, pillY, pillW, pillH, 4);
+                    } else {
+                        ctx.rect(pillX, pillY, pillW, pillH);
+                    }
                     ctx.fill();
                     ctx.stroke();
 
@@ -864,13 +871,13 @@
     window._kpiDelaySwitchSegment = function (seg) {
         if (_kpiDelayState.segment === seg) return;
         _kpiDelayState.segment = seg;
-        const container = document.getElementById('contentArea');
+        const container = document.querySelector('.kpi-delay-wrap')?.parentElement || document.getElementById('contentArea') || document.getElementById('ceoMain') || document.getElementById('mainContent');
         renderKpitilechamdonPage(container);
     };
 
     window._kpiDelaySwitchYear = function (y) {
         _kpiDelayState.year = parseInt(y, 10);
-        const container = document.getElementById('contentArea');
+        const container = document.querySelector('.kpi-delay-wrap')?.parentElement || document.getElementById('contentArea') || document.getElementById('ceoMain') || document.getElementById('mainContent');
         renderKpitilechamdonPage(container);
     };
 
