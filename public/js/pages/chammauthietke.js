@@ -731,19 +731,10 @@
                         <button type="button" onclick="window._cmtkCloseMaketModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
                     </div>
 
-                    <div style="display:flex; gap:10px; padding:16px 24px 8px 24px; background:#fcfafc; border-bottom:1.5px solid #f1f5f9;">
-                        <button type="button" id="cmtkModalTabBtn1" onclick="window._cmtkSwitchModalTab('tab1')" style="flex:1; padding:10px 16px; border-radius:14px; font-weight:900; font-size:13.5px; border:none; background:#7c3aed; color:#ffffff; cursor:pointer; box-shadow:0 4px 12px rgba(124,58,237,0.25);">
-                            📁 TAB 1: Thông Tin & Link (*)
-                        </button>
-                        <button type="button" id="cmtkModalTabBtn2" onclick="window._cmtkSwitchModalTab('tab2')" style="flex:1; padding:10px 16px; border-radius:14px; font-weight:850; font-size:13.5px; border:1.5px solid #e9d5ff; background:#ffffff; color:#6d28d9; cursor:pointer;">
-                            📝 TAB 2: Quy Trình & Hướng Dẫn*
-                        </button>
-                    </div>
-
                     <form id="cmtkMaketForm" onsubmit="window._cmtkSaveMaket(event)" style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; background:#fcfafc;">
                         <input type="hidden" id="cmtkFormMaketId" value="">
 
-                        <div id="cmtkModalTabContent1" style="display:flex; flex-direction:column; gap:16px;">
+                        <div style="display:flex; flex-direction:column; gap:16px;">
                             <div class="qtns-form-group">
                                 <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📁 Danh Mục Quản Trị (* BẮT BUỘC):</label>
                                 <select id="cmtkFormCategory" style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13.5px; font-weight:800; color:#0f172a; background:#ffffff; outline:none;">
@@ -764,8 +755,8 @@
                             </div>
 
                             <div class="qtns-form-group">
-                                <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📝 Mô tả / Ghi chú (tự động xuống dòng):</label>
-                                <textarea id="cmtkFormNotes" rows="3" placeholder="Mô tả tóm tắt nội dung quy trình hoặc cẩm nang hướng dẫn mẫu thiết kế..." style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:600; color:#0f172a; font-family:inherit; outline:none; resize:vertical; background:#ffffff;"></textarea>
+                                <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📝 Mô tả / Ghi chú*</label>
+                                <textarea id="cmtkFormNotes" rows="4" placeholder="Mô tả tóm tắt nội dung quy trình hoặc cẩm nang hướng dẫn mẫu thiết kế..." required style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:600; color:#0f172a; font-family:inherit; outline:none; resize:vertical; background:#ffffff;"></textarea>
                             </div>
 
                             <div class="qtns-form-group">
@@ -795,13 +786,6 @@
                             </div>
                         </div>
 
-                        <div id="cmtkModalTabContent2" style="display:none; flex-direction:column; gap:16px;">
-                            <div class="qtns-form-group">
-                                <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📝 Quy Trình & Hướng Dẫn Chi Tiết / Cảnh Báo In Ấn:</label>
-                                <textarea id="cmtkFormDetailGuide" rows="8" placeholder="Nhập quy trình từng bước, lưu ý màu vải, thông số thiết kế vector..." style="width:100%; border:2px solid #e9d5ff; border-radius:16px; padding:12px 16px; font-size:13.5px; font-weight:600; color:#0f172a; font-family:inherit; outline:none; resize:vertical; background:#ffffff;"></textarea>
-                            </div>
-                        </div>
-
                         <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:12px; border-top:1.5px solid #e2e8f0; padding-top:16px;">
                             <button type="button" onclick="window._cmtkCloseMaketModal()" style="padding:10px 22px; border-radius:12px; font-weight:800; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155; cursor:pointer;">Hủy Bỏ</button>
                             <button type="submit" style="padding:10px 24px; border-radius:12px; font-weight:900; border:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; cursor:pointer; box-shadow:0 4px 14px rgba(109,40,217,0.35);">💾 Lưu Bản Maket</button>
@@ -813,24 +797,6 @@
         }
         return modal;
     }
-
-    window._cmtkSwitchModalTab = function (tabKey) {
-        activeModalTab = tabKey;
-        const btn1 = document.getElementById('cmtkModalTabBtn1');
-        const btn2 = document.getElementById('cmtkModalTabBtn2');
-        const content1 = document.getElementById('cmtkModalTabContent1');
-        const content2 = document.getElementById('cmtkModalTabContent2');
-
-        if (tabKey === 'tab1') {
-            btn1.style.background = '#7c3aed'; btn1.style.color = '#ffffff'; btn1.style.border = 'none';
-            btn2.style.background = '#ffffff'; btn2.style.color = '#6d28d9'; btn2.style.border = '1.5px solid #e9d5ff';
-            content1.style.display = 'flex'; content2.style.display = 'none';
-        } else {
-            btn2.style.background = '#7c3aed'; btn2.style.color = '#ffffff'; btn2.style.border = 'none';
-            btn1.style.background = '#ffffff'; btn1.style.color = '#6d28d9'; btn1.style.border = '1.5px solid #e9d5ff';
-            content2.style.display = 'flex'; content1.style.display = 'none';
-        }
-    };
 
     window._cmtkOnMaketImageSelected = async function (input) {
         if (!input || !input.files || !input.files[0]) return;
@@ -966,6 +932,10 @@
 
         if (!title) {
             showToast('⚠️ Vui lòng nhập tiêu đề mẫu Maket!', 'error');
+            return;
+        }
+        if (!notes) {
+            showToast('⚠️ Bắt buộc phải nhập Mô tả / Ghi chú*!', 'error');
             return;
         }
         if (!imageUrl) {
