@@ -1190,7 +1190,16 @@
                                         <span>📋 QUY TRÌNH THỰC THI TỪNG BƯỚC:</span>
                                         <span style="font-size:12px; color:#6b21a8; font-weight:700;">(Xuống dòng tự động tạo Bước)</span>
                                     </label>
-                                    <textarea id="qtnsFormSteps" rows="8" placeholder="Bước 1: Tiếp nhận nhu cầu tuyển dụng&#10;Bước 2: Sàng lọc hồ sơ ứng viên..." style="width:100%; border:2px solid #d8b4fe; border-radius:16px; padding:14px 18px; font-size:13.5px; font-weight:700; line-height:1.6; outline:none; resize:vertical; min-height:220px; color:#4c1d95; font-family:inherit; background:#ffffff;"></textarea>
+                                    <textarea id="qtnsFormSteps" rows="8" 
+                                        placeholder="Bước 1: Tiếp nhận nhu cầu tuyển dụng&#10;Bước 2: Sàng lọc hồ sơ ứng viên..." 
+                                        style="width:100%; border:2px solid #d8b4fe; border-radius:16px; padding:14px 18px; font-size:13.5px; font-weight:700; line-height:1.6; outline:none; resize:vertical; min-height:220px; color:#4c1d95; font-family:inherit; background:#ffffff;"
+                                        onfocus="window._qtnsOnStepsFocus(this)"
+                                        onkeydown="window._qtnsOnStepsKeyDown(event, this)"></textarea>
+                                    <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+                                        <button type="button" onclick="window._qtnsAddStepLine()" style="background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:800; cursor:pointer;">
+                                            ➕ Thêm Bước Thực Thi
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <!-- 2. GUIDE -->
