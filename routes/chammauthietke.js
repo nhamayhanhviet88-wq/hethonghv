@@ -167,4 +167,32 @@ module.exports = async function (fastify) {
             return reply.code(500).send({ error: 'Lỗi tải file PDF: ' + e.message });
         }
     });
+
+    // 6. POST /api/chammauthietke/upload-image — Stream upload hình ảnh/video nguyên bản trực tiếp vào uploads/makets/
+    fastify.post('/api/chammauthietke/upload-image', async (request, reply) => {
+        try {
+            const data = await request.file();
+            if (!data) return reply.code(400).send({ error: 'Không tìm thấy file hình ảnh/video gửi lên' });
+
+            const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'makets');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+            const ext = path.extname(data.filename) || '.jpg';
+            const safeName = `maket_img_${Date.now()}_${Math.random().toString(36).substring(2, 7)}${ext}`;
+            const filePath = path.join(uploadDir, safeName);
+
+            await pipeline(data.file, fs.createWriteStream(filePath));
+
+            const publicUrl = `/uploads/makets/${safeName}`;
+            return {
+                success: true,
+                url: publicUrl,
+                originalName: data.filename,
+                size: fs.statSync(filePath).size
+            };
+        } catch (e) {
+            console.error('[CMTK Image Upload Error]:', e.message);
+            return reply.code(500).send({ error: 'Lỗi tải file hình ảnh/video: ' + e.message });
+        }
+    });
 };

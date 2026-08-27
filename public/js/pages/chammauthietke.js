@@ -835,18 +835,34 @@
     window._cmtkOnMaketImageSelected = async function (input) {
         if (!input || !input.files || !input.files[0]) return;
         const file = input.files[0];
-        showToast('⏳ Đang xử lý và nén hình ảnh...', 'info');
+        showToast('⏳ Đang nén ảnh web & Stream đẩy ảnh gốc lên server...', 'info');
         try {
-            const compressedDataUrl = await compressImage(file, 1400, 0.82);
+            // 1. Tạo ảnh xem trước hiển thị siêu nhanh trên web (1800px)
+            const webCompressedUrl = await compressImage(file, 1800, 0.90);
+
+            // 2. Stream đẩy file ảnh/video nguyên bản 100% lên ổ cứng server
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch('/api/chammauthietke/upload-image', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await res.json();
+            const origUrl = (res.ok && result.success && result.url) ? result.url : webCompressedUrl;
+
             const imageUrlInput = document.getElementById('cmtkFormImageUrl');
+            const origUrlInput = document.getElementById('cmtkFormOriginalImageUrl');
             const previewBox = document.getElementById('cmtkFormImagePreviewBox');
             const previewImg = document.getElementById('cmtkFormImagePreviewImg');
 
-            if (imageUrlInput) imageUrlInput.value = compressedDataUrl;
-            if (previewImg) previewImg.src = compressedDataUrl;
+            if (imageUrlInput) imageUrlInput.value = webCompressedUrl;
+            if (origUrlInput) origUrlInput.value = origUrl;
+            if (previewImg) previewImg.src = webCompressedUrl;
             if (previewBox) previewBox.style.display = 'block';
 
-            showToast('✅ Đã tải và nén hình ảnh thành công!');
+            showToast('✅ Đã Stream ảnh nét gốc 100% lên server & tạo ảnh web mượt mà!');
         } catch (e) {
             console.error('[CMTK Image Upload Error]', e);
             showToast('❌ Lỗi xử lý hình ảnh: ' + e.message, 'error');
