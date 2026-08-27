@@ -5615,6 +5615,29 @@
         el.value = 'Bước 1: ';
     };
 
+    window._xldlAddStepLine = function () {
+        const el = document.getElementById('xldlFormSteps');
+        if (!el) return;
+        if (!el.value.trim()) {
+            el.value = 'Bước 1: ';
+        } else {
+            const text = el.value;
+            const allLines = text.split('\n');
+            let maxStepNum = 0;
+            allLines.forEach(l => {
+                const m = l.match(/^Bước\s*(\d+)/i);
+                if (m) {
+                    const num = parseInt(m[1], 10);
+                    if (num > maxStepNum) maxStepNum = num;
+                }
+            });
+            const nextNum = maxStepNum > 0 ? maxStepNum + 1 : (allLines.length + 1);
+            el.value = text.trimEnd() + `\nBước ${nextNum}: `;
+        }
+        el.focus();
+        el.selectionStart = el.selectionEnd = el.value.length;
+    };
+
     window._xldlOnStepsKeyDown = function (e, el) {
         if (e.key === 'Enter') {
             const cursorStart = el.selectionStart;
