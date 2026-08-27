@@ -8,19 +8,33 @@ module.exports = async function (fastify) {
             const maketsRow = await db.get("SELECT value FROM app_config WHERE key = 'cmtk_makets_store'");
             const swatchesRow = await db.get("SELECT value FROM app_config WHERE key = 'cmtk_swatches_store'");
 
-            let makets = [];
+            let maketsData = null;
             let swatches = {};
 
             if (maketsRow && maketsRow.value) {
-                try { makets = typeof maketsRow.value === 'string' ? JSON.parse(maketsRow.value) : maketsRow.value; } catch(e) {}
+                try { maketsData = typeof maketsRow.value === 'string' ? JSON.parse(maketsRow.value) : maketsRow.value; } catch(e) {}
             }
             if (swatchesRow && swatchesRow.value) {
                 try { swatches = typeof swatchesRow.value === 'string' ? JSON.parse(swatchesRow.value) : swatchesRow.value; } catch(e) {}
             }
 
+            let makets = [];
+            let subtabs = null;
+            let departments = null;
+
+            if (Array.isArray(maketsData)) {
+                makets = maketsData;
+            } else if (maketsData && typeof maketsData === 'object') {
+                makets = Array.isArray(maketsData.makets) ? maketsData.makets : [];
+                subtabs = maketsData.subtabs || null;
+                departments = maketsData.departments || null;
+            }
+
             return {
                 success: true,
-                makets: Array.isArray(makets) ? makets : [],
+                makets: makets,
+                subtabs: subtabs,
+                departments: departments,
                 swatches: swatches || {}
             };
         } catch (e) {

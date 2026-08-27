@@ -57,9 +57,10 @@
         syncSaveToServer();
     }
 
-    // Sync state to server config
+    // Sync state to server config & localStorage backup
     let _syncSaveTimer = null;
     function syncSaveToServer() {
+        try { localStorage.setItem('cmtk_makets_backup', JSON.stringify(maketList)); } catch(e) {}
         if (_syncSaveTimer) clearTimeout(_syncSaveTimer);
         _syncSaveTimer = setTimeout(async () => {
             try {
@@ -151,14 +152,34 @@
             const fabData = await fabRes.json();
 
             if (cfgData && cfgData.success) {
-                const val = cfgData.makets || cfgData.value || [];
-                if (Array.isArray(val)) {
-                    maketList = val;
-                } else if (typeof val === 'object') {
-                    maketList = val.makets || [];
-                    if (val.subtabs) localStorage.setItem('cmtk_subtabs_store', JSON.stringify(val.subtabs));
-                    if (val.departments) localStorage.setItem('cmtk_depts_store', JSON.stringify(val.departments));
+                let list = [];
+                if (Array.isArray(cfgData.makets) && cfgData.makets.length > 0) {
+                    list = cfgData.makets;
+                } else if (cfgData.value) {
+                    if (Array.isArray(cfgData.value)) list = cfgData.value;
+                    else if (typeof cfgData.value === 'object') list = cfgData.value.makets || [];
                 }
+
+                if (cfgData.subtabs) localStorage.setItem('cmtk_subtabs_store', JSON.stringify(cfgData.subtabs));
+                if (cfgData.departments) localStorage.setItem('cmtk_depts_store', JSON.stringify(cfgData.departments));
+
+                if (list.length > 0) {
+                    maketList = list;
+                    try { localStorage.setItem('cmtk_makets_backup', JSON.stringify(maketList)); } catch(e) {}
+                } else {
+                    // Nếu server trả về mảng rỗng -> kiểm tra backup trong localStorage
+                    try {
+                        const bkp = localStorage.getItem('cmtk_makets_backup');
+                        if (bkp) {
+                            const parsed = JSON.parse(bkp);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                maketList = parsed;
+                                syncSaveToServer();
+                            }
+                        }
+                    } catch(e) {}
+                }
+
                 swatchesMap = cfgData.swatches || {};
             }
             if (fabData && fabData.success) {
@@ -166,6 +187,13 @@
             }
         } catch (e) {
             console.error('[CMTK] Error loading data:', e);
+            try {
+                const bkp = localStorage.getItem('cmtk_makets_backup');
+                if (bkp) {
+                    const parsed = JSON.parse(bkp);
+                    if (Array.isArray(parsed) && parsed.length > 0) maketList = parsed;
+                }
+            } catch(err) {}
         }
     }
 
