@@ -462,11 +462,11 @@
                 ${filtered.map(item => {
                     const depts = (item.departments && item.departments.length > 0) ? item.departments : ['Chung'];
                     return `
-                        <div class="cmtk-card-item">
+                        <div class="cmtk-card-item" style="cursor: pointer;" onclick="window._cmtkOpenDetailModal('${item.id}')">
                             <div class="card-accent-bar theme-purple"></div>
                             
-                            <!-- Top Image Box (Click to open detail) -->
-                            <div style="position: relative; width: 100%; height: 220px; background: #0f172a; cursor: pointer; overflow: hidden;" onclick="window._cmtkOpenDetailModal('${item.id}')">
+                            <!-- Top Image Box (Click to open image zoom lightbox on current page - Matched Image 4) -->
+                            <div style="position: relative; width: 100%; height: 220px; background: #0f172a; cursor: pointer; overflow: hidden;" onclick="event.stopPropagation(); window._cmtkOpenLightbox('${item.imageUrl}', '${item.originalImageUrl || item.imageUrl}')">
                                 ${item.imageUrl ? `
                                     <img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: contain;">
                                 ` : `
@@ -477,7 +477,7 @@
                                 `}
                             </div>
 
-                            <!-- Card Inner Body (Matched Image 3 100%) -->
+                            <!-- Card Inner Body (Clicking anywhere opens Detail Modal - Matched Image 2 & 3) -->
                             <div class="card-inner" style="padding: 20px; display: flex; flex-direction: column; flex: 1; background: #ffffff;">
                                 <!-- Top Row: Department Badges & Edit/Delete Buttons -->
                                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 8px;">
@@ -493,7 +493,7 @@
                                             </span>
                                         ` : ''}
                                     </div>
-                                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                                    <div style="display: flex; gap: 6px; flex-shrink: 0;" onclick="event.stopPropagation();">
                                         <button type="button" onclick="window._cmtkOpenEditMaketModal('${item.id}')" title="Chỉnh sửa Maket" style="width: 34px; height: 34px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #ffffff; color: #d97706; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#f59e0b'; this.style.background='#fffbe0';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.background='#ffffff';">
                                             ✏️
                                         </button>
@@ -513,8 +513,8 @@
                                     ${item.notes || item.detailGuide || 'Chưa có mô tả tóm tắt.'}
                                 </div>
 
-                                <!-- Action Buttons (Gọn gàng trên 1 hàng, không bị xuống dòng) -->
-                                <div style="display: flex; gap: 8px; flex-wrap: nowrap; margin-top: auto; align-items: center;">
+                                <!-- Action Buttons -->
+                                <div style="display: flex; gap: 8px; flex-wrap: nowrap; margin-top: auto; align-items: center;" onclick="event.stopPropagation();">
                                     <button type="button" onclick="window._cmtkOpenDetailModal('${item.id}')" style="flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; font-weight: 850; font-size: 12px; white-space: nowrap; background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(109,40,217,0.25); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
                                         📋 Xem Chi Tiết ➔
                                     </button>
@@ -525,7 +525,7 @@
                                     ` : ''}
                                 </div>
 
-                                <!-- Footer Meta Tag (Matched Image 3: Creator & Timestamp) -->
+                                <!-- Footer Meta Tag -->
                                 <div style="margin-top: 14px; padding: 9px 12px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; font-size: 11.5px; font-weight: 750; color: #64748b; display: flex; align-items: center; justify-content: space-between;">
                                     <span>🕒 Cập nhật: <strong>${item.createdBy || 'Giám Đốc'}</strong></span>
                                     <span>• ${item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : ''}</span>
