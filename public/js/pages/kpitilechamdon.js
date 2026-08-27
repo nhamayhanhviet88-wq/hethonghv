@@ -777,21 +777,10 @@
                     ` : `<div style="font-size:10.5px; font-style:italic; color:#94a3b8; text-align:center; padding:6px 0;">Chưa lập điều cam kết.</div>`}
                 </div>
 
-                <!-- Kiểu A: 2 Thẻ Mini Độc Lập Nằm Song Song -->
+                <!-- Kiểu A (Đã Đổi Vị Trí): Trái = Kết Quả KPI, Phải = Tiến Độ Cam Kết -->
                 ${(status === 'completed' || status === 'evaluating') ? `
                     <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                        <!-- Card Left: Tiến Độ Cam Kết -->
-                        <div style="background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%); border:1.5px solid #ddd6fe; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; box-shadow:0 2px 6px rgba(124,58,237,0.05);">
-                            <div style="font-size:10.5px; font-weight:800; color:#6d28d9; display:flex; align-items:center; justify-content:space-between;">
-                                <span>📊 Tiến Độ Cam Kết</span>
-                                <span style="font-size:10px; font-weight:900; color:#5b21b6; background:#ffffff; padding:1px 6px; border-radius:99px; border:1px solid #c4b5fd;">${commitmentEvals.filter(e => e.passed).length}/${commitments.length} điều đạt</span>
-                            </div>
-                            <div style="font-size:15.5px; font-weight:900; color:#4c1d95; display:flex; align-items:baseline; gap:4px;">
-                                ${completionPct}% <span style="font-size:10px; font-weight:700; color:#6d28d9;">hoàn thành</span>
-                            </div>
-                        </div>
-
-                        <!-- Card Right: Kết Quả KPI & Thưởng -->
+                        <!-- Card Left: Kết Quả KPI & Thưởng -->
                         ${status === 'completed' ? `
                             <div style="background:${isOverallAchieved ? 'linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%)' : 'linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%)'}; border:1.5px solid ${isOverallAchieved ? '#86efac' : '#fca5a5'}; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; box-shadow:0 2px 6px rgba(0,0,0,0.04);">
                                 <div style="font-size:10.5px; font-weight:800; color:${isOverallAchieved ? '#166534' : '#991b1b'}; display:flex; align-items:center; justify-content:space-between;">
@@ -808,6 +797,17 @@
                                 <div style="font-size:13px; font-weight:900; color:#7c3aed;">⏳ Đang Đánh Giá...</div>
                             </div>
                         `}
+
+                        <!-- Card Right: Tiến Độ Cam Kết -->
+                        <div style="background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%); border:1.5px solid #ddd6fe; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; box-shadow:0 2px 6px rgba(124,58,237,0.05);">
+                            <div style="font-size:10.5px; font-weight:800; color:#6d28d9; display:flex; align-items:center; justify-content:space-between;">
+                                <span>📊 Tiến Độ Cam Kết</span>
+                                <span style="font-size:10px; font-weight:900; color:#5b21b6; background:#ffffff; padding:1px 6px; border-radius:99px; border:1px solid #c4b5fd;">${commitmentEvals.filter(e => e.passed).length}/${commitments.length} điều đạt</span>
+                            </div>
+                            <div style="font-size:15.5px; font-weight:900; color:#4c1d95; display:flex; align-items:baseline; gap:4px;">
+                                ${completionPct}% <span style="font-size:10px; font-weight:700; color:#6d28d9;">hoàn thành</span>
+                            </div>
+                        </div>
                     </div>
                 ` : ''}
 
