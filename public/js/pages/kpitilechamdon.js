@@ -297,7 +297,7 @@
             if (isPassDelay && isPassErr) {
                 return `<span class="badge-status badge-success">🔥 ĐẠT KPI TỔNG THỂ</span>`;
             } else if (isPassDelay && !isPassErr) {
-                return `<span class="badge-status badge-warning">⚠️ VƯỢT KPI LỖI</span>`;
+                return `<span class="badge-status badge-warning">⚠️ KHÔNG ĐẠT KPI LỖI</span>`;
             } else if (!isPassDelay && isPassErr) {
                 return `<span class="badge-status badge-danger">🚨 CHẬM TIẾN ĐỘ</span>`;
             } else {
