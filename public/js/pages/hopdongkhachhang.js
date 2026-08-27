@@ -833,6 +833,11 @@
                                     onfocus="window._hdkhOnStepsFocus(this)"
                                     onkeydown="window._hdkhOnStepsKeyDown(event, this)"
                                     oninput="window._hdkhOnStepsInput(this)"></textarea>
+                                <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+                                    <button type="button" onclick="window._hdkhAddStepLine()" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:800; cursor:pointer;">
+                                        ➕ Thêm Bước Thực Thi
+                                    </button>
+                                </div>
                             </div>
 
                             <div style="border:1.5px dashed #38bdf8; background:#ffffff; border-radius:16px; padding:16px; margin-bottom:14px;">
@@ -1998,6 +2003,29 @@
     window._hdkhOnStepsFocus = function (el) {
         if (!el || el.value.trim()) return;
         el.value = 'Bước 1: ';
+    };
+
+    window._hdkhAddStepLine = function () {
+        const el = document.getElementById('hdkhFormSteps');
+        if (!el) return;
+        if (!el.value.trim()) {
+            el.value = 'Bước 1: ';
+        } else {
+            const text = el.value;
+            const allLines = text.split('\n');
+            let maxStepNum = 0;
+            allLines.forEach(l => {
+                const m = l.match(/^Bước\s*(\d+)/i);
+                if (m) {
+                    const num = parseInt(m[1], 10);
+                    if (num > maxStepNum) maxStepNum = num;
+                }
+            });
+            const nextNum = maxStepNum > 0 ? maxStepNum + 1 : (allLines.length + 1);
+            el.value = text.trimEnd() + `\nBước ${nextNum}: `;
+        }
+        el.focus();
+        el.selectionStart = el.selectionEnd = el.value.length;
     };
 
     window._hdkhOnStepsKeyDown = function (e, el) {
