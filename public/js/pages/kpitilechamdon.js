@@ -304,10 +304,23 @@
 
                         <!-- Commitments Section -->
                         <div style="background:#f8fafc; border:1.5px solid #e2e8f0; padding:14px; border-radius:10px;">
-                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
                                 <label style="font-size:12.5px; font-weight:900; color:#0f172a;">📋 Các Điều Quản Lý Xưởng Cam Kết Thực Hiện:</label>
-                                <button type="button" onclick="window.addCommitmentRow('')" style="padding:5px 10px; background:#4f46e5; color:#ffffff; border:none; border-radius:6px; font-size:11.5px; font-weight:800; cursor:pointer;">➕ Thêm Cam Kết</button>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <button type="button" onclick="window.toggleCommitmentSuggestions()" style="padding:5px 10px; background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:6px; font-size:11.5px; font-weight:800; cursor:pointer;" title="Xem danh sách các câu gợi ý cam kết cài đặt sẵn">💡 Xem Gợi Ý Cam Kết</button>
+                                    <button type="button" onclick="window.addCommitmentRow('')" style="padding:5px 10px; background:#4f46e5; color:#ffffff; border:none; border-radius:6px; font-size:11.5px; font-weight:800; cursor:pointer;">➕ Thêm Cam Kết</button>
+                                </div>
                             </div>
+
+                            <!-- Suggestion Panel Box -->
+                            <div id="kpiCommitmentSuggestionsPanel" style="display:none; background:#fffbeb; border:1.5px dashed #f59e0b; border-radius:10px; padding:12px; margin-bottom:12px;">
+                                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                                    <span style="font-size:12px; font-weight:900; color:#92400e;">💡 Danh Sách Câu Gợi Ý Cam Kết Mẫu (Click để chọn nhanh):</span>
+                                    <button type="button" onclick="window.toggleCommitmentSuggestions(false)" style="background:none; border:none; color:#92400e; font-size:14px; font-weight:900; cursor:pointer;">✕</button>
+                                </div>
+                                <div id="kpiPresetSuggestionsList" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding-right:4px;"></div>
+                            </div>
+
                             <div id="kpiModalCommitmentsList"></div>
                         </div>
                     </div>
@@ -1208,6 +1221,61 @@
 
         const overlay = document.getElementById('kpiTargetModalOverlay');
         if (overlay) overlay.style.display = 'flex';
+    };
+
+    // Preset Commitment Suggestions
+    var PRESET_COMMITMENTS = [
+        "Kiểm tra kĩ 100% sản phẩm (chất vải, đường may, in thêu) trước khi đóng gói",
+        "Tăng ca may tối Thứ 5 và Thứ 6 để đảm bảo giao hàng đúng tiến độ các đơn hàng gấp",
+        "Rà soát lại kế hoạch chuẩn bị nguyên phụ liệu (vải, cúc, chỉ) trước 3 ngày sản xuất",
+        "Họp giao ca 10 phút đầu giờ hàng ngày để quán xuyệt tiến độ và khắc phục ngay đơn bị chậm",
+        "Phân công 1 nhân sự QC chuyên trách kiểm lỗi tại công đoạn may ráp",
+        "Báo cáo ngay cho Ban Giám Đốc khi có nguy cơ trễ đơn quá 24h để có giải pháp hỗ trợ",
+        "Tối ưu hoá quy trình cắt và rải vải để tránh lãng phí và sản xuất bị nghẽn cổ chai",
+        "Đào tạo lại tay nghề may cho công nhân có tỷ lệ may lỗi cao trong tháng"
+    ];
+
+    window.toggleCommitmentSuggestions = function(forceState) {
+        const panel = document.getElementById('kpiCommitmentSuggestionsPanel');
+        if (!panel) return;
+        const isShow = forceState !== undefined ? forceState : (panel.style.display === 'none');
+        panel.style.display = isShow ? 'block' : 'none';
+        if (isShow) {
+            window.renderPresetSuggestions();
+        }
+    };
+
+    window.renderPresetSuggestions = function() {
+        const listEl = document.getElementById('kpiPresetSuggestionsList');
+        if (!listEl) return;
+        listEl.innerHTML = PRESET_COMMITMENTS.map((s) => `
+            <div onclick="window.selectPresetSuggestion(\`${s.replace(/`/g, '\\`')}\`)" style="display:flex; align-items:center; justify-content:space-between; gap:8px; background:#ffffff; padding:7px 10px; border-radius:6px; border:1px solid #fde68a; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#ffffff'">
+                <span style="font-size:12px; font-weight:700; color:#78350f; flex:1;">📌 ${s}</span>
+                <span style="font-size:11px; font-weight:800; color:#b45309; background:#fffbeb; padding:2px 6px; border-radius:4px; border:1px solid #fde68a; white-space:nowrap;">+ Chọn</span>
+            </div>
+        `).join('');
+    };
+
+    window.selectPresetSuggestion = function(text) {
+        const container = document.getElementById('kpiModalCommitmentsList');
+        let emptyIpt = null;
+        if (container) {
+            const ipts = container.querySelectorAll('.commitment-item-ipt');
+            for (const ipt of ipts) {
+                if (!ipt.value.trim()) {
+                    emptyIpt = ipt;
+                    break;
+                }
+            }
+        }
+        if (emptyIpt) {
+            emptyIpt.value = text;
+        } else {
+            window.addCommitmentRow(text);
+        }
+        if (typeof showToast === 'function') {
+            showToast('💡 Đã thêm điều cam kết gợi ý!', 'info');
+        }
     };
 
     window.closeKpiTargetModal = function() {
