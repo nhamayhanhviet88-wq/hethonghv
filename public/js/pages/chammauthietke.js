@@ -861,20 +861,35 @@
             input.value = '';
             return;
         }
-        showToast('⏳ Đang đọc và tải file PDF...', 'info');
+
+        const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+        showToast(`⏳ Đang tải file PDF (${sizeMb} MB) trực tiếp lên server...`, 'info');
+
         try {
-            const pdfDataUrl = await readFileAsDataURL(file);
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch('/api/chammauthietke/upload-pdf', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await res.json();
+            if (!res.ok || !result.success) {
+                throw new Error(result.error || 'Lỗi lưu file PDF trên server');
+            }
+
             const pdfUrlInput = document.getElementById('cmtkFormPdfUrl');
             const pdfNameInput = document.getElementById('cmtkFormPdfName');
             const previewBox = document.getElementById('cmtkFormPdfPreviewBox');
             const previewName = document.getElementById('cmtkFormPdfFileName');
 
-            if (pdfUrlInput) pdfUrlInput.value = pdfDataUrl;
-            if (pdfNameInput) pdfNameInput.value = file.name;
-            if (previewName) previewName.innerText = `✅ File PDF đã chọn: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            if (pdfUrlInput) pdfUrlInput.value = result.url;
+            if (pdfNameInput) pdfNameInput.value = result.originalName || file.name;
+            if (previewName) previewName.innerText = `✅ File PDF nguyên bản đã sẵn sàng: ${result.originalName || file.name} (${(result.size / 1024 / 1024).toFixed(2)} MB)`;
             if (previewBox) previewBox.style.display = 'block';
 
-            showToast('✅ Đã đính kèm file PDF thành công!');
+            showToast('✅ Đã lưu file PDF nguyên bản 100% không làm nặng server!');
         } catch (e) {
             console.error('[CMTK PDF Upload Error]', e);
             showToast('❌ Lỗi tải file PDF: ' + e.message, 'error');

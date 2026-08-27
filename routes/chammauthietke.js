@@ -1,5 +1,8 @@
 // ========== MAKET & CHẤM MÀU THIẾT KẾ — Backend Router ==========
 const db = require('../db/pool');
+const path = require('path');
+const fs = require('fs');
+const { pipeline } = require('stream/promises');
 
 module.exports = async function (fastify) {
     // 1. GET /api/chammauthietke/config — Lấy cấu hình Maket Store & Chấm Màu
@@ -134,6 +137,34 @@ module.exports = async function (fastify) {
         } catch (e) {
             console.error('[CMTK Fabrics GET Error]:', e.message);
             return { success: false, warehouses: [], materials: [], colors: [] };
+        }
+    });
+
+    // 5. POST /api/chammauthietke/upload-pdf — Upload file PDF nguyên bản trực tiếp vào thư mục uploads/makets/
+    fastify.post('/api/chammauthietke/upload-pdf', async (request, reply) => {
+        try {
+            const data = await request.file();
+            if (!data) return reply.code(400).send({ error: 'Không tìm thấy file PDF gửi lên' });
+
+            const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'makets');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+            const ext = path.extname(data.filename) || '.pdf';
+            const safeName = `maket_pdf_${Date.now()}_${Math.random().toString(36).substring(2, 7)}${ext}`;
+            const filePath = path.join(uploadDir, safeName);
+
+            await pipeline(data.file, fs.createWriteStream(filePath));
+
+            const publicUrl = `/uploads/makets/${safeName}`;
+            return {
+                success: true,
+                url: publicUrl,
+                originalName: data.filename,
+                size: fs.statSync(filePath).size
+            };
+        } catch (e) {
+            console.error('[CMTK PDF Upload Error]:', e.message);
+            return reply.code(500).send({ error: 'Lỗi tải file PDF: ' + e.message });
         }
     });
 };
