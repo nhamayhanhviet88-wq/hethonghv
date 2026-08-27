@@ -251,6 +251,74 @@
                     ⏳ Đang tải dữ liệu Tra Soát & Thống Kê KPI...
                 </div>
             </div>
+
+            <!-- Modal Cấu Hình KPI & Cam Kết -->
+            <div id="kpiTargetModalOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+                <div style="background:#ffffff; width:100%; max-width:620px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0; overflow:hidden; display:flex; flex-direction:column; max-height:90vh;">
+                    <!-- Modal Header -->
+                    <div style="background:linear-gradient(135deg,#1e293b,#0f172a); color:#ffffff; padding:16px 20px; display:flex; align-items:center; justify-content:space-between;">
+                        <div id="kpiModalTitle" style="font-size:15px; font-weight:900; letter-spacing:.2px;">⚙️ Cấu Hình KPI & Cam Kết Quản Lý Xưởng</div>
+                        <button onclick="window.closeKpiTargetModal()" style="background:none; border:none; color:#94a3b8; font-size:20px; font-weight:900; cursor:pointer; line-height:1;">✕</button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:16px;">
+                        <!-- Target Inputs Row -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; background:#f8fafc; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
+                            <div>
+                                <label style="font-size:12px; font-weight:800; color:#334155; display:block; margin-bottom:4px;">🎯 KPI Trễ Tối Đa (%):</label>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <input type="number" step="0.1" id="kpiModalDelayPct" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:14px; font-weight:900; color:#4338ca;">
+                                    <span style="font-weight:900; color:#64748b;">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:12px; font-weight:800; color:#334155; display:block; margin-bottom:4px;">⚠️ KPI Lỗi Tối Đa (đơn):</label>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <input type="number" step="1" id="kpiModalTotalErr" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:14px; font-weight:900; color:#b45309;">
+                                    <span style="font-weight:900; color:#64748b;">đơn</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Evaluation Rule Selection (Bắt Buộc Tích Chọn) -->
+                        <div style="background:#fffbeb; border:1.5px solid #fde68a; padding:14px; border-radius:10px;">
+                            <label style="font-size:12.5px; font-weight:900; color:#92400e; display:block; margin-bottom:8px;">⚖️ Quy Tắc Đánh Giá Đạt KPI (Bắt buộc chọn):</label>
+                            <div style="display:flex; flex-direction:column; gap:8px;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px; font-weight:700; color:#78350f;">
+                                    <input type="radio" name="kpiEvalRule" value="ALL" checked style="accent-color:#d97706; transform:scale(1.15);">
+                                    <span>🟢 <b>Bắt buộc ĐẠT CẢ 2</b> (Phải &le; Trễ <b>VÀ</b> &le; Lỗi mới ĐẠT KPI. Thiếu 1 trong 2 tính KHÔNG ĐẠT)</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px; font-weight:700; color:#78350f;">
+                                    <input type="radio" name="kpiEvalRule" value="ANY" style="accent-color:#d97706; transform:scale(1.15);">
+                                    <span>🟡 <b>Chỉ cần ĐẠT 1 TRONG 2</b> (Chỉ cần &le; Trễ <b>HOẶC</b> &le; Lỗi là ĐẠT KPI)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Reward Input -->
+                        <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; padding:14px; border-radius:10px;">
+                            <label style="font-size:12.5px; font-weight:900; color:#166534; display:block; margin-bottom:6px;">🎁 Phần Thưởng Cho Quản Lý Xưởng Khi Đạt KPI:</label>
+                            <input type="text" id="kpiModalReward" placeholder="Ví dụ: Thưởng 3.000.000đ cho Quản Lý Xưởng..." style="width:100%; padding:9px 12px; border:1.5px solid #86efac; border-radius:8px; font-size:13px; font-weight:700; color:#14532d; outline:none;">
+                        </div>
+
+                        <!-- Commitments Section -->
+                        <div style="background:#f8fafc; border:1.5px solid #e2e8f0; padding:14px; border-radius:10px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                                <label style="font-size:12.5px; font-weight:900; color:#0f172a;">📋 Các Điều Quản Lý Xưởng Cam Kết Thực Hiện:</label>
+                                <button type="button" onclick="window.addCommitmentRow('')" style="padding:5px 10px; background:#4f46e5; color:#ffffff; border:none; border-radius:6px; font-size:11.5px; font-weight:800; cursor:pointer;">➕ Thêm Cam Kết</button>
+                            </div>
+                            <div id="kpiModalCommitmentsList"></div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div style="background:#f1f5f9; padding:12px 20px; display:flex; align-items:center; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0;">
+                        <button onclick="window.closeKpiTargetModal()" style="padding:8px 16px; background:#ffffff; border:1.5px solid #cbd5e1; color:#475569; font-weight:800; border-radius:8px; cursor:pointer;">Hủy</button>
+                        <button id="btnSaveKpiModal" onclick="window.saveKpiTargetModal()" style="padding:8px 20px; background:linear-gradient(135deg,#4f46e5,#4338ca); color:#ffffff; border:none; font-weight:900; border-radius:8px; cursor:pointer; box-shadow:0 4px 12px rgba(79,70,229,0.3);">💾 Lưu KPI & Cam Kết</button>
+                    </div>
+                </div>
+            </div>
         </div>
         `;
 
@@ -287,13 +355,22 @@
         }
     }
 
-    function getCombinedKpiBadgeHtml(isFuture, totalOrders, delayPct, targetPct, totalErrors, targetErr) {
+    function getCombinedKpiBadgeHtml(isFuture, totalOrders, delayPct, targetPct, totalErrors, targetErr, evalRule = 'ALL') {
         if (isFuture && totalOrders === 0) {
             return `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
         }
         const isPassDelay = delayPct <= targetPct;
+        const isPassErr = targetErr > 0 ? (totalErrors <= targetErr) : true;
+
+        if (evalRule === 'ANY' && targetErr > 0) {
+            if (isPassDelay || isPassErr) {
+                return `<span class="badge-status badge-success">🔥 ĐẠT KPI (1 TRONG 2)</span>`;
+            } else {
+                return `<span class="badge-status badge-dark-danger">🔴 KHÔNG ĐẠT KPI</span>`;
+            }
+        }
+
         if (targetErr > 0) {
-            const isPassErr = totalErrors <= targetErr;
             if (isPassDelay && isPassErr) {
                 return `<span class="badge-status badge-success">🔥 ĐẠT KPI TỔNG THỂ</span>`;
             } else if (isPassDelay && !isPassErr) {
@@ -376,6 +453,9 @@
                 <td id="qBadgeErrWrap_${q.quarter}">
                     ${badgeErrHtml}
                 </td>
+                <td>
+                    <button onclick="window.openKpiTargetModal('quarter', ${q.quarter}, '${q.name}/${data.year}')" style="font-size:10px; font-weight:800; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 6px; border-radius:6px; cursor:pointer;" title="Cấu hình KPI, Phần thưởng & Điều cam kết">⚙️ Cấu Hình</button>
+                </td>
             </tr>
             `;
         }).join('');
@@ -428,6 +508,9 @@
             <td id="yBadgeErrWrap_0">
                 ${yBadgeErrHtml}
             </td>
+            <td>
+                <button onclick="window.openKpiTargetModal('year', 0, 'Cả Năm ${fullYear.year}')" style="font-size:10px; font-weight:800; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 6px; border-radius:6px; cursor:pointer;" title="Cấu hình KPI, Phần thưởng & Điều cam kết">⚙️ Cấu Hình</button>
+            </td>
         </tr>
         `;
 
@@ -436,11 +519,14 @@
             const mKey = `month_${m.month}`;
             const targetPct = targets[mKey] ? targets[mKey].target_max_delay_pct : 5.0;
             const targetErr = targets[mKey] ? (targets[mKey].target_max_total_errors || 0) : 0;
+            const evalRule = targets[mKey] ? (targets[mKey].eval_rule || 'ALL') : 'ALL';
+            const rewardText = targets[mKey] ? (targets[mKey].reward_text || '') : '';
+            const commitments = targets[mKey] ? (targets[mKey].commitments || []) : [];
 
             const isCurrentMonth = (data.year === realCurrentYear) && (m.month === realCurrentMonth);
             const isFutureMonth = (data.year > realCurrentYear) || (data.year === realCurrentYear && m.month > realCurrentMonth);
 
-            const mBadgeHtml = getCombinedKpiBadgeHtml(isFutureMonth, m.total || 0, m.delay_pct || 0, targetPct, m.total_errors || 0, targetErr);
+            const mBadgeHtml = getCombinedKpiBadgeHtml(isFutureMonth, m.total || 0, m.delay_pct || 0, targetPct, m.total_errors || 0, targetErr, evalRule);
 
             return `
             <div class="m-card ${isCurrentMonth ? 'is-current-month' : ''}" id="mCard_${m.month}">
@@ -449,8 +535,11 @@
                         <div class="m-card-title">Tháng ${m.month}/${fullYear.year}</div>
                         ${isCurrentMonth ? '<span style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#ffffff; font-size:9.5px; font-weight:900; padding:2px 6px; border-radius:6px; box-shadow:0 2px 6px rgba(245,158,11,0.3); letter-spacing:.3px;">⭐ HIỆN TẠI</span>' : ''}
                     </div>
-                    <div id="mBadgeWrap_${m.month}">
-                        ${mBadgeHtml}
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:900; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 8px; border-radius:6px; cursor:pointer; transition:all 0.2s;" title="Cấu hình KPI, Quy tắc đánh giá, Phần thưởng & Điều cam kết">⚙️ Cấu Hình KPI</button>
+                        <div id="mBadgeWrap_${m.month}">
+                            ${mBadgeHtml}
+                        </div>
                     </div>
                 </div>
 
@@ -509,6 +598,27 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Rule Badge & Reward Section -->
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px; gap:4px; flex-wrap:wrap;">
+                    <span style="font-size:10px; font-weight:800; color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #e2e8f0;">
+                        ${evalRule === 'ANY' ? '⚖️ Quy tắc: Đạt 1 Trong 2' : '⚖️ Quy tắc: Đạt Cả 2'}
+                    </span>
+                    ${rewardText ? `<span style="font-size:10px; font-weight:900; color:#166534; background:#dcfce7; border:1px solid #86efac; padding:2px 6px; border-radius:4px;">🎁 ${rewardText}</span>` : ''}
+                </div>
+
+                <!-- Commitments Box Section -->
+                <div style="margin-top:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                        <span style="font-size:11px; font-weight:900; color:#1e293b;">📋 Cam Kết Quản Lý Xưởng (${commitments.length})</span>
+                        <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:800; color:#4338ca; background:none; border:none; cursor:pointer; text-decoration:underline;">Sửa Cam Kết</button>
+                    </div>
+                    ${commitments.length > 0 ? `
+                        <ul style="margin:0; padding-left:16px; font-size:11px; font-weight:600; color:#334155; line-height:1.4;">
+                            ${commitments.map(c => `<li style="margin-bottom:2px;">${c}</li>`).join('')}
+                        </ul>
+                    ` : `<div style="font-size:10.5px; font-style:italic; color:#94a3b8;">Chưa lập điều cam kết. Bấm <b>⚙️ Cấu Hình KPI</b> để thêm.</div>`}
+                </div>
             </div>
             `;
         }).join('');
@@ -552,6 +662,7 @@
                                 <th style="color:#fde047;">Tổng Lỗi</th>
                                 <th style="color:#fde047;">KPI Lỗi</th>
                                 <th style="color:#ffffff;">ĐG Lỗi</th>
+                                <th style="color:#ffffff;">⚙️ Cấu Hình</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1056,6 +1167,135 @@
         } catch (e) {
             console.error('_kpiDelaySaveTargets error:', e);
             if (!isSilent) alert('❌ Lỗi kết nối máy chủ!');
+        }
+    };
+
+    // ========== GLOBAL MODAL CONTROLLERS ==========
+    var _editingModalTarget = { period_type: 'month', period_value: 1, title: '' };
+
+    window.openKpiTargetModal = function(periodType, periodValue, titleLabel) {
+        _editingModalTarget = { period_type: periodType, period_value: periodValue, title: titleLabel };
+        const key = `${periodType}_${periodValue}`;
+        const targetObj = (_kpiDelayState.data && _kpiDelayState.data.targets && _kpiDelayState.data.targets[key]) || {};
+
+        const titleEl = document.getElementById('kpiModalTitle');
+        if (titleEl) titleEl.innerText = `⚙️ Cấu Hình KPI & Cam Kết Quản Lý Xưởng — ${titleLabel}`;
+
+        const delayIpt = document.getElementById('kpiModalDelayPct');
+        if (delayIpt) delayIpt.value = targetObj.target_max_delay_pct !== undefined ? targetObj.target_max_delay_pct : 5.0;
+
+        const errIpt = document.getElementById('kpiModalTotalErr');
+        if (errIpt) errIpt.value = targetObj.target_max_total_errors !== undefined ? targetObj.target_max_total_errors : 0;
+
+        const evalRule = targetObj.eval_rule || 'ALL';
+        const radio = document.querySelector(`input[name="kpiEvalRule"][value="${evalRule}"]`);
+        if (radio) radio.checked = true;
+
+        const rewardIpt = document.getElementById('kpiModalReward');
+        if (rewardIpt) rewardIpt.value = targetObj.reward_text || '';
+
+        // Render commitments list
+        const commitments = Array.isArray(targetObj.commitments) ? targetObj.commitments : [];
+        const container = document.getElementById('kpiModalCommitmentsList');
+        if (container) {
+            container.innerHTML = '';
+            if (commitments.length === 0) {
+                window.addCommitmentRow('');
+            } else {
+                commitments.forEach(c => window.addCommitmentRow(c));
+            }
+        }
+
+        const overlay = document.getElementById('kpiTargetModalOverlay');
+        if (overlay) overlay.style.display = 'flex';
+    };
+
+    window.closeKpiTargetModal = function() {
+        const overlay = document.getElementById('kpiTargetModalOverlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+
+    window.addCommitmentRow = function(valueText = '') {
+        const container = document.getElementById('kpiModalCommitmentsList');
+        if (!container) return;
+        const index = container.children.length + 1;
+        const row = document.createElement('div');
+        row.className = 'commitment-input-row';
+        row.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:8px;';
+        row.innerHTML = `
+            <span style="font-size:12px; font-weight:800; color:#64748b; width:24px;">#${index}</span>
+            <input type="text" class="commitment-item-ipt" value="${(valueText || '').replace(/"/g, '&quot;')}" placeholder="Ví dụ: Kiểm tra 100% áo trước khi đóng gói..." style="flex:1; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:12.5px; font-weight:600; color:#0f172a; outline:none;">
+            <button type="button" onclick="this.parentElement.remove(); window.renumberCommitmentRows();" style="padding:6px 10px; background:#fee2e2; color:#dc2626; border:none; border-radius:6px; font-weight:800; cursor:pointer;" title="Xoá dòng cam kết này">🗑️</button>
+        `;
+        container.appendChild(row);
+    };
+
+    window.renumberCommitmentRows = function() {
+        const container = document.getElementById('kpiModalCommitmentsList');
+        if (!container) return;
+        Array.from(container.children).forEach((row, i) => {
+            const span = row.querySelector('span');
+            if (span) span.innerText = `#${i + 1}`;
+        });
+    };
+
+    window.saveKpiTargetModal = async function() {
+        const delayPct = parseFloat(document.getElementById('kpiModalDelayPct')?.value) || 0;
+        const totalErr = parseInt(document.getElementById('kpiModalTotalErr')?.value, 10) || 0;
+        const evalRule = document.querySelector('input[name="kpiEvalRule"]:checked')?.value || 'ALL';
+        const rewardText = (document.getElementById('kpiModalReward')?.value || '').trim();
+
+        const commitmentInputs = document.querySelectorAll('.commitment-item-ipt');
+        const commitments = [];
+        commitmentInputs.forEach(ipt => {
+            const val = ipt.value.trim();
+            if (val) commitments.push(val);
+        });
+
+        const targetPayload = {
+            period_type: _editingModalTarget.period_type,
+            period_value: _editingModalTarget.period_value,
+            target_max_delay_pct: delayPct,
+            target_max_total_errors: totalErr,
+            eval_rule: evalRule,
+            reward_text: rewardText,
+            commitments: commitments
+        };
+
+        const btnSave = document.getElementById('btnSaveKpiModal');
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.innerText = '⏳ Đang Lưu...';
+        }
+
+        try {
+            const res = await fetch('/api/kpi-delay/targets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    year: _kpiDelayState.year,
+                    segment: _kpiDelayState.segment,
+                    targets: [targetPayload]
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                window.closeKpiTargetModal();
+                await loadKpiDelayData();
+                if (typeof showToast === 'function') {
+                    showToast('✅ Đã lưu KPI, Phần thưởng & Cam kết thành công!', 'success');
+                }
+            } else {
+                alert('❌ Lỗi: ' + (data.error || 'Không thể lưu KPI'));
+            }
+        } catch (e) {
+            console.error('saveKpiTargetModal error:', e);
+            alert('❌ Lỗi kết nối máy chủ!');
+        } finally {
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.innerText = '💾 Lưu KPI & Cam Kết';
+            }
         }
     };
 

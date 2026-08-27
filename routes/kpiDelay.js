@@ -29,6 +29,9 @@ module.exports = async function (fastify, opts) {
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS target_max_internal_errors INT DEFAULT 0`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS target_max_customer_errors INT DEFAULT 0`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS target_max_total_errors INT DEFAULT 0`);
+        await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS eval_rule VARCHAR(20) DEFAULT 'ALL'`);
+        await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS reward_text TEXT DEFAULT ''`);
+        await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS commitments TEXT DEFAULT '[]'`);
     } catch (e) {
         console.error('[Migration] kpi_delay_targets error:', e.message);
     }
@@ -276,7 +279,8 @@ module.exports = async function (fastify, opts) {
             // Query saved KPI targets
             const targetRows = await db.all(`
                 SELECT period_type, period_value, target_max_delay_pct, target_max_delay_orders,
-                       target_max_internal_errors, target_max_customer_errors, target_max_total_errors, notes
+                       target_max_internal_errors, target_max_customer_errors, target_max_total_errors, notes,
+                       eval_rule, reward_text, commitments
                 FROM kpi_delay_targets
                 WHERE year = $1 AND segment = $2
             `, [year, segment]);
@@ -284,13 +288,22 @@ module.exports = async function (fastify, opts) {
             const targetsMap = {};
             targetRows.forEach(r => {
                 const key = `${r.period_type}_${r.period_value}`;
+                let parsedCommitments = [];
+                try {
+                    parsedCommitments = typeof r.commitments === 'string' ? JSON.parse(r.commitments || '[]') : (r.commitments || []);
+                } catch (err) {
+                    parsedCommitments = [];
+                }
                 targetsMap[key] = {
                     target_max_delay_pct: parseFloat(r.target_max_delay_pct || 5.0),
                     target_max_delay_orders: parseInt(r.target_max_delay_orders || 0, 10),
                     target_max_internal_errors: parseInt(r.target_max_internal_errors || 0, 10),
                     target_max_customer_errors: parseInt(r.target_max_customer_errors || 0, 10),
                     target_max_total_errors: parseInt(r.target_max_total_errors || 0, 10),
-                    notes: r.notes || ''
+                    notes: r.notes || '',
+                    eval_rule: r.eval_rule || 'ALL',
+                    reward_text: r.reward_text || '',
+                    commitments: Array.isArray(parsedCommitments) ? parsedCommitments : []
                 };
             });
 
@@ -330,13 +343,18 @@ module.exports = async function (fastify, opts) {
                     target_max_internal_errors = 0,
                     target_max_customer_errors = 0,
                     target_max_total_errors = 0,
-                    notes = ''
+                    notes = '',
+                    eval_rule = 'ALL',
+                    reward_text = '',
+                    commitments = []
                 } = t;
                 if (!period_type || period_value === undefined) continue;
 
+                const commitmentsJson = typeof commitments === 'string' ? commitments : JSON.stringify(Array.isArray(commitments) ? commitments : []);
+
                 await db.run(`
-                    INSERT INTO kpi_delay_targets (year, segment, period_type, period_value, target_max_delay_pct, target_max_delay_orders, target_max_internal_errors, target_max_customer_errors, target_max_total_errors, notes, created_by, updated_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+                    INSERT INTO kpi_delay_targets (year, segment, period_type, period_value, target_max_delay_pct, target_max_delay_orders, target_max_internal_errors, target_max_customer_errors, target_max_total_errors, notes, eval_rule, reward_text, commitments, created_by, updated_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
                     ON CONFLICT (year, segment, period_type, period_value)
                     DO UPDATE SET
                         target_max_delay_pct = EXCLUDED.target_max_delay_pct,
@@ -345,6 +363,9 @@ module.exports = async function (fastify, opts) {
                         target_max_customer_errors = EXCLUDED.target_max_customer_errors,
                         target_max_total_errors = EXCLUDED.target_max_total_errors,
                         notes = EXCLUDED.notes,
+                        eval_rule = EXCLUDED.eval_rule,
+                        reward_text = EXCLUDED.reward_text,
+                        commitments = EXCLUDED.commitments,
                         updated_at = NOW()
                 `, [
                     parseInt(year, 10),
@@ -357,6 +378,9 @@ module.exports = async function (fastify, opts) {
                     parseInt(target_max_customer_errors || 0, 10),
                     parseInt(target_max_total_errors || 0, 10),
                     notes,
+                    eval_rule || 'ALL',
+                    reward_text || '',
+                    commitmentsJson,
                     req.user.id
                 ]);
             }
