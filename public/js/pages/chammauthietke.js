@@ -94,8 +94,8 @@
         setTimeout(() => { toast.classList.remove('show'); }, 2800);
     }
 
-    // Canvas Image Compression (<150KB JPEG)
-    function compressImage(file, maxDimension = 1400, quality = 0.82) {
+    // Canvas Image Compression (High quality display preview)
+    function compressImage(file, maxDimension = 1800, quality = 0.90) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
@@ -118,13 +118,25 @@
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
                     ctx.drawImage(img, 0, 0, width, height);
-                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    const mimeType = (file.type === 'image/png') ? 'image/png' : 'image/jpeg';
+                    const dataUrl = canvas.toDataURL(mimeType, quality);
                     resolve(dataUrl);
                 };
                 img.onerror = (err) => reject(err);
             };
             reader.onerror = (err) => reject(err);
+        });
+    }
+
+    function readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(file);
         });
     }
 
@@ -687,6 +699,7 @@
                                     📷 Chọn Hình Ảnh Từ Máy Tính
                                 </button>
                                 <input type="hidden" id="cmtkFormImageUrl" value="">
+                                <input type="hidden" id="cmtkFormOriginalImageUrl" value="">
                                 <div id="cmtkFormImagePreviewBox" style="display:none; margin-top:8px; text-align:center; border:1.5px solid #e9d5ff; border-radius:14px; padding:10px; background:#ffffff;">
                                     <img id="cmtkFormImagePreviewImg" src="" style="max-height:160px; max-width:100%; border-radius:8px; object-fit:contain;">
                                 </div>
@@ -758,6 +771,8 @@
         document.getElementById('cmtkFormTitle').value = '';
         document.getElementById('cmtkFormCustomer').value = '';
         document.getElementById('cmtkFormImageUrl').value = '';
+        const origUrlInput = document.getElementById('cmtkFormOriginalImageUrl');
+        if (origUrlInput) origUrlInput.value = '';
         document.getElementById('cmtkFormDocUrl').value = '';
         document.getElementById('cmtkFormNotes').value = '';
         document.getElementById('cmtkFormDetailGuide').value = '';
@@ -790,6 +805,7 @@
         const title = document.getElementById('cmtkFormTitle').value.trim();
         const customerName = document.getElementById('cmtkFormCustomer').value.trim();
         const imageUrl = document.getElementById('cmtkFormImageUrl').value;
+        const originalImageUrl = document.getElementById('cmtkFormOriginalImageUrl')?.value || imageUrl;
         const docUrl = document.getElementById('cmtkFormDocUrl').value.trim();
         const notes = document.getElementById('cmtkFormNotes').value.trim();
         const detailGuide = document.getElementById('cmtkFormDetailGuide').value.trim();
@@ -803,7 +819,7 @@
 
         const idx = maketList.findIndex(m => String(m.id) === String(id));
         const newItem = {
-            id, category, title, customerName, imageUrl, docUrl, notes, detailGuide,
+            id, category, title, customerName, imageUrl, originalImageUrl, docUrl, notes, detailGuide,
             departments: checkedDepts.length > 0 ? checkedDepts : ['Chung'],
             createdAt: idx !== -1 ? maketList[idx].createdAt : new Date().toISOString()
         };
@@ -1108,11 +1124,24 @@
         document.getElementById('cmtkDetailTitle').innerText = item.title;
         const imgBox = document.getElementById('cmtkDetailImageBox');
         const imgEl = document.getElementById('cmtkDetailImg');
-        if (item.imageUrl) { imgEl.src = item.imageUrl; imgBox.style.display = 'block'; } else { imgBox.style.display = 'none'; }
+        const origUrl = item.originalImageUrl || item.imageUrl;
+        if (item.imageUrl) {
+            imgEl.src = item.imageUrl;
+            imgEl.onclick = () => window._cmtkOpenLightbox(item.imageUrl, origUrl);
+            imgBox.style.display = 'block';
+        } else {
+            imgBox.style.display = 'none';
+        }
         document.getElementById('cmtkDetailNotesText').innerText = item.notes || 'Không có ghi chú thêm.';
         const footerBtn = document.getElementById('cmtkDetailFooterBtn');
-        if (item.docUrl) footerBtn.innerHTML = `<a href="${item.docUrl}" target="_blank" rel="noopener" style="background:linear-gradient(135deg, #059669, #10b981); color:#ffffff; padding:10px 22px; border-radius:12px; font-weight:900; font-size:13.5px; text-decoration:none;">🔗 Mở File Gốc ↗</a>`;
-        else footerBtn.innerHTML = '';
+        let btnsHtml = '';
+        if (origUrl) {
+            btnsHtml += `<a href="${origUrl}" download="maket_goc_${(item.title || 'thiet_ke').replace(/[^a-zA-Z0-9_\-]/g, '_')}.jpg" target="_blank" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; padding:10px 18px; border-radius:12px; font-weight:900; font-size:13px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(109,40,217,0.35);">⬇️ Tải Ảnh Nét Gốc</a>`;
+        }
+        if (item.docUrl) {
+            btnsHtml += `<a href="${item.docUrl}" target="_blank" rel="noopener" style="background:linear-gradient(135deg, #059669, #10b981); color:#ffffff; padding:10px 18px; border-radius:12px; font-weight:900; font-size:13px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; margin-left:8px;">🔗 Mở File Gốc ↗</a>`;
+        }
+        footerBtn.innerHTML = btnsHtml;
         modal.style.display = 'flex';
     };
 
@@ -1129,8 +1158,8 @@
             lightbox.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.92); backdrop-filter:blur(10px); z-index:999999; flex-direction:column; align-items:center; justify-content:center; padding:20px;';
             lightbox.innerHTML = `
                 <div style="position:absolute; top:20px; right:24px; display:flex; gap:12px; z-index:10;">
-                    <a id="cmtkLightboxDownloadBtn" href="" download="maket_image.jpg" target="_blank" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; padding:9px 18px; border-radius:12px; font-weight:900; text-decoration:none; font-size:13px; box-shadow:0 4px 14px rgba(109,40,217,0.4); display:flex; align-items:center; gap:6px;">
-                        ⬇️ Tải Ảnh Về
+                    <a id="cmtkLightboxDownloadBtn" href="" download="maket_anh_goc_net_cao.jpg" target="_blank" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; padding:9px 18px; border-radius:12px; font-weight:900; text-decoration:none; font-size:13px; box-shadow:0 4px 14px rgba(109,40,217,0.4); display:flex; align-items:center; gap:6px;">
+                        ⬇️ Tải Ảnh Nét Gốc
                     </a>
                     <button type="button" onclick="window._cmtkCloseLightbox()" style="background:rgba(255,255,255,0.25); border:none; color:#ffffff; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:20px; font-weight:bold;">✕</button>
                 </div>
@@ -1141,11 +1170,16 @@
         return lightbox;
     }
 
-    window._cmtkOpenLightbox = function (src) {
-        if (!src) return;
+    window._cmtkOpenLightbox = function (src, origSrc) {
+        const displaySrc = origSrc || src;
+        if (!displaySrc) return;
         const lightbox = ensureLightboxInDOM();
-        document.getElementById('cmtkLightboxImg').src = src;
-        document.getElementById('cmtkLightboxDownloadBtn').href = src;
+        document.getElementById('cmtkLightboxImg').src = displaySrc;
+        const dlBtn = document.getElementById('cmtkLightboxDownloadBtn');
+        if (dlBtn) {
+            dlBtn.href = displaySrc;
+            dlBtn.download = 'maket_anh_goc_net_cao.jpg';
+        }
         lightbox.style.display = 'flex';
     };
 
