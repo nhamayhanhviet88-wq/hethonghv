@@ -608,72 +608,71 @@
         if (Object.keys(groupedByMat).length === 0) return `<div style="text-align:center; padding:40px; font-size:15px; font-weight:700; color:#64748b;">🧵 Không tìm thấy màu vải nào khớp với bộ lọc.</div>`;
 
         return `
-            <div style="display: flex; flex-direction: column; gap: 26px;">
+            <div style="display: flex; flex-direction: column; gap: 24px;">
                 ${Object.keys(groupedByMat).map(matName => {
                     const colorsInMat = groupedByMat[matName];
+                    const colorizedCount = colorsInMat.filter(c => !!c.hex_code).length;
+
                     return `
-                        <div style="background: #ffffff; border-radius: 22px; border: 1.5px solid #e2e8f0; padding: 22px 24px; box-shadow: 0 8px 25px rgba(15,23,42,0.04);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">
+                        <div style="background: #ffffff; border-radius: 22px; border: 1.5px solid #e9d5ff; padding: 20px 24px; box-shadow: 0 8px 25px rgba(109,40,217,0.05);">
+                            <!-- Header Bar -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 2px solid #f3e8ff; padding-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                                 <div style="display: flex; align-items: center; gap: 10px;">
-                                    <span style="font-size: 22px; background: #faf5ff; padding: 6px 12px; border-radius: 12px; border: 1px solid #e9d5ff;">🧵</span>
-                                    <h3 style="margin: 0; font-size: 18.5px; font-weight: 950; color: #4c1d95; letter-spacing: -0.3px;">CHẤT LIỆU: ${matName}</h3>
-                                    <span style="background: #f3e8ff; color: #6d28d9; font-weight: 850; font-size: 12px; padding: 4px 12px; border-radius: 20px;">${colorsInMat.length} Màu Vải</span>
+                                    <span style="font-size: 20px; background: #faf5ff; padding: 6px 12px; border-radius: 12px; border: 1.5px solid #e9d5ff;">🎨</span>
+                                    <h3 style="margin: 0; font-size: 17.5px; font-weight: 950; color: #4c1d95; letter-spacing: -0.3px;">CHẤT LIỆU: ${matName}</h3>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span style="background: #f3e8ff; color: #6d28d9; font-weight: 850; font-size: 12px; padding: 5px 14px; border-radius: 20px;">🎨 ${colorsInMat.length} Màu Vải</span>
+                                    <span style="background: #ecfdf5; color: #047857; font-weight: 850; font-size: 12px; padding: 5px 14px; border-radius: 20px;">✅ ${colorizedCount}/${colorsInMat.length} Đã Chấm</span>
                                 </div>
                             </div>
 
-                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;">
+                            <!-- Pantone Swatch Matrix Grid -->
+                            <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch;">
                                 ${colorsInMat.map(c => {
                                     const hex = (c.hex_code && c.hex_code.trim()) ? c.hex_code.trim().toUpperCase() : null;
                                     const hasHex = !!hex;
                                     const safeName = (c.color_name || '').replace(/'/g, "\\'");
 
                                     return `
-                                        <div class="cmtk-swatch-card" style="background: #ffffff; border: 1.5px solid ${hasHex ? '#e2e8f0' : '#fed7aa'}; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.25s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.02);" onmouseover="this.style.borderColor='#c084fc'; this.style.boxShadow='0 10px 24px rgba(109,40,217,0.12)';" onmouseout="this.style.borderColor='${hasHex ? '#e2e8f0' : '#fed7aa'}'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.02)';">
-                                            <div>
-                                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                                                    ${hasHex ? `
-                                                        <div style="width: 44px; height: 44px; border-radius: 50%; background: ${hex}; border: 3px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.18); flex-shrink: 0;" title="Digital HEX Swatch: ${hex}"></div>
-                                                    ` : `
-                                                        <div style="width: 44px; height: 44px; border-radius: 50%; background: #f8fafc; border: 2.5px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #94a3b8; flex-shrink: 0;" title="Vải này chưa được chấm mã màu HEX">🎨</div>
-                                                    `}
-                                                    <div style="flex: 1; min-width: 0;">
-                                                        <div style="font-size: 15px; font-weight: 900; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                                            🎨 ${c.color_name}
-                                                        </div>
-                                                        <div style="font-size: 11.5px; font-weight: 750; color: #64748b;">
-                                                            🏬 ${c.warehouse_name || 'Kho Vải'}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                ${hasHex ? `
-                                                    <div style="background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                                                        <span style="font-size: 11px; font-weight: 850; color: #6b21a8; text-transform: uppercase;">MÃ #HEX:</span>
-                                                        <strong style="font-size: 13px; font-weight: 900; color: #0f172a; font-family: monospace;">${hex}</strong>
+                                        <div class="pantone-swatch-chip" 
+                                            onclick="window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${safeName}', '${hex || ''}', '')"
+                                            title="Click để chấm màu / sửa mã HEX cho ${c.color_name}"
+                                            style="position: relative; width: 112px; background: #ffffff; border: 1.5px solid ${hasHex ? '#e2e8f0' : '#fdba74'}; border-radius: 18px; padding: 8px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 12px rgba(0,0,0,0.03);"
+                                            onmouseover="this.style.transform='translateY(-5px) scale(1.04)'; this.style.borderColor='#a855f7'; this.style.boxShadow='0 12px 24px rgba(168,85,247,0.25)';"
+                                            onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.borderColor='${hasHex ? '#e2e8f0' : '#fdba74'}'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.03)';">
+                                            
+                                            <!-- Color Square Swatch Box (Pantone Style) -->
+                                            <div style="width: 100%; height: 75px; border-radius: 12px; position: relative; overflow: hidden; ${hasHex ? `background: ${hex}; border: 1px solid rgba(0,0,0,0.1);` : 'background: #fff7ed; border: 2px dashed #f97316;'} display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);">
+                                                ${!hasHex ? `
+                                                    <div style="text-align: center;">
+                                                        <span style="font-size: 20px;">🎨</span>
+                                                        <div style="font-size: 9.5px; font-weight: 850; color: #ea580c; margin-top: 2px;">Chưa Chấm</div>
                                                     </div>
                                                 ` : `
-                                                    <div style="background: #fff7ed; border: 1.5px solid #ffedd5; border-radius: 10px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                                                        <span style="font-size: 11px; font-weight: 850; color: #c2410c; text-transform: uppercase;">TRẠNG THÁI:</span>
-                                                        <strong style="font-size: 12px; font-weight: 900; color: #ea580c;">⚠️ Chưa Chấm Màu</strong>
-                                                    </div>
+                                                    <!-- Quick Copy Button on Hover/Corner -->
+                                                    <button type="button" 
+                                                        onclick="event.stopPropagation(); window._cmtkCopyHex('${hex}', '${safeName}')"
+                                                        title="Sao chép #${hex}"
+                                                        style="position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.45); color: #ffffff; border: none; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); opacity: 0.85; transition: all 0.2s;"
+                                                        onmouseover="this.style.opacity='1'; this.style.transform='scale(1.15)';"
+                                                        onmouseout="this.style.opacity='0.85'; this.style.transform='scale(1)';">
+                                                        📋
+                                                    </button>
                                                 `}
                                             </div>
 
-                                            <div style="display: flex; gap: 6px; margin-top: 8px;">
-                                                ${hasHex ? `
-                                                    <button type="button" onclick="window._cmtkCopyHex('${hex}', '${safeName}')" class="card-btn-open" title="Sao chép mã màu #HEX dán vào Photoshop / Illustrator">
-                                                        📋 <span>Sao Chép #HEX</span>
-                                                    </button>
-                                                    <button type="button" onclick="window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${safeName}', '${hex}', '')" 
-                                                        style="border: 1.5px solid #d8b4fe; background: #faf5ff; color: #6b21a8; font-weight: 850; font-size: 12.5px; padding: 9px 12px; border-radius: 12px; cursor: pointer;" title="Sửa mã màu">
-                                                        ⚙️ Sửa Mã
-                                                    </button>
-                                                ` : `
-                                                    <button type="button" onclick="window._cmtkOpenEditColorModal('${c.material_id}', '${c.id}', '${safeName}', '', '')" 
-                                                        style="border: none; background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%); color: #ffffff; font-weight: 900; font-size: 13px; padding: 10px 16px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 14px rgba(109,40,217,0.35); width: 100%; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" title="Bấm để chọn mã màu HEX cho vải này">
-                                                        ⚙️ Chấm Màu Ngay
-                                                    </button>
-                                                `}
+                                            <!-- Bottom Pantone Meta Label -->
+                                            <div style="width: 100%; text-align: center; margin-top: 8px; padding: 2px 0;">
+                                                <div style="font-size: 12.5px; font-weight: 900; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;" title="${c.color_name}">
+                                                    ${c.color_name}
+                                                </div>
+                                                <div style="font-size: 10.5px; font-weight: 850; color: ${hasHex ? '#6d28d9' : '#d97706'}; margin-top: 3px; font-family: monospace;">
+                                                    ${hasHex ? hex : '⚠️ CHỜ CHẤM'}
+                                                </div>
+                                                <div style="font-size: 9.5px; font-weight: 750; color: #94a3b8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                    🏬 ${c.warehouse_name || 'Kho Vải'}
+                                                </div>
                                             </div>
                                         </div>
                                     `;
