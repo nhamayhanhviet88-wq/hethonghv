@@ -777,25 +777,35 @@
                     ` : `<div style="font-size:10.5px; font-style:italic; color:#94a3b8; text-align:center; padding:6px 0;">Chưa lập điều cam kết.</div>`}
                 </div>
 
-                <!-- Combined Summary Bar: Tiến Độ Cam Kết + Kết Quả KPI (Phương Án 1) -->
+                <!-- Kiểu A: 2 Thẻ Mini Độc Lập Nằm Song Song -->
                 ${(status === 'completed' || status === 'evaluating') ? `
-                    <div style="margin-top:10px; background:${status === 'completed' ? (isOverallAchieved ? 'linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%)' : 'linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%)') : '#faf5ff'}; border:1.5px solid ${status === 'completed' ? (isOverallAchieved ? '#86efac' : '#fca5a5') : '#e9d5ff'}; border-radius:10px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; box-shadow:0 2px 6px rgba(15,23,42,0.04);">
-                        <!-- Left: Commitment Progress -->
-                        <div style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800;">
-                            <span style="background:#ffffff; color:#3730a3; border:1px solid #c7d2fe; padding:2px 8px; border-radius:6px; font-weight:900; display:flex; align-items:center; gap:4px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
-                                📊 Cam Kết: <b style="color:#1e1b4b; font-size:11.5px;">${completionPct}%</b>
-                            </span>
-                            <span style="font-size:10.5px; color:#475569; font-weight:700;">(${commitmentEvals.filter(e => e.passed).length}/${commitments.length} điều đạt)</span>
+                    <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <!-- Card Left: Tiến Độ Cam Kết -->
+                        <div style="background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%); border:1.5px solid #ddd6fe; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; box-shadow:0 2px 6px rgba(124,58,237,0.05);">
+                            <div style="font-size:10.5px; font-weight:800; color:#6d28d9; display:flex; align-items:center; justify-content:space-between;">
+                                <span>📊 Tiến Độ Cam Kết</span>
+                                <span style="font-size:10px; font-weight:900; color:#5b21b6; background:#ffffff; padding:1px 6px; border-radius:99px; border:1px solid #c4b5fd;">${commitmentEvals.filter(e => e.passed).length}/${commitments.length} điều đạt</span>
+                            </div>
+                            <div style="font-size:15.5px; font-weight:900; color:#4c1d95; display:flex; align-items:baseline; gap:4px;">
+                                ${completionPct}% <span style="font-size:10px; font-weight:700; color:#6d28d9;">hoàn thành</span>
+                            </div>
                         </div>
 
-                        <!-- Right: Final Result KPI & Reward -->
+                        <!-- Card Right: Kết Quả KPI & Thưởng -->
                         ${status === 'completed' ? `
-                            <div style="font-size:11.5px; font-weight:900; ${isOverallAchieved ? 'color:#15803d;' : 'color:#b91c1c;'} display:flex; align-items:center; gap:6px;">
-                                ${isOverallAchieved ? `🎉 ĐẠT KPI THÁNG — ${rewardText ? `<span style="background:#15803d; color:#ffffff; padding:2px 8px; border-radius:6px; font-weight:900;">THƯỞNG: ${rewardText}</span>` : 'ĐẠT CHỈ TIÊU!'}` : `❌ KHÔNG ĐẠT KPI THÁNG — KHÔNG THƯỞNG`}
+                            <div style="background:${isOverallAchieved ? 'linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%)' : 'linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%)'}; border:1.5px solid ${isOverallAchieved ? '#86efac' : '#fca5a5'}; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+                                <div style="font-size:10.5px; font-weight:800; color:${isOverallAchieved ? '#166534' : '#991b1b'}; display:flex; align-items:center; justify-content:space-between;">
+                                    <span>${isOverallAchieved ? '🏆 Kết Quả KPI Tháng' : '❌ Kết Quả KPI Tháng'}</span>
+                                    ${isOverallAchieved && rewardText ? `<span style="font-size:10px; font-weight:900; color:#ffffff; background:#15803d; padding:1px 6px; border-radius:6px; box-shadow:0 1px 3px rgba(21,128,61,0.2);">🎁 ${rewardText}</span>` : ''}
+                                </div>
+                                <div style="font-size:13.5px; font-weight:900; color:${isOverallAchieved ? '#15803d' : '#b91c1c'};">
+                                    ${isOverallAchieved ? '🎉 ĐẠT KPI THÁNG' : '❌ KHÔNG ĐẠT (KHÔNG THƯỞNG)'}
+                                </div>
                             </div>
                         ` : `
-                            <div style="font-size:11px; font-weight:900; color:#6d28d9; background:#f3e8ff; border:1px solid #d8b4fe; padding:2px 8px; border-radius:6px;">
-                                📊 Đang Đánh Giá Cam Kết...
+                            <div style="background:linear-gradient(135deg,#faf5ff 0%,#f3e8ff 100%); border:1.5px solid #d8b4fe; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px;">
+                                <div style="font-size:10.5px; font-weight:800; color:#6b21a8;">📊 Đánh Giá Cam Kết</div>
+                                <div style="font-size:13px; font-weight:900; color:#7c3aed;">⏳ Đang Đánh Giá...</div>
                             </div>
                         `}
                     </div>
