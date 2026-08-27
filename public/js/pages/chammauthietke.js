@@ -891,7 +891,6 @@
         const pdfNameInput = document.getElementById('cmtkFormPdfName');
         if (pdfNameInput) pdfNameInput.value = '';
         document.getElementById('cmtkFormNotes').value = '';
-        document.getElementById('cmtkFormDetailGuide').value = '';
         document.getElementById('cmtkFormImagePreviewBox').style.display = 'none';
         const pdfPreviewBox = document.getElementById('cmtkFormPdfPreviewBox');
         if (pdfPreviewBox) pdfPreviewBox.style.display = 'none';
@@ -907,7 +906,6 @@
             `).join('');
         }
 
-        window._cmtkSwitchModalTab('tab1');
         modal.style.display = 'flex';
     };
 
@@ -926,7 +924,7 @@
         const pdfUrl = document.getElementById('cmtkFormPdfUrl')?.value || '';
         const pdfName = document.getElementById('cmtkFormPdfName')?.value || '';
         const notes = document.getElementById('cmtkFormNotes').value.trim();
-        const detailGuide = document.getElementById('cmtkFormDetailGuide').value.trim();
+        const detailGuide = '';
 
         const checkedDepts = Array.from(document.querySelectorAll('input[name="cmtkDeptCheck"]:checked')).map(cb => cb.value);
 
@@ -987,7 +985,6 @@
         const pdfNameInput = document.getElementById('cmtkFormPdfName');
         if (pdfNameInput) pdfNameInput.value = item.pdfName || 'file_dinh_kem.pdf';
         document.getElementById('cmtkFormNotes').value = item.notes || '';
-        document.getElementById('cmtkFormDetailGuide').value = item.detailGuide || '';
 
         const previewBox = document.getElementById('cmtkFormImagePreviewBox');
         const previewImg = document.getElementById('cmtkFormImagePreviewImg');
@@ -1019,7 +1016,6 @@
             `).join('');
         }
 
-        window._cmtkSwitchModalTab('tab1');
         modal.style.display = 'flex';
     };
 
