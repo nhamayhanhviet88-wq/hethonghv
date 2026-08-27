@@ -14,6 +14,34 @@
     let selectedMaterialFilter = 'all';
     let selectedWarehouseFilter = 'all';
     let sidebarSortMode = 'stt'; // 'stt' | 'count_desc' | 'name_asc' | 'uncolorized'
+    let sidebarMatSearch = '';
+    let customMaterialOrders = getCustomMaterialOrders();
+
+    function getCustomMaterialOrders() {
+        try {
+            const raw = localStorage.getItem('cmtk_mat_orders_store');
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveCustomMaterialOrders(orders) {
+        try {
+            localStorage.setItem('cmtk_mat_orders_store', JSON.stringify(orders));
+        } catch (e) {}
+    }
+
+    function getMatSTT(m, defaultIdx) {
+        if (!m) return 999;
+        if (customMaterialOrders[m.id] !== undefined && customMaterialOrders[m.id] !== null && customMaterialOrders[m.id] !== '') {
+            return parseInt(customMaterialOrders[m.id], 10);
+        }
+        if (m.display_order !== undefined && m.display_order !== null && !isNaN(parseInt(m.display_order, 10))) {
+            return parseInt(m.display_order, 10);
+        }
+        return defaultIdx + 1;
+    }
 
     // State management for Categories (Bộ Phận / Loại Maket) and Subtabs (Mục)
     const DEFAULT_DEPARTMENTS = ['Chung', 'Áo Phông', 'Áo Khoác', 'Đồng Phục Công Ty', 'Áo Lớp / Trường Học', 'Áo Mẫu / BST'];
@@ -545,11 +573,17 @@
         const colors = fabricsData.colors || [];
         
         // Lọc danh sách chất liệu ĐỘNG theo Kho Vải được chọn!
-        const rawMaterials = selectedWarehouseFilter === 'all'
+        let rawMaterials = selectedWarehouseFilter === 'all'
             ? allMaterials
             : allMaterials.filter(m => String(m.warehouse_id) === String(selectedWarehouseFilter));
 
-        // Sắp xếp danh sách Chất Liệu theo sidebarSortMode
+        // Lọc danh sách chất liệu theo từ khóa tìm kiếm sidebar mini!
+        if (sidebarMatSearch && sidebarMatSearch.trim()) {
+            const q = sidebarMatSearch.toLowerCase().trim();
+            rawMaterials = rawMaterials.filter(m => (m.name || '').toLowerCase().includes(q));
+        }
+
+        // Sắp xếp danh sách Chất Liệu theo sidebarSortMode và customMaterialOrders
         const materials = [...rawMaterials].sort((a, b) => {
             const colorsA = colors.filter(c => String(c.material_id) === String(a.id));
             const colorsB = colors.filter(c => String(c.material_id) === String(b.id));
@@ -562,8 +596,8 @@
                 const uncolB = colorsB.filter(c => !c.hex_code).length;
                 return uncolB - uncolA;
             } else {
-                // Default: STT (display_order)
-                return (a.display_order || 0) - (b.display_order || 0);
+                // Default: STT tùy chỉnh của người dùng hoặc display_order
+                return getMatSTT(a, 0) - getMatSTT(b, 0);
             }
         });
 
@@ -602,19 +636,37 @@
                         </div>
                     </div>
 
-                    <!-- Material Filter Box (Scrollable) -->
+                    <!-- Material Filter Box (Scrollable & Searchable) -->
                     <div style="background: #ffffff; border-radius: 20px; border: 1.5px solid #e9d5ff; padding: 18px; box-shadow: 0 4px 16px rgba(109,40,217,0.04);">
-                        <div style="font-size: 13.5px; font-weight: 950; color: #4c1d95; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
-                            <span>🧵 CHẤT LIỆU VẢI</span>
+                        <div style="font-size: 13px; font-weight: 950; color: #4c1d95; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span>🧵 CHẤT LIỆU</span>
+                                <button type="button" onclick="window._cmtkOpenSortMaterialsModal()" 
+                                    style="border: 1px solid #d8b4fe; background: #faf5ff; color: #6d28d9; font-size: 10.5px; font-weight: 850; padding: 2px 7px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" 
+                                    title="Chủ động điền số STT ưu tiên lên đầu cho từng chất liệu vải">
+                                    ⚙️ Sửa STT
+                                </button>
+                            </div>
                             <select onchange="window._cmtkOnSortModeChange(this.value)" title="Sắp xếp danh sách STT từ trên xuống dưới"
-                                style="border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 3px 8px; font-size: 11px; font-weight: 850; color: #6d28d9; background: #faf5ff; outline: none; cursor: pointer;">
+                                style="border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 3px 6px; font-size: 11px; font-weight: 850; color: #6d28d9; background: #faf5ff; outline: none; cursor: pointer;">
                                 <option value="stt" ${sidebarSortMode === 'stt' ? 'selected' : ''}>🔢 Theo STT</option>
                                 <option value="count_desc" ${sidebarSortMode === 'count_desc' ? 'selected' : ''}>📊 Màu: Nhiều ➔ Ít</option>
                                 <option value="name_asc" ${sidebarSortMode === 'name_asc' ? 'selected' : ''}>🔤 Tên: A ➔ Z</option>
                                 <option value="uncolorized" ${sidebarSortMode === 'uncolorized' ? 'selected' : ''}>⚠️ Chờ Chấm Màu</option>
                             </select>
                         </div>
-                        <div style="max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+
+                        <!-- Mini Search Bar for Materials -->
+                        <div style="margin-bottom: 10px; position: relative;">
+                            <input type="text" 
+                                id="cmtkSidebarMatSearchInput"
+                                value="${sidebarMatSearch}" 
+                                placeholder="🔍 Tìm tên chất liệu..." 
+                                oninput="window._cmtkOnSidebarMatSearch(this.value)"
+                                style="width: 100%; border: 1.5px solid #e9d5ff; border-radius: 12px; padding: 7px 12px; font-size: 12px; font-weight: 700; background: #faf5ff; outline: none; color: #0f172a;">
+                        </div>
+
+                        <div style="max-height: 440px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
                             <button type="button" 
                                 onclick="window._cmtkOnFilterMatChange('all')" 
                                 style="width: 100%; text-align: left; padding: 9px 12px; border-radius: 12px; font-size: 12.5px; font-weight: 850; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; ${selectedMaterialFilter === 'all' ? 'background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(109,40,217,0.25);' : 'background: #ffffff; border: 1.5px solid #f1f5f9; color: #475569;'}">
@@ -627,12 +679,13 @@
                             ${materials.map((m, idx) => {
                                 const isSelected = String(selectedMaterialFilter) === String(m.id);
                                 const matColorCount = colors.filter(c => String(c.material_id) === String(m.id)).length;
+                                const displaySTT = getMatSTT(m, idx);
                                 return `
                                     <button type="button" 
                                         onclick="window._cmtkOnFilterMatChange('${m.id}')" 
                                         style="width: 100%; text-align: left; padding: 9px 12px; border-radius: 12px; font-size: 12.5px; font-weight: 850; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; ${isSelected ? 'background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(109,40,217,0.25);' : 'background: #ffffff; border: 1.5px solid #f1f5f9; color: #475569;'}">
                                         <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;">
-                                            <span style="font-size: 11px; opacity: 0.85; font-family: monospace; font-weight: 900; min-width: 20px; color: ${isSelected ? '#ffffff' : '#7c3aed'};">${idx + 1}.</span>
+                                            <span style="font-size: 11px; opacity: 0.85; font-family: monospace; font-weight: 900; min-width: 20px; color: ${isSelected ? '#ffffff' : '#7c3aed'};">${displaySTT}.</span>
                                             <span>🧵 ${m.name}</span>
                                         </span>
                                         <span style="font-size: 11px; padding: 2px 6px; border-radius: 8px; ${isSelected ? 'background: rgba(255,255,255,0.25); color: #fff;' : 'background: #f3e8ff; color: #6d28d9;'}">${matColorCount}</span>
@@ -699,7 +752,9 @@
             } else {
                 const matA = (fabricsData.materials || []).find(m => m.name === aName);
                 const matB = (fabricsData.materials || []).find(m => m.name === bName);
-                return ((matA && matA.display_order) || 0) - ((matB && matB.display_order) || 0);
+                const sttA = matA ? getMatSTT(matA, 999) : 999;
+                const sttB = matB ? getMatSTT(matB, 999) : 999;
+                return sttA - sttB;
             }
         });
 
@@ -804,6 +859,108 @@
     window._cmtkOnSortModeChange = function (val) {
         sidebarSortMode = val || 'stt';
         renderCurrentMainTab();
+    };
+
+    window._cmtkOnSidebarMatSearch = function (val) {
+        sidebarMatSearch = val || '';
+        renderCurrentMainTab();
+        setTimeout(() => {
+            const inp = document.getElementById('cmtkSidebarMatSearchInput');
+            if (inp) {
+                inp.focus();
+                inp.setSelectionRange(inp.value.length, inp.value.length);
+            }
+        }, 50);
+    };
+
+    function ensureSortMaterialsModalInDOM() {
+        let modal = document.getElementById('cmtkSortMaterialsModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'cmtkSortMaterialsModal';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+                <div style="max-height:88vh; display:flex; flex-direction:column; width:100%; max-width:540px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1.5px solid #d8b4fe;">
+                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:20px;">⚙️</span>
+                            <h3 style="margin:0; font-size:16.5px; font-weight:900; color:#ffffff; text-transform:uppercase;">CHỈNH SỬA THỨ TỰ STT ƯU TIÊN</h3>
+                        </div>
+                        <button type="button" onclick="window._cmtkCloseSortMaterialsModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                    </div>
+                    <div style="padding:14px 24px 8px 24px; background:#faf5ff; border-bottom:1px solid #e9d5ff; font-size:12.5px; font-weight:700; color:#6d28d9;">
+                        📌 Số STT nhỏ hơn (1, 2, 3...) sẽ chủ động được ưu tiên đưa lên đầu danh sách.
+                    </div>
+                    <div id="cmtkSortMatListContainer" style="flex:1; overflow-y:auto; padding:18px 24px; display:flex; flex-direction:column; gap:10px; background:#ffffff;">
+                    </div>
+                    <div style="flex-shrink:0; padding:16px 24px; background:#ffffff; border-top:1.5px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                        <button type="button" onclick="window._cmtkResetSortMaterials()" style="padding:10px 18px; border-radius:12px; font-weight:800; font-size:12.5px; border:1.5px solid #cbd5e1; background:#ffffff; color:#64748b; cursor:pointer;">🔄 Đặt Lại Mặc Định</button>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" onclick="window._cmtkCloseSortMaterialsModal()" style="padding:10px 18px; border-radius:12px; font-weight:800; font-size:12.5px; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155; cursor:pointer;">Hủy</button>
+                            <button type="button" onclick="window._cmtkSaveSortMaterials()" style="padding:10px 22px; border-radius:12px; font-weight:900; font-size:13px; border:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; cursor:pointer; box-shadow:0 4px 14px rgba(109,40,217,0.35);">💾 Lưu Thứ Tự STT</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        return modal;
+    }
+
+    window._cmtkOpenSortMaterialsModal = function () {
+        const modal = ensureSortMaterialsModalInDOM();
+        const container = document.getElementById('cmtkSortMatListContainer');
+        const allMaterials = fabricsData.materials || [];
+        
+        container.innerHTML = allMaterials.map((m, idx) => {
+            const currentSTT = getMatSTT(m, idx);
+            return `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:850; color:#0f172a; flex:1; min-width:0;">
+                        <span>🧵</span>
+                        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${m.name}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11.5px; font-weight:800; color:#64748b;">STT Ưu Tiên:</span>
+                        <input type="number" data-mat-id="${m.id}" value="${currentSTT}" min="1" max="999"
+                            style="width:68px; text-align:center; border:2px solid #c084fc; border-radius:10px; padding:6px; font-weight:900; font-size:13.5px; color:#4c1d95; background:#ffffff; outline:none;">
+                    </div>
+                </div>
+            `;
+        }).join('');
+        modal.style.display = 'flex';
+    };
+
+    window._cmtkCloseSortMaterialsModal = function () {
+        const modal = document.getElementById('cmtkSortMaterialsModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window._cmtkSaveSortMaterials = function () {
+        const inputs = document.querySelectorAll('#cmtkSortMatListContainer input[data-mat-id]');
+        const newOrders = {};
+        inputs.forEach(inp => {
+            const matId = inp.getAttribute('data-mat-id');
+            const val = parseInt(inp.value, 10);
+            if (matId && !isNaN(val)) {
+                newOrders[matId] = val;
+            }
+        });
+        customMaterialOrders = newOrders;
+        saveCustomMaterialOrders(customMaterialOrders);
+        window._cmtkCloseSortMaterialsModal();
+        renderCurrentMainTab();
+        showToast('✅ Đã lưu thứ tự STT chất liệu thành công!');
+    };
+
+    window._cmtkResetSortMaterials = function () {
+        if (confirm('Bạn có chắc chắn muốn đặt lại thứ tự STT mặc định ban đầu không?')) {
+            customMaterialOrders = {};
+            saveCustomMaterialOrders({});
+            window._cmtkCloseSortMaterialsModal();
+            renderCurrentMainTab();
+            showToast('🔄 Đã khôi phục STT mặc định!');
+        }
     };
 
     window._cmtkCopyHex = function (hex, colorName) {
