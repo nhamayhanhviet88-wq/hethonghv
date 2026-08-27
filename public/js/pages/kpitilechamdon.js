@@ -314,11 +314,15 @@
 
                             <!-- Suggestion Panel Box -->
                             <div id="kpiCommitmentSuggestionsPanel" style="display:none; background:#fffbeb; border:1.5px dashed #f59e0b; border-radius:10px; padding:12px; margin-bottom:12px;">
-                                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                                    <span style="font-size:12px; font-weight:900; color:#92400e;">💡 Danh Sách Câu Gợi Ý Cam Kết Mẫu (Click để chọn nhanh):</span>
-                                    <button type="button" onclick="window.toggleCommitmentSuggestions(false)" style="background:none; border:none; color:#92400e; font-size:14px; font-weight:900; cursor:pointer;">✕</button>
+                                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                                    <span style="font-size:12px; font-weight:900; color:#92400e;">💡 Danh Sách Câu Gợi Ý Cam Kết Mẫu:</span>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <button type="button" onclick="window.addNewPresetSuggestion()" style="padding:3px 8px; background:#dcfce7; color:#15803d; border:1px solid #86efac; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;" title="Thêm câu gợi ý mẫu mới vào danh sách">+ Thêm Gợi Ý Mới</button>
+                                        <button type="button" onclick="window.resetPresetSuggestionsDefault()" style="padding:3px 8px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;" title="Khôi phục danh sách gợi ý mặc định">🔄 Mặc Định</button>
+                                        <button type="button" onclick="window.toggleCommitmentSuggestions(false)" style="background:none; border:none; color:#92400e; font-size:14px; font-weight:900; cursor:pointer;">✕</button>
+                                    </div>
                                 </div>
-                                <div id="kpiPresetSuggestionsList" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding-right:4px;"></div>
+                                <div id="kpiPresetSuggestionsList" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; padding-right:4px;"></div>
                             </div>
 
                             <div id="kpiModalCommitmentsList"></div>
@@ -1223,8 +1227,8 @@
         if (overlay) overlay.style.display = 'flex';
     };
 
-    // Preset Commitment Suggestions
-    var PRESET_COMMITMENTS = [
+    // Preset Commitment Suggestions with LocalStorage Persistence & CRUD
+    var DEFAULT_PRESET_COMMITMENTS = [
         "Kiểm tra kĩ 100% sản phẩm (chất vải, đường may, in thêu) trước khi đóng gói",
         "Tăng ca may tối Thứ 5 và Thứ 6 để đảm bảo giao hàng đúng tiến độ các đơn hàng gấp",
         "Rà soát lại kế hoạch chuẩn bị nguyên phụ liệu (vải, cúc, chỉ) trước 3 ngày sản xuất",
@@ -1234,6 +1238,23 @@
         "Tối ưu hoá quy trình cắt và rải vải để tránh lãng phí và sản xuất bị nghẽn cổ chai",
         "Đào tạo lại tay nghề may cho công nhân có tỷ lệ may lỗi cao trong tháng"
     ];
+
+    function getStoredPresetCommitments() {
+        try {
+            const stored = localStorage.getItem('kpi_preset_commitments');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch (e) {}
+        return [...DEFAULT_PRESET_COMMITMENTS];
+    }
+
+    function saveStoredPresetCommitments(list) {
+        try {
+            localStorage.setItem('kpi_preset_commitments', JSON.stringify(list));
+        } catch (e) {}
+    }
 
     window.toggleCommitmentSuggestions = function(forceState) {
         const panel = document.getElementById('kpiCommitmentSuggestionsPanel');
@@ -1248,12 +1269,55 @@
     window.renderPresetSuggestions = function() {
         const listEl = document.getElementById('kpiPresetSuggestionsList');
         if (!listEl) return;
-        listEl.innerHTML = PRESET_COMMITMENTS.map((s) => `
-            <div onclick="window.selectPresetSuggestion(\`${s.replace(/`/g, '\\`')}\`)" style="display:flex; align-items:center; justify-content:space-between; gap:8px; background:#ffffff; padding:7px 10px; border-radius:6px; border:1px solid #fde68a; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#ffffff'">
+        const presets = getStoredPresetCommitments();
+
+        listEl.innerHTML = presets.map((s, idx) => `
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; background:#ffffff; padding:6px 10px; border-radius:6px; border:1px solid #fde68a;">
                 <span style="font-size:12px; font-weight:700; color:#78350f; flex:1;">📌 ${s}</span>
-                <span style="font-size:11px; font-weight:800; color:#b45309; background:#fffbeb; padding:2px 6px; border-radius:4px; border:1px solid #fde68a; white-space:nowrap;">+ Chọn</span>
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <button type="button" onclick="window.selectPresetSuggestion(\`${s.replace(/`/g, '\\`')}\`)" style="font-size:11px; font-weight:800; color:#b45309; background:#fffbeb; padding:2px 8px; border-radius:4px; border:1px solid #fde68a; cursor:pointer;" title="Chèn câu này vào danh sách cam kết">+ Chọn</button>
+                    <button type="button" onclick="window.editPresetSuggestion(${idx})" style="font-size:11px; padding:2px 6px; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; border-radius:4px; font-weight:800; cursor:pointer;" title="Chỉnh sửa câu gợi ý này">✏️ Sửa</button>
+                    <button type="button" onclick="window.deletePresetSuggestion(${idx})" style="font-size:11px; padding:2px 6px; background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:4px; font-weight:800; cursor:pointer;" title="Xoá câu gợi ý này">🗑️ Xoá</button>
+                </div>
             </div>
         `).join('');
+    };
+
+    window.addNewPresetSuggestion = function() {
+        const val = prompt('Nhập câu gợi ý cam kết mẫu mới muốn cài đặt sẵn vào hệ thống:');
+        if (!val || !val.trim()) return;
+        const presets = getStoredPresetCommitments();
+        presets.push(val.trim());
+        saveStoredPresetCommitments(presets);
+        window.renderPresetSuggestions();
+        if (typeof showToast === 'function') showToast('✅ Đã thêm câu gợi ý mẫu mới!', 'success');
+    };
+
+    window.editPresetSuggestion = function(index) {
+        const presets = getStoredPresetCommitments();
+        if (!presets[index]) return;
+        const newVal = prompt('Chỉnh sửa nội dung câu gợi ý mẫu:', presets[index]);
+        if (newVal === null || !newVal.trim()) return;
+        presets[index] = newVal.trim();
+        saveStoredPresetCommitments(presets);
+        window.renderPresetSuggestions();
+        if (typeof showToast === 'function') showToast('✅ Đã cập nhật câu gợi ý mẫu!', 'success');
+    };
+
+    window.deletePresetSuggestion = function(index) {
+        if (!confirm('Anh/Chị có chắc chắn muốn xoá câu gợi ý mẫu này không?')) return;
+        const presets = getStoredPresetCommitments();
+        presets.splice(index, 1);
+        saveStoredPresetCommitments(presets);
+        window.renderPresetSuggestions();
+        if (typeof showToast === 'function') showToast('🗑️ Đã xoá câu gợi ý mẫu!', 'info');
+    };
+
+    window.resetPresetSuggestionsDefault = function() {
+        if (!confirm('Khôi phục lại danh sách các câu gợi ý mẫu mặc định của hệ thống?')) return;
+        localStorage.removeItem('kpi_preset_commitments');
+        window.renderPresetSuggestions();
+        if (typeof showToast === 'function') showToast('🔄 Đã khôi phục danh sách gợi ý mặc định!', 'success');
     };
 
     window.selectPresetSuggestion = function(text) {
@@ -1274,7 +1338,7 @@
             window.addCommitmentRow(text);
         }
         if (typeof showToast === 'function') {
-            showToast('💡 Đã thêm điều cam kết gợi ý!', 'info');
+            showToast('💡 Đã chèn câu gợi ý cam kết!', 'info');
         }
     };
 
