@@ -490,13 +490,13 @@
                                     ${item.notes || item.detailGuide || 'Chưa có mô tả tóm tắt.'}
                                 </div>
 
-                                <!-- Action Buttons (Xem Chi Tiết + Mở Tài Liệu side-by-side like Image 3) -->
-                                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto;">
-                                    <button type="button" onclick="window._cmtkOpenDetailModal('${item.id}')" style="flex: 1; padding: 10px 14px; border-radius: 12px; font-weight: 900; font-size: 13px; background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(109,40,217,0.3); display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                <!-- Action Buttons (Gọn gàng trên 1 hàng, không bị xuống dòng) -->
+                                <div style="display: flex; gap: 8px; flex-wrap: nowrap; margin-top: auto; align-items: center;">
+                                    <button type="button" onclick="window._cmtkOpenDetailModal('${item.id}')" style="flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; font-weight: 850; font-size: 12px; white-space: nowrap; background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(109,40,217,0.25); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
                                         📋 Xem Chi Tiết ➔
                                     </button>
                                     ${item.docUrl ? `
-                                        <a href="${item.docUrl}" target="_blank" rel="noopener" style="flex: 1; padding: 10px 14px; border-radius: 12px; font-weight: 900; font-size: 13px; background: linear-gradient(135deg, #059669, #10b981); color: #ffffff; text-decoration: none; cursor: pointer; box-shadow: 0 4px 14px rgba(16,185,129,0.3); display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                        <a href="${item.docUrl}" target="_blank" rel="noopener" style="flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; font-weight: 850; font-size: 12px; white-space: nowrap; background: linear-gradient(135deg, #059669, #10b981); color: #ffffff; text-decoration: none; cursor: pointer; box-shadow: 0 4px 12px rgba(16,185,129,0.25); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
                                             🔗 Mở Tài Liệu ↗
                                         </a>
                                     ` : ''}
