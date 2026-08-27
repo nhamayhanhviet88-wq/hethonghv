@@ -726,23 +726,38 @@
                         <div style="display:flex; flex-direction:column; gap:6px;">
                             ${commitments.map((c, idx) => {
                                 const ev = commitmentEvals[idx];
-                                let badgeHtml = '<span style="font-size:10px; font-weight:800; color:#94a3b8; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #e2e8f0; white-space:nowrap;">⏳ Chưa đánh giá</span>';
-                                let rowBorder = 'border-left:3px solid #cbd5e1;';
+                                let badgeTag = '<span style="font-size:10px; font-weight:800; color:#94a3b8; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1; white-space:nowrap;">⏳ Chưa đánh giá</span>';
+                                let noteTag = '';
+                                let rowStyle = 'border-left:3.5px solid #cbd5e1; background:#f8fafc;';
+
                                 if (ev) {
                                     if (ev.passed) {
-                                        badgeHtml = `<span style="font-size:10px; font-weight:900; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:6px; border:1px solid #86efac; white-space:nowrap; box-shadow:0 1px 3px rgba(21,128,61,0.1);">✅ ĐẠT ${ev.note ? `<span style="color:#166534; font-weight:700;">(${ev.note})</span>` : ''}</span>`;
-                                        rowBorder = 'border-left:3px solid #22c55e; background:#f0fdf4;';
+                                        badgeTag = `<span style="font-size:10px; font-weight:900; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:6px; border:1px solid #86efac; white-space:nowrap; box-shadow:0 1px 3px rgba(21,128,61,0.1);">✅ ĐẠT</span>`;
+                                        if (ev.note) {
+                                            noteTag = `<span style="font-size:10.5px; font-weight:700; color:#166534; background:#ffffff; padding:2px 8px; border-radius:6px; border:1px solid #bbf7d0; flex:1; min-width:0; overflow-wrap:anywhere; word-break:break-word;">💬 ${ev.note}</span>`;
+                                        }
+                                        rowStyle = 'border-left:3.5px solid #22c55e; background:#f0fdf4;';
                                     } else {
-                                        badgeHtml = `<span style="font-size:10px; font-weight:900; color:#b91c1c; background:#fee2e2; padding:2px 8px; border-radius:6px; border:1px solid #fca5a5; white-space:nowrap; box-shadow:0 1px 3px rgba(185,28,28,0.1);">❌ CHƯA ĐẠT ${ev.note ? `<span style="color:#991b1b; font-weight:700;">(${ev.note})</span>` : ''}</span>`;
-                                        rowBorder = 'border-left:3px solid #ef4444; background:#fef2f2;';
+                                        badgeTag = `<span style="font-size:10px; font-weight:900; color:#b91c1c; background:#fee2e2; padding:2px 8px; border-radius:6px; border:1px solid #fca5a5; white-space:nowrap; box-shadow:0 1px 3px rgba(185,28,28,0.1);">❌ CHƯA ĐẠT</span>`;
+                                        if (ev.note) {
+                                            noteTag = `<span style="font-size:10.5px; font-weight:700; color:#991b1b; background:#ffffff; padding:2px 8px; border-radius:6px; border:1px solid #fecaca; flex:1; min-width:0; overflow-wrap:anywhere; word-break:break-word;">💬 ${ev.note}</span>`;
+                                        }
+                                        rowStyle = 'border-left:3.5px solid #ef4444; background:#fef2f2;';
                                     }
                                 }
+
                                 return `
-                                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:6px; ${rowBorder} font-size:11px; line-height:1.35;">
-                                    <div style="font-weight:700; color:#1e293b; flex:1;">
-                                        <span style="color:#64748b; font-weight:800;">${idx + 1}.</span> ${c}
+                                <div style="display:flex; flex-direction:column; gap:6px; padding:8px 10px; border-radius:8px; ${rowStyle} font-size:11.5px; line-height:1.4; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                    <!-- Line 1: Commitment Text (100% width) -->
+                                    <div style="font-weight:800; color:#0f172a; word-break:break-word;">
+                                        <span style="color:#475569; font-weight:900;">${idx + 1}.</span> ${c}
                                     </div>
-                                    <div>${badgeHtml}</div>
+
+                                    <!-- Line 2: Badge & Note (Flex Wrap) -->
+                                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                        ${badgeTag}
+                                        ${noteTag}
+                                    </div>
                                 </div>
                                 `;
                             }).join('')}
