@@ -1992,6 +1992,9 @@
             `;
             document.body.appendChild(modal);
         }
+        return modal;
+    }
+
     window._hdkhOnStepsFocus = function (el) {
         if (!el || el.value.trim()) return;
         el.value = 'Bước 1: ';

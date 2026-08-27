@@ -5608,6 +5608,8 @@
             document.body.appendChild(modal);
         }
         return modal;
+    }
+
     window._xldlOnStepsFocus = function (el) {
         if (!el || el.value.trim()) return;
         el.value = 'Bước 1: ';
