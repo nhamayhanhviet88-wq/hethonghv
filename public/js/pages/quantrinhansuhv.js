@@ -2187,16 +2187,13 @@
             el.value = 'Bước 1: ';
         } else {
             const text = el.value;
-            const allLines = text.split('\n');
-            let maxStepNum = 0;
-            allLines.forEach(l => {
-                const m = l.match(/^Bước\s*(\d+)/i);
-                if (m) {
-                    const num = parseInt(m[1], 10);
-                    if (num > maxStepNum) maxStepNum = num;
-                }
+            const matches = text.match(/^Bước\s*(\d+)/gm) || [];
+            let maxStep = 0;
+            matches.forEach(m => {
+                const num = parseInt(m.replace(/\D/g, ''), 10);
+                if (num > maxStep) maxStep = num;
             });
-            const nextNum = maxStepNum > 0 ? maxStepNum + 1 : (allLines.length + 1);
+            const nextNum = maxStep > 0 ? maxStep + 1 : (text.split('\n').length + 1);
             el.value = text.trimEnd() + `\nBước ${nextNum}: `;
         }
         el.focus();
@@ -2205,69 +2202,22 @@
 
     window._qtnsOnStepsKeyDown = function (e, el) {
         if (e.key === 'Enter') {
-            const cursorStart = el.selectionStart;
+            e.preventDefault();
+            const cursorStart = el.selectionStart !== undefined ? el.selectionStart : el.value.length;
             const text = el.value;
-            const textBefore = text.substring(0, cursorStart);
-            const lines = textBefore.split('\n');
-            const currentLine = lines[lines.length - 1];
 
-            // If current line is just "Bước X: ", pressing enter cleans up empty step
-            const emptyStepMatch = currentLine.match(/^Bước\s*(\d+)[\:\.\s]*$/i);
-            if (emptyStepMatch) {
-                e.preventDefault();
-                const lastLineStart = cursorStart - currentLine.length;
-                el.value = text.substring(0, lastLineStart) + text.substring(cursorStart);
-                el.selectionStart = el.selectionEnd = lastLineStart;
-                return;
-            }
-
-            // Calculate next step number
-            const allLines = text.split('\n');
-            let maxStepNum = 0;
-            allLines.forEach(l => {
-                const m = l.match(/^Bước\s*(\d+)/i);
-                if (m) {
-                    const num = parseInt(m[1], 10);
-                    if (num > maxStepNum) maxStepNum = num;
-                }
+            const matches = text.match(/^Bước\s*(\d+)/gm) || [];
+            let maxStep = 0;
+            matches.forEach(m => {
+                const num = parseInt(m.replace(/\D/g, ''), 10);
+                if (num > maxStep) maxStep = num;
             });
 
-            e.preventDefault();
-            const nextNum = maxStepNum > 0 ? maxStepNum + 1 : (lines.length + 1);
-            const prefix = `\nBước ${nextNum}: `;
-            el.value = text.substring(0, cursorStart) + prefix + text.substring(cursorStart);
-            el.selectionStart = el.selectionEnd = cursorStart + prefix.length;
-        }
-    };
+            const nextNum = maxStep > 0 ? maxStep + 1 : (text.split('\n').length + 1);
+            const insertText = `\nBước ${nextNum}: `;
 
-    window._qtnsOnStepsInput = function (el) {
-        if (!el || !el.value.trim()) return;
-        const cursor = el.selectionStart;
-        const lines = el.value.split('\n');
-        let stepCount = 1;
-        let modified = false;
-
-        const formatted = lines.map((line, idx) => {
-            if (!line.trim() && idx === lines.length - 1) return line;
-            if (!line.trim()) return line;
-
-            const stepMatch = line.match(/^Bước\s*(\d+)[\:\.\s]*(.*)/i);
-            if (stepMatch) {
-                const content = stepMatch[2];
-                const num = stepCount++;
-                return `Bước ${num}: ${content}`;
-            } else {
-                modified = true;
-                const num = stepCount++;
-                return `Bước ${num}: ${line.trim()}`;
-            }
-        });
-
-        if (modified) {
-            const newText = formatted.join('\n');
-            const diffLength = newText.length - el.value.length;
-            el.value = newText;
-            el.selectionStart = el.selectionEnd = Math.max(0, Math.min(cursor + diffLength, el.value.length));
+            el.value = text.substring(0, cursorStart) + insertText + text.substring(cursorStart);
+            el.selectionStart = el.selectionEnd = cursorStart + insertText.length;
         }
     };
 
