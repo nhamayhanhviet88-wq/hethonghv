@@ -160,7 +160,9 @@
                     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
                 }
                 .badge-success { background: #dcfce7; color: #15803d; border: 1.5px solid #bbf7d0; box-shadow: 0 2px 6px rgba(21, 128, 61, 0.08); }
+                .badge-warning { background: #fef3c7; color: #b45309; border: 1.5px solid #fde68a; box-shadow: 0 2px 6px rgba(180, 83, 9, 0.08); }
                 .badge-danger { background: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; box-shadow: 0 2px 6px rgba(185, 28, 28, 0.08); }
+                .badge-dark-danger { background: #7f1d1d; color: #ffffff; border: 1.5px solid #991b1b; box-shadow: 0 2px 6px rgba(127, 29, 29, 0.2); }
                 .badge-future { background: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; }
 
                 /* Monthly Cards Section */
@@ -265,11 +267,34 @@
                 return;
             }
 
-            _kpiDelayState.data = data;
-            renderKpiDelayDashboard(data);
         } catch (e) {
             console.error('loadKpiDelayData error:', e);
             bodyArea.innerHTML = `<div style="color:#ef4444; font-weight:800; text-align:center; padding:40px;">❌ Lỗi kết nối máy chủ!</div>`;
+        }
+    }
+
+    function getCombinedKpiBadgeHtml(isFuture, totalOrders, delayPct, targetPct, totalErrors, targetErr) {
+        if (isFuture && totalOrders === 0) {
+            return `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+        }
+        const isPassDelay = delayPct <= targetPct;
+        if (targetErr > 0) {
+            const isPassErr = totalErrors <= targetErr;
+            if (isPassDelay && isPassErr) {
+                return `<span class="badge-status badge-success">🔥 ĐẠT KPI TỔNG THỂ</span>`;
+            } else if (isPassDelay && !isPassErr) {
+                return `<span class="badge-status badge-warning">⚠️ VƯỢT KPI LỖI</span>`;
+            } else if (!isPassDelay && isPassErr) {
+                return `<span class="badge-status badge-danger">🚨 CHẬM TIẾN ĐỘ</span>`;
+            } else {
+                return `<span class="badge-status badge-dark-danger">🔴 KHÔNG ĐẠT KPI</span>`;
+            }
+        } else {
+            if (isPassDelay) {
+                return `<span class="badge-status badge-success">🔥 ĐẠT KPI</span>`;
+            } else {
+                return `<span class="badge-status badge-danger">🚨 KHÔNG ĐẠT</span>`;
+            }
         }
     }
 
@@ -306,7 +331,7 @@
                 badgeDelayHtml = `<span class="badge-status ${isPassDelay ? 'badge-success' : 'badge-danger'}">${isPassDelay ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
 
                 if (targetErr > 0) {
-                    const isPassErr = q.total_errors <= targetErr;
+                    const isPassErr = (q.total_errors || 0) <= targetErr;
                     badgeErrHtml = `<span class="badge-status ${isPassErr ? 'badge-success' : 'badge-danger'}">${isPassErr ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
                 } else {
                     badgeErrHtml = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
@@ -401,13 +426,7 @@
             const isCurrentMonth = (data.year === realCurrentYear) && (m.month === realCurrentMonth);
             const isFutureMonth = (data.year > realCurrentYear) || (data.year === realCurrentYear && m.month > realCurrentMonth);
 
-            let mBadgeHtml = '';
-            if (isFutureMonth && m.total === 0) {
-                mBadgeHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
-            } else {
-                const isPass = m.delay_pct <= targetPct;
-                mBadgeHtml = `<span class="badge-status ${isPass ? 'badge-success' : 'badge-danger'}">${isPass ? '🔥 Đạt KPI' : '🚨 Không Đạt'}</span>`;
-            }
+            const mBadgeHtml = getCombinedKpiBadgeHtml(isFutureMonth, m.total || 0, m.delay_pct || 0, targetPct, m.total_errors || 0, targetErr);
 
             return `
             <div class="m-card ${isCurrentMonth ? 'is-current-month' : ''}" id="mCard_${m.month}">
@@ -928,6 +947,21 @@
                     } else {
                         wrapErr.innerHTML = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
                     }
+                }
+            }
+        } else if (pType === 'month') {
+            const mData = _kpiDelayState.data.months.find(m => m.month === pVal);
+            if (mData) {
+                const mIptDelay = document.querySelector(`.kpi-m-input[data-period="month"][data-val="${pVal}"]`);
+                const mIptErr = document.querySelector(`.kpi-m-err-input[data-period="month"][data-val="${pVal}"]`);
+                const targetPct = mIptDelay ? (parseFloat(mIptDelay.value) || 0) : 5.0;
+                const targetErr = mIptErr ? (parseInt(mIptErr.value, 10) || 0) : 0;
+
+                const isFutureMonth = (_kpiDelayState.year > realCurrentYear) || (_kpiDelayState.year === realCurrentYear && pVal > realCurrentMonth);
+
+                const wrap = document.getElementById(`mBadgeWrap_${pVal}`);
+                if (wrap) {
+                    wrap.innerHTML = getCombinedKpiBadgeHtml(isFutureMonth, mData.total || 0, mData.delay_pct || 0, targetPct, mData.total_errors || 0, targetErr);
                 }
             }
         }
