@@ -195,4 +195,77 @@ module.exports = async function (fastify) {
             return reply.code(500).send({ error: 'Lỗi tải file hình ảnh/video: ' + e.message });
         }
     });
+
+    // ==========================================
+    // MỤC 3: KHO NỀN ÁO 3D — Backend APIs
+    // ==========================================
+
+    // 7. GET /api/chammauthietke/models3d — Lấy danh sách 3D models
+    fastify.get('/api/chammauthietke/models3d', async (request, reply) => {
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'cmtk_models3d_store'");
+            let data = { models: [], categories: null, viewAngles: null };
+            if (row && row.value) {
+                try {
+                    const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+                    if (Array.isArray(parsed)) {
+                        data.models = parsed;
+                    } else if (parsed && typeof parsed === 'object') {
+                        data.models = Array.isArray(parsed.models) ? parsed.models : [];
+                        data.categories = parsed.categories || null;
+                        data.viewAngles = parsed.viewAngles || null;
+                    }
+                } catch(e) {}
+            }
+            return { success: true, ...data };
+        } catch (e) {
+            console.error('[CMTK Models3D GET Error]:', e.message);
+            return { success: false, models: [] };
+        }
+    });
+
+    // 8. POST /api/chammauthietke/models3d — Lưu danh sách 3D models
+    fastify.post('/api/chammauthietke/models3d', async (request, reply) => {
+        try {
+            const { value } = request.body || {};
+            const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+            await db.run(
+                `INSERT INTO app_config (key, value, updated_at) VALUES ('cmtk_models3d_store', ?, NOW())
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+                [strValue]
+            );
+            return { success: true };
+        } catch (e) {
+            console.error('[CMTK Models3D POST Error]:', e.message);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // 9. POST /api/chammauthietke/upload-model3d — Upload file 3D (.glb/.gltf/.obj) vào uploads/models3d/
+    fastify.post('/api/chammauthietke/upload-model3d', async (request, reply) => {
+        try {
+            const data = await request.file();
+            if (!data) return reply.code(400).send({ error: 'Không tìm thấy file 3D gửi lên' });
+
+            const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'models3d');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+            const ext = path.extname(data.filename) || '.glb';
+            const safeName = `model3d_${Date.now()}_${Math.random().toString(36).substring(2, 7)}${ext}`;
+            const filePath = path.join(uploadDir, safeName);
+
+            await pipeline(data.file, fs.createWriteStream(filePath));
+
+            const publicUrl = `/uploads/models3d/${safeName}`;
+            return {
+                success: true,
+                url: publicUrl,
+                originalName: data.filename,
+                size: fs.statSync(filePath).size
+            };
+        } catch (e) {
+            console.error('[CMTK Model3D Upload Error]:', e.message);
+            return reply.code(500).send({ error: 'Lỗi tải file 3D: ' + e.message });
+        }
+    });
 };

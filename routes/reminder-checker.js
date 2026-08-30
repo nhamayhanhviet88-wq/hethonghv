@@ -189,6 +189,7 @@ async function checkChuyenSo(today, mins) {
             AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%' AND cl.content NOT LIKE '%Cập nhật%'))
         )
         AND c.assigned_to_id IS NOT NULL
+        AND (c.order_status IS NULL OR (c.order_status != 'huy' AND c.order_status != 'khau_tru'))
         ORDER BY c.assigned_to_id, c.daily_order_number
     `, [today]);
 

@@ -204,22 +204,22 @@ function _bpiRenderSb() {
                 // IN GIA CÔNG
                 var gcActive = f.year == yr.year && f.status === 'pending' && f.field === 'GC';
                 h += '<div class="bpi-sb-item'+(gcActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'GC\')" style="'+(gcActive?'':'color:#d97706')+'">'
-                  + '<span>🏭 IN GIA CÔNG</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:800">'+(yr.pending.gc||0)+'</span></div>';
+                  + '<span>🏭 IN GIA CÔNG</span><span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:800">'+(yr.pending.gc_qty !== undefined ? yr.pending.gc_qty : yr.pending.gc)+'</span></div>';
 
                 // IN PET
                 var petActive = f.year == yr.year && f.status === 'pending' && f.field === 'IN PET';
                 h += '<div class="bpi-sb-item'+(petActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'IN PET\')">'
-                  + '<span>🟣 IN PET</span><span>'+yr.pending.pet+'</span></div>';
+                  + '<span>🟣 IN PET</span><span>'+(yr.pending.pet_qty !== undefined ? yr.pending.pet_qty : yr.pending.pet)+'</span></div>';
                 
                 // IN DECAL
                 var decalActive = f.year == yr.year && f.status === 'pending' && f.field === 'IN DECAL';
                 h += '<div class="bpi-sb-item'+(decalActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'IN DECAL\')">'
-                  + '<span>🔵 IN DECAL</span><span>'+yr.pending.decal+'</span></div>';
+                  + '<span>🔵 IN DECAL</span><span>'+(yr.pending.decal_qty !== undefined ? yr.pending.decal_qty : yr.pending.decal)+'</span></div>';
                   
                 // IN TEM
                 var temActive = f.year == yr.year && f.status === 'pending' && f.field === 'IN TEM';
                 h += '<div class="bpi-sb-item'+(temActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'pending\',\'IN TEM\')">'
-                  + '<span>🟢 IN TEM</span><span>'+yr.pending.tem+'</span></div>';
+                  + '<span>🟢 IN TEM</span><span>'+(yr.pending.tem_qty !== undefined ? yr.pending.tem_qty : yr.pending.tem)+'</span></div>';
             }
             
             // "Đã in xong" folder
@@ -241,10 +241,10 @@ function _bpiRenderSb() {
                     var mData = yr.doneMonths[m];
                     var monthQty = 0;
                     if (mData) {
-                        monthQty += (mData.pet || []).reduce(function(sum, op){return sum + op.count;}, 0);
-                        monthQty += (mData.decal || []).reduce(function(sum, op){return sum + op.count;}, 0);
-                        monthQty += (mData.tem || []).reduce(function(sum, op){return sum + op.count;}, 0);
-                        monthQty += (mData.contractors || []).reduce(function(sum, op){return sum + op.count;}, 0);
+                        monthQty += (mData.pet || []).reduce(function(sum, op){return sum + (op.qty !== undefined ? op.qty : op.count);}, 0);
+                        monthQty += (mData.decal || []).reduce(function(sum, op){return sum + (op.qty !== undefined ? op.qty : op.count);}, 0);
+                        monthQty += (mData.tem || []).reduce(function(sum, op){return sum + (op.qty !== undefined ? op.qty : op.count);}, 0);
+                        monthQty += (mData.contractors || []).reduce(function(sum, op){return sum + (op.qty !== undefined ? op.qty : op.count);}, 0);
                     }
                     
                     h += '<div class="bpi-sb-item'+(monthActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',null,'+m+')" style="padding-left:36px;font-weight:700;color:#059669">'
@@ -258,7 +258,7 @@ function _bpiRenderSb() {
                             var petFKey = 'mf_pet_' + yr.year + '_' + m;
                             var petFOpen = !!_bpiOpen[petFKey];
                             var petFActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN PET' && !f.operator_id;
-                            var petQty = mData.pet.reduce(function(sum, op){return sum + op.count;}, 0);
+                            var petQty = mData.pet.reduce(function(sum, op){return sum + (op.qty !== undefined ? op.qty : op.count);}, 0);
                             
                             h += '<div class="bpi-sb-item'+(petFActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN PET\','+m+')" style="padding-left:48px;font-weight:700;color:#7c3aed">'
                               + '<span onclick="event.stopPropagation();_bpiTgl(\''+petFKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px;color:#7c3aed">'+(petFOpen?'▼':'▶')+'</span>'
@@ -270,7 +270,7 @@ function _bpiRenderSb() {
                                     var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN PET' && f.operator_type === 'user' && f.operator_id == op.operator_id;
                                     h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN PET\','+m+',\'user\','+op.operator_id+')" style="padding-left:64px;font-size:10px">'
                                       + '<span>'+op.operator_name+'</span>'
-                                      + '<span style="background:#f3e8ff;color:#7e22ce;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                                      + '<span style="background:#f3e8ff;color:#7e22ce;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+(op.qty !== undefined ? op.qty : op.count)+'</span></div>';
                                 });
                             }
                         }
@@ -280,7 +280,7 @@ function _bpiRenderSb() {
                             var decalFKey = 'mf_decal_' + yr.year + '_' + m;
                             var decalFOpen = !!_bpiOpen[decalFKey];
                             var decalFActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN DECAL' && !f.operator_id;
-                            var decalQty = mData.decal.reduce(function(sum, op){return sum + op.count;}, 0);
+                            var decalQty = mData.decal.reduce(function(sum, op){return sum + (op.qty !== undefined ? op.qty : op.count);}, 0);
                             
                             h += '<div class="bpi-sb-item'+(decalFActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN DECAL\','+m+')" style="padding-left:48px;font-weight:700;color:#0284c7">'
                               + '<span onclick="event.stopPropagation();_bpiTgl(\''+decalFKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px;color:#0284c7">'+(decalFOpen?'▼':'▶')+'</span>'
@@ -292,7 +292,7 @@ function _bpiRenderSb() {
                                     var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN DECAL' && f.operator_type === 'user' && f.operator_id == op.operator_id;
                                     h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN DECAL\','+m+',\'user\','+op.operator_id+')" style="padding-left:64px;font-size:10px">'
                                       + '<span>'+op.operator_name+'</span>'
-                                      + '<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                                      + '<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+(op.qty !== undefined ? op.qty : op.count)+'</span></div>';
                                 });
                             }
                         }
@@ -302,7 +302,7 @@ function _bpiRenderSb() {
                             var temFKey = 'mf_tem_' + yr.year + '_' + m;
                             var temFOpen = !!_bpiOpen[temFKey];
                             var temFActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN TEM' && !f.operator_id;
-                            var temQty = mData.tem.reduce(function(sum, op){return sum + op.count;}, 0);
+                            var temQty = mData.tem.reduce(function(sum, op){return sum + (op.qty !== undefined ? op.qty : op.count);}, 0);
                             
                             h += '<div class="bpi-sb-item'+(temFActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN TEM\','+m+')" style="padding-left:48px;font-weight:700;color:#0d9488">'
                               + '<span onclick="event.stopPropagation();_bpiTgl(\''+temFKey+'\')" style="display:inline-block;padding:2px 6px;cursor:pointer;margin-right:2px;color:#0d9488">'+(temFOpen?'▼':'▶')+'</span>'
@@ -314,7 +314,7 @@ function _bpiRenderSb() {
                                     var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.field === 'IN TEM' && f.operator_type === 'user' && f.operator_id == op.operator_id;
                                     h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',\'IN TEM\','+m+',\'user\','+op.operator_id+')" style="padding-left:64px;font-size:10px">'
                                       + '<span>'+op.operator_name+'</span>'
-                                      + '<span style="background:#ccfbf1;color:#0f766e;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                                      + '<span style="background:#ccfbf1;color:#0f766e;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+(op.qty !== undefined ? op.qty : op.count)+'</span></div>';
                                 });
                             }
                         }
@@ -325,7 +325,7 @@ function _bpiRenderSb() {
                                 var opActive = f.year == yr.year && f.status === 'done' && f.month == m && f.operator_type === 'contractor' && f.operator_id == op.operator_id;
                                 h += '<div class="bpi-sb-item'+(opActive?' active':'')+'" onclick="event.stopPropagation();_bpiFilter('+yr.year+',\'done\',null,'+m+',\'contractor\','+op.operator_id+')" style="padding-left:48px;font-size:10px;font-weight:600;color:#374151">'
                                   + '<span>'+op.operator_name+'</span>'
-                                  + '<span style="background:#e2e8f0;color:#334155;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+op.count+'</span></div>';
+                                  + '<span style="background:#e2e8f0;color:#334155;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">'+(op.qty !== undefined ? op.qty : op.count)+'</span></div>';
                             });
                         }
                     }

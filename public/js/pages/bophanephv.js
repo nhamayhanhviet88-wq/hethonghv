@@ -238,7 +238,7 @@ function _bpeRenderSb() {
                         if (p.months) {
                             p.months.forEach(function(mo) {
                                 var mAct = f.view === 'records' && f.year == yr.year && f.presser_id == p.id && f.month == mo.month && f.status === 'done';
-                                h += '<div class="bpe-sb-sub' + (mAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpeFilterPresserMonth(' + yr.year + ',' + p.id + ',' + mo.month + ')"><span>📅 T' + String(mo.month).padStart(2, '0') + '</span><span>' + mo.count + '</span></div>';
+                                h += '<div class="bpe-sb-sub' + (mAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpeFilterPresserMonth(' + yr.year + ',' + p.id + ',' + mo.month + ')"><span>📅 T' + String(mo.month).padStart(2, '0') + '</span><span>' + (mo.qty !== undefined ? mo.qty : mo.count) + '</span></div>';
                             });
                         }
                     }
@@ -761,6 +761,7 @@ function _bpeRenderStats(count, arr) {
     }
     
     var totalCount = baseArr.length;
+    var totalOrderQty = baseArr.reduce(function(sum, r) { return sum + (r.production_cancelled ? 0 : (parseInt(r.order_quantity) || 0)); }, 0);
     var unassignedCount = baseArr.filter(function(r) { return r.is_unpressed; }).length;
     var incompleteCount = baseArr.filter(function(r) { return !r.is_unpressed && !r.is_reported; }).length;
     var doneCount = baseArr.filter(function(r) { return r.is_reported; }).length;
@@ -769,8 +770,8 @@ function _bpeRenderStats(count, arr) {
     
     var btnTotalHtml = '<div onclick="_bpeSetSubFilter(\'all\')" style="cursor:pointer;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'all' ? '0 0 0 3px #fff, 0 4px 20px rgba(124,58,237,0.5)' : '0 4px 10px rgba(124,58,237,0.2)') + ';transform:' + (sf === 'all' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'all' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
         +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpeShimmer 2.5s infinite"></div>'
-        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">📦 TỔNG ĐƠN</div>'
-        +'<div style="font-size:16px;font-weight:900">' + totalCount + '</div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">📦 TỔNG SL ĐƠN</div>'
+        +'<div style="font-size:16px;font-weight:900">' + totalOrderQty.toLocaleString('vi-VN') + '</div>'
         +'</div>';
 
     var btnUnassignedHtml = '<div onclick="_bpeSetSubFilter(\'unassigned\')" style="cursor:pointer;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'unassigned' ? '0 0 0 3px #fff, 0 4px 20px rgba(249,115,22,0.5)' : '0 4px 10px rgba(249,115,22,0.2)') + ';transform:' + (sf === 'unassigned' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'unassigned' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
@@ -787,7 +788,7 @@ function _bpeRenderStats(count, arr) {
         
     var btnDoneHtml = '<div onclick="_bpeSetSubFilter(\'done\')" style="cursor:pointer;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:8px 18px;border-radius:10px;min-width:110px;text-align:center;transition:all 0.2s;box-shadow:' + (sf === 'done' ? '0 0 0 3px #fff, 0 4px 20px rgba(5,150,105,0.5)' : '0 4px 10px rgba(5,150,105,0.2)') + ';transform:' + (sf === 'done' ? 'scale(1.05)' : 'scale(1)') + ';opacity:' + (sf === 'done' ? '1' : '0.6') + ';position:relative;overflow:hidden">'
         +'<div style="position:absolute;top:0;left:-50%;width:200%;height:100%;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,0.15) 50%,transparent 60%);animation:bpeShimmer 2.5s infinite .6s"></div>'
-        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">✅ ĐÃ ÉP XONG</div>'
+        +'<div style="font-size:9px;font-weight:700;opacity:0.9;letter-spacing:1px;margin-bottom:2px">✅ ĐƠN ÉP XONG</div>'
         +'<div style="font-size:16px;font-weight:900">' + doneCount + '</div>'
         +'</div>';
         

@@ -106,6 +106,21 @@ async function pancakeRoutes(fastify, options) {
 
     // Helper: assign a lead (either with real phone or temporary phone)
     async function assignPancakeLead(page, config, customerId, customerName, conversationId, conversationLink, phone) {
+        // Double-check CRM deduplication before assigning
+        if (customerId || conversationId || customerName) {
+            const existingInDb = await db.get(
+                `SELECT id FROM customers 
+                 WHERE pancake_customer_id = $1 
+                    OR pancake_conversation_id = $2 
+                    OR (customer_name = $3 AND created_at >= NOW() - INTERVAL '24 hours') 
+                 LIMIT 1`,
+                [customerId || '---', conversationId || '---', customerName]
+            );
+            if (existingInDb) {
+                console.log(`[Pancake Assign] Customer ${customerName} (${customerId}/${conversationId}) already exists in CRM (ID: ${existingInDb.id}). Skipping re-assignment.`);
+                return false;
+            }
+        }
         // 1. Calculate virtual date
         const cutoff = await getDynamicCutoffTime(vnNow());
         const [cutoffHour, cutoffMin] = cutoff.split(':').map(Number);
@@ -668,16 +683,39 @@ async function pancakeRoutes(fastify, options) {
                 [customerId, conversationId, phone || '---']
             );
 
+            // Live Pancake API inspection for direct webhook path
+            let liveHasTags = hasTags;
+            let liveHasAssignee = hasAssignee;
+            const pageToken = page.page_access_token || config.pancake_token;
+            if (pageToken && conversationId && (!hasTags || !hasAssignee)) {
+                try {
+                    const nowSec = Math.floor(Date.now() / 1000);
+                    const sinceSec = nowSec - 7 * 86400;
+                    const apiRes = await fetch(`https://pages.fm/api/public_api/v1/pages/${pageId}/conversations?access_token=${pageToken}&since=${sinceSec}&until=${nowSec + 86400}&page_number=1&limit=50`);
+                    const apiData = await apiRes.json();
+                    const conversationsList = apiData.conversations || [];
+                    const matchedConv = conversationsList.find(c => String(c.id) === String(conversationId));
+                    if (matchedConv) {
+                        const tags = matchedConv.tags || [];
+                        const assignees = matchedConv.assignees || matchedConv.assignee_ids || [];
+                        if (Array.isArray(tags) && tags.length > 0) liveHasTags = true;
+                        if ((Array.isArray(assignees) && assignees.length > 0) || Boolean(assignees && String(assignees) !== '0' && String(assignees) !== 'null')) liveHasAssignee = true;
+                    }
+                } catch(e) {
+                    console.error('[Pancake Direct Webhook API Check] Error:', e.message);
+                }
+            }
+
             // Determine explicit reasons to skip
             const skipReasons = [];
             if (existingCust) skipReasons.push('existing_customer');
-            if (hasTags) skipReasons.push('has_tags');
-            if (hasAssignee) skipReasons.push('has_assignee');
+            if (liveHasTags) skipReasons.push('has_tags');
+            if (liveHasAssignee) skipReasons.push('has_assignee');
             if (isPageSender) skipReasons.push('page_sender');
 
             // If customer ALREADY exists in CRM OR ALREADY has tags on Pancake OR ALREADY has assignee on Pancake OR event is from Page/Bot:
             // DO NOT assign as a new lead!
-            if (existingCust || hasTags || hasAssignee || isPageSender) {
+            if (existingCust || liveHasTags || liveHasAssignee || isPageSender) {
                 if (existingCust && phone) {
                     const isTempPhone = existingCust.phone && existingCust.phone.startsWith('pancake_');
                     if (existingCust.phone !== phone && isTempPhone) {
@@ -923,13 +961,44 @@ async function pancakeRoutes(fastify, options) {
                 const page = config.pages?.find(p => String(p.id) === String(row.page_id));
                 if (!page || !page.is_active) continue;
 
-                // Check if customer already exists in CRM
+                // 1. Check if customer already exists in CRM
                 const exists = await db.get(
-                    "SELECT id FROM customers WHERE pancake_customer_id = $1 OR pancake_conversation_id = $2",
-                    [row.customer_id, row.conversation_id]
+                    "SELECT id FROM customers WHERE pancake_customer_id = $1 OR pancake_conversation_id = $2 OR (customer_name = $3 AND created_at >= NOW() - INTERVAL '24 hours')",
+                    [row.customer_id, row.conversation_id, row.customer_name]
                 );
                 if (exists) {
-                    continue; // Already processed
+                    console.log(`[Pancake Pending Leads] Customer ${row.customer_name} already in CRM. Skipping.`);
+                    await db.run("UPDATE pancake_pending_leads SET status = 'processed_skipped', skip_reason = 'already_in_crm' WHERE id = $1", [row.id]);
+                    continue;
+                }
+
+                // 2. Fetch live conversation info from Pancake API to verify if already assigned or tagged
+                const token = page.page_access_token || config.pancake_token;
+                if (token && row.conversation_id && row.page_id) {
+                    try {
+                        const until = Math.floor(Date.now() / 1000);
+                        const since = until - 7 * 86400; // Last 7 days
+                        const apiRes = await fetch(`https://pages.fm/api/public_api/v1/pages/${row.page_id}/conversations?access_token=${token}&since=${since}&until=${until}&page_number=1&limit=50`);
+                        const apiData = await apiRes.json();
+                        const conversationsList = apiData.conversations || [];
+                        const matchedConv = conversationsList.find(c => String(c.id) === String(row.conversation_id));
+                        
+                        if (matchedConv) {
+                            const tags = matchedConv.tags || [];
+                            const assignees = matchedConv.assignees || matchedConv.assignee_ids || [];
+
+                            const hasTags = (Array.isArray(tags) && tags.length > 0);
+                            const hasAssignee = (Array.isArray(assignees) && assignees.length > 0) || Boolean(assignees && String(assignees) !== '0' && String(assignees) !== 'null');
+
+                            if (hasTags || hasAssignee) {
+                                console.log(`[Pancake Pending Leads] Customer ${row.customer_name} already has tags/assignee on Pancake. Skipping.`);
+                                await db.run("UPDATE pancake_pending_leads SET status = 'processed_skipped', skip_reason = 'pancake_has_tags_or_assignee' WHERE id = $1", [row.id]);
+                                continue;
+                            }
+                        }
+                    } catch (apiErr) {
+                        console.error('[Pancake Pending Leads] API check error:', apiErr.message);
+                    }
                 }
 
                 const tempPhone = `pancake_${row.customer_id}`;

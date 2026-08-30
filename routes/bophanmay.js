@@ -211,11 +211,19 @@ module.exports = async function(fastify) {
                    sr.contractor_id, c.name AS contractor_name,
                    CASE WHEN sr.done_date IS NOT NULL THEN 1 ELSE 0 END AS is_done,
                    CASE WHEN sr.done_date IS NOT NULL THEN EXTRACT(MONTH FROM COALESCE(sr.done_date,sr.handover_date,sr.created_at))::int ELSE NULL END AS done_month,
-                   COUNT(*)::int AS count
+                   COUNT(*)::int AS count,
+                   COALESCE(SUM(
+                       CASE
+                           WHEN COALESCE(oi.production_cancelled, false) = true THEN 0
+                           WHEN sr.notes LIKE '%[HỦY BỎ - BÙ PHÍ]%' OR sr.notes LIKE '%[ĐÃ HỦY - BÙ PHÍ]%' THEN 0
+                           ELSE COALESCE(sr.quantity, 0)
+                       END
+                   ), 0)::int AS qty_sum
             FROM sewing_records sr
             LEFT JOIN users u ON sr.sewer_id=u.id
             LEFT JOIN departments dt ON sr.sewing_team_id=dt.id
             LEFT JOIN sewing_contractors c ON sr.contractor_id=c.id
+            LEFT JOIN dht_order_items oi ON oi.id = sr.order_item_id
             WHERE 1=1 ${where}
             GROUP BY year, sr.sewer_id, u.full_name, sr.sewing_team_id, dt.name, sr.contractor_id, c.name, is_done, done_month
             ORDER BY year DESC, dt.name, u.full_name, c.name, done_month DESC`, params);
@@ -223,7 +231,7 @@ module.exports = async function(fastify) {
         const total = rows.reduce((s,r) => s+r.count, 0);
         const yearMap = {};
         for (const r of rows) {
-            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, sewers: {} };
+            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, qty: 0, sewers: {} };
             const isContractor = !!r.contractor_id;
             const isTeam = !!r.sewing_team_id;
             const key = isContractor ? `c_${r.contractor_id}` : (isTeam ? `t_${r.sewing_team_id}` : `s_${r.sewer_id || 0}`);
@@ -235,22 +243,28 @@ module.exports = async function(fastify) {
                     is_team: isTeam,
                     name: isContractor ? (r.contractor_name || 'Gia công') : (isTeam ? r.sewing_team_name : (r.sewer_name || 'Chưa phân công')),
                     total: 0,
+                    qty: 0,
                     incomplete_count: 0,
+                    incomplete_qty: 0,
                     months: {}
                 };
             }
             
             const sewer = yearMap[r.year].sewers[key];
             sewer.total += r.count;
+            sewer.qty += (Number(r.qty_sum) || 0);
             yearMap[r.year].count += r.count;
+            yearMap[r.year].qty += (Number(r.qty_sum) || 0);
             
             if (r.is_done === 1 && r.done_month !== null) {
                 if (!sewer.months[r.done_month]) {
-                    sewer.months[r.done_month] = { month: r.done_month, count: 0 };
+                    sewer.months[r.done_month] = { month: r.done_month, count: 0, qty: 0 };
                 }
                 sewer.months[r.done_month].count += r.count;
+                sewer.months[r.done_month].qty += (Number(r.qty_sum) || 0);
             } else {
                 sewer.incomplete_count += r.count;
+                sewer.incomplete_qty += (Number(r.qty_sum) || 0);
             }
         }
         

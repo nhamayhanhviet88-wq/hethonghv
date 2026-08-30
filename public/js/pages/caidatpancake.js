@@ -286,8 +286,8 @@ function renderPagesTable() {
         }
         
         const statusLabel = page.is_active
-            ? '<span style="background: rgba(16, 185, 129, 0.08); color: #059669; border: 1.5px solid rgba(16, 185, 129, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span> Hoạt động</span>'
-            : '<span style="background: rgba(148, 163, 184, 0.08); color: #64748b; border: 1.5px solid rgba(148, 163, 184, 0.15); padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #94a3b8;"></span> Tạm dừng</span>';
+            ? `<button onclick="togglePageStatus(${index})" style="background: rgba(16, 185, 129, 0.1); color: #047857; border: 1.5px solid rgba(16, 185, 129, 0.3); padding: 5px 12px; border-radius: 20px; font-weight: 800; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;" title="Bấm để TẠM DỪNG đồng bộ"><span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span> 🟢 Hoạt động (Bấm để Dừng)</button>`
+            : `<button onclick="togglePageStatus(${index})" style="background: rgba(239, 68, 68, 0.1); color: #b91c1c; border: 1.5px solid rgba(239, 68, 68, 0.3); padding: 5px 12px; border-radius: 20px; font-weight: 800; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;" title="Bấm để KÍCH HOẠT đồng bộ"><span style="width: 7px; height: 7px; border-radius: 50%; background: #ef4444;"></span> ⏸️ Tạm dừng (Bấm để Bật)</button>`;
 
         // Find source name
         let sourceName = '—';
@@ -797,15 +797,17 @@ async function togglePancakeActive(checked) {
 }
 
 async function togglePageStatus(index) {
-    if (_pancakeConfig.pages[index]) {
+    if (_pancakeConfig.pages && _pancakeConfig.pages[index]) {
         const oldVal = _pancakeConfig.pages[index].is_active;
-        _pancakeConfig.pages[index].is_active = !oldVal;
+        const newStatus = !oldVal;
+        _pancakeConfig.pages[index].is_active = newStatus;
         const success = await savePancakeConfigToDB();
         if (success) {
             renderPagesTable();
-            showToast('✅ Đã cập nhật trạng thái hoạt động của Page!');
+            showToast(newStatus ? '🟢 Đã BẬT đồng bộ & chia số cho Page!' : '⏸️ Đã TẠM DỪNG đồng bộ & ngắt chia số cho Page!', newStatus ? 'success' : 'warning');
         } else {
             _pancakeConfig.pages[index].is_active = oldVal;
+            renderPagesTable();
         }
     }
 }

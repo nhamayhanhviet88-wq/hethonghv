@@ -268,11 +268,66 @@ module.exports = async function(fastify, options) {
                 WHERE mb.budget_date >= $1 AND mb.budget_date <= $2
             `, [startDateOnly, endDateOnly]);
 
-            const spent = parseFloat(mktStats?.total_spent || 0);
-            const dongPhucSpent = parseFloat(mktStats?.dong_phuc_spent || 0);
-            const temPetSpent = parseFloat(mktStats?.tem_pet_spent || 0);
-            const dpLeadsCount = parseInt(mktStats?.dong_phuc_leads || 0);
-            const petLeadsCount = parseInt(mktStats?.tem_pet_leads || 0);
+            let spent = parseFloat(mktStats?.total_spent || 0);
+            let dongPhucSpent = parseFloat(mktStats?.dong_phuc_spent || 0);
+            let temPetSpent = parseFloat(mktStats?.tem_pet_spent || 0);
+            let dpLeadsCount = parseInt(mktStats?.dong_phuc_leads || 0);
+            let petLeadsCount = parseInt(mktStats?.tem_pet_leads || 0);
+
+            // Merge with synced Meta Ads insights from ads_stats_daily
+            try {
+                const adsStatsRes = await db.get(`
+                    SELECT
+                        COALESCE(SUM(d.spend), 0) AS total_spent,
+                        COALESCE(SUM(CASE WHEN NOT (
+                            UPPER(COALESCE(a.account_name, d.campaign_name, '')) LIKE '%PET%'
+                            OR UPPER(COALESCE(a.account_name, d.campaign_name, '')) LIKE '%TEM%'
+                        ) THEN d.spend END), 0) AS dong_phuc_spent,
+                        COALESCE(SUM(CASE WHEN (
+                            UPPER(COALESCE(a.account_name, d.campaign_name, '')) LIKE '%PET%'
+                            OR UPPER(COALESCE(a.account_name, d.campaign_name, '')) LIKE '%TEM%'
+                        ) THEN d.spend END), 0) AS tem_pet_spent,
+
+                        COALESCE(SUM(d.messages), 0) AS total_leads,
+                        COALESCE(SUM(CASE WHEN NOT (
+                            UPPER(COALESCE(a.account_name, d.campaign_name, '')) LIKE '%PET%'
+                            OR UPPER(COALESCE(a.account_name, d.campaign_name, '')) LIKE '%TEM%'
+                        ) THEN d.messages END), 0) AS dong_phuc_leads,
+                        COALESCE(SUM(CASE WHEN (
+                            UPPER(COALESCE(a.account_name, d.campaign_name, '')) LIKE '%PET%'
+                            OR UPPER(COALESCE(a.account_name, d.campaign_name, '')) LIKE '%TEM%'
+                        ) THEN d.messages END), 0) AS tem_pet_leads
+                    FROM ads_stats_daily d
+                    LEFT JOIN ads_stats_accounts a ON d.account_id = a.id
+                    WHERE d.report_date >= $1::date AND d.report_date <= $2::date
+                `, [startDateOnly, endDateOnly]);
+
+                const adsSpent = parseFloat(adsStatsRes?.total_spent || 0);
+                const adsDpSpent = parseFloat(adsStatsRes?.dong_phuc_spent || 0);
+                const adsPetSpent = parseFloat(adsStatsRes?.tem_pet_spent || 0);
+                const adsDpLeads = parseInt(adsStatsRes?.dong_phuc_leads || 0);
+                const adsPetLeads = parseInt(adsStatsRes?.tem_pet_leads || 0);
+
+                if (adsSpent > 0) {
+                    if (spent === 0 || adsSpent > spent) {
+                        spent = Math.max(spent, adsSpent);
+                        dongPhucSpent = Math.max(dongPhucSpent, adsDpSpent);
+                        temPetSpent = Math.max(temPetSpent, adsPetSpent);
+                    }
+                }
+
+                if (adsDpLeads > 0 || adsPetLeads > 0) {
+                    if (dpLeadsCount === 0 && petLeadsCount === 0) {
+                        dpLeadsCount = adsDpLeads;
+                        petLeadsCount = adsPetLeads;
+                    } else {
+                        dpLeadsCount = Math.max(dpLeadsCount, adsDpLeads);
+                        petLeadsCount = Math.max(petLeadsCount, adsPetLeads);
+                    }
+                }
+            } catch(e) {
+                console.error('[Dashboard] Error merging ads_stats_daily:', e.message);
+            }
 
             // Query MKT Ads New Customer Orders (Global History Partition: Only true first-time orders in all history)
             const mktAdsOrdersRes = await db.get(`

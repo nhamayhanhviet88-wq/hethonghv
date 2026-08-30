@@ -102,6 +102,7 @@ const MENU_CONFIG = [
     { id: 'topkhachhang', label: 'Top Khách & Sale KD', icon: '👑', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/topkhachhang', permKey: 'top_khach_hang' },
     { id: 'kpikdoanh', label: 'KPI P.Kinh Doanh', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpikdoanh', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_kdoanh' },
     { id: 'kpitilechamdon', label: 'KPI Tỉ Lệ Chậm Đơn', icon: '⏱️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/kpitilechamdon', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_tile_cham_don' },
+    { id: 'kpisanxuathv', label: 'KPI Sản Xuất', icon: '🏭', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/kpisanxuathv', permKey: 'kpi_san_xuat' },
     { id: 'kpisale', label: 'KPI P.Sale', icon: '🎯', roles: ['giam_doc'], section: 'TỔNG QUAN', href: '/kpisale', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_sale' },
     { id: 'kpimarketing', label: 'KPI Marketing Ads', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/kpimarketing', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_marketing' },
     { id: 'kpimktview', label: 'KPI Marketing View', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/kpimktview', dynamicRoles: 'dashboard_kdoanh_allowed_roles', permKey: 'kpi_marketing_view' },
@@ -2496,6 +2497,21 @@ async function handleRoute() {
                         }, 150);
                     }
                     break;
+                case 'kpisanxuathv': case 'kpi-san-xuat':
+                    if (typeof window.renderKpisanxuathvPage === 'function') {
+                        window.renderKpisanxuathvPage(content);
+                    } else if (typeof renderKpisanxuathvPage === 'function') {
+                        renderKpisanxuathvPage(content);
+                    } else {
+                        setTimeout(function() {
+                            if (typeof window.renderKpisanxuathvPage === 'function') {
+                                window.renderKpisanxuathvPage(content);
+                            } else if (typeof renderKpisanxuathvPage === 'function') {
+                                renderKpisanxuathvPage(content);
+                            }
+                        }, 150);
+                    }
+                    break;
                 case 'kpisale': case 'kpi-sale':
                     if (typeof window.renderKpisalePage === 'function') {
                         window.renderKpisalePage(content);
@@ -2780,6 +2796,68 @@ async function _refreshOverrideBadges() {
         });
     } catch(e) { /* silent */ }
 }
+
+async function syncMetaAdsFromDashboard(btnEl) {
+    if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.dataset.oldHtml = btnEl.innerHTML;
+        btnEl.innerHTML = '⏳ Đang đồng bộ...';
+        btnEl.style.opacity = '0.7';
+    }
+
+    try {
+        const resAcc = await fetch('/api/thongkeads/accounts', { credentials: 'include' });
+        const dataAcc = await resAcc.json();
+        if (!dataAcc.ok || !dataAcc.accounts) throw new Error(dataAcc.error || 'Không lấy được danh sách tài khoản!');
+
+        const fbAccs = dataAcc.accounts.filter(a => (a.platform || 'facebook') === 'facebook' && (a.is_active === undefined || a.is_active));
+        if (fbAccs.length === 0) throw new Error('Không có tài khoản Meta Ads nào đang hoạt động!');
+
+        const today = new Date();
+        const twoDaysAgo = new Date(Date.now() - (2 * 86400000));
+        const since = `${twoDaysAgo.getFullYear()}-${String(twoDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(twoDaysAgo.getDate()).padStart(2, '0')}`;
+        const until = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        let totalSaved = 0;
+        let errors = [];
+
+        for (const acc of fbAccs) {
+            try {
+                const res = await fetch(`/api/thongkeads/accounts/${acc.id}/sync`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ since, until })
+                });
+                const data = await res.json();
+                if (!data.ok) throw new Error(data.error);
+                if (data.result) totalSaved += (data.result.saved || 0);
+            } catch(err) {
+                errors.push(`${acc.account_name}: ${err.message}`);
+            }
+        }
+
+        if (errors.length > 0 && fbAccs.length === 1) throw new Error(errors[0]);
+
+        if (errors.length > 0) {
+            alert(`⚠️ Đồng bộ hoàn tất với một số lưu ý:\n- Đã lưu: ${totalSaved} bản ghi\n- Lỗi (${errors.length} TK):\n${errors.join('\n')}`);
+        } else {
+            alert(`✅ Đồng bộ Meta Ads thành công ${fbAccs.length} tài khoản!\n- Tổng bản ghi đã lưu: ${totalSaved}`);
+        }
+
+        if (typeof _loadExecDashData === 'function') _loadExecDashData();
+        if (typeof loadDashboardData === 'function') loadDashboardData();
+    } catch(e) {
+        alert(`❌ Lỗi đồng bộ Meta Ads: ${e.message}`);
+    } finally {
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = btnEl.dataset.oldHtml || '🔄 Đồng Bộ Từ Meta';
+            btnEl.style.opacity = '1';
+        }
+    }
+}
+window.syncMetaAdsFromDashboard = syncMetaAdsFromDashboard;
 
 function formatCurrency(amount) {
     if (amount === undefined || amount === null || isNaN(amount)) return '0đ';
@@ -3161,9 +3239,14 @@ async function renderDashboardPage(container) {
                         <span class="exec-badge">EXECUTIVE VIEW</span>
                     </div>
                 </div>
-                <button onclick="_loadExecDashData()" class="exec-btn-update">
-                    🔄 Cập nhật dữ liệu
-                </button>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <button onclick="window.syncMetaAdsFromDashboard && window.syncMetaAdsFromDashboard(this)" class="exec-btn-update" style="background:linear-gradient(135deg, #059669, #10b981); border:none; box-shadow:0 4px 12px rgba(5,150,105,0.3);">
+                        🔄 Đồng Bộ Từ Meta
+                    </button>
+                    <button onclick="_loadExecDashData()" class="exec-btn-update">
+                        🔄 Cập nhật dữ liệu
+                    </button>
+                </div>
             </div>
 
             <!-- Segmented Control Bar (Bộ lọc mảng kinh doanh) -->

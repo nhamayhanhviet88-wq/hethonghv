@@ -65,7 +65,7 @@ if(t.tree){
                 if(mo.finishers){
                     mo.finishers.forEach(function(p){
                         if(!p.id || p.id === 'unassigned'){
-                            unassignedTotal += p.count;
+                            unassignedTotal += (p.qty !== undefined ? p.qty : p.count);
                         }
                     });
                 }
@@ -93,12 +93,12 @@ if(t.tree){
                         if(!finishers[pId]){
                             finishers[pId] = { id:pId, name:pName, count:0, months:{} };
                         }
-                        finishers[pId].count += p.count;
+                        finishers[pId].count += (p.qty !== undefined ? p.qty : p.count);
                         var mKey = yr.year + '_' + mo.month;
                         if(!finishers[pId].months[mKey]){
                             finishers[pId].months[mKey] = { year:yr.year, month:mo.month, count:0 };
                         }
-                        finishers[pId].months[mKey].count += p.count;
+                        finishers[pId].months[mKey].count += (p.qty !== undefined ? p.qty : p.count);
                     });
                 }
             });

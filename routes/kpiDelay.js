@@ -32,14 +32,21 @@ module.exports = async function (fastify, opts) {
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS eval_rule VARCHAR(20) DEFAULT 'ALL'`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS reward_text TEXT DEFAULT ''`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS commitments TEXT DEFAULT '[]'`);
+        await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS company_supports TEXT DEFAULT '[]'`);
         // === Phase 2: Quy Trình KPI Tuần Tự ===
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS commitment_evals TEXT DEFAULT '[]'`);
+        await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS company_support_evals TEXT DEFAULT '[]'`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS commitment_completion_pct DECIMAL(5,2) DEFAULT 0`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS final_reward_granted BOOLEAN DEFAULT FALSE`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP`);
         await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS completed_by INT`);
-        await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS actual_total_errors INT DEFAULT 0`);
+        await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS actual_total_errors INT DEFAULT NULL`);
+        try {
+            await db.run(`UPDATE kpi_delay_targets SET actual_total_errors = NULL WHERE actual_total_errors = 0 AND (commitment_evals IS NULL OR commitment_evals = '[]' OR commitment_evals = '' OR commitment_evals = 'null')`);
+        } catch(e){}
+        // === Phase 4: KPI Tổng Đơn Tối Thiểu ===
+        await db.run(`ALTER TABLE kpi_delay_targets ADD COLUMN IF NOT EXISTS target_min_total_orders INT DEFAULT 0`);
     } catch (e) {
         console.error('[Migration] kpi_delay_targets error:', e.message);
     }
@@ -63,12 +70,9 @@ module.exports = async function (fastify, opts) {
             // Build WHERE condition for orders
             const conditions = [`o.expected_ship_date IS NOT NULL`];
             const params = [];
-            let idx = 1;
-
-            // Date filter for year (based on COALESCE(o.rescheduled_ship_date, o.expected_ship_date))
-            conditions.push(`EXTRACT(YEAR FROM COALESCE(o.rescheduled_ship_date, o.expected_ship_date)) = $${idx}`);
+                     // Date filter for year (based on COALESCE(o.rescheduled_ship_date, o.expected_ship_date))
+            conditions.push(`EXTRACT(YEAR FROM COALESCE(o.rescheduled_ship_date, o.expected_ship_date)) = ?`);
             params.push(year);
-            idx++;
 
             // Segment filter
             if (segment === 'dongphuc' || segment === 'dong_phuc') {
@@ -151,11 +155,11 @@ module.exports = async function (fastify, opts) {
             const targetRows = await db.all(`
                 SELECT period_type, period_value, target_max_delay_pct, target_max_delay_orders,
                        target_max_internal_errors, target_max_customer_errors, target_max_total_errors, notes,
-                       eval_rule, reward_text, commitments,
-                       status, commitment_evals, commitment_completion_pct, final_reward_granted, completed_at, completed_by,
-                       actual_total_errors
+                       eval_rule, reward_text, commitments, company_supports,
+                       status, commitment_evals, company_support_evals, commitment_completion_pct, final_reward_granted, completed_at, completed_by,
+                       actual_total_errors, target_min_total_orders
                 FROM kpi_delay_targets
-                WHERE year = $1 AND segment = $2
+                WHERE year = ? AND segment = ?
             `, [year, segment]);
 
             const targetsMap = {};
@@ -167,11 +171,23 @@ module.exports = async function (fastify, opts) {
                 } catch (err) {
                     parsedCommitments = [];
                 }
+                let parsedCompanySupports = [];
+                try {
+                    parsedCompanySupports = typeof r.company_supports === 'string' ? JSON.parse(r.company_supports || '[]') : (r.company_supports || []);
+                } catch (err) {
+                    parsedCompanySupports = [];
+                }
                 let parsedEvals = [];
                 try {
                     parsedEvals = typeof r.commitment_evals === 'string' ? JSON.parse(r.commitment_evals || '[]') : (r.commitment_evals || []);
                 } catch (err) {
                     parsedEvals = [];
+                }
+                let parsedSupportEvals = [];
+                try {
+                    parsedSupportEvals = typeof r.company_support_evals === 'string' ? JSON.parse(r.company_support_evals || '[]') : (r.company_support_evals || []);
+                } catch (err) {
+                    parsedSupportEvals = [];
                 }
                 targetsMap[key] = {
                     target_max_delay_pct: parseFloat(r.target_max_delay_pct || 5.0),
@@ -183,13 +199,16 @@ module.exports = async function (fastify, opts) {
                     eval_rule: r.eval_rule || 'ALL',
                     reward_text: r.reward_text || '',
                     commitments: Array.isArray(parsedCommitments) ? parsedCommitments : [],
+                    company_supports: Array.isArray(parsedCompanySupports) ? parsedCompanySupports : [],
                     status: r.status || 'active',
                     commitment_evals: Array.isArray(parsedEvals) ? parsedEvals : [],
+                    company_support_evals: Array.isArray(parsedSupportEvals) ? parsedSupportEvals : [],
                     commitment_completion_pct: parseFloat(r.commitment_completion_pct || 0),
                     final_reward_granted: !!r.final_reward_granted,
                     completed_at: r.completed_at || null,
                     completed_by: r.completed_by || null,
-                    actual_total_errors: parseInt(r.actual_total_errors || 0, 10)
+                    actual_total_errors: (r.actual_total_errors !== null && r.actual_total_errors !== undefined) ? parseInt(r.actual_total_errors, 10) : null,
+                    target_min_total_orders: parseInt(r.target_min_total_orders || 0, 10)
                 };
             });
 
@@ -198,7 +217,7 @@ module.exports = async function (fastify, opts) {
                 const t = targetsMap[`month_${m}`];
                 monthlyData[m].internal_errors = 0;
                 monthlyData[m].customer_errors = 0;
-                monthlyData[m].total_errors = t ? (t.actual_total_errors || 0) : 0;
+                monthlyData[m].total_errors = (t && t.actual_total_errors !== null && t.actual_total_errors !== undefined) ? t.actual_total_errors : null;
                 monthlyData[m].internal_error_qty = 0;
                 monthlyData[m].customer_error_qty = 0;
                 monthlyData[m].total_error_qty = 0;
@@ -314,9 +333,9 @@ module.exports = async function (fastify, opts) {
             }
 
             const userRole = req.user.role || '';
-            const canCreate = ['giam_doc', 'quan_ly', 'quan_ly_cap_cao'].includes(userRole);
+            const canCreate = userRole === 'giam_doc';
             if (!canCreate) {
-                return reply.code(403).send({ error: 'Bạn không có quyền tạo/sửa KPI.' });
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền tạo/sửa KPI.' });
             }
 
             const { year, segment = 'all', targets = [] } = req.body || {};
@@ -333,10 +352,12 @@ module.exports = async function (fastify, opts) {
                     target_max_internal_errors = 0,
                     target_max_customer_errors = 0,
                     target_max_total_errors = 0,
+                    target_min_total_orders = 0,
                     notes = '',
                     eval_rule = 'ALL',
                     reward_text = '',
-                    commitments = []
+                    commitments = [],
+                    company_supports = []
                 } = t;
                 if (!period_type || period_value === undefined) continue;
 
@@ -345,41 +366,53 @@ module.exports = async function (fastify, opts) {
                     const pv = parseInt(period_value, 10);
                     // Check if this month already exists
                     const existing = await db.get(
-                        `SELECT status FROM kpi_delay_targets WHERE year=$1 AND segment=$2 AND period_type='month' AND period_value=$3`,
+                        `SELECT status FROM kpi_delay_targets WHERE year=? AND segment=? AND period_type='month' AND period_value=?`,
                         [parseInt(year, 10), segment, pv]
                     );
                     if (!existing && pv > 1) {
-                        // Creating new month — check previous month is completed
+                        // Creating new month — check previous month KPI target exists
                         const prev = await db.get(
-                            `SELECT status FROM kpi_delay_targets WHERE year=$1 AND segment=$2 AND period_type='month' AND period_value=$3`,
+                            `SELECT status FROM kpi_delay_targets WHERE year=? AND segment=? AND period_type='month' AND period_value=?`,
                             [parseInt(year, 10), segment, pv - 1]
                         );
-                        if (!prev || prev.status !== 'completed') {
-                            return reply.code(400).send({ error: `Phải hoàn thành KPI Tháng ${pv - 1} trước khi tạo KPI Tháng ${pv}!` });
+                        if (!prev) {
+                            return reply.code(400).send({ error: `Phải khởi tạo KPI Tháng ${pv - 1} trước khi tạo KPI Tháng ${pv}!` });
                         }
                     }
-                    // Block editing completed months
-                    if (existing && existing.status === 'completed') {
-                        return reply.code(400).send({ error: `KPI Tháng ${pv} đã Hoàn Thành! Giám Đốc cần Mở Lại trước khi chỉnh sửa.` });
-                    }
                 }
 
-                // Commitments: chỉ GĐ mới được sửa cam kết
+                // Fetch existing row first if present to preserve fields if omitted in payload
+                const existingRow = await db.get(
+                    `SELECT commitments, company_supports, eval_rule, reward_text FROM kpi_delay_targets WHERE year=? AND segment=? AND period_type=? AND period_value=?`,
+                    [parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]
+                );
+
                 let commitmentsJson;
-                if (userRole === 'giam_doc') {
-                    commitmentsJson = typeof commitments === 'string' ? commitments : JSON.stringify(Array.isArray(commitments) ? commitments : []);
+                let companySupportsJson;
+
+                if (canCreate) {
+                    if (t.commitments !== undefined) {
+                        commitmentsJson = typeof commitments === 'string' ? commitments : JSON.stringify(Array.isArray(commitments) ? commitments : []);
+                    } else {
+                        commitmentsJson = existingRow ? (existingRow.commitments || '[]') : '[]';
+                    }
+
+                    if (t.company_supports !== undefined) {
+                        companySupportsJson = typeof company_supports === 'string' ? company_supports : JSON.stringify(Array.isArray(company_supports) ? company_supports : []);
+                    } else {
+                        companySupportsJson = existingRow ? (existingRow.company_supports || '[]') : '[]';
+                    }
                 } else {
-                    // Non-GD: keep existing commitments, don't overwrite
-                    const existingRow = await db.get(
-                        `SELECT commitments FROM kpi_delay_targets WHERE year=$1 AND segment=$2 AND period_type=$3 AND period_value=$4`,
-                        [parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]
-                    );
-                    commitmentsJson = existingRow ? existingRow.commitments : '[]';
+                    commitmentsJson = existingRow ? (existingRow.commitments || '[]') : '[]';
+                    companySupportsJson = existingRow ? (existingRow.company_supports || '[]') : '[]';
                 }
+
+                const finalEvalRule = t.eval_rule !== undefined ? eval_rule : (existingRow ? (existingRow.eval_rule || 'ALL') : 'ALL');
+                const finalRewardText = t.reward_text !== undefined ? reward_text : (existingRow ? (existingRow.reward_text || '') : '');
 
                 await db.run(`
-                    INSERT INTO kpi_delay_targets (year, segment, period_type, period_value, target_max_delay_pct, target_max_delay_orders, target_max_internal_errors, target_max_customer_errors, target_max_total_errors, notes, eval_rule, reward_text, commitments, created_by, updated_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+                    INSERT INTO kpi_delay_targets (year, segment, period_type, period_value, target_max_delay_pct, target_max_delay_orders, target_max_internal_errors, target_max_customer_errors, target_max_total_errors, target_min_total_orders, notes, eval_rule, reward_text, commitments, company_supports, created_by, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
                     ON CONFLICT (year, segment, period_type, period_value)
                     DO UPDATE SET
                         target_max_delay_pct = EXCLUDED.target_max_delay_pct,
@@ -387,10 +420,12 @@ module.exports = async function (fastify, opts) {
                         target_max_internal_errors = EXCLUDED.target_max_internal_errors,
                         target_max_customer_errors = EXCLUDED.target_max_customer_errors,
                         target_max_total_errors = EXCLUDED.target_max_total_errors,
+                        target_min_total_orders = EXCLUDED.target_min_total_orders,
                         notes = EXCLUDED.notes,
                         eval_rule = EXCLUDED.eval_rule,
                         reward_text = EXCLUDED.reward_text,
                         commitments = EXCLUDED.commitments,
+                        company_supports = EXCLUDED.company_supports,
                         updated_at = NOW()
                 `, [
                     parseInt(year, 10),
@@ -402,10 +437,12 @@ module.exports = async function (fastify, opts) {
                     parseInt(target_max_internal_errors || 0, 10),
                     parseInt(target_max_customer_errors || 0, 10),
                     parseInt(target_max_total_errors || 0, 10),
+                    parseInt(target_min_total_orders || 0, 10),
                     notes,
-                    eval_rule || 'ALL',
-                    reward_text || '',
+                    finalEvalRule,
+                    finalRewardText,
                     commitmentsJson,
+                    companySupportsJson,
                     req.user.id
                 ]);
             }
@@ -417,30 +454,48 @@ module.exports = async function (fastify, opts) {
         }
     });
 
-    // ========== 3. POST /api/kpi-delay/evaluate — GĐ Đánh Giá Cam Kết ==========
+    // ========== 3. POST /api/kpi-delay/evaluate — GĐ Đánh Giá Cam Kết & Số Đơn Lỗi ==========
     fastify.post('/api/kpi-delay/evaluate', { preHandler: [authenticate] }, async (req, reply) => {
         try {
             if (!req.user || req.user.role !== 'giam_doc') {
-                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền đánh giá cam kết!' });
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới có quyền nhập số đơn lỗi và đánh giá cam kết!' });
             }
-            const { year, segment = 'all', period_type, period_value, commitment_evals = [], actual_total_errors = 0 } = req.body || {};
+            const { year, segment = 'all', period_type, period_value, commitment_evals, company_support_evals, actual_total_errors } = req.body || {};
             if (!year || !period_type || period_value === undefined) {
                 return reply.code(400).send({ error: 'Dữ liệu không hợp lệ!' });
             }
 
-            const evalsJson = JSON.stringify(Array.isArray(commitment_evals) ? commitment_evals : []);
-            const totalEvals = Array.isArray(commitment_evals) ? commitment_evals.length : 0;
-            const passedCount = Array.isArray(commitment_evals) ? commitment_evals.filter(e => e.passed).length : 0;
+            const existingRow = await db.get(
+                `SELECT commitment_evals, company_support_evals, actual_total_errors FROM kpi_delay_targets WHERE year=? AND segment=? AND period_type=? AND period_value=?`,
+                [parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]
+            );
+
+            const evalsJson = commitment_evals !== undefined
+                ? JSON.stringify(Array.isArray(commitment_evals) ? commitment_evals : [])
+                : (existingRow ? (existingRow.commitment_evals || '[]') : '[]');
+
+            const supportEvalsJson = company_support_evals !== undefined
+                ? JSON.stringify(Array.isArray(company_support_evals) ? company_support_evals : [])
+                : (existingRow ? (existingRow.company_support_evals || '[]') : '[]');
+
+            let parsedCommitments = [];
+            try { parsedCommitments = JSON.parse(evalsJson); } catch (e) {}
+            const totalEvals = parsedCommitments.length;
+            const passedCount = parsedCommitments.filter(e => e.passed).length;
             const completionPct = totalEvals > 0 ? parseFloat((passedCount / totalEvals * 100).toFixed(1)) : 0;
-            const actualErrorsNum = parseInt(actual_total_errors || 0, 10);
+            const actualErrorsNum = actual_total_errors !== undefined
+                ? parseInt(actual_total_errors || 0, 10)
+                : (existingRow ? (parseInt(existingRow.actual_total_errors, 10) || 0) : 0);
+
+            const targetStatus = totalEvals > 0 ? 'evaluating' : (existingRow ? (existingRow.status || 'active') : 'active');
 
             await db.run(`
                 UPDATE kpi_delay_targets
-                SET commitment_evals = $1, commitment_completion_pct = $2, actual_total_errors = $3, status = 'evaluating', updated_at = NOW()
-                WHERE year = $4 AND segment = $5 AND period_type = $6 AND period_value = $7
-            `, [evalsJson, completionPct, actualErrorsNum, parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]);
+                SET commitment_evals = ?, company_support_evals = ?, commitment_completion_pct = ?, actual_total_errors = ?, status = ?, updated_at = NOW()
+                WHERE year = ? AND segment = ? AND period_type = ? AND period_value = ?
+            `, [evalsJson, supportEvalsJson, completionPct, actualErrorsNum, targetStatus, parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]);
 
-            return reply.send({ ok: true, message: `Đã lưu đánh giá cam kết! Tỉ lệ hoàn thành: ${completionPct}%` });
+            return reply.send({ ok: true, message: `Đã lưu đánh giá & số đơn lỗi thành công!` });
         } catch (e) {
             console.error('[kpi-delay/evaluate POST]', e);
             return reply.code(500).send({ error: e.message });
@@ -460,7 +515,7 @@ module.exports = async function (fastify, opts) {
 
             // Check all commitments have been evaluated
             const row = await db.get(
-                `SELECT commitments, commitment_evals, eval_rule, target_max_delay_pct, target_max_total_errors FROM kpi_delay_targets WHERE year=$1 AND segment=$2 AND period_type=$3 AND period_value=$4`,
+                `SELECT commitments, commitment_evals, eval_rule, target_max_delay_pct, target_max_total_errors FROM kpi_delay_targets WHERE year=? AND segment=? AND period_type=? AND period_value=?`,
                 [parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]
             );
             if (!row) {
@@ -480,8 +535,8 @@ module.exports = async function (fastify, opts) {
             // We set final_reward_granted = true for now; frontend will show real result based on actual data
             await db.run(`
                 UPDATE kpi_delay_targets
-                SET status = 'completed', completed_at = NOW(), completed_by = $1, updated_at = NOW()
-                WHERE year = $2 AND segment = $3 AND period_type = $4 AND period_value = $5
+                SET status = 'completed', completed_at = NOW(), completed_by = ?, updated_at = NOW()
+                WHERE year = ? AND segment = ? AND period_type = ? AND period_value = ?
             `, [req.user.id, parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]);
 
             return reply.send({ ok: true, message: `✅ Đã hoàn thành KPI ${period_type === 'month' ? 'Tháng ' + period_value : period_type}!` });
@@ -505,7 +560,7 @@ module.exports = async function (fastify, opts) {
             await db.run(`
                 UPDATE kpi_delay_targets
                 SET status = 'active', completed_at = NULL, completed_by = NULL, updated_at = NOW()
-                WHERE year = $1 AND segment = $2 AND period_type = $3 AND period_value = $4
+                WHERE year = ? AND segment = ? AND period_type = ? AND period_value = ?
             `, [parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]);
 
             return reply.send({ ok: true, message: `🔓 Đã mở lại KPI ${period_type === 'month' ? 'Tháng ' + period_value : period_type}!` });

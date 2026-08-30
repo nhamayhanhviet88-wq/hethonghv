@@ -372,8 +372,8 @@ async function scanProactiveBusinessAlerts(db) {
             
             const exist = await db.get(`
                 SELECT id FROM ai_proactive_alerts 
-                WHERE alert_type = 'marketing_anomaly' AND title = $1 AND DATE(created_at) = $2
-            `, [alertTitle, todayStr]);
+                WHERE alert_type = 'marketing_anomaly' AND title = $1 AND created_at >= NOW() - INTERVAL '24 hours'
+            `, [alertTitle]);
 
             if (!exist) {
                 await db.all(`
@@ -399,8 +399,8 @@ async function scanProactiveBusinessAlerts(db) {
 
             const exist = await db.get(`
                 SELECT id FROM ai_proactive_alerts 
-                WHERE alert_type = 'delayed_order' AND title = $1 AND DATE(created_at) = $2
-            `, [alertTitle, todayStr]);
+                WHERE alert_type = 'delayed_order' AND title = $1 AND created_at >= NOW() - INTERVAL '24 hours'
+            `, [alertTitle]);
 
             if (!exist) {
                 await db.all(`
@@ -669,14 +669,15 @@ module.exports = async function (fastify, opts) {
         try {
             await scanProactiveBusinessAlerts(db);
             const alerts = await db.all(`
-                SELECT id, alert_type, title, message, severity, created_at
+                SELECT id, alert_type, title, message, severity, is_read, created_at
                 FROM ai_proactive_alerts
-                WHERE is_read = false
+                WHERE created_at >= NOW() - INTERVAL '7 days'
                 ORDER BY id DESC LIMIT 10
             `);
-            return { alerts: alerts || [] };
+            const unreadCount = (alerts || []).filter(a => !a.is_read).length;
+            return { alerts: alerts || [], unreadCount };
         } catch (e) {
-            return { alerts: [] };
+            return { alerts: [], unreadCount: 0 };
         }
     });
 
@@ -685,13 +686,14 @@ module.exports = async function (fastify, opts) {
         try {
             const { alert_id } = req.body || {};
             if (alert_id) {
-                await db.all(`UPDATE ai_proactive_alerts SET is_read = true WHERE id = $1`, [alert_id]);
+                await db.run(`UPDATE ai_proactive_alerts SET is_read = true WHERE id = $1`, [alert_id]);
             } else {
-                await db.all(`UPDATE ai_proactive_alerts SET is_read = true`);
+                await db.run(`UPDATE ai_proactive_alerts SET is_read = true`);
             }
             return { success: true };
         } catch (e) {
-            return { success: false };
+            req.log.error(e);
+            return reply.code(500).send({ success: false, error: e.message });
         }
     });
 

@@ -8,6 +8,8 @@ const PERM_FEATURES = [
     { key: 'dashboard_kdoanh', label: 'Dashboard P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'kpi_kdoanh', label: 'KPI P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'kpi_sale', label: 'KPI P.Sale', perms: ['view'], section: 'TỔNG QUAN' },
+    { key: 'kpi_tile_cham_don', label: 'KPI Tỉ Lệ Chậm Đơn', perms: ['view','edit'], section: 'TỔNG QUAN' },
+    { key: 'kpi_san_xuat', label: 'KPI Sản Xuất', perms: ['view','create','edit'], section: 'TỔNG QUAN' },
     { key: 'kpi_marketing', label: 'KPI Marketing Ads', perms: ['view','edit'], section: 'TỔNG QUAN' },
     { key: 'kpi_marketing_view', label: 'KPI Marketing View', perms: ['view','edit'], section: 'TỔNG QUAN' },
     { key: 'ngan_sach_mkt', label: 'Ngân Sách Marketing', perms: ['view','create','edit','delete'], section: 'TỔNG QUAN' },
@@ -178,6 +180,11 @@ let _permCollapsed = new Set();
 function _getPermLabel(featKey, pk) {
     if (featKey === 'xin_nghi_nv' && pk === 'edit') {
         return '📊 Xem Thống Kê Phòng Ban';
+    }
+    if (featKey === 'kpi_san_xuat') {
+        if (pk === 'view') return 'Xem Trang KPI Sản Xuất';
+        if (pk === 'create') return 'Điền Phút Làm & Số Lỗi Thực Tế';
+        if (pk === 'edit') return 'Cấu Hình Target & Cam Kết';
     }
     return PERM_LABELS[pk] || pk;
 }

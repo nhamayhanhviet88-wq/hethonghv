@@ -3,7 +3,7 @@
 (function () {
     'use strict';
 
-    let currentMainTab = localStorage.getItem('cmtk_main_tab') || 'muc1_maket'; // 'muc1_maket' | 'muc2_chammau'
+    let currentMainTab = localStorage.getItem('cmtk_main_tab') || 'muc1_maket'; // 'muc1_maket' | 'muc2_chammau' | 'muc3_3dmodels'
     let activeSubtab = localStorage.getItem('cmtk_active_subtab') || 'all';
     let activeCategoryFilter = 'all'; // Department/Category Filter
 
@@ -16,6 +16,73 @@
     let sidebarSortMode = 'stt'; // 'stt' | 'count_desc' | 'name_asc' | 'uncolorized'
     let sidebarMatSearch = '';
     let customMaterialOrders = getCustomMaterialOrders();
+
+    // === MỤC 3: KHO NỀN ÁO 3D ===
+    let models3dList = [];
+    let search3dQuery = '';
+    let active3dCategory = 'all';
+    let active3dViewAngle = 'all';
+    const DEFAULT_3D_CATEGORIES = ['Áo Polo', 'Áo Phông', 'Áo Khoác', 'Đồng Phục Công Ty', 'Áo Lớp / Trường Học', 'Áo Mẫu / BST'];
+    const DEFAULT_3D_VIEW_ANGLES = ['Mặt Trước', 'Mặt Sau', 'Bên Trái', 'Bên Phải', 'Toàn Cảnh 360°'];
+    const DEFAULT_3D_SUBTABS = [
+        { id: '3d_thuvien', title: 'Kho Nền Áo 3D', icon: '👕', isCustom: false }
+    ];
+    let active3dSubtab = localStorage.getItem('cmtk_active_3d_subtab') || '3d_thuvien';
+    let editing3dSubtabIndex = -1;
+
+    function get3dSubtabs() {
+        try {
+            const raw = localStorage.getItem('cmtk_3d_subtabs_store');
+            if (raw !== null) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch (e) {}
+        return DEFAULT_3D_SUBTABS;
+    }
+
+    function save3dSubtabs(subtabs) {
+        localStorage.setItem('cmtk_3d_subtabs_store', JSON.stringify(subtabs));
+        syncSave3dToServer();
+    }
+
+    window._cmtk3dSwitchSubtab = function(subtabId) {
+        active3dSubtab = subtabId;
+        localStorage.setItem('cmtk_active_3d_subtab', subtabId);
+        renderCurrentMainTab();
+    };
+
+    function get3dCategories() {
+        try {
+            const raw = localStorage.getItem('cmtk_3d_categories_store');
+            if (raw) { const p = JSON.parse(raw); if (Array.isArray(p) && p.length > 0) return p; }
+        } catch(e) {}
+        return DEFAULT_3D_CATEGORIES;
+    }
+    function save3dCategories(cats) { localStorage.setItem('cmtk_3d_categories_store', JSON.stringify(cats)); syncSave3dToServer(); }
+    function get3dViewAngles() {
+        try {
+            const raw = localStorage.getItem('cmtk_3d_viewangles_store');
+            if (raw) { const p = JSON.parse(raw); if (Array.isArray(p) && p.length > 0) return p; }
+        } catch(e) {}
+        return DEFAULT_3D_VIEW_ANGLES;
+    }
+    function save3dViewAngles(angles) { localStorage.setItem('cmtk_3d_viewangles_store', JSON.stringify(angles)); syncSave3dToServer(); }
+
+    let _syncSave3dTimer = null;
+    function syncSave3dToServer() {
+        if (_syncSave3dTimer) clearTimeout(_syncSave3dTimer);
+        _syncSave3dTimer = setTimeout(async () => {
+            try {
+                const payload = { models: models3dList, categories: get3dCategories(), viewAngles: get3dViewAngles(), subtabs: get3dSubtabs() };
+                await fetch('/api/chammauthietke/models3d', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: payload })
+                });
+            } catch(e) { console.warn('[CMTK 3D Sync Error]', e); }
+        }, 500);
+    }
 
     function getCustomMaterialOrders() {
         try {
@@ -52,6 +119,7 @@
 
     let editingSubtabIndex = -1;
     let editingDeptIndex = -1;
+    let editing3dCatIndex = -1;
     let activeModalTab = 'tab1';
 
     function getSubtabs() {
@@ -173,12 +241,14 @@
     // Fetch All Data
     async function loadData() {
         try {
-            const [cfgRes, fabRes] = await Promise.all([
+            const [cfgRes, fabRes, m3dRes] = await Promise.all([
                 fetch('/api/chammauthietke/config'),
-                fetch('/api/chammauthietke/fabrics')
+                fetch('/api/chammauthietke/fabrics'),
+                fetch('/api/chammauthietke/models3d')
             ]);
             const cfgData = await cfgRes.json();
             const fabData = await fabRes.json();
+            const m3dData = await m3dRes.json();
 
             if (cfgData && cfgData.success) {
                 let list = [];
@@ -196,7 +266,6 @@
                     maketList = list;
                     try { localStorage.setItem('cmtk_makets_backup', JSON.stringify(maketList)); } catch(e) {}
                 } else {
-                    // Nếu server trả về mảng rỗng -> kiểm tra backup trong localStorage
                     try {
                         const bkp = localStorage.getItem('cmtk_makets_backup');
                         if (bkp) {
@@ -213,6 +282,14 @@
             }
             if (fabData && fabData.success) {
                 fabricsData = fabData;
+            }
+
+            // Load 3D Models data
+            if (m3dData && m3dData.success) {
+                models3dList = Array.isArray(m3dData.models) ? m3dData.models : [];
+                if (m3dData.categories) localStorage.setItem('cmtk_3d_categories_store', JSON.stringify(m3dData.categories));
+                if (m3dData.viewAngles) localStorage.setItem('cmtk_3d_viewangles_store', JSON.stringify(m3dData.viewAngles));
+                if (m3dData.subtabs) localStorage.setItem('cmtk_3d_subtabs_store', JSON.stringify(m3dData.subtabs));
             }
         } catch (e) {
             console.error('[CMTK] Error loading data:', e);
@@ -253,9 +330,13 @@
                         <span class="tab-num">MỤC 1</span>
                         <span class="tab-label">🎨 1. Kho Lưu Trữ Bản Maket</span>
                     </button>
-                    <button class="cmtk-tab-btn ${currentMainTab === 'muc2_chammau' ? 'active' : ''}" data-maintab="muc2_chammau" onclick="window._cmtkSwitchMainTab('muc2_chammau')">
+                    <button class="cmtk-tab-btn ${currentMainTab === 'muc3_3dmodels' ? 'active' : ''}" data-maintab="muc3_3dmodels" onclick="window._cmtkSwitchMainTab('muc3_3dmodels')">
                         <span class="tab-num">MỤC 2</span>
-                        <span class="tab-label">🧵 2. Chấm Màu Thiết Kế & Kho Vải</span>
+                        <span class="tab-label">👕 2. Kho Nền Áo 3D</span>
+                    </button>
+                    <button class="cmtk-tab-btn ${currentMainTab === 'muc2_chammau' ? 'active' : ''}" data-maintab="muc2_chammau" onclick="window._cmtkSwitchMainTab('muc2_chammau')">
+                        <span class="tab-num">MỤC 3</span>
+                        <span class="tab-label">🧵 3. Chấm Màu Thiết Kế & Kho Vải</span>
                     </button>
                 </div>
 
@@ -284,6 +365,7 @@
         const container = document.getElementById('cmtkContentContainer');
         if (!container) return;
         if (currentMainTab === 'muc1_maket') renderTab1Maket(container);
+        else if (currentMainTab === 'muc3_3dmodels') renderTab3Models3D(container);
         else renderTab2Chammau(container);
     }
 
@@ -1014,16 +1096,34 @@
                                 <textarea id="cmtkFormNotes" rows="4" placeholder="Mô tả tóm tắt nội dung quy trình hoặc cẩm nang hướng dẫn mẫu thiết kế..." required style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:600; color:#0f172a; font-family:inherit; outline:none; resize:vertical; background:#ffffff;"></textarea>
                             </div>
 
-                            <div class="qtns-form-group">
-                                <label style="color:#be185d; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">🖼️ Hình Ảnh Minh Họa / Sơ Đồ / Mẫu (* BẮT BUỘC CÓ ÁNH):</label>
-                                <input type="file" id="cmtkFormImageFile" accept="image/*" style="display:none;" onchange="window._cmtkOnMaketImageSelected(this)">
-                                <button type="button" onclick="document.getElementById('cmtkFormImageFile').click()" style="border:1.5px dashed #a855f7; background:#faf5ff; color:#6b21a8; padding:11px 16px; border-radius:14px; font-weight:850; cursor:pointer; width:100%; text-align:center; font-size:13.5px; display:flex; align-items:center; justify-content:center; gap:8px;">
-                                    📷 Chọn Hình Ảnh Từ Máy Tính (*.jpg, *.png)
-                                </button>
+                            <div class="qtns-form-group" style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                                <label style="color:#be185d; font-weight:900; display:block; margin:0; font-size:13.5px;">🖼️ HÌNH ÁNH MINH HỌA / SƠ ĐỒ / MẪU (* BẮT BUỘC CÓ ÁNH):</label>
+                                
+                                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+                                    <!-- Lựa chọn 1: Máy tính -->
+                                    <div style="border:1.5px dashed #a855f7; background:#faf5ff; border-radius:14px; padding:12px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                                        <span style="font-size:11.5px; font-weight:900; color:#6b21a8; text-transform:uppercase;">Lựa chọn 1: Từ máy tính</span>
+                                        <input type="file" id="cmtkFormImageFile" accept="image/*" style="display:none;" onchange="window._cmtkOnMaketImageSelected(this)">
+                                        <button type="button" onclick="document.getElementById('cmtkFormImageFile').click()" style="border:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; padding:8px 14px; border-radius:12px; font-weight:850; cursor:pointer; font-size:12.5px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(109,40,217,0.25);">
+                                            📁 Chọn File Ảnh (*.jpg, *.png)
+                                        </button>
+                                    </div>
+
+                                    <!-- Lựa chọn 2: Dán ảnh (Ctrl + V) -->
+                                    <div tabindex="0" onpaste="window._cmtkOnModalPaste(event, 'maket')" style="border:1.5px dashed #3b82f6; background:#eff6ff; border-radius:14px; padding:12px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; outline:none;" onmouseover="this.style.borderColor='#2563eb'" onmouseout="this.style.borderColor='#3b82f6'">
+                                        <span style="font-size:11.5px; font-weight:900; color:#1e40af; text-transform:uppercase;">Lựa chọn 2: Dán ảnh (Ctrl + V)</span>
+                                        <div style="font-size:12px; font-weight:850; color:#2563eb; background:#ffffff; border:1px solid #bfdbfe; padding:7px 12px; border-radius:12px; display:inline-flex; align-items:center; gap:6px;">
+                                            📋 Click đây & bấm Ctrl + V để dán
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <input type="hidden" id="cmtkFormImageUrl" value="">
                                 <input type="hidden" id="cmtkFormOriginalImageUrl" value="">
-                                <div id="cmtkFormImagePreviewBox" style="display:none; margin-top:8px; text-align:center; border:1.5px solid #e9d5ff; border-radius:14px; padding:10px; background:#ffffff;">
+                                
+                                <div id="cmtkFormImagePreviewBox" style="display:none; margin-top:4px; text-align:center; border:1.5px solid #e9d5ff; border-radius:14px; padding:10px; background:#ffffff;">
                                     <img id="cmtkFormImagePreviewImg" src="" style="max-height:160px; max-width:100%; border-radius:8px; object-fit:contain;">
+                                    <div style="margin-top:4px; font-size:12px; font-weight:800; color:#16a34a;">✅ Đã nhận ảnh minh họa</div>
                                 </div>
                             </div>
 
@@ -1049,44 +1149,69 @@
                 </div>
             `;
             document.body.appendChild(modal);
+            modal.onpaste = (e) => window._cmtkOnModalPaste(e, 'maket');
         }
         return modal;
     }
 
-    window._cmtkOnMaketImageSelected = async function (input) {
-        if (!input || !input.files || !input.files[0]) return;
-        const file = input.files[0];
+    window._cmtkOnModalPaste = function (e, targetType) {
+        const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+        if (!items) return;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const file = items[i].getAsFile();
+                if (file) {
+                    e.preventDefault();
+                    _cmtkProcessImageFile(file, targetType);
+                    break;
+                }
+            }
+        }
+    };
+
+    async function _cmtkProcessImageFile(file, targetType) {
+        if (!file || !file.type.startsWith('image/')) {
+            showToast('⚠️ File được chọn/dán không phải là hình ảnh hợp lệ!', 'error');
+            return;
+        }
         showToast('⏳ Đang nén ảnh web & Stream đẩy ảnh gốc lên server...', 'info');
         try {
-            // 1. Tạo ảnh xem trước hiển thị siêu nhanh trên web (1800px)
             const webCompressedUrl = await compressImage(file, 1800, 0.90);
-
-            // 2. Stream đẩy file ảnh/video nguyên bản 100% lên ổ cứng server
             const formData = new FormData();
             formData.append('file', file);
-
-            const res = await fetch('/api/chammauthietke/upload-image', {
-                method: 'POST',
-                body: formData
-            });
-
+            const res = await fetch('/api/chammauthietke/upload-image', { method: 'POST', body: formData });
             const result = await res.json();
             const origUrl = (res.ok && result.success && result.url) ? result.url : webCompressedUrl;
 
-            const imageUrlInput = document.getElementById('cmtkFormImageUrl');
-            const origUrlInput = document.getElementById('cmtkFormOriginalImageUrl');
-            const previewBox = document.getElementById('cmtkFormImagePreviewBox');
-            const previewImg = document.getElementById('cmtkFormImagePreviewImg');
+            if (targetType === 'maket') {
+                const imageUrlInput = document.getElementById('cmtkFormImageUrl');
+                const origUrlInput = document.getElementById('cmtkFormOriginalImageUrl');
+                const previewBox = document.getElementById('cmtkFormImagePreviewBox');
+                const previewImg = document.getElementById('cmtkFormImagePreviewImg');
 
-            if (imageUrlInput) imageUrlInput.value = webCompressedUrl;
-            if (origUrlInput) origUrlInput.value = origUrl;
-            if (previewImg) previewImg.src = webCompressedUrl;
-            if (previewBox) previewBox.style.display = 'block';
+                if (imageUrlInput) imageUrlInput.value = webCompressedUrl;
+                if (origUrlInput) origUrlInput.value = origUrl;
+                if (previewImg) previewImg.src = webCompressedUrl;
+                if (previewBox) previewBox.style.display = 'block';
+            } else if (targetType === '3d') {
+                const posterUrlInput = document.getElementById('cmtk3dFormPosterUrl');
+                const previewBox = document.getElementById('cmtk3dImagePreviewBox');
+                const previewImg = document.getElementById('cmtk3dImagePreviewImg');
 
-            showToast('✅ Đã Stream ảnh nét gốc 100% lên server & tạo ảnh web mượt mà!');
+                if (posterUrlInput) posterUrlInput.value = origUrl;
+                if (previewImg) previewImg.src = webCompressedUrl;
+                if (previewBox) previewBox.style.display = 'block';
+            }
+            showToast('✅ Đã nhận và tải ảnh thành công!');
         } catch (e) {
-            console.error('[CMTK Image Upload Error]', e);
+            console.error('[CMTK Image Process Error]', e);
             showToast('❌ Lỗi xử lý hình ảnh: ' + e.message, 'error');
+        }
+    }
+
+    window._cmtkOnMaketImageSelected = function (input) {
+        if (input && input.files && input.files[0]) {
+            _cmtkProcessImageFile(input.files[0], 'maket');
         }
     };
 
@@ -1730,12 +1855,16 @@
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Comfortaa:wght@500;600;700&display=swap');
 
-                .cmtk-wrapper, .cmtk-wrapper button, .cmtk-wrapper input, .cmtk-wrapper select, .cmtk-wrapper textarea, .cmtk-wrapper div, .cmtk-wrapper span, .cmtk-wrapper h1, .cmtk-wrapper h2, .cmtk-wrapper h3, .cmtk-wrapper h4, .cmtk-wrapper p, .cmtk-wrapper a, .cmtk-wrapper option, .cmtk-wrapper strong,
-                #cmtkMaketModal, #cmtkMaketModal button, #cmtkMaketModal input, #cmtkMaketModal select, #cmtkMaketModal textarea, #cmtkMaketModal div, #cmtkMaketModal span, #cmtkMaketModal h3,
-                #cmtkDetailModal, #cmtkDetailModal button, #cmtkDetailModal input, #cmtkDetailModal select, #cmtkDetailModal textarea, #cmtkDetailModal div, #cmtkDetailModal span, #cmtkDetailModal h3,
-                #cmtkEditColorModal, #cmtkEditColorModal button, #cmtkEditColorModal input, #cmtkEditColorModal select, #cmtkEditColorModal textarea, #cmtkEditColorModal div, #cmtkEditColorModal span, #cmtkEditColorModal h3,
-                #cmtkSubtabModal, #cmtkSubtabModal button, #cmtkSubtabModal input, #cmtkSubtabModal div, #cmtkSubtabModal span, #cmtkSubtabModal h3,
-                #cmtkDeptModal, #cmtkDeptModal button, #cmtkDeptModal input, #cmtkDeptModal div, #cmtkDeptModal span, #cmtkDeptModal h3 {
+                .cmtk-wrapper, .cmtk-wrapper *,
+                #cmtkMaketModal, #cmtkMaketModal *,
+                #cmtkDetailModal, #cmtkDetailModal *,
+                #cmtkEditColorModal, #cmtkEditColorModal *,
+                #cmtkSubtabModal, #cmtkSubtabModal *,
+                #cmtkDeptModal, #cmtkDeptModal *,
+                #cmtk3dModalOverlay, #cmtk3dModalOverlay *,
+                #cmtk3dDetailOverlay, #cmtk3dDetailOverlay *,
+                #cmtk3dCatModal, #cmtk3dCatModal *,
+                #cmtk3dSubtabModal, #cmtk3dSubtabModal * {
                     font-family: 'Nunito', 'Comfortaa', system-ui, -apple-system, sans-serif !important;
                 }
 
@@ -1817,7 +1946,7 @@
                 /* Level 1 Main Tabs Navigation Bar (Matched Image 4 100%) */
                 .cmtk-tabs-main {
                     display: grid;
-                    grid-template-columns: repeat(2, 1fr);
+                    grid-template-columns: repeat(3, 1fr);
                     gap: 16px;
                     margin-bottom: 24px;
                 }
@@ -2023,10 +2152,719 @@
                 @media (max-width: 768px) {
                     .cmtk-tabs-main { grid-template-columns: 1fr; }
                     .cmtk-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+                    .cmtk-3d-card-grid { grid-template-columns: 1fr !important; }
                 }
             </style>
         `;
     }
+
+    // ==========================================
+    // MỤC 3: KHO NỀN ÁO 3D — Full Implementation
+    // ==========================================
+
+    function renderTab3Models3D(container) {
+        const cats = get3dCategories();
+
+        container.innerHTML = `
+            <!-- Search Bar -->
+            <div style="margin-bottom: 20px; position: relative;">
+                <div style="position: relative; display: flex; align-items: center;">
+                    <span style="position: absolute; left: 18px; font-size: 18px; color: #7c3aed; pointer-events: none; z-index: 2;">🔍</span>
+                    <input type="text" id="cmtk3dSearchInput" value="${search3dQuery}"
+                        placeholder="Tìm kiếm Nền Áo 3D theo tên, kiểu áo..."
+                        style="width: 100%; border: 2px solid #e9d5ff; border-radius: 18px; padding: 13px 48px 13px 48px; font-size: 14.5px; font-weight: 700; background: #ffffff; outline: none; color: #0f172a; box-shadow: 0 4px 16px rgba(124,58,237,0.08);"
+                        oninput="window._cmtk3dOnSearch(this.value)">
+                </div>
+            </div>
+
+            <!-- Subtabs Bar + Action Buttons (Matched Image 2 100%) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(250,245,255,0.95), rgba(243,232,255,0.98)); backdrop-filter: blur(16px); padding: 14px 22px; border-radius: 20px; border: 1.5px solid #e9d5ff; box-shadow: 0 12px 32px -8px rgba(109,40,217,0.15);">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                    ${get3dSubtabs().map(st => `
+                        <button type="button" class="cmtk-subtab-btn ${active3dSubtab === st.id ? 'active' : ''}" onclick="window._cmtk3dSwitchSubtab('${st.id}')"
+                            style="display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:850; padding:10px 22px; border-radius:30px; cursor:pointer; ${active3dSubtab === st.id ? 'background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.45);' : 'background:#ffffff; color:#0f172a; border:1.5px solid #cbd5e1;'}">
+                            ${st.icon || '👕'} ${st.title}
+                        </button>
+                    `).join('')}
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button type="button" onclick="window._cmtk3dOpenUploadModal()" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; box-shadow:0 6px 18px rgba(109,40,217,0.35); cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                        ➕ Tạo Nền Áo 3D Mới
+                    </button>
+                    <button type="button" onclick="window._cmtk3dOpenSubtabModal()" style="border-radius:14px; padding:10px 20px; font-size:13.5px; font-weight:900; background:rgba(255,255,255,0.95); color:#6d28d9; border:1.5px solid #d8b4fe; box-shadow:0 4px 14px rgba(109,40,217,0.15); cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                        ⚙️ Cài Đặt Mục
+                    </button>
+                </div>
+            </div>
+
+            <!-- Category Filter Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 14px 22px; border-radius: 18px; border: 1.5px solid #e9d5ff; margin-bottom: 22px; box-shadow: 0 4px 14px rgba(109,40,217,0.04); flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-size: 13.5px; font-weight: 900; color: #4c1d95; margin-right: 4px;">👕 Kiểu Áo:</span>
+                    <button type="button" onclick="window._cmtk3dSetCategory('all')" style="display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:800; padding:7px 16px; border-radius:20px; cursor:pointer; transition:all 0.2s; ${active3dCategory === 'all' ? 'background:linear-gradient(135deg,#6d28d9,#7c3aed); color:#fff; border:none; box-shadow:0 4px 12px rgba(109,40,217,0.35);' : 'background:#faf5ff; color:#4c1d95; border:1.5px solid #e9d5ff;'}">
+                        🌐 Tất Cả (${models3dList.length})
+                    </button>
+                    ${cats.map(cat => {
+                        const count = models3dList.filter(m => (m.departments || []).includes(cat) || m.category === cat).length;
+                        const safeCat = cat.replace(/'/g, "\\'");
+                        return `<button type="button" onclick="window._cmtk3dSetCategory('${safeCat}')" style="display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:800; padding:7px 16px; border-radius:20px; cursor:pointer; transition:all 0.2s; ${active3dCategory === cat ? 'background:linear-gradient(135deg,#6d28d9,#7c3aed); color:#fff; border:none; box-shadow:0 4px 12px rgba(109,40,217,0.35);' : 'background:#faf5ff; color:#4c1d95; border:1.5px solid #e9d5ff;'}">
+                            ⭐ ${cat} (${count})
+                        </button>`;
+                    }).join('')}
+                </div>
+                <div>
+                    <button type="button" onclick="window._cmtk3dOpenCatSettingsModal()" style="border-radius:12px; padding:9px 18px; font-size:13.5px; font-weight:800; border:1.5px solid #d8b4fe; color:#6d28d9; background:#ffffff; cursor:pointer;">
+                        ⚙️ Cài Đặt Kiểu Áo
+                    </button>
+                </div>
+            </div>
+
+
+            <!-- Card Grid -->
+            <div id="cmtk3dCardGrid">
+                ${_cmtk3dRenderCardsHTML()}
+            </div>
+        `;
+    }
+
+    function _cmtk3dRenderCardsHTML() {
+        let filtered = models3dList.filter(item => {
+            const q = search3dQuery.toLowerCase().trim();
+            const matchQ = !q || (item.title || '').toLowerCase().includes(q) || (item.category || '').toLowerCase().includes(q) || (item.notes || '').toLowerCase().includes(q);
+            const matchCat = active3dCategory === 'all' || (item.departments || []).includes(active3dCategory) || item.category === active3dCategory;
+            const matchSubtab = (get3dSubtabs().length <= 1) || (active3dSubtab === '3d_thuvien' && !item.subtabId) || (item.subtabId === active3dSubtab);
+            return matchQ && matchCat && matchSubtab;
+        });
+
+        if (filtered.length === 0) {
+            return `
+                <div style="text-align: center; padding: 60px 20px; background: #ffffff; border-radius: 24px; border: 2px dashed #e9d5ff;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">👕</div>
+                    <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 900; color: #334155;">Chưa có Nền Áo 3D nào trong kho</h3>
+                    <p style="font-size: 13.5px; color: #94a3b8; font-weight: 600;">Bấm "➕ Tạo Nền Áo 3D Mới" để thêm bản đầu tiên</p>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="cmtk-3d-card-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
+                ${filtered.map(item => {
+                    const depts = (item.departments && item.departments.length > 0) ? item.departments : (item.category ? [item.category] : ['Chung']);
+                    return `
+                    <div class="cmtk-card-item" style="border-radius: 20px; overflow: hidden; background: #ffffff; border: 1.5px solid #e2e8f0; box-shadow: 0 8px 28px -4px rgba(0,0,0,0.08); transition: all 0.3s; cursor: pointer;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 16px 40px -8px rgba(109,40,217,0.15)';" onmouseout="this.style.transform=''; this.style.boxShadow='0 8px 28px -4px rgba(0,0,0,0.08)';">
+                        <div class="card-accent-bar theme-purple"></div>
+
+                        <!-- Top Image / 3D Viewer Box -->
+                        <div style="position: relative; width: 100%; height: 220px; background: #0f172a; cursor: pointer; overflow: hidden;" onclick="event.stopPropagation(); window._cmtk3dOpenDetailModal('${item.id}')">
+                            ${item.posterUrl ? `
+                                <img src="${item.posterUrl}" style="width: 100%; height: 100%; object-fit: contain;">
+                            ` : item.modelUrl ? `
+                                <model-viewer
+                                    src="${item.modelUrl}"
+                                    alt="${item.title || '3D Model'}"
+                                    auto-rotate
+                                    camera-controls
+                                    interaction-prompt="none"
+                                    style="width: 100%; height: 100%; --poster-color: transparent;"
+                                ></model-viewer>
+                            ` : `
+                                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 48px; background: linear-gradient(135deg, #1e293b, #0f172a); color: #475569;">
+                                    👕
+                                    <span style="font-size: 12.5px; font-weight: 700; color: #94a3b8; margin-top: 6px;">Nền Áo 3D</span>
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- Card Inner Body -->
+                        <div class="card-inner" style="padding: 20px; display: flex; flex-direction: column; flex: 1; background: #ffffff;">
+                            <!-- Top Row: Department Badges & Edit/Delete Buttons -->
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 8px;">
+                                <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; flex: 1;">
+                                    ${depts.map(dept => `
+                                        <span style="display: inline-flex; align-items: center; gap: 4px; background: #faf5ff; border: 1px solid #e9d5ff; color: #6d28d9; font-size: 12px; font-weight: 850; padding: 4px 10px; border-radius: 10px;">
+                                            📌 ${dept}
+                                        </span>
+                                    `).join('')}
+                                    ${item.viewAngle ? `
+                                        <span style="display: inline-flex; align-items: center; gap: 4px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; font-size: 12px; font-weight: 850; padding: 4px 10px; border-radius: 10px;">
+                                            📷 ${item.viewAngle}
+                                        </span>
+                                    ` : ''}
+                                </div>
+                                <div style="display: flex; gap: 6px; flex-shrink: 0;" onclick="event.stopPropagation();">
+                                    <button type="button" onclick="window._cmtk3dOpenEditModal('${item.id}')" title="Chỉnh sửa" style="width: 34px; height: 34px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #ffffff; color: #d97706; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#f59e0b'; this.style.background='#fffbe0';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.background='#ffffff';">
+                                        ✏️
+                                    </button>
+                                    <button type="button" onclick="window._cmtk3dDelete('${item.id}')" title="Xóa" style="width: 34px; height: 34px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #ffffff; color: #dc2626; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#ef4444'; this.style.background='#fef2f2';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.background='#ffffff';">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Main Title -->
+                            <h3 class="card-title" style="font-size: 16.5px; font-weight: 900; color: #0f172a; margin: 0 0 10px 0; line-height: 1.4; letter-spacing: -0.2px;">
+                                ${item.title || 'Nền Áo 3D'}
+                            </h3>
+
+                            <!-- Description / Notes -->
+                            <div style="font-size: 13px; font-weight: 600; color: #475569; line-height: 1.65; margin-bottom: 16px; white-space: pre-line; word-break: break-word; flex: 1; max-height: 60px; overflow: hidden;">
+                                ${item.notes || 'Chưa có mô tả.'}
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div style="display: flex; gap: 8px; flex-wrap: nowrap; margin-top: auto; align-items: center;" onclick="event.stopPropagation();">
+                                <button type="button" onclick="window._cmtk3dOpenDetailModal('${item.id}')" style="flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; font-weight: 850; font-size: 12px; white-space: nowrap; background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(109,40,217,0.25); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                                    📋 Xem Chi Tiết ➔
+                                </button>
+                                ${item.linkUrl ? `
+                                    <a href="${item.linkUrl}" target="_blank" rel="noopener noreferrer" style="padding: 8px 12px; border-radius: 12px; font-weight: 850; font-size: 12px; white-space: nowrap; background: #faf5ff; color: #6d28d9; border: 1.5px solid #e9d5ff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                                        🔗 Link 3D
+                                    </a>
+                                ` : ''}
+                            </div>
+
+                            <!-- Footer Meta Tag -->
+                            <div style="margin-top: 14px; padding: 9px 12px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; font-size: 11.5px; font-weight: 750; color: #64748b; display: flex; align-items: center; justify-content: space-between;">
+                                <span>🕒 Cập nhật: <strong>${item.createdBy || 'Admin'}</strong></span>
+                                <span>• ${item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : ''}</span>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('')}
+            </div>
+        `;
+    }
+
+    // === FILTER HANDLERS ===
+    window._cmtk3dOnSearch = function(val) {
+        search3dQuery = val;
+        const grid = document.getElementById('cmtk3dCardGrid');
+        if (grid) grid.innerHTML = _cmtk3dRenderCardsHTML();
+    };
+    window._cmtk3dSetCategory = function(cat) {
+        active3dCategory = cat;
+        renderCurrentMainTab();
+    };
+    window._cmtk3dSetViewAngle = function(angle) {
+        active3dViewAngle = angle;
+        renderCurrentMainTab();
+    };
+
+    // === UPLOAD / EDIT MODAL ===
+    window._cmtk3dOpenUploadModal = function(editId) {
+        const isEdit = !!editId;
+        const item = isEdit ? models3dList.find(m => m.id === editId) : null;
+        const cats = get3dCategories();
+        const angles = get3dViewAngles();
+        const itemCats = (isEdit && item) ? (item.departments || [item.category].filter(Boolean)) : [];
+
+        let overlay = document.getElementById('cmtk3dModalOverlay');
+        if (overlay) overlay.remove();
+        overlay = document.createElement('div');
+        overlay.id = 'cmtk3dModalOverlay';
+        overlay.style.cssText = 'display:flex; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
+
+        overlay.innerHTML = `
+            <div style="max-height:92vh; display:flex; flex-direction:column; width:100%; max-width:680px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1.5px solid #d8b4fe;">
+                <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:22px;">➕</span>
+                        <h3 style="margin:0; font-size:17.5px; font-weight:900; color:#ffffff; text-transform:uppercase; letter-spacing:-0.2px;">${isEdit ? 'CHỈNH SỬA NỀN ÁO 3D' : 'TẠO NỀN ÁO 3D MỚI'}</h3>
+                    </div>
+                    <button type="button" onclick="document.getElementById('cmtk3dModalOverlay').remove()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                </div>
+
+                <div style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; background:#fcfafc;">
+                    <div>
+                        <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📁 Mục (* BẮT BUỘC):</label>
+                        <select id="cmtk3dFormSubtabId" style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13.5px; font-weight:800; color:#0f172a; background:#ffffff; outline:none;">
+                            ${get3dSubtabs().map(st => `<option value="${st.id}" ${(isEdit && item && item.subtabId === st.id) ? 'selected' : (active3dSubtab === st.id ? 'selected' : '')}>${st.title}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:8px; font-size:13.5px;">🏢 Kiểu Áo / Phân Loại (* BẮT BUỘC - Chọn nhiều):</label>
+                        <div id="cmtk3dDeptCheckboxes" style="display:flex; flex-wrap:wrap; gap:8px; background:#ffffff; border:1.5px solid #e9d5ff; border-radius:16px; padding:12px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                            ${cats.map(c => `
+                                <label style="display:inline-flex; align-items:center; gap:6px; background:#faf5ff; border:1.5px solid #e9d5ff; padding:6px 14px; border-radius:14px; font-size:13px; font-weight:800; color:#6d28d9; cursor:pointer;">
+                                    <input type="checkbox" name="cmtk3dCatCheck" value="${c.replace(/"/g, '&quot;')}" ${itemCats.includes(c) ? 'checked' : ''} style="accent-color:#7c3aed; width:16px; height:16px;">
+                                    <span>⭐ ${c}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">Tiêu đề Nền Áo 3D (*):</label>
+                        <input type="text" id="cmtk3dFormTitle" value="${isEdit ? (item.title || '') : ''}" placeholder="Ví dụ: Áo Polo Nền Trắng Mặt Trước / Áo Khoác BST 2026..." required style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:11px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none; background:#ffffff; box-sizing:border-box;">
+                    </div>
+
+                    <div>
+                        <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:6px; font-size:13.5px;">📝 Mô tả / Ghi chú*</label>
+                        <textarea id="cmtk3dFormNotes" rows="4" placeholder="Mô tả tóm tắt nội dung model 3D hoặc ghi chú đặc biệt..." required style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:600; color:#0f172a; font-family:inherit; outline:none; resize:vertical; background:#ffffff; box-sizing:border-box;">${isEdit ? (item.notes || '') : ''}</textarea>
+                    </div>
+
+                    <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                        <label style="color:#be185d; font-weight:900; display:block; margin:0; font-size:13.5px;">🖼️ HÌNH ÁNH MINH HỌA / POSTER (* BẮT BUỘC CÓ ÁNH):</label>
+                        
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+                            <!-- Lựa chọn 1: Máy tính -->
+                            <div style="border:1.5px dashed #a855f7; background:#faf5ff; border-radius:14px; padding:12px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                                <span style="font-size:11.5px; font-weight:900; color:#6b21a8; text-transform:uppercase;">Lựa chọn 1: Từ máy tính</span>
+                                <input type="file" id="cmtk3dFormPosterFile" accept="image/*" style="display:none;" onchange="window._cmtk3dOnImageSelected(this)">
+                                <button type="button" onclick="document.getElementById('cmtk3dFormPosterFile').click()" style="border:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; padding:8px 14px; border-radius:12px; font-weight:850; cursor:pointer; font-size:12.5px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(109,40,217,0.25);">
+                                    📁 Chọn File Ảnh (*.jpg, *.png)
+                                </button>
+                            </div>
+
+                            <!-- Lựa chọn 2: Dán ảnh (Ctrl + V) -->
+                            <div tabindex="0" onpaste="window._cmtkOnModalPaste(event, '3d')" style="border:1.5px dashed #3b82f6; background:#eff6ff; border-radius:14px; padding:12px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; outline:none;" onmouseover="this.style.borderColor='#2563eb'" onmouseout="this.style.borderColor='#3b82f6'">
+                                <span style="font-size:11.5px; font-weight:900; color:#1e40af; text-transform:uppercase;">Lựa chọn 2: Dán ảnh (Ctrl + V)</span>
+                                <div style="font-size:12px; font-weight:850; color:#2563eb; background:#ffffff; border:1px solid #bfdbfe; padding:7px 12px; border-radius:12px; display:inline-flex; align-items:center; gap:6px;">
+                                    📋 Click đây & bấm Ctrl + V để dán
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="hidden" id="cmtk3dFormPosterUrl" value="${isEdit ? (item.posterUrl || '') : ''}">
+                        
+                        <div id="cmtk3dImagePreviewBox" style="display:${isEdit && item && item.posterUrl ? 'block' : 'none'}; margin-top:4px; text-align:center; border:1.5px solid #e9d5ff; border-radius:14px; padding:10px; background:#ffffff;">
+                            <img id="cmtk3dImagePreviewImg" src="${isEdit && item ? (item.posterUrl || '') : ''}" style="max-height:160px; max-width:100%; border-radius:8px; object-fit:contain;">
+                            <div style="margin-top:4px; font-size:12px; font-weight:800; color:#16a34a;">✅ Đã nhận ảnh minh họa</div>
+                        </div>
+                    </div>
+
+                    <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:14px;">
+                        <span style="font-size:13.5px; font-weight:900; color:#4c1d95;">📦 FILE NỀN 3D HOẶC ĐƯỜNG LINK (* BẮT BUỘC 1 TRONG 2):</span>
+                        
+                        <div>
+                            <label style="color:#047857; font-weight:850; display:block; margin-bottom:6px; font-size:13px;">📄 File Nền 3D PDF (.pdf, .glb, .gltf):</label>
+                            <input type="file" id="cmtk3dFormModelFile" accept=".pdf,.glb,.gltf,.obj" style="display:none;" onchange="window._cmtk3dOnModelFileSelected(this)">
+                            <button type="button" onclick="document.getElementById('cmtk3dFormModelFile').click()" style="border:1.5px dashed #059669; background:#ecfdf5; color:#047857; padding:11px 16px; border-radius:14px; font-weight:850; cursor:pointer; width:100%; text-align:center; font-size:13.5px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                                📄 Chọn File Nền 3D PDF / 3D Model Từ Máy Tính
+                            </button>
+                            <input type="hidden" id="cmtk3dFormModelUrl" value="${isEdit ? (item.modelUrl || '') : ''}">
+                            <div id="cmtk3dModelPreviewBox" style="display:${isEdit && item && item.modelUrl ? 'block' : 'none'}; margin-top:8px; border:1.5px solid #a7f3d0; border-radius:14px; padding:10px 14px; background:#f0fdf4; color:#065f46; font-size:13px; font-weight:800;">
+                                <span id="cmtk3dModelFileName">${isEdit && item && item.modelUrl ? '✅ File đã chọn: ' + item.modelUrl.split('/').pop() : '📄 Chưa chọn file'}</span>
+                            </div>
+                        </div>
+
+                        <div style="text-align:center; font-size:12px; font-weight:800; color:#94a3b8;">—— HOẶC ——</div>
+
+                        <div>
+                            <label style="color:#6d28d9; font-weight:850; display:block; margin-bottom:6px; font-size:13px;">🔗 Đường Link Nền 3D:</label>
+                            <input type="url" id="cmtk3dFormLinkUrl" value="${isEdit ? (item.linkUrl || '') : ''}" placeholder="https://..." style="width:100%; border:2px solid #e9d5ff; border-radius:14px; padding:10px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none; background:#ffffff; box-sizing:border-box;">
+                        </div>
+                    </div>
+
+                    <!-- 3D Preview Area -->
+                    <div id="cmtk3dPreviewArea" style="display:${isEdit && item && item.modelUrl ? 'block' : 'none'}; background:#0f172a; border-radius:16px; overflow:hidden; height:200px; border:1.5px solid #e9d5ff;">
+                        ${isEdit && item && item.modelUrl ? `<model-viewer src="${item.modelUrl}" auto-rotate camera-controls interaction-prompt="none" style="width:100%;height:100%;"></model-viewer>` : ''}
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:12px; border-top:1.5px solid #e2e8f0; padding-top:16px;">
+                        <button type="button" onclick="document.getElementById('cmtk3dModalOverlay').remove()" style="padding:10px 22px; border-radius:12px; font-weight:800; border:1.5px solid #cbd5e1; background:#ffffff; color:#334155; cursor:pointer;">Hủy Bỏ</button>
+                        <button type="button" onclick="window._cmtk3dSaveModel('${editId || ''}')" style="padding:10px 24px; border-radius:12px; font-weight:900; border:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; cursor:pointer; box-shadow:0 4px 14px rgba(109,40,217,0.35);">💾 ${isEdit ? 'Lưu Thay Đổi' : 'Lưu Nền Áo 3D'}</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.onpaste = (e) => window._cmtkOnModalPaste(e, '3d');
+    };
+    window._cmtk3dOpenEditModal = function(id) { window._cmtk3dOpenUploadModal(id); };
+
+    // Image selected handler
+    window._cmtk3dOnImageSelected = function(input) {
+        if (input && input.files && input.files[0]) {
+            _cmtkProcessImageFile(input.files[0], '3d');
+        }
+    };
+
+    // 3D Model file selected handler
+    window._cmtk3dOnModelFileSelected = async function(input) {
+        if (!input || !input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+        showToast(`⏳ Đang tải file 3D (${sizeMb} MB) lên server...`, 'info');
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/chammauthietke/upload-model3d', { method: 'POST', body: formData });
+            const result = await res.json();
+            if (!res.ok || !result.success) throw new Error(result.error || 'Lỗi upload');
+
+            const modelUrlInput = document.getElementById('cmtk3dFormModelUrl');
+            const previewBox = document.getElementById('cmtk3dModelPreviewBox');
+            const previewName = document.getElementById('cmtk3dModelFileName');
+            const previewArea = document.getElementById('cmtk3dPreviewArea');
+
+            if (modelUrlInput) modelUrlInput.value = result.url;
+            if (previewName) previewName.innerText = `✅ File 3D đã sẵn sàng: ${result.originalName || file.name} (${(result.size / 1024 / 1024).toFixed(2)} MB)`;
+            if (previewBox) previewBox.style.display = 'block';
+
+            // Show 3D preview
+            if (previewArea) {
+                previewArea.style.display = 'block';
+                previewArea.innerHTML = `<model-viewer src="${result.url}" auto-rotate camera-controls interaction-prompt="none" style="width:100%;height:100%;--poster-color:transparent;"></model-viewer>`;
+            }
+            showToast('✅ Đã tải file 3D nguyên bản lên server thành công!');
+        } catch(e) {
+            console.error('[CMTK 3D Upload Error]', e);
+            showToast('❌ Lỗi tải file 3D: ' + e.message, 'error');
+        }
+    };
+
+    // === SAVE MODEL ===
+    window._cmtk3dSaveModel = async function(editId) {
+        const title = document.getElementById('cmtk3dFormTitle').value.trim();
+        const subtabId = document.getElementById('cmtk3dFormSubtabId') ? document.getElementById('cmtk3dFormSubtabId').value : active3dSubtab;
+        const notes = document.getElementById('cmtk3dFormNotes').value.trim();
+        const modelUrl = document.getElementById('cmtk3dFormModelUrl') ? document.getElementById('cmtk3dFormModelUrl').value : '';
+        const linkUrl = document.getElementById('cmtk3dFormLinkUrl') ? document.getElementById('cmtk3dFormLinkUrl').value.trim() : '';
+        const posterUrl = document.getElementById('cmtk3dFormPosterUrl') ? document.getElementById('cmtk3dFormPosterUrl').value : '';
+        const checkedCats = Array.from(document.querySelectorAll('input[name="cmtk3dCatCheck"]:checked')).map(cb => cb.value);
+
+        if (!subtabId) { showToast('⚠️ Vui lòng chọn Mục!', 'error'); return; }
+        if (checkedCats.length === 0) { showToast('⚠️ Vui lòng chọn ít nhất 1 Kiểu Áo!', 'error'); return; }
+        if (!title) { showToast('⚠️ Vui lòng nhập tiêu đề Nền Áo 3D!', 'error'); return; }
+        if (!notes) { showToast('⚠️ Bắt buộc phải nhập Mô tả / Ghi chú*!', 'error'); return; }
+        if (!posterUrl) { showToast('⚠️ Bắt buộc phải có hình ảnh minh họa!', 'error'); return; }
+
+        const finalModelUrl = modelUrl || (editId ? (models3dList.find(m => m.id === editId)?.modelUrl || '') : '');
+        const finalLinkUrl = linkUrl || (editId ? (models3dList.find(m => m.id === editId)?.linkUrl || '') : '');
+
+        if (!finalModelUrl && !finalLinkUrl) {
+            showToast('⚠️ Bắt buộc phải có File Nền 3D PDF HOẶC Đường Link Nền 3D (ít nhất 1 trong 2)!', 'error');
+            return;
+        }
+
+        const category = checkedCats.length > 0 ? checkedCats[0] : '';
+        const departments = checkedCats.length > 0 ? checkedCats : ['Chung'];
+
+        if (editId) {
+            const idx = models3dList.findIndex(m => m.id === editId);
+            if (idx >= 0) {
+                models3dList[idx] = { ...models3dList[idx], title, category, subtabId, notes, modelUrl: finalModelUrl, linkUrl: finalLinkUrl, posterUrl, departments };
+            }
+        } else {
+            models3dList.unshift({
+                id: 'model3d_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                title, category, subtabId, notes, modelUrl: finalModelUrl, linkUrl: finalLinkUrl, posterUrl, departments,
+                createdBy: 'Admin',
+                createdAt: new Date().toISOString()
+            });
+        }
+
+        syncSave3dToServer();
+        const overlay = document.getElementById('cmtk3dModalOverlay');
+        if (overlay) overlay.remove();
+        showToast(editId ? '✅ Đã cập nhật Nền Áo 3D!' : '✅ Đã thêm Nền Áo 3D mới!');
+        renderCurrentMainTab();
+    };
+
+    // === DELETE MODEL ===
+    window._cmtk3dDelete = function(id) {
+        const item = models3dList.find(m => m.id === id);
+        if (!item) return;
+        if (!confirm(`Xác nhận xóa model 3D "${item.title}"?`)) return;
+        models3dList = models3dList.filter(m => m.id !== id);
+        syncSave3dToServer();
+        showToast('🗑️ Đã xóa model 3D!');
+        renderCurrentMainTab();
+    };
+
+    // === DETAIL MODAL ===
+    window._cmtk3dOpenDetailModal = function(id) {
+        const item = models3dList.find(m => m.id === id);
+        if (!item) return;
+
+        let overlay = document.getElementById('cmtk3dDetailOverlay');
+        if (overlay) overlay.remove();
+        overlay = document.createElement('div');
+        overlay.id = 'cmtk3dDetailOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);backdrop-filter:blur(12px);z-index:99999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s;';
+
+        overlay.innerHTML = `
+            <div style="background:#ffffff; border-radius:24px; width:95%; max-width:800px; max-height:92vh; overflow-y:auto; box-shadow:0 32px 64px rgba(0,0,0,0.4);">
+                <div style="position:relative; width:100%; height:420px; background:linear-gradient(135deg, #0f172a, #1e293b); border-radius:24px 24px 0 0; overflow:hidden;">
+                    ${item.posterUrl ? `
+                        <img src="${item.posterUrl}" style="width:100%; height:100%; object-fit:contain;">
+                    ` : item.modelUrl ? `
+                        <model-viewer
+                            src="${item.modelUrl}"
+                            alt="${item.title || '3D Model'}"
+                            auto-rotate
+                            camera-controls
+                            style="width:100%; height:100%; --poster-color:transparent;"
+                        ></model-viewer>
+                    ` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:72px;">👕</div>'}
+                    <button onclick="document.getElementById('cmtk3dDetailOverlay').remove()" style="position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;border:none;background:rgba(0,0,0,0.5);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);">✖</button>
+                </div>
+                <div style="padding:28px;">
+                    <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
+                        ${item.category ? `<span style="background:#faf5ff; border:1px solid #e9d5ff; color:#6d28d9; font-size:13px; font-weight:850; padding:5px 14px; border-radius:12px;">📌 ${item.category}</span>` : ''}
+                        ${item.linkUrl ? `<a href="${item.linkUrl}" target="_blank" rel="noopener noreferrer" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:13px; font-weight:850; padding:5px 14px; border-radius:12px; text-decoration:none;">🔗 Đường Link Nền 3D ➔</a>` : ''}
+                    </div>
+                    <h2 style="font-size:22px; font-weight:900; color:#0f172a; margin:0 0 14px 0;">${item.title || 'Nền Áo 3D'}</h2>
+                    <div style="font-size:14px; font-weight:600; color:#475569; line-height:1.7; white-space:pre-line; margin-bottom:20px;">${item.notes || 'Chưa có mô tả.'}</div>
+                    <div style="display:flex; gap:12px; justify-content:flex-end; border-top:1px solid #f1f5f9; padding-top:18px;">
+                        ${item.linkUrl ? `<a href="${item.linkUrl}" target="_blank" rel="noopener noreferrer" style="padding:10px 22px; border-radius:14px; font-size:13.5px; font-weight:900; background:#eff6ff; color:#2563eb; border:1.5px solid #bfdbfe; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">🔗 Mở Link Nền 3D</a>` : ''}
+                        <button type="button" onclick="document.getElementById('cmtk3dDetailOverlay').remove(); window._cmtk3dOpenEditModal('${item.id}')" style="padding:10px 22px; border-radius:14px; font-size:13.5px; font-weight:900; background:#fffbe0; color:#d97706; border:1.5px solid #fde68a; cursor:pointer;">✏️ Chỉnh Sửa</button>
+                        <button type="button" onclick="document.getElementById('cmtk3dDetailOverlay').remove()" style="padding:10px 22px; border-radius:14px; font-size:13.5px; font-weight:900; background:#f1f5f9; color:#475569; border:1.5px solid #e2e8f0; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    };
+
+    // === CÀI ĐẶT KIỂU ÁO MODAL (Style matching Mục 1 Bộ Phận modal - ảnh 3) ===
+    function ensure3dCatModalInDOM() {
+        let modal = document.getElementById('cmtk3dCatModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'cmtk3dCatModal';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+                <div style="max-height:90vh; display:flex; flex-direction:column; width:100%; max-width:580px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1.5px solid #d8b4fe;">
+                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:22px;">⚙️</span>
+                            <h3 style="margin:0; font-size:16.5px; font-weight:900; color:#ffffff; text-transform:uppercase;">CÀI ĐẶT KIỂU ÁO (KHO NỀN 3D)</h3>
+                        </div>
+                        <button type="button" onclick="window._cmtk3dCloseCatSettingsModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                    </div>
+                    <div style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:18px; background:#fcfafc;">
+                        <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; box-shadow:0 4px 12px rgba(0,0,0,0.02);">
+                            <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:8px; font-size:13.5px;">➕ Tạo Kiểu Áo Mới:</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="cmtk3dCatFormName" placeholder="Nhập tên kiểu áo mới..." style="flex:1; border:2px solid #e9d5ff; border-radius:12px; padding:9px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none;" onkeypress="if(event.key==='Enter') window._cmtk3dAddCatFromModal()">
+                                <button type="button" onclick="window._cmtk3dAddCatFromModal()" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; border-radius:12px; padding:9px 18px; font-size:13.5px; font-weight:900; cursor:pointer; box-shadow:0 4px 12px rgba(109,40,217,0.3); display:inline-flex; align-items:center; gap:4px;">
+                                    ➕ Thêm Mới
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:10px; font-size:13.5px;">📌 Danh Sách Kiểu Áo Hiện Tại:</label>
+                            <div id="cmtk3dCatListContainer" style="display:flex; flex-direction:column; gap:10px;">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex-shrink:0; padding:14px 24px; background:#ffffff; border-top:1.5px solid #e2e8f0; display:flex; justify-content:flex-end;">
+                        <button type="button" onclick="window._cmtk3dCloseCatSettingsModal()" style="padding:9px 24px; border-radius:12px; font-weight:800; border:none; background:#f1f5f9; color:#334155; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        return modal;
+    }
+
+    window._cmtk3dOpenCatSettingsModal = function() {
+        const modal = ensure3dCatModalInDOM();
+        _cmtk3dRenderCatListInModal();
+        modal.style.display = 'flex';
+    };
+
+    window._cmtk3dCloseCatSettingsModal = function() {
+        const modal = document.getElementById('cmtk3dCatModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    function _cmtk3dRenderCatListInModal() {
+        const container = document.getElementById('cmtk3dCatListContainer');
+        if (!container) return;
+        const cats = get3dCategories();
+        container.innerHTML = cats.map((cat, idx) => {
+            if (editing3dCatIndex === idx) {
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#fffbeb; padding:10px 14px; border-radius:14px; border:2px solid #f59e0b; gap:10px;">
+                        <input type="text" id="cmtk3dEditCatInput_${idx}" value="${cat.replace(/"/g, '&quot;')}" style="flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid #f59e0b; font-size:13.5px; font-weight:800; outline:none;" onkeypress="if(event.key==='Enter') window._cmtk3dSaveCatEditFromModal(${idx})">
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="window._cmtk3dSaveCatEditFromModal(${idx})" style="background:#22c55e; color:#ffffff; border:none; border-radius:10px; padding:7px 14px; font-size:12.5px; font-weight:900; cursor:pointer;">💾 Lưu</button>
+                            <button onclick="window._cmtk3dCancelCatEditFromModal()" style="background:#e2e8f0; color:#475569; border:none; border-radius:10px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer;">✕ Hủy</button>
+                        </div>
+                    </div>
+                `;
+            }
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:12px 16px; border-radius:14px; border:1.5px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:16px; color:#be185d;">📌</span>
+                        <span style="font-size:14.5px; font-weight:850; color:#0f172a;">${cat}</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="window._cmtk3dStartCatEditFromModal(${idx})" style="background:#fef3c7; color:#d97706; border:1px solid #fde047; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">✏️ Sửa Tên</button>
+                        <button onclick="window._cmtk3dDeleteCatFromModal(${idx})" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">🗑️ Xóa</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window._cmtk3dAddCatFromModal = function() {
+        const input = document.getElementById('cmtk3dCatFormName');
+        if (!input) return;
+        const name = input.value.trim();
+        if (!name) { showToast('⚠️ Vui lòng nhập tên kiểu áo mới!', 'error'); return; }
+        let cats = get3dCategories();
+        if (cats.includes(name)) { showToast('⚠️ Kiểu áo này đã tồn tại!', 'error'); return; }
+        cats.push(name);
+        save3dCategories(cats);
+        input.value = '';
+        _cmtk3dRenderCatListInModal();
+        renderCurrentMainTab();
+        showToast(`✅ Đã thêm kiểu áo mới "${name}"!`);
+    };
+
+    window._cmtk3dStartCatEditFromModal = function(index) { editing3dCatIndex = index; _cmtk3dRenderCatListInModal(); };
+    window._cmtk3dCancelCatEditFromModal = function() { editing3dCatIndex = -1; _cmtk3dRenderCatListInModal(); };
+    window._cmtk3dSaveCatEditFromModal = function(index) {
+        const input = document.getElementById(`cmtk3dEditCatInput_${index}`);
+        if (!input) return;
+        const newName = input.value.trim();
+        if (!newName) return;
+        let cats = get3dCategories();
+        cats[index] = newName;
+        save3dCategories(cats);
+        editing3dCatIndex = -1;
+        _cmtk3dRenderCatListInModal();
+        renderCurrentMainTab();
+        showToast('💾 Đã cập nhật tên kiểu áo!');
+    };
+    window._cmtk3dDeleteCatFromModal = function(index) {
+        let cats = get3dCategories();
+        if (!confirm(`Bạn có chắc muốn xóa kiểu áo "${cats[index]}" không?`)) return;
+        cats.splice(index, 1);
+        save3dCategories(cats);
+        _cmtk3dRenderCatListInModal();
+        renderCurrentMainTab();
+        showToast('🗑️ Đã xóa kiểu áo!');
+    };
+
+    // === CÀI ĐẶT MỤC MODAL FOR 3D (Style matching Mục 1 Cài Đặt Mục modal) ===
+    function ensure3dSubtabModalInDOM() {
+        let modal = document.getElementById('cmtk3dSubtabModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'cmtk3dSubtabModal';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
+            modal.innerHTML = `
+                <div style="max-height:90vh; display:flex; flex-direction:column; width:100%; max-width:580px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1.5px solid #d8b4fe;">
+                    <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:22px;">⚙️</span>
+                            <h3 style="margin:0; font-size:16.5px; font-weight:900; color:#ffffff; text-transform:uppercase;">CÀI ĐẶT MỤC (KHO NỀN ÁO 3D)</h3>
+                        </div>
+                        <button type="button" onclick="window._cmtk3dCloseSubtabModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
+                    </div>
+                    <div style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:18px; background:#fcfafc;">
+                        <div style="background:#ffffff; border:1.5px solid #e9d5ff; border-radius:18px; padding:16px; box-shadow:0 4px 12px rgba(0,0,0,0.02);">
+                            <label style="color:#6d28d9; font-weight:900; display:block; margin-bottom:8px; font-size:13.5px;">➕ Tạo Mục Mới:</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="cmtk3dSubtabFormName" placeholder="Nhập tên mục mới..." style="flex:1; border:2px solid #e9d5ff; border-radius:12px; padding:9px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none;" onkeypress="if(event.key==='Enter') window._cmtk3dAddSubtabFromModal()">
+                                <button type="button" onclick="window._cmtk3dAddSubtabFromModal()" style="background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#ffffff; border:none; border-radius:12px; padding:9px 18px; font-size:13.5px; font-weight:900; cursor:pointer; box-shadow:0 4px 12px rgba(109,40,217,0.3); display:inline-flex; align-items:center; gap:4px;">
+                                    ➕ Thêm Mới
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="color:#0f172a; font-weight:900; display:block; margin-bottom:10px; font-size:13.5px;">📌 Danh Sách Mục Hiện Tại:</label>
+                            <div id="cmtk3dSubtabListContainer" style="display:flex; flex-direction:column; gap:10px;">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex-shrink:0; padding:14px 24px; background:#ffffff; border-top:1.5px solid #e2e8f0; display:flex; justify-content:flex-end;">
+                        <button type="button" onclick="window._cmtk3dCloseSubtabModal()" style="padding:9px 24px; border-radius:12px; font-weight:800; border:none; background:#f1f5f9; color:#334155; cursor:pointer;">Đóng</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        return modal;
+    }
+
+    window._cmtk3dOpenSubtabModal = function () {
+        const modal = ensure3dSubtabModalInDOM();
+        _cmtk3dRenderSubtabListInModal();
+        modal.style.display = 'flex';
+    };
+
+    window._cmtk3dCloseSubtabModal = function () {
+        const modal = document.getElementById('cmtk3dSubtabModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    function _cmtk3dRenderSubtabListInModal() {
+        const container = document.getElementById('cmtk3dSubtabListContainer');
+        if (!container) return;
+        const subtabs = get3dSubtabs();
+        container.innerHTML = subtabs.map((sub, idx) => {
+            if (editing3dSubtabIndex === idx) {
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#fffbeb; padding:10px 14px; border-radius:14px; border:2px solid #f59e0b; gap:10px;">
+                        <input type="text" id="cmtk3dEditSubtabInput_${idx}" value="${sub.title.replace(/"/g, '&quot;')}" style="flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid #f59e0b; font-size:13.5px; font-weight:800; outline:none;" onkeypress="if(event.key==='Enter') window._cmtk3dSaveSubtabEditFromModal(${idx})">
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="window._cmtk3dSaveSubtabEditFromModal(${idx})" style="background:#22c55e; color:#ffffff; border:none; border-radius:10px; padding:7px 14px; font-size:12.5px; font-weight:900; cursor:pointer;">💾 Lưu</button>
+                            <button onclick="window._cmtk3dCancelSubtabEditFromModal()" style="background:#e2e8f0; color:#475569; border:none; border-radius:10px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer;">✕ Hủy</button>
+                        </div>
+                    </div>
+                `;
+            }
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:12px 16px; border-radius:14px; border:1.5px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:18px;">${sub.icon || '👕'}</span>
+                        <span style="font-size:14.5px; font-weight:850; color:#0f172a;">${sub.title}</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="window._cmtk3dStartSubtabEditFromModal(${idx})" style="background:#fef3c7; color:#d97706; border:1px solid #fde047; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">✏️ Sửa Tên</button>
+                        <button onclick="window._cmtk3dDeleteSubtabFromModal(${idx})" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">🗑️ Xóa</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window._cmtk3dAddSubtabFromModal = function () {
+        const input = document.getElementById('cmtk3dSubtabFormName');
+        if (!input) return;
+        const title = input.value.trim();
+        if (!title) { showToast('⚠️ Vui lòng nhập tên mục mới!', 'error'); return; }
+        let subtabs = get3dSubtabs();
+        subtabs.push({ id: 'custom_3d_' + Date.now(), title, icon: '📁', isCustom: true });
+        save3dSubtabs(subtabs);
+        input.value = '';
+        _cmtk3dRenderSubtabListInModal();
+        renderCurrentMainTab();
+        showToast(`✅ Đã thêm mục mới "${title}"!`);
+    };
+
+    window._cmtk3dStartSubtabEditFromModal = function (index) { editing3dSubtabIndex = index; _cmtk3dRenderSubtabListInModal(); };
+    window._cmtk3dCancelSubtabEditFromModal = function () { editing3dSubtabIndex = -1; _cmtk3dRenderSubtabListInModal(); };
+    window._cmtk3dSaveSubtabEditFromModal = function (index) {
+        const input = document.getElementById(`cmtk3dEditSubtabInput_${index}`);
+        if (!input) return;
+        const newTitle = input.value.trim();
+        if (!newTitle) return;
+        let subtabs = get3dSubtabs();
+        subtabs[index].title = newTitle;
+        save3dSubtabs(subtabs);
+        editing3dSubtabIndex = -1;
+        _cmtk3dRenderSubtabListInModal();
+        renderCurrentMainTab();
+        showToast('💾 Đã cập nhật tên mục!');
+    };
+    window._cmtk3dDeleteSubtabFromModal = function (index) {
+        let subtabs = get3dSubtabs();
+        if (!confirm(`Bạn có chắc muốn xóa mục "${subtabs[index].title}" không?`)) return;
+        subtabs.splice(index, 1);
+        save3dSubtabs(subtabs);
+        _cmtk3dRenderSubtabListInModal();
+        renderCurrentMainTab();
+        showToast('🗑️ Đã xóa mục!');
+    };
 
     // Export Page Renderer for App Router
     window.renderChammauthietkePage = function(targetContainer) {

@@ -121,17 +121,54 @@
                 .kpi-table-responsive { width: 100%; overflow-x: auto; border-radius: 14px; border: 1.5px solid #1e293b; box-shadow: 0 4px 18px rgba(15, 23, 42, 0.2); }
                 .kpi-quarter-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
                 
-                /* Static Dark Navy Header with Vertical 3D Glossy Reflection */
+                /* === 2-Tier Grouped Header === */
                 .kpi-quarter-table th {
                     background: linear-gradient(180deg, #283a62 0%, #172554 48%, #0f172a 100%);
                     color: #ffffff;
-                    padding: 10px 6px;
+                    padding: 8px 6px;
                     text-align: center;
                     border-bottom: 2px solid #0f172a;
                     white-space: nowrap;
                     font-weight: 900;
                     text-shadow: 0 1px 2px rgba(0,0,0,0.5);
                     box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+                }
+
+                /* Group Header Row (Tier 1) */
+                .kpi-quarter-table .th-group-delivery {
+                    background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 48%, #1e3a8a 100%) !important;
+                    font-size: 11.5px; letter-spacing: 0.3px;
+                    border-bottom: 2px solid #1e3a8a;
+                    border-left: 2px solid #0f172a; border-right: 2px solid #0f172a;
+                }
+                .kpi-quarter-table .th-group-errors {
+                    background: linear-gradient(180deg, #d97706 0%, #b45309 48%, #92400e 100%) !important;
+                    font-size: 11.5px; letter-spacing: 0.3px;
+                    border-bottom: 2px solid #92400e;
+                    border-left: 2px solid #0f172a; border-right: 2px solid #0f172a;
+                }
+                .kpi-quarter-table .th-group-orders {
+                    background: linear-gradient(180deg, #059669 0%, #047857 48%, #065f46 100%) !important;
+                    font-size: 11.5px; letter-spacing: 0.3px;
+                    border-bottom: 2px solid #065f46;
+                    border-left: 2px solid #0f172a; border-right: 2px solid #0f172a;
+                }
+
+                /* Sub-header cells under each group (Tier 2) */
+                .kpi-quarter-table .th-sub-delivery {
+                    background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 60%, #1e40af 100%) !important;
+                    font-size: 11px; padding: 6px 5px;
+                    border-bottom: 2px solid #1e3a8a;
+                }
+                .kpi-quarter-table .th-sub-errors {
+                    background: linear-gradient(180deg, #f59e0b 0%, #d97706 60%, #b45309 100%) !important;
+                    font-size: 11px; padding: 6px 5px;
+                    border-bottom: 2px solid #92400e;
+                }
+                .kpi-quarter-table .th-sub-orders {
+                    background: linear-gradient(180deg, #10b981 0%, #059669 60%, #047857 100%) !important;
+                    font-size: 11px; padding: 6px 5px;
+                    border-bottom: 2px solid #065f46;
                 }
 
                 /* Column "Tổng số đơn" - Static Glossy Dark Orange matching Image 1 */
@@ -143,11 +180,24 @@
                 }
 
                 .kpi-quarter-table td { padding: 8px 5px; text-align: center; border-bottom: 1px solid #f1f5f9; font-weight: 700; vertical-align: middle; white-space: nowrap; color: #1e293b; }
-                .kpi-quarter-table tbody tr:hover { background: #f8fafc; }
+                .kpi-quarter-table tbody tr:hover td { filter: brightness(0.97); }
+
+                /* Column group tints for data cells */
+                .kpi-quarter-table td.td-delivery { background: rgba(219, 234, 254, 0.25); }
+                .kpi-quarter-table td.td-errors { background: rgba(254, 243, 199, 0.3); }
+                .kpi-quarter-table td.td-orders { background: rgba(209, 250, 229, 0.3); }
+                .kpi-quarter-table td.td-delivery-border-l { border-left: 2px solid #bfdbfe; }
+                .kpi-quarter-table td.td-errors-border-l { border-left: 2px solid #fde68a; }
+                .kpi-quarter-table td.td-orders-border-l { border-left: 2px solid #a7f3d0; }
+                .kpi-quarter-table td.td-errors-border-r { border-right: 2px solid #fde68a; }
+                .kpi-quarter-table td.td-orders-border-r { border-right: 2px solid #a7f3d0; }
 
                 /* Soft Cream Yellow Summary Row for Full Year */
                 .kpi-quarter-table tr.row-total { background: #fef3c7 !important; font-weight: 900; color: #92400e !important; border-top: 2px solid #fde68a; }
                 .kpi-quarter-table tr.row-total td { color: #92400e; border-bottom: none; font-size: 12px; }
+                .kpi-quarter-table tr.row-total td.td-delivery { background: rgba(219, 234, 254, 0.15); }
+                .kpi-quarter-table tr.row-total td.td-errors { background: rgba(254, 243, 199, 0.2); }
+                .kpi-quarter-table tr.row-total td.td-orders { background: rgba(209, 250, 229, 0.2); }
 
                 /* Compact Badge Pills */
                 .badge-status {
@@ -169,11 +219,10 @@
                 .badge-dark-danger { background: #7f1d1d; color: #ffffff; border: 1.5px solid #991b1b; box-shadow: 0 2px 6px rgba(127, 29, 29, 0.2); }
                 .badge-future { background: #f1f5f9; color: #64748b; border: 1.5px solid #cbd5e1; }
 
-                /* Monthly Cards Section */
-                .kpi-monthly-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 18px; }
-                @media (max-width: 1280px) { .kpi-monthly-grid { grid-template-columns: repeat(3, 1fr); } }
-                @media (max-width: 900px) { .kpi-monthly-grid { grid-template-columns: repeat(2, 1fr); } }
-                @media (max-width: 600px) { .kpi-monthly-grid { grid-template-columns: 1fr; } }
+                /* Monthly Cards Section - 3 months per row (4 rows for 12 months) */
+                .kpi-monthly-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 18px; }
+                @media (max-width: 992px) { .kpi-monthly-grid { grid-template-columns: repeat(2, 1fr); } }
+                @media (max-width: 640px) { .kpi-monthly-grid { grid-template-columns: 1fr; } }
 
                 .m-card {
                     background: #ffffff;
@@ -191,15 +240,32 @@
                     box-shadow: 0 10px 28px rgba(99, 102, 241, 0.12);
                 }
 
-                @keyframes _kpiGlowPulse {
-                    0% { border-color: #f59e0b; box-shadow: 0 0 0 3.5px rgba(245, 158, 11, 0.35), 0 8px 24px rgba(245, 158, 11, 0.18); }
-                    50% { border-color: #fbbf24; box-shadow: 0 0 0 5.5px rgba(251, 191, 36, 0.55), 0 10px 30px rgba(251, 191, 36, 0.28); }
-                    100% { border-color: #f59e0b; box-shadow: 0 0 0 3.5px rgba(245, 158, 11, 0.35), 0 8px 24px rgba(245, 158, 11, 0.18); }
+                @keyframes _kpiBorderGradientRun {
+                    0% {
+                        border-color: #f59e0b;
+                        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.45), 0 4px 22px rgba(245, 158, 11, 0.25);
+                    }
+                    25% {
+                        border-color: #ec4899;
+                        box-shadow: 0 0 0 3.5px rgba(236, 72, 153, 0.45), 0 4px 24px rgba(236, 72, 153, 0.3);
+                    }
+                    50% {
+                        border-color: #6366f1;
+                        box-shadow: 0 0 0 3.5px rgba(99, 102, 241, 0.45), 0 4px 24px rgba(99, 102, 241, 0.3);
+                    }
+                    75% {
+                        border-color: #10b981;
+                        box-shadow: 0 0 0 3.5px rgba(16, 185, 129, 0.45), 0 4px 24px rgba(16, 185, 129, 0.3);
+                    }
+                    100% {
+                        border-color: #f59e0b;
+                        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.45), 0 4px 22px rgba(245, 158, 11, 0.25);
+                    }
                 }
                 .m-card.is-current-month {
-                    border: 2px solid #f59e0b !important;
+                    border: 2.5px solid #f59e0b !important;
                     background: linear-gradient(180deg, #fffdf5 0%, #ffffff 100%) !important;
-                    animation: _kpiGlowPulse 2s infinite ease-in-out !important;
+                    animation: _kpiBorderGradientRun 3s infinite linear !important;
                     z-index: 2;
                 }
 
@@ -219,6 +285,18 @@
                 .m-kpi-input { width: 64px; padding: 4px 6px; border: 1.5px solid #cbd5e1; border-radius: 99px; font-size: 12.5px; font-weight: 900; color: #4338ca; text-align: center; outline: none; background: #ffffff; transition: all 0.2s; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
                 .m-kpi-input:focus { border-color: #6366f1; background: #faf5ff; box-shadow: 0 0 0 3.5px rgba(99,102,241,0.18); }
                 .m-kpi-input.saved-flash { border-color: #10b981 !important; box-shadow: 0 0 0 3.5px rgba(16, 185, 129, 0.35) !important; background: #f0fdf4 !important; }
+
+                /* Global Font Uniformity matching Title */
+                #kpiTargetModalOverlay,
+                #kpiTargetModalOverlay button,
+                #kpiTargetModalOverlay input,
+                #kpiTargetModalOverlay select,
+                #kpiTargetModalOverlay textarea,
+                #kpiTargetModalOverlay label,
+                #kpiTargetModalOverlay span,
+                .kpi-quarter-table button {
+                    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif !important;
+                }
             </style>
 
             <!-- Top Header -->
@@ -240,7 +318,7 @@
                     </select>
 
                     <!-- Save KPI Target Button -->
-                    <button class="btn-save-kpi" onclick="window._kpiDelaySaveTargets()">
+                    <button class="btn-save-kpi" onclick="window.openKpiTargetModal('year', 0, 'Cả Năm ' + (_kpiDelayState.year || ''))">
                         💾 Lưu KPI Mục Tiêu
                     </button>
                 </div>
@@ -265,7 +343,7 @@
                     <!-- Modal Body -->
                     <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:16px;">
                         <!-- Target Inputs Row -->
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; background:#f8fafc; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; background:#f8fafc; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
                             <div>
                                 <label style="font-size:12px; font-weight:800; color:#334155; display:block; margin-bottom:4px;">🎯 KPI Trễ Tối Đa (%):</label>
                                 <div style="display:flex; align-items:center; gap:6px;">
@@ -280,6 +358,13 @@
                                     <span style="font-weight:900; color:#64748b;">đơn</span>
                                 </div>
                             </div>
+                            <div>
+                                <label style="font-size:12px; font-weight:800; color:#334155; display:block; margin-bottom:4px;">📦 KPI Tổng Đơn Tối Thiểu:</label>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <input type="number" step="1" min="0" id="kpiModalMinOrders" style="width:100%; padding:8px 12px; border:1.5px solid #059669; border-radius:8px; font-size:14px; font-weight:900; color:#065f46;">
+                                    <span style="font-weight:900; color:#64748b;">đơn</span>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Evaluation Rule Selection (Bắt Buộc Tích Chọn) -->
@@ -288,20 +373,16 @@
                             <div style="display:flex; flex-direction:column; gap:8px;">
                                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px; font-weight:700; color:#78350f;">
                                     <input type="radio" name="kpiEvalRule" value="ALL" checked style="accent-color:#d97706; transform:scale(1.15);">
-                                    <span>🟢 <b>Bắt buộc ĐẠT CẢ 2</b> (Phải &le; Trễ <b>VÀ</b> &le; Lỗi mới ĐẠT KPI. Thiếu 1 trong 2 tính KHÔNG ĐẠT)</span>
+                                    <span>🟢 <b>Bắt buộc ĐẠT TẤT CẢ</b></span>
                                 </label>
                                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px; font-weight:700; color:#78350f;">
                                     <input type="radio" name="kpiEvalRule" value="ANY" style="accent-color:#d97706; transform:scale(1.15);">
-                                    <span>🟡 <b>Chỉ cần ĐẠT 1 TRONG 2</b> (Chỉ cần &le; Trễ <b>HOẶC</b> &le; Lỗi là ĐẠT KPI)</span>
+                                    <span>🟡 <b>Chỉ cần ĐẠT 1 TRONG CÁC TIÊU CHÍ</b></span>
                                 </label>
                             </div>
                         </div>
 
-                        <!-- Reward Input -->
-                        <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; padding:14px; border-radius:10px;">
-                            <label style="font-size:12.5px; font-weight:900; color:#166534; display:block; margin-bottom:6px;">🎁 Phần Thưởng Cho Quản Lý Xưởng Khi Đạt KPI:</label>
-                            <input type="text" id="kpiModalReward" oninput="window._formatRewardInput(this)" placeholder="Ví dụ: 1.000.000 hoặc Thưởng 3.000.000đ..." style="width:100%; padding:9px 12px; border:1.5px solid #86efac; border-radius:8px; font-size:13px; font-weight:700; color:#14532d; outline:none;">
-                        </div>
+
 
                         <!-- Commitments Section -->
                         <div style="background:#f8fafc; border:1.5px solid #e2e8f0; padding:14px; border-radius:10px;">
@@ -328,6 +409,32 @@
 
                             <div id="kpiModalCommitmentsList"></div>
                         </div>
+
+                        <!-- Company Support Section -->
+                        <div style="background:#f8fafc; border:1.5px solid #e2e8f0; padding:14px; border-radius:10px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+                                <label style="font-size:12.5px; font-weight:900; color:#0f172a;">🤝 Nội Dung Quản Lý Xưởng Cần Công Ty Hỗ Trợ:</label>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <button type="button" onclick="window.toggleSupportSuggestions()" style="padding:5px 10px; background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:6px; font-size:11.5px; font-weight:800; cursor:pointer;" title="Xem danh sách các câu gợi ý công ty hỗ trợ cài đặt sẵn">💡 Xem Gợi Ý Hỗ Trợ</button>
+                                    <button type="button" onclick="window.addSupportRow('')" style="padding:5px 10px; background:#0284c7; color:#ffffff; border:none; border-radius:6px; font-size:11.5px; font-weight:800; cursor:pointer;">➕ Thêm Hỗ Trợ</button>
+                                </div>
+                            </div>
+
+                            <!-- Suggestion Panel Box for Support -->
+                            <div id="kpiSupportSuggestionsPanel" style="display:none; background:#f0f9ff; border:1.5px dashed #0284c7; border-radius:10px; padding:12px; margin-bottom:12px;">
+                                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                                    <span style="font-size:12px; font-weight:900; color:#0369a1;">💡 Danh Sách Câu Gợi Ý Hỗ Trợ Mẫu:</span>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <button type="button" onclick="window.addNewSupportPresetSuggestion()" style="padding:3px 8px; background:#dcfce7; color:#15803d; border:1px solid #86efac; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;" title="Thêm gợi ý mẫu mới vào danh sách">+ Thêm Gợi Ý Mới</button>
+                                        <button type="button" onclick="window.resetSupportPresetSuggestionsDefault()" style="padding:3px 8px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;" title="Khôi phục danh sách gợi ý mặc định">🔄 Mặc Định</button>
+                                        <button type="button" onclick="window.toggleSupportSuggestions(false)" style="background:none; border:none; color:#0369a1; font-size:14px; font-weight:900; cursor:pointer;">✕</button>
+                                    </div>
+                                </div>
+                                <div id="kpiSupportPresetSuggestionsList" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; padding-right:4px;"></div>
+                            </div>
+
+                            <div id="kpiModalSupportsList"></div>
+                        </div>
                     </div>
 
                     <!-- Modal Footer -->
@@ -350,10 +457,18 @@
                     <!-- Modal Body -->
                     <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
                         <div id="kpiEvalModalHeaderInfo" style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px 14px; border-radius:10px;"></div>
-                        <div id="kpiEvalErrorBox"></div>
                         <div>
                             <div style="font-size:13px; font-weight:900; color:#0f172a; margin-bottom:8px;">📋 Đánh Giá Từng Cam Kết :</div>
                             <div id="kpiEvalItemsList" style="display:flex; flex-direction:column; gap:10px;"></div>
+                        </div>
+
+                        <!-- Company Support Info Box in Eval Modal -->
+                        <div id="kpiEvalSupportBox" style="background:linear-gradient(180deg,#ffffff 0%,#f0f9ff 100%); border:1.5px solid #bae6fd; border-radius:12px; padding:12px 14px; box-shadow:0 2px 8px rgba(2,132,199,0.04);">
+                            <div style="font-size:12.5px; font-weight:900; color:#0369a1; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                                <span>🤝 Nội Dung Quản Lý Xưởng Cần Công Ty Hỗ Trợ:</span>
+                                <span id="kpiEvalSupportCountBadge" style="background:#e0f2fe; color:#0369a1; font-size:10px; padding:1px 6px; border-radius:99px; font-weight:900;">0</span>
+                            </div>
+                            <div id="kpiEvalSupportItemsList" style="display:flex; flex-direction:column; gap:6px;"></div>
                         </div>
                     </div>
 
@@ -362,8 +477,7 @@
                         <div id="kpiEvalProgressSummary" style="font-size:12.5px; font-weight:900; color:#4338ca;"></div>
                         <div style="display:flex; align-items:center; gap:8px;">
                             <button onclick="window.closeKpiEvalModal()" style="padding:8px 14px; background:#ffffff; border:1.5px solid #cbd5e1; color:#475569; font-weight:800; border-radius:8px; cursor:pointer;">Hủy</button>
-                            <button id="btnSaveKpiEval" onclick="window.saveKpiEvalModal(false)" style="padding:8px 16px; background:linear-gradient(135deg,#4f46e5,#4338ca); color:#ffffff; border:none; font-weight:900; border-radius:8px; cursor:pointer; box-shadow:0 4px 12px rgba(79,70,229,0.25);">💾 Lưu Đánh Giá</button>
-                            <button id="btnCompleteKpiEval" onclick="window.saveKpiEvalModal(true)" style="padding:8px 18px; background:linear-gradient(135deg,#059669,#10b981); color:#ffffff; border:none; font-weight:900; border-radius:8px; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.3);">✅ Hoàn Thành KPI Tháng</button>
+                            <button id="btnSaveKpiEval" onclick="window.saveKpiEvalModal()" style="padding:8px 20px; background:linear-gradient(135deg,#4f46e5,#4338ca); color:#ffffff; border:none; font-weight:900; border-radius:8px; cursor:pointer; box-shadow:0 4px 12px rgba(79,70,229,0.25);">💾 Lưu Đánh Giá</button>
                         </div>
                     </div>
                 </div>
@@ -406,30 +520,34 @@
         }
     }
 
-    function getCombinedKpiBadgeHtml(isFuture, totalOrders, delayPct, targetPct, totalErrors, targetErr, evalRule = 'ALL') {
+    function getCombinedKpiBadgeHtml(isFuture, totalOrders, delayPct, targetPct, totalErrors, targetErr, evalRule = 'ALL', targetMinOrders = 0) {
         if (isFuture && totalOrders === 0) {
             return `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
         }
         const isPassDelay = delayPct <= targetPct;
         const isPassErr = targetErr > 0 ? (totalErrors <= targetErr) : true;
+        const isPassOrders = targetMinOrders > 0 ? (totalOrders >= targetMinOrders) : true;
 
-        if (evalRule === 'ANY' && targetErr > 0) {
-            if (isPassDelay || isPassErr) {
-                return `<span class="badge-status badge-success">🔥 ĐẠT KPI (1 TRONG 2)</span>`;
+        const hasMultiCriteria = targetErr > 0 || targetMinOrders > 0;
+
+        if (evalRule === 'ANY' && hasMultiCriteria) {
+            if (isPassDelay || (targetErr > 0 && isPassErr) || (targetMinOrders > 0 && isPassOrders)) {
+                return `<span class="badge-status badge-success">🔥 ĐẠT KPI</span>`;
             } else {
                 return `<span class="badge-status badge-dark-danger">🔴 KHÔNG ĐẠT KPI</span>`;
             }
         }
 
-        if (targetErr > 0) {
-            if (isPassDelay && isPassErr) {
+        if (hasMultiCriteria) {
+            const allPass = isPassDelay && isPassErr && isPassOrders;
+            if (allPass) {
                 return `<span class="badge-status badge-success">🔥 ĐẠT KPI TỔNG THỂ</span>`;
-            } else if (isPassDelay && !isPassErr) {
-                return `<span class="badge-status badge-warning">⚠️ KHÔNG ĐẠT KPI LỖI</span>`;
-            } else if (!isPassDelay && isPassErr) {
-                return `<span class="badge-status badge-danger">🚨 CHẬM TIẾN ĐỘ</span>`;
             } else {
-                return `<span class="badge-status badge-dark-danger">🔴 KHÔNG ĐẠT KPI</span>`;
+                const failParts = [];
+                if (!isPassDelay) failParts.push('TRỄ');
+                if (targetErr > 0 && !isPassErr) failParts.push('LỖI');
+                if (targetMinOrders > 0 && !isPassOrders) failParts.push('TỔNG ĐƠN');
+                return `<span class="badge-status badge-danger">🚨 KHÔNG ĐẠT: ${failParts.join(', ')}</span>`;
             }
         } else {
             if (isPassDelay) {
@@ -452,57 +570,107 @@
 
         const quarterMonths = { 1: [1, 3], 2: [4, 6], 3: [7, 9], 4: [10, 12] };
 
+        const isDirector = (_kpiDelayState.userRole === 'giam_doc' || (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc'));
+        const canCreateKpi = isDirector || ['quan_ly', 'quan_ly_cap_cao'].includes(_kpiDelayState.userRole) || (typeof currentUser !== 'undefined' && currentUser && ['quan_ly', 'quan_ly_cap_cao'].includes(currentUser.role));
+
+        function getRewardBadgeHtml(rewardText, isFuture, isPass) {
+            if (!rewardText) return '';
+            if (isFuture) {
+                return `<div style="font-size:10px; font-weight:800; color:#475569; background:#f1f5f9; border:1px solid #cbd5e1; padding:1px 6px; border-radius:6px; display:inline-block; margin-top:3px;" title="Mức thưởng nếu đạt KPI: ${rewardText}">🎁 Thưởng nếu đạt: ${rewardText}</div>`;
+            }
+            if (isPass) {
+                return `<div style="font-size:10px; font-weight:900; color:#15803d; background:#dcfce7; border:1px solid #86efac; padding:1px 6px; border-radius:6px; display:inline-block; margin-top:3px;" title="Đạt KPI - Được thưởng: ${rewardText}">✅ Được thưởng: ${rewardText}</div>`;
+            }
+            return `<div style="font-size:10px; font-weight:800; color:#b91c1c; background:#fee2e2; border:1px solid #fca5a5; padding:1px 6px; border-radius:6px; display:inline-block; margin-top:3px;" title="Không đạt KPI - Không được thưởng ${rewardText}">❌ Mất thưởng (${rewardText})</div>`;
+        }
+
         // Build Quarter Rows
         const quarterRowsHtml = quarters.map(q => {
             const tKey = `quarter_${q.quarter}`;
-            const targetPct = targets[tKey] ? targets[tKey].target_max_delay_pct : 5.0;
-            const targetErr = targets[tKey] ? (targets[tKey].target_max_total_errors || 0) : 0;
+            const targetObj = targets[tKey];
+            const targetPct = targetObj ? targetObj.target_max_delay_pct : 5.0;
+            const targetErr = targetObj ? (targetObj.target_max_total_errors || 0) : 0;
+            const targetMinOrders = targetObj ? (targetObj.target_min_total_orders || 0) : 0;
+            const evalRule = targetObj ? (targetObj.eval_rule || 'ALL') : 'ALL';
+            const qRewardText = formatRewardText(targetObj ? (targetObj.reward_text || '') : '');
 
             const [startM] = quarterMonths[q.quarter];
             const isFutureQ = (data.year > realCurrentYear) || (data.year === realCurrentYear && startM > realCurrentMonth);
             const isFutureOrZeroQ = isFutureQ && q.total === 0;
 
+            const isPassDelay = q.delay_pct <= targetPct;
+            const isPassErr = targetErr > 0 ? ((q.total_errors || 0) <= targetErr) : true;
+            const isPassOrders = targetMinOrders > 0 ? ((q.total || 0) >= targetMinOrders) : true;
+
+            const hasMultiCriteria = targetErr > 0 || targetMinOrders > 0;
+            let qOverallPass = false;
+            if (evalRule === 'ANY' && hasMultiCriteria) {
+                qOverallPass = isPassDelay || (targetErr > 0 && isPassErr) || (targetMinOrders > 0 && isPassOrders);
+            } else if (hasMultiCriteria) {
+                qOverallPass = isPassDelay && isPassErr && isPassOrders;
+            } else {
+                qOverallPass = isPassDelay;
+            }
+
             let badgeDelayHtml = '';
             let badgeErrHtml = '';
+            let badgeOrdersHtml = '';
 
             if (isFutureOrZeroQ) {
                 badgeDelayHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
                 badgeErrHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+                badgeOrdersHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
             } else {
-                const isPassDelay = q.delay_pct <= targetPct;
                 badgeDelayHtml = `<span class="badge-status ${isPassDelay ? 'badge-success' : 'badge-danger'}">${isPassDelay ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
 
                 if (targetErr > 0) {
-                    const isPassErr = (q.total_errors || 0) <= targetErr;
                     badgeErrHtml = `<span class="badge-status ${isPassErr ? 'badge-success' : 'badge-danger'}">${isPassErr ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
                 } else {
                     badgeErrHtml = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
                 }
+
+                if (targetMinOrders > 0) {
+                    badgeOrdersHtml = `<span class="badge-status ${isPassOrders ? 'badge-success' : 'badge-danger'}">${isPassOrders ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+                } else {
+                    badgeOrdersHtml = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
+                }
             }
+
+            const rewardBadgeHtml = getRewardBadgeHtml(qRewardText, isFutureOrZeroQ, qOverallPass);
 
             return `
             <tr>
-                <td style="text-align:left; font-weight:800; color:#0f172a;">${q.name}</td>
-                <td style="font-weight:900; color:#b45309; background:#fffbeb; border-radius:6px;">${q.total || 0}</td>
-                <td style="color:#059669; font-weight:800;">${q.early || 0}</td>
-                <td style="color:#4338ca; font-weight:800;">${q.on_time || 0}</td>
-                <td style="color:#dc2626; font-weight:800;">${q.late || 0}</td>
-                <td style="font-weight:900; color:${(q.delay_pct || 0) > 0 ? '#b91c1c' : '#15803d'}">${q.delay_pct || 0}%</td>
-                <td style="color:#3730a3; font-weight:900;">
-                    <input type="number" step="0.1" class="kpi-q-input" data-period="quarter" data-val="${q.quarter}" value="${targetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:900; padding:2px 2px; color:#3730a3; background:#ffffff;">%
+                <td style="text-align:left; font-weight:800; color:#0f172a;">
+                    <div>${q.name}</div>
                 </td>
-                <td id="qBadgeWrap_${q.quarter}">
+                <td class="td-delivery td-delivery-border-l" style="font-weight:900; color:#b45309;">${q.total || 0}</td>
+                <td class="td-delivery" style="color:#059669; font-weight:800;">${q.early || 0}</td>
+                <td class="td-delivery" style="color:#4338ca; font-weight:800;">${q.on_time || 0}</td>
+                <td class="td-delivery" style="color:#dc2626; font-weight:800;">${q.late || 0}</td>
+                <td class="td-delivery" style="font-weight:900; color:${(q.delay_pct || 0) > 0 ? '#b91c1c' : '#15803d'}">${q.delay_pct || 0}%</td>
+                <td class="td-delivery" style="color:#3730a3; font-weight:900;">
+                    ${targetPct}%
+                </td>
+                <td class="td-delivery" id="qBadgeWrap_${q.quarter}">
                     ${badgeDelayHtml}
                 </td>
-                <td style="color:#b45309; font-weight:900; background:#fffbeb;">${q.total_errors || 0} đơn</td>
-                <td>
-                    <input type="number" step="1" class="kpi-q-err-input" data-period="quarter" data-val="${q.quarter}" value="${targetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; color:#b45309; background:#ffffff;">
+                <td class="td-errors td-errors-border-l" style="color:#b45309; font-weight:900;">${q.total_errors || 0} đơn</td>
+                <td class="td-errors" style="color:#b45309; font-weight:900;">
+                    ${targetErr}
                 </td>
-                <td id="qBadgeErrWrap_${q.quarter}">
+                <td class="td-errors td-errors-border-r" id="qBadgeErrWrap_${q.quarter}">
                     ${badgeErrHtml}
                 </td>
+                <td class="td-orders td-orders-border-l" style="color:#065f46; font-weight:900;">
+                    ${targetMinOrders}
+                </td>
+                <td class="td-orders td-orders-border-r" id="qBadgeOrdersWrap_${q.quarter}">
+                    ${badgeOrdersHtml}
+                </td>
                 <td>
-                    <button onclick="window.openKpiTargetModal('quarter', ${q.quarter}, '${q.name}/${data.year}')" style="font-size:10px; font-weight:800; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 6px; border-radius:6px; cursor:pointer;" title="Cấu hình KPI, Phần thưởng & Điều cam kết">⚙️ Cấu Hình</button>
+                    ${isDirector ? `
+                        <button onclick="window.openKpiTargetModal('quarter', ${q.quarter}, '${q.name}/${data.year}')" style="font-size:10px; font-weight:800; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 6px; border-radius:6px; cursor:pointer;" title="Cấu hình KPI, Phần thưởng & Điều cam kết">⚙️ Cấu Hình</button>
+                    ` : '<span style="color:#94a3b8; font-size:11px; font-weight:700;">—</span>'}
                 </td>
             </tr>
             `;
@@ -510,57 +678,91 @@
 
         // Full Year Row
         const yTargetKey = `year_0`;
-        const yTargetPct = targets[yTargetKey] ? targets[yTargetKey].target_max_delay_pct : 5.0;
-        const yTargetErr = targets[yTargetKey] ? (targets[yTargetKey].target_max_total_errors || 0) : 0;
+        const yTargetObj = targets[yTargetKey];
+        const yTargetPct = yTargetObj ? yTargetObj.target_max_delay_pct : 5.0;
+        const yTargetErr = yTargetObj ? (yTargetObj.target_max_total_errors || 0) : 0;
+        const yTargetMinOrders = yTargetObj ? (yTargetObj.target_min_total_orders || 0) : 0;
+        const yEvalRule = yTargetObj ? (yTargetObj.eval_rule || 'ALL') : 'ALL';
+        const yRewardText = formatRewardText(yTargetObj ? (yTargetObj.reward_text || '') : '');
 
         const isFutureYear = (data.year > realCurrentYear) && fullYear.total === 0;
+
+        const isYPassDelay = fullYear.delay_pct <= yTargetPct;
+        const isYPassErr = yTargetErr > 0 ? ((fullYear.total_errors || 0) <= yTargetErr) : true;
+        const isYPassOrders = yTargetMinOrders > 0 ? ((fullYear.total || 0) >= yTargetMinOrders) : true;
+
+        const yHasMultiCriteria = yTargetErr > 0 || yTargetMinOrders > 0;
+        let yOverallPass = false;
+        if (yEvalRule === 'ANY' && yHasMultiCriteria) {
+            yOverallPass = isYPassDelay || (yTargetErr > 0 && isYPassErr) || (yTargetMinOrders > 0 && isYPassOrders);
+        } else if (yHasMultiCriteria) {
+            yOverallPass = isYPassDelay && isYPassErr && isYPassOrders;
+        } else {
+            yOverallPass = isYPassDelay;
+        }
+
         let yBadgeHtml = '';
         let yBadgeErrHtml = '';
+        let yBadgeOrdersHtml = '';
 
         if (isFutureYear) {
             yBadgeHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
             yBadgeErrHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+            yBadgeOrdersHtml = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
         } else {
-            const isYPass = fullYear.delay_pct <= yTargetPct;
-            yBadgeHtml = `<span class="badge-status ${isYPass ? 'badge-success' : 'badge-danger'}">${isYPass ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+            yBadgeHtml = `<span class="badge-status ${isYPassDelay ? 'badge-success' : 'badge-danger'}">${isYPassDelay ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
 
             if (yTargetErr > 0) {
-                const isPassErr = (fullYear.total_errors || 0) <= yTargetErr;
-                yBadgeErrHtml = `<span class="badge-status ${isPassErr ? 'badge-success' : 'badge-danger'}">${isPassErr ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+                yBadgeErrHtml = `<span class="badge-status ${isYPassErr ? 'badge-success' : 'badge-danger'}">${isYPassErr ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
             } else {
                 yBadgeErrHtml = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
             }
+
+            if (yTargetMinOrders > 0) {
+                yBadgeOrdersHtml = `<span class="badge-status ${isYPassOrders ? 'badge-success' : 'badge-danger'}">${isYPassOrders ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+            } else {
+                yBadgeOrdersHtml = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
+            }
         }
+
+        const yRewardBadgeHtml = getRewardBadgeHtml(yRewardText, isFutureYear, yOverallPass);
 
         const fullYearRowHtml = `
         <tr class="row-total">
-            <td style="text-align:left; font-weight:900; color:#92400e;">Cả Năm ${fullYear.year}</td>
-            <td style="font-weight:900; font-size:12.5px; color:#b45309;">${fullYear.total || 0}</td>
-            <td style="color:#059669; font-weight:900;">${fullYear.early || 0}</td>
-            <td style="color:#4338ca; font-weight:900;">${fullYear.on_time || 0}</td>
-            <td style="color:#b91c1c; font-weight:900;">${fullYear.late || 0}</td>
-            <td style="font-size:12.5px; font-weight:900; color:${(fullYear.delay_pct || 0) > 0 ? '#b91c1c' : '#15803d'}">${fullYear.delay_pct || 0}%</td>
-            <td>
-                <input type="number" step="0.1" class="kpi-q-input" data-period="year" data-val="0" value="${yTargetPct}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; background:#ffffff; color:#92400e;">%
+            <td style="text-align:left; font-weight:900; color:#92400e;">
+                <div>Cả Năm ${fullYear.year}</div>
             </td>
-            <td id="yBadgeWrap_0">
+            <td class="td-delivery td-delivery-border-l" style="font-weight:900; font-size:12.5px; color:#b45309;">${fullYear.total || 0}</td>
+            <td class="td-delivery" style="color:#059669; font-weight:900;">${fullYear.early || 0}</td>
+            <td class="td-delivery" style="color:#4338ca; font-weight:900;">${fullYear.on_time || 0}</td>
+            <td class="td-delivery" style="color:#b91c1c; font-weight:900;">${fullYear.late || 0}</td>
+            <td class="td-delivery" style="font-size:12.5px; font-weight:900; color:${(fullYear.delay_pct || 0) > 0 ? '#b91c1c' : '#15803d'}">${fullYear.delay_pct || 0}%</td>
+            <td class="td-delivery" style="color:#92400e; font-weight:900;">
+                ${yTargetPct}%
+            </td>
+            <td class="td-delivery" id="yBadgeWrap_0">
                 ${yBadgeHtml}
             </td>
-            <td style="color:#b45309; font-weight:900;">${fullYear.total_errors || 0} đơn</td>
-            <td>
-                <input type="number" step="1" class="kpi-q-err-input" data-period="year" data-val="0" value="${yTargetErr}" onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="width:44px; text-align:center; border:1.5px solid #f59e0b; border-radius:6px; font-weight:900; padding:2px 2px; background:#ffffff; color:#92400e;">
+            <td class="td-errors td-errors-border-l" style="color:#b45309; font-weight:900;">${fullYear.total_errors || 0} đơn</td>
+            <td class="td-errors" style="color:#92400e; font-weight:900;">
+                ${yTargetErr}
             </td>
-            <td id="yBadgeErrWrap_0">
+            <td class="td-errors td-errors-border-r" id="yBadgeErrWrap_0">
                 ${yBadgeErrHtml}
             </td>
+            <td class="td-orders td-orders-border-l" style="color:#065f46; font-weight:900;">
+                ${yTargetMinOrders}
+            </td>
+            <td class="td-orders td-orders-border-r" id="yBadgeOrdersWrap_0">
+                ${yBadgeOrdersHtml}
+            </td>
             <td>
-                <button onclick="window.openKpiTargetModal('year', 0, 'Cả Năm ${fullYear.year}')" style="font-size:10px; font-weight:800; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 6px; border-radius:6px; cursor:pointer;" title="Cấu hình KPI, Phần thưởng & Điều cam kết">⚙️ Cấu Hình</button>
+                ${isDirector ? `
+                    <button onclick="window.openKpiTargetModal('year', 0, 'Cả Năm ${fullYear.year}')" style="font-size:10px; font-weight:800; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 6px; border-radius:6px; cursor:pointer;" title="Cấu hình KPI, Phần thưởng & Điều cam kết">⚙️ Cấu Hình</button>
+                ` : '<span style="color:#94a3b8; font-size:11px; font-weight:700;">—</span>'}
             </td>
         </tr>
         `;
-
-        const isDirector = (_kpiDelayState.userRole === 'giam_doc' || (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc'));
-        const canCreateKpi = isDirector || ['quan_ly', 'quan_ly_cap_cao'].includes(_kpiDelayState.userRole) || (typeof currentUser !== 'undefined' && currentUser && ['quan_ly', 'quan_ly_cap_cao'].includes(currentUser.role));
 
         // Monthly Cards Html
         const monthlyCardsHtml = months.map(m => {
@@ -568,9 +770,12 @@
             const targetObj = targets[mKey];
             const targetPct = targetObj ? targetObj.target_max_delay_pct : 5.0;
             const targetErr = targetObj ? (targetObj.target_max_total_errors || 0) : 0;
+            const targetMinOrders = targetObj ? (targetObj.target_min_total_orders || 0) : 0;
             const evalRule = targetObj ? (targetObj.eval_rule || 'ALL') : 'ALL';
             const rewardText = targetObj ? formatRewardText(targetObj.reward_text || '') : '';
             const commitments = targetObj ? (targetObj.commitments || []) : [];
+            const companySupports = targetObj ? (targetObj.company_supports || []) : [];
+            const companySupportEvals = targetObj ? (targetObj.company_support_evals || []) : [];
             const status = targetObj ? (targetObj.status || 'active') : 'not_created';
             const commitmentEvals = targetObj ? (targetObj.commitment_evals || []) : [];
             const completionPct = targetObj ? (targetObj.commitment_completion_pct || 0) : 0;
@@ -578,18 +783,35 @@
             const isCurrentMonth = m.month === realCurrentMonth && data.year === realCurrentYear;
             const isFutureMonth = (data.year > realCurrentYear) || (data.year === realCurrentYear && m.month > realCurrentMonth);
 
-            // Check sequential unlocking
+            // Check sequential unlocking (Prev month MUST be evaluated e.g. prevEvals.length > 0)
             let isUnlocked = true;
             if (m.month > 1) {
                 const prevKey = `month_${m.month - 1}`;
                 const prevTarget = targets[prevKey];
-                if (!prevTarget || prevTarget.status !== 'completed') {
+                const prevEvals = prevTarget ? (prevTarget.commitment_evals || []) : [];
+                if (!prevTarget || prevEvals.length === 0) {
                     isUnlocked = false;
                 }
             }
 
             // === 1. State: not_created (Chưa Tạo KPI) ===
             if (status === 'not_created') {
+                if (!isUnlocked) {
+                    return `
+                    <div class="m-card ${isCurrentMonth ? 'is-current-month' : ''}" style="opacity:0.75; border:2px dashed #cbd5e1 !important; background:#f8fafc !important;">
+                        <div class="m-card-header">
+                            <div class="m-card-title" style="color:#64748b;">Tháng ${m.month}/${fullYear.year}</div>
+                            <span class="badge-status badge-future" style="background:#f1f5f9; color:#64748b; border-color:#cbd5e1;">🔒 CẦN ĐÁNH GIÁ THÁNG ${m.month - 1}</span>
+                        </div>
+                        <div style="padding:20px 10px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                            <div style="font-size:24px; margin-bottom:6px;">🔒</div>
+                            <div style="font-weight:800; color:#64748b; margin-bottom:4px;">🔒 Chưa Mở Khóa Tháng ${m.month}</div>
+                            <div style="font-size:11.5px; font-weight:600; color:#94a3b8;">Cần hoàn thành Đánh Giá Cam Kết Tháng ${m.month - 1} trước.</div>
+                        </div>
+                    </div>
+                    `;
+                }
+
                 return `
                 <div class="m-card ${isCurrentMonth ? 'is-current-month' : ''}" style="opacity:0.85; border:2px dashed #cbd5e1 !important; background:#f8fafc !important;">
                     <div class="m-card-header">
@@ -613,40 +835,45 @@
             }
 
             // === 2. Combined Badge & Reward check ===
+            const hasConfiguredKpi = commitments.length > 0 || targetPct > 0 || targetErr > 0 || targetMinOrders > 0;
             const isPassDelay = (m.delay_pct || 0) <= targetPct;
             const isPassErr = targetErr > 0 ? ((m.total_errors || 0) <= targetErr) : true;
+            const isPassOrders = targetMinOrders > 0 ? ((m.total || 0) >= targetMinOrders) : true;
             let isOverallAchieved = false;
-            if (evalRule === 'ANY') {
-                isOverallAchieved = isPassDelay || isPassErr;
-            } else {
-                isOverallAchieved = isPassDelay && isPassErr;
+            if (hasConfiguredKpi) {
+                if (evalRule === 'ANY') {
+                    isOverallAchieved = isPassDelay || (targetErr > 0 && isPassErr) || (targetMinOrders > 0 && isPassOrders);
+                } else {
+                    isOverallAchieved = isPassDelay && isPassErr && isPassOrders;
+                }
             }
 
-            const mBadgeHtml = getCombinedKpiBadgeHtml(isFutureMonth, m.total || 0, m.delay_pct || 0, targetPct, m.total_errors || 0, targetErr, evalRule);
+            const mBadgeHtml = hasConfiguredKpi
+                ? getCombinedKpiBadgeHtml(isFutureMonth, m.total || 0, m.delay_pct || 0, targetPct, m.total_errors || 0, targetErr, evalRule, targetMinOrders)
+                : `<span class="badge-status badge-future" style="background:#f1f5f9; color:#64748b; border-color:#cbd5e1;">⚙️ CHƯA CẤU HÌNH KPI</span>`;
 
             // Card Header Badge Status & Border
             let statusBadgeHtml = '';
             let cardBorderStyle = '';
-            if (status === 'completed') {
-                statusBadgeHtml = `<span class="badge-status badge-success" style="background:#dcfce7; color:#15803d; border-color:#86efac;">✅ ĐÃ HOÀN THÀNH</span>`;
-                cardBorderStyle = `border:2px solid #10b981 !important; background:linear-gradient(180deg,#f0fdf4 0%,#ffffff 100%) !important;`;
-            } else if (status === 'evaluating') {
-                statusBadgeHtml = `<span class="badge-status badge-warning" style="background:#f3e8ff; color:#6b21a8; border-color:#d8b4fe;">📊 ĐANG ĐÁNH GIÁ</span>`;
-                cardBorderStyle = `border:2px solid #a855f7 !important;`;
+            if (isCurrentMonth) {
+                statusBadgeHtml = '<span style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#ffffff; font-size:9.5px; font-weight:900; padding:2px 6px; border-radius:6px; box-shadow:0 2px 6px rgba(245,158,11,0.3); letter-spacing:.3px;">⭐ HIỆN TẠI</span>';
             } else {
-                statusBadgeHtml = isCurrentMonth ? '<span style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#ffffff; font-size:9.5px; font-weight:900; padding:2px 6px; border-radius:6px; box-shadow:0 2px 6px rgba(245,158,11,0.3); letter-spacing:.3px;">⭐ HIỆN TẠI</span>' : '<span class="badge-status badge-warning" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">📝 ĐANG THỰC HIỆN</span>';
+                statusBadgeHtml = `<span class="badge-status badge-warning" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">📝 THÁNG ${m.month}</span>`;
             }
 
             return `
-            <div class="m-card ${isCurrentMonth && status === 'active' ? 'is-current-month' : ''}" id="mCard_${m.month}" style="${cardBorderStyle}">
+            <div class="m-card ${isCurrentMonth ? 'is-current-month' : ''}" id="mCard_${m.month}" style="${cardBorderStyle}">
                 <div class="m-card-header">
                     <div style="display:flex; align-items:center; gap:6px;">
                         <div class="m-card-title">Tháng ${m.month}/${fullYear.year}</div>
                         ${statusBadgeHtml}
                     </div>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        ${status !== 'completed' ? `
+                        ${(isUnlocked && status !== 'completed' && isDirector) ? `
                             <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:900; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:3px 8px; border-radius:6px; cursor:pointer;" title="Cấu hình KPI, Quy tắc đánh giá, Phần thưởng & Điều cam kết">⚙️ Cấu Hình KPI</button>
+                        ` : ''}
+                        ${(isDirector && commitmentEvals.length > 0) ? `
+                            <button onclick="window.openKpiEvalModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:900; color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; padding:3px 8px; border-radius:6px; cursor:pointer; box-shadow:0 1px 4px rgba(5,150,105,0.15);" title="Giám đốc chỉnh sửa kết quả đánh giá cam kết">✏️ Sửa Đánh Giá</button>
                         ` : ''}
                         <div id="mBadgeWrap_${m.month}">
                             ${mBadgeHtml}
@@ -679,36 +906,42 @@
 
                 <!-- Error Stat Summary Section -->
                 <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1;">
-                    <div class="m-stat-row">
-                        <span class="m-stat-label">⚠️ Tổng Đơn Lỗi:</span>
-                        <span class="m-stat-val" style="color:#b45309; background:#fff7ed; padding:2px 8px; border-radius:6px; border:1px solid #fed7aa; font-weight:900;">${m.total_errors || 0} đơn</span>
+                    <div class="m-stat-row" style="display:flex; align-items:center; justify-content:space-between;">
+                        <span class="m-stat-label" style="display:flex; align-items:center; gap:4px; font-weight:800; color:#9a3412;">
+                            ⚠️ Tổng Đơn Lỗi:
+                        </span>
+                        ${isDirector ? `
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <input type="number" min="0" step="1" class="kpi-actual-error-ipt" data-period="month" data-val="${m.month}" value="${(m.total_errors !== null && m.total_errors !== undefined) ? m.total_errors : ''}" placeholder="Nhập số lỗi..." ${(!isUnlocked || status === 'completed' || commitmentEvals.length > 0) ? 'disabled' : ''} onchange="window._kpiDelaySaveActualErrors(this)" oninput="window._kpiDelayUpdateBadgeRealtimeForError(this)" style="width:85px; padding:3px 8px; border:1.5px solid ${(m.total_errors !== null && m.total_errors !== undefined) ? '#fdba74' : '#fca5a5'}; border-radius:6px; font-size:12px; font-weight:900; color:#9a3412; outline:none; text-align:center; background:${!isUnlocked ? '#f1f5f9' : ((m.total_errors !== null && m.total_errors !== undefined) ? '#ffffff' : '#fff5f5')}; box-shadow:0 1px 3px rgba(154,52,18,0.08);" title="${!isUnlocked ? 'Tháng này chưa mở khoá điền đơn lỗi (cần hoàn thành đánh giá tháng trước)' : 'Giám đốc nhập số đơn lỗi thực tế trong tháng (bắt buộc trước khi đánh giá)'}">
+                                <span style="font-size:11.5px; font-weight:900; color:#9a3412;">đơn</span>
+                            </div>
+                        ` : `
+                            <span class="m-stat-val" style="color:#b45309; background:#fff7ed; padding:2px 8px; border-radius:6px; border:1px solid #fed7aa; font-weight:900;">${(m.total_errors !== null && m.total_errors !== undefined) ? (m.total_errors + ' đơn') : '⏳ Chưa điền'}</span>
+                        `}
                     </div>
                 </div>
 
-                <!-- KPI Inputs Row -->
+                <!-- KPI Targets Read-only Display (Configured via ⚙️ Cấu Hình KPI) -->
                 <div class="m-kpi-input-wrap">
                     <div class="m-kpi-input-row">
                         <span class="m-kpi-label">🎯 KPI Trễ Tối Đa:</span>
-                        <div>
-                            <input type="number" step="0.1" class="m-kpi-input kpi-m-input" data-period="month" data-val="${m.month}" value="${targetPct}" ${status === 'completed' ? 'disabled' : ''} onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)">
-                            <span style="font-size:12px; font-weight:800; color:#475569">%</span>
-                        </div>
+                        <span class="m-stat-val" style="color:#4338ca; background:#e0e7ff; padding:2px 10px; border-radius:6px; border:1px solid #c7d2fe; font-weight:900;">${targetPct}%</span>
                     </div>
                     <div class="m-kpi-input-row">
                         <span class="m-kpi-label">⚠️ KPI Lỗi Tối Đa:</span>
-                        <div>
-                            <input type="number" step="1" class="m-kpi-input kpi-m-err-input" data-period="month" data-val="${m.month}" value="${targetErr}" ${status === 'completed' ? 'disabled' : ''} onchange="window._kpiDelayAutoSaveSingle(this)" oninput="window._kpiDelayUpdateBadgeRealtime(this)" style="color:#b45309; border-color:#f59e0b;">
-                            <span style="font-size:12px; font-weight:800; color:#475569">đơn</span>
-                        </div>
+                        <span class="m-stat-val" style="color:#b45309; background:#fff7ed; padding:2px 10px; border-radius:6px; border:1px solid #fed7aa; font-weight:900;">${targetErr} đơn</span>
+                    </div>
+                    <div class="m-kpi-input-row">
+                        <span class="m-kpi-label">📦 KPI Tổng Đơn Tối Thiểu:</span>
+                        <span class="m-stat-val" style="color:#065f46; background:#ecfdf5; padding:2px 10px; border-radius:6px; border:1px solid #a7f3d0; font-weight:900;">${targetMinOrders} đơn</span>
                     </div>
                 </div>
 
-                <!-- Rule Badge & Reward Section -->
+                <!-- Rule Badge Section -->
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px; gap:4px; flex-wrap:wrap;">
                     <span style="font-size:10px; font-weight:800; color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #e2e8f0;">
-                        ${evalRule === 'ANY' ? '⚖️ Quy tắc: Đạt 1 Trong 2' : '⚖️ Quy tắc: Đạt Cả 2'}
+                        ${evalRule === 'ANY' ? '⚖️ Quy tắc: Đạt 1 Trong Các Tiêu Chí' : '⚖️ Quy tắc: Đạt Tất Cả'}
                     </span>
-                    ${rewardText ? `<span style="font-size:10px; font-weight:900; color:#166534; background:#dcfce7; border:1.5px solid #86efac; padding:2px 6px; border-radius:4px;">🎁 ${rewardText}</span>` : ''}
                 </div>
 
                 <!-- Commitments Box Section -->
@@ -717,9 +950,6 @@
                         <span style="font-size:11.5px; font-weight:900; color:#0f172a; display:flex; align-items:center; gap:6px;">
                             📋 Cam Kết Quản Lý Xưởng <span style="background:#e0e7ff; color:#4338ca; font-size:10px; padding:1px 6px; border-radius:99px; font-weight:900;">${commitments.length}</span>
                         </span>
-                        ${(isDirector && status !== 'completed') ? `
-                            <button onclick="window.openKpiTargetModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="font-size:10px; font-weight:800; color:#4f46e5; background:#eff6ff; border:1px solid #c7d2fe; padding:2px 8px; border-radius:6px; cursor:pointer;" title="Chỉnh sửa danh sách cam kết">✏️ Sửa Cam Kết</button>
-                        ` : ''}
                     </div>
 
                     ${commitments.length > 0 ? `
@@ -773,65 +1003,107 @@
                     ` : `<div style="font-size:10.5px; font-style:italic; color:#94a3b8; text-align:center; padding:6px 0;">Chưa lập điều cam kết.</div>`}
                 </div>
 
-                <!-- Kiểu A (Đã Đổi Vị Trí): Trái = Kết Quả KPI, Phải = Tiến Độ Cam Kết -->
-                ${(status === 'completed' || status === 'evaluating') ? `
-                    <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                        <!-- Card Left: Kết Quả KPI & Thưởng -->
-                        ${status === 'completed' ? `
-                            <div style="background:${isOverallAchieved ? 'linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%)' : 'linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%)'}; border:1.5px solid ${isOverallAchieved ? '#86efac' : '#fca5a5'}; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; box-shadow:0 2px 6px rgba(0,0,0,0.04);">
-                                <div style="font-size:10.5px; font-weight:800; color:${isOverallAchieved ? '#166534' : '#991b1b'}; display:flex; align-items:center; justify-content:space-between;">
-                                    <span>${isOverallAchieved ? '🏆 Kết Quả KPI Tháng' : '❌ Kết Quả KPI Tháng'}</span>
-                                    ${isOverallAchieved && rewardText ? `<span style="font-size:10px; font-weight:900; color:#ffffff; background:#15803d; padding:1px 6px; border-radius:6px; box-shadow:0 1px 3px rgba(21,128,61,0.2);">🎁 ${rewardText}</span>` : ''}
-                                </div>
-                                <div style="font-size:13.5px; font-weight:900; color:${isOverallAchieved ? '#15803d' : '#b91c1c'};">
-                                    ${isOverallAchieved ? '🎉 ĐẠT KPI THÁNG' : '❌ KHÔNG ĐẠT (KHÔNG THƯỞNG)'}
-                                </div>
-                            </div>
-                        ` : `
-                            <div style="background:linear-gradient(135deg,#faf5ff 0%,#f3e8ff 100%); border:1.5px solid #d8b4fe; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px;">
-                                <div style="font-size:10.5px; font-weight:800; color:#6b21a8;">📊 Đánh Giá Cam Kết</div>
-                                <div style="font-size:13px; font-weight:900; color:#7c3aed;">⏳ Đang Đánh Giá...</div>
-                            </div>
-                        `}
+                <!-- Company Supports Box Section -->
+                <div style="margin-top:8px; background:linear-gradient(180deg,#ffffff 0%,#f0f9ff 100%); border:1.5px solid #bae6fd; border-radius:12px; padding:10px 12px; box-shadow:0 2px 8px rgba(2,132,199,0.03);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #e0f2fe; padding-bottom:6px;">
+                        <span style="font-size:11.5px; font-weight:900; color:#0369a1; display:flex; align-items:center; gap:6px;">
+                            🤝 QLX Cần Công Ty Hỗ Trợ <span style="background:#e0f2fe; color:#0369a1; font-size:10px; padding:1px 6px; border-radius:99px; font-weight:900;">${companySupports.length}</span>
+                        </span>
+                    </div>
 
-                        <!-- Card Right: Tiến Độ Cam Kết -->
-                        <div style="background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%); border:1.5px solid #ddd6fe; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; box-shadow:0 2px 6px rgba(124,58,237,0.05);">
-                            <div style="font-size:10.5px; font-weight:800; color:#6d28d9; display:flex; align-items:center; justify-content:space-between;">
-                                <span>📊 Tiến Độ Cam Kết</span>
-                                <span style="font-size:10px; font-weight:900; color:#5b21b6; background:#ffffff; padding:1px 6px; border-radius:99px; border:1px solid #c4b5fd;">${commitmentEvals.filter(e => e.passed).length}/${commitments.length} điều đạt</span>
+                    ${companySupports.length > 0 ? `
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            ${companySupports.map((s, idx) => {
+                                const ev = companySupportEvals[idx];
+                                let badgeTag = '<span style="font-size:10px; font-weight:800; color:#94a3b8; background:#f1f5f9; padding:2px 7px; border-radius:99px; border:1px solid #cbd5e1; white-space:nowrap;">⏳ Chưa đánh giá</span>';
+                                let noteBlock = '';
+                                let rowStyle = 'border-left:4px solid #cbd5e1; background:#ffffff; border:1px solid #bae6fd; border-left-color:#cbd5e1;';
+
+                                if (ev) {
+                                    if (ev.passed) {
+                                        badgeTag = `<span style="font-size:10px; font-weight:900; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:99px; border:1px solid #86efac; white-space:nowrap; box-shadow:0 1px 2px rgba(21,128,61,0.1);">✅ ĐÃ HỖ TRỢ</span>`;
+                                        if (ev.note) {
+                                            noteBlock = `
+                                            <div style="margin-top:4px; padding:5px 8px; background:#f0fdf4; border-radius:6px; border:1px solid #bbf7d0; font-size:10.5px; font-weight:700; color:#166534; display:flex; align-items:flex-start; gap:4px; line-height:1.35; word-break:break-word;">
+                                                <span style="flex-shrink:0;">💬</span> <span><b>Ghi chú:</b> ${ev.note}</span>
+                                            </div>
+                                            `;
+                                        }
+                                        rowStyle = 'border-left:4px solid #22c55e; background:#ffffff; border:1px solid #dcfce7; border-left-color:#22c55e;';
+                                    } else {
+                                        badgeTag = `<span style="font-size:10px; font-weight:900; color:#b91c1c; background:#fee2e2; padding:2px 8px; border-radius:99px; border:1px solid #fca5a5; white-space:nowrap; box-shadow:0 1px 2px rgba(185,28,28,0.1);">❌ CHƯA HỖ TRỢ</span>`;
+                                        if (ev.note) {
+                                            noteBlock = `
+                                            <div style="margin-top:4px; padding:5px 8px; background:#fef2f2; border-radius:6px; border:1px solid #fecaca; font-size:10.5px; font-weight:700; color:#991b1b; display:flex; align-items:flex-start; gap:4px; line-height:1.35; word-break:break-word;">
+                                                <span style="flex-shrink:0;">💬</span> <span><b>Ghi chú:</b> ${ev.note}</span>
+                                            </div>
+                                            `;
+                                        }
+                                        rowStyle = 'border-left:4px solid #ef4444; background:#ffffff; border:1px solid #fee2e2; border-left-color:#ef4444;';
+                                    }
+                                }
+
+                                return `
+                                <div style="display:flex; flex-direction:column; gap:4px; padding:8px 10px; border-radius:8px; ${rowStyle} font-size:11.5px; line-height:1.4; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                                    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+                                        <div style="font-weight:800; color:#0f172a; flex:1; word-break:break-word;">
+                                            <span style="color:#0284c7; font-weight:900;">${idx + 1}.</span> ${s}
+                                        </div>
+                                        <div style="flex-shrink:0;">${badgeTag}</div>
+                                    </div>
+                                    ${noteBlock}
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    ` : `<div style="font-size:10.5px; font-style:italic; color:#94a3b8; text-align:center; padding:4px 0;">Chưa ghi nhận nội dung hỗ trợ.</div>`}
+                </div>
+
+                <!-- Card Summary: Left = Automatic KPI Result & Reward, Right = Commitment Progress -->
+                <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <!-- Card Left: Kết Quả KPI & Thưởng -->
+                    ${hasConfiguredKpi ? `
+                        <div style="background:${isOverallAchieved ? 'linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%)' : 'linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%)'}; border:1.5px solid ${isOverallAchieved ? '#86efac' : '#fca5a5'}; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+                            <div style="font-size:10.5px; font-weight:800; color:${isOverallAchieved ? '#166534' : '#991b1b'}; display:flex; align-items:center; justify-content:space-between;">
+                                <span>${isOverallAchieved ? '🏆 Kết Quả KPI' : '❌ Kết Quả KPI'}</span>
                             </div>
-                            <div style="font-size:15.5px; font-weight:900; color:#4c1d95; display:flex; align-items:baseline; gap:4px;">
-                                ${completionPct}% <span style="font-size:10px; font-weight:700; color:#6d28d9;">hoàn thành</span>
+                            <div style="font-size:13.5px; font-weight:900; color:${isOverallAchieved ? '#15803d' : '#b91c1c'};">
+                                ${isOverallAchieved ? '🎉 ĐẠT KPI THÁNG' : '❌ KHÔNG ĐẠT KPI'}
                             </div>
                         </div>
+                    ` : `
+                        <div style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px;">
+                            <div style="font-size:10.5px; font-weight:800; color:#64748b;">⏳ Kết Quả KPI</div>
+                            <div style="font-size:13.5px; font-weight:900; color:#64748b;">⚙️ CHƯA CẤU HÌNH KPI</div>
+                        </div>
+                    `}
+
+                    <!-- Card Right: Tiến Độ Cam Kết -->
+                    <div style="background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%); border:1.5px solid #ddd6fe; border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:3px; box-shadow:0 2px 6px rgba(124,58,237,0.05);">
+                        <div style="font-size:10.5px; font-weight:800; color:#6d28d9; display:flex; align-items:center; justify-content:space-between;">
+                            <span>📊 Tiến Độ Cam Kết</span>
+                            <span style="font-size:10px; font-weight:900; color:#5b21b6; background:#ffffff; padding:1px 6px; border-radius:99px; border:1px solid #c4b5fd;">${commitmentEvals.filter(e => e.passed).length}/${commitments.length} điều đạt</span>
+                        </div>
+                        <div style="font-size:15.5px; font-weight:900; color:#4c1d95; display:flex; align-items:baseline; gap:4px;">
+                            ${completionPct}% <span style="font-size:10px; font-weight:700; color:#6d28d9;">hoàn thành</span>
+                        </div>
                     </div>
-                ` : ''}
+                </div>
 
                 <!-- Action Buttons Footer -->
-                <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end; align-items:center;">
-                    ${isDirector ? `
-                        ${status === 'active' ? `
-                            <button onclick="window.openKpiEvalModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="width:100%; padding:7px 12px; background:linear-gradient(135deg,#4f46e5,#4338ca); color:#ffffff; border:none; border-radius:8px; font-size:11.5px; font-weight:900; cursor:pointer; box-shadow:0 2px 8px rgba(79,70,229,0.25);">
-                                📊 Bắt Đầu Đánh Giá Cam Kết
+                ${(isDirector && commitments.length > 0) ? `
+                    <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end; align-items:center;">
+                        ${commitmentEvals.length > 0 ? `
+                            <div style="width:100%; padding:10px 12px; background:linear-gradient(135deg,#059669,#047857); color:#ffffff; border-radius:8px; font-size:12px; font-weight:900; text-align:center; box-shadow:0 2px 8px rgba(5,150,105,0.25); cursor:default; user-select:none;">
+                                ✅ ĐÃ ĐÁNH GIÁ
+                            </div>
+                        ` : `
+                            <button onclick="window.openKpiEvalModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="width:100%; padding:8px 12px; background:linear-gradient(135deg,#4f46e5,#4338ca); color:#ffffff; border:none; border-radius:8px; font-size:11.5px; font-weight:900; cursor:pointer; box-shadow:0 2px 8px rgba(79,70,229,0.25);">
+                                📊 Đánh Giá Cam Kết Quản Lý Xưởng
                             </button>
-                        ` : ''}
-
-                        ${status === 'evaluating' ? `
-                            <button onclick="window.openKpiEvalModal('month', ${m.month}, 'Tháng ${m.month}/${fullYear.year}')" style="flex:1; padding:7px 10px; background:linear-gradient(135deg,#7c3aed,#6d28d9); color:#ffffff; border:none; border-radius:8px; font-size:11px; font-weight:900; cursor:pointer;">
-                                📊 Đánh Giá Tiếp
-                            </button>
-                            <button onclick="window.completeKpiMonth('month', ${m.month})" style="flex:1; padding:7px 10px; background:linear-gradient(135deg,#059669,#10b981); color:#ffffff; border:none; border-radius:8px; font-size:11px; font-weight:900; cursor:pointer;">
-                                ✅ Hoàn Thành KPI
-                            </button>
-                        ` : ''}
-
-                        ${status === 'completed' ? `
-                            <button onclick="window.reopenKpiMonth('month', ${m.month})" style="width:100%; padding:6px 12px; background:#ffffff; color:#dc2626; border:1.5px solid #fca5a5; border-radius:8px; font-size:11px; font-weight:800; cursor:pointer;" title="Giám Đốc mở lại KPI để điều chỉnh">
-                                🔓 Mở Lại KPI Tháng ${m.month}
-                            </button>
-                        ` : ''}
-                    ` : ''}
-                </div>
+                        `}
+                    </div>
+                ` : ''}
             </div>
             `;
         }).join('');
@@ -862,18 +1134,25 @@
                     <table class="kpi-quarter-table">
                         <thead>
                             <tr>
-                                <th style="text-align:left; color:#ffffff;">Kỳ</th>
-                                <th class="th-tong">Tổng số đơn</th>
-                                <th style="color:#34d399;">Gửi Sớm</th>
-                                <th style="color:#38bdf8;">Đúng Hẹn</th>
-                                <th style="color:#f87171;">Trễ Hẹn</th>
-                                <th style="color:#fca5a5;">% Trễ Hẹn</th>
-                                <th style="color:#c7d2fe;">KPI Trễ</th>
-                                <th style="color:#ffffff;">ĐG Trễ</th>
-                                <th style="color:#fde047;">Tổng Lỗi</th>
-                                <th style="color:#fde047;">KPI Lỗi</th>
-                                <th style="color:#ffffff;">ĐG Lỗi</th>
-                                <th style="color:#ffffff;">⚙️ Cấu Hình</th>
+                                <th rowspan="2" style="text-align:left; color:#ffffff; vertical-align:middle;">Kỳ</th>
+                                <th colspan="7" class="th-group-delivery">📦 TIẾN ĐỘ GIAO HÀNG</th>
+                                <th colspan="3" class="th-group-errors">🔍 THỐNG KÊ LỖI ĐƠN</th>
+                                <th colspan="2" class="th-group-orders">📊 TỔNG ĐƠN HÀNG</th>
+                                <th rowspan="2" style="color:#ffffff; vertical-align:middle;">⚙️ Cấu Hình</th>
+                            </tr>
+                            <tr>
+                                <th class="th-sub-delivery" style="color:#ffffff;">📦 Tổng Đơn</th>
+                                <th class="th-sub-delivery" style="color:#ffffff;">🟢 Gửi Sớm</th>
+                                <th class="th-sub-delivery" style="color:#ffffff;">⏰ Đúng Hẹn</th>
+                                <th class="th-sub-delivery" style="color:#ffffff;">🚨 Trễ Hẹn</th>
+                                <th class="th-sub-delivery" style="color:#ffffff;">📊 % Trễ</th>
+                                <th class="th-sub-delivery" style="color:#ffffff;">🎯 KPI Trễ</th>
+                                <th class="th-sub-delivery" style="color:#ffffff;">🏆 Kết Quả</th>
+                                <th class="th-sub-errors" style="color:#ffffff;">⚠️ Tổng Lỗi</th>
+                                <th class="th-sub-errors" style="color:#ffffff;">🎯 KPI Lỗi</th>
+                                <th class="th-sub-errors" style="color:#ffffff;">🏆 Kết Quả</th>
+                                <th class="th-sub-orders" style="color:#ffffff;">🎯 KPI Đơn</th>
+                                <th class="th-sub-orders" style="color:#ffffff;">🏆 Kết Quả</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1228,8 +1507,10 @@
             if (qData) {
                 const qIptDelay = document.querySelector(`.kpi-q-input[data-period="quarter"][data-val="${pVal}"]`);
                 const qIptErr = document.querySelector(`.kpi-q-err-input[data-period="quarter"][data-val="${pVal}"]`);
+                const qIptOrders = document.querySelector(`.kpi-q-orders-input[data-period="quarter"][data-val="${pVal}"]`);
                 const targetPct = qIptDelay ? (parseFloat(qIptDelay.value) || 0) : 5.0;
                 const targetErr = qIptErr ? (parseInt(qIptErr.value, 10) || 0) : 0;
+                const targetMinOrders = qIptOrders ? (parseInt(qIptOrders.value, 10) || 0) : 0;
 
                 const quarterMonths = { 1: [1, 3], 2: [4, 6], 3: [7, 9], 4: [10, 12] };
                 const [startM] = quarterMonths[pVal];
@@ -1256,14 +1537,28 @@
                         wrapErr.innerHTML = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
                     }
                 }
+
+                const wrapOrders = document.getElementById(`qBadgeOrdersWrap_${pVal}`);
+                if (wrapOrders) {
+                    if (isFutureQ && qData.total === 0) {
+                        wrapOrders.innerHTML = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+                    } else if (targetMinOrders > 0) {
+                        const isPassOrders = (qData.total || 0) >= targetMinOrders;
+                        wrapOrders.innerHTML = `<span class="badge-status ${isPassOrders ? 'badge-success' : 'badge-danger'}">${isPassOrders ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+                    } else {
+                        wrapOrders.innerHTML = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
+                    }
+                }
             }
         } else if (pType === 'year') {
             const yData = _kpiDelayState.data.fullYear;
             if (yData) {
                 const yIptDelay = document.querySelector(`.kpi-q-input[data-period="year"][data-val="0"]`);
                 const yIptErr = document.querySelector(`.kpi-q-err-input[data-period="year"][data-val="0"]`);
+                const yIptOrders = document.querySelector(`.kpi-q-orders-input[data-period="year"][data-val="0"]`);
                 const targetPct = yIptDelay ? (parseFloat(yIptDelay.value) || 0) : 5.0;
                 const targetErr = yIptErr ? (parseInt(yIptErr.value, 10) || 0) : 0;
+                const targetMinOrders = yIptOrders ? (parseInt(yIptOrders.value, 10) || 0) : 0;
 
                 const isFutureYear = (_kpiDelayState.year > realCurrentYear) && yData.total === 0;
 
@@ -1288,20 +1583,34 @@
                         wrapErr.innerHTML = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
                     }
                 }
+
+                const wrapOrders = document.getElementById(`yBadgeOrdersWrap_0`);
+                if (wrapOrders) {
+                    if (isFutureYear) {
+                        wrapOrders.innerHTML = `<span class="badge-status badge-future">⏳ Chưa Tới</span>`;
+                    } else if (targetMinOrders > 0) {
+                        const isPassOrders = (yData.total || 0) >= targetMinOrders;
+                        wrapOrders.innerHTML = `<span class="badge-status ${isPassOrders ? 'badge-success' : 'badge-danger'}">${isPassOrders ? '🔥 Đạt' : '🚨 Không Đạt'}</span>`;
+                    } else {
+                        wrapOrders.innerHTML = `<span style="font-size:11px; font-weight:700; color:#64748b;">—</span>`;
+                    }
+                }
             }
         } else if (pType === 'month') {
             const mData = _kpiDelayState.data.months.find(m => m.month === pVal);
             if (mData) {
-                const mIptDelay = document.querySelector(`.kpi-m-input[data-period="month"][data-val="${pVal}"]`);
-                const mIptErr = document.querySelector(`.kpi-m-err-input[data-period="month"][data-val="${pVal}"]`);
-                const targetPct = mIptDelay ? (parseFloat(mIptDelay.value) || 0) : 5.0;
-                const targetErr = mIptErr ? (parseInt(mIptErr.value, 10) || 0) : 0;
+                const key = `month_${pVal}`;
+                const targetObj = (_kpiDelayState.data && _kpiDelayState.data.targets && _kpiDelayState.data.targets[key]) || {};
+                const targetPct = targetObj.target_max_delay_pct !== undefined ? targetObj.target_max_delay_pct : 5.0;
+                const targetErr = targetObj.target_max_total_errors !== undefined ? targetObj.target_max_total_errors : 0;
+                const targetMinOrders = targetObj.target_min_total_orders !== undefined ? targetObj.target_min_total_orders : 0;
+                const evalRule = targetObj.eval_rule || 'ALL';
 
                 const isFutureMonth = (_kpiDelayState.year > realCurrentYear) || (_kpiDelayState.year === realCurrentYear && pVal > realCurrentMonth);
 
                 const wrap = document.getElementById(`mBadgeWrap_${pVal}`);
                 if (wrap) {
-                    wrap.innerHTML = getCombinedKpiBadgeHtml(isFutureMonth, mData.total || 0, mData.delay_pct || 0, targetPct, mData.total_errors || 0, targetErr);
+                    wrap.innerHTML = getCombinedKpiBadgeHtml(isFutureMonth, mData.total || 0, mData.delay_pct || 0, targetPct, mData.total_errors || 0, targetErr, evalRule, targetMinOrders);
                 }
             }
         }
@@ -1337,12 +1646,28 @@
             targetsMap[key].target_max_total_errors = parseInt(ipt.value, 10) || 0;
         });
 
+        document.querySelectorAll('.kpi-q-orders-input').forEach(ipt => {
+            const pType = ipt.dataset.period;
+            const pVal = parseInt(ipt.dataset.val, 10);
+            const key = `${pType}_${pVal}`;
+            if (!targetsMap[key]) targetsMap[key] = { period_type: pType, period_value: pVal };
+            targetsMap[key].target_min_total_orders = parseInt(ipt.value, 10) || 0;
+        });
+
         // Collect monthly inputs
         document.querySelectorAll('.kpi-m-input').forEach(ipt => {
             const pType = ipt.dataset.period;
             const pVal = parseInt(ipt.dataset.val, 10);
             const key = `${pType}_${pVal}`;
-            if (!targetsMap[key]) targetsMap[key] = { period_type: pType, period_value: pVal };
+            const existingTarget = (_kpiDelayState.data && _kpiDelayState.data.targets && _kpiDelayState.data.targets[key]) || {};
+            if (!targetsMap[key]) {
+                targetsMap[key] = {
+                    period_type: pType,
+                    period_value: pVal,
+                    commitments: existingTarget.commitments || [],
+                    company_supports: existingTarget.company_supports || []
+                };
+            }
             targetsMap[key].target_max_delay_pct = parseFloat(ipt.value) || 0;
         });
 
@@ -1350,7 +1675,15 @@
             const pType = ipt.dataset.period;
             const pVal = parseInt(ipt.dataset.val, 10);
             const key = `${pType}_${pVal}`;
-            if (!targetsMap[key]) targetsMap[key] = { period_type: pType, period_value: pVal };
+            const existingTarget = (_kpiDelayState.data && _kpiDelayState.data.targets && _kpiDelayState.data.targets[key]) || {};
+            if (!targetsMap[key]) {
+                targetsMap[key] = {
+                    period_type: pType,
+                    period_value: pVal,
+                    commitments: existingTarget.commitments || [],
+                    company_supports: existingTarget.company_supports || []
+                };
+            }
             targetsMap[key].target_max_total_errors = parseInt(ipt.value, 10) || 0;
         });
 
@@ -1378,6 +1711,77 @@
         } catch (e) {
             console.error('_kpiDelaySaveTargets error:', e);
             if (!isSilent) alert('❌ Lỗi kết nối máy chủ!');
+        }
+    };
+
+    window._kpiDelaySaveActualErrors = async function(ipt) {
+        if (!ipt) return;
+        const pType = ipt.dataset.period || 'month';
+        const pVal = parseInt(ipt.dataset.val, 10);
+        const rawVal = ipt.value.trim();
+        if (rawVal === '') return;
+        const val = parseInt(rawVal, 10);
+        if (isNaN(val)) return;
+
+        if (pType === 'month' && pVal > 1) {
+            const targetsMap = (_kpiDelayState.data && _kpiDelayState.data.targets) || {};
+            const prevKey = `month_${pVal - 1}`;
+            const prevTarget = targetsMap[prevKey];
+            const prevEvals = prevTarget ? (prevTarget.commitment_evals || []) : [];
+            const isPrevDone = prevTarget && (prevTarget.status === 'completed' || prevTarget.status === 'evaluating' || prevEvals.length > 0);
+            if (!isPrevDone) {
+                alert(`⚠️ Tháng ${pVal - 1} chưa được đánh giá xong!\nBạn không thể nhập số đơn lỗi cho Tháng ${pVal}.`);
+                ipt.value = '';
+                return;
+            }
+        }
+
+        try {
+            const res = await fetch('/api/kpi-delay/evaluate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    year: _kpiDelayState.year,
+                    segment: _kpiDelayState.segment,
+                    period_type: pType,
+                    period_value: pVal,
+                    actual_total_errors: val
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                await loadKpiDelayData();
+                if (typeof showToast === 'function') {
+                    showToast(`✅ Đã tự động lưu Số Đơn Lỗi Thực Tế Tháng ${pVal}: ${val} đơn`, 'success');
+                }
+            } else {
+                alert('❌ Lỗi lưu số đơn lỗi: ' + (data.error || 'Không thể lưu'));
+            }
+        } catch (e) {
+            console.error('_kpiDelaySaveActualErrors error:', e);
+        }
+    };
+
+    window._kpiDelayUpdateBadgeRealtimeForError = function(ipt) {
+        if (!ipt) return;
+        const monthVal = parseInt(ipt.dataset.val, 10);
+        const newErrVal = parseInt(ipt.value, 10) || 0;
+
+        const mData = (_kpiDelayState.data && _kpiDelayState.data.months) ? _kpiDelayState.data.months.find(m => m.month === monthVal) : null;
+        if (!mData) return;
+
+        mData.total_errors = newErrVal;
+
+        const key = `month_${monthVal}`;
+        const targetObj = (_kpiDelayState.data && _kpiDelayState.data.targets && _kpiDelayState.data.targets[key]) || {};
+        const targetPct = targetObj.target_max_delay_pct !== undefined ? targetObj.target_max_delay_pct : 5.0;
+        const targetErr = targetObj.target_max_total_errors !== undefined ? targetObj.target_max_total_errors : 0;
+        const evalRule = targetObj.eval_rule || 'ALL';
+
+        const badgeWrap = document.getElementById(`mBadgeWrap_${monthVal}`);
+        if (badgeWrap) {
+            const targetMinOrders = targetObj.target_min_total_orders !== undefined ? targetObj.target_min_total_orders : 0;
+            badgeWrap.innerHTML = getCombinedKpiBadgeHtml(false, mData.total || 0, mData.delay_pct || 0, targetPct, newErrVal, targetErr, evalRule, targetMinOrders);
         }
     };
 
@@ -1418,6 +1822,23 @@
     var _editingModalTarget = { period_type: 'month', period_value: 1, title: '' };
 
     window.openKpiTargetModal = function(periodType, periodValue, titleLabel) {
+        const isDirector = (_kpiDelayState.userRole === 'giam_doc' || (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc'));
+        if (!isDirector) {
+            alert('⚠️ Chỉ Giám Đốc mới có quyền cấu hình KPI!');
+            return;
+        }
+        if (periodType === 'month' && periodValue > 1) {
+            const targetsMap = (_kpiDelayState.data && _kpiDelayState.data.targets) || {};
+            const prevKey = `month_${periodValue - 1}`;
+            const prevTarget = targetsMap[prevKey];
+            const prevEvals = prevTarget ? (prevTarget.commitment_evals || []) : [];
+            const isPrevDone = prevTarget && (prevTarget.status === 'completed' || prevTarget.status === 'evaluating' || prevEvals.length > 0);
+            if (!isPrevDone) {
+                alert(`⚠️ Tháng ${periodValue - 1} chưa được đánh giá xong!\nVui lòng hoàn thành đánh giá Tháng ${periodValue - 1} trước khi cấu hình KPI Tháng ${periodValue}.`);
+                return;
+            }
+        }
+
         _editingModalTarget = { period_type: periodType, period_value: periodValue, title: titleLabel };
         const key = `${periodType}_${periodValue}`;
         const targetObj = (_kpiDelayState.data && _kpiDelayState.data.targets && _kpiDelayState.data.targets[key]) || {};
@@ -1430,6 +1851,9 @@
 
         const errIpt = document.getElementById('kpiModalTotalErr');
         if (errIpt) errIpt.value = targetObj.target_max_total_errors !== undefined ? targetObj.target_max_total_errors : 0;
+
+        const minOrdersIpt = document.getElementById('kpiModalMinOrders');
+        if (minOrdersIpt) minOrdersIpt.value = targetObj.target_min_total_orders !== undefined ? targetObj.target_min_total_orders : 0;
 
         const evalRule = targetObj.eval_rule || 'ALL';
         const radio = document.querySelector(`input[name="kpiEvalRule"][value="${evalRule}"]`);
@@ -1447,6 +1871,18 @@
                 window.addCommitmentRow('');
             } else {
                 commitments.forEach(c => window.addCommitmentRow(c));
+            }
+        }
+
+        // Render company supports list
+        const companySupports = Array.isArray(targetObj.company_supports) ? targetObj.company_supports : [];
+        const supportContainer = document.getElementById('kpiModalSupportsList');
+        if (supportContainer) {
+            supportContainer.innerHTML = '';
+            if (companySupports.length === 0) {
+                window.addSupportRow('');
+            } else {
+                companySupports.forEach(s => window.addSupportRow(s));
             }
         }
 
@@ -1601,8 +2037,12 @@
     window.saveKpiTargetModal = async function() {
         const delayPct = parseFloat(document.getElementById('kpiModalDelayPct')?.value) || 0;
         const totalErr = parseInt(document.getElementById('kpiModalTotalErr')?.value, 10) || 0;
+        const minOrders = parseInt(document.getElementById('kpiModalMinOrders')?.value, 10) || 0;
         const evalRule = document.querySelector('input[name="kpiEvalRule"]:checked')?.value || 'ALL';
-        const rewardText = formatRewardText((document.getElementById('kpiModalReward')?.value || '').trim());
+        let rewardText = '';
+        if (document.getElementById('kpiModalReward')) {
+            rewardText = formatRewardText((document.getElementById('kpiModalReward')?.value || '').trim());
+        }
 
         const commitmentInputs = document.querySelectorAll('.commitment-item-ipt');
         const commitments = [];
@@ -1611,14 +2051,23 @@
             if (val) commitments.push(val);
         });
 
+        const supportInputs = document.querySelectorAll('.support-item-ipt');
+        const companySupports = [];
+        supportInputs.forEach(ipt => {
+            const val = ipt.value.trim();
+            if (val) companySupports.push(val);
+        });
+
         const targetPayload = {
             period_type: _editingModalTarget.period_type,
             period_value: _editingModalTarget.period_value,
             target_max_delay_pct: delayPct,
             target_max_total_errors: totalErr,
+            target_min_total_orders: minOrders,
             eval_rule: evalRule,
             reward_text: rewardText,
-            commitments: commitments
+            commitments: commitments,
+            company_supports: companySupports
         };
 
         const btnSave = document.getElementById('btnSaveKpiModal');
@@ -1642,7 +2091,7 @@
                 window.closeKpiTargetModal();
                 await loadKpiDelayData();
                 if (typeof showToast === 'function') {
-                    showToast('✅ Đã lưu KPI, Phần thưởng & Cam kết thành công!', 'success');
+                    showToast('✅ Đã lưu KPI, Cam kết & Nội dung Hỗ trợ thành công!', 'success');
                 }
             } else {
                 alert('❌ Lỗi: ' + (data.error || 'Không thể lưu KPI'));
@@ -1658,10 +2107,167 @@
         }
     };
 
+    // Preset Support Suggestions with LocalStorage Persistence & CRUD
+    var DEFAULT_PRESET_SUPPORTS = [
+        "Bàn giao vật tư, nguyên phụ liệu (vải, cúc, chỉ) đúng tiến độ kế hoạch sản xuất",
+        "Phê duyệt ngân sách tăng ca và phụ cấp ca đêm kịp thời cho công nhân",
+        "Đầu tư bổ sung máy may chuyên dụng và thiết bị bảo hộ lao động cho xưởng",
+        "Hỗ trợ tuyển dụng bổ sung nhân sự thợ may tay nghề cao khi đơn hàng tăng vọt",
+        "Bảo trì, sửa chữa định kỳ toàn bộ hệ thống máy móc thiết bị may hàng tháng",
+        "Phòng Kinh Doanh chốt mẫu và file thiết kế in/thêu đúng hạn trước 48h khi vào may"
+    ];
+
+    function getStoredPresetSupports() {
+        try {
+            const stored = localStorage.getItem('kpi_preset_supports');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch (e) {}
+        return [...DEFAULT_PRESET_SUPPORTS];
+    }
+
+    function saveStoredPresetSupports(list) {
+        try {
+            localStorage.setItem('kpi_preset_supports', JSON.stringify(list));
+        } catch (e) {}
+    }
+
+    window.toggleSupportSuggestions = function(forceState) {
+        const panel = document.getElementById('kpiSupportSuggestionsPanel');
+        if (!panel) return;
+        const isShow = forceState !== undefined ? forceState : (panel.style.display === 'none');
+        panel.style.display = isShow ? 'block' : 'none';
+        if (isShow) {
+            window.renderSupportPresetSuggestions();
+        }
+    };
+
+    window.renderSupportPresetSuggestions = function() {
+        const listEl = document.getElementById('kpiSupportPresetSuggestionsList');
+        if (!listEl) return;
+        const presets = getStoredPresetSupports();
+
+        listEl.innerHTML = presets.map((s, idx) => `
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; background:#ffffff; padding:6px 10px; border-radius:6px; border:1px solid #bae6fd;">
+                <span style="font-size:12px; font-weight:700; color:#0369a1; flex:1;">📌 ${s}</span>
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <button type="button" onclick="window.selectSupportPresetSuggestion(\`${s.replace(/`/g, '\\`')}\`)" style="font-size:11px; font-weight:800; color:#0284c7; background:#f0f9ff; padding:2px 8px; border-radius:4px; border:1px solid #bae6fd; cursor:pointer;" title="Chèn câu này vào danh sách hỗ trợ">+ Chọn</button>
+                    <button type="button" onclick="window.editSupportPresetSuggestion(${idx})" style="font-size:11px; padding:2px 6px; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; border-radius:4px; font-weight:800; cursor:pointer;" title="Chỉnh sửa câu gợi ý này">✏️ Sửa</button>
+                    <button type="button" onclick="window.deleteSupportPresetSuggestion(${idx})" style="font-size:11px; padding:2px 6px; background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:4px; font-weight:800; cursor:pointer;" title="Xoá câu gợi ý này">🗑️ Xoá</button>
+                </div>
+            </div>
+        `).join('');
+    };
+
+    window.addNewSupportPresetSuggestion = function() {
+        const val = prompt('Nhập câu gợi ý công ty hỗ trợ mẫu mới muốn cài đặt sẵn vào hệ thống:');
+        if (!val || !val.trim()) return;
+        const presets = getStoredPresetSupports();
+        presets.push(val.trim());
+        saveStoredPresetSupports(presets);
+        window.renderSupportPresetSuggestions();
+        if (typeof showToast === 'function') showToast('✅ Đã thêm câu gợi ý hỗ trợ mới!', 'success');
+    };
+
+    window.editSupportPresetSuggestion = function(index) {
+        const presets = getStoredPresetSupports();
+        if (!presets[index]) return;
+        const newVal = prompt('Chỉnh sửa nội dung câu gợi ý hỗ trợ mẫu:', presets[index]);
+        if (newVal === null || !newVal.trim()) return;
+        presets[index] = newVal.trim();
+        saveStoredPresetSupports(presets);
+        window.renderSupportPresetSuggestions();
+        if (typeof showToast === 'function') showToast('✅ Đã cập nhật câu gợi ý hỗ trợ!', 'success');
+    };
+
+    window.deleteSupportPresetSuggestion = function(index) {
+        if (!confirm('Anh/Chị có chắc chắn muốn xoá câu gợi ý hỗ trợ mẫu này không?')) return;
+        const presets = getStoredPresetSupports();
+        presets.splice(index, 1);
+        saveStoredPresetSupports(presets);
+        window.renderSupportPresetSuggestions();
+        if (typeof showToast === 'function') showToast('🗑️ Đã xoá câu gợi ý hỗ trợ mẫu!', 'info');
+    };
+
+    window.resetSupportPresetSuggestionsDefault = function() {
+        if (!confirm('Khôi phục lại danh sách gợi ý hỗ trợ mặc định của hệ thống?')) return;
+        localStorage.removeItem('kpi_preset_supports');
+        window.renderSupportPresetSuggestions();
+        if (typeof showToast === 'function') showToast('🔄 Đã khôi phục danh sách gợi ý hỗ trợ mặc định!', 'success');
+    };
+
+    window.selectSupportPresetSuggestion = function(text) {
+        const container = document.getElementById('kpiModalSupportsList');
+        let emptyIpt = null;
+        if (container) {
+            const ipts = container.querySelectorAll('.support-item-ipt');
+            for (const ipt of ipts) {
+                if (!ipt.value.trim()) {
+                    emptyIpt = ipt;
+                    break;
+                }
+            }
+        }
+        if (emptyIpt) {
+            emptyIpt.value = text;
+        } else {
+            window.addSupportRow(text);
+        }
+        if (typeof showToast === 'function') {
+            showToast('💡 Đã chèn gợi ý hỗ trợ!', 'info');
+        }
+    };
+
+    window.addSupportRow = function(valueText = '') {
+        const container = document.getElementById('kpiModalSupportsList');
+        if (!container) return;
+        const index = container.children.length + 1;
+        const row = document.createElement('div');
+        row.className = 'support-input-row';
+        row.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:8px;';
+        row.innerHTML = `
+            <span style="font-size:12px; font-weight:800; color:#64748b; width:24px;">#${index}</span>
+            <input type="text" class="support-item-ipt" value="${(valueText || '').replace(/"/g, '&quot;')}" placeholder="Ví dụ: Bàn giao vật tư vải cúc chỉ đúng tiến độ..." style="flex:1; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:12.5px; font-weight:600; color:#0f172a; outline:none;">
+            <button type="button" onclick="this.parentElement.remove(); window.renumberSupportRows();" style="padding:6px 10px; background:#fee2e2; color:#dc2626; border:none; border-radius:6px; font-weight:800; cursor:pointer;" title="Xoá dòng hỗ trợ này">🗑️</button>
+        `;
+        container.appendChild(row);
+    };
+
+    window.renumberSupportRows = function() {
+        const container = document.getElementById('kpiModalSupportsList');
+        if (!container) return;
+        Array.from(container.children).forEach((row, i) => {
+            const span = row.querySelector('span');
+            if (span) span.innerText = `#${i + 1}`;
+        });
+    };
+
     // ========== EVALUATION MODAL CONTROLLERS (GIÁM ĐỐC) ==========
     var _evaluatingModalTarget = { period_type: 'month', period_value: 1, title: '' };
 
     window.openKpiEvalModal = function(periodType, periodValue, titleLabel) {
+        // Validation: Must fill in "⚠️ Tổng Đơn Lỗi" before evaluating
+        const errorInput = document.querySelector(`.kpi-actual-error-ipt[data-period="${periodType}"][data-val="${periodValue}"]`);
+        const errVal = errorInput ? errorInput.value.trim() : '';
+
+        if (errVal === '' || errVal === null || errVal === undefined) {
+            if (typeof showToast === 'function') {
+                showToast('⚠️ Vui lòng nhập số đơn vào "⚠️ Tổng Đơn Lỗi" trước khi Đánh Giá Cam Kết Quản Lý Xưởng!', 'error');
+            } else {
+                alert('⚠️ Vui lòng nhập số đơn vào "⚠️ Tổng Đơn Lỗi" trước khi Đánh Giá Cam Kết Quản Lý Xưởng!');
+            }
+            if (errorInput) {
+                errorInput.focus();
+                errorInput.style.borderColor = '#ef4444';
+                errorInput.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.35)';
+                errorInput.style.background = '#fef2f2';
+                errorInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+
         _evaluatingModalTarget = { period_type: periodType, period_value: periodValue, title: titleLabel };
         const key = `${periodType}_${periodValue}`;
         const targetObj = (_kpiDelayState.data && _kpiDelayState.data.targets && _kpiDelayState.data.targets[key]) || {};
@@ -1687,29 +2293,14 @@
             `;
         }
 
-        const errBox = document.getElementById('kpiEvalErrorBox');
-        if (errBox) {
-            const currentErrVal = targetObj.actual_total_errors !== undefined ? targetObj.actual_total_errors : 0;
-            errBox.innerHTML = `
-                <div style="background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%); border:1.5px solid #fed7aa; border-radius:10px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 2px 6px rgba(154,52,18,0.06);">
-                    <div style="font-size:12.5px; font-weight:800; color:#9a3412; display:flex; align-items:center; gap:6px;">
-                        ⚠️ <span>Số Đơn Lỗi Thực Tế Trong Tháng:</span>
-                        <span style="font-size:11px; font-weight:700; color:#c2410c;">(Nhập tay thực tế)</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <input type="number" id="eval_actual_total_errors" value="${currentErrVal}" min="0" style="width:90px; padding:6px 10px; border:1.5px solid #fdba74; border-radius:8px; font-size:13.5px; font-weight:900; color:#9a3412; outline:none; text-align:center; background:#ffffff;">
-                        <span style="font-size:12px; font-weight:900; color:#9a3412;">đơn</span>
-                    </div>
-                </div>
-            `;
-        }
-
         const listEl = document.getElementById('kpiEvalItemsList');
         if (listEl) {
             listEl.innerHTML = commitments.map((cText, idx) => {
-                const existing = existingEvals[idx] || { passed: true, note: '' };
-                const isPassed = existing.passed !== false;
-                const noteVal = existing.note || '';
+                const existing = existingEvals[idx];
+                const hasValue = existing && (existing.passed === true || existing.passed === false);
+                const isPassed = hasValue ? existing.passed === true : null;
+                const isFailed = hasValue ? existing.passed === false : null;
+                const noteVal = (existing && existing.note) ? existing.note : '';
 
                 return `
                 <div class="kpi-eval-item-row" data-index="${idx}" style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
@@ -1720,10 +2311,10 @@
                         <!-- Pass / Fail Toggle -->
                         <div style="display:flex; align-items:center; gap:8px;">
                             <label style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:800; background:${isPassed ? '#dcfce7' : '#ffffff'}; color:${isPassed ? '#15803d' : '#64748b'}; border:1.5px solid ${isPassed ? '#86efac' : '#cbd5e1'};">
-                                <input type="radio" name="eval_passed_${idx}" value="true" ${isPassed ? 'checked' : ''} onchange="window.updateEvalSummary()" style="accent-color:#16a34a;"> ✅ ĐẠT
+                                <input type="radio" name="eval_passed_${idx}" value="true" ${isPassed === true ? 'checked' : ''} onchange="window.onEvalRadioChange(this)" style="accent-color:#16a34a;"> ✅ ĐẠT
                             </label>
-                            <label style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:800; background:${!isPassed ? '#fee2e2' : '#ffffff'}; color:${!isPassed ? '#dc2626' : '#64748b'}; border:1.5px solid ${!isPassed ? '#fca5a5' : '#cbd5e1'};">
-                                <input type="radio" name="eval_passed_${idx}" value="false" ${!isPassed ? 'checked' : ''} onchange="window.updateEvalSummary()" style="accent-color:#dc2626;"> ❌ CHƯA ĐẠT
+                            <label style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:800; background:${isFailed ? '#fee2e2' : '#ffffff'}; color:${isFailed ? '#dc2626' : '#64748b'}; border:1.5px solid ${isFailed ? '#fca5a5' : '#cbd5e1'};">
+                                <input type="radio" name="eval_passed_${idx}" value="false" ${isFailed === true ? 'checked' : ''} onchange="window.onEvalRadioChange(this)" style="accent-color:#dc2626;"> ❌ CHƯA ĐẠT
                             </label>
                         </div>
 
@@ -1737,6 +2328,50 @@
 
         window.updateEvalSummary();
 
+        // Populate Company Supports list in Eval Modal
+        const companySupports = Array.isArray(targetObj.company_supports) ? targetObj.company_supports : [];
+        const existingSupportEvals = Array.isArray(targetObj.company_support_evals) ? targetObj.company_support_evals : [];
+
+        const supportListEl = document.getElementById('kpiEvalSupportItemsList');
+        const countBadge = document.getElementById('kpiEvalSupportCountBadge');
+        if (countBadge) countBadge.innerText = companySupports.length;
+
+        if (supportListEl) {
+            if (companySupports.length > 0) {
+                supportListEl.innerHTML = companySupports.map((sText, idx) => {
+                    const existing = existingSupportEvals[idx];
+                    const hasValue = existing && (existing.passed === true || existing.passed === false);
+                    const isPassed = hasValue ? existing.passed === true : null;
+                    const isFailed = hasValue ? existing.passed === false : null;
+                    const noteVal = (existing && existing.note) ? existing.note : '';
+
+                    return `
+                    <div class="kpi-eval-support-item-row" data-index="${idx}" style="background:#ffffff; border:1.5px solid #bae6fd; border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="font-size:12.5px; font-weight:800; color:#0f172a;">
+                            📌 <span class="eval-support-text">${sText}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                            <!-- Pass / Fail Toggle -->
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <label style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:800; background:${isPassed ? '#dcfce7' : '#ffffff'}; color:${isPassed ? '#15803d' : '#64748b'}; border:1.5px solid ${isPassed ? '#86efac' : '#cbd5e1'};">
+                                    <input type="radio" name="eval_support_passed_${idx}" value="true" ${isPassed === true ? 'checked' : ''} onchange="window.onEvalRadioChange(this)" style="accent-color:#16a34a;"> ✅ ĐÃ HỖ TRỢ
+                                </label>
+                                <label style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:800; background:${isFailed ? '#fee2e2' : '#ffffff'}; color:${isFailed ? '#dc2626' : '#64748b'}; border:1.5px solid ${isFailed ? '#fca5a5' : '#cbd5e1'};">
+                                    <input type="radio" name="eval_support_passed_${idx}" value="false" ${isFailed === true ? 'checked' : ''} onchange="window.onEvalRadioChange(this)" style="accent-color:#dc2626;"> ❌ CHƯA HỖ TRỢ
+                                </label>
+                            </div>
+
+                            <!-- Note input -->
+                            <input type="text" class="eval-support-note-ipt" value="${noteVal.replace(/"/g, '&quot;')}" placeholder="Ghi chú phản hồi / lý do (tuỳ chọn)..." style="flex:1; min-width:200px; padding:6px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:600; outline:none;">
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            } else {
+                supportListEl.innerHTML = `<div style="font-size:11.5px; font-style:italic; color:#94a3b8; text-align:center; padding:4px 0;">Chưa ghi nhận nội dung công ty hỗ trợ.</div>`;
+            }
+        }
+
         const overlay = document.getElementById('kpiEvalModalOverlay');
         if (overlay) overlay.style.display = 'flex';
     };
@@ -1746,32 +2381,71 @@
         if (overlay) overlay.style.display = 'none';
     };
 
+    window.onEvalRadioChange = function(inputEl) {
+        if (!inputEl) return;
+        const row = inputEl.closest('.kpi-eval-item-row') || inputEl.closest('.kpi-eval-support-item-row');
+        if (row) {
+            row.style.borderColor = row.classList.contains('kpi-eval-support-item-row') ? '#bae6fd' : '#cbd5e1';
+            row.style.background = row.classList.contains('kpi-eval-support-item-row') ? '#ffffff' : '#f8fafc';
+
+            const labels = row.querySelectorAll('label');
+            labels.forEach(lbl => {
+                const rad = lbl.querySelector('input[type="radio"]');
+                if (rad && rad.checked) {
+                    if (rad.value === 'true') {
+                        lbl.style.background = '#dcfce7';
+                        lbl.style.color = '#15803d';
+                        lbl.style.borderColor = '#86efac';
+                    } else {
+                        lbl.style.background = '#fee2e2';
+                        lbl.style.color = '#dc2626';
+                        lbl.style.borderColor = '#fca5a5';
+                    }
+                } else {
+                    lbl.style.background = '#ffffff';
+                    lbl.style.color = '#64748b';
+                    lbl.style.borderColor = '#cbd5e1';
+                }
+            });
+        }
+        window.updateEvalSummary();
+    };
+
     window.updateEvalSummary = function() {
         const rows = document.querySelectorAll('.kpi-eval-item-row');
         let total = rows.length;
+        let selectedCount = 0;
         let passed = 0;
         rows.forEach(r => {
             const idx = r.dataset.index;
             const checked = r.querySelector(`input[name="eval_passed_${idx}"]:checked`);
-            if (checked && checked.value === 'true') passed++;
+            if (checked) {
+                selectedCount++;
+                if (checked.value === 'true') passed++;
+            }
         });
         const pct = total > 0 ? ((passed / total) * 100).toFixed(1) : 0;
 
         const sumEl = document.getElementById('kpiEvalProgressSummary');
         if (sumEl) {
-            sumEl.innerText = `📊 Tỉ lệ hoàn thành: ${passed}/${total} điều cam kết (${pct}%)`;
+            sumEl.innerText = `📊 Tỉ lệ hoàn thành: ${passed}/${total} điều cam kết (${pct}%) ${selectedCount < total ? ' — ⚠️ Chưa chọn đủ (' + (total - selectedCount) + ' mục)' : ''}`;
         }
     };
 
-    window.saveKpiEvalModal = async function(shouldComplete = false) {
+    window.saveKpiEvalModal = async function() {
         const rows = document.querySelectorAll('.kpi-eval-item-row');
         const commitment_evals = [];
+        let missingCommitmentRow = null;
 
-        rows.forEach(r => {
+        for (const r of rows) {
             const idx = r.dataset.index;
             const text = r.querySelector('.eval-commitment-text')?.innerText || '';
             const checked = r.querySelector(`input[name="eval_passed_${idx}"]:checked`);
-            const isPassed = checked ? (checked.value === 'true') : true;
+            if (!checked) {
+                missingCommitmentRow = r;
+                break;
+            }
+            const isPassed = checked.value === 'true';
             const note = (r.querySelector('.eval-note-ipt')?.value || '').trim();
 
             commitment_evals.push({
@@ -1779,14 +2453,59 @@
                 passed: isPassed,
                 note: note
             });
-        });
+        }
 
-        const actual_total_errors = parseInt(document.getElementById('eval_actual_total_errors')?.value, 10) || 0;
+        if (missingCommitmentRow) {
+            if (typeof showToast === 'function') {
+                showToast('⚠️ Vui lòng đánh giá ĐẠT hoặc CHƯA ĐẠT cho tất cả các điều Cam Kết Quản Lý Xưởng!', 'error');
+            } else {
+                alert('⚠️ Vui lòng đánh giá ĐẠT hoặc CHƯA ĐẠT cho tất cả các điều Cam Kết Quản Lý Xưởng!');
+            }
+            missingCommitmentRow.style.borderColor = '#ef4444';
+            missingCommitmentRow.style.background = '#fef2f2';
+            missingCommitmentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        const supportRows = document.querySelectorAll('.kpi-eval-support-item-row');
+        const company_support_evals = [];
+        let missingSupportRow = null;
+
+        for (const r of supportRows) {
+            const idx = r.dataset.index;
+            const text = r.querySelector('.eval-support-text')?.innerText || '';
+            const checked = r.querySelector(`input[name="eval_support_passed_${idx}"]:checked`);
+            if (!checked) {
+                missingSupportRow = r;
+                break;
+            }
+            const isPassed = checked.value === 'true';
+            const note = (r.querySelector('.eval-support-note-ipt')?.value || '').trim();
+
+            company_support_evals.push({
+                text: text,
+                passed: isPassed,
+                note: note
+            });
+        }
+
+        if (missingSupportRow) {
+            if (typeof showToast === 'function') {
+                showToast('⚠️ Vui lòng chọn ĐÃ HỖ TRỢ hoặc CHƯA HỖ TRỢ cho tất cả các mục Công Ty Hỗ Trợ!', 'error');
+            } else {
+                alert('⚠️ Vui lòng chọn ĐÃ HỖ TRỢ hoặc CHƯA HỖ TRỢ cho tất cả các mục Công Ty Hỗ Trợ!');
+            }
+            missingSupportRow.style.borderColor = '#ef4444';
+            missingSupportRow.style.background = '#fef2f2';
+            missingSupportRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        const actualErrIpt = document.getElementById('eval_actual_total_errors') || document.querySelector(`.kpi-actual-error-ipt[data-val="${_evaluatingModalTarget.period_value}"]`);
+        const actual_total_errors = actualErrIpt ? (parseInt(actualErrIpt.value, 10) || 0) : undefined;
 
         const btnSave = document.getElementById('btnSaveKpiEval');
-        const btnComp = document.getElementById('btnCompleteKpiEval');
         if (btnSave) btnSave.disabled = true;
-        if (btnComp) btnComp.disabled = true;
 
         try {
             // Save evaluations
@@ -1799,6 +2518,7 @@
                     period_type: _evaluatingModalTarget.period_type,
                     period_value: _evaluatingModalTarget.period_value,
                     commitment_evals: commitment_evals,
+                    company_support_evals: company_support_evals,
                     actual_total_errors: actual_total_errors
                 })
             });
@@ -1808,37 +2528,14 @@
                 return;
             }
 
-            if (shouldComplete) {
-                // Call complete API
-                const compRes = await fetch('/api/kpi-delay/complete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        year: _kpiDelayState.year,
-                        segment: _kpiDelayState.segment,
-                        period_type: _evaluatingModalTarget.period_type,
-                        period_value: _evaluatingModalTarget.period_value
-                    })
-                });
-                const compData = await compRes.json();
-                if (compData.ok) {
-                    window.closeKpiEvalModal();
-                    await loadKpiDelayData();
-                    if (typeof showToast === 'function') showToast(compData.message || '✅ Đã hoàn thành KPI!', 'success');
-                } else {
-                    alert('❌ Lỗi hoàn thành KPI: ' + (compData.error || 'Không xác định'));
-                }
-            } else {
-                window.closeKpiEvalModal();
-                await loadKpiDelayData();
-                if (typeof showToast === 'function') showToast('✅ Đã lưu đánh giá cam kết!', 'success');
-            }
+            window.closeKpiEvalModal();
+            await loadKpiDelayData();
+            if (typeof showToast === 'function') showToast('✅ Đã lưu đánh giá cam kết thành công!', 'success');
         } catch (e) {
             console.error('saveKpiEvalModal error:', e);
             alert('❌ Lỗi kết nối máy chủ!');
         } finally {
             if (btnSave) btnSave.disabled = false;
-            if (btnComp) btnComp.disabled = false;
         }
     };
 

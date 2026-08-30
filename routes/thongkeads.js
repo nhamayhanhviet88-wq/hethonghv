@@ -335,10 +335,21 @@ module.exports = async function (fastify, opts) {
         let allData = [];
         let nextUrl = insightsUrl;
 
-        // Pagination: follow paging.next
+        // Pagination: follow paging.next (với tự động thử lại nếu gặp lỗi nghẽn/tạm thời từ server Meta)
         while (nextUrl) {
-            const resp = await fetch(nextUrl);
-            const json = await resp.json();
+            let resp, json;
+            let retries = 2;
+            while (retries >= 0) {
+                resp = await fetch(nextUrl);
+                json = await resp.json();
+                if (json.error && (json.error.message.toLowerCase().includes('unknown error') || json.error.code === 1 || json.error.code === 2) && retries > 0) {
+                    console.log(`[ThongKeAds Sync] Retrying Meta API due to transient error... (${retries} left)`);
+                    await new Promise(r => setTimeout(r, 1200));
+                    retries--;
+                } else {
+                    break;
+                }
+            }
 
             if (json.error) {
                 throw new Error(`Meta API Error: ${json.error.message}`);
@@ -489,6 +500,38 @@ module.exports = async function (fastify, opts) {
             ]);
 
             savedCount++;
+        }
+
+        // Auto sync marketing_budgets for synced date range
+        try {
+            const aggBudgets = await db.all(`
+                SELECT report_date, SUM(spend) as day_spend, SUM(messages) as day_msgs
+                FROM ads_stats_daily
+                WHERE account_id = $1 AND report_date >= $2::date AND report_date <= $3::date
+                GROUP BY report_date
+            `, [account.id, sinceDate, untilDate]);
+
+            for (const bg of aggBudgets) {
+                const dStr = bg.report_date instanceof Date ? bg.report_date.toISOString().split('T')[0] : String(bg.report_date);
+                const daySpend = parseFloat(bg.day_spend || 0);
+                const dayMsgs = parseInt(bg.day_msgs || 0);
+
+                const cat = await db.get("SELECT id, name FROM mkt_categories WHERE (fb_ad_account_id = $1 OR LOWER(name) LIKE '%facebook%') ORDER BY CASE WHEN fb_ad_account_id = $1 THEN 0 ELSE 1 END LIMIT 1", [account.fb_ad_account_id]);
+                if (cat) {
+                    const existingMB = await db.get("SELECT id FROM marketing_budgets WHERE category_id = $1 AND budget_date = $2", [cat.id, dStr]);
+                    if (existingMB) {
+                        await db.run("UPDATE marketing_budgets SET spent_amount = $1, lead_count = $2, updated_at = NOW() WHERE id = $3", [daySpend, dayMsgs, existingMB.id]);
+                    } else {
+                        const parts = dStr.split('-');
+                        await db.run(`
+                            INSERT INTO marketing_budgets (category_id, group_type, channel, channel_name, budget_year, budget_month, budget_date, budget_amount, spent_amount, lead_count, created_at, updated_at)
+                            VALUES ($1, 'online', 'Facebook', 'Facebook Ads', $2, $3, $4, 0, $5, $6, NOW(), NOW())
+                        `, [cat.id, parseInt(parts[0]), parseInt(parts[1]), dStr, daySpend, dayMsgs]);
+                    }
+                }
+            }
+        } catch(e) {
+            console.error('[ThongKeAds Sync] Auto sync marketing_budgets error:', e.message);
         }
 
         return {

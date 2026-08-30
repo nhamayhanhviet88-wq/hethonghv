@@ -307,9 +307,16 @@ module.exports = async function(fastify) {
                         WHEN COALESCE(pr.is_discarded, false) = true THEN true
                         WHEN pr.contractor_id IS NOT NULL THEN true
                         ELSE pr.is_print_done 
-                    END AS is_completed
+                    END AS is_completed,
+                    CASE
+                        WHEN COALESCE(pr.is_discarded, false) = true THEN 0
+                        WHEN COALESCE(oi_cte.production_cancelled, false) = true THEN 0
+                        WHEN UPPER(COALESCE(o.order_code, '')) LIKE '%GCPET%' OR UPPER(COALESCE(o.order_code, '')) LIKE '%GCTEM%' THEN 0
+                        ELSE COALESCE(pr.order_quantity, 0)
+                    END AS filtered_qty
                 FROM printing_records pr
                 LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
+                LEFT JOIN dht_order_items oi_cte ON oi_cte.id = pr.order_item_id
                 WHERE 1=1 ${userFilter}
 
                 UNION ALL
@@ -324,7 +331,8 @@ module.exports = async function(fastify) {
                     false AS error_reported,
                     o.created_at,
                     o.order_code,
-                    false AS is_completed
+                    false AS is_completed,
+                    0::int AS filtered_qty
                 FROM dht_orders o
                 WHERE (
                     (o.category_id IN (8, 9) AND o.parent_order_id IS NULL)
@@ -341,7 +349,8 @@ module.exports = async function(fastify) {
                 is_test_print,
                 error_reported,
                 print_field,
-                order_code
+                order_code,
+                filtered_qty
             FROM unified_printing
         `, params);
 
@@ -354,9 +363,18 @@ module.exports = async function(fastify) {
                 pr.print_field,
                 u.full_name AS printer_name,
                 c.name AS contractor_name,
-                COUNT(*)::int AS count
+                COUNT(*)::int AS count,
+                COALESCE(SUM(
+                    CASE
+                        WHEN COALESCE(pr.is_discarded, false) = true THEN 0
+                        WHEN COALESCE(oi.production_cancelled, false) = true THEN 0
+                        WHEN UPPER(COALESCE(o.order_code, '')) LIKE '%GCPET%' OR UPPER(COALESCE(o.order_code, '')) LIKE '%GCTEM%' THEN 0
+                        ELSE COALESCE(pr.order_quantity, 0)
+                    END
+                ), 0)::int AS qty_sum
             FROM printing_records pr
             LEFT JOIN dht_orders o ON pr.dht_order_id = o.id
+            LEFT JOIN dht_order_items oi ON oi.id = pr.order_item_id
             LEFT JOIN users u ON pr.printer_id = u.id
             LEFT JOIN printing_contractors c ON pr.contractor_id = c.id
             WHERE (
@@ -393,14 +411,16 @@ module.exports = async function(fastify) {
                     operator_name: '🏭 ' + (dr.contractor_name || 'Gia công'),
                     operator_type: 'contractor',
                     operator_id: dr.contractor_id,
-                    count: dr.count
+                    count: dr.count,
+                    qty: Number(dr.qty_sum) || 0
                 });
             } else {
                 const worker = {
                     operator_name: dr.printer_name || 'Chưa phân công',
                     operator_type: 'user',
                     operator_id: dr.printer_id || 0,
-                    count: dr.count
+                    count: dr.count,
+                    qty: Number(dr.qty_sum) || 0
                 };
                 const fUpper = (dr.print_field || '').toUpperCase();
                 if (fUpper.includes('PET')) {
@@ -420,32 +440,45 @@ module.exports = async function(fastify) {
                 yearMap[yr] = {
                     year: yr,
                     count: 0,
+                    qty: 0,
                     pending: {
                         total: 0,
+                        qty: 0,
                         pet: 0,
+                        pet_qty: 0,
                         decal: 0,
+                        decal_qty: 0,
                         tem: 0,
+                        tem_qty: 0,
                         gc: 0
                     },
                     done: 0,
+                    done_qty: 0,
                     doneMonths: {}
                 };
             }
             
             const item = yearMap[yr];
             item.count++;
+            const rQty = Number(r.filtered_qty) || 0;
+            item.qty += rQty;
             
             if (r.is_completed) {
                 item.done++;
+                item.done_qty += rQty;
             } else {
                 item.pending.total++;
+                item.pending.qty += rQty;
                 const fUpper = (r.print_field || '').toUpperCase();
                 if (fUpper.includes('PET')) {
                     item.pending.pet++;
+                    item.pending.pet_qty += rQty;
                 } else if (fUpper.includes('DECAL')) {
                     item.pending.decal++;
+                    item.pending.decal_qty += rQty;
                 } else {
                     item.pending.tem++;
+                    item.pending.tem_qty += rQty;
                 }
                 // Count GC orders (GCPET, GCTEM, SUAGCPET, SUAGCTEM)
                 const oc = (r.order_code || '').toUpperCase();

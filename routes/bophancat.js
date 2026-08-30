@@ -1346,6 +1346,15 @@ module.exports = async function(fastify) {
 
                 COUNT(*)::int AS cnt,
 
+                COALESCE(SUM(
+                    CASE 
+                        WHEN COALESCE(cr.phoi_index, 0) = 0 
+                             AND COALESCE(oi.production_cancelled, false) = false 
+                        THEN COALESCE(cr.cut_quantity, 0) 
+                        ELSE 0 
+                    END
+                ), 0)::int AS qty_sum,
+
                 COUNT(*) FILTER (
 
                     WHERE cr.is_cut_done = true AND EXISTS (
@@ -1365,6 +1374,8 @@ module.exports = async function(fastify) {
             FROM cutting_records cr
 
             LEFT JOIN users u ON cr.cutter_id = u.id
+
+            LEFT JOIN dht_order_items oi ON cr.order_item_id = oi.id
 
             LEFT JOIN printing_contractors pc ON cr.printing_contractor_id = pc.id
 
@@ -1411,6 +1422,8 @@ module.exports = async function(fastify) {
                         - (SELECT COUNT(*)::int FROM cutting_records cr WHERE cr.order_item_id = i.id AND (cr.cutter_id IS NOT NULL OR cr.printing_contractor_id IS NOT NULL))
 
                     )::int AS cnt,
+
+                    0::int AS qty_sum,
 
                     0::int AS ratio_fail_cnt
 
@@ -1463,7 +1476,7 @@ module.exports = async function(fastify) {
 
         for (const r of rows) {
 
-            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, ratio_fail_count: 0, cutters: {}, ratio_fail_months: {} };
+            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, qty: 0, ratio_fail_count: 0, cutters: {}, ratio_fail_months: {} };
 
             const cutKey = r.printing_contractor_id ? `c_${r.printing_contractor_id}` : (r.cutter_id || 0);
 
@@ -1475,7 +1488,7 @@ module.exports = async function(fastify) {
 
                     name: r.printing_contractor_id ? `${r.contractor_name} Cắt` : (r.cutter_name || 'Chưa phân công'),
 
-                    total: 0, incomplete_count: 0, ratio_fail_count: 0, months: {},
+                    total: 0, qty: 0, incomplete_count: 0, incomplete_qty: 0, ratio_fail_count: 0, months: {},
 
                     is_contractor: !!r.printing_contractor_id
 
@@ -1486,8 +1499,10 @@ module.exports = async function(fastify) {
             const cutter = yearMap[r.year].cutters[cutKey];
 
             cutter.total += r.cnt;
+            cutter.qty += (Number(r.qty_sum) || 0);
 
             yearMap[r.year].count += r.cnt;
+            yearMap[r.year].qty += (Number(r.qty_sum) || 0);
 
 
 
@@ -1517,13 +1532,15 @@ module.exports = async function(fastify) {
 
             if (r.is_cut_done && r.done_month) {
 
-                if (!cutter.months[r.done_month]) cutter.months[r.done_month] = { month: r.done_month, count: 0 };
+                if (!cutter.months[r.done_month]) cutter.months[r.done_month] = { month: r.done_month, count: 0, qty: 0 };
 
                 cutter.months[r.done_month].count += r.cnt;
+                cutter.months[r.done_month].qty += (Number(r.qty_sum) || 0);
 
             } else {
 
                 cutter.incomplete_count += r.cnt;
+                cutter.incomplete_qty += (Number(r.qty_sum) || 0);
 
             }
 
@@ -1535,7 +1552,7 @@ module.exports = async function(fastify) {
 
         const yearTree = Object.values(yearMap).map(y => ({
 
-            year: y.year, count: y.count, ratio_fail_count: y.ratio_fail_count,
+            year: y.year, count: y.count, qty: y.qty, ratio_fail_count: y.ratio_fail_count,
 
             cutters: Object.values(y.cutters).map(c => ({
 

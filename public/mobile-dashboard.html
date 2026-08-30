@@ -414,9 +414,17 @@
                 <span>Các Chỉ Số Tổng Quan</span>
                 <span class="badge-role">Giám Đốc</span>
             </div>
-            <div class="exec-sub">
+            <div class="exec-sub" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
                 <span>🗓️ <span id="lblPeriodRange">Hôm nay</span></span>
-                <span style="margin-left:auto; cursor:pointer;" onclick="loadDashboardData()">🔄 Cập nhật</span>
+                <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                    <button onclick="syncMetaAdsFromMobileDash(this)" style="
+                        font-family: inherit; padding: 4px 10px; border-radius: 12px; border: none;
+                        background: linear-gradient(135deg, #059669, #10b981);
+                        color: white; font-size: 11px; font-weight: 800; cursor: pointer;
+                        display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(5,150,105,0.3);
+                    ">🔄 Đồng Bộ Từ Meta</button>
+                    <span style="cursor:pointer; font-size:11.5px;" onclick="loadDashboardData()">🔄 Cập nhật</span>
+                </div>
             </div>
         </div>
 
@@ -1630,6 +1638,66 @@
             const mModal = document.getElementById('mModalTrendExpand');
             if (mModal && mModal.style.display !== 'none') {
                 mRenderExpandTrendModalContent();
+            }
+        }
+
+        async function syncMetaAdsFromMobileDash(btnEl) {
+            if (btnEl) {
+                btnEl.disabled = true;
+                btnEl.dataset.oldHtml = btnEl.innerHTML;
+                btnEl.innerHTML = '⏳ Đang đồng bộ...';
+                btnEl.style.opacity = '0.7';
+            }
+
+            try {
+                const resAcc = await fetch('/api/thongkeads/accounts', { credentials: 'include' });
+                const dataAcc = await resAcc.json();
+                if (!dataAcc.ok || !dataAcc.accounts) throw new Error(dataAcc.error || 'Không lấy được danh sách tài khoản!');
+
+                const fbAccs = dataAcc.accounts.filter(a => (a.platform || 'facebook') === 'facebook' && (a.is_active === undefined || a.is_active));
+                if (fbAccs.length === 0) throw new Error('Không có tài khoản Meta Ads nào đang hoạt động!');
+
+                const today = new Date();
+                const twoDaysAgo = new Date(Date.now() - (2 * 86400000));
+                const since = `${twoDaysAgo.getFullYear()}-${String(twoDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(twoDaysAgo.getDate()).padStart(2, '0')}`;
+                const until = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+                let totalSaved = 0;
+                let errors = [];
+
+                for (const acc of fbAccs) {
+                    try {
+                        const res = await fetch(`/api/thongkeads/accounts/${acc.id}/sync`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ since, until })
+                        });
+                        const data = await res.json();
+                        if (!data.ok) throw new Error(data.error);
+                        if (data.result) totalSaved += (data.result.saved || 0);
+                    } catch(err) {
+                        errors.push(`${acc.account_name}: ${err.message}`);
+                    }
+                }
+
+                if (errors.length > 0 && fbAccs.length === 1) throw new Error(errors[0]);
+
+                if (errors.length > 0) {
+                    alert(`⚠️ Đồng bộ hoàn tất với một số lưu ý:\n- Đã lưu: ${totalSaved} bản ghi\n- Lỗi (${errors.length} TK):\n${errors.join('\n')}`);
+                } else {
+                    alert(`✅ Đồng bộ Meta Ads thành công ${fbAccs.length} tài khoản!\n- Tổng bản ghi đã lưu: ${totalSaved}`);
+                }
+
+                if (typeof loadDashboardData === 'function') loadDashboardData();
+            } catch(e) {
+                alert(`❌ Lỗi đồng bộ Meta Ads: ${e.message}`);
+            } finally {
+                if (btnEl) {
+                    btnEl.disabled = false;
+                    btnEl.innerHTML = btnEl.dataset.oldHtml || '🔄 Đồng Bộ Từ Meta';
+                    btnEl.style.opacity = '1';
+                }
             }
         }
 

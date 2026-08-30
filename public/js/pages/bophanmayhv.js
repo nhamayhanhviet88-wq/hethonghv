@@ -175,7 +175,7 @@ function _bpmRenderSb(){
                             s.months.forEach(function(m) {
                                 var mAct = f.year == yr.year && (isCurrentSewer || isCurrentTeam || isCurrentContractor) && f.month == m.month && f.status === 'done';
                                 var filterMonthArgs = yr.year + ', ' + (s.is_contractor || s.is_team ? 'null' : (s.id || 'null')) + ', ' + (s.is_contractor ? s.id : 'null') + ', ' + (s.is_team ? s.id : 'null') + ', ' + m.month;
-                                h += '<div class="bpm-sb-sub' + (mAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilterMonth(' + filterMonthArgs + ')"><span>📅 T' + String(m.month).padStart(2, '0') + '</span><span>' + m.count + '</span></div>';
+                                h += '<div class="bpm-sb-sub' + (mAct ? ' active' : '') + '" onclick="event.stopPropagation(); _bpmFilterMonth(' + filterMonthArgs + ')"><span>📅 T' + String(m.month).padStart(2, '0') + '</span><span>' + (m.qty !== undefined ? m.qty : m.count) + '</span></div>';
                             });
                         }
                     }

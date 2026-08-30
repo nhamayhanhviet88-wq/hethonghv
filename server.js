@@ -1487,7 +1487,12 @@ async function start() {
     fastify.register(require('@fastify/static'), {
         root: path.join(__dirname, 'public'),
         prefix: '/',
-        maxAge: 0 // No caching for static files
+        maxAge: 0, // No caching for static files
+        setHeaders: (res, path) => {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
     });
     // Serve cashflow uploads
     fastify.get('/uploads/cashflow/:filename', async (request, reply) => {
@@ -1744,6 +1749,7 @@ async function start() {
     fastify.register(require('./routes/kpiTargets'));
     fastify.register(require('./routes/yearlyTargets'));
     fastify.register(require('./routes/kpiDelay'));
+    fastify.register(require('./routes/kpiProduction'));
     fastify.register(require('./routes/kpiKdoanh'));
     fastify.register(require('./routes/kpiSale'));
     fastify.register(require('./routes/kpiMarketing'));

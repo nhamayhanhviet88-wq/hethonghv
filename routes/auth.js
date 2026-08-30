@@ -131,7 +131,7 @@ async function authRoutes(fastify, options) {
     // Lấy thông tin user hiện tại + effective permissions
     fastify.get('/api/auth/me', { preHandler: authenticate }, async (request, reply) => {
         const user = await db.get(
-            'SELECT u.id, u.username, u.full_name, u.phone, u.role, u.status, u.telegram_group_id, u.order_code_prefix, u.department_id, u.managed_by_user_id, u.access_blocked, u.can_approve_tsam, d.name AS department_name FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.id = ?',
+            'SELECT u.id, u.username, u.full_name, u.phone, u.role, u.status, u.telegram_group_id, u.order_code_prefix, u.department_id, u.position_id, u.managed_by_user_id, u.access_blocked, u.can_approve_tsam, d.name AS department_name FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.id = ?',
             [request.user.id]
         );
 
@@ -194,6 +194,33 @@ async function authRoutes(fastify, options) {
         }
 
         user.permissions = permissions;
+
+        // ★ KPI Production: determine which department tabs the user can see
+        // Map department_id → allowed KPI tabs
+        const KPI_DEPT_MAP = {
+            8: ['cutting'],       // PHÒNG CẮT
+            12: ['printing'],     // PHÒNG IN
+            13: ['pressing'],     // PHÒNG ÉP
+            14: ['sewing'],       // PHÒNG MAY
+            15: ['finishing'],    // PHÒNG HOÀN THIỆN
+            24: ['sewing'],       // Team May Tiên Phong → inherits PHÒNG MAY
+            26: ['sewing'],       // Team May Tinh Hoa → inherits PHÒNG MAY
+        };
+        // Position ID 286775 = "Quản Lý May" → also sees QC tab
+        const QC_POSITION_IDS = [286775];
+
+        if (['giam_doc', 'admin', 'quan_ly_cap_cao'].includes(user.role) || ['admin', 'quanlyxuong', 'trinh'].includes(user.username)) {
+            user.kpi_production_departments = null; // null = all tabs visible
+        } else if (user.department_id && KPI_DEPT_MAP[user.department_id]) {
+            user.kpi_production_departments = [...KPI_DEPT_MAP[user.department_id]];
+            // Add QC tab for specific positions
+            if (user.position_id && QC_POSITION_IDS.includes(user.position_id)) {
+                user.kpi_production_departments.push('qc');
+            }
+        } else {
+            user.kpi_production_departments = []; // empty = no tabs visible
+        }
+
         return { user };
     });
 

@@ -68,6 +68,7 @@ module.exports = async function(fastify) {
         await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS order_item_id INTEGER`);
         await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS material_name TEXT`);
         await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS fabric_color TEXT`);
+        await db.exec(`ALTER TABLE pressing_records ADD COLUMN IF NOT EXISTS is_discarded BOOLEAN DEFAULT FALSE`);
     } catch(errCol) { console.error('[BPE] ALTER TABLE migration:', errCol.message); }
 
     } catch(e) { console.error('[BPE] records:', e.message); }
@@ -233,9 +234,11 @@ module.exports = async function(fastify) {
                 CASE WHEN pr.is_reported THEN
                     EXTRACT(MONTH FROM COALESCE(pr.reported_at, pr.press_date, pr.created_at))::int
                 ELSE NULL END AS done_month,
-                COUNT(*)::int AS cnt
+                COUNT(*)::int AS cnt,
+                COALESCE(SUM(CASE WHEN COALESCE(oi.production_cancelled, false) = false AND COALESCE(pr.is_discarded, false) = false THEN COALESCE(pr.order_quantity, 0) ELSE 0 END), 0)::int AS qty_sum
             FROM pressing_records pr
             LEFT JOIN users u ON pr.presser_id = u.id
+            LEFT JOIN dht_order_items oi ON pr.order_item_id = oi.id
             WHERE 1=1 ${where}
             GROUP BY year, pr.presser_id, u.full_name, pr.is_reported, done_month
             ORDER BY year DESC, u.full_name, done_month DESC
@@ -244,27 +247,31 @@ module.exports = async function(fastify) {
         const total = rows.reduce((s, r) => s + r.cnt, 0);
         const yearMap = {};
         for (const r of rows) {
-            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, pressers: {} };
+            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, qty: 0, pressers: {} };
             const prKey = r.presser_id || 0;
             if (!yearMap[r.year].pressers[prKey]) {
                 yearMap[r.year].pressers[prKey] = {
                     id: r.presser_id, name: r.presser_name || 'Chưa phân công',
-                    total: 0, incomplete_count: 0, months: {}
+                    total: 0, qty: 0, incomplete_count: 0, incomplete_qty: 0, months: {}
                 };
             }
             const presser = yearMap[r.year].pressers[prKey];
             presser.total += r.cnt;
+            presser.qty += r.qty_sum;
             yearMap[r.year].count += r.cnt;
+            yearMap[r.year].qty += r.qty_sum;
             if (r.is_reported && r.done_month) {
-                if (!presser.months[r.done_month]) presser.months[r.done_month] = { month: r.done_month, count: 0 };
+                if (!presser.months[r.done_month]) presser.months[r.done_month] = { month: r.done_month, count: 0, qty: 0 };
                 presser.months[r.done_month].count += r.cnt;
+                presser.months[r.done_month].qty += r.qty_sum;
             } else {
                 presser.incomplete_count += r.cnt;
+                presser.incomplete_qty += r.qty_sum;
             }
         }
 
         const yearTree = Object.values(yearMap).map(y => ({
-            year: y.year, count: y.count,
+            year: y.year, count: y.count, qty: y.qty,
             pressers: Object.values(y.pressers).map(p => ({
                 ...p, months: Object.values(p.months).sort((a, b) => b.month - a.month)
             }))

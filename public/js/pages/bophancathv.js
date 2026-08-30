@@ -365,7 +365,7 @@ function _bpcRenderSidebar() {
                         if (c.months) {
                             c.months.forEach(function(m) {
                                 var mAct = f.view==='records' && f.year==yr.year && f.cutter_id==c.id && f.month==m.month && f.status==='done';
-                                h += '<div class="bpc-sb-sub'+(mAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterMonth('+yr.year+',\''+c.id+'\','+m.month+')"><span>📅 T'+String(m.month).padStart(2,'0')+'</span><span>'+m.count+'</span></div>';
+                                h += '<div class="bpc-sb-sub'+(mAct?' active':'')+'" onclick="event.stopPropagation();_bpcFilterCutterMonth('+yr.year+',\''+c.id+'\','+m.month+')"><span>📅 T'+String(m.month).padStart(2,'0')+'</span><span>'+(m.qty !== undefined ? m.qty : m.count)+'</span></div>';
                             });
                         }
                     }

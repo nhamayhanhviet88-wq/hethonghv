@@ -237,9 +237,16 @@ module.exports = async function(fastify) {
         const rows = await db.all(`
             SELECT EXTRACT(YEAR FROM COALESCE(fr.expected_date,fr.created_at))::int AS year,
                    EXTRACT(MONTH FROM COALESCE(fr.expected_date,fr.created_at))::int AS month,
-                   fr.finisher_id, u.full_name AS finisher_name, COUNT(*)::int AS count
+                   fr.finisher_id, u.full_name AS finisher_name, COUNT(*)::int AS count,
+                   COALESCE(SUM(
+                       CASE
+                           WHEN COALESCE(oi_tree.production_cancelled, false) = true THEN 0
+                           ELSE COALESCE(NULLIF(fr.quantity, 0), oi_tree.quantity, 0)
+                       END
+                   ), 0)::int AS qty_sum
             FROM finishing_records fr 
             LEFT JOIN sewing_records sr ON fr.sewing_record_id = sr.id
+            LEFT JOIN dht_order_items oi_tree ON oi_tree.id = COALESCE(fr.order_item_id, sr.order_item_id)
             LEFT JOIN users u ON fr.finisher_id=u.id
             WHERE 1=1 ${where}
               AND (
@@ -256,11 +263,12 @@ module.exports = async function(fastify) {
         const total = rows.reduce((s,r) => s+r.count, 0);
         const yearMap = {};
         for (const r of rows) {
-            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, months: {} };
-            if (!yearMap[r.year].months[r.month]) yearMap[r.year].months[r.month] = { month: r.month, count: 0, finishers: [] };
+            if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, count: 0, qty: 0, months: {} };
+            if (!yearMap[r.year].months[r.month]) yearMap[r.year].months[r.month] = { month: r.month, count: 0, qty: 0, finishers: [] };
             const mo = yearMap[r.year].months[r.month];
-            mo.finishers.push({ id: r.finisher_id, name: r.finisher_name || 'Chưa phân công', count: r.count });
+            mo.finishers.push({ id: r.finisher_id, name: r.finisher_name || 'Chưa phân công', count: r.count, qty: Number(r.qty_sum) || 0 });
             mo.count += r.count; yearMap[r.year].count += r.count;
+            mo.qty += (Number(r.qty_sum) || 0); yearMap[r.year].qty += (Number(r.qty_sum) || 0);
         }
         const tree = Object.values(yearMap).map(y => ({ ...y, months: Object.values(y.months) }));
         const stats = await db.get(`SELECT COUNT(*)::int AS total,

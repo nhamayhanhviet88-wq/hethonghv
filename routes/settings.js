@@ -332,7 +332,7 @@ async function settingsRoutes(fastify, options) {
         return { value: val };
     });
 
-    fastify.put('/api/app-config/:key', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+    fastify.put('/api/app-config/:key', { preHandler: [authenticate] }, async (request, reply) => {
         const { key } = request.params;
         const { value } = request.body || {};
         const strValue = typeof value === 'string' ? value : JSON.stringify(value);

@@ -1,6 +1,7 @@
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram, notifyTelegram } = require('../utils/telegram');
 const { getNextWorkingDay, getVNToday, getNextFollowUpDate, getEffectiveWorkingDay, toDateStr, getHolidays } = require('../utils/workingDay');
+const { vnNow, vnDateStr } = require('../utils/timezone');
 const { calculateRealDeadline } = require('./deadline-checker');
 const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
@@ -1807,6 +1808,136 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             success: true,
             next_appointment_date: nextFollowUp,
             message: `✅ Đã chăm sóc nhanh! Lịch hẹn tiếp theo: ${nextFollowUp}`
+        };
+    });
+
+    // ========== POST: Director Batch Process Customers ==========
+    fastify.post('/api/customers/director-batch-process', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { customer_ids, action_type, target_user_id, new_appointment_date, crm_type, tab_filter } = request.body || {};
+        const directorId = request.user.id;
+
+        let targetIds = Array.isArray(customer_ids) ? customer_ids.map(Number).filter(Boolean) : [];
+
+        // If no explicit targetIds passed but crm_type & tab_filter = 'phai_xu_ly_hom_nay', query all matching customers
+        if (targetIds.length === 0 && crm_type && tab_filter === 'phai_xu_ly_hom_nay') {
+            const today = vnDateStr(vnNow());
+            const rows = await db.all(
+                `SELECT c.id FROM customers c
+                 WHERE c.crm_type = $1 
+                   AND (c.order_status IS NULL OR c.order_status NOT IN ('huy', 'khau_tru'))
+                   AND (
+                       c.appointment_date::date <= $2::date 
+                       OR c.effective_date::date <= $2::date
+                       OR c.created_at::date <= $2::date
+                       OR c.appointment_date IS NULL
+                   )
+                   AND NOT EXISTS (
+                       SELECT 1 FROM consultation_logs cl 
+                       WHERE cl.customer_id = c.id 
+                         AND cl.created_at::date = $2::date
+                         AND cl.log_type NOT IN ('chuyen_doi_crm', 'tao_tk_affiliate', 'gui_lai_so', 'pancake_update')
+                         AND (cl.content IS NULL OR (cl.content NOT LIKE '%Pancake%' AND cl.content NOT LIKE '%Đồng bộ%' AND cl.content NOT LIKE '%Cập nhật%'))
+                   )`,
+                [crm_type, today]
+            );
+            targetIds = rows.map(r => r.id);
+        }
+
+        if (targetIds.length === 0) {
+            return reply.code(400).send({ error: 'Không tìm thấy khách hàng nào để xử lý' });
+        }
+
+        const today = vnDateStr(vnNow());
+        const tomorrowObj = new Date();
+        tomorrowObj.setDate(tomorrowObj.getDate() + 1);
+        const tomorrowStr = vnDateStr(tomorrowObj);
+
+        let processedCount = 0;
+
+        if (action_type === 'mark_handled') {
+            const targetDate = new_appointment_date || tomorrowStr;
+            await db.run(
+                `UPDATE customers SET appointment_date = $1, updated_at = NOW() WHERE id = ANY($2::int[])`,
+                [targetDate, targetIds]
+            );
+            for (const id of targetIds) {
+                await db.run(
+                    `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
+                     VALUES ($1, 'tu_van', $2, $3, NOW())`,
+                    [id, `[Giám Đốc Xử Lý Hàng Loạt] Đã đánh dấu xử lý hôm nay. Hạn tiếp theo: ${targetDate}`, directorId]
+                );
+            }
+            processedCount = targetIds.length;
+        } else if (action_type === 'reassign') {
+            if (!target_user_id) {
+                return reply.code(400).send({ error: 'Vui lòng chọn nhân viên để chuyển gán' });
+            }
+            const targetUserRow = await db.get(`SELECT full_name FROM users WHERE id = $1`, [target_user_id]);
+            const targetUserName = targetUserRow?.full_name || `ID ${target_user_id}`;
+
+            await db.run(
+                `UPDATE customers SET assigned_to_id = $1, updated_at = NOW() WHERE id = ANY($2::int[])`,
+                [target_user_id, targetIds]
+            );
+            for (const id of targetIds) {
+                await db.run(
+                    `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
+                     VALUES ($1, 'phan_cong', $2, $3, NOW())`,
+                    [id, `[Giám Đốc Xử Lý Hàng Loạt] Chuyển gán sang nhân viên: ${targetUserName}`, directorId]
+                );
+            }
+            processedCount = targetIds.length;
+        } else if (action_type === 'reschedule') {
+            const targetDate = new_appointment_date || tomorrowStr;
+            await db.run(
+                `UPDATE customers SET appointment_date = $1, updated_at = NOW() WHERE id = ANY($2::int[])`,
+                [targetDate, targetIds]
+            );
+            for (const id of targetIds) {
+                await db.run(
+                    `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
+                     VALUES ($1, 'doi_han', $2, $3, NOW())`,
+                    [id, `[Giám Đốc Xử Lý Hàng Loạt] Dời hạn chăm sóc sang: ${targetDate}`, directorId]
+                );
+            }
+            processedCount = targetIds.length;
+        } else if (action_type === 'cancel') {
+            await db.run(
+                `UPDATE customers SET order_status = 'huy', appointment_date = NULL, updated_at = NOW() WHERE id = ANY($1::int[])`,
+                [targetIds]
+            );
+            for (const id of targetIds) {
+                await db.run(
+                    `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at) 
+                     VALUES ($1, 'huy', $2, $3, NOW())`,
+                    [id, `[Giám Đốc Xử Lý Hàng Loạt] Giám Đốc hủy khách hàng`, directorId]
+                );
+            }
+            processedCount = targetIds.length;
+        } else if (action_type === 'delete') {
+            // Nullify foreign keys referencing these customers
+            try { await db.run(`UPDATE users SET source_customer_id = NULL WHERE source_customer_id = ANY($1::int[])`, [targetIds]); } catch(e){}
+            try { await db.run(`UPDATE customers SET referrer_customer_id = NULL WHERE referrer_customer_id = ANY($1::int[])`, [targetIds]); } catch(e){}
+            
+            // Delete dependent records
+            try { await db.run(`DELETE FROM consultation_logs WHERE customer_id = ANY($1::int[])`, [targetIds]); } catch(e){}
+            try { await db.run(`DELETE FROM emergencies WHERE customer_id = ANY($1::int[])`, [targetIds]); } catch(e){}
+            try { await db.run(`DELETE FROM order_codes WHERE customer_id = ANY($1::int[])`, [targetIds]); } catch(e){}
+            try { await db.run(`DELETE FROM orders WHERE customer_id = ANY($1::int[])`, [targetIds]); } catch(e){}
+            try { await db.run(`DELETE FROM payment_records WHERE customer_id = ANY($1::int[])`, [targetIds]); } catch(e){}
+            try { await db.run(`DELETE FROM pancake_pending_leads WHERE customer_id = ANY($1::int[])`, [targetIds]); } catch(e){}
+            
+            // Delete customers
+            await db.run(`DELETE FROM customers WHERE id = ANY($1::int[])`, [targetIds]);
+            processedCount = targetIds.length;
+        } else {
+            return reply.code(400).send({ error: 'Loại hành động không hợp lệ' });
+        }
+
+        return {
+            success: true,
+            processed_count: processedCount,
+            message: `🎉 Đã xử lý thành công ${processedCount} khách hàng!`
         };
     });
 };

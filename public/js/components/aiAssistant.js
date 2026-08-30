@@ -365,15 +365,30 @@
 
     async function checkProactiveAlerts() {
         try {
-            var token = localStorage.getItem('token');
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var headers = {};
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+
             var res = await fetch('/api/ai-assistant/alerts', {
-                headers: { 'Authorization': token ? ('Bearer ' + token) : '' }
+                headers: headers,
+                credentials: 'same-origin'
             });
             if (res.ok) {
                 var data = await res.json();
-                if (data && data.alerts && data.alerts.length > 0) {
+                if (data && data.alerts) {
                     state.proactiveAlerts = data.alerts;
-                    updateFloatBadgeAlerts(data.alerts.length);
+                    var unread = data.unreadCount !== undefined ? data.unreadCount : data.alerts.filter(function(a) { return !a.is_read; }).length;
+                    if (unread > 0) {
+                        updateFloatBadgeAlerts(unread);
+                    } else {
+                        var btn = document.getElementById('hvAiFloatBtn');
+                        if (btn) {
+                            btn.innerHTML = `
+                                <div class="hv-ai-pulse"></div>
+                                <span>🤖 Trợ Lý AI HV</span>
+                            `;
+                        }
+                    }
                 }
             }
         } catch(e) {}
@@ -479,7 +494,6 @@
                 <div class="hv-ai-msg assistant">
                     <strong>Xin chào Anh/Chị! 👋</strong><br>
                     ${welcomeSub}
-                    ${alertCardsHtml}
                     <div style="margin-top:10px;font-weight:700;color:#4338ca">💡 Câu hỏi gợi ý nhanh:</div>
                     <div class="hv-ai-chips">
                         ${chipsHtml}
@@ -663,7 +677,88 @@
                 }
             }
         } catch(e) {}
+
+        renderProactiveAlertsInChatBody();
     }
+
+    function renderProactiveAlertsInChatBody() {
+        var body = document.getElementById('hvAiBody');
+        if (!body) return;
+        var existingBox = document.getElementById('hvAiProactiveAlertsBox');
+        if (existingBox) existingBox.remove();
+
+        if (state.proactiveAlerts && state.proactiveAlerts.length > 0) {
+            var unreadCount = state.proactiveAlerts.filter(function(a) { return !a.is_read; }).length;
+            var box = document.createElement('div');
+            box.className = 'hv-ai-msg assistant';
+            box.id = 'hvAiProactiveAlertsBox';
+
+            var isAllRead = unreadCount === 0;
+
+            var items = state.proactiveAlerts.map(function(a) {
+                var bg = a.severity === 'danger' ? '#fef2f2' : '#fffbeb';
+                var border = a.severity === 'danger' ? '#fecaca' : '#fef3c7';
+                var color = a.severity === 'danger' ? '#991b1b' : '#92400e';
+                return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 12px;margin-top:8px;font-size:12.5px;color:${color};box-shadow:0 1px 3px rgba(0,0,0,0.03)">
+                    <div style="font-weight:900;margin-bottom:2px;display:flex;align-items:center;gap:6px">${a.title}</div>
+                    <div style="line-height:1.4">${a.message}</div>
+                </div>`;
+            }).join('');
+
+            var headerHtml = '';
+            if (!isAllRead) {
+                box.style.cssText = 'background:#fff1f2;border:1.5px solid #fda4af;box-shadow:0 4px 12px rgba(225,29,72,0.15);border-radius:14px;margin-top:10px;padding:12px 14px';
+                headerHtml = `
+                    <div style="font-weight:900;font-size:13px;color:#be123c;display:flex;align-items:center;justify-content:space-between;gap:8px">
+                        <span>🚨 TRỢ LÝ AI PHÁT HIỆN ${unreadCount} CẢNH BÁO MỚI</span>
+                        <button onclick="window._hvAiMarkAlertsRead()" style="background:#be123c;color:#ffffff;border:none;padding:4px 12px;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(190,18,60,0.3)">✕ Đã đọc & Ẩn</button>
+                    </div>
+                `;
+            } else {
+                box.style.cssText = 'background:#f8fafc;border:1.5px solid #cbd5e1;box-shadow:0 2px 8px rgba(0,0,0,0.04);border-radius:14px;margin-top:10px;padding:12px 14px';
+                headerHtml = `
+                    <div style="font-weight:900;font-size:12.5px;color:#475569;display:flex;align-items:center;justify-content:space-between;gap:8px">
+                        <span>📋 CÁC CẢNH BÁO AI (ĐÃ ĐỌC)</span>
+                        <span style="background:#e2e8f0;color:#475569;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800">✓ Đã đọc</span>
+                    </div>
+                `;
+            }
+
+            box.innerHTML = headerHtml + items;
+            body.appendChild(box);
+            body.scrollTop = body.scrollHeight;
+        }
+    }
+
+    window._hvAiMarkAlertsRead = async function() {
+        try {
+            var token = localStorage.getItem('token') || (document.cookie.match(/token=([^;]+)/) || [])[1];
+            var headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+
+            await fetch('/api/ai-assistant/alerts/mark-read', {
+                method: 'POST',
+                headers: headers,
+                credentials: 'same-origin'
+            });
+        } catch(e) {
+            console.error('[AI Assistant] Mark read error:', e);
+        }
+
+        if (state.proactiveAlerts) {
+            state.proactiveAlerts.forEach(function(a) { a.is_read = true; });
+        }
+
+        var btn = document.getElementById('hvAiFloatBtn');
+        if (btn) {
+            btn.innerHTML = `
+                <div class="hv-ai-pulse"></div>
+                <span>🤖 Trợ Lý AI HV</span>
+            `;
+        }
+
+        renderProactiveAlertsInChatBody();
+    };
 
     window._hvAiClearHistory = async function() {
         if (!confirm('Anh/Chị có chắc chắn muốn xóa toàn bộ lịch sử đàm thoại dài hạn với Trợ lý AI không?')) return;

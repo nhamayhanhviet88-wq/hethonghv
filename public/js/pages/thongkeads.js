@@ -103,16 +103,24 @@ window.renderThongkeadsPage = function(container) {
     let _searchQuery = '';
     let _currentPage = 1;
     let _totalRecords = 0;
-    let _isGD = false;
+    function _checkIsGD(userObj) {
+        if (!userObj) return false;
+        const r = (userObj.role || '').toLowerCase();
+        return r === 'giam_doc' || r === 'admin' || r === 'ban_giam_doc' || !!userObj.is_admin;
+    }
 
-    // Check role
-    try {
-        const u = window.__currentUser || window._currentUser;
-        if (u) {
-            const r = (u.role || '').toLowerCase();
-            _isGD = r === 'giam_doc' || r === 'admin' || r === 'ban_giam_doc' || !!u.is_admin;
+    function _getUserFromAnywhere() {
+        let u = window.__currentUser || window._currentUser || window.currentUser;
+        if (!u) {
+            try {
+                const raw = localStorage.getItem('currentUser') || localStorage.getItem('user') || localStorage.getItem('userData');
+                if (raw) u = JSON.parse(raw);
+            } catch(e) {}
         }
-    } catch(e) {}
+        return u;
+    }
+
+    let _isGD = _checkIsGD(_getUserFromAnywhere());
 
     container.innerHTML = `
         <div id="thongkeads-root" style="padding: 16px 20px; width: 100%; max-width: 100%; box-sizing: border-box;">
@@ -145,17 +153,15 @@ window.renderThongkeadsPage = function(container) {
                             Thống kê và phân tích hiệu quả các Chiến Dịch Quảng Cáo — tự động đồng bộ từ Meta Ads API.
                         </p>
                     </div>
-                    ${_isGD ? `
-                    <a href="/caidattaikhoanads" target="_blank" style="
+                    <a href="/caidattaikhoanads" target="_blank" class="tka-gd-only" data-display="inline-flex" style="
                         font-family: inherit; padding: 12px 22px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,0.3);
                         background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
                         color: white; font-size: 14px; font-weight: 800; text-decoration: none;
-                        display: inline-flex; align-items: center; gap: 8px;
+                        display: ${_isGD ? 'inline-flex' : 'none'}; align-items: center; gap: 8px;
                         transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
                     " onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
                         <span>⚙️</span> Cài Đặt Tài Khoản Ads ↗
                     </a>
-                    ` : ''}
                 </div>
             </div>
 
@@ -224,17 +230,15 @@ window.renderThongkeadsPage = function(container) {
                                     <option value="all">📋 Tất cả tài khoản</option>
                                 </select>
                             </div>
-                            ${_isGD ? `
-                            <button id="tka-btn-perf-account" style="
+                            <button id="tka-btn-perf-account" class="tka-gd-only" data-display="flex" style="
                                 font-family: inherit; padding: 11px 22px; border-radius: 12px; border: none;
                                 background: linear-gradient(135deg, #1877f2, #2563eb);
                                 color: white; font-size: 14px; font-weight: 800; letter-spacing: 0.2px;
-                                cursor: pointer; display: flex; align-items: center; gap: 8px;
+                                cursor: pointer; display: ${_isGD ? 'flex' : 'none'}; align-items: center; gap: 8px;
                                 transition: all 0.2s; box-shadow: 0 4px 12px rgba(37,99,235,0.3);
                             " onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
                                 <span>📊</span> Cài Đặt Hiệu Quả
                             </button>
-                            ` : ''}
                         </div>
                     </div>
 
@@ -344,28 +348,26 @@ window.renderThongkeadsPage = function(container) {
                             <span>💡</span> Gợi Ý <span style="font-size: 9px;">▼</span>
                         </button>
 
-                        ${_isGD ? `
                         <!-- Schedule Button -->
-                        <button id="tka-btn-schedule-settings" style="
+                        <button id="tka-btn-schedule-settings" class="tka-gd-only" data-display="inline-flex" style="
                             font-family: inherit; height: 38px; padding: 0 16px; border-radius: 10px; border: 1.5px solid #cbd5e1;
                             background: white; color: #1e293b; font-size: 13px; font-weight: 700;
-                            cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box;
+                            cursor: pointer; display: ${_isGD ? 'inline-flex' : 'none'}; align-items: center; gap: 6px; box-sizing: border-box;
                             transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.04);
                         " onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
                             <span>⏰</span> Lịch Đồng Bộ
                         </button>
 
                         <!-- Sync Button -->
-                        <button id="tka-btn-sync" style="
+                        <button id="tka-btn-sync" class="tka-gd-only" data-display="inline-flex" style="
                             font-family: inherit; height: 38px; padding: 0 18px; border-radius: 10px; border: none;
                             background: linear-gradient(135deg, #059669, #10b981);
                             color: white; font-size: 13px; font-weight: 700;
-                            cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box;
+                            cursor: pointer; display: ${_isGD ? 'inline-flex' : 'none'}; align-items: center; gap: 6px; box-sizing: border-box;
                             transition: all 0.2s; box-shadow: 0 4px 12px rgba(5,150,105,0.3);
                         " onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
                             🔄 Đồng Bộ Từ Meta
                         </button>
-                        ` : ''}
                     </div>
                 </div>
 
@@ -509,8 +511,34 @@ window.renderThongkeadsPage = function(container) {
         return 'all';
     }
 
+    function _updateGdElementsVisibility() {
+        document.querySelectorAll('.tka-gd-only').forEach(el => {
+            const defaultDisplay = el.dataset.display || 'inline-flex';
+            el.style.display = _isGD ? defaultDisplay : 'none';
+        });
+    }
+
+    async function _ensureUserInfo() {
+        if (!window._currentUser && !window.__currentUser) {
+            try {
+                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+                const meData = await meRes.json();
+                if (meData && meData.user) {
+                    window._currentUser = meData.user;
+                }
+            } catch(e) {}
+        }
+        const u = _getUserFromAnywhere();
+        const gdNow = _checkIsGD(u);
+        if (gdNow !== _isGD) {
+            _isGD = gdNow;
+            _updateGdElementsVisibility();
+        }
+    }
+
     async function _loadAccounts() {
         try {
+            await _ensureUserInfo();
             const [resAcc, resLV] = await Promise.all([
                 fetch('/api/thongkeads/accounts', { credentials: 'include' }).then(r => r.json()),
                 fetch('/api/kho-ads/linh-vuc', { headers: _tkaGetAuthHeaders() }).then(r => r.json()).catch(() => ({}))
@@ -2042,31 +2070,58 @@ window.renderThongkeadsPage = function(container) {
     // ========== SYNC ==========
 
     async function _handleSync() {
-        const targetSyncId = (_selectedAccountIds && _selectedAccountIds.length === 1) ? _selectedAccountIds[0] : null;
-        if (!targetSyncId) {
-            alert('Vui lòng chọn 1 tài khoản cụ thể để đồng bộ!');
+        let accountsToSync = [];
+        if (_selectedAccountIds && _selectedAccountIds.length > 0) {
+            accountsToSync = _selectedAccountIds;
+        } else {
+            const fbAccs = _accounts.filter(a => (a.platform || 'facebook') === 'facebook' && (a.is_active === undefined || a.is_active));
+            accountsToSync = fbAccs.map(a => a.id);
+        }
+
+        if (!accountsToSync || accountsToSync.length === 0) {
+            alert('Vui lòng chọn ít nhất 1 tài khoản quảng cáo để đồng bộ!');
             return;
         }
 
         let since = '';
         let until = '';
 
-        if (_filterMode === 'daterange' && _startDate && _endDate) {
+        if (_filterMode === 'today') {
+            since = _getTodayVNStr();
+            until = since;
+        } else if (_filterMode === 'yesterday') {
+            since = _getYesterdayVNStr();
+            until = since;
+        } else if (_filterMode === 'daterange' && _startDate && _endDate) {
             since = _startDate;
             until = _endDate;
         } else if (_filterMode === 'quarter') {
-            const q = parseInt(_selectedQuarter);
+            const yr = (_selectedYear && _selectedYear !== 'all') ? parseInt(_selectedYear, 10) : new Date().getFullYear();
+            const q = parseInt(_selectedQuarter, 10) || 1;
             let startM = 1, endM = 3;
             if (q === 2) { startM = 4; endM = 6; }
             else if (q === 3) { startM = 7; endM = 9; }
             else if (q === 4) { startM = 10; endM = 12; }
-            since = `${_selectedYear}-${String(startM).padStart(2, '0')}-01`;
-            const lastDay = new Date(_selectedYear, endM, 0).getDate();
-            until = `${_selectedYear}-${String(endM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            since = `${yr}-${String(startM).padStart(2, '0')}-01`;
+            const lastDay = new Date(yr, endM, 0).getDate();
+            until = `${yr}-${String(endM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         } else {
-            since = `${_selectedYear}-${String(_selectedMonth).padStart(2, '0')}-01`;
-            const lastDay = new Date(_selectedYear, _selectedMonth, 0).getDate();
-            until = `${_selectedYear}-${String(_selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            // Month mode
+            const yr = (_selectedYear && _selectedYear !== 'all') ? parseInt(_selectedYear, 10) : new Date().getFullYear();
+            if (_selectedMonth && _selectedMonth !== 'all') {
+                const m = parseInt(_selectedMonth, 10);
+                since = `${yr}-${String(m).padStart(2, '0')}-01`;
+                const lastDay = new Date(yr, m, 0).getDate();
+                until = `${yr}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            } else {
+                const now = new Date();
+                since = `${yr}-01-01`;
+                if (yr === now.getFullYear()) {
+                    until = _getTodayVNStr();
+                } else {
+                    until = `${yr}-12-31`;
+                }
+            }
         }
 
         const syncBtn = document.getElementById('tka-btn-sync');
@@ -2077,16 +2132,41 @@ window.renderThongkeadsPage = function(container) {
         }
 
         try {
-            const res = await fetch(`/api/thongkeads/accounts/${targetSyncId}/sync`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ since, until })
-            });
-            const data = await res.json();
-            if (!data.ok) throw new Error(data.error);
+            let totalSaved = 0;
+            let totalSkipped = 0;
+            let errors = [];
 
-            alert(`✅ ${data.message}`);
+            for (const accId of accountsToSync) {
+                try {
+                    const res = await fetch(`/api/thongkeads/accounts/${accId}/sync`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ since, until })
+                    });
+                    const data = await res.json();
+                    if (!data.ok) throw new Error(data.error);
+                    if (data.result) {
+                        totalSaved += (data.result.saved || 0);
+                        totalSkipped += (data.result.skipped || 0);
+                    }
+                } catch(err) {
+                    const accObj = _accounts.find(a => String(a.id) === String(accId));
+                    const name = accObj ? accObj.account_name : `TK #${accId}`;
+                    errors.push(`${name}: ${err.message}`);
+                }
+            }
+
+            if (errors.length > 0 && accountsToSync.length === 1) {
+                throw new Error(errors[0]);
+            }
+
+            if (errors.length > 0) {
+                alert(`⚠️ Đồng bộ hoàn tất với một số lưu ý:\n- Đã lưu: ${totalSaved} bản ghi\n- Lỗi (${errors.length} TK):\n${errors.join('\n')}`);
+            } else {
+                alert(`✅ Đồng bộ thành công ${accountsToSync.length} tài khoản!\n- Tổng bản ghi đã lưu: ${totalSaved}\n- Bỏ qua: ${totalSkipped}`);
+            }
+
             _loadData();
         } catch(e) {
             alert(`❌ Lỗi đồng bộ: ${e.message}`);

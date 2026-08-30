@@ -457,7 +457,10 @@ async function renderCRMNhuCauPage(container) {
                 <option value="cu" style="color:#b45309;font-weight:700;">🟧 Khách Cũ</option>
             </select>
             <input type="text" id="crmSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:200px;">
-
+            ${(typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') ? `
+            <button id="btnDirectorBatchNhuCau" onclick="openDirectorBatchModal('nhu_cau')" class="btn" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; border: none; font-weight: 800; font-size: 13px; padding: 8px 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25); display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+                ⚡ Xử Lý Hàng Loạt (Giám Đốc)
+            </button>` : ''}
         </div>
         <div class="card">
             <div class="card-body" style="overflow-x:auto; padding:8px;">
