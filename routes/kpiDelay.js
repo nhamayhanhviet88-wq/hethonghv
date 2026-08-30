@@ -563,6 +563,13 @@ module.exports = async function (fastify, opts) {
                 WHERE year = ? AND segment = ? AND period_type = ? AND period_value = ?
             `, [parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]);
 
+            return reply.send({ ok: true, message: `🔓 Đã mở lại KPI ${period_type === 'month' ? 'Tháng ' + period_value : period_type}!` });
+        } catch (e) {
+            console.error('[kpi-delay/reopen POST]', e);
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     // ========== 6. GET /api/kpi-delay/historical-benchmarks — Lấy chỉ số thực tế các năm trước ==========
     fastify.get('/api/kpi-delay/historical-benchmarks', { preHandler: [authenticate] }, async (req, reply) => {
         try {
