@@ -1987,14 +1987,15 @@
                 `;
             } else {
                 const tableRowsHtml = data.benchmarks.map(b => {
+                    const rowLabel = periodType === 'month' ? `📅 Tháng ${periodValue}/${b.year}` : `📅 Cả Năm ${b.year}`;
                     return `
                     <tr style="border-bottom:1px solid #e2e8f0;">
-                        <td style="padding:6px 8px; font-weight:900; color:#166534; white-space:nowrap; background:#f8fafc;">📅 Năm ${b.year}</td>
+                        <td style="padding:6px 8px; font-weight:900; color:#166534; white-space:nowrap; background:#f8fafc;">${rowLabel}</td>
                         <td style="padding:6px 10px; text-align:center; font-weight:800; color:#0f172a;">📦 <b>${b.total}</b> đơn</td>
                         <td style="padding:6px 10px; text-align:center; font-weight:800; color:${b.delay_pct > 0 ? '#dc2626' : '#059669'};">🚨 <b>${b.delay_pct}%</b> trễ <span style="font-size:10.5px; font-weight:600; color:#64748b;">(${b.late} đơn trễ)</span></td>
                         <td style="padding:6px 10px; text-align:center; font-weight:800; color:#b45309;">⚠️ <b>${b.total_errors}</b> lỗi</td>
                         <td style="padding:6px 8px; text-align:center; background:#f8fafc;">
-                            <button type="button" onclick="window.applyHistoricalBenchmark(${b.delay_pct}, ${b.total_errors}, ${b.total})" style="padding:3px 10px; background:linear-gradient(135deg,#166534,#15803d); color:#ffffff; border:none; border-radius:6px; font-size:11px; font-weight:900; cursor:pointer; box-shadow:0 2px 4px rgba(21,128,61,0.2);" title="Tự động điền 3 chỉ số thực tế năm ${b.year} vào các ô phía trên">
+                            <button type="button" onclick="window.applyHistoricalBenchmark(${b.delay_pct}, ${b.total_errors}, ${b.total})" style="padding:3px 10px; background:linear-gradient(135deg,#166534,#15803d); color:#ffffff; border:none; border-radius:6px; font-size:11px; font-weight:900; cursor:pointer; box-shadow:0 2px 4px rgba(21,128,61,0.2);" title="Tự động điền 3 chỉ số thực tế của ${rowLabel} vào các ô phía trên">
                                 📌 Áp Dụng Nhanh
                             </button>
                         </td>
@@ -2007,13 +2008,13 @@
                 box.innerHTML = `
                     <div style="font-size:12px; font-weight:900; color:#166534; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;">
                         <span>💡 Gợi Ý Chỉ Số Thực Tế ${pTitle} Của 3 Năm Gần Nhất (3 Chỉ Số KPI):</span>
-                        <span style="font-size:10.5px; font-weight:800; color:#15803d; background:#dcfce7; border:1px solid #86efac; padding:1px 6px; border-radius:6px;">Năm ${pastYears.join(', ')}</span>
+                        <span style="font-size:10.5px; font-weight:800; color:#15803d; background:#dcfce7; border:1px solid #86efac; padding:1px 6px; border-radius:6px;">Kỳ đối soát: ${pTitle}</span>
                     </div>
                     <div style="overflow-x:auto; background:#ffffff; border:1px solid #bbf7d0; border-radius:8px; padding:2px;">
                         <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
                             <thead>
                                 <tr style="background:#f0fdf4; color:#166534; font-size:11px; font-weight:800; border-bottom:1px solid #bbf7d0;">
-                                    <th style="padding:4px 8px; text-align:left; width:80px;">Năm</th>
+                                    <th style="padding:4px 8px; text-align:left; width:110px;">Kỳ Đối Soát</th>
                                     <th style="padding:4px 10px; text-align:center;">📦 Số Đơn Thực Tế</th>
                                     <th style="padding:4px 10px; text-align:center;">🚨 Tỉ Lệ Trễ %</th>
                                     <th style="padding:4px 10px; text-align:center;">⚠️ Số Đơn Lỗi</th>
