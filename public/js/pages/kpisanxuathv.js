@@ -584,7 +584,7 @@
                         <div id="kpiProdWizardStep2" style="display:none; flex-direction:column; gap:14px;">
                             <!-- 3-Year Quarter Benchmark Box -->
                             <div id="kpiProdQBenchmarkBox" style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:12px; padding:12px;">
-                                <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:4px;">💡 Gợi Ý Sản Lượng & Tỷ Trọng 4 Quý Của 3 Năm Gần Nhất:</div>
+                                <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:4px;">💡 Gợi Ý Sản Lượng & Tỷ Trọng 4 Quý Của Các Năm (Từ Năm 2025):</div>
                                 <div id="kpiProdQBenchmarkContent" style="font-size:12px; font-weight:700; color:#15803d;">
                                     ⏳ Đang tải số liệu 4 Quý năm trước...
                                 </div>
@@ -676,7 +676,7 @@
                         <div id="kpiProdWizardStep3" style="display:none; flex-direction:column; gap:14px;">
                             <!-- 12-Month Benchmark Box for History Years -->
                             <div id="kpiProdMBenchmarkBox" style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:12px; padding:12px;">
-                                <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:4px;">💡 Gợi Ý Sản Lượng 12 Tháng Của Các Năm (Từ 2023 Đến Trước Năm Nay):</div>
+                                <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:4px;">💡 Gợi Ý Sản Lượng 12 Tháng Của Các Năm (Từ Năm 2025):</div>
                                 <div id="kpiProdMBenchmarkContent" style="font-size:12px; font-weight:700; color:#15803d; overflow-x:auto;">
                                     ⏳ Đang tải số liệu 12 Tháng lịch sử...
                                 </div>
@@ -2559,10 +2559,10 @@
             const bData = _kpiProdState.benchmarkData || {};
             let hYears = bData.history_years || [];
             if (!Array.isArray(hYears) || hYears.length === 0) {
-                hYears = [configYear - 1, configYear - 2, configYear - 3];
+                hYears = [configYear - 1];
             }
-            // Strictly filter out any year >= configYear (e.g. for 2026, only allow 2025, 2024, 2023...)
-            let validYears = hYears.map(y => parseInt(y, 10)).filter(y => y < configYear);
+            // Strictly filter out any year >= configYear and year < 2025
+            let validYears = hYears.map(y => parseInt(y, 10)).filter(y => y < configYear && y >= 2025);
             if (validYears.length === 0) {
                 validYears = [configYear - 1];
             }
@@ -3200,9 +3200,9 @@
             const bData = _kpiProdState.benchmarkData || {};
             let hYears = bData.history_years || [];
             if (!Array.isArray(hYears) || hYears.length === 0) {
-                hYears = [configYear - 1, configYear - 2, configYear - 3];
+                hYears = [configYear - 1];
             }
-            let validYears = hYears.map(y => parseInt(y, 10)).filter(y => y < configYear);
+            let validYears = hYears.map(y => parseInt(y, 10)).filter(y => y < configYear && y >= 2025);
             if (validYears.length === 0) validYears = [configYear - 1];
             validYears.sort((a, b) => b - a);
             refYearSel.innerHTML = '';
@@ -3514,8 +3514,8 @@
                 const qBox = document.getElementById('kpiProdQBenchmarkContent');
                 const bPrevYear = document.getElementById('kpiProdBenchmarkPrevYear');
 
-                const hYears = bData.history_years || [bData.prev_year];
-                if (bPrevYear) bPrevYear.innerText = hYears.join(', ');
+                let hYears = (bData.history_years || [bData.prev_year]).map(y => parseInt(y, 10)).filter(y => y >= 2025);
+                if (bPrevYear) bPrevYear.innerText = hYears.length > 0 ? hYears.join(', ') : '2025';
 
                 // Step 1: Render 3-Year Annual Benchmark Box
                 if (bBox) {

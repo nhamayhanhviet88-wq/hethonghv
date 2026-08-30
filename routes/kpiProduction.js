@@ -546,12 +546,12 @@ module.exports = async function (fastify, opts) {
             const year = parseInt(req.query.year || new Date().getFullYear(), 10);
             const department = req.query.department || 'cutting';
 
-            const startBaseYear = 2023;
+            const startBaseYear = 2025;
             const recentYears = [];
             for (let y = year - 1; y >= startBaseYear; y--) {
                 recentYears.push(y);
             }
-            if (recentYears.length === 0) recentYears.push(year - 1);
+            if (recentYears.length === 0 && (year - 1) >= 2025) recentYears.push(year - 1);
             const yearsData = {};
 
             for (const y of recentYears) {
