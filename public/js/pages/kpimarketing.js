@@ -2363,7 +2363,7 @@ async function kpiMktOpenSetTargetModal(handlerName, targetCatId = 0, targetCatN
                 <!-- SECTION 3: MỐC 2 (120% KHUYẾN KHÍCH & THƯỞNG MỐC 2) -->
                 <div style="background:#eff6ff;padding:16px;border-radius:12px;border:1.5px solid #bfdbfe;">
                     <div style="font-weight:800;font-size:13.5px;color:#1e3a8a;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
-                        <span>🏆 3. MỐC 2 - 120% KHUYẾN KHÍCH & THƯỞNG MỐC 2</span>
+                        <span>🏆 3. MỐC 2 - 120% ĐẠT KPI & CHỈ SỐ MỤC TIÊU MỐC 2</span>
                         <span style="font-size:11px;font-weight:600;color:#2563eb;background:#dbeafe;padding:2px 8px;border-radius:6px;">✨ Tự động = 120% Mốc 1</span>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
