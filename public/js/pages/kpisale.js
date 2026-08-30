@@ -3567,7 +3567,7 @@ function kpiSaleOpenTargetModal() {
                         <th style="padding:9px 10px;text-align:left;min-width:140px;background:#f8fafc!important;color:#0f172a!important;font-weight:800">👤 Nhân Viên</th>
                         <th style="padding:9px 8px;text-align:center;width:130px;background:#eff6ff!important;color:#1d4ed8!important;font-weight:800">🎯 Target Mốc 1 (100%)</th>
                         <th style="padding:9px 8px;text-align:center;width:130px;background:#f3e8ff!important;color:#6b21a8!important;font-weight:800">🚀 Target Mốc 2 (120%)</th>
-                        <th style="padding:9px 10px;text-align:left;min-width:150px;background:#f8fafc!important;color:#334155!important;font-weight:800">📝 Tiêu Chí Xét Thưởng</th>
+                        <th style="padding:9px 10px;text-align:left;min-width:150px;background:#f8fafc!important;color:#334155!important;font-weight:800">📝 Tiêu Chí Xét</th>
                     </tr>
                 </thead>
                 <tbody>
