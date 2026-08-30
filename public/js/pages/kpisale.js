@@ -313,7 +313,7 @@ async function renderKpisalePage(container) {
             <div class="kpi-modal" style="width:1350px;max-width:96vw;padding:20px 24px">
                 <div class="kpi-modal-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;border-bottom:1.5px solid #cbd5e1;padding-bottom:12px">
                     <div class="kpi-modal-title" style="font-size:16px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px">
-                        🎯 Đặt KPI & Thưởng Phòng Sale — <span id="kpiSaleTargetModalPeriod" style="color:#2563eb"></span>
+                        🎯 Đặt KPI Phòng Sale — <span id="kpiSaleTargetModalPeriod" style="color:#2563eb"></span>
                     </div>
                     <div style="display:flex;align-items:center;gap:10px">
                         <input type="text" id="kpiSaleModalSearchInput" placeholder="🔍 Tìm tên / mã NV..." oninput="kpiSaleFilterTargetModalSearch(this.value)" style="padding:6px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;width:200px;font-weight:600;outline:none">
@@ -325,7 +325,7 @@ async function renderKpisalePage(container) {
                     <span style="font-size:11.5px;color:#64748b;font-weight:600">💡 Target Mốc 2 (120%) được tự động tính = Mốc 1 x 120%</span>
                     <div style="display:flex;gap:10px">
                         <button type="button" style="padding:8px 18px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;font-weight:700;color:#475569;cursor:pointer" onclick="kpiSaleCloseTargetModal()">Hủy</button>
-                        <button type="button" class="kpi-save-btn" onclick="kpiSaleSaveTargets()" style="padding:8px 20px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(37,99,235,0.3)">💾 Lưu Tất Cả KPI & Thưởng</button>
+                        <button type="button" class="kpi-save-btn" onclick="kpiSaleSaveTargets()" style="padding:8px 20px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(37,99,235,0.3)">💾 Lưu Tất Cả KPI</button>
                     </div>
                 </div>
             </div>
@@ -455,8 +455,8 @@ function renderKpiSaleUI(data) {
         const rewardTeams = [];
         let empsWithRewardCount = 0;
         (teams || []).forEach(t => {
-            const list = (t.employees || []).filter(e => e.target_bonus_m1 || e.target_bonus_m120 || e.target_bonus_conditions || e.target > 0);
-            const hasTeamBonus = t.target_bonus_m1 || t.target_bonus_m120 || t.target_bonus_conditions;
+            const list = (t.employees || []).filter(e => e.target > 0 || e.target_bonus_conditions);
+            const hasTeamBonus = (t.target_1 > 0) || t.target_bonus_conditions;
             if (list.length > 0 || hasTeamBonus) {
                 rewardTeams.push({
                     dept_id: t.dept_id,
@@ -533,14 +533,8 @@ function renderKpiSaleUI(data) {
                         <td style="padding:8px 8px;text-align:right;font-weight:800;color:#1d4ed8;background:${isTeamReach1 ? '#e6f4ea' : '#eff6ff'};font-size:12px">
                             ${teamT1 > 0 ? (Number(teamT1).toLocaleString('vi-VN') + 'đ') : '—'}
                         </td>
-                        <td style="padding:8px 8px;font-size:11.5px;background:#f0fdf4">
-                            ${teamBonus1Text}
-                        </td>
                         <td style="padding:8px 8px;text-align:right;font-weight:800;color:#6b21a8;background:${isTeamReach120 ? '#dcfce7' : '#f3e8ff'};font-size:12px">
                             ${(teamT1 > 0 && teamT120 > 0) ? (Number(teamT120).toLocaleString('vi-VN') + 'đ') : '—'}
-                        </td>
-                        <td style="padding:8px 8px;font-size:11.5px;background:#fff1f2">
-                            ${teamBonus120Text}
                         </td>
                         <td style="padding:7px 10px;font-weight:600;color:#334155;font-size:11.5px">
                             ${escapeHtml(rt.target_bonus_conditions || '—')}
@@ -600,9 +594,7 @@ function renderKpiSaleUI(data) {
                             </td>
                             <td style="padding:8px 12px;text-align:right;${actStyle}">💰 ${actStr}</td>
                             <td style="padding:8px 12px;text-align:right;${m1Style}">${t1Str}</td>
-                            <td style="padding:8px 12px;font-size:11.5px">${bonus1Text}</td>
                             <td style="padding:8px 12px;text-align:right;${m120Style}">${t120Str}</td>
-                            <td style="padding:8px 12px;font-size:11.5px">${bonus120Text}</td>
                             <td style="padding:8px 12px;font-size:11.5px;color:#334155">${escapeHtml(e.target_bonus_conditions || '—')}</td>
                             <td style="padding:8px 10px;text-align:center">${statusBadgeHtml}</td>
                         </tr>
@@ -627,7 +619,7 @@ function renderKpiSaleUI(data) {
                 <div style="background:white;border:1.5px solid #cbd5e1;border-radius:12px;margin-bottom:20px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.04)">
                     <div style="background:linear-gradient(135deg,#f0fdf4,#e0f2fe);color:#0f172a;padding:10px 18px;font-weight:800;font-size:13.5px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1.5px solid #cbd5e1">
                         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                            <span style="color:#166534">🏆 CHÍNH SÁCH PHẦN THƯỞNG & TIÊU CHÍ XÉT KPI PHÒNG SALE — THÁNG ${month.month}/${month.year}</span>
+                            <span style="color:#166534">🎯 MỤC TIÊU KPI & TIÊU CHÍ XÉT PHÒNG SALE — THÁNG ${month.month}/${month.year}</span>
                             <div style="position:relative;display:inline-flex;align-items:center;gap:6px">
                                 <span onclick="kpiSaleToggleRewardSearchDropdown()" title="Click để mở danh sách chọn nhân sự" style="font-size:11px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;padding:3px 10px;border-radius:9999px;font-weight:700;cursor:pointer;transition:all 0.15s ease;display:inline-flex;align-items:center;gap:4px" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">👥 ${empsWithRewardCount} Nhân Sự ▾</span>
                                 <div style="position:relative;display:inline-flex;align-items:center">
@@ -651,9 +643,7 @@ function renderKpiSaleUI(data) {
                                     <th style="padding:10px 12px;text-align:left;min-width:150px;background:#f8fafc!important;color:#0f172a!important;font-weight:800">👤 Nhân Viên</th>
                                     <th style="padding:10px 12px;text-align:right;min-width:125px;background:#fef3c7!important;color:#b45309!important;font-weight:800;border-left:1px solid #fde68a;border-right:1px solid #fde68a">💰 DT Thực Tế</th>
                                     <th style="padding:10px 12px;text-align:right;min-width:130px;background:#eff6ff!important;color:#1d4ed8!important;font-weight:800">🎯 KPI Mốc 1</th>
-                                    <th style="padding:10px 12px;text-align:left;min-width:150px;background:#f0fdf4!important;color:#15803d!important;font-weight:800">🎁 Thưởng Mốc 1</th>
                                     <th style="padding:10px 12px;text-align:right;min-width:130px;background:#f3e8ff!important;color:#6b21a8!important;font-weight:800">🚀 KPI Mốc 2</th>
-                                    <th style="padding:10px 12px;text-align:left;min-width:150px;background:#fff1f2!important;color:#b91c1c!important;font-weight:800">🏆 Thưởng Mốc 2</th>
                                     <th style="padding:10px 12px;text-align:left;min-width:160px;background:#f8fafc!important;color:#334155!important;font-weight:800">📝 Tiêu Chí Xét</th>
                                     <th style="padding:10px 10px;text-align:center;min-width:120px;background:#f8fafc!important;color:#0f172a!important;font-weight:800">Trạng Thái</th>
                                 </tr>
@@ -3523,12 +3513,6 @@ function kpiSaleOpenTargetModal() {
                 <td style="padding:7px 6px;width:145px">
                     <input type="text" id="kpiSaleTargetM2_dept_${team.dept_id}" class="kpi-input" readonly disabled value="${teamT120Str}" style="font-weight:800;color:#6b21a8;background:#f3e8ff;border:1.5px solid #ddd6fe;border-radius:8px;text-align:right;cursor:not-allowed;padding:6px 6px;font-size:12px;width:100%">
                 </td>
-                <td style="padding:7px 6px;width:140px">
-                    <input type="text" class="kpi-input kpi-sale-team-bonus-m1-input" data-dept-id="${team.dept_id}" value="${escapeHtml(teamBonusM1Str)}" oninput="kpiSaleOnMoneyInput(this, 'dept_${team.dept_id}')" placeholder="" style="font-weight:800;color:#15803d;text-align:right;padding:6px 6px;font-size:12px;width:100%;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;outline:none">
-                </td>
-                <td style="padding:7px 6px;width:140px">
-                    <input type="text" class="kpi-input kpi-sale-team-bonus-m120-input" data-dept-id="${team.dept_id}" value="${escapeHtml(teamBonusM120Str)}" oninput="kpiSaleOnMoneyInput(this, 'dept_${team.dept_id}')" placeholder="" style="font-weight:800;color:#b91c1c;text-align:right;padding:6px 6px;font-size:12px;width:100%;background:#fff1f2;border:1.5px solid #fca5a5;border-radius:8px;outline:none">
-                </td>
                 <td style="padding:7px 8px;min-width:150px">
                     <input type="text" class="kpi-input kpi-sale-team-bonus-cond-input" data-dept-id="${team.dept_id}" value="${escapeHtml(team.target_bonus_conditions || '')}" placeholder="" style="font-size:12px;color:#1e293b;font-weight:600;padding:6px 8px;width:100%;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
                 </td>
@@ -3563,12 +3547,6 @@ function kpiSaleOpenTargetModal() {
                     <td style="padding:7px 6px;width:145px">
                         <input type="text" id="kpiSaleTargetM2_${emp.user_id}" class="kpi-input" readonly disabled value="${m120Val}" style="font-weight:800;color:#7c3aed;background:#f3e8ff;border:1.5px solid #ddd6fe;border-radius:8px;text-align:right;cursor:not-allowed;padding:6px 6px;font-size:12px;width:100%">
                     </td>
-                    <td style="padding:7px 6px;width:140px">
-                        <input type="text" class="kpi-input kpi-sale-bonus-m1-input" data-user-id="${emp.user_id}" value="${escapeHtml(bonusM1Val)}" oninput="kpiSaleOnMoneyInput(this, ${emp.user_id})" placeholder="" style="font-weight:800;color:#15803d;text-align:right;padding:6px 6px;font-size:12px;width:100%;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
-                    </td>
-                    <td style="padding:7px 6px;width:140px">
-                        <input type="text" class="kpi-input kpi-sale-bonus-m120-input" data-user-id="${emp.user_id}" value="${escapeHtml(bonusM120Val)}" oninput="kpiSaleOnMoneyInput(this, ${emp.user_id})" placeholder="" style="font-weight:800;color:#b91c1c;text-align:right;padding:6px 6px;font-size:12px;width:100%;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
-                    </td>
                     <td style="padding:7px 8px;min-width:150px">
                         <input type="text" class="kpi-input kpi-sale-bonus-cond-input" data-user-id="${emp.user_id}" value="${escapeHtml(emp.target_bonus_conditions || '')}" placeholder="" style="font-size:12px;color:#334155;padding:6px 6px;width:100%;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
                     </td>
@@ -3589,8 +3567,6 @@ function kpiSaleOpenTargetModal() {
                         <th style="padding:9px 10px;text-align:left;min-width:140px;background:#f8fafc!important;color:#0f172a!important;font-weight:800">👤 Nhân Viên</th>
                         <th style="padding:9px 8px;text-align:center;width:130px;background:#eff6ff!important;color:#1d4ed8!important;font-weight:800">🎯 Target Mốc 1 (100%)</th>
                         <th style="padding:9px 8px;text-align:center;width:130px;background:#f3e8ff!important;color:#6b21a8!important;font-weight:800">🚀 Target Mốc 2 (120%)</th>
-                        <th style="padding:9px 8px;text-align:center;width:130px;background:#f0fdf4!important;color:#15803d!important;font-weight:800">🎁 Thưởng Mốc 1 (100%)</th>
-                        <th style="padding:9px 8px;text-align:center;width:130px;background:#fff1f2!important;color:#b91c1c!important;font-weight:800">🏆 Thưởng Mốc 2 (120%)</th>
                         <th style="padding:9px 10px;text-align:left;min-width:150px;background:#f8fafc!important;color:#334155!important;font-weight:800">📝 Tiêu Chí Xét Thưởng</th>
                     </tr>
                 </thead>
