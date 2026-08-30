@@ -1902,7 +1902,7 @@
         if (!box) return;
 
         const currentYear = _kpiDelayState.year || new Date().getFullYear();
-        const pastYears = [currentYear - 1, currentYear - 2, currentYear - 3];
+        const pastYears = [currentYear - 1, currentYear - 2, currentYear - 3].filter(y => y >= 2025);
 
         box.style.display = 'block';
         box.innerHTML = `

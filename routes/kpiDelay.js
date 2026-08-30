@@ -578,7 +578,7 @@ module.exports = async function (fastify, opts) {
             const periodType = req.query.period_type || 'month';
             const periodValue = parseInt(req.query.period_value || 1, 10);
 
-            const pastYears = [targetYear - 1, targetYear - 2, targetYear - 3];
+            const pastYears = [targetYear - 1, targetYear - 2, targetYear - 3].filter(y => y >= 2025);
             const benchmarks = [];
 
             // Determine target months for single period summary
