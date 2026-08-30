@@ -2439,26 +2439,6 @@ async function kpiMktOpenSetTargetModal(handlerName, targetCatId = 0, targetCatN
                                 <input type="checkbox" name="kpiBonusCond" value="cpl" ${targetBonusConds.includes('cpl') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
                                 <span>📊 CPL Giá / Lead (≤ mục tiêu)</span>
                             </label>
-                        </div>ay:flex;align-items:center;gap:6px;cursor:pointer;">
-                                <input type="checkbox" name="kpiBonusCond" value="leads" ${targetBonusConds.includes('leads') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
-                                <span>📥 Số Lead (Tin Nhắn)</span>
-                            </label>
-                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
-                                <input type="checkbox" name="kpiBonusCond" value="cost_ratio" ${targetBonusConds.includes('cost_ratio') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
-                                <span>📉 % CP / Doanh Số (≤ mục tiêu)</span>
-                            </label>
-                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
-                                <input type="checkbox" name="kpiBonusCond" value="close_rate" ${targetBonusConds.includes('close_rate') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
-                                <span>🎯 Tỷ Lệ Chốt % (≥ mục tiêu)</span>
-                            </label>
-                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
-                                <input type="checkbox" name="kpiBonusCond" value="cpo" ${targetBonusConds.includes('cpo') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
-                                <span>🎯 CPO Giá / Đơn (≤ mục tiêu)</span>
-                            </label>
-                            <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
-                                <input type="checkbox" name="kpiBonusCond" value="cpl" ${targetBonusConds.includes('cpl') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
-                                <span>📊 CPL Giá / Lead (≤ mục tiêu)</span>
-                            </label>
                         </div>
                         
                         <div style="display:flex;align-items:center;gap:16px;margin-top:10px;font-size:12px;font-weight:700;color:#92400e;">
@@ -2475,7 +2455,7 @@ async function kpiMktOpenSetTargetModal(handlerName, targetCatId = 0, targetCatN
                     </div>
 
                     <div style="margin-top:12px;">
-                        <label style="font-size:12px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">📝 Nội Dung Thưởng / Ghi Chú Thưởng</label>
+                        <label style="font-size:12px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">📝 Ghi Chú :</label>
                         <input type="text" id="target_bonus_note" value="${escapeHtml(targetBonusNote)}" placeholder="" style="width:100%;padding:8px 12px;border:1.5px solid #fcd34d;border-radius:8px;font-weight:600;font-size:12.5px;color:#78350f;outline:none;background:white;" />
                     </div>
                 </div>
