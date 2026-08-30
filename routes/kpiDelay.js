@@ -581,7 +581,7 @@ module.exports = async function (fastify, opts) {
             const pastYears = [targetYear - 1, targetYear - 2, targetYear - 3];
             const benchmarks = [];
 
-            // Determine target months
+            // Determine target months for single period summary
             let targetMonths = [];
             if (periodType === 'month') {
                 targetMonths = [periodValue];
@@ -620,7 +620,30 @@ module.exports = async function (fastify, opts) {
                     ${whereClause}
                 `, params);
 
-                let total = 0, early = 0, on_time = 0, late = 0;
+                // Fetch all actual errors for the year
+                const errRows = await db.all(`
+                    SELECT period_value, actual_total_errors
+                    FROM kpi_delay_targets
+                    WHERE year = ? AND segment = ? AND period_type = 'month'
+                `, [pYear, segment]);
+
+                const monthErrorsMap = {};
+                errRows.forEach(r => {
+                    if (r.actual_total_errors !== null && r.actual_total_errors !== undefined) {
+                        monthErrorsMap[r.period_value] = parseInt(r.actual_total_errors, 10);
+                    }
+                });
+
+                // Compute 4 Quarters breakdown
+                const quarters = {
+                    1: { total: 0, early: 0, on_time: 0, late: 0, delay_pct: 0, total_errors: 0 },
+                    2: { total: 0, early: 0, on_time: 0, late: 0, delay_pct: 0, total_errors: 0 },
+                    3: { total: 0, early: 0, on_time: 0, late: 0, delay_pct: 0, total_errors: 0 },
+                    4: { total: 0, early: 0, on_time: 0, late: 0, delay_pct: 0, total_errors: 0 }
+                };
+
+                let yearTotal = 0, yearEarly = 0, yearOnTime = 0, yearLate = 0;
+
                 rawOrders.forEach(o => {
                     const effDate = o.rescheduled_ship_date || o.expected_ship_date;
                     let m = 1;
@@ -629,48 +652,83 @@ module.exports = async function (fastify, opts) {
                         m = parseInt(dStr.split('-')[1], 10);
                     } catch(e) { return; }
 
-                    if (!targetMonths.includes(m)) return;
+                    if (m < 1 || m > 12) return;
+                    const q = Math.ceil(m / 3);
 
                     const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
                     const expStr = vnDateStr(effDate);
-                    total++;
+                    yearTotal++;
+                    quarters[q].total++;
 
                     if (isShipped) {
                         const shipStr = vnDateStr(o.shipped_at || effDate);
-                        if (shipStr < expStr) early++;
-                        else if (shipStr > expStr) late++;
-                        else on_time++;
+                        if (shipStr < expStr) { yearEarly++; quarters[q].early++; }
+                        else if (shipStr > expStr) { yearLate++; quarters[q].late++; }
+                        else { yearOnTime++; quarters[q].on_time++; }
                     } else {
-                        on_time++;
+                        yearOnTime++;
+                        quarters[q].on_time++;
                     }
                 });
 
-                const delayPct = total > 0 ? parseFloat((late / total * 100).toFixed(1)) : 0;
+                // Populate delay_pct and errors for each quarter
+                [1, 2, 3, 4].forEach(q => {
+                    const qMs = [(q - 1) * 3 + 1, (q - 1) * 3 + 2, q * 3];
+                    quarters[q].delay_pct = quarters[q].total > 0 ? parseFloat((quarters[q].late / quarters[q].total * 100).toFixed(1)) : 0;
+                    let qErrSum = 0;
+                    qMs.forEach(m => {
+                        if (monthErrorsMap[m] !== undefined) qErrSum += monthErrorsMap[m];
+                    });
+                    quarters[q].total_errors = qErrSum;
+                });
 
-                // Query saved actual_total_errors for this past year and target months
-                const errRows = await db.all(`
-                    SELECT actual_total_errors
-                    FROM kpi_delay_targets
-                    WHERE year = ? AND segment = ? AND period_type = 'month' AND period_value IN (${targetMonths.join(',')})
-                `, [pYear, segment]);
+                // Compute quarter ratios (tỷ trọng)
+                const q_ratios = {};
+                [1, 2, 3, 4].forEach(q => {
+                    q_ratios[q] = yearTotal > 0 ? parseFloat((quarters[q].total / yearTotal).toFixed(3)) : 0.25;
+                });
 
-                let totalErrors = 0;
-                let hasErrData = false;
-                errRows.forEach(r => {
-                    if (r.actual_total_errors !== null && r.actual_total_errors !== undefined) {
-                        totalErrors += parseInt(r.actual_total_errors, 10);
-                        hasErrData = true;
+                // Selected period summary
+                let periodTotal = 0, periodEarly = 0, periodOnTime = 0, periodLate = 0, periodErrors = 0;
+                targetMonths.forEach(m => {
+                    const q = Math.ceil(m / 3);
+                    if (monthErrorsMap[m] !== undefined) periodErrors += monthErrorsMap[m];
+                });
+
+                rawOrders.forEach(o => {
+                    const effDate = o.rescheduled_ship_date || o.expected_ship_date;
+                    let m = 1;
+                    try {
+                        const dStr = vnDateStr(effDate);
+                        m = parseInt(dStr.split('-')[1], 10);
+                    } catch(e) { return; }
+                    if (!targetMonths.includes(m)) return;
+
+                    periodTotal++;
+                    const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
+                    const expStr = vnDateStr(effDate);
+                    if (isShipped) {
+                        const shipStr = vnDateStr(o.shipped_at || effDate);
+                        if (shipStr < expStr) periodEarly++;
+                        else if (shipStr > expStr) periodLate++;
+                        else periodOnTime++;
+                    } else {
+                        periodOnTime++;
                     }
                 });
+
+                const periodDelayPct = periodTotal > 0 ? parseFloat((periodLate / periodTotal * 100).toFixed(1)) : 0;
 
                 benchmarks.push({
                     year: pYear,
-                    total: total,
-                    early: early,
-                    on_time: on_time,
-                    late: late,
-                    delay_pct: delayPct,
-                    total_errors: hasErrData ? totalErrors : 0
+                    total: periodTotal,
+                    early: periodEarly,
+                    on_time: periodOnTime,
+                    late: periodLate,
+                    delay_pct: periodDelayPct,
+                    total_errors: periodErrors,
+                    quarters: quarters,
+                    q_ratios: q_ratios
                 });
             }
 

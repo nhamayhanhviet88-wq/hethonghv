@@ -1907,7 +1907,7 @@
         box.style.display = 'block';
         box.innerHTML = `
             <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;">
-                <span>💡 Gợi Ý Chỉ Số Thực Tế Các Năm Trước (Năm ${pastYears.join(', ')}):</span>
+                <span>💡 ${periodType === 'quarter' ? 'Gợi Ý Chỉ Số 4 Quý Của 3 Năm Gần Nhất:' : 'Gợi Ý Chỉ Số Thực Tế Các Năm Trước (' + pastYears.join(', ') + '):'}</span>
             </div>
             <div style="font-size:12px; font-weight:700; color:#15803d; padding:10px; text-align:center; background:#ffffff; border-radius:8px; border:1px dashed #86efac;">
                 ⏳ Đang truy xuất chỉ số thực tế lịch sử...
@@ -1923,41 +1923,80 @@
                 return;
             }
 
-            const itemsHtml = data.benchmarks.map(b => {
-                if (b.total === 0) {
+            if (periodType === 'quarter') {
+                const targetQ = parseInt(periodValue, 10);
+                const itemsHtml = data.benchmarks.map(b => {
+                    const qList = [1, 2, 3, 4].map(q => {
+                        const qInfo = b.quarters?.[q] || { total: 0, delay_pct: 0, total_errors: 0 };
+                        const qRatio = b.q_ratios?.[q] ? (b.q_ratios[q] * 100).toFixed(1) : '25.0';
+                        const isCurQ = q === targetQ;
+
+                        if (isCurQ) {
+                            return `<span style="background:#e0f2fe; border:1.5px solid #0284c7; padding:2px 8px; border-radius:6px; font-weight:900; color:#0369a1; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 3px rgba(2,132,199,0.15);">
+                                ⭐ <b>Q${q}: ${qInfo.total} đơn (${qInfo.delay_pct}% trễ)</b>
+                                <button type="button" onclick="window.applyHistoricalBenchmark(${qInfo.delay_pct}, ${qInfo.total_errors}, ${qInfo.total})" style="font-size:10.5px; font-weight:900; color:#ffffff; background:linear-gradient(135deg,#0284c7,#0369a1); border:none; border-radius:4px; padding:2px 6px; cursor:pointer; margin-left:2px;" title="Áp dụng chỉ số Quý ${q} năm ${b.year}">📌 Áp dụng Q${q}</button>
+                            </span>`;
+                        } else {
+                            return `<span style="color:#334155;">Q${q}: <b style="color:#0284c7;">${qInfo.total} đơn (${qRatio}%)</b></span>`;
+                        }
+                    }).join(' &nbsp;|&nbsp; ');
+
                     return `
-                    <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                        <span style="font-size:12px; font-weight:900; color:#475569;">📅 Năm ${b.year}:</span>
-                        <span style="font-size:11.5px; font-weight:700; color:#94a3b8; font-style:italic;">Chưa có đơn hàng phát sinh trong kỳ này</span>
+                    <div style="background:#ffffff; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; font-size:12px; line-height:1.6; display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                        <span style="font-weight:900; color:#166534; white-space:nowrap;">📅 <b>Năm ${b.year}:</b></span>
+                        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; flex:1;">
+                            ${qList}
+                        </div>
                     </div>
                     `;
-                }
+                }).join('');
 
-                return `
-                <div style="background:#ffffff; border:1.5px solid #bbf7d0; border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; box-shadow:0 1px 3px rgba(22,101,52,0.05);">
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <span style="font-size:12px; font-weight:900; color:#166534; background:#dcfce7; padding:2px 8px; border-radius:6px; border:1px solid #86efac;">📅 Năm ${b.year}</span>
-                        <span style="font-size:12px; font-weight:800; color:#0f172a;">📦 <b>${b.total}</b> đơn</span>
-                        <span style="font-size:12px; font-weight:800; color:${b.delay_pct > 0 ? '#dc2626' : '#166534'};">🚨 Trễ <b>${b.late}</b> đơn (<b>${b.delay_pct}%</b>)</span>
-                        <span style="font-size:12px; font-weight:800; color:#b45309;">⚠️ Lỗi <b>${b.total_errors}</b> đơn</span>
-                        <span style="font-size:11px; font-weight:700; color:#64748b;">(🟢 Sớm ${b.early}, 🔵 Đúng ${b.on_time})</span>
+                box.innerHTML = `
+                    <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <span>💡 Gợi Ý Sản Lượng & Tỷ Trọng 4 Quý Của 3 Năm Gần Nhất:</span>
+                        <span style="font-size:11px; font-weight:700; color:#0369a1; background:#e0f2fe; border:1px solid #bae6fd; padding:1px 6px; border-radius:6px;">Quý đang cấu hình: Q${targetQ}</span>
                     </div>
-                    <button type="button" onclick="window.applyHistoricalBenchmark(${b.delay_pct}, ${b.total_errors}, ${b.total})" style="padding:4px 10px; background:linear-gradient(135deg,#166534,#15803d); color:#ffffff; border:none; border-radius:6px; font-size:11px; font-weight:900; cursor:pointer; box-shadow:0 2px 4px rgba(21,128,61,0.2);" title="Tự động chèn chỉ số thực tế năm ${b.year} vào các ô cấu hình bên trên">
-                        📌 Áp Dụng Nhanh
-                    </button>
-                </div>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        ${itemsHtml}
+                    </div>
                 `;
-            }).join('');
+            } else {
+                const itemsHtml = data.benchmarks.map(b => {
+                    if (b.total === 0) {
+                        return `
+                        <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                            <span style="font-size:12px; font-weight:900; color:#475569;">📅 Năm ${b.year}:</span>
+                            <span style="font-size:11.5px; font-weight:700; color:#94a3b8; font-style:italic;">Chưa có đơn hàng phát sinh trong kỳ này</span>
+                        </div>
+                        `;
+                    }
 
-            box.innerHTML = `
-                <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
-                    <span>💡 Gợi Ý Chỉ Số Thực Tế Các Năm Trước (Năm ${pastYears.join(', ')}):</span>
-                    <span style="font-size:11px; font-weight:700; color:#15803d; background:#dcfce7; padding:1px 6px; border-radius:6px;">Dữ liệu thực tế đối soát</span>
-                </div>
-                <div style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; padding-right:2px;">
-                    ${itemsHtml}
-                </div>
-            `;
+                    return `
+                    <div style="background:#ffffff; border:1.5px solid #bbf7d0; border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; box-shadow:0 1px 3px rgba(22,101,52,0.05);">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:12px; font-weight:900; color:#166534; background:#dcfce7; padding:2px 8px; border-radius:6px; border:1px solid #86efac;">📅 Năm ${b.year}</span>
+                            <span style="font-size:12px; font-weight:800; color:#0f172a;">📦 <b>${b.total}</b> đơn</span>
+                            <span style="font-size:12px; font-weight:800; color:${b.delay_pct > 0 ? '#dc2626' : '#166534'};">🚨 Trễ <b>${b.late}</b> đơn (<b>${b.delay_pct}%</b>)</span>
+                            <span style="font-size:12px; font-weight:800; color:#b45309;">⚠️ Lỗi <b>${b.total_errors}</b> đơn</span>
+                            <span style="font-size:11px; font-weight:700; color:#64748b;">(🟢 Sớm ${b.early}, 🔵 Đúng ${b.on_time})</span>
+                        </div>
+                        <button type="button" onclick="window.applyHistoricalBenchmark(${b.delay_pct}, ${b.total_errors}, ${b.total})" style="padding:4px 10px; background:linear-gradient(135deg,#166534,#15803d); color:#ffffff; border:none; border-radius:6px; font-size:11px; font-weight:900; cursor:pointer; box-shadow:0 2px 4px rgba(21,128,61,0.2);" title="Tự động chèn chỉ số thực tế năm ${b.year} vào các ô cấu hình bên trên">
+                            📌 Áp Dụng Nhanh
+                        </button>
+                    </div>
+                    `;
+                }).join('');
+
+                box.innerHTML = `
+                    <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                        <span>💡 Gợi Ý Chỉ Số Thực Tế Các Năm Trước (Năm ${pastYears.join(', ')}):</span>
+                        <span style="font-size:11px; font-weight:700; color:#15803d; background:#dcfce7; padding:1px 6px; border-radius:6px;">Dữ liệu thực tế đối soát</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; padding-right:2px;">
+                        ${itemsHtml}
+                    </div>
+                `;
+            }
         } catch (e) {
             console.error('loadKpiHistoricalBenchmarks error:', e);
             box.innerHTML = `<div style="font-size:12px; font-weight:700; color:#dc2626; padding:8px; text-align:center;">⚠️ Lỗi kết nối truy xuất lịch sử</div>`;
