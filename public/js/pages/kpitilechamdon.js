@@ -1925,39 +1925,64 @@
 
             if (periodType === 'quarter') {
                 const targetQ = parseInt(periodValue, 10);
-                const itemsHtml = data.benchmarks.map(b => {
-                    const qList = [1, 2, 3, 4].map(q => {
+                const tableRowsHtml = data.benchmarks.map(b => {
+                    const qColsHtml = [1, 2, 3, 4].map(q => {
                         const qInfo = b.quarters?.[q] || { total: 0, delay_pct: 0, total_errors: 0 };
-                        const qRatio = b.q_ratios?.[q] ? (b.q_ratios[q] * 100).toFixed(1) : '25.0';
                         const isCurQ = q === targetQ;
 
                         if (isCurQ) {
-                            return `<span style="background:#e0f2fe; border:1.5px solid #0284c7; padding:2px 8px; border-radius:6px; font-weight:900; color:#0369a1; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 3px rgba(2,132,199,0.15);">
-                                ⭐ <b>Q${q}: ${qInfo.total} đơn (${qInfo.delay_pct}% trễ)</b>
-                                <button type="button" onclick="window.applyHistoricalBenchmark(${qInfo.delay_pct}, ${qInfo.total_errors}, ${qInfo.total})" style="font-size:10.5px; font-weight:900; color:#ffffff; background:linear-gradient(135deg,#0284c7,#0369a1); border:none; border-radius:4px; padding:2px 6px; cursor:pointer; margin-left:2px;" title="Áp dụng chỉ số Quý ${q} năm ${b.year}">📌 Áp dụng Q${q}</button>
-                            </span>`;
+                            return `
+                            <td style="padding:4px 6px; text-align:center; background:#e0f2fe; border:1.5px solid #0284c7; border-radius:6px;">
+                                <div style="font-size:11.5px; font-weight:900; color:#0369a1;">⭐ Q${q}: <b>${qInfo.total}</b> đơn</div>
+                                <div style="font-size:10.5px; font-weight:800; color:${qInfo.delay_pct > 0 ? '#dc2626' : '#059669'};">${qInfo.delay_pct}% trễ | ${qInfo.total_errors} lỗi</div>
+                            </td>
+                            `;
                         } else {
-                            return `<span style="color:#334155;">Q${q}: <b style="color:#0284c7;">${qInfo.total} đơn (${qRatio}%)</b></span>`;
+                            return `
+                            <td style="padding:4px 6px; text-align:center; background:#ffffff;">
+                                <div style="font-size:11.5px; font-weight:700; color:#334155;">Q${q}: <b>${qInfo.total}</b> đơn</div>
+                                <div style="font-size:10.5px; font-weight:600; color:#64748b;">${qInfo.delay_pct}% trễ | ${qInfo.total_errors} lỗi</div>
+                            </td>
+                            `;
                         }
-                    }).join(' &nbsp;|&nbsp; ');
+                    }).join('');
+
+                    const curQInfo = b.quarters?.[targetQ] || { total: 0, delay_pct: 0, total_errors: 0 };
 
                     return `
-                    <div style="background:#ffffff; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; font-size:12px; line-height:1.6; display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
-                        <span style="font-weight:900; color:#166534; white-space:nowrap;">📅 <b>Năm ${b.year}:</b></span>
-                        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; flex:1;">
-                            ${qList}
-                        </div>
-                    </div>
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:4px 8px; font-weight:900; color:#166534; white-space:nowrap; background:#f8fafc;">📅 Năm ${b.year}</td>
+                        ${qColsHtml}
+                        <td style="padding:4px 6px; text-align:center; background:#f8fafc;">
+                            <button type="button" onclick="window.applyHistoricalBenchmark(${curQInfo.delay_pct}, ${curQInfo.total_errors}, ${curQInfo.total})" style="padding:3px 8px; background:linear-gradient(135deg,#0284c7,#0369a1); color:#ffffff; border:none; border-radius:6px; font-size:11px; font-weight:900; cursor:pointer; box-shadow:0 2px 4px rgba(2,132,199,0.2);" title="Áp dụng chỉ số Quý ${targetQ} năm ${b.year} vào 3 ô cấu hình phía trên">
+                                📌 Áp dụng Q${targetQ}
+                            </button>
+                        </td>
+                    </tr>
                     `;
                 }).join('');
 
                 box.innerHTML = `
-                    <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
-                        <span>💡 Gợi Ý Sản Lượng & Tỷ Trọng 4 Quý Của 3 Năm Gần Nhất:</span>
-                        <span style="font-size:11px; font-weight:700; color:#0369a1; background:#e0f2fe; border:1px solid #bae6fd; padding:1px 6px; border-radius:6px;">Quý đang cấu hình: Q${targetQ}</span>
+                    <div style="font-size:12px; font-weight:900; color:#166534; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;">
+                        <span>💡 Gợi Ý Chỉ Số Thực Tế 4 Quý Của 3 Năm Gần Nhất (Hiển Thị Đủ 3 Chỉ Số KPI):</span>
+                        <span style="font-size:10.5px; font-weight:800; color:#0369a1; background:#e0f2fe; border:1px solid #bae6fd; padding:1px 6px; border-radius:6px;">Quý đang chọn: Q${targetQ}</span>
                     </div>
-                    <div style="display:flex; flex-direction:column; gap:6px;">
-                        ${itemsHtml}
+                    <div style="overflow-x:auto; background:#ffffff; border:1px solid #bbf7d0; border-radius:8px; padding:2px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+                            <thead>
+                                <tr style="background:#f0fdf4; color:#166534; font-size:11px; font-weight:800; border-bottom:1px solid #bbf7d0;">
+                                    <th style="padding:4px 8px; text-align:left; width:75px;">Năm</th>
+                                    <th style="padding:4px 6px; text-align:center;">Quý 1</th>
+                                    <th style="padding:4px 6px; text-align:center;">Quý 2</th>
+                                    <th style="padding:4px 6px; text-align:center;">Quý 3</th>
+                                    <th style="padding:4px 6px; text-align:center;">Quý 4</th>
+                                    <th style="padding:4px 6px; text-align:center; width:110px;">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRowsHtml}
+                            </tbody>
+                        </table>
                     </div>
                 `;
             } else {

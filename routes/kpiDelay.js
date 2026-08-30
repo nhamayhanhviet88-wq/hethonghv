@@ -685,7 +685,7 @@ module.exports = async function (fastify, opts) {
                 // Compute quarter ratios (tỷ trọng)
                 const q_ratios = {};
                 [1, 2, 3, 4].forEach(q => {
-                    q_ratios[q] = yearTotal > 0 ? parseFloat((quarters[q].total / yearTotal).toFixed(3)) : 0.25;
+                    q_ratios[q] = yearTotal > 0 ? parseFloat((quarters[q].total / yearTotal).toFixed(3)) : 0;
                 });
 
                 // Selected period summary
