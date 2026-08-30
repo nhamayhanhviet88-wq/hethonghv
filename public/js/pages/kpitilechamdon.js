@@ -367,6 +367,9 @@
                             </div>
                         </div>
 
+                        <!-- Historical Benchmarks Suggestion Box (Gợi Ý Chỉ Số Thực Tế Các Năm Trước) -->
+                        <div id="kpiModalHistoricalBox" style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:12px; padding:12px 14px; margin-bottom:12px; display:none;"></div>
+
                         <!-- Evaluation Rule Selection (Bắt Buộc Tích Chọn) -->
                         <div style="background:#fffbeb; border:1.5px solid #fde68a; padding:14px; border-radius:10px;">
                             <label style="font-size:12.5px; font-weight:900; color:#92400e; display:block; margin-bottom:8px;">⚖️ Quy Tắc Đánh Giá Đạt KPI (Bắt buộc chọn):</label>
@@ -1888,6 +1891,92 @@
 
         const overlay = document.getElementById('kpiTargetModalOverlay');
         if (overlay) overlay.style.display = 'flex';
+
+        // Load historical benchmarks asynchronously for past 3 years
+        window.loadKpiHistoricalBenchmarks(periodType, periodValue);
+    };
+
+    // ========== HISTORICAL BENCHMARKS CONTROLLER ==========
+    window.loadKpiHistoricalBenchmarks = async function(periodType, periodValue) {
+        const box = document.getElementById('kpiModalHistoricalBox');
+        if (!box) return;
+
+        const currentYear = _kpiDelayState.year || new Date().getFullYear();
+        const pastYears = [currentYear - 1, currentYear - 2, currentYear - 3];
+
+        box.style.display = 'block';
+        box.innerHTML = `
+            <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;">
+                <span>💡 Gợi Ý Chỉ Số Thực Tế Các Năm Trước (Năm ${pastYears.join(', ')}):</span>
+            </div>
+            <div style="font-size:12px; font-weight:700; color:#15803d; padding:10px; text-align:center; background:#ffffff; border-radius:8px; border:1px dashed #86efac;">
+                ⏳ Đang truy xuất chỉ số thực tế lịch sử...
+            </div>
+        `;
+
+        try {
+            const res = await fetch(`/api/kpi-delay/historical-benchmarks?year=${currentYear}&segment=${_kpiDelayState.segment}&period_type=${periodType}&period_value=${periodValue}`);
+            const data = await res.json();
+
+            if (!data.ok || !Array.isArray(data.benchmarks)) {
+                box.innerHTML = `<div style="font-size:12px; font-weight:700; color:#dc2626; padding:8px; text-align:center;">⚠️ Không thể nạp dữ liệu lịch sử</div>`;
+                return;
+            }
+
+            const itemsHtml = data.benchmarks.map(b => {
+                if (b.total === 0) {
+                    return `
+                    <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <span style="font-size:12px; font-weight:900; color:#475569;">📅 Năm ${b.year}:</span>
+                        <span style="font-size:11.5px; font-weight:700; color:#94a3b8; font-style:italic;">Chưa có đơn hàng phát sinh trong kỳ này</span>
+                    </div>
+                    `;
+                }
+
+                return `
+                <div style="background:#ffffff; border:1.5px solid #bbf7d0; border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; box-shadow:0 1px 3px rgba(22,101,52,0.05);">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="font-size:12px; font-weight:900; color:#166534; background:#dcfce7; padding:2px 8px; border-radius:6px; border:1px solid #86efac;">📅 Năm ${b.year}</span>
+                        <span style="font-size:12px; font-weight:800; color:#0f172a;">📦 <b>${b.total}</b> đơn</span>
+                        <span style="font-size:12px; font-weight:800; color:${b.delay_pct > 0 ? '#dc2626' : '#166534'};">🚨 Trễ <b>${b.late}</b> đơn (<b>${b.delay_pct}%</b>)</span>
+                        <span style="font-size:12px; font-weight:800; color:#b45309;">⚠️ Lỗi <b>${b.total_errors}</b> đơn</span>
+                        <span style="font-size:11px; font-weight:700; color:#64748b;">(🟢 Sớm ${b.early}, 🔵 Đúng ${b.on_time})</span>
+                    </div>
+                    <button type="button" onclick="window.applyHistoricalBenchmark(${b.delay_pct}, ${b.total_errors}, ${b.total})" style="padding:4px 10px; background:linear-gradient(135deg,#166534,#15803d); color:#ffffff; border:none; border-radius:6px; font-size:11px; font-weight:900; cursor:pointer; box-shadow:0 2px 4px rgba(21,128,61,0.2);" title="Tự động chèn chỉ số thực tế năm ${b.year} vào các ô cấu hình bên trên">
+                        📌 Áp Dụng Nhanh
+                    </button>
+                </div>
+                `;
+            }).join('');
+
+            box.innerHTML = `
+                <div style="font-size:12.5px; font-weight:900; color:#166534; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                    <span>💡 Gợi Ý Chỉ Số Thực Tế Các Năm Trước (Năm ${pastYears.join(', ')}):</span>
+                    <span style="font-size:11px; font-weight:700; color:#15803d; background:#dcfce7; padding:1px 6px; border-radius:6px;">Dữ liệu thực tế đối soát</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; padding-right:2px;">
+                    ${itemsHtml}
+                </div>
+            `;
+        } catch (e) {
+            console.error('loadKpiHistoricalBenchmarks error:', e);
+            box.innerHTML = `<div style="font-size:12px; font-weight:700; color:#dc2626; padding:8px; text-align:center;">⚠️ Lỗi kết nối truy xuất lịch sử</div>`;
+        }
+    };
+
+    window.applyHistoricalBenchmark = function(delayPct, totalErrors, minOrders) {
+        const delayIpt = document.getElementById('kpiModalDelayPct');
+        if (delayIpt && delayPct !== undefined) delayIpt.value = delayPct;
+
+        const errIpt = document.getElementById('kpiModalTotalErr');
+        if (errIpt && totalErrors !== undefined) errIpt.value = totalErrors;
+
+        const minOrdersIpt = document.getElementById('kpiModalMinOrders');
+        if (minOrdersIpt && minOrders !== undefined) minOrdersIpt.value = minOrders;
+
+        if (typeof showToast === 'function') {
+            showToast(`📌 Đã áp dụng gợi ý: KPI Trễ ${delayPct}%, KPI Lỗi ${totalErrors} đơn, KPI Đơn ${minOrders} đơn!`, 'info');
+        }
     };
 
     // Preset Commitment Suggestions with LocalStorage Persistence & CRUD

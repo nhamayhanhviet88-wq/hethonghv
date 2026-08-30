@@ -563,9 +563,119 @@ module.exports = async function (fastify, opts) {
                 WHERE year = ? AND segment = ? AND period_type = ? AND period_value = ?
             `, [parseInt(year, 10), segment, period_type, parseInt(period_value, 10)]);
 
-            return reply.send({ ok: true, message: `🔓 Đã mở lại KPI ${period_type === 'month' ? 'Tháng ' + period_value : period_type}!` });
+    // ========== 6. GET /api/kpi-delay/historical-benchmarks — Lấy chỉ số thực tế các năm trước ==========
+    fastify.get('/api/kpi-delay/historical-benchmarks', { preHandler: [authenticate] }, async (req, reply) => {
+        try {
+            const targetYear = parseInt(req.query.year || new Date().getFullYear(), 10);
+            const segment = req.query.segment || 'all';
+            const periodType = req.query.period_type || 'month';
+            const periodValue = parseInt(req.query.period_value || 1, 10);
+
+            const pastYears = [targetYear - 1, targetYear - 2, targetYear - 3];
+            const benchmarks = [];
+
+            // Determine target months
+            let targetMonths = [];
+            if (periodType === 'month') {
+                targetMonths = [periodValue];
+            } else if (periodType === 'quarter') {
+                const startM = (periodValue - 1) * 3 + 1;
+                targetMonths = [startM, startM + 1, startM + 2];
+            } else {
+                targetMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+            }
+
+            for (const pYear of pastYears) {
+                // Segment condition
+                const conditions = [`o.expected_ship_date IS NOT NULL`];
+                const params = [];
+                conditions.push(`EXTRACT(YEAR FROM COALESCE(o.rescheduled_ship_date, o.expected_ship_date)) = ?`);
+                params.push(pYear);
+
+                if (segment === 'dongphuc' || segment === 'dong_phuc') {
+                    conditions.push(`(
+                        (o.category_id IS NULL OR (o.category_id != 8 AND o.category_id != 9))
+                        AND UPPER(COALESCE(o.order_code, '')) NOT LIKE '%PET%'
+                        AND UPPER(COALESCE(o.order_code, '')) NOT LIKE '%TEM%'
+                    )`);
+                } else if (segment === 'tempet' || segment === 'tem_pet') {
+                    conditions.push(`(
+                        o.category_id = 8 OR o.category_id = 9
+                        OR UPPER(COALESCE(o.order_code, '')) LIKE '%PET%'
+                        OR UPPER(COALESCE(o.order_code, '')) LIKE '%TEM%'
+                    )`);
+                }
+
+                const whereClause = 'WHERE ' + conditions.join(' AND ');
+                const rawOrders = await db.all(`
+                    SELECT o.id, o.expected_ship_date, o.rescheduled_ship_date, o.shipping_status, o.shipped_at
+                    FROM dht_orders o
+                    ${whereClause}
+                `, params);
+
+                let total = 0, early = 0, on_time = 0, late = 0;
+                rawOrders.forEach(o => {
+                    const effDate = o.rescheduled_ship_date || o.expected_ship_date;
+                    let m = 1;
+                    try {
+                        const dStr = vnDateStr(effDate);
+                        m = parseInt(dStr.split('-')[1], 10);
+                    } catch(e) { return; }
+
+                    if (!targetMonths.includes(m)) return;
+
+                    const isShipped = o.shipping_status === 'shipped' || !!o.shipped_at;
+                    const expStr = vnDateStr(effDate);
+                    total++;
+
+                    if (isShipped) {
+                        const shipStr = vnDateStr(o.shipped_at || effDate);
+                        if (shipStr < expStr) early++;
+                        else if (shipStr > expStr) late++;
+                        else on_time++;
+                    } else {
+                        on_time++;
+                    }
+                });
+
+                const delayPct = total > 0 ? parseFloat((late / total * 100).toFixed(1)) : 0;
+
+                // Query saved actual_total_errors for this past year and target months
+                const errRows = await db.all(`
+                    SELECT actual_total_errors
+                    FROM kpi_delay_targets
+                    WHERE year = ? AND segment = ? AND period_type = 'month' AND period_value IN (${targetMonths.join(',')})
+                `, [pYear, segment]);
+
+                let totalErrors = 0;
+                let hasErrData = false;
+                errRows.forEach(r => {
+                    if (r.actual_total_errors !== null && r.actual_total_errors !== undefined) {
+                        totalErrors += parseInt(r.actual_total_errors, 10);
+                        hasErrData = true;
+                    }
+                });
+
+                benchmarks.push({
+                    year: pYear,
+                    total: total,
+                    early: early,
+                    on_time: on_time,
+                    late: late,
+                    delay_pct: delayPct,
+                    total_errors: hasErrData ? totalErrors : 0
+                });
+            }
+
+            return reply.send({
+                ok: true,
+                period_type: periodType,
+                period_value: periodValue,
+                target_year: targetYear,
+                benchmarks: benchmarks
+            });
         } catch (e) {
-            console.error('[kpi-delay/reopen POST]', e);
+            console.error('[kpi-delay/historical-benchmarks GET]', e);
             return reply.code(500).send({ error: e.message });
         }
     });
