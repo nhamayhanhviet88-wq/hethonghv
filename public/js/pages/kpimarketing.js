@@ -2069,14 +2069,12 @@ function renderKpiMktHandlersTable(res, itemsList) {
             </tr>
         `;
 
-        // Row 7: 🎁 LƯƠNG THƯỞNG KPI (Executive Warm Gold matching Image 3 with 4-corner rounded borders)
+        // Row 7: 🎯 MỤC TIÊU & TIÊU CHÍ XÉT KPI
         html += `
             <tr style="background:#fef3c7 !important;font-size:12.5px;">
-                <td style="text-align:left;font-weight:900;color:#78350f;padding:12px;background:#fef3c7 !important;border-top:2.5px solid #d97706 !important;border-left:2.5px solid #d97706 !important;border-top-left-radius:10px !important;border-bottom-left-radius:10px !important;" colspan="1"><span style="margin-left:8px">🎁 LƯƠNG THƯỞNG KPI</span></td>
+                <td style="text-align:left;font-weight:900;color:#78350f;padding:12px;background:#fef3c7 !important;border-top:2.5px solid #d97706 !important;border-left:2.5px solid #d97706 !important;border-top-left-radius:10px !important;border-bottom-left-radius:10px !important;" colspan="1"><span style="margin-left:8px">🎯 MỤC TIÊU & TIÊU CHÍ XÉT KPI</span></td>
                 <td colspan="8" style="text-align:left;padding:12px 16px;background:#fef3c7 !important;border-top:2.5px solid #d97706 !important;border-right:2.5px solid #d97706 !important;border-top-right-radius:10px !important;border-bottom-right-radius:10px !important;">
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:#78350f;font-size:13px;font-weight:800;">
-                        <span style="${m1Achieved && targetBonusM1 > 0 ? 'background:#dcfce7;color:#14532d;border:2px solid #22c55e;box-shadow:0 0 6px rgba(34,197,94,0.3);' : 'background:#fffbeb;color:#78350f;border:1.5px solid #f59e0b;'}padding:4px 10px;border-radius:8px;">🎁 <strong>Thưởng Mốc 1 (100%):</strong> ${targetBonusM1 > 0 ? `+${formatVND(targetBonusM1)}` : 'Chưa cài'} ${m1Achieved ? '✅ (Đạt)' : '⏳ (Chưa Đạt)'}</span>
-                        <span style="${m2Achieved && targetBonusM120 > 0 ? 'background:#dcfce7;color:#14532d;border:2px solid #22c55e;box-shadow:0 0 6px rgba(34,197,94,0.3);' : 'background:#fffbeb;color:#78350f;border:1.5px solid #f59e0b;'}padding:4px 10px;border-radius:8px;">🏆 <strong>Thưởng Mốc 2 (120%):</strong> ${targetBonusM120 > 0 ? `+${formatVND(targetBonusM120)}` : 'Chưa cài'} ${m2Achieved ? '🎉 (Đạt Mốc 2)' : '⏳ (Chưa Đạt)'}</span>
                         <span style="${m2Achieved ? 'background:#dcfce7;color:#14532d;border:1.5px solid #86efac;' : (m1Achieved ? 'background:#dcfce7;color:#14532d;border:1.5px solid #86efac;' : 'background:#fee2e2;color:#991b1b;border:1.5px solid #f87171;')}padding:4px 10px;border-radius:8px;">${m2Achieved ? '🎉 <strong>Trạng Thái:</strong> Đạt Mốc 2' : (m1Achieved ? '✅ <strong>Trạng Thái:</strong> Đạt Mốc 1' : '❌ <strong>Trạng Thái:</strong> Chưa Đạt')}</span>
                         <span style="background:#fffbeb;padding:4px 10px;border-radius:8px;border:1.5px solid #f59e0b;color:#92400e;">🎯 <strong>Tiêu Chí Xét:</strong> ${condsText}</span>
                         ${selectedCondLabels.length > 0 ? `<span style="background:#fffbeb;padding:4px 10px;border-radius:8px;border:1.5px solid #f59e0b;color:#92400e;">⚙️ <strong>Điều Kiện:</strong> ${logicBadgeText}</span>` : ''}
@@ -2359,10 +2357,6 @@ async function kpiMktOpenSetTargetModal(handlerName, targetCatId = 0, targetCatN
                             <input type="text" id="target_cpl" value="${fmtCpl}" placeholder="" oninput="kpiMktFormatInputNumber(this); kpiMktAutoCalcM2();" style="width:100%;padding:8px 12px;border:1.5px solid #6ee7b7;border-radius:8px;font-weight:700;font-size:13px;color:#064e3b;outline:none;background:white;" />
                         </div>
 
-                        <div style="grid-column: 1 / -1;background:#d1fae5;padding:10px 12px;border-radius:8px;border:1px solid #6ee7b7;margin-top:4px;">
-                            <label style="font-size:12px;font-weight:800;color:#065f46;display:block;margin-bottom:4px;">🎁 Lương Thưởng Đạt Mốc 1 (100% KPI) (đ)</label>
-                            <input type="text" id="target_bonus_m1" value="${fmtBonus1}" placeholder="" oninput="kpiMktFormatInputNumber(this)" style="width:100%;padding:8px 12px;border:1.5px solid #34d399;border-radius:8px;font-weight:800;font-size:13.5px;color:#064e3b;outline:none;background:white;" />
-                        </div>
                     </div>
                 </div>
 
@@ -2404,23 +2398,18 @@ async function kpiMktOpenSetTargetModal(handlerName, targetCatId = 0, targetCatN
                             <label style="font-size:12px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">📊 CPL Giá / Lead Mốc 2 (Tự động đ)</label>
                             <input type="text" id="target_cpl_m120" readonly tabindex="-1" placeholder="" style="width:100%;padding:8px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-weight:800;font-size:13px;color:#1e3a8a;outline:none;background:#dbeafe;cursor:not-allowed;" />
                         </div>
-
-                        <div style="grid-column: 1 / -1;background:#dbeafe;padding:10px 12px;border-radius:8px;border:1px solid #93c5fd;margin-top:4px;">
-                            <label style="font-size:12px;font-weight:800;color:#1e40af;display:block;margin-bottom:4px;">🏆 Lương Thưởng Đạt Mốc 2 (120% KPI) (đ)</label>
-                            <input type="text" id="target_bonus_m120" value="${fmtBonus2}" placeholder="" oninput="kpiMktFormatInputNumber(this)" style="width:100%;padding:8px 12px;border:1.5px solid #60a5fa;border-radius:8px;font-weight:800;font-size:13.5px;color:#1e3a8a;outline:none;background:white;" />
-                        </div>
                     </div>
                 </div>
 
-                <!-- SECTION 4: THỂ LỆ & QUY TẮC XÉT THƯỞNG -->
+                <!-- SECTION 4: QUY TẮC & TIÊU CHÍ XÉT KPI -->
                 <div style="background:#fffbeb;padding:16px;border-radius:12px;border:1.5px solid #fde68a;">
                     <div style="font-weight:800;font-size:13.5px;color:#92400e;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
-                        <span>⚙️ 4. THỂ LỆ & QUY TẮC XÉT THƯỞNG ${targetCatId > 0 ? `(PAGE)` : `(CHUNG)`}</span>
+                        <span>⚙️ 4. QUY TẮC & TIÊU CHÍ XÉT KPI ${targetCatId > 0 ? `(PAGE)` : `(CHUNG)`}</span>
                     </div>
 
                     <!-- TIÊU CHÍ ÁP DỤNG THƯỞNG -->
                     <div>
-                        <label style="font-size:12px;font-weight:800;color:#92400e;display:block;margin-bottom:6px;">🎯 Chọn các chỉ số làm TIÊU CHÍ XÉT THƯỞNG:</label>
+                        <label style="font-size:12px;font-weight:800;color:#92400e;display:block;margin-bottom:6px;">🎯 Chọn các chỉ số làm TIÊU CHÍ XÉT KPI:</label>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:white;padding:10px 12px;border-radius:8px;border:1px solid #fde68a;">
                             <label style="font-size:12px;font-weight:700;color:#451a03;display:flex;align-items:center;gap:6px;cursor:pointer;">
                                 <input type="checkbox" name="kpiBonusCond" value="revenue" ${targetBonusConds.includes('revenue') ? 'checked' : ''} style="width:15px;height:15px;accent-color:#d97706;" />
