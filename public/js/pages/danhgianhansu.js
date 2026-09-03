@@ -1184,6 +1184,21 @@
             if (data.success) {
                 showToast(editId ? '✅ Cập nhật đánh giá thành công!' : '✅ Thêm mới đánh giá thành công!', 'success');
                 window._eeCloseModal();
+
+                // Auto-sync year filter to the year of the new record so it immediately shows up!
+                var createdYear = '2026';
+                if (monthYear.includes('2026') || monthYear.includes('/26')) createdYear = '2026';
+                else if (monthYear.includes('2025') || monthYear.includes('/25')) createdYear = '2025';
+
+                if (_eeState.filterYear !== 'all' && _eeState.filterYear !== createdYear) {
+                    _eeState.filterYear = createdYear;
+                    var ySelect = document.getElementById('eeFilterYear');
+                    if (ySelect) ySelect.value = createdYear;
+                }
+
+                // Reset statFilter so active card filters do not hide the new record
+                _eeState.statFilter = 'all';
+
                 _eeLoadData();
             } else {
                 showToast('❌ Lỗi: ' + (data.error || 'Không thể lưu'), 'error');
