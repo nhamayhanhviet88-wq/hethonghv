@@ -516,6 +516,149 @@
         container.innerHTML = html;
     }
 
+    // 🎴 VIEW MODE 2: CARD GRID VIEW
+    function _eeRenderCardsView(container) {
+        var items = _eeState.items || [];
+        if (items.length === 0) {
+            container.innerHTML = `
+                <div style="background: white; border-radius: 14px; padding: 40px; text-align: center; color: #94a3b8; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 36px; margin-bottom: 8px;">📭</div>
+                    <div style="font-size: 14px; font-weight: 700; color: #475569;">Không có dữ liệu đánh giá nhân sự nào</div>
+                </div>
+            `;
+            return;
+        }
+
+        var html = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; width: 100%;">
+        `;
+
+        items.forEach(function(item, idx) {
+            var stt = idx + 1;
+            var isErr = item.eval_type === 'Lỗi Vi Phạm';
+            var evalBadgeBg = isErr ? '#fef2f2' : '#fffbeef0';
+            var evalBadgeColor = isErr ? '#dc2626' : '#d97706';
+            var evalBadgeBorder = isErr ? '#fecdd3' : '#fde68a';
+            var evalBadgeText = isErr ? '⚠️ Lỗi Vi Phạm' : '💡 Cần Cải Thiện';
+
+            var deptBg = item.department === 'Sale' ? '#eff6ff' : (item.department === 'Kinh Doanh' ? '#f0fdf4' : '#f8fafc');
+            var deptColor = item.department === 'Sale' ? '#1d4ed8' : (item.department === 'Kinh Doanh' ? '#15803d' : '#475569');
+
+            var hasSec2Data = Boolean(item.employee_opinion || item.resolution_deadline || item.employee_commitment);
+            var hasSec3Data = Boolean(item.manager_report || item.employee_report);
+
+            var shortDate = item.month_year || '--';
+
+            html += `
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.04); padding: 18px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.08)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(0,0,0,0.04)';">
+                    <div>
+                        <!-- Card Header Top Bar -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 11px;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="background: #1e3a8a; color: white; padding: 2px 7px; border-radius: 6px; font-weight: 800;">#${stt}</span>
+                                <span style="background: ${deptBg}; color: ${deptColor}; padding: 2px 8px; border-radius: 6px; font-weight: 800;">${item.department || 'Bộ phận'}</span>
+                                <span style="background: ${evalBadgeBg}; color: ${evalBadgeColor}; border: 1px solid ${evalBadgeBorder}; padding: 2px 8px; border-radius: 6px; font-weight: 800;">${evalBadgeText}</span>
+                            </div>
+                            <span style="color: #64748b; font-weight: 700;">🕒 ${shortDate}</span>
+                        </div>
+
+                        <!-- Employee Name -->
+                        <div style="font-size: 16px; font-weight: 900; color: #0f172a; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;">
+                                ${(item.employee_name || 'NV').charAt(0).toUpperCase()}
+                            </span>
+                            <span>${item.employee_name || 'Chưa chọn'}</span>
+                        </div>
+
+                        <!-- Section 1 Preview: Manager Eval -->
+                        <div style="background: #f8fafc; border-radius: 10px; padding: 12px; border: 1px solid #e2e8f0; margin-bottom: 12px; font-size: 12px;">
+                            <div style="color: #dc2626; font-weight: 800; font-size: 11.5px; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                <span>⚠️</span> NỘI DUNG LỖI / CẢI THIỆN:
+                            </div>
+                            <div style="color: #1e293b; font-weight: 700; background: white; padding: 8px 10px; border-radius: 6px; border: 1px solid #fee2e2; margin-bottom: 8px; line-height: 1.4;">
+                                ${item.improvement_errors || '--'}
+                            </div>
+
+                            <div style="color: #1e3a8a; font-weight: 700; font-size: 11.5px; margin-bottom: 4px;">📊 Đánh giá năng lực:</div>
+                            <div style="color: #334155; font-size: 12px; line-height: 1.4; margin-bottom: 8px;">
+                                ${item.manager_evaluation || '--'}
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11.5px;">
+                                <div>
+                                    <span style="color: #2563eb; font-weight: 700;">🛠️ Khắc phục:</span>
+                                    <div style="color: #475569; margin-top: 2px;">${item.remediation_action || '--'}</div>
+                                </div>
+                                <div>
+                                    <span style="color: #7c3aed; font-weight: 700;">🎓 Đào tạo:</span>
+                                    <div style="color: #475569; margin-top: 2px;">${item.training_direction || '--'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section 2 Preview: Employee Opinion & Commitment -->
+                        <div style="background: #fdf2f8; border-radius: 10px; padding: 12px; border: 1px solid #fbcfe8; margin-bottom: 12px; font-size: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span style="color: #be185d; font-weight: 800; font-size: 11.5px;">💬 2. Ý KIẾN & CAM KẾT NHÂN SỰ</span>
+                                <span onclick="window._eeOpenFormModal(${item.id}, 2, true)" style="color: #be185d; font-weight: 800; font-size: 11.5px; cursor: pointer; text-decoration: underline;" onmouseover="this.style.color='#9d174d'" onmouseout="this.style.color='#be185d'">
+                                    ✍️ Cập nhật
+                                </span>
+                            </div>
+
+                            ${hasSec2Data ? `
+                                <div style="font-size: 11.5px; color: #831843; line-height: 1.4;">
+                                    <div><strong>Ý kiến:</strong> ${item.employee_opinion || '--'}</div>
+                                    <div style="margin-top: 2px;"><strong>Cam kết:</strong> ${item.employee_commitment || '--'}</div>
+                                </div>
+                            ` : `
+                                <div style="font-size: 11.5px; color: #b45309; font-style: italic;">
+                                    ⌛ Đang chờ Nhân sự phản hồi...
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- Section 3 Preview: Progress Report -->
+                        <div style="background: #f0f9ff; border-radius: 10px; padding: 12px; border: 1px solid #bae6fd; margin-bottom: 14px; font-size: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span style="color: #0369a1; font-weight: 800; font-size: 11.5px;">📊 3. BÁO CÁO TIẾN ĐỘ</span>
+                                <span onclick="window._eeOpenFormModal(${item.id}, 3, true)" style="color: #0369a1; font-weight: 800; font-size: 11.5px; cursor: pointer; text-decoration: underline;" onmouseover="this.style.color='#075985'" onmouseout="this.style.color='#0369a1'">
+                                    📊 Cập nhật
+                                </span>
+                            </div>
+
+                            ${hasSec3Data ? `
+                                <div style="font-size: 11.5px; color: #0c4a6e; line-height: 1.4;">
+                                    <div><strong>Quản lý:</strong> ${item.manager_report || '--'}</div>
+                                    <div style="margin-top: 2px;"><strong>Nhân sự:</strong> ${item.employee_report || '--'}</div>
+                                </div>
+                            ` : `
+                                <div style="font-size: 11.5px; color: #0369a1; font-style: italic;">
+                                    ⚪ Chưa tới thời hạn báo cáo...
+                                </div>
+                            `}
+                        </div>
+                    </div>
+
+                    <!-- Card Actions Footer -->
+                    <div style="display: flex; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px; margin-top: 4px;">
+                        <button onclick="window._eeOpenDetailModal(${item.id})" style="flex: 1; padding: 7px; background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            👁️ Chi Tiết
+                        </button>
+                        <button onclick="window._eeOpenFormModal(${item.id}, null, false)" style="flex: 1; padding: 7px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            ✏️ Sửa
+                        </button>
+                        <button onclick="window._eeDelete(${item.id})" style="padding: 7px 12px; background: #fee2e2; color: #dc2626; border: 1px solid #fecdd3; border-radius: 8px; font-size: 11.5px; font-weight: 800; cursor: pointer;">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
     // 📊 VIEW MODE 3: DIRECT MAIN PAGE EMPLOYEE ANALYTICAL BREAKDOWN SECTION (OPTION 2)
     function _eeRenderEmployeeAnalysisView(container) {
         var items = _eeState.items || [];
