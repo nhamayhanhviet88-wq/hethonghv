@@ -35,14 +35,24 @@ async function employeeEvaluationsRoutes(fastify, options) {
     // GET /api/employee-evaluations — List evaluations with filters
     fastify.get('/api/employee-evaluations', async (request, reply) => {
         try {
-            const { month_year, department, employee_name, status, stat_filter, search } = request.query || {};
+            const { month_year, year, month, department, employee_name, status, stat_filter, search } = request.query || {};
             let sql = `SELECT * FROM employee_evaluations WHERE 1=1`;
             const params = [];
 
-            if (month_year && month_year !== 'all') {
+            if (year && year !== 'all' && month && month !== 'all') {
+                sql += ` AND (month_year = ? OR month_year LIKE ?)`;
+                params.push(`Tháng ${month}/${year}`, `%${month}/${year}`);
+            } else if (year && year !== 'all') {
+                sql += ` AND month_year LIKE ?`;
+                params.push(`%/${year}`);
+            } else if (month && month !== 'all') {
+                sql += ` AND (month_year LIKE ? OR month_year LIKE ?)`;
+                params.push(`Tháng ${month}/%`, `%${month}/%`);
+            } else if (month_year && month_year !== 'all') {
                 sql += ` AND (month_year = ? OR month_year LIKE ?)`;
                 params.push(month_year, `%${month_year}%`);
             }
+
             if (department && department !== 'all') {
                 sql += ` AND department = ?`;
                 params.push(department);
@@ -83,13 +93,24 @@ async function employeeEvaluationsRoutes(fastify, options) {
     // GET /api/employee-evaluations/stats — Summary stats
     fastify.get('/api/employee-evaluations/stats', async (request, reply) => {
         try {
-            const { month_year } = request.query || {};
+            const { month_year, year, month } = request.query || {};
             let sql = `SELECT * FROM employee_evaluations WHERE 1=1`;
             const params = [];
-            if (month_year && month_year !== 'all') {
+
+            if (year && year !== 'all' && month && month !== 'all') {
+                sql += ` AND (month_year = ? OR month_year LIKE ?)`;
+                params.push(`Tháng ${month}/${year}`, `%${month}/${year}`);
+            } else if (year && year !== 'all') {
+                sql += ` AND month_year LIKE ?`;
+                params.push(`%/${year}`);
+            } else if (month && month !== 'all') {
+                sql += ` AND (month_year LIKE ? OR month_year LIKE ?)`;
+                params.push(`Tháng ${month}/%`, `%${month}/%`);
+            } else if (month_year && month_year !== 'all') {
                 sql += ` AND (month_year = ? OR month_year LIKE ?)`;
                 params.push(month_year, `%${month_year}%`);
             }
+
             const items = await db.all(sql, params);
 
             const total = items.length;

@@ -1,7 +1,8 @@
 // ========== ĐÁNH GIÁ NHÂN SỰ — CUỘC HỌP CÔNG TY ==========
 (function() {
     var _eeState = {
-        monthYear: 'Tháng ' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear(),
+        filterYear: '2026',
+        filterMonth: 'all',
         department: 'all',
         employeeName: 'all',
         status: 'all',
@@ -73,18 +74,34 @@
                 <!-- Filter Controls & View Mode Toggle Bar -->
                 <div style="background: white; border-radius: 12px; padding: 12px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 16px; border: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
                     <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
-                        <!-- Select Month / Year -->
+                        <!-- Select Year -->
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="font-size: 12px; font-weight: 700; color: #475569;">📅 Kỳ đánh giá:</label>
-                            <select id="eeFilterMonth" onchange="window._eeOnFilterChange()" style="padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #f8fafc; outline: none;">
-                                <option value="Tháng 3/2026">Tháng 3/2026</option>
-                                <option value="Tháng 9/2026">Tháng 9/2026</option>
-                                <option value="Tháng 8/2026">Tháng 8/2026</option>
-                                <option value="Tháng 7/2026">Tháng 7/2026</option>
-                                <option value="Tháng 6/2026">Tháng 6/2026</option>
-                                <option value="Tháng 5/2026">Tháng 5/2026</option>
-                                <option value="Tháng 4/2026">Tháng 4/2026</option>
-                                <option value="all">Tất Cả Kỳ</option>
+                            <label style="font-size: 12px; font-weight: 700; color: #475569;">📅 Năm:</label>
+                            <select id="eeFilterYear" onchange="window._eeOnFilterChange()" style="padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #f8fafc; outline: none;">
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                                <option value="all">Tất Cả Năm</option>
+                            </select>
+                        </div>
+
+                        <!-- Select Month -->
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 700; color: #475569;">📅 Tháng:</label>
+                            <select id="eeFilterMonthNum" onchange="window._eeOnFilterChange()" style="padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #f8fafc; outline: none;">
+                                <option value="all">Tất Cả Tháng</option>
+                                <option value="1">Tháng 1</option>
+                                <option value="2">Tháng 2</option>
+                                <option value="3">Tháng 3</option>
+                                <option value="4">Tháng 4</option>
+                                <option value="5">Tháng 5</option>
+                                <option value="6">Tháng 6</option>
+                                <option value="7">Tháng 7</option>
+                                <option value="8">Tháng 8</option>
+                                <option value="9">Tháng 9</option>
+                                <option value="10">Tháng 10</option>
+                                <option value="11">Tháng 11</option>
+                                <option value="12">Tháng 12</option>
                             </select>
                         </div>
 
@@ -136,9 +153,11 @@
             <div id="eeModalContainer"></div>
         `;
 
-        // Set initial dropdown value
-        var filterMonthEl = document.getElementById('eeFilterMonth');
-        if (filterMonthEl) filterMonthEl.value = _eeState.monthYear;
+        // Set initial dropdown values
+        var filterYearEl = document.getElementById('eeFilterYear');
+        var filterMonthEl = document.getElementById('eeFilterMonthNum');
+        if (filterYearEl) filterYearEl.value = _eeState.filterYear;
+        if (filterMonthEl) filterMonthEl.value = _eeState.filterMonth;
 
         // Fetch users for form dropdown
         try {
@@ -148,7 +167,7 @@
             console.warn('Could not fetch users list:', e);
         }
 
-        // Fetch evaluated metadata (employees & departments) for filter dropdowns
+        // Fetch evaluated metadata (employees & departments & years) for filter dropdowns
         await _eeLoadEvaluatedMetadata();
         await _eeLoadData();
     }
@@ -159,12 +178,18 @@
             if (res && res.items) {
                 var empSet = new Set();
                 var deptSet = new Set();
+                var yearSet = new Set(['2026', '2025', '2024']);
                 res.items.forEach(function(i) {
                     if (i.employee_name && i.employee_name.trim()) empSet.add(i.employee_name.trim());
                     if (i.department && i.department.trim()) deptSet.add(i.department.trim());
+                    if (i.month_year) {
+                        var parts = i.month_year.split('/');
+                        if (parts.length === 2 && parts[1]) yearSet.add(parts[1].trim());
+                    }
                 });
                 _eeState.evaluatedEmployees = Array.from(empSet).sort();
                 _eeState.evaluatedDepartments = Array.from(deptSet).sort();
+                _eeState.evaluatedYears = Array.from(yearSet).sort().reverse();
             }
         } catch(e) {
             console.warn('Could not fetch evaluated metadata:', e);
@@ -174,7 +199,8 @@
     async function _eeLoadData() {
         try {
             var params = new URLSearchParams();
-            params.append('month_year', _eeState.monthYear);
+            if (_eeState.filterYear) params.append('year', _eeState.filterYear);
+            if (_eeState.filterMonth) params.append('month', _eeState.filterMonth);
             params.append('department', _eeState.department);
             if (_eeState.employeeName && _eeState.employeeName !== 'all') {
                 params.append('employee_name', _eeState.employeeName);
@@ -188,11 +214,12 @@
             var res = await apiCall('/api/employee-evaluations?' + params.toString());
             _eeState.items = (res && res.items) ? res.items : [];
 
-            var statsRes = await apiCall('/api/employee-evaluations/stats?month_year=' + encodeURIComponent(_eeState.monthYear));
+            var statsRes = await apiCall('/api/employee-evaluations/stats?year=' + encodeURIComponent(_eeState.filterYear) + '&month=' + encodeURIComponent(_eeState.filterMonth));
             if (statsRes && statsRes.stats) {
                 _eeState.stats = statsRes.stats;
             }
 
+            _eePopulateYearDropdown();
             _eePopulateDepartmentDropdown();
             _eePopulateEmployeeDropdown();
             _eeRenderStats();
@@ -201,6 +228,22 @@
             console.error('Error loading employee evaluation data:', err);
             showToast('⚠️ Không thể tải dữ liệu đánh giá nhân sự', 'error');
         }
+    }
+
+    function _eePopulateYearDropdown() {
+        var selectEl = document.getElementById('eeFilterYear');
+        if (!selectEl) return;
+
+        var currentVal = _eeState.filterYear || '2026';
+        var html = '<option value="all">Tất Cả Năm</option>';
+
+        var years = _eeState.evaluatedYears || ['2026', '2025', '2024'];
+        years.forEach(function(y) {
+            var selected = (y === currentVal) ? 'selected' : '';
+            html += `<option value="${y}" ${selected}>${y}</option>`;
+        });
+
+        selectEl.innerHTML = html;
     }
 
     function _eePopulateDepartmentDropdown() {
@@ -573,10 +616,12 @@
 
     // Filter Handlers
     window._eeOnFilterChange = function() {
-        var m = document.getElementById('eeFilterMonth');
+        var y = document.getElementById('eeFilterYear');
+        var m = document.getElementById('eeFilterMonthNum');
         var d = document.getElementById('eeFilterDept');
         var e = document.getElementById('eeFilterEmployee');
-        if (m) _eeState.monthYear = m.value;
+        if (y) _eeState.filterYear = y.value;
+        if (m) _eeState.filterMonth = m.value;
         if (d) _eeState.department = d.value;
         if (e) _eeState.employeeName = e.value;
         _eeLoadData();
