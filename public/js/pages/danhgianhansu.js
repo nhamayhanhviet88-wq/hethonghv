@@ -93,7 +93,6 @@
                             <label style="font-size: 12px; font-weight: 700; color: #475569;">🏢 Bộ phận:</label>
                             <select id="eeFilterDept" onchange="window._eeOnFilterChange()" style="padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #f8fafc; outline: none;">
                                 <option value="all">Tất Cả Bộ Phận</option>
-                                ${DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('')}
                             </select>
                         </div>
 
@@ -149,25 +148,26 @@
             console.warn('Could not fetch users list:', e);
         }
 
-        // Fetch evaluated employees list for filter dropdown
-        await _eeLoadEvaluatedEmployees();
+        // Fetch evaluated metadata (employees & departments) for filter dropdowns
+        await _eeLoadEvaluatedMetadata();
         await _eeLoadData();
     }
 
-    async function _eeLoadEvaluatedEmployees() {
+    async function _eeLoadEvaluatedMetadata() {
         try {
             var res = await apiCall('/api/employee-evaluations?month_year=all');
             if (res && res.items) {
-                var set = new Set();
+                var empSet = new Set();
+                var deptSet = new Set();
                 res.items.forEach(function(i) {
-                    if (i.employee_name && i.employee_name.trim()) {
-                        set.add(i.employee_name.trim());
-                    }
+                    if (i.employee_name && i.employee_name.trim()) empSet.add(i.employee_name.trim());
+                    if (i.department && i.department.trim()) deptSet.add(i.department.trim());
                 });
-                _eeState.evaluatedEmployees = Array.from(set).sort();
+                _eeState.evaluatedEmployees = Array.from(empSet).sort();
+                _eeState.evaluatedDepartments = Array.from(deptSet).sort();
             }
         } catch(e) {
-            console.warn('Could not fetch evaluated employees list:', e);
+            console.warn('Could not fetch evaluated metadata:', e);
         }
     }
 
@@ -193,6 +193,7 @@
                 _eeState.stats = statsRes.stats;
             }
 
+            _eePopulateDepartmentDropdown();
             _eePopulateEmployeeDropdown();
             _eeRenderStats();
             _eeRenderCurrentView();
@@ -200,6 +201,28 @@
             console.error('Error loading employee evaluation data:', err);
             showToast('⚠️ Không thể tải dữ liệu đánh giá nhân sự', 'error');
         }
+    }
+
+    function _eePopulateDepartmentDropdown() {
+        var selectEl = document.getElementById('eeFilterDept');
+        if (!selectEl) return;
+
+        var currentVal = _eeState.department || 'all';
+        var html = '<option value="all">Tất Cả Bộ Phận</option>';
+
+        var deptsSet = new Set(_eeState.evaluatedDepartments || []);
+        (_eeState.items || []).forEach(function(i) {
+            if (i.department && i.department.trim()) {
+                deptsSet.add(i.department.trim());
+            }
+        });
+
+        Array.from(deptsSet).sort().forEach(function(d) {
+            var selected = (d === currentVal) ? 'selected' : '';
+            html += `<option value="${d}" ${selected}>${d}</option>`;
+        });
+
+        selectEl.innerHTML = html;
     }
 
     function _eePopulateEmployeeDropdown() {
