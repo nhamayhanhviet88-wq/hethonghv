@@ -664,7 +664,13 @@
     };
 
     // Modal Form (Add / Edit 3-Section Sequential Flow)
-    window._eeOpenFormModal = function(editId) {
+    window._eeOpenFormModal = async function(editId) {
+        if (!_eeState.users || _eeState.users.length === 0) {
+            try {
+                var uRes = await apiCall('/api/users/dropdown');
+                _eeState.users = (uRes && uRes.users) ? uRes.users : [];
+            } catch(e) {}
+        }
         var item = editId ? _eeState.items.find(i => i.id === editId) : null;
         var modalContainer = document.getElementById('eeModalContainer');
         if (!modalContainer) return;
@@ -822,26 +828,53 @@
         window._eeOnDeptChange(item ? item.employee_name : null);
     };
 
-    function _eeMatchDept(userDeptName, selectedDept) {
+    function _eeMatchDept(u, selectedDept) {
         if (!selectedDept || selectedDept === 'all') return true;
-        if (!userDeptName) return false;
+        if (!u) return false;
 
-        var uDeptLower = userDeptName.toLowerCase().trim();
+        var uDeptName = u.department_name || u.department || u.team_name || '';
+        var uDeptId = Number(u.department_id) || 0;
+        var uDeptLower = uDeptName.toLowerCase().trim();
         var selDeptLower = selectedDept.toLowerCase().trim();
 
-        if (uDeptLower.includes(selDeptLower) || selDeptLower.includes(uDeptLower)) return true;
+        // Exact ID & Sub-team matching matching Teams (Cơ Cấu Tổ Chức) page
+        if (selDeptLower === 'kinh doanh') {
+            if ([1, 2, 3, 22, 23, 4, 27].includes(uDeptId)) return true;
+            if (uDeptLower.includes('kinh doanh') || uDeptLower.includes('sale') || uDeptLower.includes('cất cánh') || uDeptLower.includes('xã hội')) return true;
+        }
+        if (selDeptLower === 'sale') {
+            if ([4, 27, 1, 2, 3, 22, 23].includes(uDeptId)) return true;
+            if (uDeptLower.includes('sale') || uDeptLower.includes('kinh doanh') || uDeptLower.includes('cất cánh') || uDeptLower.includes('bứt phá')) return true;
+        }
+        if (selDeptLower === 'marketing') {
+            if (uDeptId === 6 || uDeptLower.includes('marketing')) return true;
+        }
+        if (selDeptLower === 'thiết kế') {
+            if (uDeptId === 5 || uDeptLower.includes('thiết kế')) return true;
+        }
+        if (selDeptLower === 'may') {
+            if ([14, 24, 26].includes(uDeptId) || uDeptLower.includes('may')) return true;
+        }
+        if (selDeptLower === 'cắt') {
+            if (uDeptId === 8 || uDeptLower.includes('cắt')) return true;
+        }
+        if (selDeptLower === 'in') {
+            if (uDeptId === 12 || uDeptLower.includes('in')) return true;
+        }
+        if (selDeptLower === 'ép') {
+            if (uDeptId === 13 || uDeptLower.includes('ép')) return true;
+        }
+        if (selDeptLower === 'hoàn thiện') {
+            if (uDeptId === 15 || uDeptLower.includes('hoàn thiện')) return true;
+        }
+        if (selDeptLower === 'kho') {
+            if (uDeptId === 18 || uDeptLower.includes('kho')) return true;
+        }
+        if (selDeptLower === 'văn phòng') {
+            if ([10, 17, 19].includes(uDeptId) || uDeptLower.includes('văn phòng') || uDeptLower.includes('hành chính') || uDeptLower.includes('thủ quỹ')) return true;
+        }
 
-        if (selDeptLower === 'kinh doanh' && (uDeptLower.includes('kinh doanh') || uDeptLower.includes('sale') || uDeptLower.includes('cất cánh') || uDeptLower.includes('xã hội'))) return true;
-        if (selDeptLower === 'sale' && (uDeptLower.includes('sale') || uDeptLower.includes('kinh doanh') || uDeptLower.includes('cất cánh') || uDeptLower.includes('bứt phá'))) return true;
-        if (selDeptLower === 'marketing' && uDeptLower.includes('marketing')) return true;
-        if (selDeptLower === 'sản xuất' && (uDeptLower.includes('sản xuất') || uDeptLower.includes('xưởng'))) return true;
-        if (selDeptLower === 'may' && uDeptLower.includes('may')) return true;
-        if (selDeptLower === 'cắt' && uDeptLower.includes('cắt')) return true;
-        if (selDeptLower === 'in' && uDeptLower.includes('in')) return true;
-        if (selDeptLower === 'ép' && uDeptLower.includes('ép')) return true;
-        if (selDeptLower === 'thiết kế' && uDeptLower.includes('thiết kế')) return true;
-        if (selDeptLower === 'văn phòng' && (uDeptLower.includes('văn phòng') || uDeptLower.includes('hệ thống'))) return true;
-        if (selDeptLower === 'hoàn thiện' && uDeptLower.includes('hoàn thiện')) return true;
+        if (uDeptLower && (uDeptLower.includes(selDeptLower) || selDeptLower.includes(uDeptLower))) return true;
 
         return false;
     }
@@ -860,8 +893,7 @@
         } else {
             empSel.disabled = false;
             var filteredUsers = _eeState.users.filter(function(u) {
-                var uDept = u.department_name || u.department || u.team_name || '';
-                return _eeMatchDept(uDept, selectedDept);
+                return _eeMatchDept(u, selectedDept);
             });
 
             if (filteredUsers.length === 0) {
