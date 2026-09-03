@@ -113,7 +113,7 @@ const CRM_LABELS = {
 };
 
 const MENU_CONFIG = [
-    { id: 'quytrinhcuochop', label: 'Quy Trình Cuộc Họp', icon: '🏛️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/quytrinhcuochop', permKey: 'quy_trinh_cuoc_hop' },
+    { id: 'quytrinhcuochop', label: 'Quy Trình Cuộc Họp', icon: '🏛️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/quytrinhcuochop', permKey: 'quy_trinh_cuoc_hop' },
     { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', permKey: 'tong_quan' },
     { id: 'muc-tieu-nam', label: 'Mục Tiêu Năm', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/muctieunam', mobileHref: '/m/muctieunam', permKey: 'muc_tieu_nam' },
     { id: 'topkhachhang', label: 'Top Khách & Sale KD', icon: '👑', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/topkhachhang', permKey: 'top_khach_hang' },

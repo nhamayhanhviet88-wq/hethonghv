@@ -2,7 +2,7 @@
 
 const PERM_FEATURES = [
     // ===== TỔNG QUAN =====
-    { key: 'quy_trinh_cuoc_hop', label: 'Quy Trình Cuộc Họp', perms: ['view','create','edit','delete'], section: 'TỔNG QUAN' },
+    { key: 'quy_trinh_cuoc_hop', label: 'Quy Trình Cuộc Họp', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
     { key: 'tong_quan', label: 'Các Chỉ Số Tổng Quan', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'top_khach_hang', label: 'Top Khách & Sale KD', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'dashboard_kdoanh', label: 'Dashboard P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
