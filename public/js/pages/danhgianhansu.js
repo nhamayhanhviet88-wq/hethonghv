@@ -551,6 +551,16 @@
         container.innerHTML = html;
     }
 
+    function _getFormattedNow() {
+        var d = new Date();
+        var hh = String(d.getHours()).padStart(2, '0');
+        var mm = String(d.getMinutes()).padStart(2, '0');
+        var dd = String(d.getDate()).padStart(2, '0');
+        var mo = String(d.getMonth() + 1).padStart(2, '0');
+        var yyyy = d.getFullYear();
+        return `${hh}:${mm} ${dd}/${mo}/${yyyy}`;
+    }
+
     function _clampText(txt) {
         if (!txt) return '--';
         return txt.length > 45 ? txt.substring(0, 42) + '...' : txt;
@@ -656,23 +666,19 @@
         var modalContainer = document.getElementById('eeModalContainer');
         if (!modalContainer) return;
 
-        var userOptions = _eeState.users.map(u => `<option value="${u.id}" data-name="${u.full_name || u.name}" data-dept="${u.department || u.team_name || ''}">${u.full_name || u.username}</option>`).join('');
-        var defaultMY = 'Tháng ' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear();
-        if (_eeState.filterYear && _eeState.filterYear !== 'all') {
-            var mStr = (_eeState.filterMonth && _eeState.filterMonth !== 'all') ? _eeState.filterMonth : (new Date().getMonth() + 1);
-            defaultMY = 'Tháng ' + mStr + '/' + _eeState.filterYear;
-        }
+        var nowFormatted = _getFormattedNow();
+        var timeValue = item ? (item.month_year || nowFormatted) : nowFormatted;
 
         modalContainer.innerHTML = `
             <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
                 <div style="background: white; border-radius: 20px; width: 100%; max-width: 920px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
                     <!-- Header -->
-                    <div style="padding: 18px 24px; background: linear-gradient(135deg, #1e3a8a, #1e40af); border-radius: 20px 20px 0 0; color: white; display: flex; justify-content: space-between; align-items: center; sticky: top: 0; z-index: 10;">
+                    <div style="padding: 18px 24px; background: linear-gradient(135deg, #1e3a8a, #1e40af); border-radius: 20px 20px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <h3 style="margin: 0; font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
                                 <span>${item ? '✏️ Chỉnh Sửa' : '➕ Thêm'} Đánh Giá Nhân Sự</span>
                             </h3>
-                            <div style="font-size: 11px; color: #93c5fd; margin-top: 2px;">Vui lòng nhập tuần tự từ Mục 1 đến Mục 3. Mục 1 là bắt buộc để lưu.</div>
+                            <div style="font-size: 11px; color: #93c5fd; margin-top: 2px;">Vui lòng chọn Bộ Phận -> Chọn Nhân Sự và nhập đủ các trường ở Mục 1 để lưu.</div>
                         </div>
                         <button onclick="window._eeCloseModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
                     </div>
@@ -686,30 +692,27 @@
                                 <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #1e3a8a; display: flex; align-items: center; gap: 6px;">
                                     <span>👨‍💼 MỤC 1: ĐÁNH GIÁ TỪ QUẢN LÝ</span>
                                 </h4>
-                                <span style="font-size: 11px; font-weight: 800; background: #dbeafe; color: #1e40af; padding: 3px 10px; border-radius: 12px;">Bắt buộc hoàn thành Mục 1</span>
+                                <span style="font-size: 11px; font-weight: 800; background: #dbeafe; color: #1e40af; padding: 3px 10px; border-radius: 12px;">Bắt buộc điền đủ 100% Mục 1</span>
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                                 <div>
-                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">📅 Kỳ Đánh Giá (Tháng/Năm) <span style="color: #dc2626;">*</span></label>
-                                    <input id="formMonthYear" type="text" value="${item ? (item.month_year || '') : defaultMY}" placeholder="Tháng 9/2026" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" oninput="window._eeCheckSectionLocks()">
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">🕒 Thời Gian Đánh Giá <span style="color: #dc2626;">*</span></label>
+                                    <input id="formMonthYear" type="text" value="${timeValue}" readonly style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; background: #f1f5f9; cursor: not-allowed; font-weight: 700; color: #1e40af;">
                                 </div>
 
                                 <div>
-                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">👤 Chọn Nhân Sự / Nhập Tên <span style="color: #dc2626;">*</span></label>
-                                    <div style="display: flex; gap: 8px;">
-                                        <select id="formUserSelect" onchange="window._eeOnUserSelect(this)" style="flex: 1; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px;">
-                                            <option value="">-- Chọn từ danh sách --</option>
-                                            ${userOptions}
-                                        </select>
-                                        <input id="formEmpName" type="text" value="${item ? (item.employee_name || '') : ''}" placeholder="Họ và Tên" style="flex: 1; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" oninput="window._eeCheckSectionLocks()">
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">🏢 Bộ Phận <span style="color: #dc2626;">*</span></label>
-                                    <select id="formDepartment" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" onchange="window._eeCheckSectionLocks()">
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">🏢 1. Chọn Bộ Phận <span style="color: #dc2626;">*</span></label>
+                                    <select id="formDepartment" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" onchange="window._eeOnDeptChange()">
+                                        <option value="">-- Chọn Bộ Phận --</option>
                                         ${DEPARTMENTS.map(d => `<option value="${d}" ${(item && item.department === d) ? 'selected' : ''}>${d}</option>`).join('')}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">👤 2. Chọn Nhân Sự <span style="color: #dc2626;">*</span></label>
+                                    <select id="formEmpSelect" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" onchange="window._eeCheckSectionLocks()">
+                                        <option value="">-- Vui lòng chọn Bộ Phận trước --</option>
                                     </select>
                                 </div>
 
@@ -719,23 +722,23 @@
                                 </div>
 
                                 <div style="grid-column: span 2;">
-                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">📊 Đánh Giá Năng Lực NV Của Quản Lý</label>
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">📊 Đánh Giá Năng Lực NV Của Quản Lý <span style="color: #dc2626;">*</span></label>
                                     <textarea id="formManagerEval" rows="2" placeholder="Nội dung đánh giá từ quản lý..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.manager_evaluation || '') : ''}</textarea>
                                 </div>
 
                                 <div>
-                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #2563eb; margin-bottom: 6px;">🛠️ Nội Dung Khắc Phục (Hành động)</label>
-                                    <textarea id="formRemediation" rows="2" placeholder="Công việc cần làm để sửa..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.remediation_action || '') : ''}</textarea>
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #2563eb; margin-bottom: 6px;">🛠️ Nội Dung Khắc Phục (Hành động) <span style="color: #dc2626;">*</span></label>
+                                    <textarea id="formRemediation" rows="2" placeholder="Công việc cần làm để sửa..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.remediation_action || '') : ''}</textarea>
                                 </div>
 
                                 <div>
-                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #7c3aed; margin-bottom: 6px;">🎓 Hướng Đào Tạo</label>
-                                    <textarea id="formTraining" rows="2" placeholder="Cần đào tạo thêm gì..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.training_direction || '') : ''}</textarea>
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #7c3aed; margin-bottom: 6px;">🎓 Hướng Đào Tạo <span style="color: #dc2626;">*</span></label>
+                                    <textarea id="formTraining" rows="2" placeholder="Cần đào tạo thêm gì..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.training_direction || '') : ''}</textarea>
                                 </div>
 
                                 <div style="grid-column: span 2;">
-                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #059669; margin-bottom: 6px;">🤝 Cam Kết Của Quản Lý</label>
-                                    <textarea id="formManagerCommit" rows="2" placeholder="Hỗ trợ của quản lý..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.manager_commitment || '') : ''}</textarea>
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #059669; margin-bottom: 6px;">🤝 Cam Kết Của Quản Lý <span style="color: #dc2626;">*</span></label>
+                                    <textarea id="formManagerCommit" rows="2" placeholder="Hỗ trợ của quản lý..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.manager_commitment || '') : ''}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -746,20 +749,20 @@
                                 <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #be185d; display: flex; align-items: center; gap: 6px;">
                                     <span>💬 MỤC 2: Ý KIẾN & CAM KẾT NHÂN SỰ</span>
                                 </h4>
-                                <span id="sec2Badge" style="font-size: 11px; font-weight: 800; background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 12px;">🔒 Khóa — Cần nhập xong Mục 1</span>
+                                <span id="sec2Badge" style="font-size: 11px; font-weight: 800; background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 12px;">🔒 Khóa — Cần điền đủ Mục 1</span>
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
                                 <div>
-                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #be185d; margin-bottom: 4px;">Ý Kiến Nhân Sự</label>
+                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #be185d; margin-bottom: 4px;">💬 Ý Kiến Nhân Sự <span style="color: #dc2626;">*</span></label>
                                     <textarea id="formEmpOpinion" rows="2" placeholder="Ý kiến phản hồi..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #f472b6; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.employee_opinion || '') : ''}</textarea>
                                 </div>
                                 <div>
-                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #be185d; margin-bottom: 4px;">Time Xử Lý (Hạn khắc phục)</label>
-                                    <input id="formResolutionDeadline" type="date" value="${item ? (item.resolution_deadline || '') : ''}" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #f472b6; font-size: 12px; box-sizing: border-box;">
+                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #be185d; margin-bottom: 4px;">⏰ Time Xử Lý (Hạn khắc phục) <span style="color: #dc2626;">*</span></label>
+                                    <input id="formResolutionDeadline" type="date" value="${item ? (item.resolution_deadline || '') : ''}" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #f472b6; font-size: 12px; box-sizing: border-box;" onchange="window._eeCheckSectionLocks()">
                                 </div>
                                 <div>
-                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #be185d; margin-bottom: 4px;">Cam Kết Của Nhân Sự</label>
+                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #be185d; margin-bottom: 4px;">🤝 Cam Kết Của Nhân Sự <span style="color: #dc2626;">*</span></label>
                                     <textarea id="formEmpCommitment" rows="2" placeholder="Cam kết thực hiện..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #f472b6; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.employee_commitment || '') : ''}</textarea>
                                 </div>
                             </div>
@@ -771,17 +774,17 @@
                                 <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #0369a1; display: flex; align-items: center; gap: 6px;">
                                     <span>📊 MỤC 3: BÁO CÁO TIẾN ĐỘ</span>
                                 </h4>
-                                <span id="sec3Badge" style="font-size: 11px; font-weight: 800; background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 12px;">🔒 Khóa — Cần nhập xong Mục 2</span>
+                                <span id="sec3Badge" style="font-size: 11px; font-weight: 800; background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 12px;">🔒 Khóa — Cần điền đủ Mục 2</span>
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                 <div>
-                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">Quản Lý Báo Cáo (Xử lý thế nào?)</label>
-                                    <textarea id="formManagerReport" rows="2" placeholder="Cập nhật từ quản lý..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.manager_report || '') : ''}</textarea>
+                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">📝 Quản Lý Báo Cáo (Xử lý thế nào?) <span style="color: #dc2626;">*</span></label>
+                                    <textarea id="formManagerReport" rows="2" placeholder="Cập nhật từ quản lý..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.manager_report || '') : ''}</textarea>
                                 </div>
                                 <div>
-                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">Nhân Sự Báo Cáo</label>
-                                    <textarea id="formEmpReport" rows="2" placeholder="Báo cáo kết quả từ nhân sự..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.employee_report || '') : ''}</textarea>
+                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">📝 Nhân Sự Báo Cáo <span style="color: #dc2626;">*</span></label>
+                                    <textarea id="formEmpReport" rows="2" placeholder="Báo cáo kết quả từ nhân sự..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.employee_report || '') : ''}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -797,17 +800,51 @@
             </div>
         `;
 
-        // Check locks immediately on load
+        // Populate employee dropdown based on department selection
+        window._eeOnDeptChange(item ? item.employee_name : null);
+    };
+
+    window._eeOnDeptChange = function(selectedEmpName) {
+        var deptSel = document.getElementById('formDepartment');
+        var empSel = document.getElementById('formEmpSelect');
+        if (!deptSel || !empSel) return;
+
+        var selectedDept = deptSel.value;
+        empSel.innerHTML = '<option value="">-- Chọn Nhân Sự --</option>';
+
+        if (!selectedDept) {
+            empSel.disabled = true;
+            empSel.innerHTML = '<option value="">-- Vui lòng chọn Bộ Phận trước --</option>';
+        } else {
+            empSel.disabled = false;
+            var filteredUsers = _eeState.users.filter(function(u) {
+                var uDept = u.department || u.team_name || '';
+                return !selectedDept || uDept.toLowerCase() === selectedDept.toLowerCase();
+            });
+
+            var targetUsers = filteredUsers.length > 0 ? filteredUsers : _eeState.users;
+
+            targetUsers.forEach(function(u) {
+                var name = u.full_name || u.username;
+                var isSel = (selectedEmpName && selectedEmpName === name) ? 'selected' : '';
+                empSel.innerHTML += `<option value="${name}" data-id="${u.id}" ${isSel}>${name}</option>`;
+            });
+        }
+
         window._eeCheckSectionLocks();
     };
 
     window._eeCheckSectionLocks = function() {
-        var empName = document.getElementById('formEmpName') ? document.getElementById('formEmpName').value.trim() : '';
         var dept = document.getElementById('formDepartment') ? document.getElementById('formDepartment').value : '';
+        var empSel = document.getElementById('formEmpSelect') ? document.getElementById('formEmpSelect').value : '';
         var errors = document.getElementById('formImprovementErrors') ? document.getElementById('formImprovementErrors').value.trim() : '';
         var evalText = document.getElementById('formManagerEval') ? document.getElementById('formManagerEval').value.trim() : '';
+        var remediation = document.getElementById('formRemediation') ? document.getElementById('formRemediation').value.trim() : '';
+        var training = document.getElementById('formTraining') ? document.getElementById('formTraining').value.trim() : '';
+        var managerCommit = document.getElementById('formManagerCommit') ? document.getElementById('formManagerCommit').value.trim() : '';
 
-        var sec1Complete = (empName !== '') && (dept !== '') && (errors !== '' || evalText !== '');
+        // Strict Section 1 Validation: MUST fill ALL 7 fields
+        var sec1Complete = Boolean(dept && empSel && errors && evalText && remediation && training && managerCommit);
 
         var sec2Card = document.getElementById('sec2Card');
         var sec2Badge = document.getElementById('sec2Badge');
@@ -819,14 +856,16 @@
             sec2Inputs.forEach(el => el.removeAttribute('disabled'));
         } else {
             if (sec2Card) { sec2Card.style.opacity = '0.5'; sec2Card.style.pointerEvents = 'none'; }
-            if (sec2Badge) { sec2Badge.innerHTML = '🔒 Khóa — Cần nhập xong Mục 1'; sec2Badge.style.background = '#fee2e2'; sec2Badge.style.color = '#991b1b'; }
+            if (sec2Badge) { sec2Badge.innerHTML = '🔒 Khóa — Cần điền đủ 100% Mục 1'; sec2Badge.style.background = '#fee2e2'; sec2Badge.style.color = '#991b1b'; }
             sec2Inputs.forEach(el => el.setAttribute('disabled', 'disabled'));
         }
 
         var empOpinion = document.getElementById('formEmpOpinion') ? document.getElementById('formEmpOpinion').value.trim() : '';
+        var deadline = document.getElementById('formResolutionDeadline') ? document.getElementById('formResolutionDeadline').value : '';
         var empCommit = document.getElementById('formEmpCommitment') ? document.getElementById('formEmpCommitment').value.trim() : '';
 
-        var sec2Complete = sec1Complete && (empOpinion !== '' || empCommit !== '');
+        // Strict Section 2 Validation: MUST fill ALL 3 fields
+        var sec2Complete = sec1Complete && Boolean(empOpinion && deadline && empCommit);
 
         var sec3Card = document.getElementById('sec3Card');
         var sec3Badge = document.getElementById('sec3Badge');
@@ -838,7 +877,7 @@
             sec3Inputs.forEach(el => el.removeAttribute('disabled'));
         } else {
             if (sec3Card) { sec3Card.style.opacity = '0.5'; sec3Card.style.pointerEvents = 'none'; }
-            if (sec3Badge) { sec3Badge.innerHTML = '🔒 Khóa — Cần nhập xong Mục 2'; sec3Badge.style.background = '#fee2e2'; sec3Badge.style.color = '#991b1b'; }
+            if (sec3Badge) { sec3Badge.innerHTML = '🔒 Khóa — Cần điền đủ 100% Mục 2'; sec3Badge.style.background = '#fee2e2'; sec3Badge.style.color = '#991b1b'; }
             sec3Inputs.forEach(el => el.setAttribute('disabled', 'disabled'));
         }
 
@@ -856,26 +895,6 @@
         }
     };
 
-    window._eeOnUserSelect = function(sel) {
-        var opt = sel.options[sel.selectedIndex];
-        if (!opt || !opt.value) return;
-        var name = opt.getAttribute('data-name');
-        var dept = opt.getAttribute('data-dept');
-        var empNameInp = document.getElementById('formEmpName');
-        var deptSel = document.getElementById('formDepartment');
-
-        if (name && empNameInp) empNameInp.value = name;
-        if (dept && deptSel) {
-            for (var i = 0; i < deptSel.options.length; i++) {
-                if (deptSel.options[i].value.toLowerCase() === dept.toLowerCase()) {
-                    deptSel.selectedIndex = i;
-                    break;
-                }
-            }
-        }
-        window._eeCheckSectionLocks();
-    };
-
     window._eeCloseModal = function() {
         var container = document.getElementById('eeModalContainer');
         if (container) container.innerHTML = '';
@@ -883,115 +902,92 @@
 
     window._eeSaveForm = async function(editId) {
         var monthYear = document.getElementById('formMonthYear').value.trim();
-        var empName = document.getElementById('formEmpName').value.trim();
         var dept = document.getElementById('formDepartment').value;
-        var userSelect = document.getElementById('formUserSelect');
-        var userId = userSelect ? userSelect.value : null;
+        var empSel = document.getElementById('formEmpSelect');
+        var empName = empSel ? empSel.value : '';
+        var optSelected = empSel ? empSel.options[empSel.selectedIndex] : null;
+        var userId = optSelected ? optSelected.getAttribute('data-id') : null;
 
         var errors = document.getElementById('formImprovementErrors').value.trim();
         var managerEval = document.getElementById('formManagerEval').value.trim();
+        var remediation = document.getElementById('formRemediation').value.trim();
+        var training = document.getElementById('formTraining').value.trim();
+        var managerCommit = document.getElementById('formManagerCommit').value.trim();
 
-        if (!empName || (!errors && !managerEval)) {
-            showToast('⚠️ Vui lòng nhập đầy đủ thông tin Mục 1 (Tên Nhân Sự & Lỗi/Đánh Giá)', 'warning');
+        // 1. Strict Validation Section 1
+        if (!dept || !empName || !errors || !managerEval || !remediation || !training || !managerCommit) {
+            showToast('⚠️ Vui lòng điền đầy đủ 100% tất cả các trường thông tin ở Mục 1 (👨‍💼 ĐÁNH GIÁ TỪ QUẢN LÝ)!', 'warning');
             return;
         }
 
-        var defaultMY = 'Tháng ' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear();
-        if (_eeState.filterYear && _eeState.filterYear !== 'all') {
-            var mStr = (_eeState.filterMonth && _eeState.filterMonth !== 'all') ? _eeState.filterMonth : (new Date().getMonth() + 1);
-            defaultMY = 'Tháng ' + mStr + '/' + _eeState.filterYear;
+        var empOpinion = document.getElementById('formEmpOpinion').value.trim();
+        var deadline = document.getElementById('formResolutionDeadline').value;
+        var empCommit = document.getElementById('formEmpCommitment').value.trim();
+
+        // 2. Validation Section 2 if user filled any part of section 2
+        if (empOpinion || deadline || empCommit) {
+            if (!empOpinion || !deadline || !empCommit) {
+                showToast('⚠️ Vui lòng điền đầy đủ 100% các trường ở Mục 2 (Ý Kiến, Hạn Xử Lý & Cam Kết Nhân Sự)!', 'warning');
+                return;
+            }
+        }
+
+        var managerReport = document.getElementById('formManagerReport').value.trim();
+        var employeeReport = document.getElementById('formEmpReport').value.trim();
+
+        // 3. Validation Section 3 if user filled any part of section 3
+        if (managerReport || employeeReport) {
+            if (!managerReport || !employeeReport) {
+                showToast('⚠️ Vui lòng điền đầy đủ 100% các trường ở Mục 3 (Báo Cáo Tiến Độ từ Quản Lý và Nhân Sự)!', 'warning');
+                return;
+            }
         }
 
         var body = {
-            month_year: monthYear || defaultMY,
+            month_year: monthYear,
             user_id: userId || null,
             employee_name: empName,
             department: dept,
             improvement_errors: errors,
             manager_evaluation: managerEval,
-            remediation_action: document.getElementById('formRemediation').value.trim(),
-            training_direction: document.getElementById('formTraining').value.trim(),
-            manager_commitment: document.getElementById('formManagerCommit').value.trim(),
-            employee_opinion: document.getElementById('formEmpOpinion').value.trim(),
-            resolution_deadline: document.getElementById('formResolutionDeadline').value,
-            employee_commitment: document.getElementById('formEmpCommitment').value.trim(),
-            manager_report: document.getElementById('formManagerReport').value.trim(),
-            employee_report: document.getElementById('formEmpReport').value.trim()
+            remediation_action: remediation,
+            training_direction: training,
+            manager_commitment: managerCommit,
+            employee_opinion: empOpinion,
+            resolution_deadline: deadline,
+            employee_commitment: empCommit,
+            manager_report: managerReport,
+            employee_report: employeeReport
         };
 
         try {
+            var url = '/api/employee-evaluations';
+            var method = 'POST';
             if (editId) {
-                await apiCall('/api/employee-evaluations/' + editId, 'PUT', body);
-                showToast('✅ Đã cập nhật đánh giá nhân sự!', 'success');
-            } else {
-                await apiCall('/api/employee-evaluations', 'POST', body);
-                showToast('✅ Đã thêm đánh giá nhân sự mới!', 'success');
+                url += '/' + editId;
+                method = 'PUT';
             }
-            window._eeCloseModal();
-            _eeLoadData();
-        } catch(err) {
-            console.error('Error saving evaluation:', err);
-            showToast('❌ Có lỗi khi lưu dữ liệu đánh giá', 'error');
-        }
-    };
 
-    // Quick Report Modal
-    window._eeOpenReportModal = function(id) {
-        var item = _eeState.items.find(i => i.id === id);
-        if (!item) return;
-
-        var modalContainer = document.getElementById('eeModalContainer');
-        if (!modalContainer) return;
-
-        modalContainer.innerHTML = `
-            <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
-                <div style="background: white; border-radius: 18px; width: 100%; max-width: 550px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
-                    <div style="padding: 18px 24px; background: linear-gradient(135deg, #0284c7, #0369a1); border-radius: 18px 18px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0; font-size: 16px; font-weight: 800;">📊 Cập Nhật Báo Cáo — ${item.employee_name}</h3>
-                        <button onclick="window._eeCloseModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 8px; cursor: pointer;">✕</button>
-                    </div>
-
-                    <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 700; color: #0369a1; margin-bottom: 6px;">👨‍💼 Quản Lý Báo Cáo (Xử lý như thế nào?)</label>
-                            <textarea id="rptManagerReport" rows="3" placeholder="Ghi nhận báo cáo từ Quản lý..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">${item.manager_report || ''}</textarea>
-                        </div>
-
-                        <div>
-                            <label style="display: block; font-size: 12px; font-weight: 700; color: #0369a1; margin-bottom: 6px;">👷 Nhân Sự Báo Cáo</label>
-                            <textarea id="rptEmpReport" rows="3" placeholder="Ghi nhận báo cáo từ Nhân sự..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">${item.employee_report || ''}</textarea>
-                        </div>
-                    </div>
-
-                    <div style="padding: 16px 24px; background: #f8fafc; border-radius: 0 0 18px 18px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
-                        <button onclick="window._eeCloseModal()" style="padding: 8px 16px; background: #e2e8f0; color: #475569; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">Hủy</button>
-                        <button onclick="window._eeSaveReport(${item.id})" style="padding: 8px 20px; background: #0284c7; color: white; border: none; border-radius: 8px; font-weight: 800; cursor: pointer;">Lưu Báo Cáo</button>
-                    </div>
-                </div>
-            </div>
-        `;
-    };
-
-    window._eeSaveReport = async function(id) {
-        var mReport = document.getElementById('rptManagerReport').value.trim();
-        var eReport = document.getElementById('rptEmpReport').value.trim();
-
-        try {
-            await apiCall('/api/employee-evaluations/' + id, 'PUT', {
-                manager_report: mReport,
-                employee_report: eReport
+            var res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
             });
-            showToast('✅ Đã cập nhật báo cáo!', 'success');
-            window._eeCloseModal();
-            _eeLoadData();
-        } catch(err) {
-            console.error('Error saving report:', err);
-            showToast('❌ Có lỗi khi lưu báo cáo', 'error');
+
+            var data = await res.json();
+            if (data.success) {
+                showToast(editId ? '✅ Cập nhật đánh giá thành công!' : '✅ Thêm mới đánh giá thành công!', 'success');
+                window._eeCloseModal();
+                _eeLoadData();
+            } else {
+                showToast('❌ Lỗi: ' + (data.error || 'Không thể lưu'), 'error');
+            }
+        } catch (err) {
+            console.error('Error saving evaluation:', err);
+            showToast('❌ Lỗi kết nối hệ thống', 'error');
         }
     };
-
-    // Delete Item
-    window._eeDelete = async function(id) {
+window._eeDelete = async function(id) {
         if (!confirm('Bạn có chắc chắn muốn xóa bản đánh giá nhân sự này?')) return;
         try {
             await apiCall('/api/employee-evaluations/' + id, 'DELETE');
