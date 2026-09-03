@@ -52,7 +52,24 @@ function formatVNDate(dateVal, formatOptions = { day: '2-digit', month: '2-digit
     }).format(d);
 }
 
-// ========== PERMISSION HELPER ==========
+window.mcCloseSession = async function(sessId, title) {
+    if (!confirm('Bạn có chắc chắn muốn ĐÓNG cuộc họp [' + title + '] ngay bây giờ?\nSau khi đóng, bạn có thể tạo cuộc họp mới tiếp theo.')) return;
+    try {
+        await apiCall('/api/meeting-commitments/sessions/' + sessId + '/close', 'PUT');
+        if (window.showToast) showToast('✅ Đã đóng cuộc họp thành công!', 'success');
+        var path = window.location.pathname;
+        if (path.indexOf('kpimarketing') >= 0) {
+            if (typeof loadKpiMktMeetingCommit === 'function') await loadKpiMktMeetingCommit();
+        } else if (path.indexOf('kpisale') >= 0) {
+            if (typeof loadKpiSaleData === 'function') await loadKpiSaleData();
+        } else if (path.indexOf('camketcuochop') >= 0) {
+            if (typeof loadMeetingCommitments === 'function') await loadMeetingCommitments();
+        } else {
+            if (typeof kpiLoadMeetingCommit === 'function') await kpiLoadMeetingCommit();
+        }
+    } catch(e) { alert('Lỗi đóng cuộc họp: ' + (e.message || '')); }
+};
+
 // Usage: canDo('crm_nhu_cau', 'edit') → true/false
 // Actions: 'view', 'create', 'edit', 'delete'
 function canDo(featureKey, action) {
