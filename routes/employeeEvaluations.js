@@ -8,7 +8,7 @@ async function employeeEvaluationsRoutes(fastify, options) {
     // Auto-migrate table if needed
     try {
         await db.run("ALTER TABLE employee_evaluations ADD COLUMN IF NOT EXISTS eval_type VARCHAR(50) DEFAULT 'Cần Cải Thiện'");
-    } catch(e) {}
+    } catch(e) { console.error('Error altering eval_type:', e); }
     try {
         await db.run(`CREATE TABLE IF NOT EXISTS employee_evaluations (
             id SERIAL PRIMARY KEY,
@@ -252,6 +252,7 @@ async function employeeEvaluationsRoutes(fastify, options) {
                 b.user_id !== undefined ? b.user_id : existing.user_id,
                 b.employee_name !== undefined ? b.employee_name : existing.employee_name,
                 b.department !== undefined ? b.department : existing.department,
+                b.eval_type !== undefined ? b.eval_type : (existing.eval_type || 'Cần Cải Thiện'),
                 b.improvement_errors !== undefined ? b.improvement_errors : existing.improvement_errors,
                 b.manager_evaluation !== undefined ? b.manager_evaluation : existing.manager_evaluation,
                 b.remediation_action !== undefined ? b.remediation_action : existing.remediation_action,
