@@ -226,25 +226,25 @@
                         <tr style="font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.1px; font-weight: 800; color: white;">
                             <th style="padding: 7px 2px; background: #1e3a8a; width: 3.5%; text-align: center; border-right: 1px solid rgba(255,255,255,0.15);">Kỳ</th>
                             <th style="padding: 7px 2px; background: #1e3a8a; width: 2.5%; text-align: center; border-right: 1px solid rgba(255,255,255,0.15);">STT</th>
-                            <th style="padding: 7px 4px; background: #1e3a8a; width: 7.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Họ Tên">Họ Tên</th>
-                            <th style="padding: 7px 3px; background: #1e3a8a; width: 5.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
-                            <th style="padding: 7px 4px; background: #1e3a8a; width: 9%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Cải Thiện/Lỗi">Cải Thiện/Lỗi</th>
-                            <th style="padding: 7px 4px; background: #1e3a8a; width: 11%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="ĐG Quản Lý">ĐG Quản Lý</th>
-                            <th style="padding: 7px 4px; background: #1e3a8a; width: 9%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="NS Khắc Phục">NS Khắc Phục</th>
-                            <th style="padding: 7px 4px; background: #1e3a8a; width: 8.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Hướng Đào Tạo">Hướng Đào Tạo</th>
-                            <th style="padding: 7px 4px; background: #1e3a8a; width: 7.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Cam Kết QL">Cam Kết QL</th>
+                            <th style="padding: 7px 3px; background: #1e3a8a; width: 7%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Họ Tên">Họ Tên</th>
+                            <th style="padding: 7px 2px; background: #1e3a8a; width: 5.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
+                            <th style="padding: 7px 3px; background: #1e3a8a; width: 8.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Cải Thiện/Lỗi">Cải Thiện/Lỗi</th>
+                            <th style="padding: 7px 3px; background: #1e3a8a; width: 10.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Đánh Giá Quản Lý">Đánh Giá Quản Lý</th>
+                            <th style="padding: 7px 3px; background: #1e3a8a; width: 9%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Nội Dung Khắc Phục">Nội Dung Khắc Phục</th>
+                            <th style="padding: 7px 3px; background: #1e3a8a; width: 8.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Hướng Đào Tạo">Hướng Đào Tạo</th>
+                            <th style="padding: 7px 3px; background: #1e3a8a; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Quản Lý Cam Kết">Quản Lý Cam Kết</th>
                             
                             <!-- Pink: Employee -->
-                            <th style="padding: 7px 4px; background: #db2777; width: 7.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Ý Kiến NS">Ý Kiến NS</th>
-                            <th style="padding: 7px 3px; background: #db2777; width: 5.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Hạn XL">Hạn XL</th>
-                            <th style="padding: 7px 4px; background: #db2777; width: 7.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Cam Kết NS">Cam Kết NS</th>
+                            <th style="padding: 7px 3px; background: #db2777; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Ý Kiến Nhân Sự">Ý Kiến Nhân Sự</th>
+                            <th style="padding: 7px 2px; background: #db2777; width: 5.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Hạn Xử Lý">Hạn Xử Lý</th>
+                            <th style="padding: 7px 3px; background: #db2777; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Nhân Sự Cam Kết">Nhân Sự Cam Kết</th>
                             
                             <!-- Teal: Reports -->
-                            <th style="padding: 7px 4px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Báo Cáo QL">Báo Cáo QL</th>
-                            <th style="padding: 7px 4px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Báo Cáo NS">Báo Cáo NS</th>
+                            <th style="padding: 7px 3px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Quản Lý Báo Cáo">Quản Lý Báo Cáo</th>
+                            <th style="padding: 7px 3px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Nhân Sự Báo Cáo">Nhân Sự Báo Cáo</th>
                             
                             <!-- Action -->
-                            <th style="padding: 7px 2px; background: #334155; width: 5.5%; text-align: center;">Thao Tác</th>
+                            <th style="padding: 7px 2px; background: #334155; width: 5%; text-align: center;">Thao Tác</th>
                         </tr>
                     </thead>
                     <tbody>
