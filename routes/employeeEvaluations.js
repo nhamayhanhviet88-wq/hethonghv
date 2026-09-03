@@ -7,6 +7,9 @@ async function employeeEvaluationsRoutes(fastify, options) {
 
     // Auto-migrate table if needed
     try {
+        await db.run("ALTER TABLE employee_evaluations ADD COLUMN IF NOT EXISTS eval_type VARCHAR(50) DEFAULT 'Cần Cải Thiện'");
+    } catch(e) {}
+    try {
         await db.run(`CREATE TABLE IF NOT EXISTS employee_evaluations (
             id SERIAL PRIMARY KEY,
             month_year VARCHAR(50) NOT NULL,
@@ -164,17 +167,18 @@ async function employeeEvaluationsRoutes(fastify, options) {
             const res = await db.run(`
                 INSERT INTO employee_evaluations (
                     month_year, meeting_id, user_id, employee_name, department,
-                    improvement_errors, manager_evaluation, remediation_action,
+                    eval_type, improvement_errors, manager_evaluation, remediation_action,
                     training_direction, manager_commitment, employee_opinion,
                     resolution_deadline, employee_commitment, manager_report,
                     employee_report, completion_rate, status, created_by, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
             `, [
                 month_year,
                 b.meeting_id || null,
                 b.user_id || null,
                 b.employee_name.trim(),
                 b.department || 'Kinh Doanh',
+                b.eval_type || 'Cần Cải Thiện',
                 b.improvement_errors || '',
                 b.manager_evaluation || '',
                 b.remediation_action || '',
@@ -228,6 +232,7 @@ async function employeeEvaluationsRoutes(fastify, options) {
                     user_id = ?,
                     employee_name = ?,
                     department = ?,
+                    eval_type = ?,
                     improvement_errors = ?,
                     manager_evaluation = ?,
                     remediation_action = ?,

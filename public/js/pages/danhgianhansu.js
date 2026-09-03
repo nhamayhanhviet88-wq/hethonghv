@@ -447,6 +447,9 @@
 
         _eeState.items.forEach(function(item, idx) {
             var monthShort = item.month_year ? item.month_year.replace('Tháng ', 'T') : '--';
+            var typeBadgeHtml = (item.eval_type === 'Lỗi Vi Phạm')
+                ? '<span style="background: #fee2e2; color: #991b1b; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; margin-right: 4px; display: inline-block;">⚠️ LỖI</span>'
+                : '<span style="background: #fef3c7; color: #92400e; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; margin-right: 4px; display: inline-block;">💡 CẢI THIỆN</span>';
 
             html += `
                 <tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'" onclick="window._eeOpenDetailModal(${item.id})">
@@ -455,7 +458,7 @@
                     <td style="padding: 8px 6px; font-weight: 800; color: #0f172a; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;" title="${item.employee_name}">${item.employee_name || '--'}</td>
                     <td style="padding: 8px 4px; border-right: 1px solid #e2e8f0; text-align: center;" title="${item.department}">${_getDeptBadgeHtml(item.department)}</td>
                     
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.improvement_errors}">${typeBadgeHtml}${_clampText(item.improvement_errors)}</td>
                     <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #334155; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.manager_evaluation}">${_clampText(item.manager_evaluation)}</td>
                     <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #2563eb; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.remediation_action}">${_clampText(item.remediation_action)}</td>
                     <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #7c3aed; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.training_direction}">${_clampText(item.training_direction)}</td>
@@ -521,7 +524,7 @@
                         <!-- Manager Section -->
                         <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border-left: 4px solid #1e40af;">
                             <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 6px;">👨‍💼 Đánh Giá Từ Quản Lý</div>
-                            <div style="font-size: 12px; color: #dc2626; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">⚠️ Cải thiện / Lỗi: <span style="font-weight: 500; color: #334155;">${item.improvement_errors || '--'}</span></div>
+                            <div style="font-size: 12px; color: #dc2626; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">Phân loại: ${item.eval_type === 'Lỗi Vi Phạm' ? '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">⚠️ LỖI VI PHẠM</span>' : '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">💡 CẦN CẢI THIỆN</span>'}<br>Nội dung: <span style="font-weight: 500; color: #334155;">${item.improvement_errors || '--'}</span></div>
                             <div style="font-size: 12px; color: #334155; margin-bottom: 4px; white-space: pre-wrap;">📊 Đánh giá năng lực: <span>${item.manager_evaluation || '--'}</span></div>
                             <div style="font-size: 12px; color: #2563eb; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">🛠️ Khắc phục: <span style="font-weight: 500; color: #334155;">${item.remediation_action || '--'}</span></div>
                             <div style="font-size: 12px; color: #7c3aed; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">🎓 Hướng đào tạo: <span style="font-weight: 500; color: #334155;">${item.training_direction || '--'}</span></div>
@@ -589,7 +592,7 @@
                         <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
                             <h4 style="margin: 0 0 10px 0; color: #1e3a8a; font-size: 14px; font-weight: 800;">👨‍💼 1. ĐÁNH GIÁ TỪ QUẢN LÝ</h4>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                                <div style="white-space: pre-wrap;"><strong style="color: #dc2626;">Cải thiện / Lỗi:</strong> ${item.improvement_errors || '--'}</div>
+                                <div style="white-space: pre-wrap;"><strong style="color: #dc2626;">Phân loại:</strong> ${item.eval_type === 'Lỗi Vi Phạm' ? '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 800;">⚠️ LỖI VI PHẠM</span>' : '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 800;">💡 CẦN CẢI THIỆN</span>'}<br><strong style="color: #dc2626;">Nội dung chi tiết:</strong> ${item.improvement_errors || '--'}</div>
                                 <div style="white-space: pre-wrap;"><strong style="color: #334155;">Đánh giá năng lực:</strong> ${item.manager_evaluation || '--'}</div>
                                 <div style="white-space: pre-wrap;"><strong style="color: #2563eb;">Nhân sự khắc phục:</strong> ${item.remediation_action || '--'}</div>
                                 <div style="white-space: pre-wrap;"><strong style="color: #7c3aed;">Hướng đào tạo:</strong> ${item.training_direction || '--'}</div>
@@ -668,6 +671,7 @@
 
         var nowFormatted = _getFormattedNow();
         var timeValue = item ? (item.month_year || nowFormatted) : nowFormatted;
+        var currentEvalType = item ? (item.eval_type || 'Cần Cải Thiện') : 'Cần Cải Thiện';
 
         modalContainer.innerHTML = `
             <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
@@ -678,7 +682,7 @@
                             <h3 style="margin: 0; font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
                                 <span>${item ? '✏️ Chỉnh Sửa' : '➕ Thêm'} Đánh Giá Nhân Sự</span>
                             </h3>
-                            <div style="font-size: 11px; color: #93c5fd; margin-top: 2px;">Vui lòng chọn Bộ Phận -> Chọn Nhân Sự và nhập đủ các trường ở Mục 1 để lưu.</div>
+                            <div style="font-size: 11px; color: #93c5fd; margin-top: 2px;">Vui lòng chọn Bộ Phận -> Nhân Sự -> Phân Loại và nhập đủ các trường ở Mục 1 để lưu.</div>
                         </div>
                         <button onclick="window._eeCloseModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
                     </div>
@@ -696,6 +700,7 @@
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                                <!-- Row 1: Time & Department -->
                                 <div>
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">🕒 Thời Gian Đánh Giá <span style="color: #dc2626;">*</span></label>
                                     <input id="formMonthYear" type="text" value="${timeValue}" readonly style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; background: #f1f5f9; cursor: not-allowed; font-weight: 700; color: #1e40af;">
@@ -709,6 +714,7 @@
                                     </select>
                                 </div>
 
+                                <!-- Row 2: Employee Select & Eval Classification -->
                                 <div>
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">👤 2. Chọn Nhân Sự <span style="color: #dc2626;">*</span></label>
                                     <select id="formEmpSelect" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" onchange="window._eeCheckSectionLocks()">
@@ -717,15 +723,26 @@
                                 </div>
 
                                 <div>
-                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">⚠️ Cải Thiện / Lỗi <span style="color: #dc2626;">*</span></label>
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">🏷️ 3. Phân Loại Đánh Giá <span style="color: #dc2626;">*</span></label>
+                                    <select id="formEvalType" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; font-weight: 700;" onchange="window._eeCheckSectionLocks()">
+                                        <option value="Cần Cải Thiện" ${currentEvalType === 'Cần Cải Thiện' ? 'selected' : ''}>💡 Cần Cải Thiện</option>
+                                        <option value="Lỗi Vi Phạm" ${currentEvalType === 'Lỗi Vi Phạm' ? 'selected' : ''}>⚠️ Lỗi Vi Phạm</option>
+                                    </select>
+                                </div>
+
+                                <!-- Row 3: Full Width Content Area -->
+                                <div style="grid-column: span 2;">
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">⚠️ Nội Dung Chi Tiết (Cải Thiện / Lỗi) <span style="color: #dc2626;">*</span></label>
                                     <textarea id="formImprovementErrors" rows="2" placeholder="VD: Hay đi muộn, ẩu kích thước..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.improvement_errors || '') : ''}</textarea>
                                 </div>
 
+                                <!-- Row 4: Full Width Manager Evaluation -->
                                 <div style="grid-column: span 2;">
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">📊 Đánh Giá Năng Lực NV Của Quản Lý <span style="color: #dc2626;">*</span></label>
                                     <textarea id="formManagerEval" rows="2" placeholder="Nội dung đánh giá từ quản lý..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.manager_evaluation || '') : ''}</textarea>
                                 </div>
 
+                                <!-- Row 5: Remediation Action & Training Direction -->
                                 <div>
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #2563eb; margin-bottom: 6px;">🛠️ Nội Dung Khắc Phục (Hành động) <span style="color: #dc2626;">*</span></label>
                                     <textarea id="formRemediation" rows="2" placeholder="Công việc cần làm để sửa..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.remediation_action || '') : ''}</textarea>
@@ -736,6 +753,7 @@
                                     <textarea id="formTraining" rows="2" placeholder="Cần đào tạo thêm gì..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.training_direction || '') : ''}</textarea>
                                 </div>
 
+                                <!-- Row 6: Manager Commitment -->
                                 <div style="grid-column: span 2;">
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #059669; margin-bottom: 6px;">🤝 Cam Kết Của Quản Lý <span style="color: #dc2626;">*</span></label>
                                     <textarea id="formManagerCommit" rows="2" placeholder="Hỗ trợ của quản lý..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.manager_commitment || '') : ''}</textarea>
@@ -837,14 +855,15 @@
     window._eeCheckSectionLocks = function() {
         var dept = document.getElementById('formDepartment') ? document.getElementById('formDepartment').value : '';
         var empSel = document.getElementById('formEmpSelect') ? document.getElementById('formEmpSelect').value : '';
+        var evalType = document.getElementById('formEvalType') ? document.getElementById('formEvalType').value : '';
         var errors = document.getElementById('formImprovementErrors') ? document.getElementById('formImprovementErrors').value.trim() : '';
         var evalText = document.getElementById('formManagerEval') ? document.getElementById('formManagerEval').value.trim() : '';
         var remediation = document.getElementById('formRemediation') ? document.getElementById('formRemediation').value.trim() : '';
         var training = document.getElementById('formTraining') ? document.getElementById('formTraining').value.trim() : '';
         var managerCommit = document.getElementById('formManagerCommit') ? document.getElementById('formManagerCommit').value.trim() : '';
 
-        // Strict Section 1 Validation: MUST fill ALL 7 fields
-        var sec1Complete = Boolean(dept && empSel && errors && evalText && remediation && training && managerCommit);
+        // Strict Section 1 Validation: MUST fill ALL 8 fields
+        var sec1Complete = Boolean(dept && empSel && evalType && errors && evalText && remediation && training && managerCommit);
 
         var sec2Card = document.getElementById('sec2Card');
         var sec2Badge = document.getElementById('sec2Badge');
@@ -907,6 +926,7 @@
         var empName = empSel ? empSel.value : '';
         var optSelected = empSel ? empSel.options[empSel.selectedIndex] : null;
         var userId = optSelected ? optSelected.getAttribute('data-id') : null;
+        var evalType = document.getElementById('formEvalType') ? document.getElementById('formEvalType').value : 'Cần Cải Thiện';
 
         var errors = document.getElementById('formImprovementErrors').value.trim();
         var managerEval = document.getElementById('formManagerEval').value.trim();
@@ -915,7 +935,7 @@
         var managerCommit = document.getElementById('formManagerCommit').value.trim();
 
         // 1. Strict Validation Section 1
-        if (!dept || !empName || !errors || !managerEval || !remediation || !training || !managerCommit) {
+        if (!dept || !empName || !evalType || !errors || !managerEval || !remediation || !training || !managerCommit) {
             showToast('⚠️ Vui lòng điền đầy đủ 100% tất cả các trường thông tin ở Mục 1 (👨‍💼 ĐÁNH GIÁ TỪ QUẢN LÝ)!', 'warning');
             return;
         }
@@ -948,6 +968,7 @@
             user_id: userId || null,
             employee_name: empName,
             department: dept,
+            eval_type: evalType,
             improvement_errors: errors,
             manager_evaluation: managerEval,
             remediation_action: remediation,
