@@ -103,6 +103,23 @@ async function employeeEvaluationsRoutes(fastify, options) {
                 });
             }
 
+            // Calculate chronological occurrence number for every item based on employee_name and improvement_errors
+            const allRows = await db.all(`SELECT id, employee_name, improvement_errors FROM employee_evaluations WHERE improvement_errors IS NOT NULL AND improvement_errors != '' ORDER BY id ASC`);
+            const countsMap = {};
+            const itemOccurrenceMap = new Map();
+            for (const r of allRows) {
+                const empKey = removeVietnameseAccents(r.employee_name || '');
+                const errKey = removeVietnameseAccents(r.improvement_errors || '');
+                if (!errKey) continue;
+                const fullKey = empKey + '|' + errKey;
+                countsMap[fullKey] = (countsMap[fullKey] || 0) + 1;
+                itemOccurrenceMap.set(r.id, countsMap[fullKey]);
+            }
+
+            items.forEach(item => {
+                item.occurrence_number = itemOccurrenceMap.get(item.id) || 1;
+            });
+
             return reply.send({ success: true, items });
         } catch (err) {
             console.error('Error fetching employee_evaluations:', err);
