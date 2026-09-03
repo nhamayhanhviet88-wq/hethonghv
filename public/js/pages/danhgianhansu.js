@@ -221,30 +221,30 @@
     function _eeRenderCompactTableView(container) {
         var html = `
             <div style="background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden; width: 100%;">
-                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 9.5px; table-layout: fixed;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 8.5px; table-layout: fixed;">
                     <thead>
-                        <tr style="font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.1px; font-weight: 800; color: white;">
-                            <th style="padding: 7px 2px; background: #1e3a8a; width: 3.5%; text-align: center; border-right: 1px solid rgba(255,255,255,0.15);">Kỳ</th>
-                            <th style="padding: 7px 2px; background: #1e3a8a; width: 2.5%; text-align: center; border-right: 1px solid rgba(255,255,255,0.15);">STT</th>
-                            <th style="padding: 7px 3px; background: #1e3a8a; width: 7%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Họ Tên">Họ Tên</th>
-                            <th style="padding: 7px 2px; background: #1e3a8a; width: 5.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
-                            <th style="padding: 7px 3px; background: #1e3a8a; width: 8.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Cải Thiện/Lỗi">Cải Thiện/Lỗi</th>
-                            <th style="padding: 7px 3px; background: #1e3a8a; width: 10.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Đánh Giá Quản Lý">Đánh Giá Quản Lý</th>
-                            <th style="padding: 7px 3px; background: #1e3a8a; width: 9%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Nội Dung Khắc Phục">Nội Dung Khắc Phục</th>
-                            <th style="padding: 7px 3px; background: #1e3a8a; width: 8.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Hướng Đào Tạo">Hướng Đào Tạo</th>
-                            <th style="padding: 7px 3px; background: #1e3a8a; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Quản Lý Cam Kết">Quản Lý Cam Kết</th>
+                        <tr style="font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.1px; font-weight: 800; color: white;">
+                            <th style="padding: 5px 2px; background: #1e3a8a; width: 3.5%; text-align: center; border-right: 1px solid rgba(255,255,255,0.15);">Kỳ</th>
+                            <th style="padding: 5px 2px; background: #1e3a8a; width: 2.5%; text-align: center; border-right: 1px solid rgba(255,255,255,0.15);">STT</th>
+                            <th style="padding: 5px 3px; background: #1e3a8a; width: 7%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Họ Tên">Họ Tên</th>
+                            <th style="padding: 5px 2px; background: #1e3a8a; width: 5.5%; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
+                            <th style="padding: 5px 3px; background: #1e3a8a; width: 8.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Cải Thiện/Lỗi">Cải Thiện/Lỗi</th>
+                            <th style="padding: 5px 3px; background: #1e3a8a; width: 10.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Đánh Giá Quản Lý">Đánh Giá Quản Lý</th>
+                            <th style="padding: 5px 3px; background: #1e3a8a; width: 9%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Nội Dung Khắc Phục">Nội Dung Khắc Phục</th>
+                            <th style="padding: 5px 3px; background: #1e3a8a; width: 8.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Hướng Đào Tạo">Hướng Đào Tạo</th>
+                            <th style="padding: 5px 3px; background: #1e3a8a; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Quản Lý Cam Kết">Quản Lý Cam Kết</th>
                             
                             <!-- Pink: Employee -->
-                            <th style="padding: 7px 3px; background: #db2777; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Ý Kiến Nhân Sự">Ý Kiến Nhân Sự</th>
-                            <th style="padding: 7px 2px; background: #db2777; width: 5.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Hạn Xử Lý">Hạn Xử Lý</th>
-                            <th style="padding: 7px 3px; background: #db2777; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Nhân Sự Cam Kết">Nhân Sự Cam Kết</th>
+                            <th style="padding: 5px 3px; background: #db2777; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Ý Kiến Nhân Sự">Ý Kiến Nhân Sự</th>
+                            <th style="padding: 5px 2px; background: #db2777; width: 5.5%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Hạn Xử Lý">Hạn Xử Lý</th>
+                            <th style="padding: 5px 3px; background: #db2777; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Nhân Sự Cam Kết">Nhân Sự Cam Kết</th>
                             
                             <!-- Teal: Reports -->
-                            <th style="padding: 7px 3px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Quản Lý Báo Cáo">Quản Lý Báo Cáo</th>
-                            <th style="padding: 7px 3px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.2; word-break: break-word;" title="Nhân Sự Báo Cáo">Nhân Sự Báo Cáo</th>
+                            <th style="padding: 5px 3px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Quản Lý Báo Cáo">Quản Lý Báo Cáo</th>
+                            <th style="padding: 5px 3px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); text-align: center; line-height: 1.25; word-break: break-word;" title="Nhân Sự Báo Cáo">Nhân Sự Báo Cáo</th>
                             
                             <!-- Action -->
-                            <th style="padding: 7px 2px; background: #334155; width: 5%; text-align: center;">Thao Tác</th>
+                            <th style="padding: 5px 2px; background: #334155; width: 5%; text-align: center;">Thao Tác</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -255,33 +255,35 @@
 
             html += `
                 <tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'" onclick="window._eeOpenDetailModal(${item.id})">
-                    <td style="padding: 6px 2px; text-align: center; font-weight: 700; color: #1e40af; background: #f0f9ff; border-right: 1px solid #e2e8f0; font-size: 9px;">${monthShort}</td>
-                    <td style="padding: 6px 2px; text-align: center; font-weight: 700; color: #64748b; border-right: 1px solid #e2e8f0; font-size: 9px;">${idx + 1}</td>
-                    <td style="padding: 6px 4px; font-weight: 800; color: #0f172a; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.employee_name}">${item.employee_name || '--'}</td>
-                    <td style="padding: 6px 3px; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.department}"><span style="padding: 1px 4px; border-radius: 4px; background: #f1f5f9; font-weight: 700; color: #334155; font-size: 9px;">${item.department || '--'}</span></td>
+                    <td style="padding: 5px 2px; text-align: center; font-weight: 700; color: #1e40af; background: #f0f9ff; border-right: 1px solid #e2e8f0; font-size: 8.5px;">${monthShort}</td>
+                    <td style="padding: 5px 2px; text-align: center; font-weight: 700; color: #64748b; border-right: 1px solid #e2e8f0; font-size: 8.5px;">${idx + 1}</td>
+                    <td style="padding: 5px 3px; font-weight: 800; color: #0f172a; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 8.5px;" title="${item.employee_name}">${item.employee_name || '--'}</td>
+                    <td style="padding: 5px 2px; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 8.5px;" title="${item.department}"><span style="padding: 1px 4px; border-radius: 4px; background: #f1f5f9; font-weight: 700; color: #334155; font-size: 8.5px;">${item.department || '--'}</span></td>
                     
-                    <td style="padding: 6px 4px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.25;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)}</td>
-                    <td style="padding: 6px 4px; border-right: 1px solid #e2e8f0; color: #334155; word-break: break-word; line-height: 1.25;" title="${item.manager_evaluation}">${_clampText(item.manager_evaluation)}</td>
-                    <td style="padding: 6px 4px; border-right: 1px solid #e2e8f0; color: #2563eb; font-weight: 600; word-break: break-word; line-height: 1.25;" title="${item.remediation_action}">${_clampText(item.remediation_action)}</td>
-                    <td style="padding: 6px 4px; border-right: 1px solid #e2e8f0; color: #7c3aed; word-break: break-word; line-height: 1.25;" title="${item.training_direction}">${_clampText(item.training_direction)}</td>
-                    <td style="padding: 6px 4px; border-right: 1px solid #e2e8f0; color: #059669; word-break: break-word; line-height: 1.25;" title="${item.manager_commitment}">${_clampText(item.manager_commitment)}</td>
+                    <td style="padding: 5px 3px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.25; font-size: 8.5px;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)}</td>
+                    <td style="padding: 5px 3px; border-right: 1px solid #e2e8f0; color: #334155; word-break: break-word; line-height: 1.25; font-size: 8.5px;" title="${item.manager_evaluation}">${_clampText(item.manager_evaluation)}</td>
+                    <td style="padding: 5px 3px; border-right: 1px solid #e2e8f0; color: #2563eb; font-weight: 600; word-break: break-word; line-height: 1.25; font-size: 8.5px;" title="${item.remediation_action}">${_clampText(item.remediation_action)}</td>
+                    <td style="padding: 5px 3px; border-right: 1px solid #e2e8f0; color: #7c3aed; word-break: break-word; line-height: 1.25; font-size: 8.5px;" title="${item.training_direction}">${_clampText(item.training_direction)}</td>
+                    <td style="padding: 5px 3px; border-right: 1px solid #e2e8f0; color: #059669; word-break: break-word; line-height: 1.25; font-size: 8.5px;" title="${item.manager_commitment}">${_clampText(item.manager_commitment)}</td>
                     
                     <!-- Pink Section: Employee Input -->
-                    <td style="padding: 6px 4px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.25;" title="${item.employee_opinion}">${_clampText(item.employee_opinion)}</td>
-                    <td style="padding: 6px 3px; background: #fdf2f8; border-right: 1px solid #fbcfe8; font-weight: 700; color: #9d174d; font-size: 9px;" title="${item.resolution_deadline}">${item.resolution_deadline || '--'}</td>
-                    <td style="padding: 6px 4px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.25;" title="${item.employee_commitment}">${_clampText(item.employee_commitment)}</td>
+                    <td style="padding: 5px 3px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.25; font-size: 8.5px;" title="${item.employee_opinion}">${_clampText(item.employee_opinion)}</td>
+                    <td style="padding: 5px 2px; background: #fdf2f8; border-right: 1px solid #fbcfe8; font-weight: 700; color: #9d174d; font-size: 8.5px;" title="${item.resolution_deadline}">${item.resolution_deadline || '--'}</td>
+                    <td style="padding: 5px 3px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.25; font-size: 8.5px;" title="${item.employee_commitment}">${_clampText(item.employee_commitment)}</td>
                     
                     <!-- Teal Section: Progress Report -->
-                    <td style="padding: 6px 4px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.25;" title="${item.manager_report}">${_clampText(item.manager_report)}</td>
-                    <td style="padding: 6px 4px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.25;" title="${item.employee_report}">${_clampText(item.employee_report)}</td>
+                    <td style="padding: 5px 3px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.25; font-size: 8.5px;" title="${item.manager_report}">${_clampText(item.manager_report)}</td>
+                    <td style="padding: 5px 3px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.25; font-size: 8.5px;" title="${item.employee_report}">${_clampText(item.employee_report)}</td>
                     
                     <!-- Actions -->
-                    <td style="padding: 6px 2px; text-align: center;" onclick="event.stopPropagation()">
+                    <td style="padding: 5px 2px; text-align: center;" onclick="event.stopPropagation()">
                         <div style="display: flex; gap: 3px; justify-content: center;">
-                            <button onclick="window._eeOpenDetailModal(${item.id})" title="Xem Chi Tiết" style="padding: 2px 4px; background: #e0e7ff; color: #4338ca; border: none; border-radius: 4px; cursor: pointer; font-size: 10px;">👁️</button>
-                            <button onclick="window._eeOpenFormModal(${item.id})" title="Chỉnh Sửa" style="padding: 2px 4px; background: #f1f5f9; color: #475569; border: none; border-radius: 4px; cursor: pointer; font-size: 10px;">✏️</button>
-                            <button onclick="window._eeDelete(${item.id})" title="Xóa" style="padding: 2px 4px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 10px;">🗑️</button>
+                            <button onclick="window._eeOpenDetailModal(${item.id})" title="Xem Chi Tiết" style="padding: 2px 4px; background: #e0e7ff; color: #4338ca; border: none; border-radius: 4px; cursor: pointer; font-size: 9px;">👁️</button>
+                            <button onclick="window._eeOpenFormModal(${item.id})" title="Chỉnh Sửa" style="padding: 2px 4px; background: #f1f5f9; color: #475569; border: none; border-radius: 4px; cursor: pointer; font-size: 9px;">✏️</button>
+                            <button onclick="window._eeDelete(${item.id})" title="Xóa" style="padding: 2px 4px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 9px;">🗑️</button>
                         </div>
+                    </td>
+                </tr>
             `;
         });
 
