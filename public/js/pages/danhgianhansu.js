@@ -573,71 +573,133 @@
 
     // Modal Detail View
     window._eeOpenDetailModal = function(id) {
-        var item = _eeState.items.find(i => i.id === id);
+        var item = _eeState.items.find(function(x) { return x.id === id; });
         if (!item) return;
 
-        var modalContainer = document.getElementById('eeModalContainer');
-        if (!modalContainer) return;
+        var existing = document.getElementById('eeDetailModal');
+        if (existing) existing.remove();
 
-        modalContainer.innerHTML = `
-            <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
-                <div style="background: white; border-radius: 18px; width: 100%; max-width: 750px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
-                    <div style="padding: 20px 24px; background: linear-gradient(135deg, #1e3a8a, #1e40af); border-radius: 18px 18px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <h3 style="margin: 0; font-size: 18px; font-weight: 800;">👤 Hồ Sơ Đánh Giá: ${item.employee_name}</h3>
-                            <div style="font-size: 12px; color: #93c5fd; margin-top: 4px;">Bộ phận: ${item.department} • Kỳ: ${item.month_year}</div>
+        var modal = document.createElement('div');
+        modal.id = 'eeDetailModal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(4px); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px;';
+
+        var typeBadgeHtml = (item.eval_type === 'Lỗi Vi Phạm')
+            ? '<span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 11px;">⚠️ LỖI VI PHẠM</span>'
+            : '<span style="background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 11px;">💡 CẦN CẢI THIỆN</span>';
+
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 16px; width: 100%; max-width: 840px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); border: 1px solid #e2e8f0; font-family: Inter, system-ui, sans-serif;">
+                <!-- Fixed Header -->
+                <div style="padding: 16px 24px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                    <div>
+                        <h2 style="font-size: 18px; font-weight: 900; margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <span>👤</span> Hồ Sơ Đánh Giá: ${item.employee_name || '--'}
+                        </h2>
+                        <p style="margin: 4px 0 0 0; font-size: 12px; color: #93c5fd;">
+                            Bộ phận: <strong>${item.department || '--'}</strong> • Kỳ đánh giá: <strong>${item.month_year || '--'}</strong>
+                        </p>
+                    </div>
+                    <button onclick="document.getElementById('eeDetailModal').remove()" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">✕</button>
+                </div>
+
+                <!-- Scrollable Body -->
+                <div style="padding: 20px 24px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
+                    
+                    <!-- Section 1: Manager Eval -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
+                        <h3 style="font-size: 14px; font-weight: 800; color: #1e3a8a; margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;">
+                            <span>👨‍💼</span> 1. ĐÁNH GIÁ TỪ QUẢN LÝ
+                        </h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+                            <div>
+                                <span style="color: #64748b; font-size: 12px;">Phân loại:</span><br>
+                                ${typeBadgeHtml}
+                            </div>
+                            <div>
+                                <span style="color: #64748b; font-size: 12px;">Đánh giá năng lực:</span><br>
+                                <strong style="color: #1e293b; white-space: pre-wrap;">${item.manager_evaluation || '--'}</strong>
+                            </div>
+                            <div style="grid-column: span 2;">
+                                <span style="color: #dc2626; font-weight: 700; font-size: 12px;">⚠️ Nội dung chi tiết (Cải thiện / Lỗi):</span><br>
+                                <div style="color: #991b1b; background: #fff5f5; padding: 10px 12px; border-radius: 8px; border-left: 4px solid #ef4444; margin-top: 4px; font-weight: 600; white-space: pre-wrap; font-size: 13px;">${item.improvement_errors || '--'}</div>
+                            </div>
+                            <div>
+                                <span style="color: #2563eb; font-weight: 700; font-size: 12px;">🛠️ Nội dung khắc phục:</span><br>
+                                <div style="color: #1d4ed8; background: #eff6ff; padding: 8px 10px; border-radius: 6px; margin-top: 4px; white-space: pre-wrap;">${item.remediation_action || '--'}</div>
+                            </div>
+                            <div>
+                                <span style="color: #7c3aed; font-weight: 700; font-size: 12px;">🎓 Hướng đào tạo:</span><br>
+                                <div style="color: #6d28d9; background: #f5f3ff; padding: 8px 10px; border-radius: 6px; margin-top: 4px; white-space: pre-wrap;">${item.training_direction || '--'}</div>
+                            </div>
+                            <div style="grid-column: span 2;">
+                                <span style="color: #059669; font-weight: 700; font-size: 12px;">🤝 Cam kết của Quản lý:</span><br>
+                                <div style="color: #047857; background: #ecfdf5; padding: 8px 10px; border-radius: 6px; margin-top: 4px; white-space: pre-wrap;">${item.manager_commitment || '--'}</div>
+                            </div>
                         </div>
-                        <button onclick="window._eeCloseModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; font-size: 18px; cursor: pointer;">✕</button>
                     </div>
 
-                    <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-                        <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                            <h4 style="margin: 0 0 10px 0; color: #1e3a8a; font-size: 14px; font-weight: 800;">👨‍💼 1. ĐÁNH GIÁ TỪ QUẢN LÝ</h4>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                                <div style="white-space: pre-wrap;"><strong style="color: #dc2626;">Phân loại:</strong> ${item.eval_type === 'Lỗi Vi Phạm' ? '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 800;">⚠️ LỖI VI PHẠM</span>' : '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 800;">💡 CẦN CẢI THIỆN</span>'}<br><strong style="color: #dc2626;">Nội dung chi tiết:</strong> ${item.improvement_errors || '--'}</div>
-                                <div style="white-space: pre-wrap;"><strong style="color: #334155;">Đánh giá năng lực:</strong> ${item.manager_evaluation || '--'}</div>
-                                <div style="white-space: pre-wrap;"><strong style="color: #2563eb;">Nhân sự khắc phục:</strong> ${item.remediation_action || '--'}</div>
-                                <div style="white-space: pre-wrap;"><strong style="color: #7c3aed;">Hướng đào tạo:</strong> ${item.training_direction || '--'}</div>
-                                <div style="grid-column: span 2; white-space: pre-wrap;"><strong style="color: #059669;">Cam kết của Quản lý:</strong> ${item.manager_commitment || '--'}</div>
+                    <!-- Section 2: Employee Input -->
+                    <div style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 12px; padding: 16px;">
+                        <h3 style="font-size: 14px; font-weight: 800; color: #be185d; margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;">
+                            <span>💬</span> 2. Ý KIẾN & CAM KẾT TỪ NHÂN SỰ
+                        </h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+                            <div>
+                                <span style="color: #9d174d; font-size: 12px; font-weight: 700;">Ý kiến nhân sự:</span><br>
+                                <div style="color: #831843; margin-top: 4px; white-space: pre-wrap;">${item.employee_opinion || '--'}</div>
                             </div>
-                        </div>
-
-                        <div style="background: #fdf2f8; padding: 16px; border-radius: 12px; border: 1px solid #fbcfe8;">
-                            <h4 style="margin: 0 0 10px 0; color: #be185d; font-size: 14px; font-weight: 800;">💬 2. Ý KIẾN & CAM KẾT TỪ NHÂN SỰ</h4>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                                <div style="white-space: pre-wrap;"><strong style="color: #be185d;">Ý kiến nhân sự:</strong> ${item.employee_opinion || '--'}</div>
-                                <div><strong style="color: #9d174d;">Hạn xử lý (Time):</strong> ${item.resolution_deadline || '--'}</div>
-                                <div style="grid-column: span 2; white-space: pre-wrap;"><strong style="color: #be185d;">Cam kết nhân sự:</strong> ${item.employee_commitment || '--'}</div>
+                            <div>
+                                <span style="color: #9d174d; font-size: 12px; font-weight: 700;">Hạn xử lý (Time):</span><br>
+                                <strong style="color: #be185d; margin-top: 4px; display: block;">${item.resolution_deadline || '--'}</strong>
                             </div>
-                        </div>
-
-                        <div style="background: #f0f9ff; padding: 16px; border-radius: 12px; border: 1px solid #bae6fd;">
-                            <h4 style="margin: 0 0 10px 0; color: #0284c7; font-size: 14px; font-weight: 800;">📊 3. BÁO CÁO TIẾN ĐỘ THỰC HIỆN</h4>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                                <div style="white-space: pre-wrap;"><strong style="color: #0369a1;">Quản lý báo cáo:</strong> ${item.manager_report || '--'}</div>
-                                <div style="white-space: pre-wrap;"><strong style="color: #0369a1;">Nhân sự báo cáo:</strong> ${item.employee_report || '--'}</div>
-                            </div>
-                        </div>
-                    </div>��:</strong> ${item.employee_commitment || '--'}</div>
-                            </div>
-                        </div>
-
-                        <div style="background: #f0f9ff; padding: 16px; border-radius: 12px; border: 1px solid #bae6fd;">
-                            <h4 style="margin: 0 0 10px 0; color: #0284c7; font-size: 14px; font-weight: 800;">📊 3. BÁO CÁO TIẾN ĐỘ THỰC HIỆN</h4>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                                <div><strong style="color: #0369a1;">Quản lý báo cáo:</strong> ${item.manager_report || '--'}</div>
-                                <div><strong style="color: #0369a1;">Nhân sự báo cáo:</strong> ${item.employee_report || '--'}</div>
+                            <div style="grid-column: span 2;">
+                                <span style="color: #9d174d; font-size: 12px; font-weight: 700;">Cam kết nhân sự:</span><br>
+                                <div style="color: #831843; background: white; padding: 8px 10px; border-radius: 6px; border: 1px solid #fbcfe8; margin-top: 4px; white-space: pre-wrap;">${item.employee_commitment || '--'}</div>
                             </div>
                         </div>
                     </div>
 
-                    <div style="padding: 16px 24px; background: #f8fafc; border-radius: 0 0 18px 18px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
-                        <button onclick="window._eeOpenFormModal(${item.id})" style="padding: 8px 18px; background: #1e40af; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">Chỉnh Sửa</button>
-                        <button onclick="window._eeCloseModal()" style="padding: 8px 16px; background: #e2e8f0; color: #475569; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">Đóng</button>
+                    <!-- Section 3: Progress Report -->
+                    <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 16px;">
+                        <h3 style="font-size: 14px; font-weight: 800; color: #0369a1; margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;">
+                            <span>📊</span> 3. BÁO CÁO TIẾN ĐỘ THỰC HIỆN
+                        </h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+                            <div>
+                                <span style="color: #0369a1; font-size: 12px; font-weight: 700;">Quản lý báo cáo:</span><br>
+                                <div style="color: #0c4a6e; margin-top: 4px; white-space: pre-wrap;">${item.manager_report || '--'}</div>
+                            </div>
+                            <div>
+                                <span style="color: #0369a1; font-size: 12px; font-weight: 700;">Nhân sự báo cáo:</span><br>
+                                <div style="color: #0c4a6e; margin-top: 4px; white-space: pre-wrap;">${item.employee_report || '--'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Sticky Footer Bar (Always Visible at Bottom) -->
+                <div style="padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
+                    <div style="font-size: 11.5px; color: #64748b;">
+                        💡 ID Hồ sơ: <strong>#${item.id}</strong> • Thời gian tạo: <strong>${item.month_year || '--'}</strong>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id});" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(59,130,246,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                            ✏️ Chỉnh Sửa
+                        </button>
+                        <button onclick="document.getElementById('eeDetailModal').remove(); window._eeDelete(${item.id});" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(239,68,68,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                            🗑️ Xóa Hồ Sơ
+                        </button>
+                        <button onclick="document.getElementById('eeDetailModal').remove()" style="padding: 8px 14px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer;">
+                            ✖️ Đóng
+                        </button>
                     </div>
                 </div>
+
             </div>
         `;
+
+        document.body.appendChild(modal);
     };
 
     // Filter Handlers
