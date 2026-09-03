@@ -79,13 +79,18 @@ async function employeeEvaluationsRoutes(fastify, options) {
             const items = await db.all(sql, params);
 
             const total = items.length;
-            const completed = items.filter(i => i.status === 'completed' || (i.manager_report && i.manager_report.trim() !== '' && i.employee_report && i.employee_report.trim() !== '')).length;
-            const in_progress = items.filter(i => i.status === 'in_progress' || ((i.manager_report && i.manager_report.trim() !== '') || (i.employee_report && i.employee_report.trim() !== '') || (i.employee_opinion && i.employee_opinion.trim() !== '')) && i.status !== 'completed').length;
-            const pending = items.filter(i => !i.status || i.status === 'pending' || ((!i.manager_report || i.manager_report.trim() === '') && (!i.employee_report || i.employee_report.trim() === '') && (!i.employee_opinion || i.employee_opinion.trim() === ''))).length;
+            // 🔴 CHƯA XỬ LÝ 💬 Ý KIẾN & CAM KẾT NHÂN SỰ: Chưa có ý kiến hoặc cam kết của nhân sự
+            const pending_employee = items.filter(i => (!i.employee_opinion || i.employee_opinion.trim() === '') && (!i.employee_commitment || i.employee_commitment.trim() === '')).length;
+            
+            // 🟡 CHƯA HOÀN THÀNH 📊 BÁO CÁO TIẾN ĐỘ: Chưa nhập báo cáo tiến độ (quản lý hoặc nhân sự)
+            const pending_progress = items.filter(i => (!i.manager_report || i.manager_report.trim() === '') && (!i.employee_report || i.employee_report.trim() === '')).length;
+            
+            // 🟢 HOÀN THÀNH 📊 BÁO CÁO TIẾN ĐỘ: Đã nhập báo cáo tiến độ (đã làm xong)
+            const completed_progress = items.filter(i => (i.manager_report && i.manager_report.trim() !== '') || (i.employee_report && i.employee_report.trim() !== '')).length;
 
             return reply.send({
                 success: true,
-                stats: { total, pending, in_progress, completed }
+                stats: { total, pending_employee, pending_progress, completed_progress }
             });
         } catch (err) {
             console.error('Error fetching employee_evaluations stats:', err);

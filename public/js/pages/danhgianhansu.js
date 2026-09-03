@@ -139,38 +139,38 @@
     function _eeRenderStats() {
         var container = document.getElementById('eeStatsContainer');
         if (!container) return;
-        var s = _eeState.stats;
+        var s = _eeState.stats || {};
 
         container.innerHTML = `
-            <div style="background: white; border-radius: 12px; padding: 14px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); display: flex; align-items: center; gap: 12px;">
-                <div style="width: 40px; height: 40px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 18px;">📋</div>
+            <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 42px; height: 42px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 20px; shrink: 0;">👨‍💼</div>
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">TỔNG ĐÁNH GIÁ</div>
-                    <div style="font-size: 20px; font-weight: 900; color: #0f172a;">${s.total}</div>
+                    <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; line-height: 1.25;">👨‍💼 TỔNG ĐÁNH GIÁ QUẢN LÝ</div>
+                    <div style="font-size: 22px; font-weight: 900; color: #0f172a; margin-top: 2px;">${s.total || 0}</div>
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 12px; padding: 14px; border: 1px solid #fee2e2; box-shadow: 0 2px 8px rgba(239,68,68,0.06); display: flex; align-items: center; gap: 12px;">
-                <div style="width: 40px; height: 40px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 18px;">🔴</div>
+            <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #fbcfe8; box-shadow: 0 2px 8px rgba(219,39,119,0.06); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 42px; height: 42px; border-radius: 10px; background: #fdf2f8; color: #be185d; display: flex; align-items: center; justify-content: center; font-size: 20px; shrink: 0;">🔴</div>
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #991b1b; text-transform: uppercase;">CHƯA XỬ LÝ</div>
-                    <div style="font-size: 20px; font-weight: 900; color: #dc2626;">${s.pending}</div>
+                    <div style="font-size: 11px; font-weight: 800; color: #be185d; text-transform: uppercase; line-height: 1.25;">🔴 CHƯA XỬ LÝ<br><span style="font-size: 10px; color: #9d174d;">💬 Ý KIẾN & CAM KẾT NHÂN SỰ</span></div>
+                    <div style="font-size: 22px; font-weight: 900; color: #dc2626; margin-top: 2px;">${s.pending_employee || 0}</div>
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 12px; padding: 14px; border: 1px solid #fef3c7; box-shadow: 0 2px 8px rgba(245,158,11,0.06); display: flex; align-items: center; gap: 12px;">
-                <div style="width: 40px; height: 40px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 18px;">🟡</div>
+            <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #fef3c7; box-shadow: 0 2px 8px rgba(245,158,11,0.06); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 42px; height: 42px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 20px; shrink: 0;">🟡</div>
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase;">ĐANG KHẮC PHỤC</div>
-                    <div style="font-size: 20px; font-weight: 900; color: #d97706;">${s.in_progress}</div>
+                    <div style="font-size: 11px; font-weight: 800; color: #92400e; text-transform: uppercase; line-height: 1.25;">🟡 CHƯA HOÀN THÀNH<br><span style="font-size: 10px; color: #b45309;">📊 BÁO CÁO TIẾN ĐỘ</span></div>
+                    <div style="font-size: 22px; font-weight: 900; color: #d97706; margin-top: 2px;">${s.pending_progress || 0}</div>
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 12px; padding: 14px; border: 1px solid #d1fae5; box-shadow: 0 2px 8px rgba(16,185,129,0.06); display: flex; align-items: center; gap: 12px;">
-                <div style="width: 40px; height: 40px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 18px;">🟢</div>
+            <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #d1fae5; box-shadow: 0 2px 8px rgba(16,185,129,0.06); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 42px; height: 42px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 20px; shrink: 0;">🟢</div>
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase;">HOÀN THÀNH</div>
-                    <div style="font-size: 20px; font-weight: 900; color: #059669;">${s.completed}</div>
+                    <div style="font-size: 11px; font-weight: 800; color: #065f46; text-transform: uppercase; line-height: 1.25;">🟢 HOÀN THÀNH<br><span style="font-size: 10px; color: #047857;">📊 BÁO CÁO TIẾN ĐỘ</span></div>
+                    <div style="font-size: 22px; font-weight: 900; color: #059669; margin-top: 2px;">${s.completed_progress || 0}</div>
                 </div>
             </div>
         `;
