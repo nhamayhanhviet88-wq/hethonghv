@@ -362,6 +362,15 @@ async function meetingCommitmentsRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Thiếu thông tin' });
         }
 
+        const todayStr = new Date().toISOString().split('T')[0];
+        const sessRow = await db.get('SELECT end_date, meeting_date FROM meeting_sessions WHERE id = ?', [session_id]);
+        if (sessRow) {
+            const endDateStr = sessRow.end_date ? sessRow.end_date.split('T')[0] : (sessRow.meeting_date ? sessRow.meeting_date.split('T')[0] : '');
+            if (endDateStr < todayStr) {
+                return reply.code(400).send({ error: 'Cuộc họp này đã ĐÓNG. Không thể chỉnh sửa cam kết!' });
+            }
+        }
+
         // Team commitment
         if (department_id && !user_id) {
             if (!['giam_doc', 'quan_ly', 'quan_ly_cap_cao'].includes(request.user.role)) {
@@ -447,6 +456,20 @@ async function meetingCommitmentsRoutes(fastify, options) {
 
         const { reviews } = request.body || {};
         if (!Array.isArray(reviews)) return reply.code(400).send({ error: 'Thiếu reviews' });
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (reviews.length > 0) {
+            const firstCommit = await db.get('SELECT session_id FROM meeting_commitments WHERE id = ?', [reviews[0].id]);
+            if (firstCommit) {
+                const sessRow = await db.get('SELECT end_date, meeting_date FROM meeting_sessions WHERE id = ?', [firstCommit.session_id]);
+                if (sessRow) {
+                    const endDateStr = sessRow.end_date ? sessRow.end_date.split('T')[0] : (sessRow.meeting_date ? sessRow.meeting_date.split('T')[0] : '');
+                    if (endDateStr < todayStr) {
+                        return reply.code(400).send({ error: 'Cuộc họp này đã ĐÓNG. Không thể lưu review!' });
+                    }
+                }
+            }
+        }
 
         for (const r of reviews) {
             const row = await db.get('SELECT target_revenue FROM meeting_commitments WHERE id = ?', [r.id]);

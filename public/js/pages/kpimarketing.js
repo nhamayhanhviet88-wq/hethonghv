@@ -4305,7 +4305,11 @@ function renderKpiMktMeetingCommit(el) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + teamOwnCommits.length + ' — ' + teamPct + '%</span>';
                 }
                 if (isGDOrMktMgr) {
-                    if (teamOwnCommits.length > 0) {
+                    if (!isSessOpen) {
+                        if (teamOwnCommits.length > 0) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',null,true)">👁️ Xem Team</button>';
+                        }
+                    } else if (teamOwnCommits.length > 0) {
                         var teamReviewed = teamOwnCommits.some(function(c) { return !!c.reviewed_by; });
                         if (isGD) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
@@ -4356,7 +4360,11 @@ function renderKpiMktMeetingCommit(el) {
                         }
                         var isSelf = (user && user.id === emp.id);
                         var isEmpReviewed = empCommits.some(function(c) { return !!c.reviewed_by; });
-                        if (isGD) {
+
+                        if (!isSessOpen) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',null,true)">👁️ Xem</button>';
+                        } else if (isGD) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
                         } else if (isGDOrMktMgr) {
@@ -4375,9 +4383,13 @@ function renderKpiMktMeetingCommit(el) {
                             }
                         }
                     } else {
-                        h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
-                        if (isGDOrMktMgr || (user && user.id === emp.id)) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">➕ Ghi Cam Kết</button>';
+                        if (!isSessOpen) {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-none">🔒 Đã đóng</span>';
+                        } else {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
+                            if (isGDOrMktMgr || (user && user.id === emp.id)) {
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">➕ Ghi Cam Kết</button>';
+                            }
                         }
                     }
                     h += '</div></div>';

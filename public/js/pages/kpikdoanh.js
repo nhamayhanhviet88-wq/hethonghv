@@ -2067,7 +2067,11 @@ function kpiRenderMeetingCommit(el) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + teamOwnCommits.length + ' — ' + teamPct + '%</span>';
                 }
                 if (isGD || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
-                    if (teamOwnCommits.length > 0) {
+                    if (!isSessOpen) {
+                        if (teamOwnCommits.length > 0) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',null,true)">👁️ Xem Team</button>';
+                        }
+                    } else if (teamOwnCommits.length > 0) {
                         var teamReviewed = teamOwnCommits.some(function(c) { return !!c.reviewed_by; });
                         if (isGD) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
@@ -2144,7 +2148,10 @@ function kpiRenderMeetingCommit(el) {
                         }
                         var anyReviewed = empCommits.some(function(c) { return !!c.reviewed_by; });
 
-                        if (isGD) {
+                        if (!isSessOpen) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',null,true)">👁️ Xem</button>';
+                        } else if (isGD) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
                         } else if (canEdit && !isSelf) {
@@ -2161,9 +2168,13 @@ function kpiRenderMeetingCommit(el) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
                         }
                     } else {
-                        h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
-                        if (isGD || canEdit || isSelf) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Ghi</button>';
+                        if (!isSessOpen) {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-none">🔒 Đã đóng</span>';
+                        } else {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
+                            if (isGD || canEdit || isSelf) {
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Ghi</button>';
+                            }
                         }
                     }
                     h += '</div></div>';
@@ -2449,7 +2460,14 @@ window.mcSwitchSession = function(sessionId) {
 };
 
 // ===== TEAM EDIT =====
-window.mcEditTeam = async function(deptId, teamName, pageKey) {
+window.mcEditTeam = async function(deptId, teamName, pageKey, readOnly) {
+    var todayStr = new Date().toISOString().split('T')[0];
+    var activeSess = (typeof _mcMktSession !== 'undefined' && _mcMktSession) ? _mcMktSession : ((typeof _mcSaleSession !== 'undefined' && _mcSaleSession) ? _mcSaleSession : _mcSession);
+    if (activeSess) {
+        var sessEnd = activeSess.end_date ? activeSess.end_date.split('T')[0] : (activeSess.meeting_date ? activeSess.meeting_date.split('T')[0] : '');
+        if (sessEnd < todayStr) readOnly = true;
+    }
+
     if (!pageKey) {
         var path = window.location.pathname;
         if (path.indexOf('kpimarketing') >= 0) pageKey = 'kpimarketing_team';
@@ -2481,19 +2499,26 @@ window.mcEditTeam = async function(deptId, teamName, pageKey) {
 
     var overlay = document.createElement('div');
     overlay.className = 'kpi-mc-modal-overlay';
+    var headTitle = readOnly ? '👁️ Xem Cam Kết Team: ' : '🏠 Cam Kết Team: ';
     var h = '<div class="kpi-mc-modal">';
-    h += '<div class="kpi-mc-modal-head"><div>🏠 Cam Kết Team: ' + teamName + '</div>';
+    h += '<div class="kpi-mc-modal-head"><div>' + headTitle + teamName + '</div>';
     h += '<button class="kpi-mc-remove" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">✕</button></div>';
     h += '<div class="kpi-mc-modal-body"><div id="mcTeamItemsList">';
     for (var i = 0; i < items.length; i++) {
-        h += mcRenderItemEdit(i + 1, items[i]);
+        h += mcRenderItemEdit(i + 1, items[i], readOnly);
     }
     h += '</div>';
-    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcAddItem(\'mcTeamItemsList\')" style="width:100%;margin-top:10px">➕ Thêm cam kết</button>';
+    if (!readOnly) {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcAddItem(\'mcTeamItemsList\')" style="width:100%;margin-top:10px">➕ Thêm cam kết</button>';
+    }
     h += '</div>';
     h += '<div class="kpi-mc-modal-foot">';
-    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>';
-    h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveTeamCommitments(' + deptId + ')">💾 Lưu Cam Kết Team</button>';
+    if (readOnly) {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Đóng</button>';
+    } else {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>';
+        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveTeamCommitments(' + deptId + ')">💾 Lưu Cam Kết Team</button>';
+    }
     h += '</div></div>';
     overlay.innerHTML = h;
     document.body.appendChild(overlay);
@@ -2754,7 +2779,14 @@ function mcParseContent(content) {
 }
 
 // Edit/Add commitments for a user — auto-fill from templates if no existing commitments
-window.mcEditUser = async function(userId, userName, pageKey) {
+window.mcEditUser = async function(userId, userName, pageKey, readOnly) {
+    var todayStr = new Date().toISOString().split('T')[0];
+    var activeSess = (typeof _mcMktSession !== 'undefined' && _mcMktSession) ? _mcMktSession : ((typeof _mcSaleSession !== 'undefined' && _mcSaleSession) ? _mcSaleSession : _mcSession);
+    if (activeSess) {
+        var sessEnd = activeSess.end_date ? activeSess.end_date.split('T')[0] : (activeSess.meeting_date ? activeSess.meeting_date.split('T')[0] : '');
+        if (sessEnd < todayStr) readOnly = true;
+    }
+
     if (!pageKey) {
         var path = window.location.pathname;
         if (path.indexOf('kpimarketing') >= 0) pageKey = 'kpimarketing';
@@ -2797,40 +2829,48 @@ window.mcEditUser = async function(userId, userName, pageKey) {
         sessionInfo = ' <span style="font-size:13px;font-weight:500;color:#92400e;display:block;margin-top:2px">— ' + _mcSession.title + ' (' + sdStr + ')</span>';
     }
 
+    var headTitle = readOnly ? '👁️ Xem Cam Kết — ' : '📝 Cam Kết — ';
     var h = '<div class="kpi-mc-modal">'
-        + '<div class="kpi-mc-modal-head"><h3>📝 Cam Kết — ' + userName + sessionInfo + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-head"><h3>' + headTitle + userName + sessionInfo + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
         + '<div class="kpi-mc-modal-body"><div id="mcItemsList">';
 
     for (var i = 0; i < items.length; i++) {
-        h += mcRenderItemEdit(i + 1, items[i]);
+        h += mcRenderItemEdit(i + 1, items[i], readOnly);
     }
 
+    h += '</div>';
+    if (!readOnly) {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcAddItem()" style="width:100%;margin-top:10px">➕ Thêm cam kết</button>';
+    }
     h += '</div>'
-        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcAddItem()" style="width:100%;margin-top:10px">➕ Thêm cam kết</button>'
-        + '</div>'
-        + '<div class="kpi-mc-modal-foot">'
-        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
-        + '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveCommitments(' + userId + ')">💾 Lưu Cam Kết</button>'
-        + '</div></div>';
+        + '<div class="kpi-mc-modal-foot">';
+    if (readOnly) {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Đóng</button>';
+    } else {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
+            + '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveCommitments(' + userId + ')">💾 Lưu Cam Kết</button>';
+    }
+    h += '</div></div>';
     overlay.innerHTML = h;
     document.body.appendChild(overlay);
 };
 
-function mcRenderItemEdit(stt, item) {
+function mcRenderItemEdit(stt, item, readOnly) {
     var isTemplate = item.isTemplate;
     var isSelfAdd = item.isSelfAdd;
     var hasRevenue = item.hasRevenue;
     var question = item.question || item.content || '';
     var answer = item.answer || '';
     var revenue = item.target_revenue || 0;
-    var reqStar = '<span style="color:#ef4444;font-weight:900;margin-left:2px">*</span>';
+    var reqStar = readOnly ? '' : '<span style="color:#ef4444;font-weight:900;margin-left:2px">*</span>';
+    var roAttr = readOnly ? 'readonly disabled style="background:#f8fafc;cursor:not-allowed;border-color:#cbd5e1"' : '';
 
     var dataType = isTemplate ? 'tpl' : 'self';
     var h = '<div class="kpi-mc-item" data-mc-item data-type="' + dataType + '">';
     h += '<div class="kpi-mc-item-head">';
     h += '<div class="kpi-mc-item-stt">' + stt + '</div>';
     h += '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Cam kết #' + stt + '</div>';
-    if (!isTemplate) {
+    if (!isTemplate && !readOnly) {
         h += '<button class="kpi-mc-remove" onclick="this.closest(\'[data-mc-item]\').remove();mcReindex()">✕</button>';
     }
     h += '</div>';
@@ -2842,32 +2882,32 @@ function mcRenderItemEdit(stt, item) {
         h += '</div>';
         h += '<div style="margin-bottom:8px">';
         h += '<div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Câu trả lời / Cam kết' + reqStar + '</div>';
-        h += '<textarea class="kpi-mc-input mc-answer mc-required" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
+        h += '<textarea class="kpi-mc-input mc-answer mc-required" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." ' + roAttr + ' style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
         h += '</div>';
         if (hasRevenue) {
             h += '<div style="display:flex;align-items:center;gap:8px">';
             h += '<span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap">💰 Mục tiêu:' + reqStar + '</span>';
-            h += '<input class="kpi-mc-input mc-revenue mc-required-num" type="number" placeholder="VD: 50000000" value="' + revenue + '" style="flex:1;border-color:#fde68a">';
+            h += '<input class="kpi-mc-input mc-revenue mc-required-num" type="number" placeholder="VD: 50000000" value="' + revenue + '" ' + roAttr + ' style="flex:1;border-color:#fde68a">';
             h += '</div>';
         }
     } else {
         // Self-add: editable question (required) + answer (required) + optional target
         h += '<div style="margin-bottom:10px">';
         h += '<div style="font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">📋 Câu hỏi / Nội dung' + reqStar + '</div>';
-        h += '<textarea class="kpi-mc-input mc-question-edit mc-required" rows="2" placeholder="VD: Mục tiêu bạn đặt ra cho giai đoạn tới?" style="resize:vertical;border-color:#c7d2fe">' + question + '</textarea>';
+        h += '<textarea class="kpi-mc-input mc-question-edit mc-required" rows="2" placeholder="VD: Mục tiêu bạn đặt ra cho giai đoạn tới?" ' + roAttr + ' style="resize:vertical;border-color:#c7d2fe">' + question + '</textarea>';
         h += '</div>';
         h += '<div style="margin-bottom:8px">';
         h += '<div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Câu trả lời / Cam kết' + reqStar + '</div>';
-        h += '<textarea class="kpi-mc-input mc-answer mc-required" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
+        h += '<textarea class="kpi-mc-input mc-answer mc-required" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." ' + roAttr + ' style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
         h += '</div>';
         // Checkbox toggle for target
         var showTarget = revenue > 0;
         h += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#b45309;cursor:pointer;margin-bottom:6px">';
-        h += '<input type="checkbox" class="mc-has-target-chk" onchange="mcToggleTarget(this)" ' + (showTarget ? 'checked' : '') + '> 💰 Có mục tiêu';
+        h += '<input type="checkbox" class="mc-has-target-chk" onchange="mcToggleTarget(this)" ' + (showTarget ? 'checked' : '') + (readOnly ? ' disabled' : '') + '> 💰 Có mục tiêu';
         h += '</label>';
         h += '<div class="mc-target-wrap" style="display:' + (showTarget ? 'flex' : 'none') + ';align-items:center;gap:8px">';
         h += '<span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap">💰 Mục tiêu:</span>';
-        h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="VD: 50000000" value="' + revenue + '" style="flex:1;border-color:#fde68a">';
+        h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="VD: 50000000" value="' + revenue + '" ' + roAttr + ' style="flex:1;border-color:#fde68a">';
         h += '</div>';
     }
 

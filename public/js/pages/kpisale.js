@@ -2216,7 +2216,11 @@ function renderKpiSaleMeetingCommit(el) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + teamOwnCommits.length + ' — ' + teamPct + '%</span>';
                 }
                 if (isGD) {
-                    if (teamOwnCommits.length > 0) {
+                    if (!isSessOpen) {
+                        if (teamOwnCommits.length > 0) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\\\'") + '\',null,true)">👁️ Xem Team</button>';
+                        }
+                    } else if (teamOwnCommits.length > 0) {
                         h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\\\'") + '\')">✅ Review</button>';
                         h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\\\'") + '\')">✏️</button>';
                     } else {
@@ -2263,16 +2267,23 @@ function renderKpiSaleMeetingCommit(el) {
                         } else {
                             h += '<span class="kpi-mc-badge kpi-mc-badge-pending">⏳ ' + doneItems + '/' + totalItems + ' — ' + avgPct + '%</span>';
                         }
-                        if (isGD) {
+                        if (!isSessOpen) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\',true)">👁️ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\',null,true)">👁️ Xem</button>';
+                        } else if (isGD) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\')">✅ Review</button>';
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\')">✏️</button>';
                         } else if (isSelf) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\')">📝 Đánh giá</button>';
                         }
                     } else {
-                        h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
-                        if (isGD || isSelf) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\')">📝 Ghi</button>';
+                        if (!isSessOpen) {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-none">🔒 Đã đóng</span>';
+                        } else {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
+                            if (isGD || isSelf) {
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\')">📝 Ghi</button>';
+                            }
                         }
                     }
                     h += '</div></div>';
