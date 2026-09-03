@@ -154,10 +154,10 @@ async function usersRoutes(fastify, options) {
             return { users: [] };
         }
         const { role } = request.query;
-        let query = "SELECT id, username, full_name, phone, role, department_id, source_crm_type, managed_by_user_id FROM users WHERE status = 'active'";
+        let query = "SELECT u.id, u.username, u.full_name, u.phone, u.role, u.department_id, u.source_crm_type, u.managed_by_user_id, d.name as department_name, d.name as department FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.status = 'active'";
         const params = [];
-        if (role) { query += ' AND role = ?'; params.push(role); }
-        query += ' ORDER BY full_name';
+        if (role) { query += ' AND u.role = ?'; params.push(role); }
+        query += ' ORDER BY u.full_name';
         const users = await db.all(query, params);
         return { users };
     });

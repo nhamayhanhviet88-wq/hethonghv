@@ -822,13 +822,37 @@
         window._eeOnDeptChange(item ? item.employee_name : null);
     };
 
+    function _eeMatchDept(userDeptName, selectedDept) {
+        if (!selectedDept || selectedDept === 'all') return true;
+        if (!userDeptName) return false;
+
+        var uDeptLower = userDeptName.toLowerCase().trim();
+        var selDeptLower = selectedDept.toLowerCase().trim();
+
+        if (uDeptLower.includes(selDeptLower) || selDeptLower.includes(uDeptLower)) return true;
+
+        if (selDeptLower === 'kinh doanh' && (uDeptLower.includes('kinh doanh') || uDeptLower.includes('sale') || uDeptLower.includes('cất cánh') || uDeptLower.includes('xã hội'))) return true;
+        if (selDeptLower === 'sale' && (uDeptLower.includes('sale') || uDeptLower.includes('kinh doanh') || uDeptLower.includes('cất cánh') || uDeptLower.includes('bứt phá'))) return true;
+        if (selDeptLower === 'marketing' && uDeptLower.includes('marketing')) return true;
+        if (selDeptLower === 'sản xuất' && (uDeptLower.includes('sản xuất') || uDeptLower.includes('xưởng'))) return true;
+        if (selDeptLower === 'may' && uDeptLower.includes('may')) return true;
+        if (selDeptLower === 'cắt' && uDeptLower.includes('cắt')) return true;
+        if (selDeptLower === 'in' && uDeptLower.includes('in')) return true;
+        if (selDeptLower === 'ép' && uDeptLower.includes('ép')) return true;
+        if (selDeptLower === 'thiết kế' && uDeptLower.includes('thiết kế')) return true;
+        if (selDeptLower === 'văn phòng' && (uDeptLower.includes('văn phòng') || uDeptLower.includes('hệ thống'))) return true;
+        if (selDeptLower === 'hoàn thiện' && uDeptLower.includes('hoàn thiện')) return true;
+
+        return false;
+    }
+
     window._eeOnDeptChange = function(selectedEmpName) {
         var deptSel = document.getElementById('formDepartment');
         var empSel = document.getElementById('formEmpSelect');
         if (!deptSel || !empSel) return;
 
         var selectedDept = deptSel.value;
-        empSel.innerHTML = '<option value="">-- Chọn Nhân Sự --</option>';
+        empSel.innerHTML = '';
 
         if (!selectedDept) {
             empSel.disabled = true;
@@ -836,17 +860,20 @@
         } else {
             empSel.disabled = false;
             var filteredUsers = _eeState.users.filter(function(u) {
-                var uDept = u.department || u.team_name || '';
-                return !selectedDept || uDept.toLowerCase() === selectedDept.toLowerCase();
+                var uDept = u.department_name || u.department || u.team_name || '';
+                return _eeMatchDept(uDept, selectedDept);
             });
 
-            var targetUsers = filteredUsers.length > 0 ? filteredUsers : _eeState.users;
-
-            targetUsers.forEach(function(u) {
-                var name = u.full_name || u.username;
-                var isSel = (selectedEmpName && selectedEmpName === name) ? 'selected' : '';
-                empSel.innerHTML += `<option value="${name}" data-id="${u.id}" ${isSel}>${name}</option>`;
-            });
+            if (filteredUsers.length === 0) {
+                empSel.innerHTML = '<option value="">-- Không có nhân sự thuộc bộ phận này --</option>';
+            } else {
+                empSel.innerHTML = '<option value="">-- Chọn Nhân Sự --</option>';
+                filteredUsers.forEach(function(u) {
+                    var name = u.full_name || u.username;
+                    var isSel = (selectedEmpName && selectedEmpName === name) ? 'selected' : '';
+                    empSel.innerHTML += `<option value="${name}" data-id="${u.id}" ${isSel}>${name}</option>`;
+                });
+            }
         }
 
         window._eeCheckSectionLocks();
