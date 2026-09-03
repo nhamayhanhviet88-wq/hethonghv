@@ -882,6 +882,11 @@
 
         _eeState.items.forEach(function(item, idx) {
             var shortKyHtml = _formatShortKy(item.month_year);
+            var occNum = item.occurrence_number || 1;
+            var occBadgeHtml = (item.eval_type === 'Lỗi Vi Phạm')
+                ? `<span style="background: #fee2e2; color: #991b1b; border: 1px solid #f87171; padding: 1px 6px; border-radius: 4px; font-weight: 800; font-size: 10.5px; margin-left: 4px; display: inline-block; white-space: nowrap;">Lần ${occNum}</span>`
+                : `<span style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; padding: 1px 6px; border-radius: 4px; font-weight: 800; font-size: 10.5px; margin-left: 4px; display: inline-block; white-space: nowrap;">Lần ${occNum}</span>`;
+
             var typeBadgeHtml = (item.eval_type === 'Lỗi Vi Phạm')
                 ? '<span style="background: #fee2e2; color: #991b1b; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; display: inline-block;">⚠️ LỖI</span>'
                 : '<span style="background: #fef3c7; color: #92400e; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; display: inline-block;">💡 CẢI THIỆN</span>';
@@ -895,7 +900,7 @@
                     
                     <!-- Group 1: Manager Evaluation (6 columns) -->
                     <td style="padding: 8px 2px; border-right: 1px solid #e2e8f0; text-align: center;" title="${item.eval_type || 'Cần Cải Thiện'}">${typeBadgeHtml}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)} ${occBadgeHtml}</td>
                     <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #334155; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.manager_evaluation}">${_clampText(item.manager_evaluation)}</td>
                     <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #2563eb; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.remediation_action}">${_clampText(item.remediation_action)}</td>
                     <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #7c3aed; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.training_direction}">${_clampText(item.training_direction)}</td>
