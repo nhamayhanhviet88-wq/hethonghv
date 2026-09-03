@@ -57,7 +57,7 @@
                         </p>
                     </div>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button onclick="window._eeOpenClassificationReportModal()" style="padding: 8px 14px; background: linear-gradient(135deg, #059669, #047857); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(5,150,105,0.25);">
+                        <button onclick="window._eeSetViewMode('analysis')" style="padding: 8px 14px; background: linear-gradient(135deg, #059669, #047857); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(5,150,105,0.25);">
                             📊 Báo Cáo Phân Tích Nhân Sự
                         </button>
                         <button onclick="window._eeExportExcel()" style="padding: 8px 14px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(22,163,74,0.25);">
@@ -416,8 +416,183 @@
 
         if (_eeState.viewMode === 'cards') {
             _eeRenderCardsView(container);
+        } else if (_eeState.viewMode === 'analysis') {
+            _eeRenderEmployeeAnalysisView(container);
         } else {
             _eeRenderCompactTableView(container);
+        }
+    }
+
+    // 📊 VIEW MODE 3: DIRECT MAIN PAGE EMPLOYEE ANALYTICAL BREAKDOWN SECTION (OPTION 2)
+    function _eeRenderEmployeeAnalysisView(container) {
+        var items = _eeState.items || [];
+
+        // Group items by Employee Name
+        var empMap = {};
+        items.forEach(function(item) {
+            var empName = item.employee_name || 'Khác';
+            if (!empMap[empName]) {
+                empMap[empName] = {
+                    name: empName,
+                    dept: item.department || 'Kinh Doanh',
+                    errors: [],
+                    improvements: [],
+                    total: 0
+                };
+            }
+            empMap[empName].total++;
+            if (item.eval_type === 'Lỗi Vi Phạm') {
+                empMap[empName].errors.push(item);
+            } else {
+                empMap[empName].improvements.push(item);
+            }
+        });
+
+        var empList = Object.values(empMap);
+
+        var html = `
+            <div style="background: white; border-radius: 16px; border: 1px solid #cbd5e1; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; padding: 20px 24px;">
+                <!-- Header của Mục Phân Tích Direct -->
+                <div style="padding-bottom: 16px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h2 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 10px;">
+                            <span>📊</span> MỤC LỚN PHÂN TÍCH TỔNG HỢP NĂNG LỰC & LỖI VI PHẠM TỪNG NHÂN SỰ
+                        </h2>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">
+                            Bảng tổng hợp phân tích chi tiết gom nhóm theo từng Nhân sự (Lỗi Vi Phạm & Điểm Cần Cải Thiện)
+                        </p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12px; font-weight: 700; color: #475569;">🔍 Lọc Nhân Sự:</span>
+                        <input id="eeEmpSearchInputDirect" type="text" placeholder="Nhập tên nhân sự hoặc bộ phận..." style="padding: 7px 14px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12.5px; width: 260px; outline: none;" />
+                    </div>
+                </div>
+
+                <!-- Main Container for Cards -->
+                <div id="eeEmployeeCardsDirectContainer">
+        `;
+
+        var renderEmployeeCardsHtml = function(filterText) {
+            filterText = (filterText || '').toLowerCase().trim();
+            var filtered = empList.filter(function(e) {
+                return e.name.toLowerCase().includes(filterText) || e.dept.toLowerCase().includes(filterText);
+            });
+
+            if (filtered.length === 0) {
+                return `
+                    <div style="padding: 40px; text-align: center; color: #94a3b8; font-size: 14px;">
+                        <div style="font-size: 36px; margin-bottom: 8px;">📭</div>
+                        <div style="font-weight: 700;">Không tìm thấy nhân sự nào phù hợp trong kỳ này</div>
+                    </div>
+                `;
+            }
+
+            var cardHtml = '';
+            filtered.forEach(function(emp) {
+                cardHtml += `
+                    <div style="background: #ffffff; border-radius: 14px; border: 1px solid #cbd5e1; box-shadow: 0 4px 14px rgba(0,0,0,0.04); margin-bottom: 20px; overflow: hidden;">
+                        <!-- Header Thẻ Nhân Sự -->
+                        <div style="padding: 12px 20px; background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 38px; height: 38px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px;">
+                                    ${emp.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div style="font-size: 15px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                        <span>${emp.name}</span>
+                                        ${_getDeptBadgeHtml(emp.dept)}
+                                    </div>
+                                    <div style="font-size: 11.5px; color: #64748b; margin-top: 1px;">
+                                        Tổng cộng: <b>${emp.total} phiếu đánh giá</b>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; background: #ffe4e6; color: #e11d48; border: 1px solid #fecdd3;">
+                                    ⚠️ ${emp.errors.length} Lỗi Vi Phạm
+                                </span>
+                                <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; background: #fef3c7; color: #d97706; border: 1px solid #fde68a;">
+                                    💡 ${emp.improvements.length} Cần Cải Thiện
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Nội dung 2 Cột Phân Tích -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 18px 20px; background: #ffffff;">
+                            
+                            <!-- CỘT BÊN TRÁI: LỖI VI PHẠM -->
+                            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; padding: 14px 16px;">
+                                <div style="font-size: 13px; font-weight: 900; color: #be123c; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #fda4af; padding-bottom: 8px;">
+                                    <span>⚠️ PHÂN LOẠI LỖI VI PHẠM (${emp.errors.length})</span>
+                                </div>
+                                ${emp.errors.length === 0 ? `<div style="font-size: 12px; color: #9f1239; font-style: italic; padding: 8px 0;">Không có lỗi vi phạm nào</div>` : ''}
+                                ${emp.errors.map(function(errItem) {
+                                    return `
+                                        <div onclick="window._eeOpenDetailModal(${errItem.id});" style="background: white; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; border: 1px solid #fca5a5; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 6px rgba(225,29,72,0.05);" onmouseover="this.style.borderColor='#e11d48'; this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#fca5a5'; this.style.transform='translateY(0)';">
+                                            <div style="font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                                                <span>⏱️ Kỳ: ${_formatShortKy(errItem.month_year)}</span>
+                                                <span style="color: #be123c; font-weight: 800;">Hạn: ${_formatShortDate(errItem.resolution_deadline)}</span>
+                                            </div>
+                                            <div style="font-size: 13px; font-weight: 800; color: #991b1b; margin-bottom: 6px; white-space: pre-wrap;">
+                                                ⚠️ ${errItem.improvement_errors || 'Không ghi nội dung lỗi'}
+                                            </div>
+                                            <div style="font-size: 12px; color: #334155; background: #fff1f2; padding: 6px 10px; border-radius: 6px; white-space: pre-wrap;">
+                                                🛠️ <b>Khắc phục:</b> ${errItem.remediation_action || 'Chưa ghi hành động'}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+
+                            <!-- CỘT BÊN PHẢI: CẦN CẢI THIỆN -->
+                            <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 14px 16px;">
+                                <div style="font-size: 13px; font-weight: 900; color: #92400e; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #fde68a; padding-bottom: 8px;">
+                                    <span>💡 PHÂN LOẠI CẦN CẢI THIỆN (${emp.improvements.length})</span>
+                                </div>
+                                ${emp.improvements.length === 0 ? `<div style="font-size: 12px; color: #92400e; font-style: italic; padding: 8px 0;">Không có nội dung cần cải thiện</div>` : ''}
+                                ${emp.improvements.map(function(impItem) {
+                                    return `
+                                        <div onclick="window._eeOpenDetailModal(${impItem.id});" style="background: white; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; border: 1px solid #fde68a; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 6px rgba(217,119,6,0.05);" onmouseover="this.style.borderColor='#d97706'; this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#fde68a'; this.style.transform='translateY(0)';">
+                                            <div style="font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                                                <span>⏱️ Kỳ: ${_formatShortKy(impItem.month_year)}</span>
+                                                <span style="color: #059669; font-weight: 800;">${impItem.status === 'completed' ? '🟢 Hoàn thành' : '🟡 Đang theo dõi'}</span>
+                                            </div>
+                                            <div style="font-size: 13px; font-weight: 800; color: #92400e; margin-bottom: 6px; white-space: pre-wrap;">
+                                                💡 ${impItem.improvement_errors || 'Không ghi nội dung'}
+                                            </div>
+                                            <div style="font-size: 12px; color: #334155; background: #fffbeb; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; white-space: pre-wrap;">
+                                                📊 <b>Đánh giá QL:</b> ${impItem.manager_evaluation || 'Chưa ghi đánh giá'}
+                                            </div>
+                                            <div style="font-size: 12px; color: #334155; background: #f0fdf4; padding: 6px 10px; border-radius: 6px; white-space: pre-wrap;">
+                                                🎓 <b>Hướng đào tạo:</b> ${impItem.training_direction || 'Chưa ghi hướng đào tạo'}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+
+                        </div>
+                    </div>
+                `;
+            });
+            return cardHtml;
+        };
+
+        html += renderEmployeeCardsHtml('');
+        html += `
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        // Wire search input listener
+        var searchInput = container.querySelector('#eeEmpSearchInputDirect');
+        var cardsContainer = container.querySelector('#eeEmployeeCardsDirectContainer');
+        if (searchInput && cardsContainer) {
+            searchInput.oninput = function() {
+                cardsContainer.innerHTML = renderEmployeeCardsHtml(this.value);
+            };
         }
     }
 
@@ -773,196 +948,7 @@
     };
 
     
-    // 📊 MỤC LỚN PHÂN TÍCH TỔNG HỢP NĂNG LỰC & LỖI VI PHẠM TỪNG NHÂN SỰ
-    window._eeOpenClassificationReportModal = function() {
-        var items = _eeState.items || [];
-
-        var existing = document.getElementById('eeReportModal');
-        if (existing) existing.remove();
-
-        var modal = document.createElement('div');
-        modal.id = 'eeReportModal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.75); backdrop-filter: blur(6px); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px;';
-
-        // Group items by Employee Name
-        var empMap = {};
-        items.forEach(function(item) {
-            var empName = item.employee_name || 'Khác';
-            if (!empMap[empName]) {
-                empMap[empName] = {
-                    name: empName,
-                    dept: item.department || 'Kinh Doanh',
-                    errors: [],
-                    improvements: [],
-                    total: 0
-                };
-            }
-            empMap[empName].total++;
-            if (item.eval_type === 'Lỗi Vi Phạm') {
-                empMap[empName].errors.push(item);
-            } else {
-                empMap[empName].improvements.push(item);
-            }
-        });
-
-        var empList = Object.values(empMap);
-
-        var renderEmployeeCards = function(filterText) {
-            filterText = (filterText || '').toLowerCase().trim();
-            var filtered = empList.filter(function(e) {
-                return e.name.toLowerCase().includes(filterText) || e.dept.toLowerCase().includes(filterText);
-            });
-
-            if (filtered.length === 0) {
-                return `
-                    <div style="padding: 50px; text-align: center; color: #94a3b8; font-size: 14px;">
-                        <div style="font-size: 36px; margin-bottom: 8px;">📭</div>
-                        <div style="font-weight: 700;">Không tìm thấy nhân sự nào phù hợp trong kỳ này</div>
-                    </div>
-                `;
-            }
-
-            var html = '';
-            filtered.forEach(function(emp) {
-                html += `
-                    <div style="background: white; border-radius: 14px; border: 1px solid #cbd5e1; box-shadow: 0 4px 14px rgba(0,0,0,0.05); margin-bottom: 20px; overflow: hidden;">
-                        <!-- Header Thẻ Nhân Sự -->
-                        <div style="padding: 12px 20px; background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <div style="width: 36px; height: 36px; border-radius: 50%; background: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px;">
-                                    ${emp.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                    <div style="font-size: 15px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 8px;">
-                                        <span>${emp.name}</span>
-                                        ${_getDeptBadgeHtml(emp.dept)}
-                                    </div>
-                                    <div style="font-size: 11.5px; color: #64748b; margin-top: 1px;">
-                                        Tổng cộng: <b>${emp.total} phiếu đánh giá</b>
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <span style="padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 800; background: #ffe4e6; color: #e11d48; border: 1px solid #fecdd3;">
-                                    ⚠️ ${emp.errors.length} Lỗi Vi Phạm
-                                </span>
-                                <span style="padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 800; background: #fef3c7; color: #d97706; border: 1px solid #fde68a;">
-                                    💡 ${emp.improvements.length} Cần Cải Thiện
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Nội dung 2 Cột Phân Tích -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 20px; background: #ffffff;">
-                            
-                            <!-- CỘT BÊN TRÁI: LỖI VI PHẠM -->
-                            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 12px 14px;">
-                                <div style="font-size: 12.5px; font-weight: 800; color: #be123c; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #fda4af; padding-bottom: 6px;">
-                                    <span>⚠️ PHÂN LOẠI LỖI VI PHẠM (${emp.errors.length})</span>
-                                </div>
-                                ${emp.errors.length === 0 ? `<div style="font-size: 12px; color: #9f1239; font-style: italic; padding: 6px 0;">Không có lỗi vi phạm nào</div>` : ''}
-                                ${emp.errors.map(function(errItem) {
-                                    return `
-                                        <div onclick="document.getElementById('eeReportModal').remove(); window._eeOpenDetailModal(${errItem.id});" style="background: white; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid #fca5a5; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#e11d48'" onmouseout="this.style.borderColor='#fca5a5'">
-                                            <div style="font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 3px; display: flex; justify-content: space-between;">
-                                                <span>⏱️ ${_formatShortKy(errItem.month_year)}</span>
-                                                <span style="color: #be123c;">Hạn: ${_formatShortDate(errItem.resolution_deadline)}</span>
-                                            </div>
-                                            <div style="font-size: 12.5px; font-weight: 800; color: #991b1b; margin-bottom: 4px;">
-                                                ⚠️ ${errItem.improvement_errors || 'Không ghi nội dung lỗi'}
-                                            </div>
-                                            <div style="font-size: 11.5px; color: #475569; background: #fff1f2; padding: 5px 8px; border-radius: 6px;">
-                                                🛠️ <b>Khắc phục:</b> ${errItem.remediation_action || 'Chưa ghi hành động'}
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-
-                            <!-- CỘT BÊN PHẢI: CẦN CẢI THIỆN -->
-                            <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 10px; padding: 12px 14px;">
-                                <div style="font-size: 12.5px; font-weight: 800; color: #92400e; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #fde68a; padding-bottom: 6px;">
-                                    <span>💡 PHÂN LOẠI CẦN CẢI THIỆN (${emp.improvements.length})</span>
-                                </div>
-                                ${emp.improvements.length === 0 ? `<div style="font-size: 12px; color: #92400e; font-style: italic; padding: 6px 0;">Không có nội dung cần cải thiện</div>` : ''}
-                                ${emp.improvements.map(function(impItem) {
-                                    return `
-                                        <div onclick="document.getElementById('eeReportModal').remove(); window._eeOpenDetailModal(${impItem.id});" style="background: white; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid #fde68a; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#d97706'" onmouseout="this.style.borderColor='#fde68a'">
-                                            <div style="font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 3px; display: flex; justify-content: space-between;">
-                                                <span>⏱️ ${_formatShortKy(impItem.month_year)}</span>
-                                                <span style="color: #059669;">${impItem.status === 'completed' ? '🟢 Hoàn thành' : '🟡 Đang theo dõi'}</span>
-                                            </div>
-                                            <div style="font-size: 12.5px; font-weight: 800; color: #92400e; margin-bottom: 4px;">
-                                                💡 ${impItem.improvement_errors || 'Không ghi nội dung'}
-                                            </div>
-                                            <div style="font-size: 11.5px; color: #475569; background: #fffbeb; padding: 5px 8px; border-radius: 6px; margin-bottom: 3px;">
-                                                📊 <b>Đánh giá QL:</b> ${impItem.manager_evaluation || 'Chưa ghi đánh giá'}
-                                            </div>
-                                            <div style="font-size: 11.5px; color: #475569; background: #f0fdf4; padding: 5px 8px; border-radius: 6px;">
-                                                🎓 <b>Hướng đào tạo:</b> ${impItem.training_direction || 'Chưa ghi hướng đào tạo'}
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-
-                        </div>
-                    </div>
-                `;
-            });
-            return html;
-        };
-
-        modal.innerHTML = `
-            <div style="background: #f8fafc; border-radius: 16px; width: 100%; max-width: 1000px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); border: 1px solid #cbd5e1; font-family: Inter, system-ui, sans-serif;">
-                <!-- Header -->
-                <div style="padding: 16px 24px; background: linear-gradient(135deg, #1e3a8a, #0f172a); color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                    <div>
-                        <h2 style="font-size: 18px; font-weight: 900; margin: 0; display: flex; align-items: center; gap: 8px;">
-                            <span>📊</span> BÁO CÁO PHÂN TÍCH TỔNG HỢP NĂNG LỰC & LỖI VI PHẠM TỪNG NHÂN SỰ
-                        </h2>
-                        <p style="margin: 4px 0 0 0; font-size: 12px; color: #93c5fd;">
-                            Bảng phân tích chi tiết gom nhóm theo từng Nhân sự (Lỗi Vi Phạm & Cần Cải Thiện)
-                        </p>
-                    </div>
-                    <button onclick="document.getElementById('eeReportModal').remove()" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
-                </div>
-
-                <!-- Search Bar inside Modal -->
-                <div style="padding: 12px 24px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
-                    <div style="font-size: 12px; font-weight: 800; color: #334155;">🔍 Tìm kiếm nhân sự:</div>
-                    <input id="eeEmpSearchInput" type="text" placeholder="Nhập tên nhân sự hoặc bộ phận để lọc nhanh..." style="flex: 1; padding: 7px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; outline: none;" />
-                </div>
-
-                <!-- Body Scroll Area -->
-                <div id="eeEmployeeCardContainer" style="padding: 20px 24px; flex: 1; overflow-y: auto;">
-                    ${renderEmployeeCards('')}
-                </div>
-
-                <!-- Footer -->
-                <div style="padding: 12px 24px; background: white; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                    <div style="font-size: 12px; color: #64748b;">
-                        💡 Mẹo: Click vào bất kỳ thẻ đánh giá nào để xem chi tiết đầy đủ hoặc thực hiện Chỉnh Sửa / Xóa.
-                    </div>
-                    <button onclick="document.getElementById('eeReportModal').remove()" style="padding: 8px 18px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer;">
-                        ✖️ Đóng Báo Cáo
-                    </button>
-                </div>
-            </div>
-        `;
-
-        // Wire real-time search input
-        var searchInp = modal.querySelector('#eeEmpSearchInput');
-        var cardContainer = modal.querySelector('#eeEmployeeCardContainer');
-        if (searchInp && cardContainer) {
-            searchInp.oninput = function() {
-                cardContainer.innerHTML = renderEmployeeCards(this.value);
-            };
-        }
-
-        document.body.appendChild(modal);
-    };
-// Filter Handlers
+    // Filter Handlers
     window._eeOnFilterChange = function() {
         var y = document.getElementById('eeFilterYear');
         var m = document.getElementById('eeFilterMonthNum');
