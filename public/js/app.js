@@ -114,6 +114,7 @@ const CRM_LABELS = {
 
 const MENU_CONFIG = [
     { id: 'quytrinhcuochop', label: 'Quy Trình Cuộc Họp', icon: '🏛️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/quytrinhcuochop', permKey: 'quy_trinh_cuoc_hop' },
+    { id: 'danhgianhansu', label: 'Đánh Giá Nhân Sự', icon: '📝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/danhgianhansu', permKey: 'danh_gia_nhan_su' },
     { id: 'loi-thuong-gap', label: 'Lỗi Thường Gặp & Xử Lý', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/loithuonggap', permKey: 'don_loi_noi_bo' },
     { id: 'don-loi-khach-hang', label: 'Đơn Lỗi Khách & Nội Bộ', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/donloikhachhang', permKey: 'don_loi_khach_hang' },
     { id: 'tao-phieu-xu-ly-cv', label: 'Tạo Phiếu Xử Lý CV', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/taophieuxulycv', permKey: 'tao_phieu_xu_ly_cv' },
@@ -500,6 +501,8 @@ const _PAGE_SCRIPT_MAP = {
     'kpi-mkt-view': '/js/pages/kpimktview.js?v=20260804_v100',
     'quytrinhcuochop': '/js/pages/quytrinhcuochop.js?v=' + Date.now(),
     'quy-trinh-cuoc-hop': '/js/pages/quytrinhcuochop.js?v=' + Date.now(),
+    'danhgianhansu': '/js/pages/danhgianhansu.js',
+    'danh-gia-nhan-su': '/js/pages/danhgianhansu.js',
     'camketcuochop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'cam-ket-cuoc-hop': '/js/pages/camketcuochop.js?v=20260803_v1010',
     'muc-tieu-nam': '/js/pages/muctieunam.js?v=20260813_v112_FIX_PCT_Q_ORD',
@@ -6940,6 +6943,8 @@ function _renderExecCharts() {
 var _PAGE_INIT_REGISTRY = {
     'quytrinhcuochop': 'initQuyTrinhCuocHop',
     'quy-trinh-cuoc-hop': 'initQuyTrinhCuocHop',
+    'danhgianhansu': 'renderDanhgianhansuPage',
+    'danh-gia-nhan-su': 'renderDanhgianhansuPage',
     'camketcuochop': 'renderCamketcuochopPage',
     'cam-ket-cuoc-hop': 'renderCamketcuochopPage',
     'bangcongviec': 'renderBangcongviecPage',
