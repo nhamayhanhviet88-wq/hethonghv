@@ -1755,6 +1755,7 @@ async function start() {
     fastify.register(require('./routes/kpiMarketing'));
     fastify.register(require('./routes/meetingCommitments'));
     fastify.register(require('./routes/meetingProcess'));
+    fastify.register(require('./routes/employeeEvaluations'));
     fastify.register(require('./routes/companyRules'));
     fastify.register(require('./routes/customerPolicies'));
     fastify.register(require('./routes/customerPrograms'));

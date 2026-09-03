@@ -1744,6 +1744,36 @@ ALTER TABLE dht_orders ADD COLUMN IF NOT EXISTS is_zero_deposit BOOLEAN DEFAULT 
 ALTER TABLE order_codes ADD COLUMN IF NOT EXISTS is_zero_deposit BOOLEAN DEFAULT FALSE;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_type TEXT DEFAULT 'moi';
 
+-- ========== EMPLOYEE EVALUATIONS (Đánh Giá Nhân Sự Cuộc Họp) ==========
+CREATE TABLE IF NOT EXISTS employee_evaluations (
+    id SERIAL PRIMARY KEY,
+    month_year VARCHAR(50) NOT NULL,
+    meeting_id INTEGER,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    employee_name VARCHAR(255) NOT NULL,
+    department VARCHAR(100),
+    improvement_errors TEXT,
+    manager_evaluation TEXT,
+    remediation_action TEXT,
+    training_direction TEXT,
+    manager_commitment TEXT,
+    employee_opinion TEXT,
+    resolution_deadline VARCHAR(50),
+    employee_commitment TEXT,
+    manager_report TEXT,
+    employee_report TEXT,
+    completion_rate INTEGER DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'pending',
+    created_by VARCHAR(255),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_emp_eval_month ON employee_evaluations(month_year);
+CREATE INDEX IF NOT EXISTS idx_emp_eval_dept ON employee_evaluations(department);
+CREATE INDEX IF NOT EXISTS idx_emp_eval_user ON employee_evaluations(user_id);
+
+
 
 
 
