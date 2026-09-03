@@ -629,19 +629,20 @@
                         </div>
 
                         <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12.5px;">
-                            <!-- Đánh giá năng lực -->
+                            
+                            <!-- Position 1: PRIMARY CONTENT - NỘI DUNG CHI TIẾT (CẢI THIỆN / LỖI) -->
                             <div>
+                                <span style="color: #be123c; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;">⚠️ NỘI DUNG CHI TIẾT (CẢI THIỆN / LỖI) — NỘI DUNG CHÍNH:</span>
+                                <div style="color: #9f1239; background: #fff1f2; padding: 10px 14px; border-radius: 10px; border: 1px solid #fecdd3; border-left: 5px solid #e11d48; margin-top: 4px; font-weight: 700; white-space: pre-wrap; font-size: 13.5px; line-height: 1.45; box-shadow: 0 2px 8px rgba(225,29,72,0.06);">${item.improvement_errors || '--'}</div>
+                            </div>
+
+                            <!-- Position 2: Đánh giá năng lực -->
+                            <div style="margin-top: 2px;">
                                 <span style="color: #64748b; font-size: 11.5px; font-weight: 700;">📊 Đánh giá năng lực:</span>
-                                <div style="color: #1e293b; font-weight: 600; margin-top: 2px; white-space: pre-wrap;">${item.manager_evaluation || '--'}</div>
+                                <div style="color: #1e293b; font-weight: 600; margin-top: 2px; white-space: pre-wrap; font-size: 12px;">${item.manager_evaluation || '--'}</div>
                             </div>
 
-                            <!-- Nội dung chi tiết -->
-                            <div>
-                                <span style="color: #dc2626; font-weight: 700; font-size: 11.5px;">⚠️ Nội dung chi tiết (Cải thiện / Lỗi):</span>
-                                <div style="color: #991b1b; background: #fff5f5; padding: 8px 12px; border-radius: 8px; border-left: 4px solid #ef4444; margin-top: 4px; font-weight: 600; white-space: pre-wrap; font-size: 12.5px;">${item.improvement_errors || '--'}</div>
-                            </div>
-
-                            <!-- 2 Cột song song: Khắc phục & Đào tạo -->
+                            <!-- Position 3: 2 Cột song song: Khắc phục & Đào tạo -->
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 2px;">
                                 <div>
                                     <span style="color: #2563eb; font-weight: 700; font-size: 11.5px;">🛠️ Nội dung khắc phục:</span>
@@ -653,7 +654,7 @@
                                 </div>
                             </div>
 
-                            <!-- Cam kết quản lý -->
+                            <!-- Position 4: Cam kết quản lý -->
                             <div style="margin-top: 2px;">
                                 <span style="color: #059669; font-weight: 700; font-size: 11.5px;">🤝 Cam kết của Quản lý:</span>
                                 <div style="color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 7px 10px; border-radius: 6px; margin-top: 3px; white-space: pre-wrap; font-size: 12px;">${item.manager_commitment || '--'}</div>
