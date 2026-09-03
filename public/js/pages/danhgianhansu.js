@@ -503,8 +503,8 @@
                 : `<span style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; padding: 1px 6px; border-radius: 4px; font-weight: 800; font-size: 10.5px; margin-right: 6px; display: inline-block; white-space: nowrap;">Lần ${occNum}</span>`;
 
             var typeBadgeHtml = (item.eval_type === 'Lỗi Vi Phạm')
-                ? '<span style="background: #fee2e2; color: #991b1b; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; display: inline-block;">⚠️ LỖI</span>'
-                : '<span style="background: #fef3c7; color: #92400e; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; display: inline-block;">💡 CẢI THIỆN</span>';
+                ? '<span style="background: #dc2626; color: #ffffff; padding: 3px 8px; border-radius: 6px; font-weight: 900; font-size: 10.5px; display: inline-block; box-shadow: 0 1px 3px rgba(220,38,38,0.3); letter-spacing: 0.3px;">⚠️ LỖI</span>'
+                : '<span style="background: #d97706; color: #ffffff; padding: 3px 8px; border-radius: 6px; font-weight: 900; font-size: 10.5px; display: inline-block; box-shadow: 0 1px 3px rgba(217,119,6,0.3); letter-spacing: 0.3px;">💡 CẢI THIỆN</span>';
 
             html += `
                 <tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'" onclick="window._eeOpenDetailModal(${item.id})">
@@ -565,9 +565,9 @@
         items.forEach(function(item, idx) {
             var stt = idx + 1;
             var isErr = item.eval_type === 'Lỗi Vi Phạm';
-            var evalBadgeBg = isErr ? '#fef2f2' : '#fffbeef0';
-            var evalBadgeColor = isErr ? '#dc2626' : '#d97706';
-            var evalBadgeBorder = isErr ? '#fecdd3' : '#fde68a';
+            var evalBadgeBg = isErr ? '#dc2626' : '#d97706';
+            var evalBadgeColor = '#ffffff';
+            var evalBadgeBorder = isErr ? '#b91c1c' : '#b45309';
             var evalBadgeText = isErr ? '⚠️ Lỗi Vi Phạm' : '💡 Cần Cải Thiện';
 
             var deptBg = item.department === 'Sale' ? '#eff6ff' : (item.department === 'Kinh Doanh' ? '#f0fdf4' : '#f8fafc');
@@ -888,8 +888,8 @@
                 : `<span style="background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; padding: 1px 6px; border-radius: 4px; font-weight: 800; font-size: 10.5px; margin-right: 6px; display: inline-block; white-space: nowrap;">Lần ${occNum}</span>`;
 
             var typeBadgeHtml = (item.eval_type === 'Lỗi Vi Phạm')
-                ? '<span style="background: #fee2e2; color: #991b1b; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; display: inline-block;">⚠️ LỖI</span>'
-                : '<span style="background: #fef3c7; color: #92400e; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; display: inline-block;">💡 CẢI THIỆN</span>';
+                ? '<span style="background: #dc2626; color: #ffffff; padding: 3px 8px; border-radius: 6px; font-weight: 900; font-size: 10.5px; display: inline-block; box-shadow: 0 1px 3px rgba(220,38,38,0.3); letter-spacing: 0.3px;">⚠️ LỖI</span>'
+                : '<span style="background: #d97706; color: #ffffff; padding: 3px 8px; border-radius: 6px; font-weight: 900; font-size: 10.5px; display: inline-block; box-shadow: 0 1px 3px rgba(217,119,6,0.3); letter-spacing: 0.3px;">💡 CẢI THIỆN</span>';
 
             html += `
                 <tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'" onclick="window._eeOpenDetailModal(${item.id})">
