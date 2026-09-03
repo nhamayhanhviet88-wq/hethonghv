@@ -840,6 +840,7 @@
                                         </div>
                                         <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
                                             <span style="font-size: 10px; font-weight: 800; color: #be123c; background: #fff1f2; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecdd3;">Hạn: ${_formatShortDate(grp.latestRecord.resolution_deadline)}</span>
+                                            <span style="font-size: 10px; font-weight: 800; color: #059669; background: #f0fdf4; padding: 2px 6px; border-radius: 4px; border: 1px solid #bbf7d0;">${grp.latestRecord.status === 'completed' ? '🟢 Hoàn thành' : '🟡 Đang theo dõi'}</span>
                                             <span style="font-size: 11px; color: #e11d48; font-weight: 900;">📋 Lịch sử (${grp.count}) ➔</span>
                                         </div>
                                     </div>
@@ -863,6 +864,7 @@
                                             ${countBadge}
                                         </div>
                                         <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                            <span style="font-size: 10px; font-weight: 800; color: #92400e; background: #fef3c7; padding: 2px 6px; border-radius: 4px; border: 1px solid #fde68a;">Hạn: ${_formatShortDate(grp.latestRecord.resolution_deadline)}</span>
                                             <span style="font-size: 10px; font-weight: 800; color: #059669; background: #f0fdf4; padding: 2px 6px; border-radius: 4px; border: 1px solid #bbf7d0;">${grp.latestRecord.status === 'completed' ? '🟢 Hoàn thành' : '🟡 Đang theo dõi'}</span>
                                             <span style="font-size: 11px; color: #d97706; font-weight: 900;">📋 Lịch sử (${grp.count}) ➔</span>
                                         </div>
